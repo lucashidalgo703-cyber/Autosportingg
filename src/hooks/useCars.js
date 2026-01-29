@@ -32,8 +32,10 @@ export const useCars = () => {
     const deleteCar = async (id) => {
         if (!confirm('Are you sure?')) return;
         try {
-            const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
-            await fetch(`${API_URL}/api/cars/${id}`, { method: 'DELETE' });
+            const API_URL = import.meta.env.VITE_API_URL;
+            const baseUrl = API_URL || 'http://localhost:3001';
+            const endpoint = baseUrl === '/' ? `/api/cars/${id}` : `${baseUrl}/api/cars/${id}`;
+            await fetch(endpoint, { method: 'DELETE' });
             setCars(prev => prev.filter(c => c._id !== id));
         } catch (err) {
             console.error("Error deleting car:", err);
