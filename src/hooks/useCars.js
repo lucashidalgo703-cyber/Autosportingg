@@ -8,8 +8,12 @@ export const useCars = () => {
     const fetchCars = async () => {
         try {
             setLoading(true);
-            const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
-            const response = await fetch(`${API_URL}/api/cars`);
+            const API_URL = import.meta.env.VITE_API_URL;
+            const baseUrl = API_URL || 'http://localhost:3001';
+            const endpoint = baseUrl === '/' ? '/api/cars' : `${baseUrl}/api/cars`;
+
+            // Add cache busting to ensure fresh data
+            const response = await fetch(`${endpoint}?t=${Date.now()}`);
             if (!response.ok) throw new Error('Failed to fetch cars');
             const data = await response.json();
             setCars(data);
