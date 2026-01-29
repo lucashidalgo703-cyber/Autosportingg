@@ -1,0 +1,102 @@
+import { MapPin, Phone, Instagram } from 'lucide-react';
+
+const Footer = () => {
+  return (
+    <footer className="footer">
+      <div className="container">
+        <div className="footer-grid">
+          <div className="footer-col">
+            <h3>AUTOSPORTING</h3>
+            <p>Tu socio de confianza para encontrar el vehículo perfecto. Usados seleccionados y 0km.</p>
+          </div>
+
+          <div className="footer-col">
+            <h4>Navegación</h4>
+            <a href="/">Inicio</a>
+            <a href="/catalogo">Catálogo</a>
+            <a href="/nosotros">Nosotros</a>
+            <a href="/contacto">Contacto</a>
+          </div>
+
+          <div className="footer-col">
+            <h4>Contacto</h4>
+            <div className="contact-item">
+              <MapPin size={18} color="var(--color-primary)" />
+              <span>Av. Roca 116, Comodoro Rivadavia</span>
+            </div>
+            <div className="contact-item">
+              <Phone size={18} color="var(--color-primary)" />
+              <span>297-4938642 / 297-4768429</span>
+            </div>
+            <div className="social-links-footer" style={{ marginTop: '1rem', display: 'flex', gap: '1rem' }}>
+              <a href="https://instagram.com/autosporting.cr" target="_blank" rel="noreferrer" style={{ color: 'white' }}><Instagram size={20} /></a>
+            </div>
+          </div>
+        </div>
+
+        <div className="footer-bottom">
+          <p>&copy; {new Date().getFullYear()} AutoSporting. Todos los derechos reservados.</p>
+        </div>
+      </div>
+
+      <style>{`
+        .footer {
+          background-color: var(--color-surface);
+          padding: 4rem 0 2rem;
+          margin-top: auto;
+          border-top: 1px solid #333;
+        }
+
+        .footer-grid {
+          display: grid;
+          grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+          gap: 3rem;
+          margin-bottom: 3rem;
+        }
+
+        .footer-col h3 {
+          color: white;
+          margin-bottom: 1rem;
+          font-size: 1.5rem;
+        }
+
+        .footer-col h4 {
+          color: white;
+          margin-bottom: 1rem;
+          font-size: 1.1rem;
+        }
+
+        .footer-col p, .footer-col a, .contact-item span {
+          color: var(--color-text-muted);
+          font-size: 0.95rem;
+          line-height: 1.6;
+          display: block;
+        }
+
+        .footer-col a:hover {
+          color: var(--color-primary);
+        }
+
+        .contact-item {
+          display: flex;
+          align-items: center;
+          gap: 0.5rem;
+          margin-bottom: 0.5rem;
+        }
+
+        .footer-bottom {
+          text-align: center;
+          padding-top: 2rem;
+          border-top: 1px solid #333;
+        }
+
+        .footer-bottom p {
+          color: #555;
+          font-size: 0.9rem;
+        }
+      `}</style>
+    </footer>
+  );
+};
+
+export default Footer;
