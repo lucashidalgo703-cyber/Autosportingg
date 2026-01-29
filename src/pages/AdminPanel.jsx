@@ -57,8 +57,17 @@ const AdminPanel = () => {
                 data.append('images', file);
             });
 
-            const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
-            const res = await fetch(`${API_URL}/api/cars`, {
+            const API_URL = import.meta.env.VITE_API_URL;
+            // If API_URL is '/', requests will be relative (e.g. /api/cars). 
+            // If it's undefined (local without env), fallback to localhost.
+            const baseUrl = API_URL || 'http://localhost:3001';
+
+            // Handle the case where API_URL is '/' explicitly to avoid double slashes if needed, 
+            // but fetch handles `${baseUrl}/api/cars` fine if baseUrl is / -> //api/cars is valid or just /api/cars.
+            // Let's ensure cleaner path construction.
+            const endpoint = baseUrl === '/' ? '/api/cars' : `${baseUrl}/api/cars`;
+
+            const res = await fetch(endpoint, {
                 method: 'POST',
                 body: data // No headers needed, browser sets multipart/form-data automatically
             });
