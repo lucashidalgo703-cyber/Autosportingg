@@ -100,10 +100,25 @@ const AdminPanel = () => {
         e.preventDefault();
         setIsDragging(false);
         if (e.dataTransfer.files?.length > 0) {
-            const newFiles = Array.from(e.dataTransfer.files).map(file => Object.assign(file, {
-                preview: URL.createObjectURL(file)
-            }));
-            setFiles(prev => [...prev, ...newFiles]);
+            const allowedTypes = ['image/jpeg', 'image/png', 'image/webp', 'image/jpg'];
+            const newFiles = Array.from(e.dataTransfer.files)
+                .filter(file => allowedTypes.includes(file.type))
+                .map(file => Object.assign(file, {
+                    preview: URL.createObjectURL(file)
+                }));
+
+            if (newFiles.length < e.dataTransfer.files.length) {
+                alert("Some files were rejected. Only images (jpg, png, webp) are allowed.");
+            }
+
+            if (files.length + newFiles.length > 20) {
+                alert("You can only upload a maximum of 20 images.");
+                const remainingSlots = 20 - files.length;
+                const filesToAdd = newFiles.slice(0, remainingSlots);
+                setFiles(prev => [...prev, ...filesToAdd]);
+            } else {
+                setFiles(prev => [...prev, ...newFiles]);
+            }
         }
     };
 
@@ -166,11 +181,20 @@ const AdminPanel = () => {
                         >
                             <input
                                 type="file" multiple
+                                accept="image/png, image/jpeg, image/jpg, image/webp"
                                 className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-20"
                                 onChange={(e) => {
                                     if (e.target.files) {
                                         const newFiles = Array.from(e.target.files).map(file => Object.assign(file, { preview: URL.createObjectURL(file) }));
-                                        setFiles(prev => [...prev, ...newFiles]);
+
+                                        if (files.length + newFiles.length > 20) {
+                                            alert("You can only upload a maximum of 20 images.");
+                                            const remainingSlots = 20 - files.length;
+                                            const filesToAdd = newFiles.slice(0, remainingSlots);
+                                            setFiles(prev => [...prev, ...filesToAdd]);
+                                        } else {
+                                            setFiles(prev => [...prev, ...newFiles]);
+                                        }
                                     }
                                 }}
                             />

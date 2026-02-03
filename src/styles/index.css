@@ -11,6 +11,8 @@
 
   /* Typography */
   --font-main: 'Archivo', system-ui, -apple-system, sans-serif;
+  --font-title: 'Anton', system-ui, -apple-system, sans-serif;
+  /* New font for headings */
 
   /* Layout */
   --container-width: 1200px;

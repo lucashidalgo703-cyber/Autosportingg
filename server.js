@@ -51,7 +51,7 @@ app.get('/api/cars/:id', async (req, res) => {
 });
 
 // POST new car
-app.post('/api/cars', upload.array('images', 10), async (req, res) => {
+app.post('/api/cars', upload.array('images', 20), async (req, res) => {
     try {
         const { brand, name, year, km, fuel, condition, price, currency, featured, sold } = req.body;
 
@@ -103,7 +103,16 @@ app.use((err, req, res, next) => {
     console.dir(err, { depth: null, colors: true });
 
     if (err instanceof multer.MulterError) {
+        if (err.code === 'LIMIT_UNEXPECTED_FILE' || err.message === 'Unexpected field') {
+            return res.status(400).json({
+                message: `Upload Error: ${err.message}. (Field: ${err.field || 'unknown'})`,
+                detail: 'Make sure the field name is "images" and you are not uploading more than 20 files.'
+            });
+        }
         return res.status(400).json({ message: `Multer Error: ${err.message}`, detail: err });
+    }
+    if (err.message === 'Invalid image file') {
+        return res.status(400).json({ message: 'Invalid file format. Only images (jpg, png, jpeg, webp) are allowed.' });
     }
     if (err) {
         return res.status(500).json({ message: err.message || 'Internal Server Error', error: err.toString() });
