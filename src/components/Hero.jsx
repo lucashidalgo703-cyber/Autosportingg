@@ -8,12 +8,12 @@ const Hero = () => {
         {/* Background Image - Desktop */}
         <div
           className="hero-bg-image hidden md:block"
-          style={{ backgroundImage: `url(/assets/inicio/home-background-1.webp)` }} // Using reference asset path structure
+          style={{ backgroundImage: `url(/autosporting-hero-v2.jpg)` }} // Using existing asset
         />
         {/* Background Image - Mobile - Fallback to same for now or valid asset */}
         <div
           className="hero-bg-image md:hidden"
-          style={{ backgroundImage: `url(/assets/inicio/home-mobile-1.webp)` }}
+          style={{ backgroundImage: `url(/autosporting-hero-v2.jpg)` }}
         />
       </div>
 
