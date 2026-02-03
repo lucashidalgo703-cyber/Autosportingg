@@ -31,7 +31,7 @@ const Hero = () => {
 
           <div className="mb-2 fade-in-up delay-2">
             <h1 className="hero-title">
-              <span className="text-gradient">AutoSporting</span>
+              <span className="text-white">AutoSporting</span>
             </h1>
             <h2 className="hero-subtitle">
               Concesionaria Multimarca
@@ -154,37 +154,38 @@ const Hero = () => {
 
         .hero-title {
             font-family: 'Anton', sans-serif;
-            font-size: 4.5rem; /* text-7xl equivalent */
-            font-weight: 800; /* font-extrabold */
+            font-weight: 400; /* Anton regular */
             line-height: 1;
-            margin-bottom: 0.5rem;
-            text-transform: uppercase;
-            letter-spacing: 0.02em;
+            margin-bottom: 0px;
+            text-transform: none; 
+            letter-spacing: normal;
+            color: white;
+            
+            /* Mobile Base */
+            font-size: 3.5rem; 
         }
 
-        @media (max-width: 1280px) { .hero-title { font-size: 3.75rem; } } /* xl */
-        @media (max-width: 1024px) { .hero-title { font-size: 3rem; } } /* lg */
-        @media (max-width: 768px) { .hero-title { font-size: 2.25rem; } } /* md/sm */
-
-        .text-gradient {
-             background: linear-gradient(to right, #ffffff, #ffffff, #e5e5e5);
-             -webkit-background-clip: text;
-             -webkit-text-fill-color: transparent;
-             background-clip: text;
-             color: transparent;
-        }
+        /* Scaling */
+        @media (min-width: 640px) { .hero-title { font-size: 4.5rem; } }
+        @media (min-width: 1024px) { .hero-title { font-size: 6rem; } } 
+        @media (min-width: 1280px) { .hero-title { font-size: 7rem; } } /* 112px */
 
         .hero-subtitle {
             font-family: 'Anton', sans-serif;
-            font-size: 3rem; /* text-5xl equivalent */
-            font-weight: 600; /* semi-bold */
+            font-weight: 400;
             color: var(--color-primary); 
-            text-transform: uppercase;
+            line-height: 1;
+            margin-top: 0.5rem;
             margin-bottom: 2rem;
+            text-transform: none;
+            
+            /* Mobile Base */
+            font-size: 2rem;
         }
         
-        @media (max-width: 1024px) { .hero-subtitle { font-size: 2.25rem; } }
-        @media (max-width: 768px) { .hero-subtitle { font-size: 1.5rem; } }
+        @media (min-width: 640px) { .hero-subtitle { font-size: 2.5rem; } }
+        @media (min-width: 1024px) { .hero-subtitle { font-size: 3.5rem; } }
+        @media (min-width: 1280px) { .hero-subtitle { font-size: 4.5rem; } }
 
         .features-list {
             display: flex;
@@ -193,9 +194,46 @@ const Hero = () => {
             margin-bottom: 2rem;
             align-items: center;
         }
-        /* ... existing features style ... */
+        
+        .feature-pill {
+             padding: 0.5rem 1rem; /* px-4 py-2 */
+             background-color: rgba(255, 255, 255, 0.1);
+             backdrop-filter: blur(4px);
+             border: 1px solid rgba(255, 255, 255, 0.2);
+             border-radius: 0.5rem;
+             color: white;
+             font-size: 1rem;
+             font-weight: 500;
+             display: inline-flex;
+             align-items: center;
+             gap: 0.4rem;
+        }
 
-         /* Buttons matching reference exactly: px-8 py-4 text-lg rounded-xl */
+        .hero-description {
+            font-size: 1.125rem;
+            color: rgba(255, 255, 255, 0.85);
+            max-width: 600px;
+            margin-bottom: 2.5rem;
+            line-height: 1.6;
+            font-weight: 400;
+        }
+
+        /* Hero Actions Layout */
+        .hero-actions {
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+            margin-top: 1rem;
+        }
+
+        @media (min-width: 500px) {
+            .hero-actions {
+                flex-direction: row; /* Force side-by-side */
+                align-items: center;
+            }
+        }
+
+         /* Buttons */
         .btn-hero-primary {
             position: relative;
             padding: 1rem 2rem; /* px-8 = 2rem, py-4 = 1rem */
@@ -209,6 +247,8 @@ const Hero = () => {
             box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
             display: inline-flex;
             text-decoration: none;
+            align-items: center;
+            justify-content: center;
         }
         
         .btn-hero-secondary {
@@ -224,6 +264,13 @@ const Hero = () => {
             transition: all 0.3s;
             display: inline-flex;
             text-decoration: none;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .btn-hero-secondary:hover {
+            background-color: white;
+            color: black;
         }
 
         /* Utility helper for hidden/block */
@@ -232,6 +279,20 @@ const Hero = () => {
             .md\\:block { display: block; }
             .md\\:hidden { display: none; }
         }
+
+        .container {
+             width: 100%;
+             margin-right: auto;
+             margin-left: auto;
+             padding-right: 1.5rem;
+             padding-left: 1.5rem;
+        }
+        
+        @media (min-width: 640px) { .container { max-width: 640px; } }
+        @media (min-width: 768px) { .container { max-width: 768px; } }
+        /* Larger max-width to allow content spread like reference */
+        @media (min-width: 1024px) { .container { max-width: 1024px; } }
+        @media (min-width: 1280px) { .container { max-width: 1280px; } }
 
       `}</style>
     </section>
