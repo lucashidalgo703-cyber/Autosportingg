@@ -153,14 +153,18 @@ const Hero = () => {
         }
 
         .hero-title {
-            font-family: 'Anton', sans-serif; /* Explicit fallback */
-            font-size: clamp(3rem, 8vw, 6rem);
-            font-weight: 400; /* Anton is Regular only */
+            font-family: 'Anton', sans-serif;
+            font-size: 4.5rem; /* text-7xl equivalent */
+            font-weight: 800; /* font-extrabold */
             line-height: 1;
             margin-bottom: 0.5rem;
             text-transform: uppercase;
             letter-spacing: 0.02em;
         }
+
+        @media (max-width: 1280px) { .hero-title { font-size: 3.75rem; } } /* xl */
+        @media (max-width: 1024px) { .hero-title { font-size: 3rem; } } /* lg */
+        @media (max-width: 768px) { .hero-title { font-size: 2.25rem; } } /* md/sm */
 
         .text-gradient {
              background: linear-gradient(to right, #ffffff, #ffffff, #e5e5e5);
@@ -172,92 +176,54 @@ const Hero = () => {
 
         .hero-subtitle {
             font-family: 'Anton', sans-serif;
-            font-size: clamp(1.5rem, 4vw, 3.5rem);
-            font-weight: 400; /* Fixed weight */
-            color: var(--color-primary); /* #EB2628 */
+            font-size: 3rem; /* text-5xl equivalent */
+            font-weight: 600; /* semi-bold */
+            color: var(--color-primary); 
             text-transform: uppercase;
-            margin-bottom: 1.5rem;
+            margin-bottom: 2rem;
         }
+        
+        @media (max-width: 1024px) { .hero-subtitle { font-size: 2.25rem; } }
+        @media (max-width: 768px) { .hero-subtitle { font-size: 1.5rem; } }
 
         .features-list {
             display: flex;
             flex-wrap: wrap;
             gap: 0.75rem;
-            margin-bottom: 1.5rem;
+            margin-bottom: 2rem;
             align-items: center;
         }
+        /* ... existing features style ... */
 
-        .feature-pill {
-             padding: 0.5rem 1rem;
-             background-color: rgba(255, 255, 255, 0.1);
-             backdrop-filter: blur(4px);
-             border: 1px solid rgba(255, 255, 255, 0.2);
-             border-radius: 0.5rem;
-             color: white;
-             font-weight: 500;
-             font-size: 0.95rem;
-             font-family: 'Archivo', sans-serif;
-        }
-
-        .hero-description {
-            font-size: 1.15rem;
-            color: rgba(255, 255, 255, 0.8);
-            max-width: 650px;
-            line-height: 1.6;
-            margin-bottom: 2rem;
-            font-family: 'Archivo', sans-serif;
-        }
-
-        .hero-actions {
-            display: flex;
-            flex-direction: column;
-            gap: 1rem;
-        }
-        @media (min-width: 640px) {
-            .hero-actions { flex-direction: row; }
-        }
-
-        /* Buttons matching reference */
+         /* Buttons matching reference exactly: px-8 py-4 text-lg rounded-xl */
         .btn-hero-primary {
             position: relative;
-            padding: 1rem 2rem;
+            padding: 1rem 2rem; /* px-8 = 2rem, py-4 = 1rem */
             background-color: var(--color-primary);
             color: white;
             font-weight: 700;
-            font-size: 1.125rem;
+            font-size: 1.125rem; /* text-lg */
             border-radius: 0.75rem; /* rounded-xl */
             overflow: hidden;
             transition: all 0.3s;
-            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
             display: inline-flex;
             text-decoration: none;
         }
         
-        .btn-hero-primary:hover {
-            box-shadow: 0 20px 25px -5px rgba(255, 255, 255, 0.3);
-            transform: translateY(-2px);
-        }
-
         .btn-hero-secondary {
             position: relative;
             padding: 1rem 2rem;
             background-color: transparent;
-            backdrop-filter: blur(4px);
+            backdrop-filter: blur(4px); /* backdrop-blur-sm */
             border: 2px solid white;
             color: white;
             font-weight: 700;
-            font-size: 1.125rem;
-            border-radius: 0.75rem;
+            font-size: 1.125rem; /* text-lg */
+            border-radius: 0.75rem; /* rounded-xl */
             transition: all 0.3s;
             display: inline-flex;
             text-decoration: none;
-        }
-
-        .btn-hero-secondary:hover {
-            background-color: white;
-            color: black;
-            box-shadow: 0 20px 25px -5px rgba(255, 255, 255, 0.2);
-            transform: translateY(-2px);
         }
 
         /* Utility helper for hidden/block */
