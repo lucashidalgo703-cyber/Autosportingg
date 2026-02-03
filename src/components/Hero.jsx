@@ -142,7 +142,6 @@ const Hero = () => {
             border-radius: 9999px; /* full rounded */
             width: fit-content;
             margin-bottom: 1rem; 
-            /* transform: translateX(-30px); animation handles this? Reference had it */
         }
         
         .badge-location span {
@@ -150,12 +149,13 @@ const Hero = () => {
              font-size: 0.9rem;
              text-transform: uppercase;
              letter-spacing: 0.05em;
+             font-family: 'Archivo', sans-serif;
         }
 
         .hero-title {
-            font-family: var(--font-title); /* Anton */
-            font-size: clamp(3rem, 8vw, 6rem); /* Responsive giant text */
-            font-weight: 800; /* Extra bold */
+            font-family: 'Anton', sans-serif; /* Explicit fallback */
+            font-size: clamp(3rem, 8vw, 6rem);
+            font-weight: 400; /* Anton is Regular only */
             line-height: 1;
             margin-bottom: 0.5rem;
             text-transform: uppercase;
@@ -166,12 +166,14 @@ const Hero = () => {
              background: linear-gradient(to right, #ffffff, #ffffff, #e5e5e5);
              -webkit-background-clip: text;
              -webkit-text-fill-color: transparent;
+             background-clip: text;
+             color: transparent;
         }
 
         .hero-subtitle {
-            font-family: var(--font-title);
+            font-family: 'Anton', sans-serif;
             font-size: clamp(1.5rem, 4vw, 3.5rem);
-            font-weight: 600;
+            font-weight: 400; /* Fixed weight */
             color: var(--color-primary); /* #EB2628 */
             text-transform: uppercase;
             margin-bottom: 1.5rem;
@@ -194,6 +196,7 @@ const Hero = () => {
              color: white;
              font-weight: 500;
              font-size: 0.95rem;
+             font-family: 'Archivo', sans-serif;
         }
 
         .hero-description {
@@ -202,6 +205,7 @@ const Hero = () => {
             max-width: 650px;
             line-height: 1.6;
             margin-bottom: 2rem;
+            font-family: 'Archivo', sans-serif;
         }
 
         .hero-actions {
