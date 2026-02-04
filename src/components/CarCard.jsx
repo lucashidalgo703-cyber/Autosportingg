@@ -71,10 +71,19 @@ const CarCard = ({ car }) => {
                     flex: 1;
                     display: flex;
                     flex-direction: column;
-                    background: linear-gradient(180deg, rgba(0,0,0,0) 0%, rgba(235, 38, 40, 0.2) 100%); /* Subtle red gradient */
+                    
+                    /* Carbon Texture + Red Gradient Overlay */
+                    background-color: #0c0c0c;
+                    background-image: 
+                        linear-gradient(180deg, rgba(0,0,0,0) 0%, rgba(235, 38, 40, 0.15) 100%),
+                        linear-gradient(45deg, rgba(255, 255, 255, 0.03) 25%, transparent 25%, transparent 75%, rgba(255, 255, 255, 0.03) 75%, rgba(255, 255, 255, 0.03)),
+                        linear-gradient(45deg, rgba(255, 255, 255, 0.03) 25%, transparent 25%, transparent 75%, rgba(255, 255, 255, 0.03) 75%, rgba(255, 255, 255, 0.03));
+                    background-size: 100% 100%, 6px 6px, 6px 6px;
+                    background-position: 0 0, 0 0, 3px 3px;
+
                     border-bottom-left-radius: 12px;
                     border-bottom-right-radius: 12px;
-                    border: 1px solid rgba(255, 255, 255, 0.1); /* Subtle border for definition */
+                    border: 1px solid rgba(255, 255, 255, 0.08); 
                     border-top: none;
                 }
                 

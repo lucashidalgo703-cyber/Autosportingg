@@ -47,13 +47,14 @@ const Footer = () => {
           position: relative;
         }
         
-        /* "Shine" separator */
+        /* "Shine" separator with Red Accent */
         .footer::before {
             content: '';
             position: absolute;
             top: 0; left: 0; right: 0;
             height: 1px;
-            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.1), transparent);
+            /* Transparent -> Subtle Red -> Transparent */
+            background: linear-gradient(90deg, transparent, rgba(235, 38, 40, 0.5), transparent);
         }
 
         .footer-grid {

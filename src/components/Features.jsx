@@ -65,7 +65,14 @@ const Features = () => {
         }
 
         .feature-card {
-          background: rgba(255, 255, 255, 0.03);
+          /* Carbon Texture */
+          background-color: #0c0c0c;
+          background-image: 
+            linear-gradient(45deg, rgba(255, 255, 255, 0.03) 25%, transparent 25%, transparent 75%, rgba(255, 255, 255, 0.03) 75%, rgba(255, 255, 255, 0.03)),
+            linear-gradient(45deg, rgba(255, 255, 255, 0.03) 25%, transparent 25%, transparent 75%, rgba(255, 255, 255, 0.03) 75%, rgba(255, 255, 255, 0.03));
+          background-size: 6px 6px;
+          background-position: 0 0, 3px 3px;
+          
           backdrop-filter: blur(10px);
           padding: 2.5rem;
           border-radius: 16px;
@@ -79,9 +86,9 @@ const Features = () => {
 
         .feature-card:hover {
           transform: translateY(-10px);
-          background: rgba(255, 255, 255, 0.05);
+          background-color: #111; /* Slightly lighter on hover */
           border-color: var(--color-primary);
-          box-shadow: 0 20px 40px -10px rgba(0,0,0,0.5);
+          box-shadow: 0 20px 40px -10px rgba(235, 38, 40, 0.15); /* Red glow match */
         }
 
         .icon-wrapper {
