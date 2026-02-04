@@ -56,14 +56,21 @@ const SmartFilters = ({ filters, onFilterChange, brands = [], years = [] }) => {
 
       <style>{`
         .filters-container {
-          background-color: var(--color-surface);
+          background-color: #0c0c0c;
+          /* Carbon Texture */
+          background-image: 
+            linear-gradient(45deg, rgba(255, 255, 255, 0.03) 25%, transparent 25%, transparent 75%, rgba(255, 255, 255, 0.03) 75%, rgba(255, 255, 255, 0.03)),
+            linear-gradient(45deg, rgba(255, 255, 255, 0.03) 25%, transparent 25%, transparent 75%, rgba(255, 255, 255, 0.03) 75%, rgba(255, 255, 255, 0.03));
+          background-size: 6px 6px;
+          background-position: 0 0, 3px 3px;
+
           padding: 1.5rem;
           border-radius: 8px;
           display: flex;
           gap: 1rem;
           flex-wrap: wrap;
           margin-bottom: 3rem;
-          border: 1px solid #333;
+          border: 1px solid rgba(255, 255, 255, 0.08);
         }
 
         .search-group {
@@ -83,8 +90,8 @@ const SmartFilters = ({ filters, onFilterChange, brands = [], years = [] }) => {
         .search-input {
           width: 100%;
           height: 48px;
-          background-color: #000;
-          border: 1px solid #333;
+          background-color: #0a0a0a; /* Anthracite */
+          border: 1px solid rgba(255, 255, 255, 0.1);
           border-radius: 4px;
           padding-left: 40px;
           padding-right: 16px;
@@ -96,6 +103,7 @@ const SmartFilters = ({ filters, onFilterChange, brands = [], years = [] }) => {
         .search-input:focus {
           outline: none;
           border-color: var(--color-primary);
+          background-color: #111;
         }
 
         .select-group {
@@ -108,8 +116,8 @@ const SmartFilters = ({ filters, onFilterChange, brands = [], years = [] }) => {
         .filter-select {
           flex: 1;
           height: 48px;
-          background-color: #000;
-          border: 1px solid #333;
+          background-color: #0a0a0a; /* Anthracite */
+          border: 1px solid rgba(255, 255, 255, 0.1);
           border-radius: 4px;
           padding: 0 16px;
           color: white;
