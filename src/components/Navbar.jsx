@@ -68,13 +68,13 @@ const Navbar = () => {
         }
 
         .navbar-logo-img {
-          height: 55px; 
+          height: 65px; 
           width: auto;
           object-fit: contain;
         }
         
         @media (min-width: 768px) {
-            .navbar-logo-img { height: 90px; }
+            .navbar-logo-img { height: 110px; }
         }
 
         .desktop-nav {
