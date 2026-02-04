@@ -12,7 +12,7 @@ const Navbar = () => {
     <header className="navbar">
       <div className="container navbar-content">
         <Link to="/" className="logo">
-          <span className="logo-text">AutoSporting</span>
+          {/* Logo removed as per request */}
         </Link>
 
         {/* Desktop Menu */}
