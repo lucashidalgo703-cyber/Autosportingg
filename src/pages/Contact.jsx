@@ -173,8 +173,15 @@ const Contact = () => {
                 }
 
                 .contact-card {
-                    background-color: rgb(15, 15, 15);
-                    border: 1px solid rgb(50, 50, 50);
+                    /* Carbon Texture */
+                    background-color: #0c0c0c;
+                    background-image: 
+                        linear-gradient(45deg, rgba(255, 255, 255, 0.03) 25%, transparent 25%, transparent 75%, rgba(255, 255, 255, 0.03) 75%, rgba(255, 255, 255, 0.03)),
+                        linear-gradient(45deg, rgba(255, 255, 255, 0.03) 25%, transparent 25%, transparent 75%, rgba(255, 255, 255, 0.03) 75%, rgba(255, 255, 255, 0.03));
+                    background-size: 6px 6px;
+                    background-position: 0 0, 3px 3px;
+                    
+                    border: 1px solid rgba(255, 255, 255, 0.05);
                     border-radius: 16px;
                     padding: 2rem;
                     display: flex;
@@ -249,8 +256,15 @@ const Contact = () => {
 
                 /* Hours Card styling */
                 .hours-card {
-                    background-color: rgb(15, 15, 15);
-                    border: 1px solid rgb(50, 50, 50);
+                    /* Carbon Texture */
+                    background-color: #0c0c0c;
+                    background-image: 
+                        linear-gradient(45deg, rgba(255, 255, 255, 0.03) 25%, transparent 25%, transparent 75%, rgba(255, 255, 255, 0.03) 75%, rgba(255, 255, 255, 0.03)),
+                        linear-gradient(45deg, rgba(255, 255, 255, 0.03) 25%, transparent 25%, transparent 75%, rgba(255, 255, 255, 0.03) 75%, rgba(255, 255, 255, 0.03));
+                    background-size: 6px 6px;
+                    background-position: 0 0, 3px 3px;
+
+                    border: 1px solid rgba(255, 255, 255, 0.05);
                     border-radius: 16px;
                     padding: 2rem;
                     display: flex;

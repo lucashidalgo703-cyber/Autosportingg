@@ -139,7 +139,7 @@ const AdminPanel = () => {
     };
 
     return (
-        <div className="min-h-screen bg-[#0A0A0A] text-white selection:bg-primary/30">
+        <div className="min-h-screen bg-dark-gradient text-white selection:bg-primary/30">
 
             {/* Centered Container */}
             <div className="max-w-xl mx-auto px-6 py-20">
@@ -148,7 +148,7 @@ const AdminPanel = () => {
                 <div className="mb-12 text-center">
                     <h1 className="text-4xl font-light tracking-tighter text-white mb-6">Admin Panel</h1>
 
-                    <div className="inline-flex bg-zinc-900 rounded-full p-1 border border-white/5">
+                    <div className="inline-flex bg-carbon rounded-full p-1 border border-white/5">
                         <button
                             onClick={() => setView('create')}
                             className={`px-6 py-2 rounded-full text-sm font-medium transition-all ${view === 'create' ? 'bg-white text-black shadow-lg' : 'text-gray-400 hover:text-white'}`}
@@ -344,8 +344,8 @@ const AdminPanel = () => {
                                             onChange={handleChange}
                                             className="bg-transparent text-gray-500 text-sm mr-2 outline-none font-bold cursor-pointer hover:text-white transition-colors appearance-none"
                                         >
-                                            <option value="$" className="bg-black text-white">$ ARS</option>
-                                            <option value="USD" className="bg-black text-white">USD</option>
+                                            <option value="$" className="bg-[#1a1a1a] text-white">$ ARS</option>
+                                            <option value="USD" className="bg-[#1a1a1a] text-white">USD</option>
                                         </select>
                                         <input type="number" name="price" value={formData.price} onChange={handleChange} placeholder="0" className="w-full bg-transparent py-2 text-white outline-none font-mono" />
                                     </div>
