@@ -30,12 +30,10 @@ const Hero = () => {
             <span className="font-medium">Comodoro Rivadavia</span>
           </div>
 
-          <div className="mb-4 fade-in-up delay-2">
-            <img
-              src="/logo-autosporting.png"
-              alt="AutoSporting"
-              className="hero-logo-img"
-            />
+          <div className="mb-2 fade-in-up delay-2">
+            <h1 className="hero-title">
+              <span className="text-white">AutoSporting</span>
+            </h1>
             <h2 className="hero-subtitle">
               Concesionaria Multimarca
             </h2>
@@ -188,27 +186,24 @@ const Hero = () => {
             }
         }
 
-        /* LOGO Styling */
-        .hero-logo-img {
-            display: block;
-            max-width: 100%;
-            height: auto;
-            margin-bottom: 0.25rem;
-            
-            /* Sizing to match the previous text visual impact ~7rem equivalent */
-            width: 320px; 
-            
-            /* MAGIC FIX: Invert colors to make dark text white and remove white bg (via screen) */
-            filter: invert(1) grayscale(1) brightness(2);
-            mix-blend-mode: screen; 
-            
-            /* Start clean */
-            transform-origin: left;
-        }
+        /* Typography - FINAL CORRECTIVE MATCH (INTER) */
         
-        @media (min-width: 640px) { .hero-logo-img { width: 420px; } }
-        @media (min-width: 1024px) { .hero-logo-img { width: 550px; } }
-        @media (min-width: 1280px) { .hero-logo-img { width: 680px; } }
+        .hero-title {
+            font-family: 'Inter', system-ui, sans-serif;
+            font-weight: 900; 
+            line-height: 1.1;
+            margin-bottom: 0.25rem;
+            text-transform: none; 
+            letter-spacing: -0.02em;
+            color: #FFFFFF;
+            
+            font-size: 3.5rem; 
+        }
+
+        /* Scaling */
+        @media (min-width: 640px) { .hero-title { font-size: 4.5rem; } }
+        @media (min-width: 1024px) { .hero-title { font-size: 5.5rem; } } 
+        @media (min-width: 1280px) { .hero-title { font-size: 6.5rem; } } 
 
         .hero-subtitle {
             font-family: 'Inter', system-ui, sans-serif;
