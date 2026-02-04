@@ -12,7 +12,7 @@ const Navbar = () => {
     <header className="navbar">
       <div className="container navbar-content">
         <Link to="/" className="logo">
-          <img src="/logo-header.png" alt="AutoSporting" className="navbar-logo-img" />
+          {/* Logo removed as per request */}
         </Link>
 
         {/* Desktop Menu */}
@@ -67,14 +67,13 @@ const Navbar = () => {
           align-items: center;
         }
 
-        .navbar-logo-img {
-          height: 60px; /* Adjusted size to match reference image */
-          width: auto;
-          object-fit: contain;
-          
-          /* Filter to turn the logo text white if the source is dark/colored */
-          /* Assuming the source is the blue logo provided, this inverts it to white-ish */
-          filter: brightness(0) invert(1);
+        .logo-text {
+          color: white;
+          font-family: 'Inter', sans-serif;
+          font-weight: 900;
+          font-size: 1.5rem;
+          letter-spacing: -0.02em;
+          text-transform: none;
         }
 
         .desktop-nav {
