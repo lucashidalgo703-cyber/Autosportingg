@@ -2,6 +2,7 @@ import { ArrowRight, Check } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
 const Hero = () => {
+  console.log("Hero component version: 3.0 Strict Match Loaded");
   return (
     <section className="hero">
       <div className="hero-bg">
