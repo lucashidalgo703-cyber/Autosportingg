@@ -12,7 +12,7 @@ const Navbar = () => {
     <header className="navbar">
       <div className="container navbar-content">
         <Link to="/" className="logo">
-          <img src="/autosporting-logo-white.png" alt="AutoSporting" className="logo-img" />
+          <span className="logo-text">AutoSporting</span>
         </Link>
 
         {/* Desktop Menu */}
@@ -67,10 +67,13 @@ const Navbar = () => {
           align-items: center;
         }
 
-        .logo-img {
-          height: 48px; /* Adjust based on header height 80px */
-          width: auto;
-          object-fit: contain;
+        .logo-text {
+          color: white;
+          font-family: 'Inter', sans-serif;
+          font-weight: 900;
+          font-size: 1.5rem;
+          letter-spacing: -0.02em;
+          text-transform: none;
         }
 
         .desktop-nav {
