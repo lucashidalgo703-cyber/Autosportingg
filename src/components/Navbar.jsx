@@ -12,7 +12,7 @@ const Navbar = () => {
     <header className="navbar">
       <div className="container navbar-content">
         <Link to="/" className="logo">
-          <img src="/logo-header-final.png" alt="AutoSporting" className="navbar-logo-img" />
+          <img src="/logo-header-v3.png" alt="AutoSporting" className="navbar-logo-img" />
         </Link>
 
         {/* Desktop Menu */}
@@ -68,10 +68,13 @@ const Navbar = () => {
         }
 
         .navbar-logo-img {
-          height: 60px; 
+          height: 48px; 
           width: auto;
           object-fit: contain;
-          /* No filter needed since we processed the image colors directly */
+        }
+        
+        @media (min-width: 768px) {
+            .navbar-logo-img { height: 64px; }
         }
 
         .desktop-nav {
