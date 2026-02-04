@@ -48,7 +48,7 @@ const CarCard = ({ car }) => {
                     position: relative;
                     width: 100%;
                     aspect-ratio: 4/3;
-                    background-color: #000;
+                    background-color: #0a0a0a; /* Anthracite instead of pure black */
                     overflow: hidden;
                     border-top-left-radius: 12px;
                     border-top-right-radius: 12px;

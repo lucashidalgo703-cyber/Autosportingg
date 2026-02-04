@@ -92,7 +92,8 @@ const Hero = () => {
           margin-top: calc(var(--header-height) * -1); /* Under navbar */
           padding-top: var(--header-height);
           overflow: hidden;
-          background-color: #000;
+          /* Explicit Gradient per user request */
+          background: radial-gradient(circle at 50% 30%, #1a1a1a 0%, #050505 100%);
         }
 
         /* Backgrounds & Overlays */
