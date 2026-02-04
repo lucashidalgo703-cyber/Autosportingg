@@ -12,7 +12,7 @@ const Navbar = () => {
     <header className="navbar">
       <div className="container navbar-content">
         <Link to="/" className="logo">
-          <img src="/logo-header-white-red.png" alt="AutoSporting" className="navbar-logo-img" />
+          <img src="/logo-header-final.png" alt="AutoSporting" className="navbar-logo-img" />
         </Link>
 
         {/* Desktop Menu */}
