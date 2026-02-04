@@ -14,16 +14,7 @@ const Navbar = () => {
         <Link to="/" className="logo">
           <img src="/logo-header-v5.png" alt="AutoSporting" className="navbar-logo-img" />
         </Link>
-        ...
-        .navbar-logo-img {
-          height: 65px;
-        width: auto;
-        object-fit: contain;
-        }
 
-        @media (min-width: 768px) {
-            .navbar - logo - img {height: 110px; }
-        }
 
         {/* Desktop Menu */}
         <nav className="desktop-nav">
