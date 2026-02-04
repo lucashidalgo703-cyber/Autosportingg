@@ -70,14 +70,14 @@ const Navbar = () => {
         }
 
         .navbar-logo-img {
-          height: 45px; 
+          height: 40px; 
           width: auto;
           object-fit: contain;
           margin-left: 3px; /* Precise adjustment requested */
         }
         
         @media (min-width: 768px) {
-            .navbar-logo-img { height: 70px; }
+            .navbar-logo-img { height: 60px; }
         }
 
         .desktop-nav {
