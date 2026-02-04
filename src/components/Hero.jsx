@@ -23,7 +23,7 @@ const Hero = () => {
       <div className="hero-overlay-gradient-2"></div>
 
       <div className="container hero-content">
-        <div className="lg:col-span-7 flex flex-col justify-center h-full">
+        <div className="hero-text-wrapper">
 
           {/* Location Badge */}
           <div className="badge-location fade-in-up delay-1">
@@ -120,29 +120,46 @@ const Hero = () => {
             z-index: 1;
         }
 
+      /* Hero Content Layout - SIMPLIFIED & STRICT */
         .hero-content {
           position: relative;
           z-index: 10;
           width: 100%;
           height: 100%;
+          /* Center content VERTICALLY in the screen */
+          display: flex;
+          align-items: center; 
+          /* Align content HORIZONTALLY to the start (left) */
+          justify-content: flex-start;
+          
           padding-top: 4rem;
           padding-bottom: 4rem;
-          display: flex;
-          align-items: center;
+        }
+
+        /* The inner wrapper for text elements */
+        .hero-text-wrapper {
+            display: flex;
+            flex-direction: column;
+            align-items: flex-start; /* STRICT LEFT ALIGNMENT */
+            justify-content: center;
+            text-align: left; /* Ensure text inherits left alignment */
+            max-width: 900px;
+            width: 100%;
         }
 
         /* Typography & Elements */
+        /* Badge styling to match reference dark pill */
         .badge-location {
             display: inline-flex;
             align-items: center;
             gap: 0.5rem;
             padding: 0.5rem 1rem;
-            background-color: rgba(255, 255, 255, 0.1);
-            backdrop-filter: blur(12px);
-            border: 1px solid rgba(255, 255, 255, 0.2);
-            border-radius: 9999px; /* full rounded */
+            background-color: rgba(30, 30, 30, 0.6); /* Darker semitransparent like reference */
+            backdrop-filter: blur(8px);
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            border-radius: 9999px; 
             width: fit-content;
-            margin-bottom: 1rem; 
+            margin-bottom: 1.5rem; 
         }
         
         .badge-location span {
@@ -159,12 +176,12 @@ const Hero = () => {
             display: flex;
             flex-direction: column;
             gap: 1rem;
-            margin-top: 2rem;
+            margin-top: 1.5rem;
         }
 
         @media (min-width: 500px) {
             .hero-actions {
-                flex-direction: row; /* Force side-by-side */
+                flex-direction: row; 
                 align-items: center;
             }
         }
@@ -172,15 +189,14 @@ const Hero = () => {
         /* Typography - FINAL CORRECTIVE MATCH (INTER) */
         
         .hero-title {
-            font-family: 'Inter', system-ui, sans-serif; /* Clean, Modern, Geometric */
-            font-weight: 900; /* Extra Bold / Black for strong presence */
-            line-height: 1.1; /* Slightly looser than Anton */
+            font-family: 'Inter', system-ui, sans-serif;
+            font-weight: 900; 
+            line-height: 1.1;
             margin-bottom: 0.25rem;
             text-transform: none; 
-            letter-spacing: -0.02em; /* Tight tracking for modern feel */
+            letter-spacing: -0.02em;
             color: #FFFFFF;
             
-            /* Responsive Sizing - Wide & Impactful */
             font-size: 3.5rem; 
         }
 
@@ -191,11 +207,11 @@ const Hero = () => {
 
         .hero-subtitle {
             font-family: 'Inter', system-ui, sans-serif;
-            font-weight: 700; /* Bold */
-            color: #EB2628; /* Red */
+            font-weight: 700;
+            color: #EB2628; 
             line-height: 1.2;
             margin-top: 0;
-            margin-bottom: 2rem;
+            margin-bottom: 1.5rem; /* Tighter spacing like reference */
             text-transform: none;
             
             font-size: 2rem;
@@ -210,8 +226,8 @@ const Hero = () => {
             font-family: 'Inter', system-ui, sans-serif;
             font-size: 1.125rem;
             color: rgba(255, 255, 255, 0.85);
-            max-width: 600px;
-            margin-bottom: 2.5rem;
+            max-width: 650px;
+            margin-bottom: 2rem;
             line-height: 1.6;
             font-weight: 400;
         }
@@ -220,7 +236,7 @@ const Hero = () => {
             display: flex;
             flex-wrap: wrap;
             gap: 1rem;
-            margin-bottom: 2rem;
+            margin-bottom: 1.5rem; /* Ensure space before description */
             align-items: center;
             font-family: 'Inter', system-ui, sans-serif;
         }
@@ -239,7 +255,7 @@ const Hero = () => {
              gap: 0.4rem;
         }
 
-         /* Buttons - "Texto claro, moderno, sin serif" */
+         /* Buttons */
         .btn-hero-primary {
             position: relative;
             padding: 1rem 2rem; 
@@ -248,10 +264,9 @@ const Hero = () => {
             font-family: 'Inter', sans-serif;
             font-weight: 700;
             font-size: 1.125rem; 
-            border-radius: 0.75rem; 
+            border-radius: 0.5rem; /* Slightly squarer 8px radius like reference */
             overflow: hidden;
             transition: all 0.3s;
-            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
             display: inline-flex;
             text-decoration: none;
             align-items: center;
@@ -262,13 +277,13 @@ const Hero = () => {
             position: relative;
             padding: 1rem 2rem;
             background-color: transparent;
-            backdrop-filter: blur(4px); 
+            /* No blur on reference secondary button, just border */
             border: 2px solid white;
             color: white;
             font-family: 'Inter', sans-serif;
             font-weight: 700;
             font-size: 1.125rem; 
-            border-radius: 0.75rem; 
+            border-radius: 0.5rem; 
             transition: all 0.3s;
             display: inline-flex;
             text-decoration: none;
@@ -297,8 +312,6 @@ const Hero = () => {
         }
         
         @media (min-width: 640px) { .container { max-width: 640px; } }
-        @media (min-width: 768px) { .container { max-width: 768px; } }
-        /* Larger max-width to allow content spread */
         @media (min-width: 1024px) { .container { max-width: 1024px; } }
         @media (min-width: 1280px) { .container { max-width: 1400px; } } /* Wider for impact */
 
