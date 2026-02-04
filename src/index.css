@@ -14,8 +14,8 @@
 
   /* Global Variables matching reference */
   --color-primary: #EB2628;
-  --header-height: 96px;
-  /* h-24 equivalent */
+  --header-height: 130px;
+  /* Increased to fit large logo */
 }
 
 a {
