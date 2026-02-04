@@ -45,15 +45,25 @@ const Navbar = () => {
 
       <style>{`
         .navbar {
-          background-color: rgba(0, 0, 0, 0.95);
-          backdrop-filter: blur(10px);
+          background-color: rgba(5, 5, 5, 0.85); /* Deep dark glass */
+          backdrop-filter: blur(12px);
           position: sticky;
           top: 0;
           z-index: 1000;
-          border-bottom: 1px solid var(--color-surface);
           height: var(--header-height);
           display: flex;
           align-items: center;
+          /* Shadow for depth */
+          box-shadow: 0 4px 20px rgba(0,0,0,0.4);
+        }
+        
+        /* Gradient Border Bottom */
+        .navbar::after {
+            content: '';
+            position: absolute;
+            bottom: 0; left: 0; right: 0;
+            height: 1px;
+            background: linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.08) 50%, transparent 100%);
         }
 
         .navbar-content {

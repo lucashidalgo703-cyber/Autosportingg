@@ -41,10 +41,19 @@ const Footer = () => {
 
       <style>{`
         .footer {
-          background-color: var(--color-surface);
+          background: linear-gradient(to top, #000000 0%, #0a0a0a 100%);
           padding: 4rem 0 2rem;
           margin-top: auto;
-          border-top: 1px solid #333;
+          position: relative;
+        }
+        
+        /* "Shine" separator */
+        .footer::before {
+            content: '';
+            position: absolute;
+            top: 0; left: 0; right: 0;
+            height: 1px;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.1), transparent);
         }
 
         .footer-grid {
