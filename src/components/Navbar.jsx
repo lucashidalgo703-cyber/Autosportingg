@@ -68,9 +68,12 @@ const Navbar = () => {
         }
 
         .logo-img {
-          height: 48px; /* Adjust based on header height 80px */
+          height: 80px; /* Increased from 48px to match reference */
           width: auto;
           object-fit: contain;
+          
+          /* Filter to ensure it looks white like the reference if using the standard logo */
+          filter: brightness(0) invert(1); 
         }
 
         .desktop-nav {
