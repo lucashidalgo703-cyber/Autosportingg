@@ -13,7 +13,7 @@ const Navbar = () => {
     <header className="navbar">
       <div className="container navbar-content">
         <Link to="/" className="logo">
-          <img src="/logo-header-v6-trimmed.png" alt="AutoSporting" className="navbar-logo-img" />
+          <img src="/logo-header-v7-hq.png" alt="AutoSporting" className="navbar-logo-img" />
         </Link>
 
 
@@ -70,13 +70,13 @@ const Navbar = () => {
         }
 
         .navbar-logo-img {
-          height: 80px; /* Mobile larger */
+          height: 55px; 
           width: auto;
           object-fit: contain;
         }
         
         @media (min-width: 768px) {
-            .navbar-logo-img { height: 125px; } /* Desktop massive 125px/140px */
+            .navbar-logo-img { height: 90px; } /* Balanced 90px/110px */
         }
 
         .desktop-nav {
