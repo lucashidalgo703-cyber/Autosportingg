@@ -180,20 +180,32 @@ const Hero = () => {
             margin-bottom: 2rem;
             text-transform: none;
             
-            /* Mobile Base */
-            font-size: 2rem;
+            /* "Tamaño menor que el título" */
+            font-size: 2.25rem;
         }
         
         @media (min-width: 640px) { .hero-subtitle { font-size: 2.5rem; } }
         @media (min-width: 1024px) { .hero-subtitle { font-size: 3.5rem; } }
-        @media (min-width: 1280px) { .hero-subtitle { font-size: 4.5rem; } }
+        @media (min-width: 1280px) { .hero-subtitle { font-size: 4rem; } }
+
+        /* Description & Body */
+        .hero-description {
+            font-family: 'Archivo', sans-serif; /* "Sobrio y Legible" */
+            font-size: 1.125rem;
+            color: rgba(255, 255, 255, 0.9); /* Blanco/Gris Claro */
+            max-width: 600px;
+            margin-bottom: 2.5rem;
+            line-height: 1.6;
+            font-weight: 400;
+        }
 
         .features-list {
             display: flex;
             flex-wrap: wrap;
-            gap: 0.75rem;
+            gap: 1rem;
             margin-bottom: 2rem;
             align-items: center;
+            font-family: 'Archivo', sans-serif;
         }
         
         .feature-pill {
@@ -210,39 +222,16 @@ const Hero = () => {
              gap: 0.4rem;
         }
 
-        .hero-description {
-            font-size: 1.125rem;
-            color: rgba(255, 255, 255, 0.85);
-            max-width: 600px;
-            margin-bottom: 2.5rem;
-            line-height: 1.6;
-            font-weight: 400;
-        }
-
-        /* Hero Actions Layout */
-        .hero-actions {
-            display: flex;
-            flex-direction: column;
-            gap: 1rem;
-            margin-top: 1rem;
-        }
-
-        @media (min-width: 500px) {
-            .hero-actions {
-                flex-direction: row; /* Force side-by-side */
-                align-items: center;
-            }
-        }
-
-         /* Buttons */
+         /* Buttons - "Texto claro, moderno, sin serif" */
         .btn-hero-primary {
             position: relative;
-            padding: 1rem 2rem; /* px-8 = 2rem, py-4 = 1rem */
+            padding: 1rem 2rem; 
             background-color: var(--color-primary);
             color: white;
+            font-family: 'Archivo', sans-serif;
             font-weight: 700;
-            font-size: 1.125rem; /* text-lg */
-            border-radius: 0.75rem; /* rounded-xl */
+            font-size: 1.125rem; 
+            border-radius: 0.75rem; 
             overflow: hidden;
             transition: all 0.3s;
             box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
@@ -256,12 +245,13 @@ const Hero = () => {
             position: relative;
             padding: 1rem 2rem;
             background-color: transparent;
-            backdrop-filter: blur(4px); /* backdrop-blur-sm */
+            backdrop-filter: blur(4px); 
             border: 2px solid white;
             color: white;
+            font-family: 'Archivo', sans-serif;
             font-weight: 700;
-            font-size: 1.125rem; /* text-lg */
-            border-radius: 0.75rem; /* rounded-xl */
+            font-size: 1.125rem; 
+            border-radius: 0.75rem; 
             transition: all 0.3s;
             display: inline-flex;
             text-decoration: none;
@@ -291,9 +281,9 @@ const Hero = () => {
         
         @media (min-width: 640px) { .container { max-width: 640px; } }
         @media (min-width: 768px) { .container { max-width: 768px; } }
-        /* Larger max-width to allow content spread like reference */
+        /* Larger max-width to allow content spread */
         @media (min-width: 1024px) { .container { max-width: 1024px; } }
-        @media (min-width: 1280px) { .container { max-width: 1280px; } }
+        @media (min-width: 1280px) { .container { max-width: 1400px; } } /* Wider for impact */
 
       `}</style>
     </section>
