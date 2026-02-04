@@ -12,7 +12,7 @@ const Navbar = () => {
     <header className="navbar">
       <div className="container navbar-content">
         <Link to="/" className="logo">
-          <img src="/logo-header-v3.png" alt="AutoSporting" className="navbar-logo-img" />
+          <img src="/logo-header-v4.png" alt="AutoSporting" className="navbar-logo-img" />
         </Link>
 
         {/* Desktop Menu */}
@@ -74,7 +74,7 @@ const Navbar = () => {
         }
         
         @media (min-width: 768px) {
-            .navbar-logo-img { height: 64px; }
+            .navbar-logo-img { height: 72px; }
         }
 
         .desktop-nav {
