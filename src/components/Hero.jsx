@@ -150,49 +150,66 @@ const Hero = () => {
              font-size: 0.9rem;
              text-transform: uppercase;
              letter-spacing: 0.05em;
-             font-family: 'Archivo', sans-serif;
+             font-family: 'Inter', sans-serif;
+             font-weight: 600;
         }
 
+        /* Hero Actions Layout */
+        .hero-actions {
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+            margin-top: 2rem;
+        }
+
+        @media (min-width: 500px) {
+            .hero-actions {
+                flex-direction: row; /* Force side-by-side */
+                align-items: center;
+            }
+        }
+
+        /* Typography - FINAL CORRECTIVE MATCH (INTER) */
+        
         .hero-title {
-            font-family: 'Anton', sans-serif;
-            font-weight: 400; /* Anton regular */
-            line-height: 1;
-            margin-bottom: 0px;
+            font-family: 'Inter', system-ui, sans-serif; /* Clean, Modern, Geometric */
+            font-weight: 900; /* Extra Bold / Black for strong presence */
+            line-height: 1.1; /* Slightly looser than Anton */
+            margin-bottom: 0.25rem;
             text-transform: none; 
-            letter-spacing: normal;
-            color: white;
+            letter-spacing: -0.02em; /* Tight tracking for modern feel */
+            color: #FFFFFF;
             
-            /* Mobile Base */
+            /* Responsive Sizing - Wide & Impactful */
             font-size: 3.5rem; 
         }
 
         /* Scaling */
         @media (min-width: 640px) { .hero-title { font-size: 4.5rem; } }
-        @media (min-width: 1024px) { .hero-title { font-size: 6rem; } } 
-        @media (min-width: 1280px) { .hero-title { font-size: 7rem; } } /* 112px */
+        @media (min-width: 1024px) { .hero-title { font-size: 5.5rem; } } 
+        @media (min-width: 1280px) { .hero-title { font-size: 6.5rem; } } 
 
         .hero-subtitle {
-            font-family: 'Anton', sans-serif;
-            font-weight: 400;
-            color: var(--color-primary); 
-            line-height: 1;
-            margin-top: 0.5rem;
+            font-family: 'Inter', system-ui, sans-serif;
+            font-weight: 700; /* Bold */
+            color: #EB2628; /* Red */
+            line-height: 1.2;
+            margin-top: 0;
             margin-bottom: 2rem;
             text-transform: none;
             
-            /* "Tamaño menor que el título" */
-            font-size: 2.25rem;
+            font-size: 2rem;
         }
         
-        @media (min-width: 640px) { .hero-subtitle { font-size: 2.5rem; } }
-        @media (min-width: 1024px) { .hero-subtitle { font-size: 3.5rem; } }
-        @media (min-width: 1280px) { .hero-subtitle { font-size: 4rem; } }
+        @media (min-width: 640px) { .hero-subtitle { font-size: 2.25rem; } }
+        @media (min-width: 1024px) { .hero-subtitle { font-size: 3rem; } }
+        @media (min-width: 1280px) { .hero-subtitle { font-size: 3.5rem; } }
 
         /* Description & Body */
         .hero-description {
-            font-family: 'Archivo', sans-serif; /* "Sobrio y Legible" */
+            font-family: 'Inter', system-ui, sans-serif;
             font-size: 1.125rem;
-            color: rgba(255, 255, 255, 0.9); /* Blanco/Gris Claro */
+            color: rgba(255, 255, 255, 0.85);
             max-width: 600px;
             margin-bottom: 2.5rem;
             line-height: 1.6;
@@ -205,7 +222,7 @@ const Hero = () => {
             gap: 1rem;
             margin-bottom: 2rem;
             align-items: center;
-            font-family: 'Archivo', sans-serif;
+            font-family: 'Inter', system-ui, sans-serif;
         }
         
         .feature-pill {
@@ -228,7 +245,7 @@ const Hero = () => {
             padding: 1rem 2rem; 
             background-color: var(--color-primary);
             color: white;
-            font-family: 'Archivo', sans-serif;
+            font-family: 'Inter', sans-serif;
             font-weight: 700;
             font-size: 1.125rem; 
             border-radius: 0.75rem; 
@@ -248,7 +265,7 @@ const Hero = () => {
             backdrop-filter: blur(4px); 
             border: 2px solid white;
             color: white;
-            font-family: 'Archivo', sans-serif;
+            font-family: 'Inter', sans-serif;
             font-weight: 700;
             font-size: 1.125rem; 
             border-radius: 0.75rem; 
