@@ -73,6 +73,7 @@ const Navbar = () => {
           height: 45px; 
           width: auto;
           object-fit: contain;
+          margin-left: 3px; /* Precise adjustment requested */
         }
         
         @media (min-width: 768px) {
