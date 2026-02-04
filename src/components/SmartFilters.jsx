@@ -8,7 +8,7 @@ const SmartFilters = ({ filters, onFilterChange, brands = [], years = [] }) => {
   };
 
   return (
-    <div className="filters-container">
+    <div className="filters-container bg-carbon">
       <div className="search-group">
         <Search className="search-icon" size={20} />
         <input
@@ -56,14 +56,6 @@ const SmartFilters = ({ filters, onFilterChange, brands = [], years = [] }) => {
 
       <style>{`
         .filters-container {
-          background-color: #0c0c0c;
-          /* Carbon Texture */
-          background-image: 
-            linear-gradient(45deg, rgba(255, 255, 255, 0.03) 25%, transparent 25%, transparent 75%, rgba(255, 255, 255, 0.03) 75%, rgba(255, 255, 255, 0.03)),
-            linear-gradient(45deg, rgba(255, 255, 255, 0.03) 25%, transparent 25%, transparent 75%, rgba(255, 255, 255, 0.03) 75%, rgba(255, 255, 255, 0.03));
-          background-size: 6px 6px;
-          background-position: 0 0, 3px 3px;
-
           padding: 1.5rem;
           border-radius: 8px;
           display: flex;

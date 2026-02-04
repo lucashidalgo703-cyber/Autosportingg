@@ -33,7 +33,7 @@ const Home = () => {
       <Features />
 
       {/* Banner de Confianza */}
-      <section className="trust-banner">
+      <section className="trust-banner bg-dark-gradient">
         <div className="trust-overlay"></div>
         <div className="container trust-content">
           <h2>Confianza y Experiencia</h2>
@@ -104,7 +104,6 @@ const Home = () => {
         /* Trust Banner Styles */
         .trust-banner {
             position: relative;
-            background-color: #111;
             padding: 8rem 0;
             margin-bottom: 5rem;
             text-align: center;
