@@ -4,6 +4,7 @@ import { Menu, X, Car } from 'lucide-react';
 
 const Navbar = () => {
   const [isOpen, setIsOpen] = useState(false);
+  // Verified Navbar Structure - Logo v5
   const location = useLocation();
 
   const isActive = (path) => location.pathname === path;
