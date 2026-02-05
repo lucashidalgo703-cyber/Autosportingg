@@ -12,21 +12,21 @@ const CarCard = ({ car }) => {
         />
       </div>
 
-      <div className="card-content bg-carbon">
+      <div className="card-content">
         <h3 className="card-title text-xl font-bold text-white mb-0.5">
           {car.name}
         </h3>
 
-        <div className="card-subtitle text-gray-400 text-xs mb-2 font-medium uppercase tracking-wide">
+        <div className="card-subtitle text-white/80 text-xs mb-2 font-medium uppercase tracking-wide">
           {car.brand} | {car.year}
         </div>
 
-        <div className="card-status text-primary font-bold text-xs mb-3 uppercase tracking-wider">
+        <div className="card-status text-white font-bold text-xs mb-3 uppercase tracking-wider">
           {car.condition === 'Nuevo' ? 'NUEVO • 0 KM' : `USADO • ${car.km.toLocaleString()} KM`}
         </div>
 
         <div className="card-footer mt-auto">
-          <span className="view-more flex items-center gap-2 text-white text-xs font-medium group-hover:text-primary transition-colors">
+          <span className="view-more flex items-center gap-2 text-white text-xs font-medium group-hover:underline transition-all">
             Ver más <ArrowRight size={14} />
           </span>
         </div>
@@ -42,6 +42,12 @@ const CarCard = ({ car }) => {
                     height: 100%;
                     overflow: hidden;
                     position: relative;
+                    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+                    transition: transform 0.3s ease, box-shadow 0.3s ease;
+                }
+                
+                .car-card:hover {
+                    box-shadow: 0 8px 30px rgba(235, 38, 40, 0.3);
                 }
 
                 .card-image-wrapper {
@@ -67,22 +73,29 @@ const CarCard = ({ car }) => {
                 }
 
                 .card-content {
-                    padding: 1rem;
+                    padding: 1.25rem;
                     flex: 1;
                     display: flex;
                     flex-direction: column;
                     border-bottom-left-radius: 12px;
                     border-bottom-right-radius: 12px;
-                    border: 1px solid rgba(255, 255, 255, 0.08); 
+                    /* Intense Red Gradient */
+                    background: linear-gradient(135deg, #8B0000 0%, var(--color-primary) 100%);
+                    border: 1px solid rgba(255, 255, 255, 0.1); 
                     border-top: none;
                 }
                 
                 .card-status {
-                    color: #EB2628; /* Primary Red */
+                    color: white;
+                    background: rgba(0,0,0,0.2);
+                    display: inline-block;
+                    padding: 4px 8px;
+                    border-radius: 4px;
+                    align-self: start;
                 }
                 
                 .text-primary {
-                    color: #EB2628;
+                    color: white !important; /* Override primary text on red background */
                 }
             `}</style>
     </Link>
