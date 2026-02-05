@@ -22,7 +22,7 @@ const CarCard = ({ car }) => {
         </div>
 
         <div className="card-status text-white font-bold text-xs mb-3 uppercase tracking-wider">
-          {car.condition === 'Nuevo' ? 'NUEVO • 0 KM' : `USADO • ${car.km.toLocaleString()} KM`}
+          {(car.condition === 'Nuevo' || car.km === 0) ? 'NUEVO • 0 KM' : `USADO • ${car.km.toLocaleString()} KM`}
         </div>
 
         <div className="card-footer mt-auto">
