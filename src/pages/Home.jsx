@@ -7,15 +7,12 @@ import { useCars } from '../hooks/useCars';
 const Home = () => {
   const { cars, loading } = useCars();
 
-  // Filter only featured cars for the home page (or first 5)
-  // If loading, we could show skeletons, but for now empty array prevents crash
   const featuredCars = cars.filter(car => car.featured || car.year > 2020).slice(0, 5);
 
   return (
-    <main>
+    <div className="home-container">
       <Hero />
 
-      {/* Sección Nuestros Vehículos */}
       <section className="featured container section-padding">
         <div className="section-header mb-8">
           <h2 className="text-3xl font-bold border-l-4 border-[var(--color-primary)] pl-4">Nuestros Vehículos</h2>
@@ -29,10 +26,8 @@ const Home = () => {
         </div>
       </section>
 
-      {/* Sección Features */}
       <Features />
 
-      {/* Banner de Confianza */}
       <section className="trust-banner bg-dark-gradient">
         <div className="trust-overlay"></div>
         <div className="container trust-content">
@@ -50,7 +45,6 @@ const Home = () => {
         </div>
       </section>
 
-      {/* Sección FAQ */}
       <FAQ />
 
       <style>{`
@@ -158,7 +152,7 @@ const Home = () => {
           .trust-stats { flex-direction: column; gap: 3rem; }
         }
       `}</style>
-    </main>
+    </div>
   );
 };
 
