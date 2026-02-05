@@ -79,8 +79,8 @@ const CarCard = ({ car }) => {
                     flex-direction: column;
                     border-bottom-left-radius: 12px;
                     border-bottom-right-radius: 12px;
-                    /* Intense Red Gradient */
-                    background: linear-gradient(135deg, #8B0000 0%, var(--color-primary) 100%);
+                    /* Deep, Sophisticated Red Gradient (Less Bright) */
+                    background: linear-gradient(135deg, #450a0a 0%, #b91c1c 100%);
                     border: 1px solid rgba(255, 255, 255, 0.1); 
                     border-top: none;
                 }
