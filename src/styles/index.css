@@ -38,9 +38,27 @@
 
 body {
   font-family: var(--font-main);
-  background-color: var(--color-bg);
+  background-color: #050505 !important;
+  background-image:
+    /* Subtle Radial Gradient for Depth */
+    radial-gradient(circle at 50% 0%, rgba(30, 35, 45, 0.3) 0%, transparent 70%),
+    /* Diagonal Lines Pattern */
+    repeating-linear-gradient(45deg,
+      rgba(255, 255, 255, 0.03) 0px,
+      rgba(255, 255, 255, 0.03) 1px,
+      transparent 1px,
+      transparent 20px) !important;
+  background-size: 100% 100%, auto !important;
+  background-attachment: fixed !important;
+  min-height: 100vh;
   color: var(--color-text-main);
   -webkit-font-smoothing: antialiased;
+}
+
+html,
+#root {
+  background-color: #050505 !important;
+  min-height: 100vh;
 }
 
 a {
