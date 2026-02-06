@@ -64,7 +64,7 @@ const CarDetail = () => {
                                         <img
                                             alt={car.name}
                                             className="object-cover w-full h-full fade-in"
-                                            style={{ objectPosition: '50% 75%' }}
+                                            style={{ objectPosition: car.imagePosition || '50% 75%' }}
                                             src={activeImage || car.coverImage || (car.images && car.images[0])}
                                         />
                                     </div>
@@ -129,7 +129,7 @@ const CarDetail = () => {
                                                 src={img}
                                                 alt={`${car.name} view ${index + 2}`}
                                                 className={`object-cover w-full h-full transition duration-300 ${isLast && remainingCount > 0 ? 'blur-sm' : ''}`}
-                                                style={{ objectPosition: '50% 75%' }}
+                                                style={{ objectPosition: car.imagePosition || '50% 75%' }}
                                             />
                                         </div>
 
