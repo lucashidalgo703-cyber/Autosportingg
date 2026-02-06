@@ -14,6 +14,7 @@ const AdminPanel = () => {
         price: '',
         currency: '$',
         featured: false,
+        imagePosition: '50% 75%',
     });
 
     const [files, setFiles] = useState([]);
@@ -51,6 +52,7 @@ const AdminPanel = () => {
             price: car.price,
             currency: car.currency,
             featured: car.featured,
+            imagePosition: car.imagePosition || '50% 75%',
         });
 
         // Prepare files for preview
@@ -96,6 +98,7 @@ const AdminPanel = () => {
             data.append('price', formData.price);
             data.append('currency', formData.currency);
             data.append('featured', formData.featured);
+            data.append('imagePosition', formData.imagePosition);
 
             // Separate new files and calculate order
             const newFiles = files.filter(f => !f.isExisting);
@@ -457,6 +460,23 @@ const AdminPanel = () => {
                                     </select>
                                 </div>
                             </div>
+
+                            {/* New Row: Image Position */}
+                            <div className="pt-2">
+                                <label className="text-[10px] font-bold uppercase tracking-widest text-gray-600">Image Alignment</label>
+                                <select
+                                    name="imagePosition"
+                                    value={formData.imagePosition}
+                                    onChange={handleChange}
+                                    className="w-full bg-transparent border-b border-zinc-800 py-3 text-white focus:border-white outline-none cursor-pointer appearance-none"
+                                >
+                                    <option value="50% 75%" className="bg-[#1a1a1a]">Default (Bottom Focus)</option>
+                                    <option value="center" className="bg-[#1a1a1a]">Center (Middle)</option>
+                                    <option value="top" className="bg-[#1a1a1a]">Top</option>
+                                    <option value="bottom" className="bg-[#1a1a1a]">Bottom</option>
+                                </select>
+                            </div>
+
                         </div>
 
                         {/* 3. Toggles */}

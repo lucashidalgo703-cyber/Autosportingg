@@ -85,7 +85,7 @@ app.post('/api/cars', upload.array('images', 20), async (req, res) => {
 // PUT update car
 app.put('/api/cars/:id', upload.array('images', 20), async (req, res) => {
     try {
-        const { brand, name, year, km, fuel, condition, price, currency, featured, sold, imageOrder } = req.body;
+        const { brand, name, year, km, fuel, condition, price, currency, featured, sold, imageOrder, imagePosition } = req.body;
 
         const car = await Car.findById(req.params.id);
         if (!car) return res.status(404).json({ message: 'Car not found' });
@@ -137,6 +137,7 @@ app.put('/api/cars/:id', upload.array('images', 20), async (req, res) => {
         car.km = km !== undefined ? Number(km) : car.km;
         car.fuel = fuel || car.fuel;
         car.condition = condition || car.condition;
+        car.imagePosition = imagePosition || car.imagePosition;
         car.price = price !== undefined ? Number(price) : car.price;
         car.currency = currency || car.currency;
         car.featured = featured === 'true';

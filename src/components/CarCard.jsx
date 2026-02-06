@@ -9,6 +9,7 @@ const CarCard = ({ car }) => {
           src={car.coverImage || (car.images && car.images[0]) || car.image}
           alt={car.name}
           className="card-image"
+          style={{ objectPosition: car.imagePosition || '50% 75%' }}
         />
       </div>
 
@@ -64,7 +65,8 @@ const CarCard = ({ car }) => {
                     width: 100%;
                     height: 100%;
                     object-fit: cover; /* Fills the square completely */
-                    object-position: 50% 75%; /* Reference site value */
+                    object-fit: cover; /* Fills the square completely */
+                    /* object-position handled inline */
                     transition: transform 0.5s ease;
                 }
 
