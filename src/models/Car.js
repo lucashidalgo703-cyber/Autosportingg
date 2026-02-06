@@ -7,6 +7,7 @@ const carSchema = new mongoose.Schema({
     km: { type: Number, required: true },
     fuel: { type: String, required: true },
     condition: { type: String, required: true },
+    description: { type: String }, // Free text description
     price: { type: Number, required: true },
     currency: { type: String, required: true }, // '$' or 'U$S'
     featured: { type: Boolean, default: false },

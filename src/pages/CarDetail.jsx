@@ -178,6 +178,13 @@ const CarDetail = () => {
                         </div>
                     </div>
 
+                    {car.description && (
+                        <div className="car-description">
+                            <h3>Sobre este vehículo</h3>
+                            <p>{car.description}</p>
+                        </div>
+                    )}
+
                     <button className="btn btn-primary full-width">
                         Consultar por WhatsApp
                     </button>
@@ -467,6 +474,25 @@ const CarDetail = () => {
                     justify-content: center;
                     font-size: 1.1rem;
                     padding: 1rem;
+                }
+
+                .car-description {
+                    margin-bottom: 2rem;
+                    padding-bottom: 2rem;
+                    border-bottom: 1px solid #333;
+                }
+
+                .car-description h3 {
+                    font-size: 1.2rem;
+                    font-weight: 700;
+                    margin-bottom: 1rem;
+                    color: white;
+                }
+
+                .car-description p {
+                    color: #ccc;
+                    line-height: 1.6;
+                    white-space: pre-wrap; /* Preserve line breaks */
                 }
 
                 .legal-text {
