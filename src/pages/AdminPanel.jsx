@@ -647,8 +647,9 @@ const AdminPanel = () => {
         @keyframes scale-in { from { transform: scale(0.95); opacity: 0; } to { transform: scale(1); opacity: 1; } }
       `}</style>
 
-            </div >
-            );
+            </div>
+        </div>
+    );
 };
 
-            export default AdminPanel;
+export default AdminPanel;
