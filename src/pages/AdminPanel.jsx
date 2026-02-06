@@ -424,6 +424,39 @@ const AdminPanel = () => {
                                     </div>
                                 </div>
                             </div>
+
+
+                            {/* New Row: Condition & Fuel */}
+                            <div className="grid grid-cols-2 gap-6 pt-2">
+                                <div className="space-y-1.5">
+                                    <label className="text-[10px] font-bold uppercase tracking-widest text-gray-600">Condition</label>
+                                    <select
+                                        name="condition"
+                                        value={formData.condition}
+                                        onChange={handleChange}
+                                        className="w-full bg-transparent border-b border-zinc-800 py-3 text-white focus:border-white outline-none cursor-pointer appearance-none"
+                                    >
+                                        <option value="Usado" className="bg-[#1a1a1a]">Usado</option>
+                                        <option value="Nuevo" className="bg-[#1a1a1a]">Nuevo</option>
+                                        <option value="0km" className="bg-[#1a1a1a]">0km</option>
+                                    </select>
+                                </div>
+                                <div className="space-y-1.5">
+                                    <label className="text-[10px] font-bold uppercase tracking-widest text-gray-600">Fuel Type</label>
+                                    <select
+                                        name="fuel"
+                                        value={formData.fuel}
+                                        onChange={handleChange}
+                                        className="w-full bg-transparent border-b border-zinc-800 py-3 text-white focus:border-white outline-none cursor-pointer appearance-none"
+                                    >
+                                        <option value="Nafta" className="bg-[#1a1a1a]">Nafta</option>
+                                        <option value="Diesel" className="bg-[#1a1a1a]">Diesel</option>
+                                        <option value="Híbrido" className="bg-[#1a1a1a]">Híbrido</option>
+                                        <option value="Eléctrico" className="bg-[#1a1a1a]">Eléctrico</option>
+                                        <option value="GNC" className="bg-[#1a1a1a]">GNC</option>
+                                    </select>
+                                </div>
+                            </div>
                         </div>
 
                         {/* 3. Toggles */}
@@ -458,114 +491,118 @@ const AdminPanel = () => {
                             </button>
                         </div>
 
-                    </div>
+                    </div >
                 )}
 
                 {/* VIEW: MANAGE */}
-                {view === 'manage' && (
-                    <div className="space-y-4 animate-in fade-in duration-300">
-                        {cars.length === 0 ? (
-                            <p className="text-center text-gray-500 py-12">No vehicles found in database.</p>
-                        ) : (
-                            cars.map((car) => (
-                                <div key={car._id} className="bg-zinc-900/40 p-4 rounded-2xl flex items-center justify-between border border-white/5 hover:border-white/10 transition-colors">
-                                    <div className="flex items-center gap-6">
-                                        <div className="relative group">
-                                            <div className="w-[120px] h-[90px] rounded-xl bg-zinc-800 overflow-hidden relative shadow-lg">
-                                                {car.coverImage || (car.images && car.images[0]) ? (
-                                                    <img
-                                                        src={car.coverImage || car.images[0]}
-                                                        className="w-full h-full object-cover"
-                                                    />
-                                                ) : (
-                                                    <div className="w-full h-full flex items-center justify-center text-xs text-zinc-600">No img</div>
-                                                )}
+                {
+                    view === 'manage' && (
+                        <div className="space-y-4 animate-in fade-in duration-300">
+                            {cars.length === 0 ? (
+                                <p className="text-center text-gray-500 py-12">No vehicles found in database.</p>
+                            ) : (
+                                cars.map((car) => (
+                                    <div key={car._id} className="bg-zinc-900/40 p-4 rounded-2xl flex items-center justify-between border border-white/5 hover:border-white/10 transition-colors">
+                                        <div className="flex items-center gap-6">
+                                            <div className="relative group">
+                                                <div className="w-[120px] h-[90px] rounded-xl bg-zinc-800 overflow-hidden relative shadow-lg">
+                                                    {car.coverImage || (car.images && car.images[0]) ? (
+                                                        <img
+                                                            src={car.coverImage || car.images[0]}
+                                                            className="w-full h-full object-cover"
+                                                        />
+                                                    ) : (
+                                                        <div className="w-full h-full flex items-center justify-center text-xs text-zinc-600">No img</div>
+                                                    )}
+                                                </div>
+                                            </div>
+
+                                            <div>
+                                                <h3 className="font-bold text-white text-xl mb-1">{car.brand} {car.name}</h3>
+                                                <p className="text-sm text-gray-500 uppercase tracking-wider font-mono">{car.year} • {car.fuel}</p>
                                             </div>
                                         </div>
-
-                                        <div>
-                                            <h3 className="font-bold text-white text-xl mb-1">{car.brand} {car.name}</h3>
-                                            <p className="text-sm text-gray-500 uppercase tracking-wider font-mono">{car.year} • {car.fuel}</p>
-                                        </div>
-                                    </div>
-                                    {/* Edit & Delete Actions */}
-                                    <div className="flex items-center gap-2">
-                                        {/* Edit Button */}
-                                        <button
-                                            onClick={(e) => { e.stopPropagation(); handleEdit(car); }}
-                                            className="bg-zinc-800 hover:bg-zinc-700 text-white p-2 rounded-xl transition-colors"
-                                            title="Edit Vehicle"
-                                        >
-                                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"></path></svg>
-                                        </button>
-
-                                        {/* Delete / Confirmation */}
-                                        {deleteConfirm === car._id ? (
-                                            <div className="flex items-center gap-2 animate-in fade-in slide-in-from-right-2 duration-200">
-                                                <button
-                                                    onClick={(e) => { e.stopPropagation(); handleDelete(car._id); }}
-                                                    className="bg-red-600 text-white p-2 rounded-full hover:bg-red-700 shadow-lg"
-                                                    title="Confirm Delete"
-                                                >
-                                                    <Check size={16} />
-                                                </button>
-                                                <button
-                                                    onClick={(e) => { e.stopPropagation(); setDeleteConfirm(null); }}
-                                                    className="bg-zinc-700 text-white p-2 rounded-full hover:bg-zinc-600 shadow-lg"
-                                                    title="Cancel"
-                                                >
-                                                    <X size={16} />
-                                                </button>
-                                            </div>
-                                        ) : (
+                                        {/* Edit & Delete Actions */}
+                                        <div className="flex items-center gap-2">
+                                            {/* Edit Button */}
                                             <button
-                                                onClick={(e) => { e.stopPropagation(); setDeleteConfirm(car._id); }}
-                                                className="bg-red-500/10 hover:bg-red-500/20 text-red-500 p-2 rounded-xl transition-colors"
-                                                title="Delete Vehicle"
+                                                onClick={(e) => { e.stopPropagation(); handleEdit(car); }}
+                                                className="bg-zinc-800 hover:bg-zinc-700 text-white p-2 rounded-xl transition-colors"
+                                                title="Edit Vehicle"
                                             >
-                                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18"></path><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"></path><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"></path></svg>
+                                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"></path></svg>
                                             </button>
-                                        )}
-                                    </div>
-                                </div>
-                            ))
-                        )}
-                    </div>
-                )}
 
-            </div>
+                                            {/* Delete / Confirmation */}
+                                            {deleteConfirm === car._id ? (
+                                                <div className="flex items-center gap-2 animate-in fade-in slide-in-from-right-2 duration-200">
+                                                    <button
+                                                        onClick={(e) => { e.stopPropagation(); handleDelete(car._id); }}
+                                                        className="bg-red-600 text-white p-2 rounded-full hover:bg-red-700 shadow-lg"
+                                                        title="Confirm Delete"
+                                                    >
+                                                        <Check size={16} />
+                                                    </button>
+                                                    <button
+                                                        onClick={(e) => { e.stopPropagation(); setDeleteConfirm(null); }}
+                                                        className="bg-zinc-700 text-white p-2 rounded-full hover:bg-zinc-600 shadow-lg"
+                                                        title="Cancel"
+                                                    >
+                                                        <X size={16} />
+                                                    </button>
+                                                </div>
+                                            ) : (
+                                                <button
+                                                    onClick={(e) => { e.stopPropagation(); setDeleteConfirm(car._id); }}
+                                                    className="bg-red-500/10 hover:bg-red-500/20 text-red-500 p-2 rounded-xl transition-colors"
+                                                    title="Delete Vehicle"
+                                                >
+                                                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18"></path><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"></path><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"></path></svg>
+                                                </button>
+                                            )}
+                                        </div>
+                                    </div>
+                                ))
+                            )}
+                        </div>
+                    )
+                }
+
+            </div >
 
             {/* SUCCESS MODAL */}
-            {showModal && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center p-6 backdrop-blur-xl bg-black/80 animate-in fade-in duration-300">
-                    <div className="bg-[#111] max-w-2xl w-full rounded-3xl border border-white/10 shadow-2xl overflow-hidden scale-in-center animate-in zoom-in-95 duration-300">
+            {
+                showModal && (
+                    <div className="fixed inset-0 z-50 flex items-center justify-center p-6 backdrop-blur-xl bg-black/80 animate-in fade-in duration-300">
+                        <div className="bg-[#111] max-w-2xl w-full rounded-3xl border border-white/10 shadow-2xl overflow-hidden scale-in-center animate-in zoom-in-95 duration-300">
 
-                        {/* Modal Header */}
-                        <div className="bg-gradient-to-r from-green-500/10 to-transparent p-8 border-b border-white/5 flex justify-between items-start">
-                            <div>
-                                <div className="w-12 h-12 bg-green-500/20 rounded-full flex items-center justify-center text-green-500 mb-4">
-                                    <Check size={24} />
+                            {/* Modal Header */}
+                            <div className="bg-gradient-to-r from-green-500/10 to-transparent p-8 border-b border-white/5 flex justify-between items-start">
+                                <div>
+                                    <div className="w-12 h-12 bg-green-500/20 rounded-full flex items-center justify-center text-green-500 mb-4">
+                                        <Check size={24} />
+                                    </div>
+                                    <h2 className="text-2xl font-bold text-white mb-1">{editingId ? 'Vehicle Updated' : 'Vehicle Uploaded'}</h2>
+                                    <p className="text-gray-400 text-sm">
+                                        Successfully {editingId ? 'updated' : 'added'} <span className="text-white">{formData.brand} {formData.name}</span> in the database.
+                                    </p>
                                 </div>
-                                <h2 className="text-2xl font-bold text-white mb-1">{editingId ? 'Vehicle Updated' : 'Vehicle Uploaded'}</h2>
-                                <p className="text-gray-400 text-sm">
-                                    Successfully {editingId ? 'updated' : 'added'} <span className="text-white">{formData.brand} {formData.name}</span> in the database.
-                                </p>
+                                <button onClick={() => {
+                                    setShowModal(false);
+                                    if (editingId) handleCancelEdit(); // Reset after edit success
+                                }} className="text-gray-500 hover:text-white transition-colors p-2 hover:bg-white/5 rounded-full">
+                                    <X size={24} />
+                                </button>
                             </div>
-                            <button onClick={() => {
-                                setShowModal(false);
-                                if (editingId) handleCancelEdit(); // Reset after edit success
-                            }} className="text-gray-500 hover:text-white transition-colors p-2 hover:bg-white/5 rounded-full">
-                                <X size={24} />
-                            </button>
-                        </div>
 
-                        {/* Modal Footer */}
-                        <div className="p-4 bg-zinc-900/50 border-t border-white/5 text-center">
-                            <p className="text-xs text-gray-600">Clicking 'Close' will let you add another vehicle.</p>
+                            {/* Modal Footer */}
+                            <div className="p-4 bg-zinc-900/50 border-t border-white/5 text-center">
+                                <p className="text-xs text-gray-600">Clicking 'Close' will let you add another vehicle.</p>
+                            </div>
                         </div>
                     </div>
-                </div>
-            )}
+                )
+            }
 
             <style>{`
         .no-scrollbar::-webkit-scrollbar { display: none; }
@@ -574,7 +611,7 @@ const AdminPanel = () => {
         @keyframes scale-in { from { transform: scale(0.95); opacity: 0; } to { transform: scale(1); opacity: 1; } }
       `}</style>
 
-        </div>
+        </div >
     );
 };
 
