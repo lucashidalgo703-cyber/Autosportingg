@@ -22,10 +22,13 @@ const AdminPanel = () => {
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [view, setView] = useState('create');
     const [deleteConfirm, setDeleteConfirm] = useState(null);
+    const [editingId, setEditingId] = useState(null); // ID of car being edited
 
     // Clean up previews on unmount
     useEffect(() => {
-        return () => files.forEach(file => URL.revokeObjectURL(file.preview));
+        return () => files.forEach(file => {
+            if (file.preview && !file.isExisting) URL.revokeObjectURL(file.preview);
+        });
     }, [files]);
 
     const handleChange = (e) => {
@@ -36,7 +39,49 @@ const AdminPanel = () => {
         }));
     };
 
-    const handleCreate = async () => {
+    const handleEdit = (car) => {
+        setEditingId(car._id);
+        setFormData({
+            brand: car.brand,
+            name: car.name,
+            year: car.year,
+            km: car.km,
+            fuel: car.fuel,
+            condition: car.condition,
+            price: car.price,
+            currency: car.currency,
+            featured: car.featured,
+        });
+
+        // Prepare files for preview
+        const existingFiles = (car.images || []).map(url => ({
+            preview: url,
+            isExisting: true,
+            url: url
+        }));
+        setFiles(existingFiles);
+
+        setView('create'); // Switch to form view
+    };
+
+    const handleCancelEdit = () => {
+        setEditingId(null);
+        setFormData({
+            brand: '',
+            name: '',
+            year: new Date().getFullYear(),
+            km: 0,
+            fuel: 'Nafta',
+            condition: 'Usado',
+            price: '',
+            currency: '$',
+            featured: false,
+        });
+        setFiles([]);
+        setView('manage');
+    };
+
+    const handleSubmit = async () => {
         if (!formData.brand || !formData.name) return;
         setIsSubmitting(true);
 
@@ -52,42 +97,70 @@ const AdminPanel = () => {
             data.append('currency', formData.currency);
             data.append('featured', formData.featured);
 
-            // Append images
-            files.forEach(file => {
+            // Separate new files and calculate order
+            const newFiles = files.filter(f => !f.isExisting);
+
+            // Construct imageOrder
+            let newFileIndex = 0;
+            const imageOrder = files.map(f => {
+                if (f.isExisting) return f.url;
+                else {
+                    const placeholder = `__new__${newFileIndex}`;
+                    newFileIndex++;
+                    return placeholder;
+                }
+            });
+
+            // Append new images
+            newFiles.forEach(file => {
                 data.append('images', file);
             });
 
+            // Send order if editing (or if we want to support reordering on create too, but logic is mostly for edit/update mixed)
+            if (editingId) {
+                data.append('imageOrder', JSON.stringify(imageOrder));
+            }
+
             const API_URL = import.meta.env.VITE_API_URL;
-            // If API_URL is '/', requests will be relative (e.g. /api/cars). 
-            // If it's undefined (local without env), fallback to localhost.
             const baseUrl = API_URL || 'http://localhost:3001';
+            const endpointBase = baseUrl === '/' ? '/api/cars' : `${baseUrl}/api/cars`;
 
-            // Handle the case where API_URL is '/' explicitly to avoid double slashes if needed, 
-            // but fetch handles `${baseUrl}/api/cars` fine if baseUrl is / -> //api/cars is valid or just /api/cars.
-            // Let's ensure cleaner path construction.
-            const endpoint = baseUrl === '/' ? '/api/cars' : `${baseUrl}/api/cars`;
+            let url = endpointBase;
+            let method = 'POST';
 
-            const res = await fetch(endpoint, {
-                method: 'POST',
-                body: data // No headers needed, browser sets multipart/form-data automatically
+            if (editingId) {
+                url = `${endpointBase}/${editingId}`;
+                method = 'PUT';
+            }
+
+            const res = await fetch(url, {
+                method: method,
+                body: data
             });
 
             if (!res.ok) {
                 const errorData = await res.json();
-                throw new Error(errorData.message || 'Error creating vehicle');
+                throw new Error(errorData.message || 'Error saving vehicle');
             }
 
             // Success
             setShowModal(true);
             refreshCars(); // Reload list
 
-            // Reset Form
-            setFiles([]);
-            setFormData(prev => ({ ...prev, name: '', price: '', year: new Date().getFullYear(), km: 0, featured: false }));
+            // Reset Form if creating, or switch back if editing?
+            // Usually nice to reset.
+            if (!editingId) {
+                setFiles([]);
+                setFormData(prev => ({ ...prev, name: '', price: '', year: new Date().getFullYear(), km: 0, featured: false }));
+            } else {
+                // If editing, maybe go back to manage or just say success?
+                // Let's stay in form but reset editingId to allow new creation?
+                // Or just wait for user to close modal.
+            }
 
         } catch (error) {
-            console.error('Error creating vehicle:', error);
-            alert('Error creating vehicle: ' + error.message);
+            console.error('Error saving vehicle:', error);
+            alert('Error saving vehicle: ' + error.message);
         } finally {
             setIsSubmitting(false);
         }
@@ -150,10 +223,10 @@ const AdminPanel = () => {
 
                     <div className="inline-flex bg-carbon rounded-full p-1 border border-white/5">
                         <button
-                            onClick={() => setView('create')}
+                            onClick={() => { setView('create'); if (editingId) handleCancelEdit(); }}
                             className={`px-6 py-2 rounded-full text-sm font-medium transition-all ${view === 'create' ? 'bg-white text-black shadow-lg' : 'text-gray-400 hover:text-white'}`}
                         >
-                            Create New
+                            {editingId ? 'Edit Mode' : 'Create New'}
                         </button>
                         <button
                             onClick={() => setView('manage')}
@@ -366,7 +439,7 @@ const AdminPanel = () => {
                         {/* 4. Action */}
                         <div className="pt-8">
                             <button
-                                onClick={handleCreate}
+                                onClick={handleSubmit}
                                 disabled={!formData.brand || !formData.name || isSubmitting}
                                 className={`
                         w-full py-5 rounded-full font-medium text-lg tracking-wide transition-all duration-300 transform flex items-center justify-center gap-2
@@ -377,10 +450,10 @@ const AdminPanel = () => {
                             >
                                 {isSubmitting ? (
                                     <>
-                                        <Loader2 className="animate-spin" /> Uploading Vehicle...
+                                        <Loader2 className="animate-spin" /> {editingId ? 'Updating Vehicle...' : 'Uploading Vehicle...'}
                                     </>
                                 ) : (
-                                    'Create Vehicle'
+                                    editingId ? 'Update Vehicle' : 'Create Vehicle'
                                 )}
                             </button>
                         </div>
@@ -415,33 +488,45 @@ const AdminPanel = () => {
                                             <p className="text-sm text-gray-500 uppercase tracking-wider font-mono">{car.year} • {car.fuel}</p>
                                         </div>
                                     </div>
-                                    {/* Delete / Confirmation */}
-                                    {deleteConfirm === car._id ? (
-                                        <div className="flex items-center gap-2 animate-in fade-in slide-in-from-right-2 duration-200">
-                                            <button
-                                                onClick={(e) => { e.stopPropagation(); handleDelete(car._id); }}
-                                                className="bg-red-600 text-white p-2 rounded-full hover:bg-red-700 shadow-lg"
-                                                title="Confirm Delete"
-                                            >
-                                                <Check size={16} />
-                                            </button>
-                                            <button
-                                                onClick={(e) => { e.stopPropagation(); setDeleteConfirm(null); }}
-                                                className="bg-zinc-700 text-white p-2 rounded-full hover:bg-zinc-600 shadow-lg"
-                                                title="Cancel"
-                                            >
-                                                <X size={16} />
-                                            </button>
-                                        </div>
-                                    ) : (
+                                    {/* Edit & Delete Actions */}
+                                    <div className="flex items-center gap-2">
+                                        {/* Edit Button */}
                                         <button
-                                            onClick={(e) => { e.stopPropagation(); setDeleteConfirm(car._id); }}
-                                            className="bg-red-500/10 hover:bg-red-500/20 text-red-500 px-4 py-2 rounded-xl text-xs font-bold transition-colors"
-                                            title="Delete Vehicle"
+                                            onClick={(e) => { e.stopPropagation(); handleEdit(car); }}
+                                            className="bg-zinc-800 hover:bg-zinc-700 text-white p-2 rounded-xl transition-colors"
+                                            title="Edit Vehicle"
                                         >
-                                            Delete
+                                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"></path></svg>
                                         </button>
-                                    )}
+
+                                        {/* Delete / Confirmation */}
+                                        {deleteConfirm === car._id ? (
+                                            <div className="flex items-center gap-2 animate-in fade-in slide-in-from-right-2 duration-200">
+                                                <button
+                                                    onClick={(e) => { e.stopPropagation(); handleDelete(car._id); }}
+                                                    className="bg-red-600 text-white p-2 rounded-full hover:bg-red-700 shadow-lg"
+                                                    title="Confirm Delete"
+                                                >
+                                                    <Check size={16} />
+                                                </button>
+                                                <button
+                                                    onClick={(e) => { e.stopPropagation(); setDeleteConfirm(null); }}
+                                                    className="bg-zinc-700 text-white p-2 rounded-full hover:bg-zinc-600 shadow-lg"
+                                                    title="Cancel"
+                                                >
+                                                    <X size={16} />
+                                                </button>
+                                            </div>
+                                        ) : (
+                                            <button
+                                                onClick={(e) => { e.stopPropagation(); setDeleteConfirm(car._id); }}
+                                                className="bg-red-500/10 hover:bg-red-500/20 text-red-500 p-2 rounded-xl transition-colors"
+                                                title="Delete Vehicle"
+                                            >
+                                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18"></path><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"></path><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"></path></svg>
+                                            </button>
+                                        )}
+                                    </div>
                                 </div>
                             ))
                         )}
@@ -461,12 +546,15 @@ const AdminPanel = () => {
                                 <div className="w-12 h-12 bg-green-500/20 rounded-full flex items-center justify-center text-green-500 mb-4">
                                     <Check size={24} />
                                 </div>
-                                <h2 className="text-2xl font-bold text-white mb-1">Vehicle Uploaded</h2>
+                                <h2 className="text-2xl font-bold text-white mb-1">{editingId ? 'Vehicle Updated' : 'Vehicle Uploaded'}</h2>
                                 <p className="text-gray-400 text-sm">
-                                    Successfully added <span className="text-white">{formData.brand} {formData.name}</span> to the cloud database.
+                                    Successfully {editingId ? 'updated' : 'added'} <span className="text-white">{formData.brand} {formData.name}</span> in the database.
                                 </p>
                             </div>
-                            <button onClick={() => setShowModal(false)} className="text-gray-500 hover:text-white transition-colors p-2 hover:bg-white/5 rounded-full">
+                            <button onClick={() => {
+                                setShowModal(false);
+                                if (editingId) handleCancelEdit(); // Reset after edit success
+                            }} className="text-gray-500 hover:text-white transition-colors p-2 hover:bg-white/5 rounded-full">
                                 <X size={24} />
                             </button>
                         </div>
