@@ -36,6 +36,17 @@ const SmartFilters = ({ filters, onFilterChange, brands = [], years = [] }) => {
 
         <select
           className="filter-select"
+          name="condition"
+          value={filters.condition}
+          onChange={handleChange}
+        >
+          <option value="">Cualquier Condición</option>
+          <option value="Nuevo">Nuevo</option>
+          <option value="Usado">Usado</option>
+        </select>
+
+        <select
+          className="filter-select"
           name="year"
           value={filters.year}
           onChange={handleChange}

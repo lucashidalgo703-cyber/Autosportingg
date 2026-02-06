@@ -8,12 +8,13 @@ const Catalog = () => {
     const [filters, setFilters] = useState({
         search: '',
         brand: '',
-        year: ''
+        year: '',
+        condition: ''
     });
 
     const handleFilterChange = (name, value) => {
         if (name === 'reset') {
-            setFilters({ search: '', brand: '', year: '' });
+            setFilters({ search: '', brand: '', year: '', condition: '' });
         } else {
             setFilters(prev => ({
                 ...prev,
@@ -38,8 +39,9 @@ const Catalog = () => {
                 car.brand.toLowerCase().includes(filters.search.toLowerCase());
             const matchesBrand = filters.brand === '' || car.brand === filters.brand;
             const matchesYear = filters.year === '' || car.year.toString() === filters.year;
+            const matchesCondition = filters.condition === '' || car.condition === filters.condition;
 
-            return matchesSearch && matchesBrand && matchesYear;
+            return matchesSearch && matchesBrand && matchesYear && matchesCondition;
         });
     }, [filters, cars]);
 
