@@ -39,7 +39,13 @@ const Catalog = () => {
                 car.brand.toLowerCase().includes(filters.search.toLowerCase());
             const matchesBrand = filters.brand === '' || car.brand === filters.brand;
             const matchesYear = filters.year === '' || car.year.toString() === filters.year;
-            const matchesCondition = filters.condition === '' || car.condition === filters.condition;
+
+            let matchesCondition = true;
+            if (filters.condition === 'Nuevo') {
+                matchesCondition = car.condition === 'Nuevo' || car.condition === '0km';
+            } else if (filters.condition !== '') {
+                matchesCondition = car.condition === filters.condition;
+            }
 
             return matchesSearch && matchesBrand && matchesYear && matchesCondition;
         });
