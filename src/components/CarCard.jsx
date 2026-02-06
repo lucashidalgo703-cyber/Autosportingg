@@ -64,7 +64,7 @@ const CarCard = ({ car }) => {
                     width: 100%;
                     height: 100%;
                     object-fit: cover; /* Fills the square completely */
-                    object-position: 50% 75%; /* Reference site value */
+                    object-position: center; /* Center the image */
                     transition: transform 0.5s ease;
                 }
 
