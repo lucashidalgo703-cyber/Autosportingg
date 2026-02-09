@@ -17,3 +17,4 @@ If you are developing a production application, we recommend using TypeScript wi
 
 # Autosportingg Project (Stable)
 > Deployment Trigger: Verified Rollback to Feb 4th state.
+> Manual Deployment Trigger: Feb 9th - Authentication Update.
