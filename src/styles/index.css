@@ -42,13 +42,13 @@ body {
   /* Option B: Modern Abstract / "Aurora" Grid */
   background-color: #000000 !important;
   background-image:
-    /* Primary Red hint (top-left) */
-    radial-gradient(circle at 0% 0%, rgba(235, 38, 40, 0.08) 0%, transparent 50%),
-    /* Cooling blue-ish hint (bottom-right) */
-    radial-gradient(circle at 100% 100%, rgba(40, 40, 50, 0.2) 0%, transparent 50%),
-    /* Grid Overlay */
-    linear-gradient(rgba(255, 255, 255, 0.03) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(255, 255, 255, 0.03) 1px, transparent 1px) !important;
+    /* Primary Red hint (top-left) - INCREASED OPACITY */
+    radial-gradient(circle at 0% 0%, rgba(235, 38, 40, 0.15) 0%, transparent 50%),
+    /* Cooling blue-ish hint (bottom-right) - INCREASED OPACITY */
+    radial-gradient(circle at 100% 100%, rgba(40, 40, 50, 0.3) 0%, transparent 50%),
+    /* Grid Overlay - INCREASED OPACITY */
+    linear-gradient(rgba(255, 255, 255, 0.07) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.07) 1px, transparent 1px) !important;
   background-size: 100% 100%, 100% 100%, 40px 40px, 40px 40px !important;
   background-attachment: fixed !important;
   min-height: 100vh;
