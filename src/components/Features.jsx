@@ -37,23 +37,13 @@ const Features = () => {
       <style>{`
         .features-section {
           padding: 6rem 0;
-          background: linear-gradient(180deg, #111 0%, #0a0a0a 100%);
+          background: transparent; /* Let global pattern show */
           position: relative;
-          overflow: hidden;
         }
         
-        /* Subtle texture overlay */
+        /* Remove texture overlay since global has it */
         .features-section::before {
-            content: '';
-            position: absolute;
-            top: 0; left: 0; right: 0; bottom: 0;
-            background-image: 
-                radial-gradient(circle at 50% 50%, rgba(235, 38, 40, 0.03) 0%, transparent 50%),
-                linear-gradient(45deg, rgba(255,255,255,0.02) 25%, transparent 25%, transparent 75%, rgba(255,255,255,0.02) 75%, rgba(255,255,255,0.02)),
-                linear-gradient(-45deg, rgba(255,255,255,0.02) 25%, transparent 25%, transparent 75%, rgba(255,255,255,0.02) 75%, rgba(255,255,255,0.02));
-            background-size: 100% 100%, 20px 20px, 20px 20px;
-            opacity: 0.5;
-            pointer-events: none;
+            display: none;
         }
 
         .features-grid {
@@ -65,18 +55,14 @@ const Features = () => {
         }
 
         .feature-card {
-          /* Carbon Texture */
-          background-color: #0c0c0c;
-          background-image: 
-            linear-gradient(45deg, rgba(255, 255, 255, 0.03) 25%, transparent 25%, transparent 75%, rgba(255, 255, 255, 0.03) 75%, rgba(255, 255, 255, 0.03)),
-            linear-gradient(45deg, rgba(255, 255, 255, 0.03) 25%, transparent 25%, transparent 75%, rgba(255, 255, 255, 0.03) 75%, rgba(255, 255, 255, 0.03));
-          background-size: 6px 6px;
-          background-position: 0 0, 3px 3px;
-          
-          backdrop-filter: blur(10px);
+          /* Glassmorphism */
+          background: rgba(15, 15, 15, 0.4); /* Semi-transparent dark */
+          backdrop-filter: blur(12px);
+          -webkit-backdrop-filter: blur(12px);
           padding: 2.5rem;
           border-radius: 16px;
-          border: 1px solid rgba(255, 255, 255, 0.05);
+          border: 1px solid rgba(255, 255, 255, 0.08);
+          box-shadow: 0 4px 30px rgba(0, 0, 0, 0.1);
           text-align: center;
           transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
           display: flex;
@@ -86,15 +72,15 @@ const Features = () => {
 
         .feature-card:hover {
           transform: translateY(-10px);
-          background-color: #111; /* Slightly lighter on hover */
+          background: rgba(25, 25, 25, 0.6);
           border-color: var(--color-primary);
-          box-shadow: 0 20px 40px -10px rgba(235, 38, 40, 0.15); /* Red glow match */
+          box-shadow: 0 20px 40px -10px rgba(235, 38, 40, 0.15);
         }
 
         .icon-wrapper {
           width: 70px;
           height: 70px;
-          background: linear-gradient(135deg, var(--color-surface) 0%, #000 100%);
+          background: rgba(255,255,255,0.03);
           border-radius: 50%;
           display: flex;
           align-items: center;

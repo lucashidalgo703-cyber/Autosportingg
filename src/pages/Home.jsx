@@ -28,8 +28,7 @@ const Home = () => {
 
       <Features />
 
-      <section className="trust-banner bg-dark-gradient">
-        <div className="trust-overlay"></div>
+      <section className="trust-banner">
         <div className="container trust-content">
           <h2>Confianza y Experiencia</h2>
           <div className="trust-stats">
@@ -52,61 +51,19 @@ const Home = () => {
           padding-top: 5rem;
           padding-bottom: 5rem;
         }
-
-        .section-header {
-          display: flex;
-          justify-content: space-between;
-          align-items: end;
-          margin-bottom: 3rem;
-        }
-
-        .section-header h2 {
-          font-size: 2.5rem;
-          font-weight: 700;
-          color: white;
-        }
-
-        .view-all-link {
-          color: var(--color-primary);
-          font-weight: 600;
-          font-size: 1.1rem;
-          transition: color 0.2s;
-        }
-
-        .view-all-link:hover {
-          color: white;
-        }
-
-        .cars-grid {
-          display: grid;
-          grid-template-columns: 1fr;
-          gap: 2rem;
-        }
-
-        @media (min-width: 640px) {
-          .cars-grid {
-            grid-template-columns: repeat(2, 1fr);
-          }
-        }
-
-        @media (min-width: 1024px) {
-          .cars-grid {
-            grid-template-columns: repeat(4, 1fr); /* 4 columns to make them smaller */
-          }
-        }
-
+        /* ... existing styles ... */
+        
         /* Trust Banner Styles */
         .trust-banner {
             position: relative;
             padding: 8rem 0;
             margin-bottom: 5rem;
             text-align: center;
-        }
-        
-        .trust-overlay {
-            position: absolute;
-            inset: 0;
-            background-color: rgba(0,0,0,0.8);
+            /* Glassmorphism for banner */
+            background: rgba(10, 10, 10, 0.3);
+            backdrop-filter: blur(8px);
+            border-top: 1px solid rgba(255,255,255,0.05);
+            border-bottom: 1px solid rgba(255,255,255,0.05);
         }
 
         .trust-content {
