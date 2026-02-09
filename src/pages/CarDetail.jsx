@@ -185,9 +185,15 @@ const CarDetail = () => {
                         </div>
                     )}
 
-                    <button className="btn btn-primary full-width">
+                    <a
+                        href={`https://wa.me/5492974938642?text=${encodeURIComponent(`Hola AutoSporting, estoy interesado en el ${car.brand} ${car.name} ${car.year}`)}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="btn btn-primary full-width"
+                        style={{ textDecoration: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                    >
                         Consultar por WhatsApp
-                    </button>
+                    </a>
 
                     <div className="legal-text">
                         <p>* Consulte por financiación.</p>
