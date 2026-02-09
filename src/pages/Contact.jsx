@@ -124,7 +124,8 @@ const Contact = () => {
                 .header-overlay {
                     position: absolute;
                     inset: 0;
-                    background: linear-gradient(180deg, rgba(0,0,0,0.6) 0%, rgba(0,0,0,0.9) 100%);
+                    /* background: linear-gradient(180deg, rgba(0,0,0,0.6) 0%, rgba(0,0,0,0.9) 100%); REMOVED for transparency */
+                    background: transparent;
                 }
 
                 .header-content {
