@@ -51,7 +51,48 @@ const Home = () => {
           padding-top: 5rem;
           padding-bottom: 5rem;
         }
-        /* ... existing styles ... */
+        
+        .section-header {
+          display: flex;
+          justify-content: space-between;
+          align-items: end;
+          margin-bottom: 3rem;
+        }
+
+        .section-header h2 {
+          font-size: 2.5rem;
+          font-weight: 700;
+          color: white;
+        }
+
+        .view-all-link {
+          color: var(--color-primary);
+          font-weight: 600;
+          font-size: 1.1rem;
+          transition: color 0.2s;
+        }
+
+        .view-all-link:hover {
+          color: white;
+        }
+
+        .cars-grid {
+          display: grid;
+          grid-template-columns: 1fr;
+          gap: 2rem;
+        }
+
+        @media (min-width: 640px) {
+          .cars-grid {
+            grid-template-columns: repeat(2, 1fr);
+          }
+        }
+
+        @media (min-width: 1024px) {
+          .cars-grid {
+            grid-template-columns: repeat(4, 1fr);
+          }
+        }
         
         /* Trust Banner Styles */
         .trust-banner {
