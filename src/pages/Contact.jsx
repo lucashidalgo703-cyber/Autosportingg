@@ -116,9 +116,8 @@ const Contact = () => {
                     height: 400px;
                     display: flex;
                     align-items: flex-start; /* Aligns to top, pushed down by padding */
-                    background-image: url('https://images.unsplash.com/photo-1560179707-f14e90ef3623?q=80&w=2673&auto=format&fit=crop');
-                    background-size: cover;
-                    background-position: center;
+                    /* background-image removed to show global background */
+                    border-bottom: 1px solid rgba(255,255,255,0.05);
                     margin-top: calc(var(--header-height) * -1);
                 }
 
