@@ -44,8 +44,8 @@ body {
     radial-gradient(circle at 50% 0%, rgba(30, 35, 45, 0.4) 0%, transparent 80%),
     /* Angled Lines Pattern */
     repeating-linear-gradient(45deg,
-      rgba(255, 255, 255, 0.03) 0px,
-      rgba(255, 255, 255, 0.03) 1px,
+      rgba(255, 255, 255, 0.06) 0px,
+      rgba(255, 255, 255, 0.06) 1px,
       transparent 1px,
       transparent 10px),
     /* Subtle Noise Texture for Grip/Asphalt feel */
@@ -59,7 +59,7 @@ body {
 
 html,
 #root {
-  background-color: #050505 !important;
+  background-color: transparent !important;
   min-height: 100vh;
 }
 
