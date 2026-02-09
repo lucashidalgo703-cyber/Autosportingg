@@ -185,15 +185,12 @@ const CarDetail = () => {
                         </div>
                     )}
 
-                    <a
-                        href={`https://wa.me/5492974938642?text=${encodeURIComponent(`Hola AutoSporting, estoy interesado en el ${car.brand} ${car.name} ${car.year}`)}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
+                    <button
+                        onClick={() => window.open(`https://wa.me/5492974938642?text=${encodeURIComponent(`Hola AutoSporting, estoy interesado en el ${car.brand} ${car.name} ${car.year}`)}`, '_blank')}
                         className="btn btn-primary full-width"
-                        style={{ textDecoration: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
                     >
                         Consultar por WhatsApp
-                    </a>
+                    </button>
 
                     <div className="legal-text">
                         <p>* Consulte por financiación.</p>
