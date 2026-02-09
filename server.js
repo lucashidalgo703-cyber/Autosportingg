@@ -12,7 +12,7 @@ import jwt from 'jsonwebtoken';
 const app = express();
 const PORT = process.env.PORT || 3001;
 const JWT_SECRET = process.env.JWT_SECRET || 'secret_key_123';
-const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'admin123';
+const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || '116sporting';
 
 // Connect to MongoDB
 connectDB();
