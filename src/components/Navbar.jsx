@@ -1,9 +1,11 @@
 import { useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { Menu, X, Car } from 'lucide-react';
+import { Menu, X, LogOut } from 'lucide-react';
+import { useAuth } from '../context/AuthContext';
 
 const Navbar = () => {
   const [isOpen, setIsOpen] = useState(false);
+  const { isAuthenticated, logout } = useAuth();
   // Verified Navbar Structure - Logo v5
   const location = useLocation();
 
@@ -16,14 +18,21 @@ const Navbar = () => {
           <img src="/logo-header-final-user.png" alt="AutoSporting" className="navbar-logo-img" />
         </Link>
 
-
         {/* Desktop Menu */}
         <nav className="desktop-nav">
           <Link to="/" className={`nav-link ${isActive('/') ? 'active' : ''}`}>Inicio</Link>
           <Link to="/catalogo" className={`nav-link ${isActive('/catalogo') ? 'active' : ''}`}>Catálogo</Link>
           <Link to="/nosotros" className={`nav-link ${isActive('/nosotros') ? 'active' : ''}`}>Nosotros</Link>
           <Link to="/contacto" className={`nav-link ${isActive('/contacto') ? 'active' : ''}`}>Contacto</Link>
-          <Link to="/admin" className={`nav-link ${isActive('/admin') ? 'text-primary' : ''}`}>Admin</Link>
+
+          {isAuthenticated && (
+            <>
+              <Link to="/admin" className={`nav-link ${isActive('/admin') ? 'text-primary' : ''}`}>Admin</Link>
+              <button onClick={logout} className="nav-link btn-logout">
+                <LogOut size={18} />
+              </button>
+            </>
+          )}
         </nav>
 
         {/* Mobile Menu Toggle */}
@@ -38,7 +47,15 @@ const Navbar = () => {
             <Link to="/catalogo" onClick={() => setIsOpen(false)}>Catálogo</Link>
             <a href="#nosotros" onClick={() => setIsOpen(false)}>Nosotros</a>
             <a href="#contacto" onClick={() => setIsOpen(false)}>Contacto</a>
-            <Link to="/admin" onClick={() => setIsOpen(false)} style={{ color: '#EB2628' }}>Admin</Link>
+
+            {isAuthenticated && (
+              <>
+                <Link to="/admin" onClick={() => setIsOpen(false)} style={{ color: '#EB2628' }}>Admin</Link>
+                <button onClick={() => { logout(); setIsOpen(false); }} className="mobile-logout">
+                  Cerrar Sesión
+                </button>
+              </>
+            )}
           </div>
         )}
       </div>
@@ -130,6 +147,32 @@ const Navbar = () => {
           color: white;
           padding: 0.5rem 0;
           border-bottom: 1px solid var(--color-surface);
+        }
+        
+        .btn-logout {
+            background: none;
+            border: none;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            padding: 0;
+        }
+        
+        .btn-logout:hover {
+            color: #EB2628;
+        }
+
+        .mobile-logout {
+            background: rgba(235, 38, 40, 0.1);
+            color: #EB2628;
+            border: 1px solid rgba(235, 38, 40, 0.3);
+            padding: 0.8rem;
+            border-radius: 6px;
+            margin-top: 1rem;
+            cursor: pointer;
+            width: 100%;
+            text-align: center;
+            font-weight: 600;
         }
 
         @media (max-width: 768px) {

@@ -7,24 +7,37 @@ import CarDetail from './pages/CarDetail';
 import About from './pages/About';
 import Contact from './pages/Contact';
 import AdminPanel from './pages/AdminPanel';
+import Login from './pages/Login';
+import ProtectedRoute from './components/ProtectedRoute';
+import { AuthProvider } from './context/AuthContext';
 
 function App() {
   return (
-    <Router>
-      <div className="app">
-        <ScrollToTop />
-        <Navbar />
-        <Routes>
-          <Route path="/" element={<Home />} />
-          <Route path="/catalogo" element={<Catalog />} />
-          <Route path="/nosotros" element={<About />} />
-          <Route path="/contacto" element={<Contact />} />
-          <Route path="/auto/:id" element={<CarDetail />} />
-          <Route path="/admin" element={<AdminPanel />} />
-        </Routes>
-        <Footer />
-      </div>
-    </Router>
+    <AuthProvider>
+      <Router>
+        <div className="app">
+          <ScrollToTop />
+          <Navbar />
+          <Routes>
+            <Route path="/" element={<Home />} />
+            <Route path="/catalogo" element={<Catalog />} />
+            <Route path="/nosotros" element={<About />} />
+            <Route path="/contacto" element={<Contact />} />
+            <Route path="/auto/:id" element={<CarDetail />} />
+            <Route path="/login" element={<Login />} />
+            <Route
+              path="/admin"
+              element={
+                <ProtectedRoute>
+                  <AdminPanel />
+                </ProtectedRoute>
+              }
+            />
+          </Routes>
+          <Footer />
+        </div>
+      </Router>
+    </AuthProvider>
   );
 }
 

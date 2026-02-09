@@ -141,10 +141,18 @@ const AdminPanel = () => {
 
             const res = await fetch(url, {
                 method: method,
+                headers: {
+                    'Authorization': `Bearer ${localStorage.getItem('token')}`
+                },
                 body: data
             });
 
             if (!res.ok) {
+                if (res.status === 401 || res.status === 403) {
+                    alert('Sesión expirada o inválida. Por favor inicia sesión nuevamente.');
+                    window.location.href = '/login'; // Simple redirect for now, or use useNavigate/AuthContext
+                    return;
+                }
                 const errorData = await res.json();
                 throw new Error(errorData.message || 'Error saving vehicle');
             }

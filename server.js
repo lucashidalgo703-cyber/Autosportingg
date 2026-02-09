@@ -5,9 +5,14 @@ import connectDB from './src/config/db.js';
 import cloudinary from './src/config/cloudinary.js';
 import Car from './src/models/Car.js';
 import { CloudinaryStorage } from 'multer-storage-cloudinary';
+import jwt from 'jsonwebtoken';
+
+
 
 const app = express();
 const PORT = process.env.PORT || 3001;
+const JWT_SECRET = process.env.JWT_SECRET || 'secret_key_123';
+const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'admin123';
 
 // Connect to MongoDB
 connectDB();
@@ -27,7 +32,32 @@ const storage = new CloudinaryStorage({
 
 const upload = multer({ storage: storage });
 
+// Authentication Middleware
+const authenticateToken = (req, res, next) => {
+    const authHeader = req.headers['authorization'];
+    const token = authHeader && authHeader.split(' ')[1];
+
+    if (!token) return res.sendStatus(401);
+
+    jwt.verify(token, JWT_SECRET, (err, user) => {
+        if (err) return res.sendStatus(403);
+        req.user = user;
+        next();
+    });
+};
+
 // Routes
+
+// Login Endpoint
+app.post('/api/login', (req, res) => {
+    const { password } = req.body;
+    if (password === ADMIN_PASSWORD) {
+        const token = jwt.sign({ role: 'admin' }, JWT_SECRET, { expiresIn: '24h' });
+        res.json({ token });
+    } else {
+        res.status(401).json({ message: 'Contraseña incorrecta' });
+    }
+});
 
 // GET all cars
 app.get('/api/cars', async (req, res) => {
@@ -50,8 +80,8 @@ app.get('/api/cars/:id', async (req, res) => {
     }
 });
 
-// POST new car
-app.post('/api/cars', upload.array('images', 20), async (req, res) => {
+// POST new car (Protected)
+app.post('/api/cars', authenticateToken, upload.array('images', 20), async (req, res) => {
     try {
         const { brand, name, year, km, fuel, condition, description, price, currency, featured, sold } = req.body;
 
@@ -83,8 +113,8 @@ app.post('/api/cars', upload.array('images', 20), async (req, res) => {
     }
 });
 
-// PUT update car
-app.put('/api/cars/:id', upload.array('images', 20), async (req, res) => {
+// PUT update car (Protected)
+app.put('/api/cars/:id', authenticateToken, upload.array('images', 20), async (req, res) => {
     try {
         const { brand, name, year, km, fuel, condition, description, price, currency, featured, sold, imageOrder, imagePosition } = req.body;
 
@@ -160,8 +190,8 @@ app.put('/api/cars/:id', upload.array('images', 20), async (req, res) => {
     }
 });
 
-// DELETE car
-app.delete('/api/cars/:id', async (req, res) => {
+// DELETE car (Protected)
+app.delete('/api/cars/:id', authenticateToken, async (req, res) => {
     try {
         const car = await Car.findById(req.params.id);
         if (!car) return res.status(404).json({ message: 'Car not found' });
