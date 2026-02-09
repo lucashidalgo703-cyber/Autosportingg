@@ -7,7 +7,7 @@ import { useCars } from '../hooks/useCars';
 const Home = () => {
   const { cars, loading } = useCars();
 
-  const featuredCars = cars.filter(car => car.featured || car.year > 2020).slice(0, 5);
+  const featuredCars = cars.filter(car => car.featured || car.year > 2020).slice(0, 8);
 
   return (
     <div className="home-container">
