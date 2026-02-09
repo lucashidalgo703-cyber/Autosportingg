@@ -25,7 +25,12 @@ const Catalog = () => {
 
     // Derived lists for filter options
     const brands = useMemo(() => {
-        return [...new Set(cars.map(car => car.brand))].sort();
+        // Normalize brands: trim whitespace and Capitalize first letter
+        const normalized = cars.map(car => {
+            const trimmed = car.brand.trim();
+            return trimmed.charAt(0).toUpperCase() + trimmed.slice(1).toLowerCase();
+        });
+        return [...new Set(normalized)].sort();
     }, [cars]);
 
     const years = useMemo(() => {
@@ -37,7 +42,10 @@ const Catalog = () => {
         return cars.filter(car => {
             const matchesSearch = car.name.toLowerCase().includes(filters.search.toLowerCase()) ||
                 car.brand.toLowerCase().includes(filters.search.toLowerCase());
-            const matchesBrand = filters.brand === '' || car.brand === filters.brand;
+
+            // Normalize car brand for comparison
+            const carBrandNormalized = car.brand.trim().charAt(0).toUpperCase() + car.brand.trim().slice(1).toLowerCase();
+            const matchesBrand = filters.brand === '' || carBrandNormalized === filters.brand;
             const matchesYear = filters.year === '' || car.year.toString() === filters.year;
 
             let matchesCondition = true;
