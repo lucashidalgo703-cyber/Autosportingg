@@ -45,8 +45,8 @@ const Navbar = () => {
 
       <style>{`
         .navbar {
-          background-color: rgba(5, 5, 5, 0.85); /* Deep dark glass */
-          backdrop-filter: blur(12px);
+          background-color: rgba(5, 5, 5, 0.6); /* More transparent */
+          backdrop-filter: blur(16px); /* Stronger blur */
           position: sticky;
           top: 0;
           z-index: 1000;

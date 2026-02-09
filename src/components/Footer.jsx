@@ -41,10 +41,12 @@ const Footer = () => {
 
       <style>{`
         .footer {
-          background: linear-gradient(to top, #000000 0%, #0a0a0a 100%);
+          background: linear-gradient(to top, rgba(0,0,0,0.8) 0%, transparent 100%);
+          backdrop-filter: blur(5px);
           padding: 4rem 0 2rem;
           margin-top: auto;
           position: relative;
+          border-top: 1px solid rgba(255,255,255,0.05);
         }
         
         /* "Shine" separator with Red Accent */

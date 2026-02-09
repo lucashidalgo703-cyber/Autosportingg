@@ -8,7 +8,7 @@ const SmartFilters = ({ filters, onFilterChange, brands = [], years = [] }) => {
   };
 
   return (
-    <div className="filters-container bg-carbon">
+    <div className="filters-container">
       <div className="search-group">
         <Search className="search-icon" size={20} />
         <input
@@ -68,12 +68,16 @@ const SmartFilters = ({ filters, onFilterChange, brands = [], years = [] }) => {
       <style>{`
         .filters-container {
           padding: 1.5rem;
-          border-radius: 8px;
+          border-radius: 12px;
           display: flex;
           gap: 1rem;
           flex-wrap: wrap;
           margin-bottom: 3rem;
+          /* Glassmorphism */
+          background: rgba(20, 20, 20, 0.4);
+          backdrop-filter: blur(12px);
           border: 1px solid rgba(255, 255, 255, 0.08);
+          box-shadow: 0 4px 20px rgba(0,0,0,0.2);
         }
 
         .search-group {
@@ -93,20 +97,21 @@ const SmartFilters = ({ filters, onFilterChange, brands = [], years = [] }) => {
         .search-input {
           width: 100%;
           height: 48px;
-          background-color: #0a0a0a; /* Anthracite */
+          background-color: rgba(0, 0, 0, 0.3); /* Semi-transparent inputs */
           border: 1px solid rgba(255, 255, 255, 0.1);
-          border-radius: 4px;
+          border-radius: 6px;
           padding-left: 40px;
           padding-right: 16px;
           color: white;
           font-family: inherit;
           font-size: 1rem;
+          transition: all 0.2s;
         }
 
         .search-input:focus {
           outline: none;
           border-color: var(--color-primary);
-          background-color: #111;
+          background-color: rgba(0, 0, 0, 0.6);
         }
 
         .select-group {
@@ -119,14 +124,21 @@ const SmartFilters = ({ filters, onFilterChange, brands = [], years = [] }) => {
         .filter-select {
           flex: 1;
           height: 48px;
-          background-color: #0a0a0a; /* Anthracite */
+          background-color: rgba(0, 0, 0, 0.3);
           border: 1px solid rgba(255, 255, 255, 0.1);
-          border-radius: 4px;
+          border-radius: 6px;
           padding: 0 16px;
           color: white;
           font-family: inherit;
           min-width: 140px;
           cursor: pointer;
+          transition: all 0.2s;
+        }
+        
+        .filter-select:focus {
+             outline: none;
+             border-color: var(--color-primary);
+             background-color: rgba(0, 0, 0, 0.6);
         }
 
         .btn-filter {
@@ -134,10 +146,12 @@ const SmartFilters = ({ filters, onFilterChange, brands = [], years = [] }) => {
           color: white;
           border: none;
           padding: 0 2rem;
-          border-radius: 4px;
+          border-radius: 6px;
           font-weight: 600;
           cursor: pointer;
           height: 48px;
+          box-shadow: 0 4px 15px rgba(235, 38, 40, 0.3);
+          transition: transform 0.2s, background-color 0.2s;
         }
         
         .btn-filter:hover {
