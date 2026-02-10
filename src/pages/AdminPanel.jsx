@@ -585,22 +585,22 @@ const AdminPanel = () => {
                                     <div key={car._id} className="bg-zinc-900/40 p-4 rounded-2xl flex items-center justify-between border border-white/5 hover:border-white/10 transition-colors">
                                         <div className="flex items-center gap-6">
                                             {/* Reorder Controls */}
-                                            <div className="flex flex-col gap-1">
+                                            <div className="flex flex-col gap-2 mr-2">
                                                 <button
                                                     onClick={(e) => { e.stopPropagation(); handleMove(index, -1); }}
                                                     disabled={index === 0}
-                                                    className="p-1 hover:bg-white/10 rounded-full disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                                                    className="p-2 bg-zinc-800 hover:bg-zinc-700 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed transition-all text-white border border-white/5"
                                                     title="Move Up"
                                                 >
-                                                    <ChevronUp size={16} className="text-gray-400" />
+                                                    <ChevronUp size={18} />
                                                 </button>
                                                 <button
                                                     onClick={(e) => { e.stopPropagation(); handleMove(index, 1); }}
                                                     disabled={index === cars.length - 1}
-                                                    className="p-1 hover:bg-white/10 rounded-full disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                                                    className="p-2 bg-zinc-800 hover:bg-zinc-700 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed transition-all text-white border border-white/5"
                                                     title="Move Down"
                                                 >
-                                                    <ChevronDown size={16} className="text-gray-400" />
+                                                    <ChevronDown size={18} />
                                                 </button>
                                             </div>
 
