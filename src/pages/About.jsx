@@ -1,37 +1,37 @@
 import { ShieldCheck, TrendingUp, Users } from 'lucide-react';
 
 const About = () => {
-    return (
-        <main className="container page-padding">
-            <div className="about-header">
-                <span className="subtitle">SOBRE NOSOTROS</span>
-                <h1>Tu socio de confianza</h1>
-                <p className="lead">
-                    En AutoSporting, nos especializamos en vehículos usados y 0km seleccionados.
-                    Nuestro compromiso incluye asesoramiento personalizado, procesos de financiamiento
-                    accesibles y garantía de calidad en cada unidad.
-                </p>
-            </div>
+  return (
+    <main className="container page-padding">
+      <div className="about-header">
+        <span className="subtitle">SOBRE NOSOTROS</span>
+        <h1>Tu socio de confianza</h1>
+        <p className="lead">
+          En AutoSporting, nos especializamos en vehículos usados y 0km seleccionados.
+          Nuestro compromiso incluye asesoramiento personalizado, procesos de financiamiento
+          accesibles y garantía de calidad en cada unidad.
+        </p>
+      </div>
 
-            <div className="values-grid">
-                <div className="value-card">
-                    <ShieldCheck size={48} color="var(--color-primary)" />
-                    <h3>Excelencia</h3>
-                    <p>Riguroso proceso de selección y revisión técnica para garantizar la mejor calidad.</p>
-                </div>
-                <div className="value-card">
-                    <Users size={48} color="var(--color-primary)" />
-                    <h3>Confianza</h3>
-                    <p>Transparencia total en historial del vehículo y documentación al día.</p>
-                </div>
-                <div className="value-card">
-                    <TrendingUp size={48} color="var(--color-primary)" />
-                    <h3>Innovación</h3>
-                    <p>Evolución constante en plataformas digitales y soluciones financieras a tu medida.</p>
-                </div>
-            </div>
+      <div className="values-grid">
+        <div className="value-card">
+          <ShieldCheck size={48} color="var(--color-primary)" />
+          <h3>Excelencia</h3>
+          <p>Seleccionamos cada unidad bajo criterios estrictos de calidad, historial verificable y revisión técnica exhaustiva. Solo publicamos vehículos que cumplen nuestros estándares internos.</p>
+        </div>
+        <div className="value-card">
+          <Users size={48} color="var(--color-primary)" />
+          <h3>Confianza</h3>
+          <p>Operaciones claras, documentación al día y asesoramiento transparente en cada etapa. Nuestro compromiso es que tomes decisiones con información real y respaldo profesional.</p>
+        </div>
+        <div className="value-card">
+          <TrendingUp size={48} color="var(--color-primary)" />
+          <h3>Innovación</h3>
+          <p>Integramos herramientas digitales, valuaciones actualizadas y opciones de financiación a medida para ofrecer una experiencia ágil, moderna y eficiente.</p>
+        </div>
+      </div>
 
-            <style>{`
+      <style>{`
         .page-padding {
           padding-top: 4rem;
           padding-bottom: 5rem;
@@ -95,8 +95,8 @@ const About = () => {
           line-height: 1.6;
         }
       `}</style>
-        </main>
-    );
+    </main>
+  );
 };
 
 export default About;
