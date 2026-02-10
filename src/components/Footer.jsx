@@ -29,7 +29,7 @@ const Footer = () => {
               <span>297-4938642 / 297-4768429</span>
             </div>
             <div className="social-links-footer" style={{ marginTop: '1rem', display: 'flex', gap: '1rem' }}>
-              <a href="https://instagram.com/autosporting.cr" target="_blank" rel="noreferrer" style={{ color: 'white', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+              <a href="https://instagram.com/autosporting.cr" target="_blank" rel="noreferrer" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                 <Instagram size={20} />
                 <span>@autosporting.cr</span>
               </a>
