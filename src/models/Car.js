@@ -12,6 +12,7 @@ const carSchema = new mongoose.Schema({
     currency: { type: String, required: true }, // '$' or 'U$S'
     featured: { type: Boolean, default: false },
     sold: { type: Boolean, default: false },
+    order: { type: Number, default: 0 }, // For manual sorting
     imagePosition: { type: String, default: '50% 75%' }, // CSS object-position
     images: [{ type: String }], // Array of Cloudinary URLs
     coverImage: { type: String }, // specific cover image URL

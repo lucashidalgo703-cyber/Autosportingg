@@ -3,7 +3,10 @@ import { Copy, Check, Upload, X, ChevronDown, ChevronUp, Plus, Info, Star, Arrow
 import { useCars } from '../hooks/useCars';
 
 const AdminPanel = () => {
-    const { cars, refresh: refreshCars, deleteCar } = useCars();
+    const { cars, refresh: refreshCars, deleteCar, setCars } = useCars(); // Assuming setCars is now exposed or I'll add it to hook first. Wait, I didn't update hook to expose setCars. I should do that or just manually update local state if I could.
+    // Making it easier: I'll update useCars hook to expose setCars or just fetch.
+    // Actually, to make UI responsive, I should optimistically update local state.
+    // I need to update useCars hook to expose setCars.
     const [formData, setFormData] = useState({
         brand: '',
         name: '',
@@ -223,6 +226,36 @@ const AdminPanel = () => {
     // Helper for delete
     const handleDelete = async (id) => {
         await deleteCar(id);
+    };
+
+    const handleMove = async (index, direction) => {
+        const newCars = [...cars];
+        const targetIndex = index + direction;
+
+        if (targetIndex < 0 || targetIndex >= newCars.length) return;
+
+        // Swap in local state for instant feedback
+        [newCars[index], newCars[targetIndex]] = [newCars[targetIndex], newCars[index]];
+        setCars(newCars);
+
+        // Send new order to backend
+        try {
+            const orderedIds = newCars.map(c => c._id);
+            const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
+            const endpoint = `${API_URL === '/' ? '' : API_URL}/api/cars/reorder/batch`;
+
+            await fetch(endpoint, {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${localStorage.getItem('token')}`
+                },
+                body: JSON.stringify({ orderedIds })
+            });
+        } catch (error) {
+            console.error("Error reordering:", error);
+            refreshCars(); // Revert on error
+        }
     };
 
     return (
@@ -548,9 +581,29 @@ const AdminPanel = () => {
                             {cars.length === 0 ? (
                                 <p className="text-center text-gray-500 py-12">No vehicles found in database.</p>
                             ) : (
-                                cars.map((car) => (
+                                cars.map((car, index) => (
                                     <div key={car._id} className="bg-zinc-900/40 p-4 rounded-2xl flex items-center justify-between border border-white/5 hover:border-white/10 transition-colors">
                                         <div className="flex items-center gap-6">
+                                            {/* Reorder Controls */}
+                                            <div className="flex flex-col gap-1">
+                                                <button
+                                                    onClick={(e) => { e.stopPropagation(); handleMove(index, -1); }}
+                                                    disabled={index === 0}
+                                                    className="p-1 hover:bg-white/10 rounded-full disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                                                    title="Move Up"
+                                                >
+                                                    <ChevronUp size={16} className="text-gray-400" />
+                                                </button>
+                                                <button
+                                                    onClick={(e) => { e.stopPropagation(); handleMove(index, 1); }}
+                                                    disabled={index === cars.length - 1}
+                                                    className="p-1 hover:bg-white/10 rounded-full disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                                                    title="Move Down"
+                                                >
+                                                    <ChevronDown size={16} className="text-gray-400" />
+                                                </button>
+                                            </div>
+
                                             <div className="relative group">
                                                 <div className="w-[120px] h-[90px] rounded-xl bg-zinc-800 overflow-hidden relative shadow-lg">
                                                     {car.coverImage || (car.images && car.images[0]) ? (

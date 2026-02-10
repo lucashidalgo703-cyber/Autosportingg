@@ -62,7 +62,7 @@ app.post('/api/login', (req, res) => {
 // GET all cars
 app.get('/api/cars', async (req, res) => {
     try {
-        const cars = await Car.find().sort({ createdAt: -1 });
+        const cars = await Car.find().sort({ order: 1, createdAt: -1 });
         res.json(cars);
     } catch (error) {
         res.status(500).json({ message: error.message });
@@ -187,6 +187,29 @@ app.put('/api/cars/:id', authenticateToken, upload.array('images', 20), async (r
     } catch (error) {
         console.error('Update Error:', error);
         res.status(400).json({ message: error.message });
+    }
+});
+
+// PUT reorder cars (Protected)
+app.put('/api/cars/reorder/batch', authenticateToken, async (req, res) => {
+    try {
+        const { orderedIds } = req.body; // Array of IDs in desired order
+        if (!orderedIds || !Array.isArray(orderedIds)) {
+            return res.status(400).json({ message: 'Invalid data format' });
+        }
+
+        const operations = orderedIds.map((id, index) => ({
+            updateOne: {
+                filter: { _id: id },
+                update: { order: index }
+            }
+        }));
+
+        await Car.bulkWrite(operations);
+        res.json({ message: 'Order updated successfully' });
+    } catch (error) {
+        console.error('Reorder Error:', error);
+        res.status(500).json({ message: error.message });
     }
 });
 

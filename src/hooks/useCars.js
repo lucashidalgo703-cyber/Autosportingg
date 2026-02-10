@@ -61,5 +61,5 @@ export const useCars = () => {
         }
     };
 
-    return { cars, loading, error, refresh: fetchCars, deleteCar };
+    return { cars, loading, error, refresh: fetchCars, deleteCar, setCars };
 };
