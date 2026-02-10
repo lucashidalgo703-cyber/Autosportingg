@@ -7,7 +7,7 @@ const Footer = () => {
         <div className="footer-grid">
           <div className="footer-col">
             <h3>AUTOSPORTING</h3>
-            <p>Tu socio de confianza para encontrar el vehículo perfecto. Usados seleccionados y 0km.</p>
+            <p>Elegí con seguridad. Conducí con confianza.</p>
           </div>
 
           <div className="footer-col">
