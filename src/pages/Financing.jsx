@@ -37,7 +37,7 @@ const Financing = () => {
                             <span className="stat-label">Entrega mínima</span>
                         </div>
                         <div className="stat">
-                            <span className="stat-number">24/48</span>
+                            <span className="stat-number">12/72</span>
                             <span className="stat-label">Cuotas fijas</span>
                         </div>
                     </div>
