@@ -5,6 +5,7 @@ import Home from './pages/Home';
 import Catalog from './pages/Catalog';
 import CarDetail from './pages/CarDetail';
 import About from './pages/About';
+import Financing from './pages/Financing';
 import Contact from './pages/Contact';
 import AdminPanel from './pages/AdminPanel';
 import Login from './pages/Login';
@@ -23,6 +24,7 @@ function App() {
             <Route path="/catalogo" element={<Catalog />} />
             <Route path="/nosotros" element={<About />} />
             <Route path="/contacto" element={<Contact />} />
+            <Route path="/financiacion" element={<Financing />} />
             <Route path="/auto/:id" element={<CarDetail />} />
             <Route path="/login" element={<Login />} />
             <Route

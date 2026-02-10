@@ -22,6 +22,7 @@ const Navbar = () => {
         <nav className="desktop-nav">
           <Link to="/" className={`nav-link ${isActive('/') ? 'active' : ''}`}>Inicio</Link>
           <Link to="/catalogo" className={`nav-link ${isActive('/catalogo') ? 'active' : ''}`}>Catálogo</Link>
+          <Link to="/financiacion" className={`nav-link ${isActive('/financiacion') ? 'active' : ''}`}>Financiación</Link>
           <Link to="/nosotros" className={`nav-link ${isActive('/nosotros') ? 'active' : ''}`}>Nosotros</Link>
           <Link to="/contacto" className={`nav-link ${isActive('/contacto') ? 'active' : ''}`}>Contacto</Link>
 
@@ -45,6 +46,7 @@ const Navbar = () => {
           <div className="mobile-nav">
             <Link to="/" onClick={() => setIsOpen(false)}>Inicio</Link>
             <Link to="/catalogo" onClick={() => setIsOpen(false)}>Catálogo</Link>
+            <Link to="/financiacion" onClick={() => setIsOpen(false)}>Financiación</Link>
             <a href="#nosotros" onClick={() => setIsOpen(false)}>Nosotros</a>
             <a href="#contacto" onClick={() => setIsOpen(false)}>Contacto</a>
 
