@@ -108,6 +108,17 @@ const Contact = () => {
       <style>{`
                 .contact-page {
                     padding-bottom: 5rem;
+                    position: relative;
+                }
+
+                /* Global Overlay to tone down background */
+                .contact-page::before {
+                    content: '';
+                    position: fixed;
+                    inset: 0;
+                    background: rgba(0, 0, 0, 0.55);
+                    z-index: 0;
+                    pointer-events: none;
                 }
 
                 /* Header Styles */
@@ -115,23 +126,21 @@ const Contact = () => {
                     position: relative;
                     height: 400px;
                     display: flex;
-                    align-items: flex-start; /* Aligns to top, pushed down by padding */
-                    /* background-image removed to show global background */
+                    align-items: flex-start; 
                     border-bottom: 1px solid rgba(255,255,255,0.05);
                     margin-top: calc(var(--header-height) * -1);
+                    z-index: 10;
                 }
 
                 .header-overlay {
                     position: absolute;
                     inset: 0;
-                    /* background: linear-gradient(180deg, rgba(0,0,0,0.6) 0%, rgba(0,0,0,0.9) 100%); REMOVED for transparency */
                     background: transparent;
                 }
 
                 .header-content {
                     position: relative;
                     z-index: 10;
-                    /* Adjusted padding to move text "up" as requested */
                     padding-top: calc(var(--header-height) + 4rem);
                 }
 
@@ -152,13 +161,13 @@ const Contact = () => {
                     font-size: 3rem; 
                     font-weight: 600;
                     line-height: 1.1;
-                    color: rgba(255, 255, 255, 0.95);
+                    color: #ffffff;
                     letter-spacing: -0.02em;
                 }
 
                 /* Grid Styles */
                 .contact-grid-section {
-                    margin-top: -60px; /* Adjusted overlap */
+                    margin-top: -60px;
                     position: relative;
                     z-index: 20;
                     display: flex;
@@ -173,28 +182,31 @@ const Contact = () => {
                 }
 
                 .contact-card {
-                    /* Carbon Texture */
-                    background-color: #0c0c0c;
-                    background-image: 
-                        linear-gradient(45deg, rgba(255, 255, 255, 0.03) 25%, transparent 25%, transparent 75%, rgba(255, 255, 255, 0.03) 75%, rgba(255, 255, 255, 0.03)),
-                        linear-gradient(45deg, rgba(255, 255, 255, 0.03) 25%, transparent 25%, transparent 75%, rgba(255, 255, 255, 0.03) 75%, rgba(255, 255, 255, 0.03));
-                    background-size: 6px 6px;
-                    background-position: 0 0, 3px 3px;
+                    /* Premium Dark Glass */
+                    background: rgba(15, 15, 15, 0.75);
+                    backdrop-filter: blur(8px);
+                    border: 1px solid rgba(255, 0, 0, 0.25);
+                    border-radius: 18px;
                     
-                    border: 1px solid rgba(255, 255, 255, 0.05);
-                    border-radius: 16px;
+                    /* Deep Shadow + Red Glow */
+                    box-shadow: 
+                        0 10px 40px rgba(0,0,0,0.6),
+                        0 0 20px rgba(255,0,0,0.08);
+
                     padding: 2rem;
                     display: flex;
                     flex-direction: column;
-                    gap: 3.5rem; /* Adjusted gap inside card */
+                    gap: 3.5rem;
                     transition: all 0.3s ease;
                     text-decoration: none;
                 }
 
                 .contact-card:hover {
-                    border-color: var(--color-primary);
-                    transform: translateY(-2px);
-                    box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+                    transform: translateY(-6px);
+                    border-color: rgba(255, 0, 0, 0.6);
+                    box-shadow: 
+                        0 20px 40px rgba(0,0,0,0.8),
+                        0 0 30px rgba(255,0,0,0.2);
                 }
 
                 .card-top {
@@ -223,22 +235,22 @@ const Contact = () => {
                 }
 
                 .card-content h3 {
-                    color: #fff;
-                    font-size: 1.125rem; /* 18px */
+                    color: #ffffff;
+                    font-size: 1.25rem;
                     margin-bottom: 0.5rem;
-                    font-weight: 600;
+                    font-weight: 700;
                 }
 
                 .card-value {
-                    color: rgb(163, 163, 163); /* Neutral-400 equivalent */
+                    color: #c7c7c7;
                     font-size: 1rem;
                     margin-bottom: 1.5rem;
                     line-height: 1.5;
                 }
 
                 .link-text {
-                    color: var(--color-primary);
-                    font-weight: 500;
+                    color: #ff2a2a;
+                    font-weight: 600;
                     font-size: 0.95rem;
                     display: inline-flex;
                     align-items: center;
@@ -256,16 +268,14 @@ const Contact = () => {
 
                 /* Hours Card styling */
                 .hours-card {
-                    /* Carbon Texture */
-                    background-color: #0c0c0c;
-                    background-image: 
-                        linear-gradient(45deg, rgba(255, 255, 255, 0.03) 25%, transparent 25%, transparent 75%, rgba(255, 255, 255, 0.03) 75%, rgba(255, 255, 255, 0.03)),
-                        linear-gradient(45deg, rgba(255, 255, 255, 0.03) 25%, transparent 25%, transparent 75%, rgba(255, 255, 255, 0.03) 75%, rgba(255, 255, 255, 0.03));
-                    background-size: 6px 6px;
-                    background-position: 0 0, 3px 3px;
+                    background: rgba(15, 15, 15, 0.75);
+                    backdrop-filter: blur(8px);
+                    border: 1px solid rgba(255, 0, 0, 0.25);
+                    border-radius: 18px;
+                    box-shadow: 
+                        0 10px 40px rgba(0,0,0,0.6),
+                        0 0 20px rgba(255,0,0,0.08);
 
-                    border: 1px solid rgba(255, 255, 255, 0.05);
-                    border-radius: 16px;
                     padding: 2rem;
                     display: flex;
                     flex-direction: column;
@@ -280,8 +290,8 @@ const Contact = () => {
                 
                 .hours-header h3 {
                     font-size: 1.25rem;
-                    color: white;
-                    font-weight: 600;
+                    color: #ffffff;
+                    font-weight: 700;
                 }
 
                 .hours-list {
@@ -305,13 +315,13 @@ const Contact = () => {
                 }
 
                 .hour-text {
-                    color: rgb(212, 212, 212); /* text-neutral-300 */
+                    color: #c7c7c7;
                     font-size: 1rem;
                 }
                 
                 .hour-text strong {
-                    color: white;
-                    font-weight: 500;
+                    color: #ffffff;
+                    font-weight: 600;
                     margin-left: 0.5rem;
                 }
 
@@ -321,8 +331,9 @@ const Contact = () => {
                     width: 100%;
                     border-radius: 16px;
                     overflow: hidden;
-                    border: 1px solid rgb(50, 50, 50);
+                    border: 1px solid rgba(255, 255, 255, 0.1);
                     margin-top: 1rem;
+                    box-shadow: 0 10px 40px rgba(0,0,0,0.5);
                 }
 
                 @media (max-width: 768px) {
