@@ -50,7 +50,7 @@ const About = () => {
         </p>
 
         <div className="about-cta">
-          <a className="btn-primary" href="/contacto">Consultar financiación</a>
+          <a className="btn-primary" href="/financiacion">Consultar financiación</a>
           <a className="btn-ghost" href="/catalogo">Ver catálogo</a>
         </div>
       </section>
