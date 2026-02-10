@@ -153,9 +153,7 @@ const CarDetail = () => {
                     </div>
 
                     <h1 className="car-title">{car.brand} {car.name}</h1>
-                    <div className="car-price">
-                        {car.currency} {car.price.toLocaleString()}
-                    </div>
+
 
                     <div className="specs-grid">
                         <div className="spec-item">
