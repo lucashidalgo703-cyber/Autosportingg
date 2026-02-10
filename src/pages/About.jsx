@@ -5,12 +5,7 @@ const About = () => {
     <main className="container page-padding">
       <div className="about-header">
         <span className="subtitle">SOBRE NOSOTROS</span>
-        <h1>Tu socio de confianza</h1>
-        <p className="lead">
-          En AutoSporting, nos especializamos en vehículos usados y 0km seleccionados.
-          Nuestro compromiso incluye asesoramiento personalizado, procesos de financiamiento
-          accesibles y garantía de calidad en cada unidad.
-        </p>
+
       </div>
 
       {/* NUEVO BLOQUE INSTITUCIONAL */}
