@@ -33,7 +33,7 @@ const Home = () => {
           <h2>Confianza y Experiencia</h2>
           <div className="trust-stats">
             <div className="stat-item">
-              <span className="stat-number">+15</span>
+              <span className="stat-number">+20</span>
               <span className="stat-label">Años de trayectoria</span>
             </div>
             <div className="stat-item">
