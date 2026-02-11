@@ -8,7 +8,7 @@ const faqData = [
   },
   {
     question: "¿Toman vehículos en parte de pago?",
-    answer: "Sí, tomamos tu usado como parte de pago, siempre y cuando el vehículo que desee entregar cuente con menos de 130.000km. Realizamos una cotización justa y transparente basada en el estado y valor de mercado de tu unidad."
+    answer: "Si, tomamos tu usado como parte de pago. Realizamos una cotización justa y transparente basada en el estado y valor de mercado de tu unidad."
   },
   {
     question: "¿Los vehículos tienen garantía?",
