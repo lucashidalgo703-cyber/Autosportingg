@@ -190,9 +190,13 @@ const CarDetail = () => {
                         Consultar por WhatsApp
                     </button>
 
-                    <div className="legal-text">
-                        <p>* Consulte por financiación.</p>
-                        <p>* Tomamos su usado en parte de pago.</p>
+                    <div className="mt-8 space-y-3 p-4 bg-white/5 rounded-lg border border-white/10">
+                        <p className="flex items-center gap-2 text-lg font-bold text-white">
+                            <span className="text-primary text-2xl">*</span> Consulte por financiación.
+                        </p>
+                        <p className="flex items-center gap-2 text-lg font-bold text-white">
+                            <span className="text-primary text-2xl">*</span> Tomamos su usado en parte de pago.
+                        </p>
                     </div>
                 </div>
             </div>
