@@ -333,8 +333,14 @@ const Financing = () => {
 
         /* Responsive */
         @media (max-width: 900px) {
+            .financing-header {
+                height: auto;
+                min-height: auto;
+                padding-bottom: 5rem;
+                align-items: flex-start;
+            }
             .header-title { font-size: 2.5rem; }
-            .highlight-card { grid-template-columns: 1fr; gap: 2rem; padding: 2rem; }
+            .highlight-card { grid-template-columns: 1fr; gap: 2rem; padding: 2rem; margin-top: 0; }
             .highlight-stats { border-left: none; border-top: 1px solid rgba(255,255,255,0.1); padding-left: 0; padding-top: 2rem; width: 100%; justify-content: space-around; }
             .stat-number { font-size: 2.5rem; }
             .requirements-section { flex-direction: column; align-items: stretch; gap: 2rem; }
