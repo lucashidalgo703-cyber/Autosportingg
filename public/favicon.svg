@@ -6,10 +6,16 @@
     </linearGradient>
   </defs>
   
-  <!-- Background: Rounded Square with Dark Gradient -->
+  <!-- Background: Rounded Square -->
   <rect width="512" height="512" rx="128" fill="url(#grad1)" />
   
-  <!-- Red Accent Swoosh - Centered and Enlarged -->
-  <!-- Moving up to center and making slightly thicker for visibility at small sizes -->
-  <path d="M60 256 Q 256 380 452 256" stroke="#EB2628" stroke-width="60" fill="none" stroke-linecap="round" />
+  <!-- Nike-style Swoosh / Dynamic Accent -->
+  <!-- Shape: Starts left, curves down/right, tapers to a point. Variable width. -->
+  <path d="M 100 320 Q 256 450 412 240 Q 256 360 100 320 Z" fill="#EB2628" />
+  
+  <!-- Explanation of path: 
+       Start left (100, 320).
+       Bottom curve to right tip (412, 240) via control (256, 450) -> deeply curved belly.
+       Top curve back to start via control (256, 360) -> shallower curve creates thickness.
+  -->
 </svg>
