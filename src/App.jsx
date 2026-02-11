@@ -1,16 +1,26 @@
+import { Suspense, lazy } from 'react';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import Navbar from './components/Navbar';
 import Footer from './components/Footer';
-import Home from './pages/Home';
-import Catalog from './pages/Catalog';
-import CarDetail from './pages/CarDetail';
-import About from './pages/About';
-import Financing from './pages/Financing';
-import Contact from './pages/Contact';
-import AdminPanel from './pages/AdminPanel';
-import Login from './pages/Login';
+import Home from './pages/Home'; // Critical route, keep eager
 import ProtectedRoute from './components/ProtectedRoute';
 import { AuthProvider } from './context/AuthContext';
+
+// Lazy load other routes
+const Catalog = lazy(() => import('./pages/Catalog'));
+const CarDetail = lazy(() => import('./pages/CarDetail'));
+const About = lazy(() => import('./pages/About'));
+const Financing = lazy(() => import('./pages/Financing'));
+const Contact = lazy(() => import('./pages/Contact'));
+const AdminPanel = lazy(() => import('./pages/AdminPanel'));
+const Login = lazy(() => import('./pages/Login'));
+
+// Loading component
+const PageLoader = () => (
+  <div className="min-h-screen flex items-center justify-center bg-black text-white">
+    <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-red-600"></div>
+  </div>
+);
 
 function App() {
   return (
@@ -19,23 +29,25 @@ function App() {
         <div className="app">
           <ScrollToTop />
           <Navbar />
-          <Routes>
-            <Route path="/" element={<Home />} />
-            <Route path="/catalogo" element={<Catalog />} />
-            <Route path="/nosotros" element={<About />} />
-            <Route path="/contacto" element={<Contact />} />
-            <Route path="/financiacion" element={<Financing />} />
-            <Route path="/auto/:id" element={<CarDetail />} />
-            <Route path="/login" element={<Login />} />
-            <Route
-              path="/admin"
-              element={
-                <ProtectedRoute>
-                  <AdminPanel />
-                </ProtectedRoute>
-              }
-            />
-          </Routes>
+          <Suspense fallback={<PageLoader />}>
+            <Routes>
+              <Route path="/" element={<Home />} />
+              <Route path="/catalogo" element={<Catalog />} />
+              <Route path="/nosotros" element={<About />} />
+              <Route path="/contacto" element={<Contact />} />
+              <Route path="/financiacion" element={<Financing />} />
+              <Route path="/auto/:id" element={<CarDetail />} />
+              <Route path="/login" element={<Login />} />
+              <Route
+                path="/admin"
+                element={
+                  <ProtectedRoute>
+                    <AdminPanel />
+                  </ProtectedRoute>
+                }
+              />
+            </Routes>
+          </Suspense>
           <Footer />
         </div>
       </Router>

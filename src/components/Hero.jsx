@@ -7,14 +7,23 @@ const Hero = () => {
     <section className="hero">
       <div className="hero-bg">
         {/* Background Image - Desktop */}
-        <div
-          className="hero-bg-image hidden md:block"
-          style={{ backgroundImage: `url(/autosporting-hero-v2.jpg)` }} // Using existing asset
+        {/* Background Image - Desktop - Optimized LCP */}
+        <img
+          src="/autosporting-hero-v2.jpg"
+          alt="Autosporting Hero"
+          className="hero-bg-image hidden md:block object-cover"
+          style={{ objectFit: 'cover', objectPosition: 'center' }}
+          fetchPriority="high"
+          loading="eager"
         />
-        {/* Background Image - Mobile - Fallback to same for now or valid asset */}
-        <div
-          className="hero-bg-image md:hidden"
-          style={{ backgroundImage: `url(/autosporting-hero-v2.jpg)` }}
+        {/* Background Image - Mobile - Optimized LCP */}
+        <img
+          src="/autosporting-hero-v2.jpg"
+          alt="Autosporting Hero Mobile"
+          className="hero-bg-image md:hidden object-cover"
+          style={{ objectFit: 'cover', objectPosition: 'center' }}
+          fetchPriority="high"
+          loading="eager"
         />
       </div>
 
