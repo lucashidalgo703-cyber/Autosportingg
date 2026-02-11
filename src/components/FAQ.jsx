@@ -2,49 +2,49 @@ import { useState } from 'react';
 import { ChevronDown, ChevronUp } from 'lucide-react';
 
 const faqData = [
-    {
-        question: "¿Ofrecen financiación?",
-        answer: "Si, ofrecemos financiación prendaria y créditos personales. Trabajamos con los principales bancos para ofrecerte las mejores tasas del mercado."
-    },
-    {
-        question: "¿Toman vehículos en parte de pago?",
-        answer: "Si, tomamos tu usado como parte de pago. Realizamos una cotización justa y transparente basada en el estado y valor de mercado de tu unidad."
-    },
-    {
-        question: "¿Los vehículos tienen garantía?",
-        answer: "Todas nuestras unidades cuentan con garantía de documentación y mecánica. Los 0km cuentan con garantía oficial de fábrica."
-    }
+  {
+    question: "¿Ofrecen financiación?",
+    answer: "Sí, ofrecemos financiación propia entregando el 50% del valor del vehículo y un plazo máximo de 18 meses. Además contamos con financiación bancaria a través de Banco Nación y Santander Río, con Crédito Personal o Prendario con un plazo de 12 a 72 meses."
+  },
+  {
+    question: "¿Toman vehículos en parte de pago?",
+    answer: "Si, tomamos tu usado como parte de pago. Realizamos una cotización justa y transparente basada en el estado y valor de mercado de tu unidad."
+  },
+  {
+    question: "¿Los vehículos tienen garantía?",
+    answer: "Todas nuestras unidades cuentan con garantía de documentación y mecánica. Los 0km cuentan con garantía oficial de fábrica."
+  }
 ];
 
 const FAQ = () => {
-    const [openIndex, setOpenIndex] = useState(null);
+  const [openIndex, setOpenIndex] = useState(null);
 
-    const toggle = (index) => {
-        setOpenIndex(openIndex === index ? null : index);
-    };
+  const toggle = (index) => {
+    setOpenIndex(openIndex === index ? null : index);
+  };
 
-    return (
-        <section className="faq-section container">
-            <h2 className="section-title text-center">Preguntas Frecuentes</h2>
-            <div className="faq-grid">
-                {faqData.map((item, index) => (
-                    <div
-                        key={index}
-                        className={`faq-item ${openIndex === index ? 'open' : ''}`}
-                        onClick={() => toggle(index)}
-                    >
-                        <div className="faq-header">
-                            <h3>{item.question}</h3>
-                            {openIndex === index ? <ChevronUp size={20} /> : <ChevronDown size={20} />}
-                        </div>
-                        <div className="faq-content">
-                            <p>{item.answer}</p>
-                        </div>
-                    </div>
-                ))}
+  return (
+    <section className="faq-section container">
+      <h2 className="section-title text-center">Preguntas Frecuentes</h2>
+      <div className="faq-grid">
+        {faqData.map((item, index) => (
+          <div
+            key={index}
+            className={`faq-item ${openIndex === index ? 'open' : ''}`}
+            onClick={() => toggle(index)}
+          >
+            <div className="faq-header">
+              <h3>{item.question}</h3>
+              {openIndex === index ? <ChevronUp size={20} /> : <ChevronDown size={20} />}
             </div>
+            <div className="faq-content">
+              <p>{item.answer}</p>
+            </div>
+          </div>
+        ))}
+      </div>
 
-            <style>{`
+      <style>{`
         .faq-section {
           padding-bottom: 5rem;
         }
@@ -94,8 +94,8 @@ const FAQ = () => {
           line-height: 1.6;
         }
       `}</style>
-        </section>
-    );
+    </section>
+  );
 };
 
 export default FAQ;
