@@ -190,11 +190,11 @@ const CarDetail = () => {
                         Consultar por WhatsApp
                     </button>
 
-                    <div className="mt-12 space-y-3 p-4 bg-white/5 rounded-lg border border-white/10">
-                        <p className="flex items-center gap-2 text-lg font-medium text-white">
+                    <div className="mt-16 space-y-3 p-4 bg-white/5 rounded-lg border border-white/10">
+                        <p className="flex items-center gap-2 text-lg font-light text-white tracking-wide">
                             <span className="text-primary text-2xl">*</span> Consulte por financiación.
                         </p>
-                        <p className="flex items-center gap-2 text-lg font-medium text-white">
+                        <p className="flex items-center gap-2 text-lg font-light text-white tracking-wide">
                             <span className="text-primary text-2xl">*</span> Tomamos su usado en parte de pago.
                         </p>
                     </div>
