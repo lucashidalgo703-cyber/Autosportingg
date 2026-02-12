@@ -6,22 +6,11 @@ const Hero = () => {
   return (
     <section className="hero">
       <div className="hero-bg">
-        {/* Background Image - Desktop */}
-        {/* Background Image - Desktop - Optimized LCP */}
         <img
           src="/autosporting-hero-v2.jpg"
           alt="Autosporting Hero"
-          className="hero-bg-image hidden md:block object-cover"
-          style={{ objectFit: 'cover', objectPosition: 'center' }}
-          fetchPriority="high"
-          loading="eager"
-        />
-        {/* Background Image - Mobile - Optimized LCP */}
-        <img
-          src="/autosporting-hero-v2.jpg"
-          alt="Autosporting Hero Mobile"
-          className="hero-bg-image md:hidden object-cover"
-          style={{ objectFit: 'cover', objectPosition: 'center' }}
+          className="hero-bg-image object-cover"
+          style={{ objectFit: 'cover', objectPosition: '50% 30%' }}
           fetchPriority="high"
           loading="eager"
         />
