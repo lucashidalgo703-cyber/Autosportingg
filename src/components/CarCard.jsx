@@ -1,12 +1,13 @@
 import { ArrowRight } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import { getOptimizedImageUrl } from '../lib/cloudinaryUtils';
 
 const CarCard = ({ car }) => {
   return (
     <Link to={`/auto/${car._id || car.id}`} className="car-card group">
       <div className="card-image-wrapper">
         <img
-          src={car.coverImage || (car.images && car.images[0]) || car.image}
+          src={getOptimizedImageUrl(car.coverImage || (car.images && car.images[0]) || car.image, 600)}
           alt={car.name}
           className="card-image"
           style={{ objectPosition: car.imagePosition || '50% 75%' }}

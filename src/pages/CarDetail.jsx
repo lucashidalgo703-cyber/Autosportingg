@@ -2,6 +2,7 @@ import React from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { ArrowLeft, Calendar, Gauge, Fuel, Maximize2, X, ChevronLeft, ChevronRight } from 'lucide-react';
 import { useCars } from '../hooks/useCars';
+import { getOptimizedImageUrl } from '../lib/cloudinaryUtils';
 
 const CarDetail = () => {
     const { id } = useParams();
@@ -65,7 +66,7 @@ const CarDetail = () => {
                                             alt={car.name}
                                             className="object-cover w-full h-full fade-in"
                                             style={{ objectPosition: car.imagePosition || '50% 75%' }}
-                                            src={activeImage || car.coverImage || (car.images && car.images[0])}
+                                            src={getOptimizedImageUrl(activeImage || car.coverImage || (car.images && car.images[0]), 1200)}
                                         />
                                     </div>
                                     <div className="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
@@ -126,7 +127,7 @@ const CarDetail = () => {
                                     >
                                         <div className="w-full h-full flex items-center justify-center">
                                             <img
-                                                src={img}
+                                                src={getOptimizedImageUrl(img, 400)}
                                                 alt={`${car.name} view ${index + 2}`}
                                                 className={`object-cover w-full h-full transition duration-300 ${isLast && remainingCount > 0 ? 'blur-sm' : ''}`}
                                                 style={{ objectPosition: car.imagePosition || '50% 75%' }}
@@ -213,7 +214,7 @@ const CarDetail = () => {
                     </button>
 
                     <img
-                        src={activeImage || car.coverImage || (car.images && car.images[0])}
+                        src={getOptimizedImageUrl(activeImage || car.coverImage || (car.images && car.images[0]), 1600)}
                         alt={car.name}
                         className="lightbox-img"
                         onClick={(e) => e.stopPropagation()} // Prevent close when clicking image

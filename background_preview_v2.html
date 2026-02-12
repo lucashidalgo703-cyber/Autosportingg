@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AutoSporting Background Options V2</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Anton&family=Archivo:wght@400;600;700&display=swap');
+
+        :root {
+            --color-primary: #EB2628;
+            --color-text-main: #FFFFFF;
+        }
+
+        body {
+            font-family: 'Archivo', sans-serif;
+            color: var(--color-text-main);
+            margin: 0;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .controls {
+            position: fixed;
+            top: 20px;
+            background: rgba(0, 0, 0, 0.8);
+            padding: 20px;
+            border-radius: 12px;
+            border: 1px solid #333;
+            z-index: 1000;
+            display: flex;
+            gap: 10px;
+            backdrop-filter: blur(5px);
+        }
+
+        button {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: all 0.2s;
+            background: #333;
+            color: white;
+        }
+
+        button:hover {
+            background: #555;
+        }
+
+        button.active {
+            background: var(--color-primary);
+        }
+
+        /* Mock Content */
+        .mock-container {
+            width: 1000px;
+            max-width: 90%;
+            background: rgba(0, 0, 0, 0.2);
+            /* Transparent to show bg */
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 16px;
+            padding: 40px;
+            backdrop-filter: blur(10px);
+            margin-top: 80px;
+        }
+
+        h1 {
+            font-family: 'Anton', sans-serif;
+            font-size: 3rem;
+            text-transform: uppercase;
+            margin-bottom: 20px;
+        }
+
+        p {
+            line-height: 1.6;
+            color: #ccc;
+            margin-bottom: 20px;
+        }
+
+        .card-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 20px;
+        }
+
+        .card {
+            background: #171717;
+            height: 150px;
+            border-radius: 8px;
+            border: 1px solid #333;
+        }
+
+        /* --- BACKGROUND STYLES --- */
+
+        /* OPTION 1: Carbon Fiber Premium */
+        body.style-1 {
+            background-color: #111;
+            background-image:
+                linear-gradient(27deg, #151515 5px, transparent 5px),
+                linear-gradient(207deg, #151515 5px, transparent 5px),
+                linear-gradient(90deg, #1b1b1b 10px, transparent 10px),
+                linear-gradient(#1d1d1d 25%, #1a1a1a 25%, #1a1a1a 50%, transparent 50%, transparent 75%, #242424 75%, #242424);
+            background-color: #131313;
+            background-size: 20px 20px;
+        }
+
+        /* OPTION 2: Red Radial Glow (Focus) */
+        body.style-2 {
+            background-color: #050505;
+            background-image:
+                radial-gradient(circle at 50% 0%, rgba(235, 38, 40, 0.25), transparent 60%),
+                linear-gradient(0deg, #000 0%, transparent 100%),
+                repeating-linear-gradient(90deg, rgba(255, 255, 255, 0.03) 0px, rgba(255, 255, 255, 0.03) 1px, transparent 1px, transparent 100px);
+            background-attachment: fixed;
+        }
+
+        /* OPTION 3: Tech Hex Grid */
+        body.style-3 {
+            background-color: #0a0a0a;
+            background-image:
+                linear-gradient(30deg, #1a1a1a 12%, transparent 12.5%, transparent 87%, #1a1a1a 87.5%, #1a1a1a),
+                linear-gradient(150deg, #1a1a1a 12%, transparent 12.5%, transparent 87%, #1a1a1a 87.5%, #1a1a1a),
+                linear-gradient(30deg, #1a1a1a 12%, transparent 12.5%, transparent 87%, #1a1a1a 87.5%, #1a1a1a),
+                linear-gradient(150deg, #1a1a1a 12%, transparent 12.5%, transparent 87%, #1a1a1a 87.5%, #1a1a1a),
+                linear-gradient(60deg, #1a1a1a 25%, transparent 25.5%, transparent 75%, #1a1a1a 75%, #1a1a1a),
+                linear-gradient(60deg, #1a1a1a 25%, transparent 25.5%, transparent 75%, #1a1a1a 75%, #1a1a1a);
+            background-size: 80px 140px;
+            background-position: 0 0, 0 0, 40px 70px, 40px 70px, 0 0, 40px 70px;
+            /* Add a subtle red gradient over it */
+            position: relative;
+        }
+
+        body.style-3::before {
+            content: '';
+            position: fixed;
+            inset: 0;
+            background: radial-gradient(circle at bottom right, rgba(235, 38, 40, 0.1), transparent 70%);
+            z-index: -1;
+        }
+
+        /* OPTION 4: Red Velocity */
+        body.style-4 {
+            background-color: #000000;
+            background-image:
+                /* Sharp Red Lines */
+                linear-gradient(135deg, transparent 0%, transparent 40%, rgba(200, 0, 0, 0.1) 40%, rgba(200, 0, 0, 0.1) 60%, transparent 60%),
+                repeating-linear-gradient(135deg, transparent, transparent 100px, rgba(235, 38, 40, 0.3) 100px, rgba(235, 38, 40, 0.0) 150px),
+                /* Diagonal Texture */
+                repeating-linear-gradient(45deg, rgba(20, 20, 20, 0.5) 0px, rgba(20, 20, 20, 0.5) 2px, transparent 2px, transparent 10px);
+            background-attachment: fixed;
+            background-size: cover;
+        }
+
+        /* OPTION 5: Red Diagonal Burst (Exact Reference) */
+        body.style-5 {
+            background-color: #000000;
+            background-image:
+                /* Main Thick Red Beam */
+                linear-gradient(135deg, transparent 45%, rgba(180, 0, 0, 0.6) 50%, transparent 60%),
+                /* Secondary Beam */
+                linear-gradient(135deg, transparent 20%, rgba(180, 0, 0, 0.3) 25%, transparent 35%),
+                /* Top Right Beam */
+                linear-gradient(135deg, transparent 70%, rgba(180, 0, 0, 0.4) 80%, transparent 90%),
+                /* Sharp Black lines to cut through */
+                repeating-linear-gradient(135deg, transparent 0, transparent 40px, rgba(0, 0, 0, 0.8) 40px, rgba(0, 0, 0, 0.8) 42px),
+                /* Fine detailed lines */
+                repeating-linear-gradient(45deg, rgba(255, 255, 255, 0.02) 0, rgba(255, 255, 255, 0.02) 1px, transparent 1px, transparent 50px);
+            background-attachment: fixed;
+            background-size: cover;
+        }
+
+        /* OPTION 6: Ultimate Red (High Precision Replica) */
+        body.style-6 {
+            background-color: #020202;
+            background-image:
+                /* --- FINE DETAILS --- */
+                /* Dotted Line Left */
+                linear-gradient(135deg, transparent 35%, rgba(255, 50, 50, 0.3) 35.1%, transparent 35.2%),
+                /* Thin Sharp Line Far Right */
+                linear-gradient(135deg, transparent 82%, rgba(255, 0, 0, 0.9) 82.2%, transparent 82.4%),
+
+                /* --- MAIN BEAMS --- */
+                /* 1. Left-ish Beam (Darker) */
+                linear-gradient(135deg, transparent 15%, rgba(100, 0, 0, 0.6) 20%, transparent 35%),
+
+                /* 2. CENTER MAIN BEAM (The bright one) */
+                /* Sharp edge at 45%, fades out to 60% */
+                linear-gradient(135deg, transparent 45%, rgba(220, 0, 0, 1) 45.2%, rgba(200, 0, 0, 0.5) 50%, rgba(50, 0, 0, 0) 65%),
+
+                /* 3. Top Right Beam (Sharp edge) */
+                linear-gradient(135deg, transparent 70%, rgba(180, 0, 0, 0.9) 70.2%, rgba(100, 0, 0, 0) 80%),
+
+                /* --- AMBIENT GLOW --- */
+                radial-gradient(circle at 50% 50%, rgba(50, 0, 0, 0.2), transparent 80%);
+
+            background-attachment: fixed;
+            background-size: cover;
+        }
+    </style>
+</head>
+
+<body class="style-1">
+
+    <div class="controls">
+        <button onclick="setStyle(1)" id="btn1" class="active">Opción 1: Carbon Fiber</button>
+        <button onclick="setStyle(2)" id="btn2">Opción 2: Red Glow</button>
+        <button onclick="setStyle(3)" id="btn3">Opción 3: Tech Hex</button>
+        <button onclick="setStyle(4)" id="btn4">Opción 4: Red Velocity</button>
+        <button onclick="setStyle(5)" id="btn5">Opción 5: Red Diagonal Burst</button>
+        <button onclick="setStyle(6)" id="btn6">Opción 6: EXACT Replica</button>
+    </div>
+
+    <div class="mock-container">
+        <h1>AUTOSPORTING</h1>
+        <p>Esta es una vista previa de cómo se vería el contenido sobre los nuevos fondos. Se ha priorizado el **alto
+            contraste** para asegurar que el texto blanco sea legible sobre el fondo oscuro.</p>
+
+        <div class="card-grid">
+            <div class="card"></div>
+            <div class="card"></div>
+            <div class="card"></div>
+        </div>
+        <br>
+        <p>Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore
+            magna aliqua.</p>
+        <button style="background: var(--color-primary); width: 100%;">Ver Catálogo</button>
+    </div>
+
+    <script>
+        function setStyle(n) {
+            document.body.className = 'style-' + n;
+            document.querySelectorAll('button').forEach(b => b.classList.remove('active'));
+            document.getElementById('btn' + n).classList.add('active');
+        }
+    </script>
+</body>
+
+</html>
