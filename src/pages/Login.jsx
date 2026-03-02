@@ -4,70 +4,72 @@ import { useAuth } from '../context/AuthContext';
 import { Lock } from 'lucide-react';
 
 const Login = () => {
-    const [password, setPassword] = useState('');
-    const [error, setError] = useState('');
-    const [loading, setLoading] = useState(false);
-    const { login } = useAuth();
-    const navigate = useNavigate();
+  const [password, setPassword] = useState('');
+  const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
+  const { login } = useAuth();
+  const navigate = useNavigate();
 
-    const handleSubmit = async (e) => {
-        e.preventDefault();
-        setError('');
-        setLoading(true);
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setError('');
+    setLoading(true);
 
-        try {
-            const response = await fetch('http://localhost:3001/api/login', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({ password }),
-            });
+    try {
+      const API_URL = import.meta.env.VITE_API_URL;
+      const baseUrl = import.meta.env.PROD ? '' : (API_URL || 'http://localhost:3001');
+      const response = await fetch(`${baseUrl}/api/login`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ password }),
+      });
 
-            const data = await response.json();
+      const data = await response.json();
 
-            if (response.ok) {
-                login(data.token);
-                navigate('/admin');
-            } else {
-                setError(data.message || 'Contraseña incorrecta');
-            }
-        } catch (err) {
-            setError('Error de conexión con el servidor');
-        } finally {
-            setLoading(false);
-        }
-    };
+      if (response.ok) {
+        login(data.token);
+        navigate('/admin');
+      } else {
+        setError(data.message || 'Contraseña incorrecta');
+      }
+    } catch (err) {
+      setError('Error de conexión con el servidor');
+    } finally {
+      setLoading(false);
+    }
+  };
 
-    return (
-        <div className="login-container">
-            <div className="login-box">
-                <div className="icon-wrapper">
-                    <Lock size={32} color="var(--color-primary)" />
-                </div>
-                <h1>Acceso Admin</h1>
-                <p>Ingresa la contraseña maestra para gestionar el sitio.</p>
+  return (
+    <div className="login-container">
+      <div className="login-box">
+        <div className="icon-wrapper">
+          <Lock size={32} color="var(--color-primary)" />
+        </div>
+        <h1>Acceso Admin</h1>
+        <p>Ingresa la contraseña maestra para gestionar el sitio.</p>
 
-                <form onSubmit={handleSubmit}>
-                    <div className="input-group">
-                        <input
-                            type="password"
-                            value={password}
-                            onChange={(e) => setPassword(e.target.value)}
-                            placeholder="Contraseña..."
-                            required
-                        />
-                    </div>
+        <form onSubmit={handleSubmit}>
+          <div className="input-group">
+            <input
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              placeholder="Contraseña..."
+              required
+            />
+          </div>
 
-                    {error && <div className="error-msg">{error}</div>}
+          {error && <div className="error-msg">{error}</div>}
 
-                    <button type="submit" disabled={loading} className="btn-login">
-                        {loading ? 'Verificando...' : 'Ingresar'}
-                    </button>
-                </form>
-            </div>
+          <button type="submit" disabled={loading} className="btn-login">
+            {loading ? 'Verificando...' : 'Ingresar'}
+          </button>
+        </form>
+      </div>
 
-            <style>{`
+      <style>{`
         .login-container {
           min-height: 80vh;
           display: flex;
@@ -165,8 +167,8 @@ const Login = () => {
           border: 1px solid rgba(235, 38, 40, 0.2);
         }
       `}</style>
-        </div>
-    );
+    </div>
+  );
 };
 
 export default Login;

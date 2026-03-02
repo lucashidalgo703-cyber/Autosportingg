@@ -131,8 +131,8 @@ const AdminPanel = () => {
             }
 
             const API_URL = import.meta.env.VITE_API_URL;
-            const baseUrl = API_URL || 'http://localhost:3001';
-            const endpointBase = baseUrl === '/' ? '/api/cars' : `${baseUrl}/api/cars`;
+            const baseUrl = import.meta.env.PROD ? '' : (API_URL || 'http://localhost:3001');
+            const endpointBase = `${baseUrl}/api/cars`;
 
             let url = endpointBase;
             let method = 'POST';
@@ -241,8 +241,9 @@ const AdminPanel = () => {
         // Send new order to backend
         try {
             const orderedIds = newCars.map(c => c._id);
-            const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
-            const endpoint = `${API_URL === '/' ? '' : API_URL}/api/cars/reorder/batch`;
+            const API_URL = import.meta.env.VITE_API_URL;
+            const baseUrl = import.meta.env.PROD ? '' : (API_URL || 'http://localhost:3001');
+            const endpoint = `${baseUrl}/api/cars/reorder/batch`;
 
             await fetch(endpoint, {
                 method: 'PUT',
