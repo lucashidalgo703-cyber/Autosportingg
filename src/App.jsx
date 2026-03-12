@@ -17,6 +17,26 @@ const Contact = lazy(() => import('./pages/Contact'));
 const AdminPanel = lazy(() => import('./pages/AdminPanel'));
 const Login = lazy(() => import('./pages/Login'));
 
+// Preload components in background for instant navigation
+const preloadComponents = () => {
+  const routesToPreload = [
+    () => import('./pages/Catalog'),
+    () => import('./pages/Financing'),
+    () => import('./pages/About'),
+    () => import('./pages/Contact'),
+    () => import('./pages/CarDetail')
+  ];
+  
+  // Use requestIdleCallback if available, otherwise fallback to setTimeout
+  const schedulePreload = window.requestIdleCallback || ((cb) => setTimeout(cb, 1000));
+  
+  routesToPreload.forEach(importFn => {
+    schedulePreload(() => {
+      importFn().catch(() => {}); // Catch prefetch errors silently
+    });
+  });
+};
+
 // Loading component
 const PageLoader = () => (
   <div className="min-h-screen flex items-center justify-center bg-black text-white">
@@ -25,6 +45,12 @@ const PageLoader = () => (
 );
 
 function App() {
+  useEffect(() => {
+    // Start preloading after initial render
+    const timer = setTimeout(preloadComponents, 2000);
+    return () => clearTimeout(timer);
+  }, []);
+
   return (
     <AuthProvider>
       <Router>

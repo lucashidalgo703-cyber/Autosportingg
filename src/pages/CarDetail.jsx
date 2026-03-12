@@ -36,6 +36,36 @@ const CarDetail = () => {
         setActiveImage(car.images[prevIndex]);
     };
 
+    // Preload next and previous images dynamically
+    React.useEffect(() => {
+        if (!car || !car.images || car.images.length < 2) return;
+
+        const currentActive = activeImage || car.coverImage || car.images[0];
+        const currentIndex = car.images.indexOf(currentActive);
+        if (currentIndex === -1) return;
+
+        const nextIndex = (currentIndex + 1) % car.images.length;
+        const prevIndex = (currentIndex - 1 + car.images.length) % car.images.length;
+
+        const imagesToPreload = [
+            car.images[nextIndex],
+            car.images[prevIndex]
+        ];
+
+        // Deduplicate in case there are only 2 images
+        const uniqueToPreload = [...new Set(imagesToPreload)];
+
+        uniqueToPreload.forEach(imgUrl => {
+            const preloader = new Image();
+            preloader.src = getOptimizedImageUrl(imgUrl, 1200); // Same resolution as main container
+
+            // If lightbox might be opened, also warm up the 1600px version
+            const lightboxPreloader = new Image();
+            lightboxPreloader.src = getOptimizedImageUrl(imgUrl, 1600);
+        });
+
+    }, [activeImage, car]);
+
     if (!car) {
         return (
             <div className="not-found">
@@ -216,7 +246,8 @@ const CarDetail = () => {
                     <img
                         src={getOptimizedImageUrl(activeImage || car.coverImage || (car.images && car.images[0]), 1600)}
                         alt={car.name}
-                        className="lightbox-img"
+                        className="lightbox-img fade-in"
+                        key={activeImage} // Force re-render for animation on image change
                         onClick={(e) => e.stopPropagation()} // Prevent close when clicking image
                     />
 
@@ -371,7 +402,11 @@ const CarDetail = () => {
                     object-fit: contain;
                     border-radius: 4px;
                     box-shadow: 0 0 30px rgba(0,0,0,0.5);
-                    animation: zoomIn 0.3s ease;
+                    /* Animation class added dynamically */
+                }
+                
+                .lightbox-img.fade-in {
+                    animation: zoomInLight 0.2s ease-out;
                 }
 
                 .lightbox-close {
@@ -420,7 +455,12 @@ const CarDetail = () => {
                 }
 
                 @keyframes zoomIn {
-                    from { transform: scale(0.9); opacity: 0; }
+                    from { transform: scale(0.95); opacity: 0; }
+                    to { transform: scale(1); opacity: 1; }
+                }
+                
+                @keyframes zoomInLight {
+                    from { transform: scale(0.98); opacity: 0.8; }
                     to { transform: scale(1); opacity: 1; }
                 }
 
