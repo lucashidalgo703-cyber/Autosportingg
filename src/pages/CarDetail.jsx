@@ -215,7 +215,7 @@ const CarDetail = () => {
                     )}
 
                     <button
-                        onClick={() => window.open(`https://wa.me/5492974938642?text=${encodeURIComponent(`Hola AutoSporting, estoy interesado en el ${car.brand} ${car.name} ${car.year}`)}`, '_blank')}
+                        onClick={() => window.open(`https://wa.me/5492974045378?text=${encodeURIComponent(`Hola AutoSporting, estoy interesado en el ${car.brand} ${car.name} ${car.year}`)}`, '_blank')}
                         className="btn btn-primary full-width"
                     >
                         Consultar por WhatsApp

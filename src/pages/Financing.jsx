@@ -85,7 +85,7 @@ const Financing = () => {
                         </div>
                     </div>
                     <div className="req-cta">
-                        <a href="https://wa.me/5492974938642" target="_blank" rel="noopener noreferrer" className="btn-whatsapp-financing">
+                        <a href="https://wa.me/5492974045378" target="_blank" rel="noopener noreferrer" className="btn-whatsapp-financing">
                             Consultar por WhatsApp
                         </a>
                     </div>

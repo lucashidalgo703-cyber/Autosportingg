@@ -19,7 +19,7 @@ const Contact = () => {
       <section className="container contact-grid-section">
         <div className="contact-grid">
           {/* Card WhatsApp */}
-          <a href="https://wa.me/5492974938642" target="_blank" rel="noopener noreferrer" className="contact-card">
+          <a href="https://wa.me/5492974045378" target="_blank" rel="noopener noreferrer" className="contact-card">
             <div className="card-top">
               <div className="icon-box">
                 <MessageCircle size={24} color="white" />
@@ -30,7 +30,7 @@ const Contact = () => {
             </div>
             <div className="card-content">
               <h3>WhatsApp</h3>
-              <p className="card-value">2974938642</p>
+              <p className="card-value">2974045378</p>
               <span className="link-text">Mensaje directo</span>
             </div>
           </a>
