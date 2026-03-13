@@ -26,7 +26,7 @@ const Footer = () => {
             </div>
             <div className="contact-item">
               <Phone size={18} color="var(--color-primary)" />
-              <span>297-4938642 / 297-4768429</span>
+              <span>297-4045378</span>
             </div>
             <div className="social-links-footer" style={{ marginTop: '1rem', display: 'flex', gap: '1rem' }}>
               <a href="https://instagram.com/autosporting.cr" target="_blank" rel="noreferrer" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
