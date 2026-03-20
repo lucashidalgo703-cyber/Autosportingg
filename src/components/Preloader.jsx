@@ -28,7 +28,7 @@ const Preloader = () => {
                 </div>
 
                 {/* Slogan just like e11even */}
-                <div className="preloader-slogan">PREMIUM SELECTION</div>
+                <div className="preloader-slogan">Elegí con seguridad, conducí con confianza.</div>
             </div>
         </div>
     );
