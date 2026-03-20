@@ -30,10 +30,6 @@ const Preloader = () => {
                 <div className="preloader-video-overlay"></div>
             </div>
 
-            {/* Telón que se divide */}
-            <div className="preloader-panel preloader-panel-top"></div>
-            <div className="preloader-panel preloader-panel-bottom"></div>
-
             <div className="preloader-content">
                 <div className="ambient-glow"></div>
                 <div className="preloader-logo-container">
