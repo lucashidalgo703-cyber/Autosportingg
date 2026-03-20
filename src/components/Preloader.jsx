@@ -3,10 +3,10 @@ import React, { useEffect, useState } from 'react';
 const Preloader = () => {
     const [loading, setLoading] = useState(true);
     useEffect(() => {
-        // E11EVEN timing: fast. Around 1.5s - 1.8s total
+        // Extended timing holding the final frame longer so text can be read
         const timer = setTimeout(() => {
             setLoading(false);
-        }, 1800);
+        }, 2800);
 
         return () => clearTimeout(timer);
     }, []);
