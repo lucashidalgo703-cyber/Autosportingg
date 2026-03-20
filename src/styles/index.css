@@ -206,8 +206,17 @@ ul {
   height: 100px;
   /* Sized up for more presence */
   width: auto;
+  max-width: 90vw;
+  /* Protect against wide logos stretching mobile screens */
   object-fit: contain;
   display: block;
+}
+
+@media (max-width: 768px) {
+  .preloader-logo {
+    height: 60px;
+    /* Elegantly scale back down on mobile */
+  }
 }
 
 @keyframes logoRevealE11 {
