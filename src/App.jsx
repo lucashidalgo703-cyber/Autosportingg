@@ -4,6 +4,7 @@ import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import Navbar from './components/Navbar';
 import Footer from './components/Footer';
 import WhatsAppButton from './components/WhatsAppButton';
+import Preloader from './components/Preloader';
 import Home from './pages/Home'; // Critical route, keep eager
 import ProtectedRoute from './components/ProtectedRoute';
 import { AuthProvider } from './context/AuthContext';
@@ -26,13 +27,13 @@ const preloadComponents = () => {
     () => import('./pages/Contact'),
     () => import('./pages/CarDetail')
   ];
-  
+
   // Use requestIdleCallback if available, otherwise fallback to setTimeout
   const schedulePreload = window.requestIdleCallback || ((cb) => setTimeout(cb, 1000));
-  
+
   routesToPreload.forEach(importFn => {
     schedulePreload(() => {
-      importFn().catch(() => {}); // Catch prefetch errors silently
+      importFn().catch(() => { }); // Catch prefetch errors silently
     });
   });
 };
@@ -55,6 +56,7 @@ function App() {
     <AuthProvider>
       <Router>
         <div className="app">
+          <Preloader />
           <ScrollToTop />
           <Navbar />
           <WhatsAppButton />
