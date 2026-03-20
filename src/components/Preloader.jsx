@@ -14,6 +14,22 @@ const Preloader = () => {
 
     return (
         <div className={`preloader-overlay ${!loading ? 'slide-out' : ''}`}>
+            {/* Background Video */}
+            <div className="preloader-video-container">
+                <video
+                    autoPlay
+                    loop
+                    muted
+                    playsInline
+                    className="preloader-video"
+                    poster="/autosporting-hero-v2.jpg"
+                >
+                    <source src="/preloader-bg.mp4" type="video/mp4" />
+                </video>
+                {/* Overlay to darken the video heavily so the logo pops */}
+                <div className="preloader-video-overlay"></div>
+            </div>
+
             {/* Telón que se divide */}
             <div className="preloader-panel preloader-panel-top"></div>
             <div className="preloader-panel preloader-panel-bottom"></div>

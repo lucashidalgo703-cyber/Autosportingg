@@ -142,6 +142,38 @@ ul {
   align-items: center;
 }
 
+/* Background Video styling */
+.preloader-video-container {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 0;
+  /* Behind everything */
+  overflow: hidden;
+}
+
+.preloader-video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  filter: blur(4px) grayscale(50%);
+  transform: scale(1.05);
+  /* Avoid blur bleeding edges */
+}
+
+/* Very heavy dark overlay so the logo stands out */
+.preloader-video-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(135deg, rgba(2, 2, 2, 0.85) 0%, rgba(10, 0, 0, 0.95) 100%);
+  z-index: 1;
+}
+
 .preloader-overlay.slide-out {
   pointer-events: none;
   transition: visibility 0s 1s;
@@ -157,7 +189,8 @@ ul {
   height: 50vh;
   background-color: #020202;
   transition: transform 1s cubic-bezier(0.77, 0, 0.175, 1);
-  z-index: 1;
+  z-index: 2;
+  /* Increased z-index so it hides the video when closing */
 }
 
 .preloader-panel-top {
@@ -181,7 +214,7 @@ ul {
   flex-direction: column;
   align-items: center;
   position: relative;
-  z-index: 2;
+  z-index: 3;
   /* Above the panels */
   transition: opacity 0.3s ease-out;
   /* Fade out logo slightly before opening */
