@@ -14,24 +14,11 @@ const Preloader = () => {
 
     return (
         <div className={`preloader-overlay ${!loading ? 'slide-out' : ''}`}>
-            {/* Background Video */}
-            <div className="preloader-video-container">
-                <video
-                    autoPlay
-                    loop
-                    muted
-                    playsInline
-                    className="preloader-video"
-                    poster="/autosporting-hero-v2.jpg"
-                >
-                    <source src="/preloader-bg.mp4" type="video/mp4" />
-                </video>
-                {/* Overlay to darken the video heavily so the logo pops */}
-                <div className="preloader-video-overlay"></div>
-            </div>
+            {/* Animated glowing orbs for premium color effect */}
+            <div className="preloader-glow-orb orb-1"></div>
+            <div className="preloader-glow-orb orb-2"></div>
 
             <div className="preloader-content">
-                <div className="ambient-glow"></div>
                 <div className="preloader-logo-container">
                     <img
                         src="/logo-header-final-user.png"
