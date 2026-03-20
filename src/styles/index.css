@@ -142,7 +142,7 @@ ul {
   align-items: center;
 
   /* Animated Dark Red/Black Gradient */
-  background: linear-gradient(-45deg, #020202, #0d0101, #1a0202, #020202);
+  background: linear-gradient(-45deg, #020202, #2e0000, #4f0000, #020202);
   background-size: 300% 300%;
   animation: bgPulse 6s ease infinite;
   overflow: hidden;
@@ -174,7 +174,7 @@ ul {
 .orb-1 {
   width: 60vw;
   height: 60vw;
-  background: radial-gradient(circle, rgba(235, 38, 40, 0.15) 0%, transparent 70%);
+  background: radial-gradient(circle, rgba(235, 38, 40, 0.5) 0%, transparent 70%);
   top: -30vh;
   left: -20vw;
   animation: floatOrb1 7s ease-in-out infinite alternate;
@@ -183,7 +183,7 @@ ul {
 .orb-2 {
   width: 50vw;
   height: 50vw;
-  background: radial-gradient(circle, rgba(200, 20, 20, 0.12) 0%, transparent 70%);
+  background: radial-gradient(circle, rgba(255, 60, 60, 0.4) 0%, transparent 70%);
   bottom: -20vh;
   right: -10vw;
   animation: floatOrb2 9s ease-in-out infinite alternate-reverse;
