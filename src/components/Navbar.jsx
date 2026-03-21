@@ -1,11 +1,13 @@
 import { useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { Menu, X, LogOut } from 'lucide-react';
+import { Menu, X, LogOut, Heart } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+import { useFavorites } from '../context/FavoritesContext';
 
 const Navbar = () => {
   const [isOpen, setIsOpen] = useState(false);
   const { isAuthenticated, logout } = useAuth();
+  const { favorites } = useFavorites();
   // Verified Navbar Structure - Logo v5
   const location = useLocation();
 
@@ -25,6 +27,13 @@ const Navbar = () => {
           <Link to="/financiacion" className={`nav-link ${isActive('/financiacion') ? 'active' : ''}`}>Financiación</Link>
           <Link to="/nosotros" className={`nav-link ${isActive('/nosotros') ? 'active' : ''}`}>Nosotros</Link>
           <Link to="/contacto" className={`nav-link ${isActive('/contacto') ? 'active' : ''}`}>Contacto</Link>
+
+          <Link to="/favoritos" className={`nav-link flex items-center gap-1 ${isActive('/favoritos') ? 'active' : ''}`} style={{ position: 'relative' }}>
+            <Heart size={20} fill={isActive('/favoritos') ? "var(--color-primary)" : "none"} color={isActive('/favoritos') ? "var(--color-primary)" : "currentColor"} />
+            {favorites.length > 0 && (
+              <span className="favorites-badge">{favorites.length}</span>
+            )}
+          </Link>
 
           {isAuthenticated && (
             <>
@@ -49,6 +58,14 @@ const Navbar = () => {
             <Link to="/financiacion" onClick={() => setIsOpen(false)}>Financiación</Link>
             <Link to="/nosotros" onClick={() => setIsOpen(false)}>Nosotros</Link>
             <Link to="/contacto" onClick={() => setIsOpen(false)}>Contacto</Link>
+            <Link to="/favoritos" onClick={() => setIsOpen(false)} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', justifyContent: 'space-between' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                <Heart size={20} /> Favoritos
+              </div>
+              {favorites.length > 0 && (
+                <span className="favorites-badge-mobile">{favorites.length}</span>
+              )}
+            </Link>
 
             {isAuthenticated && (
               <>
@@ -175,6 +192,32 @@ const Navbar = () => {
             width: 100%;
             text-align: center;
             font-weight: 600;
+        }
+
+        .favorites-badge {
+            position: absolute;
+            top: -8px;
+            right: -12px;
+            background-color: var(--color-primary);
+            color: white;
+            font-size: 0.7rem;
+            font-weight: 700;
+            width: 18px;
+            height: 18px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 50%;
+            border: 2px solid var(--color-bg);
+        }
+
+        .favorites-badge-mobile {
+            background-color: var(--color-primary);
+            color: white;
+            font-size: 0.75rem;
+            font-weight: 700;
+            padding: 2px 8px;
+            border-radius: 12px;
         }
 
         @media (max-width: 768px) {

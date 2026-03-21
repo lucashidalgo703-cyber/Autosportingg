@@ -8,6 +8,7 @@ import Preloader from './components/Preloader';
 import Home from './pages/Home'; // Critical route, keep eager
 import ProtectedRoute from './components/ProtectedRoute';
 import { AuthProvider } from './context/AuthContext';
+import { FavoritesProvider } from './context/FavoritesContext';
 
 // Lazy load other routes
 const Catalog = lazy(() => import('./pages/Catalog'));
@@ -17,6 +18,7 @@ const Financing = lazy(() => import('./pages/Financing'));
 const Contact = lazy(() => import('./pages/Contact'));
 const AdminPanel = lazy(() => import('./pages/AdminPanel'));
 const Login = lazy(() => import('./pages/Login'));
+const Favorites = lazy(() => import('./pages/Favorites'));
 
 // Preload components in background for instant navigation
 const preloadComponents = () => {
@@ -53,37 +55,40 @@ function App() {
   }, []);
 
   return (
-    <AuthProvider>
-      <Router>
-        <div className="app">
-          <Preloader />
-          <ScrollToTop />
-          <Navbar />
-          <WhatsAppButton />
-          <Suspense fallback={<PageLoader />}>
-            <Routes>
-              <Route path="/" element={<Home />} />
-              <Route path="/catalogo" element={<Catalog />} />
-              <Route path="/nosotros" element={<About />} />
-              <Route path="/contacto" element={<Contact />} />
-              <Route path="/financiacion" element={<Financing />} />
-              <Route path="/auto/:id" element={<CarDetail />} />
-              <Route path="/login" element={<Login />} />
-              <Route
-                path="/admin"
-                element={
-                  <ProtectedRoute>
-                    <AdminPanel />
-                  </ProtectedRoute>
-                }
-              />
-            </Routes>
-          </Suspense>
-          <Footer />
-          <Analytics />
-        </div>
-      </Router>
-    </AuthProvider>
+    <FavoritesProvider>
+      <AuthProvider>
+        <Router>
+          <div className="app">
+            <Preloader />
+            <ScrollToTop />
+            <Navbar />
+            <WhatsAppButton />
+            <Suspense fallback={<PageLoader />}>
+              <Routes>
+                <Route path="/" element={<Home />} />
+                <Route path="/catalogo" element={<Catalog />} />
+                <Route path="/nosotros" element={<About />} />
+                <Route path="/contacto" element={<Contact />} />
+                <Route path="/financiacion" element={<Financing />} />
+                <Route path="/favoritos" element={<Favorites />} />
+                <Route path="/auto/:id" element={<CarDetail />} />
+                <Route path="/login" element={<Login />} />
+                <Route
+                  path="/admin"
+                  element={
+                    <ProtectedRoute>
+                      <AdminPanel />
+                    </ProtectedRoute>
+                  }
+                />
+              </Routes>
+            </Suspense>
+            <Footer />
+            <Analytics />
+          </div>
+        </Router>
+      </AuthProvider>
+    </FavoritesProvider>
   );
 }
 

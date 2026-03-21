@@ -1,15 +1,19 @@
 import React from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { ArrowLeft, Calendar, Gauge, Fuel, Maximize2, X, ChevronLeft, ChevronRight } from 'lucide-react';
+import { ArrowLeft, Calendar, Gauge, Fuel, Maximize2, X, ChevronLeft, ChevronRight, Heart } from 'lucide-react';
 import { useCars } from '../hooks/useCars';
 import { getOptimizedImageUrl } from '../lib/cloudinaryUtils';
+import { useFavorites } from '../context/FavoritesContext';
 
 const CarDetail = () => {
     const { id } = useParams();
     const { cars, loading } = useCars();
+    const { isFavorite, toggleFavorite } = useFavorites();
 
     // Find car by ID (support _id from MongoDB and string/number IDs)
     const car = cars.find(c => (c._id === id) || (c.id && c.id.toString() === id));
+    const carId = car ? (car._id || car.id) : null;
+    const isFav = carId ? isFavorite(carId) : false;
 
     const [activeImage, setActiveImage] = React.useState(null);
     const [showLightbox, setShowLightbox] = React.useState(false);
@@ -179,8 +183,17 @@ const CarDetail = () => {
 
                 {/* Info Section */}
                 <div className="info-section">
-                    <div className="condition-badge">
-                        {car.condition}
+                    <div className="flex items-center justify-between mb-2">
+                        <div className="condition-badge mb-0">
+                            {car.condition}
+                        </div>
+                        <button
+                            className="detail-favorite-btn flex items-center gap-2"
+                            onClick={() => toggleFavorite(carId)}
+                        >
+                            <Heart size={24} fill={isFav ? "var(--color-primary)" : "none"} color={isFav ? "var(--color-primary)" : "white"} />
+                            <span className="text-sm font-medium">{isFav ? "Guardado" : "Guardar"}</span>
+                        </button>
                     </div>
 
                     <h1 className="car-title">{car.brand} {car.name}</h1>
@@ -471,6 +484,21 @@ const CarDetail = () => {
                     font-size: 0.9rem;
                     letter-spacing: 0.05em;
                     margin-bottom: 0.5rem;
+                }
+
+                .detail-favorite-btn {
+                    background: transparent;
+                    border: 1px solid rgba(255, 255, 255, 0.2);
+                    color: white;
+                    padding: 0.5rem 1rem;
+                    border-radius: 9999px;
+                    cursor: pointer;
+                    transition: all 0.2s;
+                }
+
+                .detail-favorite-btn:hover {
+                    background: rgba(255, 255, 255, 0.1);
+                    border-color: rgba(255, 255, 255, 0.4);
                 }
 
                 .car-title {
