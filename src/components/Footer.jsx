@@ -30,7 +30,7 @@ const Footer = () => {
             </div>
             <div className="social-links-footer" style={{ marginTop: '1rem', display: 'flex', gap: '1rem' }}>
               <a href="https://instagram.com/autosporting.cr" target="_blank" rel="noreferrer" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                <Instagram size={20} />
+                <Instagram size={20} color="var(--color-primary)" />
                 <span>@autosporting.cr</span>
               </a>
             </div>
