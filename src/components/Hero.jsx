@@ -1,7 +1,17 @@
+import { useState, useEffect } from 'react';
 import { ArrowRight, Check } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
 const Hero = () => {
+  const [scrollY, setScrollY] = useState(0);
+
+  useEffect(() => {
+    const handleScroll = () => {
+      setScrollY(window.scrollY);
+    };
+    window.addEventListener('scroll', handleScroll, { passive: true });
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
   console.log("Hero component version: 3.0 Strict Match Loaded");
   return (
     <section className="hero">
@@ -10,7 +20,12 @@ const Hero = () => {
           src="/autosporting-hero-v2.jpg"
           alt="Autosporting Hero"
           className="hero-bg-image object-cover"
-          style={{ objectFit: 'cover', objectPosition: '50% 30%' }}
+          style={{
+            objectFit: 'cover',
+            objectPosition: '50% 30%',
+            transform: `translateY(${scrollY * 0.4}px)`,
+            willChange: 'transform'
+          }}
           fetchPriority="high"
           loading="eager"
         />

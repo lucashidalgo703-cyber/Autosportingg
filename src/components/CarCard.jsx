@@ -28,8 +28,8 @@ const CarCard = ({ car }) => {
         </div>
 
         <div className="card-footer mt-auto">
-          <span className="view-more flex items-center gap-2 text-white text-xs font-medium group-hover:underline transition-all">
-            Ver más <ArrowRight size={14} />
+          <span className="view-more flex items-center gap-2 text-white text-xs font-medium transition-all group-hover:text-[var(--color-primary)]">
+            Ver más <ArrowRight size={14} className="transition-transform group-hover:translate-x-1" />
           </span>
         </div>
       </div>
@@ -45,11 +45,37 @@ const CarCard = ({ car }) => {
                     overflow: hidden;
                     position: relative;
                     box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
-                    transition: transform 0.3s ease, box-shadow 0.3s ease;
+                    transition: transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275), box-shadow 0.4s ease;
+                    isolation: isolate; /* keeps ::before inside the rounding */
+                }
+
+                /* Shine effect */
+                .car-card::before {
+                    content: "";
+                    position: absolute;
+                    top: 0;
+                    left: -100%;
+                    width: 50%;
+                    height: 100%;
+                    background: linear-gradient(
+                        to right,
+                        rgba(255, 255, 255, 0) 0%,
+                        rgba(255, 255, 255, 0.15) 50%,
+                        rgba(255, 255, 255, 0) 100%
+                    );
+                    transform: skewX(-25deg);
+                    transition: left 0.6s ease-in-out;
+                    z-index: 10;
+                    pointer-events: none;
+                }
+                
+                .car-card:hover::before {
+                    left: 200%;
                 }
                 
                 .car-card:hover {
-                    box-shadow: 0 8px 30px rgba(235, 38, 40, 0.3);
+                    box-shadow: 0 15px 35px rgba(235, 38, 40, 0.25);
+                    transform: translateY(-6px);
                 }
 
                 .card-image-wrapper {
@@ -65,14 +91,13 @@ const CarCard = ({ car }) => {
                 .card-image {
                     width: 100%;
                     height: 100%;
-                    object-fit: cover; /* Fills the square completely */
-                    object-fit: cover; /* Fills the square completely */
+                    object-fit: cover;
                     /* object-position handled inline */
-                    transition: transform 0.5s ease;
+                    transition: transform 0.6s cubic-bezier(0.25, 0.46, 0.45, 0.94);
                 }
 
                 .car-card:hover .card-image {
-                    transform: scale(1.05); /* Smooth zoom on hover */
+                    transform: scale(1.08); /* Smooth deep zoom on hover */
                 }
 
                 .card-content {
