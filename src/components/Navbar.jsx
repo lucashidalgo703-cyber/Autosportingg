@@ -18,19 +18,19 @@ const Navbar = () => {
   return (
     <header className="navbar">
       <div className="container navbar-content">
-        <Link to="/" className="logo">
+        <Link href="/" className="logo">
           <img src="/logo-header-final-user.png" alt="AutoSporting" className="navbar-logo-img" />
         </Link>
 
         {/* Desktop Menu */}
         <nav className="desktop-nav">
-          <Link to="/" className={`nav-link ${isActive('/') ? 'active' : ''}`}>Inicio</Link>
-          <Link to="/catalogo" className={`nav-link ${isActive('/catalogo') ? 'active' : ''}`}>Catálogo</Link>
-          <Link to="/financiacion" className={`nav-link ${isActive('/financiacion') ? 'active' : ''}`}>Financiación</Link>
-          <Link to="/nosotros" className={`nav-link ${isActive('/nosotros') ? 'active' : ''}`}>Nosotros</Link>
-          <Link to="/contacto" className={`nav-link ${isActive('/contacto') ? 'active' : ''}`}>Contacto</Link>
+          <Link href="/" className={`nav-link ${isActive('/') ? 'active' : ''}`}>Inicio</Link>
+          <Link href="/catalogo" className={`nav-link ${isActive('/catalogo') ? 'active' : ''}`}>Catálogo</Link>
+          <Link href="/financiacion" className={`nav-link ${isActive('/financiacion') ? 'active' : ''}`}>Financiación</Link>
+          <Link href="/nosotros" className={`nav-link ${isActive('/nosotros') ? 'active' : ''}`}>Nosotros</Link>
+          <Link href="/contacto" className={`nav-link ${isActive('/contacto') ? 'active' : ''}`}>Contacto</Link>
 
-          <Link to="/favoritos" className={`nav-link flex items-center gap-1 ${isActive('/favoritos') ? 'active' : ''}`} style={{ position: 'relative' }}>
+          <Link href="/favoritos" className={`nav-link flex items-center gap-1 ${isActive('/favoritos') ? 'active' : ''}`} style={{ position: 'relative' }}>
             <Heart size={20} fill={isActive('/favoritos') ? "var(--color-primary)" : "none"} color={isActive('/favoritos') ? "var(--color-primary)" : "currentColor"} />
             {favorites.length > 0 && (
               <span className="favorites-badge">{favorites.length}</span>
@@ -39,7 +39,7 @@ const Navbar = () => {
 
           {isAuthenticated && (
             <>
-              <Link to="/admin" className={`nav-link ${isActive('/admin') ? 'text-primary' : ''}`}>Admin</Link>
+              <Link href="/admin" className={`nav-link ${isActive('/admin') ? 'text-primary' : ''}`}>Admin</Link>
               <button onClick={logout} className="nav-link btn-logout">
                 <LogOut size={18} />
               </button>
@@ -55,12 +55,12 @@ const Navbar = () => {
         {/* Mobile Menu */}
         {isOpen && (
           <div className="mobile-nav">
-            <Link to="/" onClick={() => setIsOpen(false)}>Inicio</Link>
-            <Link to="/catalogo" onClick={() => setIsOpen(false)}>Catálogo</Link>
-            <Link to="/financiacion" onClick={() => setIsOpen(false)}>Financiación</Link>
-            <Link to="/nosotros" onClick={() => setIsOpen(false)}>Nosotros</Link>
-            <Link to="/contacto" onClick={() => setIsOpen(false)}>Contacto</Link>
-            <Link to="/favoritos" onClick={() => setIsOpen(false)} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', justifyContent: 'space-between' }}>
+            <Link href="/" onClick={() => setIsOpen(false)}>Inicio</Link>
+            <Link href="/catalogo" onClick={() => setIsOpen(false)}>Catálogo</Link>
+            <Link href="/financiacion" onClick={() => setIsOpen(false)}>Financiación</Link>
+            <Link href="/nosotros" onClick={() => setIsOpen(false)}>Nosotros</Link>
+            <Link href="/contacto" onClick={() => setIsOpen(false)}>Contacto</Link>
+            <Link href="/favoritos" onClick={() => setIsOpen(false)} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', justifyContent: 'space-between' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                 <Heart size={20} /> Favoritos
               </div>
@@ -71,7 +71,7 @@ const Navbar = () => {
 
             {isAuthenticated && (
               <>
-                <Link to="/admin" onClick={() => setIsOpen(false)} style={{ color: '#EB2628' }}>Admin</Link>
+                <Link href="/admin" onClick={() => setIsOpen(false)} style={{ color: '#EB2628' }}>Admin</Link>
                 <button onClick={() => { logout(); setIsOpen(false); }} className="mobile-logout">
                   Cerrar Sesión
                 </button>

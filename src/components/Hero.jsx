@@ -66,13 +66,13 @@ const Hero = () => {
 
           {/* CTA Buttons */}
           <div className="hero-actions fade-in-up delay-4">
-            <Link to="/catalogo" className="btn-hero-primary group">
+            <Link href="/catalogo" className="btn-hero-primary group">
               <span className="relative z-10 flex items-center justify-center gap-2">
                 Ver Catálogo
                 <ArrowRight size={20} className="transition-transform group-hover:translate-x-1" />
               </span>
             </Link>
-            <Link to="/contacto" className="btn-hero-secondary">
+            <Link href="/contacto" className="btn-hero-secondary">
               <span className="relative z-10 flex items-center justify-center gap-2">
                 Contactanos
               </span>

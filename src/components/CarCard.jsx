@@ -10,7 +10,7 @@ const CarCard = ({ car }) => {
   const isFav = isFavorite(carId);
 
   return (
-    <Link to={`/auto/${car._id || car.id}`} className="car-card group">
+    <Link href={`/auto/${car._id || car.id}`} className="car-card group">
       <div className="card-image-wrapper">
         <img
           src={getOptimizedImageUrl(car.coverImage || (car.images && car.images[0]) || car.image, 600)}

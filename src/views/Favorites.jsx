@@ -16,7 +16,7 @@ const Favorites = () => {
 
     return (
         <main className="container page-padding">
-            <Link to="/catalogo" className="back-link">
+            <Link href="/catalogo" className="back-link">
                 <ArrowLeft size={20} /> Volver al catálogo
             </Link>
 
@@ -41,7 +41,7 @@ const Favorites = () => {
                     <Car size={64} className="empty-icon" />
                     <h2>Aún no tienes favoritos</h2>
                     <p>Explora nuestro catálogo y guarda los vehículos que más te interesen haciendo clic en el corazón.</p>
-                    <Link to="/catalogo" className="btn btn-primary mt-6">
+                    <Link href="/catalogo" className="btn btn-primary mt-6">
                         Explorar Catálogo
                     </Link>
                 </div>

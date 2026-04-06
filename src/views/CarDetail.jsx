@@ -76,7 +76,7 @@ const CarDetail = () => {
         return (
             <div className="not-found">
                 <h2>Vehículo no encontrado</h2>
-                <Link to="/catalogo" className="btn btn-primary">
+                <Link href="/catalogo" className="btn btn-primary">
                     <ArrowLeft size={20} /> Volver al catálogo
                 </Link>
             </div>
@@ -85,7 +85,7 @@ const CarDetail = () => {
 
     return (
         <main className="container page-padding">
-            <Link to="/catalogo" className="back-link">
+            <Link href="/catalogo" className="back-link">
                 <ArrowLeft size={20} /> Volver al catálogo
             </Link>
 
