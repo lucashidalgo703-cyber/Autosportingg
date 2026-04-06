@@ -1,15 +1,20 @@
-import { Navigate } from 'react-router-dom';
+"use client";
+import { useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import { useAuth } from '../context/AuthContext';
 
 const ProtectedRoute = ({ children }) => {
     const { isAuthenticated, loading } = useAuth();
+    const router = useRouter();
 
-    if (loading) {
-        return <div>Cargando...</div>; // Or a nice spinner
-    }
+    useEffect(() => {
+        if (!loading && !isAuthenticated) {
+            router.push('/login');
+        }
+    }, [isAuthenticated, loading, router]);
 
-    if (!isAuthenticated) {
-        return <Navigate to="/login" replace />;
+    if (loading || !isAuthenticated) {
+        return <div>Cargando...</div>;
     }
 
     return children;

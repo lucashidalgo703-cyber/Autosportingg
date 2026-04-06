@@ -1,5 +1,7 @@
+"use client";
 import { useState } from 'react';
-import { Link, useLocation } from 'react-router-dom';
+import Link from 'next/link';
+import { usePathname } from 'next/navigation';
 import { Menu, X, LogOut, Heart } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useFavorites } from '../context/FavoritesContext';
@@ -9,9 +11,9 @@ const Navbar = () => {
   const { isAuthenticated, logout } = useAuth();
   const { favorites } = useFavorites();
   // Verified Navbar Structure - Logo v5
-  const location = useLocation();
+  const pathname = usePathname();
 
-  const isActive = (path) => location.pathname === path;
+  const isActive = (path) => pathname === path;
 
   return (
     <header className="navbar">

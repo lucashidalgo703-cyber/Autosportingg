@@ -1,3 +1,4 @@
+"use client";
 import { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 
@@ -10,8 +11,8 @@ export const useCars = () => {
     const fetchCars = async () => {
         try {
             setLoading(true);
-            const API_URL = import.meta.env.VITE_API_URL;
-            const baseUrl = import.meta.env.PROD ? '' : (API_URL || 'http://localhost:3001');
+            const API_URL = process.env.NEXT_PUBLIC_API_URL;
+            const baseUrl = process.env.NODE_ENV === 'production' ? '' : (API_URL || 'http://localhost:3001');
             const endpoint = `${baseUrl}/api/cars`;
 
             // Add cache busting to ensure fresh data
@@ -34,8 +35,8 @@ export const useCars = () => {
     const deleteCar = async (id) => {
         if (!confirm('Are you sure?')) return;
         try {
-            const API_URL = import.meta.env.VITE_API_URL;
-            const baseUrl = import.meta.env.PROD ? '' : (API_URL || 'http://localhost:3001');
+            const API_URL = process.env.NEXT_PUBLIC_API_URL;
+            const baseUrl = process.env.NODE_ENV === 'production' ? '' : (API_URL || 'http://localhost:3001');
             const endpoint = `${baseUrl}/api/cars/${id}`;
 
             const res = await fetch(endpoint, {

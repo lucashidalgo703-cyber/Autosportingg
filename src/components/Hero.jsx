@@ -1,6 +1,7 @@
+"use client";
 import { useState, useEffect } from 'react';
 import { ArrowRight, Check } from 'lucide-react';
-import { Link } from 'react-router-dom';
+import Link from 'next/link';
 
 const Hero = () => {
   const [scrollY, setScrollY] = useState(0);

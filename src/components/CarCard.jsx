@@ -1,5 +1,6 @@
+"use client";
 import { ArrowRight, Heart } from 'lucide-react';
-import { Link } from 'react-router-dom';
+import Link from 'next/link';
 import { getOptimizedImageUrl } from '../lib/cloudinaryUtils';
 import { useFavorites } from '../context/FavoritesContext';
 

@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AutoSporting Instagram Post Template</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700&display=swap');
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            background-color: #111;
+            font-family: 'Montserrat', sans-serif;
+            margin: 0;
+        }
+
+        .post-container {
+            width: 1080px;
+            height: 1080px;
+            background-color: #0D0D0D;
+            /* Fondo negro pleno */
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            align-items: center;
+            position: relative;
+            overflow: hidden;
+            /* Escalamiento para la visualización en el navegador */
+            transform: scale(0.7);
+            transform-origin: center;
+            box-shadow: 0 20px 50px rgba(0, 0, 0, 0.8);
+        }
+
+        /* Fondo: Foto de un vehículo premium con overlay oscuro (Opción B) */
+        .background-image {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            /* Imagen de auto premium genérica de Unsplash para visualizar */
+            background-image: url('https://images.unsplash.com/photo-1614162692292-7ac56d7f7f1e?q=80&w=2070&auto=format&fit=crop');
+            background-size: cover;
+            background-position: center;
+            z-index: 1;
+        }
+
+        /* Overlay negro con 55% de transparencia */
+        .overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.55);
+            z-index: 2;
+        }
+
+        .content {
+            position: relative;
+            z-index: 3;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 100px 80px;
+            text-align: center;
+            justify-content: space-between;
+        }
+
+        /* Bloque 1: Encabezado */
+        .header {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 15px;
+        }
+
+        .brand-name {
+            font-family: 'Montserrat', sans-serif;
+            font-weight: 600;
+            /* SemiBold */
+            font-size: 34px;
+            color: #FFFFFF;
+            letter-spacing: 10px;
+            text-transform: uppercase;
+        }
+
+        .separator {
+            width: 60px;
+            height: 2px;
+            background-color: #D9D9D9;
+            opacity: 0.6;
+        }
+
+        /* Bloque 2: Título principal */
+        .main-title {
+            font-family: 'Montserrat', sans-serif;
+            font-weight: 700;
+            /* Bold */
+            font-size: 60px;
+            color: #FFFFFF;
+            line-height: 0.95;
+            margin-top: 40px;
+        }
+
+        .highlight {
+            color: #A61414;
+            /* Rojo acento para resaltar */
+        }
+
+        /* Bloque 3: Texto descriptivo */
+        .description {
+            font-family: 'Montserrat', sans-serif;
+            font-weight: 400;
+            /* Regular */
+            font-size: 30px;
+            color: #D9D9D9;
+            line-height: 1.25;
+            max-width: 850px;
+        }
+
+        .description strong {
+            font-weight: 700;
+            /* Bold */
+            color: #FFFFFF;
+        }
+
+        /* Bloque 4: Frase de cierre */
+        .closing {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 20px;
+            margin-top: 20px;
+        }
+
+        .closing-separator {
+            width: 50px;
+            height: 3px;
+            background-color: #A61414;
+            /* Línea roja pequeña arriba */
+            border-radius: 2px;
+        }
+
+        .closing-text {
+            font-family: 'Montserrat', sans-serif;
+            font-weight: 500;
+            /* Medium */
+            font-size: 32px;
+            color: #FFFFFF;
+        }
+
+        /* Bloque 5: Llamado a la acción (Botón) */
+        .cta-button {
+            background-color: #A61414;
+            color: #FFFFFF;
+            font-family: 'Montserrat', sans-serif;
+            font-weight: 600;
+            /* SemiBold */
+            font-size: 26px;
+            padding: 22px 60px;
+            border-radius: 15px;
+            text-decoration: none;
+            display: inline-block;
+            box-shadow: 0 10px 30px rgba(166, 20, 20, 0.4);
+            transition: transform 0.2s, background-color 0.2s;
+        }
+
+        .cta-button:hover {
+            transform: translateY(-2px);
+            background-color: #c91818;
+        }
+
+        /* Logo (esquina superior izquierda, opcional) */
+        .logo-placeholder {
+            position: absolute;
+            top: 40px;
+            left: 40px;
+            z-index: 4;
+            color: #FFFFFF;
+            font-weight: 700;
+            font-size: 18px;
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            border-radius: 8px;
+            padding: 10px 20px;
+            background-color: rgba(0, 0, 0, 0.5);
+            /* Oculto por defecto ya que centramos "AUTOSPORTING" arriba, 
+               pero lo dejo como estructura si se quiere usar */
+            display: none;
+        }
+    </style>
+</head>
+
+<body>
+
+    <div class="post-container">
+        <!-- Fondo de auto -->
+        <div class="background-image"></div>
+        <!-- Capa negra con transparencia -->
+        <div class="overlay"></div>
+
+        <div class="logo-placeholder">LOGO 150px</div>
+
+        <div class="content">
+
+            <!-- BLOQUE 1 -->
+            <div class="header">
+                <div class="brand-name">AUTOSPORTING</div>
+                <div class="separator"></div>
+            </div>
+
+            <!-- BLOQUE 2 -->
+            <div class="main-title">
+                En AutoSporting también<br>
+                <span class="highlight">te acompañamos con tu seguro</span>
+            </div>
+
+            <!-- BLOQUE 3 -->
+            <div class="description">
+                Somos <strong>Productores de Seguros de La Caja</strong>,<br>
+                para que puedas resolver la protección de tu vehículo<br>
+                con el respaldo y la confianza que necesitás.
+            </div>
+
+            <!-- BLOQUE 4 -->
+            <div class="closing">
+                <div class="closing-separator"></div>
+                <div class="closing-text">Auto + atención + respaldo, en un solo lugar.</div>
+            </div>
+
+            <!-- BLOQUE 5 -->
+            <a href="#" class="cta-button">Consultanos por privado</a>
+
+        </div>
+    </div>
+
+</body>
+
+</html>
