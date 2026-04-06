@@ -1,11 +1,13 @@
+"use client";
 import React, { createContext, useState, useEffect, useContext } from 'react';
 
 const FavoritesContext = createContext();
 
 export const FavoritesProvider = ({ children }) => {
     const [favorites, setFavorites] = useState(() => {
+        if (typeof window === 'undefined') return [];
         try {
-            const saved = localStorage.getItem('autosporting_favorites');
+            const saved = window.localStorage.getItem('autosporting_favorites');
             return saved ? JSON.parse(saved) : [];
         } catch (error) {
             console.error("Error loading favorites:", error);
