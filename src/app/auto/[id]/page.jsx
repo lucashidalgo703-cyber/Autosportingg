@@ -3,7 +3,12 @@ import CarDetail from '../../../views/CarDetail';
 export async function generateMetadata({ params }) {
     const { id } = await params;
     try {
-        const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+        let API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+        if (process.env.VERCEL_PROJECT_PRODUCTION_URL) {
+            API_URL = `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}`;
+        } else if (process.env.VERCEL_URL) {
+            API_URL = `https://${process.env.VERCEL_URL}`;
+        }
 
         // Config fetch for SSR
         const res = await fetch(`${API_URL}/api/cars`, { cache: 'no-store' });
