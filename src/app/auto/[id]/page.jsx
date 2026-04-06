@@ -18,17 +18,17 @@ export async function generateMetadata({ params }) {
         if (car) {
             const imageUrl = car.coverImage || (car.images && car.images[0]);
             const ogImage = imageUrl && imageUrl.includes('cloudinary')
-                ? imageUrl.replace('/upload/', '/upload/w_1200,h_630,c_fill,q_auto,f_jpg/')
+                ? imageUrl.replace('/upload/', '/upload/w_1200,h_630,c_fill,g_auto,q_auto,f_jpg/')
                 : imageUrl;
 
             return {
                 title: `${car.brand} ${car.name} | AutoSporting`,
-                description: `Conocé este ${car.brand} ${car.name} ${car.year} en excelentes condiciones. Kilometraje: ${car.km}km. Concesionaria en Comodoro Rivadavia.`,
+                description: `Conocé este ${car.brand} ${car.name} ${car.year}. Kilometraje: ${car.km}km. Concesionaria en Comodoro Rivadavia.`,
                 openGraph: {
                     type: 'website',
                     url: `https://autosportingg.com/auto/${id}`,
                     title: `${car.brand} ${car.name} | ${car.year}`,
-                    description: `Catálogo AutoSporting: ${car.condition} - ${car.km}km | Consultanos por financiación.`,
+                    description: `${car.condition} - ${car.km}km | AutoSporting`,
                     images: [
                         {
                             url: ogImage || 'https://autosportingg.com/autosporting-hero-v2.jpg',
