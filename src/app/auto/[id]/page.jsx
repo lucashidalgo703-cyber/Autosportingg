@@ -18,7 +18,7 @@ export async function generateMetadata({ params }) {
         if (car) {
             const imageUrl = car.coverImage || (car.images && car.images[0]);
             const ogImage = imageUrl && imageUrl.includes('cloudinary')
-                ? imageUrl.replace('/upload/', '/upload/w_1200,h_630,c_pad,b_auto,q_auto,f_jpg/')
+                ? imageUrl.replace('/upload/', '/upload/w_1200,h_630,c_fill,g_auto,q_auto,f_jpg/')
                 : imageUrl;
 
             return {
