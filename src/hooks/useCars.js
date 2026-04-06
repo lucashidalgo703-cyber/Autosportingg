@@ -11,8 +11,9 @@ export const useCars = () => {
     const fetchCars = async () => {
         try {
             setLoading(true);
-            const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
-            const endpoint = `${API_URL}/api/cars`;
+            const API_URL = process.env.NEXT_PUBLIC_API_URL;
+            const baseUrl = process.env.NODE_ENV === 'production' ? '' : (API_URL || 'http://localhost:3001');
+            const endpoint = `${baseUrl}/api/cars`;
 
             // Add cache busting to ensure fresh data
             const response = await fetch(`${endpoint}?t=${Date.now()}`);
@@ -34,8 +35,9 @@ export const useCars = () => {
     const deleteCar = async (id) => {
         if (!confirm('Are you sure?')) return;
         try {
-            const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
-            const endpoint = `${API_URL}/api/cars/${id}`;
+            const API_URL = process.env.NEXT_PUBLIC_API_URL;
+            const baseUrl = process.env.NODE_ENV === 'production' ? '' : (API_URL || 'http://localhost:3001');
+            const endpoint = `${baseUrl}/api/cars/${id}`;
 
             const res = await fetch(endpoint, {
                 method: 'DELETE',
