@@ -7,8 +7,13 @@ import Preloader from '../components/Preloader';
 import { Analytics } from '@vercel/analytics/react';
 
 export const metadata = {
+    metadataBase: new URL('https://autosportingg.com'),
     title: 'AutoSporting',
     description: 'Elegí con seguridad. Conducí con confianza. Concesionaria Multimarca en Comodoro Rivadavia.',
+    openGraph: {
+        type: 'website',
+        siteName: 'AutoSporting',
+    }
 };
 
 export default function RootLayout({ children }) {
