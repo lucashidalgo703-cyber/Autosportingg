@@ -1,8 +1,11 @@
 "use client";
 import React, { useEffect, useState } from 'react';
+import { usePathname } from 'next/navigation';
 
 const Preloader = () => {
     const [loading, setLoading] = useState(true);
+    const pathname = usePathname();
+
     useEffect(() => {
         // Extended timing holding the final frame longer so text can be read
         const timer = setTimeout(() => {
@@ -11,6 +14,9 @@ const Preloader = () => {
 
         return () => clearTimeout(timer);
     }, []);
+
+    // Desactivar en todo el sitio menos en el inicio
+    if (pathname !== '/') return null;
 
     return (
         <div className={`preloader-overlay ${!loading ? 'fade-out' : ''}`}>

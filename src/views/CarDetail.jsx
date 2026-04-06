@@ -72,6 +72,14 @@ const CarDetail = () => {
 
     }, [activeImage, car]);
 
+    if (loading) {
+        return (
+            <div className="not-found">
+                <div className="animate-pulse" style={{ color: 'var(--color-primary)', fontSize: '1.2rem', fontWeight: 'bold' }}>Cargando especificaciones...</div>
+            </div>
+        );
+    }
+
     if (!car) {
         return (
             <div className="not-found">
