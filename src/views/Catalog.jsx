@@ -74,7 +74,18 @@ const Catalog = () => {
             />
 
             <div className="cars-grid">
-                {filteredCars.length > 0 ? (
+                {loading ? (
+                    Array.from({ length: 6 }).map((_, i) => (
+                        <div key={`skeleton-${i}`} className="car-skeleton">
+                            <div className="skeleton-img"></div>
+                            <div className="skeleton-content">
+                                <div className="skeleton-title"></div>
+                                <div className="skeleton-subtitle"></div>
+                                <div className="skeleton-meta"></div>
+                            </div>
+                        </div>
+                    ))
+                ) : filteredCars.length > 0 ? (
                     filteredCars.map(car => (
                         <CarCard key={car.id} car={car} />
                     ))
@@ -145,6 +156,57 @@ const Catalog = () => {
                     cursor: pointer;
                     margin-top: 1rem;
                     font-size: 1rem;
+                }
+
+                .car-skeleton {
+                    background: var(--color-surface);
+                    border-radius: 12px;
+                    overflow: hidden;
+                    height: 100%;
+                    min-height: 380px;
+                    display: flex;
+                    flex-direction: column;
+                }
+                .skeleton-img {
+                    width: 100%;
+                    aspect-ratio: 4/3;
+                    background: #2a2a2a;
+                    animation: pulse 1.5s infinite ease-in-out;
+                }
+                .skeleton-content {
+                    padding: 1.25rem;
+                    flex: 1;
+                    background: linear-gradient(to bottom, #1a0505 0%, #5a0a0a 100%);
+                }
+                .skeleton-title {
+                    height: 24px;
+                    width: 80%;
+                    background: rgba(255, 255, 255, 0.2);
+                    margin-bottom: 0.5rem;
+                    border-radius: 4px;
+                    animation: pulse 1.5s infinite ease-in-out;
+                }
+                .skeleton-subtitle {
+                    height: 16px;
+                    width: 60%;
+                    background: rgba(255, 255, 255, 0.1);
+                    margin-bottom: 1rem;
+                    border-radius: 4px;
+                    animation: pulse 1.5s infinite ease-in-out;
+                }
+                .skeleton-meta {
+                    height: 20px;
+                    width: 40%;
+                    background: rgba(255, 255, 255, 0.15);
+                    border-radius: 4px;
+                    margin-top: auto;
+                    animation: pulse 1.5s infinite ease-in-out;
+                }
+
+                @keyframes pulse {
+                    0% { opacity: 1; }
+                    50% { opacity: 0.5; }
+                    100% { opacity: 1; }
                 }
             `}</style>
         </main>

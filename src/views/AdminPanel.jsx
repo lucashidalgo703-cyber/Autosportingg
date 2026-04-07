@@ -2,6 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { Copy, Check, Upload, X, ChevronDown, ChevronUp, Plus, Info, Star, ArrowLeft, ArrowRight, Loader2 } from 'lucide-react';
 import { useCars } from '../hooks/useCars';
+import toast from 'react-hot-toast';
 
 const AdminPanel = () => {
     const { cars, refresh: refreshCars, deleteCar, setCars } = useCars(); // Assuming setCars is now exposed or I'll add it to hook first. Wait, I didn't update hook to expose setCars. I should do that or just manually update local state if I could.
@@ -153,7 +154,7 @@ const AdminPanel = () => {
 
             if (!res.ok) {
                 if (res.status === 401 || res.status === 403) {
-                    alert('Sesión expirada o inválida. Por favor inicia sesión nuevamente.');
+                    toast.error('Sesión expirada o inválida. Por favor inicia sesión nuevamente.');
                     window.location.href = '/login'; // Simple redirect for now, or use useNavigate/AuthContext
                     return;
                 }
@@ -178,7 +179,7 @@ const AdminPanel = () => {
 
         } catch (error) {
             console.error('Error saving vehicle:', error);
-            alert('Error saving vehicle: ' + error.message);
+            toast.error('Error saving vehicle: ' + error.message);
         } finally {
             setIsSubmitting(false);
         }
@@ -199,11 +200,11 @@ const AdminPanel = () => {
                 }));
 
             if (newFiles.length < e.dataTransfer.files.length) {
-                alert("Some files were rejected. Only images (jpg, png, webp) are allowed.");
+                toast.error("Some files were rejected. Only images (jpg, png, webp) are allowed.");
             }
 
             if (files.length + newFiles.length > 20) {
-                alert("You can only upload a maximum of 20 images.");
+                toast.error("You can only upload a maximum of 20 images.");
                 const remainingSlots = 20 - files.length;
                 const filesToAdd = newFiles.slice(0, remainingSlots);
                 setFiles(prev => [...prev, ...filesToAdd]);
@@ -310,7 +311,7 @@ const AdminPanel = () => {
                                         const newFiles = Array.from(e.target.files).map(file => Object.assign(file, { preview: URL.createObjectURL(file) }));
 
                                         if (files.length + newFiles.length > 20) {
-                                            alert("You can only upload a maximum of 20 images.");
+                                            toast.error("You can only upload a maximum of 20 images.");
                                             const remainingSlots = 20 - files.length;
                                             const filesToAdd = newFiles.slice(0, remainingSlots);
                                             setFiles(prev => [...prev, ...filesToAdd]);

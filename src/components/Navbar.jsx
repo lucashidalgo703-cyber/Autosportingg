@@ -2,6 +2,7 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import Image from 'next/image';
 import { Menu, X, LogOut, Heart } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useFavorites } from '../context/FavoritesContext';
@@ -19,7 +20,7 @@ const Navbar = () => {
     <header className="navbar">
       <div className="container navbar-content">
         <Link href="/" className="logo">
-          <img src="/logo-header-final-user.png" alt="AutoSporting" className="navbar-logo-img" />
+          <Image src="/logo-header-final-user.png" alt="AutoSporting" width={220} height={60} className="navbar-logo-img" style={{ width: 'auto', height: '100%' }} priority />
         </Link>
 
         {/* Desktop Menu */}

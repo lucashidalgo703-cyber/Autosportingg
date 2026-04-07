@@ -2,6 +2,7 @@
 import { ArrowRight, Heart } from 'lucide-react';
 import Link from 'next/link';
 import { getOptimizedImageUrl } from '../lib/cloudinaryUtils';
+import Image from 'next/image';
 import { useFavorites } from '../context/FavoritesContext';
 
 const CarCard = ({ car }) => {
@@ -12,11 +13,14 @@ const CarCard = ({ car }) => {
   return (
     <Link href={`/auto/${car._id || car.id}`} className="car-card group">
       <div className="card-image-wrapper">
-        <img
-          src={getOptimizedImageUrl(car.coverImage || (car.images && car.images[0]) || car.image, 600)}
-          alt={car.name}
+        <Image
+          src={getOptimizedImageUrl(car.coverImage || (car.images && car.images[0]) || car.image, 600) || '/placeholder.png'}
+          alt={car.name || 'Auto'}
+          fill
+          sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
           className="card-image"
-          style={{ objectPosition: car.imagePosition || '50% 75%' }}
+          style={{ objectFit: 'cover', objectPosition: car.imagePosition || '50% 75%' }}
+          unoptimized
         />
         <button
           className="favorite-btn"

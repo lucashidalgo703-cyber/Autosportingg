@@ -1,6 +1,7 @@
 "use client";
 import React, { useEffect, useState } from 'react';
 import { usePathname } from 'next/navigation';
+import Image from 'next/image';
 
 const Preloader = () => {
     const [loading, setLoading] = useState(true);
@@ -25,10 +26,14 @@ const Preloader = () => {
                 <div className="preloader-particles-flare"></div>
 
                 <div className="preloader-logo-container">
-                    <img
+                    <Image
                         src="/logo-header-final-user.png"
                         alt="Autosporting"
+                        width={250}
+                        height={80}
+                        style={{ width: 'auto', height: '100%' }}
                         className="preloader-logo"
+                        priority
                     />
                     {/* The metallic/red light sweep */}
                     <div className="light-sweep red-sweep"></div>

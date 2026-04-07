@@ -1,6 +1,7 @@
 "use client";
 import { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
+import toast from 'react-hot-toast';
 
 export const useCars = () => {
     const [cars, setCars] = useState([]);
@@ -48,7 +49,7 @@ export const useCars = () => {
 
             if (!res.ok) {
                 if (res.status === 401 || res.status === 403) {
-                    alert('Session expired');
+                    toast.error('Sesión expirada');
                     logout();
                     return;
                 }
@@ -58,7 +59,7 @@ export const useCars = () => {
             setCars(prev => prev.filter(c => c._id !== id));
         } catch (err) {
             console.error("Error deleting car:", err);
-            alert("Error deleting car");
+            toast.error("Error al eliminar vehículo");
         }
     };
 

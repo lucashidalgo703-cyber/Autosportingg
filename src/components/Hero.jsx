@@ -2,6 +2,7 @@
 import { useState, useEffect } from 'react';
 import { ArrowRight, Check } from 'lucide-react';
 import Link from 'next/link';
+import Image from 'next/image';
 
 const Hero = () => {
   const [scrollY, setScrollY] = useState(0);
@@ -17,9 +18,10 @@ const Hero = () => {
   return (
     <section className="hero">
       <div className="hero-bg">
-        <img
+        <Image
           src="/autosporting-hero-v2.jpg"
           alt="Autosporting Hero"
+          fill
           className="hero-bg-image object-cover"
           style={{
             objectFit: 'cover',
@@ -27,8 +29,7 @@ const Hero = () => {
             transform: `translateY(${scrollY * 0.4}px)`,
             willChange: 'transform'
           }}
-          fetchPriority="high"
-          loading="eager"
+          priority
         />
       </div>
 

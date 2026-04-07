@@ -6,6 +6,7 @@ import { ArrowLeft, Calendar, Gauge, Fuel, Maximize2, X, ChevronLeft, ChevronRig
 import { useCars } from '../hooks/useCars';
 import { getOptimizedImageUrl } from '../lib/cloudinaryUtils';
 import { useFavorites } from '../context/FavoritesContext';
+import Image from 'next/image';
 
 const CarDetail = () => {
     const { id } = useParams();
@@ -106,11 +107,13 @@ const CarDetail = () => {
                             <div className="relative min-w-full aspect-[4/3]">
                                 <div className="relative w-full h-full overflow-hidden group bg-color-bg-secondary cursor-zoom-in border border-neutral-600" onClick={() => setShowLightbox(true)}>
                                     <div className="w-full h-full flex items-center justify-center">
-                                        <img
+                                        <Image
                                             alt={car.name}
+                                            fill
                                             className="object-cover w-full h-full fade-in"
-                                            style={{ objectPosition: car.imagePosition || '50% 75%' }}
+                                            style={{ objectFit: 'cover', objectPosition: car.imagePosition || '50% 75%' }}
                                             src={getOptimizedImageUrl(activeImage || car.coverImage || (car.images && car.images[0]), 1200)}
+                                            unoptimized
                                         />
                                     </div>
                                     <div className="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
@@ -170,11 +173,13 @@ const CarDetail = () => {
                                         }}
                                     >
                                         <div className="w-full h-full flex items-center justify-center">
-                                            <img
+                                            <Image
                                                 src={getOptimizedImageUrl(img, 400)}
                                                 alt={`${car.name} view ${index + 2}`}
+                                                fill
                                                 className={`object-cover w-full h-full transition duration-300 ${isLast && remainingCount > 0 ? 'blur-sm' : ''}`}
-                                                style={{ objectPosition: car.imagePosition || '50% 75%' }}
+                                                style={{ objectFit: 'cover', objectPosition: car.imagePosition || '50% 75%' }}
+                                                unoptimized
                                             />
                                         </div>
 
@@ -266,12 +271,16 @@ const CarDetail = () => {
                         <ChevronLeft size={48} />
                     </button>
 
-                    <img
+                    <Image
                         src={getOptimizedImageUrl(activeImage || car.coverImage || (car.images && car.images[0]), 1600)}
                         alt={car.name}
+                        width={1600}
+                        height={1200}
                         className="lightbox-img fade-in"
-                        key={activeImage} // Force re-render for animation on image change
-                        onClick={(e) => e.stopPropagation()} // Prevent close when clicking image
+                        key={activeImage}
+                        onClick={(e) => e.stopPropagation()}
+                        unoptimized
+                        style={{ objectFit: 'contain', width: 'auto', height: 'auto', maxWidth: '95%', maxHeight: '95%' }}
                     />
 
                     <button className="lightbox-nav next" onClick={handleNext}>

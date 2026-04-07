@@ -1,5 +1,6 @@
 "use client";
 import React, { createContext, useState, useEffect, useContext } from 'react';
+import toast from 'react-hot-toast';
 
 const FavoritesContext = createContext();
 
@@ -28,8 +29,10 @@ export const FavoritesProvider = ({ children }) => {
         const stringId = id.toString();
         setFavorites(prev => {
             if (prev.includes(stringId)) {
+                toast.success('Eliminado de favoritos');
                 return prev.filter(fId => fId !== stringId);
             } else {
+                toast.success('Agregado a favoritos');
                 return [...prev, stringId];
             }
         });
