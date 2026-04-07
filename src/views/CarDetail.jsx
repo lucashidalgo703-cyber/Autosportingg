@@ -88,11 +88,11 @@ const CarDetail = () => {
         const uniqueToPreload = [...new Set(imagesToPreload)];
 
         uniqueToPreload.forEach(imgUrl => {
-            const preloader = new Image();
+            const preloader = new window.Image();
             preloader.src = getOptimizedImageUrl(imgUrl, 1200); // Same resolution as main container
 
             // If lightbox might be opened, also warm up the 1600px version
-            const lightboxPreloader = new Image();
+            const lightboxPreloader = new window.Image();
             lightboxPreloader.src = getOptimizedImageUrl(imgUrl, 1600);
         });
 
