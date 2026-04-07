@@ -50,7 +50,7 @@ const Hero = () => {
               <span className="text-white">AutoSporting</span>
             </h1>
             <h2 className="hero-subtitle">
-              Concesionaria Multimarca
+              Agencia de Autos en Comodoro Rivadavia
             </h2>
           </div>
 
@@ -62,7 +62,7 @@ const Hero = () => {
           </div>
 
           <p className="hero-description fade-in-up delay-3">
-            Encontrá el auto que buscás. Vehículos seleccionados con los mejores precios y garantía de calidad.
+            La mejor agencia de autos para encontrar tu próximo vehículo. Unidades usadas y 0km seleccionadas con garantía de calidad y excelente financiación.
           </p>
 
           {/* CTA Buttons */}
@@ -332,7 +332,7 @@ const Hero = () => {
         @media (min-width: 1280px) { .container { max-width: 1400px; } } /* Wider for impact */
 
       `}</style>
-    </section>
+    </section >
   );
 };
 
