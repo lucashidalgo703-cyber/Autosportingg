@@ -1,37 +1,61 @@
+"use client";
 import { ShieldCheck, FileCheck, Banknote } from 'lucide-react';
+import { motion } from 'framer-motion';
+
+const containerVariants = {
+  hidden: { opacity: 0 },
+  visible: {
+    opacity: 1,
+    transition: { staggerChildren: 0.2 }
+  }
+};
+
+const itemVariants = {
+  hidden: { opacity: 0, y: 30 },
+  visible: {
+    opacity: 1, y: 0,
+    transition: { duration: 0.5, ease: "easeOut" }
+  }
+};
 
 const Features = () => {
   return (
     <section className="features-section">
       <div className="container">
-        <div className="features-grid">
+        <motion.div
+          className="features-grid"
+          variants={containerVariants}
+          initial="hidden"
+          whileInView="visible"
+          viewport={{ once: true, amount: 0.2 }}
+        >
           {/* Feature 01 */}
-          <div className="feature-card">
+          <motion.div className="feature-card" variants={itemVariants}>
             <div className="icon-wrapper">
               <Banknote size={32} />
             </div>
             <h3>Mejor Precio Garantizado</h3>
             <p>Cotizaciones justas y competitivas. Maximizamos el valor de tu usado y te ofrecemos las mejores condiciones para tu 0km.</p>
-          </div>
+          </motion.div>
 
           {/* Feature 02 */}
-          <div className="feature-card">
+          <motion.div className="feature-card" variants={itemVariants}>
             <div className="icon-wrapper">
               <ShieldCheck size={32} />
             </div>
             <h3>Revisión Vehicular</h3>
             <p>Calidad asegurada. Cada unidad atraviesa un estricto control mecánico y estético de 25 puntos antes de ingresar a nuestro salón.</p>
-          </div>
+          </motion.div>
 
           {/* Feature 03 */}
-          <div className="feature-card">
+          <motion.div className="feature-card" variants={itemVariants}>
             <div className="icon-wrapper">
               <FileCheck size={32} />
             </div>
             <h3>Documentación Ágil</h3>
             <p>Olvidate de los trámites. Contamos con gestoría propia para resolver transferencias y papeles en tiempo récord.</p>
-          </div>
-        </div>
+          </motion.div>
+        </motion.div>
       </div>
 
       <style>{`

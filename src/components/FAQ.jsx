@@ -1,5 +1,23 @@
+"use client";
 import { useState } from 'react';
 import { ChevronDown, ChevronUp } from 'lucide-react';
+import { motion } from 'framer-motion';
+
+const containerVariants = {
+  hidden: { opacity: 0 },
+  visible: {
+    opacity: 1,
+    transition: { staggerChildren: 0.15 }
+  }
+};
+
+const itemVariants = {
+  hidden: { opacity: 0, y: 20 },
+  visible: {
+    opacity: 1, y: 0,
+    transition: { duration: 0.4, ease: "easeOut" }
+  }
+};
 
 const faqData = [
   {
@@ -26,10 +44,17 @@ const FAQ = () => {
   return (
     <section className="faq-section container">
       <h2 className="section-title text-center">Preguntas Frecuentes</h2>
-      <div className="faq-grid">
+      <motion.div
+        className="faq-grid"
+        variants={containerVariants}
+        initial="hidden"
+        whileInView="visible"
+        viewport={{ once: true, amount: 0.2 }}
+      >
         {faqData.map((item, index) => (
-          <div
+          <motion.div
             key={index}
+            variants={itemVariants}
             className={`faq-item ${openIndex === index ? 'open' : ''}`}
             onClick={() => toggle(index)}
           >
@@ -40,9 +65,9 @@ const FAQ = () => {
             <div className="faq-content">
               <p>{item.answer}</p>
             </div>
-          </div>
+          </motion.div>
         ))}
-      </div>
+      </motion.div>
 
       <style>{`
         .faq-section {

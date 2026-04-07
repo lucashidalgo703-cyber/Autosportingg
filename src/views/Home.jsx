@@ -1,8 +1,34 @@
+"use client";
 import Hero from '../components/Hero';
 import CarCard from '../components/CarCard';
 import Features from '../components/Features';
 import FAQ from '../components/FAQ';
 import { useCars } from '../hooks/useCars';
+import { motion } from 'framer-motion';
+
+const containerVariants = {
+  hidden: { opacity: 0 },
+  visible: {
+    opacity: 1,
+    transition: { staggerChildren: 0.15 }
+  }
+};
+
+const itemVariants = {
+  hidden: { opacity: 0, y: 30 },
+  visible: {
+    opacity: 1, y: 0,
+    transition: { duration: 0.5, ease: "easeOut" }
+  }
+};
+
+const sectionVariants = {
+  hidden: { opacity: 0, y: 40 },
+  visible: {
+    opacity: 1, y: 0,
+    transition: { duration: 0.6, ease: "easeOut" }
+  }
+};
 
 const Home = () => {
   const { cars, loading } = useCars();
@@ -13,36 +39,50 @@ const Home = () => {
     <div className="home-container">
       <Hero />
 
-      <section className="featured container section-padding">
+      <motion.section
+        className="featured container section-padding"
+        initial="hidden"
+        whileInView="visible"
+        viewport={{ once: true, amount: 0.1 }}
+        variants={sectionVariants}
+      >
         <div className="section-header mb-8">
           <h2 className="text-3xl font-bold border-l-4 border-[var(--color-primary)] pl-4">Nuestros Vehículos</h2>
           <a href="/catalogo" className="view-all-link text-[var(--color-primary)] font-semibold hover:underline">Ver todo el catálogo →</a>
         </div>
 
-        <div className="cars-grid">
+        <motion.div className="cars-grid" variants={containerVariants}>
           {featuredCars.map(car => (
-            <CarCard key={car.id} car={car} />
+            <motion.div key={car.id} variants={itemVariants}>
+              <CarCard car={car} />
+            </motion.div>
           ))}
-        </div>
-      </section>
+        </motion.div>
+      </motion.section>
 
       <Features />
 
-      <section className="trust-banner">
+      <motion.section
+        className="trust-banner"
+        initial="hidden"
+        whileInView="visible"
+        viewport={{ once: true, amount: 0.3 }}
+        variants={sectionVariants}
+      >
         <div className="container trust-content">
           <h2>Confianza y Experiencia</h2>
-          <div className="trust-stats">
-            <div className="stat-item">
+          <motion.div className="trust-stats" variants={containerVariants}>
+            <motion.div className="stat-item" variants={itemVariants}>
               <span className="stat-number">+20</span>
               <span className="stat-label">Años de trayectoria</span>
-            </div>
-            <div className="stat-item">
+            </motion.div>
+            <motion.div className="stat-item" variants={itemVariants}>
               <span className="stat-number">100%</span>
               <span className="stat-label">Garantía asegurada</span>
-            </div>
-          </div>
+            </motion.div>
+          </motion.div>
         </div>
-      </section>
+      </motion.section>
 
       <FAQ />
 

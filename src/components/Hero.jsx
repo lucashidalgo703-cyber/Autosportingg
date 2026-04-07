@@ -1,36 +1,42 @@
 "use client";
-import { useState, useEffect } from 'react';
 import { ArrowRight, Check } from 'lucide-react';
 import Link from 'next/link';
 import Image from 'next/image';
+import { motion, useScroll, useTransform } from 'framer-motion';
 
 const Hero = () => {
-  const [scrollY, setScrollY] = useState(0);
+  const { scrollY } = useScroll();
+  const yBg = useTransform(scrollY, [0, 1000], [0, 400]);
 
-  useEffect(() => {
-    const handleScroll = () => {
-      setScrollY(window.scrollY);
-    };
-    window.addEventListener('scroll', handleScroll, { passive: true });
-    return () => window.removeEventListener('scroll', handleScroll);
-  }, []);
+  const containerVariants = {
+    hidden: { opacity: 0 },
+    visible: {
+      opacity: 1,
+      transition: { staggerChildren: 0.15, delayChildren: 0.1 }
+    }
+  };
+
+  const itemVariants = {
+    hidden: { opacity: 0, y: 30 },
+    visible: { opacity: 1, y: 0, transition: { duration: 0.8, ease: "easeOut" } }
+  };
   console.log("Hero component version: 3.0 Strict Match Loaded");
   return (
     <section className="hero">
       <div className="hero-bg">
-        <Image
-          src="/autosporting-hero-v2.jpg"
-          alt="Autosporting Hero"
-          fill
-          className="hero-bg-image object-cover"
-          style={{
-            objectFit: 'cover',
-            objectPosition: '50% 30%',
-            transform: `translateY(${scrollY * 0.4}px)`,
-            willChange: 'transform'
-          }}
-          priority
-        />
+        <motion.div style={{ y: yBg, position: 'absolute', inset: 0, width: '100%', height: '100%' }}>
+          <Image
+            src="/autosporting-hero-v2.jpg"
+            alt="Autosporting Hero"
+            fill
+            className="hero-bg-image object-cover"
+            style={{
+              objectFit: 'cover',
+              objectPosition: '50% 30%'
+            }}
+            priority
+          />
+        </motion.div>
       </div>
 
       {/* Gradients to match reference */}
@@ -38,35 +44,40 @@ const Hero = () => {
       <div className="hero-overlay-gradient-2"></div>
 
       <div className="container hero-content">
-        <div className="hero-text-wrapper">
+        <motion.div
+          className="hero-text-wrapper"
+          variants={containerVariants}
+          initial="hidden"
+          animate="visible"
+        >
 
           {/* Location Badge */}
-          <div className="badge-location fade-in-up delay-1">
+          <motion.div className="badge-location" variants={itemVariants}>
             <span className="font-medium">Comodoro Rivadavia</span>
-          </div>
+          </motion.div>
 
-          <div className="mb-2 fade-in-up delay-2">
+          <motion.div className="mb-2" variants={itemVariants}>
             <h1 className="hero-title">
               <span className="text-white">AutoSporting</span>
             </h1>
             <h2 className="hero-subtitle">
               Agencia de Autos en Comodoro Rivadavia
             </h2>
-          </div>
+          </motion.div>
 
           {/* Features Pills */}
-          <div className="features-list fade-in-up delay-3">
+          <motion.div className="features-list" variants={itemVariants}>
             <span className="feature-pill">✓ Usados</span>
             <span className="feature-pill">✓ 0km</span>
             <span className="feature-pill">✓ Financiación</span>
-          </div>
+          </motion.div>
 
-          <p className="hero-description fade-in-up delay-3">
+          <motion.p className="hero-description" variants={itemVariants}>
             La mejor agencia de autos para encontrar tu próximo vehículo. Unidades usadas y 0km seleccionadas con garantía de calidad y excelente financiación.
-          </p>
+          </motion.p>
 
           {/* CTA Buttons */}
-          <div className="hero-actions fade-in-up delay-4">
+          <motion.div className="hero-actions" variants={itemVariants}>
             <Link href="/catalogo" className="btn-hero-primary group">
               <span className="relative z-10 flex items-center justify-center gap-2">
                 Ver Catálogo
@@ -78,26 +89,11 @@ const Hero = () => {
                 Contactanos
               </span>
             </Link>
-          </div>
-        </div>
+          </motion.div>
+        </motion.div>
       </div>
 
       <style>{`
-        @keyframes fadeInUp {
-            from { opacity: 0; transform: translateY(30px); }
-            to { opacity: 1; transform: translateY(0); }
-        }
-
-        .fade-in-up {
-            opacity: 0;
-            animation: fadeInUp 0.8s ease-out forwards;
-        }
-
-        .delay-1 { animation-delay: 0.1s; }
-        .delay-2 { animation-delay: 0.3s; }
-        .delay-3 { animation-delay: 0.5s; }
-        .delay-4 { animation-delay: 0.7s; }
-
         .hero {
           position: relative;
           min-height: 600px;
