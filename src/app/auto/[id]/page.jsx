@@ -11,9 +11,8 @@ export async function generateMetadata({ params }) {
         }
 
         // Config fetch for SSR
-        const res = await fetch(`${API_URL}/api/cars`, { cache: 'no-store' });
-        const cars = await res.json();
-        const car = cars.find(c => c._id === id || (c.id && c.id.toString() === id));
+        const res = await fetch(`${API_URL}/api/cars/${id}`, { cache: 'no-store' });
+        const car = res.ok ? await res.json() : null;
 
         if (car) {
             const imageUrl = car.coverImage || (car.images && car.images[0]);

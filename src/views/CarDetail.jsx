@@ -10,11 +10,36 @@ import Image from 'next/image';
 
 const CarDetail = () => {
     const { id } = useParams();
-    const { cars, loading } = useCars();
+    const [car, setCar] = React.useState(null);
+    const [loading, setLoading] = React.useState(true);
     const { isFavorite, toggleFavorite } = useFavorites();
 
-    // Find car by ID (support _id from MongoDB and string/number IDs)
-    const car = cars.find(c => (c._id === id) || (c.id && c.id.toString() === id));
+    React.useEffect(() => {
+        const fetchSingleCar = async () => {
+            try {
+                setLoading(true);
+                const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+                const baseUrl = process.env.NODE_ENV === 'production' ? '' : API_URL;
+                const response = await fetch(`${baseUrl}/api/cars/${id}?t=${Date.now()}`);
+                if (response.ok) {
+                    const data = await response.json();
+                    setCar(data);
+                } else {
+                    setCar(null);
+                }
+            } catch (err) {
+                console.error("Error fetching car detail:", err);
+                setCar(null);
+            } finally {
+                setLoading(false);
+            }
+        };
+
+        if (id) {
+            fetchSingleCar();
+        }
+    }, [id]);
+
     const carId = car ? (car._id || car.id) : null;
     const isFav = carId ? isFavorite(carId) : false;
 
