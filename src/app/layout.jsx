@@ -10,6 +10,9 @@ export const metadata = {
     metadataBase: new URL('https://autosportingg.com'),
     title: 'AutoSporting',
     description: 'Elegí con seguridad. Conducí con confianza. Concesionaria Multimarca en Comodoro Rivadavia.',
+    icons: {
+        icon: '/favicon.svg',
+    },
     openGraph: {
         type: 'website',
         siteName: 'AutoSporting',
