@@ -1,4 +1,16 @@
+"use client";
 import { ShieldCheck, TrendingUp, Users, CheckCircle2 } from 'lucide-react';
+import { motion } from 'framer-motion';
+
+const containerVariants = {
+  hidden: { opacity: 0 },
+  visible: { opacity: 1, transition: { staggerChildren: 0.2 } }
+};
+
+const itemVariants = {
+  hidden: { opacity: 0, y: 30 },
+  visible: { opacity: 1, y: 0, transition: { duration: 0.5, ease: "easeOut" } }
+};
 
 const About = () => {
   return (
@@ -9,7 +21,13 @@ const About = () => {
       </div>
 
       {/* NUEVO BLOQUE INSTITUCIONAL */}
-      <section className="about-block">
+      <motion.section
+        className="about-block"
+        initial={{ opacity: 0, y: 40 }}
+        whileInView={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.8, ease: "easeOut" }}
+        viewport={{ once: true, amount: 0.1 }}
+      >
         <h2>Confianza y respaldo en cada operación</h2>
 
         <p className="about-text">
@@ -53,34 +71,40 @@ const About = () => {
           <a className="btn-primary" href="/financiacion">Consultar financiación</a>
           <a className="btn-ghost" href="/catalogo">Ver catálogo</a>
         </div>
-      </section>
+      </motion.section>
 
-      <div className="values-grid">
-        <div className="value-card">
+      <motion.div
+        className="values-grid"
+        initial="hidden"
+        whileInView="visible"
+        viewport={{ once: true, amount: 0.2 }}
+        variants={containerVariants}
+      >
+        <motion.div className="value-card" variants={itemVariants}>
           <ShieldCheck size={48} color="var(--color-primary)" />
           <h3>Excelencia</h3>
           <p>
             Seleccionamos cada unidad bajo criterios estrictos de calidad, historial verificable y
             revisión técnica exhaustiva. Solo publicamos vehículos que cumplen nuestros estándares internos.
           </p>
-        </div>
-        <div className="value-card">
+        </motion.div>
+        <motion.div className="value-card" variants={itemVariants}>
           <Users size={48} color="var(--color-primary)" />
           <h3>Confianza</h3>
           <p>
             Operaciones claras, documentación al día y asesoramiento transparente en cada etapa.
             Nuestro compromiso es que tomes decisiones con información real y respaldo profesional.
           </p>
-        </div>
-        <div className="value-card">
+        </motion.div>
+        <motion.div className="value-card" variants={itemVariants}>
           <TrendingUp size={48} color="var(--color-primary)" />
           <h3>Innovación</h3>
           <p>
             Integramos herramientas digitales, valuaciones actualizadas y opciones de financiación
             a medida para ofrecer una experiencia ágil, moderna y eficiente.
           </p>
-        </div>
-      </div>
+        </motion.div>
+      </motion.div>
 
       <style>{`
         .page-padding {

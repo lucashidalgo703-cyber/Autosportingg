@@ -1,4 +1,16 @@
+"use client";
 import { Banknote, Calculator, FileCheck, ArrowRight, Wallet } from 'lucide-react';
+import { motion } from 'framer-motion';
+
+const containerVariants = {
+    hidden: { opacity: 0 },
+    visible: { opacity: 1, transition: { staggerChildren: 0.2 } }
+};
+
+const itemVariants = {
+    hidden: { opacity: 0, y: 30 },
+    visible: { opacity: 1, y: 0, transition: { duration: 0.5, ease: "easeOut" } }
+};
 
 const Financing = () => {
     return (
@@ -6,7 +18,12 @@ const Financing = () => {
             {/* Header Section */}
             <section className="financing-header">
                 <div className="header-overlay"></div>
-                <div className="container header-content">
+                <motion.div
+                    className="container header-content"
+                    initial={{ opacity: 0, y: 30 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.6 }}
+                >
                     <span className="badge">FINANCIACIÓN</span>
                     <h1 className="header-title">
                         Financiá tu próximo <br />
@@ -16,14 +33,20 @@ const Financing = () => {
                         Planes a medida, aprobación inmediata y las mejores tasas del mercado.
                         Subite a tu auto nuevo hoy mismo.
                     </p>
-                </div>
+                </motion.div>
             </section>
 
             {/* Main Content */}
             <section className="container financing-body">
 
                 {/* Intro / Highlight Card */}
-                <div className="highlight-card">
+                <motion.div
+                    className="highlight-card"
+                    initial="hidden"
+                    whileInView="visible"
+                    viewport={{ once: true, amount: 0.2 }}
+                    variants={itemVariants}
+                >
                     <div className="highlight-text">
                         <h2>¿Cómo funciona?</h2>
                         <p>
@@ -41,35 +64,47 @@ const Financing = () => {
                             <span className="stat-label">Cuotas fijas</span>
                         </div>
                     </div>
-                </div>
+                </motion.div>
 
                 {/* Steps Grid */}
-                <div className="steps-grid">
-                    <div className="step-card">
+                <motion.div
+                    className="steps-grid"
+                    initial="hidden"
+                    whileInView="visible"
+                    viewport={{ once: true, amount: 0.2 }}
+                    variants={containerVariants}
+                >
+                    <motion.div className="step-card" variants={itemVariants}>
                         <div className="icon-box">
                             <Calculator size={32} color="white" />
                         </div>
                         <h3>1. Elegí tu vehículo</h3>
                         <p>Explorá nuestro catálogo y seleccioná la unidad que mejor se adapte a tus necesidades.</p>
-                    </div>
-                    <div className="step-card">
+                    </motion.div>
+                    <motion.div className="step-card" variants={itemVariants}>
                         <div className="icon-box">
                             <FileCheck size={32} color="white" />
                         </div>
                         <h3>2. Pre-aprobación</h3>
                         <p>Presenta tu DNI y comprobante de ingresos. Evaluamos tu perfil crediticio en el acto.</p>
-                    </div>
-                    <div className="step-card">
+                    </motion.div>
+                    <motion.div className="step-card" variants={itemVariants}>
                         <div className="icon-box">
                             <Wallet size={32} color="white" />
                         </div>
                         <h3>3. Entrega y Cuotas</h3>
                         <p>Aboná el anticipo y financia el saldo en cuotas fijas en pesos. ¡Te llevás el auto!</p>
-                    </div>
-                </div>
+                    </motion.div>
+                </motion.div>
 
                 {/* Requirements Section */}
-                <div className="requirements-section">
+                <motion.div
+                    className="requirements-section"
+                    initial={{ opacity: 0, scale: 0.95 }}
+                    whileInView={{ opacity: 1, scale: 1 }}
+                    transition={{ duration: 0.5 }}
+                    viewport={{ once: true, amount: 0.2 }}
+                >
                     <div className="req-content">
                         <div className="icon-box-large">
                             <Banknote size={40} color="var(--color-primary)" />
@@ -89,7 +124,7 @@ const Financing = () => {
                             Consultar por WhatsApp
                         </a>
                     </div>
-                </div>
+                </motion.div>
 
             </section>
 

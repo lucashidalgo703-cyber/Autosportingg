@@ -2,6 +2,7 @@ import { useState, useMemo } from 'react';
 import SmartFilters from '../components/SmartFilters';
 import CarCard from '../components/CarCard';
 import { useCars } from '../hooks/useCars';
+import { motion } from 'framer-motion';
 
 const Catalog = () => {
     const { cars, loading } = useCars();
@@ -61,17 +62,28 @@ const Catalog = () => {
 
     return (
         <main className="container page-padding">
-            <div className="page-header">
+            <motion.div
+                className="page-header"
+                initial={{ opacity: 0, y: -20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.6 }}
+            >
                 <h1>Catálogo de Vehículos</h1>
                 <p>Explorá nuestra selección premium</p>
-            </div>
+            </motion.div>
 
-            <SmartFilters
-                filters={filters}
-                onFilterChange={handleFilterChange}
-                brands={brands}
-                years={years}
-            />
+            <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{ duration: 0.8, delay: 0.2 }}
+            >
+                <SmartFilters
+                    filters={filters}
+                    onFilterChange={handleFilterChange}
+                    brands={brands}
+                    years={years}
+                />
+            </motion.div>
 
             <div className="cars-grid">
                 {loading ? (
@@ -86,8 +98,16 @@ const Catalog = () => {
                         </div>
                     ))
                 ) : filteredCars.length > 0 ? (
-                    filteredCars.map(car => (
-                        <CarCard key={car.id} car={car} />
+                    filteredCars.map((car, index) => (
+                        <motion.div
+                            key={car.id || car._id}
+                            initial={{ opacity: 0, y: 30 }}
+                            whileInView={{ opacity: 1, y: 0 }}
+                            transition={{ duration: 0.5, delay: index * 0.1, ease: "easeOut" }}
+                            viewport={{ once: true, amount: 0.1 }}
+                        >
+                            <CarCard car={car} />
+                        </motion.div>
                     ))
                 ) : (
                     <div className="no-results">

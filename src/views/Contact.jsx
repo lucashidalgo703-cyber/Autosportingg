@@ -1,4 +1,16 @@
+"use client";
 import { MapPin, Instagram, MessageCircle, Clock, ArrowUpRight } from 'lucide-react';
+import { motion } from 'framer-motion';
+
+const containerVariants = {
+  hidden: { opacity: 0 },
+  visible: { opacity: 1, transition: { staggerChildren: 0.15 } }
+};
+
+const itemVariants = {
+  hidden: { opacity: 0, y: 30 },
+  visible: { opacity: 1, y: 0, transition: { duration: 0.5, ease: "easeOut" } }
+};
 
 const Contact = () => {
   return (
@@ -6,20 +18,31 @@ const Contact = () => {
       {/* Header Section */}
       <section className="contact-header">
         <div className="header-overlay"></div>
-        <div className="container header-content">
+        <motion.div
+          className="container header-content"
+          initial={{ opacity: 0, y: 30 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.6 }}
+        >
           <span className="badge">CONTACTO</span>
           <h1 className="header-title">
             Contactate con nosotros para <br />
             obtener más información
           </h1>
-        </div>
+        </motion.div>
       </section>
 
       {/* Grid de Contacto */}
       <section className="container contact-grid-section">
-        <div className="contact-grid">
+        <motion.div
+          className="contact-grid"
+          initial="hidden"
+          whileInView="visible"
+          viewport={{ once: true, amount: 0.2 }}
+          variants={containerVariants}
+        >
           {/* Card WhatsApp */}
-          <a href="https://wa.me/5492974045378" target="_blank" rel="noopener noreferrer" className="contact-card">
+          <motion.a href="https://wa.me/5492974045378" target="_blank" rel="noopener noreferrer" className="contact-card" variants={itemVariants}>
             <div className="card-top">
               <div className="icon-box">
                 <MessageCircle size={24} color="white" />
@@ -33,10 +56,10 @@ const Contact = () => {
               <p className="card-value">2974045378</p>
               <span className="link-text">Mensaje directo</span>
             </div>
-          </a>
+          </motion.a>
 
           {/* Card Instagram */}
-          <a href="https://instagram.com/autosporting.cr" target="_blank" rel="noopener noreferrer" className="contact-card">
+          <motion.a href="https://instagram.com/autosporting.cr" target="_blank" rel="noopener noreferrer" className="contact-card" variants={itemVariants}>
             <div className="card-top">
               <div className="icon-box">
                 <Instagram size={24} color="white" />
@@ -50,10 +73,10 @@ const Contact = () => {
               <p className="card-value">@autosporting.cr</p>
               <span className="link-text">Seguinos</span>
             </div>
-          </a>
+          </motion.a>
 
           {/* Card Ubicación */}
-          <a href="https://maps.app.goo.gl/PuuMDFJsR4SWxHuu5" target="_blank" rel="noopener noreferrer" className="contact-card">
+          <motion.a href="https://maps.app.goo.gl/PuuMDFJsR4SWxHuu5" target="_blank" rel="noopener noreferrer" className="contact-card" variants={itemVariants}>
             <div className="card-top">
               <div className="icon-box">
                 <MapPin size={24} color="white" />
@@ -67,11 +90,17 @@ const Contact = () => {
               <p className="card-value">Av. Julio Argentino Roca 116, U9000 Comodoro Rivadavia, Chubut</p>
               <span className="link-text">Ver en Google Maps</span>
             </div>
-          </a>
-        </div>
+          </motion.a>
+        </motion.div>
 
         {/* Sección Horarios */}
-        <div className="hours-card">
+        <motion.div
+          className="hours-card"
+          initial={{ opacity: 0, y: 30 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.6 }}
+          viewport={{ once: true, amount: 0.2 }}
+        >
           <div className="hours-header">
             <div className="icon-box">
               <Clock size={24} color="white" />
@@ -88,10 +117,16 @@ const Contact = () => {
               <span className="hour-text">Sábado <strong>10:30 a 13:00hs</strong></span>
             </div>
           </div>
-        </div>
+        </motion.div>
 
         {/* Mapa Embebido - Actualizado con enlace específico de negocio */}
-        <div className="map-container">
+        <motion.div
+          className="map-container"
+          initial={{ opacity: 0, scale: 0.95 }}
+          whileInView={{ opacity: 1, scale: 1 }}
+          transition={{ duration: 0.7 }}
+          viewport={{ once: true }}
+        >
           <iframe
             src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d2616.590509673966!2d-67.48641902319086!3d-45.87249997103233!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0xbde457599723237d%3A0xc3f73e8e1966a4f5!2sAv.+Julio+Argentino+Roca+116%2C+U9000+Comodoro+Rivadavia%2C+Chubut!5e0!3m2!1ses!2sar!4v1714078800000!5m2!1ses!2sar"
             width="100%"
@@ -102,7 +137,7 @@ const Contact = () => {
             referrerPolicy="no-referrer-when-downgrade"
             title="Ubicación AutoSporting"
           ></iframe>
-        </div>
+        </motion.div>
       </section>
 
       <style>{`
