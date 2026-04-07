@@ -130,16 +130,26 @@ const CarDetail = () => {
                     <div className="main-image-container overflow-hidden rounded-xl relative">
                         <div className="flex">
                             <div className="relative min-w-full aspect-[4/3]">
-                                <div className="relative w-full h-full overflow-hidden group bg-color-bg-secondary cursor-zoom-in border border-neutral-600" onClick={() => setShowLightbox(true)}>
+                                <div
+                                    className={`relative w-full h-full overflow-hidden group bg-color-bg-secondary border border-neutral-600 ${(activeImage || car.coverImage || (car.images && car.images.length > 0)) ? 'cursor-zoom-in' : 'cursor-default'}`}
+                                    onClick={() => { if (activeImage || car.coverImage || (car.images && car.images.length > 0)) setShowLightbox(true); }}
+                                >
                                     <div className="w-full h-full flex items-center justify-center">
-                                        <Image
-                                            alt={car.name}
-                                            fill
-                                            className="object-cover w-full h-full fade-in"
-                                            style={{ objectFit: 'cover', objectPosition: car.imagePosition || '50% 75%' }}
-                                            src={getOptimizedImageUrl(activeImage || car.coverImage || (car.images && car.images[0]), 1200)}
-                                            unoptimized
-                                        />
+                                        {(activeImage || car.coverImage || (car.images && car.images.length > 0)) ? (
+                                            <Image
+                                                alt={car.name}
+                                                fill
+                                                className="object-cover w-full h-full fade-in"
+                                                style={{ objectFit: 'cover', objectPosition: car.imagePosition || '50% 75%' }}
+                                                src={getOptimizedImageUrl(activeImage || car.coverImage || (car.images && car.images[0]), 1200)}
+                                                unoptimized
+                                            />
+                                        ) : (
+                                            <div className="text-neutral-600 flex flex-col items-center gap-2">
+                                                <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1" strokeLinecap="round" strokeLinejoin="round"><path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z"></path><circle cx="12" cy="13" r="3"></circle></svg>
+                                                <span>Sin imagen disponible</span>
+                                            </div>
+                                        )}
                                     </div>
                                     <div className="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
                                 </div>
@@ -286,15 +296,17 @@ const CarDetail = () => {
             </div>
 
             {/* Lightbox Modal */}
-            {showLightbox && (
+            {showLightbox && (activeImage || car.coverImage || (car.images && car.images.length > 0)) && (
                 <div className="lightbox-overlay" onClick={() => setShowLightbox(false)}>
                     <button className="lightbox-close">
                         <X size={32} />
                     </button>
 
-                    <button className="lightbox-nav prev" onClick={handlePrev}>
-                        <ChevronLeft size={48} />
-                    </button>
+                    {car.images && car.images.length > 1 && (
+                        <button className="lightbox-nav prev" onClick={handlePrev}>
+                            <ChevronLeft size={48} />
+                        </button>
+                    )}
 
                     <Image
                         src={getOptimizedImageUrl(activeImage || car.coverImage || (car.images && car.images[0]), 1600)}
@@ -308,9 +320,11 @@ const CarDetail = () => {
                         style={{ objectFit: 'contain', width: 'auto', height: 'auto', maxWidth: '95%', maxHeight: '95%' }}
                     />
 
-                    <button className="lightbox-nav next" onClick={handleNext}>
-                        <ChevronRight size={48} />
-                    </button>
+                    {car.images && car.images.length > 1 && (
+                        <button className="lightbox-nav next" onClick={handleNext}>
+                            <ChevronRight size={48} />
+                        </button>
+                    )}
                 </div>
             )}
 
