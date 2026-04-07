@@ -51,13 +51,19 @@ const Home = () => {
           <a href="/catalogo" className="view-all-link text-[var(--color-primary)] font-semibold hover:underline">Ver todo el catálogo →</a>
         </div>
 
-        <motion.div className="cars-grid" variants={containerVariants}>
-          {featuredCars.map(car => (
-            <motion.div key={car.id} variants={itemVariants}>
+        <div className="cars-grid">
+          {featuredCars.map((car, index) => (
+            <motion.div
+              key={car.id || car._id}
+              initial={{ opacity: 0, y: 30 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.5, delay: index * 0.15, ease: "easeOut" }}
+              viewport={{ once: true, amount: 0.1 }}
+            >
               <CarCard car={car} />
             </motion.div>
           ))}
-        </motion.div>
+        </div>
       </motion.section>
 
       <Features />
