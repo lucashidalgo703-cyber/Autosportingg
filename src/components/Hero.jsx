@@ -270,19 +270,30 @@ const Hero = () => {
          /* Buttons */
         .btn-hero-primary {
             position: relative;
-            padding: 1rem 2rem; 
+            padding: 1rem 2.5rem; 
             background-color: var(--color-primary);
             color: white;
             font-family: 'Inter', sans-serif;
-            font-weight: 700;
-            font-size: 1.125rem; 
-            border-radius: 0.5rem; /* Slightly squarer 8px radius like reference */
+            font-weight: 800;
+            font-size: 1rem; 
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            border-radius: 50px; 
             overflow: hidden;
-            transition: all 0.3s;
+            transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
             display: inline-flex;
             text-decoration: none;
             align-items: center;
             justify-content: center;
+            box-shadow: 0 4px 20px rgba(235, 38, 40, 0.5);
+            border: 2px solid transparent;
+        }
+
+        .btn-hero-primary:hover {
+            transform: translateY(-4px) scale(1.05);
+            background-color: transparent;
+            border-color: var(--color-primary);
+            box-shadow: 0 10px 30px rgba(235, 38, 40, 0.7);
         }
         
         .btn-hero-secondary {
