@@ -32,9 +32,9 @@ const CarCarousel = ({ cars }) => {
         <div className="relative group">
             {/* Carousel Container */}
             <div className="overflow-hidden" ref={emblaRef}>
-                <div className="flex -ml-16 touch-pan-y">
+                <div className="flex touch-pan-y" style={{ marginLeft: '-2rem' }}>
                     {cars.map((car) => (
-                        <div className="min-w-0 pl-16 carousel-item" key={car._id || car.id}>
+                        <div className="min-w-0 carousel-item" key={car._id || car.id}>
                             <CarCard car={car} />
                         </div>
                     ))}
@@ -71,6 +71,7 @@ const CarCarousel = ({ cars }) => {
             <style>{`
                 .carousel-item {
                     flex: 0 0 100%;
+                    padding-left: 2rem;
                 }
                 @media (min-width: 640px) {
                     .carousel-item {
