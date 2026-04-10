@@ -12,17 +12,17 @@ const CarCarousel = ({ cars }) => {
         dragFree: true
     }, [
         AutoScroll({
-            speed: 1, // Constant smooth speed
+            speed: 1.2, // Slightly faster, very smooth
             direction: 'forward',
             stopOnInteraction: false,
-            stopOnMouseEnter: false, // Ensure no pauses on hover
+            stopOnMouseEnter: false,
             startDelay: 0
         })
     ]);
 
-    // If we have few cars, Embla loop might show a gap. 
-    // We duplicate the list to ensure a seamless "infinite" look.
-    const displayCars = cars.length > 0 && cars.length < 8 ? [...cars, ...cars] : cars;
+    // Always double the list to ensure Embla has enough room to loop seamlessly
+    // even with larger cards, avoiding any "pre-loading" or gap sensation.
+    const displayCars = cars.length > 0 ? [...cars, ...cars] : cars;
 
     const scrollPrev = useCallback(() => {
         if (emblaApi) emblaApi.scrollPrev();
