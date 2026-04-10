@@ -8,17 +8,21 @@ const CarCarousel = ({ cars }) => {
     const [emblaRef, emblaApi] = useEmblaCarousel({
         loop: true,
         align: 'start',
-        skipSnaps: false,
+        skipSnaps: true,
         dragFree: true
     }, [
         AutoScroll({
-            speed: 1.5, // Faster speed for better feel
-            direction: 'forward', // Forward means right-to-left
+            speed: 1, // Constant smooth speed
+            direction: 'forward',
             stopOnInteraction: false,
-            stopOnMouseEnter: true,
+            stopOnMouseEnter: false, // Ensure no pauses on hover
             startDelay: 0
         })
     ]);
+
+    // If we have few cars, Embla loop might show a gap. 
+    // We duplicate the list to ensure a seamless "infinite" look.
+    const displayCars = cars.length > 0 && cars.length < 8 ? [...cars, ...cars] : cars;
 
     const scrollPrev = useCallback(() => {
         if (emblaApi) emblaApi.scrollPrev();
@@ -33,8 +37,8 @@ const CarCarousel = ({ cars }) => {
             {/* Carousel Container */}
             <div className="overflow-hidden" ref={emblaRef}>
                 <div className="flex touch-pan-y" style={{ marginLeft: '-2rem' }}>
-                    {cars.map((car) => (
-                        <div className="min-w-0 carousel-item" key={car._id || car.id}>
+                    {displayCars.map((car, index) => (
+                        <div className="min-w-0 carousel-item" key={`${car._id || car.id}-${index}`}>
                             <CarCard car={car} />
                         </div>
                     ))}
