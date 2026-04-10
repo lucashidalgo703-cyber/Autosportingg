@@ -12,7 +12,8 @@ const CarCarousel = ({ cars }) => {
         dragFree: true
     }, [
         AutoScroll({
-            speed: 1, // Adjust speed as needed (approx 1px/frame)
+            speed: 1.5, // Faster speed for better feel
+            direction: 'forward', // Forward means right-to-left
             stopOnInteraction: false,
             stopOnMouseEnter: true,
             startDelay: 0
@@ -33,7 +34,7 @@ const CarCarousel = ({ cars }) => {
             <div className="overflow-hidden" ref={emblaRef}>
                 <div className="flex -ml-4 touch-pan-y">
                     {cars.map((car) => (
-                        <div className="flex-[0_0_100%] min-w-0 pl-4 sm:flex-[0_0_50%] lg:flex-[0_0_25%]" key={car._id || car.id}>
+                        <div className="flex-[0_0_100%] min-w-0 pl-4 sm:flex-[0_0_50%] lg:flex-[0_0_33.333%]" key={car._id || car.id}>
                             <CarCard car={car} />
                         </div>
                     ))}
