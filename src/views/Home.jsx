@@ -108,14 +108,27 @@ const Home = () => {
         }
 
         .view-all-link {
-          color: var(--color-primary);
-          font-weight: 600;
-          font-size: 1.1rem;
-          transition: color 0.2s;
+          background-color: var(--color-primary);
+          color: white;
+          font-weight: 700;
+          font-size: 0.9rem;
+          text-transform: uppercase;
+          letter-spacing: 0.1em;
+          padding: 0.75rem 1.5rem;
+          border-radius: 50px;
+          transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+          box-shadow: 0 4px 15px rgba(235, 38, 40, 0.4);
+          display: inline-flex;
+          align-items: center;
+          border: 1px solid transparent;
         }
 
         .view-all-link:hover {
+          background-color: transparent;
           color: white;
+          border-color: var(--color-primary);
+          transform: translateY(-3px) scale(1.05);
+          box-shadow: 0 8px 25px rgba(235, 38, 40, 0.6);
         }
 
         .cars-grid {
