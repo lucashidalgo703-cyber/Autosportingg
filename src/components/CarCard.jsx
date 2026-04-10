@@ -1,6 +1,8 @@
 "use client";
-import { ArrowRight, Heart } from 'lucide-react';
+import { ArrowRight, Heart, ChevronLeft, ChevronRight } from 'lucide-react';
 import Link from 'next/link';
+import useEmblaCarousel from 'embla-carousel-react';
+import { useCallback } from 'react';
 import { getOptimizedImageUrl } from '../lib/cloudinaryUtils';
 import Image from 'next/image';
 import { useFavorites } from '../context/FavoritesContext';
@@ -10,18 +12,76 @@ const CarCard = ({ car }) => {
   const carId = car._id || car.id;
   const isFav = isFavorite(carId);
 
+  const carouselImages = (car.images && car.images.length > 0)
+    ? car.images
+    : [car.coverImage || car.image].filter(Boolean);
+
+  const [emblaRef, emblaApi] = useEmblaCarousel({ loop: true, watchDrag: true });
+
+  const scrollPrev = useCallback((e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (emblaApi) emblaApi.scrollPrev();
+  }, [emblaApi]);
+
+  const scrollNext = useCallback((e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (emblaApi) emblaApi.scrollNext();
+  }, [emblaApi]);
+
   return (
     <Link href={`/auto/${car._id || car.id}`} className="car-card group">
-      <div className="card-image-wrapper">
-        <Image
-          src={getOptimizedImageUrl(car.coverImage || (car.images && car.images[0]) || car.image, 600) || '/placeholder.png'}
-          alt={car.name || 'Auto'}
-          fill
-          sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
-          className="card-image"
-          style={{ objectFit: 'cover', objectPosition: car.imagePosition || '50% 75%' }}
-          unoptimized
-        />
+      <div className="card-image-wrapper relative">
+        <div className="embla overflow-hidden h-full w-full" ref={emblaRef}>
+          <div className="embla__container flex h-full">
+            {carouselImages.length > 0 ? carouselImages.map((img, idx) => (
+              <div className="embla__slide flex-[0_0_100%] min-w-0 relative h-full" key={idx}>
+                <Image
+                  src={getOptimizedImageUrl(img, 600) || '/placeholder.png'}
+                  alt={`${car.name || 'Auto'} - Foto ${idx + 1}`}
+                  fill
+                  sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+                  className="card-image pointer-events-none"
+                  style={{ objectFit: 'cover', objectPosition: car.imagePosition || '50% 75%' }}
+                  unoptimized
+                />
+              </div>
+            )) : (
+              <div className="embla__slide flex-[0_0_100%] min-w-0 relative h-full">
+                <Image
+                  src="/placeholder.png"
+                  alt="Placeholder"
+                  fill
+                  className="card-image pointer-events-none"
+                  style={{ objectFit: 'cover' }}
+                  unoptimized
+                />
+              </div>
+            )}
+          </div>
+        </div>
+
+        {carouselImages.length > 1 && (
+          <>
+            <button
+              className="absolute left-2 top-1/2 -translate-y-1/2 bg-black/30 hover:bg-black/60 backdrop-blur-[2px] border border-white/20 text-white p-1.5 rounded-full opacity-0 group-hover:opacity-100 transition-all z-20 flex items-center justify-center cursor-pointer hover:scale-110"
+              onClick={scrollPrev}
+              onPointerDown={(e) => e.stopPropagation()}
+              aria-label="Anterior foto"
+            >
+              <ChevronLeft size={20} />
+            </button>
+            <button
+              className="absolute right-2 top-1/2 -translate-y-1/2 bg-black/30 hover:bg-black/60 backdrop-blur-[2px] border border-white/20 text-white p-1.5 rounded-full opacity-0 group-hover:opacity-100 transition-all z-20 flex items-center justify-center cursor-pointer hover:scale-110"
+              onClick={scrollNext}
+              onPointerDown={(e) => e.stopPropagation()}
+              aria-label="Siguiente foto"
+            >
+              <ChevronRight size={20} />
+            </button>
+          </>
+        )}
         <button
           className="favorite-btn"
           onClick={(e) => {
