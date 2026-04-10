@@ -62,24 +62,17 @@ const CarCarousel = ({ cars }) => {
                 <ChevronRight size={24} />
             </button>
 
-            {/* Mobile Controls (Optional, usually swipe is enough but arrows help) */}
-            <div className="mt-6 flex justify-center gap-4 md:hidden">
-                <button onClick={scrollPrev} className="p-2 rounded-full bg-white/5 border border-white/10 active:bg-white/20">
-                    <ChevronLeft size={20} />
-                </button>
-                <button onClick={scrollNext} className="p-2 rounded-full bg-white/5 border border-white/10 active:bg-white/20">
-                    <ChevronRight size={20} />
-                </button>
-            </div>
+            {/* Removed mobile controls as requested */}
 
             <style>{`
                 .carousel-item {
-                    flex: 0 0 100%;
-                    padding-left: 2rem;
+                    flex: 0 0 85%; /* Shows a peek of the next card on mobile */
+                    padding-left: 1.5rem;
                 }
                 @media (min-width: 640px) {
                     .carousel-item {
-                        flex: 0 0 50%;
+                        flex: 0 0 60%;
+                        padding-left: 2rem;
                     }
                 }
                 @media (min-width: 1024px) {
