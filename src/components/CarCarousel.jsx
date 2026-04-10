@@ -32,9 +32,9 @@ const CarCarousel = ({ cars }) => {
         <div className="relative group">
             {/* Carousel Container */}
             <div className="overflow-hidden" ref={emblaRef}>
-                <div className="flex -ml-4 touch-pan-y">
+                <div className="flex -ml-8 touch-pan-y">
                     {cars.map((car) => (
-                        <div className="min-w-0 pl-4 carousel-item" key={car._id || car.id}>
+                        <div className="min-w-0 pl-8 carousel-item" key={car._id || car.id}>
                             <CarCard car={car} />
                         </div>
                     ))}
