@@ -1,6 +1,6 @@
 "use client";
 import Hero from '../components/Hero';
-import CarCard from '../components/CarCard';
+import CarCarousel from '../components/CarCarousel';
 import Features from '../components/Features';
 import FAQ from '../components/FAQ';
 import { useCars } from '../hooks/useCars';
@@ -51,19 +51,15 @@ const Home = () => {
           <a href="/catalogo" className="view-all-link text-[var(--color-primary)] font-semibold hover:underline">Ver todo el catálogo →</a>
         </div>
 
-        <div className="cars-grid">
-          {featuredCars.map((car, index) => (
-            <motion.div
-              key={car.id || car._id}
-              initial={{ opacity: 0, y: 30 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.5, delay: index * 0.15, ease: "easeOut" }}
-              viewport={{ once: true, amount: 0.1 }}
-            >
-              <CarCard car={car} />
-            </motion.div>
-          ))}
-        </div>
+        <motion.div
+          initial={{ opacity: 0, y: 30 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5, ease: "easeOut" }}
+          viewport={{ once: true, amount: 0.1 }}
+          className="mt-8"
+        >
+          <CarCarousel cars={featuredCars} />
+        </motion.div>
       </motion.section>
 
       <Features />
