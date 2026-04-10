@@ -34,11 +34,7 @@ const CarCarousel = ({ cars }) => {
             <div className="overflow-hidden" ref={emblaRef}>
                 <div className="flex -ml-4 touch-pan-y">
                     {cars.map((car) => (
-                        <div
-                            className="min-w-0 pl-4 w-full sm:w-[50%] lg:w-[40%]"
-                            style={{ flex: "0 0 40%" }}
-                            key={car._id || car.id}
-                        >
+                        <div className="min-w-0 pl-4 carousel-item" key={car._id || car.id}>
                             <CarCard car={car} />
                         </div>
                     ))}
@@ -71,7 +67,23 @@ const CarCarousel = ({ cars }) => {
                     <ChevronRight size={20} />
                 </button>
             </div>
-        </div >
+
+            <style>{`
+                .carousel-item {
+                    flex: 0 0 100%;
+                }
+                @media (min-width: 640px) {
+                    .carousel-item {
+                        flex: 0 0 50%;
+                    }
+                }
+                @media (min-width: 1024px) {
+                    .carousel-item {
+                        flex: 0 0 30%;
+                    }
+                }
+            `}</style>
+        </div>
     );
 };
 
