@@ -164,6 +164,7 @@ const CarDetail = () => {
                                                 className="object-cover w-full h-full fade-in"
                                                 style={{ objectFit: 'cover', objectPosition: car.imagePosition || '50% 75%' }}
                                                 src={getOptimizedImageUrl(currentImg, 1200)}
+                                                unoptimized
                                             />
                                         ) : (
                                             <div className="text-neutral-600 flex flex-col items-center gap-2">

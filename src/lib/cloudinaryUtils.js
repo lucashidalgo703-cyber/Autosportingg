@@ -5,13 +5,12 @@
  * @returns {string} - The optimized URL.
  */
 export const getOptimizedImageUrl = (url, width = 600) => {
-    if (!url) return '';
+    if (!url || typeof url !== 'string') return url || '';
     if (!url.includes('cloudinary.com')) return url;
 
-    // Check if already optimized or has transformations (simple check)
-    // We want to inject /f_auto,q_auto,w_{width}/ after /upload/
+    // Avoid double transformations if the URL already has them
+    if (url.includes('/upload/f_auto') || url.includes('/upload/w_')) return url;
 
-    // Split the URL at '/upload/'
     const parts = url.split('/upload/');
 
     if (parts.length === 2) {
