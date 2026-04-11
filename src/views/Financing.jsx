@@ -130,192 +130,238 @@ const Financing = () => {
 
             <style>{`
         .financing-page {
-            padding-bottom: 5rem;
+            padding-bottom: 4rem;
             position: relative;
         }
 
-        /* Background Overlay */
-        .financing-page::before {
-            content: '';
-            position: fixed;
-            inset: 0;
-            background: rgba(0, 0, 0, 0.55);
-            z-index: 0;
-            pointer-events: none;
-        }
-
-        /* Header */
         .financing-header {
             position: relative;
-            height: 450px;
+            padding: 6rem 0 3rem;
             display: flex;
             align-items: center;
-            border-bottom: 1px solid rgba(255,255,255,0.05);
-            margin-top: calc(var(--header-height) * -1);
-            z-index: 10;
-            background: radial-gradient(circle at 50% 30%, rgba(200, 0, 0, 0.15) 0%, transparent 70%);
+            border-bottom: 1px solid rgba(255,255,255,0.03);
+            background: radial-gradient(circle at 50% 30%, rgba(235, 38, 40, 0.1) 0%, transparent 70%);
+            text-align: center;
+        }
+
+        @media (min-width: 1024px) {
+            .financing-header {
+                padding: 10rem 0 6rem;
+                text-align: left;
+            }
         }
 
         .header-content {
             position: relative;
             z-index: 10;
-            padding-top: var(--header-height);
         }
 
         .badge {
             display: inline-block;
-            background-color: rgba(255, 0, 0, 0.15);
-            color: #ff4444;
-            padding: 6px 14px;
-            border-radius: 999px;
-            font-size: 0.825rem;
-            font-weight: 600;
+            background: rgba(235, 38, 40, 0.1);
+            color: var(--color-primary);
+            padding: 6px 16px;
+            border-radius: 50px;
+            font-size: 0.75rem;
+            font-weight: 800;
             margin-bottom: 1.5rem;
-            border: 1px solid rgba(255, 0, 0, 0.3);
-            letter-spacing: 0.05em;
+            border: 1px solid rgba(235, 38, 40, 0.2);
+            letter-spacing: 0.1em;
+            text-transform: uppercase;
         }
 
         .header-title {
-            font-size: 3.5rem; 
-            font-weight: 800;
-            line-height: 1.1;
+            font-size: clamp(2.25rem, 6vw, 4rem);
+            font-weight: 900;
+            line-height: 1;
             color: #ffffff;
             margin-bottom: 1.5rem;
-            letter-spacing: -0.02em;
+            letter-spacing: -0.03em;
         }
 
         .header-subtitle {
-            font-size: 1.25rem;
-            color: #d4d4d4;
+            font-size: clamp(1rem, 1.5vw, 1.25rem);
+            color: #999;
             max-width: 600px;
             line-height: 1.6;
+            margin: 0 auto;
+        }
+        
+        @media (min-width: 1024px) {
+            .header-subtitle { margin: 0; }
         }
 
-        /* Body & Cards */
         .financing-body {
             position: relative;
             z-index: 20;
-            margin-top: -3rem;
+            margin-top: -2rem;
             display: flex;
             flex-direction: column;
-            gap: 3rem;
+            gap: 2.5rem;
+        }
+        
+        @media (min-width: 1024px) {
+            .financing-body { margin-top: -4rem; gap: 4rem; }
         }
 
-        /* Highlight Card */
         .highlight-card {
-            background: rgba(20, 20, 20, 0.8);
-            backdrop-filter: blur(12px);
-            border: 1px solid rgba(255, 255, 255, 0.1);
-            border-radius: 20px;
-            padding: 3rem;
+            background: rgba(20, 20, 20, 0.45);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 24px;
+            padding: 2rem;
             display: grid;
-            grid-template-columns: 1.5fr 1fr;
-            gap: 4rem;
+            grid-template-columns: 1fr;
+            gap: 2.5rem;
             align-items: center;
-            box-shadow: 0 20px 50px rgba(0,0,0,0.5);
+            box-shadow: 0 20px 50px rgba(0,0,0,0.3);
+        }
+        
+        @media (min-width: 1024px) {
+            .highlight-card {
+                grid-template-columns: 1.5fr 1fr;
+                padding: 4rem;
+                gap: 4rem;
+            }
         }
 
         .highlight-text h2 {
-            font-size: 2rem;
+            font-size: clamp(1.5rem, 3vw, 2.25rem);
             margin-bottom: 1rem;
-            font-weight: 700;
+            font-weight: 800;
+            letter-spacing: -0.01em;
         }
 
         .highlight-text p {
-            color: #a3a3a3;
-            font-size: 1.1rem;
+            color: #999;
+            font-size: 1.05rem;
             line-height: 1.7;
         }
 
         .highlight-stats {
             display: flex;
-            gap: 3rem;
-            border-left: 1px solid rgba(255,255,255,0.1);
-            padding-left: 3rem;
+            flex-direction: column;
+            gap: 2rem;
+            border-top: 1px solid rgba(255,255,255,0.05);
+            padding-top: 2.5rem;
+        }
+        
+        @media (min-width: 640px) {
+            .highlight-stats {
+                flex-direction: row;
+                justify-content: space-around;
+            }
+        }
+        
+        @media (min-width: 1024px) {
+            .highlight-stats {
+                flex-direction: column;
+                border-top: none;
+                border-left: 1px solid rgba(255,255,255,0.08);
+                padding-top: 0;
+                padding-left: 4rem;
+                gap: 3rem;
+            }
         }
 
         .stat-number {
             display: block;
-            font-size: 3.5rem;
-            font-weight: 800;
+            font-size: clamp(3rem, 5vw, 4rem);
+            font-weight: 900;
             color: var(--color-primary);
             line-height: 1;
             margin-bottom: 0.5rem;
+            letter-spacing: -0.02em;
         }
 
         .stat-label {
             color: white;
-            font-size: 0.9rem;
+            font-size: 0.85rem;
             text-transform: uppercase;
-            letter-spacing: 0.05em;
-            font-weight: 500;
+            letter-spacing: 0.1em;
+            font-weight: 700;
         }
 
-        /* Steps Grid */
         .steps-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-            gap: 2rem;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 1.5rem;
         }
 
         .step-card {
-            background: rgba(15, 15, 15, 0.6);
-            backdrop-filter: blur(8px);
+            background: rgba(15, 15, 15, 0.45);
+            backdrop-filter: blur(12px);
             border: 1px solid rgba(255, 255, 255, 0.05);
-            border-radius: 18px;
+            border-radius: 20px;
             padding: 2.5rem;
-            transition: transform 0.3s ease;
+            transition: all 0.3s ease;
         }
 
         .step-card:hover {
-            transform: translateY(-5px);
-            background: rgba(20, 20, 20, 0.8);
-            border-color: rgba(255, 255, 255, 0.1);
+            transform: translateY(-8px);
+            border-color: var(--color-primary);
+            background: rgba(20, 20, 20, 0.6);
         }
 
         .step-card .icon-box {
-            background: var(--color-surface);
-            width: 60px;
-            height: 60px;
-            border-radius: 14px;
+            background: rgba(255, 255, 255, 0.03);
+            width: 64px;
+            height: 64px;
+            border-radius: 16px;
             display: flex;
             align-items: center;
             justify-content: center;
             margin-bottom: 1.5rem;
-            border: 1px solid rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            color: var(--color-primary);
         }
 
         .step-card h3 {
-            font-size: 1.5rem;
-            font-weight: 700;
+            font-size: 1.35rem;
+            font-weight: 800;
             margin-bottom: 1rem;
+            letter-spacing: -0.01em;
         }
 
         .step-card p {
-            color: #a3a3a3;
+            color: #888;
             line-height: 1.6;
+            font-size: 0.95rem;
         }
 
-        /* Requirements Section */
         .requirements-section {
-            background: linear-gradient(135deg, rgba(20, 20, 20, 0.9) 0%, rgba(10, 10, 10, 0.95) 100%);
-            border: 1px solid #333;
-            border-radius: 20px;
-            padding: 3rem;
+            background: rgba(15, 15, 15, 0.45);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 24px;
+            padding: 2rem;
             display: flex;
-            justify-content: space-between;
-            align-items: center;
-            gap: 4rem;
+            flex-direction: column;
+            gap: 2.5rem;
+        }
+        
+        @media (min-width: 1024px) {
+            .requirements-section {
+                flex-direction: row;
+                justify-content: space-between;
+                align-items: center;
+                padding: 4rem;
+                gap: 4rem;
+            }
         }
 
         .req-content {
             display: flex;
+            flex-direction: column;
             gap: 2rem;
-            align-items: flex-start;
+        }
+        
+        @media (min-width: 768px) {
+            .req-content { flex-direction: row; align-items: flex-start; }
         }
 
         .icon-box-large {
-            background: rgba(255, 0, 0, 0.1);
+            background: rgba(235, 38, 40, 0.1);
             width: 80px;
             height: 80px;
             border-radius: 20px;
@@ -323,64 +369,60 @@ const Financing = () => {
             align-items: center;
             justify-content: center;
             flex-shrink: 0;
+            border: 1px solid rgba(235, 38, 40, 0.2);
         }
 
         .req-text h3 {
             font-size: 1.75rem;
             margin-bottom: 1.5rem;
-            font-weight: 700;
+            font-weight: 800;
+            letter-spacing: -0.01em;
         }
 
         .req-list {
             list-style: none;
             padding: 0;
-            display: flex;
-            flex-direction: column;
-            gap: 1rem;
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 1.25rem;
+        }
+        
+        @media (min-width: 640px) {
+            .req-list { grid-template-columns: 1fr 1fr; }
         }
 
         .req-list li {
             display: flex;
             align-items: center;
             gap: 1rem;
-            color: #d4d4d4;
-            font-size: 1.1rem;
+            color: #ccc;
+            font-size: 1rem;
         }
 
         .btn-whatsapp-financing {
-            display: inline-block;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
             background: #25D366;
-            color: black;
-            font-weight: 700;
-            padding: 1rem 2rem;
-            border-radius: 12px;
+            color: #000;
+            font-weight: 800;
+            padding: 1.25rem 2.5rem;
+            border-radius: 50px;
             text-decoration: none;
             font-size: 1.1rem;
-            transition: all 0.3s ease;
-            box-shadow: 0 5px 20px rgba(37, 211, 102, 0.2);
+            transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            box-shadow: 0 10px 30px rgba(37, 211, 102, 0.2);
+            text-align: center;
         }
 
         .btn-whatsapp-financing:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 10px 30px rgba(37, 211, 102, 0.3);
+            transform: translateY(-5px);
+            box-shadow: 0 15px 40px rgba(37, 211, 102, 0.4);
             background: #22c55e;
         }
-
-        /* Responsive */
-        @media (max-width: 900px) {
-            .financing-header {
-                height: auto;
-                min-height: auto;
-                padding-bottom: 5rem;
-                align-items: flex-start;
-            }
-            .header-title { font-size: 2.5rem; }
-            .highlight-card { grid-template-columns: 1fr; gap: 2rem; padding: 2rem; margin-top: 0; }
-            .highlight-stats { border-left: none; border-top: 1px solid rgba(255,255,255,0.1); padding-left: 0; padding-top: 2rem; width: 100%; justify-content: space-around; }
-            .stat-number { font-size: 2.5rem; }
-            .requirements-section { flex-direction: column; align-items: stretch; gap: 2rem; }
-            .req-content { flex-direction: column; }
-            .btn-whatsapp-financing { width: 100%; text-align: center; }
+        
+        @media (max-width: 1024px) {
+            .btn-whatsapp-financing { width: 100%; }
         }
       `}</style>
         </main>

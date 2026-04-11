@@ -82,7 +82,25 @@ ul {
 .container {
   max-width: var(--container-width);
   margin: 0 auto;
-  padding: 0 1rem;
+  padding: 0 1.25rem;
+  width: 100%;
+}
+
+@media (min-width: 1280px) {
+  .container {
+    max-width: 1300px;
+    /* Slightly wider for modern displays */
+  }
+}
+
+.section-padding {
+  padding: 3rem 0;
+}
+
+@media (min-width: 768px) {
+  .section-padding {
+    padding: 6rem 0;
+  }
 }
 
 /* Utilities */

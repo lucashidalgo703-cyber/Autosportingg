@@ -66,18 +66,25 @@ const CarCarousel = ({ cars }) => {
 
             <style>{`
                 .carousel-item {
-                    flex: 0 0 85%; /* Shows a peek of the next card on mobile */
-                    padding-left: 1.5rem;
+                    flex: 0 0 85%;
+                    padding-left: 1rem;
                 }
-                @media (min-width: 640px) {
+                @media (min-width: 480px) {
                     .carousel-item {
-                        flex: 0 0 60%;
-                        padding-left: 2rem;
+                        flex: 0 0 70%;
+                        padding-left: 1.25rem;
+                    }
+                }
+                @media (min-width: 768px) {
+                    .carousel-item {
+                        flex: 0 0 45%;
+                        padding-left: 1.5rem;
                     }
                 }
                 @media (min-width: 1024px) {
                     .carousel-item {
                         flex: 0 0 30%;
+                        padding-left: 2rem;
                     }
                 }
             `}</style>

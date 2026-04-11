@@ -14,10 +14,10 @@ const itemVariants = {
 
 const About = () => {
   return (
-    <main className="container page-padding">
+    <main className="container page-padding section-padding">
       <div className="about-header">
         <span className="subtitle">SOBRE NOSOTROS</span>
-
+        <h1 className="title-responsive">Excelencia y Confianza en Comodoro Rivadavia</h1>
       </div>
 
       {/* NUEVO BLOQUE INSTITUCIONAL */}
@@ -108,197 +108,180 @@ const About = () => {
 
       <style>{`
         .page-padding {
-          padding-top: 4rem;
-          padding-bottom: 5rem;
+          padding-top: 2rem;
+        }
+
+        @media (min-width: 768px) {
+            .page-padding { padding-top: 4rem; }
         }
 
         .about-header {
           text-align: center;
           max-width: 800px;
-          margin: 0 auto 3rem;
+          margin: 0 auto 2.5rem;
         }
 
         .subtitle {
           color: var(--color-primary);
-          font-weight: 700;
-          letter-spacing: 0.1em;
+          font-weight: 800;
+          letter-spacing: 0.15em;
           text-transform: uppercase;
-          font-size: 0.9rem;
+          font-size: 0.8rem;
           display: block;
-          margin-bottom: 1rem;
+          margin-bottom: 0.75rem;
         }
 
-        .about-header h1 {
-          font-size: 3.5rem;
-          margin-bottom: 1.5rem;
+        .title-responsive {
+          font-size: clamp(2rem, 5vw, 3.5rem);
+          font-weight: 900;
+          margin-bottom: 0.5rem;
           line-height: 1.1;
+          letter-spacing: -0.02em;
         }
 
-        .lead {
-          color: var(--color-text-muted);
-          font-size: 1.25rem;
-          line-height: 1.6;
-        }
-
-        /* BLOQUE INSTITUCIONAL */
         .about-block {
-          max-width: 1000px;
-          margin: 0 auto 3.5rem;
-          padding: 2.25rem 2rem;
-          background: rgba(15, 15, 15, 0.65);
-          border: 1px solid rgba(255, 0, 0, 0.22);
-          border-radius: 16px;
-          box-shadow: 0 10px 40px rgba(0,0,0,0.55);
-          backdrop-filter: blur(8px);
+          max-width: 900px;
+          margin: 0 auto 4rem;
+          padding: 1.5rem;
+          background: rgba(15, 15, 15, 0.45);
+          backdrop-filter: blur(12px);
+          -webkit-backdrop-filter: blur(12px);
+          border: 1px solid rgba(255, 255, 255, 0.08);
+          border-radius: 20px;
+          box-shadow: 0 10px 40px rgba(0,0,0,0.3);
+        }
+
+        @media (min-width: 768px) {
+            .about-block { padding: 2.5rem; }
         }
 
         .about-block h2 {
-          font-size: 1.6rem;
-          margin-bottom: 1rem;
+          font-size: 1.5rem;
+          margin-bottom: 1.25rem;
           text-align: center;
+          font-weight: 800;
+          letter-spacing: -0.01em;
         }
 
         .about-text {
-          color: var(--color-text-muted);
-          line-height: 1.8;
-          font-size: 1.05rem;
-          margin: 0 auto 1.5rem;
-          max-width: 900px;
+          color: #999;
+          line-height: 1.7;
+          font-size: 1rem;
+          margin-bottom: 2rem;
           text-align: center;
         }
 
         .about-highlights {
           display: grid;
-          grid-template-columns: 1.1fr 0.9fr;
-          gap: 1.5rem;
-          align-items: start;
-          margin-top: 1.25rem;
+          grid-template-columns: 1fr;
+          gap: 1.25rem;
+          margin-bottom: 2rem;
         }
 
-        .about-list {
-          border: 1px solid rgba(255,255,255,0.08);
+        @media (min-width: 768px) {
+            .about-highlights { grid-template-columns: 1fr 1fr; gap: 1.5rem; }
+        }
+
+        .about-list, .about-finance {
+          background: rgba(255, 255, 255, 0.03);
+          border: 1px solid rgba(255, 255, 255, 0.05);
           border-radius: 12px;
-          padding: 1.25rem 1.25rem;
-          background: rgba(0,0,0,0.25);
+          padding: 1.25rem;
         }
 
         .about-item {
           display: flex;
-          gap: 0.7rem;
-          align-items: flex-start;
-          padding: 0.55rem 0;
-          color: #d3d3d3;
-          line-height: 1.5;
-        }
-
-        .about-finance {
-          border: 1px solid rgba(255,255,255,0.08);
-          border-radius: 12px;
-          padding: 1.25rem 1.25rem;
-          background: rgba(0,0,0,0.25);
+          gap: 0.75rem;
+          align-items: center;
+          padding: 0.5rem 0;
+          color: #ccc;
+          font-size: 0.95rem;
         }
 
         .about-finance h3 {
-          margin: 0 0 0.75rem;
-          font-size: 1.15rem;
+          margin-bottom: 0.5rem;
+          font-size: 1.1rem;
+          font-weight: 700;
         }
 
         .about-finance p {
-          margin: 0;
-          color: var(--color-text-muted);
-          line-height: 1.7;
-        }
-
-        .about-claim {
-          margin: 1.5rem 0 1.25rem;
-          text-align: center;
-          font-size: 1.05rem;
+          color: #888;
+          font-size: 0.9rem;
+          line-height: 1.6;
         }
 
         .about-cta {
           display: flex;
-          gap: 0.9rem;
+          gap: 1rem;
           justify-content: center;
           flex-wrap: wrap;
         }
 
-        .btn-primary {
+        .btn-primary, .btn-ghost {
+          padding: 0.8rem 1.75rem;
+          border-radius: 50px;
+          font-weight: 700;
+          font-size: 0.95rem;
+          transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+          text-decoration: none;
           display: inline-flex;
           align-items: center;
           justify-content: center;
-          padding: 0.9rem 1.2rem;
-          border-radius: 12px;
-          background: rgba(255, 0, 0, 0.85);
-          color: #fff;
-          text-decoration: none;
-          font-weight: 700;
-          transition: transform 0.2s ease, box-shadow 0.2s ease;
-          box-shadow: 0 10px 30px rgba(0,0,0,0.45);
+        }
+
+        .btn-primary {
+          background: var(--color-primary);
+          color: white;
+          box-shadow: 0 4px 15px rgba(235, 38, 40, 0.3);
         }
 
         .btn-primary:hover {
-          transform: translateY(-2px);
-          box-shadow: 0 12px 35px rgba(0,0,0,0.6);
+          transform: translateY(-3px);
+          box-shadow: 0 8px 25px rgba(235, 38, 40, 0.5);
         }
 
         .btn-ghost {
-          display: inline-flex;
-          align-items: center;
-          justify-content: center;
-          padding: 0.9rem 1.2rem;
-          border-radius: 12px;
-          background: rgba(255,255,255,0.06);
-          border: 1px solid rgba(255,255,255,0.14);
-          color: #fff;
-          text-decoration: none;
-          font-weight: 700;
-          transition: transform 0.2s ease, border-color 0.2s ease;
+          background: rgba(255,255,255,0.05);
+          border: 1px solid rgba(255,255,255,0.1);
+          color: white;
         }
 
         .btn-ghost:hover {
-          transform: translateY(-2px);
-          border-color: rgba(255, 0, 0, 0.35);
+          background: rgba(255,255,255,0.1);
+          border-color: rgba(255,255,255,0.2);
         }
 
-        /* Tarjetas existentes */
         .values-grid {
           display: grid;
-          grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-          gap: 2rem;
+          grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+          gap: 1.5rem;
         }
 
         .value-card {
-          background-color: var(--color-surface);
-          padding: 3rem 2rem;
-          border-radius: 8px;
+          background: rgba(15, 15, 15, 0.45);
+          backdrop-filter: blur(8px);
+          padding: 2.5rem 1.5rem;
+          border-radius: 16px;
           text-align: center;
-          border: 1px solid #333;
-          transition: transform 0.3s ease;
+          border: 1px solid rgba(255, 255, 255, 0.05);
+          transition: all 0.3s ease;
         }
 
         .value-card:hover {
-          transform: translateY(-5px);
           border-color: var(--color-primary);
+          background: rgba(20, 20, 20, 0.6);
         }
 
         .value-card h3 {
-          margin: 1.5rem 0 1rem;
-          font-size: 1.5rem;
+          margin: 1.25rem 0 0.75rem;
+          font-size: 1.35rem;
+          font-weight: 800;
         }
 
         .value-card p {
-          color: var(--color-text-muted);
+          color: #888;
+          font-size: 0.95rem;
           line-height: 1.6;
-        }
-
-        /* Responsive */
-        @media (max-width: 900px) {
-          .about-highlights {
-            grid-template-columns: 1fr;
-          }
-          .about-header h1 {
-            font-size: 2.6rem;
-          }
         }
       `}</style>
     </main>

@@ -96,14 +96,13 @@ const Hero = () => {
       <style>{`
         .hero {
           position: relative;
-          min-height: 600px;
-          height: 90vh; /* Adjust as needed */
+          min-height: 500px;
+          height: 85vh;
           display: flex;
           align-items: center;
-          margin-top: calc(var(--header-height) * -1); /* Under navbar */
+          margin-top: calc(var(--header-height) * -1);
           padding-top: var(--header-height);
           overflow: hidden;
-          /* Explicit Gradient per user request */
           background: radial-gradient(circle at 50% 30%, #1a1a1a 0%, #050505 100%);
         }
 
@@ -121,195 +120,153 @@ const Hero = () => {
         .hero-overlay-gradient-1 {
             position: absolute;
             inset: 0;
-            background: linear-gradient(to bottom right, rgba(0,0,0,0.8), rgba(0,0,0,0.6), rgba(0,0,0,0.7));
+            background: linear-gradient(to bottom right, rgba(0,0,0,0.85), rgba(0,0,0,0.4), rgba(0,0,0,0.7));
             z-index: 1;
         }
 
         .hero-overlay-gradient-2 {
             position: absolute;
             inset: 0;
-            background: linear-gradient(to top, rgba(0,0,0,0.4), rgba(0,0,0,0.1), rgba(0,0,0,0.2));
+            background: linear-gradient(to top, rgba(0,0,0,0.6), transparent, rgba(0,0,0,0.2));
             z-index: 1;
         }
 
-      /* Hero Content Layout - SIMPLIFIED & STRICT */
         .hero-content {
           position: relative;
           z-index: 10;
-          width: 100%;
-          height: 100%;
-          /* Center content VERTICALLY in the screen */
           display: flex;
           align-items: center; 
-          /* Align content HORIZONTALLY to the start (left) */
           justify-content: flex-start;
-          
-          padding-top: 4rem;
-          padding-bottom: 4rem;
+          padding-top: 2rem;
+          padding-bottom: 2rem;
         }
 
-        /* The inner wrapper for text elements */
         .hero-text-wrapper {
             display: flex;
             flex-direction: column;
-            align-items: flex-start; /* STRICT LEFT ALIGNMENT */
-            justify-content: center;
-            text-align: left; /* Ensure text inherits left alignment */
-            max-width: 900px;
+            align-items: flex-start;
+            text-align: left;
+            max-width: 850px;
             width: 100%;
         }
 
-        /* Typography & Elements */
-        /* Badge styling to match reference dark pill */
         .badge-location {
             display: inline-flex;
             align-items: center;
             gap: 0.5rem;
-            padding: 0.5rem 1rem;
-            background-color: rgba(30, 30, 30, 0.6); /* Darker semitransparent like reference */
+            padding: 0.4rem 0.8rem;
+            background-color: rgba(235, 38, 40, 0.15);
             backdrop-filter: blur(8px);
-            border: 1px solid rgba(255, 255, 255, 0.15);
+            border: 1px solid rgba(235, 38, 40, 0.3);
             border-radius: 9999px; 
-            width: fit-content;
-            margin-bottom: 1.5rem; 
+            margin-bottom: 1.25rem; 
         }
         
         .badge-location span {
-             color: white;
-             font-size: 0.9rem;
+             color: #fff;
+             font-size: 0.75rem;
              text-transform: uppercase;
-             letter-spacing: 0.05em;
+             letter-spacing: 0.1em;
              font-family: 'Inter', sans-serif;
-             font-weight: 600;
+             font-weight: 700;
         }
 
-        /* Hero Actions Layout */
         .hero-actions {
             display: flex;
             flex-direction: column;
             gap: 1rem;
             margin-top: 1.5rem;
+            width: 100%;
         }
 
         @media (min-width: 500px) {
             .hero-actions {
                 flex-direction: row; 
-                align-items: center;
+                width: auto;
             }
         }
 
-        /* Typography - FINAL CORRECTIVE MATCH (INTER) */
-        
         .hero-title {
             font-family: 'Inter', system-ui, sans-serif;
             font-weight: 900; 
-            line-height: 1.1;
-            margin-bottom: 0.25rem;
-            text-transform: none; 
-            letter-spacing: -0.02em;
+            line-height: 1.05;
+            margin-bottom: 0.5rem;
+            letter-spacing: -0.03em;
             color: #FFFFFF;
-            
-            font-size: 3.5rem; 
+            font-size: clamp(2.5rem, 8vw, 6rem);
         }
-
-        /* Scaling */
-        @media (min-width: 640px) { .hero-title { font-size: 4.5rem; } }
-        @media (min-width: 1024px) { .hero-title { font-size: 5.5rem; } } 
-        @media (min-width: 1280px) { .hero-title { font-size: 6.5rem; } } 
 
         .hero-subtitle {
             font-family: 'Inter', system-ui, sans-serif;
             font-weight: 700;
             color: #EB2628; 
             line-height: 1.2;
-            margin-top: 0;
-            margin-bottom: 1.5rem; /* Tighter spacing like reference */
-            text-transform: none;
-            
-            font-size: 2rem;
+            margin-bottom: 1.5rem;
+            font-size: clamp(1.25rem, 4vw, 3rem);
         }
-        
-        @media (min-width: 640px) { .hero-subtitle { font-size: 2.25rem; } }
-        @media (min-width: 1024px) { .hero-subtitle { font-size: 3rem; } }
-        @media (min-width: 1280px) { .hero-subtitle { font-size: 3.5rem; } }
 
-        /* Description & Body */
         .hero-description {
             font-family: 'Inter', system-ui, sans-serif;
-            font-size: 1.125rem;
-            color: rgba(255, 255, 255, 0.85);
-            max-width: 650px;
+            font-size: clamp(1rem, 1.5vw, 1.15rem);
+            color: rgba(255, 255, 255, 0.8);
+            max-width: 600px;
             margin-bottom: 2rem;
             line-height: 1.6;
-            font-weight: 400;
         }
 
         .features-list {
             display: flex;
             flex-wrap: wrap;
-            gap: 1rem;
-            margin-bottom: 1.5rem; /* Ensure space before description */
+            gap: 0.75rem;
+            margin-bottom: 1.5rem;
             align-items: center;
-            font-family: 'Inter', system-ui, sans-serif;
         }
         
         .feature-pill {
-             padding: 0.5rem 1rem; /* px-4 py-2 */
-             background-color: rgba(255, 255, 255, 0.1);
+             padding: 0.4rem 0.8rem;
+             background-color: rgba(255, 255, 255, 0.05);
              backdrop-filter: blur(4px);
-             border: 1px solid rgba(255, 255, 255, 0.2);
-             border-radius: 0.5rem;
-             color: white;
-             font-size: 1rem;
-             font-weight: 500;
+             border: 1px solid rgba(255, 255, 255, 0.1);
+             border-radius: 6px;
+             color: rgba(255,255,255,0.9);
+             font-size: 0.85rem;
+             font-weight: 600;
              display: inline-flex;
              align-items: center;
-             gap: 0.4rem;
+             gap: 0.3rem;
         }
 
-         /* Buttons */
         .btn-hero-primary {
-            position: relative;
-            padding: 1rem 2.5rem; 
+            padding: 0.9rem 2.25rem; 
             background-color: var(--color-primary);
             color: white;
-            font-family: 'Inter', sans-serif;
             font-weight: 800;
-            font-size: 1rem; 
+            font-size: 0.95rem; 
             text-transform: uppercase;
-            letter-spacing: 0.1em;
+            letter-spacing: 0.08em;
             border-radius: 50px; 
-            overflow: hidden;
             transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
             display: inline-flex;
-            text-decoration: none;
             align-items: center;
             justify-content: center;
-            box-shadow: 0 4px 20px rgba(235, 38, 40, 0.5);
-            border: 2px solid transparent;
+            box-shadow: 0 4px 20px rgba(235, 38, 40, 0.4);
         }
 
         .btn-hero-primary:hover {
-            transform: translateY(-4px) scale(1.05);
-            background-color: transparent;
-            border-color: var(--color-primary);
-            box-shadow: 0 10px 30px rgba(235, 38, 40, 0.7);
+            transform: translateY(-3px);
+            box-shadow: 0 10px 25px rgba(235, 38, 40, 0.6);
         }
         
         .btn-hero-secondary {
-            position: relative;
-            padding: 1rem 2rem;
+            padding: 0.9rem 2rem;
             background-color: transparent;
-            /* No blur on reference secondary button, just border */
-            border: 2px solid white;
+            border: 1px solid rgba(255,255,255,0.3);
             color: white;
-            font-family: 'Inter', sans-serif;
             font-weight: 700;
-            font-size: 1.125rem; 
-            border-radius: 0.5rem; 
+            font-size: 0.95rem; 
+            border-radius: 50px; 
             transition: all 0.3s;
             display: inline-flex;
-            text-decoration: none;
             align-items: center;
             justify-content: center;
         }
@@ -317,26 +274,14 @@ const Hero = () => {
         .btn-hero-secondary:hover {
             background-color: white;
             color: black;
+            border-color: white;
         }
 
-        /* Utility helper for hidden/block */
-        .hidden { display: none; }
-        @media (min-width: 768px) {
-            .md\\:block { display: block; }
-            .md\\:hidden { display: none; }
+        @media (max-width: 640px) {
+            .hero { height: auto; min-height: 100vh; padding-bottom: 4rem; }
+            .hero-content { padding-top: 5rem; }
+            .feature-pill { font-size: 0.75rem; padding: 0.3rem 0.6rem; }
         }
-
-        .container {
-             width: 100%;
-             margin-right: auto;
-             margin-left: auto;
-             padding-right: 1.5rem;
-             padding-left: 1.5rem;
-        }
-        
-        @media (min-width: 640px) { .container { max-width: 640px; } }
-        @media (min-width: 1024px) { .container { max-width: 1024px; } }
-        @media (min-width: 1280px) { .container { max-width: 1400px; } } /* Wider for impact */
 
       `}</style>
     </section >

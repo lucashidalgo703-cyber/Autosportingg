@@ -6,15 +6,39 @@ import Image from 'next/image';
 import { Menu, X, LogOut, Heart } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useFavorites } from '../context/FavoritesContext';
+import { motion, AnimatePresence } from 'framer-motion';
 
 const Navbar = () => {
   const [isOpen, setIsOpen] = useState(false);
   const { isAuthenticated, logout } = useAuth();
   const { favorites } = useFavorites();
-  // Verified Navbar Structure - Logo v5
   const pathname = usePathname();
 
   const isActive = (path) => pathname === path;
+
+  const menuVariants = {
+    closed: {
+      opacity: 0,
+      y: -20,
+      transition: {
+        staggerChildren: 0.05,
+        staggerDirection: -1
+      }
+    },
+    open: {
+      opacity: 1,
+      y: 0,
+      transition: {
+        staggerChildren: 0.1,
+        delayChildren: 0.2
+      }
+    }
+  };
+
+  const itemVariants = {
+    closed: { opacity: 0, x: -10 },
+    open: { opacity: 1, x: 0 }
+  };
 
   return (
     <header className="navbar">
@@ -49,60 +73,73 @@ const Navbar = () => {
         </nav>
 
         {/* Mobile Menu Toggle */}
-        <button className="mobile-toggle" onClick={() => setIsOpen(!isOpen)}>
-          {isOpen ? <X color="white" /> : <Menu color="white" />}
+        <button className="mobile-toggle" onClick={() => setIsOpen(!isOpen)} aria-label="Menu">
+          {isOpen ? <X size={28} color="white" /> : <Menu size={28} color="white" />}
         </button>
 
         {/* Mobile Menu */}
-        {isOpen && (
-          <div className="mobile-nav">
-            <Link href="/" onClick={() => setIsOpen(false)}>Inicio</Link>
-            <Link href="/catalogo" onClick={() => setIsOpen(false)}>Catálogo</Link>
-            <Link href="/financiacion" onClick={() => setIsOpen(false)}>Financiación</Link>
-            <Link href="/nosotros" onClick={() => setIsOpen(false)}>Nosotros</Link>
-            <Link href="/contacto" onClick={() => setIsOpen(false)}>Contacto</Link>
-            <Link href="/favoritos" onClick={() => setIsOpen(false)} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', justifyContent: 'space-between' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                <Heart size={20} /> Favoritos
-              </div>
-              {favorites.length > 0 && (
-                <span className="favorites-badge-mobile">{favorites.length}</span>
-              )}
-            </Link>
+        <AnimatePresence>
+          {isOpen && (
+            <motion.div
+              className="mobile-nav"
+              initial="closed"
+              animate="open"
+              exit="closed"
+              variants={menuVariants}
+            >
+              <motion.div variants={itemVariants}>
+                <Link href="/" onClick={() => setIsOpen(false)} className={isActive('/') ? 'active' : ''}>Inicio</Link>
+              </motion.div>
+              <motion.div variants={itemVariants}>
+                <Link href="/catalogo" onClick={() => setIsOpen(false)} className={isActive('/catalogo') ? 'active' : ''}>Catálogo</Link>
+              </motion.div>
+              <motion.div variants={itemVariants}>
+                <Link href="/financiacion" onClick={() => setIsOpen(false)} className={isActive('/financiacion') ? 'active' : ''}>Financiación</Link>
+              </motion.div>
+              <motion.div variants={itemVariants}>
+                <Link href="/nosotros" onClick={() => setIsOpen(false)} className={isActive('/nosotros') ? 'active' : ''}>Nosotros</Link>
+              </motion.div>
+              <motion.div variants={itemVariants}>
+                <Link href="/contacto" onClick={() => setIsOpen(false)} className={isActive('/contacto') ? 'active' : ''}>Contacto</Link>
+              </motion.div>
+              <motion.div variants={itemVariants}>
+                <Link href="/favoritos" onClick={() => setIsOpen(false)} className={`mobile-fav-link ${isActive('/favoritos') ? 'active' : ''}`}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                    <Heart size={22} fill={isActive('/favoritos') ? "var(--color-primary)" : "none"} color={isActive('/favoritos') ? "var(--color-primary)" : "white"} />
+                    Favoritos
+                  </div>
+                  {favorites.length > 0 && (
+                    <span className="favorites-badge-mobile">{favorites.length}</span>
+                  )}
+                </Link>
+              </motion.div>
 
-            {isAuthenticated && (
-              <>
-                <Link href="/admin" onClick={() => setIsOpen(false)} style={{ color: '#EB2628' }}>Admin</Link>
-                <button onClick={() => { logout(); setIsOpen(false); }} className="mobile-logout">
-                  Cerrar Sesión
-                </button>
-              </>
-            )}
-          </div>
-        )}
+              {isAuthenticated && (
+                <motion.div variants={itemVariants}>
+                  <Link href="/admin" onClick={() => setIsOpen(false)} style={{ color: '#EB2628', fontWeight: '700' }}>Admin</Link>
+                  <button onClick={() => { logout(); setIsOpen(false); }} className="mobile-logout">
+                    Cerrar Sesión
+                  </button>
+                </motion.div>
+              )}
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
 
       <style>{`
         .navbar {
-          background-color: rgba(5, 5, 5, 0.6); /* More transparent */
-          backdrop-filter: blur(16px); /* Stronger blur */
+          background-color: rgba(5, 5, 5, 0.75);
+          backdrop-filter: blur(20px);
+          -webkit-backdrop-filter: blur(20px);
           position: sticky;
           top: 0;
           z-index: 1000;
           height: var(--header-height);
           display: flex;
           align-items: center;
-          /* Shadow for depth */
-          box-shadow: 0 4px 20px rgba(0,0,0,0.4);
-        }
-        
-        /* Gradient Border Bottom */
-        .navbar::after {
-            content: '';
-            position: absolute;
-            bottom: 0; left: 0; right: 0;
-            height: 1px;
-            background: linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.08) 50%, transparent 100%);
+          box-shadow: 0 4px 30px rgba(0,0,0,0.5);
+          border-bottom: 1px solid rgba(255, 255, 255, 0.05);
         }
 
         .navbar-content {
@@ -113,43 +150,64 @@ const Navbar = () => {
         }
 
         .logo {
-          text-decoration: none;
           display: flex;
           align-items: center;
+          transition: transform 0.3s ease;
+        }
+        
+        .logo:hover {
+            transform: scale(1.02);
         }
 
         .navbar-logo-img {
-          height: 40px; 
+          height: 38px; 
           width: auto;
           object-fit: contain;
-          margin-left: 3px; /* Precise adjustment requested */
         }
         
         @media (min-width: 768px) {
-            .navbar-logo-img { height: 60px; }
+            .navbar-logo-img { height: 50px; }
         }
 
         .desktop-nav {
           display: flex;
-          gap: 2rem;
+          gap: 1.5rem;
+          align-items: center;
+        }
+        
+        @media (min-width: 1024px) {
+            .desktop-nav { gap: 2.25rem; }
         }
 
         .nav-link {
           color: var(--color-text-muted);
           font-weight: 500;
-          transition: color 0.2s;
+          transition: all 0.3s ease;
           font-size: 0.95rem;
+          letter-spacing: 0.01em;
         }
 
         .nav-link:hover, .nav-link.active {
-          color: var(--color-primary);
+          color: white;
+          text-shadow: 0 0 15px rgba(255,255,255,0.3);
+        }
+        
+        .nav-link.active {
+            color: var(--color-primary);
         }
 
         .mobile-toggle {
           display: none;
-          background: none;
-          border: none;
+          background: rgba(255,255,255,0.05);
+          border: 1px solid rgba(255,255,255,0.1);
+          border-radius: 8px;
+          padding: 6px;
           cursor: pointer;
+          transition: background 0.2s;
+        }
+        
+        .mobile-toggle:active {
+            background: rgba(255,255,255,0.15);
         }
 
         .mobile-nav {
@@ -157,44 +215,68 @@ const Navbar = () => {
           top: 100%;
           left: 0;
           width: 100%;
-          background-color: var(--color-bg);
-          border-bottom: 1px solid var(--color-surface);
-          padding: 1rem;
+          background-color: rgba(10, 10, 10, 0.98);
+          backdrop-filter: blur(20px);
+          -webkit-backdrop-filter: blur(20px);
+          padding: 1.5rem;
           display: flex;
           flex-direction: column;
-          gap: 1rem;
+          gap: 0.5rem;
+          border-bottom: 1px solid var(--color-primary);
+          box-shadow: 0 20px 40px rgba(0,0,0,0.6);
+          max-height: calc(100vh - var(--header-height));
+          overflow-y: auto;
         }
 
         .mobile-nav a {
-          color: white;
-          padding: 0.5rem 0;
-          border-bottom: 1px solid var(--color-surface);
+          color: #eee;
+          padding: 1rem 0.5rem;
+          font-size: 1.1rem;
+          font-weight: 500;
+          display: block;
+          border-bottom: 1px solid rgba(255,255,255,0.05);
+          transition: color 0.2s;
         }
         
+        .mobile-nav a.active {
+            color: var(--color-primary);
+            padding-left: 0.75rem;
+            border-left: 2px solid var(--color-primary);
+        }
+        
+        .mobile-fav-link {
+            display: flex !important;
+            align-items: center;
+            justify-content: space-between;
+        }
+
         .btn-logout {
             background: none;
             border: none;
             cursor: pointer;
             display: flex;
             align-items: center;
-            padding: 0;
+            color: var(--color-text-muted);
+            transition: color 0.2s;
         }
         
         .btn-logout:hover {
-            color: #EB2628;
+            color: var(--color-primary);
         }
 
         .mobile-logout {
             background: rgba(235, 38, 40, 0.1);
             color: #EB2628;
             border: 1px solid rgba(235, 38, 40, 0.3);
-            padding: 0.8rem;
-            border-radius: 6px;
-            margin-top: 1rem;
+            padding: 1rem;
+            border-radius: 8px;
+            margin-top: 1.5rem;
             cursor: pointer;
             width: 100%;
             text-align: center;
-            font-weight: 600;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
         }
 
         .favorites-badge {
@@ -211,19 +293,20 @@ const Navbar = () => {
             align-items: center;
             justify-content: center;
             border-radius: 50%;
-            border: 2px solid var(--color-bg);
+            border: 2px solid #050505;
         }
 
         .favorites-badge-mobile {
             background-color: var(--color-primary);
             color: white;
-            font-size: 0.75rem;
+            font-size: 0.8rem;
             font-weight: 700;
-            padding: 2px 8px;
-            border-radius: 12px;
+            padding: 4px 12px;
+            border-radius: 20px;
+            box-shadow: 0 0 10px rgba(235, 38, 40, 0.4);
         }
 
-        @media (max-width: 768px) {
+        @media (max-width: 850px) {
           .desktop-nav { display: none; }
           .mobile-toggle { display: block; }
         }

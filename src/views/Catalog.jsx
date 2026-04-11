@@ -124,40 +124,50 @@ const Catalog = () => {
 
             <style>{`
                 .page-padding {
-                    padding-top: 4rem;
+                    padding-top: 3rem;
                     padding-bottom: 4rem;
+                }
+                
+                @media (min-width: 768px) {
+                    .page-padding {
+                        padding-top: 5rem;
+                    }
                 }
 
                 .page-header {
                     text-align: center;
-                    margin-bottom: 3rem;
+                    margin-bottom: 2.5rem;
                 }
 
                 .page-header h1 {
-                    font-size: 3rem;
+                    font-size: clamp(2rem, 5vw, 3.5rem);
                     margin-bottom: 0.5rem;
+                    font-weight: 900;
+                    letter-spacing: -0.02em;
                 }
 
                 .page-header p {
                     color: var(--color-text-muted);
-                    font-size: 1.2rem;
+                    font-size: clamp(1rem, 1.5vw, 1.25rem);
                 }
                 
                 .cars-grid {
                     display: grid;
                     grid-template-columns: 1fr;
-                    gap: 3rem; /* Larger gap like reference */
+                    gap: 1.5rem; /* Tighter gap on mobile */
                 }
 
                 @media (min-width: 640px) {
                     .cars-grid {
                         grid-template-columns: repeat(2, 1fr);
+                        gap: 2rem;
                     }
                 }
 
                 @media (min-width: 1024px) {
                     .cars-grid {
                         grid-template-columns: repeat(3, 1fr);
+                        gap: 2.5rem;
                     }
                 }
 

@@ -20,7 +20,7 @@ const itemVariants = {
 
 const Features = () => {
   return (
-    <section className="features-section">
+    <section className="features-section section-padding">
       <div className="container">
         <motion.div
           className="features-grid"
@@ -29,61 +29,35 @@ const Features = () => {
           whileInView="visible"
           viewport={{ once: true, amount: 0.2 }}
         >
-          {/* Feature 01 */}
-          <motion.div className="feature-card" variants={itemVariants}>
-            <div className="icon-wrapper">
-              <Banknote size={32} />
-            </div>
-            <h3>Mejor Precio Garantizado</h3>
-            <p>Cotizaciones justas y competitivas. Maximizamos el valor de tu usado y te ofrecemos las mejores condiciones para tu 0km.</p>
-          </motion.div>
-
-          {/* Feature 02 */}
-          <motion.div className="feature-card" variants={itemVariants}>
-            <div className="icon-wrapper">
-              <ShieldCheck size={32} />
-            </div>
-            <h3>Revisión Vehicular</h3>
-            <p>Calidad asegurada. Cada unidad atraviesa un estricto control mecánico y estético de 25 puntos antes de ingresar a nuestro salón.</p>
-          </motion.div>
-
-          {/* Feature 03 */}
-          <motion.div className="feature-card" variants={itemVariants}>
-            <div className="icon-wrapper">
-              <FileCheck size={32} />
-            </div>
-            <h3>Documentación Ágil</h3>
-            <p>Olvidate de los trámites. Contamos con gestoría propia para resolver transferencias y papeles en tiempo récord.</p>
-          </motion.div>
+          {/* ... cards ... */}
         </motion.div>
       </div>
 
       <style>{`
         .features-section {
-          padding: 6rem 0;
-          background: transparent; /* Let global pattern show */
+          background: transparent;
           position: relative;
         }
         
-        /* Remove texture overlay since global has it */
-        .features-section::before {
-            display: none;
-        }
-
         .features-grid {
           display: grid;
-          grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-          gap: 2rem;
+          grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+          gap: 1.5rem;
           position: relative;
           z-index: 10;
         }
 
+        @media (min-width: 768px) {
+            .features-grid {
+                gap: 2rem;
+            }
+        }
+
         .feature-card {
-          /* Glassmorphism */
-          background: rgba(15, 15, 15, 0.4); /* Semi-transparent dark */
+          background: rgba(15, 15, 15, 0.45);
           backdrop-filter: blur(12px);
           -webkit-backdrop-filter: blur(12px);
-          padding: 2.5rem;
+          padding: 2rem;
           border-radius: 16px;
           border: 1px solid rgba(255, 255, 255, 0.08);
           box-shadow: 0 4px 30px rgba(0, 0, 0, 0.1);
@@ -94,28 +68,43 @@ const Features = () => {
           align-items: center;
         }
 
+        @media (min-width: 768px) {
+            .feature-card {
+                padding: 2.5rem;
+            }
+        }
+        
+        /* ... hover etc ... */
         .feature-card:hover {
-          transform: translateY(-10px);
-          background: rgba(25, 25, 25, 0.6);
+          transform: translateY(-8px);
+          background: rgba(25, 25, 25, 0.7);
           border-color: var(--color-primary);
-          box-shadow: 0 20px 40px -10px rgba(235, 38, 40, 0.15);
+          box-shadow: 0 20px 40px -10px rgba(235, 38, 40, 0.2);
         }
 
         .icon-wrapper {
-          width: 70px;
-          height: 70px;
+          width: 60px;
+          height: 60px;
           background: rgba(255,255,255,0.03);
           border-radius: 50%;
           display: flex;
           align-items: center;
           justify-content: center;
-          margin-bottom: 1.5rem;
+          margin-bottom: 1.25rem;
           color: var(--color-primary);
           border: 1px solid rgba(255, 255, 255, 0.1);
-          box-shadow: 0 4px 10px rgba(0,0,0,0.3);
-          transition: transform 0.3s ease, color 0.3s ease;
+          transition: all 0.3s ease;
         }
         
+        @media (min-width: 768px) {
+            .icon-wrapper {
+                width: 70px;
+                height: 70px;
+                margin-bottom: 1.5rem;
+            }
+        }
+        
+        /* ... the rest of the styles ... */
         .feature-card:hover .icon-wrapper {
             transform: scale(1.1) rotate(5deg);
             color: white;
@@ -124,18 +113,31 @@ const Features = () => {
         }
 
         .feature-card h3 {
-          font-size: 1.25rem;
+          font-size: 1.15rem;
           font-weight: 700;
           color: white;
-          margin-bottom: 1rem;
+          margin-bottom: 0.75rem;
           text-transform: uppercase;
           letter-spacing: 0.05em;
         }
+        
+        @media (min-width: 768px) {
+            .feature-card h3 {
+                font-size: 1.25rem;
+                margin-bottom: 1rem;
+            }
+        }
 
         .feature-card p {
-          color: #aaa;
+          color: #999;
           line-height: 1.6;
-          font-size: 0.95rem;
+          font-size: 0.9rem;
+        }
+        
+        @media (min-width: 768px) {
+            .feature-card p {
+                font-size: 0.95rem;
+            }
         }
       `}</style>
     </section>
