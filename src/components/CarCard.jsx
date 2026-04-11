@@ -21,31 +21,6 @@ const CarCard = ({ car }) => {
     window.open(`https://wa.me/?text=${encodeURIComponent(message)}`, '_blank');
   };
 
-  const getSafeCurrency = (code) => {
-    if (!code) return 'USD';
-    const upper = code.toUpperCase();
-    if (upper === '$' || upper === 'USD') return 'USD';
-    if (upper === 'ARS') return 'ARS';
-    // If it's not a standard 3-letter code, default to USD to prevent crash
-    return /^[A-Z]{3}$/.test(upper) ? upper : 'USD';
-  };
-
-  const priceValue = typeof car.price === 'string' ? parseFloat(car.price.replace(/[^0-9.-]+/g, "")) : car.price;
-
-  let formattedPrice = 'Consultar';
-  if (priceValue && !isNaN(priceValue)) {
-    try {
-      formattedPrice = new Intl.NumberFormat('es-AR', {
-        style: 'currency',
-        currency: getSafeCurrency(car.currency),
-        maximumFractionDigits: 0
-      }).format(priceValue);
-    } catch (e) {
-      console.error("Error formatting price:", e);
-      formattedPrice = `$ ${priceValue.toLocaleString()}`;
-    }
-  }
-
   const kmValue = typeof car.km === 'string' ? parseFloat(car.km.replace(/[^0-9.-]+/g, "")) : car.km;
 
   return (
@@ -101,11 +76,11 @@ const CarCard = ({ car }) => {
             {/* Iconized Spec Bar - Ultra Premium Overlay */}
             <div className="card-spec-overlay">
               <div className="spec-capsule">
-                <Calendar size={12} className="text-primary" />
+                <Calendar size={14} className="text-primary" />
                 <span>{car.year}</span>
               </div>
               <div className="spec-capsule">
-                <Gauge size={12} className="text-primary" />
+                <Gauge size={14} className="text-primary" />
                 <span>{(kmValue || 0).toLocaleString()} KM</span>
               </div>
             </div>
@@ -116,7 +91,7 @@ const CarCard = ({ car }) => {
 
             <div className="relative z-10 flex flex-col h-full">
               <div className="mb-2">
-                <div className="card-brand-tag">{car.brand}</div>
+                <div className="card-brand-tag uppercase tracking-[0.25em] font-bold text-primary/90">{car.brand}</div>
                 <h3 className="card-title text-xl font-bold text-white group-hover:text-primary transition-colors duration-300">
                   {car.name}
                 </h3>
@@ -124,8 +99,8 @@ const CarCard = ({ car }) => {
 
               <div className="mt-auto pt-4 flex items-center justify-between border-t border-white/5">
                 <div className="price-container">
-                  <span className="price-label">Precio</span>
-                  <div className="price-value">{formattedPrice}</div>
+                  <span className="price-label">Valor del Vehículo</span>
+                  <div className="price-value text-xl font-black uppercase tracking-tight">CONSULTAR</div>
                 </div>
                 <div className="view-details-ring">
                   <ArrowRight size={18} />
