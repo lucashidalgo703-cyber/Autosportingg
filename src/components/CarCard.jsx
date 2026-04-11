@@ -97,8 +97,9 @@ const CarCard = ({ car }) => {
                 </h3>
               </div>
 
-              <div className="mt-auto pt-6 flex items-center justify-between border-t border-white/5">
-                <div className="price-container flex flex-col ml-auto text-right pr-4">
+              <div className="mt-auto pt-6 flex items-center border-t border-white/5">
+                <div className="flex-1"></div>
+                <div className="price-container flex flex-col text-right mr-3">
                   <span className="price-label uppercase tracking-widest font-bold text-[10px] text-white/40 mb-1">Precio</span>
                   <div className="price-value text-xl font-black uppercase tracking-tight text-white leading-none">CONSULTAR</div>
                 </div>
