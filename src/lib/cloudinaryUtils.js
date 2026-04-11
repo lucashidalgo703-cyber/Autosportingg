@@ -20,3 +20,20 @@ export const getOptimizedImageUrl = (url, width = 600) => {
 
     return url;
 };
+/**
+ * Generates a tiny, blurred placeholder URL for the "blur-up" effect.
+ * @param {string} url - The original Cloudinary URL.
+ * @returns {string} - The low-quality placeholder URL.
+ */
+export const getBlurPlaceholder = (url) => {
+    if (!url) return '';
+    if (!url.includes('cloudinary.com')) return url;
+
+    const parts = url.split('/upload/');
+    if (parts.length === 2) {
+        // We use a very small width (40px) + high blur + low quality
+        return `${parts[0]}/upload/f_auto,q_10,w_40,c_limit,e_blur:1000/${parts[1]}`;
+    }
+
+    return url;
+};

@@ -17,17 +17,16 @@ const Contact = () => {
     <main className="contact-page">
       {/* Header Section */}
       <section className="contact-header">
-        <div className="header-overlay"></div>
         <motion.div
           className="container header-content"
           initial={{ opacity: 0, y: 30 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6 }}
+          transition={{ duration: 0.8, ease: "easeOut" }}
         >
           <span className="badge">CONTACTO</span>
           <h1 className="header-title">
-            Contactate con nosotros para <br />
-            obtener más información
+            Conectate con el próximo <br />
+            nivel de conducción
           </h1>
         </motion.div>
       </section>
@@ -156,92 +155,80 @@ const Contact = () => {
                     pointer-events: none;
                 }
 
-                /* Header Styles */
                 .contact-header {
                     position: relative;
-                    height: 400px;
+                    height: 50vh;
+                    min-height: 400px;
                     display: flex;
-                    align-items: flex-start; 
-                    border-bottom: 1px solid rgba(255,255,255,0.05);
+                    align-items: center;
                     margin-top: calc(var(--header-height) * -1);
                     z-index: 10;
-                }
-
-                .header-overlay {
-                    position: absolute;
-                    inset: 0;
-                    background: transparent;
+                    overflow: hidden;
                 }
 
                 .header-content {
                     position: relative;
                     z-index: 10;
-                    padding-top: calc(var(--header-height) + 4rem);
+                    padding-top: var(--header-height);
                 }
 
                 .badge {
                     display: inline-block;
-                    background-color: rgba(255, 255, 255, 0.1);
-                    color: white;
-                    padding: 6px 14px;
-                    border-radius: 999px;
-                    font-size: 0.825rem;
-                    font-weight: 500;
+                    background: rgba(235, 38, 40, 0.1);
+                    color: var(--color-primary);
+                    padding: 6px 16px;
+                    border-radius: 50px;
+                    font-size: 0.75rem;
+                    font-weight: 800;
                     margin-bottom: 1.5rem;
-                    border: 1px solid rgba(255, 255, 255, 0.1);
-                    letter-spacing: 0.05em;
+                    border: 1px solid rgba(235, 38, 40, 0.2);
+                    letter-spacing: 0.1em;
+                    text-transform: uppercase;
                 }
 
                 .header-title {
-                    font-size: 3rem; 
-                    font-weight: 600;
-                    line-height: 1.1;
+                    font-size: clamp(2.5rem, 8vw, 4.5rem);
+                    font-weight: 900;
+                    line-height: 1;
                     color: #ffffff;
-                    letter-spacing: -0.02em;
+                    letter-spacing: -0.04em;
+                    max-width: 900px;
                 }
 
-                /* Grid Styles */
                 .contact-grid-section {
-                    margin-top: -60px;
+                    margin-top: -80px;
                     position: relative;
                     z-index: 20;
                     display: flex;
                     flex-direction: column;
-                    gap: 1.5rem;
+                    gap: 2rem;
                 }
 
                 .contact-grid {
                     display: grid;
-                    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+                    grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
                     gap: 1.5rem;
                 }
 
                 .contact-card {
-                    /* Premium Dark Glass */
-                    background: rgba(15, 15, 15, 0.75);
-                    backdrop-filter: blur(8px);
-                    border: 1px solid rgba(255, 0, 0, 0.25);
-                    border-radius: 18px;
-                    
-                    /* Deep Shadow + Red Glow */
-                    box-shadow: 
-                        0 10px 40px rgba(0,0,0,0.6),
-                        0 0 20px rgba(255,0,0,0.08);
-
-                    padding: 2rem;
+                    background: rgba(20, 20, 20, 0.6);
+                    backdrop-filter: blur(20px);
+                    -webkit-backdrop-filter: blur(20px);
+                    border: 1px solid rgba(255, 255, 255, 0.05);
+                    border-radius: 24px;
+                    padding: 2.5rem;
                     display: flex;
                     flex-direction: column;
-                    gap: 3.5rem;
-                    transition: all 0.3s ease;
+                    gap: 4rem;
+                    transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
                     text-decoration: none;
                 }
 
                 .contact-card:hover {
-                    transform: translateY(-6px);
-                    border-color: rgba(255, 0, 0, 0.6);
-                    box-shadow: 
-                        0 20px 40px rgba(0,0,0,0.8),
-                        0 0 30px rgba(255,0,0,0.2);
+                    transform: translateY(-10px);
+                    border-color: rgba(235, 38, 40, 0.4);
+                    background: rgba(25, 25, 25, 0.8);
+                    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
                 }
 
                 .card-top {
@@ -251,45 +238,61 @@ const Contact = () => {
                 }
 
                 .icon-box {
-                    background-color: rgb(26, 26, 26);
-                    width: 48px;
-                    height: 48px;
-                    border-radius: 12px;
+                    background: rgba(255, 255, 255, 0.03);
+                    width: 56px;
+                    height: 56px;
+                    border-radius: 16px;
                     display: flex;
                     align-items: center;
                     justify-content: center;
+                    border: 1px solid rgba(255, 255, 255, 0.05);
+                    color: var(--color-primary);
+                    transition: all 0.3s ease;
+                }
+
+                .contact-card:hover .icon-box {
+                    background: var(--color-primary);
+                    color: white;
+                    transform: rotate(5deg) scale(1.1);
                 }
 
                 .external-link-icon {
-                    color: #666;
-                    transition: color 0.3s;
+                    color: #444;
+                    transition: color 0.3s, transform 0.3s;
                 }
 
                 .contact-card:hover .external-link-icon {
                     color: white;
+                    transform: translate(2px, -2px);
                 }
 
                 .card-content h3 {
-                    color: #ffffff;
-                    font-size: 1.25rem;
-                    margin-bottom: 0.5rem;
+                    color: #888;
+                    font-size: 0.85rem;
+                    margin-bottom: 0.75rem;
                     font-weight: 700;
+                    text-transform: uppercase;
+                    letter-spacing: 0.1em;
                 }
 
                 .card-value {
-                    color: #c7c7c7;
-                    font-size: 1rem;
+                    color: #ffffff;
+                    font-size: 1.5rem;
                     margin-bottom: 1.5rem;
-                    line-height: 1.5;
+                    line-height: 1.2;
+                    font-weight: 800;
+                    letter-spacing: -0.02em;
                 }
 
                 .link-text {
-                    color: #ff2a2a;
-                    font-weight: 600;
-                    font-size: 0.95rem;
+                    color: var(--color-primary);
+                    font-weight: 800;
+                    font-size: 0.9rem;
                     display: inline-flex;
                     align-items: center;
                     gap: 0.5rem;
+                    text-transform: uppercase;
+                    letter-spacing: 0.05em;
                 }
                 
                 .link-text::after {
@@ -298,84 +301,92 @@ const Contact = () => {
                 }
 
                 .contact-card:hover .link-text::after {
-                    transform: translateX(4px);
+                    transform: translateX(5px);
                 }
 
-                /* Hours Card styling */
                 .hours-card {
-                    background: rgba(15, 15, 15, 0.75);
-                    backdrop-filter: blur(8px);
-                    border: 1px solid rgba(255, 0, 0, 0.25);
-                    border-radius: 18px;
-                    box-shadow: 
-                        0 10px 40px rgba(0,0,0,0.6),
-                        0 0 20px rgba(255,0,0,0.08);
-
-                    padding: 2rem;
+                    background: rgba(20, 20, 20, 0.6);
+                    backdrop-filter: blur(20px);
+                    -webkit-backdrop-filter: blur(20px);
+                    border: 1px solid rgba(255, 255, 255, 0.05);
+                    border-radius: 24px;
+                    padding: 2.5rem;
                     display: flex;
                     flex-direction: column;
-                    gap: 1.5rem;
+                    gap: 2rem;
                 }
 
                 .hours-header {
                     display: flex;
                     align-items: center;
-                    gap: 1rem;
+                    gap: 1.25rem;
                 }
                 
                 .hours-header h3 {
-                    font-size: 1.25rem;
+                    font-size: 1.5rem;
                     color: #ffffff;
-                    font-weight: 700;
+                    font-weight: 800;
+                    letter-spacing: -0.02em;
                 }
 
                 .hours-list {
-                    display: flex;
-                    flex-direction: column;
-                    gap: 1rem;
-                    padding-left: 0.5rem;
+                    display: grid;
+                    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+                    gap: 1.5rem;
                 }
 
                 .hour-row {
                     display: flex;
-                    align-items: center;
-                    gap: 1rem;
+                    flex-direction: column;
+                    gap: 0.5rem;
+                    padding: 1.25rem;
+                    background: rgba(255,255,255,0.02);
+                    border-radius: 16px;
+                    border: 1px solid rgba(255,255,255,0.03);
                 }
 
                 .status-dot {
-                    width: 8px;
-                    height: 8px;
+                    width: 6px;
+                    height: 6px;
                     background-color: var(--color-primary);
                     border-radius: 50%;
+                    margin-bottom: 0.5rem;
                 }
 
                 .hour-text {
-                    color: #c7c7c7;
-                    font-size: 1rem;
+                    color: #777;
+                    font-size: 0.9rem;
+                    font-weight: 600;
+                    text-transform: uppercase;
+                    letter-spacing: 0.05em;
                 }
                 
                 .hour-text strong {
                     color: #ffffff;
-                    font-weight: 600;
-                    margin-left: 0.5rem;
+                    font-size: 1.25rem;
+                    font-weight: 800;
+                    display: block;
+                    margin-top: 0.25rem;
+                    letter-spacing: -0.01em;
                 }
 
-                /* Map Container */
                 .map-container {
-                    height: 450px;
+                    height: 500px;
                     width: 100%;
-                    border-radius: 16px;
+                    border-radius: 24px;
                     overflow: hidden;
-                    border: 1px solid rgba(255, 255, 255, 0.1);
+                    border: 1px solid rgba(255, 255, 255, 0.05);
                     margin-top: 1rem;
-                    box-shadow: 0 10px 40px rgba(0,0,0,0.5);
+                    box-shadow: 0 30px 60px -12px rgba(0, 0, 0, 0.5);
                 }
 
                 @media (max-width: 768px) {
-                    .header-title { font-size: 2.25rem; }
-                    .contact-card { gap: 2rem; }
+                    .contact-header { height: 40vh; }
+                    .header-title { font-size: 2.75rem; }
+                    .contact-card { padding: 2rem; gap: 3rem; }
+                    .card-value { font-size: 1.25rem; }
                     .map-container { height: 350px; }
-                    .contact-grid-section { margin-top: -40px; }
+                    .contact-grid-section { margin-top: -60px; }
                 }
             `}</style>
     </main>

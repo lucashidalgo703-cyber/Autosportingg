@@ -2,11 +2,12 @@
 import React from 'react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
-import { ArrowLeft, Calendar, Gauge, Fuel, Maximize2, X, ChevronLeft, ChevronRight, Heart } from 'lucide-react';
+import { ArrowLeft, Calendar, Gauge, Fuel, Maximize2, X, ChevronLeft, ChevronRight, Heart, Share2, Copy } from 'lucide-react';
 import { useCars } from '../hooks/useCars';
-import { getOptimizedImageUrl } from '../lib/cloudinaryUtils';
+import { getOptimizedImageUrl, getBlurPlaceholder } from '../lib/cloudinaryUtils';
 import { useFavorites } from '../context/FavoritesContext';
 import Image from 'next/image';
+import { motion, AnimatePresence } from 'framer-motion';
 
 const CarDetail = () => {
     const { id } = useParams();
@@ -45,6 +46,26 @@ const CarDetail = () => {
 
     const [activeImage, setActiveImage] = React.useState(null);
     const [showLightbox, setShowLightbox] = React.useState(false);
+    const [copied, setCopied] = React.useState(false);
+
+    const handleShare = () => {
+        const url = window.location.href;
+        if (navigator.share) {
+            navigator.share({
+                title: `${car.brand} ${car.name} - AutoSporting`,
+                url: url
+            }).catch(() => {
+                // Fallback to clipboard if sharing fails
+                navigator.clipboard.writeText(url);
+                setCopied(true);
+                setTimeout(() => setCopied(false), 2000);
+            });
+        } else {
+            navigator.clipboard.writeText(url);
+            setCopied(true);
+            setTimeout(() => setCopied(false), 2000);
+        }
+    };
 
     React.useEffect(() => {
         if (car) {
@@ -117,6 +138,8 @@ const CarDetail = () => {
         );
     }
 
+    const currentImg = activeImage || car.coverImage || (car.images && car.images[0]);
+
     return (
         <main className="container page-padding">
             <Link href="/catalogo" className="back-link">
@@ -125,24 +148,24 @@ const CarDetail = () => {
 
             <div className="detail-grid">
                 {/* Image Section */}
-                {/* Image Section */}
                 <div className="image-section">
-                    <div className="main-image-container overflow-hidden rounded-xl relative">
+                    <div className="main-image-container overflow-hidden rounded-xl relative shadow-2xl">
                         <div className="flex">
                             <div className="relative min-w-full aspect-[4/3]">
                                 <div
-                                    className={`relative w-full h-full overflow-hidden group bg-color-bg-secondary border border-neutral-600 ${(activeImage || car.coverImage || (car.images && car.images.length > 0)) ? 'cursor-zoom-in' : 'cursor-default'}`}
-                                    onClick={() => { if (activeImage || car.coverImage || (car.images && car.images.length > 0)) setShowLightbox(true); }}
+                                    className={`relative w-full h-full overflow-hidden group bg-color-bg-secondary border border-neutral-600 ${currentImg ? 'cursor-zoom-in' : 'cursor-default'}`}
+                                    onClick={() => { if (currentImg) setShowLightbox(true); }}
                                 >
                                     <div className="w-full h-full flex items-center justify-center">
-                                        {(activeImage || car.coverImage || (car.images && car.images.length > 0)) ? (
+                                        {currentImg ? (
                                             <Image
                                                 alt={car.name}
                                                 fill
                                                 className="object-cover w-full h-full fade-in"
                                                 style={{ objectFit: 'cover', objectPosition: car.imagePosition || '50% 75%' }}
-                                                src={getOptimizedImageUrl(activeImage || car.coverImage || (car.images && car.images[0]), 1200)}
-                                                unoptimized
+                                                src={getOptimizedImageUrl(currentImg, 1200)}
+                                                placeholder="blur"
+                                                blurDataURL={getBlurPlaceholder(currentImg)}
                                             />
                                         ) : (
                                             <div className="text-neutral-600 flex flex-col items-center gap-2">
@@ -152,6 +175,13 @@ const CarDetail = () => {
                                         )}
                                     </div>
                                     <div className="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+
+                                    {/* Status Badge */}
+                                    {car.status && (
+                                        <div className={`detail-status-badge ${car.status.toLowerCase()}`}>
+                                            {car.status}
+                                        </div>
+                                    )}
                                 </div>
 
                                 {/* In-place Navigation Arrows */}
@@ -234,8 +264,38 @@ const CarDetail = () => {
                 {/* Info Section */}
                 <div className="info-section">
                     <div className="flex items-center justify-between mb-2">
-                        <div className="condition-badge mb-0">
-                            {car.condition}
+                        <div className="flex items-center gap-3">
+                            <div className="condition-badge mb-0">
+                                {car.condition}
+                            </div>
+                            <button
+                                className={`share-action-btn ${copied ? 'copied' : ''}`}
+                                onClick={handleShare}
+                                title="Compartir vehículo"
+                            >
+                                <AnimatePresence mode="wait">
+                                    {copied ? (
+                                        <motion.div
+                                            key="copied"
+                                            initial={{ opacity: 0, scale: 0.5 }}
+                                            animate={{ opacity: 1, scale: 1 }}
+                                            exit={{ opacity: 0, scale: 0.5 }}
+                                            className="flex items-center gap-1"
+                                        >
+                                            <Copy size={16} /> <span className="text-[10px] font-bold uppercase">Copiado</span>
+                                        </motion.div>
+                                    ) : (
+                                        <motion.div
+                                            key="share"
+                                            initial={{ opacity: 0, scale: 0.5 }}
+                                            animate={{ opacity: 1, scale: 1 }}
+                                            exit={{ opacity: 0, scale: 0.5 }}
+                                        >
+                                            <Share2 size={18} />
+                                        </motion.div>
+                                    )}
+                                </AnimatePresence>
+                            </button>
                         </div>
                         <button
                             className="detail-favorite-btn flex items-center gap-2"
@@ -554,6 +614,72 @@ const CarDetail = () => {
                     padding: 4px 12px;
                     border-radius: 50px;
                     border: 1px solid rgba(235, 38, 40, 0.2);
+                }
+
+                .share-action-btn {
+                    background: rgba(255, 255, 255, 0.05);
+                    border: 1px solid rgba(255, 255, 255, 0.08);
+                    color: white;
+                    width: 38px;
+                    height: 38px;
+                    border-radius: 50%;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    cursor: pointer;
+                    transition: all 0.3s ease;
+                }
+
+                .share-action-btn:hover {
+                    background: rgba(255, 255, 255, 0.15);
+                    transform: scale(1.1);
+                    border-color: rgba(255, 255, 255, 0.2);
+                }
+
+                .share-action-btn.copied {
+                    background: #25D366;
+                    color: white;
+                    width: auto;
+                    padding: 0 12px;
+                    border-radius: 20px;
+                    border: none;
+                }
+
+                .detail-status-badge {
+                    position: absolute;
+                    top: 20px;
+                    left: 20px;
+                    padding: 8px 18px;
+                    border-radius: 50px;
+                    font-size: 0.8rem;
+                    font-weight: 800;
+                    letter-spacing: 0.15em;
+                    text-transform: uppercase;
+                    z-index: 25;
+                    backdrop-filter: blur(12px);
+                    box-shadow: 0 8px 25px rgba(0,0,0,0.5);
+                    border: 1px solid rgba(255,255,255,0.1);
+                    animation: slideInLeft 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+                }
+
+                .detail-status-badge.oferta {
+                    background: rgba(235, 38, 40, 0.9);
+                    color: white;
+                }
+
+                .detail-status-badge.vendido {
+                    background: rgba(0, 0, 0, 0.85);
+                    color: #999;
+                }
+
+                .detail-status-badge.nuevo {
+                    background: rgba(255, 255, 255, 0.95);
+                    color: black;
+                }
+
+                @keyframes slideInLeft {
+                    from { transform: translateX(-20px); opacity: 0; }
+                    to { transform: translateX(0); opacity: 1; }
                 }
 
                 .detail-favorite-btn {
