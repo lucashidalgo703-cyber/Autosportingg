@@ -34,8 +34,6 @@ const CarCard = ({ car }) => {
               sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
               className="card-image"
               style={{ objectFit: 'cover', objectPosition: car.imagePosition || '50% 75%' }}
-              placeholder="blur"
-              blurDataURL={getBlurPlaceholder(car.coverImage || (car.images && car.images[0]) || car.image)}
             />
 
             {/* Status Badge */}
