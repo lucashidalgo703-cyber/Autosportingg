@@ -8,8 +8,11 @@ import { motion } from 'framer-motion';
 
 const CarCard = ({ car }) => {
   const { isFavorite, toggleFavorite } = useFavorites();
+
+  if (!car) return null;
+
   const carId = car._id || car.id;
-  const isFav = isFavorite(carId);
+  const isFav = isFavorite ? isFavorite(carId) : false;
 
   const shareOnWhatsApp = (e) => {
     e.preventDefault();
@@ -18,9 +21,11 @@ const CarCard = ({ car }) => {
     window.open(`https://wa.me/?text=${encodeURIComponent(message)}`, '_blank');
   };
 
-  const formattedPrice = car.price
-    ? new Intl.NumberFormat('es-AR', { style: 'currency', currency: car.currency || 'USD', maximumFractionDigits: 0 }).format(car.price)
+  const priceValue = typeof car.price === 'string' ? parseFloat(car.price.replace(/[^0-9.-]+/g, "")) : car.price;
+  const formattedPrice = (priceValue && !isNaN(priceValue))
+    ? new Intl.NumberFormat('es-AR', { style: 'currency', currency: car.currency || 'USD', maximumFractionDigits: 0 }).format(priceValue)
     : 'Consultar';
+  const kmValue = typeof car.km === 'string' ? parseFloat(car.km.replace(/[^0-9.-]+/g, "")) : car.km;
 
   return (
     <>
@@ -80,7 +85,7 @@ const CarCard = ({ car }) => {
               </div>
               <div className="spec-capsule">
                 <Gauge size={12} className="text-primary" />
-                <span>{(car.km || 0).toLocaleString()} KM</span>
+                <span>{(kmValue || 0).toLocaleString()} KM</span>
               </div>
             </div>
           </div>
