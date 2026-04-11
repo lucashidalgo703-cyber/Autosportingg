@@ -21,10 +21,31 @@ const CarCard = ({ car }) => {
     window.open(`https://wa.me/?text=${encodeURIComponent(message)}`, '_blank');
   };
 
+  const getSafeCurrency = (code) => {
+    if (!code) return 'USD';
+    const upper = code.toUpperCase();
+    if (upper === '$' || upper === 'USD') return 'USD';
+    if (upper === 'ARS') return 'ARS';
+    // If it's not a standard 3-letter code, default to USD to prevent crash
+    return /^[A-Z]{3}$/.test(upper) ? upper : 'USD';
+  };
+
   const priceValue = typeof car.price === 'string' ? parseFloat(car.price.replace(/[^0-9.-]+/g, "")) : car.price;
-  const formattedPrice = (priceValue && !isNaN(priceValue))
-    ? new Intl.NumberFormat('es-AR', { style: 'currency', currency: car.currency || 'USD', maximumFractionDigits: 0 }).format(priceValue)
-    : 'Consultar';
+
+  let formattedPrice = 'Consultar';
+  if (priceValue && !isNaN(priceValue)) {
+    try {
+      formattedPrice = new Intl.NumberFormat('es-AR', {
+        style: 'currency',
+        currency: getSafeCurrency(car.currency),
+        maximumFractionDigits: 0
+      }).format(priceValue);
+    } catch (e) {
+      console.error("Error formatting price:", e);
+      formattedPrice = `$ ${priceValue.toLocaleString()}`;
+    }
+  }
+
   const kmValue = typeof car.km === 'string' ? parseFloat(car.km.replace(/[^0-9.-]+/g, "")) : car.km;
 
   return (
