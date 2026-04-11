@@ -98,9 +98,9 @@ const CarCard = ({ car }) => {
               </div>
 
               <div className="mt-auto pt-4 flex items-center justify-between border-t border-white/5">
-                <div className="price-container">
-                  <span className="price-label">Valor del Vehículo</span>
-                  <div className="price-value text-xl font-black uppercase tracking-tight">CONSULTAR</div>
+                <div className="price-container ml-auto text-right pr-2">
+                  <span className="price-label">Precio</span>
+                  <div className="price-value text-base font-bold uppercase tracking-wider">CONSULTAR</div>
                 </div>
                 <div className="view-details-ring">
                   <ArrowRight size={18} />
