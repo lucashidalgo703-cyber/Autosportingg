@@ -97,13 +97,13 @@ const CarCard = ({ car }) => {
                 </h3>
               </div>
 
-              <div className="mt-auto pt-4 flex items-center justify-between border-t border-white/5">
-                <div className="price-container ml-auto text-right pr-2">
-                  <span className="price-label">Precio</span>
-                  <div className="price-value text-base font-bold uppercase tracking-wider">CONSULTAR</div>
+              <div className="mt-auto pt-6 flex items-center justify-between border-t border-white/5">
+                <div className="price-container flex flex-col ml-auto text-right pr-4">
+                  <span className="price-label uppercase tracking-widest font-bold text-[10px] text-white/40 mb-1">Precio</span>
+                  <div className="price-value text-xl font-black uppercase tracking-tight text-white leading-none">CONSULTAR</div>
                 </div>
-                <div className="view-details-ring">
-                  <ArrowRight size={18} />
+                <div className="view-details-ring shrink-0">
+                  <ArrowRight size={20} />
                 </div>
               </div>
             </div>
