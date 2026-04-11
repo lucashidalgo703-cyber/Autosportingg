@@ -47,7 +47,7 @@ const CarCarousel = ({ cars }) => {
 
             {/* Navigation Buttons (Visible on hover or mobile) */}
             <button
-                className="absolute left-0 top-1/2 -translate-y-1/2 -translate-x-1/2 bg-white/10 hover:bg-white/20 backdrop-blur-md border border-white/10 text-white p-3 rounded-full shadow-xl opacity-0 group-hover:opacity-100 transition-all duration-300 z-10 hidden md:flex items-center justify-center hover:scale-110"
+                className="nav-btn prev"
                 onClick={scrollPrev}
                 aria-label="Previous slide"
             >
@@ -55,7 +55,7 @@ const CarCarousel = ({ cars }) => {
             </button>
 
             <button
-                className="absolute right-0 top-1/2 -translate-y-1/2 translate-x-1/2 bg-white/10 hover:bg-white/20 backdrop-blur-md border border-white/10 text-white p-3 rounded-full shadow-xl opacity-0 group-hover:opacity-100 transition-all duration-300 z-10 hidden md:flex items-center justify-center hover:scale-110"
+                className="nav-btn next"
                 onClick={scrollNext}
                 aria-label="Next slide"
             >
@@ -69,6 +69,47 @@ const CarCarousel = ({ cars }) => {
                     flex: 0 0 85%;
                     padding-left: 1rem;
                 }
+
+                .nav-btn {
+                    display: none;
+                    position: absolute;
+                    top: 50%;
+                    transform: translateY(-50%);
+                    background: rgba(255, 255, 255, 0.1);
+                    backdrop-filter: blur(12px);
+                    border: 1px solid rgba(255, 255, 255, 0.1);
+                    color: white;
+                    padding: 0.75rem;
+                    border-radius: 50%;
+                    cursor: pointer;
+                    transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+                    z-index: 10;
+                    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.3);
+                    opacity: 0;
+                }
+
+                .nav-btn.prev { left: 0; transform: translateY(-50%) translateX(-50%); }
+                .nav-btn.next { right: 0; transform: translateY(-50%) translateX(50%); }
+
+                .nav-btn:hover {
+                    background: rgba(255, 255, 255, 0.2);
+                }
+                
+                /* Simplify hover transforms */
+                .nav-btn.prev:hover { transform: translateY(-50%) translateX(-50%) scale(1.1); }
+                .nav-btn.next:hover { transform: translateY(-50%) translateX(50%) scale(1.1); }
+
+                @media (min-width: 768px) {
+                    .nav-btn {
+                        display: flex;
+                        align-items: center;
+                        justify-content: center;
+                    }
+                    .group:hover .nav-btn {
+                        opacity: 1;
+                    }
+                }
+
                 @media (min-width: 480px) {
                     .carousel-item {
                         flex: 0 0 70%;
