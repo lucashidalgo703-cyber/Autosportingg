@@ -89,21 +89,22 @@ const CarCard = ({ car }) => {
           <div className="card-content">
             <div className="card-content-overlay"></div>
 
-            <div className="relative z-10 flex flex-col h-full">
-              <div className="mb-2">
+            <div className="relative z-10 flex items-end justify-between gap-4 h-full">
+              {/* Left Side: Vehicle Identity */}
+              <div className="flex flex-col min-w-0">
                 <div className="card-brand-tag uppercase tracking-[0.25em] font-bold text-primary/90">{car.brand}</div>
-                <h3 className="card-title text-xl font-bold text-white group-hover:text-primary transition-colors duration-300">
+                <h3 className="card-title text-xl font-bold text-white group-hover:text-primary transition-colors duration-300 truncate">
                   {car.name}
                 </h3>
               </div>
 
-              <div className="mt-auto pt-6 flex items-center border-t border-white/5">
-                <div className="flex-1"></div>
-                <div className="price-container flex flex-col text-right mr-3">
+              {/* Right Side: Pricing & CTA */}
+              <div className="flex items-center gap-3 shrink-0">
+                <div className="price-container flex flex-col text-right">
                   <span className="price-label uppercase tracking-widest font-bold text-[10px] text-white/40 mb-1">Precio</span>
                   <div className="price-value text-xl font-black uppercase tracking-tight text-white leading-none">CONSULTAR</div>
                 </div>
-                <div className="view-details-ring shrink-0">
+                <div className="view-details-ring">
                   <ArrowRight size={20} />
                 </div>
               </div>
