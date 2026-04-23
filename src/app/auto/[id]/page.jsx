@@ -1,18 +1,12 @@
+import connectDB from '../../../config/db.js';
+import Car from '../../../models/Car.js';
 import CarDetail from '../../../views/CarDetail';
 
 export async function generateMetadata({ params }) {
     const { id } = await params;
     try {
-        let API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
-        if (process.env.VERCEL_PROJECT_PRODUCTION_URL) {
-            API_URL = `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}`;
-        } else if (process.env.VERCEL_URL) {
-            API_URL = `https://${process.env.VERCEL_URL}`;
-        }
-
-        // Config fetch for SSR
-        const res = await fetch(`${API_URL}/api/cars/${id}`, { cache: 'no-store' });
-        const car = res.ok ? await res.json() : null;
+        await connectDB();
+        const car = await Car.findById(id).lean();
 
         if (car) {
             const imageUrl = car.coverImage || (car.images && car.images[0]);
