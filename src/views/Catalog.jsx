@@ -1,8 +1,9 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import SmartFilters from '../components/SmartFilters';
 import CarCard from '../components/CarCard';
 import { useCars } from '../hooks/useCars';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
+import { ChevronLeft, ChevronRight } from 'lucide-react';
 
 const Catalog = () => {
     const { cars, loading } = useCars();
@@ -12,6 +13,8 @@ const Catalog = () => {
         year: '',
         condition: ''
     });
+    const [currentPage, setCurrentPage] = useState(1);
+    const itemsPerPage = 9;
 
     const handleFilterChange = (name, value) => {
         if (name === 'reset') {
@@ -22,6 +25,13 @@ const Catalog = () => {
                 [name]: value
             }));
         }
+        setCurrentPage(1); // Reset to first page on filter change
+    };
+
+    const handlePageChange = (page) => {
+        setCurrentPage(page);
+        // Smooth scroll to top of catalog
+        window.scrollTo({ top: 0, behavior: 'smooth' });
     };
 
     // Derived lists for filter options
@@ -60,6 +70,12 @@ const Catalog = () => {
         });
     }, [filters, cars]);
 
+    const totalPages = Math.ceil(filteredCars.length / itemsPerPage);
+    const paginatedCars = useMemo(() => {
+        const start = (currentPage - 1) * itemsPerPage;
+        return filteredCars.slice(start, start + itemsPerPage);
+    }, [filteredCars, currentPage, itemsPerPage]);
+
     return (
         <main className="container page-padding">
             <motion.div
@@ -97,13 +113,14 @@ const Catalog = () => {
                             </div>
                         </div>
                     ))
-                ) : filteredCars.length > 0 ? (
-                    filteredCars.map((car, index) => (
+                ) : paginatedCars.length > 0 ? (
+                    paginatedCars.map((car, index) => (
                         <motion.div
-                            key={car.id || car._id}
+                            key={car._id || car.id}
                             initial={{ opacity: 0, y: 30 }}
-                            whileInView={{ opacity: 1, y: 0 }}
-                            transition={{ duration: 0.5, delay: index * 0.1, ease: "easeOut" }}
+                            animate={{ opacity: 1, y: 0 }}
+                            exit={{ opacity: 0, scale: 0.95 }}
+                            transition={{ duration: 0.5, delay: (index % itemsPerPage) * 0.05, ease: "easeOut" }}
                             viewport={{ once: true, amount: 0.1 }}
                         >
                             <CarCard car={car} />
@@ -121,6 +138,57 @@ const Catalog = () => {
                     </div>
                 )}
             </div>
+
+            {/* Pagination Controls */}
+            {totalPages > 1 && (
+                <div className="pagination">
+                    <button
+                        className="pagination-btn"
+                        onClick={() => handlePageChange(currentPage - 1)}
+                        disabled={currentPage === 1}
+                        title="Anterior"
+                    >
+                        <ChevronLeft size={20} />
+                    </button>
+
+                    <div className="pagination-numbers">
+                        {Array.from({ length: totalPages }).map((_, i) => {
+                            const pageNum = i + 1;
+                            // Show first, last, and pages around current
+                            if (
+                                pageNum === 1 ||
+                                pageNum === totalPages ||
+                                (pageNum >= currentPage - 1 && pageNum <= currentPage + 1)
+                            ) {
+                                return (
+                                    <button
+                                        key={pageNum}
+                                        className={`pagination-number ${currentPage === pageNum ? 'active' : ''}`}
+                                        onClick={() => handlePageChange(pageNum)}
+                                    >
+                                        {pageNum}
+                                    </button>
+                                );
+                            } else if (
+                                pageNum === currentPage - 2 ||
+                                pageNum === currentPage + 2
+                            ) {
+                                return <span key={pageNum} className="pagination-ellipsis">...</span>;
+                            }
+                            return null;
+                        })}
+                    </div>
+
+                    <button
+                        className="pagination-btn"
+                        onClick={() => handlePageChange(currentPage + 1)}
+                        disabled={currentPage === totalPages}
+                        title="Siguiente"
+                    >
+                        <ChevronRight size={20} />
+                    </button>
+                </div>
+            )}
 
             <style>{`
                 .page-padding {
@@ -237,6 +305,69 @@ const Catalog = () => {
                     0% { opacity: 1; }
                     50% { opacity: 0.5; }
                     100% { opacity: 1; }
+                }
+
+                .pagination {
+                    display: flex;
+                    justify-content: center;
+                    align-items: center;
+                    gap: 1rem;
+                    margin-top: 4rem;
+                    user-select: none;
+                }
+
+                .pagination-numbers {
+                    display: flex;
+                    align-items: center;
+                    gap: 0.5rem;
+                }
+
+                .pagination-btn, .pagination-number {
+                    background: var(--color-surface);
+                    border: 1px solid rgba(255, 255, 255, 0.1);
+                    color: white;
+                    width: 40px;
+                    height: 40px;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    border-radius: 8px;
+                    cursor: pointer;
+                    transition: all 0.3s ease;
+                    font-weight: 600;
+                }
+
+                .pagination-btn:hover:not(:disabled), .pagination-number:hover {
+                    border-color: var(--color-primary);
+                    background: rgba(235, 38, 40, 0.1);
+                    transform: translateY(-2px);
+                }
+
+                .pagination-number.active {
+                    background: var(--color-primary);
+                    border-color: var(--color-primary);
+                    box-shadow: 0 4px 15px rgba(235, 38, 40, 0.4);
+                }
+
+                .pagination-btn:disabled {
+                    opacity: 0.3;
+                    cursor: not-allowed;
+                }
+
+                .pagination-ellipsis {
+                    color: var(--color-text-muted);
+                    padding: 0 0.25rem;
+                }
+
+                @media (max-width: 480px) {
+                    .pagination {
+                        gap: 0.5rem;
+                    }
+                    .pagination-btn, .pagination-number {
+                        width: 36px;
+                        height: 36px;
+                        font-size: 0.9rem;
+                    }
                 }
             `}</style>
         </main>
