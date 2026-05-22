@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <defs>
+    <linearGradient id="grad1" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#000000;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#050505;stop-opacity:1" />
+    </linearGradient>
+  </defs>
+  
+  <!-- Background: Rounded Square (Dark) -->
+  <rect width="512" height="512" rx="128" fill="url(#grad1)" />
+  
+  <!-- Red Swoosh: Matched to user image -->
+  <!-- Characteristics: Very long/thin tail on left. Thicker "head" on right.
+       Bottom curve is smooth convex. Top curve is slightly concave then convex. -->
+  <path d="M 40 330 C 180 340, 320 440, 470 240 C 400 320, 280 340, 40 330 Z" fill="#EB2628" />
+  
+  <!-- Path Adjustments:
+       Start (40, 330): Far left, creating the sharp tail.
+       Bottom Curve to (470, 240):
+         Control 1 (180, 340) & 2 (320, 440): Pushes the curve down/right to create the belly.
+       Top Curve Return to (40, 330):
+         Control 1 (400, 320): Keeps the "head" thick near the tip.
+         Control 2 (280, 340): Flattens out the tail to be very thin.
+  -->
+</svg>

@@ -1,0 +1,342 @@
+:root {
+  /* Colors */
+  --color-primary: #EB2628;
+  --color-primary-dark: #c01c1e;
+  --color-bg: #000000;
+  --color-surface: #171717;
+  --color-surface-hover: #222222;
+  --color-text-main: #FFFFFF;
+  --color-text-muted: #9CA3AF;
+  --color-border: #333333;
+
+  /* Typography */
+  --font-main: 'Archivo', system-ui, -apple-system, sans-serif;
+  --font-title: 'Anton', system-ui, -apple-system, sans-serif;
+  /* New font for headings */
+
+  /* Layout */
+  --container-width: 1200px;
+  --header-height: 80px;
+}
+
+.font-title {
+  font-family: 'Anton', sans-serif !important;
+  font-weight: 400;
+  /* Anton is 400 only */
+  text-transform: uppercase;
+}
+
+.font-body {
+  font-family: 'Archivo', sans-serif;
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: var(--font-main);
+  background-color: #020202 !important;
+  /* ... background styles ... */
+  background-image:
+    linear-gradient(135deg, transparent 35%, rgba(255, 50, 50, 0.3) 35.1%, transparent 35.2%),
+    linear-gradient(135deg, transparent 82%, rgba(255, 0, 0, 0.9) 82.2%, transparent 82.4%),
+    linear-gradient(135deg, transparent 15%, rgba(100, 0, 0, 0.6) 20%, transparent 35%),
+    linear-gradient(135deg, transparent 45%, rgba(220, 0, 0, 1) 45.2%, rgba(200, 0, 0, 0.5) 50%, rgba(50, 0, 0, 0) 65%),
+    linear-gradient(135deg, transparent 70%, rgba(180, 0, 0, 0.9) 70.2%, rgba(100, 0, 0, 0) 80%),
+    radial-gradient(circle at 50% 50%, rgba(50, 0, 0, 0.2), transparent 80%) !important;
+
+  background-size: cover !important;
+  background-attachment: fixed !important;
+  min-height: 100vh;
+  color: var(--color-text-main);
+  -webkit-font-smoothing: antialiased;
+  overflow-x: hidden;
+  /* Prevent horizontal scroll */
+  width: 100%;
+  position: relative;
+}
+
+html {
+  overflow-x: hidden;
+  width: 100%;
+}
+
+html,
+#root {
+  background-color: transparent !important;
+  min-height: 100vh;
+}
+
+a {
+  text-decoration: none;
+  color: inherit;
+}
+
+ul {
+  list-style: none;
+}
+
+.container {
+  max-width: var(--container-width);
+  margin: 0 auto;
+  padding: 0 1.25rem;
+  width: 100%;
+}
+
+@media (min-width: 1280px) {
+  .container {
+    max-width: 1300px;
+    /* Slightly wider for modern displays */
+  }
+}
+
+.section-padding {
+  padding: 3rem 0;
+}
+
+@media (min-width: 768px) {
+  .section-padding {
+    padding: 6rem 0;
+  }
+}
+
+/* Utilities */
+.text-primary {
+  color: var(--color-primary);
+}
+
+.bg-primary {
+  background-color: var(--color-primary);
+}
+
+.flex {
+  display: flex;
+}
+
+.justify-between {
+  justify-content: space-between;
+}
+
+.items-center {
+  align-items: center;
+}
+
+.grid {
+  display: grid;
+}
+
+/* Animations */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
+}
+
+.fade-in {
+  animation: fadeIn 1s ease-in-out forwards;
+}
+
+/* SOTE CUSTOM CRM CLASSES & SCROLLBAR */
+:root {
+  --c-bg: 11 11 13; /* rgb(11, 11, 13) */
+  --c-surface: 30 30 36; /* rgb(30, 30, 36) */
+  --c-border: 51 51 58; /* rgb(51, 51, 58) */
+  --c-fg: 250 250 250; /* rgb(250, 250, 250) */
+  --brand-primary: #E63027;
+}
+
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-thumb { background: rgb(74, 74, 82); border-radius: 8px; border: 2px solid rgb(11, 11, 13); }
+::-webkit-scrollbar-track { background: rgb(11, 11, 13); }
+
+.bg-sote-bg {
+  background-color: rgb(var(--c-bg) / var(--tw-bg-opacity, 1));
+}
+
+.bg-sote-surface {
+  background-color: rgb(var(--c-surface) / var(--tw-bg-opacity, 1));
+}
+
+.border-sote-border {
+  border-color: rgb(var(--c-border) / var(--tw-border-opacity, 1));
+}
+
+.text-sote-fg {
+  color: rgb(var(--c-fg) / var(--tw-text-opacity, 1));
+}
+
+
+/* --- PRELOADER ANIMATION --- */
+.preloader-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100vh;
+  z-index: 9999;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  background-color: #020202;
+  /* Solid black */
+}
+
+.preloader-overlay.fade-out {
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transition: opacity 0.5s ease-out, visibility 0.5s ease-out;
+}
+
+.preloader-content {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  z-index: 2;
+}
+
+/* Converging red flare simulating particles forming the logo */
+.preloader-particles-flare {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%) scale(2);
+  width: 150px;
+  height: 150px;
+  background: radial-gradient(circle, rgba(235, 38, 40, 0.8) 0%, transparent 60%);
+  filter: blur(20px);
+  border-radius: 50%;
+  z-index: -1;
+  animation: convergeFlare 0.8s cubic-bezier(0.1, 0.8, 0.2, 1) forwards;
+  opacity: 0;
+}
+
+@keyframes convergeFlare {
+  0% {
+    transform: translate(-50%, -50%) scale(2.5);
+    opacity: 0;
+  }
+
+  30% {
+    opacity: 1;
+  }
+
+  100% {
+    transform: translate(-50%, -50%) scale(0.6);
+    opacity: 0;
+    filter: blur(30px);
+  }
+}
+
+.preloader-logo-container {
+  position: relative;
+  overflow: hidden;
+  animation: logoRevealE11 0.8s ease-out 0.2s forwards;
+  opacity: 0;
+  transform: scale(0.95);
+  margin-bottom: 8px;
+  /* space between logo and slogan */
+}
+
+.preloader-logo {
+  height: 100px;
+  /* Sized up for more presence */
+  width: auto;
+  max-width: 90vw;
+  /* Protect against wide logos stretching mobile screens */
+  object-fit: contain;
+  display: block;
+}
+
+@media (max-width: 768px) {
+  .preloader-logo {
+    height: 60px;
+    /* Elegantly scale back down on mobile */
+  }
+}
+
+@keyframes logoRevealE11 {
+  0% {
+    opacity: 0;
+    transform: scale(0.95);
+    filter: blur(4px);
+  }
+
+  100% {
+    opacity: 1;
+    transform: scale(1);
+    filter: blur(0px);
+  }
+}
+
+/* The metallic/red light sweep across the logo */
+.light-sweep.red-sweep {
+  position: absolute;
+  top: -50%;
+  left: -150%;
+  width: 50%;
+  height: 200%;
+  background: linear-gradient(to right,
+      rgba(235, 38, 40, 0) 0%,
+      rgba(235, 38, 40, 0.5) 40%,
+      rgba(255, 255, 255, 0.9) 50%,
+      rgba(235, 38, 40, 0.5) 60%,
+      rgba(235, 38, 40, 0) 100%);
+  transform: skewX(-25deg);
+  animation: sweepE11 1.2s cubic-bezier(0.4, 0, 0.2, 1) 0.5s forwards;
+  pointer-events: none;
+  mix-blend-mode: overlay;
+}
+
+@keyframes sweepE11 {
+  0% {
+    left: -150%;
+  }
+
+  100% {
+    left: 200%;
+  }
+}
+
+/* E11even style slogan */
+.preloader-slogan {
+  color: #EB2628;
+  /* Deep red variant of the brand */
+  font-family: 'Inter', system-ui, sans-serif;
+  font-size: 0.75rem;
+  letter-spacing: 0.15em;
+  /* Adjusted for longer text */
+  text-transform: uppercase;
+  font-weight: 500;
+  text-align: center;
+  opacity: 0;
+  animation: sloganFade 0.8s ease-out 1s forwards;
+  /* Appears shortly after logo */
+}
+
+@keyframes sloganFade {
+  0% {
+    opacity: 0;
+    transform: translateY(5px);
+    filter: blur(2px);
+  }
+
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+    filter: blur(0px);
+  }
+}
+
+/* --- TAILWIND CSS PARA PANEL DE ADMINISTRACIÓN --- */
+@tailwind components;
+@tailwind utilities;
