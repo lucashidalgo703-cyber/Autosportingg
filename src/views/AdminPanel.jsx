@@ -420,13 +420,13 @@ const AdminPanel = () => {
                     )}
 
                 {/* VIEW: DASHBOARD */}
-                {view === 'dashboard' && <Dashboard />}
+                {view === 'dashboard' && <Dashboard cars={cars} />}
 
                 {/* VIEW: CALENDARIO */}
-                {view === 'calendario' && <Calendario />}
+                {view === 'calendario' && <Calendario cars={cars} />}
 
                 {/* VIEW: ALERTAS */}
-                {view === 'alertas' && <Alertas />}
+                {view === 'alertas' && <Alertas cars={cars} />}
 
                 {/* VIEW: CRM BOARD (Ventas) */}
                 {view === 'ventas' && (

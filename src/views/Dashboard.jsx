@@ -3,9 +3,9 @@ import React, { useState, useEffect } from 'react';
 import { Eye, EyeOff, Activity, ArrowUpRight, TrendingUp, Info, ChevronLeft, ChevronRight, PenLine, Car, FileText, AlertTriangle, Gauge, LayoutDashboard } from 'lucide-react';
 import toast from 'react-hot-toast';
 
-const Dashboard = () => {
+const Dashboard = ({ cars = [] }) => {
     const [stats, setStats] = useState({
-        stockCount: 0,
+        stockCount: cars.length,
         leadsCount: 0,
         soldCarsThisMonth: 0,
         recentActivity: []
@@ -13,6 +13,13 @@ const Dashboard = () => {
     const [loading, setLoading] = useState(true);
     const [hideAmounts, setHideAmounts] = useState(false);
     const [activeTab, setActiveTab] = useState('cockpit'); // cockpit, general
+
+    // Real-time fleet metrics
+    const totalCars = cars.length;
+    const totalDisponibles = cars.filter(c => c.status === 'Disponible' || !c.status).length;
+    const totalReservados = cars.filter(c => c.status === 'Señado').length;
+    const totalVendidos = cars.filter(c => c.status === 'Vendido' || c.status === 'Vendido sin confirmar').length;
+    const totalPreparacion = cars.filter(c => c.status === 'En preparación').length;
     
     // MOCK: CalendarDays array
     const CalendarDays = Array.from({ length: 31 }, (_, i) => i + 1);
@@ -438,10 +445,12 @@ const Dashboard = () => {
             </div>
             )}
 
-            {/* VISTA: DASHBOARD GENERAL (Contenedor diseño Bolt) */}
+            {/* VISTA: DASHBOARD GENERAL (Contenedor de diseño premium) */}
             {activeTab === 'general' && (
-                <div className="space-y-6 animate-in fade-in duration-300">
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                <div className="space-y-8 animate-in fade-in duration-300">
+                    
+                    {/* Fila de Resúmenes Básicos */}
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                         {/* Resumen de Inventario */}
                         <div className={cardClass}>
                             <div className="flex justify-between items-start mb-4">
@@ -449,7 +458,7 @@ const Dashboard = () => {
                                 <Car size={16} className="text-gray-500" />
                             </div>
                             <div className="flex-1 flex flex-col justify-center">
-                                <span className="text-3xl font-medium text-white">{hideAmounts ? '***' : '0'}</span>
+                                <span className="text-3xl font-bold text-white">{hideAmounts ? '***' : totalCars}</span>
                                 <span className="text-xs text-gray-500 mt-2">Vehículos activos en plataforma</span>
                             </div>
                         </div>
@@ -461,7 +470,7 @@ const Dashboard = () => {
                                 <FileText size={16} className="text-gray-500" />
                             </div>
                             <div className="flex-1 flex flex-col justify-center">
-                                <span className="text-3xl font-medium text-white">{hideAmounts ? '***' : '0'}</span>
+                                <span className="text-3xl font-bold text-white">{hideAmounts ? '***' : '1'}</span>
                                 <span className="text-xs text-gray-500 mt-2">Operaciones en progreso</span>
                             </div>
                         </div>
@@ -473,8 +482,146 @@ const Dashboard = () => {
                                 <TrendingUp size={16} className="text-gray-500" />
                             </div>
                             <div className="flex-1 flex flex-col justify-center">
-                                <span className="text-3xl font-medium text-white">{hideAmounts ? '***' : '0%'}</span>
+                                <span className="text-3xl font-bold text-white">{hideAmounts ? '***' : '0%'}</span>
                                 <span className="text-xs text-gray-500 mt-2">Cierre exitoso sobre total</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Estado del Stock Fleet Grid */}
+                    <div className="bg-[#1e1e22] border border-white/5 rounded-2xl p-6 shadow-sm flex flex-col justify-between group hover:border-gray-600 transition-colors">
+                        <div className="flex justify-between items-center border-b border-white/5 pb-3 mb-4">
+                            <span className="text-xs font-bold text-white uppercase tracking-wider">Estado del Stock</span>
+                            <span className="text-[10px] text-gray-500 font-normal">{totalCars} vehículos en total</span>
+                        </div>
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                            <div className="bg-[#141416] p-4 rounded-xl border border-white/5 hover:border-[#4ade80]/50 transition-colors">
+                                <div className="flex items-center gap-2 mb-2 text-xs font-bold text-[#4ade80] uppercase tracking-wider">
+                                    <div className="w-1.5 h-1.5 bg-[#4ade80] rounded-full"></div>
+                                    Disponibles
+                                </div>
+                                <span className="text-2xl font-bold text-white">{totalDisponibles}</span>
+                            </div>
+                            <div className="bg-[#141416] p-4 rounded-xl border border-white/5 hover:border-yellow-500/50 transition-colors">
+                                <div className="flex items-center gap-2 mb-2 text-xs font-bold text-yellow-500 uppercase tracking-wider">
+                                    <div className="w-1.5 h-1.5 bg-yellow-500 rounded-full"></div>
+                                    Reservados
+                                </div>
+                                <span className="text-2xl font-bold text-white">{totalReservados}</span>
+                            </div>
+                            <div className="bg-[#141416] p-4 rounded-xl border border-white/5 hover:border-red-500/50 transition-colors">
+                                <div className="flex items-center gap-2 mb-2 text-xs font-bold text-red-500 uppercase tracking-wider">
+                                    <div className="w-1.5 h-1.5 bg-red-500 rounded-full"></div>
+                                    Vendidos
+                                </div>
+                                <span className="text-2xl font-bold text-white">{totalVendidos}</span>
+                            </div>
+                            <div className="bg-[#141416] p-4 rounded-xl border border-white/5 hover:border-blue-500/50 transition-colors">
+                                <div className="flex items-center gap-2 mb-2 text-xs font-bold text-blue-500 uppercase tracking-wider">
+                                    <div className="w-1.5 h-1.5 bg-blue-500 rounded-full"></div>
+                                    En preparación
+                                </div>
+                                <span className="text-2xl font-bold text-white">{totalPreparacion}</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Módulo de Proyección de Caja */}
+                    <div className="bg-[#1e1e22] border border-white/5 rounded-2xl p-6 w-full">
+                        <div className="flex justify-between items-center text-xs font-semibold text-white border-b border-white/5 pb-3 mb-4">
+                            <span className="flex items-center space-x-2 text-[13px]">💼 Proyección de caja</span>
+                            <span className="text-[10px] text-gray-400 font-normal">0 entradas · 0 salidas previstas <span className="text-yellow-500 cursor-pointer ml-1 hover:underline">Ver más →</span></span>
+                        </div>
+                        
+                        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
+                            <div className="bg-[#141416] p-4 rounded-xl border border-white/5 hover:border-gray-600 transition-colors">
+                                <span className="text-[10px] text-[#8a8a8e] font-normal uppercase tracking-widest block mb-2">SALDO ACTUAL</span>
+                                <span className="text-[15px] font-medium text-white">{hideAmounts ? '***' : 'USD 0'}</span>
+                            </div>
+                            <div className="bg-[#141416] p-4 rounded-xl border border-white/5 hover:border-[#4ade80]/50 transition-colors">
+                                <span className="text-[10px] text-[#8a8a8e] font-normal uppercase tracking-widest block mb-2">↗ A COBRAR</span>
+                                <span className="text-[15px] font-medium text-[#4ade80]">{hideAmounts ? '***' : 'USD 0'}</span>
+                            </div>
+                            <div className="bg-[#141416] p-4 rounded-xl border border-white/5 hover:border-[#fb7185]/50 transition-colors">
+                                <span className="text-[10px] text-[#8a8a8e] font-normal uppercase tracking-widest block mb-2">↘ A PAGAR</span>
+                                <span className="text-[15px] font-medium text-[#fb7185]">{hideAmounts ? '***' : 'USD 0'}</span>
+                            </div>
+                            <div className="bg-[#141416] p-4 rounded-xl border border-white/5 hover:border-[#22d3ee]/50 transition-colors">
+                                <span className="text-[10px] text-[#8a8a8e] font-normal uppercase tracking-widest block mb-2">~ RESULTADO</span>
+                                <span className="text-[15px] font-medium text-[#22d3ee]">{hideAmounts ? '***' : 'USD 0'}</span>
+                            </div>
+                        </div>
+                        
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-[11px] text-gray-400">
+                            <div className="bg-[#141416]/50 p-4 rounded-xl border border-white/5">
+                                <div className="flex justify-between items-center text-[#4ade80] mb-2">
+                                    <span className="text-[10px] font-bold tracking-wider uppercase">↑ ENTRADAS PREVISTAS</span>
+                                    <span className="bg-[#4ade80]/10 px-2 py-0.5 rounded text-[9px] font-medium">TOP 0</span>
+                                </div>
+                                <div className="italic text-gray-500 text-[10px] pt-1">Sin entradas previstas.</div>
+                            </div>
+                            <div className="bg-[#141416]/50 p-4 rounded-xl border border-white/5">
+                                <div className="flex justify-between items-center text-rose-400 mb-2">
+                                    <span className="text-[10px] font-bold tracking-wider uppercase">↓ SALIDAS PREVISTAS</span>
+                                    <span className="bg-rose-400/10 px-2 py-0.5 rounded text-[9px] font-medium">TOP 0</span>
+                                </div>
+                                <div className="italic text-gray-500 text-[10px] pt-1">Sin salidas previstas.</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Gráficos Históricos */}
+                    <div className="space-y-6">
+                        {/* Gráfico 12 meses */}
+                        <div className="bg-[#1e1e22] border border-white/5 rounded-2xl p-6 flex flex-col min-h-[300px]">
+                            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
+                                <div className="text-[10px] font-normal text-[#8a8a8e] uppercase tracking-widest">Últimos 12 meses - Ganancia USD</div>
+                                <div className="flex items-center gap-4 text-[9px] font-medium uppercase tracking-widest">
+                                    <div className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-indigo-600"></span><span className="text-gray-400">MES ACTUAL</span></div>
+                                    <div className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-[#4ade80]"></span><span className="text-gray-400">SUPERÓ OBJ</span></div>
+                                    <div className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-gray-600"></span><span className="text-gray-400">MES NORMAL</span></div>
+                                </div>
+                            </div>
+                            <div className="flex-1 flex items-end justify-between gap-2 border-b border-white/5 pb-3 px-2 bg-[#1e1e22]/30 rounded-t-lg pt-4">
+                               {/* Slim emerald bars */}
+                               {[40, 60, 30, 80, 50, 90, 70, 45, 85, 55, 75, 65].map((h, i) => (
+                                   <div key={i} className="flex flex-col justify-end w-full items-center h-full">
+                                       <div className="w-3 md:w-5 bg-[#4ade80] rounded-t-sm transition-all hover:bg-emerald-400 opacity-80" style={{ height: `${h}%` }}></div>
+                                   </div>
+                               ))}
+                            </div>
+                            <div className="flex justify-between mt-3 text-[10px] text-gray-500 uppercase font-medium px-2">
+                                <span className="w-8 text-center">Ene<br/><span className="text-[8px] opacity-50">25</span></span>
+                                <span className="w-8 text-center">Feb<br/><span className="text-[8px] opacity-50">25</span></span>
+                                <span className="w-8 text-center">Mar<br/><span className="text-[8px] opacity-50">25</span></span>
+                                <span className="w-8 text-center">Abr<br/><span className="text-[8px] opacity-50">25</span></span>
+                                <span className="w-8 text-center">May<br/><span className="text-[8px] opacity-50">25</span></span>
+                                <span className="w-8 text-center">Jun<br/><span className="text-[8px] opacity-50">25</span></span>
+                                <span className="w-8 text-center">Jul<br/><span className="text-[8px] opacity-50">25</span></span>
+                                <span className="w-8 text-center">Ago<br/><span className="text-[8px] opacity-50">25</span></span>
+                                <span className="w-8 text-center">Sep<br/><span className="text-[8px] opacity-50">25</span></span>
+                                <span className="w-8 text-center">Oct<br/><span className="text-[8px] opacity-50">25</span></span>
+                                <span className="w-8 text-center">Nov<br/><span className="text-[8px] opacity-50">25</span></span>
+                                <span className="w-8 text-center">Dic<br/><span className="text-[8px] opacity-50">25</span></span>
+                            </div>
+                        </div>
+                        
+                        {/* Resumen Anual Horizontal */}
+                        <div className="bg-[#1e1e22] border border-white/5 rounded-2xl p-6">
+                            <div className="flex items-center gap-2 mb-6">
+                                <span className="text-purple-400 bg-purple-400/10 p-1.5 rounded-lg"><Activity size={16} /></span>
+                                <span className="text-[10px] font-normal text-[#8a8a8e] uppercase tracking-widest">Resumen Anual</span>
+                            </div>
+                            <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+                                {[year-4, year-3, year-2, year-1, year].map((y, idx) => (
+                                    <div key={y} className="bg-[#141416] border border-white/5 rounded-lg p-4 flex flex-col justify-between hover:border-gray-600 transition-colors">
+                                        <span className="text-[11px] text-gray-500 font-medium mb-3 tracking-wider">{y} {idx === 4 ? '- EN CURSO' : ''}</span>
+                                        <div>
+                                            <span className="text-xl font-medium text-white block mb-1">{hideAmounts ? '***' : '0'} <span className="text-[10px] text-gray-500 font-normal ml-1 tracking-widest">AUTOS</span></span>
+                                            <span className="text-[13px] text-gray-400">{hideAmounts ? '***' : 'USD 0'}</span>
+                                        </div>
+                                    </div>
+                                ))}
                             </div>
                         </div>
                     </div>
