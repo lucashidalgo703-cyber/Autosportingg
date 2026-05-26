@@ -1,4 +1,5 @@
 "use client";
+import Link from 'next/link';
 import VehicleStatusBadge from './VehicleStatusBadge';
 import VehicleRotationAlert from './VehicleRotationAlert';
 import { MoreHorizontal, Calendar, Gauge } from 'lucide-react';
@@ -23,9 +24,12 @@ export default function StockMobileCards({ data }) {
                             </h3>
                             <p className="text-[#A1A1AA] text-xs mt-1">{vehicle.version}</p>
                         </div>
-                        <button className="absolute top-4 right-4 text-[#A1A1AA] hover:text-white">
-                            <MoreHorizontal size={20} />
-                        </button>
+                        <Link 
+                            href={`/admin/stock/${vehicle.id}`}
+                            className="absolute top-4 right-4 px-3 py-1 text-xs font-medium text-white bg-[#33333A] hover:bg-[#E63027] rounded-md transition-colors"
+                        >
+                            Ficha
+                        </Link>
                     </div>
 
                     <div className="flex flex-wrap gap-2 text-xs text-[#A1A1AA]">

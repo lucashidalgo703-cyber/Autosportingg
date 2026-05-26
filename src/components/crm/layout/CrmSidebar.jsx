@@ -33,7 +33,7 @@ export default function CrmSidebar({ isOpen, onClose }) {
                 
                 <nav className="flex-1 overflow-y-auto py-4 px-3 flex flex-col gap-1">
                     {menuItems.map((item) => {
-                        const isActive = pathname === item.path;
+                        const isActive = item.path === '/admin' ? pathname === '/admin' : pathname.startsWith(item.path);
                         return (
                             <Link 
                                 key={item.name} 

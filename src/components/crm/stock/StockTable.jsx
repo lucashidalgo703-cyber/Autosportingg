@@ -1,4 +1,5 @@
 "use client";
+import Link from 'next/link';
 import VehicleStatusBadge from './VehicleStatusBadge';
 import VehicleRotationAlert from './VehicleRotationAlert';
 import { MoreHorizontal } from 'lucide-react';
@@ -65,9 +66,12 @@ export default function StockTable({ data }) {
                                 <VehicleStatusBadge status={vehicle.estado} />
                             </td>
                             <td className="px-4 py-3 text-center">
-                                <button className="p-1.5 text-[#A1A1AA] hover:text-white hover:bg-[#33333A] rounded-md transition-colors">
-                                    <MoreHorizontal size={18} />
-                                </button>
+                                <Link 
+                                    href={`/admin/stock/${vehicle.id}`}
+                                    className="px-3 py-1.5 text-xs font-medium text-white bg-[#33333A] hover:bg-[#E63027] rounded-md transition-colors inline-block"
+                                >
+                                    Ver ficha
+                                </Link>
                             </td>
                         </tr>
                     ))}
