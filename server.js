@@ -5,6 +5,7 @@ import connectDB from './src/config/db.js';
 import cloudinary from './src/config/cloudinary.js';
 import Car from './src/models/Car.js';
 import Lead from './src/models/Lead.js';
+import Client from './src/models/Client.js';
 import Task from './src/models/Task.js';
 import ActivityLog from './src/models/ActivityLog.js';
 import Account from './src/models/Account.js';
@@ -417,6 +418,149 @@ app.delete('/api/cars/:id', authenticateToken, async (req, res) => {
         res.json({ message: 'Car removed' });
     } catch (error) {
         res.status(500).json({ message: error.message });
+    }
+});
+
+// --- CLIENTS ROUTES ---
+
+// GET all clients
+app.get('/api/admin/clients', authenticateToken, async (req, res) => {
+    try {
+        const { search, type, source, status, limit = 50, page = 1 } = req.query;
+        let query = {};
+        
+        if (search) {
+            const regex = new RegExp(search, 'i');
+            query.$or = [
+                { fullName: regex },
+                { phoneNormalized: regex },
+                { emailNormalized: regex },
+                { locality: regex }
+            ];
+        }
+        if (type) query.type = type;
+        if (source) query.source = source;
+        if (status) query.status = status;
+        
+        const skip = (parseInt(page) - 1) * parseInt(limit);
+        
+        const clients = await Client.find(query)
+            .sort({ createdAt: -1 })
+            .skip(skip)
+            .limit(parseInt(limit));
+            
+        const total = await Client.countDocuments(query);
+            
+        res.json({ clients, total, pages: Math.ceil(total / limit) });
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+});
+
+// GET single client
+app.get('/api/admin/clients/:id', authenticateToken, async (req, res) => {
+    try {
+        const client = await Client.findById(req.params.id);
+        if (!client) return res.status(404).json({ message: 'Client not found' });
+        res.json(client);
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+});
+
+// POST new client
+app.post('/api/admin/clients', authenticateToken, async (req, res) => {
+    try {
+        const payload = req.body;
+        
+        // Basic Validation
+        if (!payload.firstName && !payload.fullName) {
+            return res.status(400).json({ message: 'El nombre es obligatorio.' });
+        }
+        if (!payload.phone && !payload.email) {
+            return res.status(400).json({ message: 'Debe proveer un teléfono o un email.' });
+        }
+        
+        // Sanitization using explicitly allowed fields
+        const allowedFields = [
+            'firstName', 'lastName', 'fullName', 'phone', 'email', 'dniCuit',
+            'locality', 'province', 'address', 'type', 'source', 'status', 'tags', 'notes', 'assignedTo'
+        ];
+        
+        let sanitizedData = {};
+        allowedFields.forEach(field => {
+            if (payload[field] !== undefined) {
+                sanitizedData[field] = payload[field];
+            }
+        });
+        
+        sanitizedData.createdBy = req.user?.username || 'Admin';
+        sanitizedData.clientAuditLog = [{
+            action: 'CREACION',
+            date: new Date(),
+            user: sanitizedData.createdBy,
+            source: 'CRM_V2',
+            details: 'Cliente creado desde CRM'
+        }];
+        
+        const newClient = new Client(sanitizedData);
+        const savedClient = await newClient.save();
+        
+        res.status(201).json(savedClient);
+    } catch (error) {
+        console.error('Error creating client:', error);
+        res.status(400).json({ message: error.message });
+    }
+});
+
+// PATCH update client
+app.patch('/api/admin/clients/:id', authenticateToken, async (req, res) => {
+    try {
+        const client = await Client.findById(req.params.id);
+        if (!client) return res.status(404).json({ message: 'Client not found' });
+        
+        const payload = req.body;
+        const allowedFields = [
+            'firstName', 'lastName', 'fullName', 'phone', 'email', 'dniCuit',
+            'locality', 'province', 'address', 'type', 'source', 'status', 'tags', 'notes', 'assignedTo'
+        ];
+        
+        const user = req.user?.username || 'Admin';
+        const newAuditLogs = [];
+        
+        allowedFields.forEach(field => {
+            if (payload[field] !== undefined && payload[field] !== client[field] && JSON.stringify(payload[field]) !== JSON.stringify(client[field])) {
+                newAuditLogs.push({
+                    action: 'ACTUALIZACION',
+                    field: field,
+                    oldValue: client[field],
+                    newValue: payload[field],
+                    user: user,
+                    source: 'CRM_V2',
+                    details: `Campo ${field} actualizado`
+                });
+                client[field] = payload[field];
+            }
+        });
+        
+        // Interactions are added separately if sent
+        if (payload.newInteraction) {
+            client.interactions.push({
+                ...payload.newInteraction,
+                user: user,
+                date: new Date()
+            });
+        }
+        
+        if (newAuditLogs.length > 0) {
+            client.clientAuditLog.push(...newAuditLogs);
+        }
+        
+        const updatedClient = await client.save();
+        res.json(updatedClient);
+    } catch (error) {
+        console.error('Error updating client:', error);
+        res.status(400).json({ message: error.message });
     }
 });
 
