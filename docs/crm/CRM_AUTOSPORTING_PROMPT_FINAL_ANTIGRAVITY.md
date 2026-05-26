@@ -169,51 +169,52 @@ ARQUITECTURA POR DOMINIO:
 
 RUTAS PUBLICAS DE AUTH:
 
-- `/crm/login`: login AutoSporting.
-- `/crm/recuperar-clave`: solicitud de recuperacion.
-- `/crm/restablecer-clave`: cambio de clave con token, si el proveedor lo requiere.
+- `/login`: login AutoSporting.
+- `/recuperar-clave`: solicitud de recuperacion.
+- `/restablecer-clave`: cambio de clave con token, si el proveedor lo requiere.
 
 RUTAS PROTEGIDAS:
 
-- `/crm`: redireccionar a `/crm/dashboard`.
-- `/crm/dashboard`: tabs `Cockpit` y `General`.
-- `/crm/calendario`: calendario, tareas y eventos.
-- `/crm/alertas`: centro de alertas.
-- `/crm/reportes`: reportes gerenciales.
+- `/admin`: Dashboard (tabs `Cockpit` y `General`).
+- `/admin/legacy`: Panel de administracion antiguo conservado temporalmente.
+- `/crm`: redirecciona a `/admin`.
+- `/admin/calendario`: calendario, tareas y eventos.
+- `/admin/alertas`: centro de alertas.
+- `/admin/reportes`: reportes gerenciales.
 
-- `/crm/stock`: inventario.
-- `/crm/stock/nuevo`: alta de unidad o modal equivalente accesible desde listado.
-- `/crm/stock/:vehicleId`: ficha completa.
-- `/crm/stock/:vehicleId/editar`: edicion controlada.
-- `/crm/consignaciones`: captacion y seguimiento de unidades consignadas.
-- `/crm/pedidos`: pedidos de unidades que no estan en stock.
+- `/admin/stock`: inventario.
+- `/admin/stock/nuevo`: alta de unidad o modal equivalente accesible desde listado.
+- `/admin/stock/:vehicleId`: ficha completa.
+- `/admin/stock/:vehicleId/editar`: edicion controlada.
+- `/admin/consignaciones`: captacion y seguimiento de unidades consignadas.
+- `/admin/pedidos`: pedidos de unidades que no estan en stock.
 
-- `/crm/clientes`: lista y pipeline.
-- `/crm/clientes/:customerId`: ficha de cliente/lead.
-- `/crm/cotizaciones`: cotizaciones.
-- `/crm/cotizaciones/:quoteId`: detalle/versiones/aprobacion.
-- `/crm/reservas`: reservas y senas.
-- `/crm/ventas`: listado de ventas.
-- `/crm/ventas/:saleId`: expediente completo de venta.
-- `/crm/permutas`: valuaciones de vehiculos recibidos.
+- `/admin/clientes`: lista y pipeline.
+- `/admin/clientes/:customerId`: ficha de cliente/lead.
+- `/admin/cotizaciones`: cotizaciones.
+- `/admin/cotizaciones/:quoteId`: detalle/versiones/aprobacion.
+- `/admin/reservas`: reservas y senas.
+- `/admin/ventas`: listado de ventas.
+- `/admin/ventas/:saleId`: expediente completo de venta.
+- `/admin/permutas`: valuaciones de vehiculos recibidos.
 
-- `/crm/finanzas`: centro financiero con tabs.
-- `/crm/finanzas/movimientos`: si el router requiere subruta.
-- `/crm/finanzas/senas`.
-- `/crm/finanzas/cuotas`.
-- `/crm/finanzas/cuentas`.
-- `/crm/finanzas/cobrar-pagar`.
-- `/crm/finanzas/gastos`.
-- `/crm/finanzas/comisiones`.
-- `/crm/finanzas/cierres`.
+- `/admin/finanzas`: centro financiero con tabs.
+- `/admin/finanzas/movimientos`: si el router requiere subruta.
+- `/admin/finanzas/senas`.
+- `/admin/finanzas/cuotas`.
+- `/admin/finanzas/cuentas`.
+- `/admin/finanzas/cobrar-pagar`.
+- `/admin/finanzas/gastos`.
+- `/admin/finanzas/comisiones`.
+- `/admin/finanzas/cierres`.
 
-- `/crm/documentacion`: pendientes documentales y expedientes.
-- `/crm/entregas`: checklist y entregas.
-- `/crm/postventa`: seguimiento y resenas.
+- `/admin/documentacion`: pendientes documentales y expedientes.
+- `/admin/entregas`: checklist y entregas.
+- `/admin/postventa`: seguimiento y resenas.
 
-- `/crm/admin/usuarios`: usuarios y roles.
-- `/crm/admin/configuracion`: parametros.
-- `/crm/admin/auditoria`: historial auditable.
+- `/admin/usuarios`: usuarios y roles.
+- `/admin/configuracion`: parametros.
+- `/admin/auditoria`: historial auditable.
 
 No es obligatorio que cada tab use URL separada si el proyecto tiene otro patron, pero cada modulo debe ser navegable, enlazable y conservar filtros importantes.
 
@@ -244,7 +245,7 @@ APP SHELL MOBILE:
 - Header compacto con hamburger, busqueda o acceso a busqueda, notificaciones y avatar.
 - Bottom navigation fija con `Dashboard`, `Stock`, `Clientes`, `Ventas`, `Calendario`.
 - Resto de modulos dentro del drawer.
-- No dupliques prefijos de rutas; todos los links deben construirse desde un unico helper de rutas `/crm`.
+- No dupliques prefijos de rutas; todos los links deben construirse desde un unico helper de rutas `/admin`.
 
 COMPONENTES BASE:
 

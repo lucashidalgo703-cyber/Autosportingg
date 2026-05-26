@@ -11,7 +11,7 @@ Si vas a trabajar en cualquier tarea relacionada con el CRM en este repositorio,
 ## Directrices Operativas
 
 * **Contexto:** El CRM pertenece a AutoSporting (agencia de autos).
-* **Ubicación:** El CRM debe integrarse bajo la ruta `/crm`.
+* **Ubicación:** El CRM debe integrarse como el panel principal bajo la ruta `/admin`. El admin anterior se conserva temporalmente en `/admin/legacy` y `/crm` redirige a `/admin`. Toda nueva pantalla del CRM debe colgar de `/admin` (ej: `/admin/stock`, `/admin/ventas`).
 * **Aislamiento:** El CRM debe mantenerse separado de la web pública.
 * **Metodología:** La implementación **DEBE** ser por fases. No implementar todo de golpe.
 * **Paso Inicial Obligatorio:** Primero analizar el stack actual, las rutas, los componentes y los estilos existentes en el proyecto.

@@ -13,7 +13,7 @@ Antes de comenzar a programar o modificar código para el CRM, debes consultar l
 ## Reglas de Implementación del CRM
 
 * **Desarrollo por Etapas:** El CRM debe desarrollarse de forma iterativa y progresiva. **NO** debe implementarse todo de golpe.
-* **Ruta Objetivo:** La interfaz del CRM debe estar contenida e integrarse exclusivamente bajo la ruta `/crm`.
+* **Ruta Objetivo:** El CRM se establece como el panel principal de administración bajo la ruta `/admin`. El admin anterior se preserva en `/admin/legacy`, y `/crm` funciona como redirección hacia `/admin`. Toda nueva pantalla debe colgar de `/admin`.
 * **Aislamiento de la Web Pública:** El desarrollo del CRM **NO** debe romper ni afectar el funcionamiento de la web pública actual (el catálogo, página de inicio, contacto, etc.).
 * **Datos Pendientes:** Todo dato no confirmado (modelos de datos, campos específicos, lógica de negocio) debe marcarse claramente como **pendiente**.
 * **Privacidad de Datos:** **NO** deben usarse datos reales de clientes bajo ninguna circunstancia. Utilizar únicamente datos ficticios (mock data) para el desarrollo.

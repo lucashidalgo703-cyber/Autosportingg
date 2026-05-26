@@ -123,33 +123,33 @@ Todas las pantallas siguientes son **PROPUESTA AUTOSPORTING** hasta que una evid
 
 | Area | Ruta sugerida | Pantalla | Objetivo principal |
 | --- | --- | --- | --- |
-| Acceso | `/crm/login` | Ingreso | Autenticar usuarios del equipo |
-| Acceso | `/crm/recuperar-clave` | Recuperacion | Solicitar restauracion segura |
-| Inicio | `/crm/dashboard` | Tablero ejecutivo | Capital, stock, oportunidades, cobranzas y alertas |
-| Stock | `/crm/stock` | Inventario | Buscar, filtrar y operar unidades |
-| Stock | `/crm/stock/nuevo` | Alta de unidad | Registrar compra, consignacion o permuta entrante |
-| Stock | `/crm/stock/:id` | Ficha de vehiculo | Centralizar costos, fotos, documentos, historial y disponibilidad |
-| Stock | `/crm/stock/:id/edicion` | Edicion de unidad | Ajustar datos controlados y precios |
-| Leads | `/crm/leads` | Pipeline comercial | Gestionar consultas y etapas de venta |
-| Leads | `/crm/leads/:id` | Detalle de oportunidad | Contactos, tareas, vehiculo de interes y cotizacion |
-| Clientes | `/crm/clientes` | Directorio | Administrar personas y empresas |
-| Clientes | `/crm/clientes/:id` | Ficha cliente | Historial de compras, documentos y comunicaciones |
-| Reservas | `/crm/reservas` | Reservas y senas | Controlar bloqueos temporales y dinero recibido |
-| Ventas | `/crm/ventas` | Operaciones | Listado y estado de ventas |
-| Ventas | `/crm/ventas/nueva` | Flujo de venta | Convertir reserva/lead en contrato operativo |
-| Ventas | `/crm/ventas/:id` | Expediente de venta | Cobros, permuta, entrega, comision y documentos |
-| Permutas | `/crm/permutas` | Valuaciones | Registrar unidades recibidas o potenciales |
-| Finanzas | `/crm/financiaciones` | Creditos internos | Planes otorgados y exposicion |
-| Finanzas | `/crm/cobranzas` | Cuotas y vencimientos | Cobrar, conciliar y alertar mora |
-| Finanzas | `/crm/gastos` | Egresos | Registrar gastos por unidad o generales |
-| Finanzas | `/crm/comisiones` | Liquidaciones | Calcular y aprobar comisiones |
-| Operacion | `/crm/tareas` | Agenda interna | Vencimientos y seguimientos |
-| Operacion | `/crm/documentacion` | Pendientes documentales | Legajos de vehiculos y ventas |
-| Operacion | `/crm/entregas` | Checklist de entrega | Preparar entrega y postventa |
-| Reportes | `/crm/reportes` | Centro de reportes | Indicadores gerenciales exportables |
-| Administracion | `/crm/usuarios` | Usuarios y roles | Acceso, permisos y actividad |
-| Administracion | `/crm/configuracion` | Parametros | Alertas, listas, monedas y plantillas |
-| Auditoria | `/crm/auditoria` | Historial | Trazabilidad de cambios sensibles |
+| Acceso | `/login` | Ingreso | Autenticar usuarios del equipo |
+| Acceso | `/recuperar-clave` | Recuperacion | Solicitar restauracion segura |
+| Inicio | `/admin` | Tablero ejecutivo | Capital, stock, oportunidades, cobranzas y alertas |
+| Stock | `/admin/stock` | Inventario | Buscar, filtrar y operar unidades |
+| Stock | `/admin/stock/nuevo` | Alta de unidad | Registrar compra, consignacion o permuta entrante |
+| Stock | `/admin/stock/:id` | Ficha de vehiculo | Centralizar costos, fotos, documentos, historial y disponibilidad |
+| Stock | `/admin/stock/:id/edicion` | Edicion de unidad | Ajustar datos controlados y precios |
+| Leads | `/admin/leads` | Pipeline comercial | Gestionar consultas y etapas de venta |
+| Leads | `/admin/leads/:id` | Detalle de oportunidad | Contactos, tareas, vehiculo de interes y cotizacion |
+| Clientes | `/admin/clientes` | Directorio | Administrar personas y empresas |
+| Clientes | `/admin/clientes/:id` | Ficha cliente | Historial de compras, documentos y comunicaciones |
+| Reservas | `/admin/reservas` | Reservas y senas | Controlar bloqueos temporales y dinero recibido |
+| Ventas | `/admin/ventas` | Operaciones | Listado y estado de ventas |
+| Ventas | `/admin/ventas/nueva` | Flujo de venta | Convertir reserva/lead en contrato operativo |
+| Ventas | `/admin/ventas/:id` | Expediente de venta | Cobros, permuta, entrega, comision y documentos |
+| Permutas | `/admin/permutas` | Valuaciones | Registrar unidades recibidas o potenciales |
+| Finanzas | `/admin/financiaciones` | Creditos internos | Planes otorgados y exposicion |
+| Finanzas | `/admin/cobranzas` | Cuotas y vencimientos | Cobrar, conciliar y alertar mora |
+| Finanzas | `/admin/gastos` | Egresos | Registrar gastos por unidad o generales |
+| Finanzas | `/admin/comisiones` | Liquidaciones | Calcular y aprobar comisiones |
+| Operacion | `/admin/tareas` | Agenda interna | Vencimientos y seguimientos |
+| Operacion | `/admin/documentacion` | Pendientes documentales | Legajos de vehiculos y ventas |
+| Operacion | `/admin/entregas` | Checklist de entrega | Preparar entrega y postventa |
+| Reportes | `/admin/reportes` | Centro de reportes | Indicadores gerenciales exportables |
+| Administracion | `/admin/usuarios` | Usuarios y roles | Acceso, permisos y actividad |
+| Administracion | `/admin/configuracion` | Parametros | Alertas, listas, monedas y plantillas |
+| Auditoria | `/admin/auditoria` | Historial | Trazabilidad de cambios sensibles |
 
 ### 2.3 Navegacion propuesta
 
@@ -1383,6 +1383,7 @@ Regla de privacidad para las capturas: ocultar nombres, telefonos, emails, paten
 | DEC-007 | 2026-05-26 | Prohibir plaintext de contrasenas en el CRM AutoSporting. | La referencia expone una coexistencia legacy insegura durante migracion; no debe replicarse. | Vigente |
 | DEC-008 | 2026-05-26 | Unificar modales en tema oscuro y probar rutas moviles. | Se observo modal NPS claro y un link movil con prefijo duplicado. | Vigente |
 | DEC-009 | 2026-05-26 | Mantener un prompt tecnico separado del documento de analisis. | Permite pegar instrucciones de implementacion en Antigravity sin perder la trazabilidad de evidencia. | Vigente |
+| DEC-010 | 2026-05-26 | El CRM se convierte en el panel principal bajo la ruta `/admin`. | Integrar el CRM como el sistema principal de administración; se preserva temporalmente el admin anterior en `/admin/legacy` y `/crm` redirige a `/admin`. Toda nueva vista debe colgar de `/admin`. | Vigente |
 
 ## Protocolo De Actualizacion Para Nuevas Capturas O Videos
 
