@@ -70,7 +70,7 @@ app.get('/api/public/cars', async (req, res) => {
         res.setHeader('Cache-Control', 'no-store, max-age=0');
         // Only return visible/public cars if needed, currently return all but sanitized
         const cars = await Car.find()
-            .select('-purchasePrice -purchaseCurrency -ownerName -ownerEmail -ownerPhone -linkedClient -consignedBy -notes -agencyOwned -engineNumber -chassisNumber -location -hasManuals -hasDuplicateKeys -hasOfficialServices -publishedOnML -publishedBy -mlLink')
+            .select('-purchasePrice -purchaseCurrency -ownerName -ownerEmail -ownerPhone -linkedClient -consignedBy -notes -agencyOwned -engineNumber -chassisNumber -location -hasManuals -hasDuplicateKeys -hasOfficialServices -publishedOnML -publishedBy -mlLink -plateOrVin')
             .sort({ order: 1, createdAt: -1 });
         res.json(cars);
     } catch (error) {
@@ -82,7 +82,7 @@ app.get('/api/public/cars', async (req, res) => {
 app.get('/api/public/cars/:id', async (req, res) => {
     try {
         const car = await Car.findById(req.params.id)
-            .select('-purchasePrice -purchaseCurrency -ownerName -ownerEmail -ownerPhone -linkedClient -consignedBy -notes -agencyOwned -engineNumber -chassisNumber -location -hasManuals -hasDuplicateKeys -hasOfficialServices -publishedOnML -publishedBy -mlLink');
+            .select('-purchasePrice -purchaseCurrency -ownerName -ownerEmail -ownerPhone -linkedClient -consignedBy -notes -agencyOwned -engineNumber -chassisNumber -location -hasManuals -hasDuplicateKeys -hasOfficialServices -publishedOnML -publishedBy -mlLink -plateOrVin');
         if (!car) return res.status(404).json({ message: 'Car not found' });
         res.json(car);
     } catch (error) {

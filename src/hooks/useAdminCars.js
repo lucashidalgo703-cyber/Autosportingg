@@ -3,28 +3,42 @@ import { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import toast from 'react-hot-toast';
 
-export const useCars = () => {
+export const useAdminCars = () => {
     const [cars, setCars] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
     const { logout } = useAuth();
+
     const fetchCars = async () => {
         try {
             setLoading(true);
             const API_URL = process.env.NEXT_PUBLIC_API_URL;
             const baseUrl = process.env.NODE_ENV === 'production' ? '' : (API_URL || 'http://localhost:3001');
             
-            const endpoint = `${baseUrl}/api/public/cars`;
+            const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
+            if (!token) {
+                throw new Error('No admin token found');
+            }
 
-            const response = await fetch(`${endpoint}?t=${Date.now()}`);
+            const endpoint = `${baseUrl}/api/admin/cars`;
+
+            const headers = {
+                'Authorization': `Bearer ${token}`
+            };
+
+            const response = await fetch(`${endpoint}?t=${Date.now()}`, { headers });
             
             if (!response.ok) {
-                throw new Error('Failed to fetch public cars');
+                if (response.status === 401 || response.status === 403) {
+                    localStorage.removeItem('token');
+                    logout();
+                }
+                throw new Error('Failed to fetch admin cars');
             }
             const data = await response.json();
             setCars(data);
         } catch (err) {
-            console.error("Error fetching public cars:", err);
+            console.error("Error fetching admin cars:", err);
             setError(err.message);
         } finally {
             setLoading(false);
@@ -40,7 +54,7 @@ export const useCars = () => {
         try {
             const API_URL = process.env.NEXT_PUBLIC_API_URL;
             const baseUrl = process.env.NODE_ENV === 'production' ? '' : (API_URL || 'http://localhost:3001');
-            const endpoint = `${baseUrl}/api/cars/${id}`; // Delete uses the admin endpoint still
+            const endpoint = `${baseUrl}/api/cars/${id}`;
 
             const res = await fetch(endpoint, {
                 method: 'DELETE',

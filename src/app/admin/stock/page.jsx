@@ -7,11 +7,11 @@ import StockFilters from '../../../components/crm/stock/StockFilters';
 import StockTable from '../../../components/crm/stock/StockTable';
 import StockMobileCards from '../../../components/crm/stock/StockMobileCards';
 import VehicleFormDemo from '../../../components/crm/stock/VehicleFormDemo';
-import { useCars } from '../../../hooks/useCars';
+import { useAdminCars } from '../../../hooks/useAdminCars';
 import { mapRealCarToCRM } from '../../../components/crm/stock/vehicleAdapter';
 
 export default function AdminStockPage() {
-    const { cars, loading, error } = useCars();
+    const { cars, loading, error } = useAdminCars();
     const [searchTerm, setSearchTerm] = useState('');
     const [filterStatus, setFilterStatus] = useState('todos');
     const [isFormOpen, setIsFormOpen] = useState(false);

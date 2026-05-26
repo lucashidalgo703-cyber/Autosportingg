@@ -1,7 +1,7 @@
 "use client";
 import React, { useState, useEffect } from 'react';
 import { Copy, Check, Upload, X, ChevronDown, ChevronUp, Plus, Info, Star, ArrowLeft, ArrowRight, Loader2, Menu, Search, Sun, Moon, Bell, MessageCircle } from 'lucide-react';
-import { useCars } from '../hooks/useCars';
+import { useAdminCars } from '../hooks/useAdminCars';
 import toast from 'react-hot-toast';
 import CRMBoard from './CRMBoard';
 import AdminSidebar from '../components/AdminSidebar';
@@ -20,7 +20,7 @@ import Colaboraciones from './Colaboraciones';
 import Administracion from './Administracion';
 
 const AdminPanel = () => {
-    const { cars, refresh: refreshCars, deleteCar, setCars } = useCars(); // Assuming setCars is now exposed or I'll add it to hook first. Wait, I didn't update hook to expose setCars. I should do that or just manually update local state if I could.
+    const { cars, refresh: refreshCars, deleteCar, setCars } = useAdminCars();
     // Making it easier: I'll update useCars hook to expose setCars or just fetch.
     // Actually, to make UI responsive, I should optimistically update local state.
     // I need to update useCars hook to expose setCars.
