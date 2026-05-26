@@ -1,5 +1,5 @@
 "use client";
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import CrmShell from '../../../components/crm/layout/CrmShell';
 import ProtectedRoute from '../../../components/ProtectedRoute';
 import CrmStatCard from '../../../components/crm/ui/CrmStatCard';
@@ -7,15 +7,20 @@ import StockFilters from '../../../components/crm/stock/StockFilters';
 import StockTable from '../../../components/crm/stock/StockTable';
 import StockMobileCards from '../../../components/crm/stock/StockMobileCards';
 import VehicleFormDemo from '../../../components/crm/stock/VehicleFormDemo';
-import { stockDemoData, calculateVehicleMetrics } from '../../../components/crm/demo/stockDemoData';
+import { useCars } from '../../../hooks/useCars';
+import { mapRealCarToCRM } from '../../../components/crm/stock/vehicleAdapter';
 
 export default function AdminStockPage() {
+    const { cars, loading, error } = useCars();
     const [searchTerm, setSearchTerm] = useState('');
     const [filterStatus, setFilterStatus] = useState('todos');
     const [isFormOpen, setIsFormOpen] = useState(false);
-    const [vehicles, setVehicles] = useState(() => 
-        stockDemoData.map(calculateVehicleMetrics)
-    );
+
+    // Mapeo de datos reales al formato esperado por el CRM
+    const vehicles = useMemo(() => {
+        if (!cars || cars.length === 0) return [];
+        return cars.map(mapRealCarToCRM);
+    }, [cars]);
 
     // Filtrado de datos
     const filteredVehicles = useMemo(() => {
@@ -49,36 +54,51 @@ export default function AdminStockPage() {
     };
 
     const handleFormSubmit = () => {
-        // Simular agregando un vehiculo nuevo al principio
-        const newVehicle = calculateVehicleMetrics({
-            id: `V-00${vehicles.length + 1}`,
-            marca: "Nuevo",
-            modelo: "Demo",
-            version: "1.0",
-            año: 2024,
-            kilometraje: 0,
-            color: "N/A",
-            dominio: "N/A",
-            origen: "propio",
-            moneda: "USD",
-            precioCompra: 0,
-            gastos: 0,
-            precioPublicado: 0,
-            precioMinimo: 0,
-            fechaIngreso: new Date().toISOString().split('T')[0],
-            estado: "disponible",
-            observaciones: "Creado desde formulario demo."
-        });
-        setVehicles([newVehicle, ...vehicles]);
+        setIsFormOpen(false);
     };
+
+    if (loading) {
+        return (
+            <ProtectedRoute>
+                <CrmShell>
+                    <div className="flex items-center justify-center h-[50vh]">
+                        <div className="flex flex-col items-center gap-3">
+                            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#E63027]"></div>
+                            <span className="text-[#A1A1AA] text-sm">Cargando stock real...</span>
+                        </div>
+                    </div>
+                </CrmShell>
+            </ProtectedRoute>
+        );
+    }
+
+    if (error) {
+        return (
+            <ProtectedRoute>
+                <CrmShell>
+                    <div className="flex items-center justify-center h-[50vh]">
+                        <div className="flex flex-col items-center gap-3 text-center">
+                            <span className="text-[#EF3329] font-bold">Error de conexión</span>
+                            <span className="text-[#A1A1AA] text-sm">{error}</span>
+                        </div>
+                    </div>
+                </CrmShell>
+            </ProtectedRoute>
+        );
+    }
 
     return (
         <ProtectedRoute>
             <CrmShell>
                 <div className="flex flex-col gap-6">
-                    <div>
-                        <h1 className="text-2xl font-bold text-white m-0 mb-1">Stock de Vehículos</h1>
-                        <p className="text-sm text-[#A1A1AA] m-0">Gestión de inventario y valuaciones (Demo)</p>
+                    <div className="flex items-center justify-between">
+                        <div>
+                            <h1 className="text-2xl font-bold text-white m-0 mb-1">Stock de Vehículos</h1>
+                            <p className="text-sm text-[#A1A1AA] m-0 flex items-center gap-2">
+                                Gestión de inventario y valuaciones
+                                <span className="bg-[#22C55E]/10 text-[#22C55E] text-[10px] px-2 py-0.5 rounded font-medium border border-[#22C55E]/20">Datos reales (Solo lectura)</span>
+                            </p>
+                        </div>
                     </div>
 
                     <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">

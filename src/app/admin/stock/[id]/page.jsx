@@ -2,9 +2,10 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { ArrowLeft } from 'lucide-react';
+import { useParams, useRouter } from 'next/navigation';
 import CrmShell from '../../../../components/crm/layout/CrmShell';
 import ProtectedRoute from '../../../../components/ProtectedRoute';
-import { stockDemoData, calculateVehicleMetrics } from '../../../../components/crm/demo/stockDemoData';
+import { mapRealCarToCRM } from '../../../../components/crm/stock/vehicleAdapter';
 import VehicleDetailHeader from '../../../../components/crm/stock/VehicleDetailHeader';
 import VehicleFinancialSummary from '../../../../components/crm/stock/VehicleFinancialSummary';
 import VehicleInfoPanel from '../../../../components/crm/stock/VehicleInfoPanel';
@@ -12,29 +13,72 @@ import VehicleHistoryTimeline from '../../../../components/crm/stock/VehicleHist
 import VehicleDocumentsDemo from '../../../../components/crm/stock/VehicleDocumentsDemo';
 import VehicleActionsPanel from '../../../../components/crm/stock/VehicleActionsPanel';
 
-export default function VehicleDetailPage({ params }) {
+export default function VehicleDetailPage() {
+    const params = useParams();
+    const router = useRouter();
     const [vehicle, setVehicle] = useState(null);
     const [loading, setLoading] = useState(true);
+    const [error, setError] = useState(null);
 
     useEffect(() => {
-        // Simulamos fetch de datos
-        const timer = setTimeout(() => {
-            const found = stockDemoData.find(v => v.id === params.id);
-            if (found) {
-                setVehicle(calculateVehicleMetrics(found));
-            }
-            setLoading(false);
-        }, 300); // 300ms delay para simular red y skeleton
+        if (!params?.id) return;
         
-        return () => clearTimeout(timer);
-    }, [params.id]);
+        const fetchCar = async () => {
+            try {
+                const API_URL = process.env.NEXT_PUBLIC_API_URL;
+                const baseUrl = process.env.NODE_ENV === 'production' ? '' : (API_URL || 'http://localhost:3001');
+                const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
+                
+                const response = await fetch(`${baseUrl}/api/admin/cars/${params.id}`, {
+                    headers: {
+                        'Authorization': `Bearer ${token}`
+                    }
+                });
+
+                if (!response.ok) {
+                    if (response.status === 404) {
+                        setVehicle(null);
+                    } else {
+                        throw new Error('Error al obtener datos');
+                    }
+                } else {
+                    const data = await response.json();
+                    setVehicle(mapRealCarToCRM(data));
+                }
+            } catch (err) {
+                setError(err.message);
+            } finally {
+                setLoading(false);
+            }
+        };
+
+        fetchCar();
+    }, [params?.id]);
 
     if (loading) {
         return (
             <ProtectedRoute>
                 <CrmShell>
                     <div className="flex items-center justify-center h-[50vh]">
-                        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#E63027]"></div>
+                        <div className="flex flex-col items-center gap-3">
+                            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#E63027]"></div>
+                            <span className="text-[#A1A1AA] text-sm">Cargando datos reales del vehículo...</span>
+                        </div>
+                    </div>
+                </CrmShell>
+            </ProtectedRoute>
+        );
+    }
+
+    if (error) {
+        return (
+            <ProtectedRoute>
+                <CrmShell>
+                    <div className="flex items-center justify-center h-[50vh]">
+                        <div className="flex flex-col items-center gap-3 text-center">
+                            <span className="text-[#EF3329] font-bold">Error de conexión</span>
+                            <span className="text-[#A1A1AA] text-sm">{error}</span>
+                        </div>
                     </div>
                 </CrmShell>
             </ProtectedRoute>

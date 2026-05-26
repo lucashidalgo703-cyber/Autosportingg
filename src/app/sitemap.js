@@ -26,7 +26,7 @@ export default async function sitemap() {
             API_URL = `https://${process.env.VERCEL_URL}`;
         }
 
-        const res = await fetch(`${API_URL}/api/cars`, { next: { revalidate: 3600 } });
+        const res = await fetch(`${API_URL}/api/public/cars`, { next: { revalidate: 3600 } });
         if (res.ok) {
             const cars = await res.json();
             carRoutes = cars.map((car) => ({

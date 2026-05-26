@@ -21,7 +21,7 @@ const CarDetail = () => {
                 setLoading(true);
                 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
                 const baseUrl = process.env.NODE_ENV === 'production' ? '' : API_URL;
-                const response = await fetch(`${baseUrl}/api/cars/${id}?t=${Date.now()}`);
+                const response = await fetch(`${baseUrl}/api/public/cars/${id}?t=${Date.now()}`);
                 if (response.ok) {
                     const data = await response.json();
                     setCar(data);

@@ -9,16 +9,39 @@ export const useCars = () => {
     const [error, setError] = useState(null);
     const { logout } = useAuth();
 
-    const fetchCars = async () => {
+    const fetchCars = async (isAdmin = false) => {
         try {
             setLoading(true);
             const API_URL = process.env.NEXT_PUBLIC_API_URL;
             const baseUrl = process.env.NODE_ENV === 'production' ? '' : (API_URL || 'http://localhost:3001');
-            const endpoint = `${baseUrl}/api/cars`;
+            
+            // Si el token existe e isAdmin es true, intentamos endpoint protegido, sino el publico saneado
+            const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
+            const useAdminEndpoint = isAdmin || !!token;
+            const endpoint = `${baseUrl}/api/${useAdminEndpoint ? 'admin' : 'public'}/cars`;
 
-            // Add cache busting to ensure fresh data
-            const response = await fetch(`${endpoint}?t=${Date.now()}`);
-            if (!response.ok) throw new Error('Failed to fetch cars');
+            const headers = {};
+            if (useAdminEndpoint && token) {
+                headers['Authorization'] = `Bearer ${token}`;
+            }
+
+            const response = await fetch(`${endpoint}?t=${Date.now()}`, { headers });
+            
+            // Fallback en caso de que el token sea invalido y de un 401/403
+            if (!response.ok) {
+                if (useAdminEndpoint && (response.status === 401 || response.status === 403)) {
+                    // Limpiar token si es invalido y falló
+                    localStorage.removeItem('token');
+                    // Volver a intentar sin token en la ruta publica
+                    const publicResponse = await fetch(`${baseUrl}/api/public/cars?t=${Date.now()}`);
+                    if (publicResponse.ok) {
+                        const data = await publicResponse.json();
+                        setCars(data);
+                        return;
+                    }
+                }
+                throw new Error('Failed to fetch cars');
+            }
             const data = await response.json();
             setCars(data);
         } catch (err) {
@@ -30,7 +53,9 @@ export const useCars = () => {
     };
 
     useEffect(() => {
-        fetchCars();
+        // En el primer render, trata de determinar si debe usar el endpoint de admin
+        const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
+        fetchCars(!!token);
     }, []);
 
     const deleteCar = async (id) => {
@@ -63,5 +88,5 @@ export const useCars = () => {
         }
     };
 
-    return { cars, loading, error, refresh: fetchCars, deleteCar, setCars };
+    return { cars, loading, error, refresh: () => fetchCars(!!localStorage.getItem('token')), deleteCar, setCars };
 };

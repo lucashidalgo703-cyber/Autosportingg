@@ -64,10 +64,35 @@ app.post('/api/login', (req, res) => {
     }
 });
 
-// GET all cars
-app.get('/api/cars', async (req, res) => {
+// GET public cars (Sanitized)
+app.get('/api/public/cars', async (req, res) => {
     try {
-        // Disable cache for Vercel Edge
+        res.setHeader('Cache-Control', 'no-store, max-age=0');
+        // Only return visible/public cars if needed, currently return all but sanitized
+        const cars = await Car.find()
+            .select('-purchasePrice -purchaseCurrency -ownerName -ownerEmail -ownerPhone -linkedClient -consignedBy -notes -agencyOwned -engineNumber -chassisNumber -location -hasManuals -hasDuplicateKeys -hasOfficialServices -publishedOnML -publishedBy -mlLink')
+            .sort({ order: 1, createdAt: -1 });
+        res.json(cars);
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+});
+
+// GET single public car (Sanitized)
+app.get('/api/public/cars/:id', async (req, res) => {
+    try {
+        const car = await Car.findById(req.params.id)
+            .select('-purchasePrice -purchaseCurrency -ownerName -ownerEmail -ownerPhone -linkedClient -consignedBy -notes -agencyOwned -engineNumber -chassisNumber -location -hasManuals -hasDuplicateKeys -hasOfficialServices -publishedOnML -publishedBy -mlLink');
+        if (!car) return res.status(404).json({ message: 'Car not found' });
+        res.json(car);
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+});
+
+// GET all cars for Admin (Protected, Full Data)
+app.get('/api/admin/cars', authenticateToken, async (req, res) => {
+    try {
         res.setHeader('Cache-Control', 'no-store, max-age=0');
         const cars = await Car.find().sort({ order: 1, createdAt: -1 });
         res.json(cars);
@@ -76,8 +101,8 @@ app.get('/api/cars', async (req, res) => {
     }
 });
 
-// GET single car
-app.get('/api/cars/:id', async (req, res) => {
+// GET single car for Admin (Protected, Full Data)
+app.get('/api/admin/cars/:id', authenticateToken, async (req, res) => {
     try {
         const car = await Car.findById(req.params.id);
         if (!car) return res.status(404).json({ message: 'Car not found' });
