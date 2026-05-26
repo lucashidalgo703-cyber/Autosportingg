@@ -62,12 +62,49 @@ export const useAdminLeads = () => {
         }
     };
 
+    const fetchLeadById = async (id) => {
+        setLoading(true);
+        setError(null);
+        try {
+            const res = await fetch(`${getBaseUrl()}/api/admin/leads/${id}`, {
+                headers: getAuthHeader()
+            });
+            if (!res.ok) throw new Error('Error al cargar la oportunidad');
+            const data = await res.json();
+            return data;
+        } catch (err) {
+            setError(err.message);
+            throw err;
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const updateLead = async (id, leadData) => {
+        try {
+            const res = await fetch(`${getBaseUrl()}/api/admin/leads/${id}`, {
+                method: 'PATCH',
+                headers: getAuthHeader(),
+                body: JSON.stringify(leadData)
+            });
+            if (!res.ok) {
+                const errData = await res.json();
+                throw new Error(errData.message || 'Error al actualizar');
+            }
+            return await res.json();
+        } catch (err) {
+            throw err;
+        }
+    };
+
     return {
         leads,
         loading,
         error,
         total,
         fetchLeads,
+        fetchLeadById,
+        updateLead,
         linkClientToLead
     };
 };

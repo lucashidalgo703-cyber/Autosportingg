@@ -96,11 +96,10 @@ export default function LeadsTable({ leads }) {
 
                             {/* Acciones */}
                             <td className="py-4 px-4">
-                                {/* Todavía no hay [id] de leads, así que dejamos un link deshabilitado o a próxima fase */}
-                                <button disabled className="flex items-center gap-2 text-xs font-bold text-neutral-500 cursor-not-allowed bg-neutral-900 px-3 py-1.5 rounded-lg border border-neutral-800">
+                                <Link href={`/admin/leads/${lead._id}`} className="flex items-center justify-center gap-2 text-xs font-bold text-red-500 hover:text-red-400 bg-red-500/10 hover:bg-red-500/20 px-3 py-1.5 rounded-lg border border-red-500/20 transition-colors w-max">
                                     Ver Ficha
                                     <ArrowRight size={14} />
-                                </button>
+                                </Link>
                             </td>
 
                         </tr>
