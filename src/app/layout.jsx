@@ -4,6 +4,7 @@ import Navbar from '../components/Navbar';
 import Footer from '../components/Footer';
 import WhatsAppButton from '../components/WhatsAppButton';
 import Preloader from '../components/Preloader';
+import PublicChromeGate from '../components/PublicChromeGate';
 import { Analytics } from '@vercel/analytics/react';
 
 export const metadata = {
@@ -72,10 +73,14 @@ export default function RootLayout({ children }) {
                 <ClientProviders>
                     <div className="app">
                         <Preloader />
-                        <Navbar />
-                        <WhatsAppButton />
+                        <PublicChromeGate>
+                            <Navbar />
+                            <WhatsAppButton />
+                        </PublicChromeGate>
                         {children}
-                        <Footer />
+                        <PublicChromeGate>
+                            <Footer />
+                        </PublicChromeGate>
                         <Analytics />
                     </div>
                 </ClientProviders>
