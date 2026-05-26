@@ -1,0 +1,81 @@
+import React from 'react';
+import Link from 'next/link';
+import { ArrowRight, Phone, Mail, Car, Clock, User } from 'lucide-react';
+import LeadStatusBadge from './LeadStatusBadge';
+import LeadPriorityBadge from './LeadPriorityBadge';
+
+export default function LeadMobileCards({ leads }) {
+    return (
+        <div className="flex flex-col gap-4">
+            {leads.map((lead) => (
+                <div key={lead._id} className="bg-neutral-900 border border-neutral-800 p-4 rounded-xl flex flex-col gap-4">
+                    
+                    {/* Header: Name and Badges */}
+                    <div className="flex justify-between items-start gap-3">
+                        <div className="flex flex-col gap-1">
+                            <span className="text-white font-bold text-lg">{lead.name}</span>
+                            <div className="flex flex-wrap gap-2 mt-1">
+                                <LeadStatusBadge status={lead.crmStatus} legacyStage={lead.pipelineStage} />
+                                <LeadPriorityBadge priority={lead.priority} />
+                                <span className="text-[10px] font-bold px-2 py-0.5 rounded border capitalize bg-neutral-800 text-neutral-400 border-neutral-700">
+                                    {lead.source || 'otro'}
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div className="h-px w-full bg-neutral-800"></div>
+
+                    {/* Content: Info */}
+                    <div className="flex flex-col gap-3">
+                        <div className="flex items-center gap-3 text-sm text-neutral-300">
+                            <Phone size={16} className="text-neutral-500 shrink-0" />
+                            <span>{lead.phone}</span>
+                        </div>
+                        
+                        {lead.email && (
+                            <div className="flex items-center gap-3 text-sm text-neutral-300">
+                                <Mail size={16} className="text-neutral-500 shrink-0" />
+                                <span className="truncate">{lead.email}</span>
+                            </div>
+                        )}
+
+                        {lead.vehicleId && (
+                            <div className="flex items-center gap-3 text-sm text-neutral-300">
+                                <Car size={16} className="text-red-500 shrink-0" />
+                                <span>{lead.vehicleId.marca} {lead.vehicleId.modelo}</span>
+                            </div>
+                        )}
+
+                        <div className="flex items-center gap-3 text-sm text-neutral-300">
+                            <User size={16} className="text-neutral-500 shrink-0" />
+                            {lead.clientId ? (
+                                <Link href={`/admin/clientes/${lead.clientId._id}`} className="text-blue-400 hover:underline">
+                                    Cliente Vinculado
+                                </Link>
+                            ) : (
+                                <span className="text-orange-400 font-medium">Sin Vincular</span>
+                            )}
+                        </div>
+                    </div>
+
+                    <div className="h-px w-full bg-neutral-800"></div>
+
+                    {/* Footer: Date and Action */}
+                    <div className="flex justify-between items-center">
+                        <div className="flex items-center gap-1.5 text-xs text-neutral-500">
+                            <Clock size={14} />
+                            <span>{new Date(lead.createdAt).toLocaleDateString()}</span>
+                        </div>
+                        
+                        <button disabled className="flex items-center gap-2 text-xs font-bold text-neutral-500 cursor-not-allowed bg-black/50 px-3 py-2 rounded-lg border border-neutral-800">
+                            Ver Ficha
+                            <ArrowRight size={14} />
+                        </button>
+                    </div>
+
+                </div>
+            ))}
+        </div>
+    );
+}
