@@ -75,7 +75,7 @@ clientSchema.index({ phoneNormalized: 1 });
 clientSchema.index({ emailNormalized: 1 });
 
 // Middleware para asegurar fullName y fields normalizados antes de guardar
-clientSchema.pre('validate', function(next) {
+clientSchema.pre('validate', function() {
     if (this.firstName && !this.fullName) {
         this.fullName = `${this.firstName} ${this.lastName || ''}`.trim();
     } else if (this.fullName && !this.firstName) {
@@ -94,13 +94,10 @@ clientSchema.pre('validate', function(next) {
     if (this.email) {
         this.emailNormalized = this.email.toLowerCase().trim();
     }
-    
-    next();
 });
 
-clientSchema.pre('save', function(next) {
+clientSchema.pre('save', function() {
     this.lastActivityAt = Date.now();
-    next();
 });
 
 const Client = mongoose.models.Client || mongoose.model('Client', clientSchema);
