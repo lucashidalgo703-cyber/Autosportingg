@@ -1,8 +1,8 @@
 import React from 'react';
-import { User, Mail, Phone, ArrowRight, UserX } from 'lucide-react';
+import { User, Mail, Phone, ArrowRight, UserX, Link as LinkIcon, RefreshCw } from 'lucide-react';
 import Link from 'next/link';
 
-export default function LeadClientPanel({ lead }) {
+export default function LeadClientPanel({ lead, onOpenLinkModal }) {
     if (!lead) return null;
 
     const hasClient = Boolean(lead.clientId);
@@ -49,7 +49,7 @@ export default function LeadClientPanel({ lead }) {
                         )}
                     </div>
 
-                    <div className="mt-auto pt-4">
+                    <div className="mt-auto pt-4 flex flex-col gap-2">
                         <Link 
                             href={`/admin/clientes/${lead.clientId._id}`}
                             className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-medium transition-colors border border-blue-500"
@@ -57,6 +57,14 @@ export default function LeadClientPanel({ lead }) {
                             Ver Perfil del Cliente
                             <ArrowRight size={16} />
                         </Link>
+                        
+                        <button 
+                            onClick={onOpenLinkModal}
+                            className="w-full flex items-center justify-center gap-2 px-4 py-2 rounded-lg bg-neutral-900 hover:bg-neutral-800 text-neutral-400 hover:text-white transition-colors border border-neutral-800 text-sm"
+                        >
+                            <RefreshCw size={14} />
+                            Cambiar Cliente Vinculado
+                        </button>
                     </div>
                 </div>
             ) : (
@@ -64,12 +72,16 @@ export default function LeadClientPanel({ lead }) {
                     <div className="w-16 h-16 rounded-full bg-neutral-800 flex items-center justify-center mb-4">
                         <UserX size={32} className="text-neutral-500" />
                     </div>
-                    <h4 className="text-white font-bold mb-2">Lead sin vincular</h4>
+                    <h4 className="text-white font-bold mb-2">Posible cliente relacionado</h4>
                     <p className="text-sm text-neutral-400 max-w-[200px] mb-4">
-                        Este lead todavía no está vinculado a un perfil de cliente real.
+                        Este lead todavía no está vinculado a un perfil de cliente real. Buscá o sugerimos coincidencias.
                     </p>
-                    <button disabled className="text-xs text-neutral-500 cursor-not-allowed bg-black/50 px-4 py-2 rounded-lg border border-neutral-800 font-bold w-full uppercase">
-                        Vinculación en Fase 3.2D
+                    <button 
+                        onClick={onOpenLinkModal}
+                        className="flex items-center justify-center gap-2 text-sm text-blue-400 hover:text-white bg-blue-500/10 hover:bg-blue-500/20 px-4 py-2.5 rounded-lg border border-blue-500/20 transition-colors w-full font-bold"
+                    >
+                        <LinkIcon size={16} />
+                        Vincular Cliente
                     </button>
                 </div>
             )}

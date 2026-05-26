@@ -9,13 +9,15 @@ import LeadClientPanel from '../../../../components/crm/leads/LeadClientPanel';
 import LeadVehiclePanel from '../../../../components/crm/leads/LeadVehiclePanel';
 import LeadActivityPanel from '../../../../components/crm/leads/LeadActivityPanel';
 import LeadEditModal from '../../../../components/crm/leads/LeadEditModal';
+import LeadLinkClientModal from '../../../../components/crm/leads/LeadLinkClientModal';
 
 export default function AdminLeadDetailPage() {
     const { id } = useParams();
-    const { fetchLeadById, updateLead, loading, error } = useAdminLeads();
+    const { fetchLeadById, updateLead, linkClientToLead, loading, error } = useAdminLeads();
     
     const [lead, setLead] = useState(null);
     const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+    const [isLinkModalOpen, setIsLinkModalOpen] = useState(false);
     const [fetchError, setFetchError] = useState(null);
 
     const loadLead = async () => {
@@ -37,6 +39,11 @@ export default function AdminLeadDetailPage() {
     const handleUpdate = async (updatedData) => {
         await updateLead(id, updatedData);
         await loadLead(); // Reload fresh data after update
+    };
+
+    const handleLinkClient = async (clientId) => {
+        await linkClientToLead(id, clientId);
+        await loadLead(); // Reload fresh data after linking
     };
 
     if (loading && !lead) {
@@ -74,7 +81,7 @@ export default function AdminLeadDetailPage() {
                 
                 {/* Columna Derecha: Relaciones */}
                 <div className="lg:col-span-1 flex flex-col gap-6">
-                    <LeadClientPanel lead={lead} />
+                    <LeadClientPanel lead={lead} onOpenLinkModal={() => setIsLinkModalOpen(true)} />
                     <LeadVehiclePanel lead={lead} />
                 </div>
             </div>
@@ -88,6 +95,13 @@ export default function AdminLeadDetailPage() {
                 isOpen={isEditModalOpen} 
                 onClose={() => setIsEditModalOpen(false)} 
                 onSave={handleUpdate}
+                lead={lead}
+            />
+
+            <LeadLinkClientModal
+                isOpen={isLinkModalOpen}
+                onClose={() => setIsLinkModalOpen(false)}
+                onLink={handleLinkClient}
                 lead={lead}
             />
         </div>
