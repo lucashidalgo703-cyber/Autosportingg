@@ -37,7 +37,18 @@ const carSchema = new mongoose.Schema({
 
     featured: { type: Boolean, default: false },
     sold: { type: Boolean, default: false },
-    status: { type: String, enum: ['Disponible', 'Vendido', 'Reservado'], default: 'Disponible' },
+    status: { type: String, enum: ['Disponible', 'Vendido', 'Reservado', 'Pausado'], default: 'Disponible' },
+    
+    // Phase 2.4: Visibility and Expenses
+    visibleEnWeb: { type: Boolean, default: true },
+    expenses: [{
+        concept: { type: String, required: true },
+        amount: { type: Number, required: true },
+        currency: { type: String, enum: ['ARS', 'USD'], required: true },
+        date: { type: Date, default: Date.now },
+        note: { type: String }
+    }],
+
     order: { type: Number, default: 0 }, // For manual sorting
     imagePosition: { type: String, default: '50% 75%' }, // CSS object-position
     images: [{ type: String }], // Array of Cloudinary URLs

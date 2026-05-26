@@ -68,9 +68,9 @@ app.post('/api/login', (req, res) => {
 app.get('/api/public/cars', async (req, res) => {
     try {
         res.setHeader('Cache-Control', 'no-store, max-age=0');
-        // Only return visible/public cars if needed, currently return all but sanitized
-        const cars = await Car.find()
-            .select('-purchasePrice -purchaseCurrency -ownerName -ownerEmail -ownerPhone -linkedClient -consignedBy -notes -agencyOwned -engineNumber -chassisNumber -location -hasManuals -hasDuplicateKeys -hasOfficialServices -publishedOnML -publishedBy -mlLink -plateOrVin')
+        // Only return visible/public cars. We use $ne: false so existing cars without the field are still visible.
+        const cars = await Car.find({ visibleEnWeb: { $ne: false } })
+            .select('-purchasePrice -purchaseCurrency -ownerName -ownerEmail -ownerPhone -linkedClient -consignedBy -notes -agencyOwned -engineNumber -chassisNumber -location -hasManuals -hasDuplicateKeys -hasOfficialServices -publishedOnML -publishedBy -mlLink -plateOrVin -expenses')
             .sort({ order: 1, createdAt: -1 });
         res.json(cars);
     } catch (error) {
@@ -82,8 +82,11 @@ app.get('/api/public/cars', async (req, res) => {
 app.get('/api/public/cars/:id', async (req, res) => {
     try {
         const car = await Car.findById(req.params.id)
-            .select('-purchasePrice -purchaseCurrency -ownerName -ownerEmail -ownerPhone -linkedClient -consignedBy -notes -agencyOwned -engineNumber -chassisNumber -location -hasManuals -hasDuplicateKeys -hasOfficialServices -publishedOnML -publishedBy -mlLink -plateOrVin');
-        if (!car) return res.status(404).json({ message: 'Car not found' });
+            .select('-purchasePrice -purchaseCurrency -ownerName -ownerEmail -ownerPhone -linkedClient -consignedBy -notes -agencyOwned -engineNumber -chassisNumber -location -hasManuals -hasDuplicateKeys -hasOfficialServices -publishedOnML -publishedBy -mlLink -plateOrVin -expenses');
+        
+        if (!car || car.visibleEnWeb === false) {
+            return res.status(404).json({ message: 'Car not found or hidden' });
+        }
         res.json(car);
     } catch (error) {
         res.status(500).json({ message: error.message });
@@ -265,6 +268,65 @@ app.put('/api/cars/:id', authenticateToken, upload.array('images', 20), async (r
 
     } catch (error) {
         console.error('Update Error:', error);
+        res.status(400).json({ message: error.message });
+    }
+});
+
+// PATCH update car (Protected, clean JSON, for CRM)
+app.patch('/api/admin/cars/:id', authenticateToken, async (req, res) => {
+    try {
+        const { 
+            brand, name, year, km, fuel, condition, description, price, currency, featured, sold, status,
+            vehicleType, plateOrVin, color, purchasePrice, purchaseCurrency, location, owners, agencyOwned,
+            ownerName, linkedClient, ownerPhone, ownerEmail, consignedBy, engineNumber, chassisNumber,
+            notes, visibleEnWeb, expenses
+        } = req.body;
+
+        const car = await Car.findById(req.params.id);
+        if (!car) return res.status(404).json({ message: 'Car not found' });
+
+        // Update fields if provided
+        if (brand !== undefined) car.brand = brand;
+        if (name !== undefined) car.name = name;
+        if (year !== undefined) car.year = Number(year);
+        if (km !== undefined) car.km = Number(km);
+        if (fuel !== undefined) car.fuel = fuel;
+        if (condition !== undefined) car.condition = condition;
+        if (description !== undefined) car.description = description;
+        if (price !== undefined) car.price = Number(price);
+        if (currency !== undefined) car.currency = currency;
+        if (featured !== undefined) car.featured = featured;
+        if (sold !== undefined) car.sold = sold;
+        if (status !== undefined) car.status = status;
+        if (visibleEnWeb !== undefined) car.visibleEnWeb = visibleEnWeb;
+
+        // Internal fields
+        if (vehicleType !== undefined) car.vehicleType = vehicleType;
+        if (plateOrVin !== undefined) car.plateOrVin = plateOrVin;
+        if (color !== undefined) car.color = color;
+        if (purchasePrice !== undefined) car.purchasePrice = Number(purchasePrice);
+        if (purchaseCurrency !== undefined) car.purchaseCurrency = purchaseCurrency;
+        if (location !== undefined) car.location = location;
+        if (owners !== undefined) car.owners = Number(owners);
+        if (agencyOwned !== undefined) car.agencyOwned = agencyOwned;
+        if (ownerName !== undefined) car.ownerName = ownerName;
+        if (linkedClient !== undefined) car.linkedClient = linkedClient;
+        if (ownerPhone !== undefined) car.ownerPhone = ownerPhone;
+        if (ownerEmail !== undefined) car.ownerEmail = ownerEmail;
+        if (consignedBy !== undefined) car.consignedBy = consignedBy;
+        if (engineNumber !== undefined) car.engineNumber = engineNumber;
+        if (chassisNumber !== undefined) car.chassisNumber = chassisNumber;
+        if (notes !== undefined) car.notes = notes;
+
+        // Expenses
+        if (expenses !== undefined && Array.isArray(expenses)) {
+            car.expenses = expenses;
+        }
+
+        const updatedCar = await car.save();
+        res.json(updatedCar);
+    } catch (error) {
+        console.error("PATCH error:", error);
         res.status(400).json({ message: error.message });
     }
 });

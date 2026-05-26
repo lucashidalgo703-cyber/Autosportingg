@@ -22,6 +22,15 @@ export default function VehicleDetailHeader({ vehicle }) {
             </div>
             
             <div className="flex flex-wrap items-center gap-3">
+                {vehicle.visibleEnWeb ? (
+                    <span className="px-2.5 py-1 rounded-full text-xs font-medium bg-blue-500/10 text-blue-400 border border-blue-500/20">
+                        Público Web
+                    </span>
+                ) : (
+                    <span className="px-2.5 py-1 rounded-full text-xs font-medium bg-[#A1A1AA]/10 text-[#A1A1AA] border border-[#33333A]">
+                        Oculto Web
+                    </span>
+                )}
                 <VehicleStatusBadge status={vehicle.estado} />
                 <div className="h-6 w-px bg-[#33333A] hidden md:block"></div>
                 <VehicleRotationAlert dias={vehicle.diasEnStock} />
