@@ -1,7 +1,6 @@
 "use client";
 import { useState, useMemo, useEffect } from 'react';
-import CrmShell from '../../../components/crm/layout/CrmShell';
-import ProtectedRoute from '../../../components/ProtectedRoute';
+
 import CrmStatCard from '../../../components/crm/ui/CrmStatCard';
 import StockFilters from '../../../components/crm/stock/StockFilters';
 import StockTable from '../../../components/crm/stock/StockTable';
@@ -59,37 +58,28 @@ export default function AdminStockPage() {
 
     if (loading) {
         return (
-            <ProtectedRoute>
-                <CrmShell>
-                    <div className="flex items-center justify-center h-[50vh]">
-                        <div className="flex flex-col items-center gap-3">
-                            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#E63027]"></div>
-                            <span className="text-[#A1A1AA] text-sm">Cargando stock real...</span>
-                        </div>
-                    </div>
-                </CrmShell>
-            </ProtectedRoute>
+            <div className="flex items-center justify-center h-[50vh]">
+                <div className="flex flex-col items-center gap-3">
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#E63027]"></div>
+                    <span className="text-[#A1A1AA] text-sm">Cargando stock real...</span>
+                </div>
+            </div>
         );
     }
 
     if (error) {
         return (
-            <ProtectedRoute>
-                <CrmShell>
-                    <div className="flex items-center justify-center h-[50vh]">
-                        <div className="flex flex-col items-center gap-3 text-center">
-                            <span className="text-[#EF3329] font-bold">Error de conexión</span>
-                            <span className="text-[#A1A1AA] text-sm">{error}</span>
-                        </div>
-                    </div>
-                </CrmShell>
-            </ProtectedRoute>
+            <div className="flex items-center justify-center h-[50vh]">
+                <div className="flex flex-col items-center gap-3 text-center">
+                    <span className="text-[#EF3329] font-bold">Error de conexión</span>
+                    <span className="text-[#A1A1AA] text-sm">{error}</span>
+                </div>
+            </div>
         );
     }
 
     return (
-        <ProtectedRoute>
-            <CrmShell>
+        <>
                 <div className="flex flex-col gap-6">
                     <div className="flex items-center justify-between">
                         <div>
@@ -151,7 +141,6 @@ export default function AdminStockPage() {
                     onClose={() => setIsFormOpen(false)} 
                     onSubmit={handleFormSubmit}
                 />
-            </CrmShell>
-        </ProtectedRoute>
+        </>
     );
 }

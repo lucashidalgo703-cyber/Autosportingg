@@ -38,15 +38,15 @@ export default function AdminClientDetailPage() {
 
     if (loading && !client) {
         return (
-            <div className="flex justify-center items-center h-screen bg-[#0a0a0a]">
-                <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-red-500"></div>
+            <div className="flex justify-center items-center h-[50vh]">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-red-500"></div>
             </div>
         );
     }
 
     if (fetchError || (!loading && !client)) {
         return (
-            <div className="p-8 max-w-7xl mx-auto min-h-screen pt-20">
+            <div className="flex items-center justify-center h-[50vh]">
                 <div className="bg-red-500/10 border border-red-500/20 text-red-400 p-6 rounded-xl flex items-center gap-3">
                     <AlertCircle size={24} />
                     <p>{fetchError || 'Cliente no encontrado'}</p>
@@ -56,7 +56,7 @@ export default function AdminClientDetailPage() {
     }
 
     return (
-        <div className="p-4 md:p-8 max-w-[1600px] mx-auto min-h-screen">
+        <div className="flex flex-col gap-6 max-w-[1600px] mx-auto w-full">
             <ClientDetailHeader 
                 client={client} 
                 onEdit={() => setIsEditModalOpen(true)} 

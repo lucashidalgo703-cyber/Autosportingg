@@ -27,7 +27,7 @@ export default function AdminClientesPage() {
     };
 
     return (
-        <div className="p-4 md:p-8 max-w-[1600px] mx-auto min-h-screen">
+        <div className="flex flex-col gap-6 max-w-[1600px] mx-auto w-full">
             {/* Header */}
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-8">
                 <div>

@@ -1,7 +1,6 @@
 "use client";
 import { useMemo } from 'react';
-import CrmShell from '../../components/crm/layout/CrmShell';
-import ProtectedRoute from '../../components/ProtectedRoute';
+
 import { useAdminCars } from '../../hooks/useAdminCars';
 import { calculateDashboardMetrics } from '../../components/crm/dashboard/dashboardMetrics';
 import { Loader2, AlertCircle } from 'lucide-react';
@@ -22,8 +21,6 @@ export default function AdminDashboardPage() {
     }, [cars]);
 
     return (
-        <ProtectedRoute>
-            <CrmShell>
                 <div className="flex flex-col gap-6 pb-12">
                     <div>
                         <h1 className="text-2xl font-bold text-white m-0 mb-1">Dashboard</h1>
@@ -66,7 +63,5 @@ export default function AdminDashboardPage() {
                         </div>
                     )}
                 </div>
-            </CrmShell>
-        </ProtectedRoute>
     );
 }

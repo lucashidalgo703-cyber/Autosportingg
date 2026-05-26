@@ -4,8 +4,7 @@ import Link from 'next/link';
 import { ArrowLeft } from 'lucide-react';
 import { useParams, useRouter } from 'next/navigation';
 import toast from 'react-hot-toast';
-import CrmShell from '../../../../components/crm/layout/CrmShell';
-import ProtectedRoute from '../../../../components/ProtectedRoute';
+
 import { mapRealCarToCRM } from '../../../../components/crm/stock/vehicleAdapter';
 import VehicleDetailHeader from '../../../../components/crm/stock/VehicleDetailHeader';
 import VehicleFinancialSummary from '../../../../components/crm/stock/VehicleFinancialSummary';
@@ -93,59 +92,46 @@ export default function VehicleDetailPage() {
 
     if (loading) {
         return (
-            <ProtectedRoute>
-                <CrmShell>
-                    <div className="flex items-center justify-center h-[50vh]">
-                        <div className="flex flex-col items-center gap-3">
-                            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#E63027]"></div>
-                            <span className="text-[#A1A1AA] text-sm">Cargando datos reales del vehículo...</span>
-                        </div>
-                    </div>
-                </CrmShell>
-            </ProtectedRoute>
+            <div className="flex items-center justify-center h-[50vh]">
+                <div className="flex flex-col items-center gap-3">
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#E63027]"></div>
+                    <span className="text-[#A1A1AA] text-sm">Cargando datos reales del vehículo...</span>
+                </div>
+            </div>
         );
     }
 
     if (error) {
         return (
-            <ProtectedRoute>
-                <CrmShell>
-                    <div className="flex items-center justify-center h-[50vh]">
-                        <div className="flex flex-col items-center gap-3 text-center">
-                            <span className="text-[#EF3329] font-bold">Error de conexión</span>
-                            <span className="text-[#A1A1AA] text-sm">{error}</span>
-                        </div>
-                    </div>
-                </CrmShell>
-            </ProtectedRoute>
+            <div className="flex items-center justify-center h-[50vh]">
+                <div className="flex flex-col items-center gap-3 text-center">
+                    <span className="text-[#EF3329] font-bold">Error de conexión</span>
+                    <span className="text-[#A1A1AA] text-sm">{error}</span>
+                </div>
+            </div>
         );
     }
 
     if (!vehicle) {
         return (
-            <ProtectedRoute>
-                <CrmShell>
-                    <div className="flex flex-col items-center justify-center h-[50vh] gap-4">
-                        <div className="text-center">
-                            <h2 className="text-xl font-bold text-white mb-2">Vehículo no encontrado</h2>
-                            <p className="text-[#A1A1AA] text-sm">El vehículo con ID "{params.id}" no existe en la base de datos de demostración.</p>
-                        </div>
-                        <Link 
-                            href="/admin/stock"
-                            className="flex items-center gap-2 px-4 py-2 bg-[#E63027] text-white rounded-lg hover:bg-[#C42620] transition-colors font-medium text-sm"
-                        >
-                            <ArrowLeft size={16} />
-                            Volver al Stock
-                        </Link>
-                    </div>
-                </CrmShell>
-            </ProtectedRoute>
+            <div className="flex flex-col items-center justify-center h-[50vh] gap-4">
+                <div className="text-center">
+                    <h2 className="text-xl font-bold text-white mb-2">Vehículo no encontrado</h2>
+                    <p className="text-[#A1A1AA] text-sm">El vehículo con ID "{params.id}" no existe en la base de datos de demostración.</p>
+                </div>
+                <Link 
+                    href="/admin/stock"
+                    className="flex items-center gap-2 px-4 py-2 bg-[#E63027] text-white rounded-lg hover:bg-[#C42620] transition-colors font-medium text-sm"
+                >
+                    <ArrowLeft size={16} />
+                    Volver al Stock
+                </Link>
+            </div>
         );
     }
 
     return (
-        <ProtectedRoute>
-            <CrmShell>
+        <>
                 <div className="flex flex-col gap-6">
                     <VehicleDetailHeader vehicle={vehicle} />
                     
@@ -182,7 +168,6 @@ export default function VehicleDetailPage() {
                     onSave={handleSaveExpense} 
                     vehicleCurrency={vehicle.monedaCompra || 'USD'} 
                 />
-            </CrmShell>
-        </ProtectedRoute>
+        </>
     );
 }
