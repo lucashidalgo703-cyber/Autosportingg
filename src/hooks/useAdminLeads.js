@@ -100,6 +100,23 @@ export const useAdminLeads = () => {
         }
     };
 
+    const updateTaskStatus = async (leadId, taskId, status) => {
+        try {
+            const res = await fetch(`${getBaseUrl()}/api/admin/leads/${leadId}/tasks/${taskId}`, {
+                method: 'PATCH',
+                headers: getAuthHeader(),
+                body: JSON.stringify({ status })
+            });
+            if (!res.ok) {
+                const errData = await res.json().catch(() => ({}));
+                throw new Error(errData.message || 'Error al actualizar tarea');
+            }
+            return await res.json();
+        } catch (err) {
+            throw err;
+        }
+    };
+
     return {
         leads,
         loading,
@@ -108,6 +125,7 @@ export const useAdminLeads = () => {
         fetchLeads,
         fetchLeadById,
         updateLead,
-        linkClientToLead
+        linkClientToLead,
+        updateTaskStatus
     };
 };

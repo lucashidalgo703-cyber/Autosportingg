@@ -15,6 +15,7 @@ export default function LeadsTable({ leads }) {
                         <th className="pb-3 font-medium px-4">Vehículo</th>
                         <th className="pb-3 font-medium px-4">Estado</th>
                         <th className="pb-3 font-medium px-4">Prioridad</th>
+                        <th className="pb-3 font-medium px-4">Próxima Acción</th>
                         <th className="pb-3 font-medium px-4">Origen</th>
                         <th className="pb-3 font-medium px-4">Asociado</th>
                         <th className="pb-3 font-medium px-4">Acciones</th>
@@ -71,6 +72,22 @@ export default function LeadsTable({ leads }) {
                             {/* Prioridad */}
                             <td className="py-4 px-4">
                                 <LeadPriorityBadge priority={lead.priority} />
+                            </td>
+
+                            {/* Próxima Acción */}
+                            <td className="py-4 px-4">
+                                {lead.nextActionDate ? (
+                                    <div className="flex flex-col gap-1">
+                                        <span className={`text-xs font-bold ${new Date(lead.nextActionDate) < new Date() ? 'text-red-400' : 'text-blue-400'}`}>
+                                            {new Date(lead.nextActionDate).toLocaleDateString()}
+                                        </span>
+                                        {new Date(lead.nextActionDate) < new Date() && (
+                                            <span className="text-[10px] bg-red-500/20 text-red-400 px-1.5 py-0.5 rounded w-max">VENCIDA</span>
+                                        )}
+                                    </div>
+                                ) : (
+                                    <span className="text-xs text-neutral-600">-</span>
+                                )}
                             </td>
 
                             {/* Origen */}

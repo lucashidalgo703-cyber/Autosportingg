@@ -699,11 +699,12 @@ app.patch('/api/admin/leads/:id', authenticateToken, async (req, res) => {
         });
         
         if (payload.newTask) {
-            lead.tasks.push({
+            const newTaskObj = {
                 ...payload.newTask,
                 user: user,
                 createdAt: new Date()
-            });
+            };
+            lead.tasks.push(newTaskObj);
             newAuditLogs.push({
                 action: 'TAREA',
                 field: 'tasks',
@@ -711,6 +712,14 @@ app.patch('/api/admin/leads/:id', authenticateToken, async (req, res) => {
                 source: 'CRM_V2',
                 details: `Nueva tarea: ${payload.newTask.title}`
             });
+
+            // Native backend logic to auto-update nextActionDate based on new task dueDate
+            if (payload.newTask.dueDate) {
+                const newTaskDate = new Date(payload.newTask.dueDate);
+                if (!lead.nextActionDate || newTaskDate < new Date(lead.nextActionDate)) {
+                    lead.nextActionDate = newTaskDate;
+                }
+            }
         }
         
         if (payload.newNote) {
@@ -762,6 +771,55 @@ app.patch('/api/admin/leads/:id/link-client', authenticateToken, async (req, res
         res.json(updatedLead);
     } catch (error) {
         console.error('Error linking client to lead:', error);
+        res.status(400).json({ message: error.message });
+    }
+});
+
+// PATCH update task status
+app.patch('/api/admin/leads/:id/tasks/:taskId', authenticateToken, async (req, res) => {
+    try {
+        const { status } = req.body;
+        if (!status || !['pendiente', 'completada', 'cancelada'].includes(status)) {
+            return res.status(400).json({ message: 'Invalid status' });
+        }
+        
+        const lead = await Lead.findById(req.params.id);
+        if (!lead) return res.status(404).json({ message: 'Lead not found' });
+        
+        const task = lead.tasks.id(req.params.taskId);
+        if (!task) return res.status(404).json({ message: 'Task not found' });
+        
+        if (task.status === status) {
+            return res.json(lead);
+        }
+        
+        const user = req.user?.username || 'Admin';
+        task.status = status;
+        
+        let action = 'ACTUALIZACION';
+        let detailMsg = `Tarea actualizada: ${task.title}`;
+        
+        if (status === 'completada') {
+            task.completedAt = new Date();
+            action = 'TAREA_COMPLETADA';
+            detailMsg = `Tarea completada: ${task.title}`;
+        } else if (status === 'cancelada') {
+            action = 'TAREA_CANCELADA';
+            detailMsg = `Tarea cancelada: ${task.title}`;
+        }
+        
+        lead.leadAuditLog.push({
+            action: action,
+            field: 'tasks',
+            user: user,
+            source: 'CRM_V2',
+            details: detailMsg
+        });
+        
+        const updatedLead = await lead.save();
+        res.json(updatedLead);
+    } catch (error) {
+        console.error('Error updating lead task:', error);
         res.status(400).json({ message: error.message });
     }
 });

@@ -57,6 +57,18 @@ export default function LeadMobileCards({ leads }) {
                                 <span className="text-orange-400 font-medium">Sin Vincular</span>
                             )}
                         </div>
+
+                        {lead.nextActionDate && (
+                            <div className="flex items-center gap-3 text-sm mt-1">
+                                <Clock size={16} className={new Date(lead.nextActionDate) < new Date() ? 'text-red-500 shrink-0' : 'text-blue-500 shrink-0'} />
+                                <span className={new Date(lead.nextActionDate) < new Date() ? 'text-red-400 font-bold' : 'text-blue-400 font-bold'}>
+                                    Acción: {new Date(lead.nextActionDate).toLocaleDateString()}
+                                </span>
+                                {new Date(lead.nextActionDate) < new Date() && (
+                                    <span className="text-[10px] bg-red-500/20 text-red-400 px-1.5 py-0.5 rounded uppercase font-bold">Vencida</span>
+                                )}
+                            </div>
+                        )}
                     </div>
 
                     <div className="h-px w-full bg-neutral-800"></div>

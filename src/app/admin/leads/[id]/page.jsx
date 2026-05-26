@@ -10,14 +10,17 @@ import LeadVehiclePanel from '../../../../components/crm/leads/LeadVehiclePanel'
 import LeadActivityPanel from '../../../../components/crm/leads/LeadActivityPanel';
 import LeadEditModal from '../../../../components/crm/leads/LeadEditModal';
 import LeadLinkClientModal from '../../../../components/crm/leads/LeadLinkClientModal';
+import LeadTasksPanel from '../../../../components/crm/leads/LeadTasksPanel';
+import LeadTaskModal from '../../../../components/crm/leads/LeadTaskModal';
 
 export default function AdminLeadDetailPage() {
     const { id } = useParams();
-    const { fetchLeadById, updateLead, linkClientToLead, loading, error } = useAdminLeads();
+    const { fetchLeadById, updateLead, linkClientToLead, updateTaskStatus, loading, error } = useAdminLeads();
     
     const [lead, setLead] = useState(null);
     const [isEditModalOpen, setIsEditModalOpen] = useState(false);
     const [isLinkModalOpen, setIsLinkModalOpen] = useState(false);
+    const [isTaskModalOpen, setIsTaskModalOpen] = useState(false);
     const [fetchError, setFetchError] = useState(null);
 
     const loadLead = async () => {
@@ -44,6 +47,16 @@ export default function AdminLeadDetailPage() {
     const handleLinkClient = async (clientId) => {
         await linkClientToLead(id, clientId);
         await loadLead(); // Reload fresh data after linking
+    };
+
+    const handleAddTask = async (taskPayload) => {
+        await updateLead(id, taskPayload);
+        await loadLead();
+    };
+
+    const handleUpdateTaskStatus = async (taskId, status) => {
+        await updateTaskStatus(id, taskId, status);
+        await loadLead();
     };
 
     if (loading && !lead) {
@@ -77,6 +90,11 @@ export default function AdminLeadDetailPage() {
                 {/* Columna Izquierda: Data Principal */}
                 <div className="lg:col-span-2 flex flex-col gap-6">
                     <LeadInfoPanel lead={lead} />
+                    <LeadTasksPanel 
+                        lead={lead} 
+                        onOpenTaskModal={() => setIsTaskModalOpen(true)}
+                        onUpdateTaskStatus={handleUpdateTaskStatus}
+                    />
                 </div>
                 
                 {/* Columna Derecha: Relaciones */}
@@ -103,6 +121,12 @@ export default function AdminLeadDetailPage() {
                 onClose={() => setIsLinkModalOpen(false)}
                 onLink={handleLinkClient}
                 lead={lead}
+            />
+
+            <LeadTaskModal
+                isOpen={isTaskModalOpen}
+                onClose={() => setIsTaskModalOpen(false)}
+                onSave={handleAddTask}
             />
         </div>
     );
