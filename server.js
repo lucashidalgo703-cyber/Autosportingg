@@ -70,7 +70,7 @@ app.get('/api/public/cars', async (req, res) => {
         res.setHeader('Cache-Control', 'no-store, max-age=0');
         // Only return visible/public cars. We use $ne: false so existing cars without the field are still visible.
         const cars = await Car.find({ visibleEnWeb: { $ne: false } })
-            .select('-purchasePrice -purchaseCurrency -ownerName -ownerEmail -ownerPhone -linkedClient -consignedBy -notes -agencyOwned -engineNumber -chassisNumber -location -hasManuals -hasDuplicateKeys -hasOfficialServices -publishedOnML -publishedBy -mlLink -plateOrVin -expenses -visibleEnWeb -createdAt -updatedAt -__v -order -owners')
+            .select('-purchasePrice -purchaseCurrency -ownerName -ownerEmail -ownerPhone -linkedClient -consignedBy -notes -agencyOwned -engineNumber -chassisNumber -location -hasManuals -hasDuplicateKeys -hasOfficialServices -publishedOnML -publishedBy -mlLink -plateOrVin -expenses -visibleEnWeb -createdAt -updatedAt -__v -order -owners -auditLog')
             .sort({ order: 1, createdAt: -1 });
         res.json(cars);
     } catch (error) {
@@ -82,7 +82,7 @@ app.get('/api/public/cars', async (req, res) => {
 app.get('/api/public/cars/:id', async (req, res) => {
     try {
         const car = await Car.findOne({ _id: req.params.id, visibleEnWeb: { $ne: false } })
-            .select('-purchasePrice -purchaseCurrency -ownerName -ownerEmail -ownerPhone -linkedClient -consignedBy -notes -agencyOwned -engineNumber -chassisNumber -location -hasManuals -hasDuplicateKeys -hasOfficialServices -publishedOnML -publishedBy -mlLink -plateOrVin -expenses -visibleEnWeb -createdAt -updatedAt -__v -order -owners');
+            .select('-purchasePrice -purchaseCurrency -ownerName -ownerEmail -ownerPhone -linkedClient -consignedBy -notes -agencyOwned -engineNumber -chassisNumber -location -hasManuals -hasDuplicateKeys -hasOfficialServices -publishedOnML -publishedBy -mlLink -plateOrVin -expenses -visibleEnWeb -createdAt -updatedAt -__v -order -owners -auditLog');
         
         if (!car) {
             return res.status(404).json({ message: 'Car not found' });
@@ -285,42 +285,93 @@ app.patch('/api/admin/cars/:id', authenticateToken, async (req, res) => {
         const car = await Car.findById(req.params.id);
         if (!car) return res.status(404).json({ message: 'Car not found' });
 
-        // Update fields if provided
-        if (brand !== undefined) car.brand = brand;
-        if (name !== undefined) car.name = name;
-        if (year !== undefined) car.year = Number(year);
-        if (km !== undefined) car.km = Number(km);
-        if (fuel !== undefined) car.fuel = fuel;
-        if (condition !== undefined) car.condition = condition;
-        if (description !== undefined) car.description = description;
-        if (price !== undefined) car.price = Number(price);
-        if (currency !== undefined) car.currency = currency;
-        if (featured !== undefined) car.featured = featured;
-        if (sold !== undefined) car.sold = sold;
-        if (status !== undefined) car.status = status;
-        if (visibleEnWeb !== undefined) car.visibleEnWeb = visibleEnWeb;
+        const user = req.user?.username || 'Admin'; // Requires auth token to include username or default
+        const newAuditLogs = [];
+
+        const checkAndLog = (field, newValue, action, detailsFormatter) => {
+            if (newValue !== undefined && car[field] !== newValue) {
+                // For expenses, we handle it separately
+                if (field !== 'expenses') {
+                    newAuditLogs.push({
+                        action,
+                        field,
+                        oldValue: car[field],
+                        newValue,
+                        details: detailsFormatter(car[field], newValue),
+                        user,
+                        source: 'CRM_V2'
+                    });
+                }
+            }
+        };
+
+        // Update fields if provided & generate logs
+        if (brand !== undefined && car.brand !== brand) { checkAndLog('brand', brand, 'EDICION', (o,n) => `Marca modificada de ${o} a ${n}`); car.brand = brand; }
+        if (name !== undefined && car.name !== name) { checkAndLog('name', name, 'EDICION', (o,n) => `Modelo modificado de ${o} a ${n}`); car.name = name; }
+        if (year !== undefined && car.year !== Number(year)) { checkAndLog('year', Number(year), 'EDICION', (o,n) => `Año modificado de ${o} a ${n}`); car.year = Number(year); }
+        if (km !== undefined && car.km !== Number(km)) { checkAndLog('km', Number(km), 'EDICION', (o,n) => `Kilometraje modificado de ${o} a ${n}`); car.km = Number(km); }
+        if (fuel !== undefined && car.fuel !== fuel) { checkAndLog('fuel', fuel, 'EDICION', (o,n) => `Combustible modificado de ${o} a ${n}`); car.fuel = fuel; }
+        if (condition !== undefined && car.condition !== condition) { checkAndLog('condition', condition, 'EDICION', (o,n) => `Condición modificada de ${o} a ${n}`); car.condition = condition; }
+        if (description !== undefined && car.description !== description) { checkAndLog('description', description, 'EDICION', () => `Descripción modificada`); car.description = description; }
+        
+        if (price !== undefined && car.price !== Number(price)) { 
+            checkAndLog('price', Number(price), 'PRECIO', (o,n) => `Precio publicado modificado de ${car.currency || ''} ${o} a ${car.currency || ''} ${n}`); 
+            car.price = Number(price); 
+        }
+        if (currency !== undefined && car.currency !== currency) { checkAndLog('currency', currency, 'PRECIO', (o,n) => `Moneda modificada de ${o} a ${n}`); car.currency = currency; }
+        
+        if (featured !== undefined && car.featured !== featured) { checkAndLog('featured', featured, 'EDICION', (o,n) => `Destacado cambiado a ${n ? 'Sí' : 'No'}`); car.featured = featured; }
+        if (sold !== undefined && car.sold !== sold) { car.sold = sold; }
+        
+        if (status !== undefined && car.status !== status) { 
+            checkAndLog('status', status, 'ESTADO', (o,n) => `Estado modificado de ${o} a ${n}`); 
+            car.status = status; 
+        }
+        
+        if (visibleEnWeb !== undefined && car.visibleEnWeb !== visibleEnWeb) { 
+            checkAndLog('visibleEnWeb', visibleEnWeb, 'VISIBILIDAD', (o,n) => `Visibilidad web cambiada a ${n ? 'Público' : 'Oculto'}`); 
+            car.visibleEnWeb = visibleEnWeb; 
+        }
 
         // Internal fields
-        if (vehicleType !== undefined) car.vehicleType = vehicleType;
-        if (plateOrVin !== undefined) car.plateOrVin = plateOrVin;
-        if (color !== undefined) car.color = color;
-        if (purchasePrice !== undefined) car.purchasePrice = Number(purchasePrice);
-        if (purchaseCurrency !== undefined) car.purchaseCurrency = purchaseCurrency;
-        if (location !== undefined) car.location = location;
-        if (owners !== undefined) car.owners = Number(owners);
-        if (agencyOwned !== undefined) car.agencyOwned = agencyOwned;
-        if (ownerName !== undefined) car.ownerName = ownerName;
-        if (linkedClient !== undefined) car.linkedClient = linkedClient;
-        if (ownerPhone !== undefined) car.ownerPhone = ownerPhone;
-        if (ownerEmail !== undefined) car.ownerEmail = ownerEmail;
-        if (consignedBy !== undefined) car.consignedBy = consignedBy;
-        if (engineNumber !== undefined) car.engineNumber = engineNumber;
-        if (chassisNumber !== undefined) car.chassisNumber = chassisNumber;
-        if (notes !== undefined) car.notes = notes;
+        if (vehicleType !== undefined && car.vehicleType !== vehicleType) { checkAndLog('vehicleType', vehicleType, 'EDICION', (o,n) => `Tipo modificado`); car.vehicleType = vehicleType; }
+        if (plateOrVin !== undefined && car.plateOrVin !== plateOrVin) { checkAndLog('plateOrVin', plateOrVin, 'EDICION', (o,n) => `Dominio/VIN modificado de ${o || 'nada'} a ${n}`); car.plateOrVin = plateOrVin; }
+        if (color !== undefined && car.color !== color) { checkAndLog('color', color, 'EDICION', (o,n) => `Color modificado de ${o} a ${n}`); car.color = color; }
+        if (purchasePrice !== undefined && car.purchasePrice !== Number(purchasePrice)) { checkAndLog('purchasePrice', Number(purchasePrice), 'PRECIO', (o,n) => `Costo de compra modificado de ${o} a ${n}`); car.purchasePrice = Number(purchasePrice); }
+        if (purchaseCurrency !== undefined && car.purchaseCurrency !== purchaseCurrency) { checkAndLog('purchaseCurrency', purchaseCurrency, 'PRECIO', (o,n) => `Moneda de compra modificada de ${o} a ${n}`); car.purchaseCurrency = purchaseCurrency; }
+        if (location !== undefined && car.location !== location) { checkAndLog('location', location, 'EDICION', (o,n) => `Ubicación modificada de ${o} a ${n}`); car.location = location; }
+        if (owners !== undefined && car.owners !== Number(owners)) { car.owners = Number(owners); }
+        if (agencyOwned !== undefined && car.agencyOwned !== agencyOwned) { checkAndLog('agencyOwned', agencyOwned, 'EDICION', (o,n) => `Origen propio cambiado a ${n ? 'Sí' : 'No'}`); car.agencyOwned = agencyOwned; }
+        if (ownerName !== undefined && car.ownerName !== ownerName) { checkAndLog('ownerName', ownerName, 'EDICION', (o,n) => `Dueño modificado a ${n}`); car.ownerName = ownerName; }
+        if (linkedClient !== undefined && car.linkedClient !== linkedClient) { car.linkedClient = linkedClient; }
+        if (ownerPhone !== undefined && car.ownerPhone !== ownerPhone) { car.ownerPhone = ownerPhone; }
+        if (ownerEmail !== undefined && car.ownerEmail !== ownerEmail) { car.ownerEmail = ownerEmail; }
+        if (consignedBy !== undefined && car.consignedBy !== consignedBy) { checkAndLog('consignedBy', consignedBy, 'EDICION', (o,n) => `Consignado por modificado a ${n}`); car.consignedBy = consignedBy; }
+        if (engineNumber !== undefined && car.engineNumber !== engineNumber) { car.engineNumber = engineNumber; }
+        if (chassisNumber !== undefined && car.chassisNumber !== chassisNumber) { car.chassisNumber = chassisNumber; }
+        if (notes !== undefined && car.notes !== notes) { checkAndLog('notes', notes, 'OBSERVACION', () => `Observación interna actualizada`); car.notes = notes; }
 
         // Expenses
         if (expenses !== undefined && Array.isArray(expenses)) {
+            // Check for new expenses
+            const oldLength = car.expenses ? car.expenses.length : 0;
+            if (expenses.length > oldLength) {
+                const newExp = expenses[expenses.length - 1]; // Assume the new one is appended
+                newAuditLogs.push({
+                    action: 'GASTO',
+                    field: 'expenses',
+                    newValue: newExp,
+                    details: `Gasto agregado: ${newExp.concept} por ${newExp.currency} ${newExp.amount}${newExp.note ? ` (${newExp.note})` : ''}`,
+                    user,
+                    source: 'CRM_V2'
+                });
+            }
             car.expenses = expenses;
+        }
+
+        if (newAuditLogs.length > 0) {
+            if (!car.auditLog) car.auditLog = [];
+            car.auditLog.push(...newAuditLogs);
         }
 
         const updatedCar = await car.save();

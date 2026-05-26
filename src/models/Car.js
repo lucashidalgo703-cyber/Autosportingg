@@ -48,6 +48,19 @@ const carSchema = new mongoose.Schema({
         date: { type: Date, default: Date.now },
         note: { type: String }
     }],
+    auditLog: {
+        type: [{
+            action: { type: String, required: true }, // PRECIO, ESTADO, VISIBILIDAD, GASTO, OBSERVACION, EDICION
+            field: { type: String },
+            oldValue: mongoose.Schema.Types.Mixed,
+            newValue: mongoose.Schema.Types.Mixed,
+            details: { type: String },
+            date: { type: Date, default: Date.now },
+            user: { type: String, default: 'Admin' },
+            source: { type: String, default: 'CRM_V2' }
+        }],
+        default: []
+    },
 
     order: { type: Number, default: 0 }, // For manual sorting
     imagePosition: { type: String, default: '50% 75%' }, // CSS object-position
