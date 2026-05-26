@@ -564,7 +564,210 @@ app.patch('/api/admin/clients/:id', authenticateToken, async (req, res) => {
     }
 });
 
-// --- LEADS ROUTES ---
+// --- ADMIN LEADS ROUTES (CRM V2) ---
+
+// GET admin leads
+app.get('/api/admin/leads', authenticateToken, async (req, res) => {
+    try {
+        const { search, crmStatus, priority, source, clientId, unlinked, vehicleId, limit = 50, skip = 0 } = req.query;
+        let query = {};
+        
+        if (search) {
+            query.$or = [
+                { name: { $regex: search, $options: 'i' } },
+                { phone: { $regex: search, $options: 'i' } },
+                { email: { $regex: search, $options: 'i' } }
+            ];
+        }
+        
+        if (crmStatus) query.crmStatus = crmStatus;
+        if (priority) query.priority = priority;
+        if (source) query.source = source;
+        if (vehicleId) query.vehicleId = vehicleId;
+        
+        if (unlinked === 'true') {
+            query.clientId = null;
+        } else if (clientId) {
+            query.clientId = clientId;
+        }
+        
+        const leads = await Lead.find(query)
+            .populate('vehicleId', 'marca modelo version dominio precioVenta moneda')
+            .populate('clientId', 'fullName phone email')
+            .sort({ createdAt: -1 })
+            .skip(parseInt(skip))
+            .limit(parseInt(limit));
+            
+        const total = await Lead.countDocuments(query);
+        
+        res.json({ leads, total, skip: parseInt(skip), limit: parseInt(limit) });
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+});
+
+// GET single admin lead
+app.get('/api/admin/leads/:id', authenticateToken, async (req, res) => {
+    try {
+        const lead = await Lead.findById(req.params.id)
+            .populate('vehicleId')
+            .populate('clientId');
+        if (!lead) return res.status(404).json({ message: 'Lead not found' });
+        res.json(lead);
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+});
+
+// POST new admin lead
+app.post('/api/admin/leads', authenticateToken, async (req, res) => {
+    try {
+        const payload = req.body;
+        
+        if (!payload.name) return res.status(400).json({ message: 'Name is required' });
+        if (!payload.phone && !payload.email) return res.status(400).json({ message: 'Contact info is required' });
+        
+        const allowedFields = [
+            'name', 'phone', 'email', 'clientId', 'vehicleId', 'source', 
+            'crmStatus', 'priority', 'assignedTo', 'nextActionDate', 'pipelineStage'
+        ];
+        
+        let sanitizedData = {};
+        allowedFields.forEach(field => {
+            if (payload[field] !== undefined) {
+                sanitizedData[field] = payload[field];
+            }
+        });
+        
+        const user = req.user?.username || 'Admin';
+        
+        if (payload.notes) {
+            sanitizedData.notes = [{ text: payload.notes, date: new Date() }];
+        }
+        
+        sanitizedData.leadAuditLog = [{
+            action: 'CREACION',
+            date: new Date(),
+            user: user,
+            source: 'CRM_V2',
+            details: 'Lead creado desde CRM V2'
+        }];
+        
+        const newLead = new Lead(sanitizedData);
+        const savedLead = await newLead.save();
+        
+        res.status(201).json(savedLead);
+    } catch (error) {
+        console.error('Error creating admin lead:', error);
+        res.status(400).json({ message: error.message });
+    }
+});
+
+// PATCH update admin lead
+app.patch('/api/admin/leads/:id', authenticateToken, async (req, res) => {
+    try {
+        const lead = await Lead.findById(req.params.id);
+        if (!lead) return res.status(404).json({ message: 'Lead not found' });
+        
+        const payload = req.body;
+        const allowedFields = [
+            'name', 'phone', 'email', 'vehicleId', 'source', 
+            'crmStatus', 'priority', 'assignedTo', 'nextActionDate', 'pipelineStage'
+        ];
+        
+        const user = req.user?.username || 'Admin';
+        const newAuditLogs = [];
+        
+        allowedFields.forEach(field => {
+            if (payload[field] !== undefined && payload[field] !== lead[field] && JSON.stringify(payload[field]) !== JSON.stringify(lead[field])) {
+                let action = 'ACTUALIZACION';
+                if (field === 'crmStatus') action = 'CAMBIO_ESTADO';
+                if (field === 'priority') action = 'CAMBIO_PRIORIDAD';
+                if (field === 'vehicleId') action = 'CAMBIO_VEHICULO';
+                
+                newAuditLogs.push({
+                    action: action,
+                    field: field,
+                    oldValue: lead[field],
+                    newValue: payload[field],
+                    user: user,
+                    source: 'CRM_V2',
+                    details: `Campo ${field} actualizado`
+                });
+                lead[field] = payload[field];
+            }
+        });
+        
+        if (payload.newTask) {
+            lead.tasks.push({
+                ...payload.newTask,
+                user: user,
+                createdAt: new Date()
+            });
+            newAuditLogs.push({
+                action: 'TAREA',
+                field: 'tasks',
+                user: user,
+                source: 'CRM_V2',
+                details: `Nueva tarea: ${payload.newTask.title}`
+            });
+        }
+        
+        if (payload.newNote) {
+            lead.notes.push({
+                text: payload.newNote,
+                date: new Date()
+            });
+        }
+        
+        if (newAuditLogs.length > 0) {
+            lead.leadAuditLog.push(...newAuditLogs);
+        }
+        
+        const updatedLead = await lead.save();
+        res.json(updatedLead);
+    } catch (error) {
+        console.error('Error updating admin lead:', error);
+        res.status(400).json({ message: error.message });
+    }
+});
+
+// PATCH link client to lead
+app.patch('/api/admin/leads/:id/link-client', authenticateToken, async (req, res) => {
+    try {
+        const { clientId } = req.body;
+        if (!clientId) return res.status(400).json({ message: 'Client ID is required' });
+        
+        const lead = await Lead.findById(req.params.id);
+        if (!lead) return res.status(404).json({ message: 'Lead not found' });
+        
+        const Client = mongoose.models.Client;
+        const client = await Client.findById(clientId);
+        if (!client) return res.status(404).json({ message: 'Client not found in DB' });
+        
+        const user = req.user?.username || 'Admin';
+        
+        lead.clientId = clientId;
+        lead.lastActivityAt = new Date();
+        
+        lead.leadAuditLog.push({
+            action: 'VINCULACION_CLIENTE',
+            field: 'clientId',
+            newValue: clientId,
+            user: user,
+            source: 'CRM_V2',
+            details: `Vinculado al cliente: ${client.fullName || client.firstName}`
+        });
+        
+        const updatedLead = await lead.save();
+        res.json(updatedLead);
+    } catch (error) {
+        console.error('Error linking client to lead:', error);
+        res.status(400).json({ message: error.message });
+    }
+});
+
+// --- LEADS ROUTES (LEGACY) ---
 
 // POST new lead from public website (No Authentication Required)
 app.post('/api/leads/public', async (req, res) => {
