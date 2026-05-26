@@ -3,9 +3,9 @@ import { usePathname } from 'next/navigation';
 
 export default function PublicChromeGate({ children }) {
     const pathname = usePathname();
-    const isCrm = pathname?.startsWith('/crm');
+    const isProtected = pathname?.startsWith('/crm') || pathname?.startsWith('/admin');
     
-    if (isCrm) {
+    if (isProtected) {
         return null;
     }
     

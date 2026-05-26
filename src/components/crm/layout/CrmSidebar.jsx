@@ -4,17 +4,17 @@ import { usePathname } from 'next/navigation';
 import { LayoutDashboard, CarFront, Users, UserPlus, Receipt, CalendarClock, Wallet, Landmark, FileText, BarChart3, Settings } from 'lucide-react';
 
 const menuItems = [
-    { name: 'Dashboard', path: '/crm', icon: LayoutDashboard },
-    { name: 'Stock', path: '/crm/stock', icon: CarFront },
-    { name: 'Clientes', path: '/crm/clientes', icon: Users },
-    { name: 'Leads', path: '/crm/leads', icon: UserPlus },
-    { name: 'Ventas', path: '/crm/ventas', icon: Receipt },
-    { name: 'Reservas', path: '/crm/reservas', icon: CalendarClock },
-    { name: 'Finanzas', path: '/crm/finanzas', icon: Wallet },
-    { name: 'Cuotas', path: '/crm/cuotas', icon: Landmark },
-    { name: 'Documentación', path: '/crm/documentacion', icon: FileText },
-    { name: 'Reportes', path: '/crm/reportes', icon: BarChart3 },
-    { name: 'Configuración', path: '/crm/configuracion', icon: Settings },
+    { name: 'Dashboard', path: '/admin', icon: LayoutDashboard },
+    { name: 'Stock', path: '/admin/stock', icon: CarFront },
+    { name: 'Clientes', path: '/admin/clientes', icon: Users },
+    { name: 'Leads', path: '/admin/leads', icon: UserPlus },
+    { name: 'Ventas', path: '/admin/ventas', icon: Receipt },
+    { name: 'Reservas', path: '/admin/reservas', icon: CalendarClock },
+    { name: 'Finanzas', path: '/admin/finanzas', icon: Wallet },
+    { name: 'Cuotas', path: '/admin/cuotas', icon: Landmark },
+    { name: 'Documentación', path: '/admin/documentacion', icon: FileText },
+    { name: 'Reportes', path: '/admin/reportes', icon: BarChart3 },
+    { name: 'Configuración', path: '/admin/configuracion', icon: Settings },
 ];
 
 export default function CrmSidebar({ isOpen, onClose }) {
