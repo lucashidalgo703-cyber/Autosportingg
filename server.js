@@ -741,7 +741,6 @@ app.patch('/api/admin/leads/:id/link-client', authenticateToken, async (req, res
         const lead = await Lead.findById(req.params.id);
         if (!lead) return res.status(404).json({ message: 'Lead not found' });
         
-        const Client = mongoose.models.Client;
         const client = await Client.findById(clientId);
         if (!client) return res.status(404).json({ message: 'Client not found in DB' });
         

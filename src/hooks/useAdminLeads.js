@@ -55,7 +55,10 @@ export const useAdminLeads = () => {
                 headers: getAuthHeader(),
                 body: JSON.stringify({ clientId })
             });
-            if (!res.ok) throw new Error('Error al vincular el cliente');
+            if (!res.ok) {
+                const errData = await res.json().catch(() => ({}));
+                throw new Error(errData.message || 'Error al vincular el cliente');
+            }
             return await res.json();
         } catch (err) {
             throw err;
