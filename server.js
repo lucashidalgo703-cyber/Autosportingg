@@ -70,7 +70,7 @@ app.get('/api/public/cars', async (req, res) => {
         res.setHeader('Cache-Control', 'no-store, max-age=0');
         // Only return visible/public cars. We use $ne: false so existing cars without the field are still visible.
         const cars = await Car.find({ visibleEnWeb: { $ne: false } })
-            .select('-purchasePrice -purchaseCurrency -ownerName -ownerEmail -ownerPhone -linkedClient -consignedBy -notes -agencyOwned -engineNumber -chassisNumber -location -hasManuals -hasDuplicateKeys -hasOfficialServices -publishedOnML -publishedBy -mlLink -plateOrVin -expenses')
+            .select('-purchasePrice -purchaseCurrency -ownerName -ownerEmail -ownerPhone -linkedClient -consignedBy -notes -agencyOwned -engineNumber -chassisNumber -location -hasManuals -hasDuplicateKeys -hasOfficialServices -publishedOnML -publishedBy -mlLink -plateOrVin -expenses -visibleEnWeb -createdAt -updatedAt -__v -order -owners')
             .sort({ order: 1, createdAt: -1 });
         res.json(cars);
     } catch (error) {
@@ -81,11 +81,11 @@ app.get('/api/public/cars', async (req, res) => {
 // GET single public car (Sanitized)
 app.get('/api/public/cars/:id', async (req, res) => {
     try {
-        const car = await Car.findById(req.params.id)
-            .select('-purchasePrice -purchaseCurrency -ownerName -ownerEmail -ownerPhone -linkedClient -consignedBy -notes -agencyOwned -engineNumber -chassisNumber -location -hasManuals -hasDuplicateKeys -hasOfficialServices -publishedOnML -publishedBy -mlLink -plateOrVin -expenses');
+        const car = await Car.findOne({ _id: req.params.id, visibleEnWeb: { $ne: false } })
+            .select('-purchasePrice -purchaseCurrency -ownerName -ownerEmail -ownerPhone -linkedClient -consignedBy -notes -agencyOwned -engineNumber -chassisNumber -location -hasManuals -hasDuplicateKeys -hasOfficialServices -publishedOnML -publishedBy -mlLink -plateOrVin -expenses -visibleEnWeb -createdAt -updatedAt -__v -order -owners');
         
-        if (!car || car.visibleEnWeb === false) {
-            return res.status(404).json({ message: 'Car not found or hidden' });
+        if (!car) {
+            return res.status(404).json({ message: 'Car not found' });
         }
         res.json(car);
     } catch (error) {
