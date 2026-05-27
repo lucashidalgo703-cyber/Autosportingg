@@ -12,6 +12,8 @@ import LeadEditModal from '../../../../components/crm/leads/LeadEditModal';
 import LeadLinkClientModal from '../../../../components/crm/leads/LeadLinkClientModal';
 import LeadTasksPanel from '../../../../components/crm/leads/LeadTasksPanel';
 import LeadTaskModal from '../../../../components/crm/leads/LeadTaskModal';
+import ReservationModal from '../../../../components/crm/reservations/ReservationModal';
+import { useAdminReservations } from '../../../../hooks/useAdminReservations';
 
 export default function AdminLeadDetailPage() {
     const { id } = useParams();
@@ -21,12 +23,25 @@ export default function AdminLeadDetailPage() {
     const [isEditModalOpen, setIsEditModalOpen] = useState(false);
     const [isLinkModalOpen, setIsLinkModalOpen] = useState(false);
     const [isTaskModalOpen, setIsTaskModalOpen] = useState(false);
+    const [isReservationModalOpen, setIsReservationModalOpen] = useState(false);
     const [fetchError, setFetchError] = useState(null);
+    
+    const { fetchReservations } = useAdminReservations();
+    const [activeReservation, setActiveReservation] = useState(null);
 
     const loadLead = async () => {
         try {
             const data = await fetchLeadById(id);
             setLead(data);
+            
+            if (data.vehicleId && data.vehicleId._id) {
+                const reservations = await fetchReservations({ vehicleId: data.vehicleId._id, status: 'activa' });
+                if (reservations && reservations.length > 0) {
+                    setActiveReservation(reservations[0]);
+                } else {
+                    setActiveReservation(null);
+                }
+            }
         } catch (err) {
             setFetchError(err.message);
         }
@@ -83,6 +98,8 @@ export default function AdminLeadDetailPage() {
             <LeadDetailHeader 
                 lead={lead} 
                 onEdit={() => setIsEditModalOpen(true)} 
+                onReserve={() => setIsReservationModalOpen(true)}
+                activeReservation={activeReservation}
             />
 
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -127,6 +144,25 @@ export default function AdminLeadDetailPage() {
                 isOpen={isTaskModalOpen}
                 onClose={() => setIsTaskModalOpen(false)}
                 onSave={handleAddTask}
+            />
+
+            <ReservationModal
+                isOpen={isReservationModalOpen}
+                onClose={() => setIsReservationModalOpen(false)}
+                onSuccess={() => {
+                    setIsReservationModalOpen(false);
+                    loadLead();
+                }}
+                initialData={{
+                    leadId: lead?._id,
+                    leadName: lead?.name,
+                    clientId: lead?.clientId?._id,
+                    clientName: lead?.clientId ? `${lead.clientId.firstName} ${lead.clientId.lastName}` : null,
+                    vehicleId: lead?.vehicleId?._id,
+                    vehicleName: lead?.vehicleId ? `${lead.vehicleId.brand} ${lead.vehicleId.name} ${lead.vehicleId.year}` : null,
+                    agreedPrice: lead?.vehicleId?.price,
+                    agreedCurrency: lead?.vehicleId?.currency || 'USD'
+                }}
             />
         </div>
     );

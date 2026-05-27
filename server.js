@@ -1235,7 +1235,15 @@ app.delete('/api/transactions/:id', authenticateToken, async (req, res) => {
 // GET all reservations
 app.get('/api/admin/reservations', authenticateToken, async (req, res) => {
     try {
-        const reservations = await Reservation.find()
+        const { vehicleId, leadId, clientId, status } = req.query;
+        let query = {};
+        
+        if (vehicleId) query.vehicleId = vehicleId;
+        if (leadId) query.leadId = leadId;
+        if (clientId) query.clientId = clientId;
+        if (status) query.status = status;
+
+        const reservations = await Reservation.find(query)
             .populate({
                 path: 'clientId',
                 select: 'firstName lastName fullName phone email'

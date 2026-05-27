@@ -3,7 +3,7 @@ import CrmCard from '../ui/CrmCard';
 import CrmButton from '../ui/CrmButton';
 import { Edit, CalendarClock, Handshake, Receipt, MessageSquare } from 'lucide-react';
 
-export default function VehicleActionsPanel({ vehicle, onEdit, onAddExpense }) {
+export default function VehicleActionsPanel({ vehicle, onEdit, onAddExpense, onReserve, activeReservation }) {
     return (
         <CrmCard>
             <h3 className="text-white font-semibold text-lg mb-4">Acciones de Stock</h3>
@@ -17,11 +17,20 @@ export default function VehicleActionsPanel({ vehicle, onEdit, onAddExpense }) {
                     </div>
                 </CrmButton>
 
-                <CrmButton className="flex items-center justify-start gap-3 w-full opacity-50 cursor-not-allowed bg-[#24242B] border-[#33333A] hover:bg-[#24242B]">
-                    <CalendarClock size={16} />
+                <CrmButton 
+                    onClick={onReserve}
+                    disabled={vehicle.status === 'Vendido' || vehicle.status === 'Reservado' || activeReservation}
+                    className={`flex items-center justify-start gap-3 w-full border-[#33333A] ${vehicle.status === 'Vendido' || vehicle.status === 'Reservado' || activeReservation ? 'opacity-50 cursor-not-allowed bg-[#24242B] hover:bg-[#24242B]' : 'bg-[#161619] hover:bg-[#24242B] text-white'}`}
+                >
+                    <CalendarClock size={16} className={vehicle.status === 'Vendido' || vehicle.status === 'Reservado' || activeReservation ? '' : 'text-[#E63027]'} />
                     <div className="flex flex-col items-start text-left">
-                        <span>Generar Reserva</span>
-                        <span className="text-[10px] text-[#A1A1AA] font-normal">Próxima fase</span>
+                        <span>Tomar Reserva</span>
+                        <span className="text-[10px] text-[#A1A1AA] font-normal">
+                            {activeReservation ? 'Ya existe reserva activa' : 
+                             vehicle.status === 'Vendido' ? 'Vehículo vendido' : 
+                             vehicle.status === 'Reservado' ? 'Vehículo reservado' : 
+                             'Bloquear vehículo con seña'}
+                        </span>
                     </div>
                 </CrmButton>
 

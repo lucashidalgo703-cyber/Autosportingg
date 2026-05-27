@@ -14,6 +14,8 @@ import VehicleDocumentsDemo from '../../../../components/crm/stock/VehicleDocume
 import VehicleActionsPanel from '../../../../components/crm/stock/VehicleActionsPanel';
 import VehicleEditModal from '../../../../components/crm/stock/VehicleEditModal';
 import ExpenseAddModal from '../../../../components/crm/stock/ExpenseAddModal';
+import ReservationModal from '../../../../components/crm/reservations/ReservationModal';
+import { useAdminReservations } from '../../../../hooks/useAdminReservations';
 
 export default function VehicleDetailPage() {
     const params = useParams();
@@ -21,9 +23,11 @@ export default function VehicleDetailPage() {
     const [vehicle, setVehicle] = useState(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
-    
     const [isEditOpen, setIsEditOpen] = useState(false);
     const [isExpenseOpen, setIsExpenseOpen] = useState(false);
+    const [isReservationOpen, setIsReservationOpen] = useState(false);
+    const [activeReservation, setActiveReservation] = useState(null);
+    const { fetchReservations } = useAdminReservations();
 
     const fetchCar = async () => {
         if (!params?.id) return;
@@ -47,7 +51,18 @@ export default function VehicleDetailPage() {
                 }
             } else {
                 const data = await response.json();
-                setVehicle(mapRealCarToCRM(data));
+                const mappedCar = mapRealCarToCRM(data);
+                setVehicle(mappedCar);
+                
+                // Fetch active reservations
+                if (mappedCar.id) {
+                    const reservations = await fetchReservations({ vehicleId: mappedCar.id, status: 'activa' });
+                    if (reservations && reservations.length > 0) {
+                        setActiveReservation(reservations[0]);
+                    } else {
+                        setActiveReservation(null);
+                    }
+                }
             }
         } catch (err) {
             setError(err.message);
@@ -133,7 +148,7 @@ export default function VehicleDetailPage() {
     return (
         <>
                 <div className="flex flex-col gap-6">
-                    <VehicleDetailHeader vehicle={vehicle} />
+                    <VehicleDetailHeader vehicle={vehicle} activeReservation={activeReservation} />
                     
                     <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                         {/* Columna Principal (2/3) */}
@@ -149,6 +164,8 @@ export default function VehicleDetailPage() {
                                 vehicle={vehicle} 
                                 onEdit={() => setIsEditOpen(true)}
                                 onAddExpense={() => setIsExpenseOpen(true)}
+                                onReserve={() => setIsReservationOpen(true)}
+                                activeReservation={activeReservation}
                             />
                             <VehicleDocumentsDemo vehicle={vehicle} />
                         </div>
@@ -167,6 +184,21 @@ export default function VehicleDetailPage() {
                     onClose={() => setIsExpenseOpen(false)} 
                     onSave={handleSaveExpense} 
                     vehicleCurrency={vehicle.monedaCompra || 'USD'} 
+                />
+
+                <ReservationModal
+                    isOpen={isReservationOpen}
+                    onClose={() => setIsReservationOpen(false)}
+                    onSuccess={() => {
+                        setIsReservationOpen(false);
+                        fetchCar();
+                    }}
+                    initialData={{
+                        vehicleId: vehicle?.id,
+                        vehicleName: `${vehicle?.marca} ${vehicle?.modelo} ${vehicle?.version || ''} ${vehicle?.year || ''}`.trim(),
+                        agreedPrice: vehicle?.precio,
+                        agreedCurrency: vehicle?.monedaCompra || 'USD'
+                    }}
                 />
         </>
     );

@@ -1,10 +1,10 @@
 import React from 'react';
-import { Target, ArrowLeft, Calendar, Phone, Edit, User, UserCheck } from 'lucide-react';
+import { Target, ArrowLeft, Calendar, Phone, Edit, User, UserCheck, Lock, CheckCircle2 } from 'lucide-react';
 import Link from 'next/link';
 import LeadStatusBadge from './LeadStatusBadge';
 import LeadPriorityBadge from './LeadPriorityBadge';
 
-export default function LeadDetailHeader({ lead, onEdit }) {
+export default function LeadDetailHeader({ lead, onEdit, onReserve, activeReservation }) {
     if (!lead) return null;
 
     return (
@@ -53,6 +53,12 @@ export default function LeadDetailHeader({ lead, onEdit }) {
                                  lead.sourceDetail === 'manual_crm' ? 'Manual CRM' : lead.sourceDetail}
                             </span>
                         )}
+                        {activeReservation && (
+                            <span className="flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded border bg-red-500/10 text-red-400 border-red-500/20">
+                                <Lock size={12} />
+                                RESERVA ACTIVA
+                            </span>
+                        )}
                     </div>
 
                     <div className="h-4 w-px bg-neutral-800 hidden md:block"></div>
@@ -64,10 +70,25 @@ export default function LeadDetailHeader({ lead, onEdit }) {
                 </div>
             </div>
 
-            <div className="flex items-center gap-3 ml-14 lg:ml-0 mt-2 lg:mt-0">
+            <div className="flex items-center gap-3 ml-14 lg:ml-0 mt-2 lg:mt-0 flex-wrap">
+                {/* Logic to show "Tomar reserva" button */}
+                {lead.vehicleId && 
+                 lead.crmStatus !== 'perdido' && 
+                 lead.crmStatus !== 'convertido' && 
+                 lead.vehicleId.status !== 'Vendido' && 
+                 !activeReservation && (
+                    <button 
+                        onClick={onReserve}
+                        className="flex items-center gap-2 px-4 py-2 rounded-lg bg-white hover:bg-neutral-200 text-black font-semibold transition-colors shadow-lg"
+                    >
+                        <CheckCircle2 size={16} />
+                        Tomar Reserva
+                    </button>
+                )}
+                
                 <button 
                     onClick={onEdit}
-                    className="flex items-center gap-2 px-4 py-2 rounded-lg bg-red-600 hover:bg-red-700 text-white font-medium transition-colors border border-red-500"
+                    className="flex items-center gap-2 px-4 py-2 rounded-lg bg-red-600 hover:bg-red-700 text-white font-medium transition-colors border border-red-500 shadow-lg shadow-red-900/20"
                 >
                     <Edit size={16} />
                     Editar Lead

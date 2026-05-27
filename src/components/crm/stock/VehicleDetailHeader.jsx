@@ -1,10 +1,10 @@
 "use client";
 import Link from 'next/link';
-import { ArrowLeft } from 'lucide-react';
+import { ArrowLeft, Lock } from 'lucide-react';
 import VehicleStatusBadge from './VehicleStatusBadge';
 import VehicleRotationAlert from './VehicleRotationAlert';
 
-export default function VehicleDetailHeader({ vehicle }) {
+export default function VehicleDetailHeader({ vehicle, activeReservation }) {
     return (
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-[#1E1E24] p-6 rounded-xl border border-[#33333A]">
             <div className="flex flex-col gap-2">
@@ -32,6 +32,12 @@ export default function VehicleDetailHeader({ vehicle }) {
                     </span>
                 )}
                 <VehicleStatusBadge status={vehicle.estado} />
+                {activeReservation && (
+                    <span className="flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold bg-red-500/10 text-red-400 border border-red-500/20">
+                        <Lock size={12} />
+                        RESERVA ACTIVA
+                    </span>
+                )}
                 <div className="h-6 w-px bg-[#33333A] hidden md:block"></div>
                 <VehicleRotationAlert dias={vehicle.diasEnStock} />
             </div>
