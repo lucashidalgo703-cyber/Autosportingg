@@ -8,6 +8,7 @@ const menuItems = [
     { name: 'Stock', path: '/admin/stock', icon: CarFront },
     { name: 'Clientes', path: '/admin/clientes', icon: Users },
     { name: 'Leads', path: '/admin/leads', icon: UserPlus },
+    { name: 'Agenda', path: '/admin/agenda', icon: CalendarClock },
     { name: 'Ventas', path: '/admin/ventas', icon: Receipt },
     { name: 'Reservas', path: '/admin/reservas', icon: CalendarClock },
     { name: 'Finanzas', path: '/admin/finanzas', icon: Wallet },
