@@ -11,6 +11,7 @@ import ActivityLog from './src/models/ActivityLog.js';
 import Account from './src/models/Account.js';
 import Transaction from './src/models/Transaction.js';
 import Reservation from './src/models/Reservation.js';
+import Sale from './src/models/Sale.js';
 import { CloudinaryStorage } from 'multer-storage-cloudinary';
 import jwt from 'jsonwebtoken';
 
@@ -1454,6 +1455,346 @@ app.patch('/api/admin/reservations/:id', authenticateToken, async (req, res) => 
         }
     } catch (error) {
         console.error('Error updating reservation:', error);
+        res.status(400).json({ message: error.message });
+    }
+});
+
+// --- SALES ROUTES ---
+
+// GET all sales
+app.get('/api/admin/sales', authenticateToken, async (req, res) => {
+    try {
+        const { vehicleId, clientId, leadId, status } = req.query;
+        let query = {};
+        
+        if (vehicleId) query.vehicleId = vehicleId;
+        if (clientId) query.clientId = clientId;
+        if (leadId) query.leadId = leadId;
+        if (status) query.status = status;
+
+        const sales = await Sale.find(query)
+            .populate({
+                path: 'clientId',
+                select: 'firstName lastName fullName phone email'
+            })
+            .populate({
+                path: 'leadId',
+                select: 'name phone sourceDetail crmStatus'
+            })
+            .populate({
+                path: 'vehicleId',
+                select: 'brand name year plateOrVin price currency status'
+            })
+            .populate({
+                path: 'reservationId',
+                select: 'status depositAmount depositCurrency expiresAt'
+            })
+            .sort({ saleDate: -1, createdAt: -1 });
+            
+        res.json(sales);
+    } catch (error) {
+        console.error('Error fetching sales:', error);
+        res.status(500).json({ message: error.message });
+    }
+});
+
+// GET sale by id
+app.get('/api/admin/sales/:id', authenticateToken, async (req, res) => {
+    try {
+        const sale = await Sale.findById(req.params.id)
+            .populate('clientId')
+            .populate('leadId')
+            .populate('vehicleId')
+            .populate('reservationId');
+            
+        if (!sale) return res.status(404).json({ message: 'Sale not found' });
+        
+        res.json(sale);
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+});
+
+// POST create manual sale
+app.post('/api/admin/sales', authenticateToken, async (req, res) => {
+    try {
+        const { vehicleId, clientId, leadId, salePrice, saleCurrency, paymentMethod, notes, salesperson, saleDate } = req.body;
+        const user = req.user?.username || 'Admin';
+
+        // 1. Validaciones previas
+        if (!vehicleId) throw new Error('Vehicle ID is required');
+        if (salePrice < 0) throw new Error('Sale price cannot be negative');
+        if (!['ARS', 'USD'].includes(saleCurrency)) throw new Error('Invalid sale currency');
+
+        const vehicle = await Car.findById(vehicleId);
+        if (!vehicle) throw new Error('Vehicle not found');
+        if (vehicle.status !== 'Disponible') throw new Error(`Vehicle is ${vehicle.status}, only Disponible vehicles can be manually sold`);
+
+        const existingSale = await Sale.findOne({ vehicleId, status: { $ne: 'cancelada' } });
+        if (existingSale) throw new Error('There is already an active sale for this vehicle');
+
+        // 2. Creación
+        const newSale = new Sale({
+            vehicleId,
+            clientId: clientId || undefined,
+            leadId: leadId || undefined,
+            salePrice,
+            saleCurrency,
+            paymentMethod: paymentMethod || 'contado',
+            notes,
+            salesperson,
+            saleDate: saleDate || new Date(),
+            status: 'confirmada',
+            createdBy: user,
+            saleAuditLog: [{
+                action: 'VENTA_CREADA_MANUAL',
+                details: 'Venta creada manualmente sin reserva previa',
+                user: user,
+                source: 'CRM_V2'
+            }]
+        });
+
+        const savedSale = await newSale.save();
+
+        // 3. Rollback Manual Controlado
+        try {
+            vehicle.status = 'Vendido';
+            vehicle.auditLog.push({
+                action: 'ESTADO',
+                field: 'status',
+                oldValue: 'Disponible',
+                newValue: 'Vendido',
+                details: `Vehículo vendido (Venta ID: ${savedSale._id})`,
+                user: user,
+                source: 'CRM_V2'
+            });
+            await vehicle.save();
+
+            if (leadId) {
+                const lead = await Lead.findById(leadId);
+                if (lead && lead.crmStatus !== 'convertido') {
+                    const oldStatus = lead.crmStatus;
+                    lead.crmStatus = 'convertido';
+                    lead.lastActivityAt = new Date();
+                    lead.leadAuditLog.push({
+                        action: 'VENTA_CREADA',
+                        field: 'crmStatus',
+                        oldValue: oldStatus,
+                        newValue: 'convertido',
+                        details: 'Venta cerrada manualmente',
+                        user: user,
+                        source: 'CRM_V2'
+                    });
+                    await lead.save();
+                }
+            }
+
+            res.status(201).json(savedSale);
+        } catch (innerError) {
+            console.error('Inner error during manual sale, performing manual rollback', innerError);
+            await Sale.findByIdAndDelete(savedSale._id);
+            
+            if (vehicle.status === 'Vendido') {
+                vehicle.status = 'Disponible';
+                vehicle.auditLog.pop();
+                await vehicle.save();
+            }
+
+            throw new Error(`Transaction failed, manual rollback executed: ${innerError.message}`);
+        }
+
+    } catch (error) {
+        console.error('Error creating manual sale:', error);
+        res.status(400).json({ message: error.message });
+    }
+});
+
+// POST convert reservation to sale
+app.post('/api/admin/reservations/:id/convert-to-sale', authenticateToken, async (req, res) => {
+    try {
+        const reservationId = req.params.id;
+        const { salePrice, saleCurrency, paymentMethod, saleDate, salesperson } = req.body;
+        const user = req.user?.username || 'Admin';
+
+        // 1. Validaciones
+        const reservation = await Reservation.findById(reservationId);
+        if (!reservation) throw new Error('Reservation not found');
+        if (reservation.status !== 'activa') throw new Error(`Cannot convert reservation with status ${reservation.status}`);
+
+        const vehicleId = reservation.vehicleId;
+        const vehicle = await Car.findById(vehicleId);
+        if (!vehicle) throw new Error('Vehicle not found');
+        if (vehicle.status !== 'Reservado') throw new Error(`Vehicle is not Reservado (current: ${vehicle.status})`);
+
+        const existingSale = await Sale.findOne({ vehicleId, status: { $ne: 'cancelada' } });
+        if (existingSale) throw new Error('There is already an active sale for this vehicle');
+
+        const finalSalePrice = salePrice !== undefined ? salePrice : reservation.agreedPrice;
+        const finalSaleCurrency = saleCurrency !== undefined ? saleCurrency : reservation.agreedCurrency;
+
+        if (finalSalePrice < 0) throw new Error('Sale price cannot be negative');
+        if (!['ARS', 'USD'].includes(finalSaleCurrency)) throw new Error('Invalid sale currency');
+
+        // 2. Creación de Sale
+        const newSale = new Sale({
+            reservationId: reservation._id,
+            vehicleId: vehicle._id,
+            clientId: reservation.clientId || undefined,
+            leadId: reservation.leadId || undefined,
+            salePrice: finalSalePrice,
+            saleCurrency: finalSaleCurrency,
+            depositAppliedAmount: reservation.depositAmount,
+            depositAppliedCurrency: reservation.depositCurrency,
+            paymentMethod: paymentMethod || 'contado',
+            salesperson: salesperson || reservation.salesperson,
+            saleDate: saleDate || new Date(),
+            status: 'confirmada',
+            createdBy: user,
+            saleAuditLog: [{
+                action: 'VENTA_CREADA_POR_CONVERSION',
+                details: `Venta generada a partir de reserva ${reservation._id}`,
+                user: user,
+                source: 'CRM_V2'
+            }]
+        });
+
+        const savedSale = await newSale.save();
+
+        // 3. Rollback track manual (por si MongoDB no soporta transacciones nativas replica set)
+        try {
+            // Update Reservation
+            const oldResStatus = reservation.status;
+            reservation.status = 'convertida';
+            reservation.updatedBy = user;
+            reservation.reservationAuditLog.push({
+                action: 'RESERVA_CONVERTIDA_A_VENTA',
+                field: 'status',
+                oldValue: oldResStatus,
+                newValue: 'convertida',
+                details: `Reserva convertida a Venta ID: ${savedSale._id}`,
+                user: user,
+                source: 'CRM_V2'
+            });
+            await reservation.save();
+
+            // Update Vehicle
+            const oldVehStatus = vehicle.status;
+            vehicle.status = 'Vendido';
+            vehicle.auditLog.push({
+                action: 'ESTADO',
+                field: 'status',
+                oldValue: oldVehStatus,
+                newValue: 'Vendido',
+                details: `Vehículo vendido por conversión de reserva (Venta ID: ${savedSale._id})`,
+                user: user,
+                source: 'CRM_V2'
+            });
+            await vehicle.save();
+
+            // Update Lead
+            if (reservation.leadId) {
+                const lead = await Lead.findById(reservation.leadId);
+                if (lead) {
+                    const oldLeadStatus = lead.crmStatus;
+                    if (oldLeadStatus !== 'convertido') {
+                        lead.crmStatus = 'convertido';
+                        lead.lastActivityAt = new Date();
+                        lead.leadAuditLog.push({
+                            action: 'VENTA_CREADA',
+                            field: 'crmStatus',
+                            oldValue: oldLeadStatus,
+                            newValue: 'convertido',
+                            details: `Lead convertido por venta de vehículo`,
+                            user: user,
+                            source: 'CRM_V2'
+                        });
+                        await lead.save();
+                    }
+                }
+            }
+
+            // Success
+            res.status(201).json(savedSale);
+
+        } catch (innerError) {
+            // Rollback manual
+            console.error('Inner error during conversion, performing manual rollback', innerError);
+            await Sale.findByIdAndDelete(savedSale._id); // Delete the sale
+            
+            if (reservation.status === 'convertida') {
+                reservation.status = 'activa';
+                reservation.reservationAuditLog.pop();
+                await reservation.save();
+            }
+
+            if (vehicle.status === 'Vendido') {
+                vehicle.status = 'Reservado';
+                vehicle.auditLog.pop();
+                await vehicle.save();
+            }
+
+            throw new Error(`Transaction failed, manual rollback executed: ${innerError.message}`);
+        }
+
+    } catch (error) {
+        console.error('Error converting reservation to sale:', error);
+        res.status(400).json({ message: error.message });
+    }
+});
+
+// PATCH update sale
+app.patch('/api/admin/sales/:id', authenticateToken, async (req, res) => {
+    try {
+        const { status, paymentMethod, notes } = req.body;
+        
+        const sale = await Sale.findById(req.params.id);
+        if (!sale) return res.status(404).json({ message: 'Sale not found' });
+        
+        const user = req.user?.username || 'Admin';
+        const oldStatus = sale.status;
+        let hasChanges = false;
+        
+        if (paymentMethod !== undefined && paymentMethod !== sale.paymentMethod) {
+            sale.paymentMethod = paymentMethod;
+            hasChanges = true;
+        }
+        
+        if (notes !== undefined && notes !== sale.notes) {
+            sale.notes = notes;
+            hasChanges = true;
+        }
+        
+        if (status !== undefined && status !== oldStatus) {
+            if (!['borrador', 'confirmada', 'pendiente_entrega', 'entregada', 'cancelada'].includes(status)) {
+                return res.status(400).json({ message: 'Invalid status' });
+            }
+            
+            sale.status = status;
+            hasChanges = true;
+            
+            sale.saleAuditLog.push({
+                action: 'CAMBIO_ESTADO',
+                field: 'status',
+                oldValue: oldStatus,
+                newValue: status,
+                details: `Estado de venta actualizado a ${status}`,
+                user: user,
+                source: 'CRM_V2'
+            });
+            
+            // As requested, we DO NOT automatically release the vehicle if a sale is cancelled in this phase.
+            // Just audit log.
+        }
+        
+        if (hasChanges) {
+            sale.updatedBy = user;
+            const updatedSale = await sale.save();
+            res.json(updatedSale);
+        } else {
+            res.json(sale);
+        }
+    } catch (error) {
+        console.error('Error updating sale:', error);
         res.status(400).json({ message: error.message });
     }
 });

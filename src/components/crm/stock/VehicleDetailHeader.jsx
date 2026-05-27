@@ -32,7 +32,7 @@ export default function VehicleDetailHeader({ vehicle, activeReservation }) {
                     </span>
                 )}
                 <VehicleStatusBadge status={vehicle.estado} />
-                {activeReservation && (
+                {activeReservation?._id && (
                     <span className="flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold bg-red-500/10 text-red-400 border border-red-500/20">
                         <Lock size={12} />
                         RESERVA ACTIVA

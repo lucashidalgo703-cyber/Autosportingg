@@ -57,7 +57,7 @@ export default function VehicleDetailPage() {
                 setVehicle(mappedCar);
                 
                 // Fetch active reservations
-                if (mappedCar.id) {
+                if (mappedCar?.id) {
                     const reservations = await fetchReservations({ vehicleId: mappedCar.id, status: 'activa' });
                     if (reservations && reservations.length > 0) {
                         setActiveReservation(reservations[0]);
@@ -204,15 +204,17 @@ export default function VehicleDetailPage() {
                     }}
                 />
 
-                <ReservationCancelModal
-                    isOpen={isCancelReservationOpen}
-                    onClose={() => setIsCancelReservationOpen(false)}
-                    onSuccess={() => {
-                        setIsCancelReservationOpen(false);
-                        fetchCar();
-                    }}
-                    reservation={activeReservation}
-                />
+                {activeReservation?._id && (
+                    <ReservationCancelModal
+                        isOpen={isCancelReservationOpen}
+                        onClose={() => setIsCancelReservationOpen(false)}
+                        onSuccess={() => {
+                            setIsCancelReservationOpen(false);
+                            fetchCar();
+                        }}
+                        reservation={activeReservation}
+                    />
+                )}
         </>
     );
 }
