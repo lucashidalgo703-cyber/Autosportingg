@@ -71,6 +71,16 @@ export default function VentasPage() {
                 return false;
             }
 
+            // 5. Documentation Status filter
+            if (filters.documentationStatus !== 'todas' && (sale.documentationStatus || 'pendiente') !== filters.documentationStatus) {
+                return false;
+            }
+
+            // 6. Delivery Status filter
+            if (filters.deliveryStatus !== 'todas' && (sale.deliveryStatus || 'pendiente') !== filters.deliveryStatus) {
+                return false;
+            }
+
             return true;
         });
     }, [allSales, filters]);

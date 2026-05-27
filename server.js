@@ -1849,11 +1849,29 @@ app.patch('/api/admin/sales/:id', authenticateToken, async (req, res) => {
         }
 
         if (estimatedDeliveryDate !== undefined && new Date(estimatedDeliveryDate).getTime() !== new Date(sale.estimatedDeliveryDate).getTime()) {
+            sale.saleAuditLog.push({
+                action: 'ESTIMATED_DELIVERY_DATE_UPDATED',
+                field: 'estimatedDeliveryDate',
+                oldValue: sale.estimatedDeliveryDate,
+                newValue: estimatedDeliveryDate,
+                details: 'Fecha estimada de entrega actualizada',
+                user: user,
+                source: 'CRM_V2'
+            });
             sale.estimatedDeliveryDate = estimatedDeliveryDate;
             hasChanges = true;
         }
 
         if (actualDeliveryDate !== undefined && new Date(actualDeliveryDate).getTime() !== new Date(sale.actualDeliveryDate).getTime()) {
+            sale.saleAuditLog.push({
+                action: 'ACTUAL_DELIVERY_DATE_UPDATED',
+                field: 'actualDeliveryDate',
+                oldValue: sale.actualDeliveryDate,
+                newValue: actualDeliveryDate,
+                details: 'Fecha real de entrega actualizada',
+                user: user,
+                source: 'CRM_V2'
+            });
             sale.actualDeliveryDate = actualDeliveryDate;
             hasChanges = true;
         }

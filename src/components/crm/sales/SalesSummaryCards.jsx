@@ -26,7 +26,30 @@ export default function SalesSummaryCards({ sales }) {
         entregadas: 0,
         canceladas: 0,
         totalARS: 0,
-        totalUSD: 0
+        totalUSD: 0,
+        docPendiente: 0,
+        listaParaEntregar: 0,
+        demoradas: 0
+    });
+
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    sales.forEach(sale => {
+        if (sale.status === 'cancelada') return;
+
+        if (sale.documentationStatus !== 'completo') {
+            metrics.docPendiente++;
+        }
+        if (sale.deliveryStatus === 'listo_para_entregar') {
+            metrics.listaParaEntregar++;
+        }
+        if (sale.estimatedDeliveryDate && sale.deliveryStatus !== 'entregado') {
+            const estDate = new Date(sale.estimatedDeliveryDate);
+            if (estDate < today) {
+                metrics.demoradas++;
+            }
+        }
     });
 
     return (
@@ -102,6 +125,41 @@ export default function SalesSummaryCards({ sales }) {
                             <span className="text-[10px] font-bold text-neutral-500 uppercase">Canceladas</span>
                         </div>
                         <span className="text-xl font-bold text-white">{metrics.canceladas}</span>
+                    </div>
+                </div>
+
+                {/* Métricas Operativas y Logísticas */}
+                <div className="bg-neutral-900 border border-neutral-800 rounded-2xl p-4 lg:col-span-4 grid grid-cols-2 md:grid-cols-4 gap-4">
+                    <div className="flex flex-col justify-center">
+                        <div className="flex items-center gap-2 mb-1">
+                            <ShieldCheck size={14} className="text-purple-500" />
+                            <span className="text-[10px] font-bold text-neutral-500 uppercase">Doc. Incompleta</span>
+                        </div>
+                        <span className="text-xl font-bold text-white">{metrics.docPendiente}</span>
+                    </div>
+
+                    <div className="flex flex-col justify-center">
+                        <div className="flex items-center gap-2 mb-1">
+                            <Truck size={14} className="text-blue-500" />
+                            <span className="text-[10px] font-bold text-neutral-500 uppercase">Lista p/Entregar</span>
+                        </div>
+                        <span className="text-xl font-bold text-white">{metrics.listaParaEntregar}</span>
+                    </div>
+
+                    <div className="flex flex-col justify-center">
+                        <div className="flex items-center gap-2 mb-1">
+                            <CheckCircle2 size={14} className="text-green-500" />
+                            <span className="text-[10px] font-bold text-neutral-500 uppercase">Vehíc. Entregados</span>
+                        </div>
+                        <span className="text-xl font-bold text-white">{metrics.entregadas}</span>
+                    </div>
+
+                    <div className="flex flex-col justify-center">
+                        <div className="flex items-center gap-2 mb-1">
+                            <AlertTriangle size={14} className="text-red-500" />
+                            <span className="text-[10px] font-bold text-neutral-500 uppercase">Ent. Demoradas</span>
+                        </div>
+                        <span className="text-xl font-bold text-white">{metrics.demoradas}</span>
                     </div>
                 </div>
                 

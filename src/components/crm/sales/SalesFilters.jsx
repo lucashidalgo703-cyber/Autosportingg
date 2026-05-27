@@ -7,7 +7,9 @@ export default function SalesFilters({ filters, setFilters }) {
             search: '',
             status: 'todas',
             currency: 'todas',
-            paymentMethod: 'todas'
+            paymentMethod: 'todas',
+            documentationStatus: 'todas',
+            deliveryStatus: 'todas'
         });
     };
 
@@ -71,6 +73,35 @@ export default function SalesFilters({ filters, setFilters }) {
                             <option value="financiado">Financiado</option>
                             <option value="mixto">Mixto</option>
                             <option value="otro">Otro</option>
+                        </select>
+                    </div>
+
+                    {/* Doc Status */}
+                    <div className="relative min-w-[130px] flex-1 md:flex-none">
+                        <select
+                            className="w-full bg-black/40 border border-neutral-800 rounded-xl py-2.5 px-4 text-sm text-neutral-300 focus:outline-none focus:border-neutral-600 transition-colors appearance-none cursor-pointer"
+                            value={filters.documentationStatus}
+                            onChange={(e) => setFilters({ ...filters, documentationStatus: e.target.value })}
+                        >
+                            <option value="todas">Doc (Todas)</option>
+                            <option value="pendiente">Doc Pdte.</option>
+                            <option value="parcial">Doc Parcial</option>
+                            <option value="completo">Doc Completa</option>
+                        </select>
+                    </div>
+
+                    {/* Delivery Status */}
+                    <div className="relative min-w-[140px] flex-1 md:flex-none">
+                        <select
+                            className="w-full bg-black/40 border border-neutral-800 rounded-xl py-2.5 px-4 text-sm text-neutral-300 focus:outline-none focus:border-neutral-600 transition-colors appearance-none cursor-pointer"
+                            value={filters.deliveryStatus}
+                            onChange={(e) => setFilters({ ...filters, deliveryStatus: e.target.value })}
+                        >
+                            <option value="todas">Entrega (Todas)</option>
+                            <option value="pendiente">Ent. Pdte.</option>
+                            <option value="preparando">Preparando</option>
+                            <option value="listo_para_entregar">Lista para Ent.</option>
+                            <option value="entregado">Entregada</option>
                         </select>
                     </div>
 

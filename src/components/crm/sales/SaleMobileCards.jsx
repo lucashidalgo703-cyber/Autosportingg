@@ -79,6 +79,42 @@ export default function SaleMobileCards({ sales, onViewDetail }) {
                                     </span>
                                 </div>
                             </div>
+
+                            {/* Doc & Delivery Status */}
+                            <div className="grid grid-cols-2 gap-4 mt-2">
+                                <div className="flex flex-col">
+                                    <span className="text-[10px] font-bold text-neutral-500 uppercase tracking-wider mb-1">Documentación</span>
+                                    <span className={`text-xs font-bold px-2 py-0.5 rounded w-max uppercase ${
+                                        sale.documentationStatus === 'completo' ? 'bg-purple-500/20 text-purple-400 border border-purple-500/30' :
+                                        sale.documentationStatus === 'parcial' ? 'bg-orange-500/20 text-orange-400 border border-orange-500/30' :
+                                        'bg-neutral-800 text-neutral-400 border border-neutral-700'
+                                    }`}>
+                                        {sale.documentationStatus || 'pendiente'}
+                                    </span>
+                                </div>
+                                <div className="flex flex-col items-end">
+                                    <span className="text-[10px] font-bold text-neutral-500 uppercase tracking-wider mb-1">Entrega</span>
+                                    <div className="flex flex-col items-end">
+                                        <span className={`text-xs font-bold px-2 py-0.5 rounded w-max uppercase ${
+                                            sale.deliveryStatus === 'entregado' ? 'bg-green-500/20 text-green-400 border border-green-500/30' :
+                                            sale.deliveryStatus === 'listo_para_entregar' ? 'bg-blue-500/20 text-blue-400 border border-blue-500/30' :
+                                            sale.deliveryStatus === 'preparando' ? 'bg-yellow-500/20 text-yellow-400 border border-yellow-500/30' :
+                                            'bg-neutral-800 text-neutral-400 border border-neutral-700'
+                                        }`}>
+                                            {(sale.deliveryStatus || 'pendiente').replace(/_/g, ' ')}
+                                        </span>
+                                        {sale.deliveryStatus === 'entregado' ? (
+                                            <span className="text-[10px] text-green-500 font-bold mt-1 uppercase">
+                                                {sale.actualDeliveryDate ? new Date(sale.actualDeliveryDate).toLocaleDateString() : ''}
+                                            </span>
+                                        ) : sale.estimatedDeliveryDate && (
+                                            <span className={`text-[10px] font-bold mt-1 uppercase ${new Date(sale.estimatedDeliveryDate) < new Date(new Date().setHours(0,0,0,0)) ? 'text-red-400' : 'text-neutral-400'}`}>
+                                                Est: {new Date(sale.estimatedDeliveryDate).toLocaleDateString()}
+                                            </span>
+                                        )}
+                                    </div>
+                                </div>
+                            </div>
                         </div>
 
                         {/* Actions */}

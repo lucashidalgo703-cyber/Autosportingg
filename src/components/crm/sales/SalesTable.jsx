@@ -27,8 +27,8 @@ export default function SalesTable({ sales, onViewDetail }) {
                             <th className="p-4 text-xs font-bold text-neutral-500 uppercase tracking-wider">Vehículo</th>
                             <th className="p-4 text-xs font-bold text-neutral-500 uppercase tracking-wider">Estado</th>
                             <th className="p-4 text-xs font-bold text-neutral-500 uppercase tracking-wider text-right">Precio Final</th>
-                            <th className="p-4 text-xs font-bold text-neutral-500 uppercase tracking-wider text-right">Seña Aplicada</th>
-                            <th className="p-4 text-xs font-bold text-neutral-500 uppercase tracking-wider">Vendedor</th>
+                            <th className="p-4 text-xs font-bold text-neutral-500 uppercase tracking-wider">Doc.</th>
+                            <th className="p-4 text-xs font-bold text-neutral-500 uppercase tracking-wider">Logística</th>
                             <th className="p-4 text-xs font-bold text-neutral-500 uppercase tracking-wider text-center">Acciones</th>
                         </tr>
                     </thead>
@@ -91,27 +91,53 @@ export default function SalesTable({ sales, onViewDetail }) {
                                         </span>
                                     </td>
 
-                                    {/* Seña Aplicada */}
-                                    <td className="p-4 text-right whitespace-nowrap">
-                                        {(sale.depositAppliedAmount > 0) ? (
-                                            <div className="flex flex-col items-end">
-                                                <span className="text-xs font-medium text-neutral-300">
-                                                    {sale.depositAppliedCurrency} {sale.depositAppliedAmount.toLocaleString('es-AR')}
-                                                </span>
-                                                {sale.reservationId && (
-                                                    <Link href="/admin/reservas" className="text-[10px] text-blue-400 hover:text-blue-300 hover:underline">
-                                                        Ver Reserva
-                                                    </Link>
-                                                )}
-                                            </div>
-                                        ) : (
-                                            <span className="text-xs text-neutral-600">-</span>
-                                        )}
+                                    {/* Doc */}
+                                    <td className="p-4 whitespace-nowrap">
+                                        <div className="flex flex-col gap-1">
+                                            <span className={`text-[10px] font-bold px-2 py-0.5 rounded w-max uppercase ${
+                                                sale.documentationStatus === 'completo' ? 'bg-purple-500/20 text-purple-400 border border-purple-500/30' :
+                                                sale.documentationStatus === 'parcial' ? 'bg-orange-500/20 text-orange-400 border border-orange-500/30' :
+                                                'bg-neutral-800 text-neutral-400 border border-neutral-700'
+                                            }`}>
+                                                Doc: {sale.documentationStatus || 'pendiente'}
+                                            </span>
+                                            <span className={`text-[10px] font-bold px-2 py-0.5 rounded w-max uppercase ${
+                                                sale.deliveryStatus === 'entregado' ? 'bg-green-500/20 text-green-400 border border-green-500/30' :
+                                                sale.deliveryStatus === 'listo_para_entregar' ? 'bg-blue-500/20 text-blue-400 border border-blue-500/30' :
+                                                sale.deliveryStatus === 'preparando' ? 'bg-yellow-500/20 text-yellow-400 border border-yellow-500/30' :
+                                                'bg-neutral-800 text-neutral-400 border border-neutral-700'
+                                            }`}>
+                                                Ent: {(sale.deliveryStatus || 'pendiente').replace(/_/g, ' ')}
+                                            </span>
+                                        </div>
                                     </td>
 
-                                    {/* Vendedor */}
+                                    {/* Logística */}
                                     <td className="p-4 whitespace-nowrap">
-                                        <span className="text-sm font-medium text-neutral-300">{sale.salesperson || 'N/A'}</span>
+                                        <div className="flex flex-col">
+                                            {sale.deliveryStatus === 'entregado' ? (
+                                                <>
+                                                    <span className="text-[10px] text-green-500 uppercase font-bold">Entregado</span>
+                                                    <span className="text-xs text-white">{sale.actualDeliveryDate ? new Date(sale.actualDeliveryDate).toLocaleDateString() : 'N/A'}</span>
+                                                </>
+                                            ) : sale.estimatedDeliveryDate ? (
+                                                <>
+                                                    <span className="text-[10px] text-neutral-500 uppercase font-bold">Estimada</span>
+                                                    <span className={`text-xs font-bold ${
+                                                        new Date(sale.estimatedDeliveryDate) < new Date(new Date().setHours(0,0,0,0)) 
+                                                            ? 'text-red-400' 
+                                                            : 'text-white'
+                                                    }`}>
+                                                        {new Date(sale.estimatedDeliveryDate).toLocaleDateString()}
+                                                    </span>
+                                                    {new Date(sale.estimatedDeliveryDate) < new Date(new Date().setHours(0,0,0,0)) && (
+                                                        <span className="text-[10px] text-red-500 font-bold uppercase mt-0.5">Demorada</span>
+                                                    )}
+                                                </>
+                                            ) : (
+                                                <span className="text-xs text-neutral-500">Sin programar</span>
+                                            )}
+                                        </div>
                                     </td>
 
                                     {/* Acciones */}
