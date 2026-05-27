@@ -1745,7 +1745,17 @@ app.post('/api/admin/reservations/:id/convert-to-sale', authenticateToken, async
 // PATCH update sale
 app.patch('/api/admin/sales/:id', authenticateToken, async (req, res) => {
     try {
-        const { status, paymentMethod, notes } = req.body;
+        const { 
+            status, 
+            paymentMethod, 
+            notes,
+            documentationChecklist,
+            deliveryChecklist,
+            documentationStatus,
+            deliveryStatus,
+            estimatedDeliveryDate,
+            actualDeliveryDate 
+        } = req.body;
         
         const sale = await Sale.findById(req.params.id);
         if (!sale) return res.status(404).json({ message: 'Sale not found' });
@@ -1760,7 +1770,91 @@ app.patch('/api/admin/sales/:id', authenticateToken, async (req, res) => {
         }
         
         if (notes !== undefined && notes !== sale.notes) {
+            sale.saleAuditLog.push({
+                action: 'NOTAS_ACTUALIZADAS',
+                field: 'notes',
+                oldValue: sale.notes,
+                newValue: notes,
+                details: 'Notas comerciales actualizadas',
+                user: user,
+                source: 'CRM_V2'
+            });
             sale.notes = notes;
+            hasChanges = true;
+        }
+
+        if (documentationStatus !== undefined && documentationStatus !== sale.documentationStatus) {
+            sale.saleAuditLog.push({
+                action: 'DOCUMENTACION_ESTADO',
+                field: 'documentationStatus',
+                oldValue: sale.documentationStatus,
+                newValue: documentationStatus,
+                details: `Estado de documentación actualizado a ${documentationStatus}`,
+                user: user,
+                source: 'CRM_V2'
+            });
+            sale.documentationStatus = documentationStatus;
+            hasChanges = true;
+        }
+
+        if (deliveryStatus !== undefined && deliveryStatus !== sale.deliveryStatus) {
+            sale.saleAuditLog.push({
+                action: 'ENTREGA_ESTADO',
+                field: 'deliveryStatus',
+                oldValue: sale.deliveryStatus,
+                newValue: deliveryStatus,
+                details: `Estado de entrega actualizado a ${deliveryStatus}`,
+                user: user,
+                source: 'CRM_V2'
+            });
+            sale.deliveryStatus = deliveryStatus;
+            
+            if (deliveryStatus === 'entregado' && !sale.actualDeliveryDate) {
+                sale.actualDeliveryDate = new Date();
+                sale.saleAuditLog.push({
+                    action: 'ENTREGA_FECHA_REAL',
+                    field: 'actualDeliveryDate',
+                    oldValue: null,
+                    newValue: sale.actualDeliveryDate,
+                    details: `Fecha de entrega asignada automáticamente al marcar como entregado`,
+                    user: user,
+                    source: 'CRM_V2'
+                });
+            }
+            hasChanges = true;
+        }
+
+        if (documentationChecklist !== undefined) {
+            sale.documentationChecklist = documentationChecklist;
+            sale.saleAuditLog.push({
+                action: 'CHECKLIST_DOCUMENTACION',
+                field: 'documentationChecklist',
+                details: 'Checklist de documentación actualizado',
+                user: user,
+                source: 'CRM_V2'
+            });
+            hasChanges = true;
+        }
+
+        if (deliveryChecklist !== undefined) {
+            sale.deliveryChecklist = deliveryChecklist;
+            sale.saleAuditLog.push({
+                action: 'CHECKLIST_ENTREGA',
+                field: 'deliveryChecklist',
+                details: 'Checklist de entrega actualizado',
+                user: user,
+                source: 'CRM_V2'
+            });
+            hasChanges = true;
+        }
+
+        if (estimatedDeliveryDate !== undefined && new Date(estimatedDeliveryDate).getTime() !== new Date(sale.estimatedDeliveryDate).getTime()) {
+            sale.estimatedDeliveryDate = estimatedDeliveryDate;
+            hasChanges = true;
+        }
+
+        if (actualDeliveryDate !== undefined && new Date(actualDeliveryDate).getTime() !== new Date(sale.actualDeliveryDate).getTime()) {
+            sale.actualDeliveryDate = actualDeliveryDate;
             hasChanges = true;
         }
         
@@ -1781,9 +1875,6 @@ app.patch('/api/admin/sales/:id', authenticateToken, async (req, res) => {
                 user: user,
                 source: 'CRM_V2'
             });
-            
-            // As requested, we DO NOT automatically release the vehicle if a sale is cancelled in this phase.
-            // Just audit log.
         }
         
         if (hasChanges) {

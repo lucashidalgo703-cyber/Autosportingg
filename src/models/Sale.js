@@ -11,6 +11,14 @@ const saleAuditSchema = new mongoose.Schema({
     source: { type: String, default: 'CRM_V2' }
 }, { _id: false });
 
+const checklistItemSchema = new mongoose.Schema({
+    key: { type: String, required: true },
+    label: { type: String, required: true },
+    completed: { type: Boolean, default: false },
+    completedAt: { type: Date },
+    completedBy: { type: String }
+}, { _id: false });
+
 const saleSchema = new mongoose.Schema({
     reservationId: { type: mongoose.Schema.Types.ObjectId, ref: 'Reservation' },
     leadId: { type: mongoose.Schema.Types.ObjectId, ref: 'Lead' },
@@ -39,6 +47,22 @@ const saleSchema = new mongoose.Schema({
     },
     
     notes: { type: String },
+
+    documentationStatus: { 
+        type: String, 
+        enum: ['pendiente', 'parcial', 'completo'], 
+        default: 'pendiente' 
+    },
+    deliveryStatus: { 
+        type: String, 
+        enum: ['pendiente', 'preparando', 'listo_para_entregar', 'entregado'], 
+        default: 'pendiente' 
+    },
+    estimatedDeliveryDate: { type: Date },
+    actualDeliveryDate: { type: Date },
+    
+    documentationChecklist: { type: [checklistItemSchema], default: [] },
+    deliveryChecklist: { type: [checklistItemSchema], default: [] },
     
     createdBy: { type: String },
     updatedBy: { type: String },

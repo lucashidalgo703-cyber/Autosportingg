@@ -1,6 +1,6 @@
 import React from 'react';
 import Link from 'next/link';
-import { X, User, CarFront, Calendar, DollarSign, Receipt, AlertTriangle, ShieldCheck, ChevronRight } from 'lucide-react';
+import { X, User, CarFront, Calendar, DollarSign, Receipt, AlertTriangle, ShieldCheck, ChevronRight, ExternalLink } from 'lucide-react';
 import SaleStatusBadge from './SaleStatusBadge';
 
 export default function SaleDetailDrawer({ sale, isOpen, onClose }) {
@@ -186,6 +186,17 @@ export default function SaleDetailDrawer({ sale, isOpen, onClose }) {
                         </div>
                     </div>
 
+                </div>
+
+                {/* Footer / Actions */}
+                <div className="p-6 border-t border-[#33333A] bg-[#1E1E24]">
+                    <Link 
+                        href={`/admin/ventas/${sale._id}`}
+                        className="w-full py-3 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-bold transition-colors flex items-center justify-center gap-2"
+                    >
+                        <ExternalLink size={18} />
+                        Abrir Ficha Completa
+                    </Link>
                 </div>
 
             </div>
