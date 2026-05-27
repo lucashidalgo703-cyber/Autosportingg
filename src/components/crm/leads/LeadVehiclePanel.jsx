@@ -24,22 +24,22 @@ export default function LeadVehiclePanel({ lead }) {
                             </div>
                         </div>
                         <div className="p-4 flex flex-col gap-1">
-                            <span className="text-xs text-red-500 font-bold uppercase tracking-wider">{lead.vehicleId.marca}</span>
-                            <span className="text-white font-bold text-lg leading-tight line-clamp-1">{lead.vehicleId.modelo} {lead.vehicleId.version}</span>
+                            <span className="text-xs text-red-500 font-bold uppercase tracking-wider">{lead.vehicleId.brand}</span>
+                            <span className="text-white font-bold text-lg leading-tight line-clamp-1">{lead.vehicleId.name}</span>
                             <div className="flex items-center gap-2 mt-2">
                                 <span className="bg-neutral-800 text-neutral-300 text-[10px] px-2 py-0.5 rounded font-medium border border-neutral-700">
-                                    {lead.vehicleId.anio}
+                                    {lead.vehicleId.year}
                                 </span>
-                                {lead.vehicleId.dominio && (
+                                {lead.vehicleId.plateOrVin && (
                                     <span className="bg-neutral-800 text-neutral-300 text-[10px] px-2 py-0.5 rounded font-medium border border-neutral-700 uppercase">
-                                        Patente: {lead.vehicleId.dominio}
+                                        Patente: {lead.vehicleId.plateOrVin}
                                     </span>
                                 )}
                             </div>
                             <div className="mt-3 pt-3 border-t border-neutral-800/50 flex justify-between items-center">
                                 <span className="text-sm text-neutral-400">Precio Lista</span>
                                 <span className="text-white font-bold">
-                                    {lead.vehicleId.moneda} {lead.vehicleId.precioVenta?.toLocaleString('es-AR')}
+                                    {lead.vehicleId.currency} {lead.vehicleId.price?.toLocaleString('es-AR')}
                                 </span>
                             </div>
                         </div>

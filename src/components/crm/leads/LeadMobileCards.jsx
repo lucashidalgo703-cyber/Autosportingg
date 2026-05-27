@@ -43,7 +43,7 @@ export default function LeadMobileCards({ leads }) {
                         {lead.vehicleId && (
                             <div className="flex items-center gap-3 text-sm text-neutral-300">
                                 <Car size={16} className="text-red-500 shrink-0" />
-                                <span>{lead.vehicleId.marca} {lead.vehicleId.modelo}</span>
+                                <span>{lead.vehicleId.brand} {lead.vehicleId.name}</span>
                             </div>
                         )}
 

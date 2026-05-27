@@ -592,7 +592,7 @@ app.get('/api/admin/leads', authenticateToken, async (req, res) => {
         }
         
         const leads = await Lead.find(query)
-            .populate('vehicleId', 'marca modelo version dominio precioVenta moneda')
+            .populate('vehicleId', 'brand name year plateOrVin price currency')
             .populate('clientId', 'fullName phone email')
             .sort({ createdAt: -1 })
             .skip(parseInt(skip))

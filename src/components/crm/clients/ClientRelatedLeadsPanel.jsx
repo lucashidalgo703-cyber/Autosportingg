@@ -67,7 +67,7 @@ export default function ClientRelatedLeadsPanel({ client }) {
                             {lead.vehicleId && (
                                 <div className="flex items-center gap-2 text-xs text-neutral-400">
                                     <Car size={14} className="text-neutral-500" />
-                                    <span>{lead.vehicleId.marca} {lead.vehicleId.modelo}</span>
+                                    <span>{lead.vehicleId.brand} {lead.vehicleId.name}</span>
                                 </div>
                             )}
 

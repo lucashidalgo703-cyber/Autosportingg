@@ -57,7 +57,7 @@ export default function LeadsTable({ leads }) {
                                 {lead.vehicleId ? (
                                     <div className="flex items-center gap-2 text-sm text-neutral-300">
                                         <Car size={16} className="text-red-500" />
-                                        <span className="line-clamp-1">{lead.vehicleId.marca} {lead.vehicleId.modelo}</span>
+                                        <span className="line-clamp-1">{lead.vehicleId.brand} {lead.vehicleId.name}</span>
                                     </div>
                                 ) : (
                                     <span className="text-xs text-neutral-600">-</span>
