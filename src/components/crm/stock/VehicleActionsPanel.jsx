@@ -19,22 +19,22 @@ export default function VehicleActionsPanel({ vehicle, onEdit, onAddExpense, onR
 
                 <CrmButton 
                     onClick={onReserve}
-                    disabled={vehicle.status === 'Vendido' || vehicle.status === 'Reservado' || activeReservation}
-                    className={`flex items-center justify-start gap-3 w-full border-[#33333A] ${vehicle.status === 'Vendido' || vehicle.status === 'Reservado' || activeReservation ? 'opacity-50 cursor-not-allowed bg-[#24242B] hover:bg-[#24242B]' : 'bg-[#161619] hover:bg-[#24242B] text-white'}`}
+                    disabled={vehicle?.status === 'Vendido' || vehicle?.status === 'Reservado' || !!activeReservation?._id}
+                    className={`flex items-center justify-start gap-3 w-full border-[#33333A] ${vehicle?.status === 'Vendido' || vehicle?.status === 'Reservado' || activeReservation?._id ? 'opacity-50 cursor-not-allowed bg-[#24242B] hover:bg-[#24242B]' : 'bg-[#161619] hover:bg-[#24242B] text-white'}`}
                 >
-                    <CalendarClock size={16} className={vehicle.status === 'Vendido' || vehicle.status === 'Reservado' || activeReservation ? '' : 'text-[#E63027]'} />
+                    <CalendarClock size={16} className={vehicle?.status === 'Vendido' || vehicle?.status === 'Reservado' || activeReservation?._id ? '' : 'text-[#E63027]'} />
                     <div className="flex flex-col items-start text-left">
                         <span>Tomar Reserva</span>
                         <span className="text-[10px] text-[#A1A1AA] font-normal">
-                            {activeReservation ? 'Ya existe reserva activa' : 
-                             vehicle.status === 'Vendido' ? 'Vehículo vendido' : 
-                             vehicle.status === 'Reservado' ? 'Vehículo reservado' : 
+                            {activeReservation?._id ? 'Ya existe reserva activa' : 
+                             vehicle?.status === 'Vendido' ? 'Vehículo vendido' : 
+                             vehicle?.status === 'Reservado' ? 'Vehículo reservado' : 
                              'Bloquear vehículo con seña'}
                         </span>
                     </div>
                 </CrmButton>
 
-                {activeReservation && (
+                {activeReservation?._id && (
                     <CrmButton 
                         onClick={onCancelReserve}
                         className="flex items-center justify-start gap-3 w-full bg-[#161619] border-red-500/30 hover:bg-[#24242B] text-white"

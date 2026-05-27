@@ -35,13 +35,15 @@ export default function AdminLeadDetailPage() {
             const data = await fetchLeadById(id);
             setLead(data);
             
-            if (data.vehicleId && data.vehicleId._id) {
+            if (data?.vehicleId?._id) {
                 const reservations = await fetchReservations({ vehicleId: data.vehicleId._id, status: 'activa' });
                 if (reservations && reservations.length > 0) {
                     setActiveReservation(reservations[0]);
                 } else {
                     setActiveReservation(null);
                 }
+            } else {
+                setActiveReservation(null);
             }
         } catch (err) {
             setFetchError(err.message);
@@ -167,15 +169,17 @@ export default function AdminLeadDetailPage() {
                 }}
             />
 
-            <ReservationCancelModal
-                isOpen={isCancelReservationModalOpen}
-                onClose={() => setIsCancelReservationModalOpen(false)}
-                onSuccess={() => {
-                    setIsCancelReservationModalOpen(false);
-                    loadLead();
-                }}
-                reservation={activeReservation}
-            />
+            {activeReservation && (
+                <ReservationCancelModal
+                    isOpen={isCancelReservationModalOpen}
+                    onClose={() => setIsCancelReservationModalOpen(false)}
+                    onSuccess={() => {
+                        setIsCancelReservationModalOpen(false);
+                        loadLead();
+                    }}
+                    reservation={activeReservation}
+                />
+            )}
         </div>
     );
 }

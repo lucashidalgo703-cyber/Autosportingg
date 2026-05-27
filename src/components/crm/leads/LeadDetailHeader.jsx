@@ -53,7 +53,7 @@ export default function LeadDetailHeader({ lead, onEdit, onReserve, onCancelRese
                                  lead.sourceDetail === 'manual_crm' ? 'Manual CRM' : lead.sourceDetail}
                             </span>
                         )}
-                        {activeReservation && (
+                        {activeReservation?._id && (
                             <span className="flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded border bg-red-500/10 text-red-400 border-red-500/20">
                                 <Lock size={12} />
                                 RESERVA ACTIVA
@@ -72,11 +72,11 @@ export default function LeadDetailHeader({ lead, onEdit, onReserve, onCancelRese
 
             <div className="flex items-center gap-3 ml-14 lg:ml-0 mt-2 lg:mt-0 flex-wrap">
                 {/* Logic to show "Tomar reserva" button */}
-                {lead.vehicleId && 
+                {lead?.vehicleId && 
                  lead.crmStatus !== 'perdido' && 
                  lead.crmStatus !== 'convertido' && 
-                 lead.vehicleId.status !== 'Vendido' && 
-                 !activeReservation && (
+                 lead.vehicleId?.status !== 'Vendido' && 
+                 !activeReservation?._id && (
                     <button 
                         onClick={onReserve}
                         className="flex items-center gap-2 px-4 py-2 rounded-lg bg-white hover:bg-neutral-200 text-black font-semibold transition-colors shadow-lg"
@@ -86,7 +86,7 @@ export default function LeadDetailHeader({ lead, onEdit, onReserve, onCancelRese
                     </button>
                 )}
                 
-                {activeReservation && (
+                {activeReservation?._id && (
                     <button 
                         onClick={onCancelReserve}
                         className="flex items-center gap-2 px-4 py-2 rounded-lg bg-neutral-900 border border-neutral-700 hover:bg-neutral-800 text-neutral-300 font-medium transition-colors"
