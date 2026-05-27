@@ -11,11 +11,11 @@ const menuItems = [
     { name: 'Agenda', path: '/admin/agenda', icon: CalendarClock },
     { name: 'Ventas', path: '/admin/ventas', icon: Receipt },
     { name: 'Reservas', path: '/admin/reservas', icon: CalendarClock },
-    { name: 'Finanzas', path: '/admin/finanzas', icon: Wallet },
-    { name: 'Cuotas', path: '/admin/cuotas', icon: Landmark },
-    { name: 'Documentación', path: '/admin/documentacion', icon: FileText },
-    { name: 'Reportes', path: '/admin/reportes', icon: BarChart3 },
-    { name: 'Configuración', path: '/admin/configuracion', icon: Settings },
+    { name: 'Finanzas', path: '/admin/finanzas', icon: Wallet, prefetch: false },
+    { name: 'Cuotas', path: '/admin/cuotas', icon: Landmark, prefetch: false },
+    { name: 'Documentación', path: '/admin/documentacion', icon: FileText, prefetch: false },
+    { name: 'Reportes', path: '/admin/reportes', icon: BarChart3, prefetch: false },
+    { name: 'Configuración', path: '/admin/configuracion', icon: Settings, prefetch: false },
 ];
 
 export default function CrmSidebar({ isOpen, onClose }) {
@@ -39,6 +39,7 @@ export default function CrmSidebar({ isOpen, onClose }) {
                             <Link 
                                 key={item.name} 
                                 href={item.path}
+                                prefetch={item.prefetch === false ? false : undefined}
                                 onClick={() => onClose && onClose()}
                                 style={{ textDecoration: 'none' }}
                                 className={`flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-colors ${isActive ? 'bg-[#24242B] text-[#E63027] font-semibold border-l-2 border-[#E63027]' : 'text-[#A1A1AA] hover:bg-[#1E1E24] hover:text-white'}`}

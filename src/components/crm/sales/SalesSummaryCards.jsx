@@ -1,5 +1,5 @@
 import React from 'react';
-import { Handshake, DollarSign, CheckCircle2, Clock, Truck, XCircle, AlertTriangle } from 'lucide-react';
+import { Handshake, DollarSign, CheckCircle2, Clock, Truck, XCircle, AlertTriangle, ShieldCheck } from 'lucide-react';
 
 export default function SalesSummaryCards({ sales }) {
     if (!sales) return null;
