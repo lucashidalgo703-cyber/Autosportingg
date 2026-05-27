@@ -10,6 +10,7 @@ import Task from './src/models/Task.js';
 import ActivityLog from './src/models/ActivityLog.js';
 import Account from './src/models/Account.js';
 import Transaction from './src/models/Transaction.js';
+import Reservation from './src/models/Reservation.js';
 import { CloudinaryStorage } from 'multer-storage-cloudinary';
 import jwt from 'jsonwebtoken';
 
@@ -1226,6 +1227,226 @@ app.delete('/api/transactions/:id', authenticateToken, async (req, res) => {
         res.json({ message: 'Transacción eliminada y balance de caja revertido' });
     } catch (error) {
         res.status(500).json({ message: error.message });
+    }
+});
+
+// --- RESERVATIONS ROUTES ---
+
+// GET all reservations
+app.get('/api/admin/reservations', authenticateToken, async (req, res) => {
+    try {
+        const reservations = await Reservation.find()
+            .populate({
+                path: 'clientId',
+                select: 'firstName lastName fullName phone email'
+            })
+            .populate({
+                path: 'leadId',
+                select: 'name phone sourceDetail crmStatus'
+            })
+            .populate({
+                path: 'vehicleId',
+                select: 'brand name year plateOrVin price currency status'
+            })
+            .sort({ createdAt: -1 });
+        
+        res.json(reservations);
+    } catch (error) {
+        console.error('Error fetching reservations:', error);
+        res.status(500).json({ message: error.message });
+    }
+});
+
+// GET reservation by id
+app.get('/api/admin/reservations/:id', authenticateToken, async (req, res) => {
+    try {
+        const reservation = await Reservation.findById(req.params.id)
+            .populate('clientId')
+            .populate('leadId')
+            .populate('vehicleId');
+            
+        if (!reservation) return res.status(404).json({ message: 'Reservation not found' });
+        
+        res.json(reservation);
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+});
+
+// POST create reservation
+app.post('/api/admin/reservations', authenticateToken, async (req, res) => {
+    try {
+        const { vehicleId, clientId, leadId, agreedPrice, agreedCurrency, depositAmount, depositCurrency, depositMethod, expiresAt, conditions, notes, salesperson } = req.body;
+        
+        // Basic integrity checks
+        if (!vehicleId) return res.status(400).json({ message: 'Vehicle ID is required' });
+        if (agreedPrice < 0) return res.status(400).json({ message: 'Agreed price cannot be negative' });
+        if (depositAmount < 0) return res.status(400).json({ message: 'Deposit amount cannot be negative' });
+        if (!['ARS', 'USD'].includes(agreedCurrency) || !['ARS', 'USD'].includes(depositCurrency)) {
+            return res.status(400).json({ message: 'Invalid currency' });
+        }
+        
+        if (expiresAt && new Date(expiresAt) < new Date(new Date().setHours(0,0,0,0))) {
+            return res.status(400).json({ message: 'Expiration date cannot be in the past' });
+        }
+
+        const user = req.user?.username || 'Admin';
+
+        // Check vehicle availability
+        const vehicle = await Car.findById(vehicleId);
+        if (!vehicle) return res.status(404).json({ message: 'Vehicle not found' });
+        
+        if (vehicle.status === 'Vendido' || vehicle.status === 'Reservado') {
+            return res.status(400).json({ message: 'Vehicle is already sold or reserved' });
+        }
+
+        // Check if there is already an active reservation for this vehicle
+        const activeRes = await Reservation.findOne({ vehicleId, status: 'activa' });
+        if (activeRes) {
+            return res.status(400).json({ message: 'There is already an active reservation for this vehicle' });
+        }
+
+        const newReservation = new Reservation({
+            vehicleId,
+            clientId: clientId || undefined,
+            leadId: leadId || undefined,
+            agreedPrice,
+            agreedCurrency,
+            depositAmount,
+            depositCurrency,
+            depositMethod,
+            expiresAt,
+            conditions,
+            notes,
+            salesperson,
+            createdBy: user,
+            reservationAuditLog: [{
+                action: 'RESERVA_CREADA',
+                field: 'status',
+                newValue: 'activa',
+                details: `Reserva creada por ${depositCurrency} ${depositAmount}`,
+                user: user,
+                source: 'CRM_V2'
+            }]
+        });
+
+        const savedReservation = await newReservation.save();
+
+        // Update Vehicle Status
+        vehicle.status = 'Reservado';
+        vehicle.auditLog.push({
+            action: 'ESTADO',
+            field: 'status',
+            oldValue: 'Disponible',
+            newValue: 'Reservado',
+            details: `Vehículo reservado (Reserva ID: ${savedReservation._id})`,
+            user: user,
+            source: 'CRM_V2'
+        });
+        await vehicle.save();
+
+        // Update Lead Status if leadId is provided
+        if (leadId) {
+            const lead = await Lead.findById(leadId);
+            if (lead) {
+                const oldStatus = lead.crmStatus;
+                lead.crmStatus = 'reservado';
+                lead.lastActivityAt = new Date();
+                lead.leadAuditLog.push({
+                    action: 'RESERVA_CREADA',
+                    field: 'crmStatus',
+                    oldValue: oldStatus,
+                    newValue: 'reservado',
+                    details: `Señal de reserva recibida por el vehículo asociado`,
+                    user: user,
+                    source: 'CRM_V2'
+                });
+                await lead.save();
+            }
+        }
+
+        res.status(201).json(savedReservation);
+    } catch (error) {
+        console.error('Error creating reservation:', error);
+        res.status(400).json({ message: error.message });
+    }
+});
+
+// PATCH update reservation
+app.patch('/api/admin/reservations/:id', authenticateToken, async (req, res) => {
+    try {
+        const { status, conditions, notes } = req.body;
+        
+        const reservation = await Reservation.findById(req.params.id);
+        if (!reservation) return res.status(404).json({ message: 'Reservation not found' });
+        
+        const user = req.user?.username || 'Admin';
+        const oldStatus = reservation.status;
+        
+        let hasChanges = false;
+        
+        if (conditions !== undefined && conditions !== reservation.conditions) {
+            reservation.conditions = conditions;
+            hasChanges = true;
+        }
+        
+        if (notes !== undefined && notes !== reservation.notes) {
+            reservation.notes = notes;
+            hasChanges = true;
+        }
+        
+        if (status !== undefined && status !== oldStatus) {
+            if (!['activa', 'convertida', 'vencida', 'cancelada', 'devuelta', 'retenida'].includes(status)) {
+                return res.status(400).json({ message: 'Invalid status' });
+            }
+            
+            reservation.status = status;
+            hasChanges = true;
+            
+            reservation.reservationAuditLog.push({
+                action: 'CAMBIO_ESTADO',
+                field: 'status',
+                oldValue: oldStatus,
+                newValue: status,
+                details: `Estado de reserva actualizado a ${status}`,
+                user: user,
+                source: 'CRM_V2'
+            });
+
+            // If reservation is no longer active (cancelled, expired, returned, retained)
+            // we should release the vehicle IF it's still 'Reservado' and there isn't another active reservation
+            if (['vencida', 'cancelada', 'devuelta', 'retenida'].includes(status)) {
+                const vehicle = await Car.findById(reservation.vehicleId);
+                if (vehicle && vehicle.status === 'Reservado') {
+                    // Double check if there's any OTHER active reservation for this vehicle (unlikely due to integrity rules, but safe to check)
+                    const otherActive = await Reservation.findOne({ vehicleId: vehicle._id, status: 'activa', _id: { $ne: reservation._id } });
+                    if (!otherActive) {
+                        vehicle.status = 'Disponible';
+                        vehicle.auditLog.push({
+                            action: 'ESTADO',
+                            field: 'status',
+                            oldValue: 'Reservado',
+                            newValue: 'Disponible',
+                            details: `Vehículo liberado por reserva ${status} (ID: ${reservation._id})`,
+                            user: user,
+                            source: 'CRM_V2'
+                        });
+                        await vehicle.save();
+                    }
+                }
+            }
+        }
+        
+        if (hasChanges) {
+            reservation.updatedBy = user;
+            const updatedReservation = await reservation.save();
+            res.json(updatedReservation);
+        } else {
+            res.json(reservation);
+        }
+    } catch (error) {
+        console.error('Error updating reservation:', error);
+        res.status(400).json({ message: error.message });
     }
 });
 
