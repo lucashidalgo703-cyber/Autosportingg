@@ -829,24 +829,74 @@ app.patch('/api/admin/leads/:id/tasks/:taskId', authenticateToken, async (req, r
 // POST new lead from public website (No Authentication Required)
 app.post('/api/leads/public', async (req, res) => {
     try {
-        const { name, phone, message, vehicleId } = req.body;
+        const { name, phone, message, vehicleId, email } = req.body;
+        
+        // Basic validations
         if (!name || !phone) return res.status(400).json({ message: 'Name and phone are required' });
+        
+        // Sanitize and limit lengths (basic protection)
+        const sanitizedName = String(name).substring(0, 100).trim();
+        const sanitizedPhone = String(phone).substring(0, 50).trim();
+        const phoneNormalized = sanitizedPhone.replace(/[\s\-\(\)\+]/g, '');
+        const sanitizedEmail = email ? String(email).substring(0, 100).trim() : undefined;
+        const sanitizedMessage = message ? String(message).substring(0, 1000).trim() : undefined;
 
-        const notes = message ? [{ text: `Mensaje web: ${message}` }] : [];
-        const parsedVehicleId = vehicleId ? vehicleId : undefined;
+        // Note legacy array
+        const notes = sanitizedMessage ? [{ text: `Mensaje web: ${sanitizedMessage}`, date: new Date() }] : [];
+        
+        // Vehicle Validation
+        let parsedVehicleId = undefined;
+        if (vehicleId) {
+            // Check if vehicleId is a valid ObjectId (24 hex characters)
+            if (/^[0-9a-fA-F]{24}$/.test(String(vehicleId))) {
+                parsedVehicleId = vehicleId;
+            } else {
+                console.warn('Invalid vehicleId received on public lead endpoint:', vehicleId);
+                // We ignore invalid vehicleId to not lose the lead
+            }
+        }
+        
+        // V2 Fields
+        const crmStatus = 'nuevo';
+        const priority = 'media';
+        const source = 'web'; // Must match Enum
+        
+        // Audit log
+        const leadAuditLog = [{
+            action: 'CREACION_WEB',
+            field: 'lead',
+            details: 'Lead creado desde formulario web público',
+            date: new Date(),
+            user: 'Web Pública',
+            source: 'CRM_V2'
+        }];
         
         const newLead = new Lead({ 
-            name, 
-            phone, 
-            pipelineStage: 'Nuevo Contacto', 
+            name: sanitizedName, 
+            phone: sanitizedPhone, 
+            phoneNormalized: phoneNormalized,
+            email: sanitizedEmail,
+            emailNormalized: sanitizedEmail ? sanitizedEmail.toLowerCase() : undefined,
+            pipelineStage: 'Nuevo Contacto', // Legacy support
             vehicleId: parsedVehicleId, 
-            notes 
+            notes: notes,
+            crmStatus: crmStatus,
+            priority: priority,
+            source: source,
+            leadAuditLog: leadAuditLog,
+            lastActivityAt: new Date()
         });
         
         const savedLead = await newLead.save();
-        res.status(201).json({ message: 'Contacto recibido con éxito', leadId: savedLead._id });
+        
+        // Safe response without exposing internals
+        res.status(201).json({ 
+            success: true, 
+            message: 'Consulta recibida' 
+        });
     } catch (error) {
-        res.status(400).json({ message: error.message });
+        console.error('Error on /api/leads/public:', error.message);
+        res.status(400).json({ success: false, message: 'Error procesando la solicitud' });
     }
 });
 
