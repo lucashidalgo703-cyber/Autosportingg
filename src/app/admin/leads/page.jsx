@@ -6,9 +6,13 @@ import LeadFilters from '../../../components/crm/leads/LeadFilters';
 import LeadsTable from '../../../components/crm/leads/LeadsTable';
 import LeadMobileCards from '../../../components/crm/leads/LeadMobileCards';
 import LeadEmptyState from '../../../components/crm/leads/LeadEmptyState';
+import LeadViewToggle from '../../../components/crm/leads/LeadViewToggle';
+import LeadKanbanBoard from '../../../components/crm/leads/LeadKanbanBoard';
 
 export default function AdminLeadsPage() {
-    const { leads, loading, error, fetchLeads, total } = useAdminLeads();
+    const { leads, loading, error, fetchLeads, updateLead, total } = useAdminLeads();
+    
+    const [view, setView] = useState('list'); // 'list' | 'kanban'
     
     // Filters State
     const [filters, setFilters] = useState({ 
@@ -30,6 +34,15 @@ export default function AdminLeadsPage() {
     };
 
     const hasActiveFilters = Boolean(filters.search || filters.crmStatus || filters.priority || filters.source || filters.sourceDetail || filters.unlinked);
+
+    const handleStatusChange = async (leadId, newStatus) => {
+        try {
+            await updateLead(leadId, { crmStatus: newStatus });
+            fetchLeads(filters); // Refresh
+        } catch (error) {
+            alert('Error al cambiar el estado: ' + error.message);
+        }
+    };
 
     // Basic Metrics (Calculated over currently loaded leads - which might be paginated, 
     // but useful for quick context as requested)
@@ -54,6 +67,7 @@ export default function AdminLeadsPage() {
                         Total de leads: <strong className="text-white">{total}</strong> registros activos
                     </p>
                 </div>
+                <LeadViewToggle view={view} setView={setView} />
             </div>
 
             {/* Metrics Cards */}
@@ -98,14 +112,18 @@ export default function AdminLeadsPage() {
                 ) : !error && leads.length === 0 ? (
                     <LeadEmptyState hasFilters={hasActiveFilters} />
                 ) : !error ? (
-                    <>
-                        <div className="hidden lg:block">
-                            <LeadsTable leads={leads} />
-                        </div>
-                        <div className="block lg:hidden">
-                            <LeadMobileCards leads={leads} />
-                        </div>
-                    </>
+                    view === 'kanban' ? (
+                        <LeadKanbanBoard leads={leads} onChangeStatus={handleStatusChange} />
+                    ) : (
+                        <>
+                            <div className="hidden lg:block">
+                                <LeadsTable leads={leads} />
+                            </div>
+                            <div className="block lg:hidden">
+                                <LeadMobileCards leads={leads} />
+                            </div>
+                        </>
+                    )
                 ) : null}
             </div>
         </div>
