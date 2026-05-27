@@ -128,6 +128,12 @@ export default function SaleChecklistPanel({ sale, type, onSave }) {
                                     : 'bg-neutral-800/30 border-neutral-700 hover:bg-neutral-800'
                             }`}
                         >
+                            <input 
+                                type="checkbox" 
+                                className="hidden" 
+                                checked={item.completed}
+                                onChange={() => handleToggle(item.key)}
+                            />
                             <div className={`w-5 h-5 rounded flex items-center justify-center shrink-0 border mt-0.5 transition-colors ${
                                 item.completed 
                                     ? (isDoc ? 'bg-purple-500 border-purple-500' : 'bg-green-500 border-green-500') 
