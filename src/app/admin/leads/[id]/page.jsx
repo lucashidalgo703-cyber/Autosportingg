@@ -11,6 +11,7 @@ import LeadActivityPanel from '../../../../components/crm/leads/LeadActivityPane
 import LeadEditModal from '../../../../components/crm/leads/LeadEditModal';
 import LeadLinkClientModal from '../../../../components/crm/leads/LeadLinkClientModal';
 import LeadTasksPanel from '../../../../components/crm/leads/LeadTasksPanel';
+import LeadTaskModal from '../../../../components/crm/leads/LeadTaskModal';
 import ReservationModal from '../../../../components/crm/reservations/ReservationModal';
 import ReservationCancelModal from '../../../../components/crm/reservations/ReservationCancelModal';
 import { useAdminReservations } from '../../../../hooks/useAdminReservations';
