@@ -3,7 +3,7 @@ import Link from 'next/link';
 import { Calendar, User, ChevronRight, AlertCircle, XCircle } from 'lucide-react';
 import ReservationStatusBadge from './ReservationStatusBadge';
 
-export default function ReservationMobileCards({ reservations, onLiberar, getIsOverdue }) {
+export default function ReservationMobileCards({ reservations, onLiberar, onConvertir, getIsOverdue }) {
     if (!reservations || reservations.length === 0) {
         return (
             <div className="md:hidden flex flex-col items-center justify-center p-8 bg-neutral-900 border border-neutral-800 rounded-2xl opacity-80 mt-4">
@@ -85,24 +85,35 @@ export default function ReservationMobileCards({ reservations, onLiberar, getIsO
                             </div>
                         </div>
 
-                        {/* Actions */}
-                        <div className="flex items-center gap-2 pt-2 border-t border-neutral-800">
+                        <div className="flex flex-col gap-2 pt-2 border-t border-neutral-800">
                             {res.status === 'activa' && (
-                                <button 
-                                    onClick={() => onLiberar(res)}
-                                    className="flex-1 py-2 rounded-xl bg-red-500/10 hover:bg-red-500/20 text-red-400 text-sm font-bold transition-colors border border-red-500/20 flex items-center justify-center gap-2"
-                                >
-                                    <XCircle size={16} />
-                                    Liberar Reserva
-                                </button>
+                                <div className="flex gap-2">
+                                    <button 
+                                        onClick={() => onConvertir(res)}
+                                        className="flex-1 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-sm font-bold transition-colors flex items-center justify-center"
+                                    >
+                                        Convertir a Venta
+                                    </button>
+                                </div>
                             )}
-                            
-                            <Link 
-                                href={vehicleHref}
-                                className={`${res.status === 'activa' ? 'flex-none w-10' : 'flex-1'} py-2 rounded-xl bg-neutral-800 hover:bg-neutral-700 text-white text-sm font-bold transition-colors border border-neutral-700 flex items-center justify-center`}
-                            >
-                                <ChevronRight size={18} />
-                            </Link>
+                            <div className="flex gap-2">
+                                {res.status === 'activa' && (
+                                    <button 
+                                        onClick={() => onLiberar(res)}
+                                        className="flex-1 py-2.5 rounded-xl bg-red-500/10 hover:bg-red-500/20 text-red-400 text-sm font-bold transition-colors border border-red-500/20 flex items-center justify-center gap-2"
+                                    >
+                                        <XCircle size={16} />
+                                        Liberar Reserva
+                                    </button>
+                                )}
+                                
+                                <Link 
+                                    href={vehicleHref}
+                                    className={`${res.status === 'activa' ? 'flex-none w-12' : 'flex-1'} py-2.5 rounded-xl bg-neutral-800 hover:bg-neutral-700 text-white text-sm font-bold transition-colors border border-neutral-700 flex items-center justify-center`}
+                                >
+                                    <ChevronRight size={18} />
+                                </Link>
+                            </div>
                         </div>
                     </div>
                 );

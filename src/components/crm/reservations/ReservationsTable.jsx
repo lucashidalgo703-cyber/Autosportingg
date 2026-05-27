@@ -3,7 +3,7 @@ import Link from 'next/link';
 import { User, CarFront, Lock, CheckCircle2, ChevronRight, XCircle, AlertCircle } from 'lucide-react';
 import ReservationStatusBadge from './ReservationStatusBadge';
 
-export default function ReservationsTable({ reservations, onLiberar, getIsOverdue }) {
+export default function ReservationsTable({ reservations, onLiberar, onConvertir, getIsOverdue }) {
     if (!reservations || reservations.length === 0) {
         return (
             <div className="hidden md:flex flex-col items-center justify-center p-12 bg-neutral-900 border border-neutral-800 rounded-2xl opacity-80">
@@ -113,13 +113,22 @@ export default function ReservationsTable({ reservations, onLiberar, getIsOverdu
                                     <td className="p-4 text-center">
                                         <div className="flex justify-center gap-2">
                                             {res.status === 'activa' && (
-                                                <button 
-                                                    onClick={() => onLiberar(res)}
-                                                    className="w-8 h-8 rounded-lg bg-neutral-800 hover:bg-red-500/20 text-neutral-400 hover:text-red-400 flex items-center justify-center transition-colors border border-neutral-700 hover:border-red-500/30"
-                                                    title="Liberar / Cancelar Reserva"
-                                                >
-                                                    <XCircle size={16} />
-                                                </button>
+                                                <>
+                                                    <button 
+                                                        onClick={() => onConvertir(res)}
+                                                        className="h-8 px-3 rounded-lg bg-blue-500/10 hover:bg-blue-500/20 text-blue-400 font-bold text-xs flex items-center justify-center transition-colors border border-blue-500/20"
+                                                        title="Convertir a Venta"
+                                                    >
+                                                        Vender
+                                                    </button>
+                                                    <button 
+                                                        onClick={() => onLiberar(res)}
+                                                        className="w-8 h-8 rounded-lg bg-neutral-800 hover:bg-red-500/20 text-neutral-400 hover:text-red-400 flex items-center justify-center transition-colors border border-neutral-700 hover:border-red-500/30"
+                                                        title="Liberar / Cancelar Reserva"
+                                                    >
+                                                        <XCircle size={16} />
+                                                    </button>
+                                                </>
                                             )}
                                             
                                             <Link 

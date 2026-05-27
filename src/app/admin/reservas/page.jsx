@@ -7,12 +7,16 @@ import ReservationsFilters from '../../../components/crm/reservations/Reservatio
 import ReservationsTable from '../../../components/crm/reservations/ReservationsTable';
 import ReservationMobileCards from '../../../components/crm/reservations/ReservationMobileCards';
 import ReservationCancelModal from '../../../components/crm/reservations/ReservationCancelModal';
+import ConvertReservationToSaleModal from '../../../components/crm/reservations/ConvertReservationToSaleModal';
 
 export default function ReservasPage() {
     const { fetchReservations, loading, error } = useAdminReservations();
     const [allReservations, setAllReservations] = useState([]);
     const [isCancelModalOpen, setIsCancelModalOpen] = useState(false);
     const [selectedReservation, setSelectedReservation] = useState(null);
+    
+    const [isConvertModalOpen, setIsConvertModalOpen] = useState(false);
+    const [selectedReservationForSale, setSelectedReservationForSale] = useState(null);
 
     const [filters, setFilters] = useState({
         search: '',
@@ -107,6 +111,11 @@ export default function ReservasPage() {
         setIsCancelModalOpen(true);
     };
 
+    const handleConvertirClick = (reservation) => {
+        setSelectedReservationForSale(reservation);
+        setIsConvertModalOpen(true);
+    };
+
     return (
         <div className="max-w-7xl mx-auto flex flex-col h-full min-h-[85vh]">
             {/* Header */}
@@ -147,12 +156,14 @@ export default function ReservasPage() {
                     <ReservationsTable 
                         reservations={filteredReservations} 
                         onLiberar={handleLiberarClick} 
+                        onConvertir={handleConvertirClick}
                         getIsOverdue={getIsOverdue}
                     />
                     
                     <ReservationMobileCards 
                         reservations={filteredReservations} 
                         onLiberar={handleLiberarClick} 
+                        onConvertir={handleConvertirClick}
                         getIsOverdue={getIsOverdue}
                     />
                 </>
@@ -172,6 +183,23 @@ export default function ReservasPage() {
                         loadData(); // Refrescar datos automáticamente
                     }}
                     reservation={selectedReservation}
+                />
+            )}
+
+            {/* Modal de Conversión a Venta */}
+            {selectedReservationForSale && (
+                <ConvertReservationToSaleModal
+                    isOpen={isConvertModalOpen}
+                    onClose={() => {
+                        setIsConvertModalOpen(false);
+                        setSelectedReservationForSale(null);
+                    }}
+                    onSuccess={() => {
+                        setIsConvertModalOpen(false);
+                        setSelectedReservationForSale(null);
+                        loadData(); // Refrescar datos automáticamente (reserva convertida desaparece o cambia badge)
+                    }}
+                    reservation={selectedReservationForSale}
                 />
             )}
         </div>
