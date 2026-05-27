@@ -33,6 +33,12 @@ export default function ConvertReservationToSaleModal({ isOpen, onClose, onSucce
     const clientName = reservation.clientId?.fullName || reservation.clientId?.firstName || reservation.leadId?.name || 'Sin Nombre';
 
     const handleConvert = async () => {
+        const reservationId = reservation?._id || reservation?.id;
+        if (!reservationId) {
+            setError("No se pudo identificar la reserva. Faltan datos requeridos.");
+            return;
+        }
+
         if (formData.salePrice < 0) {
             setError("El precio de venta no puede ser negativo.");
             return;
@@ -42,18 +48,31 @@ export default function ConvertReservationToSaleModal({ isOpen, onClose, onSucce
         setError(null);
 
         try {
-            await convertReservationToSale(reservation._id, {
+            if (typeof convertReservationToSale !== 'function') {
+                throw new Error('La función de conversión no está disponible en el hook.');
+            }
+
+            await convertReservationToSale(reservationId, {
                 salePrice: Number(formData.salePrice),
                 saleCurrency: formData.saleCurrency,
                 paymentMethod: formData.paymentMethod,
                 notes: formData.notes
             });
-            onSuccess();
+            
+            if (typeof onSuccess === 'function') {
+                await onSuccess();
+            }
         } catch (err) {
             console.error('Error al convertir reserva a venta:', err);
             setError(err.message || 'Ocurrió un error al intentar convertir la reserva.');
         } finally {
             setLoading(false);
+        }
+    };
+
+    const handleClose = () => {
+        if (typeof onClose === 'function') {
+            onClose();
         }
     };
 
@@ -73,7 +92,7 @@ export default function ConvertReservationToSaleModal({ isOpen, onClose, onSucce
                         </div>
                     </div>
                     <button 
-                        onClick={onClose}
+                        onClick={handleClose}
                         disabled={loading}
                         className="text-neutral-500 hover:text-white transition-colors"
                     >
@@ -198,7 +217,7 @@ export default function ConvertReservationToSaleModal({ isOpen, onClose, onSucce
                 {/* Footer */}
                 <div className="p-4 sm:p-6 border-t border-[#33333A] bg-[#1E1E24] flex gap-3 justify-end">
                     <button
-                        onClick={onClose}
+                        onClick={handleClose}
                         disabled={loading}
                         className="px-6 py-2.5 rounded-xl font-bold text-neutral-300 hover:text-white hover:bg-neutral-800 transition-colors"
                     >

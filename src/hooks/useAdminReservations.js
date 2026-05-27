@@ -111,6 +111,25 @@ export function useAdminReservations() {
         }
     };
 
+    const convertReservationToSale = async (id, payload) => {
+        try {
+            const res = await fetch(`${getBaseUrl()}/api/admin/reservations/${id}/convert-to-sale`, {
+                method: 'POST',
+                headers: getAuthHeader(),
+                body: JSON.stringify(payload)
+            });
+
+            if (!res.ok) {
+                const errData = await res.json().catch(() => ({}));
+                throw new Error(errData.message || 'Error al convertir la reserva a venta');
+            }
+
+            return await res.json();
+        } catch (err) {
+            throw err;
+        }
+    };
+
     return {
         reservations,
         loading,
@@ -118,6 +137,7 @@ export function useAdminReservations() {
         fetchReservations,
         fetchReservationById,
         createReservation,
-        updateReservation
+        updateReservation,
+        convertReservationToSale
     };
 }
