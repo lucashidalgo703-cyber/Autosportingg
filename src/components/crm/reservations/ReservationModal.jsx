@@ -1,3 +1,4 @@
+"use client";
 import React, { useState, useEffect } from 'react';
 import { X, Calendar, DollarSign, Tag, Check, AlertCircle } from 'lucide-react';
 import { useAdminReservations } from '../../../hooks/useAdminReservations';

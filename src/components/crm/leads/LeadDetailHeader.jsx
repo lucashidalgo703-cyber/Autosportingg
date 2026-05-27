@@ -73,9 +73,9 @@ export default function LeadDetailHeader({ lead, onEdit, onReserve, onCancelRese
             <div className="flex items-center gap-3 ml-14 lg:ml-0 mt-2 lg:mt-0 flex-wrap">
                 {/* Logic to show "Tomar reserva" button */}
                 {lead?.vehicleId && 
-                 lead.crmStatus !== 'perdido' && 
-                 lead.crmStatus !== 'convertido' && 
-                 lead.vehicleId?.status !== 'Vendido' && 
+                 lead?.crmStatus !== 'perdido' && 
+                 lead?.crmStatus !== 'convertido' && 
+                 (typeof lead.vehicleId === 'string' || lead.vehicleId?.status !== 'Vendido') && 
                  !activeReservation?._id && (
                     <button 
                         onClick={onReserve}

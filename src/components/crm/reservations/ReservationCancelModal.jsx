@@ -16,7 +16,7 @@ export default function ReservationCancelModal({
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
 
-    if (!isOpen || !reservation) return null;
+    if (!isOpen || !reservation?._id) return null;
 
     const handleSubmit = async (e) => {
         e.preventDefault();
@@ -30,7 +30,7 @@ export default function ReservationCancelModal({
         setLoading(true);
         try {
             // Append reason to notes
-            const updatedNotes = reservation.notes 
+            const updatedNotes = reservation?.notes 
                 ? `${reservation.notes}\n\n[${new Date().toLocaleDateString()}] Motivo de cambio a ${status}: ${reason}` 
                 : `Motivo de cambio a ${status}: ${reason}`;
 
@@ -83,7 +83,9 @@ export default function ReservationCancelModal({
                     )}
 
                     <div className="bg-neutral-900 border border-[#33333A] p-4 rounded-xl text-sm text-neutral-300">
-                        Se liberará el vehículo <strong className="text-white">{reservation.vehicleId?.brand} {reservation.vehicleId?.name} {reservation.vehicleId?.plateOrVin || ''}</strong>. 
+                        Se liberará el vehículo <strong className="text-white">
+                            {typeof reservation?.vehicleId === 'object' ? `${reservation.vehicleId?.brand || ''} ${reservation.vehicleId?.name || ''} ${reservation.vehicleId?.plateOrVin || ''}` : 'asociado a la reserva'}
+                        </strong>. 
                         Asegúrate de haber gestionado la seña antes o de hacerlo a la brevedad.
                     </div>
 

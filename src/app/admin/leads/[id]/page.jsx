@@ -15,6 +15,13 @@ import ReservationModal from '../../../../components/crm/reservations/Reservatio
 import ReservationCancelModal from '../../../../components/crm/reservations/ReservationCancelModal';
 import { useAdminReservations } from '../../../../hooks/useAdminReservations';
 
+function getMongoId(value) {
+    if (!value) return null;
+    if (typeof value === 'string') return value;
+    if (typeof value === 'object' && value._id) return value._id;
+    return null;
+}
+
 export default function AdminLeadDetailPage() {
     const { id } = useParams();
     const { fetchLeadById, updateLead, linkClientToLead, updateTaskStatus, loading, error } = useAdminLeads();
@@ -35,8 +42,9 @@ export default function AdminLeadDetailPage() {
             const data = await fetchLeadById(id);
             setLead(data);
             
-            if (data?.vehicleId?._id) {
-                const reservations = await fetchReservations({ vehicleId: data.vehicleId._id, status: 'activa' });
+            const vehicleMongoId = getMongoId(data?.vehicleId);
+            if (vehicleMongoId) {
+                const reservations = await fetchReservations({ vehicleId: vehicleMongoId, status: 'activa' });
                 if (reservations && reservations.length > 0) {
                     setActiveReservation(reservations[0]);
                 } else {
@@ -158,18 +166,18 @@ export default function AdminLeadDetailPage() {
                     loadLead();
                 }}
                 initialData={{
-                    leadId: lead?._id,
-                    leadName: lead?.name,
-                    clientId: lead?.clientId?._id,
-                    clientName: lead?.clientId ? `${lead.clientId.firstName} ${lead.clientId.lastName}` : null,
-                    vehicleId: lead?.vehicleId?._id,
-                    vehicleName: lead?.vehicleId ? `${lead.vehicleId.brand} ${lead.vehicleId.name} ${lead.vehicleId.year}` : null,
+                    leadId: getMongoId(lead),
+                    leadName: lead?.name || '',
+                    clientId: getMongoId(lead?.clientId),
+                    clientName: lead?.clientId?.firstName ? `${lead.clientId.firstName} ${lead.clientId.lastName || ''}`.trim() : null,
+                    vehicleId: getMongoId(lead?.vehicleId),
+                    vehicleName: lead?.vehicleId?.brand ? `${lead.vehicleId.brand} ${lead.vehicleId.name} ${lead.vehicleId.year || ''}`.trim() : null,
                     agreedPrice: lead?.vehicleId?.price,
                     agreedCurrency: lead?.vehicleId?.currency || 'USD'
                 }}
             />
 
-            {activeReservation && (
+            {activeReservation?._id && (
                 <ReservationCancelModal
                     isOpen={isCancelReservationModalOpen}
                     onClose={() => setIsCancelReservationModalOpen(false)}

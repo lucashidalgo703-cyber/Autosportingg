@@ -612,8 +612,8 @@ app.get('/api/admin/leads', authenticateToken, async (req, res) => {
 app.get('/api/admin/leads/:id', authenticateToken, async (req, res) => {
     try {
         const lead = await Lead.findById(req.params.id)
-            .populate('vehicleId')
-            .populate('clientId');
+            .populate('vehicleId', 'brand name year plateOrVin price currency status')
+            .populate('clientId', 'fullName firstName lastName phone email');
         if (!lead) return res.status(404).json({ message: 'Lead not found' });
         res.json(lead);
     } catch (error) {

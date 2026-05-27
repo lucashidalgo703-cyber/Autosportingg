@@ -25,10 +25,10 @@ export function useAdminReservations() {
         setError(null);
         try {
             const queryParams = new URLSearchParams();
-            if (filters.vehicleId) queryParams.append('vehicleId', filters.vehicleId);
-            if (filters.leadId) queryParams.append('leadId', filters.leadId);
-            if (filters.clientId) queryParams.append('clientId', filters.clientId);
-            if (filters.status) queryParams.append('status', filters.status);
+            if (filters?.vehicleId) queryParams.append('vehicleId', filters.vehicleId);
+            if (filters?.leadId) queryParams.append('leadId', filters.leadId);
+            if (filters?.clientId) queryParams.append('clientId', filters.clientId);
+            if (filters?.status) queryParams.append('status', filters.status);
 
             const res = await fetch(`${getBaseUrl()}/api/admin/reservations?${queryParams.toString()}`, {
                 headers: getAuthHeader()
@@ -44,7 +44,8 @@ export function useAdminReservations() {
             return data;
         } catch (err) {
             setError(err.message);
-            throw err;
+            // No hacemos throw err; para que no crashee en useEffects
+            return [];
         } finally {
             setLoading(false);
         }
@@ -66,7 +67,7 @@ export function useAdminReservations() {
             return await res.json();
         } catch (err) {
             setError(err.message);
-            throw err;
+            return null;
         } finally {
             setLoading(false);
         }
