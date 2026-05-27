@@ -1,9 +1,9 @@
 "use client";
 import CrmCard from '../ui/CrmCard';
 import CrmButton from '../ui/CrmButton';
-import { Edit, CalendarClock, Handshake, Receipt, MessageSquare } from 'lucide-react';
+import { Edit, CalendarClock, Handshake, Receipt, MessageSquare, Lock } from 'lucide-react';
 
-export default function VehicleActionsPanel({ vehicle, onEdit, onAddExpense, onReserve, activeReservation }) {
+export default function VehicleActionsPanel({ vehicle, onEdit, onAddExpense, onReserve, onCancelReserve, activeReservation }) {
     return (
         <CrmCard>
             <h3 className="text-white font-semibold text-lg mb-4">Acciones de Stock</h3>
@@ -33,6 +33,19 @@ export default function VehicleActionsPanel({ vehicle, onEdit, onAddExpense, onR
                         </span>
                     </div>
                 </CrmButton>
+
+                {activeReservation && (
+                    <CrmButton 
+                        onClick={onCancelReserve}
+                        className="flex items-center justify-start gap-3 w-full bg-[#161619] border-red-500/30 hover:bg-[#24242B] text-white"
+                    >
+                        <Lock size={16} className="text-red-500" />
+                        <div className="flex flex-col items-start text-left">
+                            <span className="text-red-400">Liberar Reserva</span>
+                            <span className="text-[10px] text-[#A1A1AA] font-normal">Desactivar y desbloquear auto</span>
+                        </div>
+                    </CrmButton>
+                )}
 
                 <CrmButton className="flex items-center justify-start gap-3 w-full opacity-50 cursor-not-allowed bg-[#24242B] border-[#33333A] hover:bg-[#24242B]">
                     <Handshake size={16} />

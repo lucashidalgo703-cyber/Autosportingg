@@ -15,6 +15,7 @@ import VehicleActionsPanel from '../../../../components/crm/stock/VehicleActions
 import VehicleEditModal from '../../../../components/crm/stock/VehicleEditModal';
 import ExpenseAddModal from '../../../../components/crm/stock/ExpenseAddModal';
 import ReservationModal from '../../../../components/crm/reservations/ReservationModal';
+import ReservationCancelModal from '../../../../components/crm/reservations/ReservationCancelModal';
 import { useAdminReservations } from '../../../../hooks/useAdminReservations';
 
 export default function VehicleDetailPage() {
@@ -26,6 +27,7 @@ export default function VehicleDetailPage() {
     const [isEditOpen, setIsEditOpen] = useState(false);
     const [isExpenseOpen, setIsExpenseOpen] = useState(false);
     const [isReservationOpen, setIsReservationOpen] = useState(false);
+    const [isCancelReservationOpen, setIsCancelReservationOpen] = useState(false);
     const [activeReservation, setActiveReservation] = useState(null);
     const { fetchReservations } = useAdminReservations();
 
@@ -165,6 +167,7 @@ export default function VehicleDetailPage() {
                                 onEdit={() => setIsEditOpen(true)}
                                 onAddExpense={() => setIsExpenseOpen(true)}
                                 onReserve={() => setIsReservationOpen(true)}
+                                onCancelReserve={() => setIsCancelReservationOpen(true)}
                                 activeReservation={activeReservation}
                             />
                             <VehicleDocumentsDemo vehicle={vehicle} />
@@ -199,6 +202,16 @@ export default function VehicleDetailPage() {
                         agreedPrice: vehicle?.precio,
                         agreedCurrency: vehicle?.monedaCompra || 'USD'
                     }}
+                />
+
+                <ReservationCancelModal
+                    isOpen={isCancelReservationOpen}
+                    onClose={() => setIsCancelReservationOpen(false)}
+                    onSuccess={() => {
+                        setIsCancelReservationOpen(false);
+                        fetchCar();
+                    }}
+                    reservation={activeReservation}
                 />
         </>
     );

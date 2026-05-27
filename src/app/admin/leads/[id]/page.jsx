@@ -11,8 +11,8 @@ import LeadActivityPanel from '../../../../components/crm/leads/LeadActivityPane
 import LeadEditModal from '../../../../components/crm/leads/LeadEditModal';
 import LeadLinkClientModal from '../../../../components/crm/leads/LeadLinkClientModal';
 import LeadTasksPanel from '../../../../components/crm/leads/LeadTasksPanel';
-import LeadTaskModal from '../../../../components/crm/leads/LeadTaskModal';
 import ReservationModal from '../../../../components/crm/reservations/ReservationModal';
+import ReservationCancelModal from '../../../../components/crm/reservations/ReservationCancelModal';
 import { useAdminReservations } from '../../../../hooks/useAdminReservations';
 
 export default function AdminLeadDetailPage() {
@@ -24,6 +24,7 @@ export default function AdminLeadDetailPage() {
     const [isLinkModalOpen, setIsLinkModalOpen] = useState(false);
     const [isTaskModalOpen, setIsTaskModalOpen] = useState(false);
     const [isReservationModalOpen, setIsReservationModalOpen] = useState(false);
+    const [isCancelReservationModalOpen, setIsCancelReservationModalOpen] = useState(false);
     const [fetchError, setFetchError] = useState(null);
     
     const { fetchReservations } = useAdminReservations();
@@ -99,6 +100,7 @@ export default function AdminLeadDetailPage() {
                 lead={lead} 
                 onEdit={() => setIsEditModalOpen(true)} 
                 onReserve={() => setIsReservationModalOpen(true)}
+                onCancelReserve={() => setIsCancelReservationModalOpen(true)}
                 activeReservation={activeReservation}
             />
 
@@ -163,6 +165,16 @@ export default function AdminLeadDetailPage() {
                     agreedPrice: lead?.vehicleId?.price,
                     agreedCurrency: lead?.vehicleId?.currency || 'USD'
                 }}
+            />
+
+            <ReservationCancelModal
+                isOpen={isCancelReservationModalOpen}
+                onClose={() => setIsCancelReservationModalOpen(false)}
+                onSuccess={() => {
+                    setIsCancelReservationModalOpen(false);
+                    loadLead();
+                }}
+                reservation={activeReservation}
             />
         </div>
     );

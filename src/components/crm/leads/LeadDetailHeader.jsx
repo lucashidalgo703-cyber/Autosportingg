@@ -4,7 +4,7 @@ import Link from 'next/link';
 import LeadStatusBadge from './LeadStatusBadge';
 import LeadPriorityBadge from './LeadPriorityBadge';
 
-export default function LeadDetailHeader({ lead, onEdit, onReserve, activeReservation }) {
+export default function LeadDetailHeader({ lead, onEdit, onReserve, onCancelReserve, activeReservation }) {
     if (!lead) return null;
 
     return (
@@ -83,6 +83,16 @@ export default function LeadDetailHeader({ lead, onEdit, onReserve, activeReserv
                     >
                         <CheckCircle2 size={16} />
                         Tomar Reserva
+                    </button>
+                )}
+                
+                {activeReservation && (
+                    <button 
+                        onClick={onCancelReserve}
+                        className="flex items-center gap-2 px-4 py-2 rounded-lg bg-neutral-900 border border-neutral-700 hover:bg-neutral-800 text-neutral-300 font-medium transition-colors"
+                    >
+                        <Lock size={16} className="text-red-500" />
+                        Liberar Reserva
                     </button>
                 )}
                 
