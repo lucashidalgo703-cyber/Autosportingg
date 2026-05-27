@@ -68,13 +68,17 @@ export default function LeadInfoPanel({ lead }) {
                         <FileText size={14} /> Notas del Lead
                     </span>
                     <div className="bg-black/30 p-4 rounded-xl border border-neutral-800 flex-1 min-h-[150px] max-h-[300px] overflow-y-auto custom-scrollbar flex flex-col gap-3">
-                        {lead.notes && lead.notes.length > 0 ? (
+                        {Array.isArray(lead.notes) && lead.notes.length > 0 ? (
                             lead.notes.map((note, idx) => (
                                 <div key={idx} className="bg-neutral-900 border border-neutral-800 p-3 rounded-lg">
-                                    <p className="text-sm text-neutral-300">{note.text}</p>
-                                    <span className="text-[10px] text-neutral-500 mt-2 block">{new Date(note.date).toLocaleString()}</span>
+                                    <p className="text-sm text-neutral-300">{note?.text || note}</p>
+                                    {note?.date && <span className="text-[10px] text-neutral-500 mt-2 block">{new Date(note.date).toLocaleString()}</span>}
                                 </div>
                             ))
+                        ) : typeof lead.notes === 'string' && lead.notes.length > 0 ? (
+                            <div className="bg-neutral-900 border border-neutral-800 p-3 rounded-lg">
+                                <p className="text-sm text-neutral-300">{lead.notes}</p>
+                            </div>
                         ) : (
                             <div className="flex-1 flex items-center justify-center text-sm text-neutral-600 italic">
                                 Sin notas registradas.

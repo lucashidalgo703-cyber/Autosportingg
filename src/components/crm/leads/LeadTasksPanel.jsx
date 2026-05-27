@@ -4,7 +4,7 @@ import { CheckCircle, Clock, Calendar, Check, X, FileText, AlertTriangle } from 
 export default function LeadTasksPanel({ lead, onOpenTaskModal, onUpdateTaskStatus }) {
     if (!lead) return null;
 
-    const tasks = lead.tasks || [];
+    const tasks = Array.isArray(lead.tasks) ? lead.tasks : [];
     
     const pendingTasks = tasks.filter(t => t.status === 'pendiente').sort((a, b) => {
         if (!a.dueDate) return 1;

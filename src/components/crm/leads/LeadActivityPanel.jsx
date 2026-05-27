@@ -4,7 +4,7 @@ import { Activity, History, Plus, CornerDownRight } from 'lucide-react';
 export default function LeadActivityPanel({ lead }) {
     if (!lead) return null;
 
-    const hasAuditLog = lead.leadAuditLog && lead.leadAuditLog.length > 0;
+    const hasAuditLog = Array.isArray(lead.leadAuditLog) && lead.leadAuditLog.length > 0;
 
     return (
         <div className="bg-neutral-900 border border-neutral-800 rounded-2xl p-6 h-full flex flex-col">
