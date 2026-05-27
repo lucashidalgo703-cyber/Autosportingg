@@ -1,6 +1,7 @@
 "use client";
-import { Banknote, Calculator, FileCheck, ArrowRight, Wallet } from 'lucide-react';
-import { motion } from 'framer-motion';
+import React, { useState } from 'react';
+import { Banknote, Calculator, FileCheck, ArrowRight, Wallet, X } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
 
 const containerVariants = {
     hidden: { opacity: 0 },
@@ -13,6 +14,53 @@ const itemVariants = {
 };
 
 const Financing = () => {
+    // Fast-Capture States
+    const [showCaptureModal, setShowCaptureModal] = useState(false);
+    const [captureData, setCaptureData] = useState({ name: '', phone: '', email: '' });
+    const [isCapturing, setIsCapturing] = useState(false);
+
+    const getWhatsAppUrl = () => {
+        return `https://wa.me/5492974045378?text=${encodeURIComponent('Hola AutoSporting, quiero consultar por financiación')}`;
+    };
+
+    const handleWhatsAppClick = (e) => {
+        e.preventDefault();
+        setShowCaptureModal(true);
+    };
+
+    const handleDirectWhatsApp = () => {
+        setShowCaptureModal(false);
+        window.open(getWhatsAppUrl(), '_blank');
+    };
+
+    const handleCaptureSubmit = async (e) => {
+        e.preventDefault();
+        setIsCapturing(true);
+
+        try {
+            const API_URL = process.env.NEXT_PUBLIC_API_URL;
+            const baseUrl = process.env.NODE_ENV === 'production' ? '' : (API_URL || 'http://localhost:3001');
+            
+            await fetch(`${baseUrl}/api/leads/public`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    name: captureData.name,
+                    phone: captureData.phone,
+                    email: captureData.email,
+                    message: `Consulta por financiación desde la web`
+                })
+            });
+        } catch (error) {
+            console.error('Error in fast capture:', error);
+            // Ignoramos el error para no bloquear la conversión
+        } finally {
+            setIsCapturing(false);
+            setShowCaptureModal(false);
+            window.open(getWhatsAppUrl(), '_blank');
+        }
+    };
+
     return (
         <main className="financing-page">
             {/* Header Section */}
@@ -120,13 +168,102 @@ const Financing = () => {
                         </div>
                     </div>
                     <div className="req-cta">
-                        <a href="https://wa.me/5492974045378" target="_blank" rel="noopener noreferrer" className="btn-whatsapp-financing">
+                        <button onClick={handleWhatsAppClick} className="btn-whatsapp-financing">
                             Consultar por WhatsApp
-                        </a>
+                        </button>
                     </div>
                 </motion.div>
 
             </section>
+
+            {/* Fast Capture Modal */}
+            <AnimatePresence>
+                {showCaptureModal && (
+                    <motion.div 
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                        className="fixed inset-0 bg-black/80 z-[100] flex items-center justify-center p-4 backdrop-blur-sm"
+                        onClick={() => setShowCaptureModal(false)}
+                    >
+                        <motion.div 
+                            initial={{ scale: 0.95, opacity: 0 }}
+                            animate={{ scale: 1, opacity: 1 }}
+                            exit={{ scale: 0.95, opacity: 0 }}
+                            onClick={(e) => e.stopPropagation()}
+                            className="bg-[#111] border border-neutral-800 rounded-2xl w-full max-w-md overflow-hidden shadow-2xl relative"
+                        >
+                            <button 
+                                onClick={() => setShowCaptureModal(false)}
+                                className="absolute top-4 right-4 text-neutral-500 hover:text-white transition-colors"
+                            >
+                                <X size={20} />
+                            </button>
+
+                            <div className="p-6 sm:p-8">
+                                <h3 className="text-xl font-bold text-white mb-2">¡Hola! Ya casi hablamos</h3>
+                                <p className="text-sm text-neutral-400 mb-6">
+                                    Para brindarte el mejor asesoramiento financiero, por favor dejanos tu nombre y teléfono antes de continuar al chat.
+                                </p>
+
+                                <form onSubmit={handleCaptureSubmit} className="flex flex-col gap-4">
+                                    <div className="flex flex-col gap-1.5">
+                                        <label className="text-xs font-bold text-neutral-500 uppercase tracking-wider">Nombre Completo *</label>
+                                        <input 
+                                            type="text" 
+                                            required
+                                            value={captureData.name}
+                                            onChange={e => setCaptureData({...captureData, name: e.target.value})}
+                                            className="w-full bg-black/50 border border-neutral-800 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-blue-500 transition-colors"
+                                            placeholder="Tu nombre"
+                                        />
+                                    </div>
+
+                                    <div className="flex flex-col gap-1.5">
+                                        <label className="text-xs font-bold text-neutral-500 uppercase tracking-wider">Teléfono *</label>
+                                        <input 
+                                            type="tel" 
+                                            required
+                                            value={captureData.phone}
+                                            onChange={e => setCaptureData({...captureData, phone: e.target.value})}
+                                            className="w-full bg-black/50 border border-neutral-800 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-blue-500 transition-colors"
+                                            placeholder="Tu número"
+                                        />
+                                    </div>
+
+                                    <div className="flex flex-col gap-1.5">
+                                        <label className="text-xs font-bold text-neutral-500 uppercase tracking-wider">Email (Opcional)</label>
+                                        <input 
+                                            type="email" 
+                                            value={captureData.email}
+                                            onChange={e => setCaptureData({...captureData, email: e.target.value})}
+                                            className="w-full bg-black/50 border border-neutral-800 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-blue-500 transition-colors"
+                                            placeholder="Tu email"
+                                        />
+                                    </div>
+
+                                    <button 
+                                        type="submit"
+                                        disabled={isCapturing}
+                                        className="w-full bg-[#25D366] hover:bg-[#128C7E] text-white font-bold py-3.5 rounded-xl transition-colors mt-4 flex justify-center items-center gap-2"
+                                    >
+                                        {isCapturing ? 'Conectando...' : 'Continuar por WhatsApp'}
+                                    </button>
+                                </form>
+
+                                <div className="mt-6 text-center">
+                                    <button 
+                                        onClick={handleDirectWhatsApp}
+                                        className="text-xs text-neutral-500 hover:text-white transition-colors underline underline-offset-2"
+                                    >
+                                        Prefiero ir directo a WhatsApp sin dejar mis datos
+                                    </button>
+                                </div>
+                            </div>
+                        </motion.div>
+                    </motion.div>
+                )}
+            </AnimatePresence>
 
             <style>{`
         .financing-page {
