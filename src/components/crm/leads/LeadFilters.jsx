@@ -18,13 +18,13 @@ export default function LeadFilters({ filters, setFilters, onSearch }) {
     };
 
     const clearFilters = () => {
-        const cleared = { search: '', crmStatus: '', priority: '', source: '', unlinked: '' };
+        const cleared = { search: '', crmStatus: '', priority: '', source: '', sourceDetail: '', unlinked: '' };
         setLocalSearch('');
         setFilters(cleared);
         onSearch(cleared);
     };
 
-    const hasActiveFilters = filters.search || filters.crmStatus || filters.priority || filters.source || filters.unlinked;
+    const hasActiveFilters = filters.search || filters.crmStatus || filters.priority || filters.source || filters.sourceDetail || filters.unlinked;
 
     return (
         <div className="bg-neutral-900 border border-neutral-800 rounded-xl p-4 mb-6">
@@ -87,6 +87,19 @@ export default function LeadFilters({ filters, setFilters, onSearch }) {
                         <option value="referido">Referido</option>
                         <option value="mercadolibre">MercadoLibre</option>
                         <option value="otro">Otro</option>
+                    </select>
+
+                    <select 
+                        value={filters.sourceDetail || ''} 
+                        onChange={(e) => handleFilterChange('sourceDetail', e.target.value)}
+                        className="bg-black/30 border border-neutral-800 text-sm text-neutral-300 px-3 py-2.5 rounded-lg focus:outline-none focus:border-red-500 w-full md:w-auto cursor-pointer"
+                    >
+                        <option value="">Cualquier origen detallado</option>
+                        <option value="contact_form">Contacto Web</option>
+                        <option value="vehicle_detail_whatsapp">Ficha Auto</option>
+                        <option value="financing_whatsapp">Financiación</option>
+                        <option value="manual_crm">Manual CRM</option>
+                        <option value="unknown">Desconocido</option>
                     </select>
                     
                     <select 

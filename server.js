@@ -569,7 +569,7 @@ app.patch('/api/admin/clients/:id', authenticateToken, async (req, res) => {
 // GET admin leads
 app.get('/api/admin/leads', authenticateToken, async (req, res) => {
     try {
-        const { search, crmStatus, priority, source, clientId, unlinked, vehicleId, limit = 50, skip = 0 } = req.query;
+        const { search, crmStatus, priority, source, sourceDetail, clientId, unlinked, vehicleId, limit = 50, skip = 0 } = req.query;
         let query = {};
         
         if (search) {
@@ -583,6 +583,7 @@ app.get('/api/admin/leads', authenticateToken, async (req, res) => {
         if (crmStatus) query.crmStatus = crmStatus;
         if (priority) query.priority = priority;
         if (source) query.source = source;
+        if (sourceDetail) query.sourceDetail = sourceDetail;
         if (vehicleId) query.vehicleId = vehicleId;
         
         if (unlinked === 'true') {
@@ -652,6 +653,8 @@ app.post('/api/admin/leads', authenticateToken, async (req, res) => {
             source: 'CRM_V2',
             details: 'Lead creado desde CRM V2'
         }];
+        
+        sanitizedData.sourceDetail = 'manual_crm';
         
         const newLead = new Lead(sanitizedData);
         const savedLead = await newLead.save();
@@ -829,7 +832,7 @@ app.patch('/api/admin/leads/:id/tasks/:taskId', authenticateToken, async (req, r
 // POST new lead from public website (No Authentication Required)
 app.post('/api/leads/public', async (req, res) => {
     try {
-        const { name, phone, message, vehicleId, email } = req.body;
+        const { name, phone, message, vehicleId, email, sourceDetail } = req.body;
         
         // Basic validations
         if (!name || !phone) return res.status(400).json({ message: 'Name and phone are required' });
@@ -861,6 +864,9 @@ app.post('/api/leads/public', async (req, res) => {
         const priority = 'media';
         const source = 'web'; // Must match Enum
         
+        const allowedSourceDetails = ["contact_form", "vehicle_detail_whatsapp", "financing_whatsapp", "manual_crm", "unknown"];
+        const finalSourceDetail = allowedSourceDetails.includes(sourceDetail) ? sourceDetail : "unknown";
+        
         // Audit log
         const leadAuditLog = [{
             action: 'CREACION_WEB',
@@ -883,6 +889,7 @@ app.post('/api/leads/public', async (req, res) => {
             crmStatus: crmStatus,
             priority: priority,
             source: source,
+            sourceDetail: finalSourceDetail,
             leadAuditLog: leadAuditLog,
             lastActivityAt: new Date()
         });

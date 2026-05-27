@@ -45,6 +45,14 @@ export default function LeadDetailHeader({ lead, onEdit }) {
                         <span className="text-[10px] uppercase font-bold px-2 py-0.5 rounded border bg-neutral-900 text-neutral-400 border-neutral-800">
                             Origen: {lead.source || 'otro'}
                         </span>
+                        {lead.sourceDetail && lead.sourceDetail !== 'unknown' && (
+                            <span className="text-[10px] font-bold px-2 py-0.5 rounded border bg-neutral-900 text-neutral-300 border-neutral-700">
+                                {lead.sourceDetail === 'contact_form' ? 'Contacto Web' :
+                                 lead.sourceDetail === 'vehicle_detail_whatsapp' ? 'Ficha Auto' :
+                                 lead.sourceDetail === 'financing_whatsapp' ? 'Financiación' :
+                                 lead.sourceDetail === 'manual_crm' ? 'Manual CRM' : lead.sourceDetail}
+                            </span>
+                        )}
                     </div>
 
                     <div className="h-4 w-px bg-neutral-800 hidden md:block"></div>

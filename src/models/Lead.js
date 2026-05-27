@@ -57,6 +57,17 @@ const leadSchema = new mongoose.Schema({
         enum: ['web', 'whatsapp', 'instagram', 'local', 'referido', 'mercadolibre', 'otro'], 
         default: 'otro' 
     },
+    sourceDetail: {
+        type: String,
+        enum: [
+            "contact_form",
+            "vehicle_detail_whatsapp",
+            "financing_whatsapp",
+            "manual_crm",
+            "unknown"
+        ],
+        default: "unknown"
+    },
     crmStatus: { 
         type: String, 
         enum: ['nuevo', 'contactado', 'interesado', 'seguimiento', 'reservado', 'perdido', 'convertido'], 

@@ -16,6 +16,7 @@ export default function AdminLeadsPage() {
         crmStatus: '', 
         priority: '', 
         source: '', 
+        sourceDetail: '',
         unlinked: '' 
     });
 
@@ -28,7 +29,14 @@ export default function AdminLeadsPage() {
         fetchLeads(newFilters);
     };
 
-    const hasActiveFilters = Boolean(filters.search || filters.crmStatus || filters.priority || filters.source || filters.unlinked);
+    const hasActiveFilters = Boolean(filters.search || filters.crmStatus || filters.priority || filters.source || filters.sourceDetail || filters.unlinked);
+
+    // Basic Metrics (Calculated over currently loaded leads - which might be paginated, 
+    // but useful for quick context as requested)
+    const webContactCount = leads.filter(l => l.sourceDetail === 'contact_form').length;
+    const vehicleDetailCount = leads.filter(l => l.sourceDetail === 'vehicle_detail_whatsapp').length;
+    const financingCount = leads.filter(l => l.sourceDetail === 'financing_whatsapp').length;
+    const unlinkedCount = leads.filter(l => !l.clientId).length;
 
     return (
         <div className="flex flex-col gap-6 max-w-[1600px] mx-auto w-full">
@@ -45,6 +53,30 @@ export default function AdminLeadsPage() {
                     <p className="text-neutral-400 text-sm">
                         Total de leads: <strong className="text-white">{total}</strong> registros activos
                     </p>
+                </div>
+            </div>
+
+            {/* Metrics Cards */}
+            <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+                <div className="bg-neutral-900 border border-neutral-800 p-4 rounded-xl flex flex-col">
+                    <span className="text-neutral-500 text-xs font-bold uppercase tracking-wider mb-1">Total Actuales</span>
+                    <span className="text-white text-2xl font-bold">{leads.length}</span>
+                </div>
+                <div className="bg-neutral-900 border border-neutral-800 p-4 rounded-xl flex flex-col">
+                    <span className="text-neutral-500 text-xs font-bold uppercase tracking-wider mb-1">Contacto Web</span>
+                    <span className="text-blue-400 text-2xl font-bold">{webContactCount}</span>
+                </div>
+                <div className="bg-neutral-900 border border-neutral-800 p-4 rounded-xl flex flex-col">
+                    <span className="text-neutral-500 text-xs font-bold uppercase tracking-wider mb-1">Fichas Auto</span>
+                    <span className="text-red-400 text-2xl font-bold">{vehicleDetailCount}</span>
+                </div>
+                <div className="bg-neutral-900 border border-neutral-800 p-4 rounded-xl flex flex-col">
+                    <span className="text-neutral-500 text-xs font-bold uppercase tracking-wider mb-1">Financiación</span>
+                    <span className="text-green-400 text-2xl font-bold">{financingCount}</span>
+                </div>
+                <div className="bg-neutral-900 border border-neutral-800 p-4 rounded-xl flex flex-col">
+                    <span className="text-neutral-500 text-xs font-bold uppercase tracking-wider mb-1">Sin Cliente</span>
+                    <span className="text-orange-400 text-2xl font-bold">{unlinkedCount}</span>
                 </div>
             </div>
 

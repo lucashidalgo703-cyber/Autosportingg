@@ -92,9 +92,19 @@ export default function LeadsTable({ leads }) {
 
                             {/* Origen */}
                             <td className="py-4 px-4">
-                                <span className="text-xs text-neutral-400 capitalize bg-neutral-800 px-2 py-1 rounded">
-                                    {lead.source || 'otro'}
-                                </span>
+                                <div className="flex flex-col gap-1">
+                                    <span className="text-xs text-neutral-400 capitalize bg-neutral-800 px-2 py-0.5 rounded w-max">
+                                        {lead.source || 'otro'}
+                                    </span>
+                                    {lead.sourceDetail && lead.sourceDetail !== 'unknown' && (
+                                        <span className="text-[10px] font-medium text-neutral-500 bg-neutral-900 border border-neutral-800 px-2 py-0.5 rounded w-max">
+                                            {lead.sourceDetail === 'contact_form' ? 'Contacto Web' :
+                                             lead.sourceDetail === 'vehicle_detail_whatsapp' ? 'Ficha Auto' :
+                                             lead.sourceDetail === 'financing_whatsapp' ? 'Financiación' :
+                                             lead.sourceDetail === 'manual_crm' ? 'Manual CRM' : lead.sourceDetail}
+                                        </span>
+                                    )}
+                                </div>
                             </td>
 
                             {/* Cliente Asociado */}

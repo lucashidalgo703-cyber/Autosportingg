@@ -153,7 +153,8 @@ const CarDetail = () => {
                     phone: captureData.phone,
                     email: captureData.email,
                     message: `Consulta por vehículo desde ficha web: ${car?.brand} ${car?.name} ${car?.year}`,
-                    vehicleId: car?._id
+                    vehicleId: car?._id,
+                    sourceDetail: "vehicle_detail_whatsapp"
                 })
             });
         } catch (error) {

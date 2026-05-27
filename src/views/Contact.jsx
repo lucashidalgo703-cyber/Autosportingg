@@ -36,7 +36,8 @@ const Contact = () => {
           name: formData.name,
           phone: formData.phone,
           email: formData.email,
-          message: formData.message
+          message: formData.message,
+          sourceDetail: "contact_form"
         })
       });
       

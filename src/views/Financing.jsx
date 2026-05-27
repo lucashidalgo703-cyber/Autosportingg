@@ -48,7 +48,8 @@ const Financing = () => {
                     name: captureData.name,
                     phone: captureData.phone,
                     email: captureData.email,
-                    message: `Consulta por financiación desde la web`
+                    message: `Consulta por financiación desde la web`,
+                    sourceDetail: "financing_whatsapp"
                 })
             });
         } catch (error) {

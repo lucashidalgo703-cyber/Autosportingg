@@ -20,6 +20,14 @@ export default function LeadMobileCards({ leads }) {
                                 <span className="text-[10px] font-bold px-2 py-0.5 rounded border capitalize bg-neutral-800 text-neutral-400 border-neutral-700">
                                     {lead.source || 'otro'}
                                 </span>
+                                {lead.sourceDetail && lead.sourceDetail !== 'unknown' && (
+                                    <span className="text-[10px] font-medium px-2 py-0.5 rounded border bg-neutral-900 text-neutral-500 border-neutral-800">
+                                        {lead.sourceDetail === 'contact_form' ? 'Contacto Web' :
+                                         lead.sourceDetail === 'vehicle_detail_whatsapp' ? 'Ficha Auto' :
+                                         lead.sourceDetail === 'financing_whatsapp' ? 'Financiación' :
+                                         lead.sourceDetail === 'manual_crm' ? 'Manual CRM' : lead.sourceDetail}
+                                    </span>
+                                )}
                             </div>
                         </div>
                     </div>
