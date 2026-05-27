@@ -14,14 +14,14 @@ const itemVariants = {
 };
 
 const Contact = () => {
-  const [formData, setFormData] = useState({ name: '', phone: '', message: '' });
+  const [formData, setFormData] = useState({ name: '', phone: '', email: '', message: '' });
   const [status, setStatus] = useState({ type: '', msg: '' });
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!formData.name || !formData.phone) {
-      setStatus({ type: 'error', msg: 'Por favor completa nombre y teléfono.' });
+      setStatus({ type: 'error', msg: 'Por favor completá nombre y teléfono.' });
       return;
     }
     
@@ -32,16 +32,21 @@ const Contact = () => {
       const res = await fetch(`${baseUrl}/api/leads/public`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(formData)
+        body: JSON.stringify({
+          name: formData.name,
+          phone: formData.phone,
+          email: formData.email,
+          message: formData.message
+        })
       });
       
       if (!res.ok) throw new Error('Error al enviar el mensaje');
       
-      setStatus({ type: 'success', msg: '¡Mensaje enviado con éxito! Te contactaremos pronto.' });
-      setFormData({ name: '', phone: '', message: '' });
-      setTimeout(() => setStatus({ type: '', msg: '' }), 5000);
+      setStatus({ type: 'success', msg: 'Consulta enviada correctamente. Te contactaremos a la brevedad.' });
+      setFormData({ name: '', phone: '', email: '', message: '' });
+      setTimeout(() => setStatus({ type: '', msg: '' }), 6000);
     } catch (error) {
-      setStatus({ type: 'error', msg: 'Hubo un error al enviar tu mensaje.' });
+      setStatus({ type: 'error', msg: 'No pudimos enviar la consulta. Intentá nuevamente o contactanos por WhatsApp.' });
     } finally {
       setIsSubmitting(false);
     }
@@ -188,6 +193,15 @@ const Contact = () => {
                     value={formData.phone}
                     onChange={e => setFormData({...formData, phone: e.target.value})}
                     placeholder="Ej. +54 9 297 123 4567" 
+                />
+                </div>
+                <div className="input-group">
+                <label>Email (Opcional)</label>
+                <input 
+                    type="email" 
+                    value={formData.email}
+                    onChange={e => setFormData({...formData, email: e.target.value})}
+                    placeholder="Ej. juan@correo.com" 
                 />
                 </div>
                 <div className="input-group">
