@@ -1490,8 +1490,52 @@ app.get('/api/admin/sales', authenticateToken, async (req, res) => {
                 select: 'status depositAmount depositCurrency expiresAt'
             })
             .sort({ saleDate: -1, createdAt: -1 });
+
+        // Calculate collection status for each sale
+        const saleIds = sales.map(s => s._id);
+        const transactions = await Transaction.find({ 
+            saleId: { $in: saleIds }, 
+            status: 'activo', 
+            module: 'crm_v2' 
+        });
+
+        const salesWithFinance = sales.map(sale => {
+            const saleTxs = transactions.filter(tx => String(tx.saleId) === String(sale._id));
+            let netoCobrado = 0;
             
-        res.json(sales);
+            // Also consider the applied deposit from the reservation if the currency matches the sale currency
+            // Assuming depositAppliedAmount is stored in the Sale model
+            let depositApplied = 0;
+            if (sale.depositAppliedCurrency === sale.saleCurrency && sale.depositAppliedAmount) {
+                depositApplied = sale.depositAppliedAmount;
+                netoCobrado += depositApplied;
+            }
+
+            saleTxs.forEach(tx => {
+                if (tx.currency === sale.saleCurrency) {
+                    if (tx.type === 'Ingreso') netoCobrado += tx.amount;
+                    else if (tx.type === 'Egreso') netoCobrado -= tx.amount;
+                }
+            });
+
+            let collectionStatus = 'sin_cobro';
+            const pendingBalance = sale.salePrice - netoCobrado;
+
+            if (netoCobrado > 0 && netoCobrado < sale.salePrice) collectionStatus = 'parcial';
+            else if (netoCobrado === sale.salePrice) collectionStatus = 'cobrada';
+            else if (netoCobrado > sale.salePrice) collectionStatus = 'sobrecobrada';
+
+            const saleObj = sale.toObject();
+            saleObj.finance = {
+                netoCobrado,
+                pendingBalance,
+                collectionStatus,
+                depositApplied
+            };
+            return saleObj;
+        });
+            
+        res.json(salesWithFinance);
     } catch (error) {
         console.error('Error fetching sales:', error);
         res.status(500).json({ message: error.message });
@@ -1508,8 +1552,43 @@ app.get('/api/admin/sales/:id', authenticateToken, async (req, res) => {
             .populate('reservationId');
             
         if (!sale) return res.status(404).json({ message: 'Sale not found' });
+
+        const transactions = await Transaction.find({ 
+            saleId: sale._id, 
+            status: 'activo', 
+            module: 'crm_v2' 
+        });
+
+        let netoCobrado = 0;
+        let depositApplied = 0;
+        if (sale.depositAppliedCurrency === sale.saleCurrency && sale.depositAppliedAmount) {
+            depositApplied = sale.depositAppliedAmount;
+            netoCobrado += depositApplied;
+        }
+
+        transactions.forEach(tx => {
+            if (tx.currency === sale.saleCurrency) {
+                if (tx.type === 'Ingreso') netoCobrado += tx.amount;
+                else if (tx.type === 'Egreso') netoCobrado -= tx.amount;
+            }
+        });
+
+        let collectionStatus = 'sin_cobro';
+        const pendingBalance = sale.salePrice - netoCobrado;
+
+        if (netoCobrado > 0 && netoCobrado < sale.salePrice) collectionStatus = 'parcial';
+        else if (netoCobrado === sale.salePrice) collectionStatus = 'cobrada';
+        else if (netoCobrado > sale.salePrice) collectionStatus = 'sobrecobrada';
+
+        const saleObj = sale.toObject();
+        saleObj.finance = {
+            netoCobrado,
+            pendingBalance,
+            collectionStatus,
+            depositApplied
+        };
         
-        res.json(sale);
+        res.json(saleObj);
     } catch (error) {
         res.status(500).json({ message: error.message });
     }

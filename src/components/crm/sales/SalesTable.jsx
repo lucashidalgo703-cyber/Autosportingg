@@ -26,7 +26,7 @@ export default function SalesTable({ sales, onViewDetail }) {
                             <th className="p-4 text-xs font-bold text-neutral-500 uppercase tracking-wider">Cliente / Lead</th>
                             <th className="p-4 text-xs font-bold text-neutral-500 uppercase tracking-wider">Vehículo</th>
                             <th className="p-4 text-xs font-bold text-neutral-500 uppercase tracking-wider">Estado</th>
-                            <th className="p-4 text-xs font-bold text-neutral-500 uppercase tracking-wider text-right">Precio Final</th>
+                            <th className="p-4 text-xs font-bold text-neutral-500 uppercase tracking-wider text-right">Cobranza</th>
                             <th className="p-4 text-xs font-bold text-neutral-500 uppercase tracking-wider">Doc.</th>
                             <th className="p-4 text-xs font-bold text-neutral-500 uppercase tracking-wider">Logística</th>
                             <th className="p-4 text-xs font-bold text-neutral-500 uppercase tracking-wider text-center">Acciones</th>
@@ -84,11 +84,21 @@ export default function SalesTable({ sales, onViewDetail }) {
                                         <SaleStatusBadge status={sale.status} />
                                     </td>
 
-                                    {/* Precio de Venta */}
+                                    {/* Cobranza */}
                                     <td className="p-4 text-right whitespace-nowrap">
-                                        <span className={`text-sm font-bold ${sale.status === 'cancelada' ? 'text-neutral-500 line-through' : 'text-green-400'}`}>
-                                            {sale.saleCurrency} {(sale.salePrice || 0).toLocaleString('es-AR')}
-                                        </span>
+                                        <div className="flex flex-col items-end gap-1">
+                                            <span className={`text-sm font-bold ${sale.status === 'cancelada' ? 'text-neutral-500 line-through' : 'text-green-400'}`}>
+                                                {sale.saleCurrency} {(sale.salePrice || 0).toLocaleString('es-AR')}
+                                            </span>
+                                            {sale.finance && (
+                                                <div className="flex flex-col items-end mt-1">
+                                                    {sale.finance.collectionStatus === 'sin_cobro' && <span className="text-[10px] text-red-400 font-bold uppercase">Sin Cobro</span>}
+                                                    {sale.finance.collectionStatus === 'parcial' && <span className="text-[10px] text-yellow-400 font-bold uppercase">Saldo: {sale.saleCurrency} {sale.finance.pendingBalance.toLocaleString('es-AR')}</span>}
+                                                    {sale.finance.collectionStatus === 'cobrada' && <span className="text-[10px] text-green-400 font-bold uppercase">Cobrada</span>}
+                                                    {sale.finance.collectionStatus === 'sobrecobrada' && <span className="text-[10px] text-purple-400 font-bold uppercase">Sobrecobrada</span>}
+                                                </div>
+                                            )}
+                                        </div>
                                     </td>
 
                                     {/* Doc */}

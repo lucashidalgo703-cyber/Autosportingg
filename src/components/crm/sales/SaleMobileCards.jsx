@@ -63,21 +63,24 @@ export default function SaleMobileCards({ sales, onViewDetail }) {
                                 )}
                             </div>
 
-                            <div className="grid grid-cols-2 gap-4 bg-black/20 rounded-xl p-3 border border-neutral-800/50">
-                                <div className="flex flex-col">
+                            <div className="flex flex-col gap-3 bg-black/20 rounded-xl p-3 border border-neutral-800/50">
+                                <div className="flex justify-between items-center">
                                     <span className="text-[10px] text-neutral-500 uppercase">Precio Venta</span>
                                     <span className={`text-sm font-bold ${sale.status === 'cancelada' ? 'text-neutral-500 line-through' : 'text-green-400'}`}>
                                         {sale.saleCurrency} {(sale.salePrice || 0).toLocaleString('es-AR')}
                                     </span>
                                 </div>
-                                <div className="flex flex-col items-end text-right">
-                                    <span className="text-[10px] text-neutral-500 uppercase">Seña Aplicada</span>
-                                    <span className="text-sm font-bold text-neutral-300">
-                                        {sale.depositAppliedAmount > 0 ? (
-                                            `${sale.depositAppliedCurrency} ${sale.depositAppliedAmount.toLocaleString('es-AR')}`
-                                        ) : '-'}
-                                    </span>
-                                </div>
+                                {sale.finance && (
+                                    <div className="flex justify-between items-center border-t border-neutral-800/50 pt-2">
+                                        <span className="text-[10px] text-neutral-500 uppercase">Cobranza</span>
+                                        <div className="flex flex-col items-end">
+                                            {sale.finance.collectionStatus === 'sin_cobro' && <span className="text-[10px] text-red-400 font-bold uppercase">Sin Cobro</span>}
+                                            {sale.finance.collectionStatus === 'parcial' && <span className="text-[10px] text-yellow-400 font-bold uppercase">Saldo: {sale.saleCurrency} {sale.finance.pendingBalance.toLocaleString('es-AR')}</span>}
+                                            {sale.finance.collectionStatus === 'cobrada' && <span className="text-[10px] text-green-400 font-bold uppercase">Cobrada</span>}
+                                            {sale.finance.collectionStatus === 'sobrecobrada' && <span className="text-[10px] text-purple-400 font-bold uppercase">Sobrecobrada</span>}
+                                        </div>
+                                    </div>
+                                )}
                             </div>
 
                             {/* Doc & Delivery Status */}
