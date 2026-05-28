@@ -106,6 +106,16 @@ export default function CollectionsTable({ installments, onEdit, onRegisterPayme
                                                     <Bell size={8} /> Recordatorio vencido
                                                 </span>
                                             )}
+                                            {inst.reminderInfo?.status === 'completado' && (
+                                                <span className="text-[9px] text-green-400 bg-green-400/10 px-1.5 py-0.5 rounded border border-green-400/20 w-max flex items-center gap-1">
+                                                    <Bell size={8} /> Recordatorio completado
+                                                </span>
+                                            )}
+                                            {inst.reminderInfo?.status === 'cancelado' && (
+                                                <span className="text-[9px] text-neutral-400 bg-neutral-400/10 px-1.5 py-0.5 rounded border border-neutral-400/20 w-max flex items-center gap-1">
+                                                    <Bell size={8} /> Recordatorio cancelado
+                                                </span>
+                                            )}
                                             {hasWarning && (
                                                 <span className="text-[9px] text-yellow-500 bg-yellow-500/10 px-1.5 py-0.5 rounded border border-yellow-500/20 w-max" title="La cuota figura pagada manualmente, pero no tiene cobro financiero activo suficiente.">
                                                     Falta cobro real

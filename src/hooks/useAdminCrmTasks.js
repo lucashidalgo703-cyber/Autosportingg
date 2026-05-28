@@ -34,7 +34,8 @@ export function useAdminCrmTasks() {
         setError(null);
         try {
             const response = await fetch('/api/admin/crm-tasks', {
-                headers: getAuthHeaders()
+                headers: getAuthHeaders(),
+                cache: 'no-store'
             });
             if (!response.ok) throw await parseErrorResponse(response);
             const data = await response.json();

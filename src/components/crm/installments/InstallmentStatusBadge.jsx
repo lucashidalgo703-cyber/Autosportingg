@@ -8,7 +8,7 @@ export default function InstallmentStatusBadge({ status, dueDate }) {
         case 'pendiente':
             return (
                 <span className="text-xs font-bold text-blue-400 bg-blue-400/10 px-2.5 py-1 rounded-full border border-blue-400/20">
-                    Pendiente
+                    Pago pendiente
                 </span>
             );
         case 'vencida':
@@ -20,7 +20,7 @@ export default function InstallmentStatusBadge({ status, dueDate }) {
         case 'pagada_manual':
             return (
                 <span className="text-xs font-bold text-green-400 bg-green-400/10 px-2.5 py-1 rounded-full border border-green-400/20">
-                    Pagada (M)
+                    Pagada manualmente
                 </span>
             );
         case 'anulada':
