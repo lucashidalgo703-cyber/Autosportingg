@@ -1,4 +1,4 @@
-const mongoose = require('mongoose');
+import mongoose from 'mongoose';
 
 const installmentAuditSchema = new mongoose.Schema({
     action: {
@@ -61,4 +61,5 @@ const installmentSchema = new mongoose.Schema({
     installmentAuditLog: [installmentAuditSchema]
 }, { timestamps: true });
 
-module.exports = mongoose.models.Installment || mongoose.model('Installment', installmentSchema);
+const Installment = mongoose.models.Installment || mongoose.model('Installment', installmentSchema);
+export default Installment;

@@ -5,17 +5,23 @@ export const useAdminInstallments = () => {
     const [error, setError] = useState(null);
 
     const parseErrorResponse = async (res) => {
-        const contentType = res.headers.get("content-type");
-        if (contentType && contentType.indexOf("application/json") !== -1) {
-            const data = await res.json();
-            return new Error(data.message || 'Error desconocido');
-        } else {
-            const text = await res.text();
-            if (res.status === 403 && text === 'Forbidden') {
-                return new Error('Sesión vencida o acceso denegado. Por favor, inicie sesión nuevamente.');
-            }
-            return new Error(`Error ${res.status}: ${text}`);
+        const contentType = res.headers.get("content-type") || "";
+        
+        if (contentType.includes("application/json")) {
+            const data = await res.json().catch(() => ({}));
+            return new Error(data.message || data.error || `Error ${res.status}`);
         }
+        
+        const text = await res.text().catch(() => "");
+        if (text.includes("<!DOCTYPE html>")) {
+            return new Error(`Error ${res.status}: el servidor devolvió una página de error. Revisar logs del backend.`);
+        }
+        
+        if (res.status === 403 && text === 'Forbidden') {
+            return new Error('Sesión vencida o acceso denegado. Por favor, inicie sesión nuevamente.');
+        }
+        
+        return new Error(text || `Error ${res.status}`);
     };
 
     const fetchInstallments = async (filters = {}) => {
