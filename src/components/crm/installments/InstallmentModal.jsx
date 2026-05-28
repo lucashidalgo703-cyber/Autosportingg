@@ -32,13 +32,31 @@ export default function InstallmentModal({ isOpen, onClose, installment, onSave,
 
     if (!isOpen) return null;
 
+    const cleanOptionalId = (value) => {
+        if (!value) return undefined;
+        if (typeof value === "string" && value.trim() === "") return undefined;
+        if (typeof value === "object" && value._id) return value._id;
+        return value;
+    };
+
     const handleSubmit = async (e) => {
         e.preventDefault();
+        
         const data = {
             ...formData,
+            saleId: cleanOptionalId(formData.saleId),
+            clientId: cleanOptionalId(formData.clientId),
+            vehicleId: cleanOptionalId(formData.vehicleId),
             amount: Number(formData.amount),
             installmentNumber: Number(formData.installmentNumber)
         };
+        
+        Object.keys(data).forEach((key) => {
+            if (data[key] === undefined || data[key] === "") {
+                delete data[key];
+            }
+        });
+
         await onSave(data);
     };
 

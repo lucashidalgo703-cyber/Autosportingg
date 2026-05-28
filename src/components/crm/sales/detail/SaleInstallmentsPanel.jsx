@@ -34,10 +34,17 @@ export default function SaleInstallmentsPanel({ sale, saleFinanceData }) {
             if (!isFinite(nextNumber)) nextNumber = 1;
         }
 
+        const getMongoId = (value) => {
+            if (!value) return undefined;
+            if (typeof value === "string" && value.trim() !== "") return value;
+            if (typeof value === "object" && value._id) return value._id;
+            return undefined;
+        };
+
         setSelectedInst({
-            saleId: sale._id,
-            clientId: sale.clientId?._id || sale.clientId,
-            vehicleId: sale.vehicleId?._id || sale.vehicleId,
+            saleId: getMongoId(sale),
+            clientId: getMongoId(sale?.clientId),
+            vehicleId: getMongoId(sale?.vehicleId),
             currency: sale.saleCurrency || 'ARS',
             installmentNumber: nextNumber,
             amount: saleFinanceData?.pendingBalance > 0 ? saleFinanceData.pendingBalance : ''

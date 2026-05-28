@@ -2323,10 +2323,26 @@ app.post('/api/admin/installments', authenticateToken, async (req, res) => {
             });
         }
 
+        const sanitizeOptionalObjectId = (value) => {
+            if (!value) return undefined;
+            if (typeof value === "string" && value.trim() === "") return undefined;
+            return value;
+        };
+
+        const cleanClientId = sanitizeOptionalObjectId(clientId);
+        const cleanVehicleId = sanitizeOptionalObjectId(vehicleId);
+
+        if (cleanClientId && !mongoose.Types.ObjectId.isValid(cleanClientId)) {
+            return res.status(400).json({ message: "clientId inválido" });
+        }
+        if (cleanVehicleId && !mongoose.Types.ObjectId.isValid(cleanVehicleId)) {
+            return res.status(400).json({ message: "vehicleId inválido" });
+        }
+
         const newInstallment = new Installment({
             saleId,
-            clientId,
-            vehicleId,
+            ...(cleanClientId && { clientId: cleanClientId }),
+            ...(cleanVehicleId && { vehicleId: cleanVehicleId }),
             installmentNumber,
             dueDate,
             amount,
@@ -2426,6 +2442,15 @@ app.post('/api/admin/sales/:id/installments/generate', authenticateToken, async 
         const newInstallments = [];
         let currentDate = new Date(firstDueDate);
 
+        const sanitizeOptionalObjectId = (value) => {
+            if (!value) return undefined;
+            if (typeof value === "string" && value.trim() === "") return undefined;
+            if (typeof value === "object" && value._id) return value._id;
+            return value;
+        };
+        const cleanClientId = sanitizeOptionalObjectId(sale.clientId);
+        const cleanVehicleId = sanitizeOptionalObjectId(sale.vehicleId);
+
         for (let i = 0; i < installmentsCount; i++) {
             let amount = baseInstAmount;
             if (i === installmentsCount - 1) {
@@ -2434,8 +2459,8 @@ app.post('/api/admin/sales/:id/installments/generate', authenticateToken, async 
 
             newInstallments.push(new Installment({
                 saleId: sale._id,
-                clientId: sale.clientId,
-                vehicleId: sale.vehicleId,
+                ...(cleanClientId && { clientId: cleanClientId }),
+                ...(cleanVehicleId && { vehicleId: cleanVehicleId }),
                 installmentNumber: startNumber + i,
                 dueDate: new Date(currentDate),
                 amount,
