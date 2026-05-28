@@ -11,7 +11,7 @@ import { Plus } from 'lucide-react';
 
 export default function AdminAgendaPage() {
     const { leads, loading: loadingLeads, error: errorLeads, fetchLeads, updateLead, updateTaskStatus } = useAdminLeads();
-    const { tasks: crmTasks, loading: loadingTasks, error: errorTasks, fetchTasks, updateTask: updateCrmTask } = useAdminCrmTasks();
+    const { tasks: crmTasks, loading: loadingTasks, error: errorTasks, fetchTasks, createTask: createCrmTask, updateTask: updateCrmTask } = useAdminCrmTasks();
     
     // Filters State
     const [filters, setFilters] = useState({ 
@@ -71,16 +71,17 @@ export default function AdminAgendaPage() {
 
     const handleSaveCrmTask = async (taskData) => {
         try {
-            if (selectedTaskForEdit) {
+            if (selectedTaskForEdit && selectedTaskForEdit._id) {
                 await updateCrmTask(selectedTaskForEdit._id, taskData);
             } else {
-                await createTask(taskData);
+                await createCrmTask(taskData);
             }
             setIsCrmTaskModalOpen(false);
             setSelectedTaskForEdit(null);
-            fetchTasks(); // Reload to reflect changes if necessary
+            await fetchTasks(); // Asegurar refresco en caliente
         } catch (error) {
-            alert('Error al guardar tarea: ' + error.message);
+            console.error(error);
+            alert('No se pudo guardar la tarea. Revisá la sesión o intentá nuevamente.');
         }
     };
 
