@@ -20,7 +20,10 @@ export default function VentasPage() {
         search: '',
         status: 'todas',
         currency: 'todas',
-        paymentMethod: 'todas'
+        paymentMethod: 'todas',
+        documentationStatus: 'todas',
+        deliveryStatus: 'todas',
+        collectionStatus: 'todas'
     });
 
     const loadData = async () => {
@@ -72,12 +75,17 @@ export default function VentasPage() {
             }
 
             // 5. Documentation Status filter
-            if (filters.documentationStatus !== 'todas' && (sale.documentationStatus || 'pendiente') !== filters.documentationStatus) {
+            if (filters.documentationStatus && filters.documentationStatus !== 'todas' && (sale.documentationStatus || 'pendiente') !== filters.documentationStatus) {
                 return false;
             }
 
             // 6. Delivery Status filter
-            if (filters.deliveryStatus !== 'todas' && (sale.deliveryStatus || 'pendiente') !== filters.deliveryStatus) {
+            if (filters.deliveryStatus && filters.deliveryStatus !== 'todas' && (sale.deliveryStatus || 'pendiente') !== filters.deliveryStatus) {
+                return false;
+            }
+
+            // 7. Collection Status filter
+            if (filters.collectionStatus && filters.collectionStatus !== 'todas' && (sale.finance?.collectionStatus || 'sin_cobro') !== filters.collectionStatus) {
                 return false;
             }
 

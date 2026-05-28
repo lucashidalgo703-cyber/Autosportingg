@@ -9,7 +9,8 @@ export default function SalesFilters({ filters, setFilters }) {
             currency: 'todas',
             paymentMethod: 'todas',
             documentationStatus: 'todas',
-            deliveryStatus: 'todas'
+            deliveryStatus: 'todas',
+            collectionStatus: 'todas'
         });
     };
 
@@ -102,6 +103,21 @@ export default function SalesFilters({ filters, setFilters }) {
                             <option value="preparando">Preparando</option>
                             <option value="listo_para_entregar">Lista para Ent.</option>
                             <option value="entregado">Entregada</option>
+                        </select>
+                    </div>
+
+                    {/* Collection Status */}
+                    <div className="relative min-w-[140px] flex-1 md:flex-none">
+                        <select
+                            className="w-full bg-black/40 border border-neutral-800 rounded-xl py-2.5 px-4 text-sm text-neutral-300 focus:outline-none focus:border-neutral-600 transition-colors appearance-none cursor-pointer"
+                            value={filters.collectionStatus || 'todas'}
+                            onChange={(e) => setFilters({ ...filters, collectionStatus: e.target.value })}
+                        >
+                            <option value="todas">Cobranza (Todas)</option>
+                            <option value="sin_cobro">Sin cobro</option>
+                            <option value="parcial">Parcial</option>
+                            <option value="cobrada">Cobrada</option>
+                            <option value="sobrecobrada">Sobrecobrada</option>
                         </select>
                     </div>
 
