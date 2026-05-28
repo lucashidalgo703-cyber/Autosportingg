@@ -191,7 +191,6 @@ export default function AdminAgendaPage() {
     };
 
     const loading = loadingLeads || loadingTasks;
-    const error = errorLeads || errorTasks;
 
     return (
         <div className="flex flex-col gap-6 max-w-[1600px] mx-auto w-full pb-10">
@@ -202,7 +201,7 @@ export default function AdminAgendaPage() {
                         <CalendarClock className="text-red-600" size={32} />
                         <h1 className="text-3xl font-bold text-white tracking-tight">Agenda Comercial</h1>
                         <span className="bg-red-500/10 text-red-500 border border-red-500/20 px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider ml-2">
-                            Fase 3.4B
+                            Fase 4.2D
                         </span>
                     </div>
                     <p className="text-neutral-400 text-sm">
@@ -216,10 +215,17 @@ export default function AdminAgendaPage() {
             <div className="bg-black/20 p-4 md:p-6 rounded-2xl border border-neutral-800/50">
                 <LeadFilters filters={filters} setFilters={setFilters} onSearch={handleSearch} />
                 
-                {error && (
+                {errorLeads && (
                     <div className="bg-red-500/10 border border-red-500/20 text-red-400 p-4 rounded-xl mb-6 text-sm flex items-center gap-2">
                         <AlertCircle size={18} />
-                        No se pudieron cargar los datos de la agenda. {error}
+                        No se pudieron cargar los datos de leads en la agenda. {errorLeads}
+                    </div>
+                )}
+                
+                {errorTasks && !errorLeads && (
+                    <div className="bg-yellow-500/10 border border-yellow-500/20 text-yellow-500 p-4 rounded-xl mb-6 text-sm flex items-center gap-2">
+                        <AlertCircle size={18} />
+                        No se pudieron cargar las tareas CRM (Cobranzas). Solo verás las tareas de Leads. {errorTasks}
                     </div>
                 )}
                 
@@ -227,7 +233,7 @@ export default function AdminAgendaPage() {
                     <div className="flex justify-center items-center h-64">
                         <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-red-500"></div>
                     </div>
-                ) : !error ? (
+                ) : !errorLeads ? (
                     <div className="flex flex-col gap-6">
                         <AgendaSection 
                             title="Vencidos (Atención Urgente)" 

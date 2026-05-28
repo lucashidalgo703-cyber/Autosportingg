@@ -6,11 +6,27 @@ export function useAdminCrmTasks() {
     const [error, setError] = useState(null);
 
     const getAuthHeaders = () => {
-        const token = localStorage.getItem('adminToken');
+        const token = localStorage.getItem('token'); // Fixed from adminToken to token
         return {
             'Content-Type': 'application/json',
             'Authorization': `Bearer ${token}`
         };
+    };
+
+    const parseErrorResponse = async (res) => {
+        const contentType = res.headers.get("content-type") || "";
+        
+        if (contentType.includes("application/json")) {
+            const data = await res.json().catch(() => ({}));
+            return new Error(data.message || data.error || `Error ${res.status}`);
+        }
+        
+        const text = await res.text().catch(() => "");
+        if (res.status === 403) {
+            return new Error('Sesión no autorizada para tareas CRM. Volvé a iniciar sesión.');
+        }
+        
+        return new Error(text || `Error ${res.status}`);
     };
 
     const fetchTasks = useCallback(async () => {
@@ -20,7 +36,7 @@ export function useAdminCrmTasks() {
             const response = await fetch('/api/admin/crm-tasks', {
                 headers: getAuthHeaders()
             });
-            if (!response.ok) throw new Error('Error al cargar tareas del CRM');
+            if (!response.ok) throw await parseErrorResponse(response);
             const data = await response.json();
             setTasks(data);
             return data;
@@ -41,7 +57,7 @@ export function useAdminCrmTasks() {
                 headers: getAuthHeaders(),
                 body: JSON.stringify(taskData)
             });
-            if (!response.ok) throw new Error('Error al crear tarea');
+            if (!response.ok) throw await parseErrorResponse(response);
             const data = await response.json();
             await fetchTasks();
             return data;
@@ -62,7 +78,7 @@ export function useAdminCrmTasks() {
                 headers: getAuthHeaders(),
                 body: JSON.stringify(updateData)
             });
-            if (!response.ok) throw new Error('Error al actualizar tarea');
+            if (!response.ok) throw await parseErrorResponse(response);
             const data = await response.json();
             await fetchTasks();
             return data;
