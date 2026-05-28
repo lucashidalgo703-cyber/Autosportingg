@@ -1844,7 +1844,11 @@ app.patch('/api/admin/sales/:id', authenticateToken, async (req, res) => {
             documentationStatus,
             deliveryStatus,
             estimatedDeliveryDate,
-            actualDeliveryDate 
+            actualDeliveryDate,
+            postSaleStatus,
+            postSaleChecklist,
+            postSaleNotes,
+            satisfactionRating
         } = req.body;
         
         const sale = await Sale.findById(req.params.id);
@@ -1963,6 +1967,62 @@ app.patch('/api/admin/sales/:id', authenticateToken, async (req, res) => {
                 source: 'CRM_V2'
             });
             sale.actualDeliveryDate = actualDeliveryDate;
+            hasChanges = true;
+        }
+
+        // POSTVENTA
+        if (postSaleStatus !== undefined && postSaleStatus !== sale.postSaleStatus) {
+            sale.saleAuditLog.push({
+                action: 'POSTVENTA_ESTADO',
+                field: 'postSaleStatus',
+                oldValue: sale.postSaleStatus,
+                newValue: postSaleStatus,
+                details: `Estado de postventa actualizado a ${postSaleStatus}`,
+                user: user,
+                source: 'CRM_V2'
+            });
+            sale.postSaleStatus = postSaleStatus;
+            hasChanges = true;
+        }
+
+        if (postSaleChecklist !== undefined) {
+            // merge con el existente si hace falta, o sobrescribir todo el objeto
+            sale.postSaleChecklist = { ...sale.postSaleChecklist, ...postSaleChecklist };
+            sale.saleAuditLog.push({
+                action: 'CHECKLIST_POSTVENTA',
+                field: 'postSaleChecklist',
+                details: 'Checklist de postventa actualizado',
+                user: user,
+                source: 'CRM_V2'
+            });
+            hasChanges = true;
+        }
+
+        if (postSaleNotes !== undefined && postSaleNotes !== sale.postSaleNotes) {
+            sale.saleAuditLog.push({
+                action: 'POSTVENTA_NOTAS',
+                field: 'postSaleNotes',
+                oldValue: sale.postSaleNotes,
+                newValue: postSaleNotes,
+                details: 'Notas de postventa actualizadas',
+                user: user,
+                source: 'CRM_V2'
+            });
+            sale.postSaleNotes = postSaleNotes;
+            hasChanges = true;
+        }
+
+        if (satisfactionRating !== undefined && satisfactionRating !== sale.satisfactionRating) {
+            sale.saleAuditLog.push({
+                action: 'SATISFACCION_ACTUALIZADA',
+                field: 'satisfactionRating',
+                oldValue: sale.satisfactionRating,
+                newValue: satisfactionRating,
+                details: `Nivel de satisfacción actualizado a ${satisfactionRating}`,
+                user: user,
+                source: 'CRM_V2'
+            });
+            sale.satisfactionRating = satisfactionRating;
             hasChanges = true;
         }
         

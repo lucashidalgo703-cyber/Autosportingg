@@ -67,6 +67,24 @@ const saleSchema = new mongoose.Schema({
     createdBy: { type: String },
     updatedBy: { type: String },
     
+    // POSTVENTA
+    postSaleStatus: { 
+        type: String, 
+        enum: ['pendiente', 'contactado', 'conforme', 'incidencia', 'cerrado'], 
+        default: 'pendiente' 
+    },
+    postSaleChecklist: {
+        seguimiento24h: { type: Boolean, default: false },
+        seguimiento7d: { type: Boolean, default: false },
+        seguimiento30d: { type: Boolean, default: false },
+        obsequioEntregado: { type: Boolean, default: false },
+        resenaSolicitada: { type: Boolean, default: false },
+        resenaRecibida: { type: Boolean, default: false },
+        incidenciaResuelta: { type: Boolean, default: false }
+    },
+    postSaleNotes: { type: String },
+    satisfactionRating: { type: Number, min: 1, max: 5 },
+
     saleAuditLog: { type: [saleAuditSchema], default: [] }
 }, {
     timestamps: true

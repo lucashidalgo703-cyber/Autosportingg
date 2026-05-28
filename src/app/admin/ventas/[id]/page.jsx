@@ -11,6 +11,7 @@ import SaleStatusPanel from '../../../../components/crm/sales/detail/SaleStatusP
 import SaleAuditTimeline from '../../../../components/crm/sales/detail/SaleAuditTimeline';
 import SaleFinancePanel from '../../../../components/crm/sales/detail/SaleFinancePanel';
 import SaleInstallmentsPanel from '../../../../components/crm/sales/detail/SaleInstallmentsPanel';
+import SalePostventaPanel from '../../../../components/crm/sales/detail/SalePostventaPanel';
 import CrmTaskModal from '../../../../components/crm/agenda/CrmTaskModal';
 import { useAdminCrmTasks } from '../../../../hooks/useAdminCrmTasks';
 import { ShieldAlert, Target } from 'lucide-react';
@@ -141,6 +142,11 @@ export default function SaleDetailPage() {
                     </div>
                 </div>
 
+            </div>
+
+            {/* Panel de Postventa (Ancho completo) */}
+            <div className="mt-6">
+                <SalePostventaPanel sale={sale} />
             </div>
 
             {/* Panel de Movimientos Financieros (Ancho completo) */}

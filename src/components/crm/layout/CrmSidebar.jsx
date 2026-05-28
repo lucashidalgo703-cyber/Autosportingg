@@ -1,7 +1,7 @@
 "use client";
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { LayoutDashboard, CarFront, Users, UserPlus, Receipt, CalendarClock, Wallet, Landmark, FileText, BarChart3, Settings, Target } from 'lucide-react';
+import { LayoutDashboard, CarFront, Users, UserPlus, Receipt, CalendarClock, Wallet, Landmark, FileText, BarChart3, Settings, Target, Star } from 'lucide-react';
 
 const menuItems = [
     { name: 'Dashboard', path: '/admin', icon: LayoutDashboard },
@@ -15,6 +15,7 @@ const menuItems = [
     { name: 'Cuotas', path: '/admin/cuotas', icon: Landmark },
     { name: 'Cobranzas', path: '/admin/cobranzas', icon: Target },
     { name: 'Documentación', path: '/admin/documentacion', icon: FileText, prefetch: false },
+    { name: 'Postventa', path: '/admin/postventa', icon: Star, prefetch: false },
     { name: 'Reportes', path: '/admin/reportes', icon: BarChart3, prefetch: false },
     { name: 'Configuración', path: '/admin/configuracion', icon: Settings, prefetch: false },
 ];
