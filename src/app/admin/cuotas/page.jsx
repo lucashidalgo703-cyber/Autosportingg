@@ -9,12 +9,13 @@ import InstallmentMobileCards from '../../../components/crm/installments/Install
 import InstallmentModal from '../../../components/crm/installments/InstallmentModal';
 
 export default function InstallmentsPage() {
-    const { fetchInstallments, updateInstallment, loading, error } = useAdminInstallments();
+    const { fetchInstallments, updateInstallment, createInstallment, loading, error } = useAdminInstallments();
     const [allInstallments, setAllInstallments] = useState([]);
     
     // Modal state
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [selectedInst, setSelectedInst] = useState(null);
+    const [modalMode, setModalMode] = useState('edit');
 
     const [filters, setFilters] = useState({
         search: '',
@@ -98,7 +99,11 @@ export default function InstallmentsPage() {
 
     const handleSave = async (data) => {
         try {
-            await updateInstallment(selectedInst._id, data);
+            if (modalMode === 'edit' && selectedInst?._id) {
+                await updateInstallment(selectedInst._id, data);
+            } else {
+                await createInstallment(data);
+            }
             await loadData();
             setIsModalOpen(false);
         } catch (err) {
@@ -119,6 +124,17 @@ export default function InstallmentsPage() {
                         <p className="text-sm text-neutral-400 mt-1">Control operativo de vencimientos de pagos.</p>
                     </div>
                 </div>
+                <button
+                    onClick={() => {
+                        setSelectedInst(null);
+                        setModalMode('create');
+                        setIsModalOpen(true);
+                    }}
+                    className="h-10 px-4 rounded-xl bg-purple-600 hover:bg-purple-500 text-white font-bold text-sm transition-colors flex items-center gap-2"
+                >
+                    <Landmark size={16} />
+                    <span>Crear Cuota Manual</span>
+                </button>
             </div>
 
             <div className="mb-6 p-4 bg-yellow-500/10 border border-yellow-500/20 rounded-xl flex items-center gap-2">
@@ -156,13 +172,13 @@ export default function InstallmentsPage() {
                 </>
             )}
 
-            {/* Modal de edición rápida */}
+            {/* Modal */}
             <InstallmentModal
                 isOpen={isModalOpen}
                 onClose={() => setIsModalOpen(false)}
                 installment={selectedInst}
                 onSave={handleSave}
-                mode="edit"
+                mode={modalMode}
             />
         </div>
     );

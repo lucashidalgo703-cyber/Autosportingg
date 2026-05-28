@@ -2311,7 +2311,16 @@ app.post('/api/admin/installments', authenticateToken, async (req, res) => {
         const { saleId, clientId, vehicleId, installmentNumber, dueDate, amount, currency, notes, status } = req.body;
 
         if (!saleId || !installmentNumber || !dueDate || amount === undefined || !currency) {
-            return res.status(400).json({ message: 'Missing required fields' });
+            return res.status(400).json({ 
+                message: 'Faltan campos obligatorios: venta, número de cuota, vencimiento, importe o moneda.',
+                missing: {
+                    saleId: !saleId,
+                    installmentNumber: !installmentNumber,
+                    dueDate: !dueDate,
+                    amount: amount === undefined,
+                    currency: !currency
+                }
+            });
         }
 
         const newInstallment = new Installment({
@@ -2387,9 +2396,13 @@ app.post('/api/admin/sales/:id/installments/generate', authenticateToken, async 
     try {
         const user = req.user ? (req.user.email || req.user.role) : 'System';
         const saleId = req.params.id;
-        const { totalAmount, currency, installmentsCount, firstDueDate, frequency, notes, allowAppend } = req.body;
+        const { totalAmount, baseAmount, interestPercent, currency, installmentsCount, firstDueDate, frequency, notes, allowAppend } = req.body;
 
-        if (!totalAmount || totalAmount <= 0) return res.status(400).json({ message: 'Total amount must be greater than 0' });
+        const base = Number(baseAmount || totalAmount);
+        const interest = Number(interestPercent || 0);
+        const finalTotal = Math.round(base * (1 + interest / 100));
+
+        if (!finalTotal || finalTotal <= 0) return res.status(400).json({ message: 'Total amount must be greater than 0' });
         if (!installmentsCount || installmentsCount <= 0) return res.status(400).json({ message: 'Installments count must be greater than 0' });
         if (!firstDueDate) return res.status(400).json({ message: 'First due date is required' });
 
@@ -2407,14 +2420,14 @@ app.post('/api/admin/sales/:id/installments/generate', authenticateToken, async 
             startNumber = existingInstallments[0].installmentNumber + 1;
         }
 
-        const baseAmount = Math.floor(totalAmount / installmentsCount);
-        const remainder = totalAmount - (baseAmount * installmentsCount);
+        const baseInstAmount = Math.floor(finalTotal / installmentsCount);
+        const remainder = finalTotal - (baseInstAmount * installmentsCount);
         
         const newInstallments = [];
         let currentDate = new Date(firstDueDate);
 
         for (let i = 0; i < installmentsCount; i++) {
-            let amount = baseAmount;
+            let amount = baseInstAmount;
             if (i === installmentsCount - 1) {
                 amount += remainder;
             }
@@ -2428,11 +2441,11 @@ app.post('/api/admin/sales/:id/installments/generate', authenticateToken, async 
                 amount,
                 currency,
                 status: 'pendiente',
-                notes: notes || `Generada en plan de ${installmentsCount} cuotas`,
+                notes: notes || `Generada en plan de ${installmentsCount} cuotas. Base: ${base}. Interés: ${interest}%.`,
                 createdBy: user,
                 installmentAuditLog: [{
                     action: 'PLAN_GENERADO',
-                    details: `Cuota ${i+1} de ${installmentsCount} generada por sistema.`,
+                    details: `Cuota ${i+1} de ${installmentsCount} generada por sistema. Base: ${base}. Interés: ${interest}%.`,
                     user: user
                 }]
             }));

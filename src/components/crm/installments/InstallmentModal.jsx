@@ -3,6 +3,9 @@ import { X, Calendar, DollarSign, FileText, Activity } from 'lucide-react';
 
 export default function InstallmentModal({ isOpen, onClose, installment, onSave, mode = 'edit' }) {
     const [formData, setFormData] = useState({
+        saleId: '',
+        clientId: '',
+        vehicleId: '',
         installmentNumber: 1,
         dueDate: '',
         amount: '',
@@ -14,6 +17,9 @@ export default function InstallmentModal({ isOpen, onClose, installment, onSave,
     useEffect(() => {
         if (installment && isOpen) {
             setFormData({
+                saleId: installment.saleId || '',
+                clientId: installment.clientId || '',
+                vehicleId: installment.vehicleId || '',
                 installmentNumber: installment.installmentNumber || 1,
                 dueDate: installment.dueDate ? new Date(installment.dueDate).toISOString().split('T')[0] : '',
                 amount: installment.amount || '',
@@ -61,6 +67,20 @@ export default function InstallmentModal({ isOpen, onClose, installment, onSave,
                 <div className="p-6 overflow-y-auto">
                     <form id="installment-form" onSubmit={handleSubmit} className="flex flex-col gap-5">
                         
+                        {mode === 'create' && !installment?.saleId && (
+                            <div>
+                                <label className="text-xs font-bold text-neutral-400 uppercase tracking-wider mb-2 block">ID de Venta Asociada</label>
+                                <input
+                                    type="text"
+                                    required
+                                    placeholder="Ej: 60d5ecb8b48... (ID de Venta)"
+                                    className="w-full bg-black border border-neutral-800 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-neutral-600 transition-colors"
+                                    value={formData.saleId}
+                                    onChange={(e) => setFormData({...formData, saleId: e.target.value})}
+                                />
+                            </div>
+                        )}
+
                         {mode === 'create' && (
                             <div>
                                 <label className="text-xs font-bold text-neutral-400 uppercase tracking-wider mb-2 block">Número de Cuota</label>

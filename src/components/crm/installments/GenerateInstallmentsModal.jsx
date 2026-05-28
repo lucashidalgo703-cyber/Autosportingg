@@ -3,12 +3,18 @@ import { X, Calendar, DollarSign, Layers, FileText } from 'lucide-react';
 
 export default function GenerateInstallmentsModal({ isOpen, onClose, onGenerate, saleData }) {
     const [formData, setFormData] = useState({
-        totalAmount: saleData?.pendingBalance > 0 ? saleData.pendingBalance : '',
+        baseAmount: saleData?.pendingBalance > 0 ? saleData.pendingBalance : '',
+        interestPercent: '',
         installmentsCount: 3,
         firstDueDate: '',
         currency: saleData?.saleCurrency || 'ARS',
         notes: ''
     });
+
+    const baseAmountNum = Number(formData.baseAmount) || 0;
+    const interestNum = Number(formData.interestPercent) || 0;
+    const totalAmountNum = Math.round(baseAmountNum * (1 + interestNum / 100));
+    const estimatedPerInstallment = formData.installmentsCount > 0 ? Math.floor(totalAmountNum / formData.installmentsCount) : 0;
 
     if (!isOpen) return null;
 
@@ -16,7 +22,9 @@ export default function GenerateInstallmentsModal({ isOpen, onClose, onGenerate,
         e.preventDefault();
         const data = {
             ...formData,
-            totalAmount: Number(formData.totalAmount),
+            baseAmount: baseAmountNum,
+            interestPercent: interestNum,
+            totalAmount: totalAmountNum,
             installmentsCount: Number(formData.installmentsCount),
             frequency: 'mensual',
             allowAppend: true // We allow appending by default from the UI to be safe
@@ -47,7 +55,7 @@ export default function GenerateInstallmentsModal({ isOpen, onClose, onGenerate,
                         
                         <div className="flex gap-4">
                             <div className="flex-1">
-                                <label className="text-xs font-bold text-neutral-400 uppercase tracking-wider mb-2 block">Monto Total a Financiar</label>
+                                <label className="text-xs font-bold text-neutral-400 uppercase tracking-wider mb-2 block">Monto Base a Financiar</label>
                                 <div className="relative">
                                     <DollarSign className="absolute left-4 top-1/2 -translate-y-1/2 text-neutral-500" size={16} />
                                     <input
@@ -55,9 +63,24 @@ export default function GenerateInstallmentsModal({ isOpen, onClose, onGenerate,
                                         required
                                         min="1"
                                         className="w-full bg-black border border-neutral-800 rounded-xl px-4 py-3 pl-11 text-sm text-white focus:outline-none focus:border-neutral-600 transition-colors"
-                                        value={formData.totalAmount}
-                                        onChange={(e) => setFormData({...formData, totalAmount: e.target.value})}
+                                        value={formData.baseAmount}
+                                        onChange={(e) => setFormData({...formData, baseAmount: e.target.value})}
                                         placeholder="0.00"
+                                    />
+                                </div>
+                            </div>
+                            <div className="w-32">
+                                <label className="text-xs font-bold text-neutral-400 uppercase tracking-wider mb-2 block">Interés % (Opc)</label>
+                                <div className="relative">
+                                    <span className="absolute left-4 top-1/2 -translate-y-1/2 text-neutral-500 font-bold">%</span>
+                                    <input
+                                        type="number"
+                                        min="0"
+                                        step="0.01"
+                                        className="w-full bg-black border border-neutral-800 rounded-xl px-4 py-3 pl-10 text-sm text-white focus:outline-none focus:border-neutral-600 transition-colors"
+                                        value={formData.interestPercent}
+                                        onChange={(e) => setFormData({...formData, interestPercent: e.target.value})}
+                                        placeholder="0"
                                     />
                                 </div>
                             </div>
@@ -106,11 +129,22 @@ export default function GenerateInstallmentsModal({ isOpen, onClose, onGenerate,
                             </div>
                         </div>
 
-                        <div className="p-4 bg-blue-500/10 border border-blue-500/20 rounded-xl">
-                            <p className="text-xs text-blue-400 font-medium leading-relaxed">
-                                Se generarán {formData.installmentsCount || 0} cuotas mensuales de forma consecutiva a partir del 1° vencimiento. 
-                                La diferencia por redondeo se ajustará en la última cuota para que la suma sea exacta.
+                        <div className="p-4 bg-neutral-800/50 border border-neutral-700/50 rounded-xl">
+                            <div className="flex justify-between items-center mb-2">
+                                <span className="text-xs text-neutral-400">Total financiado con interés:</span>
+                                <span className="text-sm font-bold text-white">{totalAmountNum.toLocaleString()} {formData.currency}</span>
+                            </div>
+                            <div className="flex justify-between items-center mb-2">
+                                <span className="text-xs text-neutral-400">Valor estimado por cuota:</span>
+                                <span className="text-sm font-bold text-blue-400">~{estimatedPerInstallment.toLocaleString()} {formData.currency}</span>
+                            </div>
+                            <p className="text-[11px] text-neutral-500 leading-relaxed mt-3 border-t border-neutral-700/50 pt-2">
+                                Se generarán {formData.installmentsCount || 0} cuotas mensuales. La diferencia por redondeo se ajustará en la última cuota.
                             </p>
+                        </div>
+                        
+                        <div className="p-3 bg-yellow-500/10 border border-yellow-500/20 rounded-xl text-xs text-yellow-500 font-medium">
+                            El interés del plan es operativo. No registra cobros reales ni movimientos de caja.
                         </div>
 
                         <div>
