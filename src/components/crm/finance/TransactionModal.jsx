@@ -17,7 +17,8 @@ export default function TransactionModal({ isOpen, onClose, transaction, onSave,
         saleId: '',
         reservationId: '',
         clientId: '',
-        vehicleId: ''
+        vehicleId: '',
+        installmentId: ''
     });
 
     const [errors, setErrors] = useState({});
@@ -88,7 +89,8 @@ export default function TransactionModal({ isOpen, onClose, transaction, onSave,
                 saleId: transaction.saleId || '',
                 reservationId: transaction.reservationId || '',
                 clientId: transaction.clientId || '',
-                vehicleId: transaction.vehicleId || ''
+                vehicleId: transaction.vehicleId || '',
+                installmentId: transaction.installmentId || ''
             });
         } else if (isOpen) {
             // Default initial state or props if provided from SaleFinancePanel
@@ -104,7 +106,8 @@ export default function TransactionModal({ isOpen, onClose, transaction, onSave,
                 saleId: '',
                 reservationId: '',
                 clientId: '',
-                vehicleId: ''
+                vehicleId: '',
+                installmentId: ''
             });
         }
         setErrors({});
@@ -134,6 +137,7 @@ export default function TransactionModal({ isOpen, onClose, transaction, onSave,
             if (!dataToSave.reservationId) delete dataToSave.reservationId;
             if (!dataToSave.clientId) delete dataToSave.clientId;
             if (!dataToSave.vehicleId) delete dataToSave.vehicleId;
+            if (!dataToSave.installmentId) delete dataToSave.installmentId;
             
             onSave(dataToSave);
         }
@@ -152,8 +156,13 @@ export default function TransactionModal({ isOpen, onClose, transaction, onSave,
                 {/* Header */}
                 <div className="flex justify-between items-center p-6 border-b border-neutral-800 bg-neutral-900/50 shrink-0">
                     <div>
-                        <h2 className="text-xl font-bold text-white">
+                        <h2 className="text-xl font-bold text-white flex items-center gap-3">
                             {isEdit ? 'Detalle de Movimiento' : 'Nuevo Movimiento Manual'}
+                            {formData.installmentId && (
+                                <span className="bg-purple-500/20 text-purple-400 text-[10px] px-2 py-1 rounded-md font-bold uppercase tracking-wider border border-purple-500/30">
+                                    Vinculado a Cuota
+                                </span>
+                            )}
                         </h2>
                         {isEdit && <span className="text-sm text-neutral-500 mt-1 block">ID: {transaction._id}</span>}
                     </div>

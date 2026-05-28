@@ -21,6 +21,7 @@ const transactionSchema = new mongoose.Schema({
     reservationId: { type: mongoose.Schema.Types.ObjectId, ref: 'Reservation' },
     clientId: { type: mongoose.Schema.Types.ObjectId, ref: 'Client' },
     vehicleId: { type: mongoose.Schema.Types.ObjectId, ref: 'Car' },
+    installmentId: { type: mongoose.Schema.Types.ObjectId, ref: 'Installment' },
     createdBy: { type: String },
     updatedBy: { type: String },
     transactionAuditLog: [{

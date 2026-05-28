@@ -7,6 +7,8 @@ import InstallmentsFilters from '../../../components/crm/installments/Installmen
 import InstallmentsTable from '../../../components/crm/installments/InstallmentsTable';
 import InstallmentMobileCards from '../../../components/crm/installments/InstallmentMobileCards';
 import InstallmentModal from '../../../components/crm/installments/InstallmentModal';
+import TransactionModal from '../../../components/crm/finance/TransactionModal';
+import { useAdminTransactions } from '../../../hooks/useAdminTransactions';
 
 export default function InstallmentsPage() {
     const { fetchInstallments, updateInstallment, createInstallment, loading, error } = useAdminInstallments();
@@ -14,8 +16,12 @@ export default function InstallmentsPage() {
     
     // Modal state
     const [isModalOpen, setIsModalOpen] = useState(false);
+    const [isTransactionModalOpen, setIsTransactionModalOpen] = useState(false);
     const [selectedInst, setSelectedInst] = useState(null);
+    const [selectedTransactionInst, setSelectedTransactionInst] = useState(null);
     const [modalMode, setModalMode] = useState('edit');
+
+    const { createTransaction } = useAdminTransactions();
 
     const [filters, setFilters] = useState({
         search: '',
@@ -111,6 +117,44 @@ export default function InstallmentsPage() {
         }
     };
 
+    const handleRegisterPayment = (inst) => {
+        const getMongoId = (value) => {
+            if (!value) return undefined;
+            if (typeof value === "string" && value.trim() !== "") return value;
+            if (typeof value === "object" && value._id) return value._id;
+            return undefined;
+        };
+
+        setSelectedTransactionInst({
+            type: 'Ingreso',
+            category: 'Cobro cuota',
+            concept: `Cobro manual cuota N° ${inst.installmentNumber}`,
+            amount: inst.amount,
+            currency: inst.currency,
+            saleId: getMongoId(inst.saleId),
+            clientId: getMongoId(inst.clientId),
+            vehicleId: getMongoId(inst.vehicleId),
+            installmentId: inst._id,
+            notes: `Cobro vinculado a cuota N° ${inst.installmentNumber}`
+        });
+        setIsTransactionModalOpen(true);
+    };
+
+    const handleSaveTransaction = async (data) => {
+        try {
+            await createTransaction(data);
+            setIsTransactionModalOpen(false);
+            await loadData();
+            
+            if (window.confirm('Movimiento registrado. ¿Querés marcar esta cuota como pagada_manual?')) {
+                await updateInstallment(data.installmentId, { status: 'pagada_manual' });
+                await loadData();
+            }
+        } catch (err) {
+            alert(err.message);
+        }
+    };
+
     return (
         <div className="max-w-7xl mx-auto flex flex-col h-full min-h-[85vh]">
             {/* Header */}
@@ -164,10 +208,12 @@ export default function InstallmentsPage() {
                     <InstallmentsTable 
                         installments={filteredInstallments} 
                         onEdit={handleEdit} 
+                        onRegisterPayment={handleRegisterPayment}
                     />
                     <InstallmentMobileCards 
                         installments={filteredInstallments} 
                         onEdit={handleEdit} 
+                        onRegisterPayment={handleRegisterPayment}
                     />
                 </>
             )}
@@ -179,6 +225,13 @@ export default function InstallmentsPage() {
                 installment={selectedInst}
                 onSave={handleSave}
                 mode={modalMode}
+            />
+
+            <TransactionModal
+                isOpen={isTransactionModalOpen}
+                onClose={() => setIsTransactionModalOpen(false)}
+                transaction={selectedTransactionInst}
+                onSave={handleSaveTransaction}
             />
         </div>
     );

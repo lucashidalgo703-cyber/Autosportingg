@@ -2087,7 +2087,7 @@ app.get('/api/admin/transactions/:id', authenticateToken, async (req, res) => {
 // POST admin transaction (manual only)
 app.post('/api/admin/transactions', authenticateToken, async (req, res) => {
     try {
-        const { type, category, concept, amount, currency, paymentMethod, date, notes, saleId, reservationId, clientId, vehicleId } = req.body;
+        const { type, category, concept, amount, currency, paymentMethod, date, notes, saleId, reservationId, clientId, vehicleId, installmentId } = req.body;
         
         // Validations
         if (!type || !['ingreso', 'egreso'].includes(type)) return res.status(400).json({ message: 'Type is required and must be ingreso/egreso' });
@@ -2113,6 +2113,10 @@ app.post('/api/admin/transactions', authenticateToken, async (req, res) => {
             const vehicle = await Car.findById(vehicleId);
             if (!vehicle) return res.status(400).json({ message: 'El Vehículo vinculado no existe' });
         }
+        if (installmentId) {
+            const installment = await Installment.findById(installmentId);
+            if (!installment) return res.status(400).json({ message: 'La Cuota vinculada no existe' });
+        }
 
         // Resolve accountId safely
         const account = await getOrCreateCrmV2Account(currency);
@@ -2135,6 +2139,7 @@ app.post('/api/admin/transactions', authenticateToken, async (req, res) => {
             reservationId: reservationId || undefined,
             clientId: clientId || undefined,
             vehicleId: vehicleId || undefined,
+            installmentId: installmentId || undefined,
             createdBy: req.user?.username || 'Admin',
             transactionAuditLog: [{
                 action: 'CREACION_MANUAL',
@@ -2164,7 +2169,7 @@ app.post('/api/admin/transactions', authenticateToken, async (req, res) => {
 // PATCH admin transaction
 app.patch('/api/admin/transactions/:id', authenticateToken, async (req, res) => {
     try {
-        const { category, concept, paymentMethod, date, notes, status, saleId, reservationId, clientId, vehicleId } = req.body;
+        const { category, concept, paymentMethod, date, notes, status, saleId, reservationId, clientId, vehicleId, installmentId } = req.body;
         
         const tx = await Transaction.findOne({ _id: req.params.id, module: 'crm_v2' });
         if (!tx) return res.status(404).json({ message: 'Transaction not found' });
@@ -2221,6 +2226,7 @@ app.patch('/api/admin/transactions/:id', authenticateToken, async (req, res) => 
         await updateLink('reservationId', reservationId, Reservation, 'Reserva');
         await updateLink('clientId', clientId, Client, 'Cliente');
         await updateLink('vehicleId', vehicleId, Car, 'Vehículo');
+        await updateLink('installmentId', installmentId, Installment, 'Cuota');
 
         // Handle Annulment
         if (status === 'anulado' && tx.status !== 'anulado') {
@@ -2282,9 +2288,57 @@ app.get('/api/admin/installments', authenticateToken, async (req, res) => {
         const installments = await Installment.find(query)
             .populate('clientId', 'firstName lastName fullName phone')
             .populate('vehicleId', 'brand name plateOrVin')
-            .sort({ dueDate: 1, installmentNumber: 1 });
+            .sort({ dueDate: 1, installmentNumber: 1 })
+            .lean();
             
-        res.json(installments);
+        // Buscar transacciones asociadas
+        const installmentIds = installments.map(i => i._id);
+        const transactions = await Transaction.find({
+            installmentId: { $in: installmentIds },
+            status: { $ne: 'anulado' }
+        }).lean();
+
+        // Agrupar transacciones por installmentId
+        const txByInstallment = {};
+        transactions.forEach(tx => {
+            const instId = tx.installmentId.toString();
+            if (!txByInstallment[instId]) txByInstallment[instId] = [];
+            txByInstallment[instId].push(tx);
+        });
+
+        // Inyectar financeSummary
+        const enrichedInstallments = installments.map(inst => {
+            const instId = inst._id.toString();
+            const instTxs = txByInstallment[instId] || [];
+            
+            const financeSummary = {
+                ingresosARS: 0,
+                egresosARS: 0,
+                balanceARS: 0,
+                ingresosUSD: 0,
+                egresosUSD: 0,
+                balanceUSD: 0,
+                linkedTransactions: instTxs
+            };
+
+            instTxs.forEach(tx => {
+                const amount = Number(tx.amount) || 0;
+                if (tx.currency === 'ARS') {
+                    if (tx.type === 'Ingreso') financeSummary.ingresosARS += amount;
+                    if (tx.type === 'Egreso') financeSummary.egresosARS += amount;
+                } else if (tx.currency === 'USD') {
+                    if (tx.type === 'Ingreso') financeSummary.ingresosUSD += amount;
+                    if (tx.type === 'Egreso') financeSummary.egresosUSD += amount;
+                }
+            });
+
+            financeSummary.balanceARS = financeSummary.ingresosARS - financeSummary.egresosARS;
+            financeSummary.balanceUSD = financeSummary.ingresosUSD - financeSummary.egresosUSD;
+
+            return { ...inst, financeSummary };
+        });
+
+        res.json(enrichedInstallments);
     } catch (error) {
         console.error('Error fetching installments:', error);
         res.status(500).json({ message: error.message });
@@ -2296,10 +2350,41 @@ app.get('/api/admin/installments/:id', authenticateToken, async (req, res) => {
         const installment = await Installment.findById(req.params.id)
             .populate('clientId', 'firstName lastName fullName phone email')
             .populate('vehicleId', 'brand name year price currency plateOrVin')
-            .populate('saleId', 'salePrice saleCurrency status paymentMethod');
+            .populate('saleId', 'salePrice saleCurrency status paymentMethod')
+            .lean();
             
         if (!installment) return res.status(404).json({ message: 'Installment not found' });
-        res.json(installment);
+
+        const transactions = await Transaction.find({
+            installmentId: installment._id,
+            status: { $ne: 'anulado' }
+        }).lean();
+
+        const financeSummary = {
+            ingresosARS: 0,
+            egresosARS: 0,
+            balanceARS: 0,
+            ingresosUSD: 0,
+            egresosUSD: 0,
+            balanceUSD: 0,
+            linkedTransactions: transactions
+        };
+
+        transactions.forEach(tx => {
+            const amount = Number(tx.amount) || 0;
+            if (tx.currency === 'ARS') {
+                if (tx.type === 'Ingreso') financeSummary.ingresosARS += amount;
+                if (tx.type === 'Egreso') financeSummary.egresosARS += amount;
+            } else if (tx.currency === 'USD') {
+                if (tx.type === 'Ingreso') financeSummary.ingresosUSD += amount;
+                if (tx.type === 'Egreso') financeSummary.egresosUSD += amount;
+            }
+        });
+
+        financeSummary.balanceARS = financeSummary.ingresosARS - financeSummary.egresosARS;
+        financeSummary.balanceUSD = financeSummary.ingresosUSD - financeSummary.egresosUSD;
+
+        res.json({ ...installment, financeSummary });
     } catch (error) {
         console.error('Error fetching installment details:', error);
         res.status(500).json({ message: error.message });

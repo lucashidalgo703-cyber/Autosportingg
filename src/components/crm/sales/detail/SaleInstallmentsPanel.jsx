@@ -3,16 +3,21 @@ import { Landmark, Plus, Settings2, Calendar } from 'lucide-react';
 import InstallmentModal from '../../installments/InstallmentModal';
 import GenerateInstallmentsModal from '../../installments/GenerateInstallmentsModal';
 import InstallmentStatusBadge from '../../installments/InstallmentStatusBadge';
+import TransactionModal from '../../finance/TransactionModal';
 import { useAdminInstallments } from '../../../../hooks/useAdminInstallments';
+import { useAdminTransactions } from '../../../../hooks/useAdminTransactions';
 
 export default function SaleInstallmentsPanel({ sale, saleFinanceData }) {
     const { fetchInstallments, createInstallment, updateInstallment, generateInstallments, loading, error } = useAdminInstallments();
+    const { createTransaction } = useAdminTransactions();
     const [installments, setInstallments] = useState([]);
     
     // Modal state
     const [isSingleModalOpen, setIsSingleModalOpen] = useState(false);
     const [isGenerateModalOpen, setIsGenerateModalOpen] = useState(false);
+    const [isTransactionModalOpen, setIsTransactionModalOpen] = useState(false);
     const [selectedInst, setSelectedInst] = useState(null);
+    const [selectedTransactionInst, setSelectedTransactionInst] = useState(null);
     const [modalMode, setModalMode] = useState('create');
 
     const loadData = async () => {
@@ -78,6 +83,46 @@ export default function SaleInstallmentsPanel({ sale, saleFinanceData }) {
             await generateInstallments(sale._id, data);
             await loadData();
             setIsGenerateModalOpen(false);
+        } catch (err) {
+            alert(err.message);
+        }
+    };
+
+    const handleRegisterPayment = (inst) => {
+        const getMongoId = (value) => {
+            if (!value) return undefined;
+            if (typeof value === "string" && value.trim() !== "") return value;
+            if (typeof value === "object" && value._id) return value._id;
+            return undefined;
+        };
+
+        setSelectedTransactionInst({
+            type: 'Ingreso',
+            category: 'Cobro cuota',
+            concept: `Cobro manual cuota N° ${inst.installmentNumber}`,
+            amount: inst.amount,
+            currency: inst.currency,
+            saleId: getMongoId(sale),
+            clientId: getMongoId(sale?.clientId),
+            vehicleId: getMongoId(sale?.vehicleId),
+            installmentId: inst._id,
+            notes: `Cobro vinculado a cuota N° ${inst.installmentNumber}`
+        });
+        setIsTransactionModalOpen(true);
+    };
+
+    const handleSaveTransaction = async (data) => {
+        try {
+            await createTransaction(data);
+            setIsTransactionModalOpen(false);
+            
+            // Reload data so the financeSummary refreshes
+            await loadData();
+            
+            if (window.confirm('Movimiento registrado. ¿Querés marcar esta cuota como pagada_manual?')) {
+                await updateInstallment(data.installmentId, { status: 'pagada_manual' });
+                await loadData();
+            }
         } catch (err) {
             alert(err.message);
         }
@@ -196,6 +241,8 @@ export default function SaleInstallmentsPanel({ sale, saleFinanceData }) {
                                     <th className="py-3 px-4 text-[10px] font-bold text-neutral-500 uppercase tracking-wider">Cuota</th>
                                     <th className="py-3 px-4 text-[10px] font-bold text-neutral-500 uppercase tracking-wider">Vencimiento</th>
                                     <th className="py-3 px-4 text-[10px] font-bold text-neutral-500 uppercase tracking-wider text-right">Importe</th>
+                                    <th className="py-3 px-4 text-[10px] font-bold text-neutral-500 uppercase tracking-wider text-right">Cobrado</th>
+                                    <th className="py-3 px-4 text-[10px] font-bold text-neutral-500 uppercase tracking-wider text-right">Saldo</th>
                                     <th className="py-3 px-4 text-[10px] font-bold text-neutral-500 uppercase tracking-wider text-center">Estado</th>
                                     <th className="py-3 px-4 text-[10px] font-bold text-neutral-500 uppercase tracking-wider text-right">Acción</th>
                                 </tr>
@@ -203,10 +250,29 @@ export default function SaleInstallmentsPanel({ sale, saleFinanceData }) {
                             <tbody>
                                 {installments.map(inst => {
                                     const isOverdue = inst.status === 'pendiente' && new Date(inst.dueDate) < new Date();
+                                    
+                                    // Financial Status Calculation
+                                    const fs = inst.financeSummary;
+                                    let balanceCuota = 0;
+                                    if (inst.currency === 'ARS') balanceCuota = (fs?.ingresosARS || 0) - (fs?.egresosARS || 0);
+                                    if (inst.currency === 'USD') balanceCuota = (fs?.ingresosUSD || 0) - (fs?.egresosUSD || 0);
+                                    
+                                    const saldoCuota = inst.amount - balanceCuota;
+                                    let finStatus = 'Sin cobro';
+                                    if (balanceCuota > 0 && balanceCuota < inst.amount) finStatus = 'Parcialmente cobrada';
+                                    if (balanceCuota >= inst.amount && balanceCuota <= inst.amount) finStatus = 'Cobrada financieramente';
+                                    if (balanceCuota > inst.amount) finStatus = 'Sobrecobrada';
+
+                                    const isPaidVisual = inst.status === 'pagada_manual';
+                                    const hasWarning = isPaidVisual && saldoCuota > 0;
+
                                     return (
                                         <tr key={inst._id} className="border-b border-neutral-800/50 hover:bg-neutral-800/30 transition-colors">
                                             <td className="py-3 px-4">
                                                 <div className="text-sm font-bold text-white">Nº {inst.installmentNumber}</div>
+                                                {finStatus !== 'Sin cobro' && (
+                                                    <div className="text-[10px] text-green-400 mt-0.5">{finStatus}</div>
+                                                )}
                                             </td>
                                             <td className="py-3 px-4">
                                                 <div className="flex items-center gap-1.5">
@@ -221,16 +287,43 @@ export default function SaleInstallmentsPanel({ sale, saleFinanceData }) {
                                                     {formatCurrency(inst.amount, inst.currency)}
                                                 </div>
                                             </td>
-                                            <td className="py-3 px-4 text-center">
-                                                <InstallmentStatusBadge status={inst.status} dueDate={inst.dueDate} />
+                                            <td className="py-3 px-4 text-right">
+                                                <div className={`text-sm ${balanceCuota > 0 ? 'text-green-400 font-bold' : 'text-neutral-500'}`}>
+                                                    {balanceCuota > 0 ? formatCurrency(balanceCuota, inst.currency) : '-'}
+                                                </div>
                                             </td>
                                             <td className="py-3 px-4 text-right">
-                                                <button 
-                                                    onClick={() => handleEdit(inst)}
-                                                    className="text-xs font-bold text-blue-400 hover:text-blue-300 transition-colors"
-                                                >
-                                                    Editar
-                                                </button>
+                                                <div className={`text-sm font-bold ${saldoCuota <= 0 ? 'text-neutral-500' : 'text-orange-400'}`}>
+                                                    {saldoCuota > 0 ? formatCurrency(saldoCuota, inst.currency) : '0'}
+                                                </div>
+                                            </td>
+                                            <td className="py-3 px-4 text-center">
+                                                <div className="flex flex-col items-center gap-1">
+                                                    <InstallmentStatusBadge status={inst.status} dueDate={inst.dueDate} />
+                                                    {hasWarning && (
+                                                        <span className="text-[9px] text-yellow-500 bg-yellow-500/10 px-1.5 py-0.5 rounded border border-yellow-500/20" title="La cuota figura pagada manualmente, pero no tiene cobro financiero activo suficiente.">
+                                                            Falta cobro real
+                                                        </span>
+                                                    )}
+                                                </div>
+                                            </td>
+                                            <td className="py-3 px-4 text-right">
+                                                <div className="flex items-center justify-end gap-3">
+                                                    {inst.status !== 'anulada' && (
+                                                        <button 
+                                                            onClick={() => handleRegisterPayment(inst)}
+                                                            className="text-xs font-bold text-green-400 hover:text-green-300 transition-colors"
+                                                        >
+                                                            Cobrar
+                                                        </button>
+                                                    )}
+                                                    <button 
+                                                        onClick={() => handleEdit(inst)}
+                                                        className="text-xs font-bold text-blue-400 hover:text-blue-300 transition-colors"
+                                                    >
+                                                        Editar
+                                                    </button>
+                                                </div>
                                             </td>
                                         </tr>
                                     );
@@ -254,6 +347,13 @@ export default function SaleInstallmentsPanel({ sale, saleFinanceData }) {
                 onClose={() => setIsGenerateModalOpen(false)}
                 onGenerate={handleGenerate}
                 saleData={saleFinanceData}
+            />
+
+            <TransactionModal
+                isOpen={isTransactionModalOpen}
+                onClose={() => setIsTransactionModalOpen(false)}
+                transaction={selectedTransactionInst}
+                onSave={handleSaveTransaction}
             />
         </div>
     );

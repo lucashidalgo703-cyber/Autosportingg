@@ -63,6 +63,23 @@ export default function FinanzasPage() {
             // Status
             if (filters.status !== 'todos' && tx.status !== filters.status) return false;
 
+            // Vínculos
+            if (filters.linkedTo !== 'todas') {
+                if (filters.linkedTo === 'unlinked') {
+                    if (tx.saleId || tx.reservationId || tx.clientId || tx.vehicleId || tx.installmentId) return false;
+                } else if (filters.linkedTo === 'sale' && !tx.saleId) {
+                    return false;
+                } else if (filters.linkedTo === 'reservation' && !tx.reservationId) {
+                    return false;
+                } else if (filters.linkedTo === 'client' && !tx.clientId) {
+                    return false;
+                } else if (filters.linkedTo === 'vehicle' && !tx.vehicleId) {
+                    return false;
+                } else if (filters.linkedTo === 'installment' && !tx.installmentId) {
+                    return false;
+                }
+            }
+
             // Dates
             if (filters.startDate && filters.endDate) {
                 const txDate = new Date(tx.date || tx.createdAt).setHours(0,0,0,0);

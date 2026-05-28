@@ -3,7 +3,7 @@ import Link from 'next/link';
 import { Landmark, Calendar, User, Search, Handshake } from 'lucide-react';
 import InstallmentStatusBadge from './InstallmentStatusBadge';
 
-export default function InstallmentsTable({ installments, onEdit }) {
+export default function InstallmentsTable({ installments, onEdit, onRegisterPayment }) {
     if (!installments || installments.length === 0) {
         return (
             <div className="hidden md:flex flex-col items-center justify-center p-12 bg-neutral-900 border border-neutral-800 rounded-2xl opacity-80">
@@ -27,6 +27,8 @@ export default function InstallmentsTable({ installments, onEdit }) {
                             <th className="p-4 text-xs font-bold text-neutral-500 uppercase tracking-wider">Cuota</th>
                             <th className="p-4 text-xs font-bold text-neutral-500 uppercase tracking-wider">Estado</th>
                             <th className="p-4 text-xs font-bold text-neutral-500 uppercase tracking-wider text-right">Importe</th>
+                            <th className="p-4 text-xs font-bold text-neutral-500 uppercase tracking-wider text-right">Cobrado</th>
+                            <th className="p-4 text-xs font-bold text-neutral-500 uppercase tracking-wider text-right">Saldo</th>
                             <th className="p-4 text-xs font-bold text-neutral-500 uppercase tracking-wider text-center">Acciones</th>
                         </tr>
                     </thead>
@@ -35,6 +37,21 @@ export default function InstallmentsTable({ installments, onEdit }) {
                             const clientName = inst.clientId?.fullName || inst.clientId?.firstName || 'Sin cliente';
                             const vehicleName = inst.vehicleId ? `${inst.vehicleId.brand} ${inst.vehicleId.name}` : 'Sin vehículo';
                             const isOverdue = inst.status === 'pendiente' && new Date(inst.dueDate) < new Date();
+
+                            // Financial Status Calculation
+                            const fs = inst.financeSummary;
+                            let balanceCuota = 0;
+                            if (inst.currency === 'ARS') balanceCuota = (fs?.ingresosARS || 0) - (fs?.egresosARS || 0);
+                            if (inst.currency === 'USD') balanceCuota = (fs?.ingresosUSD || 0) - (fs?.egresosUSD || 0);
+                            
+                            const saldoCuota = inst.amount - balanceCuota;
+                            let finStatus = 'Sin cobro';
+                            if (balanceCuota > 0 && balanceCuota < inst.amount) finStatus = 'Parcialmente cobrada';
+                            if (balanceCuota >= inst.amount && balanceCuota <= inst.amount) finStatus = 'Cobrada financieramente';
+                            if (balanceCuota > inst.amount) finStatus = 'Sobrecobrada';
+
+                            const isPaidVisual = inst.status === 'pagada_manual';
+                            const hasWarning = isPaidVisual && saldoCuota > 0;
 
                             return (
                                 <tr key={inst._id} className="hover:bg-black/20 transition-colors">
@@ -62,14 +79,26 @@ export default function InstallmentsTable({ installments, onEdit }) {
 
                                     {/* Cuota Número */}
                                     <td className="p-4 whitespace-nowrap">
-                                        <span className="text-sm font-bold text-neutral-300">
-                                            Cuota {inst.installmentNumber}
-                                        </span>
+                                        <div className="flex flex-col gap-1">
+                                            <span className="text-sm font-bold text-neutral-300">
+                                                Cuota {inst.installmentNumber}
+                                            </span>
+                                            {finStatus !== 'Sin cobro' && (
+                                                <span className="text-[10px] text-green-400 font-bold">{finStatus}</span>
+                                            )}
+                                        </div>
                                     </td>
 
                                     {/* Estado */}
                                     <td className="p-4 whitespace-nowrap">
-                                        <InstallmentStatusBadge status={inst.status} dueDate={inst.dueDate} />
+                                        <div className="flex flex-col gap-1">
+                                            <InstallmentStatusBadge status={inst.status} dueDate={inst.dueDate} />
+                                            {hasWarning && (
+                                                <span className="text-[9px] text-yellow-500 bg-yellow-500/10 px-1.5 py-0.5 rounded border border-yellow-500/20 w-max" title="La cuota figura pagada manualmente, pero no tiene cobro financiero activo suficiente.">
+                                                    Falta cobro real
+                                                </span>
+                                            )}
+                                        </div>
                                     </td>
 
                                     {/* Importe */}
@@ -78,15 +107,37 @@ export default function InstallmentsTable({ installments, onEdit }) {
                                             {inst.currency} {(inst.amount || 0).toLocaleString('es-AR')}
                                         </span>
                                     </td>
+                                    
+                                    <td className="p-4 text-right whitespace-nowrap">
+                                        <span className={`text-sm ${balanceCuota > 0 ? 'text-green-400 font-bold' : 'text-neutral-500'}`}>
+                                            {balanceCuota > 0 ? `${inst.currency} ${balanceCuota.toLocaleString('es-AR')}` : '-'}
+                                        </span>
+                                    </td>
+
+                                    <td className="p-4 text-right whitespace-nowrap">
+                                        <span className={`text-sm font-bold ${saldoCuota <= 0 ? 'text-neutral-500' : 'text-orange-400'}`}>
+                                            {saldoCuota > 0 ? `${inst.currency} ${saldoCuota.toLocaleString('es-AR')}` : '0'}
+                                        </span>
+                                    </td>
 
                                     {/* Acciones */}
                                     <td className="p-4 text-center whitespace-nowrap">
-                                        <button 
-                                            onClick={() => onEdit(inst)}
-                                            className="text-xs font-bold text-blue-400 hover:text-blue-300 transition-colors"
-                                        >
-                                            Gestionar
-                                        </button>
+                                        <div className="flex items-center justify-center gap-3">
+                                            {inst.status !== 'anulada' && (
+                                                <button 
+                                                    onClick={() => onRegisterPayment && onRegisterPayment(inst)}
+                                                    className="text-xs font-bold text-green-400 hover:text-green-300 transition-colors"
+                                                >
+                                                    Cobrar
+                                                </button>
+                                            )}
+                                            <button 
+                                                onClick={() => onEdit(inst)}
+                                                className="text-xs font-bold text-blue-400 hover:text-blue-300 transition-colors"
+                                            >
+                                                Gestionar
+                                            </button>
+                                        </div>
                                     </td>
                                 </tr>
                             );

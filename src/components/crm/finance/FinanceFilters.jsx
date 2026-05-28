@@ -86,6 +86,7 @@ export default function FinanceFilters({ filters, setFilters }) {
                             <option value="reservation">Vinculados a Reserva</option>
                             <option value="client">Vinculados a Cliente</option>
                             <option value="vehicle">Vinculados a Vehículo</option>
+                            <option value="installment">Vinculados a Cuota</option>
                         </select>
                     </div>
 

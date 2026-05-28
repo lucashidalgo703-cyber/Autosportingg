@@ -45,10 +45,15 @@ export default function TransactionsTable({ transactions, onEdit }) {
                                     <span className="text-xs font-bold text-neutral-400 uppercase tracking-wider bg-neutral-800 px-2 py-1 rounded-md border border-neutral-700">{tx.category}</span>
                                 </td>
                                 <td className="p-4">
-                                    {tx.saleId ? (
+                                    {tx.installmentId ? (
+                                        <div className="flex flex-col gap-1">
+                                            <span className="text-sm font-bold text-purple-400 block border border-purple-500/20 bg-purple-500/10 px-2 py-0.5 rounded-md w-max">Cuota</span>
+                                            {tx.saleId && <a href={`/admin/ventas/${tx.saleId}`} className="text-[10px] font-bold text-blue-400 hover:text-blue-300 transition-colors">Venta Asociada</a>}
+                                        </div>
+                                    ) : tx.saleId ? (
                                         <a href={`/admin/ventas/${tx.saleId}`} className="text-sm font-bold text-blue-400 hover:text-blue-300 transition-colors block">Venta</a>
                                     ) : tx.reservationId ? (
-                                        <span className="text-sm font-bold text-purple-400 block">Reserva</span>
+                                        <span className="text-sm font-bold text-pink-400 block">Reserva</span>
                                     ) : tx.clientId ? (
                                         <a href={`/admin/clientes/${tx.clientId}`} className="text-sm font-bold text-orange-400 hover:text-orange-300 transition-colors block">Cliente</a>
                                     ) : tx.vehicleId ? (

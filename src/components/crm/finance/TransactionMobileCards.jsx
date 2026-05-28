@@ -47,10 +47,16 @@ export default function TransactionMobileCards({ transactions, onEdit }) {
                         </div>
                     </div>
 
-                    {(tx.saleId || tx.reservationId || tx.clientId || tx.vehicleId) && (
+                    {(tx.saleId || tx.reservationId || tx.clientId || tx.vehicleId || tx.installmentId) && (
                         <div className="bg-neutral-800/50 rounded-xl p-3 border border-neutral-800/50 flex flex-col gap-1">
                             <span className="text-[10px] text-neutral-500 uppercase">Vinculado a</span>
-                            {tx.saleId && <a href={`/admin/ventas/${tx.saleId}`} className="text-sm font-bold text-blue-400">Venta</a>}
+                            {tx.installmentId && (
+                                <div className="flex flex-col gap-0.5">
+                                    <span className="text-sm font-bold text-purple-400">Cuota</span>
+                                    {tx.saleId && <a href={`/admin/ventas/${tx.saleId}`} className="text-xs font-bold text-blue-400 hover:text-blue-300 transition-colors">Venta Asociada</a>}
+                                </div>
+                            )}
+                            {!tx.installmentId && tx.saleId && <a href={`/admin/ventas/${tx.saleId}`} className="text-sm font-bold text-blue-400">Venta</a>}
                             {tx.reservationId && <span className="text-sm font-bold text-purple-400">Reserva</span>}
                             {tx.clientId && <a href={`/admin/clientes/${tx.clientId}`} className="text-sm font-bold text-orange-400">Cliente</a>}
                             {tx.vehicleId && <a href={`/admin/stock/${tx.vehicleId}`} className="text-sm font-bold text-green-400">Vehículo</a>}
