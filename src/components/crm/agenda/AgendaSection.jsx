@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
 import AgendaLeadCard from './AgendaLeadCard';
+import AgendaCrmTaskCard from './AgendaCrmTaskCard';
 import { ChevronDown, ChevronRight } from 'lucide-react';
 
-export default function AgendaSection({ title, icon: Icon, colorClass, leads, onChangeStatus, onCompleteTask, defaultOpen = true }) {
+export default function AgendaSection({ title, icon: Icon, colorClass, leads, onChangeStatus, onCompleteTask, onCompleteCrmTask, onCancelCrmTask, onPostponeCrmTask, defaultOpen = true }) {
     const [isOpen, setIsOpen] = useState(defaultOpen);
 
     return (
@@ -35,14 +36,28 @@ export default function AgendaSection({ title, icon: Icon, colorClass, leads, on
                         </div>
                     ) : (
                         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-                            {leads.map(lead => (
-                                <AgendaLeadCard 
-                                    key={lead._id} 
-                                    lead={lead} 
-                                    onChangeStatus={onChangeStatus}
-                                    onCompleteTask={onCompleteTask}
-                                />
-                            ))}
+                            {leads.map(item => {
+                                if (item.isCrmTask) {
+                                    return (
+                                        <AgendaCrmTaskCard
+                                            key={`crmtask-${item._id}`}
+                                            task={item.taskData}
+                                            onComplete={onCompleteCrmTask}
+                                            onCancel={onCancelCrmTask}
+                                            onPostpone={onPostponeCrmTask}
+                                        />
+                                    );
+                                } else {
+                                    return (
+                                        <AgendaLeadCard 
+                                            key={`lead-${item._id}`} 
+                                            lead={item} 
+                                            onChangeStatus={onChangeStatus}
+                                            onCompleteTask={onCompleteTask}
+                                        />
+                                    );
+                                }
+                            })}
                         </div>
                     )}
                 </div>

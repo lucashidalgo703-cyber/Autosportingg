@@ -1,9 +1,9 @@
 import React from 'react';
 import Link from 'next/link';
-import { Calendar, Handshake } from 'lucide-react';
+import { Calendar, Handshake, Bell } from 'lucide-react';
 import InstallmentStatusBadge from '../installments/InstallmentStatusBadge';
 
-export default function CollectionsMobileCards({ installments, onEdit, onRegisterPayment }) {
+export default function CollectionsMobileCards({ installments, onEdit, onRegisterPayment, onCreateReminder }) {
     if (!installments || installments.length === 0) {
         return (
             <div className="md:hidden flex flex-col items-center justify-center p-8 bg-neutral-900 border border-neutral-800 rounded-2xl opacity-80 mt-4">
@@ -46,6 +46,16 @@ export default function CollectionsMobileCards({ installments, onEdit, onRegiste
                                 <InstallmentStatusBadge status={inst.status} dueDate={inst.dueDate} />
                                 {finStatus !== 'Sin cobro' && (
                                     <span className="text-[10px] text-green-400 font-bold">{finStatus}</span>
+                                )}
+                                {inst.reminderInfo?.status === 'pendiente' && (
+                                    <span className="text-[9px] text-orange-400 bg-orange-400/10 px-1.5 py-0.5 rounded border border-orange-400/20 w-max flex items-center gap-1 mt-1">
+                                        <Bell size={8} /> Recordatorio
+                                    </span>
+                                )}
+                                {inst.reminderInfo?.status === 'vencido' && (
+                                    <span className="text-[9px] text-red-400 bg-red-400/10 px-1.5 py-0.5 rounded border border-red-400/20 w-max flex items-center gap-1 font-bold mt-1">
+                                        <Bell size={8} /> Recordatorio vencido
+                                    </span>
                                 )}
                                 {hasWarning && (
                                     <span className="text-[9px] text-yellow-500 bg-yellow-500/10 px-1.5 py-0.5 rounded border border-yellow-500/20 w-max mt-1" title="La cuota figura pagada manualmente, pero no tiene cobro financiero activo suficiente.">
@@ -103,13 +113,21 @@ export default function CollectionsMobileCards({ installments, onEdit, onRegiste
                         </div>
 
                         {/* Actions */}
-                        <div className="pt-3 border-t border-neutral-800/50 flex justify-end gap-3">
+                        <div className="pt-3 border-t border-neutral-800/50 flex flex-wrap justify-end gap-3">
                             {inst.status !== 'anulada' && (
                                 <button 
                                     onClick={() => onRegisterPayment && onRegisterPayment(inst)}
-                                    className="h-8 px-4 rounded-lg bg-green-500/10 text-green-400 hover:bg-green-500/20 text-xs font-bold transition-colors"
+                                    className="h-8 px-4 rounded-lg bg-green-500/10 text-green-400 hover:bg-green-500/20 text-xs font-bold transition-colors border border-green-500/20"
                                 >
                                     Cobrar
+                                </button>
+                            )}
+                            {(!inst.reminderInfo || inst.reminderInfo.status === 'none' || inst.reminderInfo.status === 'completado' || inst.reminderInfo.status === 'cancelado') && inst.status !== 'anulada' && (
+                                <button 
+                                    onClick={() => onCreateReminder && onCreateReminder(inst)}
+                                    className="h-8 px-4 rounded-lg bg-orange-500/10 text-orange-400 hover:bg-orange-500/20 text-xs font-bold transition-colors border border-orange-500/20"
+                                >
+                                    Agendar
                                 </button>
                             )}
                             <button 

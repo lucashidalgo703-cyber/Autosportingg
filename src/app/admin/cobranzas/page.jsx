@@ -3,6 +3,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { Target } from 'lucide-react';
 import { useAdminInstallments } from '../../../hooks/useAdminInstallments';
 import { useAdminTransactions } from '../../../hooks/useAdminTransactions';
+import { useAdminCrmTasks } from '../../../hooks/useAdminCrmTasks';
 
 import CollectionsSummaryCards from '../../../components/crm/collections/CollectionsSummaryCards';
 import CollectionsFilters from '../../../components/crm/collections/CollectionsFilters';
@@ -11,10 +12,13 @@ import CollectionsMobileCards from '../../../components/crm/collections/Collecti
 import DebtBySaleTable from '../../../components/crm/collections/DebtBySaleTable';
 import InstallmentModal from '../../../components/crm/installments/InstallmentModal';
 import TransactionModal from '../../../components/crm/finance/TransactionModal';
+import ReminderModal from '../../../components/crm/collections/ReminderModal';
 
 export default function CobranzasPage() {
-    const { fetchInstallments, updateInstallment, createInstallment, loading, error } = useAdminInstallments();
+    const { fetchInstallments, updateInstallment, createInstallment, loading: loadingInst, error: errorInst } = useAdminInstallments();
     const { createTransaction } = useAdminTransactions();
+    const { fetchTasks, createTask, tasks, loading: loadingTasks } = useAdminCrmTasks();
+    
     const [allInstallments, setAllInstallments] = useState([]);
     
     // Tab State
@@ -23,8 +27,11 @@ export default function CobranzasPage() {
     // Modal state
     const [isInstallmentModalOpen, setIsInstallmentModalOpen] = useState(false);
     const [isTransactionModalOpen, setIsTransactionModalOpen] = useState(false);
+    const [isReminderModalOpen, setIsReminderModalOpen] = useState(false);
+    
     const [selectedInst, setSelectedInst] = useState(null);
     const [selectedTransactionInst, setSelectedTransactionInst] = useState(null);
+    const [selectedReminderInst, setSelectedReminderInst] = useState(null);
 
     const [filters, setFilters] = useState({
         search: '',
@@ -37,6 +44,7 @@ export default function CobranzasPage() {
     const loadData = async () => {
         const data = await fetchInstallments();
         setAllInstallments(data || []);
+        await fetchTasks();
     };
 
     useEffect(() => {
@@ -222,6 +230,55 @@ export default function CobranzasPage() {
         }
     };
 
+    const handleCreateReminder = (inst) => {
+        setSelectedReminderInst(inst);
+        setIsReminderModalOpen(true);
+    };
+
+    const handleSaveReminder = async (taskData) => {
+        await createTask(taskData);
+        // fetchTasks is called inside createTask, so it will update the state
+    };
+
+    // Calculate reminder status per installment
+    const getReminderStatus = (instId) => {
+        const instTasks = tasks.filter(t => 
+            t.type === 'cobranza' && 
+            t.installmentId && 
+            (t.installmentId === instId || t.installmentId._id === instId)
+        );
+
+        if (instTasks.length === 0) return { status: 'none', task: null };
+
+        // Priority 1: Overdue pending
+        const overduePending = instTasks.find(t => t.status === 'pendiente' && new Date(t.dueDate) < new Date());
+        if (overduePending) return { status: 'vencido', task: overduePending };
+
+        // Priority 2: Future pending
+        const futurePending = instTasks.find(t => t.status === 'pendiente');
+        if (futurePending) return { status: 'pendiente', task: futurePending };
+
+        // Priority 3: Completed (most recent)
+        const completed = instTasks.filter(t => t.status === 'completada').sort((a, b) => new Date(b.completedAt || b.dueDate) - new Date(a.completedAt || a.dueDate));
+        if (completed.length > 0) return { status: 'completado', task: completed[0] };
+
+        // Priority 4: Canceled
+        const canceled = instTasks.filter(t => t.status === 'cancelada').sort((a, b) => new Date(b.canceledAt || b.dueDate) - new Date(a.canceledAt || a.dueDate));
+        if (canceled.length > 0) return { status: 'cancelado', task: canceled[0] };
+
+        return { status: 'none', task: null };
+    };
+
+    const installmentsWithReminders = useMemo(() => {
+        return filteredInstallments.map(inst => ({
+            ...inst,
+            reminderInfo: getReminderStatus(inst._id)
+        }));
+    }, [filteredInstallments, tasks]);
+
+    const loading = loadingInst || loadingTasks;
+    const error = errorInst;
+
     return (
         <div className="max-w-7xl mx-auto flex flex-col h-full min-h-[85vh]">
             {/* Header */}
@@ -282,19 +339,21 @@ export default function CobranzasPage() {
                     {activeTab === 'cuotas' ? (
                         <>
                             <CollectionsTable 
-                                installments={filteredInstallments} 
+                                installments={installmentsWithReminders} 
                                 onEdit={handleEditInstallment} 
                                 onRegisterPayment={handleRegisterPayment}
+                                onCreateReminder={handleCreateReminder}
                             />
                             <CollectionsMobileCards 
-                                installments={filteredInstallments} 
+                                installments={installmentsWithReminders} 
                                 onEdit={handleEditInstallment} 
                                 onRegisterPayment={handleRegisterPayment}
+                                onCreateReminder={handleCreateReminder}
                             />
                         </>
                     ) : (
                         <DebtBySaleTable 
-                            installments={filteredInstallments} 
+                            installments={installmentsWithReminders} 
                         />
                     )}
                 </>
@@ -314,6 +373,13 @@ export default function CobranzasPage() {
                 onClose={() => setIsTransactionModalOpen(false)}
                 transaction={selectedTransactionInst}
                 onSave={handleSaveTransaction}
+            />
+
+            <ReminderModal
+                isOpen={isReminderModalOpen}
+                onClose={() => setIsReminderModalOpen(false)}
+                installment={selectedReminderInst}
+                onSave={handleSaveReminder}
             />
         </div>
     );

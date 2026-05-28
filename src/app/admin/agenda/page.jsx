@@ -2,12 +2,14 @@
 import React, { useEffect, useState, useMemo } from 'react';
 import { CalendarClock, AlertCircle } from 'lucide-react';
 import { useAdminLeads } from '../../../hooks/useAdminLeads';
+import { useAdminCrmTasks } from '../../../hooks/useAdminCrmTasks';
 import AgendaSummaryCards from '../../../components/crm/agenda/AgendaSummaryCards';
 import AgendaSection from '../../../components/crm/agenda/AgendaSection';
 import LeadFilters from '../../../components/crm/leads/LeadFilters';
 
 export default function AdminAgendaPage() {
-    const { leads, loading, error, fetchLeads, updateLead, updateTaskStatus } = useAdminLeads();
+    const { leads, loading: loadingLeads, error: errorLeads, fetchLeads, updateLead, updateTaskStatus } = useAdminLeads();
+    const { tasks: crmTasks, loading: loadingTasks, error: errorTasks, fetchTasks, updateTask: updateCrmTask } = useAdminCrmTasks();
     
     // Filters State
     const [filters, setFilters] = useState({ 
@@ -21,6 +23,7 @@ export default function AdminAgendaPage() {
     useEffect(() => {
         // Fetch up to 500 leads to populate agenda properly for now
         fetchLeads({ ...filters, limit: 500 });
+        fetchTasks();
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
@@ -46,6 +49,31 @@ export default function AdminAgendaPage() {
         }
     };
 
+    const handleCompleteCrmTask = async (taskId) => {
+        try {
+            await updateCrmTask(taskId, { status: 'completada' });
+        } catch (error) {
+            alert('Error al completar recordatorio: ' + error.message);
+        }
+    };
+
+    const handleCancelCrmTask = async (taskId) => {
+        if (!window.confirm('¿Estás seguro de cancelar este recordatorio?')) return;
+        try {
+            await updateCrmTask(taskId, { status: 'cancelada' });
+        } catch (error) {
+            alert('Error al cancelar recordatorio: ' + error.message);
+        }
+    };
+
+    const handlePostponeCrmTask = async (taskId, newDate) => {
+        try {
+            await updateCrmTask(taskId, { dueDate: newDate });
+        } catch (error) {
+            alert('Error al posponer recordatorio: ' + error.message);
+        }
+    };
+
     // --- Classification Logic ---
     const classifiedLeads = useMemo(() => {
         const today = new Date();
@@ -65,7 +93,7 @@ export default function AdminAgendaPage() {
         const noAction = [];
         let totalPendingTasks = 0;
 
-        // Active leads only (unless filtered explicitly)
+        // 1. Process Legacy Leads
         const filteredLeads = leads.filter(l => 
             filters.crmStatus 
                 ? l.crmStatus === filters.crmStatus 
@@ -80,7 +108,6 @@ export default function AdminAgendaPage() {
             let isToday = false;
             let isNext7 = false;
 
-            // Check nextActionDate
             if (lead.nextActionDate) {
                 const actionDate = new Date(lead.nextActionDate);
                 if (actionDate < today) isOverdue = true;
@@ -88,7 +115,6 @@ export default function AdminAgendaPage() {
                 else if (actionDate > endOfToday && actionDate <= next7Days) isNext7 = true;
             }
 
-            // Check tasks (tasks can override to a more urgent category)
             pendingTasks.forEach(t => {
                 if (t.dueDate) {
                     const tDate = new Date(t.dueDate);
@@ -98,15 +124,63 @@ export default function AdminAgendaPage() {
                 }
             });
 
-            // Bucket allocation (most urgent first)
-            if (isOverdue) overdue.push(lead);
-            else if (isToday) forToday.push(lead);
-            else if (isNext7) next7.push(lead);
-            else if (!lead.nextActionDate && pendingTasks.length === 0) noAction.push(lead);
+            // Normalization for rendering
+            const normalizedLead = { ...lead, isCrmTask: false };
+
+            if (isOverdue) overdue.push(normalizedLead);
+            else if (isToday) forToday.push(normalizedLead);
+            else if (isNext7) next7.push(normalizedLead);
+            else if (!lead.nextActionDate && pendingTasks.length === 0) noAction.push(normalizedLead);
         });
 
+        // 2. Process New CrmTasks (Pendientes)
+        const activeCrmTasks = crmTasks.filter(t => t.status === 'pendiente');
+        
+        activeCrmTasks.forEach(task => {
+            totalPendingTasks++;
+
+            let isOverdue = false;
+            let isToday = false;
+            let isNext7 = false;
+
+            const tDate = new Date(task.dueDate);
+            if (tDate < today) isOverdue = true;
+            else if (tDate >= today && tDate <= endOfToday) isToday = true;
+            else if (tDate > endOfToday && tDate <= next7Days) isNext7 = true;
+
+            // Normalize CrmTask to look somewhat like a Lead for the AgendaSection to digest
+            // or better yet, AgendaSection will check `isCrmTask`
+            const normalizedTask = {
+                _id: task._id,
+                isCrmTask: true,
+                taskData: task,
+                name: task.title,
+                phone: task.clientId?.phone || '',
+                crmStatus: 'nuevo', // fake status to pass filters inside AgendaSection if any
+                priority: task.priority,
+                nextActionDate: task.dueDate,
+                tasks: [task] // wrap in array so length > 0
+            };
+
+            if (isOverdue) overdue.push(normalizedTask);
+            else if (isToday) forToday.push(normalizedTask);
+            else if (isNext7) next7.push(normalizedTask);
+            else noAction.push(normalizedTask);
+        });
+
+        // Sort each bucket by date/priority
+        const sortFn = (a, b) => {
+            const dateA = new Date(a.nextActionDate || a.taskData?.dueDate || 0);
+            const dateB = new Date(b.nextActionDate || b.taskData?.dueDate || 0);
+            return dateA - dateB;
+        };
+
+        overdue.sort(sortFn);
+        forToday.sort(sortFn);
+        next7.sort(sortFn);
+
         return { overdue, forToday, next7, noAction, totalPendingTasks };
-    }, [leads, filters.crmStatus]);
+    }, [leads, crmTasks, filters.crmStatus]);
 
     const metrics = {
         overdue: classifiedLeads.overdue.length,
@@ -115,6 +189,9 @@ export default function AdminAgendaPage() {
         noAction: classifiedLeads.noAction.length,
         totalPendingTasks: classifiedLeads.totalPendingTasks
     };
+
+    const loading = loadingLeads || loadingTasks;
+    const error = errorLeads || errorTasks;
 
     return (
         <div className="flex flex-col gap-6 max-w-[1600px] mx-auto w-full pb-10">
@@ -159,6 +236,9 @@ export default function AdminAgendaPage() {
                             leads={classifiedLeads.overdue}
                             onChangeStatus={handleStatusChange}
                             onCompleteTask={handleCompleteTask}
+                            onCompleteCrmTask={handleCompleteCrmTask}
+                            onCancelCrmTask={handleCancelCrmTask}
+                            onPostponeCrmTask={handlePostponeCrmTask}
                             defaultOpen={true}
                         />
 
@@ -169,6 +249,9 @@ export default function AdminAgendaPage() {
                             leads={classifiedLeads.forToday}
                             onChangeStatus={handleStatusChange}
                             onCompleteTask={handleCompleteTask}
+                            onCompleteCrmTask={handleCompleteCrmTask}
+                            onCancelCrmTask={handleCancelCrmTask}
+                            onPostponeCrmTask={handlePostponeCrmTask}
                             defaultOpen={true}
                         />
 
@@ -179,14 +262,17 @@ export default function AdminAgendaPage() {
                             leads={classifiedLeads.next7}
                             onChangeStatus={handleStatusChange}
                             onCompleteTask={handleCompleteTask}
+                            onCompleteCrmTask={handleCompleteCrmTask}
+                            onCancelCrmTask={handleCancelCrmTask}
+                            onPostponeCrmTask={handlePostponeCrmTask}
                             defaultOpen={false}
                         />
 
                         <AgendaSection 
-                            title="Sin Acción Programada" 
+                            title="Sin Acción Programada (Solo Leads)" 
                             icon={AlertCircle}
                             colorClass={{ bg: 'bg-neutral-500/10', border: 'border-neutral-500/20', text: 'text-neutral-500' }}
-                            leads={classifiedLeads.noAction}
+                            leads={classifiedLeads.noAction.filter(l => !l.isCrmTask)}
                             onChangeStatus={handleStatusChange}
                             onCompleteTask={handleCompleteTask}
                             defaultOpen={false}

@@ -14,6 +14,7 @@ import Transaction from './src/models/Transaction.js';
 import Reservation from './src/models/Reservation.js';
 import Sale from './src/models/Sale.js';
 import Installment from './src/models/Installment.js';
+import CrmTask from './src/models/CrmTask.js';
 import { CloudinaryStorage } from 'multer-storage-cloudinary';
 import jwt from 'jsonwebtoken';
 
@@ -2573,6 +2574,79 @@ app.post('/api/admin/sales/:id/installments/generate', authenticateToken, async 
 
     } catch (error) {
         console.error('Error generating installments:', error);
+        res.status(400).json({ message: error.message });
+    }
+});
+
+
+// ====================
+// CRM TASKS ENDPOINTS
+// ====================
+
+// GET all active tasks
+app.get('/api/admin/crm-tasks', authenticateToken, async (req, res) => {
+    try {
+        res.setHeader('Cache-Control', 'no-store, max-age=0');
+        const tasks = await CrmTask.find()
+            .populate('clientId', 'firstName lastName fullName phone')
+            .populate('vehicleId', 'brand name plate')
+            .populate('saleId', '_id')
+            .populate('installmentId', 'installmentNumber amount currency')
+            .sort({ dueDate: 1 });
+        res.json(tasks);
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+});
+
+// POST new task
+app.post('/api/admin/crm-tasks', authenticateToken, async (req, res) => {
+    try {
+        // Validation to prevent empty string cast to ObjectId errors
+        const cleanObjectId = (val) => (val && val.trim() !== '') ? val : undefined;
+
+        const taskData = { ...req.body };
+        if (taskData.clientId) taskData.clientId = cleanObjectId(taskData.clientId);
+        if (taskData.vehicleId) taskData.vehicleId = cleanObjectId(taskData.vehicleId);
+        if (taskData.saleId) taskData.saleId = cleanObjectId(taskData.saleId);
+        if (taskData.installmentId) taskData.installmentId = cleanObjectId(taskData.installmentId);
+        if (taskData.leadId) taskData.leadId = cleanObjectId(taskData.leadId);
+
+        const newTask = new CrmTask({
+            ...taskData,
+            user: req.user?.username || 'CRM_V2'
+        });
+
+        const savedTask = await newTask.save();
+        res.status(201).json(savedTask);
+    } catch (error) {
+        res.status(400).json({ message: error.message });
+    }
+});
+
+// PATCH task
+app.patch('/api/admin/crm-tasks/:id', authenticateToken, async (req, res) => {
+    try {
+        const updateData = { ...req.body };
+        
+        // Handle completion/cancellation dates
+        if (updateData.status === 'completada') {
+            updateData.completedAt = new Date();
+        } else if (updateData.status === 'cancelada') {
+            updateData.canceledAt = new Date();
+        } else if (updateData.status === 'pendiente') {
+            updateData.$unset = { completedAt: 1, canceledAt: 1 };
+        }
+
+        const task = await CrmTask.findByIdAndUpdate(
+            req.params.id,
+            updateData,
+            { new: true, runValidators: true }
+        );
+
+        if (!task) return res.status(404).json({ message: 'Task not found' });
+        res.json(task);
+    } catch (error) {
         res.status(400).json({ message: error.message });
     }
 });
