@@ -6,11 +6,21 @@ export function useAdminTransactions() {
 
     const getAuthHeaders = () => {
         const token = localStorage.getItem('token');
-        if (!token) throw new Error('No authentication token found');
+        if (!token) throw new Error('Sesión vencida. Volvé a iniciar sesión.');
         return {
             'Content-Type': 'application/json',
             'Authorization': `Bearer ${token}`
         };
+    };
+
+    const parseErrorResponse = async (response) => {
+        const contentType = response.headers.get("content-type") || "";
+        if (contentType.includes("application/json")) {
+            const data = await response.json().catch(() => ({}));
+            return data.message || data.error || `Error ${response.status}`;
+        }
+        const text = await response.text().catch(() => "");
+        return text || `Error ${response.status}`;
     };
 
     const fetchTransactions = useCallback(async (filters = {}) => {
@@ -29,8 +39,8 @@ export function useAdminTransactions() {
             });
             
             if (!response.ok) {
-                const errorData = await response.json();
-                throw new Error(errorData.message || 'Error fetching transactions');
+                const message = await parseErrorResponse(response);
+                throw new Error(message);
             }
             
             return await response.json();
@@ -52,8 +62,8 @@ export function useAdminTransactions() {
             });
             
             if (!response.ok) {
-                const errorData = await response.json();
-                throw new Error(errorData.message || 'Error fetching transaction');
+                const message = await parseErrorResponse(response);
+                throw new Error(message);
             }
             
             return await response.json();
@@ -77,8 +87,8 @@ export function useAdminTransactions() {
             });
             
             if (!response.ok) {
-                const errorData = await response.json();
-                throw new Error(errorData.message || 'Error creating transaction');
+                const message = await parseErrorResponse(response);
+                throw new Error(message);
             }
             
             return await response.json();
@@ -102,8 +112,8 @@ export function useAdminTransactions() {
             });
             
             if (!response.ok) {
-                const errorData = await response.json();
-                throw new Error(errorData.message || 'Error updating transaction');
+                const message = await parseErrorResponse(response);
+                throw new Error(message);
             }
             
             return await response.json();
