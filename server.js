@@ -1,4 +1,5 @@
 import express from 'express';
+import mongoose from 'mongoose';
 import cors from 'cors';
 import multer from 'multer';
 import connectDB from './src/config/db.js';
@@ -2332,6 +2333,9 @@ app.post('/api/admin/installments', authenticateToken, async (req, res) => {
         const cleanClientId = sanitizeOptionalObjectId(clientId);
         const cleanVehicleId = sanitizeOptionalObjectId(vehicleId);
 
+        if (!saleId || !mongoose.Types.ObjectId.isValid(saleId)) {
+            return res.status(400).json({ message: "saleId inválido o faltante" });
+        }
         if (cleanClientId && !mongoose.Types.ObjectId.isValid(cleanClientId)) {
             return res.status(400).json({ message: "clientId inválido" });
         }
