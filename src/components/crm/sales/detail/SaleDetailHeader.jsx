@@ -3,7 +3,7 @@ import Link from 'next/link';
 import { ArrowLeft, Handshake } from 'lucide-react';
 import SaleStatusBadge from '../SaleStatusBadge';
 
-export default function SaleDetailHeader({ sale }) {
+export default function SaleDetailHeader({ sale, actions }) {
     if (!sale) return null;
 
     return (
@@ -25,10 +25,17 @@ export default function SaleDetailHeader({ sale }) {
                         <div className="w-8 h-8 rounded-lg bg-blue-500/10 flex items-center justify-center border border-blue-500/20">
                             <Handshake size={16} className="text-blue-500" />
                         </div>
-                        <h1 className="text-2xl font-bold text-white tracking-tight flex items-center gap-3">
-                            Expediente Comercial
-                            <SaleStatusBadge status={sale.status} />
-                        </h1>
+                        <div className="flex items-center gap-3">
+                            <h1 className="text-2xl font-bold text-white tracking-tight flex items-center gap-3">
+                                Expediente Comercial
+                                <SaleStatusBadge status={sale.status} />
+                            </h1>
+                            {actions && (
+                                <div className="ml-2">
+                                    {actions}
+                                </div>
+                            )}
+                        </div>
                     </div>
                     <p className="text-sm text-neutral-400 font-mono ml-11">
                         ID: {sale._id}

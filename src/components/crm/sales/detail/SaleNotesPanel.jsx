@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { AlignLeft, Save } from 'lucide-react';
 
-export default function SaleNotesPanel({ sale, onSave }) {
+export default function SaleNotesPanel({ sale, onSave, onCreateTask }) {
     const [notes, setNotes] = useState('');
     const [isSaving, setIsSaving] = useState(false);
     const [hasChanges, setHasChanges] = useState(false);
@@ -39,6 +39,15 @@ export default function SaleNotesPanel({ sale, onSave }) {
                     <AlignLeft size={16} className="text-blue-500" />
                     <h3 className="text-sm font-bold text-white uppercase tracking-wider">Notas Comerciales</h3>
                 </div>
+                <div className="flex gap-2 items-center">
+                    {onCreateTask && (
+                        <button
+                            onClick={onCreateTask}
+                            className="h-8 px-3 rounded-lg bg-blue-500/10 hover:bg-blue-500/20 text-blue-400 border border-blue-500/20 font-bold text-xs flex items-center justify-center transition-colors"
+                        >
+                            Crear seguimiento
+                        </button>
+                    )}
                 {hasChanges && (
                     <button 
                         onClick={handleSaveClick}
@@ -53,6 +62,7 @@ export default function SaleNotesPanel({ sale, onSave }) {
                         Guardar
                     </button>
                 )}
+                </div>
             </div>
             
             <div className="p-4 flex-1 flex flex-col">

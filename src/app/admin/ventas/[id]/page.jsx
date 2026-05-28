@@ -47,7 +47,8 @@ export default function SaleDetailPage() {
     const handleCreateTask = async (taskData) => {
         try {
             await createTask(taskData);
-            alert('Tarea creada exitosamente y agendada.');
+            alert('Tarea agendada exitosamente');
+            setIsTaskModalOpen(false);
         } catch (err) {
             alert('Error al crear la tarea: ' + err.message);
         }
@@ -133,7 +134,7 @@ export default function SaleDetailPage() {
                 {/* Columna Derecha: Notas y Auditoría */}
                 <div className="flex flex-col gap-6 lg:col-span-1">
                     <div className="h-[300px]">
-                        <SaleNotesPanel sale={sale} onSave={handleSave} />
+                        <SaleNotesPanel sale={sale} onSave={handleSave} onCreateTask={() => setIsTaskModalOpen(true)} />
                     </div>
                     <div className="h-[500px]">
                         <SaleAuditTimeline sale={sale} />
@@ -161,8 +162,8 @@ export default function SaleDetailPage() {
                     type: 'venta',
                     title: 'Seguimiento venta',
                     saleId: sale._id,
-                    clientId: sale.client?._id || sale.client,
-                    vehicleId: sale.vehicle?._id || sale.vehicle
+                    ...(sale.clientId && { clientId: sale.clientId._id || sale.clientId }),
+                    ...(sale.vehicleId && { vehicleId: sale.vehicleId._id || sale.vehicleId })
                 }}
             />
 
