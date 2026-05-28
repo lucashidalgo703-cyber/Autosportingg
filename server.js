@@ -1908,6 +1908,217 @@ app.patch('/api/admin/sales/:id', authenticateToken, async (req, res) => {
     }
 });
 
+// --- CRM V2 FINANCE ENDPOINTS ---
+
+// Helper function to resolve CRM V2 Master Account
+async function getOrCreateCrmV2Account(currency) {
+    const accountName = `Caja Principal V2 ${currency}`;
+    let account = await Account.findOne({ name: accountName, currency });
+    
+    if (!account) {
+        account = new Account({
+            name: accountName,
+            type: 'Efectivo',
+            currency: currency,
+            balance: 0,
+            isActive: true
+        });
+        await account.save();
+    }
+    return account;
+}
+
+// GET admin transactions
+app.get('/api/admin/transactions', authenticateToken, async (req, res) => {
+    try {
+        const query = { module: 'crm_v2' };
+        
+        // Apply filters
+        if (req.query.type && req.query.type !== 'todas') {
+            query.type = req.query.type === 'ingreso' ? 'Ingreso' : 'Egreso';
+        }
+        if (req.query.currency && req.query.currency !== 'todas') {
+            query.currency = req.query.currency;
+        }
+        if (req.query.paymentMethod && req.query.paymentMethod !== 'todas') {
+            query.paymentMethod = req.query.paymentMethod;
+        }
+        if (req.query.status && req.query.status !== 'todos') {
+            query.status = req.query.status;
+        }
+        if (req.query.startDate && req.query.endDate) {
+            query.date = { 
+                $gte: new Date(req.query.startDate), 
+                $lte: new Date(req.query.endDate) 
+            };
+        }
+        if (req.query.search) {
+            const searchRegex = new RegExp(req.query.search, 'i');
+            query.$or = [
+                { concept: searchRegex },
+                { category: searchRegex },
+                { notes: searchRegex }
+            ];
+        }
+
+        const transactions = await Transaction.find(query).sort({ date: -1 });
+        res.json(transactions);
+    } catch (error) {
+        console.error('Error fetching admin transactions:', error);
+        res.status(500).json({ message: error.message });
+    }
+});
+
+// GET admin transaction by id
+app.get('/api/admin/transactions/:id', authenticateToken, async (req, res) => {
+    try {
+        const transaction = await Transaction.findOne({ _id: req.params.id, module: 'crm_v2' });
+        if (!transaction) return res.status(404).json({ message: 'Transaction not found' });
+        res.json(transaction);
+    } catch (error) {
+        console.error('Error fetching transaction:', error);
+        res.status(500).json({ message: error.message });
+    }
+});
+
+// POST admin transaction (manual only)
+app.post('/api/admin/transactions', authenticateToken, async (req, res) => {
+    try {
+        const { type, category, concept, amount, currency, paymentMethod, date, notes } = req.body;
+        
+        // Validations
+        if (!type || !['ingreso', 'egreso'].includes(type)) return res.status(400).json({ message: 'Type is required and must be ingreso/egreso' });
+        if (!currency || !['ARS', 'USD'].includes(currency)) return res.status(400).json({ message: 'Currency is required and must be ARS/USD' });
+        if (amount === undefined || amount < 0) return res.status(400).json({ message: 'Amount is required and must be >= 0' });
+        if (!concept) return res.status(400).json({ message: 'Concept is required' });
+        if (!category) return res.status(400).json({ message: 'Category is required' });
+
+        // Resolve accountId safely
+        const account = await getOrCreateCrmV2Account(currency);
+
+        const newTx = new Transaction({
+            module: 'crm_v2',
+            source: 'manual',
+            type: type === 'ingreso' ? 'Ingreso' : 'Egreso', // map to legacy enum
+            category,
+            concept,
+            description: concept, // map to legacy required field
+            amount,
+            currency,
+            paymentMethod,
+            date: date || new Date(),
+            notes,
+            accountId: account._id, // map to legacy required field
+            status: 'activo',
+            createdBy: req.user?.username || 'Admin',
+            transactionAuditLog: [{
+                action: 'CREACION_MANUAL',
+                details: `Movimiento manual creado: ${concept}`,
+                user: req.user?.username || 'Admin',
+                source: 'CRM_V2'
+            }]
+        });
+
+        const savedTx = await newTx.save();
+        
+        // Update account balance
+        if (savedTx.type === 'Ingreso') {
+            account.balance += savedTx.amount;
+        } else {
+            account.balance -= savedTx.amount;
+        }
+        await account.save();
+
+        res.status(201).json(savedTx);
+    } catch (error) {
+        console.error('Error creating transaction:', error);
+        res.status(400).json({ message: error.message });
+    }
+});
+
+// PATCH admin transaction
+app.patch('/api/admin/transactions/:id', authenticateToken, async (req, res) => {
+    try {
+        const { category, concept, paymentMethod, date, notes, status } = req.body;
+        
+        const tx = await Transaction.findOne({ _id: req.params.id, module: 'crm_v2' });
+        if (!tx) return res.status(404).json({ message: 'Transaction not found' });
+        
+        const user = req.user?.username || 'Admin';
+        let hasChanges = false;
+        
+        if (category !== undefined && category !== tx.category) {
+            tx.category = category;
+            hasChanges = true;
+        }
+        
+        if (concept !== undefined && concept !== tx.concept) {
+            tx.description = concept; // sync legacy field
+            tx.concept = concept;
+            hasChanges = true;
+        }
+        
+        if (paymentMethod !== undefined && paymentMethod !== tx.paymentMethod) {
+            tx.paymentMethod = paymentMethod;
+            hasChanges = true;
+        }
+        
+        if (date !== undefined) {
+            tx.date = date;
+            hasChanges = true;
+        }
+        
+        if (notes !== undefined && notes !== tx.notes) {
+            tx.notes = notes;
+            hasChanges = true;
+        }
+
+        // Handle Annulment
+        if (status === 'anulado' && tx.status !== 'anulado') {
+            tx.status = 'anulado';
+            tx.transactionAuditLog.push({
+                action: 'ANULACION',
+                field: 'status',
+                oldValue: 'activo',
+                newValue: 'anulado',
+                details: 'Movimiento anulado manualmente',
+                user: user,
+                source: 'CRM_V2'
+            });
+            hasChanges = true;
+
+            // Revert account balance
+            const account = await Account.findById(tx.accountId);
+            if (account) {
+                if (tx.type === 'Ingreso') account.balance -= tx.amount;
+                if (tx.type === 'Egreso') account.balance += tx.amount;
+                await account.save();
+            }
+        }
+
+        if (hasChanges && status !== 'anulado') {
+            tx.transactionAuditLog.push({
+                action: 'EDICION',
+                details: 'Datos del movimiento editados',
+                user: user,
+                source: 'CRM_V2'
+            });
+        }
+        
+        if (hasChanges) {
+            tx.updatedBy = user;
+            const updatedTx = await tx.save();
+            res.json(updatedTx);
+        } else {
+            res.json(tx);
+        }
+    } catch (error) {
+        console.error('Error updating transaction:', error);
+        res.status(400).json({ message: error.message });
+    }
+});
+
+
 // Global Error Handler
 app.use((err, req, res, next) => {
     console.error("Global Error Handler (Timestamp: " + new Date().toISOString() + ")");
