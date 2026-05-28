@@ -12,6 +12,7 @@ import Account from './src/models/Account.js';
 import Transaction from './src/models/Transaction.js';
 import Reservation from './src/models/Reservation.js';
 import Sale from './src/models/Sale.js';
+import Installment from './src/models/Installment.js';
 import { CloudinaryStorage } from 'multer-storage-cloudinary';
 import jwt from 'jsonwebtoken';
 
@@ -2261,6 +2262,192 @@ app.patch('/api/admin/transactions/:id', authenticateToken, async (req, res) => 
         }
     } catch (error) {
         console.error('Error updating transaction:', error);
+        res.status(400).json({ message: error.message });
+    }
+});
+
+});
+
+// ========================================== //
+// ============ INSTALLMENTS V2 ============= //
+// ========================================== //
+
+app.get('/api/admin/installments', authenticateToken, async (req, res) => {
+    try {
+        const query = {};
+        if (req.query.saleId) query.saleId = req.query.saleId;
+        if (req.query.clientId) query.clientId = req.query.clientId;
+        if (req.query.vehicleId) query.vehicleId = req.query.vehicleId;
+        if (req.query.status) query.status = req.query.status;
+
+        const installments = await Installment.find(query)
+            .populate('clientId', 'firstName lastName fullName phone')
+            .populate('vehicleId', 'brand name plateOrVin')
+            .sort({ dueDate: 1, installmentNumber: 1 });
+            
+        res.json(installments);
+    } catch (error) {
+        console.error('Error fetching installments:', error);
+        res.status(500).json({ message: error.message });
+    }
+});
+
+app.get('/api/admin/installments/:id', authenticateToken, async (req, res) => {
+    try {
+        const installment = await Installment.findById(req.params.id)
+            .populate('clientId', 'firstName lastName fullName phone email')
+            .populate('vehicleId', 'brand name year price currency plateOrVin')
+            .populate('saleId', 'salePrice saleCurrency status paymentMethod');
+            
+        if (!installment) return res.status(404).json({ message: 'Installment not found' });
+        res.json(installment);
+    } catch (error) {
+        console.error('Error fetching installment details:', error);
+        res.status(500).json({ message: error.message });
+    }
+});
+
+app.post('/api/admin/installments', authenticateToken, async (req, res) => {
+    try {
+        const user = req.user ? (req.user.email || req.user.role) : 'System';
+        const { saleId, clientId, vehicleId, installmentNumber, dueDate, amount, currency, notes, status } = req.body;
+
+        if (!saleId || !installmentNumber || !dueDate || amount === undefined || !currency) {
+            return res.status(400).json({ message: 'Missing required fields' });
+        }
+
+        const newInstallment = new Installment({
+            saleId,
+            clientId,
+            vehicleId,
+            installmentNumber,
+            dueDate,
+            amount,
+            currency,
+            status: status || 'pendiente',
+            notes,
+            createdBy: user,
+            installmentAuditLog: [{
+                action: 'CUOTA_CREADA',
+                details: 'Cuota manual creada',
+                user: user
+            }]
+        });
+
+        const savedInstallment = await newInstallment.save();
+        res.status(201).json(savedInstallment);
+    } catch (error) {
+        console.error('Error creating installment:', error);
+        res.status(400).json({ message: error.message });
+    }
+});
+
+app.patch('/api/admin/installments/:id', authenticateToken, async (req, res) => {
+    try {
+        const user = req.user ? (req.user.email || req.user.role) : 'System';
+        const updates = req.body;
+        
+        const installment = await Installment.findById(req.params.id);
+        if (!installment) return res.status(404).json({ message: 'Installment not found' });
+
+        let hasChanges = false;
+        const allowedUpdates = ['dueDate', 'amount', 'currency', 'status', 'notes'];
+        let actionStr = 'CUOTA_EDITADA';
+
+        allowedUpdates.forEach(field => {
+            if (updates[field] !== undefined && updates[field] !== installment[field]) {
+                const oldValue = installment[field];
+                installment[field] = updates[field];
+                hasChanges = true;
+                
+                if (field === 'status') {
+                    if (updates[field] === 'pagada_manual') actionStr = 'CUOTA_MARCADA_PAGADA_MANUAL';
+                    if (updates[field] === 'anulada') actionStr = 'CUOTA_ANULADA';
+                }
+            }
+        });
+
+        if (hasChanges) {
+            installment.updatedBy = user;
+            installment.installmentAuditLog.push({
+                action: actionStr,
+                details: `Actualización manual.`,
+                user: user
+            });
+            const updatedInst = await installment.save();
+            res.json(updatedInst);
+        } else {
+            res.json(installment);
+        }
+    } catch (error) {
+        console.error('Error updating installment:', error);
+        res.status(400).json({ message: error.message });
+    }
+});
+
+app.post('/api/admin/sales/:id/installments/generate', authenticateToken, async (req, res) => {
+    try {
+        const user = req.user ? (req.user.email || req.user.role) : 'System';
+        const saleId = req.params.id;
+        const { totalAmount, currency, installmentsCount, firstDueDate, frequency, notes, allowAppend } = req.body;
+
+        if (!totalAmount || totalAmount <= 0) return res.status(400).json({ message: 'Total amount must be greater than 0' });
+        if (!installmentsCount || installmentsCount <= 0) return res.status(400).json({ message: 'Installments count must be greater than 0' });
+        if (!firstDueDate) return res.status(400).json({ message: 'First due date is required' });
+
+        const sale = await Sale.findById(saleId);
+        if (!sale) return res.status(404).json({ message: 'Sale not found' });
+
+        const existingInstallments = await Installment.find({ saleId, status: { $ne: 'anulada' } }).sort({ installmentNumber: -1 });
+        
+        if (existingInstallments.length > 0 && !allowAppend) {
+            return res.status(400).json({ message: 'Ya existen cuotas activas para esta venta.' });
+        }
+
+        let startNumber = 1;
+        if (existingInstallments.length > 0) {
+            startNumber = existingInstallments[0].installmentNumber + 1;
+        }
+
+        const baseAmount = Math.floor(totalAmount / installmentsCount);
+        const remainder = totalAmount - (baseAmount * installmentsCount);
+        
+        const newInstallments = [];
+        let currentDate = new Date(firstDueDate);
+
+        for (let i = 0; i < installmentsCount; i++) {
+            let amount = baseAmount;
+            if (i === installmentsCount - 1) {
+                amount += remainder;
+            }
+
+            newInstallments.push(new Installment({
+                saleId: sale._id,
+                clientId: sale.clientId,
+                vehicleId: sale.vehicleId,
+                installmentNumber: startNumber + i,
+                dueDate: new Date(currentDate),
+                amount,
+                currency,
+                status: 'pendiente',
+                notes: notes || `Generada en plan de ${installmentsCount} cuotas`,
+                createdBy: user,
+                installmentAuditLog: [{
+                    action: 'PLAN_GENERADO',
+                    details: `Cuota ${i+1} de ${installmentsCount} generada por sistema.`,
+                    user: user
+                }]
+            }));
+
+            // Frequency = mensual por ahora
+            currentDate.setMonth(currentDate.getMonth() + 1);
+        }
+
+        const savedInstallments = await Installment.insertMany(newInstallments);
+        res.status(201).json(savedInstallments);
+
+    } catch (error) {
+        console.error('Error generating installments:', error);
         res.status(400).json({ message: error.message });
     }
 });

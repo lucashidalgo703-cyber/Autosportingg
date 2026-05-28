@@ -12,7 +12,7 @@ const menuItems = [
     { name: 'Ventas', path: '/admin/ventas', icon: Receipt },
     { name: 'Reservas', path: '/admin/reservas', icon: CalendarClock },
     { name: 'Finanzas', path: '/admin/finanzas', icon: Wallet, prefetch: false },
-    { name: 'Cuotas', path: '/admin/cuotas', icon: Landmark, prefetch: false },
+    { name: 'Cuotas', path: '/admin/cuotas', icon: Landmark },
     { name: 'Documentación', path: '/admin/documentacion', icon: FileText, prefetch: false },
     { name: 'Reportes', path: '/admin/reportes', icon: BarChart3, prefetch: false },
     { name: 'Configuración', path: '/admin/configuracion', icon: Settings, prefetch: false },
