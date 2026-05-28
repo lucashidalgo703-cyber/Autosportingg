@@ -11,13 +11,17 @@ import SaleStatusPanel from '../../../../components/crm/sales/detail/SaleStatusP
 import SaleAuditTimeline from '../../../../components/crm/sales/detail/SaleAuditTimeline';
 import SaleFinancePanel from '../../../../components/crm/sales/detail/SaleFinancePanel';
 import SaleInstallmentsPanel from '../../../../components/crm/sales/detail/SaleInstallmentsPanel';
-import { ShieldAlert } from 'lucide-react';
+import CrmTaskModal from '../../../../components/crm/agenda/CrmTaskModal';
+import { useAdminCrmTasks } from '../../../../hooks/useAdminCrmTasks';
+import { ShieldAlert, Target } from 'lucide-react';
 
 export default function SaleDetailPage() {
     const { id } = useParams();
     const router = useRouter();
     const { fetchSaleById, updateSale, loading, error } = useAdminSales();
+    const { createTask } = useAdminCrmTasks();
     const [sale, setSale] = useState(null);
+    const [isTaskModalOpen, setIsTaskModalOpen] = useState(false);
 
     useEffect(() => {
         if (id) {
@@ -37,6 +41,15 @@ export default function SaleDetailPage() {
         const updatedSale = await updateSale(id, payload);
         if (updatedSale) {
             setSale(updatedSale);
+        }
+    };
+
+    const handleCreateTask = async (taskData) => {
+        try {
+            await createTask(taskData);
+            alert('Tarea creada exitosamente y agendada.');
+        } catch (err) {
+            alert('Error al crear la tarea: ' + err.message);
         }
     };
 
@@ -71,7 +84,18 @@ export default function SaleDetailPage() {
     return (
         <div className="max-w-7xl mx-auto flex flex-col h-full min-h-[85vh] pb-12">
             
-            <SaleDetailHeader sale={sale} />
+            <SaleDetailHeader 
+                sale={sale} 
+                actions={
+                    <button
+                        onClick={() => setIsTaskModalOpen(true)}
+                        className="flex items-center gap-2 px-3 py-1.5 bg-blue-500/10 hover:bg-blue-500/20 text-blue-400 border border-blue-500/20 rounded-lg text-xs font-bold transition-colors"
+                    >
+                        <Target size={14} />
+                        Crear Tarea
+                    </button>
+                }
+            />
 
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                 
@@ -127,6 +151,20 @@ export default function SaleDetailPage() {
             <div className="mt-6">
                 <SaleInstallmentsPanel sale={sale} saleFinanceData={sale.finance} />
             </div>
+
+            <CrmTaskModal 
+                isOpen={isTaskModalOpen}
+                onClose={() => setIsTaskModalOpen(false)}
+                onSave={handleCreateTask}
+                defaultData={{
+                    source: 'ventas',
+                    type: 'venta',
+                    title: 'Seguimiento venta',
+                    saleId: sale._id,
+                    clientId: sale.client?._id || sale.client,
+                    vehicleId: sale.vehicle?._id || sale.vehicle
+                }}
+            />
 
         </div>
     );

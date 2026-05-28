@@ -5,7 +5,7 @@ const crmTaskSchema = new mongoose.Schema({
     description: { type: String }, // notes
     type: { 
         type: String, 
-        enum: ['cobranza', 'lead', 'venta', 'general'], 
+        enum: ['cobranza', 'lead', 'venta', 'general', 'documentacion', 'entrega', 'postventa'], 
         default: 'general' 
     },
     status: { 

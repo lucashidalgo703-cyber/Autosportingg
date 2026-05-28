@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
 import Link from 'next/link';
-import { Calendar, Clock, CheckCircle2, AlertCircle, XCircle, ChevronDown, Handshake, Target, Clock4 } from 'lucide-react';
+import { Calendar, Clock, CheckCircle2, AlertCircle, XCircle, ChevronDown, Handshake, Target, Clock4, FileText, Car, Wrench, Tag, Edit3 } from 'lucide-react';
 
-export default function AgendaCrmTaskCard({ task, onComplete, onCancel, onPostpone }) {
+export default function AgendaCrmTaskCard({ task, onComplete, onCancel, onPostpone, onEdit }) {
     const [isExpanded, setIsExpanded] = useState(false);
     const [isPostponing, setIsPostponing] = useState(false);
     const [newDate, setNewDate] = useState('');
@@ -29,24 +29,41 @@ export default function AgendaCrmTaskCard({ task, onComplete, onCancel, onPostpo
         setIsPostponing(false);
     };
 
+    const getTypeStyling = (type) => {
+        switch(type) {
+            case 'cobranza': return { bg: 'bg-orange-500/10', text: 'text-orange-500', border: 'border-orange-500/20', icon: Target, label: 'Cobranza' };
+            case 'venta': return { bg: 'bg-blue-500/10', text: 'text-blue-500', border: 'border-blue-500/20', icon: Handshake, label: 'Venta' };
+            case 'documentacion': return { bg: 'bg-purple-500/10', text: 'text-purple-500', border: 'border-purple-500/20', icon: FileText, label: 'Documentación' };
+            case 'entrega': return { bg: 'bg-green-500/10', text: 'text-green-500', border: 'border-green-500/20', icon: Car, label: 'Entrega' };
+            case 'postventa': return { bg: 'bg-yellow-500/10', text: 'text-yellow-500', border: 'border-yellow-500/20', icon: Wrench, label: 'Postventa' };
+            default: return { bg: 'bg-neutral-800', text: 'text-neutral-300', border: 'border-neutral-700', icon: Tag, label: type === 'general' ? 'General' : type };
+        }
+    };
+
+    const typeStyle = getTypeStyling(task.type);
+    const TypeIcon = typeStyle.icon;
+
     return (
         <div className={`bg-neutral-900 border ${isOverdue ? 'border-red-500/30' : isToday ? 'border-blue-500/30' : 'border-neutral-800'} rounded-2xl p-4 flex flex-col gap-3 relative transition-all overflow-hidden`}>
             
             {/* Top Bar: Type & Priority */}
             <div className="flex justify-between items-start">
                 <div className="flex items-center gap-2">
-                    {task.type === 'cobranza' ? (
-                        <span className="flex items-center gap-1.5 px-2 py-1 bg-orange-500/10 text-orange-500 border border-orange-500/20 rounded-md text-[10px] font-bold uppercase tracking-wider">
-                            <Target size={12} /> Cobranza
-                        </span>
-                    ) : (
-                        <span className="flex items-center gap-1.5 px-2 py-1 bg-neutral-800 text-neutral-300 border border-neutral-700 rounded-md text-[10px] font-bold uppercase tracking-wider">
-                            {task.type}
-                        </span>
-                    )}
+                    <span className={`flex items-center gap-1.5 px-2 py-1 rounded-md text-[10px] font-bold uppercase tracking-wider border ${typeStyle.bg} ${typeStyle.text} ${typeStyle.border}`}>
+                        <TypeIcon size={12} /> {typeStyle.label}
+                    </span>
                     <span className={`px-2 py-1 rounded-md border text-[10px] font-bold uppercase tracking-wider ${getPriorityColor(task.priority)}`}>
                         {task.priority}
                     </span>
+                    {onEdit && (
+                        <button 
+                            onClick={() => onEdit(task)}
+                            className="p-1 rounded bg-neutral-800 hover:bg-neutral-700 text-neutral-400 hover:text-white transition-colors border border-neutral-700"
+                            title="Editar tarea"
+                        >
+                            <Edit3 size={12} />
+                        </button>
+                    )}
                 </div>
                 <div className="flex items-center gap-1.5 text-neutral-500 text-xs">
                     <Calendar size={12} className={isOverdue ? 'text-red-400' : ''} />
