@@ -37,9 +37,11 @@ export const useAdminCars = () => {
             }
             const data = await response.json();
             setCars(data);
+            return data;
         } catch (err) {
             console.error("Error fetching admin cars:", err);
             setError(err.message);
+            return [];
         } finally {
             setLoading(false);
         }
