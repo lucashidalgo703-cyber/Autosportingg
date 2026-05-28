@@ -105,7 +105,12 @@ export default function DocumentacionPage() {
             const tasksData = await fetchTasks();
             setAllTasks(tasksData || []);
         } catch (err) {
-            alert('Error al crear la tarea: ' + err.message);
+            console.error("Error técnico al guardar tarea:", err);
+            if (err.message?.includes('enum') || err.message?.includes('validation failed')) {
+                alert('No se pudo crear la tarea. Revisá el tipo u origen de la tarea.');
+            } else {
+                alert('Error al crear la tarea: ' + err.message);
+            }
         }
     };
 

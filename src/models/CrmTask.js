@@ -34,7 +34,7 @@ const crmTaskSchema = new mongoose.Schema({
 
     source: { 
         type: String, 
-        enum: ['cobranzas', 'agenda', 'ventas', 'leads', 'manual'], 
+        enum: ['cobranzas', 'agenda', 'ventas', 'leads', 'manual', 'documentacion', 'entrega', 'postventa'], 
         default: 'manual' 
     },
 
