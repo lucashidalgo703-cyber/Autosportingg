@@ -7,8 +7,7 @@ export default async function sitemap() {
         '/catalogo',
         '/nosotros',
         '/contacto',
-        '/financiacion',
-        '/favoritos'
+        '/financiacion'
     ].map((route) => ({
         url: `${baseUrl}${route}`,
         lastModified: new Date().toISOString(),
@@ -37,7 +36,8 @@ export default async function sitemap() {
             }));
         }
     } catch (error) {
-        console.error("Sitemap generation error:", error);
+        // Fallback silencioso: no ensuciar el build si el backend no está disponible
+        console.warn("Sitemap: Backend no disponible (ECONNREFUSED). Generando sitemap estático básico.");
     }
 
     return [...staticRoutes, ...carRoutes];
