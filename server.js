@@ -1492,7 +1492,8 @@ app.get('/api/admin/sales', authenticateToken, async (req, res) => {
                 path: 'reservationId',
                 select: 'status depositAmount depositCurrency expiresAt'
             })
-            .sort({ saleDate: -1, createdAt: -1 });
+            .sort({ saleDate: -1, createdAt: -1 })
+            .lean();
 
         // Calculate collection status for each sale
         const saleIds = sales.map(s => s._id);
@@ -1502,8 +1503,16 @@ app.get('/api/admin/sales', authenticateToken, async (req, res) => {
             module: 'crm_v2' 
         });
 
+        // Optimización O(N) para agrupar transacciones por saleId
+        const txsBySale = {};
+        transactions.forEach(tx => {
+            const sid = String(tx.saleId);
+            if (!txsBySale[sid]) txsBySale[sid] = [];
+            txsBySale[sid].push(tx);
+        });
+
         const salesWithFinance = sales.map(sale => {
-            const saleTxs = transactions.filter(tx => String(tx.saleId) === String(sale._id));
+            const saleTxs = txsBySale[String(sale._id)] || [];
             let netoCobrado = 0;
             
             // Also consider the applied deposit from the reservation if the currency matches the sale currency
@@ -1528,14 +1537,13 @@ app.get('/api/admin/sales', authenticateToken, async (req, res) => {
             else if (netoCobrado === sale.salePrice) collectionStatus = 'cobrada';
             else if (netoCobrado > sale.salePrice) collectionStatus = 'sobrecobrada';
 
-            const saleObj = sale.toObject();
-            saleObj.finance = {
+            sale.finance = {
                 netoCobrado,
                 pendingBalance,
                 collectionStatus,
                 depositApplied
             };
-            return saleObj;
+            return sale;
         });
             
         res.json(salesWithFinance);

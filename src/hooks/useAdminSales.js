@@ -36,14 +36,16 @@ export function useAdminSales() {
 
             if (!res.ok) {
                 const errData = await res.json().catch(() => ({}));
-                throw new Error(errData.message || 'Error al obtener ventas');
+                console.error("Fetch sales error:", errData);
+                throw new Error('No se pudieron cargar las ventas. Reintentá en unos segundos o verificá la conexión.');
             }
 
             const data = await res.json();
             setSales(data);
             return data;
         } catch (err) {
-            setError(err.message);
+            console.error("Sales hook catch:", err);
+            setError(err.message === 'Failed to fetch' ? 'No se pudieron cargar las ventas. Reintentá en unos segundos o verificá la conexión.' : err.message);
             return [];
         } finally {
             setLoading(false);
@@ -60,7 +62,8 @@ export function useAdminSales() {
 
             if (!res.ok) {
                 const errData = await res.json().catch(() => ({}));
-                throw new Error(errData.message || 'Error al obtener detalle de venta');
+                console.error("Fetch sale details error:", errData);
+                throw new Error('No se pudo cargar la venta. Reintentá en unos segundos o verificá la conexión.');
             }
 
             return await res.json();
