@@ -1961,6 +1961,28 @@ app.get('/api/admin/transactions', authenticateToken, async (req, res) => {
             ];
         }
 
+        if (req.query.linkedTo && req.query.linkedTo !== 'todas') {
+            if (req.query.linkedTo === 'unlinked') {
+                query.saleId = { $exists: false };
+                query.reservationId = { $exists: false };
+                query.clientId = { $exists: false };
+                query.vehicleId = { $exists: false };
+            } else if (req.query.linkedTo === 'sale') {
+                query.saleId = { $exists: true };
+            } else if (req.query.linkedTo === 'reservation') {
+                query.reservationId = { $exists: true };
+            } else if (req.query.linkedTo === 'client') {
+                query.clientId = { $exists: true };
+            } else if (req.query.linkedTo === 'vehicle') {
+                query.vehicleId = { $exists: true };
+            }
+        }
+
+        // Extra query support for specific sale links (for the sale finance panel)
+        if (req.query.saleId) {
+            query.saleId = req.query.saleId;
+        }
+
         const transactions = await Transaction.find(query).sort({ date: -1 });
         res.json(transactions);
     } catch (error) {
@@ -1984,7 +2006,7 @@ app.get('/api/admin/transactions/:id', authenticateToken, async (req, res) => {
 // POST admin transaction (manual only)
 app.post('/api/admin/transactions', authenticateToken, async (req, res) => {
     try {
-        const { type, category, concept, amount, currency, paymentMethod, date, notes } = req.body;
+        const { type, category, concept, amount, currency, paymentMethod, date, notes, saleId, reservationId, clientId, vehicleId } = req.body;
         
         // Validations
         if (!type || !['ingreso', 'egreso'].includes(type)) return res.status(400).json({ message: 'Type is required and must be ingreso/egreso' });
@@ -1992,6 +2014,24 @@ app.post('/api/admin/transactions', authenticateToken, async (req, res) => {
         if (amount === undefined || amount < 0) return res.status(400).json({ message: 'Amount is required and must be >= 0' });
         if (!concept) return res.status(400).json({ message: 'Concept is required' });
         if (!category) return res.status(400).json({ message: 'Category is required' });
+
+        // Vínculos opcionales (Verificación de existencia)
+        if (saleId) {
+            const sale = await Sale.findById(saleId);
+            if (!sale) return res.status(400).json({ message: 'La Venta vinculada no existe' });
+        }
+        if (reservationId) {
+            const reservation = await Reservation.findById(reservationId);
+            if (!reservation) return res.status(400).json({ message: 'La Reserva vinculada no existe' });
+        }
+        if (clientId) {
+            const client = await Client.findById(clientId);
+            if (!client) return res.status(400).json({ message: 'El Cliente vinculado no existe' });
+        }
+        if (vehicleId) {
+            const vehicle = await Car.findById(vehicleId);
+            if (!vehicle) return res.status(400).json({ message: 'El Vehículo vinculado no existe' });
+        }
 
         // Resolve accountId safely
         const account = await getOrCreateCrmV2Account(currency);
@@ -2010,6 +2050,10 @@ app.post('/api/admin/transactions', authenticateToken, async (req, res) => {
             notes,
             accountId: account._id, // map to legacy required field
             status: 'activo',
+            saleId: saleId || undefined,
+            reservationId: reservationId || undefined,
+            clientId: clientId || undefined,
+            vehicleId: vehicleId || undefined,
             createdBy: req.user?.username || 'Admin',
             transactionAuditLog: [{
                 action: 'CREACION_MANUAL',
@@ -2039,7 +2083,7 @@ app.post('/api/admin/transactions', authenticateToken, async (req, res) => {
 // PATCH admin transaction
 app.patch('/api/admin/transactions/:id', authenticateToken, async (req, res) => {
     try {
-        const { category, concept, paymentMethod, date, notes, status } = req.body;
+        const { category, concept, paymentMethod, date, notes, status, saleId, reservationId, clientId, vehicleId } = req.body;
         
         const tx = await Transaction.findOne({ _id: req.params.id, module: 'crm_v2' });
         if (!tx) return res.status(404).json({ message: 'Transaction not found' });
@@ -2072,6 +2116,30 @@ app.patch('/api/admin/transactions/:id', authenticateToken, async (req, res) => 
             tx.notes = notes;
             hasChanges = true;
         }
+
+        // Actualización de Vínculos
+        const updateLink = async (field, value, model, name) => {
+            if (value !== undefined && String(tx[field] || '') !== String(value || '')) {
+                if (value) {
+                    const entity = await model.findById(value);
+                    if (!entity) throw new Error(`${name} vinculado no existe`);
+                }
+                tx[field] = value || undefined;
+                hasChanges = true;
+                tx.transactionAuditLog.push({
+                    action: 'VINCULO_ACTUALIZADO',
+                    field: field,
+                    details: `Vínculo de ${name} actualizado`,
+                    user: user,
+                    source: 'CRM_V2'
+                });
+            }
+        };
+
+        await updateLink('saleId', saleId, Sale, 'Venta');
+        await updateLink('reservationId', reservationId, Reservation, 'Reserva');
+        await updateLink('clientId', clientId, Client, 'Cliente');
+        await updateLink('vehicleId', vehicleId, Car, 'Vehículo');
 
         // Handle Annulment
         if (status === 'anulado' && tx.status !== 'anulado') {

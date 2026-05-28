@@ -13,10 +13,66 @@ export default function TransactionModal({ isOpen, onClose, transaction, onSave,
         category: '',
         paymentMethod: 'efectivo',
         date: new Date().toISOString().split('T')[0],
-        notes: ''
+        notes: '',
+        saleId: '',
+        reservationId: '',
+        clientId: '',
+        vehicleId: ''
     });
 
     const [errors, setErrors] = useState({});
+    
+    // Data for selects
+    const [salesOptions, setSalesOptions] = useState([]);
+    const [resOptions, setResOptions] = useState([]);
+    const [clientOptions, setClientOptions] = useState([]);
+    const [carOptions, setCarOptions] = useState([]);
+
+    const getAuthHeaders = () => {
+        const token = localStorage.getItem('token');
+        return {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+        };
+    };
+
+    useEffect(() => {
+        const fetchOptions = async () => {
+            try {
+                const headers = getAuthHeaders();
+                // We fetch the basics to populate dropdowns
+                const [salesRes, resRes, clientsRes, carsRes] = await Promise.all([
+                    fetch('/api/admin/sales?limit=100', { headers }),
+                    fetch('/api/admin/reservations?limit=100', { headers }),
+                    fetch('/api/admin/clients?limit=100', { headers }),
+                    fetch('/api/cars', { headers }) // Or /api/admin/stock depending on what exists, we use public /api/cars for now since it returns all visible
+                ]);
+                
+                if (salesRes.ok) {
+                    const data = await salesRes.json();
+                    setSalesOptions(Array.isArray(data) ? data : []);
+                }
+                if (resRes.ok) {
+                    const data = await resRes.json();
+                    setResOptions(Array.isArray(data) ? data : []);
+                }
+                if (clientsRes.ok) {
+                    const data = await clientsRes.json();
+                    setClientOptions(data.clients || []);
+                }
+                if (carsRes.ok) {
+                    const data = await carsRes.json();
+                    setCarOptions(Array.isArray(data) ? data : (data.cars || []));
+                }
+            } catch (err) {
+                console.error("Error fetching options for transaction modal", err);
+            }
+        };
+        
+        if (isOpen && !isAnnulled) {
+            fetchOptions();
+        }
+    }, [isOpen, isAnnulled]);
 
     useEffect(() => {
         if (isOpen && transaction) {
@@ -28,9 +84,14 @@ export default function TransactionModal({ isOpen, onClose, transaction, onSave,
                 category: transaction.category || '',
                 paymentMethod: transaction.paymentMethod || 'efectivo',
                 date: transaction.date ? new Date(transaction.date).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
-                notes: transaction.notes || ''
+                notes: transaction.notes || '',
+                saleId: transaction.saleId || '',
+                reservationId: transaction.reservationId || '',
+                clientId: transaction.clientId || '',
+                vehicleId: transaction.vehicleId || ''
             });
         } else if (isOpen) {
+            // Default initial state or props if provided from SaleFinancePanel
             setFormData({
                 type: 'ingreso',
                 currency: 'ARS',
@@ -39,7 +100,11 @@ export default function TransactionModal({ isOpen, onClose, transaction, onSave,
                 category: '',
                 paymentMethod: 'efectivo',
                 date: new Date().toISOString().split('T')[0],
-                notes: ''
+                notes: '',
+                saleId: '',
+                reservationId: '',
+                clientId: '',
+                vehicleId: ''
             });
         }
         setErrors({});
@@ -60,10 +125,17 @@ export default function TransactionModal({ isOpen, onClose, transaction, onSave,
         e.preventDefault();
         if (isAnnulled) return;
         if (validate()) {
-            onSave({
+            const dataToSave = {
                 ...formData,
                 amount: Number(formData.amount)
-            });
+            };
+            // Limpiar vacíos
+            if (!dataToSave.saleId) delete dataToSave.saleId;
+            if (!dataToSave.reservationId) delete dataToSave.reservationId;
+            if (!dataToSave.clientId) delete dataToSave.clientId;
+            if (!dataToSave.vehicleId) delete dataToSave.vehicleId;
+            
+            onSave(dataToSave);
         }
     };
 
@@ -240,6 +312,83 @@ export default function TransactionModal({ isOpen, onClose, transaction, onSave,
                                 disabled={isAnnulled}
                             />
                         </div>
+
+                        {/* Vinculación Opcional */}
+                        <div className="col-span-1 md:col-span-2 mt-4 pt-4 border-t border-neutral-800">
+                            <h3 className="text-sm font-bold text-neutral-400 mb-4 uppercase tracking-wider">Vinculación Opcional</h3>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                
+                                <div>
+                                    <label className="block text-xs font-bold text-neutral-500 mb-1">Venta Asociada</label>
+                                    <select
+                                        className="w-full bg-black/40 border border-neutral-800 rounded-xl py-2 px-3 text-sm text-neutral-300 focus:outline-none focus:border-neutral-600 transition-colors"
+                                        value={formData.saleId}
+                                        onChange={(e) => setFormData({ ...formData, saleId: e.target.value })}
+                                        disabled={isAnnulled}
+                                    >
+                                        <option value="">-- Sin vincular --</option>
+                                        {salesOptions.map(sale => (
+                                            <option key={sale._id} value={sale._id}>
+                                                {sale.vehicleId?.brand} {sale.vehicleId?.name} - {sale.clientId?.fullName || 'Consumidor Final'} ({new Date(sale.saleDate).toLocaleDateString()})
+                                            </option>
+                                        ))}
+                                    </select>
+                                </div>
+
+                                <div>
+                                    <label className="block text-xs font-bold text-neutral-500 mb-1">Reserva Asociada</label>
+                                    <select
+                                        className="w-full bg-black/40 border border-neutral-800 rounded-xl py-2 px-3 text-sm text-neutral-300 focus:outline-none focus:border-neutral-600 transition-colors"
+                                        value={formData.reservationId}
+                                        onChange={(e) => setFormData({ ...formData, reservationId: e.target.value })}
+                                        disabled={isAnnulled}
+                                    >
+                                        <option value="">-- Sin vincular --</option>
+                                        {resOptions.map(res => (
+                                            <option key={res._id} value={res._id}>
+                                                {res.vehicleId?.brand} {res.vehicleId?.name} - Seña: {res.depositCurrency} {res.depositAmount}
+                                            </option>
+                                        ))}
+                                    </select>
+                                </div>
+
+                                <div>
+                                    <label className="block text-xs font-bold text-neutral-500 mb-1">Cliente Asociado</label>
+                                    <select
+                                        className="w-full bg-black/40 border border-neutral-800 rounded-xl py-2 px-3 text-sm text-neutral-300 focus:outline-none focus:border-neutral-600 transition-colors"
+                                        value={formData.clientId}
+                                        onChange={(e) => setFormData({ ...formData, clientId: e.target.value })}
+                                        disabled={isAnnulled}
+                                    >
+                                        <option value="">-- Sin vincular --</option>
+                                        {clientOptions.map(c => (
+                                            <option key={c._id} value={c._id}>
+                                                {c.fullName || `${c.firstName} ${c.lastName}`} - {c.phone}
+                                            </option>
+                                        ))}
+                                    </select>
+                                </div>
+
+                                <div>
+                                    <label className="block text-xs font-bold text-neutral-500 mb-1">Vehículo Asociado</label>
+                                    <select
+                                        className="w-full bg-black/40 border border-neutral-800 rounded-xl py-2 px-3 text-sm text-neutral-300 focus:outline-none focus:border-neutral-600 transition-colors"
+                                        value={formData.vehicleId}
+                                        onChange={(e) => setFormData({ ...formData, vehicleId: e.target.value })}
+                                        disabled={isAnnulled}
+                                    >
+                                        <option value="">-- Sin vincular --</option>
+                                        {carOptions.map(c => (
+                                            <option key={c._id} value={c._id}>
+                                                {c.brand} {c.name} {c.plateOrVin ? `(${c.plateOrVin})` : ''}
+                                            </option>
+                                        ))}
+                                    </select>
+                                </div>
+
+                            </div>
+                        </div>
+
                     </div>
                 </div>
 

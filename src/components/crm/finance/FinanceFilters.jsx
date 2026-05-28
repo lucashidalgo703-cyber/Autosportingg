@@ -9,6 +9,7 @@ export default function FinanceFilters({ filters, setFilters }) {
             currency: 'todas',
             paymentMethod: 'todas',
             status: 'todos',
+            linkedTo: 'todas',
             startDate: '',
             endDate: ''
         });
@@ -70,6 +71,21 @@ export default function FinanceFilters({ filters, setFilters }) {
                             <option value="tarjeta">Tarjeta</option>
                             <option value="cheque">Cheque</option>
                             <option value="otro">Otro</option>
+                        </select>
+                    </div>
+
+                    <div className="relative min-w-[120px] flex-1 md:flex-none">
+                        <select
+                            className="w-full bg-black/40 border border-neutral-800 rounded-xl py-2.5 px-4 text-sm text-neutral-300 focus:outline-none focus:border-neutral-600 transition-colors appearance-none cursor-pointer"
+                            value={filters.linkedTo || 'todas'}
+                            onChange={(e) => setFilters({ ...filters, linkedTo: e.target.value })}
+                        >
+                            <option value="todas">Vínculo (Todos)</option>
+                            <option value="unlinked">Sin vínculo</option>
+                            <option value="sale">Vinculados a Venta</option>
+                            <option value="reservation">Vinculados a Reserva</option>
+                            <option value="client">Vinculados a Cliente</option>
+                            <option value="vehicle">Vinculados a Vehículo</option>
                         </select>
                     </div>
 

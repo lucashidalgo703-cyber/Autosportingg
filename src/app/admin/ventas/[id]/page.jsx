@@ -9,6 +9,7 @@ import SaleChecklistPanel from '../../../../components/crm/sales/detail/SaleChec
 import SaleNotesPanel from '../../../../components/crm/sales/detail/SaleNotesPanel';
 import SaleStatusPanel from '../../../../components/crm/sales/detail/SaleStatusPanel';
 import SaleAuditTimeline from '../../../../components/crm/sales/detail/SaleAuditTimeline';
+import SaleFinancePanel from '../../../../components/crm/sales/detail/SaleFinancePanel';
 import { ShieldAlert } from 'lucide-react';
 
 export default function SaleDetailPage() {
@@ -114,6 +115,11 @@ export default function SaleDetailPage() {
                     </div>
                 </div>
 
+            </div>
+
+            {/* Panel de Movimientos Financieros (Ancho completo) */}
+            <div className="mt-6">
+                <SaleFinancePanel sale={sale} />
             </div>
 
         </div>

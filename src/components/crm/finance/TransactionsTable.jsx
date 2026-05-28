@@ -24,6 +24,7 @@ export default function TransactionsTable({ transactions, onEdit }) {
                             <th className="p-4 text-xs font-bold text-neutral-500 uppercase tracking-wider">Fecha</th>
                             <th className="p-4 text-xs font-bold text-neutral-500 uppercase tracking-wider">Concepto</th>
                             <th className="p-4 text-xs font-bold text-neutral-500 uppercase tracking-wider">Categoría</th>
+                            <th className="p-4 text-xs font-bold text-neutral-500 uppercase tracking-wider">Vinculado a</th>
                             <th className="p-4 text-xs font-bold text-neutral-500 uppercase tracking-wider">Método</th>
                             <th className="p-4 text-xs font-bold text-neutral-500 uppercase tracking-wider">Estado</th>
                             <th className="p-4 text-xs font-bold text-neutral-500 uppercase tracking-wider text-right">Monto</th>
@@ -42,6 +43,19 @@ export default function TransactionsTable({ transactions, onEdit }) {
                                 </td>
                                 <td className="p-4 whitespace-nowrap">
                                     <span className="text-xs font-bold text-neutral-400 uppercase tracking-wider bg-neutral-800 px-2 py-1 rounded-md border border-neutral-700">{tx.category}</span>
+                                </td>
+                                <td className="p-4">
+                                    {tx.saleId ? (
+                                        <a href={`/admin/ventas/${tx.saleId}`} className="text-sm font-bold text-blue-400 hover:text-blue-300 transition-colors block">Venta</a>
+                                    ) : tx.reservationId ? (
+                                        <span className="text-sm font-bold text-purple-400 block">Reserva</span>
+                                    ) : tx.clientId ? (
+                                        <a href={`/admin/clientes/${tx.clientId}`} className="text-sm font-bold text-orange-400 hover:text-orange-300 transition-colors block">Cliente</a>
+                                    ) : tx.vehicleId ? (
+                                        <a href={`/admin/stock/${tx.vehicleId}`} className="text-sm font-bold text-green-400 hover:text-green-300 transition-colors block">Vehículo</a>
+                                    ) : (
+                                        <span className="text-sm text-neutral-500 block">Sin vínculo</span>
+                                    )}
                                 </td>
                                 <td className="p-4 whitespace-nowrap">
                                     <span className="text-sm text-neutral-400 capitalize">{tx.paymentMethod}</span>
