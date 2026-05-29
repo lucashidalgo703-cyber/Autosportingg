@@ -3631,6 +3631,91 @@ app.patch('/api/admin/notifications/read-all', authenticateToken, async (req, re
 
 
 
+// ========================================== //
+// ============ TEAM DASHBOARD ============== //
+// ========================================== //
+
+app.get('/api/admin/team-dashboard', authenticateToken, async (req, res) => {
+    try {
+        const userRole = req.user?.role || 'solo_lectura';
+        const perms = req.user?.permissions || [];
+        
+        const canReadTeam = ['owner', 'admin'].includes(userRole) || perms.includes('equipo.read');
+        if (!canReadTeam) {
+            return res.status(403).json({ message: 'Sin permisos para ver el dashboard del equipo.' });
+        }
+
+        const activeUsers = await AdminUser.find({ active: true }).select('name email role lastLoginAt').lean();
+        
+        const tasks = await CrmTask.find({ status: 'pendiente' }).select('title dueDate assignedTo priority').lean();
+        const leads = await Lead.find({ crmStatus: { $in: ['nuevo', 'contactado', 'interesado', 'seguimiento'] } }).select('name crmStatus assignedTo lastActivityAt').lean();
+        const reservations = await Reservation.find({ status: 'activa' }).select('status assignedTo expiresAt _id').lean();
+        const sales = await Sale.find({ status: { $in: ['confirmada', 'pendiente_entrega', 'entregada'] } }).select('status documentationStatus postSaleStatus assignedTo _id').lean();
+        
+        // Audit Logs (recent 100 max for active users context)
+        const recentLogs = await AuditLog.find({ 
+            createdAt: { $gte: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000) } 
+        }).sort({ createdAt: -1 }).limit(200).select('userId action module entityLabel createdAt').lean();
+
+        // Agrupar por assignedTo
+        const teamData = activeUsers.map(user => {
+            const uid = user._id.toString();
+            const uTasks = tasks.filter(t => t.assignedTo && t.assignedTo.toString() === uid);
+            const uLeads = leads.filter(l => l.assignedTo && l.assignedTo.toString() === uid);
+            const uReservations = reservations.filter(r => r.assignedTo && r.assignedTo.toString() === uid);
+            const uSales = sales.filter(s => s.assignedTo && s.assignedTo.toString() === uid);
+            
+            const today = new Date().setHours(0,0,0,0);
+            const overdueTasks = uTasks.filter(t => t.dueDate && new Date(t.dueDate).setHours(0,0,0,0) < today);
+            
+            const uLogs = recentLogs.filter(l => l.userId === user.email || l.userId === user.name).slice(0, 5);
+
+            return {
+                ...user,
+                stats: {
+                    pendingTasks: uTasks.length,
+                    overdueTasks: overdueTasks.length,
+                    activeLeads: uLeads.length,
+                    activeReservations: uReservations.length,
+                    activeSales: uSales.length,
+                    pendingDocs: uSales.filter(s => s.documentationStatus !== 'completo').length,
+                    criticalPostSales: uSales.filter(s => ['incidencia', 'pendiente', 'contactado'].includes(s.postSaleStatus)).length
+                },
+                recentActivity: uLogs
+            };
+        });
+
+        const unassigned = {
+            tasks: tasks.filter(t => !t.assignedTo),
+            leads: leads.filter(l => !l.assignedTo),
+            reservations: reservations.filter(r => !r.assignedTo),
+            sales: sales.filter(s => !s.assignedTo)
+        };
+
+        const globalStats = {
+            totalUsers: activeUsers.length,
+            totalVentas: activeUsers.filter(u => u.role === 'ventas').length,
+            totalAdmin: activeUsers.filter(u => u.role === 'administrativo').length,
+            totalTasks: tasks.length,
+            totalOverdueTasks: tasks.filter(t => t.dueDate && new Date(t.dueDate).setHours(0,0,0,0) < new Date().setHours(0,0,0,0)).length,
+            totalLeads: leads.length,
+            totalUnassignedLeads: unassigned.leads.length,
+            totalSales: sales.length,
+            totalCriticalPostSales: sales.filter(s => ['incidencia', 'pendiente', 'contactado'].includes(s.postSaleStatus)).length
+        };
+
+        res.json({
+            teamData,
+            unassigned,
+            globalStats
+        });
+        
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+});
+
+
 // Global Error Handler
 app.use((err, req, res, next) => {
     console.error("Global Error Handler (Timestamp: " + new Date().toISOString() + ")");

@@ -8,6 +8,7 @@ import { hasPermission, PERMISSIONS, ROLES } from '../../../utils/adminPermissio
 const menuItems = [
     { name: 'Dashboard', path: '/admin', icon: LayoutDashboard },
     { name: 'Mis pendientes', path: '/admin/mis-pendientes', icon: ClipboardList },
+    { name: 'Equipo', path: '/admin/equipo', icon: Users, prefetch: false },
     { name: 'Stock', path: '/admin/stock', icon: CarFront },
     { name: 'Clientes', path: '/admin/clientes', icon: Users },
     { name: 'Leads', path: '/admin/leads', icon: UserPlus },
@@ -48,6 +49,9 @@ export default function CrmSidebar({ isOpen, onClose }) {
         }
         if (item.name === 'Auditoría') {
             return hasPermission(user, PERMISSIONS.AUDITORIA_READ);
+        }
+        if (item.name === 'Equipo') {
+            return hasPermission(user, PERMISSIONS.EQUIPO_READ);
         }
         return true; 
     });

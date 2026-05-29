@@ -35,7 +35,8 @@ export const PERMISSIONS = {
     REPORTES_EXPORT: 'reportes.export',
     USUARIOS_READ: 'usuarios.read',
     USUARIOS_WRITE: 'usuarios.write',
-    AUDITORIA_READ: 'auditoria.read'
+    AUDITORIA_READ: 'auditoria.read',
+    EQUIPO_READ: 'equipo.read'
 };
 
 // Mapa de permisos por defecto según el rol
