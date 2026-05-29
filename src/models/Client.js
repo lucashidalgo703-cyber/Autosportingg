@@ -60,7 +60,8 @@ const clientSchema = new mongoose.Schema({
     notes: { type: String, default: '' },
     
     createdBy: { type: String, default: 'CRM_V2' },
-    assignedTo: { type: String, default: '' },
+    assignedTo: { type: mongoose.Schema.Types.ObjectId, ref: 'AdminUser', default: null },
+    assignedAt: { type: Date },
     
     lastActivityAt: { type: Date, default: Date.now },
     

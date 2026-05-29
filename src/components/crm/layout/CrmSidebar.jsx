@@ -1,12 +1,13 @@
 "use client";
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { LayoutDashboard, CarFront, Users, UserPlus, Receipt, CalendarClock, Wallet, Landmark, FileText, BarChart3, Settings, Target, Star, UserCog } from 'lucide-react';
+import { LayoutDashboard, CarFront, Users, UserPlus, Receipt, CalendarClock, Wallet, Landmark, FileText, BarChart3, Settings, Target, Star, UserCog, ClipboardList } from 'lucide-react';
 import { useAuth } from '../../../context/AuthContext';
 import { hasPermission, PERMISSIONS, ROLES } from '../../../utils/adminPermissions';
 
 const menuItems = [
     { name: 'Dashboard', path: '/admin', icon: LayoutDashboard },
+    { name: 'Mis pendientes', path: '/admin/mis-pendientes', icon: ClipboardList },
     { name: 'Stock', path: '/admin/stock', icon: CarFront },
     { name: 'Clientes', path: '/admin/clientes', icon: Users },
     { name: 'Leads', path: '/admin/leads', icon: UserPlus },

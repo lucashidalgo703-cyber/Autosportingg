@@ -40,7 +40,10 @@ const crmTaskSchema = new mongoose.Schema({
 
     // Audit trace
     createdAt: { type: Date, default: Date.now },
-    user: { type: String, default: 'CRM_V2' }
+    user: { type: String, default: 'CRM_V2' },
+
+    assignedTo: { type: mongoose.Schema.Types.ObjectId, ref: 'AdminUser', default: null },
+    assignedAt: { type: Date }
 });
 
 const CrmTask = mongoose.models.CrmTask || mongoose.model('CrmTask', crmTaskSchema);

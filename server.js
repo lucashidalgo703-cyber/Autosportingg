@@ -167,6 +167,16 @@ app.get('/api/admin/users', authenticateToken, async (req, res) => {
     }
 });
 
+// GET Active Admin Users (for assignedTo dropdowns)
+app.get('/api/admin/users/active', authenticateToken, async (req, res) => {
+    try {
+        const users = await AdminUser.find({ active: true }).select('name email role').sort({ name: 1 });
+        res.json(users);
+    } catch (err) {
+        res.status(500).json({ message: err.message });
+    }
+});
+
 // POST Create Admin User
 app.post('/api/admin/users', authenticateToken, async (req, res) => {
     try {
@@ -845,11 +855,32 @@ app.patch('/api/admin/clients/:id', authenticateToken, async (req, res) => {
         const payload = req.body;
         const allowedFields = [
             'firstName', 'lastName', 'fullName', 'phone', 'email', 'dniCuit',
-            'locality', 'province', 'address', 'type', 'source', 'status', 'tags', 'notes', 'assignedTo'
+            'locality', 'province', 'address', 'type', 'source', 'status', 'tags', 'notes'
         ];
         
         const user = req.user?.username || 'Admin';
         const newAuditLogs = [];
+
+        if (payload.assignedTo !== undefined) {
+            let oldAssigned = client.assignedTo ? client.assignedTo.toString() : null;
+            let newAssigned = payload.assignedTo === "" ? null : payload.assignedTo;
+            if (oldAssigned !== newAssigned) {
+                client.assignedTo = newAssigned;
+                client.assignedAt = new Date();
+                
+                await logAudit({
+                    req,
+                    action: newAssigned ? 'RESPONSABLE_ASIGNADO' : 'RESPONSABLE_REMOVIDO',
+                    module: 'clientes',
+                    entityType: 'Client',
+                    entityId: client._id,
+                    entityLabel: client.fullName,
+                    description: `Se reasignó el cliente.`,
+                    metadata: { oldAssigned, newAssigned }
+                });
+            }
+        }
+        
         
         allowedFields.forEach(field => {
             if (payload[field] !== undefined && payload[field] !== client[field] && JSON.stringify(payload[field]) !== JSON.stringify(client[field])) {
@@ -1304,9 +1335,28 @@ app.post('/api/leads', authenticateToken, async (req, res) => {
 // PUT update lead
 app.put('/api/leads/:id', authenticateToken, async (req, res) => {
     try {
-        const { name, phone, pipelineStage, vehicleId, notes } = req.body;
+        const { name, phone, pipelineStage, vehicleId, notes, assignedTo } = req.body;
         const lead = await Lead.findById(req.params.id);
         if (!lead) return res.status(404).json({ message: 'Lead not found' });
+        
+        let oldAssigned = lead.assignedTo ? lead.assignedTo.toString() : null;
+        let newAssigned = assignedTo === "" ? null : assignedTo;
+
+        if (assignedTo !== undefined && oldAssigned !== newAssigned) {
+            lead.assignedTo = newAssigned;
+            lead.assignedAt = new Date();
+            await logAudit({
+                req,
+                action: newAssigned ? 'RESPONSABLE_ASIGNADO' : 'RESPONSABLE_REMOVIDO',
+                module: 'leads',
+                entityType: 'Lead',
+                entityId: lead._id,
+                entityLabel: lead.name,
+                description: `Se reasignó el lead.`,
+                metadata: { oldAssigned, newAssigned }
+            });
+        }
+
 
         lead.name = name || lead.name;
         lead.phone = phone || lead.phone;
@@ -1759,6 +1809,27 @@ app.patch('/api/admin/reservations/:id', authenticateToken, async (req, res) => 
         const oldStatus = reservation.status;
         
         let hasChanges = false;
+        
+        if (req.body.assignedTo !== undefined) {
+            let oldAssigned = reservation.assignedTo ? reservation.assignedTo.toString() : null;
+            let newAssigned = req.body.assignedTo === "" ? null : req.body.assignedTo;
+            if (oldAssigned !== newAssigned) {
+                reservation.assignedTo = newAssigned;
+                reservation.assignedAt = new Date();
+                hasChanges = true;
+                
+                await logAudit({
+                    req,
+                    action: newAssigned ? 'RESPONSABLE_ASIGNADO' : 'RESPONSABLE_REMOVIDO',
+                    module: 'reservas',
+                    entityType: 'Reservation',
+                    entityId: reservation._id,
+                    entityLabel: 'Reserva',
+                    description: `Se reasignó la reserva.`,
+                    metadata: { oldAssigned, newAssigned }
+                });
+            }
+        }
         
         if (conditions !== undefined && conditions !== reservation.conditions) {
             reservation.conditions = conditions;
@@ -2242,6 +2313,27 @@ app.patch('/api/admin/sales/:id', authenticateToken, async (req, res) => {
         const user = req.user?.username || 'Admin';
         const oldStatus = sale.status;
         let hasChanges = false;
+        
+        if (req.body.assignedTo !== undefined) {
+            let oldAssigned = sale.assignedTo ? sale.assignedTo.toString() : null;
+            let newAssigned = req.body.assignedTo === "" ? null : req.body.assignedTo;
+            if (oldAssigned !== newAssigned) {
+                sale.assignedTo = newAssigned;
+                sale.assignedAt = new Date();
+                hasChanges = true;
+                
+                await logAudit({
+                    req,
+                    action: newAssigned ? 'RESPONSABLE_ASIGNADO' : 'RESPONSABLE_REMOVIDO',
+                    module: 'ventas',
+                    entityType: 'Sale',
+                    entityId: sale._id,
+                    entityLabel: 'Venta',
+                    description: `Se reasignó la venta.`,
+                    metadata: { oldAssigned, newAssigned }
+                });
+            }
+        }
         
         if (paymentMethod !== undefined && paymentMethod !== sale.paymentMethod) {
             sale.paymentMethod = paymentMethod;
@@ -3193,23 +3285,48 @@ app.post('/api/admin/crm-tasks', authenticateToken, async (req, res) => {
 app.patch('/api/admin/crm-tasks/:id', authenticateToken, async (req, res) => {
     try {
         const updateData = { ...req.body };
+        const task = await CrmTask.findById(req.params.id);
+        if (!task) return res.status(404).json({ message: 'Task not found' });
+        
+        let oldAssigned = task.assignedTo ? task.assignedTo.toString() : null;
+        let newAssigned = updateData.assignedTo === "" ? null : updateData.assignedTo;
+
+        if (updateData.assignedTo !== undefined && oldAssigned !== newAssigned) {
+            task.assignedTo = newAssigned;
+            task.assignedAt = new Date();
+            
+            await logAudit({
+                req,
+                action: newAssigned ? 'RESPONSABLE_ASIGNADO' : 'RESPONSABLE_REMOVIDO',
+                module: 'agenda',
+                entityType: 'CrmTask',
+                entityId: task._id,
+                entityLabel: task.title,
+                description: `Se reasignó la tarea.`,
+                metadata: { oldAssigned, newAssigned }
+            });
+        }
         
         // Handle completion/cancellation dates
         if (updateData.status === 'completada') {
-            updateData.completedAt = new Date();
+            task.status = 'completada';
+            task.completedAt = new Date();
         } else if (updateData.status === 'cancelada') {
-            updateData.canceledAt = new Date();
+            task.status = 'cancelada';
+            task.canceledAt = new Date();
         } else if (updateData.status === 'pendiente') {
-            updateData.$unset = { completedAt: 1, canceledAt: 1 };
+            task.status = 'pendiente';
+            task.completedAt = undefined;
+            task.canceledAt = undefined;
         }
 
-        const task = await CrmTask.findByIdAndUpdate(
-            req.params.id,
-            updateData,
-            { new: true, runValidators: true }
-        );
+        if (updateData.title) task.title = updateData.title;
+        if (updateData.description !== undefined) task.description = updateData.description;
+        if (updateData.priority) task.priority = updateData.priority;
+        if (updateData.dueDate) task.dueDate = updateData.dueDate;
+        if (updateData.dueTime !== undefined) task.dueTime = updateData.dueTime;
 
-        if (!task) return res.status(404).json({ message: 'Task not found' });
+        await task.save();
         res.json(task);
     } catch (error) {
         res.status(400).json({ message: error.message });
@@ -3283,10 +3400,11 @@ app.get('/api/admin/notifications', authenticateToken, async (req, res) => {
         // 2. TAREAS (CrmTasks)
         if (canReadTasks) {
             const tasksQuery = { status: 'pendiente' };
-            // Ventas solo ve sus tareas (si aplica, pero como no guardamos owner por ahora, ve todas o las vinculadas a su modulo)
             const tasks = await CrmTask.find(tasksQuery).lean();
             
             tasks.forEach(task => {
+                if (!isOwnerAdmin && task.assignedTo && task.assignedTo.toString() !== req.user?.userId) return;
+                
                 if (!task.dueDate) return;
                 const dueDate = new Date(task.dueDate);
                 dueDate.setHours(0,0,0,0);
@@ -3324,6 +3442,8 @@ app.get('/api/admin/notifications', authenticateToken, async (req, res) => {
             const activeSales = await Sale.find({ status: { $in: ['confirmada', 'pendiente_entrega', 'entregada'] } }).lean();
             
             activeSales.forEach(sale => {
+                if (!isOwnerAdmin && sale.assignedTo && sale.assignedTo.toString() !== req.user?.userId) return;
+
                 // Doc
                 if (canReadDocs && sale.documentationStatus !== 'completa') {
                     rawNotifs.push({
@@ -3373,6 +3493,7 @@ app.get('/api/admin/notifications', authenticateToken, async (req, res) => {
         if (canReadReservations) {
             const reservations = await Reservation.find({ status: 'activa' }).lean();
             reservations.forEach(res => {
+                if (!isOwnerAdmin && res.assignedTo && res.assignedTo.toString() !== req.user?.userId) return;
                 rawNotifs.push({
                     type: 'reservation_pending',
                     severity: 'info',
@@ -3386,6 +3507,31 @@ app.get('/api/admin/notifications', authenticateToken, async (req, res) => {
                 });
             });
         }
+
+        // 5. LEADS
+        if (canReadLeads) {
+            const leads = await Lead.find({ crmStatus: { $in: ['nuevo', 'contactado', 'interesado', 'seguimiento'] } }).lean();
+            leads.forEach(lead => {
+                if (!isOwnerAdmin && lead.assignedTo && lead.assignedTo.toString() !== req.user?.userId) return;
+                
+                const lastAct = new Date(lead.lastActivityAt || lead.createdAt);
+                if ((now - lastAct) > 3 * 24 * 60 * 60 * 1000) {
+                    rawNotifs.push({
+                        type: 'lead_without_followup',
+                        severity: 'warning',
+                        title: 'Lead sin seguimiento',
+                        description: `El lead ${lead.name} lleva 3 días sin actividad.`,
+                        module: 'leads',
+                        entityType: 'Lead',
+                        entityId: lead._id.toString(),
+                        href: '/admin/leads',
+                        dueDate: lastAct
+                    });
+                }
+            });
+        }
+
+
 
         // 5. AUDITORÍA CRÍTICA (Solo owner/admin)
         if (isOwnerAdmin) {

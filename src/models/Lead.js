@@ -79,7 +79,8 @@ const leadSchema = new mongoose.Schema({
         default: 'media' 
     },
     
-    assignedTo: { type: String, default: '' },
+    assignedTo: { type: mongoose.Schema.Types.ObjectId, ref: 'AdminUser', default: null },
+    assignedAt: { type: Date },
     nextActionDate: { type: Date },
     lastActivityAt: { type: Date, default: Date.now },
     

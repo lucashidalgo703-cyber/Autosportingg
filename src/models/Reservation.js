@@ -40,6 +40,9 @@ const reservationSchema = new mongoose.Schema({
     createdBy: { type: String },
     updatedBy: { type: String },
     
+    assignedTo: { type: mongoose.Schema.Types.ObjectId, ref: 'AdminUser', default: null },
+    assignedAt: { type: Date },
+    
     reservationAuditLog: { type: [reservationAuditSchema], default: [] }
 }, {
     timestamps: true
