@@ -7,8 +7,8 @@ import CrmShell from './CrmShell';
 export default function AdminLayoutClient({ children }) {
     const pathname = usePathname();
 
-    // Si es la ruta legacy, quizás tenga su propio layout, así que solo aplicamos ProtectedRoute
-    if (pathname === '/admin/legacy') {
+    // Si es la ruta legacy o de imprimir, no usamos el shell
+    if (pathname === '/admin/legacy' || pathname === '/admin/reportes/imprimir') {
         return (
             <ProtectedRoute>
                 {children}

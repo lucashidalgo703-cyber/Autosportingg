@@ -1,5 +1,6 @@
 import React from 'react';
-import { Download, FileText, BarChart3, CarFront, Target, CalendarClock } from 'lucide-react';
+import Link from 'next/link';
+import { Download, FileText, BarChart3, CarFront, Target, CalendarClock, Printer } from 'lucide-react';
 import { downloadCsv, formatDateForCsv, formatMoneyForCsv } from '../../../utils/csvExport';
 
 export default function ReportsExportPanel({ data, filters }) {
@@ -268,6 +269,13 @@ export default function ReportsExportPanel({ data, filters }) {
                         Las exportaciones son de solo lectura y respetan los filtros actuales ({getFilterLabel()}).
                     </p>
                 </div>
+                <Link
+                    href={`/admin/reportes/imprimir?period=${filters.dateRange}&currency=${filters.currency}`}
+                    target="_blank"
+                    className="flex items-center gap-2 px-4 py-2.5 bg-white text-black hover:bg-gray-200 rounded-xl text-xs font-bold transition-colors"
+                >
+                    <Printer size={16} /> Imprimir / Guardar PDF
+                </Link>
             </div>
 
             <div className="flex flex-wrap gap-3">
