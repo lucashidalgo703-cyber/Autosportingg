@@ -16,6 +16,8 @@ import Sale from './src/models/Sale.js';
 import Installment from './src/models/Installment.js';
 import CrmTask from './src/models/CrmTask.js';
 import AdminUser from './src/models/AdminUser.js';
+import AuditLog from './src/models/AuditLog.js';
+import { logAudit } from './src/utils/auditLogger.js';
 import { CloudinaryStorage } from 'multer-storage-cloudinary';
 import jwt from 'jsonwebtoken';
 import crypto from 'crypto';
@@ -97,13 +99,24 @@ app.post('/api/login', async (req, res) => {
                         { 
                             userId: user._id, 
                             email: user.email, 
-                            name: user.name, 
+                            username: user.name, 
                             role: user.role,
                             permissions: user.permissions 
                         }, 
                         JWT_SECRET, 
                         { expiresIn: '24h' }
                     );
+
+                    await logAudit({
+                        req,
+                        action: 'LOGIN_EXITOSO',
+                        module: 'usuarios',
+                        entityType: 'User',
+                        entityId: user._id,
+                        entityLabel: user.email,
+                        description: `Login exitoso DB de ${user.email}`
+                    });
+
                     return res.json({ token, role: user.role, name: user.name });
                 }
             }
@@ -112,9 +125,26 @@ app.post('/api/login', async (req, res) => {
         // 2. Fallback to Legacy Master Password if no DB match or no email provided
         if (password === ADMIN_PASSWORD) {
             // Emite token con rol owner como fallback de seguridad (acceso total)
-            const token = jwt.sign({ role: 'owner', name: 'Master Admin' }, JWT_SECRET, { expiresIn: '24h' });
+            const token = jwt.sign({ role: 'owner', username: 'Master Admin' }, JWT_SECRET, { expiresIn: '24h' });
+            
+            await logAudit({
+                req,
+                action: 'LOGIN_EXITOSO',
+                module: 'usuarios',
+                entityType: 'User',
+                entityLabel: 'Master Admin',
+                description: `Login exitoso por fallback legacy.`
+            });
+
             return res.json({ token, role: 'owner', name: 'Master Admin' });
         }
+
+        await logAudit({
+            req,
+            action: 'LOGIN_FALLIDO',
+            module: 'usuarios',
+            description: `Intento de login fallido para ${email || 'usuario desconocido'}`
+        });
 
         return res.status(401).json({ message: 'Credenciales incorrectas o usuario inactivo' });
     } catch (err) {
@@ -210,6 +240,44 @@ app.patch('/api/admin/users/:id/password', authenticateToken, async (req, res) =
         await userToUpdate.save();
         
         res.json({ message: 'Contraseña actualizada correctamente' });
+    } catch (err) {
+        res.status(500).json({ message: err.message });
+    }
+});
+
+// GET /api/admin/audit-logs
+app.get('/api/admin/audit-logs', authenticateToken, async (req, res) => {
+    try {
+        if (!req.user || (req.user.role !== 'owner' && req.user.role !== 'admin')) {
+            return res.status(403).json({ message: 'Sin permisos de auditoria' });
+        }
+        const { user, role, module, action, startDate, endDate, search, page = 1, limit = 50 } = req.query;
+        let query = {};
+        
+        if (user) query.userId = user;
+        if (role) query.userRole = role;
+        if (module) query.module = module;
+        if (action) query.action = action;
+        
+        if (startDate || endDate) {
+            query.createdAt = {};
+            if (startDate) query.createdAt.$gte = new Date(startDate);
+            if (endDate) query.createdAt.$lte = new Date(endDate);
+        }
+        
+        if (search) {
+            query.$or = [
+                { userName: { $regex: search, $options: 'i' } },
+                { description: { $regex: search, $options: 'i' } },
+                { entityLabel: { $regex: search, $options: 'i' } }
+            ];
+        }
+
+        const skip = (Number(page) - 1) * Number(limit);
+        const logs = await AuditLog.find(query).sort({ createdAt: -1 }).skip(skip).limit(Number(limit)).lean();
+        const total = await AuditLog.countDocuments(query);
+
+        res.json({ logs, total, page: Number(page), pages: Math.ceil(total / Number(limit)) });
     } catch (err) {
         res.status(500).json({ message: err.message });
     }
@@ -2750,6 +2818,18 @@ app.delete('/api/admin/installments/:id', authenticateToken, async (req, res) =>
         }
 
         await Installment.findByIdAndDelete(req.params.id);
+        
+        await logAudit({
+            req,
+            action: 'CUOTA_ELIMINADA_DEFINITIVAMENTE',
+            module: 'cuotas',
+            entityType: 'Installment',
+            entityId: installment._id,
+            entityLabel: `Cuota ${installment.installmentNumber}`,
+            description: `Se eliminó definitivamente la cuota ${installment.installmentNumber} de importe ${installment.amount}.`,
+            metadata: { saleId: installment.saleId }
+        });
+
         res.json({ message: 'Cuota eliminada definitivamente.' });
 
     } catch (error) {

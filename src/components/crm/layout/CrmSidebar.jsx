@@ -19,6 +19,7 @@ const menuItems = [
     { name: 'Documentación', path: '/admin/documentacion', icon: FileText, prefetch: false },
     { name: 'Postventa', path: '/admin/postventa', icon: Star, prefetch: false },
     { name: 'Reportes', path: '/admin/reportes', icon: BarChart3, prefetch: false },
+    { name: 'Auditoría', path: '/admin/auditoria', icon: FileText, prefetch: false },
     { name: 'Usuarios', path: '/admin/configuracion/usuarios', icon: UserCog, prefetch: false },
     { name: 'Configuración', path: '/admin/configuracion', icon: Settings, prefetch: false },
 ];
@@ -43,6 +44,9 @@ export default function CrmSidebar({ isOpen, onClose }) {
         }
         if (item.name === 'Reportes') {
             return hasPermission(user, PERMISSIONS.REPORTES_READ);
+        }
+        if (item.name === 'Auditoría') {
+            return hasPermission(user, PERMISSIONS.AUDITORIA_READ);
         }
         return true; 
     });
