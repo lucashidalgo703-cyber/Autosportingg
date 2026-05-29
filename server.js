@@ -3755,6 +3755,140 @@ app.get('/api/admin/team-dashboard/:userId', authenticateToken, async (req, res)
 });
 
 // ========================================== //
+// ============ PRODUCTIVIDAD =============== //
+// ========================================== //
+app.get('/api/admin/team-productivity', authenticateToken, async (req, res) => {
+    try {
+        const userRole = req.user?.role || 'solo_lectura';
+        const perms = req.user?.permissions || [];
+        
+        const canReadProd = ['owner', 'admin'].includes(userRole) || perms.includes('productividad.read');
+        if (!canReadProd) {
+            return res.status(403).json({ message: 'Sin permisos para ver productividad.' });
+        }
+
+        let { period, userId, role, module } = req.query;
+        
+        // Determinar fechas
+        const now = new Date();
+        let fromDate = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000); // 30d default
+        if (period === '7d') fromDate = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+        else if (period === '90d') fromDate = new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000);
+        else if (period === 'year') fromDate = new Date(now.getFullYear(), 0, 1);
+        
+        // Filtro usuarios
+        let userFilter = { active: true };
+        if (userId) userFilter._id = userId;
+        if (role) userFilter.role = role;
+
+        const users = await AdminUser.find(userFilter).select('name email role lastLoginAt').lean();
+        const userEmailsAndNames = users.flatMap(u => [u.email, u.name]);
+
+        // Filtro AuditLog
+        let auditQuery = { 
+            createdAt: { $gte: fromDate },
+            userId: { $in: userEmailsAndNames }
+        };
+        if (module) auditQuery.module = module;
+
+        const logs = await AuditLog.find(auditQuery).select('userId module action createdAt').lean();
+
+        // Obtener estado actual de las entidades asignadas a los usuarios
+        const userIdsObj = users.map(u => u._id);
+        const tasks = await CrmTask.find({ assignedTo: { $in: userIdsObj } }).select('status dueDate assignedTo').lean();
+        const leads = await Lead.find({ assignedTo: { $in: userIdsObj } }).select('crmStatus assignedTo').lean();
+        const sales = await Sale.find({ assignedTo: { $in: userIdsObj } }).select('status postSaleStatus documentationStatus assignedTo').lean();
+        const reservations = await Reservation.find({ assignedTo: { $in: userIdsObj } }).select('status assignedTo').lean();
+
+        // Procesar datos diarios globales
+        const dailyActivityMap = {};
+        const moduleActivityMap = {};
+
+        logs.forEach(log => {
+            const dateStr = new Date(log.createdAt).toISOString().split('T')[0];
+            
+            if (!dailyActivityMap[dateStr]) dailyActivityMap[dateStr] = new Set();
+            dailyActivityMap[dateStr].add(log._id.toString());
+
+            if (!moduleActivityMap[log.module]) moduleActivityMap[log.module] = 0;
+            moduleActivityMap[log.module]++;
+        });
+
+        const dailyActivity = Object.entries(dailyActivityMap).map(([date, actionsSet]) => ({
+            date,
+            actions: actionsSet.size
+        })).sort((a,b) => a.date.localeCompare(b.date));
+
+        // Procesar datos por usuario
+        const today = new Date().setHours(0,0,0,0);
+        const usersProductivity = users.map(user => {
+            const uidStr = user._id.toString();
+            const uLogs = logs.filter(l => l.userId === user.email || l.userId === user.name);
+            const uTasks = tasks.filter(t => t.assignedTo?.toString() === uidStr);
+            const uLeads = leads.filter(l => l.assignedTo?.toString() === uidStr);
+            const uSales = sales.filter(s => s.assignedTo?.toString() === uidStr);
+            const uReservations = reservations.filter(r => r.assignedTo?.toString() === uidStr);
+
+            const completedTasks = uTasks.filter(t => t.status === 'completada').length;
+            const pendingTasks = uTasks.filter(t => t.status === 'pendiente');
+            const overdueTasks = pendingTasks.filter(t => t.dueDate && new Date(t.dueDate).setHours(0,0,0,0) < today).length;
+
+            const leadsWorked = uLogs.filter(l => l.module === 'leads').length;
+            const salesUpdated = uLogs.filter(l => l.module === 'ventas').length;
+            const postSaleDocs = uSales.filter(s => s.documentationStatus === 'completo' || s.postSaleStatus === 'cerrado').length;
+
+            const score = completedTasks + leadsWorked + salesUpdated + postSaleDocs - (overdueTasks * 2);
+
+            let lastActivityDate = null;
+            if (uLogs.length > 0) {
+                lastActivityDate = uLogs.sort((a,b) => new Date(b.createdAt) - new Date(a.createdAt))[0].createdAt;
+            }
+
+            return {
+                _id: user._id,
+                name: user.name,
+                email: user.email,
+                role: user.role,
+                totalActions: uLogs.length,
+                lastActivityAt: lastActivityDate,
+                tasksCompleted: completedTasks,
+                tasksOverdue: overdueTasks,
+                leadsWorked,
+                reservationsManaged: uReservations.length,
+                salesUpdated,
+                postSaleManaged: postSaleDocs,
+                score
+            };
+        }).sort((a,b) => b.score - a.score);
+
+        // Resumen
+        const summary = {
+            totalActions: logs.length,
+            activeUsers: users.length,
+            usersNoActivity: usersProductivity.filter(u => u.totalActions === 0).length,
+            totalTasksCompleted: tasks.filter(t => t.status === 'completada').length,
+            totalTasksOverdue: tasks.filter(t => t.status === 'pendiente' && t.dueDate && new Date(t.dueDate).setHours(0,0,0,0) < today).length,
+            totalLeadsWorked: leads.length,
+            totalSalesUpdated: sales.length,
+            totalPostSalesManaged: sales.filter(s => s.documentationStatus === 'completo' || s.postSaleStatus === 'cerrado').length
+        };
+
+        const lowActivityUsers = usersProductivity.filter(u => u.totalActions === 0 || u.tasksOverdue > 5);
+
+        res.json({
+            summary,
+            usersProductivity,
+            dailyActivity,
+            moduleActivityMap,
+            lowActivityUsers
+        });
+
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+});
+
+// ========================================== //
 // ============ QUICK ASSIGN ================ //
 // ========================================== //
 app.patch('/api/admin/assignments', authenticateToken, async (req, res) => {
