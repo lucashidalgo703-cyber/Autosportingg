@@ -7,6 +7,8 @@ import FinanceFilters from '../../../components/crm/finance/FinanceFilters';
 import TransactionsTable from '../../../components/crm/finance/TransactionsTable';
 import TransactionMobileCards from '../../../components/crm/finance/TransactionMobileCards';
 import TransactionModal from '../../../components/crm/finance/TransactionModal';
+import PermissionGuard from '../../../components/crm/layout/PermissionGuard';
+import { PERMISSIONS } from '../../../utils/adminPermissions';
 
 export default function FinanzasPage() {
     const { fetchTransactions, createTransaction, updateTransaction, loading, error } = useAdminTransactions();
@@ -127,7 +129,8 @@ export default function FinanzasPage() {
     };
 
     return (
-        <div className="max-w-7xl mx-auto flex flex-col h-full min-h-[85vh]">
+        <PermissionGuard permission={PERMISSIONS.FINANZAS_READ}>
+            <div className="max-w-7xl mx-auto flex flex-col h-full min-h-[85vh]">
             {/* Header */}
             <div className="flex justify-between items-center mb-6">
                 <div className="flex items-center gap-3">
@@ -190,5 +193,6 @@ export default function FinanzasPage() {
                 onAnnul={handleAnnulTransaction}
             />
         </div>
+        </PermissionGuard>
     );
 }

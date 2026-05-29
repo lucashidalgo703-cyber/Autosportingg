@@ -32,7 +32,19 @@ export default function CrmSidebar({ isOpen, onClose }) {
         if (item.name === 'Configuración' || item.name === 'Usuarios') {
             return hasPermission(user, PERMISSIONS.USUARIOS_READ);
         }
-        return true; // Por ahora el resto sigue público o protegido por rutas
+        if (item.name === 'Finanzas') {
+            return hasPermission(user, PERMISSIONS.FINANZAS_READ);
+        }
+        if (item.name === 'Cuotas') {
+            return hasPermission(user, PERMISSIONS.CUOTAS_READ);
+        }
+        if (item.name === 'Cobranzas') {
+            return hasPermission(user, PERMISSIONS.COBRANZAS_READ);
+        }
+        if (item.name === 'Reportes') {
+            return hasPermission(user, PERMISSIONS.REPORTES_READ);
+        }
+        return true; 
     });
 
     return (

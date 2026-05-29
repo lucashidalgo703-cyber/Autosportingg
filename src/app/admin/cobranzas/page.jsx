@@ -13,6 +13,8 @@ import DebtBySaleTable from '../../../components/crm/collections/DebtBySaleTable
 import InstallmentModal from '../../../components/crm/installments/InstallmentModal';
 import TransactionModal from '../../../components/crm/finance/TransactionModal';
 import ReminderModal from '../../../components/crm/collections/ReminderModal';
+import PermissionGuard from '../../../components/crm/layout/PermissionGuard';
+import { PERMISSIONS } from '../../../utils/adminPermissions';
 
 export default function CobranzasPage() {
     const { fetchInstallments, updateInstallment, createInstallment, loading: loadingInst, error: errorInst } = useAdminInstallments();
@@ -280,6 +282,7 @@ export default function CobranzasPage() {
     const error = errorInst;
 
     return (
+        <PermissionGuard permission={PERMISSIONS.COBRANZAS_READ}>
         <div className="max-w-7xl mx-auto flex flex-col h-full min-h-[85vh]">
             {/* Header */}
             <div className="flex justify-between items-center mb-6">
@@ -382,5 +385,6 @@ export default function CobranzasPage() {
                 onSave={handleSaveReminder}
             />
         </div>
+        </PermissionGuard>
     );
 }

@@ -4,6 +4,8 @@ import { useMemo } from 'react';
 import { useAdminCars } from '../../hooks/useAdminCars';
 import { calculateDashboardMetrics } from '../../components/crm/dashboard/dashboardMetrics';
 import { Loader2, AlertCircle } from 'lucide-react';
+import { useAuth } from '../../context/AuthContext';
+import { hasPermission, PERMISSIONS } from '../../utils/adminPermissions';
 
 // New Dashboard Components
 import CapitalSummary from '../../components/crm/dashboard/CapitalSummary';
@@ -14,6 +16,7 @@ import TopStockPanels from '../../components/crm/dashboard/TopStockPanels';
 
 export default function AdminDashboardPage() {
     const { cars, loading, error } = useAdminCars();
+    const { user } = useAuth();
 
     const metrics = useMemo(() => {
         if (!cars || cars.length === 0) return null;
@@ -40,7 +43,9 @@ export default function AdminDashboardPage() {
                         </div>
                     ) : metrics ? (
                         <>
-                            <CapitalSummary metrics={metrics} />
+                            {hasPermission(user, PERMISSIONS.FINANZAS_READ) && (
+                                <CapitalSummary metrics={metrics} />
+                            )}
                             
                             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                                 <div className="lg:col-span-1">
@@ -54,7 +59,9 @@ export default function AdminDashboardPage() {
                                 </div>
                             </div>
 
-                            <TopStockPanels metrics={metrics} />
+                            {hasPermission(user, PERMISSIONS.FINANZAS_READ) && (
+                                <TopStockPanels metrics={metrics} />
+                            )}
                         </>
                     ) : (
                         <div className="flex flex-col items-center justify-center h-64 border border-white/5 bg-[#161619] rounded-xl text-center">

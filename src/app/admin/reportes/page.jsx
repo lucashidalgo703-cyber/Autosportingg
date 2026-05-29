@@ -14,6 +14,8 @@ import ReportsStockSection from '../../../components/crm/reports/ReportsStockSec
 import ReportsCollectionsSection from '../../../components/crm/reports/ReportsCollectionsSection';
 import ReportsOperationsSection from '../../../components/crm/reports/ReportsOperationsSection';
 import ReportsTasksSection from '../../../components/crm/reports/ReportsTasksSection';
+import PermissionGuard from '../../../components/crm/layout/PermissionGuard';
+import { PERMISSIONS } from '../../../utils/adminPermissions';
 
 export default function ReportesPage() {
     const { fetchSales } = useAdminSales();
@@ -100,6 +102,7 @@ export default function ReportesPage() {
     }
 
     return (
+        <PermissionGuard permission={PERMISSIONS.REPORTES_READ}>
         <div className="max-w-7xl mx-auto flex flex-col h-full min-h-[85vh] pb-12">
             <div className="flex justify-between items-center mb-6">
                 <div className="flex items-center gap-3">
@@ -138,5 +141,6 @@ export default function ReportesPage() {
                 <ReportsTasksSection data={filteredData} />
             </div>
         </div>
+        </PermissionGuard>
     );
 }

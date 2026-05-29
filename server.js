@@ -1248,6 +1248,7 @@ app.get('/api/stats/dashboard', authenticateToken, async (req, res) => {
 // --- FINANCE ACCOUNTS ROUTES ---
 app.get('/api/accounts', authenticateToken, async (req, res) => {
     try {
+        if (req.user && req.user.role === 'ventas') return res.status(403).json({ message: 'Sin permisos financieros' });
         const accounts = await Account.find().sort({ name: 1 });
         res.json(accounts);
     } catch (error) {
@@ -1257,6 +1258,7 @@ app.get('/api/accounts', authenticateToken, async (req, res) => {
 
 app.post('/api/accounts', authenticateToken, async (req, res) => {
     try {
+        if (req.user && req.user.role === 'ventas') return res.status(403).json({ message: 'Sin permisos financieros' });
         const { name, type, currency, openingBalance } = req.body;
         if (!name || !currency) {
             return res.status(400).json({ message: 'Nombre y moneda son requeridos' });
@@ -1293,6 +1295,7 @@ app.post('/api/accounts', authenticateToken, async (req, res) => {
 
 app.delete('/api/accounts/:id', authenticateToken, async (req, res) => {
     try {
+        if (req.user && req.user.role === 'ventas') return res.status(403).json({ message: 'Sin permisos financieros' });
         await Transaction.deleteMany({ accountId: req.params.id });
         const account = await Account.findByIdAndDelete(req.params.id);
         if (!account) return res.status(404).json({ message: 'Account not found' });
@@ -1305,6 +1308,7 @@ app.delete('/api/accounts/:id', authenticateToken, async (req, res) => {
 // --- FINANCE TRANSACTIONS ROUTES ---
 app.get('/api/transactions', authenticateToken, async (req, res) => {
     try {
+        if (req.user && req.user.role === 'ventas') return res.status(403).json({ message: 'Sin permisos financieros' });
         const transactions = await Transaction.find()
             .populate('accountId')
             .populate('carId')
@@ -1317,6 +1321,7 @@ app.get('/api/transactions', authenticateToken, async (req, res) => {
 
 app.post('/api/transactions', authenticateToken, async (req, res) => {
     try {
+        if (req.user && req.user.role === 'ventas') return res.status(403).json({ message: 'Sin permisos financieros' });
         const { type, amount, currency, description, category, date, accountId, carId, notes } = req.body;
         if (!type || !amount || !currency || !description || !category || !accountId) {
             return res.status(400).json({ message: 'Campos requeridos faltantes' });
@@ -1362,6 +1367,7 @@ app.post('/api/transactions', authenticateToken, async (req, res) => {
 
 app.delete('/api/transactions/:id', authenticateToken, async (req, res) => {
     try {
+        if (req.user && req.user.role === 'ventas') return res.status(403).json({ message: 'Sin permisos financieros' });
         const tx = await Transaction.findById(req.params.id);
         if (!tx) return res.status(404).json({ message: 'Transacción no encontrada' });
 
@@ -2226,6 +2232,7 @@ async function getOrCreateCrmV2Account(currency) {
 // GET admin transactions
 app.get('/api/admin/transactions', authenticateToken, async (req, res) => {
     try {
+        if (req.user && req.user.role === 'ventas') return res.status(403).json({ message: 'Sin permisos financieros' });
         const query = { module: 'crm_v2' };
         
         // Apply filters
@@ -2289,6 +2296,7 @@ app.get('/api/admin/transactions', authenticateToken, async (req, res) => {
 // GET admin transaction by id
 app.get('/api/admin/transactions/:id', authenticateToken, async (req, res) => {
     try {
+        if (req.user && req.user.role === 'ventas') return res.status(403).json({ message: 'Sin permisos financieros' });
         const transaction = await Transaction.findOne({ _id: req.params.id, module: 'crm_v2' });
         if (!transaction) return res.status(404).json({ message: 'Transaction not found' });
         res.json(transaction);
@@ -2301,6 +2309,7 @@ app.get('/api/admin/transactions/:id', authenticateToken, async (req, res) => {
 // POST admin transaction (manual only)
 app.post('/api/admin/transactions', authenticateToken, async (req, res) => {
     try {
+        if (req.user && req.user.role === 'ventas') return res.status(403).json({ message: 'Sin permisos financieros' });
         const { type, category, concept, amount, currency, paymentMethod, date, notes, saleId, reservationId, clientId, vehicleId, installmentId } = req.body;
         
         // Validations
@@ -2383,6 +2392,7 @@ app.post('/api/admin/transactions', authenticateToken, async (req, res) => {
 // PATCH admin transaction
 app.patch('/api/admin/transactions/:id', authenticateToken, async (req, res) => {
     try {
+        if (req.user && req.user.role === 'ventas') return res.status(403).json({ message: 'Sin permisos financieros' });
         const { category, concept, paymentMethod, date, notes, status, saleId, reservationId, clientId, vehicleId, installmentId } = req.body;
         
         const tx = await Transaction.findOne({ _id: req.params.id, module: 'crm_v2' });
@@ -2493,6 +2503,7 @@ app.patch('/api/admin/transactions/:id', authenticateToken, async (req, res) => 
 
 app.get('/api/admin/installments', authenticateToken, async (req, res) => {
     try {
+        if (req.user && req.user.role === 'ventas') return res.status(403).json({ message: 'Sin permisos financieros' });
         const query = {};
         if (req.query.saleId) query.saleId = req.query.saleId;
         if (req.query.clientId) query.clientId = req.query.clientId;
@@ -2561,6 +2572,7 @@ app.get('/api/admin/installments', authenticateToken, async (req, res) => {
 
 app.get('/api/admin/installments/:id', authenticateToken, async (req, res) => {
     try {
+        if (req.user && req.user.role === 'ventas') return res.status(403).json({ message: 'Sin permisos financieros' });
         const installment = await Installment.findById(req.params.id)
             .populate('clientId', 'firstName lastName fullName phone email')
             .populate('vehicleId', 'brand name year price currency plateOrVin')

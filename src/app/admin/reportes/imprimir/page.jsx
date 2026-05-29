@@ -5,6 +5,8 @@ import { useAdminSales } from '../../../../hooks/useAdminSales';
 import { useAdminCars } from '../../../../hooks/useAdminCars';
 import { useAdminInstallments } from '../../../../hooks/useAdminInstallments';
 import { useAdminCrmTasks } from '../../../../hooks/useAdminCrmTasks';
+import PermissionGuard from '../../../../components/crm/layout/PermissionGuard';
+import { PERMISSIONS } from '../../../../utils/adminPermissions';
 
 export default function PrintableReportPage() {
     const searchParams = useSearchParams();
@@ -98,6 +100,7 @@ export default function PrintableReportPage() {
     }
 
     return (
+        <PermissionGuard permission={PERMISSIONS.REPORTES_EXPORT}>
         <div className="font-sans text-black bg-white min-h-screen">
             
             {/* Controles solo pantalla */}
@@ -252,5 +255,6 @@ export default function PrintableReportPage() {
                 }
             `}} />
         </div>
+        </PermissionGuard>
     );
 }

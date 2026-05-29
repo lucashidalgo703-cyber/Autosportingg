@@ -15,12 +15,15 @@ import SalePostventaPanel from '../../../../components/crm/sales/detail/SalePost
 import CrmTaskModal from '../../../../components/crm/agenda/CrmTaskModal';
 import { useAdminCrmTasks } from '../../../../hooks/useAdminCrmTasks';
 import { ShieldAlert, Target } from 'lucide-react';
+import { useAuth } from '../../../../context/AuthContext';
+import { hasPermission, PERMISSIONS } from '../../../../utils/adminPermissions';
 
 export default function SaleDetailPage() {
     const { id } = useParams();
     const router = useRouter();
     const { fetchSaleById, updateSale, loading, error } = useAdminSales();
     const { createTask } = useAdminCrmTasks();
+    const { user } = useAuth();
     const [sale, setSale] = useState(null);
     const [isTaskModalOpen, setIsTaskModalOpen] = useState(false);
 
@@ -150,14 +153,18 @@ export default function SaleDetailPage() {
             </div>
 
             {/* Panel de Movimientos Financieros (Ancho completo) */}
-            <div className="mt-6">
-                <SaleFinancePanel sale={sale} />
-            </div>
+            {hasPermission(user, PERMISSIONS.FINANZAS_READ) && (
+                <div className="mt-6">
+                    <SaleFinancePanel sale={sale} />
+                </div>
+            )}
 
             {/* Panel de Cuotas Manuales (Ancho completo) */}
-            <div className="mt-6">
-                <SaleInstallmentsPanel sale={sale} saleFinanceData={sale.finance} />
-            </div>
+            {hasPermission(user, PERMISSIONS.CUOTAS_READ) && (
+                <div className="mt-6">
+                    <SaleInstallmentsPanel sale={sale} saleFinanceData={sale.finance} />
+                </div>
+            )}
 
             <CrmTaskModal 
                 isOpen={isTaskModalOpen}

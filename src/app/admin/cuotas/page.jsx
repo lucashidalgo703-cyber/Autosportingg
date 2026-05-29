@@ -9,6 +9,8 @@ import InstallmentMobileCards from '../../../components/crm/installments/Install
 import InstallmentModal from '../../../components/crm/installments/InstallmentModal';
 import TransactionModal from '../../../components/crm/finance/TransactionModal';
 import { useAdminTransactions } from '../../../hooks/useAdminTransactions';
+import PermissionGuard from '../../../components/crm/layout/PermissionGuard';
+import { PERMISSIONS } from '../../../utils/adminPermissions';
 
 export default function InstallmentsPage() {
     const { fetchInstallments, updateInstallment, createInstallment, loading, error } = useAdminInstallments();
@@ -156,6 +158,7 @@ export default function InstallmentsPage() {
     };
 
     return (
+        <PermissionGuard permission={PERMISSIONS.CUOTAS_READ}>
         <div className="max-w-7xl mx-auto flex flex-col h-full min-h-[85vh]">
             {/* Header */}
             <div className="flex justify-between items-center mb-6">
@@ -234,5 +237,6 @@ export default function InstallmentsPage() {
                 onSave={handleSaveTransaction}
             />
         </div>
+        </PermissionGuard>
     );
 }
