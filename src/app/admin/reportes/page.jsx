@@ -8,6 +8,7 @@ import { useAdminCrmTasks } from '../../../hooks/useAdminCrmTasks';
 
 import ReportsSummaryCards from '../../../components/crm/reports/ReportsSummaryCards';
 import ReportsFilters from '../../../components/crm/reports/ReportsFilters';
+import ReportsExportPanel from '../../../components/crm/reports/ReportsExportPanel';
 import ReportsSalesSection from '../../../components/crm/reports/ReportsSalesSection';
 import ReportsStockSection from '../../../components/crm/reports/ReportsStockSection';
 import ReportsCollectionsSection from '../../../components/crm/reports/ReportsCollectionsSection';
@@ -119,6 +120,7 @@ export default function ReportesPage() {
                 </div>
             )}
 
+            <ReportsExportPanel data={filteredData} filters={filters} />
             <ReportsFilters filters={filters} setFilters={setFilters} />
             <ReportsSummaryCards data={filteredData} />
             
