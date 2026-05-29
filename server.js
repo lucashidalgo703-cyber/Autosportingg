@@ -186,6 +186,18 @@ app.post('/api/admin/users', authenticateToken, async (req, res) => {
         });
 
         await newUser.save();
+        
+        await logAudit({
+            req,
+            action: 'USUARIO_CREADO',
+            module: 'usuarios',
+            entityType: 'User',
+            entityId: newUser._id,
+            entityLabel: newUser.email,
+            description: `Usuario creado con rol ${newUser.role}`,
+            metadata: { email: newUser.email, role: newUser.role }
+        });
+
         res.status(201).json(newUser);
     } catch (err) {
         res.status(500).json({ message: err.message });
@@ -218,6 +230,22 @@ app.patch('/api/admin/users/:id', authenticateToken, async (req, res) => {
         if (permissions) userToUpdate.permissions = permissions;
 
         await userToUpdate.save();
+        
+        const actionStr = (active !== undefined && active !== userToUpdate.active) 
+            ? (active ? 'USUARIO_ACTIVADO' : 'USUARIO_DESACTIVADO') 
+            : (role ? 'ROL_ACTUALIZADO' : 'USUARIO_EDITADO');
+
+        await logAudit({
+            req,
+            action: actionStr,
+            module: 'usuarios',
+            entityType: 'User',
+            entityId: userToUpdate._id,
+            entityLabel: userToUpdate.email,
+            description: `Usuario editado: ${userToUpdate.email}`,
+            metadata: { role: userToUpdate.role, active: userToUpdate.active }
+        });
+
         res.json(userToUpdate);
     } catch (err) {
         res.status(500).json({ message: err.message });
@@ -239,7 +267,46 @@ app.patch('/api/admin/users/:id/password', authenticateToken, async (req, res) =
         userToUpdate.passwordHash = hashPassword(password);
         await userToUpdate.save();
         
+        await logAudit({
+            req,
+            action: 'PASSWORD_ACTUALIZADA',
+            module: 'usuarios',
+            entityType: 'User',
+            entityId: userToUpdate._id,
+            entityLabel: userToUpdate.email,
+            description: `Contraseña actualizada para ${userToUpdate.email}`
+        });
+
         res.json({ message: 'Contraseña actualizada correctamente' });
+    } catch (err) {
+        res.status(500).json({ message: err.message });
+    }
+});
+
+// POST Client Audit Logs
+app.post('/api/admin/audit-logs/client-event', authenticateToken, async (req, res) => {
+    try {
+        const { action, module, entityType, entityId, entityLabel, description, metadata } = req.body;
+        
+        // Whitelist de acciones permitidas desde el cliente
+        const allowedActions = ['REPORTE_EXPORTADO_CSV', 'REPORTE_IMPRESO'];
+        
+        if (!allowedActions.includes(action)) {
+            return res.status(400).json({ message: 'Acción no permitida desde el cliente' });
+        }
+
+        await logAudit({
+            req,
+            action,
+            module: module || 'reportes',
+            entityType,
+            entityId,
+            entityLabel,
+            description,
+            metadata
+        });
+
+        res.status(201).json({ message: 'Log registrado' });
     } catch (err) {
         res.status(500).json({ message: err.message });
     }
@@ -373,6 +440,18 @@ app.post('/api/cars', authenticateToken, upload.array('images', 20), async (req,
         });
 
         const savedCar = await newCar.save();
+
+        await logAudit({
+            req,
+            action: 'VEHICULO_CREADO',
+            module: 'stock',
+            entityType: 'Car',
+            entityId: savedCar._id,
+            entityLabel: `${savedCar.brand} ${savedCar.name}`,
+            description: `Se ingresó el vehículo ${savedCar.brand} ${savedCar.name} al stock.`,
+            metadata: { price: savedCar.price, currency: savedCar.currency }
+        });
+
         res.status(201).json(savedCar);
     } catch (error) {
         console.error(error);
@@ -594,6 +673,20 @@ app.patch('/api/admin/cars/:id', authenticateToken, async (req, res) => {
         }
 
         const updatedCar = await car.save();
+        
+        if (newAuditLogs.length > 0) {
+            await logAudit({
+                req,
+                action: 'VEHICULO_EDITADO',
+                module: 'stock',
+                entityType: 'Car',
+                entityId: updatedCar._id,
+                entityLabel: `${updatedCar.brand} ${updatedCar.name}`,
+                description: `Se editaron ${newAuditLogs.length} campos del vehículo.`,
+                metadata: { changes: newAuditLogs.map(l => ({ field: l.field, oldValue: l.oldValue, newValue: l.newValue })) }
+            });
+        }
+
         res.json(updatedCar);
     } catch (error) {
         console.error("PATCH error:", error);
@@ -724,6 +817,17 @@ app.post('/api/admin/clients', authenticateToken, async (req, res) => {
         const newClient = new Client(sanitizedData);
         const savedClient = await newClient.save();
         
+        await logAudit({
+            req,
+            action: 'CLIENTE_CREADO',
+            module: 'clientes',
+            entityType: 'Client',
+            entityId: savedClient._id,
+            entityLabel: savedClient.fullName || savedClient.firstName,
+            description: `Se creó el cliente ${savedClient.fullName || savedClient.firstName}.`,
+            metadata: { type: savedClient.type, source: savedClient.source }
+        });
+
         res.status(201).json(savedClient);
     } catch (error) {
         console.error('Error creating client:', error);
@@ -775,6 +879,20 @@ app.patch('/api/admin/clients/:id', authenticateToken, async (req, res) => {
         }
         
         const updatedClient = await client.save();
+
+        if (newAuditLogs.length > 0) {
+            await logAudit({
+                req,
+                action: 'CLIENTE_EDITADO',
+                module: 'clientes',
+                entityType: 'Client',
+                entityId: updatedClient._id,
+                entityLabel: updatedClient.fullName || updatedClient.firstName,
+                description: `Se editaron campos del cliente.`,
+                metadata: { changes: newAuditLogs.map(l => ({ field: l.field, oldValue: l.oldValue, newValue: l.newValue })) }
+            });
+        }
+
         res.json(updatedClient);
     } catch (error) {
         console.error('Error updating client:', error);
@@ -877,6 +995,17 @@ app.post('/api/admin/leads', authenticateToken, async (req, res) => {
         const newLead = new Lead(sanitizedData);
         const savedLead = await newLead.save();
         
+        await logAudit({
+            req,
+            action: 'LEAD_CREADO',
+            module: 'leads',
+            entityType: 'Lead',
+            entityId: savedLead._id,
+            entityLabel: savedLead.name,
+            description: `Se creó el lead ${savedLead.name}.`,
+            metadata: { source: savedLead.source, status: savedLead.crmStatus }
+        });
+
         res.status(201).json(savedLead);
     } catch (error) {
         console.error('Error creating admin lead:', error);
@@ -955,6 +1084,20 @@ app.patch('/api/admin/leads/:id', authenticateToken, async (req, res) => {
         }
         
         const updatedLead = await lead.save();
+
+        if (newAuditLogs.length > 0) {
+            await logAudit({
+                req,
+                action: 'LEAD_EDITADO',
+                module: 'leads',
+                entityType: 'Lead',
+                entityId: updatedLead._id,
+                entityLabel: updatedLead.name,
+                description: `Se actualizó el lead (tareas/notas o campos).`,
+                metadata: { changes: newAuditLogs.length }
+            });
+        }
+
         res.json(updatedLead);
     } catch (error) {
         console.error('Error updating admin lead:', error);
@@ -1865,6 +2008,17 @@ app.post('/api/admin/sales', authenticateToken, async (req, res) => {
 
         const savedSale = await newSale.save();
 
+        await logAudit({
+            req,
+            action: 'VENTA_CREADA',
+            module: 'ventas',
+            entityType: 'Sale',
+            entityId: savedSale._id,
+            entityLabel: `Venta de ${vehicle.brand} ${vehicle.name}`,
+            description: `Se creó una venta manual por ${finalSaleCurrency} ${finalSalePrice}.`,
+            metadata: { vehicleId: vehicle._id, salePrice: finalSalePrice, currency: finalSaleCurrency }
+        });
+
         // 3. Rollback Manual Controlado
         try {
             vehicle.status = 'Vendido';
@@ -1968,6 +2122,17 @@ app.post('/api/admin/reservations/:id/convert-to-sale', authenticateToken, async
         });
 
         const savedSale = await newSale.save();
+
+        await logAudit({
+            req,
+            action: 'RESERVA_CONVERTIDA_A_VENTA',
+            module: 'reservas',
+            entityType: 'Sale',
+            entityId: savedSale._id,
+            entityLabel: `Conversión Reserva a Venta ${vehicle.brand} ${vehicle.name}`,
+            description: `Se convirtió la reserva ${reservation._id} a venta final por ${finalSaleCurrency} ${finalSalePrice}.`,
+            metadata: { reservationId: reservation._id, vehicleId: vehicle._id }
+        });
 
         // 3. Rollback track manual (por si MongoDB no soporta transacciones nativas replica set)
         try {
@@ -2267,6 +2432,18 @@ app.patch('/api/admin/sales/:id', authenticateToken, async (req, res) => {
         if (hasChanges) {
             sale.updatedBy = user;
             const updatedSale = await sale.save();
+            
+            await logAudit({
+                req,
+                action: 'VENTA_EDITADA',
+                module: 'ventas',
+                entityType: 'Sale',
+                entityId: updatedSale._id,
+                entityLabel: `Venta ID: ${updatedSale._id}`,
+                description: `Se actualizó la venta (estado: ${updatedSale.status}, documentacion: ${updatedSale.documentationStatus}, entrega: ${updatedSale.deliveryStatus}, postventa: ${updatedSale.postSaleStatus}).`,
+                metadata: { status: updatedSale.status }
+            });
+
             res.json(updatedSale);
         } else {
             res.json(sale);
@@ -2450,6 +2627,17 @@ app.post('/api/admin/transactions', authenticateToken, async (req, res) => {
         }
         await account.save();
 
+        await logAudit({
+            req,
+            action: 'MOVIMIENTO_CREADO',
+            module: 'finanzas',
+            entityType: 'Transaction',
+            entityId: savedTx._id,
+            entityLabel: `${savedTx.type} - ${savedTx.concept}`,
+            description: `Se creó un movimiento financiero por ${savedTx.currency} ${savedTx.amount}.`,
+            metadata: { type: savedTx.type, amount: savedTx.amount, currency: savedTx.currency }
+        });
+
         res.status(201).json(savedTx);
     } catch (error) {
         console.error('Error creating transaction:', error);
@@ -2555,6 +2743,18 @@ app.patch('/api/admin/transactions/:id', authenticateToken, async (req, res) => 
         if (hasChanges) {
             tx.updatedBy = user;
             const updatedTx = await tx.save();
+            
+            await logAudit({
+                req,
+                action: (status === 'anulado') ? 'MOVIMIENTO_ANULADO' : 'MOVIMIENTO_EDITADO',
+                module: 'finanzas',
+                entityType: 'Transaction',
+                entityId: updatedTx._id,
+                entityLabel: `${updatedTx.type} - ${updatedTx.concept}`,
+                description: `Se actualizó el movimiento financiero (estado: ${updatedTx.status}).`,
+                metadata: { status: updatedTx.status }
+            });
+
             res.json(updatedTx);
         } else {
             res.json(tx);
@@ -2741,6 +2941,18 @@ app.post('/api/admin/installments', authenticateToken, async (req, res) => {
         });
 
         const savedInstallment = await newInstallment.save();
+
+        await logAudit({
+            req,
+            action: 'CUOTA_CREADA',
+            module: 'cuotas',
+            entityType: 'Installment',
+            entityId: savedInstallment._id,
+            entityLabel: `Cuota ${savedInstallment.installmentNumber} (${savedInstallment.currency} ${savedInstallment.amount})`,
+            description: `Se creó la cuota manual número ${savedInstallment.installmentNumber} por ${savedInstallment.currency} ${savedInstallment.amount}.`,
+            metadata: { saleId: savedInstallment.saleId, amount: savedInstallment.amount, currency: savedInstallment.currency }
+        });
+
         res.status(201).json(savedInstallment);
     } catch (error) {
         console.error('Error creating installment:', error);
@@ -2781,6 +2993,18 @@ app.patch('/api/admin/installments/:id', authenticateToken, async (req, res) => 
                 user: user
             });
             const updatedInst = await installment.save();
+
+            await logAudit({
+                req,
+                action: actionStr,
+                module: 'cuotas',
+                entityType: 'Installment',
+                entityId: updatedInst._id,
+                entityLabel: `Cuota ${updatedInst.installmentNumber}`,
+                description: `Se actualizó la cuota (estado: ${updatedInst.status}).`,
+                metadata: { status: updatedInst.status, amount: updatedInst.amount, currency: updatedInst.currency }
+            });
+
             res.json(updatedInst);
         } else {
             res.json(installment);

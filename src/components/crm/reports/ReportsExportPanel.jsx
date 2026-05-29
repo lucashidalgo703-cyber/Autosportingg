@@ -13,6 +13,29 @@ export default function ReportsExportPanel({ data, filters }) {
         return `Período: ${period} | Moneda: ${curr}`;
     };
 
+    const logExport = async (tipo) => {
+        try {
+            const token = localStorage.getItem('token');
+            if (!token) return;
+            await fetch('/api/admin/audit-logs/client-event', {
+                method: 'POST',
+                headers: { 
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                },
+                body: JSON.stringify({
+                    action: 'REPORTE_EXPORTADO_CSV',
+                    module: 'reportes',
+                    entityType: 'Report',
+                    entityLabel: tipo,
+                    description: `Se exportó en CSV el reporte de ${tipo} (${getFilterLabel()})`
+                })
+            });
+        } catch (e) {
+            console.error('Error logueando exportacion:', e);
+        }
+    };
+
     const handleExportSummary = () => {
         let stockUsd = 0;
         let stockArs = 0;
@@ -77,6 +100,7 @@ export default function ReportsExportPanel({ data, filters }) {
         ]];
 
         downloadCsv(`autosporting_resumen_gerencial_${nowStr}.csv`, columns, rows);
+        logExport('Resumen Gerencial');
     };
 
     const handleExportSales = () => {
@@ -110,6 +134,7 @@ export default function ReportsExportPanel({ data, filters }) {
         });
 
         downloadCsv(`autosporting_ventas_${nowStr}.csv`, columns, rows);
+        logExport('Ventas');
     };
 
     const handleExportStock = () => {
@@ -143,6 +168,7 @@ export default function ReportsExportPanel({ data, filters }) {
         });
 
         downloadCsv(`autosporting_stock_${nowStr}.csv`, columns, rows);
+        logExport('Stock');
     };
 
     const handleExportCollections = () => {
@@ -178,6 +204,7 @@ export default function ReportsExportPanel({ data, filters }) {
         });
 
         downloadCsv(`autosporting_cobranzas_cuotas_${nowStr}.csv`, columns, rows);
+        logExport('Cobranzas y Cuotas');
     };
 
     const handleExportOperations = () => {
@@ -226,6 +253,7 @@ export default function ReportsExportPanel({ data, filters }) {
         });
 
         downloadCsv(`autosporting_operaciones_${nowStr}.csv`, columns, rows);
+        logExport('Operaciones (Doc/Entrega/Postventa)');
     };
 
     const handleExportTasks = () => {
@@ -255,6 +283,7 @@ export default function ReportsExportPanel({ data, filters }) {
         });
 
         downloadCsv(`autosporting_tareas_${nowStr}.csv`, columns, rows);
+        logExport('Tareas');
     };
 
     return (

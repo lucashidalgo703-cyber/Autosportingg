@@ -95,6 +95,32 @@ export default function PrintableReportPage() {
 
     const formatMoney = (val, cur) => new Intl.NumberFormat('es-AR', { style: 'currency', currency: cur, maximumFractionDigits: 0 }).format(val);
 
+    const handlePrint = async () => {
+        try {
+            const token = localStorage.getItem('token');
+            if (token) {
+                const label = period === 'all' ? 'Todo' : period === '30d' ? '30 Días' : period === '90d' ? '90 Días' : '1 Año';
+                await fetch('/api/admin/audit-logs/client-event', {
+                    method: 'POST',
+                    headers: { 
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    },
+                    body: JSON.stringify({
+                        action: 'REPORTE_IMPRESO',
+                        module: 'reportes',
+                        entityType: 'Report',
+                        entityLabel: 'Resumen Gerencial Impreso',
+                        description: `Se imprimió el reporte gerencial (Período: ${label} | Moneda: ${currency})`
+                    })
+                });
+            }
+        } catch (e) {
+            console.error('Error logueando impresion:', e);
+        }
+        window.print();
+    };
+
     if (loading) {
         return <div className="p-10 font-sans">Generando reporte para imprimir...</div>;
     }
@@ -107,7 +133,7 @@ export default function PrintableReportPage() {
             <div className="print:hidden p-4 bg-gray-100 border-b border-gray-300 flex justify-between items-center">
                 <span className="text-sm font-bold text-gray-700">Vista previa de impresión</span>
                 <button 
-                    onClick={() => window.print()}
+                    onClick={handlePrint}
                     className="px-4 py-2 bg-blue-600 text-white rounded font-bold text-sm shadow hover:bg-blue-700"
                 >
                     Imprimir / Guardar PDF
