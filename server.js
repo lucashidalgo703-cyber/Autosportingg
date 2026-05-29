@@ -3715,6 +3715,73 @@ app.get('/api/admin/team-dashboard', authenticateToken, async (req, res) => {
     }
 });
 
+// ========================================== //
+// ============ QUICK ASSIGN ================ //
+// ========================================== //
+app.patch('/api/admin/assignments', authenticateToken, async (req, res) => {
+    try {
+        const userRole = req.user?.role || 'solo_lectura';
+        const perms = req.user?.permissions || [];
+        
+        const canAssign = ['owner', 'admin'].includes(userRole) || perms.includes('asignaciones.write');
+        if (!canAssign) {
+            return res.status(403).json({ message: 'Sin permisos para asignar responsables.' });
+        }
+
+        const { entityType, entityId, assignedTo } = req.body;
+        
+        if (!['lead', 'reservation', 'sale', 'task'].includes(entityType)) {
+            return res.status(400).json({ message: 'Tipo de entidad no válido.' });
+        }
+
+        const newAssigned = assignedTo === "" || assignedTo === null ? null : assignedTo;
+
+        let Model;
+        let moduleName;
+        let entityLabel = entityType;
+
+        switch(entityType) {
+            case 'lead': Model = Lead; moduleName = 'leads'; break;
+            case 'reservation': Model = Reservation; moduleName = 'reservas'; break;
+            case 'sale': Model = Sale; moduleName = 'ventas'; break;
+            case 'task': Model = CrmTask; moduleName = 'agenda'; break;
+        }
+
+        const doc = await Model.findById(entityId);
+        if (!doc) return res.status(404).json({ message: 'Entidad no encontrada.' });
+
+        if (entityType === 'lead') entityLabel = doc.name;
+        if (entityType === 'task') entityLabel = doc.title;
+
+        let oldAssigned = doc.assignedTo ? doc.assignedTo.toString() : null;
+
+        if (oldAssigned !== newAssigned) {
+            doc.assignedTo = newAssigned;
+            doc.assignedAt = new Date();
+            await doc.save();
+            
+            let actionType = 'RESPONSABLE_CAMBIADO';
+            if (!oldAssigned && newAssigned) actionType = 'RESPONSABLE_ASIGNADO';
+            if (oldAssigned && !newAssigned) actionType = 'RESPONSABLE_REMOVIDO';
+
+            await logAudit({
+                req,
+                action: actionType,
+                module: moduleName,
+                entityType: Model.modelName,
+                entityId: doc._id,
+                entityLabel: entityLabel,
+                description: `Asignación rápida desde Team Dashboard.`,
+                metadata: { oldAssigned, newAssigned }
+            });
+        }
+
+        res.json(doc);
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+});
+
 
 // Global Error Handler
 app.use((err, req, res, next) => {

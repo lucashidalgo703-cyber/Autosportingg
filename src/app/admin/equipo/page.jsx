@@ -1,8 +1,9 @@
 "use client";
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../../context/AuthContext';
-import { Users, BarChart3, AlertTriangle, CheckCircle, FileText, UserMinus, Search, Eye } from 'lucide-react';
+import { Users, BarChart3, AlertTriangle, CheckCircle, FileText, UserMinus, Search, Eye, PlusCircle } from 'lucide-react';
 import Link from 'next/link';
+import QuickAssignModal from '../../../components/crm/team/QuickAssignModal';
 
 export default function TeamDashboardPage() {
     const { user } = useAuth();
@@ -14,25 +15,30 @@ export default function TeamDashboardPage() {
     const [roleFilter, setRoleFilter] = useState('todos');
     const [searchUser, setSearchUser] = useState('');
 
-    useEffect(() => {
-        const fetchDashboard = async () => {
-            try {
-                const token = localStorage.getItem('token');
-                const res = await fetch('/api/admin/team-dashboard', {
-                    headers: { 'Authorization': `Bearer ${token}` }
-                });
-                if (!res.ok) {
-                    if (res.status === 403) throw new Error("Sin permisos para ver el equipo.");
-                    throw new Error("Error cargando dashboard");
-                }
-                const result = await res.json();
-                setData(result);
-            } catch (err) {
-                setError(err.message);
-            } finally {
-                setLoading(false);
+    // Asignación rápida
+    const [assignModal, setAssignModal] = useState({ isOpen: false, entityType: '', entityId: '', entityTitle: '' });
+
+    const fetchDashboard = async () => {
+        setLoading(true);
+        try {
+            const token = localStorage.getItem('token');
+            const res = await fetch('/api/admin/team-dashboard', {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            if (!res.ok) {
+                if (res.status === 403) throw new Error("Sin permisos para ver el equipo.");
+                throw new Error("Error cargando dashboard");
             }
-        };
+            const result = await res.json();
+            setData(result);
+        } catch (err) {
+            setError(err.message);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    useEffect(() => {
         fetchDashboard();
     }, []);
 
@@ -188,7 +194,7 @@ export default function TeamDashboardPage() {
                     <UserMinus className="text-red-500" size={20} />
                     <h2 className="text-lg font-bold text-white">Operaciones sin Responsable</h2>
                 </div>
-                <div className="p-4 grid grid-cols-1 md:grid-cols-4 gap-4">
+                <div className="p-4 grid grid-cols-1 md:grid-cols-4 gap-4 border-b border-[#33333A]">
                     <div className="bg-[#24242B] p-4 rounded-lg border border-[#33333A]">
                         <div className="text-gray-400 text-xs font-bold uppercase mb-1">Leads Huérfanos</div>
                         <div className="text-xl text-yellow-500 font-bold">{unassigned.leads.length}</div>
@@ -206,8 +212,110 @@ export default function TeamDashboardPage() {
                         <div className="text-xl text-white font-bold">{unassigned.tasks.length}</div>
                     </div>
                 </div>
+
+                <div className="p-4 grid grid-cols-1 lg:grid-cols-2 gap-6 bg-[#161619]">
+                    {unassigned.leads.length > 0 && (
+                        <div>
+                            <h3 className="text-sm font-bold text-gray-400 uppercase mb-3">Leads ({unassigned.leads.length})</h3>
+                            <div className="flex flex-col gap-2">
+                                {unassigned.leads.slice(0, 5).map(l => (
+                                    <div key={l._id} className="bg-[#24242B] p-3 rounded border border-[#33333A] flex justify-between items-center">
+                                        <div>
+                                            <div className="text-sm text-white font-bold">{l.name}</div>
+                                            <div className="text-xs text-yellow-500">{l.crmStatus}</div>
+                                        </div>
+                                        <button 
+                                            onClick={() => setAssignModal({ isOpen: true, entityType: 'lead', entityId: l._id, entityTitle: l.name })}
+                                            className="px-3 py-1 bg-[#33333A] hover:bg-indigo-600 text-white rounded text-xs transition-colors flex items-center gap-1"
+                                        >
+                                            <PlusCircle size={14} /> Asignar
+                                        </button>
+                                    </div>
+                                ))}
+                                {unassigned.leads.length > 5 && <div className="text-xs text-gray-500 text-center py-2">Mostrando 5 de {unassigned.leads.length}</div>}
+                            </div>
+                        </div>
+                    )}
+
+                    {unassigned.sales.length > 0 && (
+                        <div>
+                            <h3 className="text-sm font-bold text-gray-400 uppercase mb-3">Ventas ({unassigned.sales.length})</h3>
+                            <div className="flex flex-col gap-2">
+                                {unassigned.sales.slice(0, 5).map(s => (
+                                    <div key={s._id} className="bg-[#24242B] p-3 rounded border border-[#33333A] flex justify-between items-center">
+                                        <div>
+                                            <div className="text-sm text-white font-bold">Venta #{s._id.toString().slice(-6).toUpperCase()}</div>
+                                            <div className="text-xs text-gray-400">{s.status.replace('_', ' ')}</div>
+                                        </div>
+                                        <button 
+                                            onClick={() => setAssignModal({ isOpen: true, entityType: 'sale', entityId: s._id, entityTitle: `Venta #${s._id.toString().slice(-6).toUpperCase()}` })}
+                                            className="px-3 py-1 bg-[#33333A] hover:bg-indigo-600 text-white rounded text-xs transition-colors flex items-center gap-1"
+                                        >
+                                            <PlusCircle size={14} /> Asignar
+                                        </button>
+                                    </div>
+                                ))}
+                                {unassigned.sales.length > 5 && <div className="text-xs text-gray-500 text-center py-2">Mostrando 5 de {unassigned.sales.length}</div>}
+                            </div>
+                        </div>
+                    )}
+
+                    {unassigned.tasks.length > 0 && (
+                        <div>
+                            <h3 className="text-sm font-bold text-gray-400 uppercase mb-3">Tareas ({unassigned.tasks.length})</h3>
+                            <div className="flex flex-col gap-2">
+                                {unassigned.tasks.slice(0, 5).map(t => (
+                                    <div key={t._id} className="bg-[#24242B] p-3 rounded border border-[#33333A] flex justify-between items-center">
+                                        <div>
+                                            <div className="text-sm text-white font-bold">{t.title}</div>
+                                            <div className="text-xs text-gray-400">Vence: {new Date(t.dueDate).toLocaleDateString('es-AR')}</div>
+                                        </div>
+                                        <button 
+                                            onClick={() => setAssignModal({ isOpen: true, entityType: 'task', entityId: t._id, entityTitle: t.title })}
+                                            className="px-3 py-1 bg-[#33333A] hover:bg-indigo-600 text-white rounded text-xs transition-colors flex items-center gap-1"
+                                        >
+                                            <PlusCircle size={14} /> Asignar
+                                        </button>
+                                    </div>
+                                ))}
+                                {unassigned.tasks.length > 5 && <div className="text-xs text-gray-500 text-center py-2">Mostrando 5 de {unassigned.tasks.length}</div>}
+                            </div>
+                        </div>
+                    )}
+
+                    {unassigned.reservations.length > 0 && (
+                        <div>
+                            <h3 className="text-sm font-bold text-gray-400 uppercase mb-3">Reservas ({unassigned.reservations.length})</h3>
+                            <div className="flex flex-col gap-2">
+                                {unassigned.reservations.slice(0, 5).map(r => (
+                                    <div key={r._id} className="bg-[#24242B] p-3 rounded border border-[#33333A] flex justify-between items-center">
+                                        <div>
+                                            <div className="text-sm text-white font-bold">Reserva #{r._id.toString().slice(-6).toUpperCase()}</div>
+                                            <div className="text-xs text-gray-400">{r.status}</div>
+                                        </div>
+                                        <button 
+                                            onClick={() => setAssignModal({ isOpen: true, entityType: 'reservation', entityId: r._id, entityTitle: `Reserva #${r._id.toString().slice(-6).toUpperCase()}` })}
+                                            className="px-3 py-1 bg-[#33333A] hover:bg-indigo-600 text-white rounded text-xs transition-colors flex items-center gap-1"
+                                        >
+                                            <PlusCircle size={14} /> Asignar
+                                        </button>
+                                    </div>
+                                ))}
+                                {unassigned.reservations.length > 5 && <div className="text-xs text-gray-500 text-center py-2">Mostrando 5 de {unassigned.reservations.length}</div>}
+                            </div>
+                        </div>
+                    )}
+                </div>
             </div>
 
+            <QuickAssignModal 
+                isOpen={assignModal.isOpen} 
+                onClose={() => setAssignModal({ ...assignModal, isOpen: false })} 
+                entityType={assignModal.entityType} 
+                entityId={assignModal.entityId} 
+                entityTitle={assignModal.entityTitle} 
+                onAssigned={fetchDashboard} 
+            />
         </div>
     );
 }
