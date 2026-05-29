@@ -3715,6 +3715,45 @@ app.get('/api/admin/team-dashboard', authenticateToken, async (req, res) => {
     }
 });
 
+app.get('/api/admin/team-dashboard/:userId', authenticateToken, async (req, res) => {
+    try {
+        const userRole = req.user?.role || 'solo_lectura';
+        const perms = req.user?.permissions || [];
+        
+        const canReadTeam = ['owner', 'admin'].includes(userRole) || perms.includes('equipo.read');
+        if (!canReadTeam) {
+            return res.status(403).json({ message: 'Sin permisos para ver el dashboard del equipo.' });
+        }
+
+        const targetUserId = req.params.userId;
+        const targetUser = await AdminUser.findById(targetUserId).select('name email role active lastLoginAt').lean();
+        
+        if (!targetUser) return res.status(404).json({ message: 'Usuario no encontrado' });
+
+        const tasks = await CrmTask.find({ assignedTo: targetUserId }).lean();
+        const leads = await Lead.find({ assignedTo: targetUserId }).lean();
+        const reservations = await Reservation.find({ assignedTo: targetUserId }).populate('clientId', 'fullName').populate('vehicleId', 'brand name model year').lean();
+        const sales = await Sale.find({ assignedTo: targetUserId }).populate('clientId', 'fullName').populate('vehicleId', 'brand name model year').lean();
+        
+        const recentLogs = await AuditLog.find({ 
+            userId: { $in: [targetUser.email, targetUser.name] },
+            createdAt: { $gte: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000) } 
+        }).sort({ createdAt: -1 }).limit(30).lean();
+
+        res.json({
+            user: targetUser,
+            tasks,
+            leads,
+            reservations,
+            sales,
+            recentLogs
+        });
+        
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+});
+
 // ========================================== //
 // ============ QUICK ASSIGN ================ //
 // ========================================== //

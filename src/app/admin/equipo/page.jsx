@@ -156,9 +156,11 @@ export default function TeamDashboardPage() {
                         <tbody>
                             {filteredTeam.map(u => (
                                 <tr key={u._id} className="border-b border-[#33333A] hover:bg-[#1E1E24] transition-colors">
-                                    <td className="p-4 text-sm text-white font-medium flex items-center gap-2">
+                                    <td className="p-4 text-sm font-medium flex items-center gap-2">
                                         <div className={`w-2 h-2 rounded-full ${u.active ? 'bg-green-500' : 'bg-gray-500'}`}></div>
-                                        {u.name}
+                                        <Link href={`/admin/equipo/${u._id}`} className="text-white hover:text-indigo-400 hover:underline">
+                                            {u.name}
+                                        </Link>
                                     </td>
                                     <td className="p-4 text-sm text-gray-400 capitalize">{u.role.replace('_', ' ')}</td>
                                     <td className="p-4 text-sm">
