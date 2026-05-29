@@ -11,9 +11,11 @@ import TransactionModal from '../../../components/crm/finance/TransactionModal';
 import { useAdminTransactions } from '../../../hooks/useAdminTransactions';
 import PermissionGuard from '../../../components/crm/layout/PermissionGuard';
 import { PERMISSIONS } from '../../../utils/adminPermissions';
+import { useAuth } from '../../../context/AuthContext';
 
 export default function InstallmentsPage() {
-    const { fetchInstallments, updateInstallment, createInstallment, loading, error } = useAdminInstallments();
+    const { fetchInstallments, updateInstallment, createInstallment, deleteInstallment, loading, error } = useAdminInstallments();
+    const { user } = useAuth();
     const [allInstallments, setAllInstallments] = useState([]);
     
     // Modal state
@@ -157,6 +159,19 @@ export default function InstallmentsPage() {
         }
     };
 
+    const handleDelete = async (inst) => {
+        const confirmText = prompt('Esta acción elimina definitivamente la cuota del CRM. No quedará visible en cuotas, cobranzas, reportes ni la ficha de venta. Usar solo para cuotas cargadas por error o de prueba.\n\nEscriba ELIMINAR para confirmar:');
+        if (confirmText !== 'ELIMINAR') {
+            return;
+        }
+        try {
+            await deleteInstallment(inst._id);
+            await loadData();
+        } catch (err) {
+            alert(err.message);
+        }
+    };
+
     return (
         <PermissionGuard permission={PERMISSIONS.CUOTAS_READ}>
         <div className="max-w-7xl mx-auto flex flex-col h-full min-h-[85vh]">
@@ -212,11 +227,15 @@ export default function InstallmentsPage() {
                         installments={filteredInstallments} 
                         onEdit={handleEdit} 
                         onRegisterPayment={handleRegisterPayment}
+                        onDelete={handleDelete}
+                        currentUserRole={user?.role}
                     />
                     <InstallmentMobileCards 
                         installments={filteredInstallments} 
                         onEdit={handleEdit} 
                         onRegisterPayment={handleRegisterPayment}
+                        onDelete={handleDelete}
+                        currentUserRole={user?.role}
                     />
                 </>
             )}

@@ -3,7 +3,7 @@ import Link from 'next/link';
 import { Landmark, Calendar, User, Search, Handshake } from 'lucide-react';
 import InstallmentStatusBadge from './InstallmentStatusBadge';
 
-export default function InstallmentsTable({ installments, onEdit, onRegisterPayment }) {
+export default function InstallmentsTable({ installments, onEdit, onRegisterPayment, onDelete, currentUserRole }) {
     if (!installments || installments.length === 0) {
         return (
             <div className="hidden md:flex flex-col items-center justify-center p-12 bg-neutral-900 border border-neutral-800 rounded-2xl opacity-80">
@@ -137,6 +137,15 @@ export default function InstallmentsTable({ installments, onEdit, onRegisterPaym
                                             >
                                                 Gestionar
                                             </button>
+                                            {(currentUserRole === 'owner' || currentUserRole === 'admin') && (
+                                                <button 
+                                                    onClick={() => onDelete && onDelete(inst)}
+                                                    className="text-xs font-bold text-red-500 hover:text-red-400 transition-colors"
+                                                    title="Eliminar definitivamente"
+                                                >
+                                                    Eliminar
+                                                </button>
+                                            )}
                                         </div>
                                     </td>
                                 </tr>

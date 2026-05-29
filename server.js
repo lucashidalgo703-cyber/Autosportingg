@@ -2723,6 +2723,41 @@ app.patch('/api/admin/installments/:id', authenticateToken, async (req, res) => 
     }
 });
 
+app.delete('/api/admin/installments/:id', authenticateToken, async (req, res) => {
+    try {
+        if (!req.user || (req.user.role !== 'owner' && req.user.role !== 'admin')) {
+            return res.status(403).json({ message: 'Solo owner/admin pueden eliminar cuotas.' });
+        }
+
+        const installment = await Installment.findById(req.params.id);
+        if (!installment) return res.status(404).json({ message: 'Cuota no encontrada' });
+
+        const linkedTx = await Transaction.findOne({ 
+            installmentId: installment._id, 
+            status: { $ne: 'anulado' } 
+        });
+
+        if (linkedTx) {
+            return res.status(400).json({ 
+                message: 'No se puede eliminar esta cuota porque tiene movimientos financieros vinculados. Podés anularla, pero no borrarla.' 
+            });
+        }
+
+        if (installment.paidAmount > 0 || installment.status === 'pagada') {
+            return res.status(400).json({ 
+                message: 'No se puede eliminar una cuota que registra cobros o figura pagada.' 
+            });
+        }
+
+        await Installment.findByIdAndDelete(req.params.id);
+        res.json({ message: 'Cuota eliminada definitivamente.' });
+
+    } catch (error) {
+        console.error('Error deleting installment:', error);
+        res.status(500).json({ message: error.message });
+    }
+});
+
 app.post('/api/admin/sales/:id/installments/generate', authenticateToken, async (req, res) => {
     try {
         const user = req.user ? (req.user.email || req.user.role) : 'System';

@@ -153,12 +153,39 @@ export const useAdminInstallments = () => {
         }
     };
 
+    const deleteInstallment = async (id) => {
+        setLoading(true);
+        setError(null);
+        try {
+            const token = localStorage.getItem('token');
+            const res = await fetch(`/api/admin/installments/${id}`, {
+                method: 'DELETE',
+                headers: {
+                    'Authorization': `Bearer ${token}`
+                }
+            });
+
+            if (!res.ok) {
+                throw await parseErrorResponse(res);
+            }
+            const data = await res.json();
+            return data;
+        } catch (err) {
+            setError(err.message);
+            throw err;
+        } finally {
+            setLoading(false);
+        }
+    };
+
+
     return {
         fetchInstallments,
         fetchInstallmentById,
         createInstallment,
         updateInstallment,
         generateInstallments,
+        deleteInstallment,
         loading,
         error
     };

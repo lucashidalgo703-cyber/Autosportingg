@@ -3,7 +3,7 @@ import Link from 'next/link';
 import { Calendar, User, Handshake } from 'lucide-react';
 import InstallmentStatusBadge from './InstallmentStatusBadge';
 
-export default function InstallmentMobileCards({ installments, onEdit, onRegisterPayment }) {
+export default function InstallmentMobileCards({ installments, onEdit, onRegisterPayment, onDelete, currentUserRole }) {
     if (!installments || installments.length === 0) {
         return (
             <div className="md:hidden flex flex-col items-center justify-center p-8 bg-neutral-900 border border-neutral-800 rounded-2xl opacity-80 mt-4">
@@ -112,6 +112,14 @@ export default function InstallmentMobileCards({ installments, onEdit, onRegiste
                             >
                                 Gestionar
                             </button>
+                            {(currentUserRole === 'owner' || currentUserRole === 'admin') && (
+                                <button 
+                                    onClick={() => onDelete && onDelete(inst)}
+                                    className="h-8 px-4 rounded-lg bg-red-500/10 text-red-500 hover:bg-red-500/20 text-xs font-bold transition-colors"
+                                >
+                                    Eliminar
+                                </button>
+                            )}
                         </div>
                     </div>
                 );
