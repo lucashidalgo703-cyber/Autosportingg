@@ -3,7 +3,7 @@ import AgendaLeadCard from './AgendaLeadCard';
 import AgendaCrmTaskCard from './AgendaCrmTaskCard';
 import { ChevronDown, ChevronRight } from 'lucide-react';
 
-export default function AgendaSection({ title, icon: Icon, colorClass, leads, onChangeStatus, onCompleteTask, onCompleteCrmTask, onCancelCrmTask, onPostponeCrmTask, defaultOpen = true }) {
+export default function AgendaSection({ title, icon: Icon, colorClass, leads, onChangeStatus, onCompleteTask, onCompleteCrmTask, onCancelCrmTask, onPostponeCrmTask, onEditCrmTask, defaultOpen = true }) {
     const [isOpen, setIsOpen] = useState(defaultOpen);
 
     return (
@@ -45,6 +45,7 @@ export default function AgendaSection({ title, icon: Icon, colorClass, leads, on
                                             onComplete={onCompleteCrmTask}
                                             onCancel={onCancelCrmTask}
                                             onPostpone={onPostponeCrmTask}
+                                            onEdit={onEditCrmTask}
                                         />
                                     );
                                 } else {
