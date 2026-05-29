@@ -1,7 +1,9 @@
 "use client";
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { LayoutDashboard, CarFront, Users, UserPlus, Receipt, CalendarClock, Wallet, Landmark, FileText, BarChart3, Settings, Target, Star } from 'lucide-react';
+import { LayoutDashboard, CarFront, Users, UserPlus, Receipt, CalendarClock, Wallet, Landmark, FileText, BarChart3, Settings, Target, Star, UserCog } from 'lucide-react';
+import { useAuth } from '../../../context/AuthContext';
+import { hasPermission, PERMISSIONS, ROLES } from '../../../utils/adminPermissions';
 
 const menuItems = [
     { name: 'Dashboard', path: '/admin', icon: LayoutDashboard },
@@ -17,11 +19,21 @@ const menuItems = [
     { name: 'Documentación', path: '/admin/documentacion', icon: FileText, prefetch: false },
     { name: 'Postventa', path: '/admin/postventa', icon: Star, prefetch: false },
     { name: 'Reportes', path: '/admin/reportes', icon: BarChart3, prefetch: false },
+    { name: 'Usuarios', path: '/admin/configuracion/usuarios', icon: UserCog, prefetch: false },
     { name: 'Configuración', path: '/admin/configuracion', icon: Settings, prefetch: false },
 ];
 
 export default function CrmSidebar({ isOpen, onClose }) {
     const pathname = usePathname();
+    const { user } = useAuth();
+
+    // Filtramos menu items basado en permisos
+    const visibleMenuItems = menuItems.filter(item => {
+        if (item.name === 'Configuración' || item.name === 'Usuarios') {
+            return hasPermission(user, PERMISSIONS.USUARIOS_READ);
+        }
+        return true; // Por ahora el resto sigue público o protegido por rutas
+    });
 
     return (
         <>
@@ -35,7 +47,7 @@ export default function CrmSidebar({ isOpen, onClose }) {
                 </div>
                 
                 <nav className="flex-1 overflow-y-auto py-4 px-3 flex flex-col gap-1">
-                    {menuItems.map((item) => {
+                    {visibleMenuItems.map((item) => {
                         const isActive = item.path === '/admin' ? pathname === '/admin' : pathname.startsWith(item.path);
                         return (
                             <Link 

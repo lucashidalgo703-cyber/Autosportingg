@@ -5,6 +5,7 @@ import { useAuth } from '../context/AuthContext';
 import { Lock } from 'lucide-react';
 
 const Login = () => {
+  const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
@@ -24,7 +25,7 @@ const Login = () => {
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ password }),
+        body: JSON.stringify({ email: email.trim() || undefined, password }),
       });
 
       const data = await response.json();
@@ -52,6 +53,14 @@ const Login = () => {
         <p>Ingresa la contraseña maestra para gestionar el sitio.</p>
 
         <form onSubmit={handleSubmit}>
+          <div className="input-group">
+            <input
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder="Email (opcional para Master Admin)..."
+            />
+          </div>
           <div className="input-group">
             <input
               type="password"

@@ -15,8 +15,10 @@ import Reservation from './src/models/Reservation.js';
 import Sale from './src/models/Sale.js';
 import Installment from './src/models/Installment.js';
 import CrmTask from './src/models/CrmTask.js';
+import AdminUser from './src/models/AdminUser.js';
 import { CloudinaryStorage } from 'multer-storage-cloudinary';
 import jwt from 'jsonwebtoken';
+import crypto from 'crypto';
 
 
 
@@ -59,14 +61,157 @@ const authenticateToken = (req, res, next) => {
 
 // Routes
 
-// Login Endpoint
-app.post('/api/login', (req, res) => {
-    const { password } = req.body;
-    if (password === ADMIN_PASSWORD) {
-        const token = jwt.sign({ role: 'admin' }, JWT_SECRET, { expiresIn: '24h' });
-        res.json({ token });
-    } else {
-        res.status(401).json({ message: 'Contraseña incorrecta' });
+// Helper functions for password hashing using native crypto
+const hashPassword = (password) => {
+    const salt = crypto.randomBytes(16).toString('hex');
+    const hash = crypto.scryptSync(password, salt, 64).toString('hex');
+    return `${salt}:${hash}`;
+};
+
+const verifyPassword = (password, storedHash) => {
+    if (!storedHash || !storedHash.includes(':')) return false;
+    const [salt, key] = storedHash.split(':');
+    const hashBuffer = crypto.scryptSync(password, salt, 64);
+    const keyBuffer = Buffer.from(key, 'hex');
+    // Prevent timing attacks
+    if (hashBuffer.length !== keyBuffer.length) return false;
+    return crypto.timingSafeEqual(hashBuffer, keyBuffer);
+};
+
+// Login Endpoint (Mixed fallback)
+app.post('/api/login', async (req, res) => {
+    try {
+        const { email, password } = req.body;
+        
+        // 1. Try to find the user in the database if email is provided
+        if (email) {
+            const user = await AdminUser.findOne({ email: email.toLowerCase() });
+            if (user && user.active) {
+                const isValid = verifyPassword(password, user.passwordHash);
+                if (isValid) {
+                    // Update last login
+                    user.lastLoginAt = new Date();
+                    await user.save();
+                    
+                    const token = jwt.sign(
+                        { 
+                            userId: user._id, 
+                            email: user.email, 
+                            name: user.name, 
+                            role: user.role,
+                            permissions: user.permissions 
+                        }, 
+                        JWT_SECRET, 
+                        { expiresIn: '24h' }
+                    );
+                    return res.json({ token, role: user.role, name: user.name });
+                }
+            }
+        }
+
+        // 2. Fallback to Legacy Master Password if no DB match or no email provided
+        if (password === ADMIN_PASSWORD) {
+            // Emite token con rol owner como fallback de seguridad (acceso total)
+            const token = jwt.sign({ role: 'owner', name: 'Master Admin' }, JWT_SECRET, { expiresIn: '24h' });
+            return res.json({ token, role: 'owner', name: 'Master Admin' });
+        }
+
+        return res.status(401).json({ message: 'Credenciales incorrectas o usuario inactivo' });
+    } catch (err) {
+        console.error("Login error:", err);
+        return res.status(500).json({ message: 'Error interno de autenticación' });
+    }
+});
+
+// GET Admin Users
+app.get('/api/admin/users', authenticateToken, async (req, res) => {
+    try {
+        if (req.user.role !== 'owner' && req.user.role !== 'admin') {
+            return res.status(403).json({ message: 'Sin permisos para ver usuarios' });
+        }
+        const users = await AdminUser.find().select('-passwordHash').sort({ createdAt: -1 });
+        res.json(users);
+    } catch (err) {
+        res.status(500).json({ message: err.message });
+    }
+});
+
+// POST Create Admin User
+app.post('/api/admin/users', authenticateToken, async (req, res) => {
+    try {
+        if (req.user.role !== 'owner' && req.user.role !== 'admin') {
+            return res.status(403).json({ message: 'Sin permisos para crear usuarios' });
+        }
+        const { name, email, password, role, permissions } = req.body;
+        
+        const existing = await AdminUser.findOne({ email: email.toLowerCase() });
+        if (existing) return res.status(400).json({ message: 'El email ya está en uso' });
+
+        const newUser = new AdminUser({
+            name,
+            email: email.toLowerCase(),
+            passwordHash: hashPassword(password),
+            role: role || 'solo_lectura',
+            permissions: permissions || []
+        });
+
+        await newUser.save();
+        res.status(201).json(newUser);
+    } catch (err) {
+        res.status(500).json({ message: err.message });
+    }
+});
+
+// PATCH Edit Admin User
+app.patch('/api/admin/users/:id', authenticateToken, async (req, res) => {
+    try {
+        if (req.user.role !== 'owner' && req.user.role !== 'admin') {
+            return res.status(403).json({ message: 'Sin permisos para editar usuarios' });
+        }
+        const { name, email, role, active, permissions } = req.body;
+        
+        const userToUpdate = await AdminUser.findById(req.params.id);
+        if (!userToUpdate) return res.status(404).json({ message: 'Usuario no encontrado' });
+
+        // Regla: No desactivar ni quitar rol owner al último owner
+        if ((active === false || (role && role !== 'owner')) && userToUpdate.role === 'owner') {
+            const ownerCount = await AdminUser.countDocuments({ role: 'owner', active: true });
+            if (ownerCount <= 1 && userToUpdate.active) {
+                return res.status(400).json({ message: 'No se puede desactivar o degradar al último Owner del sistema.' });
+            }
+        }
+
+        if (name) userToUpdate.name = name;
+        if (email) userToUpdate.email = email.toLowerCase();
+        if (role) userToUpdate.role = role;
+        if (active !== undefined) userToUpdate.active = active;
+        if (permissions) userToUpdate.permissions = permissions;
+
+        await userToUpdate.save();
+        res.json(userToUpdate);
+    } catch (err) {
+        res.status(500).json({ message: err.message });
+    }
+});
+
+// PATCH Change Password
+app.patch('/api/admin/users/:id/password', authenticateToken, async (req, res) => {
+    try {
+        if (req.user.role !== 'owner' && req.user.role !== 'admin') {
+            return res.status(403).json({ message: 'Sin permisos para cambiar contraseñas' });
+        }
+        const { password } = req.body;
+        if (!password) return res.status(400).json({ message: 'Contraseña requerida' });
+
+        const userToUpdate = await AdminUser.findById(req.params.id);
+        if (!userToUpdate) return res.status(404).json({ message: 'Usuario no encontrado' });
+
+        userToUpdate.passwordHash = hashPassword(password);
+        await userToUpdate.save();
+        
+        res.json({ message: 'Contraseña actualizada correctamente' });
+    } catch (err) {
+        res.status(500).json({ message: err.message });
     }
 });
 
