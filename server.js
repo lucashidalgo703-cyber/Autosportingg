@@ -18,6 +18,7 @@ import CrmTask from './src/models/CrmTask.js';
 import AdminUser from './src/models/AdminUser.js';
 import AuditLog from './src/models/AuditLog.js';
 import NotificationReadState from './src/models/NotificationReadState.js';
+import TeamGoal from './src/models/TeamGoal.js';
 import { logAudit } from './src/utils/auditLogger.js';
 import { CloudinaryStorage } from 'multer-storage-cloudinary';
 import jwt from 'jsonwebtoken';
@@ -3882,6 +3883,226 @@ app.get('/api/admin/team-productivity', authenticateToken, async (req, res) => {
             moduleActivityMap,
             lowActivityUsers
         });
+
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+});
+
+// ========================================== //
+// ============ METAS (GOALS) =============== //
+// ========================================== //
+
+app.get('/api/admin/team-goals', authenticateToken, async (req, res) => {
+    try {
+        const userRole = req.user?.role || 'solo_lectura';
+        const perms = req.user?.permissions || [];
+        
+        const canRead = ['owner', 'admin'].includes(userRole) || perms.includes('metas.read');
+        if (!canRead) {
+            return res.status(403).json({ message: 'Sin permisos para ver metas.' });
+        }
+
+        const goals = await TeamGoal.find().populate('userId', 'name email role active').sort({ createdAt: -1 }).lean();
+        res.json(goals);
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+});
+
+app.post('/api/admin/team-goals', authenticateToken, async (req, res) => {
+    try {
+        const userRole = req.user?.role || 'solo_lectura';
+        const perms = req.user?.permissions || [];
+        
+        const canWrite = ['owner', 'admin'].includes(userRole) || perms.includes('metas.write');
+        if (!canWrite) {
+            return res.status(403).json({ message: 'Sin permisos para crear metas.' });
+        }
+
+        const newGoal = new TeamGoal({
+            ...req.body,
+            createdBy: req.user.email
+        });
+
+        await newGoal.save();
+
+        await logAudit({
+            userId: req.user.email,
+            action: 'META_CREADA',
+            module: 'equipo',
+            description: `Meta creada para ${req.body.userId}`,
+            entityId: newGoal._id,
+            entityType: 'TeamGoal',
+            metadata: { targets: req.body.targets }
+        });
+
+        res.status(201).json(newGoal);
+    } catch (error) {
+        res.status(400).json({ message: error.message });
+    }
+});
+
+app.patch('/api/admin/team-goals/:id', authenticateToken, async (req, res) => {
+    try {
+        const userRole = req.user?.role || 'solo_lectura';
+        const perms = req.user?.permissions || [];
+        
+        const canWrite = ['owner', 'admin'].includes(userRole) || perms.includes('metas.write');
+        if (!canWrite) {
+            return res.status(403).json({ message: 'Sin permisos para editar metas.' });
+        }
+
+        const goal = await TeamGoal.findById(req.params.id);
+        if (!goal) return res.status(404).json({ message: 'Meta no encontrada' });
+
+        const previousTargets = goal.targets;
+        const wasActive = goal.active;
+
+        Object.assign(goal, req.body);
+        goal.updatedBy = req.user.email;
+
+        await goal.save();
+
+        let actionLog = 'META_EDITADA';
+        if (wasActive && req.body.active === false) actionLog = 'META_DESACTIVADA';
+        else if (!wasActive && req.body.active === true) actionLog = 'META_REACTIVADA';
+
+        await logAudit({
+            userId: req.user.email,
+            action: actionLog,
+            module: 'equipo',
+            description: `Meta ${actionLog} para ${goal.userId}`,
+            entityId: goal._id,
+            entityType: 'TeamGoal',
+            metadata: { prev: previousTargets, new: goal.targets }
+        });
+
+        res.json(goal);
+    } catch (error) {
+        res.status(400).json({ message: error.message });
+    }
+});
+
+app.get('/api/admin/team-goals/progress', authenticateToken, async (req, res) => {
+    try {
+        const userRole = req.user?.role || 'solo_lectura';
+        const perms = req.user?.permissions || [];
+        
+        const canRead = ['owner', 'admin'].includes(userRole) || perms.includes('metas.read');
+        if (!canRead) {
+            return res.status(403).json({ message: 'Sin permisos para ver el progreso de las metas.' });
+        }
+
+        const activeGoals = await TeamGoal.find({ active: true }).populate('userId', 'name email role active').lean();
+
+        if (!activeGoals.length) {
+            return res.json([]);
+        }
+
+        // Para calcular progreso, primero agrupamos todos los usuarios y fechas extremas
+        const userIds = activeGoals.map(g => g.userId?._id).filter(id => id);
+        
+        // Obtener correos para AuditLog
+        const users = await AdminUser.find({ _id: { $in: userIds } }).select('email name').lean();
+        const userEmails = users.map(u => u.email);
+        const userNames = users.map(u => u.name);
+        const userIdentifiers = [...userEmails, ...userNames];
+
+        const minDate = new Date(Math.min(...activeGoals.map(g => new Date(g.startDate))));
+        const maxDate = new Date(Math.max(...activeGoals.map(g => new Date(g.endDate))));
+
+        // Cargar todo lo necesario en rango
+        const logs = await AuditLog.find({
+            createdAt: { $gte: minDate, $lte: maxDate },
+            userId: { $in: userIdentifiers }
+        }).lean();
+
+        const tasks = await CrmTask.find({ assignedTo: { $in: userIds }, updatedAt: { $gte: minDate, $lte: maxDate } }).lean();
+        const sales = await Sale.find({ assignedTo: { $in: userIds }, updatedAt: { $gte: minDate, $lte: maxDate } }).lean();
+
+        const progressData = activeGoals.map(goal => {
+            if (!goal.userId) return null;
+
+            const uEmail = users.find(u => u._id.toString() === goal.userId._id.toString())?.email;
+            const uName = users.find(u => u._id.toString() === goal.userId._id.toString())?.name;
+
+            const gStart = new Date(goal.startDate).getTime();
+            const gEnd = new Date(goal.endDate).getTime();
+
+            // Filtrar data por usuario y por fecha de la meta específica
+            const uLogs = logs.filter(l => 
+                (l.userId === uEmail || l.userId === uName) && 
+                new Date(l.createdAt).getTime() >= gStart && 
+                new Date(l.createdAt).getTime() <= gEnd
+            );
+
+            const uTasks = tasks.filter(t => 
+                t.assignedTo?.toString() === goal.userId._id.toString() &&
+                t.status === 'completada' &&
+                new Date(t.updatedAt).getTime() >= gStart && 
+                new Date(t.updatedAt).getTime() <= gEnd
+            );
+
+            const uSales = sales.filter(s => 
+                s.assignedTo?.toString() === goal.userId._id.toString() &&
+                new Date(s.updatedAt).getTime() >= gStart && 
+                new Date(s.updatedAt).getTime() <= gEnd
+            );
+
+            const realValues = {
+                tasksCompleted: uTasks.length,
+                leadsWorked: uLogs.filter(l => l.module === 'leads' && ['LEAD_EDITADO', 'LEAD_ESTADO_ACTUALIZADO', 'LEAD_CREADO'].includes(l.action)).length,
+                reservationsManaged: uLogs.filter(l => l.module === 'reservas' && ['RESERVA_EDITADA', 'RESERVA_CREADA', 'RESERVA_CONVERTIDA_A_VENTA'].includes(l.action)).length,
+                salesUpdated: uLogs.filter(l => l.module === 'ventas' && ['VENTA_EDITADA', 'VENTA_ESTADO_ACTUALIZADO', 'VENTA_CREADA'].includes(l.action)).length,
+                documentationCompleted: uSales.filter(s => s.documentationStatus === 'completo').length,
+                postSalesManaged: uSales.filter(s => s.postSaleStatus === 'cerrado').length,
+                reviewsRequested: 0, // Reservado para fase futura
+                reviewsReceived: 0   // Reservado para fase futura
+            };
+
+            let totalPercent = 0;
+            let targetCount = 0;
+
+            const progressDetail = {};
+
+            Object.entries(goal.targets).forEach(([key, targetVal]) => {
+                if (targetVal > 0) {
+                    targetCount++;
+                    const real = realValues[key] || 0;
+                    let p = (real / targetVal) * 100;
+                    if (p > 100) p = 100; // Cap para el promedio
+                    totalPercent += p;
+                    progressDetail[key] = { target: targetVal, real, percent: Math.round(p) };
+                }
+            });
+
+            const overallPercent = targetCount > 0 ? Math.round(totalPercent / targetCount) : 0;
+
+            let status = 'en_progreso';
+            const now = new Date().getTime();
+            
+            if (overallPercent >= 100) status = 'cumplido';
+            else if (overallPercent === 0 && now > gStart) status = 'sin_avance';
+            else if (now > gEnd && overallPercent < 100) status = 'vencido';
+            else if (now > gStart + (gEnd - gStart)/2 && overallPercent < 50) status = 'atrasado';
+
+            return {
+                goalId: goal._id,
+                userId: goal.userId,
+                periodType: goal.periodType,
+                periodLabel: goal.periodLabel,
+                startDate: goal.startDate,
+                endDate: goal.endDate,
+                targets: goal.targets,
+                progress: progressDetail,
+                overallPercent,
+                status,
+                notes: goal.notes
+            };
+        }).filter(g => g !== null);
+
+        res.json(progressData);
 
     } catch (error) {
         res.status(500).json({ message: error.message });

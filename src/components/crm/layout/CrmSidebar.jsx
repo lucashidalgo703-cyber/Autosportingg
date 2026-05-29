@@ -1,7 +1,7 @@
 "use client";
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { LayoutDashboard, CarFront, Users, UserPlus, Receipt, CalendarClock, Wallet, Landmark, FileText, BarChart3, Settings, Target, Star, UserCog, ClipboardList } from 'lucide-react';
+import { LayoutDashboard, CarFront, Users, UserPlus, Receipt, CalendarClock, Wallet, Landmark, FileText, BarChart3, Settings, Target, Star, UserCog, ClipboardList, Flag } from 'lucide-react';
 import { useAuth } from '../../../context/AuthContext';
 import { hasPermission, PERMISSIONS, ROLES } from '../../../utils/adminPermissions';
 
@@ -10,6 +10,7 @@ const menuItems = [
     { name: 'Mis pendientes', path: '/admin/mis-pendientes', icon: ClipboardList },
     { name: 'Equipo', path: '/admin/equipo', icon: Users, prefetch: false },
     { name: 'Productividad', path: '/admin/productividad', icon: BarChart3, prefetch: false },
+    { name: 'Metas', path: '/admin/metas', icon: Flag, prefetch: false },
     { name: 'Stock', path: '/admin/stock', icon: CarFront },
     { name: 'Clientes', path: '/admin/clientes', icon: Users },
     { name: 'Leads', path: '/admin/leads', icon: UserPlus },
@@ -56,6 +57,9 @@ export default function CrmSidebar({ isOpen, onClose }) {
         }
         if (item.name === 'Productividad') {
             return hasPermission(user, PERMISSIONS.PRODUCTIVIDAD_READ);
+        }
+        if (item.name === 'Metas') {
+            return hasPermission(user, PERMISSIONS.METAS_READ);
         }
         return true; 
     });
