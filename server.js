@@ -17,6 +17,7 @@ import Installment from './src/models/Installment.js';
 import CrmTask from './src/models/CrmTask.js';
 import AdminUser from './src/models/AdminUser.js';
 import AuditLog from './src/models/AuditLog.js';
+import NotificationReadState from './src/models/NotificationReadState.js';
 import { logAudit } from './src/utils/auditLogger.js';
 import { CloudinaryStorage } from 'multer-storage-cloudinary';
 import jwt from 'jsonwebtoken';
@@ -3214,6 +3215,274 @@ app.patch('/api/admin/crm-tasks/:id', authenticateToken, async (req, res) => {
         res.status(400).json({ message: error.message });
     }
 });
+
+// ========================================== //
+// ============ NOTIFICACIONES ============= //
+// ========================================== //
+
+app.get('/api/admin/notifications', authenticateToken, async (req, res) => {
+    try {
+        const userRole = req.user?.role || 'solo_lectura';
+        const userId = req.user?.userId || req.user?.email || 'unknown';
+        const perms = req.user?.permissions || [];
+        
+        const isOwnerAdmin = ['owner', 'admin'].includes(userRole);
+        const isVentas = userRole === 'ventas';
+        const canReadFinance = isOwnerAdmin || perms.includes('finanzas.read');
+        const canReadInstallments = isOwnerAdmin || perms.includes('cuotas.read');
+        const canReadTasks = isOwnerAdmin || perms.includes('agenda.read') || isVentas;
+        const canReadDocs = isOwnerAdmin || perms.includes('documentacion.read') || isVentas;
+        const canReadPostventa = isOwnerAdmin || perms.includes('postventa.read') || isVentas;
+        const canReadReservations = isOwnerAdmin || perms.includes('reservas.read') || isVentas;
+        const canReadLeads = isOwnerAdmin || perms.includes('leads.read') || isVentas;
+
+        let rawNotifs = [];
+        const now = new Date();
+        const startOfToday = new Date(now.setHours(0,0,0,0));
+        const in7Days = new Date(startOfToday.getTime() + 7 * 24 * 60 * 60 * 1000);
+
+        // 1. CUOTAS
+        if (canReadInstallments) {
+            const installments = await Installment.find({ status: { $in: ['pendiente', 'parcial'] } })
+                .populate('saleId', 'clientId vehicleId')
+                .lean();
+            
+            installments.forEach(inst => {
+                if (!inst.dueDate) return;
+                const dueDate = new Date(inst.dueDate);
+                dueDate.setHours(0,0,0,0);
+                
+                if (dueDate < startOfToday) {
+                    rawNotifs.push({
+                        type: 'installment_overdue',
+                        severity: 'danger',
+                        title: 'Cuota Vencida',
+                        description: `La cuota ${inst.installmentNumber} (${inst.currency} ${inst.amount}) está vencida.`,
+                        module: 'cuotas',
+                        entityType: 'Installment',
+                        entityId: inst._id.toString(),
+                        href: '/admin/cuotas',
+                        dueDate: inst.dueDate
+                    });
+                } else if (dueDate <= in7Days) {
+                    rawNotifs.push({
+                        type: 'installment_due_soon',
+                        severity: 'warning',
+                        title: 'Cuota Próxima a Vencer',
+                        description: `La cuota ${inst.installmentNumber} vence el ${new Date(inst.dueDate).toLocaleDateString('es-AR')}.`,
+                        module: 'cuotas',
+                        entityType: 'Installment',
+                        entityId: inst._id.toString(),
+                        href: '/admin/cuotas',
+                        dueDate: inst.dueDate
+                    });
+                }
+            });
+        }
+
+        // 2. TAREAS (CrmTasks)
+        if (canReadTasks) {
+            const tasksQuery = { status: 'pendiente' };
+            // Ventas solo ve sus tareas (si aplica, pero como no guardamos owner por ahora, ve todas o las vinculadas a su modulo)
+            const tasks = await CrmTask.find(tasksQuery).lean();
+            
+            tasks.forEach(task => {
+                if (!task.dueDate) return;
+                const dueDate = new Date(task.dueDate);
+                dueDate.setHours(0,0,0,0);
+
+                if (dueDate < startOfToday) {
+                    rawNotifs.push({
+                        type: 'task_overdue',
+                        severity: 'danger',
+                        title: 'Tarea Vencida',
+                        description: task.title,
+                        module: 'agenda',
+                        entityType: 'CrmTask',
+                        entityId: task._id.toString(),
+                        href: '/admin/agenda',
+                        dueDate: task.dueDate
+                    });
+                } else if (dueDate.getTime() === startOfToday.getTime()) {
+                    rawNotifs.push({
+                        type: 'task_today',
+                        severity: 'warning',
+                        title: 'Tarea para Hoy',
+                        description: task.title,
+                        module: 'agenda',
+                        entityType: 'CrmTask',
+                        entityId: task._id.toString(),
+                        href: '/admin/agenda',
+                        dueDate: task.dueDate
+                    });
+                }
+            });
+        }
+
+        // 3. DOCUMENTACION / ENTREGAS / POSTVENTA
+        if (canReadDocs || canReadPostventa) {
+            const activeSales = await Sale.find({ status: { $in: ['confirmada', 'pendiente_entrega', 'entregada'] } }).lean();
+            
+            activeSales.forEach(sale => {
+                // Doc
+                if (canReadDocs && sale.documentationStatus !== 'completa') {
+                    rawNotifs.push({
+                        type: 'documentation_pending',
+                        severity: 'warning',
+                        title: 'Documentación Incompleta',
+                        description: `La venta ${sale._id.toString().slice(-6).toUpperCase()} tiene doc pendiente.`,
+                        module: 'documentacion',
+                        entityType: 'Sale',
+                        entityId: sale._id.toString(),
+                        href: '/admin/documentacion',
+                        dueDate: sale.createdAt
+                    });
+                }
+                // Entrega
+                if (canReadDocs && sale.deliveryStatus !== 'entregado' && sale.status !== 'borrador') {
+                    rawNotifs.push({
+                        type: 'delivery_pending',
+                        severity: 'info',
+                        title: 'Entrega Pendiente',
+                        description: `Vehículo pendiente de entrega (Venta ${sale._id.toString().slice(-6).toUpperCase()}).`,
+                        module: 'documentacion',
+                        entityType: 'Sale',
+                        entityId: sale._id.toString(),
+                        href: '/admin/documentacion',
+                        dueDate: sale.estimatedDeliveryDate || sale.createdAt
+                    });
+                }
+                // Postventa
+                if (canReadPostventa && sale.postSaleStatus === 'incidencia') {
+                    rawNotifs.push({
+                        type: 'postventa_incident',
+                        severity: 'danger',
+                        title: 'Incidencia Postventa',
+                        description: `Hay una incidencia abierta en la venta ${sale._id.toString().slice(-6).toUpperCase()}.`,
+                        module: 'postventa',
+                        entityType: 'Sale',
+                        entityId: sale._id.toString(),
+                        href: `/admin/postventa`,
+                        dueDate: sale.updatedAt
+                    });
+                }
+            });
+        }
+
+        // 4. RESERVAS
+        if (canReadReservations) {
+            const reservations = await Reservation.find({ status: 'activa' }).lean();
+            reservations.forEach(res => {
+                rawNotifs.push({
+                    type: 'reservation_pending',
+                    severity: 'info',
+                    title: 'Reserva Activa',
+                    description: `Reserva activa pendiente de conversión.`,
+                    module: 'reservas',
+                    entityType: 'Reservation',
+                    entityId: res._id.toString(),
+                    href: '/admin/reservas',
+                    dueDate: res.validUntil || res.createdAt
+                });
+            });
+        }
+
+        // 5. AUDITORÍA CRÍTICA (Solo owner/admin)
+        if (isOwnerAdmin) {
+            const criticalLogs = await AuditLog.find({
+                action: { $in: ['LOGIN_FALLIDO', 'CUOTA_ELIMINADA_DEFINITIVAMENTE', 'MOVIMIENTO_ANULADO', 'ROL_ACTUALIZADO'] },
+                createdAt: { $gte: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000) } // ultimos 3 dias
+            }).lean();
+
+            criticalLogs.forEach(log => {
+                rawNotifs.push({
+                    type: 'audit_critical',
+                    severity: 'danger',
+                    title: 'Alerta de Seguridad',
+                    description: `${log.action} por ${log.userId}`,
+                    module: 'auditoria',
+                    entityType: 'AuditLog',
+                    entityId: log._id.toString(),
+                    href: '/admin/auditoria',
+                    dueDate: log.createdAt
+                });
+            });
+        }
+
+        // Generar notificationKey para cada una
+        const notifications = rawNotifs.map(n => {
+            const keyBase = `${n.module}_${n.type}_${n.entityId}_${n.dueDate ? new Date(n.dueDate).getTime() : 'nodate'}`;
+            n.id = keyBase; // usamos la misma key como id para el map del front
+            n.createdAt = n.dueDate || new Date(); // fallback para ordenar
+            return n;
+        });
+
+        // Filtrar leídas
+        const keys = notifications.map(n => n.id);
+        const readStates = await NotificationReadState.find({ userId, notificationKey: { $in: keys } }).lean();
+        const readKeys = new Set(readStates.map(rs => rs.notificationKey));
+
+        const finalNotifs = notifications.map(n => ({
+            ...n,
+            read: readKeys.has(n.id)
+        })).sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt)).slice(0, 100);
+
+        res.json(finalNotifs);
+    } catch (error) {
+        console.error('Error fetching notifications:', error);
+        res.status(500).json({ message: error.message });
+    }
+});
+
+app.patch('/api/admin/notifications/:key/read', authenticateToken, async (req, res) => {
+    try {
+        const userId = req.user?.userId || req.user?.email || 'unknown';
+        const { key } = req.params;
+
+        await NotificationReadState.findOneAndUpdate(
+            { userId, notificationKey: key },
+            { readAt: new Date() },
+            { upsert: true }
+        );
+
+        res.json({ message: 'Marked as read' });
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+});
+
+app.patch('/api/admin/notifications/read-all', authenticateToken, async (req, res) => {
+    try {
+        const userId = req.user?.userId || req.user?.email || 'unknown';
+        const { keys } = req.body; // array de ids/keys
+
+        if (keys && Array.isArray(keys) && keys.length > 0) {
+            const operations = keys.map(key => ({
+                updateOne: {
+                    filter: { userId, notificationKey: key },
+                    update: { readAt: new Date() },
+                    upsert: true
+                }
+            }));
+            await NotificationReadState.bulkWrite(operations);
+            
+            await logAudit({
+                req,
+                action: 'NOTIFICACIONES_MARCADAS_LEIDAS',
+                module: 'sistema',
+                entityType: 'Notification',
+                entityLabel: 'Bulk',
+                description: `Se marcaron ${keys.length} notificaciones como leídas.`,
+                metadata: { count: keys.length }
+            });
+        }
+
+        res.json({ message: 'All requested marked as read' });
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+});
+
 
 
 // Global Error Handler
