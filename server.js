@@ -3556,6 +3556,48 @@ app.get('/api/admin/notifications', authenticateToken, async (req, res) => {
             });
         }
 
+        // 6. METAS (TEAM GOALS)
+        const canReadGoals = isOwnerAdmin || perms.includes('metas.read');
+        if (canReadGoals) {
+            const activeGoals = await TeamGoal.find({ active: true }).populate('userId', 'name email role active').lean();
+            if (activeGoals.length > 0) {
+                const goalsProgress = await getGoalsProgress(activeGoals);
+                goalsProgress.forEach(goal => {
+                    // Si no es admin y es una meta de otro usuario, ignorar
+                    const reqUserId = req.user?.userId || req.user?._id;
+                    if (!isOwnerAdmin && reqUserId && goal.userId?._id?.toString() !== reqUserId.toString()) return;
+
+                    const nowTime = new Date().getTime();
+                    const startT = new Date(goal.startDate).getTime();
+                    const endT = new Date(goal.endDate).getTime();
+                    const timePassedPercent = Math.min(((nowTime - startT) / (endT - startT)) * 100, 100);
+
+                    const baseNotif = {
+                        module: 'metas',
+                        entityType: 'TeamGoal',
+                        entityId: goal.goalId.toString(),
+                        href: '/admin/metas',
+                        dueDate: goal.endDate
+                    };
+
+                    if (goal.status === 'vencido') {
+                        rawNotifs.push({ ...baseNotif, type: 'goal_overdue', severity: 'danger', title: 'Meta Vencida', description: `La meta de ${goal.userId?.name} cerró sin cumplirse al 100%.` });
+                    } else if (goal.overallPercent >= 120) {
+                        rawNotifs.push({ ...baseNotif, type: 'goal_exceeded', severity: 'success', title: 'Meta Superada', description: `¡${goal.userId?.name} superó la meta (${goal.overallPercent}%)!` });
+                    } else if (goal.status === 'cumplido') {
+                        rawNotifs.push({ ...baseNotif, type: 'goal_completed', severity: 'success', title: 'Meta Cumplida', description: `¡${goal.userId?.name} alcanzó el 100% de la meta!` });
+                    } else if (goal.status === 'sin_avance' && (nowTime - startT) > 3 * 24 * 60 * 60 * 1000) {
+                        rawNotifs.push({ ...baseNotif, type: 'goal_no_progress', severity: 'warning', title: 'Meta Sin Avance', description: `La meta de ${goal.userId?.name} lleva varios días en 0%.` });
+                    } else if (goal.overallPercent < timePassedPercent - 20 && timePassedPercent > 10) {
+                        // Atrasado: va un 20% por detrás del tiempo ideal
+                        rawNotifs.push({ ...baseNotif, type: 'goal_behind', severity: 'warning', title: 'Meta Atrasada', description: `${goal.userId?.name} va por debajo del progreso esperado (${goal.overallPercent}%).` });
+                    } else if ((endT - nowTime) <= 3 * 24 * 60 * 60 * 1000 && (endT - nowTime) > 0 && goal.overallPercent < 100) {
+                        rawNotifs.push({ ...baseNotif, type: 'goal_due_soon', severity: 'warning', title: 'Meta Próxima a Vencer', description: `La meta de ${goal.userId?.name} vence en menos de 3 días y va al ${goal.overallPercent}%.` });
+                    }
+                });
+            }
+        }
+
         // Generar notificationKey para cada una
         const notifications = rawNotifs.map(n => {
             const keyBase = `${n.module}_${n.type}_${n.entityId}_${n.dueDate ? new Date(n.dueDate).getTime() : 'nodate'}`;
@@ -3984,6 +4026,109 @@ app.patch('/api/admin/team-goals/:id', authenticateToken, async (req, res) => {
     }
 });
 
+// Función helper para calcular progreso
+async function getGoalsProgress(activeGoals) {
+    if (!activeGoals || !activeGoals.length) return [];
+
+    const userIds = activeGoals.map(g => g.userId?._id || g.userId).filter(id => id);
+    
+    const users = await AdminUser.find({ _id: { $in: userIds } }).select('email name').lean();
+    const userEmails = users.map(u => u.email);
+    const userNames = users.map(u => u.name);
+    const userIdentifiers = [...userEmails, ...userNames];
+
+    const minDate = new Date(Math.min(...activeGoals.map(g => new Date(g.startDate))));
+    const maxDate = new Date(Math.max(...activeGoals.map(g => new Date(g.endDate))));
+
+    const logs = await AuditLog.find({
+        createdAt: { $gte: minDate, $lte: maxDate },
+        userId: { $in: userIdentifiers }
+    }).lean();
+
+    const tasks = await CrmTask.find({ assignedTo: { $in: userIds }, updatedAt: { $gte: minDate, $lte: maxDate } }).lean();
+    const sales = await Sale.find({ assignedTo: { $in: userIds }, updatedAt: { $gte: minDate, $lte: maxDate } }).lean();
+
+    return activeGoals.map(goal => {
+        const uIdStr = (goal.userId?._id || goal.userId).toString();
+        const userFound = users.find(u => u._id.toString() === uIdStr);
+        if (!userFound) return null;
+
+        const gStart = new Date(goal.startDate).getTime();
+        const gEnd = new Date(goal.endDate).getTime();
+
+        const uLogs = logs.filter(l => 
+            (l.userId === userFound.email || l.userId === userFound.name) && 
+            new Date(l.createdAt).getTime() >= gStart && 
+            new Date(l.createdAt).getTime() <= gEnd
+        );
+
+        const uTasks = tasks.filter(t => 
+            t.assignedTo?.toString() === uIdStr &&
+            t.status === 'completada' &&
+            new Date(t.updatedAt).getTime() >= gStart && 
+            new Date(t.updatedAt).getTime() <= gEnd
+        );
+
+        const uSales = sales.filter(s => 
+            s.assignedTo?.toString() === uIdStr &&
+            new Date(s.updatedAt).getTime() >= gStart && 
+            new Date(s.updatedAt).getTime() <= gEnd
+        );
+
+        const realValues = {
+            tasksCompleted: uTasks.length,
+            leadsWorked: uLogs.filter(l => l.module === 'leads' && ['LEAD_EDITADO', 'LEAD_ESTADO_ACTUALIZADO', 'LEAD_CREADO'].includes(l.action)).length,
+            reservationsManaged: uLogs.filter(l => l.module === 'reservas' && ['RESERVA_EDITADA', 'RESERVA_CREADA', 'RESERVA_CONVERTIDA_A_VENTA'].includes(l.action)).length,
+            salesUpdated: uLogs.filter(l => l.module === 'ventas' && ['VENTA_EDITADA', 'VENTA_ESTADO_ACTUALIZADO', 'VENTA_CREADA'].includes(l.action)).length,
+            documentationCompleted: uSales.filter(s => s.documentationStatus === 'completo').length,
+            postSalesManaged: uSales.filter(s => s.postSaleStatus === 'cerrado').length,
+            reviewsRequested: 0,
+            reviewsReceived: 0
+        };
+
+        let totalPercent = 0;
+        let targetCount = 0;
+        const progressDetail = {};
+
+        Object.entries(goal.targets || {}).forEach(([key, targetVal]) => {
+            if (targetVal > 0) {
+                targetCount++;
+                const real = realValues[key] || 0;
+                let p = (real / targetVal) * 100;
+                if (p > 100) p = 100; 
+                totalPercent += p;
+                progressDetail[key] = { target: targetVal, real, percent: Math.round(p) };
+            }
+        });
+
+        const overallPercent = targetCount > 0 ? Math.round(totalPercent / targetCount) : 0;
+        let status = 'en_progreso';
+        const now = new Date().getTime();
+        const timePassedPercent = Math.min(((now - gStart) / (gEnd - gStart)) * 100, 100);
+        
+        if (overallPercent >= 120) status = 'superado';
+        else if (overallPercent >= 100) status = 'cumplido';
+        else if (now > gEnd) status = 'vencido';
+        else if (overallPercent === 0 && (now - gStart) > 3 * 24 * 60 * 60 * 1000) status = 'sin_avance';
+        else if ((gEnd - now) <= 3 * 24 * 60 * 60 * 1000 && overallPercent < 100) status = 'proximo_vencer';
+        else if (overallPercent < timePassedPercent - 20 && timePassedPercent > 10) status = 'atrasado';
+
+        return {
+            goalId: goal._id,
+            userId: goal.userId, // populate preserve
+            periodType: goal.periodType,
+            periodLabel: goal.periodLabel,
+            startDate: goal.startDate,
+            endDate: goal.endDate,
+            targets: goal.targets,
+            progress: progressDetail,
+            overallPercent,
+            status,
+            notes: goal.notes
+        };
+    }).filter(g => g !== null);
+}
+
 app.get('/api/admin/team-goals/progress', authenticateToken, async (req, res) => {
     try {
         const userRole = req.user?.role || 'solo_lectura';
@@ -4000,108 +4145,7 @@ app.get('/api/admin/team-goals/progress', authenticateToken, async (req, res) =>
             return res.json([]);
         }
 
-        // Para calcular progreso, primero agrupamos todos los usuarios y fechas extremas
-        const userIds = activeGoals.map(g => g.userId?._id).filter(id => id);
-        
-        // Obtener correos para AuditLog
-        const users = await AdminUser.find({ _id: { $in: userIds } }).select('email name').lean();
-        const userEmails = users.map(u => u.email);
-        const userNames = users.map(u => u.name);
-        const userIdentifiers = [...userEmails, ...userNames];
-
-        const minDate = new Date(Math.min(...activeGoals.map(g => new Date(g.startDate))));
-        const maxDate = new Date(Math.max(...activeGoals.map(g => new Date(g.endDate))));
-
-        // Cargar todo lo necesario en rango
-        const logs = await AuditLog.find({
-            createdAt: { $gte: minDate, $lte: maxDate },
-            userId: { $in: userIdentifiers }
-        }).lean();
-
-        const tasks = await CrmTask.find({ assignedTo: { $in: userIds }, updatedAt: { $gte: minDate, $lte: maxDate } }).lean();
-        const sales = await Sale.find({ assignedTo: { $in: userIds }, updatedAt: { $gte: minDate, $lte: maxDate } }).lean();
-
-        const progressData = activeGoals.map(goal => {
-            if (!goal.userId) return null;
-
-            const uEmail = users.find(u => u._id.toString() === goal.userId._id.toString())?.email;
-            const uName = users.find(u => u._id.toString() === goal.userId._id.toString())?.name;
-
-            const gStart = new Date(goal.startDate).getTime();
-            const gEnd = new Date(goal.endDate).getTime();
-
-            // Filtrar data por usuario y por fecha de la meta específica
-            const uLogs = logs.filter(l => 
-                (l.userId === uEmail || l.userId === uName) && 
-                new Date(l.createdAt).getTime() >= gStart && 
-                new Date(l.createdAt).getTime() <= gEnd
-            );
-
-            const uTasks = tasks.filter(t => 
-                t.assignedTo?.toString() === goal.userId._id.toString() &&
-                t.status === 'completada' &&
-                new Date(t.updatedAt).getTime() >= gStart && 
-                new Date(t.updatedAt).getTime() <= gEnd
-            );
-
-            const uSales = sales.filter(s => 
-                s.assignedTo?.toString() === goal.userId._id.toString() &&
-                new Date(s.updatedAt).getTime() >= gStart && 
-                new Date(s.updatedAt).getTime() <= gEnd
-            );
-
-            const realValues = {
-                tasksCompleted: uTasks.length,
-                leadsWorked: uLogs.filter(l => l.module === 'leads' && ['LEAD_EDITADO', 'LEAD_ESTADO_ACTUALIZADO', 'LEAD_CREADO'].includes(l.action)).length,
-                reservationsManaged: uLogs.filter(l => l.module === 'reservas' && ['RESERVA_EDITADA', 'RESERVA_CREADA', 'RESERVA_CONVERTIDA_A_VENTA'].includes(l.action)).length,
-                salesUpdated: uLogs.filter(l => l.module === 'ventas' && ['VENTA_EDITADA', 'VENTA_ESTADO_ACTUALIZADO', 'VENTA_CREADA'].includes(l.action)).length,
-                documentationCompleted: uSales.filter(s => s.documentationStatus === 'completo').length,
-                postSalesManaged: uSales.filter(s => s.postSaleStatus === 'cerrado').length,
-                reviewsRequested: 0, // Reservado para fase futura
-                reviewsReceived: 0   // Reservado para fase futura
-            };
-
-            let totalPercent = 0;
-            let targetCount = 0;
-
-            const progressDetail = {};
-
-            Object.entries(goal.targets).forEach(([key, targetVal]) => {
-                if (targetVal > 0) {
-                    targetCount++;
-                    const real = realValues[key] || 0;
-                    let p = (real / targetVal) * 100;
-                    if (p > 100) p = 100; // Cap para el promedio
-                    totalPercent += p;
-                    progressDetail[key] = { target: targetVal, real, percent: Math.round(p) };
-                }
-            });
-
-            const overallPercent = targetCount > 0 ? Math.round(totalPercent / targetCount) : 0;
-
-            let status = 'en_progreso';
-            const now = new Date().getTime();
-            
-            if (overallPercent >= 100) status = 'cumplido';
-            else if (overallPercent === 0 && now > gStart) status = 'sin_avance';
-            else if (now > gEnd && overallPercent < 100) status = 'vencido';
-            else if (now > gStart + (gEnd - gStart)/2 && overallPercent < 50) status = 'atrasado';
-
-            return {
-                goalId: goal._id,
-                userId: goal.userId,
-                periodType: goal.periodType,
-                periodLabel: goal.periodLabel,
-                startDate: goal.startDate,
-                endDate: goal.endDate,
-                targets: goal.targets,
-                progress: progressDetail,
-                overallPercent,
-                status,
-                notes: goal.notes
-            };
-        }).filter(g => g !== null);
-
+        const progressData = await getGoalsProgress(activeGoals);
         res.json(progressData);
 
     } catch (error) {

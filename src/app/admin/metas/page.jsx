@@ -167,8 +167,10 @@ export default function GoalsDashboardPage() {
                                                     </div>
                                                 </td>
                                                 <td className="p-4">
-                                                    <span className={`text-xs px-2 py-1 rounded font-bold uppercase ${
+                                                    <span className={`text-xs px-2 py-1 rounded font-bold uppercase whitespace-nowrap ${
+                                                        goal.status === 'superado' ? 'bg-green-600/30 text-green-300' :
                                                         goal.status === 'cumplido' ? 'bg-green-500/20 text-green-400' :
+                                                        goal.status === 'proximo_vencer' ? 'bg-orange-500/20 text-orange-400' :
                                                         goal.status === 'atrasado' ? 'bg-yellow-500/20 text-yellow-500' :
                                                         goal.status === 'vencido' ? 'bg-red-500/20 text-red-400' :
                                                         goal.status === 'sin_avance' ? 'bg-gray-500/20 text-gray-400' :
