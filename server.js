@@ -127,19 +127,48 @@ app.post('/api/login', async (req, res) => {
 
         // 2. Fallback to Legacy Master Password if no DB match or no email provided
         if (password === ADMIN_PASSWORD) {
-            // Emite token con rol owner como fallback de seguridad (acceso total)
-            const token = jwt.sign({ role: 'owner', username: 'Master Admin' }, JWT_SECRET, { expiresIn: '24h' });
+            
+            // Buscar un AdminUser owner o master para poder firmar con un ObjectId válido
+            let masterUser = await AdminUser.findOne({ email: 'master@autosporting.local' });
+            if (!masterUser) {
+                masterUser = await AdminUser.findOne({ role: 'owner', active: true });
+            }
+            if (!masterUser) {
+                // Crear un dummy owner si la BBDD está vacía
+                masterUser = new AdminUser({
+                    name: 'Master Admin',
+                    email: 'master@autosporting.local',
+                    role: 'owner',
+                    active: true,
+                    passwordHash: 'legacy_master_auth_no_hash' 
+                });
+                await masterUser.save();
+            }
+
+            // Emite token con rol owner y su ObjectId real
+            const token = jwt.sign(
+                { 
+                    userId: masterUser._id, 
+                    email: masterUser.email, 
+                    username: masterUser.name, 
+                    role: masterUser.role,
+                    permissions: masterUser.permissions || []
+                }, 
+                JWT_SECRET, 
+                { expiresIn: '24h' }
+            );
             
             await logAudit({
                 req,
                 action: 'LOGIN_EXITOSO',
                 module: 'usuarios',
                 entityType: 'User',
-                entityLabel: 'Master Admin',
-                description: `Login exitoso por fallback legacy.`
+                entityId: masterUser._id,
+                entityLabel: masterUser.name,
+                description: `Login exitoso por fallback legacy Master Password.`
             });
 
-            return res.json({ token, role: 'owner', name: 'Master Admin' });
+            return res.json({ token, role: masterUser.role, name: masterUser.name });
         }
 
         await logAudit({
@@ -4035,37 +4064,48 @@ app.post('/api/admin/communication-logs', authenticateToken, async (req, res) =>
         const perms = req.user?.permissions || [];
         const userId = req.user?.id || req.user?.userId;
 
+        if (!userId || !mongoose.Types.ObjectId.isValid(userId)) {
+            return res.status(401).json({ message: 'Usuario autenticado no válido. Se requiere un usuario registrado con ID válido.' });
+        }
+
         const canWrite = ['owner', 'admin'].includes(userRole) || perms.includes('communicationLogs.write') || perms.includes('ventas.write');
         if (!canWrite) return res.status(403).json({ message: 'Sin permisos para crear comunicaciones.' });
 
+        const cleanObjectId = (val) => (val && val.trim() !== '') ? val : null;
+        
+        const payload = req.body;
+        delete payload.createdBy; // No aceptar desde el front
+
+        let finalAssignedTo = cleanObjectId(payload.assignedTo) || userId;
+
         const newLog = new CommunicationLog({
-            ...req.body,
-            createdBy: userId
+            ...payload,
+            createdBy: userId,
+            assignedTo: finalAssignedTo
         });
 
-        if (req.body.shouldCreateTask && req.body.nextActionDate) {
-            const taskAssignedTo = req.body.assignedTo || userId;
+        if (payload.shouldCreateTask && payload.nextActionDate) {
             const newTask = new CrmTask({
-                title: `Seguimiento: ${req.body.title}`,
-                description: req.body.notes ? req.body.notes.substring(0, 500) : 'Generado desde historial de comunicación.',
-                dueDate: req.body.nextActionDate,
-                assignedTo: taskAssignedTo,
-                createdBy: userId,
-                priority: req.body.isImportant ? 'alta' : 'media',
-                relatedLeadId: req.body.leadId,
-                relatedClientId: req.body.clientId,
-                relatedSaleId: req.body.saleId,
-                source: 'manual', // Usar manual por ahora para no romper enum de CrmTask
-                sourceId: newLog._id
+                title: `Seguimiento: ${payload.title}`,
+                description: payload.notes ? payload.notes.substring(0, 500) : 'Generado desde historial de comunicación.',
+                dueDate: payload.nextActionDate,
+                assignedTo: finalAssignedTo,
+                user: req.user?.email || req.user?.username || 'CRM_V2',
+                priority: payload.isImportant ? 'alta' : 'media',
+                leadId: cleanObjectId(payload.leadId),
+                clientId: cleanObjectId(payload.clientId),
+                saleId: cleanObjectId(payload.saleId),
+                vehicleId: cleanObjectId(payload.vehicleId),
+                source: 'manual'
             });
             await newTask.save();
             newLog.relatedTaskId = newTask._id;
             
-            await logAudit('TAREA_CREADA', req.user?.email || req.user?.name, 'agenda', newTask._id, `Tarea de seguimiento creada desde comunicación: ${newTask.title}`);
+            await logAudit('TAREA_CREADA', req.user?.email || req.user?.name, 'agenda', newTask._id, `Tarea de seguimiento creada. Resumen: ${newTask.title}`);
         }
 
         await newLog.save();
-        await logAudit('COMUNICACION_CREADA', req.user?.email || req.user?.name, req.body.entityType, newLog._id, `Canal: ${newLog.channel}, Resultado: ${newLog.outcome}`);
+        await logAudit('COMUNICACION_CREADA', req.user?.email || req.user?.name, payload.entityType, newLog._id, `Canal: ${newLog.channel}, Resultado: ${newLog.outcome}`);
 
         res.status(201).json(newLog);
 
@@ -4096,7 +4136,7 @@ app.patch('/api/admin/communication-logs/:id', authenticateToken, async (req, re
 
         if (!updatedLog) return res.status(404).json({ message: 'Log no encontrado o eliminado.' });
 
-        await logAudit('COMUNICACION_EDITADA', req.user?.email || req.user?.name, updatedLog.entityType, updatedLog._id, `Log modificado. Resultado actual: ${updatedLog.outcome}`);
+        await logAudit('COMUNICACION_EDITADA', req.user?.email || req.user?.name, updatedLog.entityType, updatedLog._id, `Resultado: ${updatedLog.outcome}`);
 
         res.json(updatedLog);
     } catch (error) {
