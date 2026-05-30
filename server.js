@@ -60,6 +60,8 @@ const authenticateToken = (req, res, next) => {
     jwt.verify(token, JWT_SECRET, (err, user) => {
         if (err) return res.sendStatus(403);
         req.user = user;
+        req.user.id = user.id || user.userId;
+        req.user.userId = user.userId || user.id;
         next();
     });
 };
@@ -73,15 +75,44 @@ const hashPassword = (password) => {
     return `${salt}:${hash}`;
 };
 
-const verifyPassword = (password, storedHash) => {
-    if (!storedHash || !storedHash.includes(':')) return false;
-    const [salt, key] = storedHash.split(':');
-    const hashBuffer = crypto.scryptSync(password, salt, 64);
-    const keyBuffer = Buffer.from(key, 'hex');
-    // Prevent timing attacks
-    if (hashBuffer.length !== keyBuffer.length) return false;
-    return crypto.timingSafeEqual(hashBuffer, keyBuffer);
+const verifyPassword = (password, hash) => {
+    try {
+        if (!hash || !hash.includes(':')) return false;
+        const [salt, key] = hash.split(':');
+        if (!salt || !key) return false;
+        
+        const hashBuffer = crypto.scryptSync(password, salt, 64);
+        const keyBuffer = Buffer.from(key, 'hex');
+        
+        // Prevent timing attacks
+        if (hashBuffer.length !== keyBuffer.length) return false;
+        return crypto.timingSafeEqual(hashBuffer, keyBuffer);
+    } catch (e) {
+        console.error('Error verifying password:', e);
+        return false;
+    }
 };
+
+async function getOrCreateMasterAdminUser() {
+    let masterUser = await AdminUser.findOne({ email: 'master@autosporting.local' });
+    if (!masterUser) {
+        masterUser = await AdminUser.findOne({ role: 'owner', active: true });
+    }
+    if (!masterUser) {
+        const { PERMISSIONS } = await import('./src/utils/adminPermissions.js');
+        const randomPass = crypto.randomBytes(32).toString('hex');
+        masterUser = new AdminUser({
+            name: 'Master Admin',
+            email: 'master@autosporting.local',
+            role: 'owner',
+            active: true,
+            permissions: Object.values(PERMISSIONS),
+            passwordHash: hashPassword(randomPass)
+        });
+        await masterUser.save();
+    }
+    return masterUser;
+}
 
 // Login Endpoint (Mixed fallback)
 app.post('/api/login', async (req, res) => {
@@ -100,6 +131,7 @@ app.post('/api/login', async (req, res) => {
                     
                     const token = jwt.sign(
                         { 
+                            id: user._id,
                             userId: user._id, 
                             email: user.email, 
                             username: user.name, 
@@ -128,30 +160,16 @@ app.post('/api/login', async (req, res) => {
         // 2. Fallback to Legacy Master Password if no DB match or no email provided
         if (password === ADMIN_PASSWORD) {
             
-            // Buscar un AdminUser owner o master para poder firmar con un ObjectId válido
-            let masterUser = await AdminUser.findOne({ email: 'master@autosporting.local' });
-            if (!masterUser) {
-                masterUser = await AdminUser.findOne({ role: 'owner', active: true });
-            }
-            if (!masterUser) {
-                // Crear un dummy owner si la BBDD está vacía
-                masterUser = new AdminUser({
-                    name: 'Master Admin',
-                    email: 'master@autosporting.local',
-                    role: 'owner',
-                    active: true,
-                    passwordHash: 'legacy_master_auth_no_hash' 
-                });
-                await masterUser.save();
-            }
+            const masterUser = await getOrCreateMasterAdminUser();
 
             // Emite token con rol owner y su ObjectId real
             const token = jwt.sign(
                 { 
-                    userId: masterUser._id, 
+                    id: masterUser._id.toString(),
+                    userId: masterUser._id.toString(), 
                     email: masterUser.email, 
                     username: masterUser.name, 
-                    role: masterUser.role,
+                    role: 'owner',
                     permissions: masterUser.permissions || []
                 }, 
                 JWT_SECRET, 
@@ -168,20 +186,45 @@ app.post('/api/login', async (req, res) => {
                 description: `Login exitoso por fallback legacy Master Password.`
             });
 
-            return res.json({ token, role: masterUser.role, name: masterUser.name });
+            return res.json({ token, role: 'owner', name: masterUser.name });
         }
 
         await logAudit({
             req,
             action: 'LOGIN_FALLIDO',
             module: 'usuarios',
-            description: `Intento de login fallido para ${email || 'usuario desconocido'}`
+            entityType: 'User',
+            entityLabel: email || 'Desconocido',
+            description: `Intento de login fallido para ${email || 'Desconocido'}`
         });
 
-        return res.status(401).json({ message: 'Credenciales incorrectas o usuario inactivo' });
+        res.status(401).json({ message: 'Credenciales inválidas' });
+
+    } catch (error) {
+        console.error("Login Error: ", error);
+        res.status(500).json({ message: 'Error interno de autenticación' });
+    }
+});
+
+// GET Current Auth User (Diagnostic)
+app.get('/api/admin/auth/me', authenticateToken, async (req, res) => {
+    try {
+        const id = req.user?.id || req.user?.userId;
+        const isValid = mongoose.Types.ObjectId.isValid(id);
+        res.json({
+            ok: true,
+            user: {
+                id,
+                userId: id,
+                email: req.user?.email,
+                username: req.user?.username,
+                role: req.user?.role,
+                permissions: req.user?.permissions
+            },
+            hasValidObjectId: isValid
+        });
     } catch (err) {
-        console.error("Login error:", err);
-        return res.status(500).json({ message: 'Error interno de autenticación' });
+        res.status(500).json({ message: 'Error interno de autenticación me' });
     }
 });
 
@@ -4062,9 +4105,9 @@ app.post('/api/admin/communication-logs', authenticateToken, async (req, res) =>
     try {
         const userRole = req.user?.role || 'solo_lectura';
         const perms = req.user?.permissions || [];
-        const userId = req.user?.id || req.user?.userId;
+        const authUserId = req.user?.id || req.user?.userId;
 
-        if (!userId || !mongoose.Types.ObjectId.isValid(userId)) {
+        if (!authUserId || !mongoose.Types.ObjectId.isValid(authUserId)) {
             return res.status(401).json({ message: 'Usuario autenticado no válido. Se requiere un usuario registrado con ID válido.' });
         }
 
@@ -4076,11 +4119,11 @@ app.post('/api/admin/communication-logs', authenticateToken, async (req, res) =>
         const payload = req.body;
         delete payload.createdBy; // No aceptar desde el front
 
-        let finalAssignedTo = cleanObjectId(payload.assignedTo) || userId;
+        let finalAssignedTo = cleanObjectId(payload.assignedTo) || authUserId;
 
         const newLog = new CommunicationLog({
             ...payload,
-            createdBy: userId,
+            createdBy: authUserId,
             assignedTo: finalAssignedTo
         });
 
@@ -4090,7 +4133,7 @@ app.post('/api/admin/communication-logs', authenticateToken, async (req, res) =>
                 description: payload.notes ? payload.notes.substring(0, 500) : 'Generado desde historial de comunicación.',
                 dueDate: payload.nextActionDate,
                 assignedTo: finalAssignedTo,
-                user: req.user?.email || req.user?.username || 'CRM_V2',
+                user: req.user?.username || req.user?.email || 'CRM_V2',
                 priority: payload.isImportant ? 'alta' : 'media',
                 leadId: cleanObjectId(payload.leadId),
                 clientId: cleanObjectId(payload.clientId),
@@ -4101,11 +4144,27 @@ app.post('/api/admin/communication-logs', authenticateToken, async (req, res) =>
             await newTask.save();
             newLog.relatedTaskId = newTask._id;
             
-            await logAudit('TAREA_CREADA', req.user?.email || req.user?.name, 'agenda', newTask._id, `Tarea de seguimiento creada. Resumen: ${newTask.title}`);
+            await logAudit({
+                req,
+                action: 'TAREA_CREADA',
+                module: 'agenda',
+                entityType: 'Task',
+                entityId: newTask._id,
+                entityLabel: newTask.title,
+                description: `Tarea de seguimiento creada. Resumen: ${newTask.title}`
+            });
         }
 
         await newLog.save();
-        await logAudit('COMUNICACION_CREADA', req.user?.email || req.user?.name, payload.entityType, newLog._id, `Canal: ${newLog.channel}, Resultado: ${newLog.outcome}`);
+        await logAudit({
+            req,
+            action: 'COMUNICACION_CREADA',
+            module: 'communications',
+            entityType: payload.entityType,
+            entityId: newLog._id,
+            entityLabel: newLog.title,
+            description: `Canal: ${newLog.channel}, Resultado: ${newLog.outcome}`
+        });
 
         res.status(201).json(newLog);
 
@@ -4136,7 +4195,15 @@ app.patch('/api/admin/communication-logs/:id', authenticateToken, async (req, re
 
         if (!updatedLog) return res.status(404).json({ message: 'Log no encontrado o eliminado.' });
 
-        await logAudit('COMUNICACION_EDITADA', req.user?.email || req.user?.name, updatedLog.entityType, updatedLog._id, `Resultado: ${updatedLog.outcome}`);
+        await logAudit({
+            req,
+            action: 'COMUNICACION_EDITADA',
+            module: 'communications',
+            entityType: updatedLog.entityType,
+            entityId: updatedLog._id,
+            entityLabel: updatedLog.title,
+            description: `Resultado modificado a: ${updatedLog.outcome}`
+        });
 
         res.json(updatedLog);
     } catch (error) {
@@ -4159,7 +4226,15 @@ app.delete('/api/admin/communication-logs/:id', authenticateToken, async (req, r
 
         if (!log) return res.status(404).json({ message: 'Log no encontrado.' });
 
-        await logAudit('COMUNICACION_ARCHIVADA', req.user?.email || req.user?.name, log.entityType, log._id, `Log archivado.`);
+        await logAudit({
+            req,
+            action: 'COMUNICACION_ARCHIVADA',
+            module: 'communications',
+            entityType: log.entityType,
+            entityId: log._id,
+            entityLabel: log.title,
+            description: `Log archivado/eliminado.`
+        });
 
         res.json({ message: 'Log eliminado exitosamente.' });
     } catch (error) {
