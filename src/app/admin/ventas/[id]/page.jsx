@@ -13,6 +13,7 @@ import SaleFinancePanel from '../../../../components/crm/sales/detail/SaleFinanc
 import SaleInstallmentsPanel from '../../../../components/crm/sales/detail/SaleInstallmentsPanel';
 import SalePostventaPanel from '../../../../components/crm/sales/detail/SalePostventaPanel';
 import CommunicationLogPanel from '../../../../components/crm/communications/CommunicationLogPanel';
+import MessageTemplatePicker from '../../../../components/crm/templates/MessageTemplatePicker';
 import CrmTaskModal from '../../../../components/crm/agenda/CrmTaskModal';
 import { useAdminCrmTasks } from '../../../../hooks/useAdminCrmTasks';
 import { ShieldAlert, Target } from 'lucide-react';
@@ -24,7 +25,7 @@ export default function SaleDetailPage() {
     const router = useRouter();
     const { fetchSaleById, updateSale, loading, error } = useAdminSales();
     const { createTask } = useAdminCrmTasks();
-    const { user } = useAuth();
+    const { user, token } = useAuth();
     const [sale, setSale] = useState(null);
     const [isTaskModalOpen, setIsTaskModalOpen] = useState(false);
 
@@ -56,6 +57,35 @@ export default function SaleDetailPage() {
             setIsTaskModalOpen(false);
         } catch (err) {
             alert('Error al crear la tarea: ' + err.message);
+        }
+    };
+
+    const handleLogTemplateAction = async (template, copiedText) => {
+        try {
+            await fetch('/api/admin/communication-logs', {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    entityType: 'sale',
+                    entityId: id,
+                    saleId: id,
+                    clientId: sale?.clientId?._id || sale?.clientId || null,
+                    vehicleId: sale?.vehicleId?._id || sale?.vehicleId || null,
+                    assignedTo: sale?.assignedTo?._id || sale?.assignedTo || null,
+                    channel: template.channel || 'whatsapp',
+                    direction: 'outbound',
+                    outcome: 'contacted',
+                    title: `Plantilla usada: ${template.name}`,
+                    notes: copiedText.length > 500 ? copiedText.substring(0, 500) + '...' : copiedText,
+                    contactDate: new Date().toISOString()
+                })
+            });
+            window.dispatchEvent(new CustomEvent('refresh-communications'));
+        } catch (error) {
+            console.error('Error logging template action:', error);
         }
     };
 
@@ -93,13 +123,26 @@ export default function SaleDetailPage() {
             <SaleDetailHeader 
                 sale={sale} 
                 actions={
-                    <button
-                        onClick={() => setIsTaskModalOpen(true)}
-                        className="flex items-center gap-2 px-3 py-1.5 bg-blue-500/10 hover:bg-blue-500/20 text-blue-400 border border-blue-500/20 rounded-lg text-xs font-bold transition-colors"
-                    >
-                        <Target size={14} />
-                        Crear Tarea
-                    </button>
+                    <div className="flex gap-2">
+                        <MessageTemplatePicker 
+                            category="sale"
+                            entityData={{
+                                clientName: sale.clientId?.fullName,
+                                clientPhone: sale.clientId?.phone,
+                                clientEmail: sale.clientId?.email,
+                                vehicleName: sale.vehicleId?.model ? `${sale.vehicleId.make} ${sale.vehicleId.model}` : '',
+                                assignedToName: sale.assignedTo?.name || ''
+                            }}
+                            onLogAction={handleLogTemplateAction}
+                        />
+                        <button
+                            onClick={() => setIsTaskModalOpen(true)}
+                            className="flex items-center gap-2 px-3 py-1.5 bg-blue-500/10 hover:bg-blue-500/20 text-blue-400 border border-blue-500/20 rounded-lg text-xs font-bold transition-colors"
+                        >
+                            <Target size={14} />
+                            Crear Tarea
+                        </button>
+                    </div>
                 }
             />
 

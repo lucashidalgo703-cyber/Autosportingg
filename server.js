@@ -20,6 +20,7 @@ import AuditLog from './src/models/AuditLog.js';
 import NotificationReadState from './src/models/NotificationReadState.js';
 import TeamGoal from './src/models/TeamGoal.js';
 import CommunicationLog from './src/models/CommunicationLog.js';
+import MessageTemplate from './src/models/MessageTemplate.js';
 import { logAudit } from './src/utils/auditLogger.js';
 import { CloudinaryStorage } from 'multer-storage-cloudinary';
 import jwt from 'jsonwebtoken';
@@ -4237,6 +4238,238 @@ app.delete('/api/admin/communication-logs/:id', authenticateToken, async (req, r
         });
 
         res.json({ message: 'Log eliminado exitosamente.' });
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+});
+
+// ========================================== //
+// ======== PLANTILLAS DE MENSAJES ========== //
+// ========================================== //
+
+app.get('/api/admin/message-templates', authenticateToken, async (req, res) => {
+    try {
+        const userRole = req.user?.role || 'solo_lectura';
+        const perms = req.user?.permissions || [];
+        const canRead = ['owner', 'admin', 'ventas', 'administrativo'].includes(userRole) || perms.includes('messageTemplates.read');
+        
+        if (!canRead) return res.status(403).json({ message: 'Sin permisos para ver plantillas.' });
+
+        const { category, channel, activeOnly, search } = req.query;
+        let query = {};
+
+        if (category) query.category = category;
+        if (channel) query.channel = channel;
+        if (activeOnly === 'true') query.isActive = true;
+        if (search) {
+            query.$or = [
+                { name: { $regex: search, $options: 'i' } },
+                { body: { $regex: search, $options: 'i' } }
+            ];
+        }
+
+        const templates = await MessageTemplate.find(query).sort({ category: 1, name: 1 }).lean();
+        res.json(templates);
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+});
+
+app.post('/api/admin/message-templates', authenticateToken, async (req, res) => {
+    try {
+        const userRole = req.user?.role || 'solo_lectura';
+        const perms = req.user?.permissions || [];
+        const userId = req.user?.id || req.user?.userId;
+
+        const canWrite = ['owner', 'admin'].includes(userRole) || perms.includes('messageTemplates.write');
+        if (!canWrite) return res.status(403).json({ message: 'Sin permisos para crear plantillas.' });
+
+        const newTemplate = new MessageTemplate({
+            ...req.body,
+            createdBy: userId
+        });
+
+        await newTemplate.save();
+        
+        await logAudit({
+            req,
+            action: 'PLANTILLA_CREADA',
+            module: 'configuracion',
+            entityType: 'MessageTemplate',
+            entityId: newTemplate._id,
+            entityLabel: newTemplate.name,
+            description: `Categoría: ${newTemplate.category}`
+        });
+
+        res.status(201).json(newTemplate);
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+});
+
+app.patch('/api/admin/message-templates/:id', authenticateToken, async (req, res) => {
+    try {
+        const userRole = req.user?.role || 'solo_lectura';
+        const perms = req.user?.permissions || [];
+        const userId = req.user?.id || req.user?.userId;
+
+        const canWrite = ['owner', 'admin'].includes(userRole) || perms.includes('messageTemplates.write');
+        if (!canWrite) return res.status(403).json({ message: 'Sin permisos para editar plantillas.' });
+
+        const updatedTemplate = await MessageTemplate.findByIdAndUpdate(
+            req.params.id,
+            { ...req.body, updatedBy: userId },
+            { new: true }
+        );
+
+        if (!updatedTemplate) return res.status(404).json({ message: 'Plantilla no encontrada' });
+
+        await logAudit({
+            req,
+            action: 'PLANTILLA_EDITADA',
+            module: 'configuracion',
+            entityType: 'MessageTemplate',
+            entityId: updatedTemplate._id,
+            entityLabel: updatedTemplate.name,
+            description: `Plantilla editada. Activa: ${updatedTemplate.isActive}`
+        });
+
+        res.json(updatedTemplate);
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+});
+
+app.delete('/api/admin/message-templates/:id', authenticateToken, async (req, res) => {
+    try {
+        const userRole = req.user?.role || 'solo_lectura';
+        const perms = req.user?.permissions || [];
+        const userId = req.user?.id || req.user?.userId;
+
+        const canDelete = ['owner', 'admin'].includes(userRole) || perms.includes('messageTemplates.delete');
+        if (!canDelete) return res.status(403).json({ message: 'Sin permisos para desactivar plantillas.' });
+
+        const template = await MessageTemplate.findByIdAndUpdate(
+            req.params.id,
+            { isActive: false, updatedBy: userId },
+            { new: true }
+        );
+
+        if (!template) return res.status(404).json({ message: 'Plantilla no encontrada' });
+
+        await logAudit({
+            req,
+            action: 'PLANTILLA_DESACTIVADA',
+            module: 'configuracion',
+            entityType: 'MessageTemplate',
+            entityId: template._id,
+            entityLabel: template.name,
+            description: `Plantilla desactivada.`
+        });
+
+        res.json({ message: 'Plantilla desactivada', template });
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+});
+
+// Endpoint semilla interna para inicializar plantillas base
+app.post('/api/admin/message-templates/init', authenticateToken, async (req, res) => {
+    try {
+        const userRole = req.user?.role || 'solo_lectura';
+        if (!['owner', 'admin'].includes(userRole)) return res.status(403).json({ message: 'Sin permisos.' });
+
+        const count = await MessageTemplate.countDocuments();
+        if (count > 0) return res.json({ message: 'Las plantillas ya fueron inicializadas.' });
+
+        const baseTemplates = [
+            {
+                name: 'Primer contacto lead',
+                category: 'lead',
+                channel: 'whatsapp',
+                body: 'Hola {{nombre_cliente}}, ¿cómo estás? Te habla {{vendedor}} de AutoSporting. Recibimos tu consulta por {{vehiculo}}. ¿Querés que te pase más información y coordinamos para verlo?',
+                variables: ['nombre_cliente', 'vendedor', 'vehiculo'],
+                isSystem: true
+            },
+            {
+                name: 'Seguimiento lead sin respuesta',
+                category: 'lead',
+                channel: 'whatsapp',
+                body: 'Hola {{nombre_cliente}}, ¿cómo estás? Te escribo nuevamente por la consulta del {{vehiculo}}. Si seguís interesado, puedo pasarte detalles, opciones de financiación o coordinar una visita.',
+                variables: ['nombre_cliente', 'vehiculo'],
+                isSystem: true
+            },
+            {
+                name: 'Pedido de documentación',
+                category: 'documentation',
+                channel: 'whatsapp',
+                body: 'Hola {{nombre_cliente}}, para avanzar con la operación necesitamos que nos envíes la documentación correspondiente. Apenas la recibamos, seguimos con el proceso.',
+                variables: ['nombre_cliente'],
+                isSystem: true
+            },
+            {
+                name: 'Confirmación de reserva',
+                category: 'reservation',
+                channel: 'whatsapp',
+                body: 'Hola {{nombre_cliente}}, te confirmamos que la reserva del {{vehiculo}} quedó registrada. Cualquier novedad te vamos avisando por este medio.',
+                variables: ['nombre_cliente', 'vehiculo'],
+                isSystem: true
+            },
+            {
+                name: 'Aviso de cuota próxima',
+                category: 'installment',
+                channel: 'whatsapp',
+                body: 'Hola {{nombre_cliente}}, te recordamos que el próximo vencimiento de tu cuota es el día {{fecha_vencimiento}} por {{monto_cuota}}. Cualquier consulta estamos a disposición.',
+                variables: ['nombre_cliente', 'fecha_vencimiento', 'monto_cuota'],
+                isSystem: true
+            },
+            {
+                name: 'Aviso de cuota vencida',
+                category: 'installment',
+                channel: 'whatsapp',
+                body: 'Hola {{nombre_cliente}}, te contactamos porque figura pendiente el pago de la cuota con vencimiento {{fecha_vencimiento}}. Avisanos por favor cuándo podrías regularizarlo.',
+                variables: ['nombre_cliente', 'fecha_vencimiento'],
+                isSystem: true
+            },
+            {
+                name: 'Postventa 24 hs',
+                category: 'post_sale',
+                channel: 'whatsapp',
+                body: 'Hola {{nombre_cliente}}, ¿cómo estás? Te escribimos desde AutoSporting para saber cómo fue todo con tu vehículo y si necesitás algo después de la entrega.',
+                variables: ['nombre_cliente'],
+                isSystem: true
+            },
+            {
+                name: 'Pedido de reseña Google',
+                category: 'review',
+                channel: 'whatsapp',
+                body: 'Hola {{nombre_cliente}}, nos alegra que hayas confiado en AutoSporting. Si tu experiencia fue buena, nos ayudaría mucho que nos dejes una reseña en Google: {{link_google_reviews}}',
+                variables: ['nombre_cliente', 'link_google_reviews'],
+                isSystem: true
+            },
+            {
+                name: 'Invitación a visitar agencia',
+                category: 'lead',
+                channel: 'whatsapp',
+                body: 'Hola {{nombre_cliente}}, si querés podés acercarte a la agencia para ver la unidad personalmente y resolver cualquier duda. Coordinamos el horario que te quede cómodo.',
+                variables: ['nombre_cliente'],
+                isSystem: true
+            },
+            {
+                name: 'Reclamo postventa recibido',
+                category: 'post_sale',
+                channel: 'whatsapp',
+                body: 'Hola {{nombre_cliente}}, recibimos tu consulta/reclamo y vamos a revisarlo internamente para darte una respuesta lo antes posible.',
+                variables: ['nombre_cliente'],
+                isSystem: true
+            }
+        ];
+
+        const userId = req.user?.id || req.user?.userId;
+        const templatesToSave = baseTemplates.map(t => ({ ...t, createdBy: userId }));
+        
+        await MessageTemplate.insertMany(templatesToSave);
+        res.json({ message: 'Plantillas base creadas exitosamente.' });
     } catch (error) {
         res.status(500).json({ message: error.message });
     }

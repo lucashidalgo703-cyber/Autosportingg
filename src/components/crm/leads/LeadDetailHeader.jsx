@@ -4,7 +4,7 @@ import Link from 'next/link';
 import LeadStatusBadge from './LeadStatusBadge';
 import LeadPriorityBadge from './LeadPriorityBadge';
 
-export default function LeadDetailHeader({ lead, onEdit, onReserve, onCancelReserve, activeReservation }) {
+export default function LeadDetailHeader({ lead, onEdit, onReserve, onCancelReserve, activeReservation, extraActions }) {
     if (!lead) return null;
 
     return (
@@ -71,6 +71,8 @@ export default function LeadDetailHeader({ lead, onEdit, onReserve, onCancelRese
             </div>
 
             <div className="flex items-center gap-3 ml-14 lg:ml-0 mt-2 lg:mt-0 flex-wrap">
+                {extraActions && extraActions}
+                
                 {/* Logic to show "Tomar reserva" button */}
                 {lead?.vehicleId && 
                  lead?.crmStatus !== 'perdido' && 

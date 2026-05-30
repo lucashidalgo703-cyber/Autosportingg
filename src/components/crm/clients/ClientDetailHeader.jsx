@@ -2,7 +2,7 @@ import React from 'react';
 import { ArrowLeft, Edit2, User } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 
-export default function ClientDetailHeader({ client, onEdit }) {
+export default function ClientDetailHeader({ client, onEdit, extraActions }) {
     const router = useRouter();
 
     if (!client) return null;
@@ -58,6 +58,8 @@ export default function ClientDetailHeader({ client, onEdit }) {
                         </span>
                     ))}
                     
+                    {extraActions && extraActions}
+
                     <button 
                         onClick={onEdit}
                         className="bg-neutral-800 hover:bg-neutral-700 text-white border border-neutral-700 px-5 py-2.5 rounded-lg font-bold transition-colors flex items-center justify-center gap-2 flex-1 md:flex-none"

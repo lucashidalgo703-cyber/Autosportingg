@@ -8,10 +8,13 @@ import ClientActivityPanel from '../../../../components/crm/clients/ClientActivi
 import ClientRelatedLeadsPanel from '../../../../components/crm/clients/ClientRelatedLeadsPanel';
 import ClientFormModal from '../../../../components/crm/clients/ClientFormModal';
 import CommunicationLogPanel from '../../../../components/crm/communications/CommunicationLogPanel';
+import MessageTemplatePicker from '../../../../components/crm/templates/MessageTemplatePicker';
 import { AlertCircle } from 'lucide-react';
+import { useAuth } from '../../../../context/AuthContext';
 
 export default function AdminClientDetailPage() {
     const { id } = useParams();
+    const { token } = useAuth();
     const { fetchClientById, updateClient, loading, error } = useAdminClients();
     const [client, setClient] = useState(null);
     const [isEditModalOpen, setIsEditModalOpen] = useState(false);
@@ -37,6 +40,33 @@ export default function AdminClientDetailPage() {
         await loadClient(); // Reload after update
     };
 
+    const handleLogTemplateAction = async (template, copiedText) => {
+        try {
+            await fetch('/api/admin/communication-logs', {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    entityType: 'client',
+                    entityId: id,
+                    clientId: id,
+                    assignedTo: client?.assignedTo?._id || client?.assignedTo || null,
+                    channel: template.channel || 'whatsapp',
+                    direction: 'outbound',
+                    outcome: 'contacted',
+                    title: `Plantilla usada: ${template.name}`,
+                    notes: copiedText.length > 500 ? copiedText.substring(0, 500) + '...' : copiedText,
+                    contactDate: new Date().toISOString()
+                })
+            });
+            window.dispatchEvent(new CustomEvent('refresh-communications'));
+        } catch (error) {
+            console.error('Error logging template action:', error);
+        }
+    };
+
     if (loading && !client) {
         return (
             <div className="flex justify-center items-center h-[50vh]">
@@ -60,7 +90,19 @@ export default function AdminClientDetailPage() {
         <div className="flex flex-col gap-6 max-w-[1600px] mx-auto w-full">
             <ClientDetailHeader 
                 client={client} 
-                onEdit={() => setIsEditModalOpen(true)} 
+                onEdit={() => setIsEditModalOpen(true)}
+                extraActions={
+                    <MessageTemplatePicker 
+                        category="client"
+                        entityData={{
+                            clientName: client.fullName,
+                            clientPhone: client.phone,
+                            clientEmail: client.email,
+                            assignedToName: client.assignedTo?.name || ''
+                        }}
+                        onLogAction={handleLogTemplateAction}
+                    />
+                }
             />
 
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">

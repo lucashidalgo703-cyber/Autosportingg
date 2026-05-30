@@ -15,7 +15,9 @@ import LeadTaskModal from '../../../../components/crm/leads/LeadTaskModal';
 import ReservationModal from '../../../../components/crm/reservations/ReservationModal';
 import ReservationCancelModal from '../../../../components/crm/reservations/ReservationCancelModal';
 import CommunicationLogPanel from '../../../../components/crm/communications/CommunicationLogPanel';
+import MessageTemplatePicker from '../../../../components/crm/templates/MessageTemplatePicker';
 import { useAdminReservations } from '../../../../hooks/useAdminReservations';
+import { useAuth } from '../../../../context/AuthContext';
 
 function getMongoId(value) {
     if (!value) return null;
@@ -26,6 +28,7 @@ function getMongoId(value) {
 
 export default function AdminLeadDetailPage() {
     const { id } = useParams();
+    const { token } = useAuth();
     const { fetchLeadById, updateLead, linkClientToLead, updateTaskStatus, loading, error } = useAdminLeads();
     
     const [lead, setLead] = useState(null);
@@ -87,6 +90,41 @@ export default function AdminLeadDetailPage() {
         await loadLead();
     };
 
+    const handleLogTemplateAction = async (template, copiedText) => {
+        try {
+            await fetch('/api/admin/communication-logs', {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    entityType: 'lead',
+                    entityId: id,
+                    leadId: id,
+                    clientId: lead?.clientId?._id || lead?.clientId || null,
+                    vehicleId: lead?.vehicleId?._id || lead?.vehicleId || null,
+                    assignedTo: lead?.assignedTo?._id || lead?.assignedTo || null,
+                    channel: template.channel || 'whatsapp',
+                    direction: 'outbound',
+                    outcome: 'contacted',
+                    title: `Plantilla usada: ${template.name}`,
+                    notes: copiedText.length > 500 ? copiedText.substring(0, 500) + '...' : copiedText,
+                    contactDate: new Date().toISOString()
+                })
+            });
+            // La vista de communication log usa swr o recarga si lo integramos,
+            // pero para no forzar reload, podemos mutar o simplemente loggear.
+            // Para simplicidad, podemos forzar un reload del componente lead si quisiéramos,
+            // pero CommunicationLogPanel carga de forma independiente. Si usamos mutate, mejor.
+            // Al ser un POST desde fuera, al menos la UI avisará que copió.
+            // Dispatch custom event para CommunicationLogPanel
+            window.dispatchEvent(new CustomEvent('refresh-communications'));
+        } catch (error) {
+            console.error('Error logging template action:', error);
+        }
+    };
+
     if (loading && !lead) {
         return (
             <div className="flex justify-center items-center h-[50vh]">
@@ -114,6 +152,19 @@ export default function AdminLeadDetailPage() {
                 onReserve={() => setIsReservationModalOpen(true)}
                 onCancelReserve={() => setIsCancelReservationModalOpen(true)}
                 activeReservation={activeReservation}
+                extraActions={
+                    <MessageTemplatePicker 
+                        category="lead"
+                        entityData={{
+                            name: lead.name,
+                            phone: lead.phone,
+                            email: lead.email,
+                            vehicleName: lead.vehicleId?.model ? `${lead.vehicleId.make} ${lead.vehicleId.model}` : '',
+                            assignedToName: lead.assignedTo?.name || ''
+                        }}
+                        onLogAction={handleLogTemplateAction}
+                    />
+                }
             />
 
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
