@@ -1,8 +1,10 @@
 "use client";
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../../context/AuthContext';
-import { ClipboardList, Calendar, CheckSquare, Users, Car, FileText, AlertTriangle } from 'lucide-react';
+import { ClipboardList, Calendar, CheckSquare, Users, Car, FileText, AlertTriangle, Flag } from 'lucide-react';
 import Link from 'next/link';
+import GoalStatusBadge from '../../../components/crm/goals/GoalStatusBadge';
+import GoalProgressBar from '../../../components/crm/goals/GoalProgressBar';
 
 export default function MisPendientesPage() {
     const { user } = useAuth();
@@ -12,7 +14,8 @@ export default function MisPendientesPage() {
         tasks: [],
         leads: [],
         sales: [],
-        reservations: []
+        reservations: [],
+        goals: []
     });
 
     useEffect(() => {
@@ -23,17 +26,19 @@ export default function MisPendientesPage() {
                 const token = localStorage.getItem('token');
                 const headers = { 'Authorization': `Bearer ${token}` };
 
-                const [tasksRes, leadsRes, salesRes, resRes] = await Promise.all([
+                const [tasksRes, leadsRes, salesRes, resRes, goalsRes] = await Promise.all([
                     fetch('/api/admin/crm-tasks', { headers }),
                     fetch('/api/leads', { headers }), // Asumiendo GET /api/leads devuelve leads
                     fetch('/api/admin/sales', { headers }),
-                    fetch('/api/admin/reservations', { headers })
+                    fetch('/api/admin/reservations', { headers }),
+                    fetch('/api/admin/team-goals/progress', { headers }).catch(() => ({ ok: false }))
                 ]);
 
                 const tasks = tasksRes.ok ? await tasksRes.json() : [];
                 const leads = leadsRes.ok ? await leadsRes.json() : [];
                 const sales = salesRes.ok ? await salesRes.json() : [];
                 const reservations = resRes.ok ? await resRes.json() : [];
+                const goals = goalsRes && goalsRes.ok ? await goalsRes.json() : [];
 
                 // Filter by assignedTo
                 const myUserId = user.userId || user.id; // Dependiendo de la estructura
@@ -42,12 +47,14 @@ export default function MisPendientesPage() {
                 const myLeads = leads.filter(l => l.assignedTo && l.assignedTo.toString() === myUserId);
                 const mySales = sales.filter(s => s.assignedTo && s.assignedTo.toString() === myUserId);
                 const myReservations = reservations.filter(r => r.assignedTo && r.assignedTo.toString() === myUserId);
+                const myGoals = goals.filter(g => g.userId?._id?.toString() === myUserId || g.userId?.toString() === myUserId);
 
                 setData({
                     tasks: myTasks,
                     leads: myLeads,
                     sales: mySales,
-                    reservations: myReservations
+                    reservations: myReservations,
+                    goals: myGoals
                 });
             } catch (err) {
                 console.error(err);
@@ -94,7 +101,33 @@ export default function MisPendientesPage() {
                 </p>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                
+                {/* MIS METAS */}
+                {data.goals && data.goals.length > 0 && (
+                    <div className="bg-[#161619] border border-indigo-900/50 rounded-xl p-5 flex flex-col xl:col-span-1">
+                        <h2 className="text-lg font-bold text-white mb-4 flex items-center gap-2 border-b border-[#33333A] pb-2">
+                            <Flag size={18} className="text-indigo-500" />
+                            Mis Metas
+                        </h2>
+                        <div className="flex flex-col gap-3">
+                            {data.goals.map(g => (
+                                <div key={g.goalId} className="bg-[#24242B] border border-[#33333A] p-3 rounded-lg">
+                                    <div className="flex justify-between items-start mb-2">
+                                        <div className="text-xs text-gray-400 uppercase font-bold">{g.periodLabel || g.periodType}</div>
+                                        <GoalStatusBadge status={g.status} />
+                                    </div>
+                                    <div className="text-xl font-bold text-white mb-2">{g.overallPercent}%</div>
+                                    <GoalProgressBar percent={g.overallPercent} />
+                                    <div className="text-xs text-gray-500 mt-3 text-right">
+                                        Vence: {new Date(g.endDate).toLocaleDateString()}
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                )}
+
                 {/* TAREAS */}
                 <div className="bg-[#161619] border border-[#33333A] rounded-xl p-5 flex flex-col">
                     <h2 className="text-lg font-bold text-white mb-4 flex items-center gap-2 border-b border-[#33333A] pb-2">

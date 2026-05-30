@@ -4,6 +4,8 @@ import { useAuth } from '../../../context/AuthContext';
 import { useRouter } from 'next/navigation';
 import { Flag, Plus, AlertTriangle, TrendingUp, CheckCircle, Clock } from 'lucide-react';
 import TeamGoalModal from '../../../components/crm/team/TeamGoalModal';
+import GoalStatusBadge from '../../../components/crm/goals/GoalStatusBadge';
+import GoalProgressBar from '../../../components/crm/goals/GoalProgressBar';
 
 export default function GoalsDashboardPage() {
     const { user } = useAuth();
@@ -146,15 +148,7 @@ export default function GoalsDashboardPage() {
                                                     <div className="text-xs text-gray-500">{new Date(goal.startDate).toLocaleDateString()} al {new Date(goal.endDate).toLocaleDateString()}</div>
                                                 </td>
                                                 <td className="p-4">
-                                                    <div className="flex items-center gap-3">
-                                                        <div className="flex-1 bg-[#24242B] h-2.5 rounded-full overflow-hidden">
-                                                            <div 
-                                                                className={`h-full rounded-full ${goal.overallPercent >= 100 ? 'bg-green-500' : goal.overallPercent > 50 ? 'bg-indigo-500' : 'bg-yellow-500'}`} 
-                                                                style={{ width: `${Math.min(goal.overallPercent, 100)}%` }}
-                                                            ></div>
-                                                        </div>
-                                                        <div className="text-sm font-bold text-white w-10 text-right">{goal.overallPercent}%</div>
-                                                    </div>
+                                                    <GoalProgressBar percent={goal.overallPercent} />
                                                 </td>
                                                 <td className="p-4">
                                                     <div className="flex flex-wrap gap-2">
@@ -167,17 +161,7 @@ export default function GoalsDashboardPage() {
                                                     </div>
                                                 </td>
                                                 <td className="p-4">
-                                                    <span className={`text-xs px-2 py-1 rounded font-bold uppercase whitespace-nowrap ${
-                                                        goal.status === 'superado' ? 'bg-green-600/30 text-green-300' :
-                                                        goal.status === 'cumplido' ? 'bg-green-500/20 text-green-400' :
-                                                        goal.status === 'proximo_vencer' ? 'bg-orange-500/20 text-orange-400' :
-                                                        goal.status === 'atrasado' ? 'bg-yellow-500/20 text-yellow-500' :
-                                                        goal.status === 'vencido' ? 'bg-red-500/20 text-red-400' :
-                                                        goal.status === 'sin_avance' ? 'bg-gray-500/20 text-gray-400' :
-                                                        'bg-indigo-500/20 text-indigo-400'
-                                                    }`}>
-                                                        {goal.status.replace('_', ' ')}
-                                                    </span>
+                                                    <GoalStatusBadge status={goal.status} />
                                                 </td>
                                                 <td className="p-4 text-right">
                                                     <button onClick={() => setModalConfig({ isOpen: true, goal })} className="text-xs bg-[#33333A] hover:bg-[#4A4A55] text-white px-3 py-1.5 rounded transition-colors">

@@ -3700,6 +3700,10 @@ app.get('/api/admin/team-dashboard', authenticateToken, async (req, res) => {
             createdAt: { $gte: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000) } 
         }).sort({ createdAt: -1 }).limit(200).select('userId action module entityLabel createdAt').lean();
 
+        // Obtener Metas Activas y Progreso
+        const activeGoals = await TeamGoal.find({ active: true }).lean();
+        const goalsProgress = await getGoalsProgress(activeGoals);
+
         // Agrupar por assignedTo
         const teamData = activeUsers.map(user => {
             const uid = user._id.toString();
@@ -3713,6 +3717,22 @@ app.get('/api/admin/team-dashboard', authenticateToken, async (req, res) => {
             
             const uLogs = recentLogs.filter(l => l.userId === user.email || l.userId === user.name).slice(0, 5);
 
+            const uGoals = goalsProgress.filter(g => g.userId?._id?.toString() === uid || g.userId?.toString() === uid);
+            
+            let goalSummary = {
+                activeGoals: uGoals.length,
+                completedGoals: uGoals.filter(g => g.status === 'cumplido' || g.status === 'superado').length,
+                behindGoals: uGoals.filter(g => g.status === 'atrasado').length,
+                overdueGoals: uGoals.filter(g => g.status === 'vencido').length,
+                exceededGoals: uGoals.filter(g => g.status === 'superado').length,
+                averageCompletion: uGoals.length ? Math.round(uGoals.reduce((a, b) => a + b.overallPercent, 0) / uGoals.length) : 0,
+                mainStatus: uGoals.length === 0 ? 'sin_meta' : 
+                            uGoals.some(g => g.status === 'vencido') ? 'vencido' :
+                            uGoals.some(g => g.status === 'atrasado') ? 'atrasado' :
+                            uGoals.some(g => g.status === 'proximo_vencer') ? 'proximo_vencer' :
+                            uGoals.every(g => g.status === 'cumplido' || g.status === 'superado') ? 'cumplido' : 'en_progreso'
+            };
+
             return {
                 ...user,
                 stats: {
@@ -3724,7 +3744,8 @@ app.get('/api/admin/team-dashboard', authenticateToken, async (req, res) => {
                     pendingDocs: uSales.filter(s => s.documentationStatus !== 'completo').length,
                     criticalPostSales: uSales.filter(s => ['incidencia', 'pendiente', 'contactado'].includes(s.postSaleStatus)).length
                 },
-                recentActivity: uLogs
+                recentActivity: uLogs,
+                goalSummary
             };
         });
 
@@ -3783,13 +3804,17 @@ app.get('/api/admin/team-dashboard/:userId', authenticateToken, async (req, res)
             createdAt: { $gte: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000) } 
         }).sort({ createdAt: -1 }).limit(30).lean();
 
+        const activeGoals = await TeamGoal.find({ userId: targetUserId, active: true }).lean();
+        const goalsProgress = await getGoalsProgress(activeGoals);
+
         res.json({
             user: targetUser,
             tasks,
             leads,
             reservations,
             sales,
-            recentLogs
+            recentLogs,
+            goals: goalsProgress
         });
         
     } catch (error) {
@@ -3862,6 +3887,10 @@ app.get('/api/admin/team-productivity', authenticateToken, async (req, res) => {
             actions: actionsSet.size
         })).sort((a,b) => a.date.localeCompare(b.date));
 
+        // Metas
+        const activeGoals = await TeamGoal.find({ active: true }).lean();
+        const goalsProgress = await getGoalsProgress(activeGoals);
+
         // Procesar datos por usuario
         const today = new Date().setHours(0,0,0,0);
         const usersProductivity = users.map(user => {
@@ -3887,6 +3916,21 @@ app.get('/api/admin/team-productivity', authenticateToken, async (req, res) => {
                 lastActivityDate = uLogs.sort((a,b) => new Date(b.createdAt) - new Date(a.createdAt))[0].createdAt;
             }
 
+            const uGoals = goalsProgress.filter(g => g.userId?._id?.toString() === uidStr || g.userId?.toString() === uidStr);
+            let goalSummary = {
+                activeGoals: uGoals.length,
+                completedGoals: uGoals.filter(g => g.status === 'cumplido' || g.status === 'superado').length,
+                behindGoals: uGoals.filter(g => g.status === 'atrasado').length,
+                overdueGoals: uGoals.filter(g => g.status === 'vencido').length,
+                exceededGoals: uGoals.filter(g => g.status === 'superado').length,
+                averageCompletion: uGoals.length ? Math.round(uGoals.reduce((a, b) => a + b.overallPercent, 0) / uGoals.length) : 0,
+                mainStatus: uGoals.length === 0 ? 'sin_meta' : 
+                            uGoals.some(g => g.status === 'vencido') ? 'vencido' :
+                            uGoals.some(g => g.status === 'atrasado') ? 'atrasado' :
+                            uGoals.some(g => g.status === 'proximo_vencer') ? 'proximo_vencer' :
+                            uGoals.every(g => g.status === 'cumplido' || g.status === 'superado') ? 'cumplido' : 'en_progreso'
+            };
+
             return {
                 _id: user._id,
                 name: user.name,
@@ -3900,7 +3944,8 @@ app.get('/api/admin/team-productivity', authenticateToken, async (req, res) => {
                 reservationsManaged: uReservations.length,
                 salesUpdated,
                 postSaleManaged: postSaleDocs,
-                score
+                score,
+                goalSummary
             };
         }).sort((a,b) => b.score - a.score);
 

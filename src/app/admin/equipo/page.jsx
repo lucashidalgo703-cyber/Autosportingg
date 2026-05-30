@@ -151,6 +151,7 @@ export default function TeamDashboardPage() {
                                 <th className="p-4 text-xs uppercase font-bold text-gray-400">Leads</th>
                                 <th className="p-4 text-xs uppercase font-bold text-gray-400">Ventas</th>
                                 <th className="p-4 text-xs uppercase font-bold text-gray-400">Postventas Crit.</th>
+                                <th className="p-4 text-xs uppercase font-bold text-gray-400">Metas</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -176,11 +177,35 @@ export default function TeamDashboardPage() {
                                             <span className="text-gray-500">0</span>
                                         )}
                                     </td>
+                                    <td className="p-4">
+                                        {u.goalSummary && u.goalSummary.activeGoals > 0 ? (
+                                            <div className="flex flex-col gap-1">
+                                                <div className="text-xs text-gray-400">
+                                                    {u.goalSummary.activeGoals} activas ({u.goalSummary.averageCompletion}%)
+                                                </div>
+                                                <div>
+                                                    <span className={`text-[10px] px-1.5 py-0.5 rounded font-bold uppercase whitespace-nowrap ${
+                                                        u.goalSummary.mainStatus === 'superado' ? 'bg-green-600/30 text-green-300' :
+                                                        u.goalSummary.mainStatus === 'cumplido' ? 'bg-green-500/20 text-green-400' :
+                                                        u.goalSummary.mainStatus === 'proximo_vencer' ? 'bg-orange-500/20 text-orange-400' :
+                                                        u.goalSummary.mainStatus === 'atrasado' ? 'bg-yellow-500/20 text-yellow-500' :
+                                                        u.goalSummary.mainStatus === 'vencido' ? 'bg-red-500/20 text-red-400' :
+                                                        u.goalSummary.mainStatus === 'sin_avance' ? 'bg-gray-500/20 text-gray-400' :
+                                                        'bg-indigo-500/20 text-indigo-400'
+                                                    }`}>
+                                                        {u.goalSummary.mainStatus.replace('_', ' ')}
+                                                    </span>
+                                                </div>
+                                            </div>
+                                        ) : (
+                                            <span className="text-xs text-gray-500 italic">Sin metas</span>
+                                        )}
+                                    </td>
                                 </tr>
                             ))}
                             {filteredTeam.length === 0 && (
                                 <tr>
-                                    <td colSpan="6" className="p-8 text-center text-gray-500">
+                                    <td colSpan="7" className="p-8 text-center text-gray-500">
                                         No se encontraron usuarios activos con esos filtros.
                                     </td>
                                 </tr>

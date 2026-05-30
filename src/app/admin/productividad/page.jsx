@@ -2,8 +2,9 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../../context/AuthContext';
 import { useRouter } from 'next/navigation';
-import { BarChart3, Users, Activity, CheckCircle, AlertTriangle, UserMinus, Calendar } from 'lucide-react';
+import { BarChart3, Users, Activity, CheckCircle, AlertTriangle, UserMinus, Calendar, Flag } from 'lucide-react';
 import Link from 'next/link';
+import GoalStatusBadge from '../../../components/crm/goals/GoalStatusBadge';
 
 export default function ProductivityDashboardPage() {
     const { user } = useAuth();
@@ -149,6 +150,54 @@ export default function ProductivityDashboardPage() {
                         </div>
                     </div>
 
+                    {/* GOALS SUMMARY CARDS */}
+                    <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-8">
+                        <div className="bg-[#161619] border border-indigo-900/50 rounded-xl p-5 flex flex-col justify-center">
+                            <div className="flex items-center gap-2 text-indigo-400 mb-2">
+                                <Flag size={16} /> <span className="text-xs font-bold uppercase">Metas Activas</span>
+                            </div>
+                            <div className="text-3xl text-white font-bold">
+                                {data.usersProductivity.reduce((acc, u) => acc + (u.goalSummary?.activeGoals || 0), 0)}
+                            </div>
+                        </div>
+                        <div className="bg-[#161619] border border-green-900/50 rounded-xl p-5 flex flex-col justify-center">
+                            <div className="flex items-center gap-2 text-green-500 mb-2">
+                                <CheckCircle size={16} /> <span className="text-xs font-bold uppercase">Cumplidas</span>
+                            </div>
+                            <div className="text-3xl text-white font-bold">
+                                {data.usersProductivity.reduce((acc, u) => acc + (u.goalSummary?.completedGoals || 0), 0)}
+                            </div>
+                        </div>
+                        <div className="bg-[#161619] border border-yellow-900/50 rounded-xl p-5 flex flex-col justify-center">
+                            <div className="flex items-center gap-2 text-yellow-500 mb-2">
+                                <AlertTriangle size={16} /> <span className="text-xs font-bold uppercase">Atrasadas</span>
+                            </div>
+                            <div className="text-3xl text-white font-bold">
+                                {data.usersProductivity.reduce((acc, u) => acc + (u.goalSummary?.behindGoals || 0), 0)}
+                            </div>
+                        </div>
+                        <div className="bg-[#161619] border border-red-900/50 rounded-xl p-5 flex flex-col justify-center">
+                            <div className="flex items-center gap-2 text-red-400 mb-2">
+                                <UserMinus size={16} /> <span className="text-xs font-bold uppercase">Vencidas</span>
+                            </div>
+                            <div className="text-3xl text-white font-bold">
+                                {data.usersProductivity.reduce((acc, u) => acc + (u.goalSummary?.overdueGoals || 0), 0)}
+                            </div>
+                        </div>
+                        <div className="bg-[#161619] border border-[#33333A] rounded-xl p-5 flex flex-col justify-center">
+                            <div className="flex items-center gap-2 text-blue-400 mb-2">
+                                <Activity size={16} /> <span className="text-xs font-bold uppercase">Cumpl. Promedio</span>
+                            </div>
+                            <div className="text-3xl text-white font-bold">
+                                {(() => {
+                                    const total = data.usersProductivity.reduce((acc, u) => acc + (u.goalSummary?.averageCompletion || 0), 0);
+                                    const usersWithGoals = data.usersProductivity.filter(u => u.goalSummary?.activeGoals > 0).length;
+                                    return usersWithGoals > 0 ? Math.round(total / usersWithGoals) : 0;
+                                })()}%
+                            </div>
+                        </div>
+                    </div>
+
                     <div className="grid grid-cols-1 xl:grid-cols-3 gap-8">
                         {/* RANKING POR USUARIO (Colspan 2) */}
                         <div className="xl:col-span-2 bg-[#161619] border border-[#33333A] rounded-xl overflow-hidden flex flex-col">
@@ -163,10 +212,10 @@ export default function ProductivityDashboardPage() {
                                             <th className="p-4 text-xs font-bold text-gray-400 uppercase">Usuario</th>
                                             <th className="p-4 text-xs font-bold text-gray-400 uppercase">Acciones</th>
                                             <th className="p-4 text-xs font-bold text-green-500 uppercase">T. Cmpl.</th>
-                                            <th className="p-4 text-xs font-bold text-red-400 uppercase">T. Venc.</th>
                                             <th className="p-4 text-xs font-bold text-yellow-500 uppercase">Leads</th>
-                                            <th className="p-4 text-xs font-bold text-blue-400 uppercase">Ventas</th>
                                             <th className="p-4 text-xs font-bold text-indigo-400 uppercase">Score</th>
+                                            <th className="p-4 text-xs font-bold text-gray-400 uppercase">Metas (Prom)</th>
+                                            <th className="p-4 text-xs font-bold text-gray-400 uppercase">Estado</th>
                                             <th className="p-4 text-xs font-bold text-gray-400 uppercase text-right">Acción</th>
                                         </tr>
                                     </thead>
@@ -187,15 +236,27 @@ export default function ProductivityDashboardPage() {
                                                     </td>
                                                     <td className="p-4 text-sm text-gray-300 font-medium">{u.totalActions}</td>
                                                     <td className="p-4 text-sm text-green-400 font-bold">{u.tasksCompleted}</td>
-                                                    <td className="p-4 text-sm text-red-400 font-bold">{u.tasksOverdue > 0 ? u.tasksOverdue : '-'}</td>
                                                     <td className="p-4 text-sm text-yellow-400 font-bold">{u.leadsWorked}</td>
-                                                    <td className="p-4 text-sm text-blue-400 font-bold">{u.salesUpdated}</td>
                                                     <td className="p-4">
                                                         <div className="bg-indigo-500/10 text-indigo-400 font-bold text-xs px-2 py-1 rounded inline-block">
                                                             {u.score} pts
                                                         </div>
                                                     </td>
+                                                    <td className="p-4 text-sm text-white font-bold">
+                                                        {u.goalSummary?.activeGoals > 0 ? (
+                                                            <span>{u.goalSummary.averageCompletion}% <span className="text-gray-500 text-xs font-normal">({u.goalSummary.activeGoals})</span></span>
+                                                        ) : (
+                                                            <span className="text-gray-500">-</span>
+                                                        )}
+                                                    </td>
+                                                    <td className="p-4">
+                                                        <GoalStatusBadge status={u.goalSummary?.mainStatus === 'sin_meta' ? null : u.goalSummary?.mainStatus} />
+                                                        {(!u.goalSummary || u.goalSummary.mainStatus === 'sin_meta') && <span className="text-xs text-gray-500">Sin metas</span>}
+                                                    </td>
                                                     <td className="p-4 text-right">
+                                                        <Link href={`/admin/metas?userId=${u._id}`} className="text-xs bg-[#33333A] hover:bg-[#4A4A55] text-white px-3 py-1.5 rounded transition-colors mr-2">
+                                                            Metas
+                                                        </Link>
                                                         <Link href={`/admin/equipo/${u._id}`} className="text-xs bg-[#33333A] hover:bg-[#4A4A55] text-white px-3 py-1.5 rounded transition-colors">
                                                             Detalle
                                                         </Link>

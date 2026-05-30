@@ -2,9 +2,11 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../../../context/AuthContext';
 import { useParams, useRouter } from 'next/navigation';
-import { ArrowLeft, Users, CheckCircle, AlertTriangle, Calendar, FileText, Activity } from 'lucide-react';
+import { ArrowLeft, Users, CheckCircle, AlertTriangle, Calendar, FileText, Activity, Flag } from 'lucide-react';
 import Link from 'next/link';
 import QuickAssignModal from '../../../../components/crm/team/QuickAssignModal';
+import GoalStatusBadge from '../../../../components/crm/goals/GoalStatusBadge';
+import GoalProgressBar from '../../../../components/crm/goals/GoalProgressBar';
 
 export default function UserDetailDashboardPage() {
     const { user } = useAuth();
@@ -63,7 +65,7 @@ export default function UserDetailDashboardPage() {
         );
     }
 
-    const { user: targetUser, tasks, leads, reservations, sales, recentLogs } = data;
+    const { user: targetUser, tasks, leads, reservations, sales, recentLogs, goals } = data;
 
     const pendingTasks = tasks.filter(t => t.status === 'pendiente');
     const today = new Date().setHours(0,0,0,0);
@@ -128,6 +130,52 @@ export default function UserDetailDashboardPage() {
                     <div className="text-2xl text-red-400 font-bold">{criticalPostSales.length}</div>
                 </div>
             </div>
+
+            {/* METAS */}
+            {goals && goals.length > 0 && (
+                <div className="mb-8">
+                    <div className="flex items-center justify-between mb-4">
+                        <h2 className="text-xl font-bold text-white flex items-center gap-2">
+                            <Flag className="text-indigo-500" size={24} />
+                            Metas Activas
+                        </h2>
+                        <Link href={`/admin/metas?userId=${targetUser._id}`} className="bg-indigo-600 hover:bg-indigo-500 text-white px-4 py-2 rounded-lg font-bold text-sm transition-colors">
+                            Gestionar Metas
+                        </Link>
+                    </div>
+                    <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
+                        {goals.map(goal => (
+                            <div key={goal.goalId} className="bg-[#161619] border border-[#33333A] rounded-xl p-6">
+                                <div className="flex justify-between items-start mb-4">
+                                    <div>
+                                        <div className="text-sm text-indigo-400 font-bold uppercase">{goal.periodLabel || goal.periodType}</div>
+                                        <div className="text-xs text-gray-500 mt-1">{new Date(goal.startDate).toLocaleDateString()} al {new Date(goal.endDate).toLocaleDateString()}</div>
+                                    </div>
+                                    <GoalStatusBadge status={goal.status} />
+                                </div>
+                                
+                                <div className="mb-6">
+                                    <GoalProgressBar percent={goal.overallPercent} />
+                                </div>
+
+                                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                                    {Object.entries(goal.progress).map(([key, p]) => (
+                                        <div key={key} className="bg-[#24242B] border border-[#33333A] p-3 rounded-lg">
+                                            <div className="text-xs text-gray-400 uppercase font-bold mb-2">
+                                                {key.replace(/([A-Z])/g, ' $1').trim()}
+                                            </div>
+                                            <div className="flex justify-between items-end">
+                                                <div className="text-xl font-bold text-white">{p.real}<span className="text-sm text-gray-500 ml-1">/ {p.target}</span></div>
+                                                <div className={`text-xs font-bold ${p.percent >= 100 ? 'text-green-400' : 'text-indigo-400'}`}>{p.percent}%</div>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            )}
 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 {/* TAREAS */}
