@@ -19,6 +19,7 @@ import AdminUser from './src/models/AdminUser.js';
 import AuditLog from './src/models/AuditLog.js';
 import NotificationReadState from './src/models/NotificationReadState.js';
 import TeamGoal from './src/models/TeamGoal.js';
+import CommunicationLog from './src/models/CommunicationLog.js';
 import { logAudit } from './src/utils/auditLogger.js';
 import { CloudinaryStorage } from 'multer-storage-cloudinary';
 import jwt from 'jsonwebtoken';
@@ -3971,6 +3972,156 @@ app.get('/api/admin/team-productivity', authenticateToken, async (req, res) => {
             lowActivityUsers
         });
 
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+});
+
+// ========================================== //
+// ====== COMUNICACIONES (COMM LOGS) ======== //
+// ========================================== //
+
+app.get('/api/admin/communication-logs', authenticateToken, async (req, res) => {
+    try {
+        const userRole = req.user?.role || 'solo_lectura';
+        const perms = req.user?.permissions || [];
+        const userId = req.user?.id || req.user?.userId;
+
+        const canRead = ['owner', 'admin'].includes(userRole) || perms.includes('communicationLogs.read') || perms.includes('ventas.read');
+        if (!canRead) return res.status(403).json({ message: 'Sin permisos para ver comunicaciones.' });
+
+        const {
+            entityType, entityId, clientId, leadId, saleId, reservationId, vehicleId, assignedTo, channel, outcome, importantOnly, limit
+        } = req.query;
+
+        let query = { isDeleted: false };
+
+        if (entityType) query.entityType = entityType;
+        if (entityId) query.entityId = entityId;
+        if (clientId) query.clientId = clientId;
+        if (leadId) query.leadId = leadId;
+        if (saleId) query.saleId = saleId;
+        if (reservationId) query.reservationId = reservationId;
+        if (vehicleId) query.vehicleId = vehicleId;
+        if (channel) query.channel = channel;
+        if (outcome) query.outcome = outcome;
+        if (importantOnly === 'true') query.isImportant = true;
+
+        if (userRole === 'ventas' || (!['owner', 'admin'].includes(userRole) && perms.includes('communicationLogs.read') && !perms.includes('equipo.read'))) {
+            // Vendedores solo ven lo suyo
+            query.$or = [
+                { assignedTo: userId },
+                { createdBy: userId }
+            ];
+            if (assignedTo && assignedTo === userId) query.assignedTo = assignedTo;
+        } else {
+            if (assignedTo) query.assignedTo = assignedTo;
+        }
+
+        let dbQuery = CommunicationLog.find(query).sort({ contactDate: -1, createdAt: -1 });
+        if (limit) dbQuery = dbQuery.limit(parseInt(limit));
+
+        const logs = await dbQuery.populate('createdBy', 'name email').populate('assignedTo', 'name email').lean();
+        res.json(logs);
+
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+});
+
+app.post('/api/admin/communication-logs', authenticateToken, async (req, res) => {
+    try {
+        const userRole = req.user?.role || 'solo_lectura';
+        const perms = req.user?.permissions || [];
+        const userId = req.user?.id || req.user?.userId;
+
+        const canWrite = ['owner', 'admin'].includes(userRole) || perms.includes('communicationLogs.write') || perms.includes('ventas.write');
+        if (!canWrite) return res.status(403).json({ message: 'Sin permisos para crear comunicaciones.' });
+
+        const newLog = new CommunicationLog({
+            ...req.body,
+            createdBy: userId
+        });
+
+        if (req.body.shouldCreateTask && req.body.nextActionDate) {
+            const taskAssignedTo = req.body.assignedTo || userId;
+            const newTask = new CrmTask({
+                title: `Seguimiento: ${req.body.title}`,
+                description: req.body.notes ? req.body.notes.substring(0, 500) : 'Generado desde historial de comunicación.',
+                dueDate: req.body.nextActionDate,
+                assignedTo: taskAssignedTo,
+                createdBy: userId,
+                priority: req.body.isImportant ? 'alta' : 'media',
+                relatedLeadId: req.body.leadId,
+                relatedClientId: req.body.clientId,
+                relatedSaleId: req.body.saleId,
+                source: 'manual', // Usar manual por ahora para no romper enum de CrmTask
+                sourceId: newLog._id
+            });
+            await newTask.save();
+            newLog.relatedTaskId = newTask._id;
+            
+            await logAudit('TAREA_CREADA', req.user?.email || req.user?.name, 'agenda', newTask._id, `Tarea de seguimiento creada desde comunicación: ${newTask.title}`);
+        }
+
+        await newLog.save();
+        await logAudit('COMUNICACION_CREADA', req.user?.email || req.user?.name, req.body.entityType, newLog._id, `Canal: ${newLog.channel}, Resultado: ${newLog.outcome}`);
+
+        res.status(201).json(newLog);
+
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+});
+
+app.patch('/api/admin/communication-logs/:id', authenticateToken, async (req, res) => {
+    try {
+        const userRole = req.user?.role || 'solo_lectura';
+        const perms = req.user?.permissions || [];
+
+        const canWrite = ['owner', 'admin'].includes(userRole) || perms.includes('communicationLogs.write') || perms.includes('ventas.write');
+        if (!canWrite) return res.status(403).json({ message: 'Sin permisos para editar comunicaciones.' });
+
+        const allowedUpdates = ['channel', 'direction', 'outcome', 'title', 'notes', 'contactDate', 'nextActionDate', 'isImportant'];
+        const updateData = {};
+        Object.keys(req.body).forEach(key => {
+            if (allowedUpdates.includes(key)) updateData[key] = req.body[key];
+        });
+
+        const updatedLog = await CommunicationLog.findOneAndUpdate(
+            { _id: req.params.id, isDeleted: false },
+            { $set: updateData },
+            { new: true }
+        );
+
+        if (!updatedLog) return res.status(404).json({ message: 'Log no encontrado o eliminado.' });
+
+        await logAudit('COMUNICACION_EDITADA', req.user?.email || req.user?.name, updatedLog.entityType, updatedLog._id, `Log modificado. Resultado actual: ${updatedLog.outcome}`);
+
+        res.json(updatedLog);
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+});
+
+app.delete('/api/admin/communication-logs/:id', authenticateToken, async (req, res) => {
+    try {
+        const userRole = req.user?.role || 'solo_lectura';
+        const perms = req.user?.permissions || [];
+
+        const canDelete = ['owner', 'admin'].includes(userRole) || perms.includes('communicationLogs.delete');
+        if (!canDelete) return res.status(403).json({ message: 'Sin permisos para eliminar comunicaciones.' });
+
+        const log = await CommunicationLog.findOneAndUpdate(
+            { _id: req.params.id },
+            { $set: { isDeleted: true } }
+        );
+
+        if (!log) return res.status(404).json({ message: 'Log no encontrado.' });
+
+        await logAudit('COMUNICACION_ARCHIVADA', req.user?.email || req.user?.name, log.entityType, log._id, `Log archivado.`);
+
+        res.json({ message: 'Log eliminado exitosamente.' });
     } catch (error) {
         res.status(500).json({ message: error.message });
     }
