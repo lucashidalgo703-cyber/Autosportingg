@@ -34,8 +34,11 @@ export default function CrmSidebar({ isOpen, onClose }) {
 
     // Filtramos menu items basado en permisos
     const visibleMenuItems = menuItems.filter(item => {
-        if (item.name === 'Configuración' || item.name === 'Usuarios') {
+        if (item.name === 'Usuarios') {
             return hasPermission(user, PERMISSIONS.USUARIOS_READ);
+        }
+        if (item.name === 'Configuración') {
+            return hasPermission(user, PERMISSIONS.USUARIOS_READ) || hasPermission(user, PERMISSIONS.MESSAGETEMPLATES_READ);
         }
         if (item.name === 'Finanzas') {
             return hasPermission(user, PERMISSIONS.FINANZAS_READ);

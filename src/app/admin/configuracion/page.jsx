@@ -1,0 +1,83 @@
+'use client';
+
+import React from 'react';
+import Link from 'next/link';
+import { Users, MessageSquare, ShieldAlert } from 'lucide-react';
+import { useAuth } from '../../../context/AuthContext';
+import { PERMISSIONS, ROLES } from '../../../utils/adminPermissions';
+
+export default function ConfiguracionPage() {
+    const { hasPermission, role, loading } = useAuth();
+
+    if (loading) {
+        return (
+            <div className="flex justify-center items-center h-[50vh]">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-red-500"></div>
+            </div>
+        );
+    }
+
+    const canViewUsers = ['owner', 'admin'].includes(role) || hasPermission(PERMISSIONS.USUARIOS_READ) || hasPermission(PERMISSIONS.USUARIOS_WRITE);
+    const canViewTemplates = ['owner', 'admin'].includes(role) || hasPermission(PERMISSIONS.MESSAGETEMPLATES_READ) || hasPermission(PERMISSIONS.MESSAGETEMPLATES_WRITE);
+
+    if (!canViewUsers && !canViewTemplates) {
+        return (
+            <div className="max-w-7xl mx-auto p-4">
+                <div className="bg-red-500/10 border border-red-500/20 text-red-400 p-6 rounded-2xl flex flex-col items-center justify-center gap-4 text-center">
+                    <ShieldAlert size={48} />
+                    <div>
+                        <h2 className="text-xl font-bold mb-2">Acceso Denegado</h2>
+                        <p>No tenés permisos para acceder a configuración.</p>
+                    </div>
+                </div>
+            </div>
+        );
+    }
+
+    return (
+        <div className="p-6 max-w-7xl mx-auto w-full">
+            <div className="mb-8">
+                <h1 className="text-2xl font-bold text-gray-900 tracking-tight">Configuración</h1>
+                <p className="text-gray-500 mt-1">Ajustes y opciones de configuración del CRM AutoSporting.</p>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                
+                {canViewUsers && (
+                    <Link 
+                        href="/admin/configuracion/usuarios"
+                        className="group flex items-start gap-4 p-6 rounded-2xl border border-gray-200 bg-white hover:border-black hover:shadow-lg transition-all"
+                    >
+                        <div className="w-12 h-12 rounded-xl bg-gray-50 flex items-center justify-center shrink-0 group-hover:bg-black group-hover:text-white transition-colors border border-gray-100">
+                            <Users size={24} className="text-gray-600 group-hover:text-white" />
+                        </div>
+                        <div>
+                            <h3 className="font-semibold text-gray-900 mb-1 group-hover:text-black">Usuarios y Permisos</h3>
+                            <p className="text-sm text-gray-500 leading-relaxed">
+                                Gestionar usuarios del sistema, roles, permisos y accesos al CRM.
+                            </p>
+                        </div>
+                    </Link>
+                )}
+
+                {canViewTemplates && (
+                    <Link 
+                        href="/admin/configuracion/plantillas"
+                        className="group flex items-start gap-4 p-6 rounded-2xl border border-gray-200 bg-white hover:border-black hover:shadow-lg transition-all"
+                    >
+                        <div className="w-12 h-12 rounded-xl bg-gray-50 flex items-center justify-center shrink-0 group-hover:bg-black group-hover:text-white transition-colors border border-gray-100">
+                            <MessageSquare size={24} className="text-gray-600 group-hover:text-white" />
+                        </div>
+                        <div>
+                            <h3 className="font-semibold text-gray-900 mb-1 group-hover:text-black">Plantillas Comerciales</h3>
+                            <p className="text-sm text-gray-500 leading-relaxed">
+                                Administrar los mensajes predefinidos para agilizar la comunicación de ventas y postventa.
+                            </p>
+                        </div>
+                    </Link>
+                )}
+
+            </div>
+        </div>
+    );
+}
