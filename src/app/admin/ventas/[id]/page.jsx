@@ -12,6 +12,7 @@ import SaleAuditTimeline from '../../../../components/crm/sales/detail/SaleAudit
 import SaleFinancePanel from '../../../../components/crm/sales/detail/SaleFinancePanel';
 import SaleInstallmentsPanel from '../../../../components/crm/sales/detail/SaleInstallmentsPanel';
 import SalePostventaPanel from '../../../../components/crm/sales/detail/SalePostventaPanel';
+import CommunicationLogPanel from '../../../../components/crm/communications/CommunicationLogPanel';
 import CrmTaskModal from '../../../../components/crm/agenda/CrmTaskModal';
 import { useAdminCrmTasks } from '../../../../hooks/useAdminCrmTasks';
 import { ShieldAlert, Target } from 'lucide-react';
@@ -145,6 +146,17 @@ export default function SaleDetailPage() {
                     </div>
                 </div>
 
+            </div>
+
+            {/* Panel de Comunicaciones (Ancho completo) */}
+            <div className="mt-6 h-[500px]">
+                <CommunicationLogPanel 
+                    entityType="sale" 
+                    entityId={sale._id} 
+                    clientId={sale.clientId?._id || sale.clientId}
+                    vehicleId={sale.vehicleId?._id || sale.vehicleId}
+                    assignedTo={sale.assignedTo?._id || sale.assignedTo}
+                />
             </div>
 
             {/* Panel de Postventa (Ancho completo) */}

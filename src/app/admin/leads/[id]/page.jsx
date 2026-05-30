@@ -14,6 +14,7 @@ import LeadTasksPanel from '../../../../components/crm/leads/LeadTasksPanel';
 import LeadTaskModal from '../../../../components/crm/leads/LeadTaskModal';
 import ReservationModal from '../../../../components/crm/reservations/ReservationModal';
 import ReservationCancelModal from '../../../../components/crm/reservations/ReservationCancelModal';
+import CommunicationLogPanel from '../../../../components/crm/communications/CommunicationLogPanel';
 import { useAdminReservations } from '../../../../hooks/useAdminReservations';
 
 function getMongoId(value) {
@@ -131,6 +132,15 @@ export default function AdminLeadDetailPage() {
                 <div className="lg:col-span-1 flex flex-col gap-6">
                     <LeadClientPanel lead={lead} onOpenLinkModal={() => setIsLinkModalOpen(true)} />
                     <LeadVehiclePanel lead={lead} />
+                    <div className="h-[500px]">
+                        <CommunicationLogPanel 
+                            entityType="lead" 
+                            entityId={getMongoId(lead)} 
+                            clientId={getMongoId(lead?.clientId)} 
+                            vehicleId={getMongoId(lead?.vehicleId)}
+                            assignedTo={getMongoId(lead?.assignedTo)}
+                        />
+                    </div>
                 </div>
             </div>
 

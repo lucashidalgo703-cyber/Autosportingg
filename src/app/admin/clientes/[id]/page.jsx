@@ -7,6 +7,7 @@ import ClientInfoPanel from '../../../../components/crm/clients/ClientInfoPanel'
 import ClientActivityPanel from '../../../../components/crm/clients/ClientActivityPanel';
 import ClientRelatedLeadsPanel from '../../../../components/crm/clients/ClientRelatedLeadsPanel';
 import ClientFormModal from '../../../../components/crm/clients/ClientFormModal';
+import CommunicationLogPanel from '../../../../components/crm/communications/CommunicationLogPanel';
 import { AlertCircle } from 'lucide-react';
 
 export default function AdminClientDetailPage() {
@@ -73,6 +74,14 @@ export default function AdminClientDetailPage() {
                     <ClientActivityPanel client={client} />
                     <ClientRelatedLeadsPanel client={client} />
                 </div>
+            </div>
+
+            <div className="h-[500px]">
+                <CommunicationLogPanel 
+                    entityType="client" 
+                    entityId={client._id} 
+                    clientId={client._id}
+                />
             </div>
 
             <ClientFormModal 
