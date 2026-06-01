@@ -144,7 +144,7 @@ export default function FinanzasPage() {
                 </div>
                 <button
                     onClick={handleNewTransaction}
-                    className="h-10 px-4 rounded-xl bg-blue-500 hover:bg-blue-600 text-white font-bold text-sm transition-colors flex items-center gap-2 shadow-lg shadow-blue-500/20"
+                    className="h-10 px-4 rounded-xl bg-[#E63027] hover:bg-[#E63027] text-white font-bold text-sm transition-colors flex items-center gap-2 shadow-lg shadow-red-500/20"
                 >
                     <Plus size={18} />
                     <span className="hidden sm:inline">Nuevo Movimiento</span>

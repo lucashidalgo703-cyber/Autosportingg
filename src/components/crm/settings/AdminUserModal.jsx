@@ -66,7 +66,7 @@ export default function AdminUserModal({ user, onClose, onSave }) {
                                     required
                                     value={formData.name}
                                     onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
-                                    className="w-full bg-[#1E1E24] border border-[#33333A] rounded-xl px-4 py-2.5 text-white focus:outline-none focus:border-indigo-500"
+                                    className="w-full bg-[#1E1E24] border border-[#33333A] rounded-xl px-4 py-2.5 text-white focus:outline-none focus:border-[#EF3329]"
                                     placeholder="Ej: Juan Pérez"
                                 />
                             </div>
@@ -78,7 +78,7 @@ export default function AdminUserModal({ user, onClose, onSave }) {
                                     required
                                     value={formData.email}
                                     onChange={(e) => setFormData(prev => ({ ...prev, email: e.target.value }))}
-                                    className="w-full bg-[#1E1E24] border border-[#33333A] rounded-xl px-4 py-2.5 text-white focus:outline-none focus:border-indigo-500"
+                                    className="w-full bg-[#1E1E24] border border-[#33333A] rounded-xl px-4 py-2.5 text-white focus:outline-none focus:border-[#EF3329]"
                                     placeholder="Ej: juan@autosporting.com"
                                 />
                             </div>
@@ -91,7 +91,7 @@ export default function AdminUserModal({ user, onClose, onSave }) {
                                         required={!isEditing}
                                         value={formData.password}
                                         onChange={(e) => setFormData(prev => ({ ...prev, password: e.target.value }))}
-                                        className="w-full bg-[#1E1E24] border border-[#33333A] rounded-xl px-4 py-2.5 text-white focus:outline-none focus:border-indigo-500"
+                                        className="w-full bg-[#1E1E24] border border-[#33333A] rounded-xl px-4 py-2.5 text-white focus:outline-none focus:border-[#EF3329]"
                                         placeholder="Contraseña segura"
                                     />
                                 </div>
@@ -102,7 +102,7 @@ export default function AdminUserModal({ user, onClose, onSave }) {
                                 <select
                                     value={formData.role}
                                     onChange={(e) => setFormData(prev => ({ ...prev, role: e.target.value, permissions: [] }))}
-                                    className="w-full bg-[#1E1E24] border border-[#33333A] rounded-xl px-4 py-2.5 text-white focus:outline-none focus:border-indigo-500"
+                                    className="w-full bg-[#1E1E24] border border-[#33333A] rounded-xl px-4 py-2.5 text-white focus:outline-none focus:border-[#EF3329]"
                                 >
                                     {Object.values(ROLES).map(r => (
                                         <option key={r} value={r}>{r.toUpperCase()}</option>
@@ -116,7 +116,7 @@ export default function AdminUserModal({ user, onClose, onSave }) {
                                         type="checkbox"
                                         checked={formData.active}
                                         onChange={(e) => setFormData(prev => ({ ...prev, active: e.target.checked }))}
-                                        className="w-4 h-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-600"
+                                        className="w-4 h-4 rounded border-[#33333A] text-indigo-600 focus:ring-indigo-600"
                                     />
                                     <label className="text-sm font-medium text-white">Usuario Activo</label>
                                 </div>
@@ -145,7 +145,7 @@ export default function AdminUserModal({ user, onClose, onSave }) {
                         type="submit"
                         form="userForm"
                         disabled={loading}
-                        className="flex items-center gap-2 px-5 py-2.5 rounded-xl font-bold text-sm bg-indigo-600 hover:bg-indigo-700 text-white transition-colors disabled:opacity-50"
+                        className="flex items-center gap-2 px-5 py-2.5 rounded-xl font-bold text-sm bg-[#E63027] hover:bg-[#C42620] text-white transition-colors disabled:opacity-50"
                     >
                         {loading ? 'Guardando...' : (
                             <>

@@ -155,7 +155,7 @@ export default function CommunicationLogForm({
                                     name="channel" 
                                     value={formData.channel} 
                                     onChange={handleChange}
-                                    className="w-full bg-[#1E1E24] border border-[#33333A] text-white text-sm rounded-lg p-2.5 focus:outline-none focus:border-indigo-500"
+                                    className="w-full bg-[#1E1E24] border border-[#33333A] text-white text-sm rounded-lg p-2.5 focus:outline-none focus:border-[#EF3329]"
                                 >
                                     {channels.map(c => <option key={c.value} value={c.value}>{c.label}</option>)}
                                 </select>
@@ -166,7 +166,7 @@ export default function CommunicationLogForm({
                                     name="direction" 
                                     value={formData.direction} 
                                     onChange={handleChange}
-                                    className="w-full bg-[#1E1E24] border border-[#33333A] text-white text-sm rounded-lg p-2.5 focus:outline-none focus:border-indigo-500"
+                                    className="w-full bg-[#1E1E24] border border-[#33333A] text-white text-sm rounded-lg p-2.5 focus:outline-none focus:border-[#EF3329]"
                                 >
                                     <option value="outbound">Saliente (Nosotros contactamos)</option>
                                     <option value="inbound">Entrante (Ellos nos contactan)</option>
@@ -183,7 +183,7 @@ export default function CommunicationLogForm({
                                     name="contactDate" 
                                     value={formData.contactDate} 
                                     onChange={handleChange}
-                                    className="w-full bg-[#1E1E24] border border-[#33333A] text-white text-sm rounded-lg p-2.5 focus:outline-none focus:border-indigo-500"
+                                    className="w-full bg-[#1E1E24] border border-[#33333A] text-white text-sm rounded-lg p-2.5 focus:outline-none focus:border-[#EF3329]"
                                 />
                             </div>
                             <div>
@@ -192,7 +192,7 @@ export default function CommunicationLogForm({
                                     name="outcome" 
                                     value={formData.outcome} 
                                     onChange={handleChange}
-                                    className="w-full bg-[#1E1E24] border border-[#33333A] text-white text-sm rounded-lg p-2.5 focus:outline-none focus:border-indigo-500"
+                                    className="w-full bg-[#1E1E24] border border-[#33333A] text-white text-sm rounded-lg p-2.5 focus:outline-none focus:border-[#EF3329]"
                                 >
                                     {outcomes.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
                                 </select>
@@ -207,7 +207,7 @@ export default function CommunicationLogForm({
                                 value={formData.title} 
                                 onChange={handleChange}
                                 placeholder="Ej: Llamada de seguimiento por financiación"
-                                className="w-full bg-[#1E1E24] border border-[#33333A] text-white text-sm rounded-lg p-2.5 focus:outline-none focus:border-indigo-500"
+                                className="w-full bg-[#1E1E24] border border-[#33333A] text-white text-sm rounded-lg p-2.5 focus:outline-none focus:border-[#EF3329]"
                                 required
                             />
                         </div>
@@ -220,7 +220,7 @@ export default function CommunicationLogForm({
                                 onChange={handleChange}
                                 rows="3"
                                 placeholder="Detalles de la conversación, acuerdos, objeciones..."
-                                className="w-full bg-[#1E1E24] border border-[#33333A] text-white text-sm rounded-lg p-2.5 focus:outline-none focus:border-indigo-500 resize-none"
+                                className="w-full bg-[#1E1E24] border border-[#33333A] text-white text-sm rounded-lg p-2.5 focus:outline-none focus:border-[#EF3329] resize-none"
                             ></textarea>
                         </div>
 
@@ -231,7 +231,7 @@ export default function CommunicationLogForm({
                                     name="shouldCreateTask" 
                                     checked={formData.shouldCreateTask} 
                                     onChange={handleChange}
-                                    className="w-4 h-4 rounded border-[#33333A] bg-[#24242B] text-indigo-500 focus:ring-indigo-500"
+                                    className="w-4 h-4 rounded border-[#33333A] bg-[#24242B] text-indigo-500 focus:ring-[#EF3329]"
                                 />
                                 <span className="text-sm font-bold text-white flex items-center gap-2">
                                     <CalendarIcon size={16} className="text-indigo-400" />
@@ -247,7 +247,7 @@ export default function CommunicationLogForm({
                                         name="nextActionDate" 
                                         value={formData.nextActionDate} 
                                         onChange={handleChange}
-                                        className="w-full bg-[#24242B] border border-[#33333A] text-white text-sm rounded-lg p-2.5 focus:outline-none focus:border-indigo-500"
+                                        className="w-full bg-[#24242B] border border-[#33333A] text-white text-sm rounded-lg p-2.5 focus:outline-none focus:border-[#EF3329]"
                                         required={formData.shouldCreateTask}
                                     />
                                     <p className="text-xs text-gray-500 mt-1">Se creará una tarea asociada a esta entidad y responsable actual.</p>
@@ -284,7 +284,7 @@ export default function CommunicationLogForm({
                         type="submit" 
                         form="comm-form"
                         disabled={loading}
-                        className="px-4 py-2 text-sm font-bold text-white bg-indigo-600 hover:bg-indigo-500 rounded-lg transition-colors flex items-center gap-2 disabled:opacity-50"
+                        className="px-4 py-2 text-sm font-bold text-white bg-[#E63027] hover:bg-[#C42620] rounded-lg transition-colors flex items-center gap-2 disabled:opacity-50"
                     >
                         {loading ? 'Guardando...' : <><Save size={16} /> Guardar Interacción</>}
                     </button>

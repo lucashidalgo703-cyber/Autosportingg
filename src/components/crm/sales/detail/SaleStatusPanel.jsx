@@ -97,7 +97,7 @@ export default function SaleStatusPanel({ sale, onSave }) {
                     <button 
                         onClick={handleSaveClick}
                         disabled={isSaving}
-                        className="h-8 px-3 rounded-lg bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs flex items-center justify-center transition-colors shadow-lg disabled:opacity-50 flex-none gap-2"
+                        className="h-8 px-3 rounded-lg bg-[#E63027] hover:bg-[#C42620] text-white font-bold text-xs flex items-center justify-center transition-colors shadow-lg disabled:opacity-50 flex-none gap-2"
                     >
                         {isSaving ? (
                             <div className="w-3 h-3 border-2 border-white/30 border-t-white rounded-full animate-spin" />

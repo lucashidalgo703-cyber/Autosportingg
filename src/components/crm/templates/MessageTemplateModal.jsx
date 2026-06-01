@@ -143,7 +143,7 @@ export default function MessageTemplateModal({ isOpen, onClose, template, onSave
                                     value={formData.name}
                                     onChange={handleChange}
                                     placeholder="Ej: Seguimiento Lead Frío"
-                                    className="w-full px-4 py-2.5 bg-black text-white border border-white/10 rounded-xl focus:bg-[#111217] focus:ring-2 focus:ring-blue-500 outline-none transition-all placeholder-neutral-500"
+                                    className="w-full px-4 py-2.5 bg-black text-white border border-white/10 rounded-xl focus:bg-[#111217] focus:ring-2 focus:ring-[#EF3329] outline-none transition-all placeholder-neutral-500"
                                 />
                             </div>
                             
@@ -153,7 +153,7 @@ export default function MessageTemplateModal({ isOpen, onClose, template, onSave
                                     name="category"
                                     value={formData.category}
                                     onChange={handleChange}
-                                    className="w-full px-4 py-2.5 bg-black text-white border border-white/10 rounded-xl focus:bg-[#111217] focus:ring-2 focus:ring-blue-500 outline-none transition-all"
+                                    className="w-full px-4 py-2.5 bg-black text-white border border-white/10 rounded-xl focus:bg-[#111217] focus:ring-2 focus:ring-[#EF3329] outline-none transition-all"
                                 >
                                     <option value="lead">Lead</option>
                                     <option value="client">Cliente</option>
@@ -175,7 +175,7 @@ export default function MessageTemplateModal({ isOpen, onClose, template, onSave
                                     name="channel"
                                     value={formData.channel}
                                     onChange={handleChange}
-                                    className="w-full px-4 py-2.5 bg-black text-white border border-white/10 rounded-xl focus:bg-[#111217] focus:ring-2 focus:ring-blue-500 outline-none transition-all"
+                                    className="w-full px-4 py-2.5 bg-black text-white border border-white/10 rounded-xl focus:bg-[#111217] focus:ring-2 focus:ring-[#EF3329] outline-none transition-all"
                                 >
                                     <option value="whatsapp">WhatsApp</option>
                                     <option value="email">Email</option>
@@ -193,7 +193,7 @@ export default function MessageTemplateModal({ isOpen, onClose, template, onSave
                                     value={formData.subject}
                                     onChange={handleChange}
                                     placeholder="Asunto del correo"
-                                    className="w-full px-4 py-2.5 bg-black text-white border border-white/10 rounded-xl focus:bg-[#111217] focus:ring-2 focus:ring-blue-500 outline-none transition-all placeholder-neutral-500"
+                                    className="w-full px-4 py-2.5 bg-black text-white border border-white/10 rounded-xl focus:bg-[#111217] focus:ring-2 focus:ring-[#EF3329] outline-none transition-all placeholder-neutral-500"
                                 />
                             </div>
                         </div>
@@ -221,7 +221,7 @@ export default function MessageTemplateModal({ isOpen, onClose, template, onSave
                                                 key={variable}
                                                 type="button"
                                                 onClick={() => handleInsertVariable(variable)}
-                                                className="px-2 py-1 text-[11px] font-mono text-blue-400 bg-blue-500/10 hover:bg-blue-500/20 rounded border border-blue-500/20 transition-colors"
+                                                className="px-2 py-1 text-[11px] font-mono text-blue-400 bg-blue-500/10 hover:bg-[#C42620]/20 rounded border border-blue-500/20 transition-colors"
                                             >
                                                 {variable}
                                             </button>
@@ -238,7 +238,7 @@ export default function MessageTemplateModal({ isOpen, onClose, template, onSave
                                 name="isActive"
                                 checked={formData.isActive}
                                 onChange={handleChange}
-                                className="w-4 h-4 text-blue-600 border-white/10 rounded focus:ring-blue-500 bg-black"
+                                className="w-4 h-4 text-blue-600 border-white/10 rounded focus:ring-[#EF3329] bg-black"
                             />
                             <label htmlFor="isActive" className="text-sm text-neutral-300 cursor-pointer">
                                 Plantilla Activa (visible para el equipo)
@@ -260,7 +260,7 @@ export default function MessageTemplateModal({ isOpen, onClose, template, onSave
                         type="submit"
                         form="templateForm"
                         disabled={saving}
-                        className="flex items-center gap-2 px-5 py-2.5 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-xl transition-all disabled:opacity-50"
+                        className="flex items-center gap-2 px-5 py-2.5 text-sm font-medium text-white bg-[#E63027] hover:bg-[#C42620] rounded-xl transition-all disabled:opacity-50"
                     >
                         <Save className="w-4 h-4" />
                         {saving ? 'Guardando...' : 'Guardar Plantilla'}

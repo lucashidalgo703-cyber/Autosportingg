@@ -179,7 +179,7 @@ export default function SaleFinancePanel({ sale }) {
                     </button>
                     <button
                         onClick={() => handleNewTransaction('ingreso', 'Cobro venta')}
-                        className="h-9 px-4 rounded-xl bg-blue-500 hover:bg-blue-600 text-white font-bold text-sm transition-colors flex items-center gap-2"
+                        className="h-9 px-4 rounded-xl bg-[#E63027] hover:bg-[#E63027] text-white font-bold text-sm transition-colors flex items-center gap-2"
                     >
                         <Plus size={16} />
                         <span>Registrar cobro manual</span>

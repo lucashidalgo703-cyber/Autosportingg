@@ -110,7 +110,7 @@ export default function NotificationsPage() {
                     {notifications.some(n => !n.read) && (
                         <button 
                             onClick={handleMarkAllRead}
-                            className="flex items-center gap-2 px-4 py-2 bg-indigo-600 rounded-xl text-white text-sm font-bold hover:bg-indigo-700 transition-colors"
+                            className="flex items-center gap-2 px-4 py-2 bg-[#E63027] rounded-xl text-white text-sm font-bold hover:bg-[#C42620] transition-colors"
                         >
                             <CheckCheck size={16} />
                             Marcar todas como leídas
@@ -172,7 +172,7 @@ export default function NotificationsPage() {
                     {filteredNotifications.map((n) => (
                         <div key={n.id} className={`flex flex-col md:flex-row md:items-center gap-4 bg-[#161619] border border-[#33333A] rounded-xl p-4 transition-all ${n.read ? 'opacity-60 grayscale-[50%]' : 'hover:border-gray-500 shadow-lg relative overflow-hidden'}`}>
                             {!n.read && (
-                                <div className={`absolute left-0 top-0 bottom-0 w-1 ${n.severity === 'danger' ? 'bg-red-500' : n.severity === 'warning' ? 'bg-yellow-500' : n.severity === 'success' ? 'bg-green-500' : 'bg-blue-500'}`}></div>
+                                <div className={`absolute left-0 top-0 bottom-0 w-1 ${n.severity === 'danger' ? 'bg-red-500' : n.severity === 'warning' ? 'bg-yellow-500' : n.severity === 'success' ? 'bg-green-500' : 'bg-[#E63027]'}`}></div>
                             )}
                             <div className="flex items-start gap-4 flex-1 pl-2">
                                 <div className="mt-1">

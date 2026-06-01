@@ -107,13 +107,13 @@ export default function MessageTemplateManager() {
                             placeholder="Buscar plantillas..."
                             value={searchTerm}
                             onChange={(e) => setSearchTerm(e.target.value)}
-                            className="w-full pl-9 pr-3 py-2 text-sm bg-black text-white border border-white/10 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none placeholder-neutral-500"
+                            className="w-full pl-9 pr-3 py-2 text-sm bg-black text-white border border-white/10 rounded-lg focus:ring-2 focus:ring-[#EF3329] outline-none placeholder-neutral-500"
                         />
                     </div>
                     <select
                         value={categoryFilter}
                         onChange={(e) => setCategoryFilter(e.target.value)}
-                        className="px-3 py-2 text-sm bg-black text-white border border-white/10 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
+                        className="px-3 py-2 text-sm bg-black text-white border border-white/10 rounded-lg focus:ring-2 focus:ring-[#EF3329] outline-none"
                     >
                         <option value="">Todas las categorías</option>
                         <option value="lead">Leads</option>
@@ -138,7 +138,7 @@ export default function MessageTemplateManager() {
                     {canWrite && (
                         <button
                             onClick={openCreateModal}
-                            className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors"
+                            className="flex items-center gap-2 px-4 py-2 bg-[#E63027] text-white text-sm font-medium rounded-lg hover:bg-[#C42620] transition-colors"
                         >
                             <Plus className="w-4 h-4" />
                             Nueva Plantilla
@@ -203,7 +203,7 @@ export default function MessageTemplateManager() {
                                         {canWrite && (
                                             <button
                                                 onClick={() => openEditModal(template)}
-                                                className="p-1.5 text-neutral-400 hover:text-blue-400 hover:bg-blue-500/10 rounded-lg transition-colors"
+                                                className="p-1.5 text-neutral-400 hover:text-blue-400 hover:bg-[#C42620]/10 rounded-lg transition-colors"
                                                 title="Editar plantilla"
                                             >
                                                 <Edit className="w-4 h-4" />

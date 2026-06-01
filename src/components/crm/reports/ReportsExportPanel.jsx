@@ -301,7 +301,7 @@ export default function ReportsExportPanel({ data, filters }) {
                 <Link
                     href={`/admin/reportes/imprimir?period=${filters.dateRange}&currency=${filters.currency}`}
                     target="_blank"
-                    className="flex items-center gap-2 px-4 py-2.5 bg-blue-600 text-white hover:bg-blue-500 rounded-xl text-xs font-bold transition-colors"
+                    className="flex items-center gap-2 px-4 py-2.5 bg-[#E63027] text-white hover:bg-[#C42620] rounded-xl text-xs font-bold transition-colors"
                 >
                     <Printer size={16} /> Imprimir / Guardar PDF
                 </Link>
@@ -310,7 +310,7 @@ export default function ReportsExportPanel({ data, filters }) {
             <div className="flex flex-wrap gap-3">
                 <button 
                     onClick={handleExportSummary}
-                    className="flex items-center gap-2 px-3 py-2 bg-indigo-500/10 hover:bg-indigo-500/20 border border-indigo-500/20 text-indigo-400 rounded-xl text-xs font-bold transition-colors"
+                    className="flex items-center gap-2 px-3 py-2 bg-indigo-500/10 hover:bg-[#C42620]/20 border border-indigo-500/20 text-indigo-400 rounded-xl text-xs font-bold transition-colors"
                 >
                     <BarChart3 size={14} /> Resumen Gerencial
                 </button>

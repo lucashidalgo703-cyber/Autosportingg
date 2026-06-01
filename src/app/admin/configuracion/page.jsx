@@ -50,7 +50,7 @@ export default function ConfiguracionPage() {
                         href="/admin/configuracion/usuarios"
                         className="group flex items-start gap-4 p-6 rounded-2xl border border-white/10 bg-[#111217] hover:border-white/30 hover:bg-white/[0.02] transition-all"
                     >
-                        <div className="w-12 h-12 rounded-xl bg-white/5 flex items-center justify-center shrink-0 group-hover:bg-blue-600 group-hover:text-white transition-colors border border-white/10">
+                        <div className="w-12 h-12 rounded-xl bg-white/5 flex items-center justify-center shrink-0 group-hover:bg-[#E63027] group-hover:text-white transition-colors border border-white/10">
                             <Users size={24} className="text-neutral-400 group-hover:text-white" />
                         </div>
                         <div>
@@ -67,7 +67,7 @@ export default function ConfiguracionPage() {
                         href="/admin/configuracion/plantillas"
                         className="group flex items-start gap-4 p-6 rounded-2xl border border-white/10 bg-[#111217] hover:border-white/30 hover:bg-white/[0.02] transition-all"
                     >
-                        <div className="w-12 h-12 rounded-xl bg-white/5 flex items-center justify-center shrink-0 group-hover:bg-blue-600 group-hover:text-white transition-colors border border-white/10">
+                        <div className="w-12 h-12 rounded-xl bg-white/5 flex items-center justify-center shrink-0 group-hover:bg-[#E63027] group-hover:text-white transition-colors border border-white/10">
                             <MessageSquare size={24} className="text-neutral-400 group-hover:text-white" />
                         </div>
                         <div>
@@ -84,7 +84,7 @@ export default function ConfiguracionPage() {
                         href="/admin/configuracion/general"
                         className="group flex items-start gap-4 p-6 rounded-2xl border border-white/10 bg-[#111217] hover:border-white/30 hover:bg-white/[0.02] transition-all"
                     >
-                        <div className="w-12 h-12 rounded-xl bg-white/5 flex items-center justify-center shrink-0 group-hover:bg-blue-600 group-hover:text-white transition-colors border border-white/10">
+                        <div className="w-12 h-12 rounded-xl bg-white/5 flex items-center justify-center shrink-0 group-hover:bg-[#E63027] group-hover:text-white transition-colors border border-white/10">
                             <Settings size={24} className="text-neutral-400 group-hover:text-white" />
                         </div>
                         <div>

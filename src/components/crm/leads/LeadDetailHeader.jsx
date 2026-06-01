@@ -81,7 +81,7 @@ export default function LeadDetailHeader({ lead, onEdit, onReserve, onCancelRese
                  !activeReservation?._id && (
                     <button 
                         onClick={onReserve}
-                        className="flex items-center gap-2 px-4 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white font-semibold transition-colors shadow-lg"
+                        className="flex items-center gap-2 px-4 py-2 rounded-lg bg-[#E63027] hover:bg-[#C42620] text-white font-semibold transition-colors shadow-lg"
                     >
                         <CheckCircle2 size={16} />
                         Tomar Reserva

@@ -76,7 +76,7 @@ export default function GoalsDashboardPage() {
 
                 <button 
                     onClick={() => setModalConfig({ isOpen: true, goal: null })}
-                    className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg font-medium transition-colors"
+                    className="flex items-center gap-2 bg-[#E63027] hover:bg-[#C42620] text-white px-4 py-2 rounded-lg font-medium transition-colors"
                 >
                     <Plus size={18} /> Nueva Meta
                 </button>

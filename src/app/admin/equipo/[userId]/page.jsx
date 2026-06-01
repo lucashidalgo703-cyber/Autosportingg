@@ -139,7 +139,7 @@ export default function UserDetailDashboardPage() {
                             <Flag className="text-indigo-500" size={24} />
                             Metas Activas
                         </h2>
-                        <Link href={`/admin/metas?userId=${targetUser._id}`} className="bg-indigo-600 hover:bg-indigo-500 text-white px-4 py-2 rounded-lg font-bold text-sm transition-colors">
+                        <Link href={`/admin/metas?userId=${targetUser._id}`} className="bg-[#E63027] hover:bg-[#C42620] text-white px-4 py-2 rounded-lg font-bold text-sm transition-colors">
                             Gestionar Metas
                         </Link>
                     </div>

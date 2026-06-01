@@ -96,7 +96,7 @@ export default function QuickAssignModal({ isOpen, onClose, entityType, entityId
                         <select
                             value={selectedUser}
                             onChange={(e) => setSelectedUser(e.target.value)}
-                            className="w-full bg-[#24242B] border border-[#33333A] text-white rounded-lg p-2 focus:outline-none focus:border-indigo-500"
+                            className="w-full bg-[#24242B] border border-[#33333A] text-white rounded-lg p-2 focus:outline-none focus:border-[#EF3329]"
                         >
                             <option value="">Sin responsable (Quitar asignación)</option>
                             {users.map(u => (
@@ -115,7 +115,7 @@ export default function QuickAssignModal({ isOpen, onClose, entityType, entityId
                         <button 
                             onClick={handleAssign}
                             disabled={loading}
-                            className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg transition-colors flex items-center gap-2 text-sm disabled:opacity-50"
+                            className="px-4 py-2 bg-[#E63027] hover:bg-[#C42620] text-white rounded-lg transition-colors flex items-center gap-2 text-sm disabled:opacity-50"
                         >
                             {loading ? 'Guardando...' : (
                                 <>

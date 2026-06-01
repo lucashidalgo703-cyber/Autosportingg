@@ -164,7 +164,7 @@ export default function TeamGoalModal({ isOpen, onClose, goal, onSuccess }) {
                                     value={formData.userId} 
                                     onChange={e => setFormData({...formData, userId: e.target.value})}
                                     disabled={!!goal} // No permitir cambiar usuario si edita
-                                    className="w-full bg-[#1E1E24] border border-[#33333A] rounded-lg p-2.5 text-white focus:outline-none focus:border-indigo-500 disabled:opacity-50"
+                                    className="w-full bg-[#1E1E24] border border-[#33333A] rounded-lg p-2.5 text-white focus:outline-none focus:border-[#EF3329] disabled:opacity-50"
                                 >
                                     <option value="">Seleccione un usuario...</option>
                                     {users.map(u => (
@@ -177,7 +177,7 @@ export default function TeamGoalModal({ isOpen, onClose, goal, onSuccess }) {
                                 <select 
                                     value={formData.periodType} 
                                     onChange={e => setFormData({...formData, periodType: e.target.value})}
-                                    className="w-full bg-[#1E1E24] border border-[#33333A] rounded-lg p-2.5 text-white focus:outline-none focus:border-indigo-500"
+                                    className="w-full bg-[#1E1E24] border border-[#33333A] rounded-lg p-2.5 text-white focus:outline-none focus:border-[#EF3329]"
                                 >
                                     <option value="weekly">Semanal</option>
                                     <option value="monthly">Mensual</option>
@@ -190,7 +190,7 @@ export default function TeamGoalModal({ isOpen, onClose, goal, onSuccess }) {
                                     type="date" 
                                     value={formData.startDate} 
                                     onChange={e => setFormData({...formData, startDate: e.target.value})}
-                                    className="w-full bg-[#1E1E24] border border-[#33333A] rounded-lg p-2.5 text-white focus:outline-none focus:border-indigo-500"
+                                    className="w-full bg-[#1E1E24] border border-[#33333A] rounded-lg p-2.5 text-white focus:outline-none focus:border-[#EF3329]"
                                 />
                             </div>
                             <div>
@@ -199,7 +199,7 @@ export default function TeamGoalModal({ isOpen, onClose, goal, onSuccess }) {
                                     type="date" 
                                     value={formData.endDate} 
                                     onChange={e => setFormData({...formData, endDate: e.target.value})}
-                                    className="w-full bg-[#1E1E24] border border-[#33333A] rounded-lg p-2.5 text-white focus:outline-none focus:border-indigo-500"
+                                    className="w-full bg-[#1E1E24] border border-[#33333A] rounded-lg p-2.5 text-white focus:outline-none focus:border-[#EF3329]"
                                 />
                             </div>
                         </div>
@@ -240,7 +240,7 @@ export default function TeamGoalModal({ isOpen, onClose, goal, onSuccess }) {
                                 value={formData.notes} 
                                 onChange={e => setFormData({...formData, notes: e.target.value})}
                                 rows="3"
-                                className="w-full bg-[#1E1E24] border border-[#33333A] rounded-lg p-2.5 text-white focus:outline-none focus:border-indigo-500 custom-scrollbar"
+                                className="w-full bg-[#1E1E24] border border-[#33333A] rounded-lg p-2.5 text-white focus:outline-none focus:border-[#EF3329] custom-scrollbar"
                                 placeholder="Ej: Meta mensual de invierno..."
                             ></textarea>
                         </div>
@@ -252,7 +252,7 @@ export default function TeamGoalModal({ isOpen, onClose, goal, onSuccess }) {
                                     id="activeGoal" 
                                     checked={formData.active}
                                     onChange={(e) => setFormData({...formData, active: e.target.checked})}
-                                    className="w-4 h-4 rounded border-[#33333A] text-indigo-500 focus:ring-indigo-500 bg-[#161619]"
+                                    className="w-4 h-4 rounded border-[#33333A] text-indigo-500 focus:ring-[#EF3329] bg-[#161619]"
                                 />
                                 <label htmlFor="activeGoal" className="text-sm font-medium text-gray-300">Meta Activa</label>
                             </div>
@@ -273,7 +273,7 @@ export default function TeamGoalModal({ isOpen, onClose, goal, onSuccess }) {
                         type="submit" 
                         form="goalForm"
                         disabled={loading}
-                        className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white px-5 py-2 rounded-lg font-medium transition-colors disabled:opacity-50"
+                        className="flex items-center gap-2 bg-[#E63027] hover:bg-[#C42620] text-white px-5 py-2 rounded-lg font-medium transition-colors disabled:opacity-50"
                     >
                         {loading ? <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div> : <Save size={18} />}
                         {loading ? 'Guardando...' : 'Guardar Meta'}

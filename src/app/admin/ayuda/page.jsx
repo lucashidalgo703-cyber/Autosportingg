@@ -297,7 +297,7 @@ export default function AyudaPage() {
                         placeholder="Buscar por módulo o tema..." 
                         value={searchTerm}
                         onChange={(e) => setSearchTerm(e.target.value)}
-                        className="w-full bg-[#111217] border border-white/10 rounded-2xl pl-12 pr-4 py-4 text-sm text-white placeholder-neutral-500 focus:outline-none focus:border-blue-500 transition-colors"
+                        className="w-full bg-[#111217] border border-white/10 rounded-2xl pl-12 pr-4 py-4 text-sm text-white placeholder-neutral-500 focus:outline-none focus:border-[#EF3329] transition-colors"
                     />
                 </div>
 

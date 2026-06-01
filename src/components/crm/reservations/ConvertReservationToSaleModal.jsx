@@ -158,7 +158,7 @@ export default function ConvertReservationToSaleModal({ isOpen, onClose, onSucce
                                         type="number"
                                         min="0"
                                         required
-                                        className="w-full bg-black/40 border border-neutral-800 rounded-xl py-2.5 pl-9 pr-4 text-white focus:outline-none focus:border-blue-500/50 transition-colors"
+                                        className="w-full bg-black/40 border border-neutral-800 rounded-xl py-2.5 pl-9 pr-4 text-white focus:outline-none focus:border-[#EF3329]/50 transition-colors"
                                         value={formData.salePrice}
                                         onChange={(e) => setFormData({...formData, salePrice: e.target.value})}
                                         disabled={loading}
@@ -170,7 +170,7 @@ export default function ConvertReservationToSaleModal({ isOpen, onClose, onSucce
                                     Moneda
                                 </label>
                                 <select
-                                    className="w-full bg-black/40 border border-neutral-800 rounded-xl py-2.5 px-4 text-white focus:outline-none focus:border-blue-500/50 transition-colors appearance-none cursor-pointer"
+                                    className="w-full bg-black/40 border border-neutral-800 rounded-xl py-2.5 px-4 text-white focus:outline-none focus:border-[#EF3329]/50 transition-colors appearance-none cursor-pointer"
                                     value={formData.saleCurrency}
                                     onChange={(e) => setFormData({...formData, saleCurrency: e.target.value})}
                                     disabled={loading}
@@ -186,7 +186,7 @@ export default function ConvertReservationToSaleModal({ isOpen, onClose, onSucce
                                 Método de Pago
                             </label>
                             <select
-                                className="w-full bg-black/40 border border-neutral-800 rounded-xl py-2.5 px-4 text-white focus:outline-none focus:border-blue-500/50 transition-colors appearance-none cursor-pointer"
+                                className="w-full bg-black/40 border border-neutral-800 rounded-xl py-2.5 px-4 text-white focus:outline-none focus:border-[#EF3329]/50 transition-colors appearance-none cursor-pointer"
                                 value={formData.paymentMethod}
                                 onChange={(e) => setFormData({...formData, paymentMethod: e.target.value})}
                                 disabled={loading}
@@ -204,7 +204,7 @@ export default function ConvertReservationToSaleModal({ isOpen, onClose, onSucce
                             </label>
                             <textarea
                                 rows={3}
-                                className="w-full bg-black/40 border border-neutral-800 rounded-xl py-3 px-4 text-white placeholder:text-neutral-600 focus:outline-none focus:border-blue-500/50 transition-colors resize-none"
+                                className="w-full bg-black/40 border border-neutral-800 rounded-xl py-3 px-4 text-white placeholder:text-neutral-600 focus:outline-none focus:border-[#EF3329]/50 transition-colors resize-none"
                                 placeholder="Condiciones especiales de entrega, aclaraciones comerciales..."
                                 value={formData.notes}
                                 onChange={(e) => setFormData({...formData, notes: e.target.value})}
@@ -226,7 +226,7 @@ export default function ConvertReservationToSaleModal({ isOpen, onClose, onSucce
                     <button
                         onClick={handleConvert}
                         disabled={loading}
-                        className="px-6 py-2.5 rounded-xl font-bold bg-blue-600 hover:bg-blue-500 text-white transition-colors flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                        className="px-6 py-2.5 rounded-xl font-bold bg-[#E63027] hover:bg-[#C42620] text-white transition-colors flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                         {loading ? (
                             <>

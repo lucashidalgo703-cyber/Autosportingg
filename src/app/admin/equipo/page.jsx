@@ -123,13 +123,13 @@ export default function TeamDashboardPage() {
                         placeholder="Buscar usuario..."
                         value={searchUser}
                         onChange={(e) => setSearchUser(e.target.value)}
-                        className="w-full md:w-64 pl-10 pr-4 py-2 bg-[#161619] border border-[#33333A] rounded-lg text-white focus:outline-none focus:border-blue-500"
+                        className="w-full md:w-64 pl-10 pr-4 py-2 bg-[#161619] border border-[#33333A] rounded-lg text-white focus:outline-none focus:border-[#EF3329]"
                     />
                 </div>
                 <select 
                     value={roleFilter} 
                     onChange={(e) => setRoleFilter(e.target.value)}
-                    className="w-full md:w-48 px-4 py-2 bg-[#161619] border border-[#33333A] rounded-lg text-white focus:outline-none focus:border-blue-500"
+                    className="w-full md:w-48 px-4 py-2 bg-[#161619] border border-[#33333A] rounded-lg text-white focus:outline-none focus:border-[#EF3329]"
                 >
                     <option value="todos">Todos los roles</option>
                     <option value="ventas">Ventas</option>
@@ -158,7 +158,7 @@ export default function TeamDashboardPage() {
                             {filteredTeam.map(u => (
                                 <tr key={u._id} className="border-b border-[#33333A] hover:bg-[#1E1E24] transition-colors">
                                     <td className="p-4 text-sm font-medium flex items-center gap-2">
-                                        <div className={`w-2 h-2 rounded-full ${u.active ? 'bg-green-500' : 'bg-gray-500'}`}></div>
+                                        <div className={`w-2 h-2 rounded-full ${u.active ? 'bg-green-500' : 'bg-[#161619]0'}`}></div>
                                         <Link href={`/admin/equipo/${u._id}`} className="text-white hover:text-indigo-400 hover:underline">
                                             {u.name}
                                         </Link>
@@ -190,7 +190,7 @@ export default function TeamDashboardPage() {
                                                         u.goalSummary.mainStatus === 'proximo_vencer' ? 'bg-orange-500/20 text-orange-400' :
                                                         u.goalSummary.mainStatus === 'atrasado' ? 'bg-yellow-500/20 text-yellow-500' :
                                                         u.goalSummary.mainStatus === 'vencido' ? 'bg-red-500/20 text-red-400' :
-                                                        u.goalSummary.mainStatus === 'sin_avance' ? 'bg-gray-500/20 text-gray-400' :
+                                                        u.goalSummary.mainStatus === 'sin_avance' ? 'bg-[#161619]0/20 text-gray-400' :
                                                         'bg-indigo-500/20 text-indigo-400'
                                                     }`}>
                                                         {u.goalSummary.mainStatus.replace('_', ' ')}
@@ -253,7 +253,7 @@ export default function TeamDashboardPage() {
                                         </div>
                                         <button 
                                             onClick={() => setAssignModal({ isOpen: true, entityType: 'lead', entityId: l._id, entityTitle: l.name })}
-                                            className="px-3 py-1 bg-[#33333A] hover:bg-indigo-600 text-white rounded text-xs transition-colors flex items-center gap-1"
+                                            className="px-3 py-1 bg-[#33333A] hover:bg-[#E63027] text-white rounded text-xs transition-colors flex items-center gap-1"
                                         >
                                             <PlusCircle size={14} /> Asignar
                                         </button>
@@ -276,7 +276,7 @@ export default function TeamDashboardPage() {
                                         </div>
                                         <button 
                                             onClick={() => setAssignModal({ isOpen: true, entityType: 'sale', entityId: s._id, entityTitle: `Venta #${s._id.toString().slice(-6).toUpperCase()}` })}
-                                            className="px-3 py-1 bg-[#33333A] hover:bg-indigo-600 text-white rounded text-xs transition-colors flex items-center gap-1"
+                                            className="px-3 py-1 bg-[#33333A] hover:bg-[#E63027] text-white rounded text-xs transition-colors flex items-center gap-1"
                                         >
                                             <PlusCircle size={14} /> Asignar
                                         </button>
@@ -299,7 +299,7 @@ export default function TeamDashboardPage() {
                                         </div>
                                         <button 
                                             onClick={() => setAssignModal({ isOpen: true, entityType: 'task', entityId: t._id, entityTitle: t.title })}
-                                            className="px-3 py-1 bg-[#33333A] hover:bg-indigo-600 text-white rounded text-xs transition-colors flex items-center gap-1"
+                                            className="px-3 py-1 bg-[#33333A] hover:bg-[#E63027] text-white rounded text-xs transition-colors flex items-center gap-1"
                                         >
                                             <PlusCircle size={14} /> Asignar
                                         </button>
@@ -322,7 +322,7 @@ export default function TeamDashboardPage() {
                                         </div>
                                         <button 
                                             onClick={() => setAssignModal({ isOpen: true, entityType: 'reservation', entityId: r._id, entityTitle: `Reserva #${r._id.toString().slice(-6).toUpperCase()}` })}
-                                            className="px-3 py-1 bg-[#33333A] hover:bg-indigo-600 text-white rounded text-xs transition-colors flex items-center gap-1"
+                                            className="px-3 py-1 bg-[#33333A] hover:bg-[#E63027] text-white rounded text-xs transition-colors flex items-center gap-1"
                                         >
                                             <PlusCircle size={14} /> Asignar
                                         </button>

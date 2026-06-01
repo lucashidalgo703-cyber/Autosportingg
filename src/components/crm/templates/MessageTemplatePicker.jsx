@@ -121,7 +121,7 @@ export default function MessageTemplatePicker({ category, entityData, onLogActio
             <button
                 type="button"
                 onClick={() => setIsOpen(!isOpen)}
-                className="flex items-center gap-2 px-3 py-1.5 text-sm font-medium text-white bg-blue-600/10 border border-blue-500/20 rounded-lg hover:bg-blue-600/20 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors"
+                className="flex items-center gap-2 px-3 py-1.5 text-sm font-medium text-white bg-[#E63027]/10 border border-blue-500/20 rounded-lg hover:bg-[#E63027]/20 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#EF3329] transition-colors"
             >
                 <MessageSquare className="w-4 h-4" />
                 Usar Plantilla
@@ -166,13 +166,13 @@ export default function MessageTemplatePicker({ category, entityData, onLogActio
                                 <textarea
                                     value={previewText}
                                     onChange={(e) => setPreviewText(e.target.value)}
-                                    className="w-full h-32 p-3 text-sm text-white bg-black border border-white/10 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none resize-none placeholder-neutral-500"
+                                    className="w-full h-32 p-3 text-sm text-white bg-black border border-white/10 rounded-lg focus:ring-2 focus:ring-[#EF3329] focus:border-transparent outline-none resize-none placeholder-neutral-500"
                                 />
                             </div>
                             <div className="p-4 pt-0">
                                 <button
                                     onClick={handleCopy}
-                                    className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors"
+                                    className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-[#E63027] text-white text-sm font-medium rounded-lg hover:bg-[#C42620] transition-colors"
                                 >
                                     {copied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
                                     {copied ? '¡Copiado!' : 'Copiar Mensaje'}

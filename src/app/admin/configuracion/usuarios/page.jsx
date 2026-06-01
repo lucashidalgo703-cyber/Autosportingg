@@ -75,7 +75,7 @@ export default function UsuariosConfigPage() {
                 {hasPermission(user, PERMISSIONS.USUARIOS_WRITE) && (
                     <button
                         onClick={handleCreate}
-                        className="bg-indigo-600 hover:bg-indigo-700 text-white px-5 py-2.5 rounded-xl font-bold flex items-center gap-2 transition-colors shadow-lg shadow-indigo-500/20"
+                        className="bg-[#E63027] hover:bg-[#C42620] text-white px-5 py-2.5 rounded-xl font-bold flex items-center gap-2 transition-colors shadow-lg shadow-red-500/20"
                     >
                         <Plus size={20} />
                         Nuevo Usuario

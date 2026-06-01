@@ -67,7 +67,7 @@ export default function CommunicationLogPanel({
                     </button>
                     <button 
                         onClick={() => setIsFormOpen(true)}
-                        className="bg-indigo-600 hover:bg-indigo-500 text-white px-3 py-1.5 rounded text-xs font-bold transition-colors flex items-center gap-1"
+                        className="bg-[#E63027] hover:bg-[#C42620] text-white px-3 py-1.5 rounded text-xs font-bold transition-colors flex items-center gap-1"
                     >
                         <Plus size={14} /> Registrar
                     </button>

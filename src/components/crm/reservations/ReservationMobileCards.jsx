@@ -90,7 +90,7 @@ export default function ReservationMobileCards({ reservations, onLiberar, onConv
                                 <div className="flex gap-2">
                                     <button 
                                         onClick={() => onConvertir(res)}
-                                        className="flex-1 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-sm font-bold transition-colors flex items-center justify-center"
+                                        className="flex-1 py-2.5 rounded-xl bg-[#E63027] hover:bg-[#C42620] text-white text-sm font-bold transition-colors flex items-center justify-center"
                                     >
                                         Convertir a Venta
                                     </button>

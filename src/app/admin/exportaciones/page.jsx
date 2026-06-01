@@ -148,7 +148,7 @@ export default function ExportacionesPage() {
                             <button
                                 onClick={() => handleDownload(mod.id)}
                                 disabled={!isAvailable || downloading === mod.id}
-                                className="w-full flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 disabled:bg-neutral-800 disabled:text-neutral-500 disabled:cursor-not-allowed text-white px-4 py-2 text-sm font-bold rounded-xl transition-colors"
+                                className="w-full flex items-center justify-center gap-2 bg-[#E63027] hover:bg-[#C42620] disabled:bg-neutral-800 disabled:text-neutral-500 disabled:cursor-not-allowed text-white px-4 py-2 text-sm font-bold rounded-xl transition-colors"
                             >
                                 {downloading === mod.id ? (
                                     <>

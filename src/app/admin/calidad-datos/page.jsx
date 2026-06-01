@@ -122,7 +122,7 @@ export default function DataQualityPage() {
                         onClick={() => setFilterSeverity(sev)}
                         className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors border ${
                             filterSeverity === sev 
-                            ? 'bg-neutral-200 text-black border-neutral-200' 
+                            ? 'bg-neutral-200 text-white border-neutral-200' 
                             : 'bg-neutral-900 text-neutral-400 border-neutral-800 hover:bg-neutral-800'
                         }`}
                     >
