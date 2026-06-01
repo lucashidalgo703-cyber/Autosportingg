@@ -2653,6 +2653,7 @@ async function getOrCreateCrmV2Account(currency) {
 // GET admin transactions
 app.get('/api/admin/transactions', authenticateToken, async (req, res) => {
     try {
+        await connectDB();
         if (req.user && req.user.role === 'ventas') return res.status(403).json({ message: 'Sin permisos financieros' });
         const query = { module: 'crm_v2' };
         
@@ -2709,27 +2710,35 @@ app.get('/api/admin/transactions', authenticateToken, async (req, res) => {
         const transactions = await Transaction.find(query).sort({ date: -1 });
         res.json(transactions);
     } catch (error) {
-        console.error('Error fetching admin transactions:', error);
-        res.status(500).json({ message: error.message });
+        console.error('GET /api/admin/transactions error:', error);
+        return res.status(500).json({
+            ok: false,
+            error: 'No se pudieron cargar los movimientos financieros.'
+        });
     }
 });
 
 // GET admin transaction by id
 app.get('/api/admin/transactions/:id', authenticateToken, async (req, res) => {
     try {
+        await connectDB();
         if (req.user && req.user.role === 'ventas') return res.status(403).json({ message: 'Sin permisos financieros' });
         const transaction = await Transaction.findOne({ _id: req.params.id, module: 'crm_v2' });
         if (!transaction) return res.status(404).json({ message: 'Transaction not found' });
         res.json(transaction);
     } catch (error) {
-        console.error('Error fetching transaction:', error);
-        res.status(500).json({ message: error.message });
+        console.error('GET /api/admin/transactions/:id error:', error);
+        return res.status(500).json({
+            ok: false,
+            error: 'No se pudo cargar el movimiento financiero.'
+        });
     }
 });
 
 // POST admin transaction (manual only)
 app.post('/api/admin/transactions', authenticateToken, async (req, res) => {
     try {
+        await connectDB();
         if (req.user && req.user.role === 'ventas') return res.status(403).json({ message: 'Sin permisos financieros' });
         const { type, category, concept, amount, currency, paymentMethod, date, notes, saleId, reservationId, clientId, vehicleId, installmentId } = req.body;
         
@@ -2816,14 +2825,18 @@ app.post('/api/admin/transactions', authenticateToken, async (req, res) => {
 
         res.status(201).json(savedTx);
     } catch (error) {
-        console.error('Error creating transaction:', error);
-        res.status(400).json({ message: error.message });
+        console.error('POST /api/admin/transactions error:', error);
+        return res.status(500).json({
+            ok: false,
+            error: 'No se pudo crear el movimiento financiero.'
+        });
     }
 });
 
 // PATCH admin transaction
 app.patch('/api/admin/transactions/:id', authenticateToken, async (req, res) => {
     try {
+        await connectDB();
         if (req.user && req.user.role === 'ventas') return res.status(403).json({ message: 'Sin permisos financieros' });
         const { category, concept, paymentMethod, date, notes, status, saleId, reservationId, clientId, vehicleId, installmentId } = req.body;
         
@@ -2936,8 +2949,11 @@ app.patch('/api/admin/transactions/:id', authenticateToken, async (req, res) => 
             res.json(tx);
         }
     } catch (error) {
-        console.error('Error updating transaction:', error);
-        res.status(400).json({ message: error.message });
+        console.error('PATCH /api/admin/transactions/:id error:', error);
+        return res.status(500).json({
+            ok: false,
+            error: 'No se pudo actualizar el movimiento financiero.'
+        });
     }
 });
 

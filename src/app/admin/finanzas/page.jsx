@@ -114,7 +114,7 @@ export default function FinanzasPage() {
             await loadData();
             setIsModalOpen(false);
         } catch (err) {
-            alert(err.message);
+            console.error(err.message);
         }
     };
 
@@ -124,7 +124,7 @@ export default function FinanzasPage() {
             await loadData();
             setIsModalOpen(false);
         } catch (err) {
-            alert(err.message);
+            console.error(err.message);
         }
     };
 
