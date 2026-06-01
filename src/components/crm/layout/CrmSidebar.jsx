@@ -1,7 +1,7 @@
 "use client";
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { LayoutDashboard, CarFront, Users, UserPlus, Receipt, CalendarClock, Wallet, Landmark, FileText, BarChart3, Settings, Target, Star, UserCog, ClipboardList, Flag } from 'lucide-react';
+import { LayoutDashboard, CarFront, Users, UserPlus, Receipt, CalendarClock, Wallet, Landmark, FileText, BarChart3, Settings, Target, Star, UserCog, ClipboardList, Flag, ShieldAlert } from 'lucide-react';
 import { useAuth } from '../../../context/AuthContext';
 import { hasPermission, PERMISSIONS, ROLES } from '../../../utils/adminPermissions';
 
@@ -25,6 +25,7 @@ const menuItems = [
     { name: 'Reportes', path: '/admin/reportes', icon: BarChart3, prefetch: false },
     { name: 'Auditoría', path: '/admin/auditoria', icon: FileText, prefetch: false },
     { name: 'Usuarios', path: '/admin/configuracion/usuarios', icon: UserCog, prefetch: false },
+    { name: 'Calidad de Datos', path: '/admin/calidad-datos', icon: ShieldAlert, prefetch: false },
     { name: 'Configuración', path: '/admin/configuracion', icon: Settings, prefetch: false },
 ];
 
@@ -54,6 +55,9 @@ export default function CrmSidebar({ isOpen, onClose }) {
         }
         if (item.name === 'Auditoría') {
             return hasPermission(user, PERMISSIONS.AUDITORIA_READ);
+        }
+        if (item.name === 'Calidad de Datos') {
+            return hasPermission(user, PERMISSIONS.DATAQUALITY_READ);
         }
         if (item.name === 'Equipo') {
             return hasPermission(user, PERMISSIONS.EQUIPO_READ);

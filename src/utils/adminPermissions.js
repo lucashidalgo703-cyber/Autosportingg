@@ -46,7 +46,8 @@ export const PERMISSIONS = {
     COMMUNICATIONLOGS_DELETE: 'communicationLogs.delete',
     MESSAGETEMPLATES_READ: 'messageTemplates.read',
     MESSAGETEMPLATES_WRITE: 'messageTemplates.write',
-    MESSAGETEMPLATES_DELETE: 'messageTemplates.delete'
+    MESSAGETEMPLATES_DELETE: 'messageTemplates.delete',
+    DATAQUALITY_READ: 'dataQuality.read'
 };
 
 // Mapa de permisos por defecto según el rol

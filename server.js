@@ -4765,6 +4765,136 @@ app.patch('/api/admin/assignments', authenticateToken, async (req, res) => {
 });
 
 
+// ========================================== //
+// ============ DATA QUALITY ================ //
+// ========================================== //
+app.get('/api/admin/data-quality', authenticateToken, async (req, res) => {
+    try {
+        const userRole = req.user?.role || 'solo_lectura';
+        const perms = req.user?.permissions || [];
+        const userId = req.user?.userId;
+        
+        const canRead = ['owner', 'admin'].includes(userRole) || perms.includes('dataQuality.read');
+        if (!canRead) {
+            return res.status(403).json({ message: 'Sin permisos para ver la calidad de datos.' });
+        }
+
+        const isRestricted = !['owner', 'admin'].includes(userRole);
+
+        const summary = { totalIssues: 0, critical: 0, warning: 0, info: 0 };
+        const sections = {
+            clients: [], leads: [], stock: [], reservations: [],
+            sales: [], installments: [], tasks: [], communications: [],
+            documentation: [], users: []
+        };
+
+        const addIssue = (section, severity, title, description, entityType, entityId, href, suggestedAction) => {
+            sections[section].push({
+                severity, title, description, entityType, entityId, href, suggestedAction,
+                detectedAt: new Date().toISOString()
+            });
+            summary.totalIssues++;
+            summary[severity]++;
+        };
+
+        const daysAgo = (days) => new Date(Date.now() - days * 24 * 60 * 60 * 1000);
+
+        // A & B: Clients & Leads duplicados y huérfanos
+        // Hacemos query base dependiendo del user restricted
+        const clientQuery = isRestricted ? { assignedTo: userId } : {};
+        const leadQuery = isRestricted ? { assignedTo: userId } : {};
+        
+        // Leads sin responsable
+        const orphanLeads = await Lead.find({ ...leadQuery, status: { $nin: ['perdido', 'convertido'] }, assignedTo: null }).lean();
+        orphanLeads.forEach(l => {
+            addIssue('leads', 'warning', 'Lead sin responsable', `El lead "${l.name}" no tiene vendedor asignado.`, 'lead', l._id, `/admin/leads/${l._id}`, 'Asignar responsable');
+        });
+
+        // Leads sin seguimiento (7 días sin update ni comlog ni proxima tarea)
+        const oldLeads = await Lead.find({ 
+            ...leadQuery, 
+            status: { $nin: ['perdido', 'convertido'] }, 
+            updatedAt: { $lt: daysAgo(7) } 
+        }).lean();
+        for (const l of oldLeads) {
+            addIssue('leads', 'warning', 'Lead sin seguimiento reciente', `El lead "${l.name}" lleva más de 7 días sin actualización.`, 'lead', l._id, `/admin/leads/${l._id}`, 'Contactar o cerrar');
+        }
+
+        // E: Reservas viejas
+        const resQuery = isRestricted ? { assignedTo: userId } : {};
+        const oldReservations = await Reservation.find({
+            ...resQuery,
+            status: 'activa',
+            createdAt: { $lt: daysAgo(7) }
+        }).lean();
+        oldReservations.forEach(r => {
+            addIssue('reservations', 'warning', 'Reserva antigua sin cerrar', `Reserva de más de 7 días sin convertirse ni cancelarse.`, 'reservation', r._id, `/admin/reservas`, 'Gestionar reserva');
+        });
+
+        // F & G: Ventas sin cliente o responsable
+        const saleQuery = isRestricted ? { assignedTo: userId } : {};
+        const orphanSales = await Sale.find(saleQuery).lean();
+        orphanSales.forEach(s => {
+            if (!s.clientId) {
+                addIssue('sales', 'critical', 'Venta sin cliente asociado', `Expediente ${s._id} no tiene cliente válido.`, 'sale', s._id, `/admin/ventas/${s._id}`, 'Vincular cliente');
+            }
+            if (!s.assignedTo) {
+                addIssue('sales', 'warning', 'Venta sin responsable', `Expediente ${s._id} no tiene responsable.`, 'sale', s._id, `/admin/ventas/${s._id}`, 'Asignar responsable');
+            }
+            if (s.status === 'entregado' && s.documentationStatus !== 'completo') {
+                addIssue('documentation', 'warning', 'Venta entregada con documentación incompleta', `Expediente ${s._id} figurar como entregado pero falta documentación.`, 'sale', s._id, `/admin/ventas/${s._id}`, 'Completar documentación');
+            }
+            if (s.status === 'entregado' && s.postSaleStatus === 'pendiente' && new Date(s.updatedAt) < daysAgo(7)) {
+                addIssue('documentation', 'info', 'Postventa sin seguimiento', `Venta entregada hace más de 7 días sin avance en postventa.`, 'sale', s._id, `/admin/ventas/${s._id}`, 'Contactar cliente');
+            }
+        });
+
+        // H & I: Stock
+        // Si el usuario es restricted (ventas) solo mostramos si le concierne, pero Stock es general.
+        // Lo dejamos visible solo si no es restricted para evitar abrumar, o general si tiene permiso.
+        // Mejor dejarlo general, no hay asignado en Car.
+        const soldVisible = await Car.find({ status: { $in: ['Vendido', 'Señado'] }, isVisibleOnWeb: true }).lean();
+        soldVisible.forEach(c => {
+            addIssue('stock', 'critical', 'Vehículo vendido/señado visible en web', `El vehículo ${c.make} ${c.model} está publicado.`, 'car', c._id, `/admin/stock/${c._id}`, 'Ocultar publicación');
+        });
+        const reservedAvailable = await Car.find({ status: 'Disponible' }).lean(); // Deberíamos cruzar con reservas activas.
+        const activeResVehicles = oldReservations.map(r => r.vehicleId?.toString()).filter(Boolean);
+        reservedAvailable.forEach(c => {
+            if (activeResVehicles.includes(c._id.toString())) {
+                addIssue('stock', 'warning', 'Vehículo reservado pero figura disponible', `El vehículo ${c.make} ${c.model} tiene reserva activa.`, 'car', c._id, `/admin/stock/${c._id}`, 'Actualizar estado');
+            }
+        });
+
+        // J: Cuotas sin venta
+        if (!isRestricted) { // Solo si es admin para proteger algo de info (no devolvemos importes, pero por las dudas)
+            const orphanInstallments = await Installment.find({ saleId: null }).lean();
+            orphanInstallments.forEach(i => {
+                addIssue('installments', 'critical', 'Cuota sin venta', `Hay una cuota sin expediente asociado.`, 'installment', i._id, `/admin/cuotas`, 'Revisar origen');
+            });
+        }
+
+        // K: Tareas vencidas sin responsable
+        const taskQuery = isRestricted ? { assignedTo: userId } : {};
+        const oldTasks = await CrmTask.find({ ...taskQuery, status: 'pendiente', dueDate: { $lt: new Date() } }).lean();
+        oldTasks.forEach(t => {
+            if (!t.assignedTo) {
+                addIssue('tasks', 'warning', 'Tarea vencida sin responsable', `"${t.title}" está vencida y no tiene asignado.`, 'task', t._id, `/admin/agenda`, 'Asignar responsable');
+            }
+        });
+
+        res.json({
+            ok: true,
+            generatedAt: new Date().toISOString(),
+            summary,
+            sections
+        });
+    } catch (error) {
+        console.error('Error Data Quality:', error);
+        res.status(500).json({ message: error.message });
+    }
+});
+
+
 // Global Error Handler
 app.use((err, req, res, next) => {
     console.error("Global Error Handler (Timestamp: " + new Date().toISOString() + ")");
