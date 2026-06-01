@@ -84,7 +84,7 @@ export default function SystemHealthPage() {
                 <button 
                     onClick={loadHealthData}
                     disabled={refreshing}
-                    className="flex items-center gap-2 bg-[#111217] hover:bg-white/5 border border-white/10 text-white px-4 py-2 rounded-xl transition-colors disabled:opacity-50"
+                    className="flex items-center gap-2 bg-[#1E1E24] hover:bg-[#28282E] border border-[#33333A] text-white px-4 py-2 rounded-xl transition-colors disabled:opacity-50"
                 >
                     <RefreshCw size={16} className={refreshing ? "animate-spin" : ""} />
                     {refreshing ? 'Actualizando...' : 'Actualizar Estado'}
@@ -240,7 +240,7 @@ export default function SystemHealthPage() {
                                     </thead>
                                     <tbody className="text-sm">
                                         {healthData.recentActivity.map(log => (
-                                            <tr key={log._id} className="border-b border-white/5 last:border-0 hover:bg-white/5 transition-colors">
+                                            <tr key={log._id} className="border-b border-[#33333A] last:border-0 hover:bg-[#28282E] transition-colors">
                                                 <td className="py-3 text-neutral-400 pr-4 whitespace-nowrap">
                                                     {new Date(log.createdAt).toLocaleString('es-AR', { dateStyle: 'short', timeStyle: 'short' })} hs
                                                 </td>

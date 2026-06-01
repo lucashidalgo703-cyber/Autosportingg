@@ -297,7 +297,7 @@ export default function AyudaPage() {
                         placeholder="Buscar por módulo o tema..." 
                         value={searchTerm}
                         onChange={(e) => setSearchTerm(e.target.value)}
-                        className="w-full bg-[#111217] border border-white/10 rounded-2xl pl-12 pr-4 py-4 text-sm text-white placeholder-neutral-500 focus:outline-none focus:border-[#EF3329] transition-colors"
+                        className="w-full bg-[#1E1E24] border border-[#33333A] rounded-2xl pl-12 pr-4 py-4 text-sm text-white placeholder-[#A1A1AA] focus:outline-none focus:border-[#EF3329] transition-colors"
                     />
                 </div>
 
@@ -307,20 +307,20 @@ export default function AyudaPage() {
                         const isExpanded = expandedModule === mod.id;
 
                         return (
-                            <div key={mod.id} className="bg-[#111217] border border-white/10 rounded-2xl overflow-hidden transition-all duration-200">
+                            <div key={mod.id} className="bg-[#1E1E24] border border-[#33333A] rounded-2xl overflow-hidden transition-all duration-200">
                                 <button 
                                     onClick={() => setExpandedModule(isExpanded ? null : mod.id)}
-                                    className="w-full flex items-center justify-between p-5 hover:bg-white/[0.02] transition-colors"
+                                    className="w-full flex items-center justify-between p-5 hover:bg-[#28282E] transition-colors"
                                 >
                                     <div className="flex items-center gap-4">
-                                        <div className="w-10 h-10 rounded-xl bg-white/5 flex items-center justify-center text-neutral-300">
+                                        <div className="w-10 h-10 rounded-xl bg-[#161619] flex items-center justify-center text-[#A1A1AA] border border-[#33333A]">
                                             <Icon size={20} />
                                         </div>
                                         <div className="text-left">
                                             <h2 className="text-lg font-bold text-white">{mod.title}</h2>
                                             <div className="flex gap-2 mt-1 flex-wrap">
                                                 {mod.roles.map(role => (
-                                                    <span key={role} className="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-full bg-white/5 text-neutral-400 border border-white/10">
+                                                    <span key={role} className="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-full bg-[#161619] text-[#A1A1AA] border border-[#33333A]">
                                                         {role}
                                                     </span>
                                                 ))}
@@ -333,7 +333,7 @@ export default function AyudaPage() {
                                 </button>
                                 
                                 {isExpanded && (
-                                    <div className="px-5 pb-5 pt-2 border-t border-white/5">
+                                    <div className="px-5 pb-5 pt-2 border-t border-[#33333A]">
                                         <div className="pl-14">
                                             {mod.content}
                                         </div>

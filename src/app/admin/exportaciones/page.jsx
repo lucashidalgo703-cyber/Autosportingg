@@ -136,7 +136,7 @@ export default function ExportacionesPage() {
                     return (
                         <div key={mod.id} className={`bg-[#1E1E24] border border-[#33333A] rounded-2xl p-5 flex flex-col ${!isAvailable ? 'opacity-50' : ''}`}>
                             <div className="flex items-center gap-3 mb-3">
-                                <div className="w-10 h-10 rounded-xl bg-white/5 flex items-center justify-center text-neutral-300">
+                                <div className="w-10 h-10 rounded-xl bg-[#161619] border border-[#33333A] flex items-center justify-center text-[#A1A1AA]">
                                     <Icon size={20} />
                                 </div>
                                 <div>

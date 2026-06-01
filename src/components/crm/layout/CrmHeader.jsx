@@ -102,7 +102,7 @@ export default function CrmHeader({ onMenuClick }) {
                 >
                     <Bell size={20} />
                     {unreadCount > 0 && (
-                        <span className="absolute top-0 right-0 w-4 h-4 bg-red-500 rounded-full text-[9px] text-white flex items-center justify-center font-bold">
+                        <span className="absolute top-0 right-0 w-4 h-4 bg-[#E63027] rounded-full text-[9px] text-white flex items-center justify-center font-bold">
                             {unreadCount > 99 ? '99+' : unreadCount}
                         </span>
                     )}
@@ -114,7 +114,7 @@ export default function CrmHeader({ onMenuClick }) {
                         <div className="p-3 border-b border-[#33333A] flex justify-between items-center bg-[#161619]">
                             <h3 className="text-white text-sm font-bold">Notificaciones</h3>
                             {unreadCount > 0 && (
-                                <button onClick={handleMarkAllRead} className="text-xs text-blue-400 hover:text-blue-300 font-semibold">
+                                <button onClick={handleMarkAllRead} className="text-xs text-[#EF3329] hover:text-[#C42620] font-semibold">
                                     Marcar leídas
                                 </button>
                             )}
@@ -125,7 +125,7 @@ export default function CrmHeader({ onMenuClick }) {
                             ) : (
                                 notifications.slice(0, 10).map((n) => (
                                     <div key={n.id} className={`p-3 border-b border-[#33333A] flex gap-3 group relative cursor-pointer ${n.read ? 'opacity-60' : 'bg-[#24242B]/30'}`} onClick={() => { setShowDropdown(false); router.push(n.href); }}>
-                                        <div className={`w-2 h-2 mt-1.5 rounded-full flex-shrink-0 ${n.severity === 'danger' ? 'bg-red-500' : n.severity === 'warning' ? 'bg-yellow-500' : n.severity === 'success' ? 'bg-green-500' : 'bg-blue-500'}`}></div>
+                                        <div className={`w-2 h-2 mt-1.5 rounded-full flex-shrink-0 ${n.severity === 'danger' ? 'bg-[#E63027]' : n.severity === 'warning' ? 'bg-[#f59e0b]' : n.severity === 'success' ? 'bg-[#10b981]' : 'bg-[#EF3329]'}`}></div>
                                         <div className="flex-1 min-w-0 pr-6">
                                             <p className={`text-xs font-bold truncate ${n.read ? 'text-gray-400' : 'text-white'}`}>{n.title}</p>
                                             <p className="text-[11px] text-gray-400 line-clamp-2 mt-0.5">{n.description}</p>

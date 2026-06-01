@@ -48,9 +48,9 @@ export default function ConfiguracionPage() {
                 {canViewUsers && (
                     <Link 
                         href="/admin/configuracion/usuarios"
-                        className="group flex items-start gap-4 p-6 rounded-2xl border border-white/10 bg-[#111217] hover:border-white/30 hover:bg-white/[0.02] transition-all"
+                        className="group flex items-start gap-4 p-6 rounded-2xl border border-[#33333A] bg-[#1E1E24] hover:border-[#E63027]/50 hover:bg-[#28282E] transition-all"
                     >
-                        <div className="w-12 h-12 rounded-xl bg-white/5 flex items-center justify-center shrink-0 group-hover:bg-[#E63027] group-hover:text-white transition-colors border border-white/10">
+                        <div className="w-12 h-12 rounded-xl bg-[#161619] flex items-center justify-center shrink-0 group-hover:bg-[#E63027] group-hover:text-white transition-colors border border-[#33333A] group-hover:border-[#E63027]">
                             <Users size={24} className="text-neutral-400 group-hover:text-white" />
                         </div>
                         <div>
@@ -65,9 +65,9 @@ export default function ConfiguracionPage() {
                 {canViewTemplates && (
                     <Link 
                         href="/admin/configuracion/plantillas"
-                        className="group flex items-start gap-4 p-6 rounded-2xl border border-white/10 bg-[#111217] hover:border-white/30 hover:bg-white/[0.02] transition-all"
+                        className="group flex items-start gap-4 p-6 rounded-2xl border border-[#33333A] bg-[#1E1E24] hover:border-[#E63027]/50 hover:bg-[#28282E] transition-all"
                     >
-                        <div className="w-12 h-12 rounded-xl bg-white/5 flex items-center justify-center shrink-0 group-hover:bg-[#E63027] group-hover:text-white transition-colors border border-white/10">
+                        <div className="w-12 h-12 rounded-xl bg-[#161619] flex items-center justify-center shrink-0 group-hover:bg-[#E63027] group-hover:text-white transition-colors border border-[#33333A] group-hover:border-[#E63027]">
                             <MessageSquare size={24} className="text-neutral-400 group-hover:text-white" />
                         </div>
                         <div>
@@ -82,9 +82,9 @@ export default function ConfiguracionPage() {
                 {canViewSettings && (
                     <Link 
                         href="/admin/configuracion/general"
-                        className="group flex items-start gap-4 p-6 rounded-2xl border border-white/10 bg-[#111217] hover:border-white/30 hover:bg-white/[0.02] transition-all"
+                        className="group flex items-start gap-4 p-6 rounded-2xl border border-[#33333A] bg-[#1E1E24] hover:border-[#E63027]/50 hover:bg-[#28282E] transition-all"
                     >
-                        <div className="w-12 h-12 rounded-xl bg-white/5 flex items-center justify-center shrink-0 group-hover:bg-[#E63027] group-hover:text-white transition-colors border border-white/10">
+                        <div className="w-12 h-12 rounded-xl bg-[#161619] flex items-center justify-center shrink-0 group-hover:bg-[#E63027] group-hover:text-white transition-colors border border-[#33333A] group-hover:border-[#E63027]">
                             <Settings size={24} className="text-neutral-400 group-hover:text-white" />
                         </div>
                         <div>
