@@ -4887,6 +4887,104 @@ app.patch('/api/admin/settings', authenticateToken, async (req, res) => {
 });
 
 // ========================================== //
+// ============ SYSTEM HEALTH =============== //
+// ========================================== //
+app.get('/api/admin/system-health', authenticateToken, async (req, res) => {
+    try {
+        const userRole = req.user?.role || 'solo_lectura';
+        const perms = req.user?.permissions || [];
+        const canRead = ['owner', 'admin'].includes(userRole) || perms.includes('systemHealth.read');
+        
+        if (!canRead) {
+            return res.status(403).json({ message: 'Sin permisos para ver la salud del sistema.' });
+        }
+
+        const startPing = Date.now();
+        let dbConnected = false;
+        if (mongoose.connection.readyState === 1) {
+            try {
+                await mongoose.connection.db.admin().ping();
+                dbConnected = true;
+            } catch(e) {}
+        }
+        const latencyMs = Date.now() - startPing;
+
+        const [
+            usersCount, activeUsersCount, carsCount, clientsCount, leadsCount,
+            salesCount, reservationsCount, tasksCount, commLogsCount, 
+            templatesCount, installmentsCount, recentLogs, ownerCount
+        ] = await Promise.all([
+            AdminUser.countDocuments(),
+            AdminUser.countDocuments({ status: 'activo' }),
+            Car.countDocuments(),
+            Client.countDocuments(),
+            Lead.countDocuments(),
+            Sale.countDocuments(),
+            Reservation.countDocuments(),
+            CrmTask.countDocuments(),
+            CommunicationLog.countDocuments(),
+            MessageTemplate.countDocuments(),
+            Installment.countDocuments(),
+            AuditLog.find().sort({ createdAt: -1 }).limit(10).lean(),
+            AdminUser.countDocuments({ role: 'owner', status: 'activo' })
+        ]);
+
+        const checks = [
+            {
+                name: 'Conexión a Base de Datos',
+                status: dbConnected ? 'ok' : 'critical',
+                description: dbConnected ? 'MongoDB conectada.' : 'Falla al conectar a MongoDB.',
+                suggestedAction: dbConnected ? '' : 'Revisar servidor de base de datos y credenciales.'
+            },
+            {
+                name: 'Usuario Owner Activo',
+                status: ownerCount > 0 ? 'ok' : 'critical',
+                description: ownerCount > 0 ? 'Hay al menos un Owner activo.' : 'No hay usuarios Owner activos.',
+                suggestedAction: ownerCount > 0 ? '' : 'Usar Master Password para crear un Owner.'
+            },
+            {
+                name: 'Latencia de Base de Datos',
+                status: latencyMs < 500 ? 'ok' : (latencyMs < 1500 ? 'warning' : 'critical'),
+                description: `Latencia de ${latencyMs}ms.`,
+                suggestedAction: latencyMs < 500 ? '' : 'Considerar optimización de base de datos.'
+            }
+        ];
+
+        const warnings = checks.filter(c => c.status !== 'ok');
+
+        res.json({
+            ok: true,
+            generatedAt: new Date().toISOString(),
+            environment: process.env.NODE_ENV || 'development',
+            database: {
+                connected: dbConnected,
+                status: dbConnected ? 'Online' : 'Offline',
+                latencyMs
+            },
+            counts: {
+                users: usersCount,
+                activeUsers: activeUsersCount,
+                cars: carsCount,
+                clients: clientsCount,
+                leads: leadsCount,
+                sales: salesCount,
+                reservations: reservationsCount,
+                tasks: tasksCount,
+                communicationLogs: commLogsCount,
+                messageTemplates: templatesCount,
+                installments: installmentsCount
+            },
+            recentActivity: recentLogs,
+            checks,
+            warnings
+        });
+    } catch (error) {
+        console.error("GET /api/admin/system-health error:", error);
+        res.status(500).json({ ok: false, error: 'No se pudo cargar la salud del sistema.' });
+    }
+});
+
+// ========================================== //
 // ============ DATA QUALITY ================ //
 // ========================================== //
 app.get('/api/admin/data-quality', authenticateToken, async (req, res) => {

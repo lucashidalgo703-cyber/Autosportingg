@@ -49,7 +49,8 @@ export const PERMISSIONS = {
     MESSAGETEMPLATES_DELETE: 'messageTemplates.delete',
     DATAQUALITY_READ: 'dataQuality.read',
     SETTINGS_READ: 'settings.read',
-    SETTINGS_WRITE: 'settings.write'
+    SETTINGS_WRITE: 'settings.write',
+    SYSTEMHEALTH_READ: 'systemHealth.read'
 };
 
 // Mapa de permisos por defecto según el rol
