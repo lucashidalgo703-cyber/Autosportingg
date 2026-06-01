@@ -3,9 +3,12 @@ import { useState, useEffect } from 'react';
 import { useAuth } from '../../../context/AuthContext';
 import { Plus, Search, Filter, Edit, Trash2, CheckCircle, XCircle } from 'lucide-react';
 import MessageTemplateModal from './MessageTemplateModal';
+import { hasPermission as checkPermission } from '../../../utils/adminPermissions';
 
 export default function MessageTemplateManager() {
-    const { token, hasPermission, role } = useAuth();
+    const { token, user } = useAuth();
+    const role = user?.role;
+    const hasPermission = (perm) => checkPermission(user, perm);
     const [templates, setTemplates] = useState([]);
     const [loading, setLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState('');

@@ -4,10 +4,10 @@ import React from 'react';
 import Link from 'next/link';
 import { Users, MessageSquare, ShieldAlert } from 'lucide-react';
 import { useAuth } from '../../../context/AuthContext';
-import { PERMISSIONS, ROLES } from '../../../utils/adminPermissions';
+import { PERMISSIONS, hasPermission } from '../../../utils/adminPermissions';
 
 export default function ConfiguracionPage() {
-    const { hasPermission, role, loading } = useAuth();
+    const { user, loading } = useAuth();
 
     if (loading) {
         return (
@@ -17,8 +17,9 @@ export default function ConfiguracionPage() {
         );
     }
 
-    const canViewUsers = ['owner', 'admin'].includes(role) || hasPermission(PERMISSIONS.USUARIOS_READ) || hasPermission(PERMISSIONS.USUARIOS_WRITE);
-    const canViewTemplates = ['owner', 'admin'].includes(role) || hasPermission(PERMISSIONS.MESSAGETEMPLATES_READ) || hasPermission(PERMISSIONS.MESSAGETEMPLATES_WRITE);
+    const role = user?.role;
+    const canViewUsers = ['owner', 'admin'].includes(role) || hasPermission(user, PERMISSIONS.USUARIOS_READ) || hasPermission(user, PERMISSIONS.USUARIOS_WRITE);
+    const canViewTemplates = ['owner', 'admin'].includes(role) || hasPermission(user, PERMISSIONS.MESSAGETEMPLATES_READ) || hasPermission(user, PERMISSIONS.MESSAGETEMPLATES_WRITE);
 
     if (!canViewUsers && !canViewTemplates) {
         return (

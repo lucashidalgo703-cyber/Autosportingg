@@ -41,8 +41,15 @@ export const AuthProvider = ({ children }) => {
         setUser(null);
     };
 
+    const getToken = () => {
+        if (typeof window !== 'undefined') {
+            return localStorage.getItem('token');
+        }
+        return null;
+    };
+
     return (
-        <AuthContext.Provider value={{ isAuthenticated, user, login, logout, loading }}>
+        <AuthContext.Provider value={{ isAuthenticated, user, login, logout, loading, token: getToken() }}>
             {!loading && children}
         </AuthContext.Provider>
     );
