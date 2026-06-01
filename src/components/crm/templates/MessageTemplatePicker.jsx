@@ -37,7 +37,9 @@ export default function MessageTemplatePicker({ category, entityData, onLogActio
             }
             if (resSettings.ok) {
                 const dataSettings = await resSettings.json();
-                setSettings(dataSettings);
+                if (dataSettings.ok && dataSettings.settings) {
+                    setSettings(dataSettings.settings);
+                }
             }
         } catch (error) {
             console.error('Error fetching templates:', error);

@@ -4769,6 +4769,47 @@ app.patch('/api/admin/assignments', authenticateToken, async (req, res) => {
 // ========================================== //
 // ============ CRM SETTINGS ================ //
 // ========================================== //
+async function getOrCreateCrmSettings() {
+    try {
+        let settings = await CrmSettings.findOne();
+        if (settings) return settings;
+
+        const defaultSettings = new CrmSettings();
+        defaultSettings.updatedBy = undefined; // Avoid ObjectId cast errors
+        await defaultSettings.save();
+        return defaultSettings;
+    } catch (err) {
+        console.error("getOrCreateCrmSettings error:", err);
+        // Fallback in memory si falla Mongoose
+        return {
+            agencyName: "AutoSporting",
+            mainPhone: "",
+            commercialEmail: "",
+            address: "",
+            googleReviewsUrl: "",
+            defaultCurrency: "ARS",
+            businessHours: {
+                mondayToFriday: "09:00 - 18:00",
+                saturday: "09:00 - 13:00",
+                sunday: "Cerrado"
+            },
+            thresholds: {
+                leadWithoutFollowupDays: 7,
+                oldReservationDays: 7,
+                postSalePendingDays: 7,
+                installmentDueSoonDays: 3,
+                stockCriticalDays: 90,
+                taskOverdueGraceDays: 0
+            },
+            notifications: {
+                enableGoalAlerts: true,
+                enableInstallmentAlerts: true,
+                enableTaskAlerts: true,
+                enableDataQualityAlerts: false
+            }
+        };
+    }
+}
 app.get('/api/admin/settings', authenticateToken, async (req, res) => {
     try {
         const userRole = req.user?.role || 'solo_lectura';
@@ -4779,13 +4820,11 @@ app.get('/api/admin/settings', authenticateToken, async (req, res) => {
             return res.status(403).json({ message: 'Sin permisos para ver la configuración general.' });
         }
 
-        let settings = await CrmSettings.findOne().lean();
-        if (!settings) {
-            settings = await CrmSettings.create({});
-        }
-        res.json(settings);
+        const settings = await getOrCreateCrmSettings();
+        res.json({ ok: true, settings });
     } catch (error) {
-        res.status(500).json({ message: error.message });
+        console.error("GET /api/admin/settings error:", error);
+        res.status(500).json({ ok: false, error: 'No se pudo cargar la configuración general.' });
     }
 });
 
@@ -4820,7 +4859,13 @@ app.patch('/api/admin/settings', authenticateToken, async (req, res) => {
             settings[update] = req.body[update];
         });
 
-        settings.updatedBy = req.user.userId;
+        // Validar ObjectID y seteamos updatedBy de forma segura
+        if (req.user?.userId && mongoose.Types.ObjectId.isValid(req.user.userId)) {
+            settings.updatedBy = req.user.userId;
+        } else {
+            settings.updatedBy = undefined; // Avoid cast error in "Master Admin" which lacks real user object
+        }
+
         await settings.save();
 
         await logAudit({
@@ -4834,9 +4879,10 @@ app.patch('/api/admin/settings', authenticateToken, async (req, res) => {
             metadata: { updatedFields: updates }
         });
 
-        res.json(settings);
+        res.json({ ok: true, settings });
     } catch (error) {
-        res.status(400).json({ message: error.message });
+        console.error("PATCH /api/admin/settings error:", error);
+        res.status(400).json({ ok: false, message: error.message });
     }
 });
 
@@ -4872,7 +4918,8 @@ app.get('/api/admin/data-quality', authenticateToken, async (req, res) => {
             summary[severity]++;
         };
 
-        const settings = await CrmSettings.findOne().lean() || {};
+        const settingsDoc = await getOrCreateCrmSettings();
+        const settings = settingsDoc.toObject ? settingsDoc.toObject() : settingsDoc;
         const thresholds = settings.thresholds || {
             leadWithoutFollowupDays: 7,
             oldReservationDays: 7,

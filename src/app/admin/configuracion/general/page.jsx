@@ -24,7 +24,11 @@ export default function GeneralSettingsPage() {
             });
             if (!res.ok) throw new Error('Error al cargar configuración');
             const data = await res.json();
-            setSettings(data);
+            if (data.ok && data.settings) {
+                setSettings(data.settings);
+            } else {
+                throw new Error(data.error || 'Respuesta inválida del servidor');
+            }
         } catch (err) {
             setError(err.message);
         } finally {
@@ -64,9 +68,12 @@ export default function GeneralSettingsPage() {
                 },
                 body: JSON.stringify(settings)
             });
-            if (!res.ok) {
-                const errData = await res.json();
-                throw new Error(errData.message || 'Error al guardar');
+            const data = await res.json();
+            if (!res.ok || !data.ok) {
+                throw new Error(data.message || data.error || 'Error al guardar');
+            }
+            if (data.settings) {
+                setSettings(data.settings);
             }
             setSuccessMessage('Configuración guardada correctamente.');
             setTimeout(() => setSuccessMessage(''), 3000);
