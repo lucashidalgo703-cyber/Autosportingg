@@ -21,6 +21,7 @@ import NotificationReadState from './src/models/NotificationReadState.js';
 import TeamGoal from './src/models/TeamGoal.js';
 import CommunicationLog from './src/models/CommunicationLog.js';
 import MessageTemplate from './src/models/MessageTemplate.js';
+import CrmSettings from './src/models/CrmSettings.js';
 import { logAudit } from './src/utils/auditLogger.js';
 import { CloudinaryStorage } from 'multer-storage-cloudinary';
 import jwt from 'jsonwebtoken';
@@ -4766,6 +4767,80 @@ app.patch('/api/admin/assignments', authenticateToken, async (req, res) => {
 
 
 // ========================================== //
+// ============ CRM SETTINGS ================ //
+// ========================================== //
+app.get('/api/admin/settings', authenticateToken, async (req, res) => {
+    try {
+        const userRole = req.user?.role || 'solo_lectura';
+        const perms = req.user?.permissions || [];
+        const canRead = ['owner', 'admin'].includes(userRole) || perms.includes('settings.read') || perms.includes('settings.write');
+        
+        if (!canRead) {
+            return res.status(403).json({ message: 'Sin permisos para ver la configuración general.' });
+        }
+
+        let settings = await CrmSettings.findOne().lean();
+        if (!settings) {
+            settings = await CrmSettings.create({});
+        }
+        res.json(settings);
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+});
+
+app.patch('/api/admin/settings', authenticateToken, async (req, res) => {
+    try {
+        const userRole = req.user?.role || 'solo_lectura';
+        const perms = req.user?.permissions || [];
+        const canWrite = ['owner', 'admin'].includes(userRole) || perms.includes('settings.write');
+        
+        if (!canWrite) {
+            return res.status(403).json({ message: 'Sin permisos para editar la configuración general.' });
+        }
+
+        let settings = await CrmSettings.findOne();
+        if (!settings) {
+            settings = new CrmSettings();
+        }
+
+        const allowedUpdates = [
+            'agencyName', 'mainPhone', 'commercialEmail', 'address', 'googleReviewsUrl',
+            'defaultCurrency', 'businessHours', 'thresholds', 'notifications'
+        ];
+
+        const updates = Object.keys(req.body);
+        const isValidOperation = updates.every(update => allowedUpdates.includes(update));
+
+        if (!isValidOperation) {
+            return res.status(400).json({ message: 'Updates no válidos o campos no permitidos.' });
+        }
+
+        updates.forEach(update => {
+            settings[update] = req.body[update];
+        });
+
+        settings.updatedBy = req.user.userId;
+        await settings.save();
+
+        await logAudit({
+            req,
+            action: 'CONFIGURACION_ACTUALIZADA',
+            module: 'configuracion',
+            entityType: 'CrmSettings',
+            entityId: settings._id,
+            entityLabel: 'Configuración General',
+            description: `Configuración general actualizada.`,
+            metadata: { updatedFields: updates }
+        });
+
+        res.json(settings);
+    } catch (error) {
+        res.status(400).json({ message: error.message });
+    }
+});
+
+// ========================================== //
 // ============ DATA QUALITY ================ //
 // ========================================== //
 app.get('/api/admin/data-quality', authenticateToken, async (req, res) => {
@@ -4797,6 +4872,13 @@ app.get('/api/admin/data-quality', authenticateToken, async (req, res) => {
             summary[severity]++;
         };
 
+        const settings = await CrmSettings.findOne().lean() || {};
+        const thresholds = settings.thresholds || {
+            leadWithoutFollowupDays: 7,
+            oldReservationDays: 7,
+            postSalePendingDays: 7
+        };
+
         const daysAgo = (days) => new Date(Date.now() - days * 24 * 60 * 60 * 1000);
 
         // A & B: Clients & Leads duplicados y huérfanos
@@ -4810,14 +4892,14 @@ app.get('/api/admin/data-quality', authenticateToken, async (req, res) => {
             addIssue('leads', 'warning', 'Lead sin responsable', `El lead "${l.name}" no tiene vendedor asignado.`, 'lead', l._id, `/admin/leads/${l._id}`, 'Asignar responsable');
         });
 
-        // Leads sin seguimiento (7 días sin update ni comlog ni proxima tarea)
+        // Leads sin seguimiento
         const oldLeads = await Lead.find({ 
             ...leadQuery, 
             status: { $nin: ['perdido', 'convertido'] }, 
-            updatedAt: { $lt: daysAgo(7) } 
+            updatedAt: { $lt: daysAgo(thresholds.leadWithoutFollowupDays) } 
         }).lean();
         for (const l of oldLeads) {
-            addIssue('leads', 'warning', 'Lead sin seguimiento reciente', `El lead "${l.name}" lleva más de 7 días sin actualización.`, 'lead', l._id, `/admin/leads/${l._id}`, 'Contactar o cerrar');
+            addIssue('leads', 'warning', 'Lead sin seguimiento reciente', `El lead "${l.name}" lleva más de ${thresholds.leadWithoutFollowupDays} días sin actualización.`, 'lead', l._id, `/admin/leads/${l._id}`, 'Contactar o cerrar');
         }
 
         // E: Reservas viejas
@@ -4825,10 +4907,10 @@ app.get('/api/admin/data-quality', authenticateToken, async (req, res) => {
         const oldReservations = await Reservation.find({
             ...resQuery,
             status: 'activa',
-            createdAt: { $lt: daysAgo(7) }
+            createdAt: { $lt: daysAgo(thresholds.oldReservationDays) }
         }).lean();
         oldReservations.forEach(r => {
-            addIssue('reservations', 'warning', 'Reserva antigua sin cerrar', `Reserva de más de 7 días sin convertirse ni cancelarse.`, 'reservation', r._id, `/admin/reservas`, 'Gestionar reserva');
+            addIssue('reservations', 'warning', 'Reserva antigua sin cerrar', `Reserva de más de ${thresholds.oldReservationDays} días sin convertirse ni cancelarse.`, 'reservation', r._id, `/admin/reservas`, 'Gestionar reserva');
         });
 
         // F & G: Ventas sin cliente o responsable
@@ -4844,8 +4926,8 @@ app.get('/api/admin/data-quality', authenticateToken, async (req, res) => {
             if (s.status === 'entregado' && s.documentationStatus !== 'completo') {
                 addIssue('documentation', 'warning', 'Venta entregada con documentación incompleta', `Expediente ${s._id} figurar como entregado pero falta documentación.`, 'sale', s._id, `/admin/ventas/${s._id}`, 'Completar documentación');
             }
-            if (s.status === 'entregado' && s.postSaleStatus === 'pendiente' && new Date(s.updatedAt) < daysAgo(7)) {
-                addIssue('documentation', 'info', 'Postventa sin seguimiento', `Venta entregada hace más de 7 días sin avance en postventa.`, 'sale', s._id, `/admin/ventas/${s._id}`, 'Contactar cliente');
+            if (s.status === 'entregado' && s.postSaleStatus === 'pendiente' && new Date(s.updatedAt) < daysAgo(thresholds.postSalePendingDays)) {
+                addIssue('documentation', 'info', 'Postventa sin seguimiento', `Venta entregada hace más de ${thresholds.postSalePendingDays} días sin avance en postventa.`, 'sale', s._id, `/admin/ventas/${s._id}`, 'Contactar cliente');
             }
         });
 

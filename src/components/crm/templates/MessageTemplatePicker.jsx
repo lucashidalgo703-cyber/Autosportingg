@@ -11,6 +11,7 @@ export default function MessageTemplatePicker({ category, entityData, onLogActio
     const [previewText, setPreviewText] = useState('');
     const [copied, setCopied] = useState(false);
     const [loading, setLoading] = useState(false);
+    const [settings, setSettings] = useState(null);
 
     useEffect(() => {
         if (isOpen && templates.length === 0) {
@@ -21,12 +22,22 @@ export default function MessageTemplatePicker({ category, entityData, onLogActio
     const fetchTemplates = async () => {
         try {
             setLoading(true);
-            const res = await fetch(`/api/admin/message-templates?category=${category}&activeOnly=true`, {
-                headers: { 'Authorization': `Bearer ${token}` }
-            });
+            const [res, resSettings] = await Promise.all([
+                fetch(`/api/admin/message-templates?category=${category}&activeOnly=true`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                }),
+                fetch('/api/admin/settings', {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                })
+            ]);
+            
             if (res.ok) {
                 const data = await res.json();
                 setTemplates(data);
+            }
+            if (resSettings.ok) {
+                const dataSettings = await resSettings.json();
+                setSettings(dataSettings);
             }
         } catch (error) {
             console.error('Error fetching templates:', error);
@@ -51,11 +62,11 @@ export default function MessageTemplatePicker({ category, entityData, onLogActio
             '{{precio}}': entityData?.vehiclePrice || '',
             '{{dominio}}': entityData?.vehicleDomain || '',
             '{{vendedor}}': entityData?.assignedToName || '',
-            '{{agencia}}': 'AutoSporting',
+            '{{agencia}}': settings?.agencyName || 'AutoSporting',
             '{{fecha_entrega}}': entityData?.deliveryDate || '',
             '{{monto_cuota}}': entityData?.installmentAmount || '',
             '{{fecha_vencimiento}}': entityData?.installmentDueDate || '',
-            '{{link_google_reviews}}': 'https://g.page/r/autosporting/review'
+            '{{link_google_reviews}}': settings?.googleReviewsUrl || 'https://g.page/r/autosporting/review'
         };
 
         for (const [key, value] of Object.entries(replacements)) {

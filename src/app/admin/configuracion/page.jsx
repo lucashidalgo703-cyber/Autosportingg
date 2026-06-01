@@ -2,7 +2,7 @@
 
 import React from 'react';
 import Link from 'next/link';
-import { Users, MessageSquare, ShieldAlert } from 'lucide-react';
+import { Users, MessageSquare, ShieldAlert, Settings } from 'lucide-react';
 import { useAuth } from '../../../context/AuthContext';
 import { PERMISSIONS, hasPermission } from '../../../utils/adminPermissions';
 
@@ -20,8 +20,9 @@ export default function ConfiguracionPage() {
     const role = user?.role;
     const canViewUsers = ['owner', 'admin'].includes(role) || hasPermission(user, PERMISSIONS.USUARIOS_READ) || hasPermission(user, PERMISSIONS.USUARIOS_WRITE);
     const canViewTemplates = ['owner', 'admin'].includes(role) || hasPermission(user, PERMISSIONS.MESSAGETEMPLATES_READ) || hasPermission(user, PERMISSIONS.MESSAGETEMPLATES_WRITE);
+    const canViewSettings = ['owner', 'admin'].includes(role) || hasPermission(user, PERMISSIONS.SETTINGS_READ) || hasPermission(user, PERMISSIONS.SETTINGS_WRITE);
 
-    if (!canViewUsers && !canViewTemplates) {
+    if (!canViewUsers && !canViewTemplates && !canViewSettings) {
         return (
             <div className="max-w-7xl mx-auto p-4">
                 <div className="bg-red-500/10 border border-red-500/20 text-red-400 p-6 rounded-2xl flex flex-col items-center justify-center gap-4 text-center">
@@ -73,6 +74,23 @@ export default function ConfiguracionPage() {
                             <h3 className="font-semibold text-gray-900 mb-1 group-hover:text-black">Plantillas Comerciales</h3>
                             <p className="text-sm text-gray-500 leading-relaxed">
                                 Administrar los mensajes predefinidos para agilizar la comunicación de ventas y postventa.
+                            </p>
+                        </div>
+                    </Link>
+                )}
+
+                {canViewSettings && (
+                    <Link 
+                        href="/admin/configuracion/general"
+                        className="group flex items-start gap-4 p-6 rounded-2xl border border-gray-200 bg-white hover:border-black hover:shadow-lg transition-all"
+                    >
+                        <div className="w-12 h-12 rounded-xl bg-gray-50 flex items-center justify-center shrink-0 group-hover:bg-black group-hover:text-white transition-colors border border-gray-100">
+                            <Settings size={24} className="text-gray-600 group-hover:text-white" />
+                        </div>
+                        <div>
+                            <h3 className="font-semibold text-gray-900 mb-1 group-hover:text-black">Configuración General</h3>
+                            <p className="text-sm text-gray-500 leading-relaxed">
+                                Parámetros operativos, reglas de negocio y opciones globales del CRM.
                             </p>
                         </div>
                     </Link>
