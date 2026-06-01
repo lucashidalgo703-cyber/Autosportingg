@@ -5121,9 +5121,6 @@ app.get('/api/admin/data-quality', authenticateToken, async (req, res) => {
     }
 });
 
-
-});
-
 // ========================================== //
 // ============ EXPORTS ===================== //
 // ========================================== //
@@ -5239,7 +5236,7 @@ app.get('/api/admin/exports/:type', authenticateToken, async (req, res) => {
                 fields.push('bodyPreview');
                 break;
             case 'metas':
-                data = await Goal.find(isRestricted ? { userId: userId } : {}).lean();
+                data = await TeamGoal.find(isRestricted ? { userId: userId } : {}).lean();
                 fields = ['_id', 'userId', 'period', 'startDate', 'endDate', 'status', 'createdAt', 'updatedAt'];
                 break;
             case 'auditoria':
