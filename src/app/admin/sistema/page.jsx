@@ -59,7 +59,7 @@ export default function SystemHealthPage() {
                         <p className="text-sm text-red-400 mb-6">No tenés permisos para acceder al panel de salud del sistema.</p>
                         <Link 
                             href="/admin"
-                            className="bg-red-500 text-white px-6 py-2 rounded-xl font-bold hover:bg-red-600 transition-colors"
+                            className="bg-[#E63027] text-white px-6 py-2 rounded-xl font-bold hover:bg-[#C42620] transition-colors"
                         >
                             Volver al Dashboard
                         </Link>
@@ -74,7 +74,7 @@ export default function SystemHealthPage() {
             <div className="mb-6 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
                 <div>
                     <h1 className="text-2xl font-bold text-white tracking-tight flex items-center gap-2">
-                        <Activity className="text-blue-500" />
+                        <Activity className="text-[#E63027]" />
                         Salud del Sistema
                     </h1>
                     <p className="text-neutral-400 mt-1 text-sm">
@@ -104,8 +104,8 @@ export default function SystemHealthPage() {
                 <div className="space-y-6">
                     {/* A. Estado General y Database */}
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        <div className="bg-[#111217] border border-white/10 rounded-2xl p-6">
-                            <h2 className="text-lg font-bold text-white flex items-center gap-2 mb-4 border-b border-white/10 pb-2">
+                        <div className="bg-[#1E1E24] border border-[#33333A] rounded-2xl p-6">
+                            <h2 className="text-lg font-bold text-white flex items-center gap-2 mb-4 border-b border-[#33333A] pb-2">
                                 <Server size={18} className="text-neutral-400" />
                                 Estado General
                             </h2>
@@ -131,8 +131,8 @@ export default function SystemHealthPage() {
                             </div>
                         </div>
 
-                        <div className="bg-[#111217] border border-white/10 rounded-2xl p-6">
-                            <h2 className="text-lg font-bold text-white flex items-center gap-2 mb-4 border-b border-white/10 pb-2">
+                        <div className="bg-[#1E1E24] border border-[#33333A] rounded-2xl p-6">
+                            <h2 className="text-lg font-bold text-white flex items-center gap-2 mb-4 border-b border-[#33333A] pb-2">
                                 <Database size={18} className="text-neutral-400" />
                                 Base de Datos
                             </h2>
@@ -160,8 +160,8 @@ export default function SystemHealthPage() {
                     </div>
 
                     {/* C. Conteos Principales */}
-                    <div className="bg-[#111217] border border-white/10 rounded-2xl p-6">
-                        <h2 className="text-lg font-bold text-white flex items-center gap-2 mb-4 border-b border-white/10 pb-2">
+                    <div className="bg-[#1E1E24] border border-[#33333A] rounded-2xl p-6">
+                        <h2 className="text-lg font-bold text-white flex items-center gap-2 mb-4 border-b border-[#33333A] pb-2">
                             <ActivitySquare size={18} className="text-neutral-400" />
                             Conteos Principales
                         </h2>
@@ -178,7 +178,7 @@ export default function SystemHealthPage() {
                                 { label: 'Cuotas', count: healthData.counts.installments },
                                 { label: 'Plantillas', count: healthData.counts.messageTemplates }
                             ].map((item, index) => (
-                                <div key={index} className="bg-[#0b0c10] border border-white/5 rounded-xl p-4 text-center">
+                                <div key={index} className="bg-[#161619] border border-[#33333A] rounded-xl p-4 text-center">
                                     <p className="text-xs text-neutral-500 uppercase font-medium tracking-wider mb-1">{item.label}</p>
                                     <p className="text-2xl font-bold text-white">{item.count.toLocaleString()}</p>
                                 </div>
@@ -187,14 +187,14 @@ export default function SystemHealthPage() {
                     </div>
 
                     {/* D. Checks Técnicos */}
-                    <div className="bg-[#111217] border border-white/10 rounded-2xl p-6">
-                        <h2 className="text-lg font-bold text-white flex items-center gap-2 mb-4 border-b border-white/10 pb-2">
+                    <div className="bg-[#1E1E24] border border-[#33333A] rounded-2xl p-6">
+                        <h2 className="text-lg font-bold text-white flex items-center gap-2 mb-4 border-b border-[#33333A] pb-2">
                             <ShieldAlert size={18} className="text-neutral-400" />
                             Checks Técnicos
                         </h2>
                         <div className="space-y-3">
                             {healthData.checks.map((check, index) => (
-                                <div key={index} className="flex items-start md:items-center gap-4 bg-[#0b0c10] border border-white/5 p-4 rounded-xl">
+                                <div key={index} className="flex items-start md:items-center gap-4 bg-[#161619] border border-[#33333A] p-4 rounded-xl">
                                     <div className="shrink-0 mt-1 md:mt-0">
                                         {check.status === 'ok' ? (
                                             <CheckCircle2 className="text-green-500" size={24} />
@@ -221,8 +221,8 @@ export default function SystemHealthPage() {
                     </div>
 
                     {/* E. Actividad Reciente */}
-                    <div className="bg-[#111217] border border-white/10 rounded-2xl p-6">
-                        <h2 className="text-lg font-bold text-white flex items-center gap-2 mb-4 border-b border-white/10 pb-2">
+                    <div className="bg-[#1E1E24] border border-[#33333A] rounded-2xl p-6">
+                        <h2 className="text-lg font-bold text-white flex items-center gap-2 mb-4 border-b border-[#33333A] pb-2">
                             <Clock size={18} className="text-neutral-400" />
                             Actividad Reciente (Auditoría)
                         </h2>

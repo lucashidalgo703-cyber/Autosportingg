@@ -98,7 +98,7 @@ export default function GeneralSettingsPage() {
                         <p className="text-sm text-red-400 mb-6">No tenés permisos para acceder a la configuración general.</p>
                         <Link 
                             href="/admin/configuracion"
-                            className="bg-red-500 text-white px-6 py-2 rounded-xl font-bold hover:bg-red-600 transition-colors"
+                            className="bg-[#E63027] text-white px-6 py-2 rounded-xl font-bold hover:bg-[#C42620] transition-colors"
                         >
                             Volver a Configuración
                         </Link>
@@ -149,7 +149,7 @@ export default function GeneralSettingsPage() {
             ) : (
                 <form onSubmit={handleSave} className="space-y-6">
                     {/* A. Datos de Agencia */}
-                    <div className="bg-[#111217] border border-white/10 rounded-2xl p-6">
+                    <div className="bg-[#1E1E24] border border-[#33333A] rounded-2xl p-6">
                         <h2 className="text-lg font-bold text-white flex items-center gap-2 mb-4 border-b border-neutral-800 pb-2">
                             <Building2 size={18} className="text-neutral-400" />
                             Datos de la Agencia
@@ -162,7 +162,7 @@ export default function GeneralSettingsPage() {
                                     value={settings.agencyName} 
                                     onChange={e => handleChange(null, 'agencyName', e.target.value)}
                                     disabled={!canEdit}
-                                    className="w-full bg-[#0b0c10] border border-white/10 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-red-500 disabled:opacity-50"
+                                    className="w-full bg-[#161619] border border-[#33333A] rounded-lg px-3 py-2 text-[#FAFAFA] focus:outline-none focus:border-[#EF3329] focus:ring-1 focus:ring-[#EF3329] disabled:opacity-50"
                                 />
                             </div>
                             <div>
@@ -172,7 +172,7 @@ export default function GeneralSettingsPage() {
                                     value={settings.commercialEmail} 
                                     onChange={e => handleChange(null, 'commercialEmail', e.target.value)}
                                     disabled={!canEdit}
-                                    className="w-full bg-[#0b0c10] border border-white/10 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-red-500 disabled:opacity-50"
+                                    className="w-full bg-[#161619] border border-[#33333A] rounded-lg px-3 py-2 text-[#FAFAFA] focus:outline-none focus:border-[#EF3329] focus:ring-1 focus:ring-[#EF3329] disabled:opacity-50"
                                 />
                             </div>
                             <div>
@@ -182,7 +182,7 @@ export default function GeneralSettingsPage() {
                                     value={settings.mainPhone} 
                                     onChange={e => handleChange(null, 'mainPhone', e.target.value)}
                                     disabled={!canEdit}
-                                    className="w-full bg-[#0b0c10] border border-white/10 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-red-500 disabled:opacity-50"
+                                    className="w-full bg-[#161619] border border-[#33333A] rounded-lg px-3 py-2 text-[#FAFAFA] focus:outline-none focus:border-[#EF3329] focus:ring-1 focus:ring-[#EF3329] disabled:opacity-50"
                                 />
                             </div>
                             <div>
@@ -192,7 +192,7 @@ export default function GeneralSettingsPage() {
                                     value={settings.googleReviewsUrl} 
                                     onChange={e => handleChange(null, 'googleReviewsUrl', e.target.value)}
                                     disabled={!canEdit}
-                                    className="w-full bg-[#0b0c10] border border-white/10 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-red-500 disabled:opacity-50"
+                                    className="w-full bg-[#161619] border border-[#33333A] rounded-lg px-3 py-2 text-[#FAFAFA] focus:outline-none focus:border-[#EF3329] focus:ring-1 focus:ring-[#EF3329] disabled:opacity-50"
                                 />
                             </div>
                             <div className="md:col-span-2">
@@ -202,14 +202,14 @@ export default function GeneralSettingsPage() {
                                     value={settings.address} 
                                     onChange={e => handleChange(null, 'address', e.target.value)}
                                     disabled={!canEdit}
-                                    className="w-full bg-[#0b0c10] border border-white/10 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-red-500 disabled:opacity-50"
+                                    className="w-full bg-[#161619] border border-[#33333A] rounded-lg px-3 py-2 text-[#FAFAFA] focus:outline-none focus:border-[#EF3329] focus:ring-1 focus:ring-[#EF3329] disabled:opacity-50"
                                 />
                             </div>
                         </div>
                     </div>
 
                     {/* B. Parámetros Operativos */}
-                    <div className="bg-neutral-900 border border-neutral-800 rounded-2xl p-6">
+                    <div className="bg-[#1E1E24] border border-[#33333A] rounded-2xl p-6">
                         <h2 className="text-lg font-bold text-white flex items-center gap-2 mb-4 border-b border-neutral-800 pb-2">
                             <Settings size={18} className="text-neutral-400" />
                             Parámetros Operativos
@@ -223,7 +223,7 @@ export default function GeneralSettingsPage() {
                                         value={settings.thresholds?.leadWithoutFollowupDays || 7} 
                                         onChange={e => handleChange('thresholds', 'leadWithoutFollowupDays', parseInt(e.target.value) || 7)}
                                         disabled={!canEdit}
-                                        className="w-24 bg-[#0b0c10] border border-white/10 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-red-500 disabled:opacity-50"
+                                        className="w-24 bg-[#161619] border border-[#33333A] rounded-lg px-3 py-2 text-[#FAFAFA] focus:outline-none focus:border-[#EF3329] focus:ring-1 focus:ring-[#EF3329] disabled:opacity-50"
                                     />
                                     <span className="text-sm text-neutral-500">días</span>
                                 </div>
@@ -236,7 +236,7 @@ export default function GeneralSettingsPage() {
                                         value={settings.thresholds?.oldReservationDays || 7} 
                                         onChange={e => handleChange('thresholds', 'oldReservationDays', parseInt(e.target.value) || 7)}
                                         disabled={!canEdit}
-                                        className="w-24 bg-[#0b0c10] border border-white/10 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-red-500 disabled:opacity-50"
+                                        className="w-24 bg-[#161619] border border-[#33333A] rounded-lg px-3 py-2 text-[#FAFAFA] focus:outline-none focus:border-[#EF3329] focus:ring-1 focus:ring-[#EF3329] disabled:opacity-50"
                                     />
                                     <span className="text-sm text-neutral-500">días</span>
                                 </div>
@@ -249,7 +249,7 @@ export default function GeneralSettingsPage() {
                                         value={settings.thresholds?.postSalePendingDays || 7} 
                                         onChange={e => handleChange('thresholds', 'postSalePendingDays', parseInt(e.target.value) || 7)}
                                         disabled={!canEdit}
-                                        className="w-24 bg-[#0b0c10] border border-white/10 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-red-500 disabled:opacity-50"
+                                        className="w-24 bg-[#161619] border border-[#33333A] rounded-lg px-3 py-2 text-[#FAFAFA] focus:outline-none focus:border-[#EF3329] focus:ring-1 focus:ring-[#EF3329] disabled:opacity-50"
                                     />
                                     <span className="text-sm text-neutral-500">días</span>
                                 </div>
@@ -262,7 +262,7 @@ export default function GeneralSettingsPage() {
                                         value={settings.thresholds?.stockCriticalDays || 90} 
                                         onChange={e => handleChange('thresholds', 'stockCriticalDays', parseInt(e.target.value) || 90)}
                                         disabled={!canEdit}
-                                        className="w-24 bg-[#0b0c10] border border-white/10 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-red-500 disabled:opacity-50"
+                                        className="w-24 bg-[#161619] border border-[#33333A] rounded-lg px-3 py-2 text-[#FAFAFA] focus:outline-none focus:border-[#EF3329] focus:ring-1 focus:ring-[#EF3329] disabled:opacity-50"
                                     />
                                     <span className="text-sm text-neutral-500">días</span>
                                 </div>
@@ -271,7 +271,7 @@ export default function GeneralSettingsPage() {
                     </div>
 
                     {/* C. Horarios y Moneda */}
-                    <div className="bg-neutral-900 border border-neutral-800 rounded-2xl p-6">
+                    <div className="bg-[#1E1E24] border border-[#33333A] rounded-2xl p-6">
                         <h2 className="text-lg font-bold text-white flex items-center gap-2 mb-4 border-b border-neutral-800 pb-2">
                             <Clock size={18} className="text-neutral-400" />
                             Horarios Comerciales
@@ -284,7 +284,7 @@ export default function GeneralSettingsPage() {
                                     value={settings.businessHours?.mondayToFriday || "09:00 - 18:00"} 
                                     onChange={e => handleChange('businessHours', 'mondayToFriday', e.target.value)}
                                     disabled={!canEdit}
-                                    className="w-full bg-[#0b0c10] border border-white/10 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-red-500 disabled:opacity-50"
+                                    className="w-full bg-[#161619] border border-[#33333A] rounded-lg px-3 py-2 text-[#FAFAFA] focus:outline-none focus:border-[#EF3329] focus:ring-1 focus:ring-[#EF3329] disabled:opacity-50"
                                 />
                             </div>
                             <div>
@@ -294,7 +294,7 @@ export default function GeneralSettingsPage() {
                                     value={settings.businessHours?.saturday || "09:00 - 13:00"} 
                                     onChange={e => handleChange('businessHours', 'saturday', e.target.value)}
                                     disabled={!canEdit}
-                                    className="w-full bg-[#0b0c10] border border-white/10 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-red-500 disabled:opacity-50"
+                                    className="w-full bg-[#161619] border border-[#33333A] rounded-lg px-3 py-2 text-[#FAFAFA] focus:outline-none focus:border-[#EF3329] focus:ring-1 focus:ring-[#EF3329] disabled:opacity-50"
                                 />
                             </div>
                             <div>
@@ -304,7 +304,7 @@ export default function GeneralSettingsPage() {
                                     value={settings.businessHours?.sunday || "Cerrado"} 
                                     onChange={e => handleChange('businessHours', 'sunday', e.target.value)}
                                     disabled={!canEdit}
-                                    className="w-full bg-[#0b0c10] border border-white/10 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-red-500 disabled:opacity-50"
+                                    className="w-full bg-[#161619] border border-[#33333A] rounded-lg px-3 py-2 text-[#FAFAFA] focus:outline-none focus:border-[#EF3329] focus:ring-1 focus:ring-[#EF3329] disabled:opacity-50"
                                 />
                             </div>
                         </div>
@@ -315,7 +315,7 @@ export default function GeneralSettingsPage() {
                             <button 
                                 type="submit"
                                 disabled={saving}
-                                className="flex items-center gap-2 bg-red-600 hover:bg-red-700 text-white px-6 py-2.5 rounded-xl font-bold transition-colors shadow-lg shadow-red-900/20 disabled:opacity-50"
+                                className="flex items-center gap-2 bg-[#E63027] hover:bg-[#C42620] text-white px-6 py-2.5 rounded-xl font-bold transition-colors shadow-lg shadow-black/20 disabled:opacity-50"
                             >
                                 <Save size={18} />
                                 {saving ? 'Guardando...' : 'Guardar Cambios'}

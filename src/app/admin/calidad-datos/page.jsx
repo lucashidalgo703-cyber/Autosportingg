@@ -87,7 +87,7 @@ export default function DataQualityPage() {
                 <button 
                     onClick={fetchDataQuality}
                     disabled={loading}
-                    className="flex items-center gap-2 bg-neutral-800 hover:bg-neutral-700 text-white px-4 py-2 rounded-lg font-medium transition-colors border border-neutral-700"
+                    className="flex items-center gap-2 bg-[#161619] hover:bg-[#1E1E24] text-white px-4 py-2 rounded-lg font-medium transition-colors border border-[#33333A]"
                 >
                     <RefreshCw size={16} className={loading ? "animate-spin" : ""} />
                     {loading ? 'Analizando...' : 'Actualizar Análisis'}
@@ -96,7 +96,7 @@ export default function DataQualityPage() {
 
             {/* Summary Cards */}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-                <div className="bg-neutral-900 border border-neutral-800 p-4 rounded-xl">
+                <div className="bg-[#1E1E24] border border-[#33333A] p-4 rounded-xl">
                     <p className="text-neutral-400 text-sm font-medium">Total Problemas</p>
                     <p className="text-2xl font-bold text-white">{data.summary.totalIssues}</p>
                 </div>
@@ -122,8 +122,8 @@ export default function DataQualityPage() {
                         onClick={() => setFilterSeverity(sev)}
                         className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors border ${
                             filterSeverity === sev 
-                            ? 'bg-neutral-200 text-white border-neutral-200' 
-                            : 'bg-neutral-900 text-neutral-400 border-neutral-800 hover:bg-neutral-800'
+                            ? 'bg-[#E63027] text-white border-[#E63027]' 
+                            : 'bg-[#161619] text-[#A1A1AA] border-[#33333A] hover:bg-[#1E1E24]'
                         }`}
                     >
                         {sev === 'all' ? 'Todos' : sev === 'critical' ? 'Críticos' : sev === 'warning' ? 'Advertencias' : 'Sugerencias'}
@@ -132,7 +132,7 @@ export default function DataQualityPage() {
             </div>
 
             {sections.length === 0 ? (
-                <div className="text-center py-20 bg-neutral-900/50 border border-neutral-800 rounded-2xl">
+                <div className="text-center py-20 bg-[#1E1E24] border border-[#33333A] rounded-2xl">
                     <div className="w-16 h-16 rounded-full bg-green-500/10 flex items-center justify-center mx-auto mb-4 text-green-500 border border-green-500/20">
                         <CheckCircle size={32} />
                     </div>
@@ -147,16 +147,16 @@ export default function DataQualityPage() {
                         totalFilteredIssues += filteredItems.length;
 
                         return (
-                            <div key={sectionKey} className="bg-neutral-900 border border-neutral-800 rounded-2xl overflow-hidden">
-                                <div className="bg-neutral-800/50 px-6 py-4 border-b border-neutral-800">
+                            <div key={sectionKey} className="bg-[#1E1E24] border border-[#33333A] rounded-2xl overflow-hidden">
+                                <div className="bg-[#161619] px-6 py-4 border-b border-[#33333A]">
                                     <h3 className="text-lg font-bold text-white flex items-center justify-between">
                                         <span>{sectionNames[sectionKey] || sectionKey}</span>
-                                        <span className="text-xs font-mono bg-neutral-900 px-2 py-1 rounded text-neutral-400">{filteredItems.length} incidencias</span>
+                                        <span className="text-xs font-mono bg-[#161619] px-2 py-1 rounded text-neutral-400">{filteredItems.length} incidencias</span>
                                     </h3>
                                 </div>
-                                <div className="divide-y divide-neutral-800">
+                                <div className="divide-y divide-[#33333A]">
                                     {filteredItems.map((issue, idx) => (
-                                        <div key={idx} className="p-6 flex flex-col md:flex-row gap-4 items-start md:items-center justify-between hover:bg-neutral-800/20 transition-colors">
+                                        <div key={idx} className="p-6 flex flex-col md:flex-row gap-4 items-start md:items-center justify-between hover:bg-[#161619] transition-colors">
                                             <div className="space-y-2 flex-1">
                                                 <div className="flex items-center gap-3">
                                                     {renderSeverityBadge(issue.severity)}
@@ -170,7 +170,7 @@ export default function DataQualityPage() {
                                                 </div>
                                                 <Link 
                                                     href={issue.href}
-                                                    className="flex items-center gap-2 bg-neutral-800 hover:bg-neutral-700 text-white px-3 py-1.5 rounded-lg text-sm transition-colors border border-neutral-700"
+                                                    className="flex items-center gap-2 bg-[#161619] hover:bg-[#1E1E24] text-white px-3 py-1.5 rounded-lg text-sm transition-colors border border-[#33333A]"
                                                 >
                                                     <LinkIcon size={14} />
                                                     Revisar

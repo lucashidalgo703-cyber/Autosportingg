@@ -131,7 +131,7 @@ export default function CommunicationLogForm({
             <div className="bg-[#161619] border border-[#33333A] rounded-xl shadow-2xl w-full max-w-2xl flex flex-col max-h-[90vh]">
                 <div className="flex justify-between items-center p-4 border-b border-[#33333A] bg-[#1E1E24] rounded-t-xl shrink-0">
                     <h3 className="text-lg font-bold text-white flex items-center gap-2">
-                        <MessageCircle size={20} className="text-indigo-400" />
+                        <MessageCircle size={20} className="text-[#E63027]" />
                         Registrar Interacción
                     </h3>
                     <button onClick={onClose} className="text-gray-400 hover:text-white transition-colors">
@@ -231,10 +231,10 @@ export default function CommunicationLogForm({
                                     name="shouldCreateTask" 
                                     checked={formData.shouldCreateTask} 
                                     onChange={handleChange}
-                                    className="w-4 h-4 rounded border-[#33333A] bg-[#24242B] text-indigo-500 focus:ring-[#EF3329]"
+                                    className="w-4 h-4 rounded border-[#33333A] bg-[#24242B] text-[#E63027] focus:ring-[#EF3329]"
                                 />
                                 <span className="text-sm font-bold text-white flex items-center gap-2">
-                                    <CalendarIcon size={16} className="text-indigo-400" />
+                                    <CalendarIcon size={16} className="text-[#E63027]" />
                                     Crear tarea de seguimiento en agenda
                                 </span>
                             </label>

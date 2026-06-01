@@ -54,7 +54,7 @@ export default function CommunicationLogPanel({
         <div className="bg-[#161619] border border-[#33333A] rounded-xl overflow-hidden flex flex-col h-full">
             <div className="p-4 border-b border-[#33333A] bg-[#24242B] flex justify-between items-center shrink-0">
                 <h3 className="font-bold text-white uppercase text-sm flex items-center gap-2">
-                    <MessageCircle size={18} className="text-indigo-400" />
+                    <MessageCircle size={18} className="text-[#E63027]" />
                     Historial de Contacto
                 </h3>
                 <div className="flex items-center gap-2">
@@ -81,7 +81,7 @@ export default function CommunicationLogPanel({
                     </div>
                 ) : loading ? (
                     <div className="flex justify-center items-center h-32">
-                        <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-indigo-500"></div>
+                        <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-[#E63027]"></div>
                     </div>
                 ) : logs.length === 0 ? (
                     <div className="h-full flex flex-col items-center justify-center text-center p-6 text-gray-500">

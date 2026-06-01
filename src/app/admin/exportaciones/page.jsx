@@ -86,7 +86,7 @@ export default function ExportacionesPage() {
                         <p className="text-sm text-red-400 mb-6">No tenés permisos para acceder a las exportaciones.</p>
                         <Link 
                             href="/admin"
-                            className="bg-red-500 text-white px-6 py-2 rounded-xl font-bold hover:bg-red-600 transition-colors"
+                            className="bg-[#E63027] text-white px-6 py-2 rounded-xl font-bold hover:bg-[#C42620] transition-colors"
                         >
                             Volver al Dashboard
                         </Link>
@@ -114,7 +114,7 @@ export default function ExportacionesPage() {
         <div className="max-w-7xl mx-auto p-6 pb-20 text-white">
             <div className="mb-8">
                 <h1 className="text-2xl font-bold text-white tracking-tight flex items-center gap-2">
-                    <Download className="text-blue-500" />
+                    <Download className="text-[#E63027]" />
                     Exportaciones
                 </h1>
                 <p className="text-neutral-400 mt-1 text-sm">
@@ -134,7 +134,7 @@ export default function ExportacionesPage() {
                     const isAvailable = availableExports.includes(mod.id);
                     const Icon = mod.icon;
                     return (
-                        <div key={mod.id} className={`bg-[#111217] border border-white/10 rounded-2xl p-5 flex flex-col ${!isAvailable ? 'opacity-50' : ''}`}>
+                        <div key={mod.id} className={`bg-[#1E1E24] border border-[#33333A] rounded-2xl p-5 flex flex-col ${!isAvailable ? 'opacity-50' : ''}`}>
                             <div className="flex items-center gap-3 mb-3">
                                 <div className="w-10 h-10 rounded-xl bg-white/5 flex items-center justify-center text-neutral-300">
                                     <Icon size={20} />

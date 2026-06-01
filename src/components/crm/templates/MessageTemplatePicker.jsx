@@ -121,7 +121,7 @@ export default function MessageTemplatePicker({ category, entityData, onLogActio
             <button
                 type="button"
                 onClick={() => setIsOpen(!isOpen)}
-                className="flex items-center gap-2 px-3 py-1.5 text-sm font-medium text-white bg-[#E63027]/10 border border-blue-500/20 rounded-lg hover:bg-[#E63027]/20 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#EF3329] transition-colors"
+                className="flex items-center gap-2 px-3 py-1.5 text-sm font-medium text-white bg-[#E63027]/10 border border-[#E63027]/20 rounded-lg hover:bg-[#E63027]/20 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#EF3329] transition-colors"
             >
                 <MessageSquare className="w-4 h-4" />
                 Usar Plantilla
@@ -129,7 +129,7 @@ export default function MessageTemplatePicker({ category, entityData, onLogActio
             </button>
 
             {isOpen && (
-                <div className="absolute right-0 z-10 mt-2 w-80 sm:w-96 bg-[#111217] border border-white/10 rounded-xl shadow-2xl overflow-hidden shadow-black/50">
+                <div className="absolute right-0 z-10 mt-2 w-80 sm:w-96 bg-[#1E1E24] border border-[#33333A] rounded-xl shadow-2xl overflow-hidden shadow-black/50">
                     {!selectedTemplate ? (
                         <div className="p-2 max-h-64 overflow-y-auto custom-scrollbar">
                             <div className="px-3 py-2 text-xs font-semibold text-neutral-500 uppercase tracking-wider">
@@ -153,11 +153,11 @@ export default function MessageTemplatePicker({ category, entityData, onLogActio
                         </div>
                     ) : (
                         <div className="flex flex-col h-full max-h-[400px]">
-                            <div className="px-4 py-3 border-b border-white/10 flex items-center justify-between bg-black/50">
+                            <div className="px-4 py-3 border-b border-[#33333A] flex items-center justify-between bg-[#161619]">
                                 <h4 className="text-sm font-medium text-white truncate pr-4">{selectedTemplate.name}</h4>
                                 <button
                                     onClick={() => setSelectedTemplate(null)}
-                                    className="text-xs text-blue-400 hover:text-blue-300 font-medium whitespace-nowrap"
+                                    className="text-xs text-[#E63027] hover:text-[#C42620] font-medium whitespace-nowrap"
                                 >
                                     Cambiar
                                 </button>
@@ -166,7 +166,7 @@ export default function MessageTemplatePicker({ category, entityData, onLogActio
                                 <textarea
                                     value={previewText}
                                     onChange={(e) => setPreviewText(e.target.value)}
-                                    className="w-full h-32 p-3 text-sm text-white bg-black border border-white/10 rounded-lg focus:ring-2 focus:ring-[#EF3329] focus:border-transparent outline-none resize-none placeholder-neutral-500"
+                                    className="w-full h-32 p-3 text-sm text-[#FAFAFA] bg-[#161619] border border-[#33333A] rounded-lg focus:ring-2 focus:ring-[#EF3329] focus:border-transparent outline-none resize-none placeholder-neutral-500"
                                 />
                             </div>
                             <div className="p-4 pt-0">
