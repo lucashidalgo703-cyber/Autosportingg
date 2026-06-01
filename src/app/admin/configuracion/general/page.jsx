@@ -3,8 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../../../context/AuthContext';
 import { hasPermission, PERMISSIONS } from '../../../../utils/adminPermissions';
-import { Save, AlertCircle, RotateCcw, Building2, Clock, Settings, Bell } from 'lucide-react';
-import PermissionGuard from '../../../../components/crm/layout/PermissionGuard';
+import { Save, AlertCircle, RotateCcw, Building2, Clock, Settings, Bell, ShieldAlert } from 'lucide-react';
 import Link from 'next/link';
 
 export default function GeneralSettingsPage() {
@@ -15,6 +14,7 @@ export default function GeneralSettingsPage() {
     const [error, setError] = useState(null);
     const [successMessage, setSuccessMessage] = useState('');
 
+    const canRead = ['owner', 'admin'].includes(user?.role) || hasPermission(user, PERMISSIONS.SETTINGS_READ) || hasPermission(user, PERMISSIONS.SETTINGS_WRITE);
     const canEdit = ['owner', 'admin'].includes(user?.role) || hasPermission(user, PERMISSIONS.SETTINGS_WRITE);
 
     const loadSettings = async () => {
@@ -81,46 +81,68 @@ export default function GeneralSettingsPage() {
         return <div className="flex justify-center items-center h-[50vh]"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-red-500"></div></div>;
     }
 
-    if (!settings) return null;
-
-    return (
-        <PermissionGuard permission={PERMISSIONS.SETTINGS_READ}>
-            <div className="max-w-4xl mx-auto p-6 pb-20">
-                <div className="mb-6 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+    if (!canRead) {
+        return (
+            <div className="p-8 max-w-2xl mx-auto mt-10">
+                <div className="bg-red-500/10 border border-red-500/20 text-red-500 p-8 rounded-2xl flex flex-col items-center text-center gap-4">
+                    <ShieldAlert size={48} />
                     <div>
-                        <div className="flex items-center gap-2 mb-2">
-                            <Link href="/admin/configuracion" className="text-neutral-400 hover:text-white transition-colors text-sm">
-                                Configuración
-                            </Link>
-                            <span className="text-neutral-600">/</span>
-                            <span className="text-white text-sm">General</span>
-                        </div>
-                        <h1 className="text-2xl font-bold text-white tracking-tight flex items-center gap-2">
-                            <Settings className="text-red-500" />
-                            Configuración General
-                        </h1>
-                        <p className="text-neutral-400 mt-1 text-sm">
-                            Parámetros operativos y reglas de negocio del CRM.
-                        </p>
+                        <h2 className="text-xl font-bold mb-2">Acceso Denegado</h2>
+                        <p className="text-sm text-red-400 mb-6">No tenés permisos para acceder a la configuración general.</p>
+                        <Link 
+                            href="/admin/configuracion"
+                            className="bg-red-500 text-white px-6 py-2 rounded-xl font-bold hover:bg-red-600 transition-colors"
+                        >
+                            Volver a Configuración
+                        </Link>
                     </div>
                 </div>
+            </div>
+        );
+    }
 
-                {error && (
-                    <div className="mb-6 bg-red-500/10 border border-red-500/20 text-red-400 p-4 rounded-xl flex items-center gap-3">
-                        <AlertCircle size={20} />
-                        <p>{error}</p>
+    return (
+        <div className="max-w-4xl mx-auto p-6 pb-20 text-white">
+            <div className="mb-6 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+                <div>
+                    <div className="flex items-center gap-2 mb-2">
+                        <Link href="/admin/configuracion" className="text-neutral-400 hover:text-white transition-colors text-sm">
+                            Configuración
+                        </Link>
+                        <span className="text-neutral-600">/</span>
+                        <span className="text-white text-sm">General</span>
                     </div>
-                )}
-                {successMessage && (
-                    <div className="mb-6 bg-green-500/10 border border-green-500/20 text-green-400 p-4 rounded-xl flex items-center gap-3">
-                        <AlertCircle size={20} />
-                        <p>{successMessage}</p>
-                    </div>
-                )}
+                    <h1 className="text-2xl font-bold text-white tracking-tight flex items-center gap-2">
+                        <Settings className="text-red-500" />
+                        Configuración General
+                    </h1>
+                    <p className="text-neutral-400 mt-1 text-sm">
+                        Parametrizá las reglas operativas del CRM.
+                    </p>
+                </div>
+            </div>
 
+            {error && (
+                <div className="mb-6 bg-red-500/10 border border-red-500/20 text-red-400 p-4 rounded-xl flex items-center gap-3">
+                    <AlertCircle size={20} />
+                    <p>{error}</p>
+                </div>
+            )}
+            {successMessage && (
+                <div className="mb-6 bg-green-500/10 border border-green-500/20 text-green-400 p-4 rounded-xl flex items-center gap-3">
+                    <AlertCircle size={20} />
+                    <p>{successMessage}</p>
+                </div>
+            )}
+
+            {!settings ? (
+                <div className="text-center text-neutral-400 py-10">
+                    No se pudo cargar la configuración general.
+                </div>
+            ) : (
                 <form onSubmit={handleSave} className="space-y-6">
                     {/* A. Datos de Agencia */}
-                    <div className="bg-neutral-900 border border-neutral-800 rounded-2xl p-6">
+                    <div className="bg-[#111217] border border-white/10 rounded-2xl p-6">
                         <h2 className="text-lg font-bold text-white flex items-center gap-2 mb-4 border-b border-neutral-800 pb-2">
                             <Building2 size={18} className="text-neutral-400" />
                             Datos de la Agencia
@@ -133,7 +155,7 @@ export default function GeneralSettingsPage() {
                                     value={settings.agencyName} 
                                     onChange={e => handleChange(null, 'agencyName', e.target.value)}
                                     disabled={!canEdit}
-                                    className="w-full bg-neutral-800 border border-neutral-700 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-red-500 disabled:opacity-50"
+                                    className="w-full bg-[#0b0c10] border border-white/10 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-red-500 disabled:opacity-50"
                                 />
                             </div>
                             <div>
@@ -143,7 +165,7 @@ export default function GeneralSettingsPage() {
                                     value={settings.commercialEmail} 
                                     onChange={e => handleChange(null, 'commercialEmail', e.target.value)}
                                     disabled={!canEdit}
-                                    className="w-full bg-neutral-800 border border-neutral-700 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-red-500 disabled:opacity-50"
+                                    className="w-full bg-[#0b0c10] border border-white/10 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-red-500 disabled:opacity-50"
                                 />
                             </div>
                             <div>
@@ -153,7 +175,7 @@ export default function GeneralSettingsPage() {
                                     value={settings.mainPhone} 
                                     onChange={e => handleChange(null, 'mainPhone', e.target.value)}
                                     disabled={!canEdit}
-                                    className="w-full bg-neutral-800 border border-neutral-700 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-red-500 disabled:opacity-50"
+                                    className="w-full bg-[#0b0c10] border border-white/10 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-red-500 disabled:opacity-50"
                                 />
                             </div>
                             <div>
@@ -163,7 +185,7 @@ export default function GeneralSettingsPage() {
                                     value={settings.googleReviewsUrl} 
                                     onChange={e => handleChange(null, 'googleReviewsUrl', e.target.value)}
                                     disabled={!canEdit}
-                                    className="w-full bg-neutral-800 border border-neutral-700 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-red-500 disabled:opacity-50"
+                                    className="w-full bg-[#0b0c10] border border-white/10 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-red-500 disabled:opacity-50"
                                 />
                             </div>
                             <div className="md:col-span-2">
@@ -173,7 +195,7 @@ export default function GeneralSettingsPage() {
                                     value={settings.address} 
                                     onChange={e => handleChange(null, 'address', e.target.value)}
                                     disabled={!canEdit}
-                                    className="w-full bg-neutral-800 border border-neutral-700 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-red-500 disabled:opacity-50"
+                                    className="w-full bg-[#0b0c10] border border-white/10 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-red-500 disabled:opacity-50"
                                 />
                             </div>
                         </div>
@@ -194,7 +216,7 @@ export default function GeneralSettingsPage() {
                                         value={settings.thresholds?.leadWithoutFollowupDays || 7} 
                                         onChange={e => handleChange('thresholds', 'leadWithoutFollowupDays', parseInt(e.target.value) || 7)}
                                         disabled={!canEdit}
-                                        className="w-24 bg-neutral-800 border border-neutral-700 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-red-500 disabled:opacity-50"
+                                        className="w-24 bg-[#0b0c10] border border-white/10 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-red-500 disabled:opacity-50"
                                     />
                                     <span className="text-sm text-neutral-500">días</span>
                                 </div>
@@ -207,7 +229,7 @@ export default function GeneralSettingsPage() {
                                         value={settings.thresholds?.oldReservationDays || 7} 
                                         onChange={e => handleChange('thresholds', 'oldReservationDays', parseInt(e.target.value) || 7)}
                                         disabled={!canEdit}
-                                        className="w-24 bg-neutral-800 border border-neutral-700 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-red-500 disabled:opacity-50"
+                                        className="w-24 bg-[#0b0c10] border border-white/10 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-red-500 disabled:opacity-50"
                                     />
                                     <span className="text-sm text-neutral-500">días</span>
                                 </div>
@@ -220,7 +242,7 @@ export default function GeneralSettingsPage() {
                                         value={settings.thresholds?.postSalePendingDays || 7} 
                                         onChange={e => handleChange('thresholds', 'postSalePendingDays', parseInt(e.target.value) || 7)}
                                         disabled={!canEdit}
-                                        className="w-24 bg-neutral-800 border border-neutral-700 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-red-500 disabled:opacity-50"
+                                        className="w-24 bg-[#0b0c10] border border-white/10 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-red-500 disabled:opacity-50"
                                     />
                                     <span className="text-sm text-neutral-500">días</span>
                                 </div>
@@ -233,7 +255,7 @@ export default function GeneralSettingsPage() {
                                         value={settings.thresholds?.stockCriticalDays || 90} 
                                         onChange={e => handleChange('thresholds', 'stockCriticalDays', parseInt(e.target.value) || 90)}
                                         disabled={!canEdit}
-                                        className="w-24 bg-neutral-800 border border-neutral-700 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-red-500 disabled:opacity-50"
+                                        className="w-24 bg-[#0b0c10] border border-white/10 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-red-500 disabled:opacity-50"
                                     />
                                     <span className="text-sm text-neutral-500">días</span>
                                 </div>
@@ -255,7 +277,7 @@ export default function GeneralSettingsPage() {
                                     value={settings.businessHours?.mondayToFriday || "09:00 - 18:00"} 
                                     onChange={e => handleChange('businessHours', 'mondayToFriday', e.target.value)}
                                     disabled={!canEdit}
-                                    className="w-full bg-neutral-800 border border-neutral-700 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-red-500 disabled:opacity-50"
+                                    className="w-full bg-[#0b0c10] border border-white/10 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-red-500 disabled:opacity-50"
                                 />
                             </div>
                             <div>
@@ -265,7 +287,7 @@ export default function GeneralSettingsPage() {
                                     value={settings.businessHours?.saturday || "09:00 - 13:00"} 
                                     onChange={e => handleChange('businessHours', 'saturday', e.target.value)}
                                     disabled={!canEdit}
-                                    className="w-full bg-neutral-800 border border-neutral-700 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-red-500 disabled:opacity-50"
+                                    className="w-full bg-[#0b0c10] border border-white/10 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-red-500 disabled:opacity-50"
                                 />
                             </div>
                             <div>
@@ -275,7 +297,7 @@ export default function GeneralSettingsPage() {
                                     value={settings.businessHours?.sunday || "Cerrado"} 
                                     onChange={e => handleChange('businessHours', 'sunday', e.target.value)}
                                     disabled={!canEdit}
-                                    className="w-full bg-neutral-800 border border-neutral-700 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-red-500 disabled:opacity-50"
+                                    className="w-full bg-[#0b0c10] border border-white/10 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-red-500 disabled:opacity-50"
                                 />
                             </div>
                         </div>
@@ -294,7 +316,7 @@ export default function GeneralSettingsPage() {
                         </div>
                     )}
                 </form>
-            </div>
-        </PermissionGuard>
+            )}
+        </div>
     );
 }
