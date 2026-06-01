@@ -3,7 +3,7 @@ import dotenv from 'dotenv';
 
 dotenv.config();
 
-const connectDB = async () => {
+export default async function connectDB() {
     try {
         if (mongoose.connection.readyState === 1) {
             return mongoose.connection;
@@ -15,6 +15,4 @@ const connectDB = async () => {
     } catch (error) {
         console.error(`Error connecting to MongoDB: ${error.message}`);
     }
-};
-
-export default connectDB;
+}

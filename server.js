@@ -34,8 +34,8 @@ const PORT = process.env.PORT || 3001;
 const JWT_SECRET = process.env.JWT_SECRET || 'secret_key_123';
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || '116sporting';
 
-// Connect to MongoDB
-connectDB();
+// Connect to MongoDB (disabled at top-level to prevent Serverless/NextJS TDZ)
+// connectDB();
 
 // Middleware
 app.use(cors());
@@ -469,6 +469,7 @@ app.get('/api/public/cars/:id', async (req, res) => {
 // GET all cars for Admin (Protected, Full Data)
 app.get('/api/admin/cars', authenticateToken, async (req, res) => {
     try {
+        await connectDB();
         res.setHeader('Cache-Control', 'no-store, max-age=0');
         const cars = await Car.find().sort({ order: 1, createdAt: -1 });
         res.json(cars);
@@ -1728,6 +1729,7 @@ app.delete('/api/transactions/:id', authenticateToken, async (req, res) => {
 // GET all reservations
 app.get('/api/admin/reservations', authenticateToken, async (req, res) => {
     try {
+        await connectDB();
         const { vehicleId, leadId, clientId, status } = req.query;
         let query = {};
         
@@ -1977,6 +1979,7 @@ app.patch('/api/admin/reservations/:id', authenticateToken, async (req, res) => 
 // GET all sales
 app.get('/api/admin/sales', authenticateToken, async (req, res) => {
     try {
+        await connectDB();
         const { vehicleId, clientId, leadId, status } = req.query;
         let query = {};
         
@@ -3341,6 +3344,7 @@ app.post('/api/admin/sales/:id/installments/generate', authenticateToken, async 
 // GET all active tasks
 app.get('/api/admin/crm-tasks', authenticateToken, async (req, res) => {
     try {
+        await connectDB();
         res.setHeader('Cache-Control', 'no-store, max-age=0');
         const tasks = await CrmTask.find()
             .populate('clientId', 'firstName lastName fullName phone')
@@ -3437,6 +3441,7 @@ app.patch('/api/admin/crm-tasks/:id', authenticateToken, async (req, res) => {
 
 app.get('/api/admin/notifications', authenticateToken, async (req, res) => {
     try {
+        await connectDB();
         const userRole = req.user?.role || 'solo_lectura';
         const userId = req.user?.userId || req.user?.email || 'unknown';
         const perms = req.user?.permissions || [];
@@ -4913,6 +4918,7 @@ app.patch('/api/admin/settings', authenticateToken, async (req, res) => {
 // ========================================== //
 app.get('/api/admin/system-health', authenticateToken, async (req, res) => {
     try {
+        await connectDB();
         const userRole = req.user?.role || 'solo_lectura';
         const perms = req.user?.permissions || [];
         const canRead = ['owner', 'admin'].includes(userRole) || perms.includes('systemHealth.read');
@@ -5011,6 +5017,7 @@ app.get('/api/admin/system-health', authenticateToken, async (req, res) => {
 // ========================================== //
 app.get('/api/admin/data-quality', authenticateToken, async (req, res) => {
     try {
+        await connectDB();
         const userRole = req.user?.role || 'solo_lectura';
         const perms = req.user?.permissions || [];
         const userId = req.user?.userId;
@@ -5171,6 +5178,7 @@ function toCSV(data, fields) {
 
 app.get('/api/admin/exports', authenticateToken, async (req, res) => {
     try {
+        await connectDB();
         const userRole = req.user?.role || 'solo_lectura';
         const perms = req.user?.permissions || [];
         const canRead = ['owner', 'admin'].includes(userRole) || perms.includes('exports.read');
