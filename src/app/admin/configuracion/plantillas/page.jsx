@@ -11,12 +11,12 @@ export default function PlantillasPage() {
         <PermissionGuard 
             allowedRoles={[ROLES.OWNER, ROLES.ADMIN, ROLES.VENTAS, ROLES.ADMINISTRATIVO]} 
             requiredPermission={PERMISSIONS.MESSAGETEMPLATES_READ}
-            fallback={<div className="p-6 text-red-600">No tenés permisos para ver esta sección.</div>}
+            fallback={<div className="p-6 text-red-500">No tenés permisos para ver esta sección.</div>}
         >
             <div className="p-6 max-w-7xl mx-auto">
                 <div className="mb-6">
-                    <h1 className="text-2xl font-bold text-gray-900">Plantillas de Mensajes</h1>
-                    <p className="text-gray-500 mt-1">
+                    <h1 className="text-2xl font-bold text-white">Plantillas de Mensajes</h1>
+                    <p className="text-neutral-400 mt-1">
                         Gestioná los textos predefinidos para agilizar la comunicación operativa y comercial.
                     </p>
                 </div>
