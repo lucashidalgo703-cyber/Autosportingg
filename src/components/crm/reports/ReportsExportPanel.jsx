@@ -301,7 +301,7 @@ export default function ReportsExportPanel({ data, filters }) {
                 <Link
                     href={`/admin/reportes/imprimir?period=${filters.dateRange}&currency=${filters.currency}`}
                     target="_blank"
-                    className="flex items-center gap-2 px-4 py-2.5 bg-white text-black hover:bg-gray-200 rounded-xl text-xs font-bold transition-colors"
+                    className="flex items-center gap-2 px-4 py-2.5 bg-blue-600 text-white hover:bg-blue-500 rounded-xl text-xs font-bold transition-colors"
                 >
                     <Printer size={16} /> Imprimir / Guardar PDF
                 </Link>
