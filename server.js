@@ -5122,6 +5122,159 @@ app.get('/api/admin/data-quality', authenticateToken, async (req, res) => {
 });
 
 
+});
+
+// ========================================== //
+// ============ EXPORTS ===================== //
+// ========================================== //
+
+function toCSV(data, fields) {
+    const BOM = '\uFEFF';
+    const header = fields.join(';');
+    const rows = data.map(item => {
+        return fields.map(field => {
+            let val = item[field];
+            if (val === null || val === undefined) val = '';
+            if (val instanceof Date) val = val.toISOString();
+            else if (typeof val === 'object') {
+                if (val && val._id) val = val._id.toString();
+                else val = JSON.stringify(val);
+            }
+            val = String(val).replace(/"/g, '""');
+            if (val.includes(';') || val.includes('"') || val.includes('\n')) {
+                val = `"${val}"`;
+            }
+            return val;
+        }).join(';');
+    });
+    return BOM + header + '\n' + rows.join('\n');
+}
+
+app.get('/api/admin/exports', authenticateToken, async (req, res) => {
+    try {
+        const userRole = req.user?.role || 'solo_lectura';
+        const perms = req.user?.permissions || [];
+        const canRead = ['owner', 'admin'].includes(userRole) || perms.includes('exports.read');
+        const canAudit = ['owner', 'admin'].includes(userRole) || perms.includes('exports.audit');
+        
+        if (!canRead && !canAudit) {
+            return res.json({ ok: true, available: [] });
+        }
+        
+        const available = [];
+        if (canRead) {
+            available.push('stock', 'clientes', 'leads', 'reservas', 'ventas', 'cuotas', 'tareas', 'comunicaciones', 'plantillas', 'metas');
+        }
+        if (canAudit) {
+            available.push('auditoria');
+        }
+        res.json({ ok: true, available });
+    } catch(e) {
+        res.status(500).json({ ok: false, error: e.message });
+    }
+});
+
+app.get('/api/admin/exports/:type', authenticateToken, async (req, res) => {
+    try {
+        const { type } = req.params;
+        const userRole = req.user?.role || 'solo_lectura';
+        const perms = req.user?.permissions || [];
+        const isRestricted = !['owner', 'admin'].includes(userRole);
+        const userId = req.user?.userId;
+
+        const canRead = ['owner', 'admin'].includes(userRole) || perms.includes('exports.read');
+        const canAudit = ['owner', 'admin'].includes(userRole) || perms.includes('exports.audit');
+
+        if (type === 'auditoria' && !canAudit) {
+            return res.status(403).json({ message: 'Sin permisos para exportar auditoría.' });
+        }
+        if (type !== 'auditoria' && !canRead) {
+            return res.status(403).json({ message: 'Sin permisos para exportar datos.' });
+        }
+
+        let data = [];
+        let fields = [];
+
+        const baseQuery = isRestricted ? { assignedTo: userId } : {};
+
+        switch(type) {
+            case 'stock':
+                data = await Car.find().lean();
+                fields = ['_id', 'make', 'model', 'version', 'year', 'domain', 'status', 'isVisibleOnWeb', 'createdAt', 'updatedAt'];
+                break;
+            case 'clientes':
+                data = await Client.find(baseQuery).lean();
+                fields = ['_id', 'firstName', 'lastName', 'phone', 'email', 'documentType', 'documentNumber', 'assignedTo', 'createdAt', 'updatedAt'];
+                break;
+            case 'leads':
+                data = await Lead.find(baseQuery).lean();
+                fields = ['_id', 'name', 'phone', 'email', 'status', 'source', 'assignedTo', 'vehicleId', 'createdAt', 'updatedAt'];
+                break;
+            case 'reservas':
+                data = await Reservation.find(baseQuery).lean();
+                fields = ['_id', 'clientId', 'leadId', 'vehicleId', 'status', 'assignedTo', 'createdAt', 'updatedAt'];
+                break;
+            case 'ventas':
+                data = await Sale.find(baseQuery).lean();
+                fields = ['_id', 'clientId', 'vehicleId', 'status', 'saleDate', 'deliveryDate', 'assignedTo', 'createdAt', 'updatedAt'];
+                break;
+            case 'cuotas':
+                data = await Installment.find(baseQuery).lean();
+                fields = ['_id', 'saleId', 'status', 'dueDate', 'createdAt', 'updatedAt'];
+                break;
+            case 'tareas':
+                data = await CrmTask.find(baseQuery).lean();
+                fields = ['_id', 'title', 'status', 'dueDate', 'assignedTo', 'source', 'createdAt', 'updatedAt'];
+                break;
+            case 'comunicaciones':
+                data = await CommunicationLog.find(isRestricted ? { $or: [{ createdBy: userId }, { assignedTo: userId }] } : {}).lean();
+                fields = ['_id', 'entityType', 'entityId', 'channel', 'direction', 'outcome', 'title', 'createdBy', 'assignedTo', 'contactDate', 'createdAt'];
+                data.forEach(item => { if (item.notes) item.notesPreview = item.notes.substring(0, 120); });
+                fields.push('notesPreview');
+                break;
+            case 'plantillas':
+                data = await MessageTemplate.find().lean();
+                fields = ['_id', 'name', 'category', 'channel', 'isActive', 'isSystem', 'createdAt', 'updatedAt'];
+                data.forEach(item => { if (item.body) item.bodyPreview = item.body.substring(0, 150); });
+                fields.push('bodyPreview');
+                break;
+            case 'metas':
+                data = await Goal.find(isRestricted ? { userId: userId } : {}).lean();
+                fields = ['_id', 'userId', 'period', 'startDate', 'endDate', 'status', 'createdAt', 'updatedAt'];
+                break;
+            case 'auditoria':
+                data = await AuditLog.find().sort({ createdAt: -1 }).lean();
+                fields = ['_id', 'action', 'module', 'entityType', 'entityId', 'userId', 'createdAt'];
+                data.forEach(item => { if (item.metadata) item.metadataSummary = JSON.stringify(item.metadata).substring(0, 120); });
+                fields.push('metadataSummary');
+                break;
+            default:
+                return res.status(400).json({ message: 'Tipo de exportación no válido.' });
+        }
+
+        const csvContent = toCSV(data, fields);
+        const dateStr = new Date().toISOString().split('T')[0];
+        const filename = `autosporting_${type}_${dateStr}.csv`;
+
+        // Registrar auditoría
+        await logAudit({
+            req,
+            action: 'EXPORTACION_GENERADA',
+            module: 'exportaciones',
+            description: `Exportó ${data.length} registros de ${type}.`,
+            metadata: { type, count: data.length }
+        });
+
+        res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+        res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+        res.send(csvContent);
+
+    } catch(e) {
+        console.error("GET /api/admin/exports/:type error:", e);
+        res.status(500).json({ ok: false, error: e.message });
+    }
+});
+
 // Global Error Handler
 app.use((err, req, res, next) => {
     console.error("Global Error Handler (Timestamp: " + new Date().toISOString() + ")");
