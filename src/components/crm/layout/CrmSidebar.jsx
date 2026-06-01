@@ -1,7 +1,7 @@
 "use client";
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { LayoutDashboard, CarFront, Users, UserPlus, Receipt, CalendarClock, Wallet, Landmark, FileText, BarChart3, Settings, Target, Star, UserCog, ClipboardList, Flag, ShieldAlert, Activity, Download } from 'lucide-react';
+import { LayoutDashboard, CarFront, Users, UserPlus, Receipt, CalendarClock, Wallet, Landmark, FileText, BarChart3, Settings, Target, Star, UserCog, ClipboardList, Flag, ShieldAlert, Activity, Download, HelpCircle } from 'lucide-react';
 import { useAuth } from '../../../context/AuthContext';
 import { hasPermission, PERMISSIONS, ROLES } from '../../../utils/adminPermissions';
 
@@ -29,6 +29,7 @@ const menuItems = [
     { name: 'Exportaciones', path: '/admin/exportaciones', icon: Download, prefetch: false },
     { name: 'Sistema', path: '/admin/sistema', icon: Activity, prefetch: false },
     { name: 'Configuración', path: '/admin/configuracion', icon: Settings, prefetch: false },
+    { name: 'Ayuda', path: '/admin/ayuda', icon: HelpCircle, prefetch: false },
 ];
 
 export default function CrmSidebar({ isOpen, onClose }) {
@@ -75,6 +76,9 @@ export default function CrmSidebar({ isOpen, onClose }) {
         }
         if (item.name === 'Metas') {
             return hasPermission(user, PERMISSIONS.METAS_READ);
+        }
+        if (item.name === 'Ayuda') {
+            return hasPermission(user, PERMISSIONS.HELP_READ);
         }
         return true; 
     });
