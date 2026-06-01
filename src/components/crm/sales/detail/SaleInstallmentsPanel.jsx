@@ -74,7 +74,7 @@ export default function SaleInstallmentsPanel({ sale, saleFinanceData }) {
             await loadData();
             setIsSingleModalOpen(false);
         } catch (err) {
-            alert(err.message);
+            console.error(err.message);
         }
     };
 
@@ -84,7 +84,7 @@ export default function SaleInstallmentsPanel({ sale, saleFinanceData }) {
             await loadData();
             setIsGenerateModalOpen(false);
         } catch (err) {
-            alert(err.message);
+            console.error(err.message);
         }
     };
 
@@ -124,7 +124,7 @@ export default function SaleInstallmentsPanel({ sale, saleFinanceData }) {
                 await loadData();
             }
         } catch (err) {
-            alert(err.message);
+            console.error(err.message);
         }
     };
 

@@ -2066,6 +2066,10 @@ app.get('/api/admin/sales', authenticateToken, async (req, res) => {
 // GET sale by id
 app.get('/api/admin/sales/:id', authenticateToken, async (req, res) => {
     try {
+        await connectDB();
+        if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+            return res.status(400).json({ message: 'Sale ID inválido' });
+        }
         const sale = await Sale.findById(req.params.id)
             .populate('clientId')
             .populate('leadId')
@@ -2940,6 +2944,7 @@ app.patch('/api/admin/transactions/:id', authenticateToken, async (req, res) => 
 
 app.get('/api/admin/installments', authenticateToken, async (req, res) => {
     try {
+        await connectDB();
         if (req.user && req.user.role === 'ventas') return res.status(403).json({ message: 'Sin permisos financieros' });
         const query = {};
         if (req.query.saleId) query.saleId = req.query.saleId;
@@ -3009,6 +3014,10 @@ app.get('/api/admin/installments', authenticateToken, async (req, res) => {
 
 app.get('/api/admin/installments/:id', authenticateToken, async (req, res) => {
     try {
+        await connectDB();
+        if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+            return res.status(400).json({ message: 'Installment ID inválido' });
+        }
         if (req.user && req.user.role === 'ventas') return res.status(403).json({ message: 'Sin permisos financieros' });
         const installment = await Installment.findById(req.params.id)
             .populate('clientId', 'firstName lastName fullName phone email')
@@ -3056,6 +3065,7 @@ app.get('/api/admin/installments/:id', authenticateToken, async (req, res) => {
 
 app.post('/api/admin/installments', authenticateToken, async (req, res) => {
     try {
+        await connectDB();
         const user = req.user ? (req.user.email || req.user.role) : 'System';
         const { saleId, clientId, vehicleId, installmentNumber, dueDate, amount, currency, notes, status } = req.body;
 
@@ -3131,6 +3141,10 @@ app.post('/api/admin/installments', authenticateToken, async (req, res) => {
 
 app.patch('/api/admin/installments/:id', authenticateToken, async (req, res) => {
     try {
+        await connectDB();
+        if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+            return res.status(400).json({ message: 'Installment ID inválido' });
+        }
         const user = req.user ? (req.user.email || req.user.role) : 'System';
         const updates = req.body;
         
@@ -3186,6 +3200,10 @@ app.patch('/api/admin/installments/:id', authenticateToken, async (req, res) => 
 
 app.delete('/api/admin/installments/:id', authenticateToken, async (req, res) => {
     try {
+        await connectDB();
+        if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+            return res.status(400).json({ message: 'Installment ID inválido' });
+        }
         if (!req.user || (req.user.role !== 'owner' && req.user.role !== 'admin')) {
             return res.status(403).json({ message: 'Solo owner/admin pueden eliminar cuotas.' });
         }
@@ -3233,6 +3251,10 @@ app.delete('/api/admin/installments/:id', authenticateToken, async (req, res) =>
 
 app.post('/api/admin/sales/:id/installments/generate', authenticateToken, async (req, res) => {
     try {
+        await connectDB();
+        if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+            return res.status(400).json({ message: 'Sale ID inválido' });
+        }
         const user = req.user ? (req.user.email || req.user.role) : 'System';
         const saleId = req.params.id;
         const { totalAmount, baseAmount, interestPercent, currency, installmentsCount, firstDueDate, frequency, notes, allowAppend } = req.body;

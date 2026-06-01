@@ -70,7 +70,7 @@ export default function SaleFinancePanel({ sale }) {
             await loadData();
             setIsModalOpen(false);
         } catch (err) {
-            alert(err.message);
+            console.error(err.message);
         }
     };
 
@@ -80,7 +80,7 @@ export default function SaleFinancePanel({ sale }) {
             await loadData();
             setIsModalOpen(false);
         } catch (err) {
-            alert(err.message);
+            console.error(err.message);
         }
     };
 
