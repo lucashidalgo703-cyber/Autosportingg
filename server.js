@@ -2784,32 +2784,44 @@ app.post('/api/admin/sales/:id/trade-ins/:tradeInIndex/create-stock-car', authen
         const newCar = new Car(carPayload);
         const savedCar = await newCar.save();
 
-        // Actualizar el tradeIn en la venta
-        sale.tradeIns[index].linkedStockCarId = savedCar._id;
-        sale.tradeIns[index].shouldEnterStock = true;
-        sale.tradeIns[index].enteredStockAt = new Date();
-        
-        if (!sale.saleAuditLog) sale.saleAuditLog = [];
-        sale.saleAuditLog.push({
-            action: 'VEHICULO_RECIBIDO_INGRESADO_A_STOCK',
-            field: 'tradeIns',
-            details: `Vehículo ${tradeIn.brand} ${tradeIn.model} ingresado a stock con ID ${savedCar._id}`,
-            user: user,
-            source: 'CRM_V2'
-        });
+        // Actualizar el tradeIn en la venta de forma segura sin ownerDocument
+        const now = new Date();
+        await Sale.updateOne(
+            { _id: sale._id },
+            {
+                $set: {
+                    [`tradeIns.${index}.linkedStockCarId`]: savedCar._id,
+                    [`tradeIns.${index}.shouldEnterStock`]: true,
+                    [`tradeIns.${index}.enteredStockAt`]: now
+                },
+                $push: {
+                    saleAuditLog: {
+                        action: 'VEHICULO_RECIBIDO_INGRESADO_A_STOCK',
+                        field: 'tradeIns',
+                        details: `Vehículo ${tradeIn.brand} ${tradeIn.model} ingresado a stock con ID ${savedCar._id}`,
+                        user: user,
+                        source: 'CRM_V2',
+                        date: now
+                    }
+                }
+            },
+            { runValidators: false }
+        );
 
-        await logAudit({
-            req,
-            action: 'VEHICULO_RECIBIDO_INGRESADO_A_STOCK',
-            module: 'ventas',
-            entityType: 'Sale',
-            entityId: sale._id,
-            entityLabel: 'Venta',
-            description: `Se ingresó el vehículo recibido ${tradeIn.brand} ${tradeIn.model} al stock de AutoSporting.`,
-            metadata: { stockCarId: savedCar._id, tradeInIndex: index }
-        });
-
-        await sale.save();
+        try {
+            await logAudit({
+                req,
+                action: 'VEHICULO_RECIBIDO_INGRESADO_A_STOCK',
+                module: 'ventas',
+                entityType: 'Sale',
+                entityId: sale._id,
+                entityLabel: 'Venta',
+                description: `Se ingresó el vehículo recibido ${tradeIn.brand} ${tradeIn.model} al stock de AutoSporting.`,
+                metadata: { stockCarId: savedCar._id, tradeInIndex: index }
+            });
+        } catch (auditErr) {
+            console.error("Error logging audit for create-stock-car:", auditErr);
+        }
         
         const populatedSale = await Sale.findById(sale._id)
             .populate('clientId', 'firstName lastName fullName phone email')
