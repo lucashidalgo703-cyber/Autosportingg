@@ -140,14 +140,17 @@ export default function ConvertReservationToSaleModal({ isOpen, onClose, onSucce
             let tradeIns = [];
             let tradeInTotalAmount = 0;
             if (formData.hasTradeIn && formData.tradeInEstimatedValue > 0) {
+                const yearNum = formData.tradeInYear ? Number(formData.tradeInYear) : undefined;
+                const estValueNum = Number(formData.tradeInEstimatedValue) || 0;
+                
                 tradeIns.push({
                     brand: formData.tradeInBrand || 'S/D',
                     model: formData.tradeInModel || 'S/D',
-                    year: formData.tradeInYear || new Date().getFullYear(),
-                    estimatedValue: Number(formData.tradeInEstimatedValue),
+                    year: isNaN(yearNum) ? undefined : yearNum,
+                    estimatedValue: isNaN(estValueNum) ? 0 : estValueNum,
                     currency: formData.saleCurrency
                 });
-                tradeInTotalAmount = Number(formData.tradeInEstimatedValue);
+                tradeInTotalAmount = isNaN(estValueNum) ? 0 : estValueNum;
             }
 
             const balanceAfterTradeIn = Number(formData.salePrice) - (reservation.depositAmount || 0) - tradeInTotalAmount;
@@ -170,7 +173,11 @@ export default function ConvertReservationToSaleModal({ isOpen, onClose, onSucce
             if (err.data && err.data.activeSaleId) {
                 setConflictData(err.data);
             } else {
-                setError(err.message || 'Ocurrió un error al intentar convertir la reserva.');
+                let errorMsg = err.message || 'Ocurrió un error al intentar convertir la reserva.';
+                if (errorMsg.includes('validation failed') || errorMsg.includes('Cast to Number failed')) {
+                    errorMsg = 'No se pudo guardar el vehículo recibido. Revisá año y valor tomado.';
+                }
+                setError(errorMsg);
             }
         } finally {
             setLoading(false);

@@ -2281,6 +2281,40 @@ app.post('/api/admin/sales', authenticateToken, async (req, res) => {
     }
 });
 
+// Helper function to normalize trade-in data safely
+const normalizeTradeInVehicle = (tradeIn) => {
+    if (!tradeIn) return null;
+    const safeNum = (val) => {
+        if (val === '' || val === null || val === undefined) return undefined;
+        const num = Number(val);
+        return isNaN(num) ? undefined : num;
+    };
+    const safeRequiredNum = (val) => {
+        if (val === '' || val === null || val === undefined) return 0;
+        const num = Number(val);
+        return isNaN(num) ? 0 : num;
+    };
+
+    return {
+        brand: tradeIn.brand || 'S/D',
+        model: tradeIn.model || 'S/D',
+        version: tradeIn.version || '',
+        year: safeNum(tradeIn.year),
+        plate: tradeIn.plate || '',
+        mileage: safeNum(tradeIn.mileage),
+        estimatedValue: safeRequiredNum(tradeIn.estimatedValue),
+        currency: tradeIn.currency || 'ARS',
+        conditionNotes: tradeIn.conditionNotes || '',
+        mechanicalNotes: tradeIn.mechanicalNotes || '',
+        documentationStatus: tradeIn.documentationStatus || 'pendiente',
+        hasDebt: Boolean(tradeIn.hasDebt),
+        debtAmount: safeNum(tradeIn.debtAmount) || 0,
+        hasLien: Boolean(tradeIn.hasLien),
+        transferStatus: tradeIn.transferStatus || 'pendiente',
+        shouldEnterStock: Boolean(tradeIn.shouldEnterStock)
+    };
+};
+
 // POST convert reservation to sale
 app.post('/api/admin/reservations/:id/convert-to-sale', authenticateToken, async (req, res) => {
     try {
@@ -2336,7 +2370,7 @@ app.post('/api/admin/reservations/:id/convert-to-sale', authenticateToken, async
             salesperson: salesperson || reservation.salesperson,
             saleDate: saleDate || new Date(),
             status: 'confirmada',
-            tradeIns: tradeIns || [],
+            tradeIns: Array.isArray(tradeIns) ? tradeIns.map(normalizeTradeInVehicle).filter(Boolean) : [],
             tradeInTotalAmount: tradeInTotalAmount || 0,
             balanceAfterTradeIn: balanceAfterTradeIn !== undefined ? balanceAfterTradeIn : (finalSalePrice - (reservation.depositAmount || 0) - (tradeInTotalAmount || 0)),
             createdBy: user,
@@ -2643,7 +2677,7 @@ app.patch('/api/admin/sales/:id/trade-ins', authenticateToken, async (req, res) 
             return res.status(400).json({ error: 'No se puede editar una venta anulada.' });
         }
 
-        sale.tradeIns = tradeIns;
+        sale.tradeIns = Array.isArray(tradeIns) ? tradeIns.map(normalizeTradeInVehicle).filter(Boolean) : [];
         if (tradeInTotalAmount !== undefined) sale.tradeInTotalAmount = tradeInTotalAmount;
         if (balanceAfterTradeIn !== undefined) sale.balanceAfterTradeIn = balanceAfterTradeIn;
         if (paymentBreakdown !== undefined) sale.paymentBreakdown = paymentBreakdown;

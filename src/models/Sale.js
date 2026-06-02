@@ -19,25 +19,37 @@ const checklistItemSchema = new mongoose.Schema({
     completedBy: { type: String }
 }, { _id: false });
 
+const safeNumberSetter = (val) => {
+    if (val === '' || val === null || val === undefined) return undefined;
+    const num = Number(val);
+    return isNaN(num) ? undefined : num;
+};
+
+const safeRequiredNumberSetter = (val) => {
+    if (val === '' || val === null || val === undefined) return 0; // Or let validation catch it
+    const num = Number(val);
+    return isNaN(num) ? 0 : num;
+};
+
 const tradeInVehicleSchema = new mongoose.Schema({
     brand: { type: String, required: true },
     model: { type: String, required: true },
     version: { type: String },
-    year: { type: Number, required: true },
+    year: { type: Number, required: true, set: safeNumberSetter },
     plate: { type: String },
-    mileage: { type: Number },
+    mileage: { type: Number, set: safeNumberSetter },
     color: { type: String },
     vin: { type: String },
     engineNumber: { type: String },
     ownerName: { type: String },
     ownerDocument: { type: String },
-    estimatedValue: { type: Number, required: true, min: 0 },
+    estimatedValue: { type: Number, required: true, min: 0, set: safeNumberSetter },
     currency: { type: String, enum: ['ARS', 'USD'], default: 'ARS' },
     conditionNotes: { type: String },
     mechanicalNotes: { type: String },
     documentationStatus: { type: String, enum: ['pendiente', 'parcial', 'completo'], default: 'pendiente' },
     hasDebt: { type: Boolean, default: false },
-    debtAmount: { type: Number, default: 0 },
+    debtAmount: { type: Number, default: 0, set: safeNumberSetter },
     hasLien: { type: Boolean, default: false },
     transferStatus: { type: String, enum: ['pendiente', 'en_tramite', 'transferido'], default: 'pendiente' },
     receivedAt: { type: Date },

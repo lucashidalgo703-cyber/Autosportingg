@@ -69,10 +69,24 @@ export default function SaleTradeInPanel({ sale, onUpdate }) {
 
         try {
             const newTradeIns = [...(sale.tradeIns || [])];
+            
+            const yearNum = formData.year ? Number(formData.year) : undefined;
+            const estValueNum = Number(formData.estimatedValue) || 0;
+            const mileageNum = formData.mileage ? Number(formData.mileage) : undefined;
+            const debtNum = formData.debtAmount ? Number(formData.debtAmount) : 0;
+            
+            const normalizedData = {
+                ...formData,
+                year: isNaN(yearNum) ? undefined : yearNum,
+                estimatedValue: isNaN(estValueNum) ? 0 : estValueNum,
+                mileage: isNaN(mileageNum) ? undefined : mileageNum,
+                debtAmount: isNaN(debtNum) ? 0 : debtNum
+            };
+
             if (editingIndex >= 0) {
-                newTradeIns[editingIndex] = { ...newTradeIns[editingIndex], ...formData };
+                newTradeIns[editingIndex] = { ...newTradeIns[editingIndex], ...normalizedData };
             } else {
-                newTradeIns.push({ ...formData, receivedAt: new Date(), receivedBy: user?.username });
+                newTradeIns.push({ ...normalizedData, receivedAt: new Date(), receivedBy: user?.username });
             }
 
             const totalAmount = newTradeIns.reduce((sum, t) => sum + (Number(t.estimatedValue) || 0), 0);
@@ -93,7 +107,11 @@ export default function SaleTradeInPanel({ sale, onUpdate }) {
 
             if (!res.ok) {
                 const data = await res.json().catch(() => ({}));
-                throw new Error(data.error || 'Error al guardar el vehículo en parte de pago');
+                let errorMsg = data.error || 'Error al guardar el vehículo en parte de pago';
+                if (errorMsg.includes('validation failed') || errorMsg.includes('Cast to Number failed')) {
+                    errorMsg = 'No se pudo guardar el vehículo recibido. Revisá año y valor tomado.';
+                }
+                throw new Error(errorMsg);
             }
 
             setIsEditing(false);
