@@ -862,17 +862,69 @@ app.put('/api/cars/reorder/batch', authenticateToken, async (req, res) => {
     }
 });
 
-// DELETE car (Protected)
+// DELETE car (Protected, Safe Delete)
 app.delete('/api/cars/:id', authenticateToken, async (req, res) => {
     try {
-        const car = await Car.findById(req.params.id);
-        if (!car) return res.status(404).json({ message: 'Car not found' });
+        await connectDB();
+        const { reason } = req.body;
+        
+        if (!reason) {
+            return res.status(400).json({ message: 'Se requiere un motivo para eliminar el vehículo.' });
+        }
 
-        // Optional: Delete images from Cloudinary here (would need public_ids)
+        const car = await Car.findById(req.params.id);
+        if (!car) return res.status(404).json({ message: 'Vehículo no encontrado.' });
+
+        // Reglas de negocio para borrado seguro:
+        if (car.visibleEnWeb !== false) {
+            return res.status(400).json({ message: 'No se puede eliminar un vehículo visible en web. Ocultalo primero.' });
+        }
+
+        // Check active reservations
+        const activeReservations = await Reservation.find({ vehicleId: car._id, status: 'activa' });
+        if (activeReservations.length > 0) {
+            return res.status(400).json({ message: 'El vehículo tiene una reserva activa asociada. Cancelala primero.' });
+        }
+
+        // Check active sales
+        const activeSales = await Sale.find({ vehicleId: car._id });
+        if (activeSales.length > 0) {
+            return res.status(400).json({ message: 'El vehículo está asociado como unidad principal en una venta. Cancelá la venta primero.' });
+        }
+
+        // Limpiar linkedStockCarId en permutas donde se ingresó este vehículo de prueba
+        const salesWithTradeIn = await Sale.find({ "tradeIns.linkedStockCarId": car._id });
+        for (let sale of salesWithTradeIn) {
+            let updated = false;
+            for (let tradeIn of sale.tradeIns) {
+                if (tradeIn.linkedStockCarId && tradeIn.linkedStockCarId.toString() === car._id.toString()) {
+                    tradeIn.linkedStockCarId = null;
+                    updated = true;
+                }
+            }
+            if (updated) await sale.save();
+        }
 
         await Car.findByIdAndDelete(req.params.id);
-        res.json({ message: 'Car removed' });
+        
+        await logAudit({
+            req,
+            action: 'VEHICULO_STOCK_ELIMINADO',
+            module: 'stock',
+            entityType: 'Car',
+            entityId: car._id,
+            entityLabel: `${car.brand} ${car.name} (${car.plateOrVin || 'S/D'})`,
+            description: `Motivo: ${reason}`,
+            metadata: {
+                reason,
+                status: car.status,
+                salesCleaned: salesWithTradeIn.length
+            }
+        });
+
+        res.json({ message: 'Vehículo eliminado con éxito.' });
     } catch (error) {
+        console.error("Delete Error:", error);
         res.status(500).json({ message: error.message });
     }
 });

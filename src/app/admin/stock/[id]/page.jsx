@@ -15,6 +15,7 @@ import VehicleActionsPanel from '../../../../components/crm/stock/VehicleActions
 import VehicleImagesPanel from '../../../../components/crm/stock/VehicleImagesPanel';
 import VehicleWebStatusPanel from '../../../../components/crm/stock/VehicleWebStatusPanel';
 import VehicleEditModal from '../../../../components/crm/stock/VehicleEditModal';
+import VehicleDeleteModal from '../../../../components/crm/stock/VehicleDeleteModal';
 import ExpenseAddModal from '../../../../components/crm/stock/ExpenseAddModal';
 import ReservationModal from '../../../../components/crm/reservations/ReservationModal';
 import ReservationCancelModal from '../../../../components/crm/reservations/ReservationCancelModal';
@@ -30,6 +31,7 @@ export default function VehicleDetailPage() {
     const [isExpenseOpen, setIsExpenseOpen] = useState(false);
     const [isReservationOpen, setIsReservationOpen] = useState(false);
     const [isCancelReservationOpen, setIsCancelReservationOpen] = useState(false);
+    const [isDeleteOpen, setIsDeleteOpen] = useState(false);
     const [activeReservation, setActiveReservation] = useState(null);
     const { fetchReservations } = useAdminReservations();
 
@@ -172,6 +174,7 @@ export default function VehicleDetailPage() {
                                 onAddExpense={() => setIsExpenseOpen(true)}
                                 onReserve={() => setIsReservationOpen(true)}
                                 onCancelReserve={() => setIsCancelReservationOpen(true)}
+                                onDelete={() => setIsDeleteOpen(true)}
                                 activeReservation={activeReservation}
                             />
                             <VehicleDocumentsDemo vehicle={vehicle} />
@@ -219,6 +222,16 @@ export default function VehicleDetailPage() {
                         reservation={activeReservation}
                     />
                 )}
+
+                <VehicleDeleteModal
+                    isOpen={isDeleteOpen}
+                    onClose={() => setIsDeleteOpen(false)}
+                    vehicle={vehicle}
+                    onSuccess={() => {
+                        setIsDeleteOpen(false);
+                        router.push('/admin/stock');
+                    }}
+                />
         </>
     );
 }

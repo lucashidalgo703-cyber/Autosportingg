@@ -1,9 +1,9 @@
 "use client";
 import CrmCard from '../ui/CrmCard';
 import CrmButton from '../ui/CrmButton';
-import { Edit, CalendarClock, Handshake, Receipt, MessageSquare, Lock } from 'lucide-react';
+import { Edit, CalendarClock, Handshake, Receipt, MessageSquare, Lock, Trash2 } from 'lucide-react';
 
-export default function VehicleActionsPanel({ vehicle, onEdit, onAddExpense, onReserve, onCancelReserve, activeReservation }) {
+export default function VehicleActionsPanel({ vehicle, onEdit, onAddExpense, onReserve, onCancelReserve, onDelete, activeReservation }) {
     return (
         <CrmCard>
             <h3 className="text-white font-semibold text-lg mb-4">Acciones de Stock</h3>
@@ -70,6 +70,16 @@ export default function VehicleActionsPanel({ vehicle, onEdit, onAddExpense, onR
                     <div className="flex flex-col items-start text-left">
                         <span>Agregar Observación</span>
                         <span className="text-[10px] text-[#A1A1AA] font-normal">Disponible en próxima fase</span>
+                    </div>
+                </CrmButton>
+
+                <div className="h-px w-full bg-[#33333A] my-1"></div>
+
+                <CrmButton onClick={onDelete} className="flex items-center justify-start gap-3 w-full bg-red-500/10 border-red-500/20 hover:bg-red-500/20 text-red-500 transition-colors">
+                    <Trash2 size={16} />
+                    <div className="flex flex-col items-start text-left">
+                        <span className="font-medium">Eliminar Vehículo</span>
+                        <span className="text-[10px] text-red-400/80 font-normal">Acción destructiva</span>
                     </div>
                 </CrmButton>
             </div>
