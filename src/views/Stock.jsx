@@ -226,6 +226,9 @@ const Stock = ({ cars = [], refreshCars, handleEdit, handleDelete, handleMove })
                                         ) : (
                                             <div className="w-full h-full flex items-center justify-center text-gray-600"><ImageIcon size={10} /></div>
                                         )}
+                                        {car.images && car.images.length > 0 && (
+                                            <div className="absolute bottom-0 right-0 bg-black/80 px-1 text-[8px] text-white font-bold rounded-tl">{car.images.length}</div>
+                                        )}
                                     </div>
                                     <div className="flex flex-col">
                                         <span className="text-xs font-bold text-white truncate leading-tight">{car.brand} {car.name}</span>
@@ -243,11 +246,20 @@ const Stock = ({ cars = [], refreshCars, handleEdit, handleDelete, handleMove })
                                 <div className="col-span-1 text-xs font-bold text-white">{car.currency === 'USD' ? 'U$S' : '$'} {Number(car.price || 0).toLocaleString()}</div>
                                 <div className="col-span-1 text-[10px] text-gray-500">—</div>
                                 
-                                <div className="col-span-1">
+                                <div className="col-span-1 flex flex-col gap-1">
                                     <span className={`px-2 py-1 rounded text-[9px] font-bold uppercase tracking-wider border flex items-center gap-1 w-max ${getStatusStyle(car.status || 'Disponible')}`}>
                                         <div className="w-1 h-1 bg-current rounded-full"></div>
                                         {car.status || 'Disponible'}
                                     </span>
+                                    {car.visibleEnWeb !== false && (car.status || 'Disponible').toLowerCase() === 'disponible' ? (
+                                        <span className="text-[8px] text-blue-400 font-bold uppercase tracking-wider flex items-center gap-0.5">
+                                            <span className="w-1.5 h-1.5 bg-blue-400 rounded-full inline-block"></span> Publicado
+                                        </span>
+                                    ) : (
+                                        <span className="text-[8px] text-gray-500 font-bold uppercase tracking-wider flex items-center gap-0.5">
+                                            <span className="w-1.5 h-1.5 border border-gray-500 rounded-full inline-block"></span> Oculto web
+                                        </span>
+                                    )}
                                 </div>
 
                                 <div className="col-span-1 text-[10px] text-gray-400 flex items-center gap-1"><span className="text-[8px]">📍</span> {car.location || 'Salón Principal'}</div>

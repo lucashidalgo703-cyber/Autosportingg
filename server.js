@@ -445,7 +445,7 @@ app.get('/api/public/cars', async (req, res) => {
         // Only return visible/public cars. We use $ne: false so existing cars without the field are still visible.
         const cars = await Car.find({ 
             visibleEnWeb: { $ne: false },
-            status: 'Disponible'
+            status: { $regex: /^(disponible|en venta|publicado)$/i }
         })
             .select('-purchasePrice -purchaseCurrency -ownerName -ownerEmail -ownerPhone -linkedClient -consignedBy -notes -agencyOwned -engineNumber -chassisNumber -location -hasManuals -hasDuplicateKeys -hasOfficialServices -publishedOnML -publishedBy -mlLink -plateOrVin -expenses -visibleEnWeb -createdAt -updatedAt -__v -order -owners -auditLog')
             .sort({ order: 1, createdAt: -1 });
@@ -462,7 +462,7 @@ app.get('/api/public/cars/:id', async (req, res) => {
         const car = await Car.findOne({ 
             _id: req.params.id, 
             visibleEnWeb: { $ne: false },
-            status: 'Disponible'
+            status: { $regex: /^(disponible|en venta|publicado)$/i }
         })
             .select('-purchasePrice -purchaseCurrency -ownerName -ownerEmail -ownerPhone -linkedClient -consignedBy -notes -agencyOwned -engineNumber -chassisNumber -location -hasManuals -hasDuplicateKeys -hasOfficialServices -publishedOnML -publishedBy -mlLink -plateOrVin -expenses -visibleEnWeb -createdAt -updatedAt -__v -order -owners -auditLog');
         
@@ -664,6 +664,53 @@ app.put('/api/cars/:id', authenticateToken, upload.array('images', 20), async (r
     } catch (error) {
         console.error('Update Error:', error);
         res.status(400).json({ message: error.message });
+    }
+});
+
+// Dedicated PUT endpoint for images to avoid resetting boolean fields
+app.put('/api/admin/cars/:id/images', authenticateToken, upload.array('images', 20), async (req, res) => {
+    try {
+        await connectDB();
+        const car = await Car.findById(req.params.id);
+        if (!car) return res.status(404).json({ error: 'Car not found' });
+
+        const newUploadedPaths = req.files ? req.files.map(file => file.path) : [];
+        let finalImages = [];
+        const { imageOrder } = req.body;
+
+        if (imageOrder) {
+            try {
+                const order = JSON.parse(imageOrder);
+                finalImages = order.map(item => {
+                    if (item && item.toString().startsWith('__new__')) {
+                        const indexStr = item.split('__new__')[1];
+                        const idx = parseInt(indexStr);
+                        return newUploadedPaths[idx];
+                    } else {
+                        return item;
+                    }
+                }).filter(img => img);
+            } catch (e) {
+                finalImages = [...car.images, ...newUploadedPaths];
+            }
+        } else {
+            finalImages = [...car.images, ...newUploadedPaths];
+        }
+
+        car.images = finalImages;
+        car.coverImage = finalImages.length > 0 ? finalImages[0] : '';
+        
+        if (!car.auditLog) car.auditLog = [];
+        car.auditLog.push({
+            action: 'IMAGES_UPDATED',
+            user: req.user?.username || 'Admin',
+            details: `Imágenes actualizadas. Total: ${finalImages.length}`
+        });
+
+        await car.save();
+        res.json({ success: true, images: finalImages });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
     }
 });
 

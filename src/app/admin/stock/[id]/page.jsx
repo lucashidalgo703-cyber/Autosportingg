@@ -12,6 +12,8 @@ import VehicleInfoPanel from '../../../../components/crm/stock/VehicleInfoPanel'
 import VehicleHistoryTimeline from '../../../../components/crm/stock/VehicleHistoryTimeline';
 import VehicleDocumentsDemo from '../../../../components/crm/stock/VehicleDocumentsDemo';
 import VehicleActionsPanel from '../../../../components/crm/stock/VehicleActionsPanel';
+import VehicleImagesPanel from '../../../../components/crm/stock/VehicleImagesPanel';
+import VehicleWebStatusPanel from '../../../../components/crm/stock/VehicleWebStatusPanel';
 import VehicleEditModal from '../../../../components/crm/stock/VehicleEditModal';
 import ExpenseAddModal from '../../../../components/crm/stock/ExpenseAddModal';
 import ReservationModal from '../../../../components/crm/reservations/ReservationModal';
@@ -156,12 +158,14 @@ export default function VehicleDetailPage() {
                         {/* Columna Principal (2/3) */}
                         <div className="lg:col-span-2 flex flex-col gap-6">
                             <VehicleFinancialSummary vehicle={vehicle} />
+                            <VehicleImagesPanel vehicle={vehicle} onSaveComplete={fetchCar} />
                             <VehicleInfoPanel vehicle={vehicle} />
                             <VehicleHistoryTimeline vehicle={vehicle} />
                         </div>
                         
                         {/* Columna Lateral (1/3) */}
                         <div className="flex flex-col gap-6">
+                            <VehicleWebStatusPanel vehicle={vehicle} onSaveComplete={fetchCar} />
                             <VehicleActionsPanel 
                                 vehicle={vehicle} 
                                 onEdit={() => setIsEditOpen(true)}
