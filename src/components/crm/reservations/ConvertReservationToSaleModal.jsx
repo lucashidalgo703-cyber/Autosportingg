@@ -16,7 +16,12 @@ export default function ConvertReservationToSaleModal({ isOpen, onClose, onSucce
         salePrice: 0,
         saleCurrency: 'USD',
         paymentMethod: 'contado',
-        notes: ''
+        notes: '',
+        hasTradeIn: false,
+        tradeInBrand: '',
+        tradeInModel: '',
+        tradeInYear: new Date().getFullYear(),
+        tradeInEstimatedValue: 0
     });
 
     const [clientSearch, setClientSearch] = useState('');
@@ -84,7 +89,12 @@ export default function ConvertReservationToSaleModal({ isOpen, onClose, onSucce
                 salePrice: reservation.agreedPrice || 0,
                 saleCurrency: reservation.agreedCurrency || 'USD',
                 paymentMethod: 'contado',
-                notes: ''
+                notes: '',
+                hasTradeIn: false,
+                tradeInBrand: '',
+                tradeInModel: '',
+                tradeInYear: new Date().getFullYear(),
+                tradeInEstimatedValue: 0
             });
             setError(null);
             setConflictData(null);
@@ -127,11 +137,29 @@ export default function ConvertReservationToSaleModal({ isOpen, onClose, onSucce
                 throw new Error('La función de conversión no está disponible en el hook.');
             }
 
+            let tradeIns = [];
+            let tradeInTotalAmount = 0;
+            if (formData.hasTradeIn && formData.tradeInEstimatedValue > 0) {
+                tradeIns.push({
+                    brand: formData.tradeInBrand || 'S/D',
+                    model: formData.tradeInModel || 'S/D',
+                    year: formData.tradeInYear || new Date().getFullYear(),
+                    estimatedValue: Number(formData.tradeInEstimatedValue),
+                    currency: formData.saleCurrency
+                });
+                tradeInTotalAmount = Number(formData.tradeInEstimatedValue);
+            }
+
+            const balanceAfterTradeIn = Number(formData.salePrice) - (reservation.depositAmount || 0) - tradeInTotalAmount;
+
             await convertReservationToSale(reservationId, {
                 salePrice: Number(formData.salePrice),
                 saleCurrency: formData.saleCurrency,
                 paymentMethod: formData.paymentMethod,
-                notes: formData.notes
+                notes: formData.notes,
+                tradeIns,
+                tradeInTotalAmount,
+                balanceAfterTradeIn
             });
             
             if (typeof onSuccess === 'function') {
@@ -473,6 +501,52 @@ export default function ConvertReservationToSaleModal({ isOpen, onClose, onSucce
                                 onChange={(e) => setFormData({...formData, notes: e.target.value})}
                                 disabled={loading}
                             />
+                        </div>
+                        <div className="bg-purple-500/5 border border-purple-500/20 rounded-xl p-4">
+                            <div className="flex items-center justify-between mb-3">
+                                <label className="text-sm font-bold text-white flex items-center gap-2 cursor-pointer">
+                                    <input 
+                                        type="checkbox" 
+                                        checked={formData.hasTradeIn} 
+                                        onChange={(e) => setFormData({...formData, hasTradeIn: e.target.checked})}
+                                        className="rounded border-neutral-600 bg-black text-purple-500 focus:ring-purple-500"
+                                    />
+                                    ¿El cliente entrega vehículo en parte de pago?
+                                </label>
+                            </div>
+
+                            {formData.hasTradeIn && (
+                                <div className="space-y-4 pt-2 border-t border-purple-500/20">
+                                    <div className="grid grid-cols-3 gap-3">
+                                        <div>
+                                            <label className="block text-xs font-bold text-neutral-400 uppercase tracking-wider mb-1">Marca</label>
+                                            <input type="text" value={formData.tradeInBrand} onChange={(e) => setFormData({...formData, tradeInBrand: e.target.value})} className="w-full bg-black/40 border border-neutral-800 rounded py-2 px-3 text-sm text-white focus:outline-none focus:border-purple-500" placeholder="Ej. Toyota" />
+                                        </div>
+                                        <div>
+                                            <label className="block text-xs font-bold text-neutral-400 uppercase tracking-wider mb-1">Modelo</label>
+                                            <input type="text" value={formData.tradeInModel} onChange={(e) => setFormData({...formData, tradeInModel: e.target.value})} className="w-full bg-black/40 border border-neutral-800 rounded py-2 px-3 text-sm text-white focus:outline-none focus:border-purple-500" placeholder="Ej. Corolla" />
+                                        </div>
+                                        <div>
+                                            <label className="block text-xs font-bold text-neutral-400 uppercase tracking-wider mb-1">Año</label>
+                                            <input type="number" value={formData.tradeInYear} onChange={(e) => setFormData({...formData, tradeInYear: e.target.value})} className="w-full bg-black/40 border border-neutral-800 rounded py-2 px-3 text-sm text-white focus:outline-none focus:border-purple-500" />
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <label className="block text-xs font-bold text-purple-400 uppercase tracking-wider mb-1">Valor Tomado ({formData.saleCurrency})</label>
+                                        <div className="relative">
+                                            <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 text-purple-500" size={14} />
+                                            <input type="number" value={formData.tradeInEstimatedValue} onChange={(e) => setFormData({...formData, tradeInEstimatedValue: e.target.value})} className="w-full bg-black/40 border border-purple-500/30 rounded py-2 pl-8 pr-3 text-sm text-white focus:outline-none focus:border-purple-500 font-bold" />
+                                        </div>
+                                    </div>
+                                    
+                                    <div className="bg-black/30 p-3 rounded-lg flex justify-between items-center">
+                                        <span className="text-xs font-bold text-neutral-400 uppercase tracking-wider">Diferencia / Saldo:</span>
+                                        <span className="text-sm font-black text-white">
+                                            {formData.saleCurrency} {(Number(formData.salePrice) - (reservation.depositAmount || 0) - Number(formData.tradeInEstimatedValue)).toLocaleString('es-AR')}
+                                        </span>
+                                    </div>
+                                </div>
+                            )}
                         </div>
                     </div>
 

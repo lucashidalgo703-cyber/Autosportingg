@@ -40,6 +40,24 @@ export default function SaleCommercialPanel({ sale }) {
                     </div>
                 </div>
 
+                {sale.tradeInTotalAmount > 0 && (
+                    <div className="bg-purple-500/10 border border-purple-500/20 rounded-xl p-3 flex justify-between items-center">
+                        <span className="text-xs font-bold text-purple-400 uppercase tracking-wider">Vehículo Tomado</span>
+                        <span className="text-sm font-bold text-purple-300">
+                            - {sale.saleCurrency} {sale.tradeInTotalAmount.toLocaleString('es-AR')}
+                        </span>
+                    </div>
+                )}
+
+                {sale.tradeInTotalAmount > 0 && (
+                    <div className="flex justify-between items-center pt-3 border-t border-neutral-800">
+                        <span className="text-sm font-bold text-neutral-400">Saldo a Cobrar</span>
+                        <span className="text-lg font-black text-white">
+                            {sale.saleCurrency} {sale.balanceAfterTradeIn?.toLocaleString('es-AR')}
+                        </span>
+                    </div>
+                )}
+
                 <div className="bg-blue-500/10 border border-blue-500/20 rounded-xl p-3 flex gap-3 items-start">
                     <Info size={16} className="text-blue-500 shrink-0 mt-0.5" />
                     <p className="text-xs text-blue-200">

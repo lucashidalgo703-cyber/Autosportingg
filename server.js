@@ -2285,7 +2285,7 @@ app.post('/api/admin/sales', authenticateToken, async (req, res) => {
 app.post('/api/admin/reservations/:id/convert-to-sale', authenticateToken, async (req, res) => {
     try {
         const reservationId = req.params.id;
-        const { salePrice, saleCurrency, paymentMethod, saleDate, salesperson } = req.body;
+        const { salePrice, saleCurrency, paymentMethod, saleDate, salesperson, tradeIns, tradeInTotalAmount, balanceAfterTradeIn } = req.body;
         const user = req.user?.username || 'Admin';
 
         // 1. Validaciones
@@ -2336,6 +2336,9 @@ app.post('/api/admin/reservations/:id/convert-to-sale', authenticateToken, async
             salesperson: salesperson || reservation.salesperson,
             saleDate: saleDate || new Date(),
             status: 'confirmada',
+            tradeIns: tradeIns || [],
+            tradeInTotalAmount: tradeInTotalAmount || 0,
+            balanceAfterTradeIn: balanceAfterTradeIn !== undefined ? balanceAfterTradeIn : (finalSalePrice - (reservation.depositAmount || 0) - (tradeInTotalAmount || 0)),
             createdBy: user,
             saleAuditLog: [{
                 action: 'VENTA_CREADA_POR_CONVERSION',
@@ -2620,6 +2623,138 @@ app.patch('/api/admin/sales/:id/cancel', authenticateToken, async (req, res) => 
         res.json(populatedSale);
     } catch (error) {
         console.error('Error cancelling sale:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// PATCH update trade-ins for a sale
+app.patch('/api/admin/sales/:id/trade-ins', authenticateToken, async (req, res) => {
+    try {
+        await connectDB();
+        const { tradeIns, tradeInTotalAmount, balanceAfterTradeIn, paymentBreakdown } = req.body;
+        
+        const sale = await Sale.findById(req.params.id);
+        if (!sale) return res.status(404).json({ error: 'Sale not found' });
+        
+        const user = req.user?.username || 'Admin';
+
+        // Solo permitir editar si no está cancelada
+        if (sale.status === 'cancelada') {
+            return res.status(400).json({ error: 'No se puede editar una venta anulada.' });
+        }
+
+        sale.tradeIns = tradeIns;
+        if (tradeInTotalAmount !== undefined) sale.tradeInTotalAmount = tradeInTotalAmount;
+        if (balanceAfterTradeIn !== undefined) sale.balanceAfterTradeIn = balanceAfterTradeIn;
+        if (paymentBreakdown !== undefined) sale.paymentBreakdown = paymentBreakdown;
+        
+        if (!sale.saleAuditLog) sale.saleAuditLog = [];
+        sale.saleAuditLog.push({
+            action: 'VEHICULOS_RECIBIDOS_ACTUALIZADOS',
+            field: 'tradeIns',
+            details: `Se actualizaron los vehículos recibidos en parte de pago. Valor total tomado: ${tradeInTotalAmount}`,
+            user: user,
+            source: 'CRM_V2'
+        });
+
+        await logAudit({
+            req,
+            action: 'VEHICULOS_RECIBIDOS_ACTUALIZADOS',
+            module: 'ventas',
+            entityType: 'Sale',
+            entityId: sale._id,
+            entityLabel: 'Venta',
+            description: `Se actualizaron los vehículos en parte de pago de la venta ${sale._id}.`,
+            metadata: { tradeInTotalAmount, count: tradeIns?.length || 0 }
+        });
+
+        await sale.save();
+        
+        const populatedSale = await Sale.findById(sale._id)
+            .populate('clientId', 'firstName lastName fullName phone email')
+            .lean();
+
+        res.json(populatedSale);
+    } catch (error) {
+        console.error('Error updating trade-ins:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// POST create stock car from trade-in
+app.post('/api/admin/sales/:id/trade-ins/:tradeInIndex/create-stock-car', authenticateToken, async (req, res) => {
+    try {
+        await connectDB();
+        const { id, tradeInIndex } = req.params;
+        const index = parseInt(tradeInIndex, 10);
+        
+        const sale = await Sale.findById(id).populate('clientId', 'firstName fullName');
+        if (!sale) return res.status(404).json({ error: 'Sale not found' });
+        
+        if (!sale.tradeIns || !sale.tradeIns[index]) {
+            return res.status(404).json({ error: 'Vehículo recibido no encontrado en ese índice.' });
+        }
+
+        const tradeIn = sale.tradeIns[index];
+
+        if (tradeIn.linkedStockCarId) {
+            return res.status(400).json({ error: 'Este vehículo ya ha sido ingresado al stock.' });
+        }
+
+        const user = req.user?.username || 'Admin';
+
+        // Crear nuevo Car en stock
+        const newCar = new Car({
+            brand: tradeIn.brand,
+            model: tradeIn.model,
+            version: tradeIn.version || '',
+            year: tradeIn.year,
+            plate: tradeIn.plate || '',
+            mileage: tradeIn.mileage || 0,
+            status: 'preparacion', // Estado recomendado para ingresos
+            condition: 'Usado',
+            notes: `Vehículo ingresado como parte de pago de venta ${sale._id}. \nEstado documental: ${tradeIn.documentationStatus}. \nObservaciones: ${tradeIn.conditionNotes || ''} ${tradeIn.mechanicalNotes || ''}`,
+            originSaleId: sale._id,
+            originClientId: sale.clientId?._id,
+            publishStatus: 'oculto' // Por defecto oculto
+        });
+
+        const savedCar = await newCar.save();
+
+        // Actualizar el tradeIn en la venta
+        sale.tradeIns[index].linkedStockCarId = savedCar._id;
+        sale.tradeIns[index].shouldEnterStock = true;
+        sale.tradeIns[index].enteredStockAt = new Date();
+        
+        if (!sale.saleAuditLog) sale.saleAuditLog = [];
+        sale.saleAuditLog.push({
+            action: 'VEHICULO_RECIBIDO_INGRESADO_A_STOCK',
+            field: 'tradeIns',
+            details: `Vehículo ${tradeIn.brand} ${tradeIn.model} ingresado a stock con ID ${savedCar._id}`,
+            user: user,
+            source: 'CRM_V2'
+        });
+
+        await logAudit({
+            req,
+            action: 'VEHICULO_RECIBIDO_INGRESADO_A_STOCK',
+            module: 'ventas',
+            entityType: 'Sale',
+            entityId: sale._id,
+            entityLabel: 'Venta',
+            description: `Se ingresó el vehículo recibido ${tradeIn.brand} ${tradeIn.model} al stock de AutoSporting.`,
+            metadata: { stockCarId: savedCar._id, tradeInIndex: index }
+        });
+
+        await sale.save();
+        
+        const populatedSale = await Sale.findById(sale._id)
+            .populate('clientId', 'firstName lastName fullName phone email')
+            .lean();
+
+        res.json({ sale: populatedSale, car: savedCar });
+    } catch (error) {
+        console.error('Error creating stock car from trade-in:', error);
         res.status(500).json({ error: error.message });
     }
 });

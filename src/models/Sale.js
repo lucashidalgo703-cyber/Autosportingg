@@ -19,6 +19,34 @@ const checklistItemSchema = new mongoose.Schema({
     completedBy: { type: String }
 }, { _id: false });
 
+const tradeInVehicleSchema = new mongoose.Schema({
+    brand: { type: String, required: true },
+    model: { type: String, required: true },
+    version: { type: String },
+    year: { type: Number, required: true },
+    plate: { type: String },
+    mileage: { type: Number },
+    color: { type: String },
+    vin: { type: String },
+    engineNumber: { type: String },
+    ownerName: { type: String },
+    ownerDocument: { type: String },
+    estimatedValue: { type: Number, required: true, min: 0 },
+    currency: { type: String, enum: ['ARS', 'USD'], default: 'ARS' },
+    conditionNotes: { type: String },
+    mechanicalNotes: { type: String },
+    documentationStatus: { type: String, enum: ['pendiente', 'parcial', 'completo'], default: 'pendiente' },
+    hasDebt: { type: Boolean, default: false },
+    debtAmount: { type: Number, default: 0 },
+    hasLien: { type: Boolean, default: false },
+    transferStatus: { type: String, enum: ['pendiente', 'en_tramite', 'transferido'], default: 'pendiente' },
+    receivedAt: { type: Date },
+    receivedBy: { type: String },
+    linkedStockCarId: { type: mongoose.Schema.Types.ObjectId, ref: 'Car' },
+    shouldEnterStock: { type: Boolean, default: false },
+    enteredStockAt: { type: Date }
+});
+
 const saleSchema = new mongoose.Schema({
     reservationId: { type: mongoose.Schema.Types.ObjectId, ref: 'Reservation' },
     leadId: { type: mongoose.Schema.Types.ObjectId, ref: 'Lead' },
@@ -45,6 +73,12 @@ const saleSchema = new mongoose.Schema({
         enum: ['contado', 'financiado', 'mixto', 'otro'], 
         default: 'contado' 
     },
+    
+    // Trade-ins / Permutas
+    tradeIns: { type: [tradeInVehicleSchema], default: [] },
+    tradeInTotalAmount: { type: Number, default: 0 },
+    balanceAfterTradeIn: { type: Number, default: 0 },
+    paymentBreakdown: { type: String }, // Detalles opcionales de cómo se paga la diferencia
     
     notes: { type: String },
 

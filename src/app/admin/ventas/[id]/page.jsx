@@ -4,6 +4,7 @@ import { useParams, useRouter } from 'next/navigation';
 import { useAdminSales } from '../../../../hooks/useAdminSales';
 import SaleDetailHeader from '../../../../components/crm/sales/detail/SaleDetailHeader';
 import SaleCommercialPanel from '../../../../components/crm/sales/detail/SaleCommercialPanel';
+import SaleTradeInPanel from '../../../../components/crm/sales/detail/SaleTradeInPanel';
 import SaleLinkedEntitiesPanel from '../../../../components/crm/sales/detail/SaleLinkedEntitiesPanel';
 import SaleChecklistPanel from '../../../../components/crm/sales/detail/SaleChecklistPanel';
 import SaleNotesPanel from '../../../../components/crm/sales/detail/SaleNotesPanel';
@@ -201,6 +202,9 @@ export default function SaleDetailPage() {
                     </div>
                     <div className="h-auto">
                         <SaleCommercialPanel sale={sale} />
+                    </div>
+                    <div className="h-auto">
+                        <SaleTradeInPanel sale={sale} onUpdate={loadSale} />
                     </div>
                     <div className="h-[300px]">
                         <SaleStatusPanel sale={sale} onSave={handleSave} />
