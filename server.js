@@ -2726,8 +2726,35 @@ app.patch('/api/admin/sales/:id/trade-ins', authenticateToken, async (req, res) 
     }
 });
 
+const buildCarFromTradeIn = ({ sale, tradeIn, tradeInIndex }) => {
+    const year = Number(tradeIn.year);
+    const mileage = Number(tradeIn.mileage || 0);
+    const estimatedValue = Number(tradeIn.estimatedValue || 0);
+    const name = `${tradeIn.brand} ${tradeIn.model} ${tradeIn.version || ""} ${tradeIn.year || ""}`.trim();
+
+    if (!name) throw new Error("El nombre del vehículo generado quedó vacío.");
+
+    return {
+        name,
+        brand: tradeIn.brand,
+        year: isNaN(year) ? new Date().getFullYear() : year,
+        km: isNaN(mileage) ? 0 : mileage,
+        fuel: 'Nafta', // Default allowed
+        condition: 'Usado', // Default allowed
+        price: isNaN(estimatedValue) ? 0 : estimatedValue,
+        currency: tradeIn.currency === 'USD' ? 'U$S' : '$',
+        status: 'Pausado', // Valid enum value
+        visibleEnWeb: false,
+        plateOrVin: tradeIn.plate || '',
+        purchasePrice: isNaN(estimatedValue) ? 0 : estimatedValue,
+        purchaseCurrency: tradeIn.currency === 'USD' ? 'USD' : 'ARS',
+        notes: `Vehículo ingresado como parte de pago de venta ${sale._id}. \nEstado documental: ${tradeIn.documentationStatus}. \nObservaciones: ${tradeIn.conditionNotes || ''} ${tradeIn.mechanicalNotes || ''}`
+    };
+};
+
 // POST create stock car from trade-in
 app.post('/api/admin/sales/:id/trade-ins/:tradeInIndex/create-stock-car', authenticateToken, async (req, res) => {
+    let carPayload = null;
     try {
         await connectDB();
         const { id, tradeInIndex } = req.params;
@@ -2752,24 +2779,9 @@ app.post('/api/admin/sales/:id/trade-ins/:tradeInIndex/create-stock-car', authen
             return res.status(400).json({ error: "Faltan datos obligatorios para ingresar el vehículo al stock." });
         }
 
-        // Crear nuevo Car en stock
-        const newCar = new Car({
-            name: `${tradeIn.brand} ${tradeIn.model} ${tradeIn.version || ""} ${tradeIn.year || ""}`.trim(),
-            brand: tradeIn.brand,
-            year: tradeIn.year || new Date().getFullYear(),
-            km: tradeIn.mileage || 0,
-            fuel: 'Nafta',
-            condition: 'Usado',
-            price: tradeIn.estimatedValue,
-            currency: tradeIn.currency === 'USD' ? 'U$S' : '$',
-            status: 'Pausado',
-            visibleEnWeb: false,
-            plateOrVin: tradeIn.plate || '',
-            purchasePrice: tradeIn.estimatedValue,
-            purchaseCurrency: tradeIn.currency === 'USD' ? 'USD' : 'ARS',
-            notes: `Vehículo ingresado como parte de pago de venta ${sale._id}. \nEstado documental: ${tradeIn.documentationStatus}. \nObservaciones: ${tradeIn.conditionNotes || ''} ${tradeIn.mechanicalNotes || ''}`
-        });
-
+        // Crear nuevo Car en stock usando mapper seguro
+        carPayload = buildCarFromTradeIn({ sale, tradeIn, tradeInIndex: index });
+        const newCar = new Car(carPayload);
         const savedCar = await newCar.save();
 
         // Actualizar el tradeIn en la venta
@@ -2805,8 +2817,17 @@ app.post('/api/admin/sales/:id/trade-ins/:tradeInIndex/create-stock-car', authen
 
         res.json({ sale: populatedSale, car: savedCar });
     } catch (error) {
-        console.error('Error creating stock car:', error);
-        res.status(500).json({ error: 'No se pudo ingresar el vehículo al stock. Revisá marca, modelo, valor tomado y moneda.' });
+        console.error("Error creating stock car from trade-in:", {
+            error: error.message,
+            validationErrors: error.errors,
+            payload: carPayload,
+            saleId: req.params.id,
+            tradeInIndex: req.params.tradeInIndex,
+        });
+        res.status(500).json({ 
+            error: 'No se pudo ingresar el vehículo al stock. Revisá los datos del vehículo recibido.',
+            details: error.message 
+        });
     }
 });
 

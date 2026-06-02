@@ -126,6 +126,13 @@ export default function SaleTradeInPanel({ sale, onUpdate }) {
 
     const handleEnterStock = async (index) => {
         setStockError(null);
+        
+        const tradeIn = sale.tradeIns[index];
+        if (!tradeIn.brand || !tradeIn.model || !tradeIn.year || !tradeIn.estimatedValue || !tradeIn.currency) {
+            setStockError('Completá marca, modelo, año, valor tomado y moneda antes de ingresar al stock.');
+            return;
+        }
+
         if (!window.confirm('¿Estás seguro de ingresar este vehículo al stock? Se creará una nueva unidad oculta.')) return;
         
         setEnteringStockIndex(index);
@@ -137,12 +144,15 @@ export default function SaleTradeInPanel({ sale, onUpdate }) {
                 }
             });
 
+            const data = await res.json().catch(() => ({}));
+
             if (!res.ok) {
-                const data = await res.json().catch(() => ({}));
-                throw new Error(data.error || 'No se pudo ingresar el vehículo al stock. Revisá marca, modelo, valor tomado y moneda.');
+                if (data.details) {
+                    console.error("create-stock-car details:", data.details);
+                }
+                throw new Error(data.error || 'No se pudo ingresar el vehículo al stock. Revisá los datos del vehículo recibido.');
             }
 
-            alert('Vehículo ingresado al stock correctamente.');
             if (onUpdate) onUpdate();
         } catch (err) {
             setStockError(err.message);
