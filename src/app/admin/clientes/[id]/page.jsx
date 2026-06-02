@@ -6,6 +6,7 @@ import ClientDetailHeader from '../../../../components/crm/clients/ClientDetailH
 import ClientInfoPanel from '../../../../components/crm/clients/ClientInfoPanel';
 import ClientActivityPanel from '../../../../components/crm/clients/ClientActivityPanel';
 import ClientRelatedLeadsPanel from '../../../../components/crm/clients/ClientRelatedLeadsPanel';
+import ClientRelatedSalesPanel from '../../../../components/crm/clients/ClientRelatedSalesPanel';
 import ClientFormModal from '../../../../components/crm/clients/ClientFormModal';
 import CommunicationLogPanel from '../../../../components/crm/communications/CommunicationLogPanel';
 import MessageTemplatePicker from '../../../../components/crm/templates/MessageTemplatePicker';
@@ -113,8 +114,11 @@ export default function AdminClientDetailPage() {
                 </div>
                 
                 <div className="lg:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <ClientActivityPanel client={client} />
+                    <div className="md:col-span-2">
+                        <ClientActivityPanel client={client} />
+                    </div>
                     <ClientRelatedLeadsPanel client={client} />
+                    <ClientRelatedSalesPanel client={client} />
                 </div>
             </div>
 

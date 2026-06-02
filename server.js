@@ -2431,6 +2431,111 @@ app.post('/api/admin/reservations/:id/convert-to-sale', authenticateToken, async
     }
 });
 
+// PATCH link client to sale
+app.patch('/api/admin/sales/:id/link-client', authenticateToken, async (req, res) => {
+    try {
+        const { clientId } = req.body;
+        if (!clientId) return res.status(400).json({ error: 'Falta clientId' });
+
+        const sale = await Sale.findById(req.params.id);
+        if (!sale) return res.status(404).json({ error: 'Sale not found' });
+
+        const client = await Client.findById(clientId);
+        if (!client) return res.status(404).json({ error: 'Client not found' });
+
+        const user = req.user?.username || 'Admin';
+        const oldClient = sale.clientId ? sale.clientId.toString() : null;
+
+        sale.clientId = client._id;
+        sale.updatedBy = user;
+        
+        if (!sale.saleAuditLog) sale.saleAuditLog = [];
+        sale.saleAuditLog.push({
+            action: 'CLIENTE_VINCULADO',
+            field: 'clientId',
+            oldValue: oldClient,
+            newValue: client._id.toString(),
+            details: `Cliente vinculado a la venta: ${client.fullName || client.firstName}`,
+            user: user,
+            source: 'CRM_V2'
+        });
+
+        await logAudit({
+            req,
+            action: 'VENTA_CLIENTE_VINCULADO',
+            module: 'ventas',
+            entityType: 'Sale',
+            entityId: sale._id,
+            entityLabel: 'Venta',
+            description: `Se vinculó el cliente ${client.fullName || client.firstName} a la venta.`,
+            metadata: { clientId: client._id, oldClient }
+        });
+
+        await sale.save();
+        
+        const populatedSale = await Sale.findById(sale._id)
+            .populate('clientId', 'firstName lastName fullName phone email')
+            .lean();
+
+        res.json(populatedSale);
+    } catch (error) {
+        console.error('Error linking client to sale:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// POST backfill client from reservation
+app.post('/api/admin/sales/:id/backfill-client-from-reservation', authenticateToken, async (req, res) => {
+    try {
+        const sale = await Sale.findById(req.params.id);
+        if (!sale) return res.status(404).json({ error: 'Sale not found' });
+        if (!sale.reservationId) return res.status(400).json({ error: 'La venta no proviene de una reserva' });
+
+        const reservation = await Reservation.findById(sale.reservationId);
+        if (!reservation) return res.status(404).json({ error: 'Reservation not found' });
+        if (!reservation.clientId) return res.status(400).json({ error: 'La reserva origen no tiene cliente vinculado' });
+
+        const user = req.user?.username || 'Admin';
+        const oldClient = sale.clientId ? sale.clientId.toString() : null;
+
+        sale.clientId = reservation.clientId;
+        sale.updatedBy = user;
+        
+        if (!sale.saleAuditLog) sale.saleAuditLog = [];
+        sale.saleAuditLog.push({
+            action: 'BACKFILL_CLIENTE_RESERVA',
+            field: 'clientId',
+            oldValue: oldClient,
+            newValue: reservation.clientId.toString(),
+            details: `Cliente copiado automáticamente desde la reserva de origen`,
+            user: user,
+            source: 'CRM_V2'
+        });
+
+        await logAudit({
+            req,
+            action: 'VENTA_BACKFILL_CLIENTE',
+            module: 'ventas',
+            entityType: 'Sale',
+            entityId: sale._id,
+            entityLabel: 'Venta',
+            description: `Se copió el cliente de la reserva ${reservation._id} a la venta.`,
+            metadata: { clientId: reservation.clientId, reservationId: reservation._id }
+        });
+
+        await sale.save();
+        
+        const populatedSale = await Sale.findById(sale._id)
+            .populate('clientId', 'firstName lastName fullName phone email')
+            .lean();
+
+        res.json(populatedSale);
+    } catch (error) {
+        console.error('Error backfilling client from reservation:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
 // PATCH update sale
 app.patch('/api/admin/sales/:id', authenticateToken, async (req, res) => {
     try {

@@ -114,23 +114,33 @@ export default function SaleDetailDrawer({ sale, isOpen, onClose }) {
                             </div>
 
                             {/* Cliente */}
-                            <div className="bg-neutral-900 border border-neutral-800 rounded-xl p-3 flex justify-between items-center">
-                                <div className="flex items-center gap-3">
-                                    <div className="w-8 h-8 rounded-lg bg-neutral-800 flex items-center justify-center">
-                                        <User size={14} className="text-neutral-400" />
+                            {sale.clientId ? (
+                                <div className="bg-neutral-900 border border-neutral-800 rounded-xl p-3 flex justify-between items-center">
+                                    <div className="flex items-center gap-3">
+                                        <div className="w-8 h-8 rounded-lg bg-neutral-800 flex items-center justify-center">
+                                            <User size={14} className="text-neutral-400" />
+                                        </div>
+                                        <div className="flex flex-col">
+                                            <span className="text-[10px] text-neutral-500 uppercase font-bold">Cliente Oficial</span>
+                                            <span className="text-sm font-bold text-white">{clientName}</span>
+                                            <span className="text-[10px] text-neutral-500 mt-0.5">{clientPhone}</span>
+                                        </div>
                                     </div>
-                                    <div className="flex flex-col">
-                                        <span className="text-[10px] text-neutral-500 uppercase font-bold">Cliente / Lead</span>
-                                        <span className="text-sm font-bold text-white">{clientName}</span>
-                                        <span className="text-[10px] text-neutral-500 mt-0.5">{clientPhone}</span>
+                                    {hasClientLink && (
+                                        <Link href={clientHref} className="w-8 h-8 rounded-lg bg-neutral-800 hover:bg-neutral-700 text-white flex items-center justify-center transition-colors">
+                                            <ChevronRight size={16} />
+                                        </Link>
+                                    )}
+                                </div>
+                            ) : (
+                                <div className="bg-red-500/10 border border-red-500/20 rounded-xl p-3 flex flex-col items-center text-center gap-2">
+                                    <AlertTriangle size={20} className="text-red-500" />
+                                    <div>
+                                        <span className="text-sm font-bold text-red-400 block">Venta sin cliente vinculado</span>
+                                        <span className="text-xs text-red-200/70">Abre la ficha completa para vincular un cliente oficial.</span>
                                     </div>
                                 </div>
-                                {hasClientLink && (
-                                    <Link href={clientHref} className="w-8 h-8 rounded-lg bg-neutral-800 hover:bg-neutral-700 text-white flex items-center justify-center transition-colors">
-                                        <ChevronRight size={16} />
-                                    </Link>
-                                )}
-                            </div>
+                            )}
 
                         </div>
                     </div>

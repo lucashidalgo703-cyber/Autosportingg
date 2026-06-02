@@ -151,7 +151,7 @@ export default function SaleDetailPage() {
                 {/* Columna Izquierda: Entidades y Resumen Comercial */}
                 <div className="flex flex-col gap-6 lg:col-span-1">
                     <div className="h-auto">
-                        <SaleLinkedEntitiesPanel sale={sale} />
+                        <SaleLinkedEntitiesPanel sale={sale} onUpdate={loadSale} />
                     </div>
                     <div className="h-auto">
                         <SaleCommercialPanel sale={sale} />
