@@ -57,14 +57,14 @@ export default function AdminLeadsPage() {
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-2">
                 <div>
                     <div className="flex items-center gap-3 mb-2">
-                        <Target className="text-red-600" size={32} />
-                        <h1 className="text-3xl font-bold text-white tracking-tight">Gestión de Oportunidades</h1>
-                        <span className="bg-red-500/10 text-red-500 border border-red-500/20 px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider ml-2">
+                        <Target className="text-[#EF3329]" size={32} />
+                        <h1 className="text-3xl font-bold text-[#FAFAFA] tracking-tight">Gestión de Oportunidades</h1>
+                        <span className="bg-[#EF3329]/10 text-[#EF3329] border border-[#EF3329]/20 px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider ml-2">
                             Fase 3.2
                         </span>
                     </div>
-                    <p className="text-neutral-400 text-sm">
-                        Total de leads: <strong className="text-white">{total}</strong> registros activos
+                    <p className="text-[#A1A1AA] text-sm">
+                        Total de leads: <strong className="text-[#FAFAFA]">{total}</strong> registros activos
                     </p>
                 </div>
                 <LeadViewToggle view={view} setView={setView} />
@@ -72,30 +72,30 @@ export default function AdminLeadsPage() {
 
             {/* Metrics Cards */}
             <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-                <div className="bg-neutral-900 border border-neutral-800 p-4 rounded-xl flex flex-col">
-                    <span className="text-neutral-500 text-xs font-bold uppercase tracking-wider mb-1">Total Actuales</span>
-                    <span className="text-white text-2xl font-bold">{leads.length}</span>
+                <div className="bg-[#1E1E24] border border-[#33333A] p-4 rounded-xl flex flex-col">
+                    <span className="text-[#A1A1AA] text-xs font-bold uppercase tracking-wider mb-1">Total Actuales</span>
+                    <span className="text-[#FAFAFA] text-2xl font-bold">{leads.length}</span>
                 </div>
-                <div className="bg-neutral-900 border border-neutral-800 p-4 rounded-xl flex flex-col">
-                    <span className="text-neutral-500 text-xs font-bold uppercase tracking-wider mb-1">Contacto Web</span>
+                <div className="bg-[#1E1E24] border border-[#33333A] p-4 rounded-xl flex flex-col">
+                    <span className="text-[#A1A1AA] text-xs font-bold uppercase tracking-wider mb-1">Contacto Web</span>
                     <span className="text-blue-400 text-2xl font-bold">{webContactCount}</span>
                 </div>
-                <div className="bg-neutral-900 border border-neutral-800 p-4 rounded-xl flex flex-col">
-                    <span className="text-neutral-500 text-xs font-bold uppercase tracking-wider mb-1">Fichas Auto</span>
+                <div className="bg-[#1E1E24] border border-[#33333A] p-4 rounded-xl flex flex-col">
+                    <span className="text-[#A1A1AA] text-xs font-bold uppercase tracking-wider mb-1">Fichas Auto</span>
                     <span className="text-red-400 text-2xl font-bold">{vehicleDetailCount}</span>
                 </div>
-                <div className="bg-neutral-900 border border-neutral-800 p-4 rounded-xl flex flex-col">
-                    <span className="text-neutral-500 text-xs font-bold uppercase tracking-wider mb-1">Financiación</span>
-                    <span className="text-green-400 text-2xl font-bold">{financingCount}</span>
+                <div className="bg-[#1E1E24] border border-[#33333A] p-4 rounded-xl flex flex-col">
+                    <span className="text-[#A1A1AA] text-xs font-bold uppercase tracking-wider mb-1">Financiación</span>
+                    <span className="text-[#4ade80] text-2xl font-bold">{financingCount}</span>
                 </div>
-                <div className="bg-neutral-900 border border-neutral-800 p-4 rounded-xl flex flex-col">
-                    <span className="text-neutral-500 text-xs font-bold uppercase tracking-wider mb-1">Sin Cliente</span>
+                <div className="bg-[#1E1E24] border border-[#33333A] p-4 rounded-xl flex flex-col">
+                    <span className="text-[#A1A1AA] text-xs font-bold uppercase tracking-wider mb-1">Sin Cliente</span>
                     <span className="text-orange-400 text-2xl font-bold">{unlinkedCount}</span>
                 </div>
             </div>
 
             {/* Content Container */}
-            <div className="bg-black/20 p-4 md:p-6 rounded-2xl border border-neutral-800/50">
+            <div className="bg-[#161619] p-4 md:p-6 rounded-2xl border border-[#33333A]">
                 <LeadFilters filters={filters} setFilters={setFilters} onSearch={handleSearch} />
                 
                 {error && (
@@ -107,7 +107,7 @@ export default function AdminLeadsPage() {
                 
                 {loading ? (
                     <div className="flex justify-center items-center h-64">
-                        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-red-500"></div>
+                        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-[#EF3329]"></div>
                     </div>
                 ) : !error && leads.length === 0 ? (
                     <LeadEmptyState hasFilters={hasActiveFilters} />

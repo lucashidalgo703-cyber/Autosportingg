@@ -1,10 +1,11 @@
 import React, { useState } from 'react';
 import { Edit2, Shield, Key, AlertTriangle, ShieldCheck } from 'lucide-react';
+import { CrmIconButton } from '../ui/CrmButton';
 
 export default function AdminUsersTable({ users, onEdit, onChangePassword }) {
     if (!users || users.length === 0) {
         return (
-            <div className="text-center py-10 text-neutral-400 bg-[#161619] rounded-2xl border border-[#33333A]">
+            <div className="text-center py-10 text-[#71717A] bg-[#161619] rounded-2xl border border-[#33333A]">
                 No hay usuarios configurados.
             </div>
         );
@@ -24,7 +25,7 @@ export default function AdminUsersTable({ users, onEdit, onChangePassword }) {
         <div className="bg-[#161619] border border-[#33333A] rounded-2xl overflow-hidden">
             <div className="overflow-x-auto">
                 <table className="w-full text-left text-sm">
-                    <thead className="bg-[#1E1E24] border-b border-[#33333A] text-xs uppercase text-neutral-400">
+                    <thead className="bg-[#1E1E24] border-b border-[#33333A] text-xs uppercase text-[#A1A1AA]">
                         <tr>
                             <th className="px-6 py-4 font-bold">Usuario</th>
                             <th className="px-6 py-4 font-bold">Email</th>
@@ -37,15 +38,15 @@ export default function AdminUsersTable({ users, onEdit, onChangePassword }) {
                         {users.map((user) => (
                             <tr key={user._id} className="hover:bg-[#1E1E24] transition-colors">
                                 <td className="px-6 py-4">
-                                    <div className="font-bold text-white flex items-center gap-2">
-                                        {user.role === 'owner' && <ShieldCheck size={14} className="text-red-500" />}
+                                    <div className="font-bold text-[#FAFAFA] flex items-center gap-2">
+                                        {user.role === 'owner' && <ShieldCheck size={14} className="text-[#EF3329]" />}
                                         {user.name}
                                     </div>
-                                    <div className="text-[10px] text-neutral-500">
+                                    <div className="text-[10px] text-[#A1A1AA]">
                                         Creado: {new Date(user.createdAt).toLocaleDateString()}
                                     </div>
                                 </td>
-                                <td className="px-6 py-4 text-neutral-300">{user.email}</td>
+                                <td className="px-6 py-4 text-[#A1A1AA]">{user.email}</td>
                                 <td className="px-6 py-4">
                                     {getRoleBadge(user.role)}
                                 </td>
@@ -61,21 +62,19 @@ export default function AdminUsersTable({ users, onEdit, onChangePassword }) {
                                     )}
                                 </td>
                                 <td className="px-6 py-4 text-right">
-                                    <div className="flex items-center justify-end gap-3">
-                                        <button
+                                    <div className="flex items-center justify-end gap-2">
+                                        <CrmIconButton
                                             onClick={() => onChangePassword(user)}
-                                            className="text-neutral-400 hover:text-white transition-colors"
                                             title="Cambiar Contraseña"
                                         >
                                             <Key size={16} />
-                                        </button>
-                                        <button
+                                        </CrmIconButton>
+                                        <CrmIconButton
                                             onClick={() => onEdit(user)}
-                                            className="text-indigo-400 hover:text-indigo-300 transition-colors"
                                             title="Editar Usuario"
                                         >
                                             <Edit2 size={16} />
-                                        </button>
+                                        </CrmIconButton>
                                     </div>
                                 </td>
                             </tr>

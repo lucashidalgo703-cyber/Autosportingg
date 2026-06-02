@@ -3,6 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { useAdminUsers } from '../../../../hooks/useAdminUsers';
 import { useAuth } from '../../../../context/AuthContext';
 import { Plus, Users, ShieldAlert } from 'lucide-react';
+import CrmButton from '../../../../components/crm/ui/CrmButton';
 import AdminUsersTable from '../../../../components/crm/settings/AdminUsersTable';
 import AdminUserModal from '../../../../components/crm/settings/AdminUserModal';
 import { hasPermission, PERMISSIONS } from '../../../../utils/adminPermissions';
@@ -65,21 +66,22 @@ export default function UsuariosConfigPage() {
         <div className="p-4 md:p-8 max-w-7xl mx-auto space-y-6">
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
                 <div>
-                    <h1 className="text-3xl font-black text-white tracking-tighter flex items-center gap-3">
-                        <Users className="text-indigo-500" size={32} />
+                    <h1 className="text-3xl font-black text-[#FAFAFA] tracking-tighter flex items-center gap-3">
+                        <Users className="text-[#A1A1AA]" size={32} />
                         Gestión de Usuarios
                     </h1>
-                    <p className="text-neutral-400 mt-1">Configura accesos, roles y permisos internos del CRM.</p>
+                    <p className="text-[#A1A1AA] mt-1">Configura accesos, roles y permisos internos del CRM.</p>
                 </div>
                 
                 {hasPermission(user, PERMISSIONS.USUARIOS_WRITE) && (
-                    <button
+                    <CrmButton
+                        variant="primary"
                         onClick={handleCreate}
-                        className="bg-[#E63027] hover:bg-[#C42620] text-white px-5 py-2.5 rounded-xl font-bold flex items-center gap-2 transition-colors shadow-lg shadow-red-500/20"
+                        className="gap-2"
                     >
                         <Plus size={20} />
                         Nuevo Usuario
-                    </button>
+                    </CrmButton>
                 )}
             </div>
 
@@ -91,7 +93,7 @@ export default function UsuariosConfigPage() {
             )}
 
             {loading && users.length === 0 ? (
-                <div className="text-center py-10 text-neutral-400">Cargando usuarios...</div>
+                <div className="text-center py-10 text-[#71717A]">Cargando usuarios...</div>
             ) : (
                 <AdminUsersTable 
                     users={users} 

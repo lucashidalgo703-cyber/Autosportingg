@@ -287,12 +287,12 @@ export default function CobranzasPage() {
             {/* Header */}
             <div className="flex justify-between items-center mb-6">
                 <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-xl bg-orange-500/10 flex items-center justify-center border border-orange-500/20">
-                        <Target size={20} className="text-orange-500" />
+                    <div className="w-10 h-10 rounded-xl bg-[#161619] flex items-center justify-center border border-[#33333A]">
+                        <Target size={20} className="text-[#EF3329]" />
                     </div>
                     <div>
-                        <h1 className="text-2xl font-bold text-white">Cobranzas</h1>
-                        <p className="text-sm text-neutral-400 mt-1">Tablero operativo de seguimiento de deuda y vencimientos.</p>
+                        <h1 className="text-2xl font-bold text-[#FAFAFA]">Cobranzas</h1>
+                        <p className="text-sm text-[#A1A1AA] mt-1">Tablero operativo de seguimiento de deuda y vencimientos.</p>
                     </div>
                 </div>
             </div>
@@ -315,27 +315,27 @@ export default function CobranzasPage() {
             <CollectionsFilters filters={filters} setFilters={setFilters} />
 
             {/* Tabs */}
-            <div className="flex gap-4 border-b border-neutral-800 mb-6">
+            <div className="flex gap-4 border-b border-[#33333A] mb-6">
                 <button
                     onClick={() => setActiveTab('cuotas')}
-                    className={`pb-3 text-sm font-bold transition-colors relative ${activeTab === 'cuotas' ? 'text-white' : 'text-neutral-500 hover:text-neutral-300'}`}
+                    className={`pb-3 text-sm font-bold transition-colors relative ${activeTab === 'cuotas' ? 'text-[#EF3329]' : 'text-[#A1A1AA] hover:text-[#FAFAFA]'}`}
                 >
                     Listado de Cuotas
-                    {activeTab === 'cuotas' && <div className="absolute bottom-0 left-0 w-full h-0.5 bg-orange-500 rounded-t-full" />}
+                    {activeTab === 'cuotas' && <div className="absolute bottom-0 left-0 w-full h-[2px] bg-[#EF3329] rounded-t-full" />}
                 </button>
                 <button
                     onClick={() => setActiveTab('venta')}
-                    className={`pb-3 text-sm font-bold transition-colors relative ${activeTab === 'venta' ? 'text-white' : 'text-neutral-500 hover:text-neutral-300'}`}
+                    className={`pb-3 text-sm font-bold transition-colors relative ${activeTab === 'venta' ? 'text-[#EF3329]' : 'text-[#A1A1AA] hover:text-[#FAFAFA]'}`}
                 >
                     Deuda por Venta
-                    {activeTab === 'venta' && <div className="absolute bottom-0 left-0 w-full h-0.5 bg-orange-500 rounded-t-full" />}
+                    {activeTab === 'venta' && <div className="absolute bottom-0 left-0 w-full h-[2px] bg-[#EF3329] rounded-t-full" />}
                 </button>
             </div>
 
             {/* Loading State */}
             {loading && allInstallments.length === 0 ? (
                 <div className="flex-1 flex items-center justify-center min-h-[400px]">
-                    <div className="w-8 h-8 border-4 border-orange-500 border-t-transparent rounded-full animate-spin"></div>
+                    <div className="w-8 h-8 border-4 border-[#EF3329] border-t-transparent rounded-full animate-spin"></div>
                 </div>
             ) : (
                 <>

@@ -279,8 +279,8 @@ export default function AyudaPage() {
         <PermissionGuard permission={PERMISSIONS.HELP_READ}>
             <div className="max-w-4xl mx-auto p-6 pb-20 text-white">
                 <div className="mb-8 text-center space-y-4">
-                    <div className="w-16 h-16 bg-blue-500/10 rounded-2xl flex items-center justify-center mx-auto border border-blue-500/20">
-                        <HelpCircle size={32} className="text-blue-500" />
+                    <div className="w-16 h-16 bg-[#161619] rounded-2xl flex items-center justify-center mx-auto border border-[#33333A]">
+                        <HelpCircle size={32} className="text-[#A1A1AA]" />
                     </div>
                     <div>
                         <h1 className="text-3xl font-bold tracking-tight text-white">Centro de Ayuda del CRM</h1>
@@ -291,13 +291,13 @@ export default function AyudaPage() {
                 </div>
 
                 <div className="relative mb-10 max-w-xl mx-auto">
-                    <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-neutral-500" size={20} />
+                    <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-[#71717A]" size={20} />
                     <input 
                         type="text" 
                         placeholder="Buscar por módulo o tema..." 
                         value={searchTerm}
                         onChange={(e) => setSearchTerm(e.target.value)}
-                        className="w-full bg-[#1E1E24] border border-[#33333A] rounded-2xl pl-12 pr-4 py-4 text-sm text-white placeholder-[#A1A1AA] focus:outline-none focus:border-[#EF3329] transition-colors"
+                        className="w-full bg-[#1E1E24] border border-[#33333A] rounded-2xl pl-12 pr-4 py-4 text-sm text-[#FAFAFA] placeholder-[#71717A] focus:outline-none focus:border-[#EF3329] focus:ring-1 focus:ring-[#EF3329] transition-all"
                     />
                 </div>
 
@@ -317,7 +317,7 @@ export default function AyudaPage() {
                                             <Icon size={20} />
                                         </div>
                                         <div className="text-left">
-                                            <h2 className="text-lg font-bold text-white">{mod.title}</h2>
+                                            <h2 className="text-lg font-bold text-[#FAFAFA]">{mod.title}</h2>
                                             <div className="flex gap-2 mt-1 flex-wrap">
                                                 {mod.roles.map(role => (
                                                     <span key={role} className="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-full bg-[#161619] text-[#A1A1AA] border border-[#33333A]">
@@ -327,7 +327,7 @@ export default function AyudaPage() {
                                             </div>
                                         </div>
                                     </div>
-                                    <div className="text-neutral-500">
+                                    <div className="text-[#A1A1AA]">
                                         <svg className={`w-5 h-5 transform transition-transform ${isExpanded ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
                                     </div>
                                 </button>
@@ -344,7 +344,7 @@ export default function AyudaPage() {
                     })}
 
                     {filteredModules.length === 0 && (
-                        <div className="text-center py-12 text-neutral-500">
+                        <div className="text-center py-12 text-[#A1A1AA]">
                             <HelpCircle size={48} className="mx-auto mb-4 opacity-20" />
                             <p>No se encontraron temas de ayuda que coincidan con tu búsqueda.</p>
                         </div>

@@ -4,6 +4,7 @@ import { useAuth } from '../../../context/AuthContext';
 import { Plus, Search, Filter, Edit, Trash2, CheckCircle, XCircle } from 'lucide-react';
 import MessageTemplateModal from './MessageTemplateModal';
 import { hasPermission as checkPermission } from '../../../utils/adminPermissions';
+import CrmButton, { CrmIconButton } from '../ui/CrmButton';
 
 export default function MessageTemplateManager() {
     const { token, user } = useAuth();
@@ -101,19 +102,19 @@ export default function MessageTemplateManager() {
             <div className="p-4 border-b border-white/10 flex flex-col sm:flex-row justify-between items-center gap-4">
                 <div className="flex gap-2 w-full sm:w-auto">
                     <div className="relative flex-1 sm:w-64">
-                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-500" />
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#71717A]" />
                         <input
                             type="text"
                             placeholder="Buscar plantillas..."
                             value={searchTerm}
                             onChange={(e) => setSearchTerm(e.target.value)}
-                            className="w-full pl-9 pr-3 py-2 text-sm bg-black text-white border border-white/10 rounded-lg focus:ring-2 focus:ring-[#EF3329] outline-none placeholder-neutral-500"
+                            className="w-full pl-9 pr-3 py-2 text-sm bg-[#161619] text-[#FAFAFA] border border-[#33333A] rounded-lg focus:ring-1 focus:ring-[#EF3329] focus:border-[#EF3329] outline-none placeholder-[#71717A]"
                         />
                     </div>
                     <select
                         value={categoryFilter}
                         onChange={(e) => setCategoryFilter(e.target.value)}
-                        className="px-3 py-2 text-sm bg-black text-white border border-white/10 rounded-lg focus:ring-2 focus:ring-[#EF3329] outline-none"
+                        className="px-3 py-2 text-sm bg-[#161619] text-[#FAFAFA] border border-[#33333A] rounded-lg focus:ring-1 focus:ring-[#EF3329] outline-none"
                     >
                         <option value="">Todas las categorías</option>
                         <option value="lead">Leads</option>
@@ -128,28 +129,29 @@ export default function MessageTemplateManager() {
                 
                 <div className="flex gap-2">
                     {templates.length === 0 && role === 'owner' && (
-                        <button
+                        <CrmButton
+                            variant="secondary"
                             onClick={initBaseTemplates}
-                            className="px-4 py-2 bg-white/5 text-white text-sm font-medium rounded-lg hover:bg-white/10 transition-colors border border-white/10"
                         >
                             Inicializar Plantillas Base
-                        </button>
+                        </CrmButton>
                     )}
                     {canWrite && (
-                        <button
+                        <CrmButton
+                            variant="primary"
                             onClick={openCreateModal}
-                            className="flex items-center gap-2 px-4 py-2 bg-[#E63027] text-white text-sm font-medium rounded-lg hover:bg-[#C42620] transition-colors"
+                            className="gap-2"
                         >
                             <Plus className="w-4 h-4" />
                             Nueva Plantilla
-                        </button>
+                        </CrmButton>
                     )}
                 </div>
             </div>
 
             <div className="overflow-x-auto">
                 <table className="w-full text-left text-sm text-neutral-300">
-                    <thead className="bg-black/50 text-xs text-neutral-500 uppercase font-medium">
+                    <thead className="bg-[#161619] text-xs text-[#A1A1AA] uppercase font-medium border-b border-[#33333A]">
                         <tr>
                             <th className="px-6 py-3">Nombre</th>
                             <th className="px-6 py-3">Categoría</th>
@@ -173,10 +175,10 @@ export default function MessageTemplateManager() {
                             </tr>
                         ) : (
                             templates.map((template) => (
-                                <tr key={template._id} className="hover:bg-white/[0.02] transition-colors">
-                                    <td className="px-6 py-4 font-medium text-white">
+                                <tr key={template._id} className="hover:bg-[#28282E] transition-colors border-b border-[#33333A] last:border-0">
+                                    <td className="px-6 py-4 font-medium text-[#FAFAFA]">
                                         {template.name}
-                                        {template.isSystem && <span className="ml-2 text-[10px] bg-white/10 text-neutral-300 px-1.5 py-0.5 rounded border border-white/10">BASE</span>}
+                                        {template.isSystem && <span className="ml-2 text-[10px] bg-[#1E1E24] text-[#A1A1AA] px-1.5 py-0.5 rounded border border-[#33333A]">BASE</span>}
                                     </td>
                                     <td className="px-6 py-4">
                                         <span className="capitalize">{template.category.replace('_', ' ')}</span>
@@ -189,8 +191,8 @@ export default function MessageTemplateManager() {
                                             onClick={() => handleToggleActive(template)}
                                             disabled={!canWrite}
                                             className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium ${
-                                                template.isActive ? 'bg-green-500/10 text-green-400 border border-green-500/20' : 'bg-neutral-800 text-neutral-400 border border-white/10'
-                                            } ${canWrite ? 'hover:bg-white/5' : 'cursor-default'}`}
+                                                template.isActive ? 'bg-[#EF3329]/10 text-[#EF3329] border border-[#EF3329]/20' : 'bg-[#1E1E24] text-[#71717A] border border-[#33333A]'
+                                            } ${canWrite ? 'hover:bg-[#28282E]' : 'cursor-default'}`}
                                         >
                                             {template.isActive ? (
                                                 <><CheckCircle className="w-3 h-3" /> Activa</>
@@ -201,22 +203,21 @@ export default function MessageTemplateManager() {
                                     </td>
                                     <td className="px-6 py-4 text-right flex items-center justify-end gap-2">
                                         {canWrite && (
-                                            <button
+                                            <CrmIconButton
                                                 onClick={() => openEditModal(template)}
-                                                className="p-1.5 text-neutral-400 hover:text-blue-400 hover:bg-[#C42620]/10 rounded-lg transition-colors"
                                                 title="Editar plantilla"
                                             >
                                                 <Edit className="w-4 h-4" />
-                                            </button>
+                                            </CrmIconButton>
                                         )}
                                         {canDelete && template.isActive && (
-                                            <button
+                                            <CrmIconButton
                                                 onClick={() => handleDelete(template._id)}
-                                                className="p-1.5 text-neutral-400 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-colors"
                                                 title="Desactivar plantilla"
+                                                className="text-[#EF3329] hover:bg-[#EF3329]/10 border-transparent hover:border-[#EF3329]/20"
                                             >
                                                 <Trash2 className="w-4 h-4" />
-                                            </button>
+                                            </CrmIconButton>
                                         )}
                                     </td>
                                 </tr>

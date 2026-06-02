@@ -3,6 +3,7 @@ import React, { useState } from 'react';
 import { Search, Plus, Edit, Trash2, Image as ImageIcon, Hand, ChevronDown, Check } from 'lucide-react';
 import toast from 'react-hot-toast';
 import VehicleFormModal from '../components/VehicleFormModal';
+import CrmButton, { CrmIconButton } from '../components/crm/ui/CrmButton';
 
 const Stock = ({ cars = [], refreshCars, handleEdit, handleDelete, handleMove }) => {
     const [deleteConfirm, setDeleteConfirm] = useState(null);
@@ -95,22 +96,22 @@ const Stock = ({ cars = [], refreshCars, handleEdit, handleDelete, handleMove })
             {/* Header Secundario */}
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
                 <div>
-                    <h1 className="text-xl font-bold text-white tracking-tight">Stock</h1>
-                    <p className="text-xs text-gray-400 mt-1">{totalCars} vehículos • {totalDisponibles} disponibles</p>
+                    <h1 className="text-xl font-bold text-[#FAFAFA] tracking-tight">Stock</h1>
+                    <p className="text-xs text-[#A1A1AA] mt-1">{totalCars} vehículos • {totalDisponibles} disponibles</p>
                 </div>
                 <div className="flex items-center gap-3">
-                    <button className="px-4 py-2 text-xs font-semibold text-yellow-500 bg-yellow-500/10 border border-yellow-500/20 hover:bg-yellow-500/20 rounded-lg transition-colors">Vista previa</button>
-                    <button className="px-4 py-2 text-xs font-semibold text-gray-300 bg-[#2a2a2e] border border-white/5 hover:bg-[#33333a] rounded-lg transition-colors flex items-center gap-2">
+                    <CrmButton variant="ghost">Vista previa</CrmButton>
+                    <CrmButton variant="secondary" className="gap-2">
                         <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" /></svg>
                         Exportar XLSX
-                    </button>
-                    <button className="px-4 py-2 text-xs font-semibold text-white bg-[#2a2a2e] border border-white/5 hover:bg-[#33333a] rounded-lg transition-colors flex items-center gap-2">
+                    </CrmButton>
+                    <CrmButton variant="secondary" className="gap-2">
                         <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
                         Nuevo mandato + Stock
-                    </button>
-                    <button onClick={() => handleOpenModal()} className="px-5 py-2 text-xs font-semibold text-white bg-[#e63027] hover:bg-red-600 rounded-lg shadow-[0_0_15px_rgba(230,48,39,0.2)] transition-colors flex items-center gap-2">
+                    </CrmButton>
+                    <CrmButton variant="primary" onClick={() => handleOpenModal()} className="gap-2 shadow-[0_0_15px_rgba(230,48,39,0.2)]">
                         <Plus size={16} /> Nuevo vehículo
-                    </button>
+                    </CrmButton>
                 </div>
             </div>
 
@@ -127,15 +128,15 @@ const Stock = ({ cars = [], refreshCars, handleEdit, handleDelete, handleMove })
             </div>
 
             {/* Sub-Tabs */}
-            <div className="flex border-b border-white/5 gap-6 mt-2">
+            <div className="flex border-b border-[#33333A] gap-6 mt-2">
                 {['Stock general', 'Consignaciones', 'Mandatos'].map(tab => (
                     <button
                         key={tab}
                         onClick={() => setActiveTab(tab)}
-                        className={`pb-3 text-xs font-bold transition-all relative ${activeTab === tab ? 'text-[#e63027]' : 'text-gray-500 hover:text-gray-300'}`}
+                        className={`pb-3 text-xs font-bold transition-all relative ${activeTab === tab ? 'text-[#EF3329]' : 'text-[#A1A1AA] hover:text-[#FAFAFA]'}`}
                     >
-                        {tab} {tab === 'Stock general' && <span className="ml-1 bg-red-500/20 text-red-500 px-1.5 py-0.5 rounded-full text-[9px]">{totalCars}</span>}
-                        {activeTab === tab && <div className="absolute bottom-0 left-0 w-full h-[2px] bg-[#e63027] rounded-t-full"></div>}
+                        {tab} {tab === 'Stock general' && <span className="ml-1 bg-[#EF3329]/20 text-[#EF3329] px-1.5 py-0.5 rounded-full text-[9px]">{totalCars}</span>}
+                        {activeTab === tab && <div className="absolute bottom-0 left-0 w-full h-[2px] bg-[#EF3329] rounded-t-full"></div>}
                     </button>
                 ))}
             </div>
@@ -154,7 +155,7 @@ const Stock = ({ cars = [], refreshCars, handleEdit, handleDelete, handleMove })
                             key={f.label}
                             onClick={() => setActiveFilter(isActive ? 'Todos' : f.label)}
                             className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-wider transition-all border
-                                ${isActive ? `border-${f.color.split('-')[1]}-500/50 bg-[#1e1e22]` : 'border-white/5 bg-[#141416] text-gray-400 hover:bg-[#1a1a1f]'}
+                                ${isActive ? `border-${f.color.split('-')[1]}-500/50 bg-[#1E1E24]` : 'border-[#33333A] bg-[#161619] text-[#A1A1AA] hover:bg-[#28282E] hover:text-[#FAFAFA]'}
                             `}
                         >
                             <div className={`w-3 h-3 rounded-full flex items-center justify-center ${f.color} text-black`}>
@@ -163,7 +164,7 @@ const Stock = ({ cars = [], refreshCars, handleEdit, handleDelete, handleMove })
                                 {f.type === 'hourglass' && <span className="text-[6px]">⌛</span>}
                                 {f.type === 'minus' && <div className="w-1.5 h-0.5 bg-white"></div>}
                             </div>
-                            <span className={isActive ? 'text-white' : ''}>{f.label}</span>
+                            <span className={isActive ? 'text-[#FAFAFA]' : ''}>{f.label}</span>
                         </button>
                     )
                 })}
@@ -171,34 +172,34 @@ const Stock = ({ cars = [], refreshCars, handleEdit, handleDelete, handleMove })
 
             {/* Search Bar */}
             <div className="flex gap-2">
-                <div className="flex-1 flex items-center bg-[#141416] rounded-lg px-4 py-3 border border-white/5 text-gray-400 focus-within:border-gray-500 transition-colors shadow-sm">
+                <div className="flex-1 flex items-center bg-[#161619] rounded-lg px-4 py-3 border border-[#33333A] text-[#A1A1AA] focus-within:border-[#EF3329] focus-within:ring-1 focus-within:ring-[#EF3329] transition-colors shadow-sm">
                     <Search size={16} className="shrink-0" />
                     <input 
                         type="text" 
                         placeholder="Buscar marca, modelo, patente, año, propietario, teléfono, consig., ubicación, notas..." 
                         value={searchQuery}
                         onChange={(e) => setSearchQuery(e.target.value)}
-                        className="bg-transparent border-none outline-none text-xs w-full ml-3 text-white placeholder-gray-600"
+                        className="bg-transparent border-none outline-none text-xs w-full ml-3 text-[#FAFAFA] placeholder-[#71717A]"
                     />
                 </div>
-                <div className="w-48 bg-[#141416] rounded-lg border border-white/5 flex items-center px-4">
-                    <select className="bg-transparent text-xs text-white outline-none w-full appearance-none font-medium cursor-pointer">
+                <div className="w-48 bg-[#161619] rounded-lg border border-[#33333A] flex items-center px-4">
+                    <select className="bg-transparent text-xs text-[#FAFAFA] outline-none w-full appearance-none font-medium cursor-pointer">
                         <option value="">Todas las marcas</option>
                     </select>
-                    <ChevronDown size={14} className="text-gray-500 pointer-events-none" />
+                    <ChevronDown size={14} className="text-[#A1A1AA] pointer-events-none" />
                 </div>
             </div>
 
             {/* Table Area */}
-            <div className="bg-[#141416] border border-white/5 rounded-xl overflow-hidden shadow-sm mt-4">
-                <div className="bg-[#1a1a1f] px-4 py-3 border-b border-white/5 flex items-center justify-between text-xs font-bold text-white">
+            <div className="bg-[#161619] border border-[#33333A] rounded-xl overflow-hidden shadow-sm mt-4">
+                <div className="bg-[#1E1E24] px-4 py-3 border-b border-[#33333A] flex items-center justify-between text-xs font-bold text-[#FAFAFA]">
                     <div className="flex items-center gap-2">
-                        {filteredCars.length} vehículo en lista <span className="text-gray-500 font-normal ml-2">• $ 0</span>
+                        {filteredCars.length} vehículo en lista <span className="text-[#71717A] font-normal ml-2">• $ 0</span>
                     </div>
                 </div>
 
                 {/* Table Headers */}
-                <div className="grid grid-cols-12 gap-3 px-4 py-3 border-b border-white/5 bg-[#141416] text-[9px] font-bold text-[#8a8a8e] uppercase tracking-wider">
+                <div className="grid grid-cols-12 gap-3 px-4 py-3 border-b border-[#33333A] bg-[#161619] text-[9px] font-bold text-[#A1A1AA] uppercase tracking-wider">
                     <div className="col-span-3 flex items-center gap-1 cursor-pointer">Vehículo <span className="text-[8px]">↑↓</span></div>
                     <div className="col-span-1 flex items-center gap-1 cursor-pointer">Año <span className="text-[8px]">↑↓</span></div>
                     <div className="col-span-1 flex items-center gap-1 cursor-pointer">Patente/VIN <span className="text-[8px]">↑↓</span></div>
@@ -266,16 +267,16 @@ const Stock = ({ cars = [], refreshCars, handleEdit, handleDelete, handleMove })
                                 <div className="col-span-1 text-[10px] text-gray-500">{new Date(car.createdAt || Date.now()).toISOString().split('T')[0]}</div>
                                 
                                 {/* Acciones */}
-                                <div className="col-span-1 flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                                    <button onClick={(e) => { e.stopPropagation(); handleOpenModal(car); }} className="text-[10px] font-bold text-red-400 hover:text-red-300 flex items-center gap-0.5 transition-colors">
-                                        <Edit size={10} /> Editar
-                                    </button>
-                                    <button onClick={(e) => { e.stopPropagation(); }} className="text-[10px] font-bold text-yellow-500 hover:text-yellow-400 flex items-center gap-0.5 transition-colors">
-                                        <Hand size={10} /> Señar
-                                    </button>
-                                    <button onClick={(e) => { e.stopPropagation(); setDeleteConfirm(car._id); }} className="text-[10px] font-bold text-gray-500 hover:text-red-500 transition-colors">
-                                        Eliminar
-                                    </button>
+                                <div className="col-span-1 flex items-center justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                    <CrmIconButton onClick={(e) => { e.stopPropagation(); handleOpenModal(car); }} title="Editar">
+                                        <Edit size={14} className="text-[#A1A1AA]" />
+                                    </CrmIconButton>
+                                    <CrmIconButton onClick={(e) => { e.stopPropagation(); }} title="Señar">
+                                        <Hand size={14} className="text-[#A1A1AA]" />
+                                    </CrmIconButton>
+                                    <CrmIconButton onClick={(e) => { e.stopPropagation(); setDeleteConfirm(car._id); }} title="Eliminar" className="hover:border-[#EF3329]/50">
+                                        <Trash2 size={14} className="text-[#EF3329]" />
+                                    </CrmIconButton>
                                 </div>
                             </div>
                         ))
