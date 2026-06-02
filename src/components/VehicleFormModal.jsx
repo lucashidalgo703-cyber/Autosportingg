@@ -14,7 +14,7 @@ export default function VehicleFormModal({ isOpen, onClose, onSave, editingCar }
         location: 'Salón Principal', owners: '1', agencyOwned: false, ownerName: '', linkedClient: '',
         ownerPhone: '', ownerEmail: '', consignedBy: '', engineNumber: '', chassisNumber: '',
         hasManuals: 'No', hasDuplicateKeys: 'No', hasOfficialServices: 'No', publishedOnML: 'No',
-        publishedBy: '', mlLink: '', notes: ''
+        publishedBy: '', mlLink: '', notes: '', visibleEnWeb: true
     });
 
     useEffect(() => {
@@ -32,7 +32,8 @@ export default function VehicleFormModal({ isOpen, onClose, onSave, editingCar }
                     hasManuals: editingCar.hasManuals || 'No',
                     hasDuplicateKeys: editingCar.hasDuplicateKeys || 'No',
                     hasOfficialServices: editingCar.hasOfficialServices || 'No',
-                    publishedOnML: editingCar.publishedOnML || 'No'
+                    publishedOnML: editingCar.publishedOnML || 'No',
+                    visibleEnWeb: editingCar.visibleEnWeb !== undefined ? editingCar.visibleEnWeb : true
                 });
                 
                 // Load existing images if editing
@@ -54,7 +55,7 @@ export default function VehicleFormModal({ isOpen, onClose, onSave, editingCar }
                     location: 'Salón Principal', owners: '1', agencyOwned: false, ownerName: '', linkedClient: '',
                     ownerPhone: '', ownerEmail: '', consignedBy: '', engineNumber: '', chassisNumber: '',
                     hasManuals: 'No', hasDuplicateKeys: 'No', hasOfficialServices: 'No', publishedOnML: 'No',
-                    publishedBy: '', mlLink: '', notes: ''
+                    publishedBy: '', mlLink: '', notes: '', visibleEnWeb: true
                 });
                 setFiles([]);
             }
@@ -245,9 +246,22 @@ export default function VehicleFormModal({ isOpen, onClose, onSave, editingCar }
                                 <span className="text-[10px] font-bold text-gray-500 uppercase tracking-widest">Publicación</span>
                             </div>
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                                <div>
+                                    <InputLabel>Visible en Web (Catálogo)</InputLabel>
+                                    <label className="flex items-center gap-3 cursor-pointer mt-2">
+                                        <input type="checkbox" name="visibleEnWeb" checked={formData.visibleEnWeb} onChange={handleChange} className="w-4 h-4 rounded border-gray-600 text-red-500 focus:ring-red-500 bg-[#2a2a2e]" />
+                                        <span className="text-xs font-bold text-white">Mostrar en sitio web</span>
+                                    </label>
+                                </div>
                                 <div><InputLabel>¿Publicado en MercadoLibre?</InputLabel><SelectInput name="publishedOnML" value={formData.publishedOnML} onChange={handleChange} options={['No', 'Sí']} /></div>
                                 <div><InputLabel>Publicado por</InputLabel><TextInput name="publishedBy" value={formData.publishedBy} onChange={handleChange} placeholder="Ej: Richi, Lucia..." /></div>
                             </div>
+                            {!formData.visibleEnWeb || formData.status !== 'Disponible' ? (
+                                <div className="mb-4 bg-yellow-500/10 border border-yellow-500/20 text-yellow-500 p-3 rounded-lg text-xs flex gap-2 items-start">
+                                    <span>⚠️</span>
+                                    <span>Este vehículo está oculto del catálogo. Para publicarlo, cambiá estado a Disponible y activá Visible en web.</span>
+                                </div>
+                            ) : null}
                             <div className="mb-4">
                                 <InputLabel>Link de MercadoLibre</InputLabel>
                                 <TextInput name="mlLink" value={formData.mlLink} onChange={handleChange} placeholder="https://articulo.mercadolibre.com.ar/..." />

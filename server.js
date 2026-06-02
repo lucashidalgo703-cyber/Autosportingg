@@ -440,21 +440,30 @@ app.get('/api/admin/audit-logs', authenticateToken, async (req, res) => {
 // GET public cars (Sanitized)
 app.get('/api/public/cars', async (req, res) => {
     try {
+        await connectDB();
         res.setHeader('Cache-Control', 'no-store, max-age=0');
         // Only return visible/public cars. We use $ne: false so existing cars without the field are still visible.
-        const cars = await Car.find({ visibleEnWeb: { $ne: false } })
+        const cars = await Car.find({ 
+            visibleEnWeb: { $ne: false },
+            status: 'Disponible'
+        })
             .select('-purchasePrice -purchaseCurrency -ownerName -ownerEmail -ownerPhone -linkedClient -consignedBy -notes -agencyOwned -engineNumber -chassisNumber -location -hasManuals -hasDuplicateKeys -hasOfficialServices -publishedOnML -publishedBy -mlLink -plateOrVin -expenses -visibleEnWeb -createdAt -updatedAt -__v -order -owners -auditLog')
             .sort({ order: 1, createdAt: -1 });
         res.json(cars);
     } catch (error) {
-        res.status(500).json({ message: error.message });
+        res.status(500).json({ error: 'No se pudo cargar el catálogo de vehículos.' });
     }
 });
 
 // GET single public car (Sanitized)
 app.get('/api/public/cars/:id', async (req, res) => {
     try {
-        const car = await Car.findOne({ _id: req.params.id, visibleEnWeb: { $ne: false } })
+        await connectDB();
+        const car = await Car.findOne({ 
+            _id: req.params.id, 
+            visibleEnWeb: { $ne: false },
+            status: 'Disponible'
+        })
             .select('-purchasePrice -purchaseCurrency -ownerName -ownerEmail -ownerPhone -linkedClient -consignedBy -notes -agencyOwned -engineNumber -chassisNumber -location -hasManuals -hasDuplicateKeys -hasOfficialServices -publishedOnML -publishedBy -mlLink -plateOrVin -expenses -visibleEnWeb -createdAt -updatedAt -__v -order -owners -auditLog');
         
         if (!car) {
@@ -462,7 +471,7 @@ app.get('/api/public/cars/:id', async (req, res) => {
         }
         res.json(car);
     } catch (error) {
-        res.status(500).json({ message: error.message });
+        res.status(500).json({ error: 'No se pudo cargar el vehículo.' });
     }
 });
 
