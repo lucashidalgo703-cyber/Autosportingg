@@ -25,6 +25,7 @@ export default function SaleChecklistPanel({ sale, type, onSave }) {
     const [checklist, setChecklist] = useState([]);
     const [isSaving, setIsSaving] = useState(false);
     const [hasChanges, setHasChanges] = useState(false);
+    const [saveError, setSaveError] = useState(null);
 
     const isDoc = type === 'documentation';
     const title = isDoc ? 'Checklist Documental' : 'Checklist de Entrega';
@@ -65,11 +66,13 @@ export default function SaleChecklistPanel({ sale, type, onSave }) {
 
     const handleSaveClick = async () => {
         setIsSaving(true);
+        setSaveError(null);
         try {
             await onSave({ [fieldName]: checklist });
             setHasChanges(false);
         } catch (error) {
             console.error('Error saving checklist', error);
+            setSaveError(error.message || 'Error al guardar el checklist');
         } finally {
             setIsSaving(false);
         }
@@ -105,6 +108,15 @@ export default function SaleChecklistPanel({ sale, type, onSave }) {
 
             <div className="p-5 flex-1 flex flex-col gap-4">
                 
+                {saveError && (
+                    <div className="bg-red-500/10 border border-red-500/20 rounded-xl p-3 flex gap-3 items-start">
+                        <AlertTriangle size={16} className="text-red-500 shrink-0 mt-0.5" />
+                        <p className="text-[10px] text-red-400 font-bold uppercase tracking-wider">
+                            {saveError}
+                        </p>
+                    </div>
+                )}
+
                 {/* Progress bar */}
                 <div className="w-full bg-neutral-800 rounded-full h-1.5 overflow-hidden">
                     <div 

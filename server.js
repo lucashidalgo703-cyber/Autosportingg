@@ -2178,6 +2178,7 @@ app.get('/api/admin/sales/:id', authenticateToken, async (req, res) => {
 // POST create manual sale
 app.post('/api/admin/sales', authenticateToken, async (req, res) => {
     try {
+        await connectDB();
         const { vehicleId, clientId, leadId, salePrice, saleCurrency, paymentMethod, notes, salesperson, saleDate } = req.body;
         const user = req.user?.username || 'Admin';
 
@@ -2434,6 +2435,7 @@ app.post('/api/admin/reservations/:id/convert-to-sale', authenticateToken, async
 // PATCH link client to sale
 app.patch('/api/admin/sales/:id/link-client', authenticateToken, async (req, res) => {
     try {
+        await connectDB();
         const { clientId } = req.body;
         if (!clientId) return res.status(400).json({ error: 'Falta clientId' });
 
@@ -2487,6 +2489,7 @@ app.patch('/api/admin/sales/:id/link-client', authenticateToken, async (req, res
 // POST backfill client from reservation
 app.post('/api/admin/sales/:id/backfill-client-from-reservation', authenticateToken, async (req, res) => {
     try {
+        await connectDB();
         const sale = await Sale.findById(req.params.id);
         if (!sale) return res.status(404).json({ error: 'Sale not found' });
         if (!sale.reservationId) return res.status(400).json({ error: 'La venta no proviene de una reserva' });
@@ -2539,6 +2542,7 @@ app.post('/api/admin/sales/:id/backfill-client-from-reservation', authenticateTo
 // PATCH update sale
 app.patch('/api/admin/sales/:id', authenticateToken, async (req, res) => {
     try {
+        await connectDB();
         const { 
             status, 
             paymentMethod, 
@@ -4265,6 +4269,7 @@ app.get('/api/admin/team-productivity', authenticateToken, async (req, res) => {
 
 app.get('/api/admin/communication-logs', authenticateToken, async (req, res) => {
     try {
+        await connectDB();
         const userRole = req.user?.role || 'solo_lectura';
         const perms = req.user?.permissions || [];
         const userId = req.user?.id || req.user?.userId;
@@ -4313,6 +4318,7 @@ app.get('/api/admin/communication-logs', authenticateToken, async (req, res) => 
 
 app.post('/api/admin/communication-logs', authenticateToken, async (req, res) => {
     try {
+        await connectDB();
         const userRole = req.user?.role || 'solo_lectura';
         const perms = req.user?.permissions || [];
         const authUserId = req.user?.id || req.user?.userId;
@@ -4385,6 +4391,7 @@ app.post('/api/admin/communication-logs', authenticateToken, async (req, res) =>
 
 app.patch('/api/admin/communication-logs/:id', authenticateToken, async (req, res) => {
     try {
+        await connectDB();
         const userRole = req.user?.role || 'solo_lectura';
         const perms = req.user?.permissions || [];
 
@@ -4423,6 +4430,7 @@ app.patch('/api/admin/communication-logs/:id', authenticateToken, async (req, re
 
 app.delete('/api/admin/communication-logs/:id', authenticateToken, async (req, res) => {
     try {
+        await connectDB();
         const userRole = req.user?.role || 'solo_lectura';
         const perms = req.user?.permissions || [];
 

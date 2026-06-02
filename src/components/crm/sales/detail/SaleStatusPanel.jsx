@@ -7,6 +7,7 @@ export default function SaleStatusPanel({ sale, onSave }) {
     const [estDate, setEstDate] = useState('');
     const [isSaving, setIsSaving] = useState(false);
     const [hasChanges, setHasChanges] = useState(false);
+    const [saveError, setSaveError] = useState(null);
 
     useEffect(() => {
         if (sale) {
@@ -39,6 +40,7 @@ export default function SaleStatusPanel({ sale, onSave }) {
     const handleSaveClick = async () => {
         setIsSaving(true);
         try {
+            setSaveError(null);
             await onSave({
                 documentationStatus: docStatus,
                 deliveryStatus: delStatus,
@@ -47,6 +49,7 @@ export default function SaleStatusPanel({ sale, onSave }) {
             setHasChanges(false);
         } catch (error) {
             console.error('Error saving statuses', error);
+            setSaveError(error.message || 'Error al guardar los estados operativos');
         } finally {
             setIsSaving(false);
         }
@@ -57,6 +60,7 @@ export default function SaleStatusPanel({ sale, onSave }) {
 
         setIsSaving(true);
         try {
+            setSaveError(null);
             let payload = {};
             if (action === 'documentacion_completa') {
                 payload.documentationStatus = 'completo';
@@ -66,8 +70,6 @@ export default function SaleStatusPanel({ sale, onSave }) {
                 setDelStatus('listo_para_entregar');
             } else if (action === 'entregado') {
                 payload.deliveryStatus = 'entregado';
-                // El backend autocompleta actualDeliveryDate y status a 'entregada' si se lo indicamos.
-                // Lo mandamos explícito por seguridad.
                 payload.status = 'entregada';
                 setDelStatus('entregado');
             }
@@ -76,6 +78,7 @@ export default function SaleStatusPanel({ sale, onSave }) {
             setHasChanges(false);
         } catch (error) {
             console.error('Error saving quick action', error);
+            setSaveError(error.message || 'Error al guardar la acción rápida');
         } finally {
             setIsSaving(false);
         }
@@ -118,6 +121,15 @@ export default function SaleStatusPanel({ sale, onSave }) {
                         Este módulo controla la operación y entrega. No registra cobros, caja ni comprobantes.
                     </p>
                 </div>
+
+                {saveError && (
+                    <div className="bg-red-500/10 border border-red-500/20 rounded-xl p-3 flex gap-3 items-start">
+                        <AlertTriangle size={16} className="text-red-500 shrink-0 mt-0.5" />
+                        <p className="text-[10px] text-red-400 font-bold uppercase tracking-wider">
+                            {saveError}
+                        </p>
+                    </div>
+                )}
 
                 {/* Documentation Status */}
                 <div className="flex flex-col gap-3">

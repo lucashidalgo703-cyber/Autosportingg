@@ -76,8 +76,20 @@ export default function CommunicationLogPanel({
 
             <div className="p-4 flex-1 overflow-y-auto bg-[#161619] min-h-[300px] max-h-[500px] custom-scrollbar">
                 {error ? (
-                    <div className="bg-red-900/20 text-red-400 p-3 rounded-lg border border-red-900/50 flex items-center gap-2 text-sm">
-                        <AlertTriangle size={16} /> {error}
+                    <div className="flex flex-col items-center justify-center h-full text-center p-4">
+                        <div className="bg-red-900/20 text-red-400 p-4 rounded-xl border border-red-900/50 flex flex-col items-center gap-3 w-full max-w-sm">
+                            <AlertTriangle size={24} />
+                            <div>
+                                <h4 className="font-bold text-sm mb-1">Error</h4>
+                                <p className="text-xs opacity-80">No se pudo cargar el historial de contacto.</p>
+                            </div>
+                            <button 
+                                onClick={fetchLogs}
+                                className="px-4 py-2 bg-neutral-800 hover:bg-neutral-700 rounded-lg text-xs font-bold transition-colors mt-2 text-white"
+                            >
+                                Reintentar
+                            </button>
+                        </div>
                     </div>
                 ) : loading ? (
                     <div className="flex justify-center items-center h-32">
