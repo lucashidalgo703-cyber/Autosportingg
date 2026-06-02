@@ -15,6 +15,65 @@ export default function ConvertReservationToSaleModal({ isOpen, onClose, onSucce
         notes: ''
     });
 
+    const [clientSearch, setClientSearch] = useState('');
+    const [searchResults, setSearchResults] = useState([]);
+    const [searchingClient, setSearchingClient] = useState(false);
+    const [linkingClient, setLinkingClient] = useState(false);
+
+    // Búsqueda de clientes
+    useEffect(() => {
+        if (clientSearch.length > 2) {
+            const delayDebounceFn = setTimeout(async () => {
+                setSearchingClient(true);
+                try {
+                    const token = localStorage.getItem('token');
+                    const res = await fetch(`/api/admin/clients?search=${encodeURIComponent(clientSearch)}&limit=5`, {
+                        headers: { 'Authorization': `Bearer ${token}` }
+                    });
+                    if (res.ok) {
+                        const data = await res.json();
+                        setSearchResults(data.clients || []);
+                    }
+                } catch (err) {
+                    console.error("Error searching clients", err);
+                } finally {
+                    setSearchingClient(false);
+                }
+            }, 500);
+            return () => clearTimeout(delayDebounceFn);
+        } else {
+            setSearchResults([]);
+        }
+    }, [clientSearch]);
+
+    const handleLinkClient = async (clientId) => {
+        setLinkingClient(true);
+        setError(null);
+        try {
+            const token = localStorage.getItem('token');
+            const reservationId = reservation?._id || reservation?.id;
+            const res = await fetch(`/api/admin/reservations/${reservationId}/link-client`, {
+                method: 'PATCH',
+                headers: { 
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ clientId })
+            });
+            if (!res.ok) {
+                const data = await res.json();
+                throw new Error(data.error || 'Error al vincular cliente');
+            }
+            if (typeof onSuccess === 'function') {
+                await onSuccess(); // Recargar datos para que venga con cliente poblado
+            }
+        } catch (err) {
+            setError(err.message);
+        } finally {
+            setLinkingClient(false);
+        }
+    };
+
     useEffect(() => {
         if (isOpen && reservation) {
             setFormData({
@@ -30,12 +89,20 @@ export default function ConvertReservationToSaleModal({ isOpen, onClose, onSucce
     if (!isOpen || !reservation) return null;
 
     const vehicleName = reservation.vehicleId ? `${reservation.vehicleId.brand} ${reservation.vehicleId.name}` : 'Vehículo no asignado';
-    const clientName = reservation.clientId?.fullName || reservation.clientId?.firstName || reservation.leadId?.name || 'Sin Nombre';
+    const hasClient = !!reservation.clientId;
+    const clientName = hasClient 
+        ? (reservation.clientId.fullName || reservation.clientId.firstName || 'Sin Nombre') 
+        : 'Cliente No Vinculado';
 
     const handleConvert = async () => {
         const reservationId = reservation?._id || reservation?.id;
         if (!reservationId) {
             setError("No se pudo identificar la reserva. Faltan datos requeridos.");
+            return;
+        }
+
+        if (!hasClient) {
+            setError("Debes vincular un cliente antes de convertir la reserva.");
             return;
         }
 
@@ -67,6 +134,64 @@ export default function ConvertReservationToSaleModal({ isOpen, onClose, onSucce
             setError(err.message || 'Ocurrió un error al intentar convertir la reserva.');
         } finally {
             setLoading(false);
+        }
+    };
+
+    const handleCreateClientFromLead = async () => {
+        if (!reservation.leadId) return;
+        setLinkingClient(true);
+        setError(null);
+        try {
+            const token = localStorage.getItem('token');
+            const reservationId = reservation?._id || reservation?.id;
+
+            // 1. Crear el cliente
+            const clientPayload = {
+                fullName: reservation.leadId.name,
+                phone: reservation.leadId.phone,
+                source: 'otro',
+                notes: 'Creado automáticamente desde reserva/lead'
+            };
+
+            const createRes = await fetch(`/api/admin/clients`, {
+                method: 'POST',
+                headers: { 
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(clientPayload)
+            });
+
+            if (!createRes.ok) {
+                const data = await createRes.json();
+                throw new Error(data.message || 'Error al crear cliente');
+            }
+
+            const clientData = await createRes.json();
+            const newClientId = clientData._id || clientData.id;
+
+            // 2. Vincular a la reserva
+            const linkRes = await fetch(`/api/admin/reservations/${reservationId}/link-client`, {
+                method: 'PATCH',
+                headers: { 
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ clientId: newClientId })
+            });
+
+            if (!linkRes.ok) {
+                const data = await linkRes.json();
+                throw new Error(data.error || 'Error al vincular el cliente recién creado');
+            }
+
+            if (typeof onSuccess === 'function') {
+                await onSuccess();
+            }
+        } catch (err) {
+            setError(err.message);
+        } finally {
+            setLinkingClient(false);
         }
     };
 
@@ -112,11 +237,22 @@ export default function ConvertReservationToSaleModal({ isOpen, onClose, onSucce
                         </div>
                     </div>
 
+                    {/* Alerta si no hay cliente */}
+                    {!hasClient && (
+                        <div className="mb-6 bg-red-500/10 border border-red-500/20 p-4 rounded-xl flex gap-3 items-start">
+                            <AlertTriangle size={20} className="text-red-500 shrink-0 mt-0.5" />
+                            <div className="text-sm text-red-200">
+                                <span className="font-bold block mb-1">Cliente no vinculado</span>
+                                Esta reserva no tiene un cliente vinculado. Buscá y vinculá un cliente para habilitar la conversión a venta.
+                            </div>
+                        </div>
+                    )}
+
                     {/* Resumen de datos */}
                     <div className="bg-black/30 border border-neutral-800 rounded-xl p-4 mb-6 grid gap-3">
                         <div className="flex justify-between items-center">
                             <span className="text-xs font-bold text-neutral-500 uppercase">Cliente / Lead</span>
-                            <span className="text-sm font-medium text-white">{clientName}</span>
+                            <span className={`text-sm font-medium ${hasClient ? 'text-white' : 'text-red-400'}`}>{clientName}</span>
                         </div>
                         <div className="flex justify-between items-center">
                             <span className="text-xs font-bold text-neutral-500 uppercase">Vehículo</span>
@@ -212,6 +348,67 @@ export default function ConvertReservationToSaleModal({ isOpen, onClose, onSucce
                             />
                         </div>
                     </div>
+
+                    {/* Buscador de clientes si no hay cliente */}
+                    {!hasClient && (
+                        <div className="mt-6 pt-6 border-t border-[#33333A]">
+                            <label className="block text-xs font-bold text-neutral-400 uppercase tracking-wider mb-2">
+                                Vincular Cliente Existente
+                            </label>
+                            <input
+                                type="text"
+                                placeholder="Buscar por nombre, DNI, teléfono o email..."
+                                className="w-full bg-black/40 border border-neutral-800 rounded-xl py-2.5 px-4 text-white focus:outline-none focus:border-[#EF3329]/50 transition-colors mb-2"
+                                value={clientSearch}
+                                onChange={(e) => setClientSearch(e.target.value)}
+                                disabled={linkingClient}
+                            />
+                            {searchingClient && <div className="text-xs text-neutral-500 mb-2">Buscando...</div>}
+                            {searchResults.length > 0 && (
+                                <div className="space-y-2 max-h-40 overflow-y-auto custom-scrollbar">
+                                    {searchResults.map(client => (
+                                        <div key={client._id} className="flex items-center justify-between bg-black/30 border border-neutral-800 rounded-xl p-3">
+                                            <div>
+                                                <p className="text-sm font-bold text-white">{client.fullName || client.firstName}</p>
+                                                <p className="text-xs text-neutral-400">{client.phone} {client.documentNumber ? `| DNI: ${client.documentNumber}` : ''}</p>
+                                            </div>
+                                            <button 
+                                                onClick={() => handleLinkClient(client._id)}
+                                                disabled={linkingClient}
+                                                className="px-3 py-1.5 text-xs font-bold bg-[#E63027] hover:bg-[#C42620] text-white rounded-lg transition-colors disabled:opacity-50"
+                                            >
+                                                Vincular
+                                            </button>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+                            {clientSearch.length > 2 && searchResults.length === 0 && !searchingClient && (
+                                <div className="text-xs text-neutral-500 mb-2">No se encontraron clientes con esos datos.</div>
+                            )}
+
+                            {reservation.leadId && reservation.leadId.name && (
+                                <div className="mt-4 pt-4 border-t border-[#33333A]">
+                                    <label className="block text-xs font-bold text-neutral-400 uppercase tracking-wider mb-2">
+                                        O crear cliente desde el Lead asociado
+                                    </label>
+                                    <div className="bg-black/30 border border-neutral-800 rounded-xl p-3 flex justify-between items-center">
+                                        <div>
+                                            <p className="text-sm font-bold text-white">{reservation.leadId.name}</p>
+                                            <p className="text-xs text-neutral-400">{reservation.leadId.phone}</p>
+                                        </div>
+                                        <button
+                                            onClick={handleCreateClientFromLead}
+                                            disabled={linkingClient}
+                                            className="px-3 py-1.5 text-xs font-bold bg-[#1E1E24] border border-[#33333A] hover:bg-[#28282E] text-white rounded-lg transition-colors disabled:opacity-50"
+                                        >
+                                            Crear y Vincular
+                                        </button>
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+                    )}
                 </div>
 
                 {/* Footer */}
@@ -225,7 +422,7 @@ export default function ConvertReservationToSaleModal({ isOpen, onClose, onSucce
                     </button>
                     <button
                         onClick={handleConvert}
-                        disabled={loading}
+                        disabled={loading || !hasClient}
                         className="px-6 py-2.5 rounded-xl font-bold bg-[#E63027] hover:bg-[#C42620] text-white transition-colors flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                         {loading ? (

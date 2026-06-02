@@ -1974,6 +1974,59 @@ app.patch('/api/admin/reservations/:id', authenticateToken, async (req, res) => 
     }
 });
 
+// PATCH link client to reservation
+app.patch('/api/admin/reservations/:id/link-client', authenticateToken, async (req, res) => {
+    try {
+        const { clientId } = req.body;
+        if (!clientId) return res.status(400).json({ error: 'Falta clientId' });
+
+        const reservation = await Reservation.findById(req.params.id);
+        if (!reservation) return res.status(404).json({ error: 'Reservation not found' });
+
+        const client = await Client.findById(clientId);
+        if (!client) return res.status(404).json({ error: 'Client not found' });
+
+        const user = req.user?.username || 'Admin';
+        const oldClient = reservation.clientId ? reservation.clientId.toString() : null;
+
+        reservation.clientId = client._id;
+        reservation.updatedBy = user;
+        
+        reservation.reservationAuditLog.push({
+            action: 'CLIENTE_VINCULADO',
+            field: 'clientId',
+            oldValue: oldClient,
+            newValue: client._id.toString(),
+            details: `Cliente vinculado a la reserva: ${client.fullName || client.firstName}`,
+            user: user,
+            source: 'CRM_V2'
+        });
+
+        await logAudit({
+            req,
+            action: 'RESERVA_CLIENTE_VINCULADO',
+            module: 'reservas',
+            entityType: 'Reservation',
+            entityId: reservation._id,
+            entityLabel: 'Reserva',
+            description: `Se vinculó el cliente ${client.fullName || client.firstName} a la reserva.`,
+            metadata: { clientId: client._id, oldClient }
+        });
+
+        await reservation.save();
+        
+        const populatedReservation = await Reservation.findById(reservation._id)
+            .populate('clientId', 'firstName lastName fullName phone email')
+            .populate('vehicleId', 'brand name year plateOrVin price currency status')
+            .lean();
+
+        res.json(populatedReservation);
+    } catch (error) {
+        console.error('Error linking client to reservation:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
 // --- SALES ROUTES ---
 
 // GET all sales
@@ -2244,6 +2297,13 @@ app.post('/api/admin/reservations/:id/convert-to-sale', authenticateToken, async
         if (!vehicle) throw new Error('Vehicle not found');
         if (vehicle.status !== 'Reservado') throw new Error(`Vehicle is not Reservado (current: ${vehicle.status})`);
 
+        if (!reservation.clientId) {
+            return res.status(400).json({ error: "La reserva debe tener un cliente vinculado antes de convertirla en venta." });
+        }
+        if (!reservation.vehicleId) {
+            return res.status(400).json({ error: "La reserva debe tener un vehículo vinculado antes de convertirla en venta." });
+        }
+
         const existingSale = await Sale.findOne({ vehicleId, status: { $ne: 'cancelada' } });
         if (existingSale) throw new Error('There is already an active sale for this vehicle');
 
@@ -2257,7 +2317,7 @@ app.post('/api/admin/reservations/:id/convert-to-sale', authenticateToken, async
         const newSale = new Sale({
             reservationId: reservation._id,
             vehicleId: vehicle._id,
-            clientId: reservation.clientId || undefined,
+            clientId: reservation.clientId, // Ahora es obligatorio
             leadId: reservation.leadId || undefined,
             salePrice: finalSalePrice,
             saleCurrency: finalSaleCurrency,
