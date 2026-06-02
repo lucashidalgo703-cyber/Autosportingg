@@ -1,6 +1,7 @@
 import React, { useMemo } from 'react';
 import Link from 'next/link';
 import { Handshake, Target } from 'lucide-react';
+import CrmButton from '../../crm/ui/CrmButton';
 
 export default function DebtBySaleTable({ installments }) {
     
@@ -68,22 +69,22 @@ export default function DebtBySaleTable({ installments }) {
     }
 
     return (
-        <div className="hidden md:block bg-neutral-900 border border-neutral-800 rounded-2xl overflow-hidden mt-6">
+        <div className="hidden md:block bg-[#1E1E24] border border-[#33333A] rounded-2xl overflow-hidden mt-6">
             <div className="overflow-x-auto">
                 <table className="w-full text-left border-collapse">
                     <thead>
-                        <tr className="border-b border-neutral-800 bg-[#161619]">
-                            <th className="p-4 text-xs font-bold text-neutral-500 uppercase tracking-wider">Venta / Cliente</th>
-                            <th className="p-4 text-xs font-bold text-neutral-500 uppercase tracking-wider text-center">Cuotas (Pend / Venc)</th>
-                            <th className="p-4 text-xs font-bold text-neutral-500 uppercase tracking-wider text-right">Deuda ARS (Total / Vencida)</th>
-                            <th className="p-4 text-xs font-bold text-neutral-500 uppercase tracking-wider text-right">Deuda USD (Total / Vencida)</th>
-                            <th className="p-4 text-xs font-bold text-neutral-500 uppercase tracking-wider text-center">Acciones</th>
+                        <tr className="border-b border-[#33333A] bg-[#161619]">
+                            <th className="p-4 text-xs font-bold text-[#A1A1AA] uppercase tracking-wider">Venta / Cliente</th>
+                            <th className="p-4 text-xs font-bold text-[#A1A1AA] uppercase tracking-wider text-center">Cuotas (Pend / Venc)</th>
+                            <th className="p-4 text-xs font-bold text-[#A1A1AA] uppercase tracking-wider text-right">Deuda ARS (Total / Vencida)</th>
+                            <th className="p-4 text-xs font-bold text-[#A1A1AA] uppercase tracking-wider text-right">Deuda USD (Total / Vencida)</th>
+                            <th className="p-4 text-xs font-bold text-[#A1A1AA] uppercase tracking-wider text-center">Acciones</th>
                         </tr>
                     </thead>
-                    <tbody className="divide-y divide-neutral-800/50">
+                    <tbody className="divide-y divide-[#33333A]">
                         {aggregatedSales.map(group => {
                             return (
-                                <tr key={group.saleId} className="hover:bg-black/20 transition-colors">
+                                <tr key={group.saleId} className="hover:bg-[#28282E] transition-colors">
                                     {/* Cliente / Venta */}
                                     <td className="p-4">
                                         <div className="flex flex-col gap-0.5">
@@ -139,11 +140,10 @@ export default function DebtBySaleTable({ installments }) {
 
                                     {/* Acciones */}
                                     <td className="p-4 text-center whitespace-nowrap">
-                                        <Link 
-                                            href={`/admin/ventas/${group.saleId}`}
-                                            className="text-xs font-bold text-blue-400 hover:text-blue-300 transition-colors"
-                                        >
-                                            Ver Venta
+                                        <Link href={`/admin/ventas/${group.saleId}`}>
+                                            <CrmButton variant="secondary" className="w-full">
+                                                Ver Venta
+                                            </CrmButton>
                                         </Link>
                                     </td>
                                 </tr>

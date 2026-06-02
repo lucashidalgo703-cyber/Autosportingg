@@ -1,5 +1,6 @@
 import React from 'react';
 import { Search, Filter, RefreshCcw } from 'lucide-react';
+import { CrmIconButton } from '../ui/CrmButton';
 
 export default function CollectionsFilters({ filters, setFilters }) {
     const handleClear = () => {
@@ -13,16 +14,16 @@ export default function CollectionsFilters({ filters, setFilters }) {
     };
 
     return (
-        <div className="bg-neutral-900 border border-neutral-800 rounded-2xl p-4 mb-6">
+        <div className="bg-[#1E1E24] border border-[#33333A] rounded-2xl p-4 mb-6">
             <div className="flex flex-col gap-4">
                 
                 {/* Search */}
                 <div className="flex-1 relative">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-500" size={18} />
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-[#A1A1AA]" size={18} />
                     <input
                         type="text"
                         placeholder="Buscar por cliente, teléfono, vehículo, patente o venta..."
-                        className="w-full bg-black/40 border border-neutral-800 rounded-xl py-2.5 pl-10 pr-4 text-sm text-white focus:outline-none focus:border-neutral-600 transition-colors"
+                        className="w-full bg-[#161619] border border-[#33333A] rounded-xl py-2.5 pl-10 pr-4 text-sm text-[#FAFAFA] focus:outline-none focus:border-[#EF3329] transition-colors"
                         value={filters.search}
                         onChange={(e) => setFilters({ ...filters, search: e.target.value })}
                     />
@@ -32,9 +33,9 @@ export default function CollectionsFilters({ filters, setFilters }) {
                 <div className="flex flex-wrap gap-3">
                     
                     <div className="relative min-w-[140px] flex-1 md:flex-none">
-                        <Filter className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-500" size={14} />
+                        <Filter className="absolute left-3 top-1/2 -translate-y-1/2 text-[#A1A1AA]" size={14} />
                         <select
-                            className="w-full bg-black/40 border border-neutral-800 rounded-xl py-2.5 pl-9 pr-8 text-sm text-neutral-300 focus:outline-none focus:border-neutral-600 transition-colors appearance-none cursor-pointer"
+                            className="w-full bg-[#161619] border border-[#33333A] rounded-xl py-2.5 pl-9 pr-8 text-sm text-[#A1A1AA] focus:outline-none focus:border-[#EF3329] transition-colors appearance-none cursor-pointer"
                             value={filters.statusOperativo}
                             onChange={(e) => setFilters({ ...filters, statusOperativo: e.target.value })}
                         >
@@ -48,7 +49,7 @@ export default function CollectionsFilters({ filters, setFilters }) {
 
                     <div className="relative min-w-[150px] flex-1 md:flex-none">
                         <select
-                            className="w-full bg-black/40 border border-neutral-800 rounded-xl py-2.5 px-4 text-sm text-neutral-300 focus:outline-none focus:border-neutral-600 transition-colors appearance-none cursor-pointer"
+                            className="w-full bg-[#161619] border border-[#33333A] rounded-xl py-2.5 px-4 text-sm text-[#A1A1AA] focus:outline-none focus:border-[#EF3329] transition-colors appearance-none cursor-pointer"
                             value={filters.statusFinanciero}
                             onChange={(e) => setFilters({ ...filters, statusFinanciero: e.target.value })}
                         >
@@ -62,7 +63,7 @@ export default function CollectionsFilters({ filters, setFilters }) {
 
                     <div className="relative min-w-[140px] flex-1 md:flex-none">
                         <select
-                            className="w-full bg-black/40 border border-neutral-800 rounded-xl py-2.5 px-4 text-sm text-neutral-300 focus:outline-none focus:border-neutral-600 transition-colors appearance-none cursor-pointer"
+                            className="w-full bg-[#161619] border border-[#33333A] rounded-xl py-2.5 px-4 text-sm text-[#A1A1AA] focus:outline-none focus:border-[#EF3329] transition-colors appearance-none cursor-pointer"
                             value={filters.vencimiento}
                             onChange={(e) => setFilters({ ...filters, vencimiento: e.target.value })}
                         >
@@ -76,7 +77,7 @@ export default function CollectionsFilters({ filters, setFilters }) {
 
                     <div className="relative min-w-[120px] flex-1 md:flex-none">
                         <select
-                            className="w-full bg-black/40 border border-neutral-800 rounded-xl py-2.5 px-4 text-sm text-neutral-300 focus:outline-none focus:border-neutral-600 transition-colors appearance-none cursor-pointer"
+                            className="w-full bg-[#161619] border border-[#33333A] rounded-xl py-2.5 px-4 text-sm text-[#A1A1AA] focus:outline-none focus:border-[#EF3329] transition-colors appearance-none cursor-pointer"
                             value={filters.moneda}
                             onChange={(e) => setFilters({ ...filters, moneda: e.target.value })}
                         >
@@ -86,13 +87,13 @@ export default function CollectionsFilters({ filters, setFilters }) {
                         </select>
                     </div>
 
-                    <button
+                    <CrmIconButton
                         onClick={handleClear}
-                        className="w-10 h-[42px] shrink-0 bg-neutral-800 hover:bg-neutral-700 text-neutral-400 hover:text-white rounded-xl flex items-center justify-center transition-colors border border-neutral-700"
+                        className="w-10 h-[42px]"
                         title="Limpiar filtros"
                     >
                         <RefreshCcw size={16} />
-                    </button>
+                    </CrmIconButton>
                 </div>
             </div>
         </div>

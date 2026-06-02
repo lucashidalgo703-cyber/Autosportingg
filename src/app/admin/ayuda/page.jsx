@@ -18,7 +18,7 @@ export default function AyudaPage() {
             icon: LayoutDashboard,
             roles: ['Owner/Admin', 'Ventas', 'Administrativo', 'Solo lectura'],
             content: (
-                <div className="space-y-4 text-sm text-neutral-300">
+                <div className="space-y-4 text-sm text-[#FAFAFA]">
                     <p><strong>Qué mirar al entrar:</strong> El panel principal resume las estadísticas vitales de la jornada.</p>
                     <p><strong>Cómo interpretar pendientes:</strong> Revisa siempre "Mis Pendientes" o tareas atrasadas para ponerte al día.</p>
                 </div>
@@ -30,7 +30,7 @@ export default function AyudaPage() {
             icon: CarFront,
             roles: ['Owner/Admin', 'Ventas', 'Administrativo', 'Solo lectura'],
             content: (
-                <div className="space-y-4 text-sm text-neutral-300">
+                <div className="space-y-4 text-sm text-[#FAFAFA]">
                     <p><strong>Cómo cargar un vehículo:</strong> Ingresa la patente, marca, modelo, versión y fotos de alta calidad.</p>
                     <p><strong>Actualizar estado:</strong> Cambiar el estado a Reservado o Vendido automáticamente detiene las campañas de venta activa.</p>
                     <p><strong>Visible en Web:</strong> Si el switch está encendido, el vehículo aparece en el catálogo público y MercadoLibre.</p>
@@ -44,7 +44,7 @@ export default function AyudaPage() {
             icon: Users,
             roles: ['Owner/Admin', 'Ventas', 'Administrativo', 'Solo lectura'],
             content: (
-                <div className="space-y-4 text-sm text-neutral-300">
+                <div className="space-y-4 text-sm text-[#FAFAFA]">
                     <p><strong>Cómo cargar:</strong> Todo cliente nuevo debe tener DNI, teléfono válido y correo.</p>
                     <p><strong>Historial:</strong> Utiliza el perfil del cliente para ver todo su recorrido (comunicaciones, ventas pasadas).</p>
                     <p><strong>Duplicados:</strong> Antes de crear, busca por DNI o teléfono.</p>
@@ -57,12 +57,12 @@ export default function AyudaPage() {
             icon: UserPlus,
             roles: ['Owner/Admin', 'Ventas', 'Administrativo', 'Solo lectura'],
             content: (
-                <div className="space-y-4 text-sm text-neutral-300">
+                <div className="space-y-4 text-sm text-[#FAFAFA]">
                     <p><strong>Gestión:</strong> Atiende los leads en orden de prioridad. Las respuestas rápidas (menos de 5 min) incrementan la conversión un 300%.</p>
                     <p><strong>Asignar Responsable:</strong> Si un lead entra huérfano, asígnalo rápidamente a ti o a otro vendedor.</p>
                     <p><strong>Tareas de Seguimiento:</strong> Siempre debes dejar programada la "próxima acción" tras cada contacto.</p>
                     <p><strong>Estados:</strong>
-                        <ul className="list-disc pl-5 mt-2 space-y-1 text-neutral-400">
+                        <ul className="list-disc pl-5 mt-2 space-y-1 text-[#A1A1AA]">
                             <li><strong>Frío:</strong> Le interesa pero a futuro.</li>
                             <li><strong>Caliente:</strong> Listo para reservar en las próximas 72hs.</li>
                             <li><strong>Perdido:</strong> Dejó de responder o compró en otro lado.</li>
@@ -78,7 +78,7 @@ export default function AyudaPage() {
             icon: CalendarClock,
             roles: ['Owner/Admin', 'Ventas', 'Administrativo', 'Solo lectura'],
             content: (
-                <div className="space-y-4 text-sm text-neutral-300">
+                <div className="space-y-4 text-sm text-[#FAFAFA]">
                     <p><strong>Revisar Tareas:</strong> Tu agenda te muestra lo que debes hacer hoy.</p>
                     <p><strong>Vencidas:</strong> Jamás debes tener tareas en rojo (vencidas).</p>
                 </div>
@@ -90,7 +90,7 @@ export default function AyudaPage() {
             icon: CalendarClock,
             roles: ['Owner/Admin', 'Ventas', 'Administrativo', 'Solo lectura'],
             content: (
-                <div className="space-y-4 text-sm text-neutral-300">
+                <div className="space-y-4 text-sm text-[#FAFAFA]">
                     <p><strong>Crear Reserva:</strong> Bloquea el stock de un vehículo al instante. Requiere vincular un Lead/Cliente.</p>
                     <p><strong>Convertir:</strong> Una vez aprobada, se pasa a Venta y genera el expediente formal.</p>
                     <p><strong>Cancelar:</strong> Libera el stock inmediatamente.</p>
@@ -103,7 +103,7 @@ export default function AyudaPage() {
             icon: Receipt,
             roles: ['Owner/Admin', 'Ventas', 'Administrativo', 'Solo lectura'],
             content: (
-                <div className="space-y-4 text-sm text-neutral-300">
+                <div className="space-y-4 text-sm text-[#FAFAFA]">
                     <p><strong>Revisar Venta:</strong> Centraliza cliente, vehículo, cuotas, transferencias y firmas.</p>
                     <p><strong>Comunicaciones:</strong> Registra todo contacto relevante al expediente.</p>
                     <p className="text-red-400"><strong>Importante:</strong> El vendedor no debe modificar aspectos financieros de la venta una vez aprobada.</p>
@@ -116,7 +116,7 @@ export default function AyudaPage() {
             icon: FileCheck,
             roles: ['Owner/Admin', 'Administrativo', 'Solo lectura'],
             content: (
-                <div className="space-y-4 text-sm text-neutral-300">
+                <div className="space-y-4 text-sm text-[#FAFAFA]">
                     <p><strong>Checklist:</strong> Marca el avance de DNI, informes de dominio, Verificación Policial, F08 y más.</p>
                 </div>
             )
@@ -127,7 +127,7 @@ export default function AyudaPage() {
             icon: Star,
             roles: ['Owner/Admin', 'Ventas', 'Administrativo', 'Solo lectura'],
             content: (
-                <div className="space-y-4 text-sm text-neutral-300">
+                <div className="space-y-4 text-sm text-[#FAFAFA]">
                     <p><strong>Seguimiento 24hs:</strong> Consulta cómo sintió el vehículo en su primer día.</p>
                     <p><strong>Seguimiento 7 días:</strong> Momento ideal para pedir reseña en Google.</p>
                 </div>
@@ -139,7 +139,7 @@ export default function AyudaPage() {
             icon: Flag,
             roles: ['Owner/Admin', 'Ventas', 'Administrativo'],
             content: (
-                <div className="space-y-4 text-sm text-neutral-300">
+                <div className="space-y-4 text-sm text-[#FAFAFA]">
                     <p><strong>Cumplimiento:</strong> Se actualizan automáticamente según ventas cerradas.</p>
                     <p><strong>Privacidad:</strong> Los vendedores solo pueden ver sus propias metas asignadas.</p>
                 </div>
@@ -153,7 +153,7 @@ export default function AyudaPage() {
             sensitive: true,
             permissionCheck: hasPermission(user, PERMISSIONS.PRODUCTIVIDAD_READ),
             content: (
-                <div className="space-y-4 text-sm text-neutral-300">
+                <div className="space-y-4 text-sm text-[#FAFAFA]">
                     <p><strong>KPIs:</strong> Control de tasas de cierre y velocidad de respuesta de todo el equipo.</p>
                     <p className="text-red-400"><strong>Privacidad:</strong> Los vendedores no deben ver las estadísticas comparativas de otros vendedores.</p>
                 </div>
@@ -167,7 +167,7 @@ export default function AyudaPage() {
             sensitive: true,
             permissionCheck: hasPermission(user, PERMISSIONS.CUOTAS_READ),
             content: (
-                <div className="space-y-4 text-sm text-neutral-300">
+                <div className="space-y-4 text-sm text-[#FAFAFA]">
                     <p><strong>Gestión:</strong> Control de fechas de vencimiento, moras e intereses.</p>
                     <p className="text-red-400"><strong>Prohibido:</strong> Nunca modificar montos sin autorización formal de gerencia.</p>
                 </div>
@@ -181,7 +181,7 @@ export default function AyudaPage() {
             sensitive: true,
             permissionCheck: hasPermission(user, PERMISSIONS.DATAQUALITY_READ),
             content: (
-                <div className="space-y-4 text-sm text-neutral-300">
+                <div className="space-y-4 text-sm text-[#FAFAFA]">
                     <p><strong>Inconsistencias:</strong> El panel detecta problemas como leads huérfanos o ventas sin cerrar.</p>
                     <p><strong>Resolución:</strong> La corrección siempre es manual haciendo clic en el enlace, el sistema nunca borra ni fusiona datos por su cuenta para preservar auditoría.</p>
                 </div>
@@ -195,7 +195,7 @@ export default function AyudaPage() {
             sensitive: true,
             permissionCheck: hasPermission(user, PERMISSIONS.SETTINGS_READ),
             content: (
-                <div className="space-y-4 text-sm text-neutral-300">
+                <div className="space-y-4 text-sm text-[#FAFAFA]">
                     <p><strong>Usuarios y Permisos:</strong> Gestión estricta de quién accede a qué.</p>
                     <p><strong>Plantillas:</strong> Textos predefinidos para uso operativo del equipo (solo admins pueden editarlas globalmente).</p>
                     <p><strong>Config General:</strong> Reglas operativas como la tolerancia en días para "Leads Fríos".</p>
@@ -210,7 +210,7 @@ export default function AyudaPage() {
             sensitive: true,
             permissionCheck: hasPermission(user, PERMISSIONS.EXPORTS_READ),
             content: (
-                <div className="space-y-4 text-sm text-neutral-300">
+                <div className="space-y-4 text-sm text-[#FAFAFA]">
                     <p><strong>Función:</strong> Generar respaldos CSV de módulos clave.</p>
                     <p className="text-red-400"><strong>Seguridad:</strong> No se exportan contraseñas, tokens, caja ni datos financieros ocultos para proteger la información comercial y privada.</p>
                 </div>
@@ -224,7 +224,7 @@ export default function AyudaPage() {
             sensitive: true,
             permissionCheck: hasPermission(user, PERMISSIONS.SYSTEMHEALTH_READ),
             content: (
-                <div className="space-y-4 text-sm text-neutral-300">
+                <div className="space-y-4 text-sm text-[#FAFAFA]">
                     <p><strong>Monitoreo:</strong> Verifica latencia de base de datos y alertas de desconexión.</p>
                     <p><strong>Alertas críticas:</strong> Si MongoDB figura Offline, contactar a soporte técnico inmediatamente.</p>
                 </div>
@@ -238,7 +238,7 @@ export default function AyudaPage() {
             sensitive: true,
             permissionCheck: hasPermission(user, PERMISSIONS.AUDITORIA_READ),
             content: (
-                <div className="space-y-4 text-sm text-neutral-300">
+                <div className="space-y-4 text-sm text-[#FAFAFA]">
                     <p><strong>Registro:</strong> Toda creación, edición y borrado queda grabada con fecha y autor.</p>
                     <p><strong>Objetivo:</strong> Trazabilidad absoluta de la operatoria para detectar posibles fraudes o errores humanos.</p>
                 </div>
@@ -250,7 +250,7 @@ export default function AyudaPage() {
             icon: ShieldAlert,
             roles: ['Owner/Admin', 'Ventas', 'Administrativo', 'Solo lectura'],
             content: (
-                <div className="space-y-4 text-sm text-neutral-300">
+                <div className="space-y-4 text-sm text-[#FAFAFA]">
                     <p><strong>Owner/Admin:</strong> Control total, visión irrestricta de márgenes y auditoría.</p>
                     <p><strong>Administrativo:</strong> Acceso a operatoria y documentación, sin acceso a márgenes (salvo permiso expreso).</p>
                     <p><strong>Ventas:</strong> Solo ve operaciones asignadas a sí mismo. No ve auditoría, configuración ni finanzas.</p>
@@ -284,7 +284,7 @@ export default function AyudaPage() {
                     </div>
                     <div>
                         <h1 className="text-3xl font-bold tracking-tight text-white">Centro de Ayuda del CRM</h1>
-                        <p className="text-neutral-400 mt-2">
+                        <p className="text-[#A1A1AA] mt-2">
                             Manual operativo y buenas prácticas para el equipo de AutoSporting.
                         </p>
                     </div>

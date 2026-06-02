@@ -2,6 +2,7 @@ import React from 'react';
 import Link from 'next/link';
 import { Calendar, Handshake, Target, Bell } from 'lucide-react';
 import InstallmentStatusBadge from '../installments/InstallmentStatusBadge';
+import CrmButton from '../../crm/ui/CrmButton';
 
 export default function CollectionsTable({ installments, onEdit, onRegisterPayment, onCreateReminder }) {
     if (!installments || installments.length === 0) {
@@ -17,22 +18,22 @@ export default function CollectionsTable({ installments, onEdit, onRegisterPayme
     }
 
     return (
-        <div className="hidden md:block bg-neutral-900 border border-neutral-800 rounded-2xl overflow-hidden">
+        <div className="hidden md:block bg-[#1E1E24] border border-[#33333A] rounded-2xl overflow-hidden">
             <div className="overflow-x-auto">
                 <table className="w-full text-left border-collapse">
                     <thead>
-                        <tr className="border-b border-neutral-800 bg-[#161619]">
-                            <th className="p-4 text-xs font-bold text-neutral-500 uppercase tracking-wider">Vencimiento</th>
-                            <th className="p-4 text-xs font-bold text-neutral-500 uppercase tracking-wider">Cliente / Venta</th>
-                            <th className="p-4 text-xs font-bold text-neutral-500 uppercase tracking-wider">Cuota</th>
-                            <th className="p-4 text-xs font-bold text-neutral-500 uppercase tracking-wider">Estado</th>
-                            <th className="p-4 text-xs font-bold text-neutral-500 uppercase tracking-wider text-right">Importe</th>
-                            <th className="p-4 text-xs font-bold text-neutral-500 uppercase tracking-wider text-right">Cobrado</th>
-                            <th className="p-4 text-xs font-bold text-neutral-500 uppercase tracking-wider text-right">Saldo</th>
-                            <th className="p-4 text-xs font-bold text-neutral-500 uppercase tracking-wider text-center">Acciones</th>
+                        <tr className="border-b border-[#33333A] bg-[#161619]">
+                            <th className="p-4 text-xs font-bold text-[#A1A1AA] uppercase tracking-wider">Vencimiento</th>
+                            <th className="p-4 text-xs font-bold text-[#A1A1AA] uppercase tracking-wider">Cliente / Venta</th>
+                            <th className="p-4 text-xs font-bold text-[#A1A1AA] uppercase tracking-wider">Cuota</th>
+                            <th className="p-4 text-xs font-bold text-[#A1A1AA] uppercase tracking-wider">Estado</th>
+                            <th className="p-4 text-xs font-bold text-[#A1A1AA] uppercase tracking-wider text-right">Importe</th>
+                            <th className="p-4 text-xs font-bold text-[#A1A1AA] uppercase tracking-wider text-right">Cobrado</th>
+                            <th className="p-4 text-xs font-bold text-[#A1A1AA] uppercase tracking-wider text-right">Saldo</th>
+                            <th className="p-4 text-xs font-bold text-[#A1A1AA] uppercase tracking-wider text-center">Acciones</th>
                         </tr>
                     </thead>
-                    <tbody className="divide-y divide-neutral-800/50">
+                    <tbody className="divide-y divide-[#33333A]">
                         {installments.map(inst => {
                             const clientName = inst.clientId?.fullName || inst.clientId?.firstName || 'Sin cliente';
                             const clientPhone = inst.clientId?.phone || '';
@@ -57,7 +58,7 @@ export default function CollectionsTable({ installments, onEdit, onRegisterPayme
                             const hasOverdueNoCobroWarning = isOverdue && balanceCuota === 0;
 
                             return (
-                                <tr key={inst._id} className="hover:bg-black/20 transition-colors">
+                                <tr key={inst._id} className="hover:bg-[#28282E] transition-colors">
                                     {/* Fecha Vencimiento */}
                                     <td className="p-4 whitespace-nowrap">
                                         <div className="flex items-center gap-2">
@@ -156,7 +157,7 @@ export default function CollectionsTable({ installments, onEdit, onRegisterPayme
                                             {inst.status !== 'anulada' && (
                                                 <button 
                                                     onClick={() => onRegisterPayment && onRegisterPayment(inst)}
-                                                    className="w-full py-1.5 rounded-md bg-green-500/10 text-green-400 hover:bg-green-500/20 text-xs font-bold transition-colors border border-green-500/20"
+                                                    className="w-full py-1.5 rounded-md bg-[#22C55E]/10 text-[#22C55E] hover:bg-[#22C55E]/20 text-xs font-bold transition-colors border border-[#22C55E]/20"
                                                 >
                                                     Cobrar
                                                 </button>
@@ -164,17 +165,18 @@ export default function CollectionsTable({ installments, onEdit, onRegisterPayme
                                             {(!inst.reminderInfo || inst.reminderInfo.status === 'none' || inst.reminderInfo.status === 'completado' || inst.reminderInfo.status === 'cancelado') && inst.status !== 'anulada' && (
                                                 <button 
                                                     onClick={() => onCreateReminder && onCreateReminder(inst)}
-                                                    className="w-full py-1.5 rounded-md bg-orange-500/10 text-orange-400 hover:bg-orange-500/20 text-xs font-bold transition-colors border border-orange-500/20"
+                                                    className="w-full py-1.5 rounded-md bg-[#EF3329]/10 text-[#EF3329] hover:bg-[#EF3329]/20 text-xs font-bold transition-colors border border-[#EF3329]/20"
                                                 >
                                                     Agendar
                                                 </button>
                                             )}
-                                            <button 
+                                            <CrmButton 
+                                                variant="secondary"
                                                 onClick={() => onEdit(inst)}
-                                                className="text-xs font-bold text-blue-400 hover:text-blue-300 transition-colors"
+                                                className="w-full py-1.5"
                                             >
                                                 Gestionar
-                                            </button>
+                                            </CrmButton>
                                         </div>
                                     </td>
                                 </tr>

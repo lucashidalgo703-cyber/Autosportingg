@@ -13,11 +13,11 @@ export default function AdminUsersTable({ users, onEdit, onChangePassword }) {
 
     const getRoleBadge = (role) => {
         switch(role) {
-            case 'owner': return <span className="bg-red-500/10 text-red-500 border border-red-500/20 px-2 py-1 rounded text-[10px] font-bold uppercase">Owner</span>;
+            case 'owner': return <span className="bg-[#EF3329]/10 text-[#EF3329] border border-[#EF3329]/20 px-2 py-1 rounded text-[10px] font-bold uppercase">Owner</span>;
             case 'admin': return <span className="bg-purple-500/10 text-purple-500 border border-purple-500/20 px-2 py-1 rounded text-[10px] font-bold uppercase">Admin</span>;
             case 'ventas': return <span className="bg-green-500/10 text-green-500 border border-green-500/20 px-2 py-1 rounded text-[10px] font-bold uppercase">Ventas</span>;
             case 'administrativo': return <span className="bg-blue-500/10 text-blue-500 border border-blue-500/20 px-2 py-1 rounded text-[10px] font-bold uppercase">Admin.</span>;
-            default: return <span className="bg-neutral-500/10 text-neutral-400 border border-neutral-500/20 px-2 py-1 rounded text-[10px] font-bold uppercase">Lectura</span>;
+            default: return <span className="bg-[#1E1E24] text-[#A1A1AA] border border-[#33333A] px-2 py-1 rounded text-[10px] font-bold uppercase">Lectura</span>;
         }
     };
 

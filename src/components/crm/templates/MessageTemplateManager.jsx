@@ -98,8 +98,8 @@ export default function MessageTemplateManager() {
     const canDelete = ['owner', 'admin'].includes(role) || hasPermission('messageTemplates.delete');
 
     return (
-        <div className="bg-[#111217] rounded-xl border border-white/10 overflow-hidden">
-            <div className="p-4 border-b border-white/10 flex flex-col sm:flex-row justify-between items-center gap-4">
+        <div className="bg-[#1E1E24] rounded-xl border border-[#33333A] overflow-hidden">
+            <div className="p-4 border-b border-[#33333A] flex flex-col sm:flex-row justify-between items-center gap-4">
                 <div className="flex gap-2 w-full sm:w-auto">
                     <div className="relative flex-1 sm:w-64">
                         <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#71717A]" />
@@ -150,7 +150,7 @@ export default function MessageTemplateManager() {
             </div>
 
             <div className="overflow-x-auto">
-                <table className="w-full text-left text-sm text-neutral-300">
+                <table className="w-full text-left text-sm text-[#FAFAFA]">
                     <thead className="bg-[#161619] text-xs text-[#A1A1AA] uppercase font-medium border-b border-[#33333A]">
                         <tr>
                             <th className="px-6 py-3">Nombre</th>
@@ -160,16 +160,16 @@ export default function MessageTemplateManager() {
                             <th className="px-6 py-3 text-right">Acciones</th>
                         </tr>
                     </thead>
-                    <tbody className="divide-y divide-white/5">
+                    <tbody className="divide-y divide-[#33333A]">
                         {loading ? (
                             <tr>
-                                <td colSpan="5" className="px-6 py-8 text-center text-gray-500">
+                                <td colSpan="5" className="px-6 py-8 text-center text-[#A1A1AA]">
                                     Cargando plantillas...
                                 </td>
                             </tr>
                         ) : templates.length === 0 ? (
                             <tr>
-                                <td colSpan="5" className="px-6 py-8 text-center text-neutral-500">
+                                <td colSpan="5" className="px-6 py-8 text-center text-[#A1A1AA]">
                                     No se encontraron plantillas.
                                 </td>
                             </tr>

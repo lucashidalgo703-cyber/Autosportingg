@@ -16,7 +16,7 @@ export default function PlantillasPage() {
             <div className="p-6 max-w-7xl mx-auto">
                 <div className="mb-6">
                     <h1 className="text-2xl font-bold text-white">Plantillas de Mensajes</h1>
-                    <p className="text-neutral-400 mt-1">
+                    <p className="text-[#A1A1AA] mt-1">
                         Gestioná los textos predefinidos para agilizar la comunicación operativa y comercial.
                     </p>
                 </div>
