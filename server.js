@@ -2305,8 +2305,16 @@ app.post('/api/admin/reservations/:id/convert-to-sale', authenticateToken, async
             return res.status(400).json({ error: "La reserva debe tener un vehículo vinculado antes de convertirla en venta." });
         }
 
-        const existingSale = await Sale.findOne({ vehicleId, status: { $ne: 'cancelada' } });
-        if (existingSale) throw new Error('There is already an active sale for this vehicle');
+        const existingSale = await Sale.findOne({ vehicleId, status: { $ne: 'cancelada' } }).populate('clientId', 'firstName fullName');
+        if (existingSale) {
+            return res.status(409).json({
+                error: 'Este vehículo ya tiene una venta activa asociada.',
+                activeSaleId: existingSale._id,
+                activeSaleStatus: existingSale.status,
+                activeSaleClientName: existingSale.clientId ? (existingSale.clientId.fullName || existingSale.clientId.firstName) : 'Sin Nombre',
+                canResolve: true
+            });
+        }
 
         const finalSalePrice = salePrice !== undefined ? salePrice : reservation.agreedPrice;
         const finalSaleCurrency = saleCurrency !== undefined ? saleCurrency : reservation.agreedCurrency;
@@ -2535,6 +2543,83 @@ app.post('/api/admin/sales/:id/backfill-client-from-reservation', authenticateTo
         res.json(populatedSale);
     } catch (error) {
         console.error('Error backfilling client from reservation:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// PATCH cancel sale
+app.patch('/api/admin/sales/:id/cancel', authenticateToken, async (req, res) => {
+    try {
+        await connectDB();
+        const { reason } = req.body;
+        if (!reason || reason.trim() === '') {
+            return res.status(400).json({ error: 'El motivo de anulación es obligatorio.' });
+        }
+
+        const sale = await Sale.findById(req.params.id);
+        if (!sale) return res.status(404).json({ error: 'Sale not found' });
+        
+        if (sale.status === 'cancelada') {
+            return res.status(400).json({ error: 'La venta ya se encuentra anulada.' });
+        }
+
+        const userRole = req.user?.role || 'solo_lectura';
+        const user = req.user?.username || 'Admin';
+
+        // Check for financial records to enforce permissions
+        const transactions = await Transaction.find({ saleId: sale._id });
+        const installments = await Installment.find({ saleId: sale._id });
+        
+        if (transactions.length > 0 || installments.length > 0) {
+            if (!['owner', 'admin'].includes(userRole)) {
+                return res.status(403).json({ error: 'La venta tiene movimientos o cuotas. Solo un administrador puede anularla.' });
+            }
+        } else {
+            // Vendors might be allowed? The prompt says "Vendedor: no puede anular ventas salvo permiso explícito ya existente."
+            // We'll enforce owner/admin or ventascancel permission. Since "ventascancel" might not exist, we just restrict to owner/admin.
+            const perms = req.user?.permissions || [];
+            if (!['owner', 'admin'].includes(userRole) && !perms.includes('ventas.cancel')) {
+                return res.status(403).json({ error: 'No tienes permisos para anular ventas.' });
+            }
+        }
+
+        sale.status = 'cancelada';
+        sale.cancelledAt = new Date();
+        sale.cancelledBy = user;
+        sale.cancellationReason = reason;
+        
+        if (!sale.saleAuditLog) sale.saleAuditLog = [];
+        sale.saleAuditLog.push({
+            action: 'VENTA_ANULADA',
+            field: 'status',
+            oldValue: sale.status, // will be 'confirmada' or whatever it was
+            newValue: 'cancelada',
+            details: `Motivo: ${reason}`,
+            user: user,
+            source: 'CRM_V2'
+        });
+
+        await logAudit({
+            req,
+            action: 'VENTA_ANULADA',
+            module: 'ventas',
+            entityType: 'Sale',
+            entityId: sale._id,
+            entityLabel: 'Venta',
+            description: `Se anuló la venta por motivo: ${reason}.`,
+            metadata: { reason }
+        });
+
+        await sale.save();
+        
+        // Return updated sale
+        const populatedSale = await Sale.findById(sale._id)
+            .populate('clientId', 'firstName lastName fullName phone email')
+            .lean();
+
+        res.json(populatedSale);
+    } catch (error) {
+        console.error('Error cancelling sale:', error);
         res.status(500).json({ error: error.message });
     }
 });

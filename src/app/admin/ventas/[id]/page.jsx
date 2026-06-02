@@ -16,7 +16,7 @@ import CommunicationLogPanel from '../../../../components/crm/communications/Com
 import MessageTemplatePicker from '../../../../components/crm/templates/MessageTemplatePicker';
 import CrmTaskModal from '../../../../components/crm/agenda/CrmTaskModal';
 import { useAdminCrmTasks } from '../../../../hooks/useAdminCrmTasks';
-import { ShieldAlert, Target } from 'lucide-react';
+import { ShieldAlert, Target, XCircle, Info } from 'lucide-react';
 import { useAuth } from '../../../../context/AuthContext';
 import { hasPermission, PERMISSIONS } from '../../../../utils/adminPermissions';
 
@@ -28,6 +28,9 @@ export default function SaleDetailPage() {
     const { user, token } = useAuth();
     const [sale, setSale] = useState(null);
     const [isTaskModalOpen, setIsTaskModalOpen] = useState(false);
+    const [isCancelModalOpen, setIsCancelModalOpen] = useState(false);
+    const [cancelReason, setCancelReason] = useState('');
+    const [isCancelling, setIsCancelling] = useState(false);
 
     useEffect(() => {
         if (id) {
@@ -89,6 +92,40 @@ export default function SaleDetailPage() {
         }
     };
 
+    const handleCancelSale = async () => {
+        if (!cancelReason.trim()) {
+            alert('El motivo de anulación es obligatorio.');
+            return;
+        }
+
+        setIsCancelling(true);
+        try {
+            const res = await fetch(`/api/admin/sales/${id}/cancel`, {
+                method: 'PATCH',
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ reason: cancelReason })
+            });
+
+            if (!res.ok) {
+                const data = await res.json().catch(() => ({}));
+                throw new Error(data.error || data.message || 'Error al anular la venta');
+            }
+
+            const updatedSale = await res.json();
+            setSale(updatedSale);
+            setIsCancelModalOpen(false);
+            setCancelReason('');
+            alert('La venta ha sido anulada exitosamente.');
+        } catch (error) {
+            alert(error.message);
+        } finally {
+            setIsCancelling(false);
+        }
+    };
+
     if (loading && !sale) {
         return (
             <div className="flex-1 flex justify-center items-center min-h-[50vh]">
@@ -124,6 +161,15 @@ export default function SaleDetailPage() {
                 sale={sale} 
                 actions={
                     <div className="flex gap-2">
+                        {sale.status !== 'cancelada' && (['owner', 'admin'].includes(user?.role) || hasPermission(user, PERMISSIONS.VENTAS_CANCEL)) && (
+                            <button
+                                onClick={() => setIsCancelModalOpen(true)}
+                                className="flex items-center gap-2 px-3 py-1.5 bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/20 rounded-lg text-xs font-bold transition-colors"
+                            >
+                                <XCircle size={14} />
+                                Anular Venta
+                            </button>
+                        )}
                         <MessageTemplatePicker 
                             category="sale"
                             entityData={{
@@ -234,6 +280,57 @@ export default function SaleDetailPage() {
                     ...(sale.vehicleId && { vehicleId: sale.vehicleId._id || sale.vehicleId })
                 }}
             />
+
+            {isCancelModalOpen && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
+                    <div className="bg-[#161619] border border-red-900/50 rounded-2xl w-full max-w-md shadow-2xl p-6">
+                        <div className="flex items-center gap-3 mb-4">
+                            <div className="w-10 h-10 rounded-full bg-red-500/10 flex items-center justify-center">
+                                <XCircle className="text-red-500" size={24} />
+                            </div>
+                            <div>
+                                <h3 className="text-lg font-bold text-white">Anular Venta</h3>
+                                <p className="text-xs text-neutral-400">Esta acción no se puede deshacer.</p>
+                            </div>
+                        </div>
+
+                        <div className="mb-4 bg-orange-500/10 border border-orange-500/20 p-3 rounded-lg">
+                            <p className="text-xs text-orange-200 flex items-start gap-2">
+                                <Info size={14} className="shrink-0 mt-0.5" />
+                                La venta quedará anulada para auditoría. No se modificarán caja, cuotas ni movimientos financieros automáticamente.
+                            </p>
+                        </div>
+
+                        <div className="mb-4">
+                            <label className="block text-xs font-bold text-neutral-400 uppercase mb-2">
+                                Motivo de Anulación
+                            </label>
+                            <textarea
+                                value={cancelReason}
+                                onChange={(e) => setCancelReason(e.target.value)}
+                                placeholder="Escribe el motivo aquí..."
+                                className="w-full bg-black/40 border border-red-500/30 rounded-xl p-3 text-sm text-white focus:outline-none focus:border-red-500 min-h-[100px] resize-none"
+                            ></textarea>
+                        </div>
+
+                        <div className="flex justify-end gap-3 mt-6">
+                            <button
+                                onClick={() => setIsCancelModalOpen(false)}
+                                className="px-4 py-2 bg-neutral-800 hover:bg-neutral-700 text-white rounded-lg text-sm font-bold transition-colors"
+                            >
+                                Cancelar
+                            </button>
+                            <button
+                                onClick={handleCancelSale}
+                                disabled={isCancelling || !cancelReason.trim()}
+                                className="px-4 py-2 bg-red-600 hover:bg-red-500 text-white rounded-lg text-sm font-bold transition-colors disabled:opacity-50"
+                            >
+                                {isCancelling ? 'Anulando...' : 'Confirmar Anulación'}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
 
         </div>
     );

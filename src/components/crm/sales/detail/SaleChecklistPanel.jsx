@@ -49,6 +49,7 @@ export default function SaleChecklistPanel({ sale, type, onSave }) {
     }, [sale, fieldName, isDoc]);
 
     const handleToggle = (key) => {
+        if (sale.status === 'cancelada') return;
         setChecklist(prev => prev.map(item => {
             if (item.key === key) {
                 const nowCompleted = !item.completed;
@@ -90,7 +91,7 @@ export default function SaleChecklistPanel({ sale, type, onSave }) {
                     <CheckSquare size={16} className={isDoc ? "text-purple-500" : "text-green-500"} />
                     <h3 className="text-sm font-bold text-white uppercase tracking-wider">{title}</h3>
                 </div>
-                {hasChanges && (
+                {hasChanges && sale.status !== 'cancelada' && (
                     <button 
                         onClick={handleSaveClick}
                         disabled={isSaving}
@@ -145,11 +146,12 @@ export default function SaleChecklistPanel({ sale, type, onSave }) {
                                 className="hidden" 
                                 checked={item.completed}
                                 onChange={() => handleToggle(item.key)}
+                                disabled={sale.status === 'cancelada'}
                             />
                             <div className={`w-5 h-5 rounded flex items-center justify-center shrink-0 border mt-0.5 transition-colors ${
                                 item.completed 
                                     ? (isDoc ? 'bg-purple-500 border-purple-500' : 'bg-green-500 border-green-500') 
-                                    : 'bg-black/50 border-neutral-600 group-hover:border-neutral-500'
+                                    : (sale.status === 'cancelada' ? 'bg-neutral-800/50 border-neutral-700' : 'bg-black/50 border-neutral-600 group-hover:border-neutral-500')
                             }`}>
                                 {item.completed && <CheckSquare size={12} className="text-white opacity-0" />}
                                 {item.completed && (

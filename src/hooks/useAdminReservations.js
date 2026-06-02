@@ -121,7 +121,9 @@ export function useAdminReservations() {
 
             if (!res.ok) {
                 const errData = await res.json().catch(() => ({}));
-                throw new Error(errData.message || 'Error al convertir la reserva a venta');
+                const err = new Error(errData.error || errData.message || 'Error al convertir la reserva a venta');
+                err.data = errData;
+                throw err;
             }
 
             return await res.json();

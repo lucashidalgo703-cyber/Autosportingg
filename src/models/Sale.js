@@ -67,6 +67,11 @@ const saleSchema = new mongoose.Schema({
     createdBy: { type: String },
     updatedBy: { type: String },
     
+    cancelledAt: { type: Date },
+    cancelledBy: { type: String },
+    cancellationReason: { type: String },
+    cancellationNotes: { type: String },
+    
     assignedTo: { type: mongoose.Schema.Types.ObjectId, ref: 'AdminUser', default: null },
     assignedAt: { type: Date },
     

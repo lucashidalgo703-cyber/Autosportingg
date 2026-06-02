@@ -96,7 +96,7 @@ export default function SaleStatusPanel({ sale, onSave }) {
                     <Activity size={16} className="text-orange-500" />
                     <h3 className="text-sm font-bold text-white uppercase tracking-wider">Estados Operativos</h3>
                 </div>
-                {hasChanges && (
+                {hasChanges && sale.status !== 'cancelada' && (
                     <button 
                         onClick={handleSaveClick}
                         disabled={isSaving}
@@ -138,7 +138,7 @@ export default function SaleStatusPanel({ sale, onSave }) {
                             <ShieldCheck size={14} />
                             Documentación
                         </label>
-                        {docStatus !== 'completo' && (
+                        {docStatus !== 'completo' && sale.status !== 'cancelada' && (
                             <button 
                                 onClick={() => handleQuickAction('documentacion_completa')}
                                 disabled={isSaving}
@@ -162,7 +162,8 @@ export default function SaleStatusPanel({ sale, onSave }) {
                     <select 
                         value={docStatus}
                         onChange={handleDocChange}
-                        className="w-full bg-black/40 border border-neutral-800 rounded-xl py-2 px-3 text-sm text-white focus:outline-none focus:border-neutral-600 transition-colors appearance-none cursor-pointer font-medium"
+                        disabled={sale.status === 'cancelada'}
+                        className="w-full bg-black/40 border border-neutral-800 rounded-xl py-2 px-3 text-sm text-white focus:outline-none focus:border-neutral-600 transition-colors appearance-none cursor-pointer font-medium disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                         <option value="pendiente">Pendiente (Incompleto)</option>
                         <option value="parcial">Parcial (En proceso)</option>
@@ -178,7 +179,7 @@ export default function SaleStatusPanel({ sale, onSave }) {
                             Logística y Entrega
                         </label>
                         <div className="flex gap-1">
-                            {delStatus === 'preparando' && docStatus === 'completo' && (
+                            {delStatus === 'preparando' && docStatus === 'completo' && sale.status !== 'cancelada' && (
                                 <button 
                                     onClick={() => handleQuickAction('listo_para_entregar')}
                                     disabled={isSaving}
@@ -187,7 +188,7 @@ export default function SaleStatusPanel({ sale, onSave }) {
                                     Listo para Entregar
                                 </button>
                             )}
-                            {delStatus === 'listo_para_entregar' && (
+                            {delStatus === 'listo_para_entregar' && sale.status !== 'cancelada' && (
                                 <button 
                                     onClick={() => handleQuickAction('entregado')}
                                     disabled={isSaving}
@@ -212,7 +213,8 @@ export default function SaleStatusPanel({ sale, onSave }) {
                     <select 
                         value={delStatus}
                         onChange={handleDelChange}
-                        className="w-full bg-black/40 border border-neutral-800 rounded-xl py-2 px-3 text-sm text-white focus:outline-none focus:border-neutral-600 transition-colors appearance-none cursor-pointer font-medium"
+                        disabled={sale.status === 'cancelada'}
+                        className="w-full bg-black/40 border border-neutral-800 rounded-xl py-2 px-3 text-sm text-white focus:outline-none focus:border-neutral-600 transition-colors appearance-none cursor-pointer font-medium disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                         <option value="pendiente">Pendiente</option>
                         <option value="preparando">Preparando Vehículo</option>

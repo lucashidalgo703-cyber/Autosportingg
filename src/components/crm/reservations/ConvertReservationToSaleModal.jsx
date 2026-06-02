@@ -7,6 +7,10 @@ export default function ConvertReservationToSaleModal({ isOpen, onClose, onSucce
     const { convertReservationToSale } = useAdminReservations();
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState(null);
+    const [conflictData, setConflictData] = useState(null);
+    const [isCancelling, setIsCancelling] = useState(false);
+    const [cancelReason, setCancelReason] = useState('');
+    const [showCancelModal, setShowCancelModal] = useState(false);
 
     const [formData, setFormData] = useState({
         salePrice: 0,
@@ -83,6 +87,9 @@ export default function ConvertReservationToSaleModal({ isOpen, onClose, onSucce
                 notes: ''
             });
             setError(null);
+            setConflictData(null);
+            setShowCancelModal(false);
+            setCancelReason('');
         }
     }, [isOpen, reservation]);
 
@@ -113,6 +120,7 @@ export default function ConvertReservationToSaleModal({ isOpen, onClose, onSucce
 
         setLoading(true);
         setError(null);
+        setConflictData(null);
 
         try {
             if (typeof convertReservationToSale !== 'function') {
@@ -131,9 +139,48 @@ export default function ConvertReservationToSaleModal({ isOpen, onClose, onSucce
             }
         } catch (err) {
             console.error('Error al convertir reserva a venta:', err);
-            setError(err.message || 'Ocurrió un error al intentar convertir la reserva.');
+            if (err.data && err.data.activeSaleId) {
+                setConflictData(err.data);
+            } else {
+                setError(err.message || 'Ocurrió un error al intentar convertir la reserva.');
+            }
         } finally {
             setLoading(false);
+        }
+    };
+
+    const handleCancelActiveSale = async () => {
+        if (!cancelReason.trim()) {
+            alert('El motivo es obligatorio.');
+            return;
+        }
+
+        setIsCancelling(true);
+        try {
+            const token = localStorage.getItem('token');
+            const res = await fetch(`/api/admin/sales/${conflictData.activeSaleId}/cancel`, {
+                method: 'PATCH',
+                headers: { 
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ reason: cancelReason })
+            });
+
+            if (!res.ok) {
+                const data = await res.json();
+                throw new Error(data.error || 'Error al anular la venta');
+            }
+
+            // Éxito, ocultar el conflicto para permitir intentar de nuevo
+            setConflictData(null);
+            setShowCancelModal(false);
+            setCancelReason('');
+            alert('Venta anulada correctamente. Ahora podés intentar convertir la reserva.');
+        } catch (err) {
+            alert(err.message);
+        } finally {
+            setIsCancelling(false);
         }
     };
 
@@ -227,6 +274,86 @@ export default function ConvertReservationToSaleModal({ isOpen, onClose, onSucce
 
                 {/* Content */}
                 <div className="p-4 sm:p-6 overflow-y-auto flex-1 custom-scrollbar">
+                    
+                    {/* Conflicto de Venta Activa */}
+                    {conflictData && (
+                        <div className="mb-6 bg-red-500/10 border border-red-500/20 p-4 rounded-xl flex flex-col gap-3">
+                            <div className="flex gap-3 items-start">
+                                <AlertTriangle size={20} className="text-red-500 shrink-0 mt-0.5" />
+                                <div className="text-sm text-red-200">
+                                    <span className="font-bold block mb-1">Este vehículo ya tiene una venta activa asociada.</span>
+                                    <p className="opacity-80 mb-2">No se puede convertir la reserva hasta que la venta actual sea anulada o resuelta.</p>
+                                    <div className="bg-black/40 p-2 rounded text-xs space-y-1 mb-3 font-medium">
+                                        <div className="flex justify-between">
+                                            <span className="text-red-400/80">Vehículo:</span>
+                                            <span>{vehicleName}</span>
+                                        </div>
+                                        <div className="flex justify-between">
+                                            <span className="text-red-400/80">Cliente:</span>
+                                            <span>{conflictData.activeSaleClientName}</span>
+                                        </div>
+                                        <div className="flex justify-between">
+                                            <span className="text-red-400/80">Estado:</span>
+                                            <span className="uppercase">{conflictData.activeSaleStatus}</span>
+                                        </div>
+                                    </div>
+                                    
+                                    <div className="flex flex-wrap gap-2">
+                                        <a 
+                                            href={`/admin/ventas/${conflictData.activeSaleId}`} 
+                                            target="_blank" rel="noopener noreferrer"
+                                            className="px-3 py-1.5 bg-neutral-800 hover:bg-neutral-700 text-white rounded text-xs font-bold transition-colors"
+                                        >
+                                            Ver venta activa
+                                        </a>
+                                        <button 
+                                            onClick={() => setShowCancelModal(true)}
+                                            className="px-3 py-1.5 bg-red-600 hover:bg-red-500 text-white rounded text-xs font-bold transition-colors"
+                                        >
+                                            Anular venta activa
+                                        </button>
+                                        <button 
+                                            onClick={() => setConflictData(null)}
+                                            className="px-3 py-1.5 bg-transparent border border-red-500/30 hover:bg-red-500/10 text-red-300 rounded text-xs font-bold transition-colors"
+                                        >
+                                            Reintentar conversión
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {showCancelModal && (
+                                <div className="mt-2 p-3 bg-red-950/40 border border-red-500/30 rounded-lg">
+                                    <p className="text-xs text-red-300 mb-2 font-bold flex items-center gap-1">
+                                        <Info size={12} />
+                                        La venta quedará anulada para auditoría. No se modificarán caja, cuotas ni movimientos financieros automáticamente.
+                                    </p>
+                                    <input 
+                                        type="text" 
+                                        placeholder="Motivo de la anulación (obligatorio)" 
+                                        value={cancelReason}
+                                        onChange={(e) => setCancelReason(e.target.value)}
+                                        className="w-full bg-black/40 border border-red-500/30 rounded py-2 px-3 text-sm text-white mb-2 focus:outline-none focus:border-red-500"
+                                    />
+                                    <div className="flex justify-end gap-2">
+                                        <button 
+                                            onClick={() => setShowCancelModal(false)}
+                                            className="px-3 py-1.5 bg-neutral-800 text-neutral-300 text-xs rounded font-bold"
+                                        >
+                                            Cancelar
+                                        </button>
+                                        <button 
+                                            onClick={handleCancelActiveSale}
+                                            disabled={isCancelling || !cancelReason.trim()}
+                                            className="px-3 py-1.5 bg-red-600 text-white text-xs rounded font-bold disabled:opacity-50"
+                                        >
+                                            {isCancelling ? 'Anulando...' : 'Confirmar anulación'}
+                                        </button>
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+                    )}
                     
                     {/* Alerta importante UX */}
                     <div className="mb-6 bg-orange-500/10 border border-orange-500/20 p-4 rounded-xl flex gap-3 items-start">
