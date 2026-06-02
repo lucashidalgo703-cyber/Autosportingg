@@ -443,9 +443,10 @@ app.get('/api/public/cars', async (req, res) => {
         await connectDB();
         res.setHeader('Cache-Control', 'no-store, max-age=0');
         // Only return visible/public cars. We use $ne: false so existing cars without the field are still visible.
+        // We exclude specifically 'Vendido', 'Reservado', 'Pausado', 'Cancelado', 'Eliminado'
         const cars = await Car.find({ 
             visibleEnWeb: { $ne: false },
-            status: { $regex: /^(disponible|en venta|publicado)$/i }
+            status: { $nin: [/^vendido$/i, /^reservado$/i, /^pausado$/i, /^cancelado$/i, /^eliminado$/i] }
         })
             .select('-purchasePrice -purchaseCurrency -ownerName -ownerEmail -ownerPhone -linkedClient -consignedBy -notes -agencyOwned -engineNumber -chassisNumber -location -hasManuals -hasDuplicateKeys -hasOfficialServices -publishedOnML -publishedBy -mlLink -plateOrVin -expenses -visibleEnWeb -createdAt -updatedAt -__v -order -owners -auditLog')
             .sort({ order: 1, createdAt: -1 });
@@ -462,7 +463,7 @@ app.get('/api/public/cars/:id', async (req, res) => {
         const car = await Car.findOne({ 
             _id: req.params.id, 
             visibleEnWeb: { $ne: false },
-            status: { $regex: /^(disponible|en venta|publicado)$/i }
+            status: { $nin: [/^vendido$/i, /^reservado$/i, /^pausado$/i, /^cancelado$/i, /^eliminado$/i] }
         })
             .select('-purchasePrice -purchaseCurrency -ownerName -ownerEmail -ownerPhone -linkedClient -consignedBy -notes -agencyOwned -engineNumber -chassisNumber -location -hasManuals -hasDuplicateKeys -hasOfficialServices -publishedOnML -publishedBy -mlLink -plateOrVin -expenses -visibleEnWeb -createdAt -updatedAt -__v -order -owners -auditLog');
         

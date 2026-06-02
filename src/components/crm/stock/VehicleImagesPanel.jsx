@@ -7,7 +7,7 @@ import CrmCard from '../ui/CrmCard';
 export default function VehicleImagesPanel({ vehicle, onSaveComplete }) {
     const [isDragging, setIsDragging] = useState(false);
     const [files, setFiles] = useState(
-        (vehicle?.images || []).map(url => ({ preview: url, isExisting: true, url }))
+        (vehicle?.fotos || vehicle?.images || []).map(url => ({ preview: url, isExisting: true, url }))
     );
     const [draggedIndex, setDraggedIndex] = useState(null);
     const [isSaving, setIsSaving] = useState(false);

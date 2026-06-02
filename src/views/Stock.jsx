@@ -251,7 +251,7 @@ const Stock = ({ cars = [], refreshCars, handleEdit, handleDelete, handleMove })
                                         <div className="w-1 h-1 bg-current rounded-full"></div>
                                         {car.status || 'Disponible'}
                                     </span>
-                                    {car.visibleEnWeb !== false && (car.status || 'Disponible').toLowerCase() === 'disponible' ? (
+                                    {car.visibleEnWeb !== false && !['vendido', 'reservado', 'pausado', 'cancelado', 'eliminado'].includes((car.status || '').toLowerCase()) ? (
                                         <span className="text-[8px] text-blue-400 font-bold uppercase tracking-wider flex items-center gap-0.5">
                                             <span className="w-1.5 h-1.5 bg-blue-400 rounded-full inline-block"></span> Publicado
                                         </span>

@@ -9,8 +9,9 @@ export default function VehicleWebStatusPanel({ vehicle, onSaveComplete }) {
     const [status, setStatus] = useState(vehicle?.status || 'Disponible');
     const [isSaving, setIsSaving] = useState(false);
 
-    const isPublicado = visibleEnWeb && status.toLowerCase() === 'disponible';
-    const imageCount = vehicle?.images?.length || 0;
+    const isPublishableStatus = status && !['vendido', 'reservado', 'pausado', 'cancelado', 'eliminado'].includes(status.toLowerCase());
+    const isPublicado = visibleEnWeb !== false && isPublishableStatus;
+    const imageCount = vehicle?.fotos?.length || vehicle?.images?.length || 0;
 
     const handleSave = async () => {
         try {
@@ -92,8 +93,9 @@ export default function VehicleWebStatusPanel({ vehicle, onSaveComplete }) {
                         <AlertTriangle size={16} className="text-[#EAB308] shrink-0 mt-0.5" />
                         <p className="text-xs text-[#EAB308] leading-relaxed">
                             {status.toLowerCase() === 'pausado' ? 'Este vehículo está pausado y no aparece en el catálogo.' : 
-                             !visibleEnWeb ? 'Este vehículo está oculto del sitio web.' : 
-                             'Para aparecer en el catálogo, el vehículo debe estar en estado Disponible y tener Mostrar en sitio web activado.'}
+                             ['vendido', 'reservado', 'cancelado', 'eliminado'].includes(status.toLowerCase()) ? `El estado "${status}" oculta este vehículo del catálogo público.` :
+                             !visibleEnWeb ? 'Este vehículo está oculto mediante el switch manual.' : 
+                             'Para aparecer en el catálogo, el vehículo no debe estar Pausado, Vendido ni Reservado, y debe tener Mostrar en sitio web activado.'}
                         </p>
                     </div>
                 )}
