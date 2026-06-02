@@ -2748,20 +2748,26 @@ app.post('/api/admin/sales/:id/trade-ins/:tradeInIndex/create-stock-car', authen
 
         const user = req.user?.username || 'Admin';
 
+        if (!tradeIn.brand || !tradeIn.model || !tradeIn.estimatedValue) {
+            return res.status(400).json({ error: "Faltan datos obligatorios para ingresar el vehículo al stock." });
+        }
+
         // Crear nuevo Car en stock
         const newCar = new Car({
+            name: `${tradeIn.brand} ${tradeIn.model} ${tradeIn.version || ""} ${tradeIn.year || ""}`.trim(),
             brand: tradeIn.brand,
-            model: tradeIn.model,
-            version: tradeIn.version || '',
-            year: tradeIn.year,
-            plate: tradeIn.plate || '',
-            mileage: tradeIn.mileage || 0,
-            status: 'preparacion', // Estado recomendado para ingresos
+            year: tradeIn.year || new Date().getFullYear(),
+            km: tradeIn.mileage || 0,
+            fuel: 'Nafta',
             condition: 'Usado',
-            notes: `Vehículo ingresado como parte de pago de venta ${sale._id}. \nEstado documental: ${tradeIn.documentationStatus}. \nObservaciones: ${tradeIn.conditionNotes || ''} ${tradeIn.mechanicalNotes || ''}`,
-            originSaleId: sale._id,
-            originClientId: sale.clientId?._id,
-            publishStatus: 'oculto' // Por defecto oculto
+            price: tradeIn.estimatedValue,
+            currency: tradeIn.currency === 'USD' ? 'U$S' : '$',
+            status: 'Pausado',
+            visibleEnWeb: false,
+            plateOrVin: tradeIn.plate || '',
+            purchasePrice: tradeIn.estimatedValue,
+            purchaseCurrency: tradeIn.currency === 'USD' ? 'USD' : 'ARS',
+            notes: `Vehículo ingresado como parte de pago de venta ${sale._id}. \nEstado documental: ${tradeIn.documentationStatus}. \nObservaciones: ${tradeIn.conditionNotes || ''} ${tradeIn.mechanicalNotes || ''}`
         });
 
         const savedCar = await newCar.save();
@@ -2799,8 +2805,8 @@ app.post('/api/admin/sales/:id/trade-ins/:tradeInIndex/create-stock-car', authen
 
         res.json({ sale: populatedSale, car: savedCar });
     } catch (error) {
-        console.error('Error creating stock car from trade-in:', error);
-        res.status(500).json({ error: error.message });
+        console.error('Error creating stock car:', error);
+        res.status(500).json({ error: 'No se pudo ingresar el vehículo al stock. Revisá marca, modelo, valor tomado y moneda.' });
     }
 });
 

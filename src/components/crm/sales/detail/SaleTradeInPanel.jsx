@@ -9,6 +9,7 @@ export default function SaleTradeInPanel({ sale, onUpdate }) {
     const [isEditing, setIsEditing] = useState(false);
     const [isSaving, setIsSaving] = useState(false);
     const [error, setError] = useState(null);
+    const [stockError, setStockError] = useState(null);
     const [enteringStockIndex, setEnteringStockIndex] = useState(null);
     const [formData, setFormData] = useState({
         brand: '', model: '', version: '', year: new Date().getFullYear(),
@@ -124,7 +125,8 @@ export default function SaleTradeInPanel({ sale, onUpdate }) {
     };
 
     const handleEnterStock = async (index) => {
-        if (!window.confirm('¿Estás seguro de ingresar este vehículo al stock? Se creará una nueva unidad oculta en preparación.')) return;
+        setStockError(null);
+        if (!window.confirm('¿Estás seguro de ingresar este vehículo al stock? Se creará una nueva unidad oculta.')) return;
         
         setEnteringStockIndex(index);
         try {
@@ -137,13 +139,13 @@ export default function SaleTradeInPanel({ sale, onUpdate }) {
 
             if (!res.ok) {
                 const data = await res.json().catch(() => ({}));
-                throw new Error(data.error || 'Error al ingresar al stock');
+                throw new Error(data.error || 'No se pudo ingresar el vehículo al stock. Revisá marca, modelo, valor tomado y moneda.');
             }
 
             alert('Vehículo ingresado al stock correctamente.');
             if (onUpdate) onUpdate();
         } catch (err) {
-            alert(err.message);
+            setStockError(err.message);
         } finally {
             setEnteringStockIndex(null);
         }
@@ -252,6 +254,12 @@ export default function SaleTradeInPanel({ sale, onUpdate }) {
                     </div>
                 ) : sale.tradeIns && sale.tradeIns.length > 0 ? (
                     <div className="space-y-4">
+                        {stockError && (
+                            <div className="bg-red-500/10 border border-red-500/20 text-red-400 p-3 rounded-lg text-xs flex gap-2 items-start mb-4">
+                                <AlertTriangle size={14} className="shrink-0 mt-0.5" />
+                                <span>{stockError}</span>
+                            </div>
+                        )}
                         {sale.tradeIns.map((tradeIn, index) => (
                             <div key={index} className="bg-black/30 border border-neutral-800 rounded-xl p-4">
                                 <div className="flex justify-between items-start mb-3">
