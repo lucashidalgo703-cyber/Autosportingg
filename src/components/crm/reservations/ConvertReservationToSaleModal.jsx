@@ -176,6 +176,8 @@ export default function ConvertReservationToSaleModal({ isOpen, onClose, onSucce
                 let errorMsg = err.message || 'Ocurrió un error al intentar convertir la reserva.';
                 if (errorMsg.includes('validation failed') || errorMsg.includes('Cast to Number failed')) {
                     errorMsg = 'No se pudo guardar el vehículo recibido. Revisá año y valor tomado.';
+                } else if (errorMsg.includes('timed out') || errorMsg.includes('buffering')) {
+                    errorMsg = 'No se pudo convertir la reserva en venta. Reintentá en unos segundos.';
                 }
                 setError(errorMsg);
             }

@@ -1763,6 +1763,7 @@ app.get('/api/admin/reservations', authenticateToken, async (req, res) => {
 // GET reservation by id
 app.get('/api/admin/reservations/:id', authenticateToken, async (req, res) => {
     try {
+        await connectDB();
         const reservation = await Reservation.findById(req.params.id)
             .populate('clientId')
             .populate('leadId')
@@ -1878,6 +1879,7 @@ app.post('/api/admin/reservations', authenticateToken, async (req, res) => {
 // PATCH update reservation
 app.patch('/api/admin/reservations/:id', authenticateToken, async (req, res) => {
     try {
+        await connectDB();
         const { status, conditions, notes } = req.body;
         
         const reservation = await Reservation.findById(req.params.id);
@@ -1977,6 +1979,7 @@ app.patch('/api/admin/reservations/:id', authenticateToken, async (req, res) => 
 // PATCH link client to reservation
 app.patch('/api/admin/reservations/:id/link-client', authenticateToken, async (req, res) => {
     try {
+        await connectDB();
         const { clientId } = req.body;
         if (!clientId) return res.status(400).json({ error: 'Falta clientId' });
 
@@ -2318,7 +2321,13 @@ const normalizeTradeInVehicle = (tradeIn) => {
 // POST convert reservation to sale
 app.post('/api/admin/reservations/:id/convert-to-sale', authenticateToken, async (req, res) => {
     try {
+        await connectDB();
         const reservationId = req.params.id;
+        
+        if (!mongoose.Types.ObjectId.isValid(reservationId)) {
+            return res.status(400).json({ error: "ID de reserva inválido." });
+        }
+
         const { salePrice, saleCurrency, paymentMethod, saleDate, salesperson, tradeIns, tradeInTotalAmount, balanceAfterTradeIn } = req.body;
         const user = req.user?.username || 'Admin';
 
@@ -2472,8 +2481,10 @@ app.post('/api/admin/reservations/:id/convert-to-sale', authenticateToken, async
         }
 
     } catch (error) {
-        console.error('Error converting reservation to sale:', error);
-        res.status(400).json({ message: error.message });
+        console.error("Error converting reservation to sale:", error);
+        return res.status(500).json({
+            error: "No se pudo convertir la reserva en venta. Reintentá en unos segundos."
+        });
     }
 });
 
