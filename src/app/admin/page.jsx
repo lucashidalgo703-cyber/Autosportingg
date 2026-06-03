@@ -1,5 +1,5 @@
 "use client";
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 
 import { useAdminCars } from '../../hooks/useAdminCars';
 import { calculateDashboardMetrics } from '../../components/crm/dashboard/dashboardMetrics';
@@ -17,6 +17,7 @@ import TopStockPanels from '../../components/crm/dashboard/TopStockPanels';
 export default function AdminDashboardPage() {
     const { cars, loading, error } = useAdminCars();
     const { user } = useAuth();
+    const [activeTab, setActiveTab] = useState('cockpit');
 
     const metrics = useMemo(() => {
         if (!cars || cars.length === 0) return null;
@@ -38,25 +39,33 @@ export default function AdminDashboardPage() {
                 </div>
             </div>
 
-            {/* Banner Cockpit */}
-            <div className="rounded-2xl p-5 text-white bg-gradient-to-r from-crm-red to-[#C42620] shadow-lg relative overflow-hidden">
-                <div className="relative z-10 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-                    <div>
-                        <h2 className="text-xl font-bold mb-1">Cockpit de Rendimiento</h2>
-                        <p className="text-sm opacity-90">Monitorea tus KPIs y la salud general del negocio en tiempo real.</p>
+            {/* Banner Cockpit - Solo en tab cockpit */}
+            {activeTab === 'cockpit' && (
+                <div className="rounded-2xl p-5 text-white bg-gradient-to-r from-crm-red to-[#C42620] shadow-lg relative overflow-hidden">
+                    <div className="relative z-10 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+                        <div>
+                            <h2 className="text-xl font-bold mb-1">Cockpit de Rendimiento</h2>
+                            <p className="text-sm opacity-90">Monitorea tus KPIs y la salud general del negocio en tiempo real.</p>
+                        </div>
+                    </div>
+                    <div className="absolute right-0 bottom-0 opacity-10 text-9xl leading-none font-black transform translate-x-4 translate-y-8">
+                        AS
                     </div>
                 </div>
-                <div className="absolute right-0 bottom-0 opacity-10 text-9xl leading-none font-black transform translate-x-4 translate-y-8">
-                    AS
-                </div>
-            </div>
+            )}
 
             {/* Tabs Underline */}
             <div className="flex overflow-x-auto border-b border-crm-border mt-2">
-                <button className="-mb-px flex shrink-0 items-center gap-2 whitespace-nowrap border-b-2 px-4 py-2 text-sm font-semibold transition-colors border-crm-red text-crm-red focus-visible:outline-none">
+                <button 
+                    onClick={() => setActiveTab('cockpit')}
+                    className={`-mb-px flex shrink-0 items-center gap-2 whitespace-nowrap border-b-2 px-4 py-2 text-sm font-semibold transition-colors focus-visible:outline-none ${activeTab === 'cockpit' ? 'border-crm-red text-crm-red' : 'border-transparent text-crm-fg-muted hover:text-crm-fg'}`}
+                >
                     Cockpit CEO
                 </button>
-                <button className="-mb-px flex shrink-0 items-center gap-2 whitespace-nowrap border-b-2 px-4 py-2 text-sm font-semibold transition-colors border-transparent text-crm-fg-muted hover:text-crm-fg focus-visible:outline-none">
+                <button 
+                    onClick={() => setActiveTab('general')}
+                    className={`-mb-px flex shrink-0 items-center gap-2 whitespace-nowrap border-b-2 px-4 py-2 text-sm font-semibold transition-colors focus-visible:outline-none ${activeTab === 'general' ? 'border-crm-red text-crm-red' : 'border-transparent text-crm-fg-muted hover:text-crm-fg'}`}
+                >
                     Dashboard general
                 </button>
             </div>
@@ -75,27 +84,45 @@ export default function AdminDashboardPage() {
                             <p className="text-red-400/70 text-sm">{error}</p>
                         </div>
                     ) : metrics ? (
-                        <>
-                            {hasPermission(user, PERMISSIONS.FINANZAS_READ) && (
-                                <CapitalSummary metrics={metrics} />
-                            )}
-                            
-                            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                                <div className="lg:col-span-1">
-                                    <StockStatusSummary metrics={metrics} />
-                                </div>
-                                <div className="lg:col-span-1">
-                                    <RotationAlertsPanel metrics={metrics} />
-                                </div>
-                                <div className="lg:col-span-1">
-                                    <RecentAuditPanel metrics={metrics} />
-                                </div>
-                            </div>
+                        activeTab === 'cockpit' ? (
+                                <>
+                                    {hasPermission(user, PERMISSIONS.FINANZAS_READ) && (
+                                        <CapitalSummary metrics={metrics} />
+                                    )}
+                                    
+                                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                                        <div className="lg:col-span-1">
+                                            <StockStatusSummary metrics={metrics} />
+                                        </div>
+                                        <div className="lg:col-span-1">
+                                            <RotationAlertsPanel metrics={metrics} />
+                                        </div>
+                                        <div className="lg:col-span-1">
+                                            <RecentAuditPanel metrics={metrics} />
+                                        </div>
+                                    </div>
 
-                            {hasPermission(user, PERMISSIONS.FINANZAS_READ) && (
-                                <TopStockPanels metrics={metrics} />
-                            )}
-                        </>
+                                    {hasPermission(user, PERMISSIONS.FINANZAS_READ) && (
+                                        <TopStockPanels metrics={metrics} />
+                                    )}
+                                </>
+                            ) : (
+                                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                                    <div className="flex flex-col gap-6">
+                                        <StockStatusSummary metrics={metrics} />
+                                        <RotationAlertsPanel metrics={metrics} />
+                                    </div>
+                                    <div className="flex flex-col gap-6">
+                                        {hasPermission(user, PERMISSIONS.FINANZAS_READ) && (
+                                            <div className="bg-crm-surface border border-crm-border rounded-2xl p-5">
+                                                <h3 className="text-white font-bold mb-4">Métricas Generales Financieras</h3>
+                                                <CapitalSummary metrics={metrics} />
+                                            </div>
+                                        )}
+                                        <RecentAuditPanel metrics={metrics} />
+                                    </div>
+                                </div>
+                            )
                     ) : (
                         <div className="flex flex-col items-center justify-center h-64 border border-crm-border bg-crm-surface rounded-xl text-center">
                             <p className="text-white font-medium mb-2">No hay vehículos registrados</p>
