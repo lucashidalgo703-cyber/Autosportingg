@@ -55,16 +55,16 @@ export default function AdminDashboardPage() {
             )}
 
             {/* Tabs Underline */}
-            <div className="flex overflow-x-auto border-b border-crm-border mt-2">
+            <div className="flex overflow-x-auto border-b border-crm-border mt-2 mb-6">
                 <button 
                     onClick={() => setActiveTab('cockpit')}
-                    className={`-mb-px flex shrink-0 items-center gap-2 whitespace-nowrap border-b-2 px-4 py-2 text-sm font-semibold transition-colors focus-visible:outline-none ${activeTab === 'cockpit' ? 'border-crm-red text-crm-red' : 'border-transparent text-crm-fg-muted hover:text-crm-fg'}`}
+                    className={`-mb-px flex shrink-0 items-center gap-2 border-b-2 px-4 py-2 text-sm font-semibold transition bg-transparent focus-visible:outline-none ${activeTab === 'cockpit' ? 'border-crm-red text-crm-red' : 'border-transparent text-crm-fg-muted hover:text-crm-fg'}`}
                 >
                     Cockpit CEO
                 </button>
                 <button 
                     onClick={() => setActiveTab('general')}
-                    className={`-mb-px flex shrink-0 items-center gap-2 whitespace-nowrap border-b-2 px-4 py-2 text-sm font-semibold transition-colors focus-visible:outline-none ${activeTab === 'general' ? 'border-crm-red text-crm-red' : 'border-transparent text-crm-fg-muted hover:text-crm-fg'}`}
+                    className={`-mb-px flex shrink-0 items-center gap-2 border-b-2 px-4 py-2 text-sm font-semibold transition bg-transparent focus-visible:outline-none ${activeTab === 'general' ? 'border-crm-red text-crm-red' : 'border-transparent text-crm-fg-muted hover:text-crm-fg'}`}
                 >
                     Dashboard general
                 </button>
@@ -107,19 +107,20 @@ export default function AdminDashboardPage() {
                                     )}
                                 </>
                             ) : (
-                                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                                    <div className="flex flex-col gap-6">
-                                        <StockStatusSummary metrics={metrics} />
-                                        <RotationAlertsPanel metrics={metrics} />
-                                    </div>
-                                    <div className="flex flex-col gap-6">
-                                        {hasPermission(user, PERMISSIONS.FINANZAS_READ) && (
-                                            <div className="bg-crm-surface border border-crm-border rounded-2xl p-5">
-                                                <h3 className="text-white font-bold mb-4">Métricas Generales Financieras</h3>
-                                                <CapitalSummary metrics={metrics} />
-                                            </div>
-                                        )}
-                                        <RecentAuditPanel metrics={metrics} />
+                                <div className="flex flex-col gap-6">
+                                    {hasPermission(user, PERMISSIONS.FINANZAS_READ) && (
+                                        <div className="bg-crm-surface border border-crm-border rounded-2xl p-5">
+                                            <CapitalSummary metrics={metrics} />
+                                        </div>
+                                    )}
+                                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
+                                        <div className="lg:col-span-2 flex flex-col gap-5">
+                                            <StockStatusSummary metrics={metrics} />
+                                            <RotationAlertsPanel metrics={metrics} />
+                                        </div>
+                                        <div className="lg:col-span-1 flex flex-col gap-5">
+                                            <RecentAuditPanel metrics={metrics} />
+                                        </div>
                                     </div>
                                 </div>
                             )
