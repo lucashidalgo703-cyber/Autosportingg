@@ -7,13 +7,8 @@ import { BarChart3, Loader2, AlertCircle, Target } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { hasPermission, PERMISSIONS } from '../../utils/adminPermissions';
 
-// New Dashboard Components
-import CapitalSummary from '../../components/crm/dashboard/CapitalSummary';
-import StockStatusSummary from '../../components/crm/dashboard/StockStatusSummary';
-import RotationAlertsPanel from '../../components/crm/dashboard/RotationAlertsPanel';
-import RecentAuditPanel from '../../components/crm/dashboard/RecentAuditPanel';
-import TopStockPanels from '../../components/crm/dashboard/TopStockPanels';
 import GeneralDashboardSote from '../../components/crm/dashboard/GeneralDashboardSote';
+import CockpitCeoSote from '../../components/crm/dashboard/CockpitCeoSote';
 
 export default function AdminDashboardPage() {
     const { cars, loading, error } = useAdminCars();
@@ -39,21 +34,6 @@ export default function AdminDashboardPage() {
                     </button>
                 </div>
             </div>
-
-            {/* Banner Cockpit - Solo en tab cockpit */}
-            {activeTab === 'cockpit' && (
-                <div className="rounded-2xl p-5 text-white bg-gradient-to-r from-crm-red to-[#C42620] shadow-lg relative overflow-hidden">
-                    <div className="relative z-10 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-                        <div>
-                            <h2 className="text-xl font-bold mb-1">Cockpit de Rendimiento</h2>
-                            <p className="text-sm opacity-90">Monitorea tus KPIs y la salud general del negocio en tiempo real.</p>
-                        </div>
-                    </div>
-                    <div className="absolute right-0 bottom-0 opacity-10 text-9xl leading-none font-black transform translate-x-4 translate-y-8">
-                        AS
-                    </div>
-                </div>
-            )}
 
             {/* Tabs Underline */}
             <div className="flex overflow-x-auto border-b border-crm-border mt-2 mb-6">
@@ -88,27 +68,11 @@ export default function AdminDashboardPage() {
                         </div>
                     ) : metrics ? (
                         activeTab === 'cockpit' ? (
-                                <>
-                                    {hasPermission(user, PERMISSIONS.FINANZAS_READ) && (
-                                        <CapitalSummary metrics={metrics} />
-                                    )}
-                                    
-                                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                                        <div className="lg:col-span-1">
-                                            <StockStatusSummary metrics={metrics} />
-                                        </div>
-                                        <div className="lg:col-span-1">
-                                            <RotationAlertsPanel metrics={metrics} />
-                                        </div>
-                                        <div className="lg:col-span-1">
-                                            <RecentAuditPanel metrics={metrics} />
-                                        </div>
-                                    </div>
-
-                                    {hasPermission(user, PERMISSIONS.FINANZAS_READ) && (
-                                        <TopStockPanels metrics={metrics} />
-                                    )}
-                                </>
+                                <CockpitCeoSote
+                                    metrics={metrics}
+                                    canSeeFinancials={hasPermission(user, PERMISSIONS.FINANZAS_READ)}
+                                    user={user}
+                                />
                             ) : (
                                 <GeneralDashboardSote
                                     metrics={metrics}
