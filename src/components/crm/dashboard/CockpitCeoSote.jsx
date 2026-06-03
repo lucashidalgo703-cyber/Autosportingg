@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import {
+    AlertTriangle,
     Award,
     Car,
     Check,
@@ -25,9 +26,12 @@ function formatCurrency(value) {
     return formatNumber(Math.round(value || 0));
 }
 
-function KpiPanel({ title, icon: Icon, children, href, className = '' }) {
+function KpiPanel({ title, icon: Icon, children, href, className = '', style }) {
     const content = (
-        <div className={`relative h-full rounded-2xl border border-crm-border bg-crm-surface p-5 transition-colors ${href ? 'hover:border-crm-red/35 hover:bg-crm-surface-raised' : ''} ${className}`}>
+        <div
+            className={`relative h-full rounded-2xl border border-crm-border bg-crm-surface p-5 transition-colors ${href ? 'hover:border-crm-red/35 hover:bg-crm-surface-raised' : ''} ${className}`}
+            style={style}
+        >
             <div className="mb-5 flex items-center gap-3">
                 <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-crm-surface-raised text-crm-fg-muted">
                     <Icon size={16} />
@@ -39,7 +43,7 @@ function KpiPanel({ title, icon: Icon, children, href, className = '' }) {
     );
 
     if (href) {
-        return <Link href={href} className="block">{content}</Link>;
+        return <Link href={href} className="block text-inherit no-underline">{content}</Link>;
     }
 
     return content;
@@ -167,7 +171,7 @@ function AnnualSummaryPanel({ soldCount }) {
 export default function CockpitCeoSote({ metrics, canSeeFinancials = false, user }) {
     const counts = metrics.counts || {};
     const soldCount = counts.vendidos || 0;
-    const userName = user?.name || user?.email || 'Equipo';
+    const userName = user?.name || user?.username || (user?.email ? user.email.split('@')[0] : 'Equipo');
     const today = new Date();
     const totalDays = new Date(today.getFullYear(), today.getMonth() + 1, 0).getDate();
     const dayOfMonth = today.getDate();
@@ -182,7 +186,7 @@ export default function CockpitCeoSote({ metrics, canSeeFinancials = false, user
             <section className="rounded-2xl border border-crm-border bg-crm-surface p-4">
                 <div className="mb-3 flex items-center gap-2">
                     <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-500/15 text-emerald-300">
-                        <ShieldAlert size={16} />
+                        <AlertTriangle size={16} />
                     </span>
                     <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-crm-fg-muted">Pendientes</p>
                 </div>
@@ -192,7 +196,10 @@ export default function CockpitCeoSote({ metrics, canSeeFinancials = false, user
                 </p>
             </section>
 
-            <section className="relative overflow-hidden rounded-2xl border border-indigo-400/30 bg-gradient-to-r from-indigo-600 via-purple-600 to-indigo-600 p-5 text-white">
+            <section
+                className="relative overflow-hidden rounded-2xl border border-indigo-400/30 p-5 text-white shadow-sm"
+                style={{ background: 'linear-gradient(90deg, #4f46e5 0%, #7c22d8 52%, #4338ca 100%)' }}
+            >
                 <div className="relative z-10 flex items-center justify-between gap-5">
                     <div>
                         <p className="mb-2 text-[11px] font-bold uppercase tracking-[0.28em] text-white/75">Cockpit CEO</p>
@@ -205,11 +212,14 @@ export default function CockpitCeoSote({ metrics, canSeeFinancials = false, user
                         <p className="mt-2 text-xs text-white/80">{dayOfMonth} de {totalDays} dias</p>
                     </div>
                 </div>
-                <div className="absolute inset-y-0 right-0 w-1/2 bg-gradient-to-l from-white/10 to-transparent" />
+                <div
+                    className="absolute inset-y-0 right-0 w-1/2"
+                    style={{ background: 'linear-gradient(270deg, rgba(255,255,255,0.12) 0%, rgba(255,255,255,0) 100%)' }}
+                />
             </section>
 
-            <section className="flex items-center justify-between rounded-xl border border-crm-border bg-crm-surface p-4">
-                <button type="button" className="flex h-8 w-8 items-center justify-center rounded-lg text-crm-fg-muted hover:bg-crm-surface-raised hover:text-crm-fg">
+            <section className="flex h-[54px] items-center justify-between rounded-xl border border-crm-border bg-crm-surface px-4 py-0">
+                <button type="button" className="appearance-none m-0 flex h-8 w-8 items-center justify-center rounded-lg border-0 bg-transparent p-0 text-crm-fg-muted hover:bg-crm-surface-raised hover:text-crm-fg">
                     <ChevronLeft size={16} />
                 </button>
                 <div className="text-center">
@@ -217,7 +227,7 @@ export default function CockpitCeoSote({ metrics, canSeeFinancials = false, user
                     <p className="text-sm font-bold text-crm-fg">Mes Actual</p>
                 </div>
                 <div className="flex items-center gap-4">
-                    <button type="button" className="flex h-8 w-8 items-center justify-center rounded-lg text-crm-fg-muted hover:bg-crm-surface-raised hover:text-crm-fg">
+                    <button type="button" className="appearance-none m-0 flex h-8 w-8 items-center justify-center rounded-lg border-0 bg-transparent p-0 text-crm-fg-muted hover:bg-crm-surface-raised hover:text-crm-fg">
                         <ChevronRight size={16} />
                     </button>
                     <span className="rounded-full border border-emerald-500/20 bg-emerald-500/10 px-3 py-1 text-xs font-bold text-emerald-300">● EN VIVO</span>
@@ -273,7 +283,13 @@ export default function CockpitCeoSote({ metrics, canSeeFinancials = false, user
                     <p className="mt-5 text-xs leading-relaxed text-crm-fg-muted">Metrica real de calidad - mas importante que volumen.</p>
                 </KpiPanel>
 
-                <KpiPanel title="Tu operacion" icon={TrendingUp} href="/admin/productividad" className="min-h-[240px] bg-gradient-to-br from-crm-surface to-indigo-500/20">
+                <KpiPanel
+                    title="Tu operacion"
+                    icon={TrendingUp}
+                    href="/admin/productividad"
+                    className="min-h-[240px]"
+                    style={{ background: 'linear-gradient(135deg, #1E1E24 0%, #262342 100%)' }}
+                >
                     <div className="flex items-end justify-between gap-4">
                         <div className="flex items-end gap-2">
                             <p className="text-5xl font-bold leading-none text-crm-fg">0</p>
