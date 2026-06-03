@@ -114,15 +114,15 @@ export default function ClientFormModal({ isOpen, onClose, onSave, client = null
     if (!isOpen) return null;
 
     return (
-        <div className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4 overflow-y-auto">
-            <div className="bg-neutral-900 border border-neutral-800 rounded-2xl w-full max-w-2xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 overflow-y-auto">
+            <div className="bg-crm-surface border border-crm-border rounded-2xl w-full max-w-2xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
                 
                 {/* Header */}
-                <div className="flex justify-between items-center p-6 border-b border-neutral-800 bg-neutral-900/50">
+                <div className="flex justify-between items-center p-6 border-b border-crm-border bg-crm-surface">
                     <h2 className="text-xl font-bold text-white">
                         {client ? 'Editar Cliente' : 'Nuevo Cliente'}
                     </h2>
-                    <button onClick={onClose} className="text-neutral-400 hover:text-white transition-colors">
+                    <button onClick={onClose} className="text-crm-fg-muted hover:text-crm-fg transition-colors">
                         <X size={24} />
                     </button>
                 </div>
@@ -146,27 +146,27 @@ export default function ClientFormModal({ isOpen, onClose, onSave, client = null
 
                         {/* Datos Principales */}
                         <div>
-                            <h3 className="text-sm font-bold text-neutral-400 uppercase tracking-wider mb-4 border-b border-neutral-800 pb-2">Datos Principales</h3>
+                            <h3 className="text-sm font-bold text-crm-fg-muted uppercase tracking-wider mb-4 border-b border-crm-border pb-2">Datos Principales</h3>
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                 <div>
-                                    <label className="block text-xs text-neutral-500 mb-1">Nombre *</label>
+                                    <label className="block text-xs text-crm-fg-muted mb-1">Nombre *</label>
                                     <input 
                                         type="text" name="firstName" value={formData.firstName} onChange={handleChange} required
-                                        className="w-full bg-neutral-800 border border-neutral-700 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-red-500" 
+                                        className="w-full bg-crm-bg border border-crm-border rounded-lg px-3 py-2 text-crm-fg focus:outline-none focus:border-crm-red focus:ring-1 focus:ring-crm-red" 
                                     />
                                 </div>
                                 <div>
-                                    <label className="block text-xs text-neutral-500 mb-1">Apellido</label>
+                                    <label className="block text-xs text-crm-fg-muted mb-1">Apellido</label>
                                     <input 
                                         type="text" name="lastName" value={formData.lastName} onChange={handleChange}
-                                        className="w-full bg-neutral-800 border border-neutral-700 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-red-500" 
+                                        className="w-full bg-crm-bg border border-crm-border rounded-lg px-3 py-2 text-crm-fg focus:outline-none focus:border-crm-red focus:ring-1 focus:ring-crm-red" 
                                     />
                                 </div>
                                 <div>
-                                    <label className="block text-xs text-neutral-500 mb-1">DNI / CUIT</label>
+                                    <label className="block text-xs text-crm-fg-muted mb-1">DNI / CUIT</label>
                                     <input 
                                         type="text" name="dniCuit" value={formData.dniCuit} onChange={handleChange}
-                                        className="w-full bg-neutral-800 border border-neutral-700 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-red-500" 
+                                        className="w-full bg-crm-bg border border-crm-border rounded-lg px-3 py-2 text-crm-fg focus:outline-none focus:border-crm-red focus:ring-1 focus:ring-crm-red" 
                                     />
                                 </div>
                             </div>
@@ -174,41 +174,41 @@ export default function ClientFormModal({ isOpen, onClose, onSave, client = null
 
                         {/* Contacto */}
                         <div>
-                            <h3 className="text-sm font-bold text-neutral-400 uppercase tracking-wider mb-4 border-b border-neutral-800 pb-2">Contacto</h3>
+                            <h3 className="text-sm font-bold text-crm-fg-muted uppercase tracking-wider mb-4 border-b border-crm-border pb-2">Contacto</h3>
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                 <div>
-                                    <label className="block text-xs text-neutral-500 mb-1">Teléfono</label>
+                                    <label className="block text-xs text-crm-fg-muted mb-1">Teléfono</label>
                                     <input 
                                         type="tel" name="phone" value={formData.phone} onChange={handleChange} placeholder="+54 9 297..."
-                                        className="w-full bg-neutral-800 border border-neutral-700 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-red-500" 
+                                        className="w-full bg-crm-bg border border-crm-border rounded-lg px-3 py-2 text-crm-fg focus:outline-none focus:border-crm-red focus:ring-1 focus:ring-crm-red" 
                                     />
                                 </div>
                                 <div>
-                                    <label className="block text-xs text-neutral-500 mb-1">Email</label>
+                                    <label className="block text-xs text-crm-fg-muted mb-1">Email</label>
                                     <input 
                                         type="email" name="email" value={formData.email} onChange={handleChange}
-                                        className="w-full bg-neutral-800 border border-neutral-700 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-red-500" 
+                                        className="w-full bg-crm-bg border border-crm-border rounded-lg px-3 py-2 text-crm-fg focus:outline-none focus:border-crm-red focus:ring-1 focus:ring-crm-red" 
                                     />
                                 </div>
                                 <div>
-                                    <label className="block text-xs text-neutral-500 mb-1">Localidad</label>
+                                    <label className="block text-xs text-crm-fg-muted mb-1">Localidad</label>
                                     <input 
                                         type="text" name="locality" value={formData.locality} onChange={handleChange}
-                                        className="w-full bg-neutral-800 border border-neutral-700 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-red-500" 
+                                        className="w-full bg-crm-bg border border-crm-border rounded-lg px-3 py-2 text-crm-fg focus:outline-none focus:border-crm-red focus:ring-1 focus:ring-crm-red" 
                                     />
                                 </div>
                                 <div>
-                                    <label className="block text-xs text-neutral-500 mb-1">Provincia</label>
+                                    <label className="block text-xs text-crm-fg-muted mb-1">Provincia</label>
                                     <input 
                                         type="text" name="province" value={formData.province} onChange={handleChange}
-                                        className="w-full bg-neutral-800 border border-neutral-700 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-red-500" 
+                                        className="w-full bg-crm-bg border border-crm-border rounded-lg px-3 py-2 text-crm-fg focus:outline-none focus:border-crm-red focus:ring-1 focus:ring-crm-red" 
                                     />
                                 </div>
                                 <div className="md:col-span-2">
-                                    <label className="block text-xs text-neutral-500 mb-1">Dirección</label>
+                                    <label className="block text-xs text-crm-fg-muted mb-1">Dirección</label>
                                     <input 
                                         type="text" name="address" value={formData.address} onChange={handleChange}
-                                        className="w-full bg-neutral-800 border border-neutral-700 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-red-500" 
+                                        className="w-full bg-crm-bg border border-crm-border rounded-lg px-3 py-2 text-crm-fg focus:outline-none focus:border-crm-red focus:ring-1 focus:ring-crm-red" 
                                     />
                                 </div>
                             </div>
@@ -216,11 +216,11 @@ export default function ClientFormModal({ isOpen, onClose, onSave, client = null
 
                         {/* Clasificación */}
                         <div>
-                            <h3 className="text-sm font-bold text-neutral-400 uppercase tracking-wider mb-4 border-b border-neutral-800 pb-2">Clasificación</h3>
+                            <h3 className="text-sm font-bold text-crm-fg-muted uppercase tracking-wider mb-4 border-b border-crm-border pb-2">Clasificación</h3>
                             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                                 <div>
-                                    <label className="block text-xs text-neutral-500 mb-1">Tipo</label>
-                                    <select name="type" value={formData.type} onChange={handleChange} className="w-full bg-neutral-800 border border-neutral-700 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-red-500">
+                                    <label className="block text-xs text-crm-fg-muted mb-1">Tipo</label>
+                                    <select name="type" value={formData.type} onChange={handleChange} className="w-full bg-crm-bg border border-crm-border rounded-lg px-3 py-2 text-crm-fg focus:outline-none focus:border-crm-red focus:ring-1 focus:ring-crm-red">
                                         <option value="potencial">Potencial</option>
                                         <option value="comprador">Comprador</option>
                                         <option value="vendedor">Vendedor</option>
@@ -228,8 +228,8 @@ export default function ClientFormModal({ isOpen, onClose, onSave, client = null
                                     </select>
                                 </div>
                                 <div>
-                                    <label className="block text-xs text-neutral-500 mb-1">Origen</label>
-                                    <select name="source" value={formData.source} onChange={handleChange} className="w-full bg-neutral-800 border border-neutral-700 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-red-500">
+                                    <label className="block text-xs text-crm-fg-muted mb-1">Origen</label>
+                                    <select name="source" value={formData.source} onChange={handleChange} className="w-full bg-crm-bg border border-crm-border rounded-lg px-3 py-2 text-crm-fg focus:outline-none focus:border-crm-red focus:ring-1 focus:ring-crm-red">
                                         <option value="otro">Otro</option>
                                         <option value="web">Web</option>
                                         <option value="whatsapp">WhatsApp</option>
@@ -240,8 +240,8 @@ export default function ClientFormModal({ isOpen, onClose, onSave, client = null
                                     </select>
                                 </div>
                                 <div>
-                                    <label className="block text-xs text-neutral-500 mb-1">Estado</label>
-                                    <select name="status" value={formData.status} onChange={handleChange} className="w-full bg-neutral-800 border border-neutral-700 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-red-500">
+                                    <label className="block text-xs text-crm-fg-muted mb-1">Estado</label>
+                                    <select name="status" value={formData.status} onChange={handleChange} className="w-full bg-crm-bg border border-crm-border rounded-lg px-3 py-2 text-crm-fg focus:outline-none focus:border-crm-red focus:ring-1 focus:ring-crm-red">
                                         <option value="activo">Activo</option>
                                         <option value="inactivo">Inactivo</option>
                                         <option value="bloqueado">Bloqueado</option>
@@ -252,23 +252,23 @@ export default function ClientFormModal({ isOpen, onClose, onSave, client = null
 
                         {/* Notas */}
                         <div>
-                            <h3 className="text-sm font-bold text-neutral-400 uppercase tracking-wider mb-4 border-b border-neutral-800 pb-2">Notas Internas</h3>
+                            <h3 className="text-sm font-bold text-crm-fg-muted uppercase tracking-wider mb-4 border-b border-crm-border pb-2">Notas Internas</h3>
                             <textarea 
                                 name="notes" value={formData.notes} onChange={handleChange} rows="3"
                                 placeholder="Observaciones generales sobre el cliente..."
-                                className="w-full bg-neutral-800 border border-neutral-700 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-red-500" 
+                                className="w-full bg-crm-bg border border-crm-border rounded-lg px-3 py-2 text-crm-fg focus:outline-none focus:border-crm-red focus:ring-1 focus:ring-crm-red" 
                             ></textarea>
                         </div>
                     </form>
                 </div>
 
                 {/* Footer */}
-                <div className="p-6 border-t border-neutral-800 bg-neutral-900 flex justify-end gap-3">
+                <div className="p-6 border-t border-crm-border bg-crm-surface flex justify-end gap-3">
                     <button 
                         type="button" 
                         onClick={onClose}
                         disabled={isSubmitting}
-                        className="px-4 py-2 text-neutral-400 hover:text-white transition-colors"
+                        className="px-4 py-2 text-crm-fg-muted hover:text-crm-fg transition-colors"
                     >
                         Cancelar
                     </button>
@@ -276,7 +276,7 @@ export default function ClientFormModal({ isOpen, onClose, onSave, client = null
                         type="submit" 
                         form="client-form"
                         disabled={isSubmitting}
-                        className="bg-red-600 hover:bg-red-700 text-white px-6 py-2 rounded-lg font-bold transition-colors flex items-center gap-2 disabled:opacity-50"
+                        className="bg-crm-red hover:bg-crm-red-hover text-white px-6 py-2 rounded-lg font-bold transition-colors flex items-center gap-2 disabled:opacity-50"
                     >
                         <Save size={18} />
                         {isSubmitting ? 'Guardando...' : 'Guardar Cliente'}

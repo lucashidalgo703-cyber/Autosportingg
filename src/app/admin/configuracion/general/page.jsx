@@ -98,7 +98,7 @@ export default function GeneralSettingsPage() {
                         <p className="text-sm text-red-400 mb-6">No tenés permisos para acceder a la configuración general.</p>
                         <Link 
                             href="/admin/configuracion"
-                            className="bg-[#E63027] text-white px-6 py-2 rounded-xl font-bold hover:bg-[#C42620] transition-colors"
+                            className="bg-crm-red text-white px-6 py-2 rounded-xl font-bold hover:bg-crm-red-hover transition-colors"
                         >
                             Volver a Configuración
                         </Link>
@@ -113,17 +113,17 @@ export default function GeneralSettingsPage() {
             <div className="mb-6 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
                 <div>
                     <div className="flex items-center gap-2 mb-2">
-                        <Link href="/admin/configuracion" className="text-neutral-400 hover:text-white transition-colors text-sm">
+                        <Link href="/admin/configuracion" className="text-crm-fg-muted hover:text-white transition-colors text-sm">
                             Configuración
                         </Link>
-                        <span className="text-neutral-600">/</span>
+                        <span className="text-crm-border">/</span>
                         <span className="text-white text-sm">General</span>
                     </div>
                     <h1 className="text-2xl font-bold text-white tracking-tight flex items-center gap-2">
-                        <Settings className="text-red-500" />
+                        <Settings className="text-crm-red" />
                         Configuración General
                     </h1>
-                    <p className="text-neutral-400 mt-1 text-sm">
+                    <p className="text-crm-fg-muted mt-1 text-sm">
                         Parametrizá las reglas operativas del CRM.
                     </p>
                 </div>
@@ -143,179 +143,179 @@ export default function GeneralSettingsPage() {
             )}
 
             {!settings ? (
-                <div className="text-center text-neutral-400 py-10">
+                <div className="text-center text-crm-fg-muted py-10">
                     No se pudo cargar la configuración general.
                 </div>
             ) : (
                 <form onSubmit={handleSave} className="space-y-6">
                     {/* A. Datos de Agencia */}
-                    <div className="bg-[#1E1E24] border border-[#33333A] rounded-2xl p-6">
-                        <h2 className="text-lg font-bold text-white flex items-center gap-2 mb-4 border-b border-neutral-800 pb-2">
-                            <Building2 size={18} className="text-neutral-400" />
+                    <div className="bg-crm-surface border border-crm-border rounded-2xl p-6">
+                        <h2 className="text-lg font-bold text-white flex items-center gap-2 mb-4 border-b border-crm-border pb-2">
+                            <Building2 size={18} className="text-crm-fg-muted" />
                             Datos de la Agencia
                         </h2>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div>
-                                <label className="block text-sm font-medium text-neutral-400 mb-1">Nombre</label>
+                                <label className="block text-sm font-medium text-crm-fg-muted mb-1">Nombre</label>
                                 <input 
                                     type="text" 
                                     value={settings.agencyName} 
                                     onChange={e => handleChange(null, 'agencyName', e.target.value)}
                                     disabled={!canEdit}
-                                    className="w-full bg-[#161619] border border-[#33333A] rounded-lg px-3 py-2 text-[#FAFAFA] focus:outline-none focus:border-[#EF3329] focus:ring-1 focus:ring-[#EF3329] disabled:opacity-50"
+                                    className="w-full bg-crm-bg border border-crm-border rounded-lg px-3 py-2 text-crm-fg focus:outline-none focus:border-crm-red focus:ring-1 focus:ring-crm-red disabled:opacity-50"
                                 />
                             </div>
                             <div>
-                                <label className="block text-sm font-medium text-neutral-400 mb-1">Email Comercial</label>
+                                <label className="block text-sm font-medium text-crm-fg-muted mb-1">Email Comercial</label>
                                 <input 
                                     type="email" 
                                     value={settings.commercialEmail} 
                                     onChange={e => handleChange(null, 'commercialEmail', e.target.value)}
                                     disabled={!canEdit}
-                                    className="w-full bg-[#161619] border border-[#33333A] rounded-lg px-3 py-2 text-[#FAFAFA] focus:outline-none focus:border-[#EF3329] focus:ring-1 focus:ring-[#EF3329] disabled:opacity-50"
+                                    className="w-full bg-crm-bg border border-crm-border rounded-lg px-3 py-2 text-crm-fg focus:outline-none focus:border-crm-red focus:ring-1 focus:ring-crm-red disabled:opacity-50"
                                 />
                             </div>
                             <div>
-                                <label className="block text-sm font-medium text-neutral-400 mb-1">Teléfono Principal</label>
+                                <label className="block text-sm font-medium text-crm-fg-muted mb-1">Teléfono Principal</label>
                                 <input 
                                     type="text" 
                                     value={settings.mainPhone} 
                                     onChange={e => handleChange(null, 'mainPhone', e.target.value)}
                                     disabled={!canEdit}
-                                    className="w-full bg-[#161619] border border-[#33333A] rounded-lg px-3 py-2 text-[#FAFAFA] focus:outline-none focus:border-[#EF3329] focus:ring-1 focus:ring-[#EF3329] disabled:opacity-50"
+                                    className="w-full bg-crm-bg border border-crm-border rounded-lg px-3 py-2 text-crm-fg focus:outline-none focus:border-crm-red focus:ring-1 focus:ring-crm-red disabled:opacity-50"
                                 />
                             </div>
                             <div>
-                                <label className="block text-sm font-medium text-neutral-400 mb-1">Link Google Reviews</label>
+                                <label className="block text-sm font-medium text-crm-fg-muted mb-1">Link Google Reviews</label>
                                 <input 
                                     type="url" 
                                     value={settings.googleReviewsUrl} 
                                     onChange={e => handleChange(null, 'googleReviewsUrl', e.target.value)}
                                     disabled={!canEdit}
-                                    className="w-full bg-[#161619] border border-[#33333A] rounded-lg px-3 py-2 text-[#FAFAFA] focus:outline-none focus:border-[#EF3329] focus:ring-1 focus:ring-[#EF3329] disabled:opacity-50"
+                                    className="w-full bg-crm-bg border border-crm-border rounded-lg px-3 py-2 text-crm-fg focus:outline-none focus:border-crm-red focus:ring-1 focus:ring-crm-red disabled:opacity-50"
                                 />
                             </div>
                             <div className="md:col-span-2">
-                                <label className="block text-sm font-medium text-neutral-400 mb-1">Dirección Física</label>
+                                <label className="block text-sm font-medium text-crm-fg-muted mb-1">Dirección Física</label>
                                 <input 
                                     type="text" 
                                     value={settings.address} 
                                     onChange={e => handleChange(null, 'address', e.target.value)}
                                     disabled={!canEdit}
-                                    className="w-full bg-[#161619] border border-[#33333A] rounded-lg px-3 py-2 text-[#FAFAFA] focus:outline-none focus:border-[#EF3329] focus:ring-1 focus:ring-[#EF3329] disabled:opacity-50"
+                                    className="w-full bg-crm-bg border border-crm-border rounded-lg px-3 py-2 text-crm-fg focus:outline-none focus:border-crm-red focus:ring-1 focus:ring-crm-red disabled:opacity-50"
                                 />
                             </div>
                         </div>
                     </div>
 
                     {/* B. Parámetros Operativos */}
-                    <div className="bg-[#1E1E24] border border-[#33333A] rounded-2xl p-6">
-                        <h2 className="text-lg font-bold text-white flex items-center gap-2 mb-4 border-b border-neutral-800 pb-2">
-                            <Settings size={18} className="text-neutral-400" />
+                    <div className="bg-crm-surface border border-crm-border rounded-2xl p-6">
+                        <h2 className="text-lg font-bold text-white flex items-center gap-2 mb-4 border-b border-crm-border pb-2">
+                            <Settings size={18} className="text-crm-fg-muted" />
                             Parámetros Operativos
                         </h2>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                             <div>
-                                <label className="block text-sm font-medium text-neutral-400 mb-1">Días para Lead sin seguimiento</label>
+                                <label className="block text-sm font-medium text-crm-fg-muted mb-1">Días para Lead sin seguimiento</label>
                                 <div className="flex items-center gap-2">
                                     <input 
                                         type="number" min="1" max="60"
                                         value={settings.thresholds?.leadWithoutFollowupDays || 7} 
                                         onChange={e => handleChange('thresholds', 'leadWithoutFollowupDays', parseInt(e.target.value) || 7)}
                                         disabled={!canEdit}
-                                        className="w-24 bg-[#161619] border border-[#33333A] rounded-lg px-3 py-2 text-[#FAFAFA] focus:outline-none focus:border-[#EF3329] focus:ring-1 focus:ring-[#EF3329] disabled:opacity-50"
+                                        className="w-24 bg-crm-bg border border-crm-border rounded-lg px-3 py-2 text-crm-fg focus:outline-none focus:border-crm-red focus:ring-1 focus:ring-crm-red disabled:opacity-50"
                                     />
-                                    <span className="text-sm text-neutral-500">días</span>
+                                    <span className="text-sm text-crm-fg-muted">días</span>
                                 </div>
                             </div>
                             <div>
-                                <label className="block text-sm font-medium text-neutral-400 mb-1">Días para Reserva antigua</label>
+                                <label className="block text-sm font-medium text-crm-fg-muted mb-1">Días para Reserva antigua</label>
                                 <div className="flex items-center gap-2">
                                     <input 
                                         type="number" min="1" max="60"
                                         value={settings.thresholds?.oldReservationDays || 7} 
                                         onChange={e => handleChange('thresholds', 'oldReservationDays', parseInt(e.target.value) || 7)}
                                         disabled={!canEdit}
-                                        className="w-24 bg-[#161619] border border-[#33333A] rounded-lg px-3 py-2 text-[#FAFAFA] focus:outline-none focus:border-[#EF3329] focus:ring-1 focus:ring-[#EF3329] disabled:opacity-50"
+                                        className="w-24 bg-crm-bg border border-crm-border rounded-lg px-3 py-2 text-crm-fg focus:outline-none focus:border-crm-red focus:ring-1 focus:ring-crm-red disabled:opacity-50"
                                     />
-                                    <span className="text-sm text-neutral-500">días</span>
+                                    <span className="text-sm text-crm-fg-muted">días</span>
                                 </div>
                             </div>
                             <div>
-                                <label className="block text-sm font-medium text-neutral-400 mb-1">Días para Postventa pendiente</label>
+                                <label className="block text-sm font-medium text-crm-fg-muted mb-1">Días para Postventa pendiente</label>
                                 <div className="flex items-center gap-2">
                                     <input 
                                         type="number" min="1" max="90"
                                         value={settings.thresholds?.postSalePendingDays || 7} 
                                         onChange={e => handleChange('thresholds', 'postSalePendingDays', parseInt(e.target.value) || 7)}
                                         disabled={!canEdit}
-                                        className="w-24 bg-[#161619] border border-[#33333A] rounded-lg px-3 py-2 text-[#FAFAFA] focus:outline-none focus:border-[#EF3329] focus:ring-1 focus:ring-[#EF3329] disabled:opacity-50"
+                                        className="w-24 bg-crm-bg border border-crm-border rounded-lg px-3 py-2 text-crm-fg focus:outline-none focus:border-crm-red focus:ring-1 focus:ring-crm-red disabled:opacity-50"
                                     />
-                                    <span className="text-sm text-neutral-500">días</span>
+                                    <span className="text-sm text-crm-fg-muted">días</span>
                                 </div>
                             </div>
                             <div>
-                                <label className="block text-sm font-medium text-neutral-400 mb-1">Días para rotación crítica de Stock</label>
+                                <label className="block text-sm font-medium text-crm-fg-muted mb-1">Días para rotación crítica de Stock</label>
                                 <div className="flex items-center gap-2">
                                     <input 
                                         type="number" min="15" max="365"
                                         value={settings.thresholds?.stockCriticalDays || 90} 
                                         onChange={e => handleChange('thresholds', 'stockCriticalDays', parseInt(e.target.value) || 90)}
                                         disabled={!canEdit}
-                                        className="w-24 bg-[#161619] border border-[#33333A] rounded-lg px-3 py-2 text-[#FAFAFA] focus:outline-none focus:border-[#EF3329] focus:ring-1 focus:ring-[#EF3329] disabled:opacity-50"
+                                        className="w-24 bg-crm-bg border border-crm-border rounded-lg px-3 py-2 text-crm-fg focus:outline-none focus:border-crm-red focus:ring-1 focus:ring-crm-red disabled:opacity-50"
                                     />
-                                    <span className="text-sm text-neutral-500">días</span>
+                                    <span className="text-sm text-crm-fg-muted">días</span>
                                 </div>
                             </div>
                         </div>
                     </div>
 
                     {/* C. Horarios y Moneda */}
-                    <div className="bg-[#1E1E24] border border-[#33333A] rounded-2xl p-6">
-                        <h2 className="text-lg font-bold text-white flex items-center gap-2 mb-4 border-b border-neutral-800 pb-2">
-                            <Clock size={18} className="text-neutral-400" />
+                    <div className="bg-crm-surface border border-crm-border rounded-2xl p-6">
+                        <h2 className="text-lg font-bold text-white flex items-center gap-2 mb-4 border-b border-crm-border pb-2">
+                            <Clock size={18} className="text-crm-fg-muted" />
                             Horarios Comerciales
                         </h2>
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                             <div>
-                                <label className="block text-sm font-medium text-neutral-400 mb-1">Lunes a Viernes</label>
+                                <label className="block text-sm font-medium text-crm-fg-muted mb-1">Lunes a Viernes</label>
                                 <input 
                                     type="text" 
                                     value={settings.businessHours?.mondayToFriday || "09:00 - 18:00"} 
                                     onChange={e => handleChange('businessHours', 'mondayToFriday', e.target.value)}
                                     disabled={!canEdit}
-                                    className="w-full bg-[#161619] border border-[#33333A] rounded-lg px-3 py-2 text-[#FAFAFA] focus:outline-none focus:border-[#EF3329] focus:ring-1 focus:ring-[#EF3329] disabled:opacity-50"
+                                    className="w-full bg-crm-bg border border-crm-border rounded-lg px-3 py-2 text-crm-fg focus:outline-none focus:border-crm-red focus:ring-1 focus:ring-crm-red disabled:opacity-50"
                                 />
                             </div>
                             <div>
-                                <label className="block text-sm font-medium text-neutral-400 mb-1">Sábados</label>
+                                <label className="block text-sm font-medium text-crm-fg-muted mb-1">Sábados</label>
                                 <input 
                                     type="text" 
                                     value={settings.businessHours?.saturday || "09:00 - 13:00"} 
                                     onChange={e => handleChange('businessHours', 'saturday', e.target.value)}
                                     disabled={!canEdit}
-                                    className="w-full bg-[#161619] border border-[#33333A] rounded-lg px-3 py-2 text-[#FAFAFA] focus:outline-none focus:border-[#EF3329] focus:ring-1 focus:ring-[#EF3329] disabled:opacity-50"
+                                    className="w-full bg-crm-bg border border-crm-border rounded-lg px-3 py-2 text-crm-fg focus:outline-none focus:border-crm-red focus:ring-1 focus:ring-crm-red disabled:opacity-50"
                                 />
                             </div>
                             <div>
-                                <label className="block text-sm font-medium text-neutral-400 mb-1">Domingos</label>
+                                <label className="block text-sm font-medium text-crm-fg-muted mb-1">Domingos</label>
                                 <input 
                                     type="text" 
                                     value={settings.businessHours?.sunday || "Cerrado"} 
                                     onChange={e => handleChange('businessHours', 'sunday', e.target.value)}
                                     disabled={!canEdit}
-                                    className="w-full bg-[#161619] border border-[#33333A] rounded-lg px-3 py-2 text-[#FAFAFA] focus:outline-none focus:border-[#EF3329] focus:ring-1 focus:ring-[#EF3329] disabled:opacity-50"
+                                    className="w-full bg-crm-bg border border-crm-border rounded-lg px-3 py-2 text-crm-fg focus:outline-none focus:border-crm-red focus:ring-1 focus:ring-crm-red disabled:opacity-50"
                                 />
                             </div>
                         </div>
                     </div>
 
                     {canEdit && (
-                        <div className="flex justify-end gap-4 mt-6 border-t border-neutral-800 pt-6">
+                        <div className="flex justify-end gap-4 mt-6 border-t border-crm-border pt-6">
                             <button 
                                 type="submit"
                                 disabled={saving}
-                                className="flex items-center gap-2 bg-[#E63027] hover:bg-[#C42620] text-white px-6 py-2.5 rounded-xl font-bold transition-colors shadow-lg shadow-black/20 disabled:opacity-50"
+                                className="flex items-center gap-2 bg-crm-red hover:bg-crm-red-hover text-white px-6 py-2.5 rounded-xl font-bold transition-colors shadow-lg shadow-black/20 disabled:opacity-50"
                             >
                                 <Save size={18} />
                                 {saving ? 'Guardando...' : 'Guardar Cambios'}

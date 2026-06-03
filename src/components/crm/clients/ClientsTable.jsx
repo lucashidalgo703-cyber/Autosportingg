@@ -1,14 +1,15 @@
 import React from 'react';
 import { useRouter } from 'next/navigation';
-import { Mail, Phone, MapPin, AlertCircle } from 'lucide-react';
+import { Mail, Phone, MapPin, AlertCircle, ArrowRight } from 'lucide-react';
+import CrmButton from '../ui/CrmButton';
 
 export default function ClientsTable({ clients }) {
     const router = useRouter();
 
     if (!clients || clients.length === 0) {
         return (
-            <div className="bg-neutral-900 border border-neutral-800 rounded-xl p-8 text-center">
-                <p className="text-neutral-400">No se encontraron clientes.</p>
+            <div className="bg-crm-surface border border-crm-border rounded-xl p-12 text-center">
+                <p className="text-crm-fg-muted">No se encontraron clientes.</p>
             </div>
         );
     }
@@ -23,10 +24,10 @@ export default function ClientsTable({ clients }) {
     };
 
     return (
-        <div className="bg-neutral-900 border border-neutral-800 rounded-xl overflow-hidden">
+        <div className="bg-crm-surface border border-crm-border rounded-xl overflow-hidden">
             <div className="overflow-x-auto">
-                <table className="w-full text-left text-sm text-neutral-300">
-                    <thead className="bg-neutral-800/50 text-xs uppercase text-neutral-400 font-bold border-b border-neutral-800">
+                <table className="w-full text-left text-sm text-crm-fg-muted">
+                    <thead className="bg-crm-topbar text-[10px] uppercase text-crm-fg-muted font-bold border-b border-crm-border">
                         <tr>
                             <th className="px-6 py-4">Cliente</th>
                             <th className="px-6 py-4">Contacto</th>
@@ -36,25 +37,25 @@ export default function ClientsTable({ clients }) {
                             <th className="px-6 py-4 text-right">Acciones</th>
                         </tr>
                     </thead>
-                    <tbody className="divide-y divide-neutral-800">
+                    <tbody className="divide-y divide-crm-border">
                         {clients.map(client => (
-                            <tr key={client._id} className="hover:bg-neutral-800/30 transition-colors">
+                            <tr key={client._id} className="hover:bg-crm-surface-raised transition-colors group">
                                 <td className="px-6 py-4">
                                     <div className="flex flex-col">
                                         <span className="font-bold text-white text-base">{client.fullName}</span>
-                                        {client.dniCuit && <span className="text-xs text-neutral-500">Doc: {client.dniCuit}</span>}
+                                        {client.dniCuit && <span className="text-xs text-crm-fg-muted">Doc: {client.dniCuit}</span>}
                                     </div>
                                 </td>
                                 <td className="px-6 py-4">
                                     <div className="flex flex-col gap-1">
                                         {client.phone && (
-                                            <div className="flex items-center gap-2 text-neutral-400 text-xs">
+                                            <div className="flex items-center gap-2 text-crm-fg-muted text-xs">
                                                 <Phone size={12} />
                                                 <span>{client.phone}</span>
                                             </div>
                                         )}
                                         {client.email && (
-                                            <div className="flex items-center gap-2 text-neutral-400 text-xs">
+                                            <div className="flex items-center gap-2 text-crm-fg-muted text-xs">
                                                 <Mail size={12} />
                                                 <span className="truncate max-w-[150px]">{client.email}</span>
                                             </div>
@@ -66,33 +67,35 @@ export default function ClientsTable({ clients }) {
                                         <span className={`px-2.5 py-1 rounded-full text-[10px] uppercase font-bold border ${getTypeColor(client.type)}`}>
                                             {client.type}
                                         </span>
-                                        <span className="text-xs text-neutral-500 uppercase tracking-wider">
+                                        <span className="text-xs text-crm-fg-muted uppercase tracking-wider">
                                             {client.source}
                                         </span>
                                     </div>
                                 </td>
                                 <td className="px-6 py-4">
                                     {(client.locality || client.province) ? (
-                                        <div className="flex items-center gap-2 text-neutral-400 text-xs">
+                                        <div className="flex items-center gap-2 text-crm-fg-muted text-xs">
                                             <MapPin size={12} className="shrink-0" />
                                             <span className="truncate max-w-[120px]">
                                                 {[client.locality, client.province].filter(Boolean).join(', ')}
                                             </span>
                                         </div>
                                     ) : (
-                                        <span className="text-neutral-600 text-xs">-</span>
+                                        <span className="text-crm-fg-muted text-xs">-</span>
                                     )}
                                 </td>
-                                <td className="px-6 py-4 text-xs text-neutral-400">
+                                <td className="px-6 py-4 text-xs text-crm-fg-muted">
                                     {new Date(client.createdAt).toLocaleDateString('es-AR')}
                                 </td>
                                 <td className="px-6 py-4 text-right">
-                                    <button 
+                                    <CrmButton 
+                                        variant="secondary"
                                         onClick={() => router.push(`/admin/clientes/${client._id}`)}
-                                        className="bg-neutral-800 hover:bg-neutral-700 text-white px-4 py-2 rounded-lg text-xs font-bold transition-colors"
+                                        className="gap-2 px-3 opacity-0 group-hover:opacity-100 transition-opacity float-right"
                                     >
                                         Ver Ficha
-                                    </button>
+                                        <ArrowRight size={14} />
+                                    </CrmButton>
                                 </td>
                             </tr>
                         ))}

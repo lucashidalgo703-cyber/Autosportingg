@@ -6,8 +6,8 @@ import ReservationStatusBadge from './ReservationStatusBadge';
 export default function ReservationMobileCards({ reservations, onLiberar, onConvertir, getIsOverdue }) {
     if (!reservations || reservations.length === 0) {
         return (
-            <div className="md:hidden flex flex-col items-center justify-center p-8 bg-neutral-900 border border-neutral-800 rounded-2xl opacity-80 mt-4">
-                <p className="text-neutral-400 text-center text-sm">
+            <div className="md:hidden flex flex-col items-center justify-center p-8 bg-crm-surface border border-crm-border rounded-2xl opacity-80 mt-4">
+                <p className="text-crm-fg-muted text-center text-sm">
                     No hay resultados que coincidan con los filtros actuales.
                 </p>
             </div>
@@ -25,7 +25,7 @@ export default function ReservationMobileCards({ reservations, onLiberar, onConv
                 const vehicleHref = res.vehicleId?._id ? `/admin/stock/${res.vehicleId._id}` : '#';
 
                 return (
-                    <div key={res._id} className={`bg-neutral-900 border border-neutral-800 rounded-2xl p-4 flex flex-col gap-4 relative overflow-hidden ${isOverdue && res.status === 'activa' ? 'border-orange-500/30' : ''}`}>
+                    <div key={res._id} className={`bg-crm-surface border border-crm-border rounded-2xl p-4 flex flex-col gap-4 relative overflow-hidden ${isOverdue && res.status === 'activa' ? 'border-orange-500/30' : ''}`}>
                         {isOverdue && res.status === 'activa' && (
                             <div className="absolute top-0 right-0 w-16 h-16 pointer-events-none">
                                 <div className="absolute top-4 -right-5 bg-orange-500 text-white text-[8px] font-bold py-0.5 px-6 rotate-45 uppercase tracking-wider shadow-lg">
@@ -37,47 +37,47 @@ export default function ReservationMobileCards({ reservations, onLiberar, onConv
                         {/* Top row: Status & Date */}
                         <div className="flex justify-between items-start">
                             <ReservationStatusBadge status={res.status} isOverdue={isOverdue} />
-                            <span className="text-xs text-neutral-500">{new Date(res.createdAt).toLocaleDateString()}</span>
+                            <span className="text-xs text-crm-fg-muted">{new Date(res.createdAt).toLocaleDateString()}</span>
                         </div>
 
                         {/* Details */}
                         <div className="flex flex-col gap-3">
                             <div className="flex flex-col">
-                                <span className="text-[10px] font-bold text-neutral-500 uppercase tracking-wider mb-1">Vehículo</span>
+                                <span className="text-[10px] font-bold text-crm-fg-muted uppercase tracking-wider mb-1">Vehículo</span>
                                 {res.vehicleId ? (
                                     <Link href={vehicleHref} className="text-sm font-bold text-white hover:text-red-400 transition-colors">
                                         {vehicleName}
                                     </Link>
                                 ) : (
-                                    <span className="text-sm font-bold text-neutral-500">N/A</span>
+                                    <span className="text-sm font-bold text-crm-fg-muted">N/A</span>
                                 )}
                             </div>
 
                             <div className="flex flex-col">
-                                <span className="text-[10px] font-bold text-neutral-500 uppercase tracking-wider mb-1">Cliente / Lead</span>
+                                <span className="text-[10px] font-bold text-crm-fg-muted uppercase tracking-wider mb-1">Cliente / Lead</span>
                                 {hasLink ? (
-                                    <Link href={linkHref} className="text-sm text-neutral-300 hover:text-red-400 transition-colors flex items-center gap-1.5">
-                                        <User size={14} className="text-neutral-500" />
+                                    <Link href={linkHref} className="text-sm text-crm-fg-muted hover:text-red-400 transition-colors flex items-center gap-1.5">
+                                        <User size={14} className="text-crm-fg-muted" />
                                         {name}
                                     </Link>
                                 ) : (
-                                    <span className="text-sm text-neutral-400 flex items-center gap-1.5">
-                                        <User size={14} className="text-neutral-500" />
+                                    <span className="text-sm text-crm-fg-muted flex items-center gap-1.5">
+                                        <User size={14} className="text-crm-fg-muted" />
                                         {name}
                                     </span>
                                 )}
                             </div>
 
-                            <div className="grid grid-cols-2 gap-4 bg-black/20 rounded-xl p-3 border border-neutral-800/50">
+                            <div className="grid grid-cols-2 gap-4 bg-crm-bg rounded-xl p-3 border border-crm-border">
                                 <div className="flex flex-col">
-                                    <span className="text-[10px] text-neutral-500 uppercase">Seña Cargada</span>
-                                    <span className={`text-sm font-bold ${res.status === 'activa' ? 'text-green-400' : 'text-neutral-300'}`}>
+                                    <span className="text-[10px] text-crm-fg-muted uppercase">Seña Cargada</span>
+                                    <span className={`text-sm font-bold ${res.status === 'activa' ? 'text-green-400' : 'text-crm-fg-muted'}`}>
                                         {res.depositCurrency} {(res.depositAmount || 0).toLocaleString('es-AR')}
                                     </span>
                                 </div>
                                 <div className="flex flex-col">
-                                    <span className="text-[10px] text-neutral-500 uppercase">Vencimiento</span>
-                                    <span className={`text-sm flex items-center gap-1 ${isOverdue && res.status === 'activa' ? 'text-orange-400 font-bold' : 'text-neutral-300'}`}>
+                                    <span className="text-[10px] text-crm-fg-muted uppercase">Vencimiento</span>
+                                    <span className={`text-sm flex items-center gap-1 ${isOverdue && res.status === 'activa' ? 'text-orange-400 font-bold' : 'text-crm-fg-muted'}`}>
                                         {res.expiresAt ? new Date(res.expiresAt).toLocaleDateString() : 'N/A'}
                                         {isOverdue && res.status === 'activa' && <AlertCircle size={12} />}
                                     </span>
@@ -85,12 +85,12 @@ export default function ReservationMobileCards({ reservations, onLiberar, onConv
                             </div>
                         </div>
 
-                        <div className="flex flex-col gap-2 pt-2 border-t border-neutral-800">
+                        <div className="flex flex-col gap-2 pt-2 border-t border-crm-border">
                             {res.status === 'activa' && (
                                 <div className="flex gap-2">
                                     <button 
                                         onClick={() => onConvertir(res)}
-                                        className="flex-1 py-2.5 rounded-xl bg-[#E63027] hover:bg-[#C42620] text-white text-sm font-bold transition-colors flex items-center justify-center"
+                                        className="flex-1 py-2.5 rounded-xl bg-crm-red hover:bg-[#C42620] text-white text-sm font-bold transition-colors flex items-center justify-center"
                                     >
                                         Convertir a Venta
                                     </button>
@@ -100,7 +100,7 @@ export default function ReservationMobileCards({ reservations, onLiberar, onConv
                                 {res.status === 'activa' && (
                                     <button 
                                         onClick={() => onLiberar(res)}
-                                        className="flex-1 py-2.5 rounded-xl bg-red-500/10 hover:bg-red-500/20 text-red-400 text-sm font-bold transition-colors border border-red-500/20 flex items-center justify-center gap-2"
+                                        className="flex-1 py-2.5 rounded-xl bg-crm-red/10 hover:bg-crm-red/20 text-crm-red text-sm font-bold transition-colors border border-crm-red/20 flex items-center justify-center gap-2"
                                     >
                                         <XCircle size={16} />
                                         Liberar Reserva
@@ -109,7 +109,7 @@ export default function ReservationMobileCards({ reservations, onLiberar, onConv
                                 
                                 <Link 
                                     href={vehicleHref}
-                                    className={`${res.status === 'activa' ? 'flex-none w-12' : 'flex-1'} py-2.5 rounded-xl bg-neutral-800 hover:bg-neutral-700 text-white text-sm font-bold transition-colors border border-neutral-700 flex items-center justify-center`}
+                                    className={`${res.status === 'activa' ? 'flex-none w-12' : 'flex-1'} py-2.5 rounded-xl bg-crm-surface-raised hover:bg-crm-border text-crm-fg-muted text-sm font-bold transition-colors border border-crm-border flex items-center justify-center`}
                                 >
                                     <ChevronRight size={18} />
                                 </Link>

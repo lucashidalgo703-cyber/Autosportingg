@@ -37,10 +37,10 @@ export default function ConfiguracionPage() {
     }
 
     return (
-        <div className="p-6 max-w-7xl mx-auto w-full">
+        <div className="mx-auto w-full max-w-7xl p-4 md:p-6">
             <div className="mb-8">
                 <h1 className="text-2xl font-bold text-white tracking-tight">Configuración</h1>
-                <p className="text-neutral-400 mt-1">Ajustes y opciones de configuración del CRM AutoSporting.</p>
+                <p className="text-crm-fg-muted mt-1">Ajustes y opciones de configuración del CRM AutoSporting.</p>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -48,14 +48,14 @@ export default function ConfiguracionPage() {
                 {canViewUsers && (
                     <Link 
                         href="/admin/configuracion/usuarios"
-                        className="group flex items-start gap-4 p-6 rounded-2xl border border-[#33333A] bg-[#1E1E24] hover:border-[#E63027]/50 hover:bg-[#28282E] transition-all"
+                        className="group flex items-start gap-4 p-6 rounded-2xl border border-crm-border bg-crm-surface hover:border-crm-red/50 hover:bg-crm-surface-raised transition-all"
                     >
-                        <div className="w-12 h-12 rounded-xl bg-[#161619] flex items-center justify-center shrink-0 group-hover:bg-[#E63027] group-hover:text-white transition-colors border border-[#33333A] group-hover:border-[#E63027]">
-                            <Users size={24} className="text-neutral-400 group-hover:text-white" />
+                        <div className="w-12 h-12 rounded-xl bg-crm-bg flex items-center justify-center shrink-0 group-hover:bg-crm-red group-hover:text-white transition-colors border border-crm-border group-hover:border-crm-red">
+                            <Users size={24} className="text-crm-fg-muted group-hover:text-white" />
                         </div>
                         <div>
                             <h3 className="font-semibold text-white mb-1">Usuarios y Permisos</h3>
-                            <p className="text-sm text-neutral-400 leading-relaxed">
+                            <p className="text-sm text-crm-fg-muted leading-relaxed">
                                 Gestionar usuarios del sistema, roles, permisos y accesos al CRM.
                             </p>
                         </div>
@@ -65,14 +65,14 @@ export default function ConfiguracionPage() {
                 {canViewTemplates && (
                     <Link 
                         href="/admin/configuracion/plantillas"
-                        className="group flex items-start gap-4 p-6 rounded-2xl border border-[#33333A] bg-[#1E1E24] hover:border-[#E63027]/50 hover:bg-[#28282E] transition-all"
+                        className="group flex items-start gap-4 p-6 rounded-2xl border border-crm-border bg-crm-surface hover:border-crm-red/50 hover:bg-crm-surface-raised transition-all"
                     >
-                        <div className="w-12 h-12 rounded-xl bg-[#161619] flex items-center justify-center shrink-0 group-hover:bg-[#E63027] group-hover:text-white transition-colors border border-[#33333A] group-hover:border-[#E63027]">
-                            <MessageSquare size={24} className="text-neutral-400 group-hover:text-white" />
+                        <div className="w-12 h-12 rounded-xl bg-crm-bg flex items-center justify-center shrink-0 group-hover:bg-crm-red group-hover:text-white transition-colors border border-crm-border group-hover:border-crm-red">
+                            <MessageSquare size={24} className="text-crm-fg-muted group-hover:text-white" />
                         </div>
                         <div>
                             <h3 className="font-semibold text-white mb-1">Plantillas Comerciales</h3>
-                            <p className="text-sm text-neutral-400 leading-relaxed">
+                            <p className="text-sm text-crm-fg-muted leading-relaxed">
                                 Administrar los mensajes predefinidos para agilizar la comunicación de ventas y postventa.
                             </p>
                         </div>
@@ -82,14 +82,14 @@ export default function ConfiguracionPage() {
                 {canViewSettings && (
                     <Link 
                         href="/admin/configuracion/general"
-                        className="group flex items-start gap-4 p-6 rounded-2xl border border-[#33333A] bg-[#1E1E24] hover:border-[#E63027]/50 hover:bg-[#28282E] transition-all"
+                        className="group flex items-start gap-4 p-6 rounded-2xl border border-crm-border bg-crm-surface hover:border-crm-red/50 hover:bg-crm-surface-raised transition-all"
                     >
-                        <div className="w-12 h-12 rounded-xl bg-[#161619] flex items-center justify-center shrink-0 group-hover:bg-[#E63027] group-hover:text-white transition-colors border border-[#33333A] group-hover:border-[#E63027]">
-                            <Settings size={24} className="text-neutral-400 group-hover:text-white" />
+                        <div className="w-12 h-12 rounded-xl bg-crm-bg flex items-center justify-center shrink-0 group-hover:bg-crm-red group-hover:text-white transition-colors border border-crm-border group-hover:border-crm-red">
+                            <Settings size={24} className="text-crm-fg-muted group-hover:text-white" />
                         </div>
                         <div>
                             <h3 className="font-semibold text-white mb-1">Configuración General</h3>
-                            <p className="text-sm text-neutral-400 leading-relaxed">
+                            <p className="text-sm text-crm-fg-muted leading-relaxed">
                                 Parámetros operativos, reglas de negocio y opciones globales del CRM.
                             </p>
                         </div>

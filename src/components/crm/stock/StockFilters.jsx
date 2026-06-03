@@ -1,38 +1,39 @@
 "use client";
 import { Search, Filter, Plus } from 'lucide-react';
 import CrmButton from '../ui/CrmButton';
+import CrmInput from '../ui/CrmInput';
 
 export default function StockFilters({ searchTerm, setSearchTerm, filterStatus, setFilterStatus, onNewVehicle }) {
     return (
-        <div className="flex flex-col lg:flex-row gap-4 items-center justify-between bg-[#1E1E24] p-4 rounded-xl border border-[#33333A] mb-6">
+        <div className="flex flex-col lg:flex-row gap-4 items-center justify-between bg-crm-surface p-4 rounded-xl border border-crm-border mb-6">
             <div className="flex flex-col sm:flex-row gap-4 w-full lg:w-auto flex-1">
                 <div className="relative w-full sm:max-w-xs">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-[#A1A1AA]" size={18} />
-                    <input
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-crm-fg-muted" size={18} />
+                    <CrmInput
                         type="text"
                         placeholder="Buscar por marca, modelo..."
                         value={searchTerm}
                         onChange={(e) => setSearchTerm(e.target.value)}
-                        className="w-full bg-[#161619] border border-[#33333A] text-white rounded-lg pl-10 pr-4 py-2 focus:outline-none focus:border-[#E63027] transition-colors"
+                        className="pl-10"
                     />
                 </div>
                 
-                <div className="flex gap-2 w-full sm:w-auto overflow-x-auto pb-1 sm:pb-0">
+                <div className="flex bg-crm-bg p-1 rounded-xl border border-crm-border w-full sm:w-auto overflow-x-auto gap-1 items-center">
                     <button 
                         onClick={() => setFilterStatus('todos')}
-                        className={`px-4 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition-colors ${filterStatus === 'todos' ? 'bg-[#24242B] text-white border border-[#33333A]' : 'text-[#A1A1AA] hover:text-white'}`}
+                        className={`rounded-full h-[26px] px-3 text-xs border transition-colors whitespace-nowrap ${filterStatus === 'todos' ? 'border-crm-border bg-crm-surface-raised text-crm-fg' : 'border-transparent text-crm-fg-muted hover:text-crm-fg'}`}
                     >
                         Todos
                     </button>
                     <button 
                         onClick={() => setFilterStatus('disponible')}
-                        className={`px-4 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition-colors ${filterStatus === 'disponible' ? 'bg-[#24242B] text-white border border-[#33333A]' : 'text-[#A1A1AA] hover:text-white'}`}
+                        className={`rounded-full h-[26px] px-3 text-xs border transition-colors whitespace-nowrap ${filterStatus === 'disponible' ? 'border-crm-border bg-crm-surface-raised text-crm-fg' : 'border-transparent text-crm-fg-muted hover:text-crm-fg'}`}
                     >
                         Disponibles
                     </button>
                     <button 
                         onClick={() => setFilterStatus('reservado')}
-                        className={`px-4 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition-colors ${filterStatus === 'reservado' ? 'bg-[#24242B] text-white border border-[#33333A]' : 'text-[#A1A1AA] hover:text-white'}`}
+                        className={`rounded-full h-[26px] px-3 text-xs border transition-colors whitespace-nowrap ${filterStatus === 'reservado' ? 'border-crm-border bg-crm-surface-raised text-crm-fg' : 'border-transparent text-crm-fg-muted hover:text-crm-fg'}`}
                     >
                         Reservados
                     </button>
@@ -40,11 +41,11 @@ export default function StockFilters({ searchTerm, setSearchTerm, filterStatus, 
             </div>
 
             <div className="flex items-center gap-3 w-full lg:w-auto shrink-0 justify-end">
-                <button className="flex items-center gap-2 px-4 py-2 bg-[#24242B] text-white rounded-lg border border-[#33333A] hover:bg-[#2A2A32] transition-colors text-sm">
+                <CrmButton variant="secondary" className="gap-2">
                     <Filter size={16} />
                     Más Filtros
-                </button>
-                <CrmButton onClick={onNewVehicle} className="flex items-center gap-2">
+                </CrmButton>
+                <CrmButton variant="primary" onClick={onNewVehicle} className="gap-2">
                     <Plus size={16} />
                     Nuevo Vehículo
                 </CrmButton>

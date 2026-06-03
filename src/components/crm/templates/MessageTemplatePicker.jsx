@@ -121,7 +121,7 @@ export default function MessageTemplatePicker({ category, entityData, onLogActio
             <button
                 type="button"
                 onClick={() => setIsOpen(!isOpen)}
-                className="flex items-center gap-2 px-3 py-1.5 text-sm font-medium text-white bg-[#E63027]/10 border border-[#E63027]/20 rounded-lg hover:bg-[#E63027]/20 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#EF3329] transition-colors"
+                className="flex items-center gap-2 px-3 py-1.5 text-sm font-medium text-white bg-crm-red/10 border border-crm-red/20 rounded-lg hover:bg-crm-red/20 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-crm-red transition-colors"
             >
                 <MessageSquare className="w-4 h-4" />
                 Usar Plantilla
@@ -129,22 +129,22 @@ export default function MessageTemplatePicker({ category, entityData, onLogActio
             </button>
 
             {isOpen && (
-                <div className="absolute right-0 z-10 mt-2 w-80 sm:w-96 bg-[#1E1E24] border border-[#33333A] rounded-xl shadow-2xl overflow-hidden shadow-black/50">
+                <div className="absolute right-0 z-10 mt-2 w-80 sm:w-96 bg-crm-surface border border-crm-border rounded-xl shadow-2xl overflow-hidden shadow-black/50">
                     {!selectedTemplate ? (
                         <div className="p-2 max-h-64 overflow-y-auto custom-scrollbar">
-                            <div className="px-3 py-2 text-xs font-semibold text-neutral-500 uppercase tracking-wider">
+                            <div className="px-3 py-2 text-xs font-semibold text-crm-fg-muted uppercase tracking-wider">
                                 Plantillas Disponibles
                             </div>
                             {loading ? (
-                                <div className="p-4 text-sm text-center text-neutral-500">Cargando...</div>
+                                <div className="p-4 text-sm text-center text-crm-fg-muted">Cargando...</div>
                             ) : templates.length === 0 ? (
-                                <div className="p-4 text-sm text-center text-neutral-500">No hay plantillas activas.</div>
+                                <div className="p-4 text-sm text-center text-crm-fg-muted">No hay plantillas activas.</div>
                             ) : (
                                 templates.map(t => (
                                     <button
                                         key={t._id}
                                         onClick={() => handleSelectTemplate(t)}
-                                        className="w-full text-left px-3 py-2 text-sm text-neutral-300 hover:bg-white/5 hover:text-white rounded-md transition-colors"
+                                        className="w-full text-left px-3 py-2 text-sm text-crm-fg-muted hover:bg-crm-surface-raised hover:text-crm-fg rounded-md transition-colors"
                                     >
                                         {t.name}
                                     </button>
@@ -153,11 +153,11 @@ export default function MessageTemplatePicker({ category, entityData, onLogActio
                         </div>
                     ) : (
                         <div className="flex flex-col h-full max-h-[400px]">
-                            <div className="px-4 py-3 border-b border-[#33333A] flex items-center justify-between bg-[#161619]">
+                            <div className="px-4 py-3 border-b border-crm-border flex items-center justify-between bg-crm-surface">
                                 <h4 className="text-sm font-medium text-white truncate pr-4">{selectedTemplate.name}</h4>
                                 <button
                                     onClick={() => setSelectedTemplate(null)}
-                                    className="text-xs text-[#E63027] hover:text-[#C42620] font-medium whitespace-nowrap"
+                                    className="text-xs text-crm-red hover:text-crm-red-hover font-medium whitespace-nowrap"
                                 >
                                     Cambiar
                                 </button>
@@ -166,13 +166,13 @@ export default function MessageTemplatePicker({ category, entityData, onLogActio
                                 <textarea
                                     value={previewText}
                                     onChange={(e) => setPreviewText(e.target.value)}
-                                    className="w-full h-32 p-3 text-sm text-[#FAFAFA] bg-[#161619] border border-[#33333A] rounded-lg focus:ring-2 focus:ring-[#EF3329] focus:border-transparent outline-none resize-none placeholder-neutral-500"
+                                    className="w-full h-32 p-3 text-sm text-crm-fg bg-crm-bg border border-crm-border rounded-lg focus:ring-2 focus:ring-crm-red focus:border-transparent outline-none resize-none placeholder-crm-fg-muted"
                                 />
                             </div>
                             <div className="p-4 pt-0">
                                 <button
                                     onClick={handleCopy}
-                                    className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-[#E63027] text-white text-sm font-medium rounded-lg hover:bg-[#C42620] transition-colors"
+                                    className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-crm-red text-white text-sm font-medium rounded-lg hover:bg-crm-red-hover transition-colors"
                                 >
                                     {copied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
                                     {copied ? '¡Copiado!' : 'Copiar Mensaje'}

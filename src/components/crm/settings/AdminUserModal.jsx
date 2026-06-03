@@ -46,12 +46,12 @@ export default function AdminUserModal({ user, onClose, onSave }) {
 
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-            <div className="bg-[#161619] border border-[#33333A] rounded-2xl w-full max-w-lg overflow-hidden shadow-2xl">
-                <div className="p-5 border-b border-[#33333A] flex justify-between items-center bg-[#1E1E24]">
+            <div className="bg-crm-surface border border-crm-border rounded-2xl w-full max-w-lg overflow-hidden shadow-2xl">
+                <div className="p-5 border-b border-crm-border flex justify-between items-center bg-crm-surface-raised">
                     <h2 className="text-lg font-bold text-white flex items-center gap-2">
                         {isEditing ? 'Editar Usuario' : 'Nuevo Usuario'}
                     </h2>
-                    <button onClick={onClose} className="text-neutral-400 hover:text-white transition-colors">
+                    <button onClick={onClose} className="text-crm-fg-muted hover:text-white transition-colors">
                         <X size={20} />
                     </button>
                 </div>
@@ -60,49 +60,49 @@ export default function AdminUserModal({ user, onClose, onSave }) {
                     <form id="userForm" onSubmit={handleSubmit} className="space-y-4">
                         <div className="grid grid-cols-1 gap-4">
                             <div>
-                                <label className="block text-xs font-bold text-neutral-400 uppercase mb-1">Nombre Completo</label>
+                                <label className="block text-xs font-bold text-crm-fg-muted uppercase mb-1">Nombre Completo</label>
                                 <input
                                     type="text"
                                     required
                                     value={formData.name}
                                     onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
-                                    className="w-full bg-[#1E1E24] border border-[#33333A] rounded-xl px-4 py-2.5 text-white focus:outline-none focus:border-[#EF3329]"
+                                    className="w-full bg-crm-bg border border-crm-border rounded-xl px-4 py-2.5 text-crm-fg focus:outline-none focus:border-crm-red focus:ring-1 focus:ring-crm-red"
                                     placeholder="Ej: Juan Pérez"
                                 />
                             </div>
 
                             <div>
-                                <label className="block text-xs font-bold text-neutral-400 uppercase mb-1">Email</label>
+                                <label className="block text-xs font-bold text-crm-fg-muted uppercase mb-1">Email</label>
                                 <input
                                     type="email"
                                     required
                                     value={formData.email}
                                     onChange={(e) => setFormData(prev => ({ ...prev, email: e.target.value }))}
-                                    className="w-full bg-[#1E1E24] border border-[#33333A] rounded-xl px-4 py-2.5 text-white focus:outline-none focus:border-[#EF3329]"
+                                    className="w-full bg-crm-bg border border-crm-border rounded-xl px-4 py-2.5 text-crm-fg focus:outline-none focus:border-crm-red focus:ring-1 focus:ring-crm-red"
                                     placeholder="Ej: juan@autosporting.com"
                                 />
                             </div>
 
                             {!isEditing && (
                                 <div>
-                                    <label className="block text-xs font-bold text-neutral-400 uppercase mb-1">Contraseña Inicial</label>
+                                    <label className="block text-xs font-bold text-crm-fg-muted uppercase mb-1">Contraseña Inicial</label>
                                     <input
                                         type="password"
                                         required={!isEditing}
                                         value={formData.password}
                                         onChange={(e) => setFormData(prev => ({ ...prev, password: e.target.value }))}
-                                        className="w-full bg-[#1E1E24] border border-[#33333A] rounded-xl px-4 py-2.5 text-white focus:outline-none focus:border-[#EF3329]"
+                                        className="w-full bg-crm-bg border border-crm-border rounded-xl px-4 py-2.5 text-crm-fg focus:outline-none focus:border-crm-red focus:ring-1 focus:ring-crm-red"
                                         placeholder="Contraseña segura"
                                     />
                                 </div>
                             )}
 
                             <div>
-                                <label className="block text-xs font-bold text-neutral-400 uppercase mb-1">Rol Base</label>
+                                <label className="block text-xs font-bold text-crm-fg-muted uppercase mb-1">Rol Base</label>
                                 <select
                                     value={formData.role}
                                     onChange={(e) => setFormData(prev => ({ ...prev, role: e.target.value, permissions: [] }))}
-                                    className="w-full bg-[#1E1E24] border border-[#33333A] rounded-xl px-4 py-2.5 text-white focus:outline-none focus:border-[#EF3329]"
+                                    className="w-full bg-crm-bg border border-crm-border rounded-xl px-4 py-2.5 text-crm-fg focus:outline-none focus:border-crm-red focus:ring-1 focus:ring-crm-red"
                                 >
                                     {Object.values(ROLES).map(r => (
                                         <option key={r} value={r}>{r.toUpperCase()}</option>
@@ -111,12 +111,12 @@ export default function AdminUserModal({ user, onClose, onSave }) {
                             </div>
 
                             {isEditing && (
-                                <div className="flex items-center gap-3 bg-[#1E1E24] p-4 rounded-xl border border-[#33333A]">
+                                <div className="flex items-center gap-3 bg-crm-bg p-4 rounded-xl border border-crm-border">
                                     <input
                                         type="checkbox"
                                         checked={formData.active}
                                         onChange={(e) => setFormData(prev => ({ ...prev, active: e.target.checked }))}
-                                        className="w-4 h-4 rounded border-[#33333A] text-indigo-600 focus:ring-indigo-600"
+                                        className="w-4 h-4 rounded border-crm-border bg-crm-bg text-crm-red focus:ring-crm-red"
                                     />
                                     <label className="text-sm font-medium text-white">Usuario Activo</label>
                                 </div>
@@ -133,11 +133,11 @@ export default function AdminUserModal({ user, onClose, onSave }) {
                     </form>
                 </div>
 
-                <div className="p-5 border-t border-[#33333A] bg-[#161619] flex justify-end gap-3">
+                <div className="p-5 border-t border-crm-border bg-crm-surface flex justify-end gap-3">
                     <button
                         type="button"
                         onClick={onClose}
-                        className="px-5 py-2.5 rounded-xl font-bold text-sm text-neutral-400 hover:text-white transition-colors"
+                        className="px-5 py-2.5 rounded-xl font-bold text-sm text-crm-fg-muted hover:text-white transition-colors"
                     >
                         Cancelar
                     </button>
@@ -145,7 +145,7 @@ export default function AdminUserModal({ user, onClose, onSave }) {
                         type="submit"
                         form="userForm"
                         disabled={loading}
-                        className="flex items-center gap-2 px-5 py-2.5 rounded-xl font-bold text-sm bg-[#E63027] hover:bg-[#C42620] text-white transition-colors disabled:opacity-50"
+                        className="flex items-center gap-2 px-5 py-2.5 rounded-xl font-bold text-sm bg-crm-red hover:bg-crm-red-hover text-white transition-colors disabled:opacity-50"
                     >
                         {loading ? 'Guardando...' : (
                             <>

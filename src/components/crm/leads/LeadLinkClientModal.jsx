@@ -53,22 +53,22 @@ export default function LeadLinkClientModal({ isOpen, onClose, onLink, lead }) {
 
     return (
         <div className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4 backdrop-blur-sm overflow-y-auto">
-            <div className="bg-[#161619] border border-neutral-800 rounded-2xl w-full max-w-3xl flex flex-col my-auto max-h-[90vh]">
+            <div className="bg-crm-surface border border-crm-border rounded-2xl w-full max-w-3xl flex flex-col my-auto max-h-[90vh]">
                 
                 {/* Header */}
-                <div className="flex justify-between items-center p-6 border-b border-neutral-800 shrink-0">
+                <div className="flex justify-between items-center p-6 border-b border-crm-border bg-crm-surface shrink-0 rounded-t-2xl">
                     <div>
                         <h2 className="text-xl font-bold text-white flex items-center gap-2">
-                            <LinkIcon size={20} className="text-blue-500" />
+                            <LinkIcon size={20} className="text-crm-red" />
                             Vincular Oportunidad a Cliente Real
                         </h2>
-                        <p className="text-sm text-neutral-400 mt-1">
+                        <p className="text-sm text-crm-fg-muted mt-1">
                             Buscá un cliente existente para asignarle esta oportunidad.
                         </p>
                     </div>
                     <button 
                         onClick={onClose} 
-                        className="p-2 rounded-lg hover:bg-neutral-800 text-neutral-400 hover:text-white transition-colors"
+                        className="p-2 rounded-lg hover:bg-crm-surface-raised text-crm-fg-muted hover:text-crm-fg transition-colors"
                     >
                         <X size={20} />
                     </button>
@@ -86,17 +86,17 @@ export default function LeadLinkClientModal({ isOpen, onClose, onLink, lead }) {
 
                     {/* Search Bar */}
                     <form onSubmit={handleSearchSubmit} className="relative shrink-0">
-                        <Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-500" />
+                        <Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-crm-fg-muted" />
                         <input 
                             type="text" 
                             placeholder="Buscar cliente por nombre, teléfono o email..." 
                             value={searchTerm}
                             onChange={(e) => setSearchTerm(e.target.value)}
-                            className="w-full bg-black/50 border border-neutral-800 rounded-lg pl-10 pr-24 py-3 text-white focus:outline-none focus:border-blue-500 transition-colors"
+                            className="w-full bg-crm-bg border border-crm-border rounded-lg pl-10 pr-24 py-3 text-crm-fg focus:outline-none focus:border-crm-red focus:ring-1 focus:ring-crm-red transition-colors"
                         />
                         <button 
                             type="submit" 
-                            className="absolute right-1.5 top-1/2 -translate-y-1/2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold px-4 py-1.5 rounded-md transition-colors"
+                            className="absolute right-1.5 top-1/2 -translate-y-1/2 bg-crm-red hover:bg-crm-red-hover text-white text-xs font-bold px-4 py-1.5 rounded-md transition-colors"
                         >
                             Buscar
                         </button>
@@ -106,7 +106,7 @@ export default function LeadLinkClientModal({ isOpen, onClose, onLink, lead }) {
                     <div className="flex flex-col gap-3 flex-1">
                         {loading ? (
                             <div className="flex justify-center items-center h-40">
-                                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
+                                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-crm-red"></div>
                             </div>
                         ) : error ? (
                             <div className="text-center text-red-400 p-4 border border-red-500/20 rounded-xl bg-red-500/5">
@@ -114,38 +114,38 @@ export default function LeadLinkClientModal({ isOpen, onClose, onLink, lead }) {
                             </div>
                         ) : clients.length === 0 ? (
                             <div className="flex flex-col items-center justify-center text-center py-10 opacity-50">
-                                <User size={40} className="text-neutral-500 mb-4" />
+                                <User size={40} className="text-crm-fg-muted mb-4" />
                                 <span className="text-white font-medium">Sin resultados</span>
-                                <p className="text-sm text-neutral-400 max-w-xs mt-2">
+                                <p className="text-sm text-crm-fg-muted max-w-xs mt-2">
                                     No se encontraron clientes con esos datos. Deberás crearlo primero en el listado de clientes.
                                 </p>
                             </div>
                         ) : (
                             <>
                                 {isSuggestion && clients.length > 0 && (
-                                    <span className="text-xs font-bold text-blue-400 bg-blue-500/10 px-3 py-1 rounded w-max border border-blue-500/20 mb-2">
+                                    <span className="text-xs font-bold text-crm-red bg-crm-red/10 px-3 py-1 rounded w-max border border-crm-red/20 mb-2">
                                         Sugerencias automáticas por coincidencia
                                     </span>
                                 )}
                                 
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                     {clients.map(client => (
-                                        <div key={client._id} className="bg-black/30 border border-neutral-800 p-4 rounded-xl flex flex-col gap-3 hover:border-blue-500/30 transition-colors group">
+                                        <div key={client._id} className="bg-crm-surface-raised border border-crm-border p-4 rounded-xl flex flex-col gap-3 hover:border-crm-red/50 transition-colors group">
                                             <div className="flex justify-between items-start">
                                                 <div className="flex items-center gap-2">
-                                                    <div className="w-8 h-8 rounded-full bg-blue-500/10 flex items-center justify-center border border-blue-500/20">
-                                                        <User size={14} className="text-blue-500" />
+                                                    <div className="w-8 h-8 rounded-full bg-crm-red/10 flex items-center justify-center border border-crm-red/20">
+                                                        <User size={14} className="text-crm-red" />
                                                     </div>
                                                     <div>
                                                         <span className="text-white font-bold block">{client.fullName || client.firstName}</span>
-                                                        <span className="text-[10px] uppercase bg-neutral-800 text-neutral-400 px-1.5 py-0.5 rounded">
+                                                        <span className="text-[10px] uppercase bg-crm-bg text-crm-fg-muted border border-crm-border px-1.5 py-0.5 rounded">
                                                             {client.type || 'Físico'}
                                                         </span>
                                                     </div>
                                                 </div>
                                             </div>
 
-                                            <div className="flex flex-col gap-1 text-xs text-neutral-400">
+                                            <div className="flex flex-col gap-1 text-xs text-crm-fg-muted">
                                                 <div className="flex items-center gap-2">
                                                     <Phone size={12} /> {client.phone}
                                                 </div>
@@ -164,7 +164,7 @@ export default function LeadLinkClientModal({ isOpen, onClose, onLink, lead }) {
                                             <button 
                                                 onClick={() => handleLink(client._id)}
                                                 disabled={isLinking}
-                                                className="mt-2 w-full py-2 rounded-lg bg-blue-600/10 hover:bg-blue-600 text-blue-500 hover:text-white font-medium text-sm transition-all border border-blue-500/20 flex items-center justify-center gap-2 disabled:opacity-50"
+                                                className="mt-2 w-full py-2 rounded-lg bg-crm-red/10 hover:bg-crm-red text-crm-red hover:text-white font-medium text-sm transition-all border border-crm-red/20 flex items-center justify-center gap-2 disabled:opacity-50"
                                             >
                                                 <LinkIcon size={14} />
                                                 Vincular este cliente

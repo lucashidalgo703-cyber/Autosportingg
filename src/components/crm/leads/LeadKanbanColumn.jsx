@@ -19,14 +19,14 @@ export default function LeadKanbanColumn({ title, status, leads, onChangeStatus 
     const headerStyle = getHeaderColors(status);
 
     return (
-        <div className="flex flex-col bg-black/20 border border-neutral-800 rounded-2xl w-[320px] shrink-0 h-[calc(100vh-280px)] min-h-[600px] overflow-hidden">
+        <div className="flex flex-col bg-[#161619] border border-[#33333A] rounded-2xl w-[320px] shrink-0 h-[calc(100vh-280px)] min-h-[600px] overflow-hidden">
             {/* Column Header */}
-            <div className={`p-4 border-b border-neutral-800 flex justify-between items-center bg-black/50`}>
+            <div className={`p-4 border-b border-[#33333A] flex justify-between items-center bg-[#1E1E24]`}>
                 <div className="flex items-center gap-2">
                     <div className={`w-3 h-3 rounded-full border ${headerStyle.split(' ')[0]} ${headerStyle.split(' ')[2]}`}></div>
                     <h3 className="text-white font-bold text-sm tracking-wide">{title}</h3>
                 </div>
-                <span className="text-xs font-bold text-neutral-500 bg-neutral-900 px-2 py-1 rounded-md border border-neutral-800">
+                <span className="text-xs font-bold text-[#A1A1AA] bg-[#161619] px-2 py-1 rounded-md border border-[#33333A]">
                     {leads.length}
                 </span>
             </div>
@@ -42,8 +42,8 @@ export default function LeadKanbanColumn({ title, status, leads, onChangeStatus 
                 ))}
                 
                 {leads.length === 0 && (
-                    <div className="flex-1 flex items-center justify-center border-2 border-dashed border-neutral-800/50 rounded-xl m-2">
-                        <span className="text-neutral-600 text-xs font-medium">Sin leads</span>
+                    <div className="flex-1 flex items-center justify-center border-2 border-dashed border-[#33333A] rounded-xl m-2">
+                        <span className="text-[#A1A1AA] text-xs font-medium">Sin leads</span>
                     </div>
                 )}
             </div>

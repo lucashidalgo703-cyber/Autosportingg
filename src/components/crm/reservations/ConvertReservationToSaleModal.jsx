@@ -287,23 +287,23 @@ export default function ConvertReservationToSaleModal({ isOpen, onClose, onSucce
 
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
-            <div className="bg-[#161619] border border-[#33333A] rounded-2xl w-full max-w-lg shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
+            <div className="bg-crm-surface border border-crm-border rounded-2xl w-full max-w-lg shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
                 
                 {/* Header */}
-                <div className="p-4 sm:p-6 border-b border-[#33333A] flex justify-between items-center bg-[#1E1E24]">
+                <div className="p-4 sm:p-6 border-b border-crm-border bg-crm-surface flex justify-between items-center rounded-t-2xl">
                     <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-xl bg-blue-500/10 flex items-center justify-center border border-blue-500/20">
-                            <Handshake size={20} className="text-blue-500" />
+                        <div className="w-10 h-10 rounded-xl bg-crm-red/10 flex items-center justify-center border border-crm-red/20">
+                            <Handshake size={20} className="text-crm-red" />
                         </div>
                         <div>
                             <h2 className="text-xl font-bold text-white tracking-tight">Convertir a Venta</h2>
-                            <p className="text-xs text-neutral-400 mt-0.5">Formalizar oportunidad comercial</p>
+                            <p className="text-xs text-crm-fg-muted mt-0.5">Formalizar oportunidad comercial</p>
                         </div>
                     </div>
                     <button 
                         onClick={handleClose}
                         disabled={loading}
-                        className="text-neutral-500 hover:text-white transition-colors"
+                        className="text-crm-fg-muted hover:text-crm-fg hover:bg-crm-surface-raised p-2 rounded-lg transition-colors"
                     >
                         <X size={24} />
                     </button>
@@ -413,28 +413,28 @@ export default function ConvertReservationToSaleModal({ isOpen, onClose, onSucce
                     )}
 
                     {/* Resumen de datos */}
-                    <div className="bg-black/30 border border-neutral-800 rounded-xl p-4 mb-6 grid gap-3">
+                    <div className="bg-crm-bg border border-crm-border rounded-xl p-4 mb-6 grid gap-3">
                         <div className="flex justify-between items-center">
-                            <span className="text-xs font-bold text-neutral-500 uppercase">Cliente / Lead</span>
+                            <span className="text-xs font-bold text-crm-fg-muted uppercase">Cliente / Lead</span>
                             <span className={`text-sm font-medium ${hasClient ? 'text-white' : 'text-red-400'}`}>{clientName}</span>
                         </div>
                         <div className="flex justify-between items-center">
-                            <span className="text-xs font-bold text-neutral-500 uppercase">Vehículo</span>
+                            <span className="text-xs font-bold text-crm-fg-muted uppercase">Vehículo</span>
                             <span className="text-sm font-medium text-white truncate ml-4">{vehicleName}</span>
                         </div>
                         <div className="flex justify-between items-center">
-                            <span className="text-xs font-bold text-neutral-500 uppercase">Seña Aplicada</span>
+                            <span className="text-xs font-bold text-crm-fg-muted uppercase">Seña Aplicada</span>
                             <span className="text-sm font-bold text-green-400">
                                 {reservation.depositCurrency} {(reservation.depositAmount || 0).toLocaleString('es-AR')}
                             </span>
                         </div>
                         <div className="flex justify-between items-center">
-                            <span className="text-xs font-bold text-neutral-500 uppercase">Vendedor</span>
+                            <span className="text-xs font-bold text-crm-fg-muted uppercase">Vendedor</span>
                             <span className="text-sm font-medium text-white">{reservation.salesperson || 'No asignado'}</span>
                         </div>
                     </div>
 
-                    <div className="mb-6 flex gap-2 items-start text-xs text-neutral-400 bg-neutral-900 p-3 rounded-lg border border-neutral-800">
+                    <div className="mb-6 flex gap-2 items-start text-xs text-crm-fg-muted bg-crm-bg p-3 rounded-lg border border-crm-border">
                         <Info size={14} className="shrink-0 mt-0.5 text-blue-400" />
                         <p>Esta venta todavía no impacta en caja. La seña se aplicará solo como dato comercial de la venta.</p>
                     </div>
@@ -449,16 +449,16 @@ export default function ConvertReservationToSaleModal({ isOpen, onClose, onSucce
                     <div className="space-y-4">
                         <div className="grid grid-cols-2 gap-4">
                             <div>
-                                <label className="block text-xs font-bold text-neutral-400 uppercase tracking-wider mb-2">
+                                <label className="block text-xs font-medium text-crm-fg-muted uppercase tracking-wider mb-2">
                                     Precio Final
                                 </label>
                                 <div className="relative">
-                                    <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-500" size={16} />
+                                    <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 text-crm-fg-muted" size={16} />
                                     <input
                                         type="number"
                                         min="0"
                                         required
-                                        className="w-full bg-black/40 border border-neutral-800 rounded-xl py-2.5 pl-9 pr-4 text-white focus:outline-none focus:border-[#EF3329]/50 transition-colors"
+                                        className="w-full bg-crm-bg border border-crm-border rounded-xl py-2.5 pl-9 pr-4 text-crm-fg focus:outline-none focus:border-crm-red focus:ring-1 focus:ring-crm-red transition-colors"
                                         value={formData.salePrice}
                                         onChange={(e) => setFormData({...formData, salePrice: e.target.value})}
                                         disabled={loading}
@@ -466,11 +466,11 @@ export default function ConvertReservationToSaleModal({ isOpen, onClose, onSucce
                                 </div>
                             </div>
                             <div>
-                                <label className="block text-xs font-bold text-neutral-400 uppercase tracking-wider mb-2">
+                                <label className="block text-xs font-medium text-crm-fg-muted uppercase tracking-wider mb-2">
                                     Moneda
                                 </label>
                                 <select
-                                    className="w-full bg-black/40 border border-neutral-800 rounded-xl py-2.5 px-4 text-white focus:outline-none focus:border-[#EF3329]/50 transition-colors appearance-none cursor-pointer"
+                                    className="w-full bg-crm-bg border border-crm-border rounded-xl py-2.5 px-4 text-crm-fg focus:outline-none focus:border-crm-red focus:ring-1 focus:ring-crm-red transition-colors appearance-none cursor-pointer"
                                     value={formData.saleCurrency}
                                     onChange={(e) => setFormData({...formData, saleCurrency: e.target.value})}
                                     disabled={loading}
@@ -482,11 +482,11 @@ export default function ConvertReservationToSaleModal({ isOpen, onClose, onSucce
                         </div>
 
                         <div>
-                            <label className="block text-xs font-bold text-neutral-400 uppercase tracking-wider mb-2">
+                            <label className="block text-xs font-medium text-crm-fg-muted uppercase tracking-wider mb-2">
                                 Método de Pago
                             </label>
                             <select
-                                className="w-full bg-black/40 border border-neutral-800 rounded-xl py-2.5 px-4 text-white focus:outline-none focus:border-[#EF3329]/50 transition-colors appearance-none cursor-pointer"
+                                className="w-full bg-crm-bg border border-crm-border rounded-xl py-2.5 px-4 text-crm-fg focus:outline-none focus:border-crm-red focus:ring-1 focus:ring-crm-red transition-colors appearance-none cursor-pointer"
                                 value={formData.paymentMethod}
                                 onChange={(e) => setFormData({...formData, paymentMethod: e.target.value})}
                                 disabled={loading}
@@ -499,57 +499,57 @@ export default function ConvertReservationToSaleModal({ isOpen, onClose, onSucce
                         </div>
 
                         <div>
-                            <label className="block text-xs font-bold text-neutral-400 uppercase tracking-wider mb-2">
+                            <label className="block text-xs font-medium text-crm-fg-muted uppercase tracking-wider mb-2">
                                 Notas de la venta (opcional)
                             </label>
                             <textarea
                                 rows={3}
-                                className="w-full bg-black/40 border border-neutral-800 rounded-xl py-3 px-4 text-white placeholder:text-neutral-600 focus:outline-none focus:border-[#EF3329]/50 transition-colors resize-none"
+                                className="w-full bg-crm-bg border border-crm-border rounded-xl py-3 px-4 text-crm-fg placeholder:text-crm-fg-muted focus:outline-none focus:border-crm-red focus:ring-1 focus:ring-crm-red transition-colors resize-none"
                                 placeholder="Condiciones especiales de entrega, aclaraciones comerciales..."
                                 value={formData.notes}
                                 onChange={(e) => setFormData({...formData, notes: e.target.value})}
                                 disabled={loading}
                             />
                         </div>
-                        <div className="bg-purple-500/5 border border-purple-500/20 rounded-xl p-4">
+                        <div className="bg-crm-surface-raised border border-crm-border rounded-xl p-4">
                             <div className="flex items-center justify-between mb-3">
                                 <label className="text-sm font-bold text-white flex items-center gap-2 cursor-pointer">
                                     <input 
                                         type="checkbox" 
                                         checked={formData.hasTradeIn} 
                                         onChange={(e) => setFormData({...formData, hasTradeIn: e.target.checked})}
-                                        className="rounded border-neutral-600 bg-black text-purple-500 focus:ring-purple-500"
+                                        className="rounded border-crm-border bg-crm-bg text-crm-red focus:ring-crm-red"
                                     />
                                     ¿El cliente entrega vehículo en parte de pago?
                                 </label>
                             </div>
 
                             {formData.hasTradeIn && (
-                                <div className="space-y-4 pt-2 border-t border-purple-500/20">
+                                <div className="space-y-4 pt-2 border-t border-crm-border">
                                     <div className="grid grid-cols-3 gap-3">
                                         <div>
-                                            <label className="block text-xs font-bold text-neutral-400 uppercase tracking-wider mb-1">Marca</label>
-                                            <input type="text" value={formData.tradeInBrand} onChange={(e) => setFormData({...formData, tradeInBrand: e.target.value})} className="w-full bg-black/40 border border-neutral-800 rounded py-2 px-3 text-sm text-white focus:outline-none focus:border-purple-500" placeholder="Ej. Toyota" />
+                                            <label className="block text-xs font-medium text-crm-fg-muted uppercase tracking-wider mb-1">Marca</label>
+                                            <input type="text" value={formData.tradeInBrand} onChange={(e) => setFormData({...formData, tradeInBrand: e.target.value})} className="w-full bg-crm-bg border border-crm-border rounded py-2 px-3 text-sm text-crm-fg focus:outline-none focus:border-crm-red focus:ring-1 focus:ring-crm-red" placeholder="Ej. Toyota" />
                                         </div>
                                         <div>
-                                            <label className="block text-xs font-bold text-neutral-400 uppercase tracking-wider mb-1">Modelo</label>
-                                            <input type="text" value={formData.tradeInModel} onChange={(e) => setFormData({...formData, tradeInModel: e.target.value})} className="w-full bg-black/40 border border-neutral-800 rounded py-2 px-3 text-sm text-white focus:outline-none focus:border-purple-500" placeholder="Ej. Corolla" />
+                                            <label className="block text-xs font-medium text-crm-fg-muted uppercase tracking-wider mb-1">Modelo</label>
+                                            <input type="text" value={formData.tradeInModel} onChange={(e) => setFormData({...formData, tradeInModel: e.target.value})} className="w-full bg-crm-bg border border-crm-border rounded py-2 px-3 text-sm text-crm-fg focus:outline-none focus:border-crm-red focus:ring-1 focus:ring-crm-red" placeholder="Ej. Corolla" />
                                         </div>
                                         <div>
-                                            <label className="block text-xs font-bold text-neutral-400 uppercase tracking-wider mb-1">Año</label>
-                                            <input type="number" value={formData.tradeInYear} onChange={(e) => setFormData({...formData, tradeInYear: e.target.value})} className="w-full bg-black/40 border border-neutral-800 rounded py-2 px-3 text-sm text-white focus:outline-none focus:border-purple-500" />
+                                            <label className="block text-xs font-medium text-crm-fg-muted uppercase tracking-wider mb-1">Año</label>
+                                            <input type="number" value={formData.tradeInYear} onChange={(e) => setFormData({...formData, tradeInYear: e.target.value})} className="w-full bg-crm-bg border border-crm-border rounded py-2 px-3 text-sm text-crm-fg focus:outline-none focus:border-crm-red focus:ring-1 focus:ring-crm-red" />
                                         </div>
                                     </div>
                                     <div>
-                                        <label className="block text-xs font-bold text-purple-400 uppercase tracking-wider mb-1">Valor Tomado ({formData.saleCurrency})</label>
+                                        <label className="block text-xs font-medium text-crm-fg-muted uppercase tracking-wider mb-1">Valor Tomado ({formData.saleCurrency})</label>
                                         <div className="relative">
-                                            <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 text-purple-500" size={14} />
-                                            <input type="number" value={formData.tradeInEstimatedValue} onChange={(e) => setFormData({...formData, tradeInEstimatedValue: e.target.value})} className="w-full bg-black/40 border border-purple-500/30 rounded py-2 pl-8 pr-3 text-sm text-white focus:outline-none focus:border-purple-500 font-bold" />
+                                            <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 text-crm-red" size={14} />
+                                            <input type="number" value={formData.tradeInEstimatedValue} onChange={(e) => setFormData({...formData, tradeInEstimatedValue: e.target.value})} className="w-full bg-crm-bg border border-crm-border rounded py-2 pl-8 pr-3 text-sm text-crm-fg focus:outline-none focus:border-crm-red focus:ring-1 focus:ring-crm-red font-bold" />
                                         </div>
                                     </div>
                                     
-                                    <div className="bg-black/30 p-3 rounded-lg flex justify-between items-center">
-                                        <span className="text-xs font-bold text-neutral-400 uppercase tracking-wider">Diferencia / Saldo:</span>
+                                    <div className="bg-crm-bg border border-crm-border p-3 rounded-lg flex justify-between items-center">
+                                        <span className="text-xs font-medium text-crm-fg-muted uppercase tracking-wider">Diferencia / Saldo:</span>
                                         <span className="text-sm font-black text-white">
                                             {formData.saleCurrency} {(Number(formData.salePrice) - (reservation.depositAmount || 0) - Number(formData.tradeInEstimatedValue)).toLocaleString('es-AR')}
                                         </span>
@@ -561,31 +561,31 @@ export default function ConvertReservationToSaleModal({ isOpen, onClose, onSucce
 
                     {/* Buscador de clientes si no hay cliente */}
                     {!hasClient && (
-                        <div className="mt-6 pt-6 border-t border-[#33333A]">
-                            <label className="block text-xs font-bold text-neutral-400 uppercase tracking-wider mb-2">
+                        <div className="mt-6 pt-6 border-t border-crm-border">
+                            <label className="block text-xs font-medium text-crm-fg-muted uppercase tracking-wider mb-2">
                                 Vincular Cliente Existente
                             </label>
                             <input
                                 type="text"
                                 placeholder="Buscar por nombre, DNI, teléfono o email..."
-                                className="w-full bg-black/40 border border-neutral-800 rounded-xl py-2.5 px-4 text-white focus:outline-none focus:border-[#EF3329]/50 transition-colors mb-2"
+                                className="w-full bg-crm-bg border border-crm-border rounded-xl py-2.5 px-4 text-crm-fg focus:outline-none focus:border-crm-red focus:ring-1 focus:ring-crm-red transition-colors mb-2"
                                 value={clientSearch}
                                 onChange={(e) => setClientSearch(e.target.value)}
                                 disabled={linkingClient}
                             />
-                            {searchingClient && <div className="text-xs text-neutral-500 mb-2">Buscando...</div>}
+                            {searchingClient && <div className="text-xs text-crm-fg-muted mb-2">Buscando...</div>}
                             {searchResults.length > 0 && (
                                 <div className="space-y-2 max-h-40 overflow-y-auto custom-scrollbar">
                                     {searchResults.map(client => (
-                                        <div key={client._id} className="flex items-center justify-between bg-black/30 border border-neutral-800 rounded-xl p-3">
+                                        <div key={client._id} className="flex items-center justify-between bg-crm-surface-raised border border-crm-border rounded-xl p-3">
                                             <div>
                                                 <p className="text-sm font-bold text-white">{client.fullName || client.firstName}</p>
-                                                <p className="text-xs text-neutral-400">{client.phone} {client.documentNumber ? `| DNI: ${client.documentNumber}` : ''}</p>
+                                                <p className="text-xs text-crm-fg-muted">{client.phone} {client.documentNumber ? `| DNI: ${client.documentNumber}` : ''}</p>
                                             </div>
                                             <button 
                                                 onClick={() => handleLinkClient(client._id)}
                                                 disabled={linkingClient}
-                                                className="px-3 py-1.5 text-xs font-bold bg-[#E63027] hover:bg-[#C42620] text-white rounded-lg transition-colors disabled:opacity-50"
+                                                className="px-3 py-1.5 text-xs font-bold bg-crm-red hover:bg-crm-red-hover text-white rounded-lg transition-colors disabled:opacity-50"
                                             >
                                                 Vincular
                                             </button>
@@ -594,23 +594,23 @@ export default function ConvertReservationToSaleModal({ isOpen, onClose, onSucce
                                 </div>
                             )}
                             {clientSearch.length > 2 && searchResults.length === 0 && !searchingClient && (
-                                <div className="text-xs text-neutral-500 mb-2">No se encontraron clientes con esos datos.</div>
+                                <div className="text-xs text-crm-fg-muted mb-2">No se encontraron clientes con esos datos.</div>
                             )}
 
                             {reservation.leadId && reservation.leadId.name && (
-                                <div className="mt-4 pt-4 border-t border-[#33333A]">
-                                    <label className="block text-xs font-bold text-neutral-400 uppercase tracking-wider mb-2">
+                                <div className="mt-4 pt-4 border-t border-crm-border">
+                                    <label className="block text-xs font-medium text-crm-fg-muted uppercase tracking-wider mb-2">
                                         O crear cliente desde el Lead asociado
                                     </label>
-                                    <div className="bg-black/30 border border-neutral-800 rounded-xl p-3 flex justify-between items-center">
+                                    <div className="bg-crm-surface-raised border border-crm-border rounded-xl p-3 flex justify-between items-center">
                                         <div>
                                             <p className="text-sm font-bold text-white">{reservation.leadId.name}</p>
-                                            <p className="text-xs text-neutral-400">{reservation.leadId.phone}</p>
+                                            <p className="text-xs text-crm-fg-muted">{reservation.leadId.phone}</p>
                                         </div>
                                         <button
                                             onClick={handleCreateClientFromLead}
                                             disabled={linkingClient}
-                                            className="px-3 py-1.5 text-xs font-bold bg-[#1E1E24] border border-[#33333A] hover:bg-[#28282E] text-white rounded-lg transition-colors disabled:opacity-50"
+                                            className="px-3 py-1.5 text-xs font-bold bg-crm-bg border border-crm-border hover:bg-crm-surface-raised text-white rounded-lg transition-colors disabled:opacity-50"
                                         >
                                             Crear y Vincular
                                         </button>
@@ -622,18 +622,18 @@ export default function ConvertReservationToSaleModal({ isOpen, onClose, onSucce
                 </div>
 
                 {/* Footer */}
-                <div className="p-4 sm:p-6 border-t border-[#33333A] bg-[#1E1E24] flex gap-3 justify-end">
+                <div className="p-4 sm:p-6 border-t border-crm-border bg-crm-surface flex gap-3 justify-end rounded-b-2xl">
                     <button
                         onClick={handleClose}
                         disabled={loading}
-                        className="px-6 py-2.5 rounded-xl font-bold text-neutral-300 hover:text-white hover:bg-neutral-800 transition-colors"
+                        className="px-6 py-2.5 rounded-xl font-bold text-crm-fg-muted hover:text-crm-fg hover:bg-crm-surface-raised transition-colors"
                     >
                         Cancelar
                     </button>
                     <button
                         onClick={handleConvert}
                         disabled={loading || !hasClient}
-                        className="px-6 py-2.5 rounded-xl font-bold bg-[#E63027] hover:bg-[#C42620] text-white transition-colors flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                        className="px-6 py-2.5 rounded-xl font-bold bg-crm-red hover:bg-crm-red-hover text-white transition-colors flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                         {loading ? (
                             <>

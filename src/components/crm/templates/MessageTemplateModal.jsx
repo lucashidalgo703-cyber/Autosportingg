@@ -115,12 +115,12 @@ export default function MessageTemplateModal({ isOpen, onClose, template, onSave
 
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
-            <div className="bg-[#111217] rounded-2xl shadow-xl w-full max-w-3xl flex flex-col max-h-[90vh] border border-white/10">
-                <div className="flex items-center justify-between p-6 border-b border-white/10">
-                    <h2 className="text-xl font-semibold text-[#FAFAFA]">
+            <div className="bg-crm-surface rounded-2xl shadow-xl w-full max-w-3xl flex flex-col max-h-[90vh] border border-crm-border">
+                <div className="flex items-center justify-between p-6 border-b border-crm-border">
+                    <h2 className="text-xl font-semibold text-white">
                         {isEdit ? 'Editar Plantilla' : 'Nueva Plantilla'}
                     </h2>
-                    <CrmIconButton onClick={onClose} className="border-transparent hover:border-[#33333A]">
+                    <CrmIconButton onClick={onClose} className="border-transparent hover:border-crm-border">
                         <X className="w-5 h-5" />
                     </CrmIconButton>
                 </div>
@@ -136,7 +136,7 @@ export default function MessageTemplateModal({ isOpen, onClose, template, onSave
                     <form id="templateForm" onSubmit={handleSubmit} className="space-y-6">
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
                             <div>
-                                <label className="block text-sm font-medium text-[#A1A1AA] mb-2">Nombre de la Plantilla</label>
+                                <label className="block text-xs font-medium text-crm-fg-muted uppercase tracking-wider mb-2">Nombre de la Plantilla</label>
                                 <input
                                     type="text"
                                     name="name"
@@ -144,17 +144,17 @@ export default function MessageTemplateModal({ isOpen, onClose, template, onSave
                                     value={formData.name}
                                     onChange={handleChange}
                                     placeholder="Ej: Seguimiento Lead Frío"
-                                    className="w-full px-4 py-2.5 bg-[#09090B] text-[#FAFAFA] border border-[#33333A] rounded-xl focus:bg-[#111217] focus:ring-1 focus:ring-[#EF3329] focus:border-[#EF3329] outline-none transition-all placeholder-[#71717A]"
+                                    className="w-full px-4 py-2.5 bg-crm-bg text-crm-fg border border-crm-border rounded-xl focus:bg-crm-surface-raised focus:ring-1 focus:ring-crm-red focus:border-crm-red outline-none transition-all placeholder-crm-fg-muted"
                                 />
                             </div>
                             
                             <div>
-                                <label className="block text-sm font-medium text-[#A1A1AA] mb-2">Categoría Operativa</label>
+                                <label className="block text-xs font-medium text-crm-fg-muted uppercase tracking-wider mb-2">Categoría Operativa</label>
                                 <select
                                     name="category"
                                     value={formData.category}
                                     onChange={handleChange}
-                                    className="w-full px-4 py-2.5 bg-[#09090B] text-[#FAFAFA] border border-[#33333A] rounded-xl focus:bg-[#111217] focus:ring-1 focus:ring-[#EF3329] outline-none transition-all"
+                                    className="w-full px-4 py-2.5 bg-crm-bg text-crm-fg border border-crm-border rounded-xl focus:bg-crm-surface-raised focus:ring-1 focus:ring-crm-red outline-none transition-all"
                                 >
                                     <option value="lead">Lead</option>
                                     <option value="client">Cliente</option>
@@ -171,12 +171,12 @@ export default function MessageTemplateModal({ isOpen, onClose, template, onSave
                             </div>
 
                             <div>
-                                <label className="block text-sm font-medium text-[#A1A1AA] mb-2">Canal por Defecto</label>
+                                <label className="block text-xs font-medium text-crm-fg-muted uppercase tracking-wider mb-2">Canal por Defecto</label>
                                 <select
                                     name="channel"
                                     value={formData.channel}
                                     onChange={handleChange}
-                                    className="w-full px-4 py-2.5 bg-[#09090B] text-[#FAFAFA] border border-[#33333A] rounded-xl focus:bg-[#111217] focus:ring-1 focus:ring-[#EF3329] outline-none transition-all"
+                                    className="w-full px-4 py-2.5 bg-crm-bg text-crm-fg border border-crm-border rounded-xl focus:bg-crm-surface-raised focus:ring-1 focus:ring-crm-red outline-none transition-all"
                                 >
                                     <option value="whatsapp">WhatsApp</option>
                                     <option value="email">Email</option>
@@ -187,24 +187,24 @@ export default function MessageTemplateModal({ isOpen, onClose, template, onSave
                             </div>
 
                             <div>
-                                <label className="block text-sm font-medium text-[#A1A1AA] mb-2">Asunto (solo Email)</label>
+                                <label className="block text-xs font-medium text-crm-fg-muted uppercase tracking-wider mb-2">Asunto (solo Email)</label>
                                 <input
                                     type="text"
                                     name="subject"
                                     value={formData.subject}
                                     onChange={handleChange}
                                     placeholder="Asunto del correo"
-                                    className="w-full px-4 py-2.5 bg-[#09090B] text-[#FAFAFA] border border-[#33333A] rounded-xl focus:bg-[#111217] focus:ring-1 focus:ring-[#EF3329] focus:border-[#EF3329] outline-none transition-all placeholder-[#71717A]"
+                                    className="w-full px-4 py-2.5 bg-crm-bg text-crm-fg border border-crm-border rounded-xl focus:bg-crm-surface-raised focus:ring-1 focus:ring-crm-red focus:border-crm-red outline-none transition-all placeholder-crm-fg-muted"
                                 />
                             </div>
                         </div>
 
                         <div>
                             <div className="flex items-center justify-between mb-2">
-                                <label className="block text-sm font-medium text-[#A1A1AA]">Mensaje</label>
+                                <label className="block text-xs font-medium text-crm-fg-muted uppercase tracking-wider">Mensaje</label>
                             </div>
                             
-                            <div className="border border-[#33333A] rounded-xl overflow-hidden focus-within:border-[#EF3329] focus-within:ring-1 focus-within:ring-[#EF3329] transition-all">
+                            <div className="border border-crm-border rounded-xl overflow-hidden focus-within:border-crm-red focus-within:ring-1 focus-within:ring-crm-red transition-all">
                                 <textarea
                                     name="body"
                                     required
@@ -212,17 +212,17 @@ export default function MessageTemplateModal({ isOpen, onClose, template, onSave
                                     value={formData.body}
                                     onChange={handleChange}
                                     placeholder="Escribe el mensaje de la plantilla aquí..."
-                                    className="w-full p-4 bg-[#09090B] text-[#FAFAFA] border-0 focus:ring-0 resize-y min-h-[150px] outline-none placeholder-[#71717A]"
+                                    className="w-full p-4 bg-crm-bg text-crm-fg border-0 focus:ring-0 resize-y min-h-[150px] outline-none placeholder-crm-fg-muted"
                                 />
-                                <div className="bg-[#1E1E24] border-t border-[#33333A] p-3">
-                                    <p className="text-xs font-medium text-[#A1A1AA] mb-2 uppercase tracking-wider">Variables Disponibles (clic para insertar)</p>
+                                <div className="bg-crm-surface-raised border-t border-crm-border p-3">
+                                    <p className="text-xs font-medium text-crm-fg-muted mb-2 uppercase tracking-wider">Variables Disponibles (clic para insertar)</p>
                                     <div className="flex flex-wrap gap-2">
                                         {AVAILABLE_VARIABLES.map(variable => (
                                             <button
                                                 key={variable}
                                                 type="button"
                                                 onClick={() => handleInsertVariable(variable)}
-                                                className="px-2 py-1 text-[11px] font-mono text-[#FAFAFA] bg-[#161619] hover:bg-[#28282E] rounded border border-[#33333A] transition-colors"
+                                                className="px-2 py-1 text-[11px] font-mono text-crm-fg bg-crm-bg hover:bg-crm-surface-raised rounded border border-crm-border transition-colors"
                                             >
                                                 {variable}
                                             </button>
@@ -239,16 +239,16 @@ export default function MessageTemplateModal({ isOpen, onClose, template, onSave
                                 name="isActive"
                                 checked={formData.isActive}
                                 onChange={handleChange}
-                                className="w-4 h-4 text-[#EF3329] border-[#33333A] rounded focus:ring-[#EF3329] bg-[#09090B]"
+                                className="w-4 h-4 text-crm-red border-crm-border rounded focus:ring-crm-red bg-crm-bg"
                             />
-                            <label htmlFor="isActive" className="text-sm text-[#A1A1AA] cursor-pointer">
+                            <label htmlFor="isActive" className="text-sm text-crm-fg-muted cursor-pointer">
                                 Plantilla Activa (visible para el equipo)
                             </label>
                         </div>
                     </form>
                 </div>
 
-                <div className="p-6 border-t border-[#33333A] bg-[#161619] rounded-b-2xl flex justify-end gap-3 shrink-0">
+                <div className="p-6 border-t border-crm-border bg-crm-surface rounded-b-2xl flex justify-end gap-3 shrink-0">
                     <CrmButton
                         variant="secondary"
                         onClick={onClose}

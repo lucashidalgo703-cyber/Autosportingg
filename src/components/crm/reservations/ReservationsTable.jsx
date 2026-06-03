@@ -6,10 +6,10 @@ import ReservationStatusBadge from './ReservationStatusBadge';
 export default function ReservationsTable({ reservations, onLiberar, onConvertir, getIsOverdue }) {
     if (!reservations || reservations.length === 0) {
         return (
-            <div className="hidden md:flex flex-col items-center justify-center p-12 bg-neutral-900 border border-neutral-800 rounded-2xl opacity-80">
-                <Lock size={48} className="text-neutral-600 mb-4" />
+            <div className="hidden md:flex flex-col items-center justify-center p-12 bg-crm-surface border border-crm-border rounded-2xl opacity-80">
+                <Lock size={48} className="text-crm-fg-muted mb-4" />
                 <h3 className="text-xl font-bold text-white mb-2">No se encontraron reservas</h3>
-                <p className="text-neutral-400 text-center max-w-md">
+                <p className="text-crm-fg-muted text-center max-w-md">
                     No hay resultados que coincidan con los filtros actuales.
                 </p>
             </div>
@@ -17,21 +17,21 @@ export default function ReservationsTable({ reservations, onLiberar, onConvertir
     }
 
     return (
-        <div className="hidden md:block bg-neutral-900 border border-neutral-800 rounded-2xl overflow-hidden">
+        <div className="hidden md:block bg-crm-surface border border-crm-border rounded-2xl overflow-hidden">
             <div className="overflow-x-auto">
                 <table className="w-full text-left border-collapse">
-                    <thead>
-                        <tr className="border-b border-neutral-800 bg-[#161619]">
-                            <th className="p-4 text-xs font-bold text-neutral-500 uppercase tracking-wider">Fecha</th>
-                            <th className="p-4 text-xs font-bold text-neutral-500 uppercase tracking-wider">Cliente / Lead</th>
-                            <th className="p-4 text-xs font-bold text-neutral-500 uppercase tracking-wider">Vehículo</th>
-                            <th className="p-4 text-xs font-bold text-neutral-500 uppercase tracking-wider">Estado</th>
-                            <th className="p-4 text-xs font-bold text-neutral-500 uppercase tracking-wider text-right">Seña</th>
-                            <th className="p-4 text-xs font-bold text-neutral-500 uppercase tracking-wider text-right">Vencimiento</th>
-                            <th className="p-4 text-xs font-bold text-neutral-500 uppercase tracking-wider text-center">Acciones</th>
+                    <thead className="bg-crm-topbar">
+                        <tr className="border-b border-crm-border">
+                            <th className="p-4 text-[10px] font-bold text-crm-fg-muted uppercase tracking-wider">Fecha</th>
+                            <th className="p-4 text-[10px] font-bold text-crm-fg-muted uppercase tracking-wider">Cliente / Lead</th>
+                            <th className="p-4 text-[10px] font-bold text-crm-fg-muted uppercase tracking-wider">Vehículo</th>
+                            <th className="p-4 text-[10px] font-bold text-crm-fg-muted uppercase tracking-wider">Estado</th>
+                            <th className="p-4 text-[10px] font-bold text-crm-fg-muted uppercase tracking-wider text-right">Seña</th>
+                            <th className="p-4 text-[10px] font-bold text-crm-fg-muted uppercase tracking-wider text-right">Vencimiento</th>
+                            <th className="p-4 text-[10px] font-bold text-crm-fg-muted uppercase tracking-wider text-center">Acciones</th>
                         </tr>
                     </thead>
-                    <tbody className="divide-y divide-neutral-800/50">
+                    <tbody className="divide-y divide-crm-border">
                         {reservations.map(res => {
                             const isOverdue = getIsOverdue(res);
                             const name = res.clientId?.fullName || res.clientId?.firstName || res.leadId?.name || 'Sin Nombre';
@@ -43,11 +43,11 @@ export default function ReservationsTable({ reservations, onLiberar, onConvertir
                             const vehicleHref = res.vehicleId?._id ? `/admin/stock/${res.vehicleId._id}` : '#';
 
                             return (
-                                <tr key={res._id} className={`hover:bg-black/20 transition-colors ${isOverdue && res.status === 'activa' ? 'bg-orange-500/5' : ''}`}>
+                                <tr key={res._id} className={`hover:bg-crm-surface-raised transition-colors group ${isOverdue && res.status === 'activa' ? 'bg-orange-500/5' : ''}`}>
                                     {/* Fecha */}
                                     <td className="p-4 whitespace-nowrap">
-                                        <span className="text-sm text-neutral-300 block">{new Date(res.createdAt).toLocaleDateString()}</span>
-                                        <span className="text-xs text-neutral-500">{new Date(res.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                                        <span className="text-sm text-crm-fg-muted block">{new Date(res.createdAt).toLocaleDateString()}</span>
+                                        <span className="text-xs text-crm-fg-muted">{new Date(res.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
                                     </td>
 
                                     {/* Cliente / Lead */}
@@ -60,7 +60,7 @@ export default function ReservationsTable({ reservations, onLiberar, onConvertir
                                             ) : (
                                                 <span className="text-sm font-bold text-white truncate max-w-[200px]">{name}</span>
                                             )}
-                                            {phone && <span className="text-xs text-neutral-500">{phone}</span>}
+                                            {phone && <span className="text-xs text-crm-fg-muted">{phone}</span>}
                                         </div>
                                     </td>
 
@@ -72,9 +72,9 @@ export default function ReservationsTable({ reservations, onLiberar, onConvertir
                                                     {vehicleName}
                                                 </Link>
                                             ) : (
-                                                <span className="text-sm font-bold text-neutral-500">N/A</span>
+                                                <span className="text-sm font-bold text-crm-fg-muted">N/A</span>
                                             )}
-                                            {vehicleVin && <span className="text-[10px] bg-neutral-800 text-neutral-400 px-1.5 py-0.5 rounded w-max mt-1 border border-neutral-700 font-mono uppercase">{vehicleVin}</span>}
+                                            {vehicleVin && <span className="text-[10px] bg-crm-bg text-crm-fg-muted px-1.5 py-0.5 rounded w-max mt-1 border border-crm-border font-mono uppercase">{vehicleVin}</span>}
                                         </div>
                                     </td>
 
@@ -86,10 +86,10 @@ export default function ReservationsTable({ reservations, onLiberar, onConvertir
                                     {/* Seña */}
                                     <td className="p-4 text-right whitespace-nowrap">
                                         <div className="flex flex-col items-end">
-                                            <span className={`text-sm font-bold ${res.status === 'activa' ? 'text-green-400' : 'text-neutral-400'}`}>
+                                            <span className={`text-sm font-bold ${res.status === 'activa' ? 'text-green-400' : 'text-crm-fg-muted'}`}>
                                                 {res.depositCurrency} {(res.depositAmount || 0).toLocaleString('es-AR')}
                                             </span>
-                                            <span className="text-[10px] text-neutral-500">
+                                            <span className="text-[10px] text-crm-fg-muted">
                                                 Acordado: {res.agreedCurrency} {(res.agreedPrice || 0).toLocaleString('es-AR')}
                                             </span>
                                         </div>
@@ -99,19 +99,19 @@ export default function ReservationsTable({ reservations, onLiberar, onConvertir
                                     <td className="p-4 text-right whitespace-nowrap">
                                         {res.expiresAt ? (
                                             <div className="flex flex-col items-end">
-                                                <span className={`text-sm font-medium ${isOverdue && res.status === 'activa' ? 'text-orange-400 font-bold flex items-center gap-1' : 'text-neutral-300'}`}>
+                                                <span className={`text-sm font-medium ${isOverdue && res.status === 'activa' ? 'text-orange-400 font-bold flex items-center gap-1' : 'text-crm-fg-muted'}`}>
                                                     {isOverdue && res.status === 'activa' && <AlertCircle size={12} />}
                                                     {new Date(res.expiresAt).toLocaleDateString()}
                                                 </span>
                                             </div>
                                         ) : (
-                                            <span className="text-sm text-neutral-600 italic">Sin fecha</span>
+                                            <span className="text-sm text-crm-fg-muted italic">Sin fecha</span>
                                         )}
                                     </td>
 
                                     {/* Acciones */}
                                     <td className="p-4 text-center">
-                                        <div className="flex justify-center gap-2">
+                                        <div className="flex justify-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
                                             {res.status === 'activa' && (
                                                 <>
                                                     <button 
@@ -123,7 +123,7 @@ export default function ReservationsTable({ reservations, onLiberar, onConvertir
                                                     </button>
                                                     <button 
                                                         onClick={() => onLiberar(res)}
-                                                        className="w-8 h-8 rounded-lg bg-neutral-800 hover:bg-red-500/20 text-neutral-400 hover:text-red-400 flex items-center justify-center transition-colors border border-neutral-700 hover:border-red-500/30"
+                                                        className="w-8 h-8 rounded-lg bg-crm-surface-raised hover:bg-crm-red/20 text-crm-fg-muted hover:text-crm-red flex items-center justify-center transition-colors border border-crm-border hover:border-crm-red/30"
                                                         title="Liberar / Cancelar Reserva"
                                                     >
                                                         <XCircle size={16} />
@@ -133,7 +133,7 @@ export default function ReservationsTable({ reservations, onLiberar, onConvertir
                                             
                                             <Link 
                                                 href={vehicleHref}
-                                                className="w-8 h-8 rounded-lg bg-neutral-800 hover:bg-neutral-700 text-neutral-400 flex items-center justify-center transition-colors border border-neutral-700"
+                                                className="w-8 h-8 rounded-lg bg-crm-surface-raised hover:bg-crm-border text-crm-fg-muted flex items-center justify-center transition-colors border border-crm-border"
                                                 title="Ver Vehículo"
                                             >
                                                 <ChevronRight size={16} />

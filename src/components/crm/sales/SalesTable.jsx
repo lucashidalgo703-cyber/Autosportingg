@@ -2,14 +2,15 @@ import React from 'react';
 import Link from 'next/link';
 import { User, CarFront, Lock, CheckCircle2, ChevronRight, Handshake, Search } from 'lucide-react';
 import SaleStatusBadge from './SaleStatusBadge';
+import CrmButton, { CrmIconButton } from '../ui/CrmButton';
 
 export default function SalesTable({ sales, onViewDetail }) {
     if (!sales || sales.length === 0) {
         return (
-            <div className="hidden md:flex flex-col items-center justify-center p-12 bg-neutral-900 border border-neutral-800 rounded-2xl opacity-80">
-                <Handshake size={48} className="text-neutral-600 mb-4" />
+            <div className="hidden md:flex flex-col items-center justify-center p-12 bg-crm-surface border border-crm-border rounded-2xl opacity-80">
+                <Handshake size={48} className="text-crm-fg-muted mb-4" />
                 <h3 className="text-xl font-bold text-white mb-2">No se encontraron ventas</h3>
-                <p className="text-neutral-400 text-center max-w-md">
+                <p className="text-crm-fg-muted text-center max-w-md">
                     No hay resultados que coincidan con los filtros actuales.
                 </p>
             </div>
@@ -17,22 +18,22 @@ export default function SalesTable({ sales, onViewDetail }) {
     }
 
     return (
-        <div className="hidden md:block bg-neutral-900 border border-neutral-800 rounded-2xl overflow-hidden">
+        <div className="hidden md:block bg-crm-surface border border-crm-border rounded-2xl overflow-hidden">
             <div className="overflow-x-auto">
                 <table className="w-full text-left border-collapse">
-                    <thead>
-                        <tr className="border-b border-neutral-800 bg-[#161619]">
-                            <th className="p-4 text-xs font-bold text-neutral-500 uppercase tracking-wider">Fecha</th>
-                            <th className="p-4 text-xs font-bold text-neutral-500 uppercase tracking-wider">Cliente / Lead</th>
-                            <th className="p-4 text-xs font-bold text-neutral-500 uppercase tracking-wider">Vehículo</th>
-                            <th className="p-4 text-xs font-bold text-neutral-500 uppercase tracking-wider">Estado</th>
-                            <th className="p-4 text-xs font-bold text-neutral-500 uppercase tracking-wider text-right">Cobranza</th>
-                            <th className="p-4 text-xs font-bold text-neutral-500 uppercase tracking-wider">Doc.</th>
-                            <th className="p-4 text-xs font-bold text-neutral-500 uppercase tracking-wider">Logística</th>
-                            <th className="p-4 text-xs font-bold text-neutral-500 uppercase tracking-wider text-center">Acciones</th>
+                    <thead className="bg-crm-topbar">
+                        <tr className="border-b border-crm-border">
+                            <th className="p-4 text-[10px] font-bold text-crm-fg-muted uppercase tracking-wider">Fecha</th>
+                            <th className="p-4 text-[10px] font-bold text-crm-fg-muted uppercase tracking-wider">Cliente / Lead</th>
+                            <th className="p-4 text-[10px] font-bold text-crm-fg-muted uppercase tracking-wider">Vehículo</th>
+                            <th className="p-4 text-[10px] font-bold text-crm-fg-muted uppercase tracking-wider">Estado</th>
+                            <th className="p-4 text-[10px] font-bold text-crm-fg-muted uppercase tracking-wider text-right">Cobranza</th>
+                            <th className="p-4 text-[10px] font-bold text-crm-fg-muted uppercase tracking-wider">Doc.</th>
+                            <th className="p-4 text-[10px] font-bold text-crm-fg-muted uppercase tracking-wider">Logística</th>
+                            <th className="p-4 text-[10px] font-bold text-crm-fg-muted uppercase tracking-wider text-center">Acciones</th>
                         </tr>
                     </thead>
-                    <tbody className="divide-y divide-neutral-800/50">
+                    <tbody className="divide-y divide-crm-border">
                         {sales.map(sale => {
                             const name = sale.clientId?.fullName || sale.clientId?.firstName || sale.leadId?.name || 'Sin Nombre';
                             const phone = sale.clientId?.phone || sale.leadId?.phone || '';
@@ -44,11 +45,11 @@ export default function SalesTable({ sales, onViewDetail }) {
                             const vehicleHref = sale.vehicleId?._id ? `/admin/stock/${sale.vehicleId._id}` : '#';
 
                             return (
-                                <tr key={sale._id} className="hover:bg-black/20 transition-colors">
+                                <tr key={sale._id} className="hover:bg-crm-surface-raised transition-colors group">
                                     {/* Fecha */}
                                     <td className="p-4 whitespace-nowrap">
-                                        <span className="text-sm text-neutral-300 block">{new Date(sale.saleDate || sale.createdAt).toLocaleDateString()}</span>
-                                        <span className="text-[10px] text-neutral-500 uppercase">{sale.paymentMethod || 'contado'}</span>
+                                        <span className="text-sm text-crm-fg-muted block">{new Date(sale.saleDate || sale.createdAt).toLocaleDateString()}</span>
+                                        <span className="text-[10px] text-crm-fg-muted uppercase">{sale.paymentMethod || 'contado'}</span>
                                     </td>
 
                                     {/* Cliente / Lead */}
@@ -61,7 +62,7 @@ export default function SalesTable({ sales, onViewDetail }) {
                                             ) : (
                                                 <span className="text-sm font-bold text-white truncate max-w-[180px]">{name}</span>
                                             )}
-                                            {phone && <span className="text-xs text-neutral-500">{phone}</span>}
+                                            {phone && <span className="text-xs text-crm-fg-muted">{phone}</span>}
                                         </div>
                                     </td>
 
@@ -73,9 +74,9 @@ export default function SalesTable({ sales, onViewDetail }) {
                                                     {vehicleName}
                                                 </Link>
                                             ) : (
-                                                <span className="text-sm font-bold text-neutral-500">N/A</span>
+                                                <span className="text-sm font-bold text-crm-fg-muted">N/A</span>
                                             )}
-                                            {vehicleVin && <span className="text-[10px] bg-neutral-800 text-neutral-400 px-1.5 py-0.5 rounded w-max mt-1 border border-neutral-700 font-mono uppercase">{vehicleVin}</span>}
+                                            {vehicleVin && <span className="text-[10px] bg-crm-bg text-crm-fg-muted px-1.5 py-0.5 rounded w-max mt-1 border border-crm-border font-mono uppercase">{vehicleVin}</span>}
                                         </div>
                                     </td>
 
@@ -107,7 +108,7 @@ export default function SalesTable({ sales, onViewDetail }) {
                                             <span className={`text-[10px] font-bold px-2 py-0.5 rounded w-max uppercase ${
                                                 sale.documentationStatus === 'completo' ? 'bg-purple-500/20 text-purple-400 border border-purple-500/30' :
                                                 sale.documentationStatus === 'parcial' ? 'bg-orange-500/20 text-orange-400 border border-orange-500/30' :
-                                                'bg-neutral-800 text-neutral-400 border border-neutral-700'
+                                                'bg-crm-bg text-crm-fg-muted border border-crm-border'
                                             }`}>
                                                 Doc: {sale.documentationStatus || 'pendiente'}
                                             </span>
@@ -115,7 +116,7 @@ export default function SalesTable({ sales, onViewDetail }) {
                                                 sale.deliveryStatus === 'entregado' ? 'bg-green-500/20 text-green-400 border border-green-500/30' :
                                                 sale.deliveryStatus === 'listo_para_entregar' ? 'bg-blue-500/20 text-blue-400 border border-blue-500/30' :
                                                 sale.deliveryStatus === 'preparando' ? 'bg-yellow-500/20 text-yellow-400 border border-yellow-500/30' :
-                                                'bg-neutral-800 text-neutral-400 border border-neutral-700'
+                                                'bg-crm-bg text-crm-fg-muted border border-crm-border'
                                             }`}>
                                                 Ent: {(sale.deliveryStatus || 'pendiente').replace(/_/g, ' ')}
                                             </span>
@@ -132,7 +133,7 @@ export default function SalesTable({ sales, onViewDetail }) {
                                                 </>
                                             ) : sale.estimatedDeliveryDate ? (
                                                 <>
-                                                    <span className="text-[10px] text-neutral-500 uppercase font-bold">Estimada</span>
+                                                    <span className="text-[10px] text-crm-fg-muted uppercase font-bold">Estimada</span>
                                                     <span className={`text-xs font-bold ${
                                                         new Date(sale.estimatedDeliveryDate) < new Date(new Date().setHours(0,0,0,0)) 
                                                             ? 'text-red-400' 
@@ -145,22 +146,23 @@ export default function SalesTable({ sales, onViewDetail }) {
                                                     )}
                                                 </>
                                             ) : (
-                                                <span className="text-xs text-neutral-500">Sin programar</span>
+                                                <span className="text-xs text-crm-fg-muted">Sin programar</span>
                                             )}
                                         </div>
                                     </td>
 
                                     {/* Acciones */}
                                     <td className="p-4 text-center">
-                                        <div className="flex justify-center gap-2">
-                                            <button 
+                                        <div className="flex justify-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                                            <CrmButton 
+                                                variant="secondary"
                                                 onClick={() => onViewDetail(sale)}
-                                                className="h-8 px-3 rounded-lg bg-blue-500/10 hover:bg-blue-500/20 text-blue-400 font-bold text-xs flex items-center justify-center transition-colors border border-blue-500/20 gap-1"
+                                                className="h-8 px-3 text-xs gap-1"
                                                 title="Ver Detalle de Venta"
                                             >
                                                 <Search size={14} />
                                                 Detalle
-                                            </button>
+                                            </CrmButton>
                                         </div>
                                     </td>
                                 </tr>

@@ -7,8 +7,8 @@ export default function ClientMobileCards({ clients }) {
 
     if (!clients || clients.length === 0) {
         return (
-            <div className="bg-neutral-900 border border-neutral-800 rounded-xl p-8 text-center">
-                <p className="text-neutral-400 text-sm">No se encontraron clientes.</p>
+            <div className="bg-crm-surface border border-crm-border rounded-xl p-12 text-center">
+                <p className="text-crm-fg-muted text-sm">No se encontraron clientes.</p>
             </div>
         );
     }
@@ -27,7 +27,7 @@ export default function ClientMobileCards({ clients }) {
             {clients.map(client => (
                 <div 
                     key={client._id} 
-                    className="bg-neutral-900 border border-neutral-800 rounded-xl p-4 flex flex-col gap-3 relative overflow-hidden"
+                    className="bg-crm-surface border border-crm-border rounded-xl p-4 flex flex-col gap-3 relative overflow-hidden"
                 >
                     {/* Indicador lateral */}
                     <div className="absolute left-0 top-0 bottom-0 w-1 bg-red-600/50"></div>
@@ -39,7 +39,7 @@ export default function ClientMobileCards({ clients }) {
                                 <span className={`px-2 py-0.5 rounded text-[10px] uppercase font-bold border ${getTypeColor(client.type)}`}>
                                     {client.type}
                                 </span>
-                                <span className="text-[10px] text-neutral-500 uppercase tracking-wider">
+                                <span className="text-[10px] text-crm-fg-muted uppercase tracking-wider">
                                     {client.source}
                                 </span>
                             </div>
@@ -48,19 +48,19 @@ export default function ClientMobileCards({ clients }) {
 
                     <div className="flex flex-col gap-1 pl-2">
                         {client.phone && (
-                            <div className="flex items-center gap-2 text-neutral-300 text-xs">
-                                <Phone size={12} className="text-neutral-500" />
+                            <div className="flex items-center gap-2 text-crm-fg-muted text-xs">
+                                <Phone size={12} className="text-crm-fg-muted" />
                                 <span>{client.phone}</span>
                             </div>
                         )}
                         {client.email && (
-                            <div className="flex items-center gap-2 text-neutral-300 text-xs">
-                                <Mail size={12} className="text-neutral-500" />
+                            <div className="flex items-center gap-2 text-crm-fg-muted text-xs">
+                                <Mail size={12} className="text-crm-fg-muted" />
                                 <span className="truncate">{client.email}</span>
                             </div>
                         )}
                         {(client.locality || client.province) && (
-                            <div className="flex items-center gap-2 text-neutral-400 text-xs mt-1">
+                            <div className="flex items-center gap-2 text-crm-fg-muted text-xs mt-1">
                                 <MapPin size={12} className="shrink-0" />
                                 <span className="truncate">
                                     {[client.locality, client.province].filter(Boolean).join(', ')}
@@ -69,13 +69,13 @@ export default function ClientMobileCards({ clients }) {
                         )}
                     </div>
                     
-                    <div className="pl-2 mt-2 pt-3 border-t border-neutral-800 flex justify-between items-center">
-                        <span className="text-[10px] text-neutral-500">
+                    <div className="pl-2 mt-2 pt-3 border-t border-crm-border flex justify-between items-center">
+                        <span className="text-[10px] text-crm-fg-muted">
                             Alta: {new Date(client.createdAt).toLocaleDateString('es-AR')}
                         </span>
                         <button 
                             onClick={() => router.push(`/admin/clientes/${client._id}`)}
-                            className="text-red-500 hover:text-red-400 text-xs font-bold uppercase tracking-wider flex items-center gap-1 transition-colors"
+                            className="text-crm-red hover:text-crm-red text-xs font-bold uppercase tracking-wider flex items-center gap-1 transition-colors"
                         >
                             Ver Ficha <ChevronRight size={14} />
                         </button>

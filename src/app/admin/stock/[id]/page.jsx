@@ -115,7 +115,7 @@ export default function VehicleDetailPage() {
         return (
             <div className="flex items-center justify-center h-[50vh]">
                 <div className="flex flex-col items-center gap-3">
-                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#E63027]"></div>
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-crm-red"></div>
                     <span className="text-[#A1A1AA] text-sm">Cargando datos reales del vehículo...</span>
                 </div>
             </div>
@@ -142,7 +142,7 @@ export default function VehicleDetailPage() {
                 </div>
                 <Link 
                     href="/admin/stock"
-                    className="flex items-center gap-2 px-4 py-2 bg-[#E63027] text-white rounded-lg hover:bg-[#C42620] transition-colors font-medium text-sm"
+                    className="flex items-center gap-2 px-4 py-2 bg-crm-red text-white rounded-lg hover:bg-crm-red-hover transition-colors font-medium text-sm"
                 >
                     <ArrowLeft size={16} />
                     Volver al Stock

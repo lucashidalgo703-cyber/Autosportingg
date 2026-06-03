@@ -2,21 +2,22 @@
 import Link from 'next/link';
 import VehicleStatusBadge from './VehicleStatusBadge';
 import VehicleRotationAlert from './VehicleRotationAlert';
-import { MoreHorizontal } from 'lucide-react';
+import { MoreHorizontal, ArrowRight } from 'lucide-react';
+import CrmButton from '../ui/CrmButton';
 
 export default function StockTable({ data }) {
     if (data.length === 0) {
         return (
-            <div className="flex flex-col items-center justify-center p-12 bg-[#1E1E24] rounded-xl border border-[#33333A] text-center">
-                <p className="text-[#A1A1AA] mb-2">No se encontraron vehículos que coincidan con la búsqueda.</p>
+            <div className="flex flex-col items-center justify-center p-12 bg-crm-surface rounded-xl border border-crm-border text-center">
+                <p className="text-crm-fg-muted mb-2">No se encontraron vehículos que coincidan con la búsqueda.</p>
             </div>
         );
     }
 
     return (
-        <div className="bg-[#1E1E24] rounded-xl border border-[#33333A] overflow-x-auto">
-            <table className="w-full text-left text-sm text-[#A1A1AA]">
-                <thead className="bg-[#161619] border-b border-[#33333A] text-xs uppercase text-[#A1A1AA]">
+        <div className="bg-crm-surface rounded-xl border border-crm-border overflow-x-auto">
+            <table className="w-full text-left text-sm text-crm-fg-muted">
+                <thead className="bg-crm-topbar border-b border-crm-border text-[10px] uppercase text-crm-fg-muted">
                     <tr>
                         <th className="px-4 py-3 font-medium">Unidad</th>
                         <th className="px-4 py-3 font-medium">Origen</th>
@@ -28,14 +29,14 @@ export default function StockTable({ data }) {
                         <th className="px-4 py-3 font-medium text-center">Acciones</th>
                     </tr>
                 </thead>
-                <tbody className="divide-y divide-[#33333A]">
+                <tbody className="divide-y divide-crm-border">
                     {data.map((vehicle) => (
-                        <tr key={vehicle.id} className="hover:bg-[#24242B] transition-colors">
+                        <tr key={vehicle.id} className="hover:bg-crm-surface-raised transition-colors group">
                             <td className="px-4 py-3">
                                 <div className="flex flex-col">
                                     <span className="font-semibold text-white">{vehicle.marca} {vehicle.modelo}</span>
                                     <span className="text-xs">{vehicle.version} • {vehicle.año} • {vehicle.kilometraje.toLocaleString('es-AR')} km</span>
-                                    <span className="text-xs font-mono mt-0.5 px-1.5 py-0.5 bg-[#161619] border border-[#33333A] rounded w-fit">{vehicle.dominio}</span>
+                                    <span className="text-xs font-mono mt-0.5 px-1.5 py-0.5 bg-crm-bg border border-crm-border rounded w-fit">{vehicle.dominio}</span>
                                 </div>
                             </td>
                             <td className="px-4 py-3 capitalize">{vehicle.origen}</td>
@@ -43,7 +44,7 @@ export default function StockTable({ data }) {
                                 {vehicle.costoTotal > 0 ? (
                                     <span className="text-white">{vehicle.moneda} {vehicle.costoTotal.toLocaleString('es-AR')}</span>
                                 ) : (
-                                    <span className="text-[#A1A1AA] italic">N/A</span>
+                                    <span className="text-crm-fg-muted italic">N/A</span>
                                 )}
                             </td>
                             <td className="px-4 py-3 font-medium text-[#22C55E]">
@@ -53,10 +54,10 @@ export default function StockTable({ data }) {
                                 {vehicle.margenEstimado > 0 ? (
                                     <div className="flex flex-col">
                                         <span className="text-white">{vehicle.moneda} {vehicle.margenEstimado.toLocaleString('es-AR')}</span>
-                                        <span className="text-xs text-[#A1A1AA]">{vehicle.margenPorcentual}%</span>
+                                        <span className="text-xs text-crm-fg-muted">{vehicle.margenPorcentual}%</span>
                                     </div>
                                 ) : (
-                                    <span className="text-[#A1A1AA] italic">N/A</span>
+                                    <span className="text-crm-fg-muted italic">N/A</span>
                                 )}
                             </td>
                             <td className="px-4 py-3 text-center">
@@ -66,11 +67,11 @@ export default function StockTable({ data }) {
                                 <VehicleStatusBadge status={vehicle.estado} />
                             </td>
                             <td className="px-4 py-3 text-center">
-                                <Link 
-                                    href={`/admin/stock/${vehicle.id}`}
-                                    className="px-3 py-1.5 text-xs font-medium text-white bg-[#33333A] hover:bg-[#E63027] rounded-md transition-colors inline-block"
-                                >
-                                    Ver ficha
+                                <Link href={`/admin/stock/${vehicle.id}`}>
+                                    <CrmButton variant="secondary" className="gap-2 px-3 opacity-0 group-hover:opacity-100 transition-opacity">
+                                        Ver ficha
+                                        <ArrowRight size={14} />
+                                    </CrmButton>
                                 </Link>
                             </td>
                         </tr>

@@ -99,17 +99,12 @@ export default function VentasPage() {
     };
 
     return (
-        <div className="max-w-7xl mx-auto flex flex-col h-full min-h-[85vh]">
+        <div className="mx-auto w-full max-w-7xl p-4 md:p-6 flex flex-col h-full min-h-[85vh]">
             {/* Header */}
             <div className="flex justify-between items-center mb-6">
-                <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-xl bg-blue-500/10 flex items-center justify-center border border-blue-500/20">
-                        <Handshake size={20} className="text-blue-500" />
-                    </div>
-                    <div>
-                        <h1 className="text-2xl font-bold text-white tracking-tight">Gestión de Ventas</h1>
-                        <p className="text-sm text-neutral-400 mt-0.5">Control comercial e histórico de oportunidades cerradas</p>
-                    </div>
+                <div>
+                    <h1 className="text-2xl font-bold text-crm-fg tracking-tight m-0 mb-1">Gestión de Ventas</h1>
+                    <p className="text-sm text-crm-fg-muted mt-0.5 m-0">Control comercial e histórico de oportunidades cerradas</p>
                 </div>
             </div>
 
@@ -129,9 +124,9 @@ export default function VentasPage() {
                     <SalesSummaryCards sales={allSales} />
                     <SalesFilters filters={filters} setFilters={setFilters} />
                     
-                    <div className="flex justify-between items-center mb-4">
-                        <h2 className="text-lg font-bold text-white">
-                            Resultados <span className="text-neutral-500 font-normal">({filteredSales.length})</span>
+                    <div className="flex justify-between items-center mb-4 mt-6">
+                        <h2 className="text-lg font-bold text-crm-fg m-0">
+                            Resultados <span className="text-crm-fg-muted font-normal">({filteredSales.length})</span>
                         </h2>
                     </div>
 

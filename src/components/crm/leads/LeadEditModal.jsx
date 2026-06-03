@@ -70,14 +70,14 @@ export default function LeadEditModal({ isOpen, onClose, onSave, lead }) {
 
     return (
         <div className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4 backdrop-blur-sm overflow-y-auto">
-            <div className="bg-[#161619] border border-neutral-800 rounded-2xl w-full max-w-2xl flex flex-col my-auto max-h-[90vh]">
+            <div className="bg-crm-surface border border-crm-border rounded-2xl w-full max-w-2xl flex flex-col my-auto max-h-[90vh]">
                 
                 {/* Header */}
-                <div className="flex justify-between items-center p-6 border-b border-neutral-800 shrink-0">
+                <div className="flex justify-between items-center p-6 border-b border-crm-border bg-crm-surface shrink-0">
                     <h2 className="text-xl font-bold text-white">Editar Oportunidad (Lead)</h2>
                     <button 
                         onClick={onClose} 
-                        className="p-2 rounded-lg hover:bg-neutral-800 text-neutral-400 hover:text-white transition-colors"
+                        className="p-2 rounded-lg hover:bg-crm-surface-raised text-crm-fg-muted hover:text-crm-fg transition-colors"
                     >
                         <X size={20} />
                     </button>
@@ -96,12 +96,12 @@ export default function LeadEditModal({ isOpen, onClose, onSave, lead }) {
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                             
                             <div className="flex flex-col gap-2">
-                                <label className="text-sm font-medium text-neutral-400">Estado CRM *</label>
+                                <label className="text-xs font-medium text-crm-fg-muted uppercase tracking-wider">Estado CRM *</label>
                                 <select 
                                     name="crmStatus"
                                     value={formData.crmStatus}
                                     onChange={handleChange}
-                                    className="w-full bg-black/50 border border-neutral-800 rounded-lg px-4 py-2.5 text-white focus:outline-none focus:border-red-500 transition-colors"
+                                    className="w-full bg-crm-bg border border-crm-border rounded-lg px-4 py-2.5 text-crm-fg focus:outline-none focus:border-crm-red focus:ring-1 focus:ring-crm-red transition-colors"
                                     required
                                 >
                                     <option value="nuevo">Nuevo</option>
@@ -115,12 +115,12 @@ export default function LeadEditModal({ isOpen, onClose, onSave, lead }) {
                             </div>
 
                             <div className="flex flex-col gap-2">
-                                <label className="text-sm font-medium text-neutral-400">Prioridad *</label>
+                                <label className="text-xs font-medium text-crm-fg-muted uppercase tracking-wider">Prioridad *</label>
                                 <select 
                                     name="priority"
                                     value={formData.priority}
                                     onChange={handleChange}
-                                    className="w-full bg-black/50 border border-neutral-800 rounded-lg px-4 py-2.5 text-white focus:outline-none focus:border-red-500 transition-colors"
+                                    className="w-full bg-crm-bg border border-crm-border rounded-lg px-4 py-2.5 text-crm-fg focus:outline-none focus:border-crm-red focus:ring-1 focus:ring-crm-red transition-colors"
                                     required
                                 >
                                     <option value="alta">Alta</option>
@@ -130,12 +130,12 @@ export default function LeadEditModal({ isOpen, onClose, onSave, lead }) {
                             </div>
 
                             <div className="flex flex-col gap-2">
-                                <label className="text-sm font-medium text-neutral-400">Origen *</label>
+                                <label className="text-xs font-medium text-crm-fg-muted uppercase tracking-wider">Origen *</label>
                                 <select 
                                     name="source"
                                     value={formData.source}
                                     onChange={handleChange}
-                                    className="w-full bg-black/50 border border-neutral-800 rounded-lg px-4 py-2.5 text-white focus:outline-none focus:border-red-500 transition-colors"
+                                    className="w-full bg-crm-bg border border-crm-border rounded-lg px-4 py-2.5 text-crm-fg focus:outline-none focus:border-crm-red focus:ring-1 focus:ring-crm-red transition-colors"
                                     required
                                 >
                                     <option value="web">Web</option>
@@ -149,53 +149,53 @@ export default function LeadEditModal({ isOpen, onClose, onSave, lead }) {
                             </div>
 
                             <div className="flex flex-col gap-2">
-                                <label className="text-sm font-medium text-neutral-400">Próxima Acción (Fecha)</label>
+                                <label className="text-xs font-medium text-crm-fg-muted uppercase tracking-wider">Próxima Acción (Fecha)</label>
                                 <input 
                                     type="date"
                                     name="nextActionDate"
                                     value={formData.nextActionDate}
                                     onChange={handleChange}
-                                    className="w-full bg-black/50 border border-neutral-800 rounded-lg px-4 py-2.5 text-white focus:outline-none focus:border-red-500 transition-colors"
+                                    className="w-full bg-crm-bg border border-crm-border rounded-lg px-4 py-2.5 text-crm-fg focus:outline-none focus:border-crm-red focus:ring-1 focus:ring-crm-red transition-colors"
                                 />
                             </div>
 
                             <div className="flex flex-col gap-2 md:col-span-2">
-                                <label className="text-sm font-medium text-neutral-400">Asignado a (Vendedor)</label>
+                                <label className="text-xs font-medium text-crm-fg-muted uppercase tracking-wider">Asignado a (Vendedor)</label>
                                 <input 
                                     type="text"
                                     name="assignedTo"
                                     value={formData.assignedTo}
                                     onChange={handleChange}
                                     placeholder="Ej. Juan Pérez"
-                                    className="w-full bg-black/50 border border-neutral-800 rounded-lg px-4 py-2.5 text-white focus:outline-none focus:border-red-500 transition-colors"
+                                    className="w-full bg-crm-bg border border-crm-border rounded-lg px-4 py-2.5 text-crm-fg focus:outline-none focus:border-crm-red focus:ring-1 focus:ring-crm-red transition-colors"
                                 />
                             </div>
 
                         </div>
 
-                        <div className="h-px w-full bg-neutral-800/50"></div>
+                        <div className="h-px w-full bg-crm-border"></div>
 
                         <div className="flex flex-col gap-2">
-                            <label className="text-sm font-medium text-neutral-400">Agregar nueva nota (Opcional)</label>
+                            <label className="text-xs font-medium text-crm-fg-muted uppercase tracking-wider">Agregar nueva nota (Opcional)</label>
                             <textarea 
                                 name="newNote"
                                 value={formData.newNote}
                                 onChange={handleChange}
                                 placeholder="Escribe aquí los detalles de la interacción o seguimiento..."
                                 rows="3"
-                                className="w-full bg-black/50 border border-neutral-800 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-red-500 transition-colors custom-scrollbar"
+                                className="w-full bg-crm-bg border border-crm-border rounded-lg px-4 py-3 text-crm-fg focus:outline-none focus:border-crm-red focus:ring-1 focus:ring-crm-red transition-colors custom-scrollbar"
                             />
                         </div>
                     </form>
                 </div>
 
                 {/* Footer */}
-                <div className="p-6 border-t border-neutral-800 flex justify-end gap-3 shrink-0">
+                <div className="p-6 border-t border-crm-border bg-crm-surface flex justify-end gap-3 shrink-0 rounded-b-2xl">
                     <button 
                         type="button"
                         onClick={onClose}
                         disabled={isSaving}
-                        className="px-6 py-2.5 rounded-lg font-medium text-neutral-400 hover:text-white hover:bg-neutral-800 transition-colors disabled:opacity-50"
+                        className="px-6 py-2.5 rounded-lg font-medium text-crm-fg-muted hover:text-crm-fg hover:bg-crm-surface-raised transition-colors disabled:opacity-50"
                     >
                         Cancelar
                     </button>
@@ -203,7 +203,7 @@ export default function LeadEditModal({ isOpen, onClose, onSave, lead }) {
                         type="submit"
                         form="editLeadForm"
                         disabled={isSaving}
-                        className="flex items-center gap-2 px-6 py-2.5 rounded-lg bg-red-600 hover:bg-red-700 text-white font-bold transition-colors disabled:opacity-50"
+                        className="flex items-center gap-2 px-6 py-2.5 rounded-lg bg-crm-red hover:bg-crm-red-hover text-white font-bold transition-colors disabled:opacity-50"
                     >
                         {isSaving ? (
                             <div className="animate-spin rounded-full h-5 w-5 border-t-2 border-b-2 border-white"></div>

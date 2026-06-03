@@ -1,7 +1,6 @@
 "use client";
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { LayoutDashboard, CarFront, Users, UserPlus, Receipt, CalendarClock, Wallet, Landmark, FileText, BarChart3, Settings, Target, Star, UserCog, ClipboardList, Flag, ShieldAlert, Activity, Download, HelpCircle } from 'lucide-react';
 import { useAuth } from '../../../context/AuthContext';
 import { hasPermission, PERMISSIONS, ROLES } from '../../../utils/adminPermissions';
 
@@ -9,55 +8,59 @@ const menuGroups = [
     {
         name: 'PRINCIPAL',
         items: [
-            { name: 'Dashboard', path: '/admin', icon: LayoutDashboard },
-            { name: 'Mis pendientes', path: '/admin/mis-pendientes', icon: ClipboardList },
-            { name: 'Agenda', path: '/admin/agenda', icon: CalendarClock },
+            { name: 'Dashboard', path: '/admin', icon: '📊' },
+            { name: 'Agenda', path: '/admin/agenda', icon: '📅' },
+            { name: 'Mis pendientes', path: '/admin/mis-pendientes', icon: '🔔' },
+            { name: 'Reportes', path: '/admin/reportes', icon: '📈' },
+            { name: 'Mi Espacio', path: '/admin/mis-pendientes', icon: '📂' }, // Mapping Mi Espacio to mis-pendientes as fallback
         ]
     },
     {
         name: 'COMERCIAL',
         items: [
-            { name: 'Stock', path: '/admin/stock', icon: CarFront },
-            { name: 'Clientes', path: '/admin/clientes', icon: Users },
-            { name: 'Leads', path: '/admin/leads', icon: UserPlus },
-            { name: 'Ventas', path: '/admin/ventas', icon: Receipt },
-            { name: 'Reservas', path: '/admin/reservas', icon: CalendarClock },
-        ]
-    },
-    {
-        name: 'FINANZAS',
-        items: [
-            { name: 'Finanzas', path: '/admin/finanzas', icon: Wallet, prefetch: false },
-            { name: 'Cuotas', path: '/admin/cuotas', icon: Landmark },
-            { name: 'Cobranzas', path: '/admin/cobranzas', icon: Target },
+            { name: 'Stock', path: '/admin/stock', icon: '🚗' },
+            { name: 'Clientes', path: '/admin/clientes', icon: '👥' },
+            { name: 'Leads', path: '/admin/leads', icon: '📝' },
+            { name: 'Ventas', path: '/admin/ventas', icon: '💼' },
+            { name: 'Reservas', path: '/admin/reservas', icon: '🔍' },
         ]
     },
     {
         name: 'OPERACIÓN',
         items: [
-            { name: 'Documentación', path: '/admin/documentacion', icon: FileText, prefetch: false },
-            { name: 'Postventa', path: '/admin/postventa', icon: Star, prefetch: false },
+            { name: 'Postventa', path: '/admin/postventa', icon: '📞', prefetch: false },
+            { name: 'Documentación', path: '/admin/documentacion', icon: '📁', prefetch: false },
+            { name: 'Auditoría', path: '/admin/auditoria', icon: '📋', prefetch: false },
+            { name: 'Calidad de Datos', path: '/admin/calidad-datos', icon: '🔑', prefetch: false },
+        ]
+    },
+    {
+        name: 'FINANZAS',
+        items: [
+            { name: 'Finanzas', path: '/admin/finanzas', icon: '💰', prefetch: false },
+            { name: 'Cuotas', path: '/admin/cuotas', icon: '💸' },
+            { name: 'Cobranzas', path: '/admin/cobranzas', icon: '💵' },
         ]
     },
     {
         name: 'COLABORACIÓN',
         items: [
-            { name: 'Equipo', path: '/admin/equipo', icon: Users, prefetch: false },
-            { name: 'Productividad', path: '/admin/productividad', icon: BarChart3, prefetch: false },
-            { name: 'Metas', path: '/admin/metas', icon: Flag, prefetch: false },
+            { name: 'Notificaciones', path: '/admin/notificaciones', icon: '💬', prefetch: false },
+            { name: 'Equipo', path: '/admin/equipo', icon: '👥', prefetch: false },
+            { name: 'Productividad', path: '/admin/productividad', icon: '📈', prefetch: false },
+            { name: 'Metas', path: '/admin/metas', icon: '⭐', prefetch: false }, // Unique Metas location
         ]
     },
     {
         name: 'ADMINISTRACIÓN',
         items: [
-            { name: 'Reportes', path: '/admin/reportes', icon: BarChart3, prefetch: false },
-            { name: 'Auditoría', path: '/admin/auditoria', icon: FileText, prefetch: false },
-            { name: 'Usuarios', path: '/admin/configuracion/usuarios', icon: UserCog, prefetch: false },
-            { name: 'Calidad de Datos', path: '/admin/calidad-datos', icon: ShieldAlert, prefetch: false },
-            { name: 'Exportaciones', path: '/admin/exportaciones', icon: Download, prefetch: false },
-            { name: 'Sistema', path: '/admin/sistema', icon: Activity, prefetch: false },
-            { name: 'Configuración', path: '/admin/configuracion', icon: Settings, prefetch: false },
-            { name: 'Ayuda', path: '/admin/ayuda', icon: HelpCircle, prefetch: false },
+            { name: 'Configuración', path: '/admin/configuracion', icon: '⚙️', prefetch: false },
+            { name: 'Usuarios', path: '/admin/configuracion/usuarios', icon: '👥', prefetch: false },
+            { name: 'Plantillas', path: '/admin/configuracion/plantillas', icon: '📝', prefetch: false },
+            { name: 'General', path: '/admin/configuracion/general', icon: '🏢', prefetch: false },
+            { name: 'Exportaciones', path: '/admin/exportaciones', icon: '📤', prefetch: false },
+            { name: 'Sistema', path: '/admin/sistema', icon: '🛡️', prefetch: false },
+            { name: 'Ayuda', path: '/admin/ayuda', icon: '💡', prefetch: false },
         ]
     }
 ];
@@ -90,9 +93,15 @@ export default function CrmSidebar({ isOpen, onClose }) {
                 <div className="fixed inset-0 bg-black/50 z-30 lg:hidden" onClick={onClose} />
             )}
             
-            <aside className={`fixed lg:sticky top-0 left-0 h-screen w-64 bg-[#161619] border-r border-[#33333A] flex flex-col transition-transform duration-300 z-40 custom-scrollbar ${isOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}`}>
-                <div className="h-14 flex items-center justify-center border-b border-[#33333A] shrink-0">
-                    <span className="text-[#FAFAFA] font-bold text-lg tracking-wider">AUTOSPORTING</span>
+            <aside className={`fixed lg:sticky top-0 left-0 h-screen w-64 bg-crm-sidebar border-r border-crm-border flex flex-col transition-transform duration-300 z-40 custom-scrollbar ${isOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}`}>
+                <div className="h-[calc(3.5rem+var(--safe-top,0px))] md:h-14 flex items-center gap-3 border-b border-crm-border px-4 shrink-0 pt-[var(--safe-top,0px)] md:pt-0">
+                    <div className="w-9 h-9 rounded-lg bg-crm-surface border border-crm-border flex items-center justify-center shadow-crm-red text-white font-bold text-sm shrink-0">
+                        AS
+                    </div>
+                    <div className="flex flex-col">
+                        <span className="text-crm-fg font-bold text-sm leading-tight tracking-tight">AutoSporting</span>
+                        <span className="text-crm-fg-muted text-[10px] uppercase font-semibold">v2 CRM</span>
+                    </div>
                 </div>
                 
                 <nav className="flex-1 overflow-y-auto py-4 px-3 flex flex-col gap-6 custom-scrollbar">
@@ -102,11 +111,16 @@ export default function CrmSidebar({ isOpen, onClose }) {
 
                         return (
                             <div key={group.name} className="flex flex-col gap-1">
-                                <h3 className="px-3 text-xs font-bold text-[#71717A] uppercase tracking-wider mb-2">
+                                <h3 className="px-3 text-xs font-bold text-crm-fg-muted uppercase tracking-wider mb-2">
                                     {group.name}
                                 </h3>
                                 {visibleItems.map((item) => {
                                     const isActive = item.path === '/admin' ? pathname === '/admin' : pathname.startsWith(item.path);
+                                    
+                                    const baseItemClasses = "group flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors";
+                                    const activeClasses = "bg-crm-red/10 text-crm-red border-l-2 border-crm-red pl-[10px]";
+                                    const inactiveClasses = "text-crm-fg-muted hover:bg-crm-surface hover:text-crm-fg border-l-2 border-transparent";
+                                    
                                     return (
                                         <Link 
                                             key={item.name} 
@@ -114,9 +128,15 @@ export default function CrmSidebar({ isOpen, onClose }) {
                                             prefetch={item.prefetch === false ? false : undefined}
                                             onClick={() => onClose && onClose()}
                                             style={{ textDecoration: 'none' }}
-                                            className={`flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-colors ${isActive ? 'bg-[#EF3329]/10 text-[#FAFAFA] font-semibold border border-[#EF3329]/20' : 'text-[#A1A1AA] hover:bg-[#28282E] hover:text-[#FAFAFA]'}`}
+                                            className={`${baseItemClasses} ${isActive ? activeClasses : inactiveClasses}`}
                                         >
-                                            <item.icon size={18} className={isActive ? 'text-[#EF3329]' : 'text-[#A1A1AA]'} />
+                                            <span 
+                                                className="flex h-5 w-5 shrink-0 items-center justify-center text-base leading-none"
+                                                role="img"
+                                                aria-label={item.name}
+                                            >
+                                                {item.icon}
+                                            </span>
                                             <span>{item.name}</span>
                                         </Link>
                                     );

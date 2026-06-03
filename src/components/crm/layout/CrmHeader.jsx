@@ -81,28 +81,28 @@ export default function CrmHeader({ onMenuClick }) {
     };
 
     return (
-        <header className="h-14 bg-[#161619] border-b border-[#33333A] flex items-center justify-between px-4 sticky top-0 z-20">
-            <div className="flex items-center gap-4">
-                <button onClick={onMenuClick} className="lg:hidden text-[#A1A1AA] hover:text-white bg-transparent border-none p-1 cursor-pointer">
+        <header className="sticky top-0 z-30 flex h-[calc(3.5rem+var(--safe-top,0px))] items-center justify-between gap-2 border-b border-crm-border bg-crm-topbar/95 px-3 pt-[var(--safe-top,0px)] backdrop-blur md:h-14 md:gap-4 md:px-6 md:pt-0">
+            <div className="flex items-center gap-4 w-full md:w-auto">
+                <button onClick={onMenuClick} className="lg:hidden h-9 w-9 flex items-center justify-center rounded-lg text-crm-fg-muted hover:bg-crm-surface hover:text-crm-fg transition-colors">
                     <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="3" y1="12" x2="21" y2="12"></line><line x1="3" y1="6" x2="21" y2="6"></line><line x1="3" y1="18" x2="21" y2="18"></line></svg>
                 </button>
-                <div className="hidden md:flex items-center bg-[#0B0B0D] rounded-md px-3 py-1.5 border border-[#33333A]">
-                    <Search size={16} className="text-[#A1A1AA]" />
+                <div className="hidden md:flex relative items-center w-64">
+                    <Search size={16} className="absolute left-3 text-crm-fg-muted" />
                     <input 
                         type="text" 
                         placeholder="Buscar..." 
-                        className="bg-transparent border-none text-sm text-white ml-2 focus:outline-none placeholder-[#A1A1AA]"
+                        className="w-full rounded-lg border border-crm-border bg-crm-surface py-2 pl-9 pr-9 text-sm text-crm-fg placeholder:text-crm-fg-subtle focus:border-crm-red focus:outline-none focus:ring-1 focus:ring-crm-red transition-all"
                     />
                 </div>
             </div>
-            <div className="flex items-center gap-4 relative" ref={dropdownRef}>
+            <div className="flex items-center gap-2 md:gap-4 relative" ref={dropdownRef}>
                 <button 
                     onClick={() => setShowDropdown(!showDropdown)}
-                    className="text-[#A1A1AA] hover:text-white bg-transparent border-none p-1 cursor-pointer relative"
+                    className="h-9 w-9 flex items-center justify-center rounded-lg text-crm-fg-muted hover:bg-crm-surface hover:text-crm-fg transition-colors relative"
                 >
                     <Bell size={20} />
                     {unreadCount > 0 && (
-                        <span className="absolute top-0 right-0 w-4 h-4 bg-[#E63027] rounded-full text-[9px] text-white flex items-center justify-center font-bold">
+                        <span className="absolute top-0 right-0 w-4 h-4 bg-crm-red-brand rounded-full text-[9px] text-white flex items-center justify-center font-bold">
                             {unreadCount > 99 ? '99+' : unreadCount}
                         </span>
                     )}
@@ -110,8 +110,8 @@ export default function CrmHeader({ onMenuClick }) {
                 
                 {/* Dropdown Notificaciones */}
                 {showDropdown && (
-                    <div className="absolute top-10 right-10 w-80 bg-[#1E1E24] border border-[#33333A] rounded-xl shadow-2xl overflow-hidden flex flex-col z-50">
-                        <div className="p-3 border-b border-[#33333A] flex justify-between items-center bg-[#161619]">
+                    <div className="absolute top-10 right-0 md:right-10 w-80 bg-crm-surface border border-crm-border rounded-xl shadow-2xl overflow-hidden flex flex-col z-50">
+                        <div className="p-3 border-b border-crm-border flex justify-between items-center bg-crm-topbar">
                             <h3 className="text-white text-sm font-bold">Notificaciones</h3>
                             {unreadCount > 0 && (
                                 <button onClick={handleMarkAllRead} className="text-xs text-[#EF3329] hover:text-[#C42620] font-semibold">
@@ -144,13 +144,13 @@ export default function CrmHeader({ onMenuClick }) {
                                 ))
                             )}
                         </div>
-                        <Link href="/admin/notificaciones" onClick={() => setShowDropdown(false)} className="p-2 text-center text-xs font-bold text-white bg-[#24242B] hover:bg-[#33333A] transition-colors border-t border-[#33333A]">
+                        <Link href="/admin/notificaciones" onClick={() => setShowDropdown(false)} className="p-2 text-center text-xs font-bold text-crm-fg bg-crm-surface-raised hover:bg-crm-border transition-colors border-t border-crm-border">
                             Ver todas las notificaciones
                         </Link>
                     </div>
                 )}
 
-                <div className="w-8 h-8 rounded-full bg-[#24242B] border border-[#33333A] flex items-center justify-center text-white cursor-pointer">
+                <div className="h-9 w-9 rounded-lg bg-crm-surface hover:bg-crm-surface-raised border border-crm-border flex items-center justify-center text-crm-fg cursor-pointer transition-colors">
                     <User size={16} />
                 </div>
             </div>

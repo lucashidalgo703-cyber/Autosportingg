@@ -59,7 +59,7 @@ export default function SystemHealthPage() {
                         <p className="text-sm text-red-400 mb-6">No tenés permisos para acceder al panel de salud del sistema.</p>
                         <Link 
                             href="/admin"
-                            className="bg-[#E63027] text-white px-6 py-2 rounded-xl font-bold hover:bg-[#C42620] transition-colors"
+                            className="bg-crm-red text-white px-6 py-2 rounded-xl font-bold hover:bg-crm-red-hover transition-colors"
                         >
                             Volver al Dashboard
                         </Link>
@@ -70,21 +70,21 @@ export default function SystemHealthPage() {
     }
 
     return (
-        <div className="max-w-6xl mx-auto p-6 pb-20 text-white">
+        <div className="mx-auto w-full max-w-7xl p-4 md:p-6 pb-20 text-white">
             <div className="mb-6 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
                 <div>
                     <h1 className="text-2xl font-bold text-white tracking-tight flex items-center gap-2">
-                        <Activity className="text-[#E63027]" />
+                        <Activity className="text-crm-red" />
                         Salud del Sistema
                     </h1>
-                    <p className="text-neutral-400 mt-1 text-sm">
+                    <p className="text-crm-fg-muted mt-1 text-sm">
                         Métricas de rendimiento, conteos y estado de base de datos.
                     </p>
                 </div>
                 <button 
                     onClick={loadHealthData}
                     disabled={refreshing}
-                    className="flex items-center gap-2 bg-[#1E1E24] hover:bg-[#28282E] border border-[#33333A] text-white px-4 py-2 rounded-xl transition-colors disabled:opacity-50"
+                    className="flex items-center gap-2 bg-crm-surface hover:bg-crm-surface-raised border border-crm-border text-white px-4 py-2 rounded-xl transition-colors disabled:opacity-50"
                 >
                     <RefreshCw size={16} className={refreshing ? "animate-spin" : ""} />
                     {refreshing ? 'Actualizando...' : 'Actualizar Estado'}
@@ -97,21 +97,21 @@ export default function SystemHealthPage() {
                     <p>{error}</p>
                 </div>
             ) : !healthData ? (
-                <div className="text-center text-neutral-400 py-10">
+                <div className="text-center text-crm-fg-muted py-10">
                     No se pudo cargar la información del sistema.
                 </div>
             ) : (
                 <div className="space-y-6">
                     {/* A. Estado General y Database */}
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        <div className="bg-[#1E1E24] border border-[#33333A] rounded-2xl p-6">
-                            <h2 className="text-lg font-bold text-white flex items-center gap-2 mb-4 border-b border-[#33333A] pb-2">
-                                <Server size={18} className="text-neutral-400" />
+                        <div className="bg-crm-surface border border-crm-border rounded-2xl p-6">
+                            <h2 className="text-lg font-bold text-white flex items-center gap-2 mb-4 border-b border-crm-border pb-2">
+                                <Server size={18} className="text-crm-fg-muted" />
                                 Estado General
                             </h2>
                             <div className="space-y-4">
                                 <div className="flex justify-between items-center pb-2 border-b border-white/5">
-                                    <span className="text-sm text-neutral-400">Estado</span>
+                                    <span className="text-sm text-crm-fg-muted">Estado</span>
                                     {healthData.warnings.length === 0 ? (
                                         <span className="text-xs font-bold text-green-400 bg-green-500/10 px-2 py-1 rounded-md border border-green-500/20">SALUDABLE</span>
                                     ) : (
@@ -119,11 +119,11 @@ export default function SystemHealthPage() {
                                     )}
                                 </div>
                                 <div className="flex justify-between items-center pb-2 border-b border-white/5">
-                                    <span className="text-sm text-neutral-400">Ambiente</span>
+                                    <span className="text-sm text-crm-fg-muted">Ambiente</span>
                                     <span className="text-sm text-white capitalize">{healthData.environment}</span>
                                 </div>
                                 <div className="flex justify-between items-center">
-                                    <span className="text-sm text-neutral-400">Generado a las</span>
+                                    <span className="text-sm text-crm-fg-muted">Generado a las</span>
                                     <span className="text-sm text-white">
                                         {new Date(healthData.generatedAt).toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit', second: '2-digit' })} hs
                                     </span>
@@ -131,14 +131,14 @@ export default function SystemHealthPage() {
                             </div>
                         </div>
 
-                        <div className="bg-[#1E1E24] border border-[#33333A] rounded-2xl p-6">
-                            <h2 className="text-lg font-bold text-white flex items-center gap-2 mb-4 border-b border-[#33333A] pb-2">
-                                <Database size={18} className="text-neutral-400" />
+                        <div className="bg-crm-surface border border-crm-border rounded-2xl p-6">
+                            <h2 className="text-lg font-bold text-white flex items-center gap-2 mb-4 border-b border-crm-border pb-2">
+                                <Database size={18} className="text-crm-fg-muted" />
                                 Base de Datos
                             </h2>
                             <div className="space-y-4">
                                 <div className="flex justify-between items-center pb-2 border-b border-white/5">
-                                    <span className="text-sm text-neutral-400">Conexión</span>
+                                    <span className="text-sm text-crm-fg-muted">Conexión</span>
                                     {healthData.database.connected ? (
                                         <span className="text-xs font-bold text-green-400 bg-green-500/10 px-2 py-1 rounded-md border border-green-500/20 flex items-center gap-1"><CheckCircle2 size={12}/> ONLINE</span>
                                     ) : (
@@ -146,11 +146,11 @@ export default function SystemHealthPage() {
                                     )}
                                 </div>
                                 <div className="flex justify-between items-center pb-2 border-b border-white/5">
-                                    <span className="text-sm text-neutral-400">Estado Node Driver</span>
+                                    <span className="text-sm text-crm-fg-muted">Estado Node Driver</span>
                                     <span className="text-sm text-white capitalize">{healthData.database.status}</span>
                                 </div>
                                 <div className="flex justify-between items-center">
-                                    <span className="text-sm text-neutral-400">Latencia</span>
+                                    <span className="text-sm text-crm-fg-muted">Latencia</span>
                                     <span className={`text-sm font-medium ${healthData.database.latencyMs < 500 ? 'text-green-400' : 'text-red-400'}`}>
                                         {healthData.database.latencyMs} ms
                                     </span>
@@ -160,9 +160,9 @@ export default function SystemHealthPage() {
                     </div>
 
                     {/* C. Conteos Principales */}
-                    <div className="bg-[#1E1E24] border border-[#33333A] rounded-2xl p-6">
-                        <h2 className="text-lg font-bold text-white flex items-center gap-2 mb-4 border-b border-[#33333A] pb-2">
-                            <ActivitySquare size={18} className="text-neutral-400" />
+                    <div className="bg-crm-surface border border-crm-border rounded-2xl p-6">
+                        <h2 className="text-lg font-bold text-white flex items-center gap-2 mb-4 border-b border-crm-border pb-2">
+                            <ActivitySquare size={18} className="text-crm-fg-muted" />
                             Conteos Principales
                         </h2>
                         <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
@@ -178,8 +178,8 @@ export default function SystemHealthPage() {
                                 { label: 'Cuotas', count: healthData.counts.installments },
                                 { label: 'Plantillas', count: healthData.counts.messageTemplates }
                             ].map((item, index) => (
-                                <div key={index} className="bg-[#161619] border border-[#33333A] rounded-xl p-4 text-center">
-                                    <p className="text-xs text-neutral-500 uppercase font-medium tracking-wider mb-1">{item.label}</p>
+                                <div key={index} className="bg-crm-bg border border-crm-border rounded-xl p-4 text-center">
+                                    <p className="text-xs text-crm-fg-muted uppercase font-medium tracking-wider mb-1">{item.label}</p>
                                     <p className="text-2xl font-bold text-white">{item.count.toLocaleString()}</p>
                                 </div>
                             ))}
@@ -187,14 +187,14 @@ export default function SystemHealthPage() {
                     </div>
 
                     {/* D. Checks Técnicos */}
-                    <div className="bg-[#1E1E24] border border-[#33333A] rounded-2xl p-6">
-                        <h2 className="text-lg font-bold text-white flex items-center gap-2 mb-4 border-b border-[#33333A] pb-2">
-                            <ShieldAlert size={18} className="text-neutral-400" />
+                    <div className="bg-crm-surface border border-crm-border rounded-2xl p-6">
+                        <h2 className="text-lg font-bold text-white flex items-center gap-2 mb-4 border-b border-crm-border pb-2">
+                            <ShieldAlert size={18} className="text-crm-fg-muted" />
                             Checks Técnicos
                         </h2>
                         <div className="space-y-3">
                             {healthData.checks.map((check, index) => (
-                                <div key={index} className="flex items-start md:items-center gap-4 bg-[#161619] border border-[#33333A] p-4 rounded-xl">
+                                <div key={index} className="flex items-start md:items-center gap-4 bg-crm-bg border border-crm-border p-4 rounded-xl">
                                     <div className="shrink-0 mt-1 md:mt-0">
                                         {check.status === 'ok' ? (
                                             <CheckCircle2 className="text-green-500" size={24} />
@@ -206,7 +206,7 @@ export default function SystemHealthPage() {
                                     </div>
                                     <div className="flex-1">
                                         <h3 className="text-sm font-bold text-white">{check.name}</h3>
-                                        <p className="text-xs text-neutral-400 mt-0.5">{check.description}</p>
+                                        <p className="text-xs text-crm-fg-muted mt-0.5">{check.description}</p>
                                     </div>
                                     {check.suggestedAction && (
                                         <div className="hidden md:block text-right">
@@ -221,34 +221,34 @@ export default function SystemHealthPage() {
                     </div>
 
                     {/* E. Actividad Reciente */}
-                    <div className="bg-[#1E1E24] border border-[#33333A] rounded-2xl p-6">
-                        <h2 className="text-lg font-bold text-white flex items-center gap-2 mb-4 border-b border-[#33333A] pb-2">
-                            <Clock size={18} className="text-neutral-400" />
+                    <div className="bg-crm-surface border border-crm-border rounded-2xl p-6">
+                        <h2 className="text-lg font-bold text-white flex items-center gap-2 mb-4 border-b border-crm-border pb-2">
+                            <Clock size={18} className="text-crm-fg-muted" />
                             Actividad Reciente (Auditoría)
                         </h2>
                         <div className="overflow-x-auto">
                             {healthData.recentActivity.length === 0 ? (
-                                <p className="text-sm text-neutral-500 p-4 text-center">No hay actividad reciente registrada.</p>
+                                <p className="text-sm text-crm-fg-muted p-4 text-center">No hay actividad reciente registrada.</p>
                             ) : (
                                 <table className="w-full text-left border-collapse">
                                     <thead>
                                         <tr className="border-b border-white/5">
-                                            <th className="py-2 text-xs font-semibold text-neutral-500 uppercase">Fecha y Hora</th>
-                                            <th className="py-2 text-xs font-semibold text-neutral-500 uppercase">Acción</th>
-                                            <th className="py-2 text-xs font-semibold text-neutral-500 uppercase">Módulo</th>
+                                            <th className="py-2 text-xs font-semibold text-crm-fg-muted uppercase">Fecha y Hora</th>
+                                            <th className="py-2 text-xs font-semibold text-crm-fg-muted uppercase">Acción</th>
+                                            <th className="py-2 text-xs font-semibold text-crm-fg-muted uppercase">Módulo</th>
                                         </tr>
                                     </thead>
                                     <tbody className="text-sm">
                                         {healthData.recentActivity.map(log => (
-                                            <tr key={log._id} className="border-b border-[#33333A] last:border-0 hover:bg-[#28282E] transition-colors">
-                                                <td className="py-3 text-neutral-400 pr-4 whitespace-nowrap">
+                                            <tr key={log._id} className="border-b border-crm-border last:border-0 hover:bg-crm-surface-raised transition-colors">
+                                                <td className="py-3 text-crm-fg-muted pr-4 whitespace-nowrap">
                                                     {new Date(log.createdAt).toLocaleString('es-AR', { dateStyle: 'short', timeStyle: 'short' })} hs
                                                 </td>
                                                 <td className="py-3 text-white pr-4">
                                                     <span className="font-medium">{log.action}</span>
-                                                    {log.entityLabel && <span className="text-neutral-500 text-xs ml-2">({log.entityLabel})</span>}
+                                                    {log.entityLabel && <span className="text-crm-fg-muted text-xs ml-2">({log.entityLabel})</span>}
                                                 </td>
-                                                <td className="py-3 text-neutral-500 capitalize">{log.module}</td>
+                                                <td className="py-3 text-crm-fg-muted capitalize">{log.module}</td>
                                             </tr>
                                         ))}
                                     </tbody>

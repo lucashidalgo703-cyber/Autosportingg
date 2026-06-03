@@ -5,7 +5,7 @@ import { CrmIconButton } from '../ui/CrmButton';
 export default function AdminUsersTable({ users, onEdit, onChangePassword }) {
     if (!users || users.length === 0) {
         return (
-            <div className="text-center py-10 text-[#71717A] bg-[#161619] rounded-2xl border border-[#33333A]">
+            <div className="text-center py-10 text-crm-fg-muted bg-crm-bg rounded-2xl border border-crm-border">
                 No hay usuarios configurados.
             </div>
         );
@@ -13,19 +13,19 @@ export default function AdminUsersTable({ users, onEdit, onChangePassword }) {
 
     const getRoleBadge = (role) => {
         switch(role) {
-            case 'owner': return <span className="bg-[#EF3329]/10 text-[#EF3329] border border-[#EF3329]/20 px-2 py-1 rounded text-[10px] font-bold uppercase">Owner</span>;
+            case 'owner': return <span className="bg-crm-red/10 text-crm-red border border-crm-red/20 px-2 py-1 rounded text-[10px] font-bold uppercase">Owner</span>;
             case 'admin': return <span className="bg-purple-500/10 text-purple-500 border border-purple-500/20 px-2 py-1 rounded text-[10px] font-bold uppercase">Admin</span>;
             case 'ventas': return <span className="bg-green-500/10 text-green-500 border border-green-500/20 px-2 py-1 rounded text-[10px] font-bold uppercase">Ventas</span>;
             case 'administrativo': return <span className="bg-blue-500/10 text-blue-500 border border-blue-500/20 px-2 py-1 rounded text-[10px] font-bold uppercase">Admin.</span>;
-            default: return <span className="bg-[#1E1E24] text-[#A1A1AA] border border-[#33333A] px-2 py-1 rounded text-[10px] font-bold uppercase">Lectura</span>;
+            default: return <span className="bg-crm-surface text-crm-fg-muted border border-crm-border px-2 py-1 rounded text-[10px] font-bold uppercase">Lectura</span>;
         }
     };
 
     return (
-        <div className="bg-[#161619] border border-[#33333A] rounded-2xl overflow-hidden">
+        <div className="bg-crm-bg border border-crm-border rounded-2xl overflow-hidden">
             <div className="overflow-x-auto">
                 <table className="w-full text-left text-sm">
-                    <thead className="bg-[#1E1E24] border-b border-[#33333A] text-xs uppercase text-[#A1A1AA]">
+                    <thead className="bg-crm-surface border-b border-crm-border text-xs uppercase text-crm-fg-muted">
                         <tr>
                             <th className="px-6 py-4 font-bold">Usuario</th>
                             <th className="px-6 py-4 font-bold">Email</th>
@@ -34,19 +34,19 @@ export default function AdminUsersTable({ users, onEdit, onChangePassword }) {
                             <th className="px-6 py-4 font-bold text-right">Acciones</th>
                         </tr>
                     </thead>
-                    <tbody className="divide-y divide-[#33333A]">
+                    <tbody className="divide-y divide-crm-border">
                         {users.map((user) => (
-                            <tr key={user._id} className="hover:bg-[#1E1E24] transition-colors">
+                            <tr key={user._id} className="hover:bg-crm-surface-raised transition-colors">
                                 <td className="px-6 py-4">
-                                    <div className="font-bold text-[#FAFAFA] flex items-center gap-2">
-                                        {user.role === 'owner' && <ShieldCheck size={14} className="text-[#EF3329]" />}
+                                    <div className="font-bold text-crm-fg flex items-center gap-2">
+                                        {user.role === 'owner' && <ShieldCheck size={14} className="text-crm-red" />}
                                         {user.name}
                                     </div>
-                                    <div className="text-[10px] text-[#A1A1AA]">
+                                    <div className="text-[10px] text-crm-fg-muted">
                                         Creado: {new Date(user.createdAt).toLocaleDateString()}
                                     </div>
                                 </td>
-                                <td className="px-6 py-4 text-[#A1A1AA]">{user.email}</td>
+                                <td className="px-6 py-4 text-crm-fg-muted">{user.email}</td>
                                 <td className="px-6 py-4">
                                     {getRoleBadge(user.role)}
                                 </td>

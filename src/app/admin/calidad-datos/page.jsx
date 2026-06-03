@@ -72,14 +72,14 @@ export default function DataQualityPage() {
     };
 
     return (
-        <div className="p-6 max-w-7xl mx-auto w-full pb-20">
+        <div className="mx-auto w-full max-w-7xl p-4 md:p-6 pb-20">
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-8">
                 <div>
                     <h1 className="text-2xl font-bold text-white tracking-tight flex items-center gap-3">
-                        <Activity className="text-red-500" />
+                        <Activity className="text-crm-red" />
                         Calidad de Datos
                     </h1>
-                    <p className="text-neutral-400 mt-1 text-sm">
+                    <p className="text-crm-fg-muted mt-1 text-sm">
                         Detecta automáticamente inconsistencias operativas en el CRM.
                         Actualizado: {new Date(data.generatedAt).toLocaleTimeString('es-AR')}
                     </p>
@@ -87,7 +87,7 @@ export default function DataQualityPage() {
                 <button 
                     onClick={fetchDataQuality}
                     disabled={loading}
-                    className="flex items-center gap-2 bg-[#161619] hover:bg-[#1E1E24] text-white px-4 py-2 rounded-lg font-medium transition-colors border border-[#33333A]"
+                    className="flex items-center gap-2 bg-crm-bg hover:bg-crm-surface-raised text-white px-4 py-2 rounded-lg font-medium transition-colors border border-crm-border"
                 >
                     <RefreshCw size={16} className={loading ? "animate-spin" : ""} />
                     {loading ? 'Analizando...' : 'Actualizar Análisis'}
@@ -96,8 +96,8 @@ export default function DataQualityPage() {
 
             {/* Summary Cards */}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-                <div className="bg-[#1E1E24] border border-[#33333A] p-4 rounded-xl">
-                    <p className="text-neutral-400 text-sm font-medium">Total Problemas</p>
+                <div className="bg-crm-surface border border-crm-border p-4 rounded-xl">
+                    <p className="text-crm-fg-muted text-sm font-medium">Total Problemas</p>
                     <p className="text-2xl font-bold text-white">{data.summary.totalIssues}</p>
                 </div>
                 <div className="bg-red-500/10 border border-red-500/20 p-4 rounded-xl">
@@ -122,8 +122,8 @@ export default function DataQualityPage() {
                         onClick={() => setFilterSeverity(sev)}
                         className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors border ${
                             filterSeverity === sev 
-                            ? 'bg-[#E63027] text-white border-[#E63027]' 
-                            : 'bg-[#161619] text-[#A1A1AA] border-[#33333A] hover:bg-[#1E1E24]'
+                            ? 'bg-crm-red text-white border-crm-red' 
+                            : 'bg-crm-bg text-crm-fg-muted border-crm-border hover:bg-crm-surface-raised'
                         }`}
                     >
                         {sev === 'all' ? 'Todos' : sev === 'critical' ? 'Críticos' : sev === 'warning' ? 'Advertencias' : 'Sugerencias'}
@@ -132,12 +132,12 @@ export default function DataQualityPage() {
             </div>
 
             {sections.length === 0 ? (
-                <div className="text-center py-20 bg-[#1E1E24] border border-[#33333A] rounded-2xl">
+                <div className="text-center py-20 bg-crm-surface border border-crm-border rounded-2xl">
                     <div className="w-16 h-16 rounded-full bg-green-500/10 flex items-center justify-center mx-auto mb-4 text-green-500 border border-green-500/20">
                         <CheckCircle size={32} />
                     </div>
                     <h3 className="text-xl font-bold text-white">¡Todo Perfecto!</h3>
-                    <p className="text-neutral-400 mt-2">No se detectaron inconsistencias en la base de datos.</p>
+                    <p className="text-crm-fg-muted mt-2">No se detectaron inconsistencias en la base de datos.</p>
                 </div>
             ) : (
                 <div className="space-y-8">
@@ -147,30 +147,30 @@ export default function DataQualityPage() {
                         totalFilteredIssues += filteredItems.length;
 
                         return (
-                            <div key={sectionKey} className="bg-[#1E1E24] border border-[#33333A] rounded-2xl overflow-hidden">
-                                <div className="bg-[#161619] px-6 py-4 border-b border-[#33333A]">
+                            <div key={sectionKey} className="bg-crm-surface border border-crm-border rounded-2xl overflow-hidden">
+                                <div className="bg-crm-bg px-6 py-4 border-b border-crm-border">
                                     <h3 className="text-lg font-bold text-white flex items-center justify-between">
                                         <span>{sectionNames[sectionKey] || sectionKey}</span>
-                                        <span className="text-xs font-mono bg-[#161619] px-2 py-1 rounded text-neutral-400">{filteredItems.length} incidencias</span>
+                                        <span className="text-xs font-mono bg-crm-surface px-2 py-1 rounded text-crm-fg-muted">{filteredItems.length} incidencias</span>
                                     </h3>
                                 </div>
-                                <div className="divide-y divide-[#33333A]">
+                                <div className="divide-y divide-crm-border">
                                     {filteredItems.map((issue, idx) => (
-                                        <div key={idx} className="p-6 flex flex-col md:flex-row gap-4 items-start md:items-center justify-between hover:bg-[#161619] transition-colors">
+                                        <div key={idx} className="p-6 flex flex-col md:flex-row gap-4 items-start md:items-center justify-between hover:bg-crm-surface-raised transition-colors">
                                             <div className="space-y-2 flex-1">
                                                 <div className="flex items-center gap-3">
                                                     {renderSeverityBadge(issue.severity)}
                                                     <h4 className="font-semibold text-white">{issue.title}</h4>
                                                 </div>
-                                                <p className="text-sm text-neutral-400">{issue.description}</p>
+                                                <p className="text-sm text-crm-fg-muted">{issue.description}</p>
                                             </div>
                                             <div className="shrink-0 flex items-center gap-3">
                                                 <div className="text-right">
-                                                    <p className="text-xs text-neutral-500 font-mono">ID: {issue.entityId?.substring(0, 8)}...</p>
+                                                    <p className="text-xs text-crm-fg-muted font-mono">ID: {issue.entityId?.substring(0, 8)}...</p>
                                                 </div>
                                                 <Link 
                                                     href={issue.href}
-                                                    className="flex items-center gap-2 bg-[#161619] hover:bg-[#1E1E24] text-white px-3 py-1.5 rounded-lg text-sm transition-colors border border-[#33333A]"
+                                                    className="flex items-center gap-2 bg-crm-bg hover:bg-crm-surface-raised text-white px-3 py-1.5 rounded-lg text-sm transition-colors border border-crm-border"
                                                 >
                                                     <LinkIcon size={14} />
                                                     Revisar
@@ -183,7 +183,7 @@ export default function DataQualityPage() {
                         );
                     })}
                     {totalFilteredIssues === 0 && (
-                        <div className="text-center py-10 text-neutral-500">
+                        <div className="text-center py-10 text-crm-fg-muted">
                             No hay incidencias que coincidan con el filtro actual.
                         </div>
                     )}

@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import Link from 'next/link';
 import { User, Phone, Car, Clock, ArrowRight, MoreHorizontal, AlertCircle, CheckSquare } from 'lucide-react';
 import LeadPriorityBadge from './LeadPriorityBadge';
+import CrmButton from '../ui/CrmButton';
 
 export default function LeadKanbanCard({ lead, onChangeStatus }) {
     const [isStatusMenuOpen, setIsStatusMenuOpen] = useState(false);
@@ -37,7 +38,7 @@ export default function LeadKanbanCard({ lead, onChangeStatus }) {
     };
 
     return (
-        <div className="bg-neutral-900 border border-neutral-800 p-4 rounded-xl flex flex-col gap-3 relative group shadow-lg hover:border-neutral-700 transition-colors">
+        <div className="bg-[#1E1E24] border border-[#33333A] p-4 rounded-xl flex flex-col gap-3 relative group shadow-lg hover:border-[#EF3329]/50 transition-colors">
             
             {/* Header: Name and Status Dropdown */}
             <div className="flex justify-between items-start gap-2">
@@ -57,14 +58,14 @@ export default function LeadKanbanCard({ lead, onChangeStatus }) {
 
                     {/* Dropdown Menu */}
                     {isStatusMenuOpen && (
-                        <div className="absolute top-full right-0 mt-1 w-40 bg-black border border-neutral-800 rounded-lg shadow-2xl z-50 overflow-hidden">
+                        <div className="absolute top-full right-0 mt-1 w-40 bg-[#161619] border border-[#33333A] rounded-lg shadow-2xl z-50 overflow-hidden">
                             <div className="py-1">
                                 {statusOptions.map(opt => (
                                     <button
                                         key={opt.value}
                                         onClick={() => handleStatusChange(opt.value)}
-                                        className={`w-full text-left px-4 py-2 text-xs hover:bg-neutral-900 transition-colors ${
-                                            lead.crmStatus === opt.value ? 'text-red-500 font-bold bg-red-500/10' : 'text-neutral-300'
+                                        className={`w-full text-left px-4 py-2 text-xs hover:bg-[#28282E] transition-colors ${
+                                            lead.crmStatus === opt.value ? 'text-[#EF3329] font-bold bg-[#EF3329]/10' : 'text-[#A1A1AA]'
                                         }`}
                                     >
                                         Mover a {opt.label}
@@ -81,26 +82,26 @@ export default function LeadKanbanCard({ lead, onChangeStatus }) {
                 <LeadPriorityBadge priority={lead.priority} />
                 
                 {formatSourceDetail(lead.sourceDetail) && (
-                    <span className="text-[9px] font-bold px-1.5 py-0.5 rounded border capitalize bg-neutral-900 text-neutral-500 border-neutral-800">
+                    <span className="text-[9px] font-bold px-1.5 py-0.5 rounded border capitalize bg-[#161619] text-[#A1A1AA] border-[#33333A]">
                         {formatSourceDetail(lead.sourceDetail)}
                     </span>
                 )}
             </div>
 
-            <div className="h-px w-full bg-neutral-800/50 my-1"></div>
+            <div className="h-px w-full bg-[#33333A] my-1"></div>
 
             {/* Info Grid */}
             <div className="flex flex-col gap-2">
                 {/* Phone */}
-                <div className="flex items-center gap-2 text-xs text-neutral-300">
-                    <Phone size={14} className="text-neutral-500 shrink-0" />
+                <div className="flex items-center gap-2 text-xs text-[#FAFAFA]">
+                    <Phone size={14} className="text-[#A1A1AA] shrink-0" />
                     <span>{lead.phone}</span>
                 </div>
 
                 {/* Vehicle */}
                 {lead.vehicleId && (
-                    <div className="flex items-center gap-2 text-xs text-neutral-300">
-                        <Car size={14} className="text-red-500 shrink-0" />
+                    <div className="flex items-center gap-2 text-xs text-[#FAFAFA]">
+                        <Car size={14} className="text-[#EF3329] shrink-0" />
                         <span className="line-clamp-1">{lead.vehicleId.brand} {lead.vehicleId.name}</span>
                     </div>
                 )}
@@ -144,12 +145,11 @@ export default function LeadKanbanCard({ lead, onChangeStatus }) {
             )}
 
             {/* CTA */}
-            <Link 
-                href={`/admin/leads/${lead._id}`} 
-                className="w-full flex items-center justify-center gap-2 text-xs font-bold text-red-500 hover:text-red-400 bg-red-500/10 hover:bg-red-500/20 py-2 rounded-lg border border-red-500/20 transition-colors mt-2"
-            >
-                Ver Ficha
-                <ArrowRight size={14} />
+            <Link href={`/admin/leads/${lead._id}`} className="mt-2 w-full block">
+                <CrmButton variant="secondary" className="w-full gap-2 justify-center hover:border-[#EF3329]/50 hover:text-[#EF3329]">
+                    Ver Ficha
+                    <ArrowRight size={14} />
+                </CrmButton>
             </Link>
 
         </div>

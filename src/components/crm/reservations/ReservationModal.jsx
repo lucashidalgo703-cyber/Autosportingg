@@ -107,22 +107,22 @@ export default function ReservationModal({
 
     return (
         <div className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4 backdrop-blur-sm overflow-y-auto">
-            <div className="bg-[#1E1E24] border border-[#33333A] rounded-2xl w-full max-w-2xl shadow-2xl relative my-8">
+            <div className="bg-crm-surface border border-crm-border rounded-2xl w-full max-w-2xl shadow-2xl relative my-8">
                 
                 {/* Header */}
-                <div className="flex items-center justify-between p-5 border-b border-[#33333A]">
+                <div className="flex items-center justify-between p-5 border-b border-crm-border bg-crm-surface rounded-t-2xl">
                     <div className="flex items-center gap-3">
-                        <div className="bg-red-500/10 text-red-500 p-2 rounded-lg">
+                        <div className="bg-crm-red/10 text-crm-red p-2 rounded-lg">
                             <Tag size={20} />
                         </div>
                         <div>
                             <h2 className="text-xl font-bold text-white">Tomar Reserva</h2>
-                            <p className="text-xs text-neutral-400">Bloquea el vehículo y genera la oportunidad formal</p>
+                            <p className="text-xs text-crm-fg-muted">Bloquea el vehículo y genera la oportunidad formal</p>
                         </div>
                     </div>
                     <button 
                         onClick={onClose}
-                        className="text-neutral-500 hover:text-white transition-colors"
+                        className="text-crm-fg-muted hover:text-crm-fg hover:bg-crm-surface-raised p-2 rounded-lg transition-colors"
                         disabled={loading}
                     >
                         <X size={24} />
@@ -140,20 +140,20 @@ export default function ReservationModal({
                     )}
 
                     {/* Read-Only Context info */}
-                    <div className="bg-black/30 p-4 rounded-xl border border-[#33333A] flex flex-col gap-2">
+                    <div className="bg-crm-bg p-4 rounded-xl border border-crm-border flex flex-col gap-2">
                         <div className="flex justify-between items-center">
-                            <span className="text-neutral-500 text-xs font-bold uppercase">Vehículo a reservar</span>
+                            <span className="text-crm-fg-muted text-[10px] font-bold uppercase tracking-wider">Vehículo a reservar</span>
                             <span className="text-white font-medium text-sm">{initialData.vehicleName || 'Desconocido'}</span>
                         </div>
                         {initialData.leadName && (
-                            <div className="flex justify-between items-center border-t border-[#33333A] pt-2">
-                                <span className="text-neutral-500 text-xs font-bold uppercase">Lead / Prospecto</span>
+                            <div className="flex justify-between items-center border-t border-crm-border pt-2">
+                                <span className="text-crm-fg-muted text-[10px] font-bold uppercase tracking-wider">Lead / Prospecto</span>
                                 <span className="text-blue-400 font-medium text-sm">{initialData.leadName}</span>
                             </div>
                         )}
                         {initialData.clientName && (
-                            <div className="flex justify-between items-center border-t border-[#33333A] pt-2">
-                                <span className="text-neutral-500 text-xs font-bold uppercase">Cliente Formal</span>
+                            <div className="flex justify-between items-center border-t border-crm-border pt-2">
+                                <span className="text-crm-fg-muted text-[10px] font-bold uppercase tracking-wider">Cliente Formal</span>
                                 <span className="text-green-400 font-medium text-sm">{initialData.clientName}</span>
                             </div>
                         )}
@@ -163,9 +163,9 @@ export default function ReservationModal({
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         {/* Agreed Price */}
                         <div>
-                            <label className="block text-sm font-medium text-neutral-300 mb-1">Precio Acordado *</label>
+                            <label className="block text-xs font-medium text-crm-fg-muted uppercase tracking-wider mb-1">Precio Acordado *</label>
                             <div className="relative">
-                                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-neutral-500">
+                                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-crm-fg-muted">
                                     <DollarSign size={16} />
                                 </div>
                                 <input
@@ -174,14 +174,14 @@ export default function ReservationModal({
                                     required
                                     value={agreedPrice}
                                     onChange={(e) => setAgreedPrice(e.target.value)}
-                                    className="w-full bg-[#161619] border border-[#33333A] text-white rounded-lg pl-9 pr-20 py-2 focus:ring-1 focus:ring-red-500 focus:border-red-500 outline-none"
+                                    className="w-full bg-crm-bg border border-crm-border text-crm-fg rounded-lg pl-9 pr-20 py-2 focus:ring-1 focus:ring-crm-red focus:border-crm-red outline-none"
                                     placeholder="Ej: 15000"
                                 />
                                 <div className="absolute inset-y-0 right-0 flex items-center">
                                     <select
                                         value={agreedCurrency}
                                         onChange={(e) => setAgreedCurrency(e.target.value)}
-                                        className="h-full bg-transparent text-neutral-400 border-l border-[#33333A] rounded-r-lg px-2 text-sm focus:ring-1 focus:ring-red-500 outline-none"
+                                        className="h-full bg-transparent text-crm-fg-muted border-l border-crm-border rounded-r-lg px-2 text-sm focus:ring-1 focus:ring-crm-red outline-none"
                                     >
                                         <option value="USD">USD</option>
                                         <option value="ARS">ARS</option>
@@ -192,9 +192,9 @@ export default function ReservationModal({
 
                         {/* Deposit Amount */}
                         <div>
-                            <label className="block text-sm font-medium text-neutral-300 mb-1">Monto de Seña (Opcional)</label>
+                            <label className="block text-xs font-medium text-crm-fg-muted uppercase tracking-wider mb-1">Monto de Seña (Opcional)</label>
                             <div className="relative">
-                                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-neutral-500">
+                                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-crm-fg-muted">
                                     <DollarSign size={16} />
                                 </div>
                                 <input
@@ -202,14 +202,14 @@ export default function ReservationModal({
                                     min="0"
                                     value={depositAmount}
                                     onChange={(e) => setDepositAmount(e.target.value)}
-                                    className="w-full bg-[#161619] border border-[#33333A] text-white rounded-lg pl-9 pr-20 py-2 focus:ring-1 focus:ring-red-500 focus:border-red-500 outline-none"
+                                    className="w-full bg-crm-bg border border-crm-border text-crm-fg rounded-lg pl-9 pr-20 py-2 focus:ring-1 focus:ring-crm-red focus:border-crm-red outline-none"
                                     placeholder="0 = Sin seña aún"
                                 />
                                 <div className="absolute inset-y-0 right-0 flex items-center">
                                     <select
                                         value={depositCurrency}
                                         onChange={(e) => setDepositCurrency(e.target.value)}
-                                        className="h-full bg-transparent text-neutral-400 border-l border-[#33333A] rounded-r-lg px-2 text-sm focus:ring-1 focus:ring-red-500 outline-none"
+                                        className="h-full bg-transparent text-crm-fg-muted border-l border-crm-border rounded-r-lg px-2 text-sm focus:ring-1 focus:ring-crm-red outline-none"
                                     >
                                         <option value="USD">USD</option>
                                         <option value="ARS">ARS</option>
@@ -222,11 +222,11 @@ export default function ReservationModal({
                     {/* Deposit Details Row */}
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div>
-                            <label className="block text-sm font-medium text-neutral-300 mb-1">Medio de Seña</label>
+                            <label className="block text-xs font-medium text-crm-fg-muted uppercase tracking-wider mb-1">Medio de Seña</label>
                             <select
                                 value={depositMethod}
                                 onChange={(e) => setDepositMethod(e.target.value)}
-                                className="w-full bg-[#161619] border border-[#33333A] text-white rounded-lg px-3 py-2 focus:ring-1 focus:ring-red-500 focus:border-red-500 outline-none"
+                                className="w-full bg-crm-bg border border-crm-border text-crm-fg rounded-lg px-3 py-2 focus:ring-1 focus:ring-crm-red focus:border-crm-red outline-none"
                             >
                                 <option value="transferencia">Transferencia Bancaria</option>
                                 <option value="efectivo">Efectivo</option>
@@ -236,9 +236,9 @@ export default function ReservationModal({
                         </div>
                         
                         <div>
-                            <label className="block text-sm font-medium text-neutral-300 mb-1">Vencimiento de la Reserva *</label>
+                            <label className="block text-xs font-medium text-crm-fg-muted uppercase tracking-wider mb-1">Vencimiento de la Reserva *</label>
                             <div className="relative">
-                                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-neutral-500">
+                                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-crm-fg-muted">
                                     <Calendar size={16} />
                                 </div>
                                 <input
@@ -247,7 +247,7 @@ export default function ReservationModal({
                                     value={expiresAt}
                                     onChange={(e) => setExpiresAt(e.target.value)}
                                     min={new Date().toISOString().split('T')[0]}
-                                    className="w-full bg-[#161619] border border-[#33333A] text-white rounded-lg pl-10 pr-3 py-2 focus:ring-1 focus:ring-red-500 focus:border-red-500 outline-none"
+                                    className="w-full bg-crm-bg border border-crm-border text-crm-fg rounded-lg pl-10 pr-3 py-2 focus:ring-1 focus:ring-crm-red focus:border-crm-red outline-none"
                                 />
                             </div>
                         </div>
@@ -255,12 +255,12 @@ export default function ReservationModal({
 
                     {/* Vendedor */}
                     <div>
-                        <label className="block text-sm font-medium text-neutral-300 mb-1">Vendedor / Responsable</label>
+                        <label className="block text-xs font-medium text-crm-fg-muted uppercase tracking-wider mb-1">Vendedor / Responsable</label>
                         <input
                             type="text"
                             value={salesperson}
                             onChange={(e) => setSalesperson(e.target.value)}
-                            className="w-full bg-[#161619] border border-[#33333A] text-white rounded-lg px-3 py-2 focus:ring-1 focus:ring-red-500 focus:border-red-500 outline-none"
+                            className="w-full bg-crm-bg border border-crm-border text-crm-fg rounded-lg px-3 py-2 focus:ring-1 focus:ring-crm-red focus:border-crm-red outline-none"
                             placeholder="Nombre del vendedor"
                         />
                     </div>
@@ -268,33 +268,33 @@ export default function ReservationModal({
                     {/* Textareas */}
                     <div className="flex flex-col gap-4">
                         <div>
-                            <label className="block text-sm font-medium text-neutral-300 mb-1">Condiciones de Venta</label>
+                            <label className="block text-xs font-medium text-crm-fg-muted uppercase tracking-wider mb-1">Condiciones de Venta</label>
                             <textarea
                                 value={conditions}
                                 onChange={(e) => setConditions(e.target.value)}
                                 rows={2}
-                                className="w-full bg-[#161619] border border-[#33333A] text-white rounded-lg px-3 py-2 focus:ring-1 focus:ring-red-500 focus:border-red-500 outline-none resize-none"
+                                className="w-full bg-crm-bg border border-crm-border text-crm-fg rounded-lg px-3 py-2 focus:ring-1 focus:ring-crm-red focus:border-crm-red outline-none resize-none"
                                 placeholder="Ej: Entregar transferido, pintar paragolpe..."
                             />
                         </div>
                         <div>
-                            <label className="block text-sm font-medium text-neutral-300 mb-1">Notas Internas (Opcional)</label>
+                            <label className="block text-xs font-medium text-crm-fg-muted uppercase tracking-wider mb-1">Notas Internas (Opcional)</label>
                             <textarea
                                 value={notes}
                                 onChange={(e) => setNotes(e.target.value)}
                                 rows={2}
-                                className="w-full bg-[#161619] border border-[#33333A] text-white rounded-lg px-3 py-2 focus:ring-1 focus:ring-red-500 focus:border-red-500 outline-none resize-none"
+                                className="w-full bg-crm-bg border border-crm-border text-crm-fg rounded-lg px-3 py-2 focus:ring-1 focus:ring-crm-red focus:border-crm-red outline-none resize-none"
                                 placeholder="No visible para el cliente"
                             />
                         </div>
                     </div>
 
                     {/* Actions */}
-                    <div className="pt-4 border-t border-[#33333A] flex justify-end gap-3">
+                    <div className="p-6 border-t border-crm-border bg-crm-surface flex justify-end gap-3 rounded-b-2xl">
                         <button
                             type="button"
                             onClick={onClose}
-                            className="px-4 py-2 text-neutral-400 hover:text-white transition-colors"
+                            className="px-4 py-2 text-crm-fg-muted hover:text-crm-fg hover:bg-crm-surface-raised rounded-lg transition-colors"
                             disabled={loading}
                         >
                             Cancelar
@@ -302,7 +302,7 @@ export default function ReservationModal({
                         <button
                             type="submit"
                             disabled={loading}
-                            className="bg-[#E63027] hover:bg-[#C42620] text-white px-6 py-2 rounded-lg font-medium flex items-center gap-2 transition-colors disabled:opacity-50"
+                            className="bg-crm-red hover:bg-crm-red-hover text-white px-6 py-2 rounded-lg font-medium flex items-center gap-2 transition-colors disabled:opacity-50"
                         >
                             {loading ? (
                                 <div className="animate-spin rounded-full h-5 w-5 border-t-2 border-b-2 border-white"></div>

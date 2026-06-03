@@ -287,7 +287,7 @@ export default function SaleDetailPage() {
 
             {isCancelModalOpen && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
-                    <div className="bg-[#161619] border border-red-900/50 rounded-2xl w-full max-w-md shadow-2xl p-6">
+                    <div className="bg-crm-surface border border-crm-red/50 rounded-2xl w-full max-w-md shadow-2xl p-6">
                         <div className="flex items-center gap-3 mb-4">
                             <div className="w-10 h-10 rounded-full bg-red-500/10 flex items-center justify-center">
                                 <XCircle className="text-red-500" size={24} />

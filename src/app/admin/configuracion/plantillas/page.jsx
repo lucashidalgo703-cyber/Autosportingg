@@ -13,7 +13,7 @@ export default function PlantillasPage() {
             requiredPermission={PERMISSIONS.MESSAGETEMPLATES_READ}
             fallback={<div className="p-6 text-red-500">No tenés permisos para ver esta sección.</div>}
         >
-            <div className="p-6 max-w-7xl mx-auto">
+            <div className="mx-auto w-full max-w-7xl p-4 md:p-6">
                 <div className="mb-6">
                     <h1 className="text-2xl font-bold text-white">Plantillas de Mensajes</h1>
                     <p className="text-[#A1A1AA] mt-1">

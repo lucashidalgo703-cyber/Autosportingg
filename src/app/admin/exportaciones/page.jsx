@@ -86,7 +86,7 @@ export default function ExportacionesPage() {
                         <p className="text-sm text-red-400 mb-6">No tenés permisos para acceder a las exportaciones.</p>
                         <Link 
                             href="/admin"
-                            className="bg-[#E63027] text-white px-6 py-2 rounded-xl font-bold hover:bg-[#C42620] transition-colors"
+                            className="bg-crm-red text-white px-6 py-2 rounded-xl font-bold hover:bg-crm-red-hover transition-colors"
                         >
                             Volver al Dashboard
                         </Link>
@@ -111,13 +111,13 @@ export default function ExportacionesPage() {
     ];
 
     return (
-        <div className="max-w-7xl mx-auto p-6 pb-20 text-white">
+        <div className="mx-auto w-full max-w-7xl p-4 md:p-6 pb-20 text-white">
             <div className="mb-8">
                 <h1 className="text-2xl font-bold text-white tracking-tight flex items-center gap-2">
-                    <Download className="text-[#E63027]" />
+                    <Download className="text-crm-red" />
                     Exportaciones
                 </h1>
-                <p className="text-neutral-400 mt-1 text-sm">
+                <p className="text-crm-fg-muted mt-1 text-sm">
                     Descargá los datos de los módulos operativos en formato CSV para respaldo o análisis externo.
                 </p>
             </div>
@@ -134,21 +134,21 @@ export default function ExportacionesPage() {
                     const isAvailable = availableExports.includes(mod.id);
                     const Icon = mod.icon;
                     return (
-                        <div key={mod.id} className={`bg-[#1E1E24] border border-[#33333A] rounded-2xl p-5 flex flex-col ${!isAvailable ? 'opacity-50' : ''}`}>
+                        <div key={mod.id} className={`bg-crm-surface border border-crm-border rounded-2xl p-5 flex flex-col ${!isAvailable ? 'opacity-50' : ''}`}>
                             <div className="flex items-center gap-3 mb-3">
-                                <div className="w-10 h-10 rounded-xl bg-[#161619] border border-[#33333A] flex items-center justify-center text-[#A1A1AA]">
+                                <div className="w-10 h-10 rounded-xl bg-crm-bg border border-crm-border flex items-center justify-center text-crm-fg-muted">
                                     <Icon size={20} />
                                 </div>
                                 <div>
                                     <h3 className="font-bold text-white">{mod.title}</h3>
                                 </div>
                             </div>
-                            <p className="text-xs text-neutral-400 mb-5 flex-1">{mod.desc}</p>
+                            <p className="text-xs text-crm-fg-muted mb-5 flex-1">{mod.desc}</p>
                             
                             <button
                                 onClick={() => handleDownload(mod.id)}
                                 disabled={!isAvailable || downloading === mod.id}
-                                className="w-full flex items-center justify-center gap-2 bg-[#E63027] hover:bg-[#C42620] disabled:bg-neutral-800 disabled:text-neutral-500 disabled:cursor-not-allowed text-white px-4 py-2 text-sm font-bold rounded-xl transition-colors"
+                                className="w-full flex items-center justify-center gap-2 bg-crm-red hover:bg-crm-red-hover disabled:bg-crm-surface-raised disabled:text-crm-fg-muted disabled:cursor-not-allowed text-white px-4 py-2 text-sm font-bold rounded-xl transition-colors"
                             >
                                 {downloading === mod.id ? (
                                     <>

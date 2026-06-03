@@ -96,7 +96,7 @@ export default function ReportesPage() {
     if (loading) {
         return (
             <div className="flex-1 flex justify-center items-center h-[80vh]">
-                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-500"></div>
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-crm-red"></div>
             </div>
         );
     }
@@ -106,8 +106,8 @@ export default function ReportesPage() {
         <div className="max-w-7xl mx-auto flex flex-col h-full min-h-[85vh] pb-12">
             <div className="flex justify-between items-center mb-6">
                 <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-xl bg-indigo-500/10 flex items-center justify-center border border-indigo-500/20">
-                        <BarChart3 size={20} className="text-indigo-500" />
+                    <div className="w-10 h-10 rounded-xl bg-crm-red/10 flex items-center justify-center border border-crm-red/20">
+                        <BarChart3 size={20} className="text-crm-red" />
                     </div>
                     <div>
                         <h1 className="text-2xl font-bold text-white tracking-tight">Tablero de Dirección</h1>

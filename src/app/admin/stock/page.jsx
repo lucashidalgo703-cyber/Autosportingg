@@ -60,7 +60,7 @@ export default function AdminStockPage() {
         return (
             <div className="flex items-center justify-center h-[50vh]">
                 <div className="flex flex-col items-center gap-3">
-                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#E63027]"></div>
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-crm-red"></div>
                     <span className="text-[#A1A1AA] text-sm">Cargando stock real...</span>
                 </div>
             </div>
@@ -79,14 +79,14 @@ export default function AdminStockPage() {
     }
 
     return (
-        <>
+        <div className="mx-auto w-full max-w-7xl p-4 md:p-6">
                 <div className="flex flex-col gap-6">
                     <div className="flex items-center justify-between">
                         <div>
-                            <h1 className="text-2xl font-bold text-white m-0 mb-1">Stock de Vehículos</h1>
-                            <p className="text-sm text-[#A1A1AA] m-0 flex items-center gap-2">
+                            <h1 className="text-2xl font-bold text-crm-fg m-0 mb-1">Stock de Vehículos</h1>
+                            <p className="text-sm text-crm-fg-muted m-0 flex items-center gap-2">
                                 Gestión de inventario y valuaciones
-                                <span className="bg-[#22C55E]/10 text-[#22C55E] text-[10px] px-2 py-0.5 rounded font-medium border border-[#22C55E]/20">Datos reales (Solo lectura)</span>
+                                <span className="bg-crm-success/10 text-crm-success text-[10px] px-2 py-0.5 rounded font-medium border border-crm-success/20">Datos reales (Solo lectura)</span>
                             </p>
                         </div>
                     </div>
@@ -141,6 +141,6 @@ export default function AdminStockPage() {
                     onClose={() => setIsFormOpen(false)} 
                     onSubmit={handleFormSubmit}
                 />
-        </>
+        </div>
     );
 }

@@ -299,7 +299,7 @@ export default function AdminAgendaPage() {
                 </div>
                 <button
                     onClick={() => setIsCrmTaskModalOpen(true)}
-                    className="flex items-center gap-2 px-4 py-2 bg-[#E63027] hover:bg-[#E63027] text-white text-sm font-bold rounded-xl transition-colors shadow-lg shadow-red-500/20"
+                    className="flex items-center gap-2 px-4 py-2 bg-crm-red hover:bg-crm-red-hover text-white text-sm font-bold rounded-xl transition-colors shadow-lg shadow-crm-red/20"
                 >
                     <Plus size={18} />
                     Crear Tarea
@@ -376,7 +376,7 @@ export default function AdminAgendaPage() {
                         <AgendaSection 
                             title="Sin Acción Programada (Solo Leads)" 
                             icon={AlertCircle}
-                            colorClass={{ bg: 'bg-[#161619]0/10', border: 'border-neutral-500/20', text: 'text-neutral-500' }}
+                            colorClass={{ bg: 'bg-crm-bg', border: 'border-crm-border', text: 'text-crm-fg-muted' }}
                             leads={classifiedLeads.noAction.filter(l => !l.isCrmTask)}
                             onChangeStatus={handleStatusChange}
                             onCompleteTask={handleCompleteTask}

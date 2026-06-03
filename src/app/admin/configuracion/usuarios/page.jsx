@@ -66,11 +66,11 @@ export default function UsuariosConfigPage() {
         <div className="p-4 md:p-8 max-w-7xl mx-auto space-y-6">
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
                 <div>
-                    <h1 className="text-3xl font-black text-[#FAFAFA] tracking-tighter flex items-center gap-3">
-                        <Users className="text-[#A1A1AA]" size={32} />
+                    <h1 className="text-3xl font-black text-white tracking-tighter flex items-center gap-3">
+                        <Users className="text-crm-fg-muted" size={32} />
                         Gestión de Usuarios
                     </h1>
-                    <p className="text-[#A1A1AA] mt-1">Configura accesos, roles y permisos internos del CRM.</p>
+                    <p className="text-crm-fg-muted mt-1">Configura accesos, roles y permisos internos del CRM.</p>
                 </div>
                 
                 {hasPermission(user, PERMISSIONS.USUARIOS_WRITE) && (
@@ -93,7 +93,7 @@ export default function UsuariosConfigPage() {
             )}
 
             {loading && users.length === 0 ? (
-                <div className="text-center py-10 text-[#71717A]">Cargando usuarios...</div>
+                <div className="text-center py-10 text-crm-fg-muted">Cargando usuarios...</div>
             ) : (
                 <AdminUsersTable 
                     users={users} 

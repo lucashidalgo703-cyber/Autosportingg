@@ -100,12 +100,12 @@ export default function VehicleEditModal({ isOpen, onClose, onSave, vehicleData 
     const isVisibleWarning = !formData.visibleEnWeb;
 
     return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm overflow-y-auto">
-            <div className="bg-[#161619] border border-[#33333A] rounded-xl w-full max-w-4xl my-8 flex flex-col relative">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm overflow-y-auto">
+            <div className="bg-crm-surface border border-crm-border rounded-xl w-full max-w-4xl my-8 flex flex-col relative">
                 
-                <div className="flex items-center justify-between p-4 border-b border-[#33333A] sticky top-0 bg-[#161619] z-10 rounded-t-xl">
+                <div className="flex items-center justify-between p-4 border-b border-crm-border sticky top-0 bg-crm-surface z-10 rounded-t-xl">
                     <h2 className="text-xl font-bold text-white">Editar Vehículo</h2>
-                    <button onClick={onClose} className="p-1 text-[#A1A1AA] hover:text-white transition-colors" disabled={isSaving}>
+                    <button onClick={onClose} className="p-1 text-crm-fg-muted hover:text-crm-fg transition-colors" disabled={isSaving}>
                         <X size={20} />
                     </button>
                 </div>
@@ -115,41 +115,41 @@ export default function VehicleEditModal({ isOpen, onClose, onSave, vehicleData 
                         
                         {/* DATOS PÚBLICOS */}
                         <div className="flex flex-col gap-4">
-                            <h3 className="text-[#E63027] font-semibold flex items-center gap-2 border-b border-[#33333A] pb-2">
+                            <h3 className="text-crm-red font-semibold flex items-center gap-2 border-b border-crm-border pb-2">
                                 Datos Públicos (Catálogo)
                             </h3>
                             
                             <div className="grid grid-cols-2 gap-4">
                                 <div className="flex flex-col gap-1.5">
-                                    <label className="text-sm font-medium text-[#A1A1AA]">Marca *</label>
-                                    <input type="text" required name="brand" value={formData.brand} onChange={handleChange} className="bg-[#09090B] border border-[#33333A] text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-[#E63027]" />
+                                    <label className="text-xs font-medium text-crm-fg-muted uppercase tracking-wider">Marca *</label>
+                                    <input type="text" required name="brand" value={formData.brand} onChange={handleChange} className="bg-crm-bg border border-crm-border text-crm-fg rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-crm-red focus:ring-1 focus:ring-crm-red" />
                                 </div>
                                 <div className="flex flex-col gap-1.5">
-                                    <label className="text-sm font-medium text-[#A1A1AA]">Modelo *</label>
-                                    <input type="text" required name="name" value={formData.name} onChange={handleChange} className="bg-[#09090B] border border-[#33333A] text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-[#E63027]" />
+                                    <label className="text-xs font-medium text-crm-fg-muted uppercase tracking-wider">Modelo *</label>
+                                    <input type="text" required name="name" value={formData.name} onChange={handleChange} className="bg-crm-bg border border-crm-border text-crm-fg rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-crm-red focus:ring-1 focus:ring-crm-red" />
                                 </div>
                             </div>
 
                             <div className="flex flex-col gap-1.5">
-                                <label className="text-sm font-medium text-[#A1A1AA]">Versión / Descripción Corta</label>
-                                <input type="text" name="description" value={formData.description} onChange={handleChange} placeholder="Ej. 1.4 TSI Highline" className="bg-[#09090B] border border-[#33333A] text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-[#E63027]" />
+                                <label className="text-xs font-medium text-crm-fg-muted uppercase tracking-wider">Versión / Descripción Corta</label>
+                                <input type="text" name="description" value={formData.description} onChange={handleChange} placeholder="Ej. 1.4 TSI Highline" className="bg-crm-bg border border-crm-border text-crm-fg rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-crm-red focus:ring-1 focus:ring-crm-red" />
                             </div>
 
                             <div className="grid grid-cols-2 gap-4">
                                 <div className="flex flex-col gap-1.5">
-                                    <label className="text-sm font-medium text-[#A1A1AA]">Año *</label>
-                                    <input type="number" required min="1900" max={new Date().getFullYear() + 1} name="year" value={formData.year} onChange={handleChange} className="bg-[#09090B] border border-[#33333A] text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-[#E63027]" />
+                                    <label className="text-xs font-medium text-crm-fg-muted uppercase tracking-wider">Año *</label>
+                                    <input type="number" required min="1900" max={new Date().getFullYear() + 1} name="year" value={formData.year} onChange={handleChange} className="bg-crm-bg border border-crm-border text-crm-fg rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-crm-red focus:ring-1 focus:ring-crm-red" />
                                 </div>
                                 <div className="flex flex-col gap-1.5">
-                                    <label className="text-sm font-medium text-[#A1A1AA]">Kilometraje *</label>
-                                    <input type="number" required min="0" name="km" value={formData.km} onChange={handleChange} className="bg-[#09090B] border border-[#33333A] text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-[#E63027]" />
+                                    <label className="text-xs font-medium text-crm-fg-muted uppercase tracking-wider">Kilometraje *</label>
+                                    <input type="number" required min="0" name="km" value={formData.km} onChange={handleChange} className="bg-crm-bg border border-crm-border text-crm-fg rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-crm-red focus:ring-1 focus:ring-crm-red" />
                                 </div>
                             </div>
 
                             <div className="grid grid-cols-2 gap-4">
                                 <div className="flex flex-col gap-1.5">
-                                    <label className="text-sm font-medium text-[#A1A1AA]">Combustible</label>
-                                    <select name="fuel" value={formData.fuel} onChange={handleChange} className="bg-[#09090B] border border-[#33333A] text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-[#E63027]">
+                                    <label className="text-xs font-medium text-crm-fg-muted uppercase tracking-wider">Combustible</label>
+                                    <select name="fuel" value={formData.fuel} onChange={handleChange} className="bg-crm-bg border border-crm-border text-crm-fg rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-crm-red focus:ring-1 focus:ring-crm-red">
                                         <option value="Nafta">Nafta</option>
                                         <option value="Diésel">Diésel</option>
                                         <option value="GNC">GNC</option>
@@ -158,8 +158,8 @@ export default function VehicleEditModal({ isOpen, onClose, onSave, vehicleData 
                                     </select>
                                 </div>
                                 <div className="flex flex-col gap-1.5">
-                                    <label className="text-sm font-medium text-[#A1A1AA]">Condición</label>
-                                    <select name="condition" value={formData.condition} onChange={handleChange} className="bg-[#09090B] border border-[#33333A] text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-[#E63027]">
+                                    <label className="text-xs font-medium text-crm-fg-muted uppercase tracking-wider">Condición</label>
+                                    <select name="condition" value={formData.condition} onChange={handleChange} className="bg-crm-bg border border-crm-border text-crm-fg rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-crm-red focus:ring-1 focus:ring-crm-red">
                                         <option value="Usado">Usado</option>
                                         <option value="0km">0km</option>
                                         <option value="Nuevo">Nuevo</option>
@@ -169,12 +169,12 @@ export default function VehicleEditModal({ isOpen, onClose, onSave, vehicleData 
 
                             <div className="grid grid-cols-[1fr_80px] gap-4">
                                 <div className="flex flex-col gap-1.5">
-                                    <label className="text-sm font-medium text-[#A1A1AA]">Precio Publicado *</label>
-                                    <input type="number" required min="0" name="price" value={formData.price} onChange={handleChange} className="bg-[#09090B] border border-[#33333A] text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-[#E63027]" />
+                                    <label className="text-xs font-medium text-crm-fg-muted uppercase tracking-wider">Precio Publicado *</label>
+                                    <input type="number" required min="0" name="price" value={formData.price} onChange={handleChange} className="bg-crm-bg border border-crm-border text-crm-fg rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-crm-red focus:ring-1 focus:ring-crm-red" />
                                 </div>
                                 <div className="flex flex-col gap-1.5">
-                                    <label className="text-sm font-medium text-[#A1A1AA]">Moneda</label>
-                                    <select name="currency" value={formData.currency} onChange={handleChange} className="bg-[#09090B] border border-[#33333A] text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-[#E63027]">
+                                    <label className="text-xs font-medium text-crm-fg-muted uppercase tracking-wider">Moneda</label>
+                                    <select name="currency" value={formData.currency} onChange={handleChange} className="bg-crm-bg border border-crm-border text-crm-fg rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-crm-red focus:ring-1 focus:ring-crm-red">
                                         <option value="USD">USD</option>
                                         <option value="U$S">U$S</option>
                                         <option value="ARS">ARS</option>
@@ -183,12 +183,12 @@ export default function VehicleEditModal({ isOpen, onClose, onSave, vehicleData 
                                 </div>
                             </div>
 
-                            <div className="flex flex-col gap-3 mt-2 bg-[#24242B] p-4 rounded-lg border border-[#33333A]">
+                            <div className="flex flex-col gap-3 mt-2 bg-crm-surface-raised p-4 rounded-lg border border-crm-border">
                                 <label className="flex items-center gap-3 cursor-pointer group">
-                                    <input type="checkbox" name="visibleEnWeb" checked={formData.visibleEnWeb} onChange={handleChange} className="w-5 h-5 rounded border-[#E63027] text-[#E63027] focus:ring-[#E63027] bg-[#09090B] cursor-pointer" />
+                                    <input type="checkbox" name="visibleEnWeb" checked={formData.visibleEnWeb} onChange={handleChange} className="w-5 h-5 rounded border-crm-red text-crm-red focus:ring-crm-red bg-crm-bg cursor-pointer" />
                                     <div className="flex flex-col">
-                                        <span className="text-white font-medium group-hover:text-[#E63027] transition-colors">Visible en Catálogo Público</span>
-                                        <span className="text-xs text-[#A1A1AA]">Si desmarcas, el auto se ocultará del sitio web.</span>
+                                        <span className="text-white font-medium group-hover:text-crm-red transition-colors">Visible en Catálogo Público</span>
+                                        <span className="text-xs text-crm-fg-muted">Si desmarcas, el auto se ocultará del sitio web.</span>
                                     </div>
                                 </label>
                                 {isVisibleWarning && (
@@ -203,18 +203,18 @@ export default function VehicleEditModal({ isOpen, onClose, onSave, vehicleData 
 
                         {/* DATOS INTERNOS */}
                         <div className="flex flex-col gap-4">
-                            <h3 className="text-[#A1A1AA] font-semibold flex items-center gap-2 border-b border-[#33333A] pb-2">
+                            <h3 className="text-crm-fg-muted font-semibold flex items-center gap-2 border-b border-crm-border pb-2">
                                 Datos Internos (Solo CRM)
                             </h3>
                             
                             <div className="grid grid-cols-[1fr_80px] gap-4">
                                 <div className="flex flex-col gap-1.5">
-                                    <label className="text-sm font-medium text-[#A1A1AA]">Costo de Compra</label>
-                                    <input type="number" min="0" name="purchasePrice" value={formData.purchasePrice} onChange={handleChange} className="bg-[#09090B] border border-[#33333A] text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-[#E63027]" />
+                                    <label className="text-xs font-medium text-crm-fg-muted uppercase tracking-wider">Costo de Compra</label>
+                                    <input type="number" min="0" name="purchasePrice" value={formData.purchasePrice} onChange={handleChange} className="bg-crm-bg border border-crm-border text-crm-fg rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-crm-red focus:ring-1 focus:ring-crm-red" />
                                 </div>
                                 <div className="flex flex-col gap-1.5">
-                                    <label className="text-sm font-medium text-[#A1A1AA]">Moneda</label>
-                                    <select name="purchaseCurrency" value={formData.purchaseCurrency} onChange={handleChange} className="bg-[#09090B] border border-[#33333A] text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-[#E63027]">
+                                    <label className="text-xs font-medium text-crm-fg-muted uppercase tracking-wider">Moneda</label>
+                                    <select name="purchaseCurrency" value={formData.purchaseCurrency} onChange={handleChange} className="bg-crm-bg border border-crm-border text-crm-fg rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-crm-red focus:ring-1 focus:ring-crm-red">
                                         <option value="USD">USD</option>
                                         <option value="ARS">ARS</option>
                                     </select>
@@ -223,11 +223,11 @@ export default function VehicleEditModal({ isOpen, onClose, onSave, vehicleData 
 
                             <div className="grid grid-cols-2 gap-4">
                                 <div className="flex flex-col gap-1.5">
-                                    <label className="text-sm font-medium text-[#A1A1AA]">Origen del Vehículo</label>
+                                    <label className="text-xs font-medium text-crm-fg-muted uppercase tracking-wider">Origen del Vehículo</label>
                                     <select 
                                         value={formData.agencyOwned ? 'propio' : (formData.consignedBy ? 'consignación' : 'tercero')} 
                                         onChange={handleOrigenChange} 
-                                        className="bg-[#09090B] border border-[#33333A] text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-[#E63027]"
+                                        className="bg-crm-bg border border-crm-border text-crm-fg rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-crm-red focus:ring-1 focus:ring-crm-red"
                                     >
                                         <option value="propio">Propio (Agencia)</option>
                                         <option value="consignación">Consignación</option>
@@ -236,26 +236,26 @@ export default function VehicleEditModal({ isOpen, onClose, onSave, vehicleData 
                                 </div>
                                 {!formData.agencyOwned && (
                                     <div className="flex flex-col gap-1.5">
-                                        <label className="text-sm font-medium text-[#A1A1AA]">Consignado Por</label>
-                                        <input type="text" name="consignedBy" value={formData.consignedBy} onChange={handleChange} placeholder="Nombre del dueño" className="bg-[#09090B] border border-[#33333A] text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-[#E63027]" />
+                                        <label className="text-xs font-medium text-crm-fg-muted uppercase tracking-wider">Consignado Por</label>
+                                        <input type="text" name="consignedBy" value={formData.consignedBy} onChange={handleChange} placeholder="Nombre del dueño" className="bg-crm-bg border border-crm-border text-crm-fg rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-crm-red focus:ring-1 focus:ring-crm-red" />
                                     </div>
                                 )}
                             </div>
 
                             <div className="grid grid-cols-2 gap-4">
                                 <div className="flex flex-col gap-1.5">
-                                    <label className="text-sm font-medium text-[#A1A1AA]">Dominio / VIN</label>
-                                    <input type="text" name="plateOrVin" value={formData.plateOrVin} onChange={handleChange} placeholder="Ej. AE 123 CD" className="bg-[#09090B] border border-[#33333A] text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-[#E63027] uppercase" />
+                                    <label className="text-xs font-medium text-crm-fg-muted uppercase tracking-wider">Dominio / VIN</label>
+                                    <input type="text" name="plateOrVin" value={formData.plateOrVin} onChange={handleChange} placeholder="Ej. AE 123 CD" className="bg-crm-bg border border-crm-border text-crm-fg rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-crm-red focus:ring-1 focus:ring-crm-red uppercase" />
                                 </div>
                                 <div className="flex flex-col gap-1.5">
-                                    <label className="text-sm font-medium text-[#A1A1AA]">Ubicación Física</label>
-                                    <input type="text" name="location" value={formData.location} onChange={handleChange} placeholder="Ej. Salón, Taller" className="bg-[#09090B] border border-[#33333A] text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-[#E63027]" />
+                                    <label className="text-xs font-medium text-crm-fg-muted uppercase tracking-wider">Ubicación Física</label>
+                                    <input type="text" name="location" value={formData.location} onChange={handleChange} placeholder="Ej. Salón, Taller" className="bg-crm-bg border border-crm-border text-crm-fg rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-crm-red focus:ring-1 focus:ring-crm-red" />
                                 </div>
                             </div>
 
                             <div className="flex flex-col gap-1.5">
-                                <label className="text-sm font-medium text-[#A1A1AA]">Estado Operativo</label>
-                                <select name="status" value={formData.status} onChange={handleChange} className="bg-[#09090B] border border-[#33333A] text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-[#E63027]">
+                                <label className="text-xs font-medium text-crm-fg-muted uppercase tracking-wider">Estado Operativo</label>
+                                <select name="status" value={formData.status} onChange={handleChange} className="bg-crm-bg border border-crm-border text-crm-fg rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-crm-red focus:ring-1 focus:ring-crm-red">
                                     <option value="Disponible">Disponible</option>
                                     <option value="Reservado">Reservado</option>
                                     <option value="Vendido">Vendido</option>
@@ -264,32 +264,32 @@ export default function VehicleEditModal({ isOpen, onClose, onSave, vehicleData 
                             </div>
 
                             <div className="flex flex-col gap-1.5 flex-1">
-                                <label className="text-sm font-medium text-[#A1A1AA]">Observaciones Internas</label>
+                                <label className="text-xs font-medium text-crm-fg-muted uppercase tracking-wider">Observaciones Internas</label>
                                 <textarea 
                                     name="notes"
                                     value={formData.notes}
                                     onChange={handleChange}
                                     placeholder="Detalles, reparaciones pendientes, historial..."
-                                    className="bg-[#09090B] border border-[#33333A] text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-[#E63027] resize-none flex-1 min-h-[100px]"
+                                    className="bg-crm-bg border border-crm-border text-crm-fg rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-crm-red focus:ring-1 focus:ring-crm-red resize-none flex-1 min-h-[100px]"
                                 />
                             </div>
 
                         </div>
                     </div>
 
-                    <div className="p-4 border-t border-[#33333A] flex justify-end gap-3 sticky bottom-0 bg-[#161619] rounded-b-xl z-10">
+                    <div className="p-4 border-t border-crm-border flex justify-end gap-3 sticky bottom-0 bg-crm-surface rounded-b-xl z-10">
                         <button 
                             type="button" 
                             onClick={onClose}
                             disabled={isSaving}
-                            className="px-6 py-2.5 bg-transparent border border-[#33333A] text-white rounded-lg hover:bg-[#24242B] transition-colors font-medium text-sm"
+                            className="px-6 py-2.5 bg-transparent border border-crm-border text-crm-fg rounded-lg hover:bg-crm-surface-raised transition-colors font-medium text-sm"
                         >
                             Cancelar
                         </button>
                         <button 
                             type="submit" 
                             disabled={isSaving}
-                            className="px-6 py-2.5 bg-[#E63027] text-white rounded-lg hover:bg-[#C42620] transition-colors font-medium text-sm flex items-center gap-2 disabled:opacity-50"
+                            className="px-6 py-2.5 bg-crm-red text-white rounded-lg hover:bg-crm-red-hover transition-colors font-medium text-sm flex items-center gap-2 disabled:opacity-50"
                         >
                             {isSaving ? <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div> : <Save size={18} />}
                             {isSaving ? 'Guardando...' : 'Guardar Cambios'}

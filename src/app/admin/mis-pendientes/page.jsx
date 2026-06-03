@@ -70,7 +70,7 @@ export default function MisPendientesPage() {
     if (loading) {
         return (
             <div className="p-6 flex justify-center items-center h-64">
-                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-500"></div>
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-crm-red"></div>
             </div>
         );
     }
@@ -93,7 +93,7 @@ export default function MisPendientesPage() {
         <div className="p-6 font-sans">
             <div className="mb-6">
                 <h1 className="text-2xl font-bold text-white flex items-center gap-2">
-                    <ClipboardList className="text-indigo-500" />
+                    <ClipboardList className="text-crm-fg-muted" />
                     Mis Pendientes
                 </h1>
                 <p className="text-sm text-gray-400 mt-1">
@@ -105,14 +105,14 @@ export default function MisPendientesPage() {
                 
                 {/* MIS METAS */}
                 {data.goals && data.goals.length > 0 && (
-                    <div className="bg-[#161619] border border-indigo-900/50 rounded-xl p-5 flex flex-col xl:col-span-1">
-                        <h2 className="text-lg font-bold text-white mb-4 flex items-center gap-2 border-b border-[#33333A] pb-2">
-                            <Flag size={18} className="text-indigo-500" />
+                    <div className="bg-crm-surface border border-crm-border rounded-xl p-5 flex flex-col xl:col-span-1">
+                        <h2 className="text-lg font-bold text-white mb-4 flex items-center gap-2 border-b border-crm-border pb-2">
+                            <Flag size={18} className="text-crm-fg-muted" />
                             Mis Metas
                         </h2>
                         <div className="flex flex-col gap-3">
                             {data.goals.map(g => (
-                                <div key={g.goalId} className="bg-[#24242B] border border-[#33333A] p-3 rounded-lg">
+                                <div key={g.goalId} className="bg-crm-bg border border-crm-border p-3 rounded-lg">
                                     <div className="flex justify-between items-start mb-2">
                                         <div className="text-xs text-gray-400 uppercase font-bold">{g.periodLabel || g.periodType}</div>
                                         <GoalStatusBadge status={g.status} />
@@ -129,8 +129,8 @@ export default function MisPendientesPage() {
                 )}
 
                 {/* TAREAS */}
-                <div className="bg-[#161619] border border-[#33333A] rounded-xl p-5 flex flex-col">
-                    <h2 className="text-lg font-bold text-white mb-4 flex items-center gap-2 border-b border-[#33333A] pb-2">
+                <div className="bg-crm-surface border border-crm-border rounded-xl p-5 flex flex-col">
+                    <h2 className="text-lg font-bold text-white mb-4 flex items-center gap-2 border-b border-crm-border pb-2">
                         <CheckSquare size={18} className="text-blue-500" />
                         Mis Tareas
                     </h2>
@@ -145,13 +145,13 @@ export default function MisPendientesPage() {
                                 </Link>
                             ))}
                             {todayTasks.map(t => (
-                                <Link key={t._id} href="/admin/agenda" className="p-3 bg-[#24242B] border border-[#33333A] rounded-lg hover:border-blue-500 transition-colors">
+                                <Link key={t._id} href="/admin/agenda" className="p-3 bg-crm-bg border border-crm-border rounded-lg hover:border-crm-red transition-colors">
                                     <div className="text-blue-400 font-bold text-xs uppercase mb-1 flex items-center gap-1"><Calendar size={12}/> Para Hoy</div>
                                     <div className="text-white text-sm font-bold">{t.title}</div>
                                 </Link>
                             ))}
                             {pendingTasks.filter(t => !overdueTasks.includes(t) && !todayTasks.includes(t)).slice(0, 5).map(t => (
-                                <Link key={t._id} href="/admin/agenda" className="p-3 bg-[#1E1E24] border border-[#33333A] rounded-lg hover:border-gray-500 transition-colors">
+                                <Link key={t._id} href="/admin/agenda" className="p-3 bg-crm-surface-raised border border-crm-border rounded-lg hover:border-crm-red transition-colors">
                                     <div className="text-white text-sm font-bold">{t.title}</div>
                                     {t.dueDate && <div className="text-gray-500 text-xs mt-1">Vence: {new Date(t.dueDate).toLocaleDateString('es-AR')}</div>}
                                 </Link>
@@ -161,8 +161,8 @@ export default function MisPendientesPage() {
                 </div>
 
                 {/* LEADS & RESERVAS */}
-                <div className="bg-[#161619] border border-[#33333A] rounded-xl p-5 flex flex-col">
-                    <h2 className="text-lg font-bold text-white mb-4 flex items-center gap-2 border-b border-[#33333A] pb-2">
+                <div className="bg-crm-surface border border-crm-border rounded-xl p-5 flex flex-col">
+                    <h2 className="text-lg font-bold text-white mb-4 flex items-center gap-2 border-b border-crm-border pb-2">
                         <Users size={18} className="text-yellow-500" />
                         Comercial (Leads y Reservas)
                     </h2>
@@ -172,7 +172,7 @@ export default function MisPendientesPage() {
                             {activeLeads.length === 0 ? <p className="text-gray-600 text-xs">Sin leads asignados.</p> : (
                                 <div className="flex flex-col gap-2">
                                     {activeLeads.slice(0,4).map(l => (
-                                        <Link key={l._id} href="/admin/leads" className="block text-sm text-white bg-[#24242B] p-2 rounded hover:bg-[#33333A] truncate">
+                                        <Link key={l._id} href="/admin/leads" className="block text-sm text-white bg-crm-bg border border-crm-border p-2 rounded hover:bg-crm-surface-raised truncate">
                                             {l.name} - <span className="text-yellow-500">{l.crmStatus}</span>
                                         </Link>
                                     ))}
@@ -184,7 +184,7 @@ export default function MisPendientesPage() {
                             {activeReservations.length === 0 ? <p className="text-gray-600 text-xs">Sin reservas asignadas.</p> : (
                                 <div className="flex flex-col gap-2">
                                     {activeReservations.map(r => (
-                                        <Link key={r._id} href="/admin/reservas" className="block text-sm text-white bg-[#24242B] p-2 rounded hover:bg-[#33333A] truncate">
+                                        <Link key={r._id} href="/admin/reservas" className="block text-sm text-white bg-crm-bg border border-crm-border p-2 rounded hover:bg-crm-surface-raised truncate">
                                             Reserva ID: {r._id.toString().slice(-6).toUpperCase()}
                                         </Link>
                                     ))}
@@ -195,8 +195,8 @@ export default function MisPendientesPage() {
                 </div>
 
                 {/* OPERACIONES */}
-                <div className="bg-[#161619] border border-[#33333A] rounded-xl p-5 flex flex-col">
-                    <h2 className="text-lg font-bold text-white mb-4 flex items-center gap-2 border-b border-[#33333A] pb-2">
+                <div className="bg-crm-surface border border-crm-border rounded-xl p-5 flex flex-col">
+                    <h2 className="text-lg font-bold text-white mb-4 flex items-center gap-2 border-b border-crm-border pb-2">
                         <Car size={18} className="text-green-500" />
                         Operaciones (Ventas, Doc, Postventa)
                     </h2>
@@ -206,7 +206,7 @@ export default function MisPendientesPage() {
                             {activeSales.length === 0 ? <p className="text-gray-600 text-xs">Sin ventas asignadas.</p> : (
                                 <div className="flex flex-col gap-2">
                                     {activeSales.slice(0,3).map(s => (
-                                        <Link key={s._id} href={`/admin/ventas/${s._id}`} className="block text-sm text-white bg-[#24242B] p-2 rounded hover:bg-[#33333A] truncate">
+                                        <Link key={s._id} href={`/admin/ventas/${s._id}`} className="block text-sm text-white bg-crm-bg border border-crm-border p-2 rounded hover:bg-crm-surface-raised truncate">
                                             Venta: {s._id.toString().slice(-6).toUpperCase()}
                                         </Link>
                                     ))}
@@ -230,7 +230,7 @@ export default function MisPendientesPage() {
                             {docPendings.length === 0 ? <p className="text-gray-600 text-xs">Todo al día.</p> : (
                                 <div className="flex flex-col gap-2">
                                     {docPendings.slice(0,3).map(s => (
-                                        <Link key={s._id} href={`/admin/documentacion`} className="block text-sm text-white bg-[#24242B] p-2 rounded hover:bg-[#33333A] truncate">
+                                        <Link key={s._id} href={`/admin/documentacion`} className="block text-sm text-white bg-crm-bg border border-crm-border p-2 rounded hover:bg-crm-surface-raised truncate">
                                             Venta: {s._id.toString().slice(-6).toUpperCase()}
                                         </Link>
                                     ))}

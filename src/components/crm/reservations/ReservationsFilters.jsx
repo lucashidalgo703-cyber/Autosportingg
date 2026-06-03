@@ -1,5 +1,7 @@
 import React from 'react';
 import { Search, Filter, Calendar } from 'lucide-react';
+import CrmInput from '../ui/CrmInput';
+import CrmSelect from '../ui/CrmSelect';
 
 export default function ReservationsFilters({ filters, setFilters }) {
     const handleFilterChange = (key, value) => {
@@ -7,17 +9,17 @@ export default function ReservationsFilters({ filters, setFilters }) {
     };
 
     return (
-        <div className="bg-neutral-900 border border-neutral-800 rounded-2xl p-4 mb-6">
+        <div className="bg-crm-surface border border-crm-border rounded-2xl p-4 mb-6">
             <div className="flex flex-col lg:flex-row gap-4">
                 
                 {/* Text Search */}
                 <div className="flex-1 min-w-[250px]">
                     <div className="relative">
-                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-500" size={18} />
-                        <input
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-crm-fg-muted" size={18} />
+                        <CrmInput
                             type="text"
                             placeholder="Buscar cliente, auto, dominio, teléfono..."
-                            className="w-full bg-black/30 border border-neutral-800 rounded-xl py-2 pl-10 pr-4 text-white placeholder:text-neutral-600 focus:outline-none focus:border-red-500/50 transition-colors"
+                            className="pl-10"
                             value={filters.search}
                             onChange={(e) => handleFilterChange('search', e.target.value)}
                         />
@@ -27,10 +29,8 @@ export default function ReservationsFilters({ filters, setFilters }) {
                 {/* Filters */}
                 <div className="flex flex-wrap lg:flex-nowrap gap-4">
                     {/* Status Filter */}
-                    <div className="flex items-center gap-2 bg-black/30 border border-neutral-800 rounded-xl px-3 py-2 w-full lg:w-auto">
-                        <Filter size={16} className="text-neutral-500 shrink-0" />
-                        <select
-                            className="bg-transparent text-white text-sm focus:outline-none w-full appearance-none cursor-pointer"
+                    <div className="flex-1 lg:flex-none">
+                        <CrmSelect
                             value={filters.status}
                             onChange={(e) => handleFilterChange('status', e.target.value)}
                         >
@@ -41,28 +41,24 @@ export default function ReservationsFilters({ filters, setFilters }) {
                             <option value="cancelada">Canceladas</option>
                             <option value="devuelta">Devueltas</option>
                             <option value="retenida">Retenidas</option>
-                        </select>
+                        </CrmSelect>
                     </div>
 
                     {/* Currency Filter */}
-                    <div className="flex items-center gap-2 bg-black/30 border border-neutral-800 rounded-xl px-3 py-2 w-full lg:w-auto">
-                        <span className="text-neutral-500 font-bold text-sm shrink-0">$</span>
-                        <select
-                            className="bg-transparent text-white text-sm focus:outline-none w-full appearance-none cursor-pointer"
+                    <div className="flex-1 lg:flex-none">
+                        <CrmSelect
                             value={filters.currency}
                             onChange={(e) => handleFilterChange('currency', e.target.value)}
                         >
                             <option value="todas">Todas las monedas</option>
                             <option value="ARS">ARS</option>
                             <option value="USD">USD</option>
-                        </select>
+                        </CrmSelect>
                     </div>
 
                     {/* Date/Expiry Filter */}
-                    <div className="flex items-center gap-2 bg-black/30 border border-neutral-800 rounded-xl px-3 py-2 w-full lg:w-auto">
-                        <Calendar size={16} className="text-neutral-500 shrink-0" />
-                        <select
-                            className="bg-transparent text-white text-sm focus:outline-none w-full appearance-none cursor-pointer"
+                    <div className="flex-1 lg:flex-none">
+                        <CrmSelect
                             value={filters.dateRange}
                             onChange={(e) => handleFilterChange('dateRange', e.target.value)}
                         >
@@ -70,7 +66,7 @@ export default function ReservationsFilters({ filters, setFilters }) {
                             <option value="vencidas">Ya Vencidas</option>
                             <option value="hoy">Vencen Hoy</option>
                             <option value="proximos_7">Próximos 7 días</option>
-                        </select>
+                        </CrmSelect>
                     </div>
                 </div>
 

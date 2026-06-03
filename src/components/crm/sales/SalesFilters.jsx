@@ -1,5 +1,8 @@
 import React from 'react';
 import { Search, Filter, RefreshCcw } from 'lucide-react';
+import CrmInput from '../ui/CrmInput';
+import CrmSelect from '../ui/CrmSelect';
+import { CrmIconButton } from '../ui/CrmButton';
 
 export default function SalesFilters({ filters, setFilters }) {
     const handleClear = () => {
@@ -15,16 +18,16 @@ export default function SalesFilters({ filters, setFilters }) {
     };
 
     return (
-        <div className="bg-neutral-900 border border-neutral-800 rounded-2xl p-4 mb-6">
+        <div className="bg-crm-surface border border-crm-border rounded-2xl p-4 mb-6">
             <div className="flex flex-col md:flex-row gap-4">
                 
                 {/* Search */}
                 <div className="flex-1 relative">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-500" size={18} />
-                    <input
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-crm-fg-muted" size={18} />
+                    <CrmInput
                         type="text"
                         placeholder="Buscar por cliente, lead, teléfono, vehículo, dominio..."
-                        className="w-full bg-black/40 border border-neutral-800 rounded-xl py-2.5 pl-10 pr-4 text-sm text-white focus:outline-none focus:border-neutral-600 transition-colors"
+                        className="pl-10"
                         value={filters.search}
                         onChange={(e) => setFilters({ ...filters, search: e.target.value })}
                     />
@@ -33,10 +36,8 @@ export default function SalesFilters({ filters, setFilters }) {
                 {/* Filters */}
                 <div className="flex flex-wrap md:flex-nowrap gap-3">
                     {/* Status */}
-                    <div className="relative min-w-[140px] flex-1 md:flex-none">
-                        <Filter className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-500" size={14} />
-                        <select
-                            className="w-full bg-black/40 border border-neutral-800 rounded-xl py-2.5 pl-9 pr-8 text-sm text-neutral-300 focus:outline-none focus:border-neutral-600 transition-colors appearance-none cursor-pointer"
+                    <div className="flex-1 md:flex-none">
+                        <CrmSelect
                             value={filters.status}
                             onChange={(e) => setFilters({ ...filters, status: e.target.value })}
                         >
@@ -46,26 +47,24 @@ export default function SalesFilters({ filters, setFilters }) {
                             <option value="pendiente_entrega">Pdte. Entrega</option>
                             <option value="entregada">Entregada</option>
                             <option value="cancelada">Cancelada</option>
-                        </select>
+                        </CrmSelect>
                     </div>
 
                     {/* Currency */}
-                    <div className="relative min-w-[120px] flex-1 md:flex-none">
-                        <select
-                            className="w-full bg-black/40 border border-neutral-800 rounded-xl py-2.5 px-4 text-sm text-neutral-300 focus:outline-none focus:border-neutral-600 transition-colors appearance-none cursor-pointer"
+                    <div className="flex-1 md:flex-none">
+                        <CrmSelect
                             value={filters.currency}
                             onChange={(e) => setFilters({ ...filters, currency: e.target.value })}
                         >
                             <option value="todas">Moneda (Todas)</option>
                             <option value="ARS">ARS</option>
                             <option value="USD">USD</option>
-                        </select>
+                        </CrmSelect>
                     </div>
 
                     {/* Payment Method */}
-                    <div className="relative min-w-[140px] flex-1 md:flex-none">
-                        <select
-                            className="w-full bg-black/40 border border-neutral-800 rounded-xl py-2.5 px-4 text-sm text-neutral-300 focus:outline-none focus:border-neutral-600 transition-colors appearance-none cursor-pointer"
+                    <div className="flex-1 md:flex-none">
+                        <CrmSelect
                             value={filters.paymentMethod}
                             onChange={(e) => setFilters({ ...filters, paymentMethod: e.target.value })}
                         >
@@ -74,13 +73,12 @@ export default function SalesFilters({ filters, setFilters }) {
                             <option value="financiado">Financiado</option>
                             <option value="mixto">Mixto</option>
                             <option value="otro">Otro</option>
-                        </select>
+                        </CrmSelect>
                     </div>
 
                     {/* Doc Status */}
-                    <div className="relative min-w-[130px] flex-1 md:flex-none">
-                        <select
-                            className="w-full bg-black/40 border border-neutral-800 rounded-xl py-2.5 px-4 text-sm text-neutral-300 focus:outline-none focus:border-neutral-600 transition-colors appearance-none cursor-pointer"
+                    <div className="flex-1 md:flex-none">
+                        <CrmSelect
                             value={filters.documentationStatus}
                             onChange={(e) => setFilters({ ...filters, documentationStatus: e.target.value })}
                         >
@@ -88,13 +86,12 @@ export default function SalesFilters({ filters, setFilters }) {
                             <option value="pendiente">Doc Pdte.</option>
                             <option value="parcial">Doc Parcial</option>
                             <option value="completo">Doc Completa</option>
-                        </select>
+                        </CrmSelect>
                     </div>
 
                     {/* Delivery Status */}
-                    <div className="relative min-w-[140px] flex-1 md:flex-none">
-                        <select
-                            className="w-full bg-black/40 border border-neutral-800 rounded-xl py-2.5 px-4 text-sm text-neutral-300 focus:outline-none focus:border-neutral-600 transition-colors appearance-none cursor-pointer"
+                    <div className="flex-1 md:flex-none">
+                        <CrmSelect
                             value={filters.deliveryStatus}
                             onChange={(e) => setFilters({ ...filters, deliveryStatus: e.target.value })}
                         >
@@ -103,13 +100,12 @@ export default function SalesFilters({ filters, setFilters }) {
                             <option value="preparando">Preparando</option>
                             <option value="listo_para_entregar">Lista para Ent.</option>
                             <option value="entregado">Entregada</option>
-                        </select>
+                        </CrmSelect>
                     </div>
 
                     {/* Collection Status */}
-                    <div className="relative min-w-[140px] flex-1 md:flex-none">
-                        <select
-                            className="w-full bg-black/40 border border-neutral-800 rounded-xl py-2.5 px-4 text-sm text-neutral-300 focus:outline-none focus:border-neutral-600 transition-colors appearance-none cursor-pointer"
+                    <div className="flex-1 md:flex-none">
+                        <CrmSelect
                             value={filters.collectionStatus || 'todas'}
                             onChange={(e) => setFilters({ ...filters, collectionStatus: e.target.value })}
                         >
@@ -118,17 +114,17 @@ export default function SalesFilters({ filters, setFilters }) {
                             <option value="parcial">Parcial</option>
                             <option value="cobrada">Cobrada</option>
                             <option value="sobrecobrada">Sobrecobrada</option>
-                        </select>
+                        </CrmSelect>
                     </div>
 
                     {/* Clear Button */}
-                    <button
+                    <CrmIconButton
                         onClick={handleClear}
-                        className="w-10 h-[42px] shrink-0 bg-neutral-800 hover:bg-neutral-700 text-neutral-400 hover:text-white rounded-xl flex items-center justify-center transition-colors border border-neutral-700"
                         title="Limpiar filtros"
+                        className="shrink-0"
                     >
-                        <RefreshCcw size={16} />
-                    </button>
+                        <RefreshCcw size={16} className="text-crm-fg-muted" />
+                    </CrmIconButton>
                 </div>
             </div>
         </div>

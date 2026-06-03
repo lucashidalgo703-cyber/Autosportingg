@@ -52,19 +52,18 @@ export default function AdminLeadsPage() {
     const unlinkedCount = leads.filter(l => !l.clientId).length;
 
     return (
-        <div className="flex flex-col gap-6 max-w-[1600px] mx-auto w-full">
+        <div className="mx-auto w-full max-w-7xl p-4 md:p-6 flex flex-col gap-6">
             {/* Header */}
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-2">
                 <div>
-                    <div className="flex items-center gap-3 mb-2">
-                        <Target className="text-[#EF3329]" size={32} />
-                        <h1 className="text-3xl font-bold text-[#FAFAFA] tracking-tight">Gestión de Oportunidades</h1>
-                        <span className="bg-[#EF3329]/10 text-[#EF3329] border border-[#EF3329]/20 px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider ml-2">
+                    <h1 className="text-2xl font-bold text-crm-fg tracking-tight m-0 mb-1 flex items-center gap-2">
+                        Gestión de Oportunidades
+                        <span className="bg-crm-success/10 text-crm-success border border-crm-success/20 px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider">
                             Fase 3.2
                         </span>
-                    </div>
-                    <p className="text-[#A1A1AA] text-sm">
-                        Total de leads: <strong className="text-[#FAFAFA]">{total}</strong> registros activos
+                    </h1>
+                    <p className="text-sm text-crm-fg-muted m-0">
+                        Total de leads: <strong className="text-crm-fg">{total}</strong> registros activos
                     </p>
                 </div>
                 <LeadViewToggle view={view} setView={setView} />
@@ -72,30 +71,30 @@ export default function AdminLeadsPage() {
 
             {/* Metrics Cards */}
             <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-                <div className="bg-[#1E1E24] border border-[#33333A] p-4 rounded-xl flex flex-col">
-                    <span className="text-[#A1A1AA] text-xs font-bold uppercase tracking-wider mb-1">Total Actuales</span>
-                    <span className="text-[#FAFAFA] text-2xl font-bold">{leads.length}</span>
+                <div className="bg-crm-surface border border-crm-border p-4 rounded-xl flex flex-col">
+                    <span className="text-crm-fg-muted text-xs font-bold uppercase tracking-wider mb-1">Total Actuales</span>
+                    <span className="text-crm-fg text-2xl font-bold">{leads.length}</span>
                 </div>
-                <div className="bg-[#1E1E24] border border-[#33333A] p-4 rounded-xl flex flex-col">
-                    <span className="text-[#A1A1AA] text-xs font-bold uppercase tracking-wider mb-1">Contacto Web</span>
+                <div className="bg-crm-surface border border-crm-border p-4 rounded-xl flex flex-col">
+                    <span className="text-crm-fg-muted text-xs font-bold uppercase tracking-wider mb-1">Contacto Web</span>
                     <span className="text-blue-400 text-2xl font-bold">{webContactCount}</span>
                 </div>
-                <div className="bg-[#1E1E24] border border-[#33333A] p-4 rounded-xl flex flex-col">
-                    <span className="text-[#A1A1AA] text-xs font-bold uppercase tracking-wider mb-1">Fichas Auto</span>
-                    <span className="text-red-400 text-2xl font-bold">{vehicleDetailCount}</span>
+                <div className="bg-crm-surface border border-crm-border p-4 rounded-xl flex flex-col">
+                    <span className="text-crm-fg-muted text-xs font-bold uppercase tracking-wider mb-1">Fichas Auto</span>
+                    <span className="text-crm-red text-2xl font-bold">{vehicleDetailCount}</span>
                 </div>
-                <div className="bg-[#1E1E24] border border-[#33333A] p-4 rounded-xl flex flex-col">
-                    <span className="text-[#A1A1AA] text-xs font-bold uppercase tracking-wider mb-1">Financiación</span>
-                    <span className="text-[#4ade80] text-2xl font-bold">{financingCount}</span>
+                <div className="bg-crm-surface border border-crm-border p-4 rounded-xl flex flex-col">
+                    <span className="text-crm-fg-muted text-xs font-bold uppercase tracking-wider mb-1">Financiación</span>
+                    <span className="text-crm-success text-2xl font-bold">{financingCount}</span>
                 </div>
-                <div className="bg-[#1E1E24] border border-[#33333A] p-4 rounded-xl flex flex-col">
-                    <span className="text-[#A1A1AA] text-xs font-bold uppercase tracking-wider mb-1">Sin Cliente</span>
+                <div className="bg-crm-surface border border-crm-border p-4 rounded-xl flex flex-col">
+                    <span className="text-crm-fg-muted text-xs font-bold uppercase tracking-wider mb-1">Sin Cliente</span>
                     <span className="text-orange-400 text-2xl font-bold">{unlinkedCount}</span>
                 </div>
             </div>
 
             {/* Content Container */}
-            <div className="bg-[#161619] p-4 md:p-6 rounded-2xl border border-[#33333A]">
+            <div className="flex flex-col">
                 <LeadFilters filters={filters} setFilters={setFilters} onSearch={handleSearch} />
                 
                 {error && (

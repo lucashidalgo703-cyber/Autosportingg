@@ -27,33 +27,33 @@ export default function AdminClientesPage() {
     };
 
     return (
-        <div className="flex flex-col gap-6 max-w-[1600px] mx-auto w-full">
-            {/* Header */}
-            <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-8">
-                <div>
-                    <div className="flex items-center gap-3 mb-2">
-                        <Users className="text-red-600" size={32} />
-                        <h1 className="text-3xl font-bold text-white tracking-tight">Gestión de Clientes</h1>
-                        <span className="bg-red-500/10 text-red-500 border border-red-500/20 px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider ml-2">
-                            Base Real
-                        </span>
+        <div className="mx-auto w-full max-w-7xl p-4 md:p-6">
+            <div className="flex flex-col gap-6">
+                {/* Header */}
+                <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-4">
+                    <div>
+                        <h1 className="text-2xl font-bold text-crm-fg m-0 mb-1 flex items-center gap-2">
+                            Gestión de Clientes
+                            <span className="bg-crm-success/10 text-crm-success text-[10px] px-2 py-0.5 rounded font-medium border border-crm-success/20">
+                                Base Real
+                            </span>
+                        </h1>
+                        <p className="text-sm text-crm-fg-muted m-0">
+                            Total registrados: <strong className="text-crm-fg">{total}</strong> clientes
+                        </p>
                     </div>
-                    <p className="text-neutral-400 text-sm">
-                        Total registrados: <strong className="text-white">{total}</strong> clientes
-                    </p>
-                </div>
                 
-                <button
-                    onClick={() => setIsModalOpen(true)}
-                    className="bg-red-600 hover:bg-red-700 text-white px-6 py-2.5 rounded-lg font-bold transition-all flex items-center gap-2 shadow-lg shadow-red-900/20 w-full md:w-auto justify-center"
-                >
-                    <Plus size={20} />
-                    Nuevo Cliente
-                </button>
-            </div>
+                    <button
+                        onClick={() => setIsModalOpen(true)}
+                        className="bg-crm-red-gradient text-white hover:opacity-90 active:opacity-80 shadow-crm-red h-8 px-3 text-xs rounded-lg font-medium transition-all flex items-center gap-2 w-full md:w-auto justify-center"
+                    >
+                        <Plus size={16} />
+                        Nuevo Cliente
+                    </button>
+                </div>
 
-            {/* Content */}
-            <div className="bg-black/20 p-4 md:p-6 rounded-2xl border border-neutral-800/50">
+                {/* Content */}
+                <div className="flex flex-col">
                 <ClientFilters filters={filters} setFilters={setFilters} onSearch={handleSearch} />
                 
                 {error && (
@@ -81,11 +81,12 @@ export default function AdminClientesPage() {
                 )}
             </div>
 
-            <ClientFormModal 
-                isOpen={isModalOpen} 
-                onClose={() => setIsModalOpen(false)} 
-                onSave={handleCreateClient}
-            />
+                <ClientFormModal 
+                    isOpen={isModalOpen} 
+                    onClose={() => setIsModalOpen(false)} 
+                    onSave={handleCreateClient}
+                />
+            </div>
         </div>
     );
 }
