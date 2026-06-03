@@ -113,6 +113,7 @@ export default function AdminDashboardPage() {
                                 <GeneralDashboardSote
                                     metrics={metrics}
                                     canSeeFinancials={hasPermission(user, PERMISSIONS.FINANZAS_READ)}
+                                    user={user}
                                 />
                             )
                     ) : (

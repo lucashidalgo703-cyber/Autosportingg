@@ -9,10 +9,15 @@ import {
     DollarSign,
     FileText,
     Landmark,
+    PackageSearch,
+    PieChart,
     ShoppingCart,
+    Sparkles,
+    Timer,
     TrendingUp,
     Truck,
     Users,
+    UserRound,
     Warehouse,
     Wallet
 } from 'lucide-react';
@@ -136,11 +141,298 @@ function CashProjectionPanel({ metrics }) {
                     tone={usdBalance < 0 ? 'red' : 'green'}
                 />
             </div>
+            <div className="mt-4 grid grid-cols-1 gap-3 lg:grid-cols-2">
+                <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/10 p-4">
+                    <div className="mb-3 flex items-center justify-between">
+                        <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-emerald-200">
+                            Entradas previstas
+                        </p>
+                        <span className="rounded-md bg-emerald-500/15 px-2 py-1 text-[10px] font-bold text-emerald-200">
+                            Top 0
+                        </span>
+                    </div>
+                    <p className="text-xs text-emerald-100/75">Sin entradas previstas.</p>
+                </div>
+                <div className="rounded-xl border border-red-500/20 bg-red-500/10 p-4">
+                    <div className="mb-3 flex items-center justify-between">
+                        <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-red-200">
+                            Salidas previstas
+                        </p>
+                        <span className="rounded-md bg-red-500/15 px-2 py-1 text-[10px] font-bold text-red-200">
+                            Top 0
+                        </span>
+                    </div>
+                    <p className="text-xs text-red-100/75">Sin salidas previstas.</p>
+                </div>
+            </div>
+            <p className="mt-4 border-t border-crm-border pt-3 text-[11px] leading-relaxed text-crm-fg-muted">
+                Mismos numeros que la pantalla x Cobrar/Pagar: a cobrar toma valores, cuotas y gastos del comprador; a pagar contempla pagos a propietarios, registros y comisiones.
+            </p>
         </section>
     );
 }
 
-export default function GeneralDashboardSote({ metrics, canSeeFinancials = false }) {
+function Panel({ title, subtitle, href, icon: Icon, children, className = '' }) {
+    return (
+        <section className={`rounded-xl border border-crm-border bg-crm-surface p-4 ${className}`}>
+            <div className="mb-4 flex items-start justify-between gap-3">
+                <div className="flex min-w-0 items-start gap-3">
+                    {Icon && (
+                        <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-crm-surface-raised text-crm-fg-muted">
+                            <Icon size={16} />
+                        </span>
+                    )}
+                    <div className="min-w-0">
+                        <h3 className="text-base font-semibold leading-tight text-crm-fg">{title}</h3>
+                        {subtitle && <p className="mt-1 text-xs leading-relaxed text-crm-fg-muted">{subtitle}</p>}
+                    </div>
+                </div>
+                {href && (
+                    <Link href={href} className="shrink-0 rounded-md px-2 py-1 text-xs font-semibold text-amber-300 transition hover:bg-crm-surface-raised hover:text-amber-200">
+                        Ver mas →
+                    </Link>
+                )}
+            </div>
+            {children}
+        </section>
+    );
+}
+
+function EmptyState({ title, text, icon: Icon }) {
+    return (
+        <div className="flex min-h-[190px] flex-col items-center justify-center rounded-xl border border-crm-border bg-crm-bg px-6 py-10 text-center">
+            {Icon && (
+                <span className="mb-4 flex h-10 w-10 items-center justify-center rounded-full bg-crm-surface-raised text-crm-fg-muted">
+                    <Icon size={18} />
+                </span>
+            )}
+            <h4 className="text-sm font-semibold text-crm-fg">{title}</h4>
+            {text && <p className="mt-2 max-w-sm text-xs leading-relaxed text-crm-fg-muted">{text}</p>}
+        </div>
+    );
+}
+
+function SmallMetric({ label, value, tone = 'neutral' }) {
+    const tones = {
+        neutral: 'text-crm-fg',
+        green: 'text-emerald-300',
+        red: 'text-red-300',
+        amber: 'text-amber-300'
+    };
+
+    return (
+        <div className="rounded-lg border border-crm-border bg-crm-bg p-3">
+            <p className={`text-xl font-bold leading-none ${tones[tone] || tones.neutral}`}>{value}</p>
+            <p className="mt-2 text-[10px] font-bold uppercase tracking-[0.13em] text-crm-fg-muted">{label}</p>
+        </div>
+    );
+}
+
+function StockOverviewPanel({ counts }) {
+    const active = (counts.disponibles || 0) + (counts.reservados || 0) + (counts.pausados || 0);
+    const items = [
+        { label: 'Disponibles', value: counts.disponibles || 0, tone: 'green' },
+        { label: 'Reservados / Senados', value: counts.reservados || 0, tone: 'amber' },
+        { label: 'Vendidos', value: counts.vendidos || 0, tone: 'red' },
+        { label: 'En preparacion', value: counts.pausados || 0, tone: 'neutral' }
+    ];
+
+    return (
+        <Panel title="Estado del stock" icon={PieChart} className="min-h-[329px]">
+            <div className="grid grid-cols-2 gap-3">
+                {items.map((item) => <SmallMetric key={item.label} {...item} />)}
+            </div>
+            <div className="mt-5 rounded-lg border border-crm-border bg-crm-bg p-4">
+                <div className="mb-3 flex items-center justify-between text-xs">
+                    <span className="text-crm-fg-muted">Vehiculos activos en stock</span>
+                    <span className="font-bold text-crm-fg">{formatNumber(active)}</span>
+                </div>
+                <div className="h-2 overflow-hidden rounded-full bg-crm-surface-raised">
+                    <div className="h-full rounded-full bg-crm-red" style={{ width: `${Math.min(100, active * 4)}%` }} />
+                </div>
+            </div>
+        </Panel>
+    );
+}
+
+function MonthlyGainPanel() {
+    const months = ['JUL 25', 'AGO 25', 'SEP 25', 'OCT 25', 'NOV 25', 'DIC 25', 'ENE 26', 'FEB 26', 'MAR 26', 'ABR 26', 'MAY 26', 'JUN 26'];
+
+    return (
+        <Panel title="ULTIMOS 12 MESES · GANANCIA USD" icon={TrendingUp} className="min-h-[329px]">
+            <div className="mb-4 flex flex-wrap gap-2">
+                <span className="rounded-md bg-crm-surface-raised px-2 py-1 text-[10px] font-bold uppercase text-crm-fg-muted">Mes actual</span>
+                <span className="rounded-md bg-emerald-500/10 px-2 py-1 text-[10px] font-bold uppercase text-emerald-300">Supero obj</span>
+                <span className="rounded-md bg-crm-bg px-2 py-1 text-[10px] font-bold uppercase text-crm-fg-muted">Mes normal</span>
+            </div>
+            <p className="mb-5 text-xs text-crm-fg-muted">Objetivo USD 110k no visible - max 12m: USD 0k</p>
+            <div className="flex h-32 items-end gap-2 border-b border-crm-border pb-3">
+                {months.map((month, index) => (
+                    <div key={month} className="flex flex-1 flex-col items-center gap-2">
+                        <div className={`w-full rounded-t-md ${index === months.length - 1 ? 'h-6 bg-crm-red/70' : 'h-3 bg-crm-surface-raised'}`} />
+                        <span className="text-center text-[9px] font-semibold leading-tight text-crm-fg-muted">{month}</span>
+                    </div>
+                ))}
+            </div>
+        </Panel>
+    );
+}
+
+function AnnualSummaryPanel({ soldCount }) {
+    const currentYear = new Date().getFullYear();
+    const years = [
+        { year: currentYear - 2, cars: 0, current: false },
+        { year: currentYear - 1, cars: 0, current: false },
+        { year: `${currentYear} · EN CURSO`, cars: soldCount || 0, current: true }
+    ];
+
+    return (
+        <section className="rounded-xl border border-crm-border bg-crm-surface p-5">
+            <h3 className="mb-4 text-xs font-bold uppercase tracking-[0.14em] text-crm-fg-muted">Resumen anual</h3>
+            <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
+                {years.map((item) => (
+                    <div key={item.year} className={`rounded-xl border p-3 ${item.current ? 'border-indigo-400/40 bg-indigo-500/10' : 'border-crm-border bg-crm-surface-raised'}`}>
+                        <p className="text-xs font-bold text-crm-fg">{item.year}</p>
+                        <p className="mt-3 text-[10px] font-bold uppercase tracking-[0.14em] text-crm-fg-muted">{formatNumber(item.cars)} autos</p>
+                        <p className="mt-2 text-lg font-bold text-crm-fg">USD 0</p>
+                    </div>
+                ))}
+            </div>
+        </section>
+    );
+}
+
+function LeadResponsePanel() {
+    return (
+        <div className="space-y-3">
+            <div className="rounded-xl border border-emerald-500/25 bg-emerald-500/10 p-4 text-sm font-semibold text-emerald-300">
+                Todos los leads estan contactados y asignados.
+            </div>
+            <section className="rounded-xl border border-crm-border bg-crm-surface p-4">
+                <h3 className="text-base font-semibold text-crm-fg">Tiempo de respuesta</h3>
+                <p className="mt-2 text-xs text-crm-fg-muted">Sin leads asignados en el mes para medir todavia.</p>
+            </section>
+        </div>
+    );
+}
+
+function DeadlinesPanel() {
+    return (
+        <Panel title="Proximas entregas y vencimientos" subtitle="Entregas, expedientes y cuotas - proximos 7 dias" href="/admin/documentacion" icon={Timer} className="min-h-[399px]">
+            <div className="grid grid-cols-3 gap-2">
+                <SmallMetric label="Vencidos" value="0" tone="red" />
+                <SmallMetric label="Hoy" value="0" tone="amber" />
+                <SmallMetric label="Prox. 7d" value="0" tone="green" />
+            </div>
+            <div className="mt-4">
+                <EmptyState title="Todo al dia" text="No hay entregas, expedientes ni cuotas vencidos o por vencer en los proximos 7 dias." icon={Sparkles} />
+            </div>
+        </Panel>
+    );
+}
+
+function TopSellersPanel({ user }) {
+    const name = user?.name || user?.email || 'AutoSporting';
+
+    return (
+        <Panel title={`TOP VENDEDORES - ${new Date().toLocaleDateString('es-AR', { month: 'long' }).toUpperCase()}`} href="/admin/equipo" icon={UserRound} className="min-h-[280px]">
+            <div className="rounded-xl border border-crm-border bg-crm-bg p-4">
+                <div className="flex items-center gap-3">
+                    <span className="flex h-10 w-10 items-center justify-center rounded-full bg-amber-500/15 text-xl">1</span>
+                    <div className="min-w-0">
+                        <p className="truncate text-sm font-bold text-crm-fg">{name} <span className="text-crm-fg-muted">- vos</span></p>
+                        <p className="mt-1 text-xs text-crm-fg-muted">0 ventas · 0 consig.</p>
+                    </div>
+                </div>
+            </div>
+        </Panel>
+    );
+}
+
+function SalesLastSixPanel() {
+    return (
+        <Panel title="Ventas - ultimos 6 meses" subtitle="Cantidad de ventas cerradas por mes" href="/admin/ventas" icon={TrendingUp} className="min-h-[280px]">
+            <EmptyState title="Sin ventas en el periodo" text="No hay ventas cerradas en los ultimos 6 meses." icon={ShoppingCart} />
+        </Panel>
+    );
+}
+
+function CashFlowMonthPanel({ metrics }) {
+    return (
+        <Panel title="Cash Flow del mes" subtitle="0 movimientos · admin/finanzas" href="/admin/finanzas" icon={Landmark} className="min-h-[460px]">
+            <div className="grid grid-cols-3 gap-2">
+                <SmallMetric label="Ingresos" value="USD 0" tone="green" />
+                <SmallMetric label="Egresos" value="USD 0" tone="red" />
+                <SmallMetric label="Neto" value="USD 0" tone="green" />
+            </div>
+            <div className="mt-4 rounded-xl border border-crm-border bg-crm-bg p-3">
+                <p className="mb-3 text-[10px] font-bold uppercase tracking-[0.14em] text-crm-fg-muted">Saldos por cuenta · 2</p>
+                <div className="space-y-3 text-xs">
+                    <div className="flex items-center justify-between gap-3">
+                        <span className="text-crm-fg-muted">Caja USD</span>
+                        <strong className="text-crm-fg">USD {formatCurrency(metrics.margenEstimado?.USD || 0)}</strong>
+                    </div>
+                    <div className="flex items-center justify-between gap-3">
+                        <span className="text-crm-fg-muted">Caja ARS</span>
+                        <strong className="text-crm-fg">ARS {formatCurrency(metrics.margenEstimado?.ARS || 0)}</strong>
+                    </div>
+                </div>
+            </div>
+            <div className="mt-4 grid grid-cols-2 gap-3 text-xs text-crm-fg-muted">
+                <p>Sin ingresos registrados este mes.</p>
+                <p>Sin egresos registrados este mes.</p>
+            </div>
+        </Panel>
+    );
+}
+
+function InstallmentsMonthPanel() {
+    return (
+        <Panel title="Cuotas a pagar - este mes" subtitle="Desde Mi Espacio Personal · 0 cuotas del mes" href="/admin/cuotas" icon={CreditCard} className="min-h-[460px]">
+            <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/10 p-4 text-sm font-bold text-emerald-300">
+                Sin cuotas vencidas
+            </div>
+            <div className="mt-4 grid grid-cols-2 gap-3">
+                <SmallMetric label="Total del mes" value="-" />
+                <SmallMetric label="Cuotas" value="0" />
+            </div>
+            <p className="mt-3 text-xs text-crm-fg-muted">0 vencidas</p>
+        </Panel>
+    );
+}
+
+function ShowroomPanel() {
+    return (
+        <Panel title="Visitas en Showroom" subtitle="Trafico fisico - quien esta y cuanto hace que llego" icon={Users}>
+            <div className="mb-4 grid grid-cols-2 gap-3 md:grid-cols-4">
+                <SmallMetric label="Activas" value="0" />
+                <SmallMetric label="Hoy" value="0" />
+                <SmallMetric label="Sem." value="0" />
+                <SmallMetric label="Cotizaron" value="0" />
+            </div>
+            <EmptyState title="Sin visitas activas" text="No hay clientes en el showroom en este momento." icon={Users} />
+        </Panel>
+    );
+}
+
+function MatchingOrdersPanel() {
+    return (
+        <Panel title="Pedidos con auto disponible" subtitle="Pedidos abiertos que matchean stock disponible" href="/admin/reservas" icon={PackageSearch}>
+            <div className="mb-4 text-3xl font-bold text-crm-fg">0</div>
+            <EmptyState title="Sin coincidencias" text="Cuando entre stock que matchee con un pedido abierto, va a aparecer aca." icon={PackageSearch} />
+        </Panel>
+    );
+}
+
+function LastOperationsPanel() {
+    return (
+        <Panel title="Ultimas 8 operaciones" subtitle="Ventas recientes ordenadas por fecha" href="/admin/ventas" icon={ClipboardList}>
+            <p className="border-t border-crm-border py-6 text-sm text-crm-fg-muted">Sin operaciones registradas.</p>
+        </Panel>
+    );
+}
+
+export default function GeneralDashboardSote({ metrics, canSeeFinancials = false, user }) {
     const counts = metrics.counts || {};
     const alertCount = (metrics.alertas?.alerta60?.length || 0) + (metrics.alertas?.alerta90?.length || 0);
     const activeStock = (counts.disponibles || 0) + (counts.reservados || 0) + (counts.pausados || 0);
@@ -312,6 +604,34 @@ export default function GeneralDashboardSote({ metrics, canSeeFinancials = false
                 {compactCards.map((card) => <KpiCard key={card.label} {...card} compact />)}
             </div>
             {canSeeFinancials && <CashProjectionPanel metrics={metrics} />}
+            <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+                <StockOverviewPanel counts={counts} />
+                <MonthlyGainPanel />
+            </div>
+            <AnnualSummaryPanel soldCount={counts.vendidos || 0} />
+            <LeadResponsePanel />
+            <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+                <Panel title="Agenda - proximos 7 dias" subtitle="Todo lo que viene esta semana" href="/admin/agenda" icon={CalendarClock} className="min-h-[399px]">
+                    <EmptyState title="Sin eventos proximos" text="No hay nada agendado para los proximos 7 dias." icon={CalendarClock} />
+                </Panel>
+                <DeadlinesPanel />
+            </div>
+            <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+                <TopSellersPanel user={user} />
+                <SalesLastSixPanel />
+            </div>
+            {canSeeFinancials && (
+                <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+                    <CashFlowMonthPanel metrics={metrics} />
+                    <InstallmentsMonthPanel />
+                </div>
+            )}
+            <ShowroomPanel />
+            <MatchingOrdersPanel />
+            <LastOperationsPanel />
+            <p className="px-2 pb-4 text-center text-xs text-crm-fg-muted">
+                Estas en la app nueva. Las secciones completas van migrando de a una.
+            </p>
         </div>
     );
 }
