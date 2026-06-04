@@ -2,7 +2,7 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 
-export default function CrmBottomNav() {
+export default function CrmBottomNav({ isHidden = false }) {
     const pathname = usePathname();
 
     const navItems = [
@@ -14,7 +14,7 @@ export default function CrmBottomNav() {
     ];
 
     return (
-        <nav className="fixed inset-x-0 bottom-0 z-30 grid min-h-[68px] grid-cols-5 border-t border-crm-border bg-crm-topbar/95 pb-[var(--safe-bottom,0px)] shadow-[0_-12px_30px_rgba(0,0,0,0.35)] backdrop-blur md:hidden">
+        <nav className={`fixed inset-x-0 bottom-0 z-30 min-h-[68px] grid-cols-5 border-t border-crm-border bg-crm-topbar/95 pb-[var(--safe-bottom,0px)] shadow-[0_-12px_30px_rgba(0,0,0,0.35)] backdrop-blur md:hidden ${isHidden ? 'hidden' : 'grid'}`}>
             {navItems.map((item) => {
                 const isActive = item.path === '/admin'
                     ? pathname === '/admin'

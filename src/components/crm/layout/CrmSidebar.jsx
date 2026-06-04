@@ -91,10 +91,10 @@ export default function CrmSidebar({ isOpen, onClose }) {
     return (
         <>
             {isOpen && (
-                <div className="fixed inset-0 z-40 bg-black/70 backdrop-blur-sm lg:hidden" onClick={onClose} />
+                <div className="fixed inset-0 z-40 bg-crm-bg lg:hidden" onClick={onClose} />
             )}
             
-            <aside className={`fixed left-0 top-0 z-50 flex h-[100dvh] w-[min(18rem,calc(100vw-2.25rem))] flex-col border-r border-crm-border bg-crm-sidebar transition-transform duration-300 lg:sticky lg:w-64 custom-scrollbar ${isOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}`}>
+            <aside className={`fixed left-0 top-0 z-50 flex h-[100dvh] w-screen max-w-full flex-col border-r-0 border-crm-border bg-crm-sidebar transition-transform duration-300 lg:sticky lg:w-64 lg:border-r custom-scrollbar ${isOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}`}>
                 <div className="flex h-[calc(3.5rem+var(--safe-top,0px))] shrink-0 items-center gap-3 border-b border-crm-border px-4 pt-[var(--safe-top,0px)] md:h-14 md:pt-0">
                     <div className="w-9 h-9 rounded-lg bg-crm-surface border border-crm-border flex items-center justify-center shadow-crm-red text-white font-bold text-sm shrink-0">
                         AS
@@ -113,7 +113,7 @@ export default function CrmSidebar({ isOpen, onClose }) {
                     </button>
                 </div>
                 
-                <nav className="flex flex-1 flex-col gap-6 overflow-y-auto px-3 py-4 pb-[calc(1rem+var(--safe-bottom,0px))] custom-scrollbar">
+                <nav className="flex flex-1 flex-col gap-6 overflow-y-auto overscroll-contain px-3 py-4 pb-[calc(1rem+var(--safe-bottom,0px))] custom-scrollbar">
                     {menuGroups.map((group) => {
                         const visibleItems = group.items.filter(item => hasItemPermission(item.name));
                         if (visibleItems.length === 0) return null;
