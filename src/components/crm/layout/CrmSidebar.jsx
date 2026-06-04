@@ -91,10 +91,10 @@ export default function CrmSidebar({ isOpen, onClose }) {
     return (
         <>
             {isOpen && (
-                <div className="fixed inset-0 z-40 bg-crm-bg lg:hidden" onClick={onClose} />
+                <div className="fixed inset-0 z-40 bg-black/75 backdrop-blur-sm lg:hidden" onClick={onClose} />
             )}
             
-            <aside className={`fixed left-0 top-0 z-50 flex h-[100dvh] w-screen max-w-full flex-col border-r-0 border-crm-border bg-crm-sidebar transition-transform duration-300 lg:sticky lg:w-64 lg:border-r custom-scrollbar ${isOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}`}>
+            <aside className={`fixed left-0 top-0 z-50 flex h-[100dvh] w-[min(23rem,92vw)] max-w-full flex-col border-r border-crm-border bg-crm-sidebar transition-transform duration-300 lg:sticky lg:w-64 custom-scrollbar ${isOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}`}>
                 <div className="flex h-[calc(3.5rem+var(--safe-top,0px))] shrink-0 items-center gap-3 border-b border-crm-border px-4 pt-[var(--safe-top,0px)] md:h-14 md:pt-0">
                     <div className="w-9 h-9 rounded-lg bg-crm-surface border border-crm-border flex items-center justify-center shadow-crm-red text-white font-bold text-sm shrink-0">
                         AS
@@ -106,6 +106,10 @@ export default function CrmSidebar({ isOpen, onClose }) {
                     <button
                         type="button"
                         onClick={onClose}
+                        onPointerDown={(event) => {
+                            event.preventDefault();
+                            onClose();
+                        }}
                         className="m-0 flex h-9 w-9 appearance-none items-center justify-center rounded-lg border border-transparent bg-transparent text-crm-fg-muted transition-colors hover:bg-crm-surface hover:text-crm-fg lg:hidden"
                         aria-label="Cerrar menu"
                     >
