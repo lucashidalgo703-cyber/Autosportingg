@@ -319,7 +319,7 @@ function LeadResponsePanel() {
 function DeadlinesPanel() {
     return (
         <Panel title="Proximas entregas y vencimientos" subtitle="Entregas, expedientes y cuotas - proximos 7 dias" href="/admin/documentacion" icon={Timer} className="min-h-[399px]">
-            <div className="grid grid-cols-3 gap-2">
+            <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
                 <SmallMetric label="Vencidos" value="0" tone="red" />
                 <SmallMetric label="Hoy" value="0" tone="amber" />
                 <SmallMetric label="Prox. 7d" value="0" tone="green" />
@@ -360,7 +360,7 @@ function SalesLastSixPanel() {
 function CashFlowMonthPanel({ metrics }) {
     return (
         <Panel title="Cash Flow del mes" subtitle="0 movimientos · admin/finanzas" href="/admin/finanzas" icon={Landmark} className="min-h-[460px]">
-            <div className="grid grid-cols-3 gap-2">
+            <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
                 <SmallMetric label="Ingresos" value="USD 0" tone="green" />
                 <SmallMetric label="Egresos" value="USD 0" tone="red" />
                 <SmallMetric label="Neto" value="USD 0" tone="green" />

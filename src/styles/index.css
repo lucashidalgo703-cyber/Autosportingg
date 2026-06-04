@@ -17,6 +17,8 @@
   /* Layout */
   --container-width: 1200px;
   --header-height: 80px;
+  --safe-top: env(safe-area-inset-top, 0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
 }
 
 .font-title {
@@ -62,12 +64,37 @@ body {
 html {
   overflow-x: hidden;
   width: 100%;
+  min-height: 100%;
+  background: #0B0B0D;
 }
 
 html,
 #root {
   background-color: transparent !important;
   min-height: 100vh;
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+}
+
+@media (max-width: 767px) {
+  input,
+  select,
+  textarea {
+    font-size: 16px !important;
+  }
+
+  button,
+  a,
+  input,
+  select,
+  textarea {
+    -webkit-tap-highlight-color: transparent;
+  }
 }
 
 a {

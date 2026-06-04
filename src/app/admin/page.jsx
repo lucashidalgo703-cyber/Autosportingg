@@ -27,11 +27,11 @@ export default function AdminDashboardPage() {
     }, [cars]);
 
     return (
-        <div className="mx-auto w-full max-w-7xl p-4 md:p-6 flex flex-col pb-12">
+        <div className="mx-auto flex w-full max-w-7xl flex-col p-4 pb-12 md:p-6">
             {/* Page Header */}
             <div className="mb-8 flex flex-col md:flex-row md:items-center justify-between gap-4">
                 <div>
-                    <h1 className="text-2xl font-bold text-crm-fg m-0 mb-1">Hola, {displayName}</h1>
+                    <h1 className="m-0 mb-1 text-xl font-bold text-crm-fg sm:text-2xl">Hola, {displayName}</h1>
                     <p className="text-sm text-crm-fg-muted m-0">Bienvenido, {displayName} · {dashboardDate}</p>
                 </div>
                 <div className="flex items-center gap-2">
@@ -42,17 +42,17 @@ export default function AdminDashboardPage() {
             </div>
 
             {/* Tabs Underline */}
-            <div className="mb-4 flex overflow-x-auto border-b border-crm-border">
+            <div className="mb-4 flex touch-pan-x overflow-x-auto border-b border-crm-border [-webkit-overflow-scrolling:touch]">
                 <button 
                     onClick={() => setActiveTab('cockpit')}
-                    className={`appearance-none -mb-px flex shrink-0 items-center gap-2 rounded-none border-0 border-b-2 bg-transparent px-5 py-2.5 text-sm font-semibold transition focus-visible:outline-none ${activeTab === 'cockpit' ? 'border-crm-red text-crm-red' : 'border-transparent text-crm-fg-muted hover:text-crm-fg'}`}
+                    className={`min-h-11 appearance-none -mb-px flex shrink-0 items-center gap-2 rounded-none border-0 border-b-2 bg-transparent px-4 py-2.5 text-sm font-semibold transition focus-visible:outline-none sm:px-5 ${activeTab === 'cockpit' ? 'border-crm-red text-crm-red' : 'border-transparent text-crm-fg-muted hover:text-crm-fg'}`}
                 >
                     <Target size={14} />
                     Cockpit CEO
                 </button>
                 <button 
                     onClick={() => setActiveTab('general')}
-                    className={`appearance-none -mb-px flex shrink-0 items-center gap-2 rounded-none border-0 border-b-2 bg-transparent px-5 py-2.5 text-sm font-semibold transition focus-visible:outline-none ${activeTab === 'general' ? 'border-crm-red text-crm-red' : 'border-transparent text-crm-fg-muted hover:text-crm-fg'}`}
+                    className={`min-h-11 appearance-none -mb-px flex shrink-0 items-center gap-2 rounded-none border-0 border-b-2 bg-transparent px-4 py-2.5 text-sm font-semibold transition focus-visible:outline-none sm:px-5 ${activeTab === 'general' ? 'border-crm-red text-crm-red' : 'border-transparent text-crm-fg-muted hover:text-crm-fg'}`}
                 >
                     <BarChart3 size={14} />
                     Dashboard general

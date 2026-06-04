@@ -1,6 +1,7 @@
 "use client";
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import { X } from 'lucide-react';
 import { useAuth } from '../../../context/AuthContext';
 import { hasPermission, PERMISSIONS, ROLES } from '../../../utils/adminPermissions';
 
@@ -90,21 +91,29 @@ export default function CrmSidebar({ isOpen, onClose }) {
     return (
         <>
             {isOpen && (
-                <div className="fixed inset-0 bg-black/50 z-30 lg:hidden" onClick={onClose} />
+                <div className="fixed inset-0 z-40 bg-black/70 backdrop-blur-sm lg:hidden" onClick={onClose} />
             )}
             
-            <aside className={`fixed lg:sticky top-0 left-0 h-screen w-64 bg-crm-sidebar border-r border-crm-border flex flex-col transition-transform duration-300 z-40 custom-scrollbar ${isOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}`}>
-                <div className="h-[calc(3.5rem+var(--safe-top,0px))] md:h-14 flex items-center gap-3 border-b border-crm-border px-4 shrink-0 pt-[var(--safe-top,0px)] md:pt-0">
+            <aside className={`fixed left-0 top-0 z-50 flex h-[100dvh] w-[min(18rem,calc(100vw-2.25rem))] flex-col border-r border-crm-border bg-crm-sidebar transition-transform duration-300 lg:sticky lg:w-64 custom-scrollbar ${isOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}`}>
+                <div className="flex h-[calc(3.5rem+var(--safe-top,0px))] shrink-0 items-center gap-3 border-b border-crm-border px-4 pt-[var(--safe-top,0px)] md:h-14 md:pt-0">
                     <div className="w-9 h-9 rounded-lg bg-crm-surface border border-crm-border flex items-center justify-center shadow-crm-red text-white font-bold text-sm shrink-0">
                         AS
                     </div>
-                    <div className="flex flex-col">
+                    <div className="flex min-w-0 flex-1 flex-col">
                         <span className="text-crm-fg font-bold text-sm leading-tight tracking-tight">AutoSporting</span>
                         <span className="text-crm-fg-muted text-[10px] uppercase font-semibold">v2 CRM</span>
                     </div>
+                    <button
+                        type="button"
+                        onClick={onClose}
+                        className="m-0 flex h-9 w-9 appearance-none items-center justify-center rounded-lg border border-transparent bg-transparent text-crm-fg-muted transition-colors hover:bg-crm-surface hover:text-crm-fg lg:hidden"
+                        aria-label="Cerrar menu"
+                    >
+                        <X size={18} />
+                    </button>
                 </div>
                 
-                <nav className="flex-1 overflow-y-auto py-4 px-3 flex flex-col gap-6 custom-scrollbar">
+                <nav className="flex flex-1 flex-col gap-6 overflow-y-auto px-3 py-4 pb-[calc(1rem+var(--safe-bottom,0px))] custom-scrollbar">
                     {menuGroups.map((group) => {
                         const visibleItems = group.items.filter(item => hasItemPermission(item.name));
                         if (visibleItems.length === 0) return null;

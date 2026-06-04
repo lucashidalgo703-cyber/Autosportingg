@@ -8,11 +8,11 @@ export default function CrmShell({ children }) {
     const [isSidebarOpen, setSidebarOpen] = useState(false);
 
     return (
-        <div className="flex min-h-screen bg-crm-bg font-sans text-crm-fg m-0 p-0">
+        <div className="m-0 flex min-h-[100dvh] bg-crm-bg p-0 font-sans text-crm-fg">
             <CrmSidebar isOpen={isSidebarOpen} onClose={() => setSidebarOpen(false)} />
-            <div className="flex-1 flex flex-col min-w-0">
+            <div className="flex min-w-0 flex-1 flex-col">
                 <CrmHeader onMenuClick={() => setSidebarOpen(true)} />
-                <main className="flex-1 overflow-x-hidden overflow-y-auto pb-[calc(4rem+var(--safe-bottom,0px))] md:pb-0">
+                <main className="min-w-0 flex-1 overscroll-contain overflow-x-hidden overflow-y-auto pb-[calc(5.25rem+var(--safe-bottom,0px))] md:pb-0">
                     {children}
                 </main>
                 <CrmBottomNav />

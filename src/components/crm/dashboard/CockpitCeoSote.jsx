@@ -29,7 +29,7 @@ function formatCurrency(value) {
 function KpiPanel({ title, icon: Icon, children, href, className = '', style }) {
     const content = (
         <div
-            className={`relative h-full rounded-2xl border border-crm-border bg-crm-surface p-5 transition-colors ${href ? 'hover:border-crm-red/35 hover:bg-crm-surface-raised' : ''} ${className}`}
+            className={`relative h-full rounded-xl border border-crm-border bg-crm-surface p-4 transition-colors sm:rounded-2xl sm:p-5 ${href ? 'hover:border-crm-red/35 hover:bg-crm-surface-raised' : ''} ${className}`}
             style={style}
         >
             <div className="mb-5 flex items-center gap-3">
@@ -124,7 +124,7 @@ function MonthlyGainPanel() {
     const months = ['JUL 25', 'AGO 25', 'SEP 25', 'OCT 25', 'NOV 25', 'DIC 25', 'ENE 26', 'FEB 26', 'MAR 26', 'ABR 26', 'MAY 26', 'JUN 26'];
 
     return (
-        <section className="rounded-xl border border-crm-border bg-crm-surface p-5">
+        <section className="rounded-xl border border-crm-border bg-crm-surface p-4 sm:p-5">
             <h3 className="text-xs font-bold uppercase tracking-[0.16em] text-crm-fg-muted">ULTIMOS 12 MESES · GANANCIA USD</h3>
             <div className="mt-4 flex flex-wrap gap-2">
                 <span className="rounded-md bg-crm-surface-raised px-2 py-1 text-[10px] font-bold uppercase text-crm-fg-muted">Mes actual</span>
@@ -153,7 +153,7 @@ function AnnualSummaryPanel({ soldCount }) {
     ];
 
     return (
-        <section className="rounded-xl border border-crm-border bg-crm-surface p-5">
+        <section className="rounded-xl border border-crm-border bg-crm-surface p-4 sm:p-5">
             <h3 className="mb-4 text-xs font-bold uppercase tracking-[0.14em] text-crm-fg-muted">Resumen anual</h3>
             <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
                 {years.map((item) => (
@@ -200,15 +200,15 @@ export default function CockpitCeoSote({ metrics, canSeeFinancials = false, user
                 className="relative overflow-hidden rounded-2xl border border-indigo-400/30 p-5 text-white shadow-sm"
                 style={{ background: 'linear-gradient(90deg, #4f46e5 0%, #7c22d8 52%, #4338ca 100%)' }}
             >
-                <div className="relative z-10 flex items-center justify-between gap-5">
+                <div className="relative z-10 flex flex-col gap-5 sm:flex-row sm:items-center sm:justify-between">
                     <div>
                         <p className="mb-2 text-[11px] font-bold uppercase tracking-[0.28em] text-white/75">Cockpit CEO</p>
-                        <h2 className="text-2xl font-bold leading-tight">Buen dia, {userName}</h2>
+                        <h2 className="text-xl font-bold leading-tight sm:text-2xl">Buen dia, {userName}</h2>
                         <p className="mt-2 text-sm text-white/85">{monthLabel} - Dia {dayOfMonth} de {totalDays}</p>
                     </div>
-                    <div className="text-right">
+                    <div className="text-left sm:text-right">
                         <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-white/75">Avance del mes</p>
-                        <p className="text-4xl font-black leading-none">{monthProgress}%</p>
+                        <p className="text-3xl font-black leading-none sm:text-4xl">{monthProgress}%</p>
                         <p className="mt-2 text-xs text-white/80">{dayOfMonth} de {totalDays} dias</p>
                     </div>
                 </div>
@@ -237,7 +237,7 @@ export default function CockpitCeoSote({ metrics, canSeeFinancials = false, user
             <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
                 <KpiPanel title="Autos vendidos" icon={Car} href="/admin/ventas" className="min-h-[194px]">
                     <div className="flex items-end gap-3">
-                        <p className="text-6xl font-bold leading-none text-crm-fg">{formatNumber(soldCount)}</p>
+                        <p className="text-5xl font-bold leading-none text-crm-fg sm:text-6xl">{formatNumber(soldCount)}</p>
                         <p className="mb-2 text-lg text-crm-fg-muted">/ {salesObjective} obj</p>
                     </div>
                     <div className="mt-5">
@@ -249,7 +249,7 @@ export default function CockpitCeoSote({ metrics, canSeeFinancials = false, user
                 <KpiPanel title="Ganancia del mes" icon={CircleDollarSign} href="/admin/finanzas" className="min-h-[194px]">
                     <div className="flex items-start gap-2">
                         <span className="mt-3 text-xs font-bold uppercase text-crm-fg-muted">USD</span>
-                        <p className="text-6xl font-bold leading-none text-crm-fg">{formatCurrency(gainUsd)}</p>
+                        <p className="text-5xl font-bold leading-none text-crm-fg sm:text-6xl">{formatCurrency(gainUsd)}</p>
                     </div>
                     <div className="mt-5">
                         <ProgressLine value={0} color="bg-emerald-500" />
@@ -273,7 +273,7 @@ export default function CockpitCeoSote({ metrics, canSeeFinancials = false, user
                 <KpiPanel title="Ganancia x auto (USD)" icon={Award} className="min-h-[240px]">
                     <div className="flex items-start gap-2">
                         <span className="mt-3 text-xs font-bold uppercase text-crm-fg-muted">USD</span>
-                        <p className="text-5xl font-bold leading-none text-crm-fg">{formatCurrency(gainPerCar)}</p>
+                        <p className="text-4xl font-bold leading-none text-crm-fg sm:text-5xl">{formatCurrency(gainPerCar)}</p>
                     </div>
                     <div className="mt-5 space-y-2 border-t border-crm-border pt-4 text-xs">
                         <p className="flex justify-between text-crm-fg-muted">HIST 2025 <span className="text-crm-fg">USD 0</span></p>
@@ -292,7 +292,7 @@ export default function CockpitCeoSote({ metrics, canSeeFinancials = false, user
                 >
                     <div className="flex items-end justify-between gap-4">
                         <div className="flex items-end gap-2">
-                            <p className="text-5xl font-bold leading-none text-crm-fg">0</p>
+                            <p className="text-4xl font-bold leading-none text-crm-fg sm:text-5xl">0</p>
                             <p className="mb-1 text-crm-fg-muted">/ 0</p>
                         </div>
                         <p className="text-sm font-black text-purple-300">0%</p>
@@ -336,7 +336,7 @@ export default function CockpitCeoSote({ metrics, canSeeFinancials = false, user
                 </KpiPanel>
             </div>
 
-            <section className="rounded-xl border border-emerald-500/25 bg-emerald-500/10 p-5">
+            <section className="rounded-xl border border-emerald-500/25 bg-emerald-500/10 p-4 sm:p-5">
                 <div className="mb-4 flex items-start justify-between gap-4">
                     <div className="flex items-start gap-3">
                         <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-emerald-500/15 text-emerald-300">

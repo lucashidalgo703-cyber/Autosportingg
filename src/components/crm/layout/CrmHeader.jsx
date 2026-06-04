@@ -1,5 +1,5 @@
 "use client";
-import { Search, Bell, User, X, CheckCheck } from 'lucide-react';
+import { Search, Bell, User, X, CheckCheck, Menu } from 'lucide-react';
 import { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
@@ -7,6 +7,7 @@ import { useRouter } from 'next/navigation';
 export default function CrmHeader({ onMenuClick }) {
     const [notifications, setNotifications] = useState([]);
     const [showDropdown, setShowDropdown] = useState(false);
+    const [mobileSearchOpen, setMobileSearchOpen] = useState(false);
     const dropdownRef = useRef(null);
     const router = useRouter();
 
@@ -27,7 +28,6 @@ export default function CrmHeader({ onMenuClick }) {
             }
         };
         fetchNotifs();
-        // Opcional: polling cada 5 min
         const interval = setInterval(fetchNotifs, 300000);
         return () => clearInterval(interval);
     }, []);
@@ -68,7 +68,7 @@ export default function CrmHeader({ onMenuClick }) {
             if (unreadKeys.length === 0) return;
             await fetch(`/api/admin/notifications/read-all`, {
                 method: 'PATCH',
-                headers: { 
+                headers: {
                     'Authorization': `Bearer ${token}`,
                     'Content-Type': 'application/json'
                 },
@@ -80,80 +80,121 @@ export default function CrmHeader({ onMenuClick }) {
         }
     };
 
-    return (
-        <header className="sticky top-0 z-30 flex h-[calc(3.5rem+var(--safe-top,0px))] items-center justify-between gap-2 border-b border-crm-border bg-crm-topbar/95 px-3 pt-[var(--safe-top,0px)] backdrop-blur md:h-14 md:gap-4 md:px-6 md:pt-0">
-            <div className="flex items-center gap-4 w-full md:w-auto">
-                <button onClick={onMenuClick} className="lg:hidden h-9 w-9 flex items-center justify-center rounded-lg text-crm-fg-muted hover:bg-crm-surface hover:text-crm-fg transition-colors">
-                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="3" y1="12" x2="21" y2="12"></line><line x1="3" y1="6" x2="21" y2="6"></line><line x1="3" y1="18" x2="21" y2="18"></line></svg>
-                </button>
-                <div className="hidden md:flex relative items-center w-64">
-                    <Search size={16} className="absolute left-3 text-crm-fg-muted" />
-                    <input 
-                        type="text" 
-                        placeholder="Buscar..." 
-                        className="w-full rounded-lg border border-crm-border bg-crm-surface py-2 pl-9 pr-9 text-sm text-crm-fg placeholder:text-crm-fg-subtle focus:border-crm-red focus:outline-none focus:ring-1 focus:ring-crm-red transition-all"
-                    />
-                </div>
-            </div>
-            <div className="flex items-center gap-2 md:gap-4 relative" ref={dropdownRef}>
-                <button 
-                    onClick={() => setShowDropdown(!showDropdown)}
-                    className="h-9 w-9 flex items-center justify-center rounded-lg text-crm-fg-muted hover:bg-crm-surface hover:text-crm-fg transition-colors relative"
-                >
-                    <Bell size={20} />
-                    {unreadCount > 0 && (
-                        <span className="absolute top-0 right-0 w-4 h-4 bg-crm-red-brand rounded-full text-[9px] text-white flex items-center justify-center font-bold">
-                            {unreadCount > 99 ? '99+' : unreadCount}
-                        </span>
-                    )}
-                </button>
-                
-                {/* Dropdown Notificaciones */}
-                {showDropdown && (
-                    <div className="absolute top-10 right-0 md:right-10 w-80 bg-crm-surface border border-crm-border rounded-xl shadow-2xl overflow-hidden flex flex-col z-50">
-                        <div className="p-3 border-b border-crm-border flex justify-between items-center bg-crm-topbar">
-                            <h3 className="text-white text-sm font-bold">Notificaciones</h3>
-                            {unreadCount > 0 && (
-                                <button onClick={handleMarkAllRead} className="text-xs text-[#EF3329] hover:text-[#C42620] font-semibold">
-                                    Marcar leídas
-                                </button>
-                            )}
-                        </div>
-                        <div className="flex-1 max-h-80 overflow-y-auto">
-                            {notifications.length === 0 ? (
-                                <div className="p-4 text-center text-sm text-gray-500">No hay notificaciones.</div>
-                            ) : (
-                                notifications.slice(0, 10).map((n) => (
-                                    <div key={n.id} className={`p-3 border-b border-[#33333A] flex gap-3 group relative cursor-pointer ${n.read ? 'opacity-60' : 'bg-[#24242B]/30'}`} onClick={() => { setShowDropdown(false); router.push(n.href); }}>
-                                        <div className={`w-2 h-2 mt-1.5 rounded-full flex-shrink-0 ${n.severity === 'danger' ? 'bg-[#E63027]' : n.severity === 'warning' ? 'bg-[#f59e0b]' : n.severity === 'success' ? 'bg-[#10b981]' : 'bg-[#EF3329]'}`}></div>
-                                        <div className="flex-1 min-w-0 pr-6">
-                                            <p className={`text-xs font-bold truncate ${n.read ? 'text-gray-400' : 'text-white'}`}>{n.title}</p>
-                                            <p className="text-[11px] text-gray-400 line-clamp-2 mt-0.5">{n.description}</p>
-                                            <p className="text-[10px] text-gray-500 mt-1">{new Date(n.createdAt).toLocaleDateString('es-AR')} {n.severity === 'danger' ? 'Urgente' : ''}</p>
-                                        </div>
-                                        {!n.read && (
-                                            <button 
-                                                onClick={(e) => handleMarkAsRead(e, n.id)}
-                                                className="absolute right-2 top-2 p-1 text-gray-500 hover:text-white opacity-0 group-hover:opacity-100 transition-opacity"
-                                                title="Marcar leída"
-                                            >
-                                                <CheckCheck size={14} />
-                                            </button>
-                                        )}
-                                    </div>
-                                ))
-                            )}
-                        </div>
-                        <Link href="/admin/notificaciones" onClick={() => setShowDropdown(false)} className="p-2 text-center text-xs font-bold text-crm-fg bg-crm-surface-raised hover:bg-crm-border transition-colors border-t border-crm-border">
-                            Ver todas las notificaciones
-                        </Link>
-                    </div>
-                )}
+    const searchInput = (
+        <div className="relative flex items-center">
+            <Search size={16} className="pointer-events-none absolute left-3 text-crm-fg-muted" />
+            <input
+                type="text"
+                placeholder="Buscar..."
+                className="m-0 h-10 w-full appearance-none rounded-lg border border-crm-border bg-crm-surface py-2 pl-9 pr-9 text-base text-crm-fg placeholder:text-crm-fg-subtle transition-all focus:border-crm-red focus:outline-none focus:ring-1 focus:ring-crm-red md:h-9 md:text-sm"
+            />
+        </div>
+    );
 
-                <div className="h-9 w-9 rounded-lg bg-crm-surface hover:bg-crm-surface-raised border border-crm-border flex items-center justify-center text-crm-fg cursor-pointer transition-colors">
-                    <User size={16} />
+    return (
+        <header className="sticky top-0 z-30 border-b border-crm-border bg-crm-topbar/95 pt-[var(--safe-top,0px)] backdrop-blur">
+            <div className="flex h-14 items-center justify-between gap-2 px-3 md:gap-4 md:px-6">
+                <div className="flex min-w-0 flex-1 items-center gap-3 md:flex-none md:gap-4">
+                    <button
+                        type="button"
+                        onClick={onMenuClick}
+                        className="m-0 flex h-10 w-10 shrink-0 appearance-none items-center justify-center rounded-lg border border-transparent bg-transparent text-crm-fg-muted transition-colors hover:bg-crm-surface hover:text-crm-fg lg:hidden"
+                        aria-label="Abrir menu"
+                    >
+                        <Menu size={22} />
+                    </button>
+
+                    <div className="min-w-0 md:hidden">
+                        <p className="m-0 truncate text-sm font-bold leading-tight text-crm-fg">AutoSporting</p>
+                        <p className="m-0 text-[10px] font-semibold uppercase text-crm-fg-muted">v2 CRM</p>
+                    </div>
+
+                    <div className="hidden w-72 md:block">
+                        {searchInput}
+                    </div>
+                </div>
+
+                <div className="relative flex shrink-0 items-center gap-1.5 md:gap-3" ref={dropdownRef}>
+                    <button
+                        type="button"
+                        onClick={() => setMobileSearchOpen(prev => !prev)}
+                        className="m-0 flex h-10 w-10 appearance-none items-center justify-center rounded-lg border border-transparent bg-transparent text-crm-fg-muted transition-colors hover:bg-crm-surface hover:text-crm-fg md:hidden"
+                        aria-label={mobileSearchOpen ? 'Cerrar busqueda' : 'Abrir busqueda'}
+                    >
+                        {mobileSearchOpen ? <X size={19} /> : <Search size={19} />}
+                    </button>
+
+                    <button
+                        type="button"
+                        onClick={() => setShowDropdown(!showDropdown)}
+                        className="relative m-0 flex h-10 w-10 appearance-none items-center justify-center rounded-lg border border-transparent bg-transparent text-crm-fg-muted transition-colors hover:bg-crm-surface hover:text-crm-fg md:h-9 md:w-9"
+                        aria-label="Notificaciones"
+                    >
+                        <Bell size={20} />
+                        {unreadCount > 0 && (
+                            <span className="absolute right-0 top-0 flex h-4 min-w-4 items-center justify-center rounded-full bg-crm-red-brand px-1 text-[9px] font-bold text-white">
+                                {unreadCount > 99 ? '99+' : unreadCount}
+                            </span>
+                        )}
+                    </button>
+
+                    {showDropdown && (
+                        <div className="absolute right-0 top-12 z-50 flex max-h-[min(26rem,calc(100dvh-5rem))] w-[calc(100vw-1rem)] max-w-80 flex-col overflow-hidden rounded-xl border border-crm-border bg-crm-surface shadow-2xl md:right-10">
+                            <div className="flex items-center justify-between border-b border-crm-border bg-crm-topbar p-3">
+                                <h3 className="m-0 text-sm font-bold text-white">Notificaciones</h3>
+                                {unreadCount > 0 && (
+                                    <button
+                                        type="button"
+                                        onClick={handleMarkAllRead}
+                                        className="m-0 appearance-none border-0 bg-transparent text-xs font-semibold text-crm-red hover:text-crm-red-hover"
+                                    >
+                                        Marcar leidas
+                                    </button>
+                                )}
+                            </div>
+                            <div className="min-h-0 flex-1 overflow-y-auto">
+                                {notifications.length === 0 ? (
+                                    <div className="p-4 text-center text-sm text-crm-fg-muted">No hay notificaciones.</div>
+                                ) : (
+                                    notifications.slice(0, 10).map((n) => (
+                                        <div key={n.id} className={`group relative flex cursor-pointer gap-3 border-b border-crm-border p-3 ${n.read ? 'opacity-60' : 'bg-crm-surface-raised/30'}`} onClick={() => { setShowDropdown(false); router.push(n.href); }}>
+                                            <div className={`mt-1.5 h-2 w-2 flex-shrink-0 rounded-full ${n.severity === 'danger' ? 'bg-crm-red-brand' : n.severity === 'warning' ? 'bg-crm-warning' : n.severity === 'success' ? 'bg-crm-success' : 'bg-crm-red'}`} />
+                                            <div className="min-w-0 flex-1 pr-6">
+                                                <p className={`m-0 truncate text-xs font-bold ${n.read ? 'text-crm-fg-muted' : 'text-white'}`}>{n.title}</p>
+                                                <p className="m-0 mt-0.5 line-clamp-2 text-[11px] text-crm-fg-muted">{n.description}</p>
+                                                <p className="m-0 mt-1 text-[10px] text-crm-fg-subtle">{new Date(n.createdAt).toLocaleDateString('es-AR')} {n.severity === 'danger' ? 'Urgente' : ''}</p>
+                                            </div>
+                                            {!n.read && (
+                                                <button
+                                                    type="button"
+                                                    onClick={(e) => handleMarkAsRead(e, n.id)}
+                                                    className="absolute right-2 top-2 m-0 appearance-none border-0 bg-transparent p-1 text-crm-fg-muted opacity-100 transition-opacity hover:text-white md:opacity-0 md:group-hover:opacity-100"
+                                                    title="Marcar leida"
+                                                >
+                                                    <CheckCheck size={14} />
+                                                </button>
+                                            )}
+                                        </div>
+                                    ))
+                                )}
+                            </div>
+                            <Link href="/admin/notificaciones" onClick={() => setShowDropdown(false)} className="border-t border-crm-border bg-crm-surface-raised p-3 text-center text-xs font-bold text-crm-fg transition-colors hover:bg-crm-border">
+                                Ver todas las notificaciones
+                            </Link>
+                        </div>
+                    )}
+
+                    <div className="flex h-10 w-10 items-center justify-center rounded-lg border border-crm-border bg-crm-surface text-crm-fg transition-colors hover:bg-crm-surface-raised md:h-9 md:w-9">
+                        <User size={16} />
+                    </div>
                 </div>
             </div>
+
+            {mobileSearchOpen && (
+                <div className="border-t border-crm-border px-3 py-2 md:hidden">
+                    {searchInput}
+                </div>
+            )}
         </header>
     );
 }
