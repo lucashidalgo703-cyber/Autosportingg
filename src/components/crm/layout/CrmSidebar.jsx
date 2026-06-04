@@ -143,7 +143,6 @@ export default function CrmSidebar({ isOpen, onClose }) {
                                         href={item.path}
                                         prefetch={item.prefetch === false ? false : undefined}
                                         onClick={closeMenu}
-                                        onTouchEnd={closeMenu}
                                         style={{ textDecoration: 'none' }}
                                         className={`${baseItemClasses} ${isActive ? activeClasses : inactiveClasses}`}
                                     >
