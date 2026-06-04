@@ -1,68 +1,159 @@
 "use client";
+import { useState } from 'react';
 import Link from 'next/link';
-import VehicleStatusBadge from './VehicleStatusBadge';
-import VehicleRotationAlert from './VehicleRotationAlert';
-import { MoreHorizontal, Calendar, Gauge } from 'lucide-react';
+import { ChevronDown, Filter } from 'lucide-react';
+
+const getVehicleYear = (vehicle) => vehicle.year || vehicle['año'] || vehicle['aÃ±o'] || 'S/D';
+const formatNumber = (value) => Number(value || 0).toLocaleString('es-AR');
+const formatMoney = (currency, value) => {
+    if (!value || Number(value) <= 0) return '--';
+    return `${currency || 'ARS'} ${formatNumber(value)}`;
+};
+const formatDate = (value) => {
+    if (!value) return '--';
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return '--';
+    return date.toISOString().slice(0, 10);
+};
+const getLocation = (vehicle) => {
+    return vehicle._original?.location || vehicle._original?.ubicacion || vehicle._original?.showroom || 'Salón Principal';
+};
+const getOwner = (vehicle) => {
+    if (!(vehicle.origen || '').toLowerCase().includes('consign')) return 'AutoSporting';
+    const owner = vehicle._original?.consignedBy;
+    if (!owner) return 'Consignado';
+    if (typeof owner === 'string') return owner;
+    return owner.name || owner.fullName || owner.phone || 'Consignado';
+};
+const getStatusLabel = (status) => {
+    const normalized = status?.toLowerCase();
+    if (normalized === 'disponible') return '✅ Disponible';
+    if (normalized === 'reservado') return '⚠️ Señado';
+    if (normalized === 'vendido') return '⛔ Vendido';
+    if (normalized === 'pausado') return '⏳ Vendido sin confirmar';
+    return status || '--';
+};
+const getProgress = (days) => {
+    const safeDays = Number(days || 0);
+    return Math.min(100, Math.max(0, Math.round((safeDays / 60) * 100)));
+};
+const getListValue = (data) => {
+    const totals = data.reduce((acc, vehicle) => {
+        const currency = vehicle.moneda || 'ARS';
+        acc[currency] = (acc[currency] || 0) + Number(vehicle.precioPublicado || 0);
+        return acc;
+    }, {});
+
+    if (totals.USD > 0) return `USD ${formatNumber(totals.USD)}`;
+    if (totals.ARS > 0) return `ARS ${formatNumber(totals.ARS)}`;
+    return '--';
+};
 
 export default function StockMobileCards({ data }) {
+    const [expandedId, setExpandedId] = useState(data[0]?.id || null);
+
     if (data.length === 0) {
         return (
-            <div className="flex flex-col items-center justify-center p-8 bg-crm-surface rounded-xl border border-crm-border text-center">
-                <p className="text-crm-fg-muted mb-2 text-sm">No se encontraron vehículos.</p>
+            <div className="flex min-h-[260px] flex-col items-center justify-center rounded-xl border border-dashed border-crm-border bg-crm-surface px-5 py-12 text-center">
+                <div className="mb-4 flex h-11 w-11 items-center justify-center rounded-xl border border-crm-border bg-crm-bg text-crm-fg-muted">
+                    <Filter size={20} />
+                </div>
+                <h2 className="m-0 text-lg font-bold text-crm-fg">Sin resultados</h2>
+                <p className="m-0 mt-2 text-sm leading-6 text-crm-fg-muted">
+                    Todavía no hay vehículos en el stock. Cargá el primero con el botón Nuevo vehículo.
+                </p>
             </div>
         );
     }
 
     return (
         <div className="flex flex-col gap-4">
-            {data.map((vehicle) => (
-                <div key={vehicle.id} className="bg-crm-surface rounded-xl border border-crm-border p-4 flex flex-col gap-3 relative">
-                    <div className="flex justify-between items-start pr-8">
-                        <div>
-                            <h3 className="text-white font-bold text-base leading-tight">
-                                {vehicle.marca} {vehicle.modelo}
-                            </h3>
-                            <p className="text-crm-fg-muted text-xs mt-1">{vehicle.version}</p>
-                        </div>
-                        <Link 
-                            href={`/admin/stock/${vehicle.id}`}
-                            className="absolute top-4 right-4 px-3 py-1 text-xs font-medium text-white bg-crm-surface-raised border border-crm-border hover:bg-crm-red hover:border-crm-red rounded-md transition-colors"
-                        >
-                            Ficha
-                        </Link>
-                    </div>
+            <div className="rounded-xl border border-crm-border bg-crm-surface p-3 text-sm font-semibold text-crm-fg">
+                {data.length} {data.length === 1 ? 'vehículo' : 'vehículos'} en lista
+                <span className="mx-1 text-crm-fg-muted">·</span>
+                <span>{getListValue(data)}</span>
+            </div>
 
-                    <div className="flex flex-wrap gap-2 text-xs text-crm-fg-muted">
-                        <div className="flex items-center gap-1 bg-crm-bg px-2 py-1 rounded-md border border-crm-border">
-                            <Calendar size={12} /> {vehicle.año}
-                        </div>
-                        <div className="flex items-center gap-1 bg-crm-bg px-2 py-1 rounded-md border border-crm-border">
-                            <Gauge size={12} /> {vehicle.kilometraje.toLocaleString('es-AR')} km
-                        </div>
-                        <div className="flex items-center gap-1 bg-crm-bg px-2 py-1 rounded-md border border-crm-border font-mono">
-                            {vehicle.dominio}
-                        </div>
-                    </div>
+            <div className="flex flex-col gap-3">
+                {data.map((vehicle) => {
+                    const isExpanded = expandedId === vehicle.id;
+                    const days = Number(vehicle.diasEnStock || 0);
+                    const progress = getProgress(days);
 
-                    <div className="flex items-center gap-2 mt-1">
-                        <VehicleStatusBadge status={vehicle.estado} />
-                        <VehicleRotationAlert dias={vehicle.diasEnStock} />
-                    </div>
+                    return (
+                        <article key={vehicle.id} className="overflow-hidden rounded-xl border border-crm-border bg-crm-surface">
+                            <button
+                                type="button"
+                                onClick={() => setExpandedId(isExpanded ? null : vehicle.id)}
+                                className="m-0 flex w-full appearance-none items-center justify-between gap-3 border-0 bg-transparent px-3 py-3 text-left text-crm-fg"
+                            >
+                                <div className="min-w-0">
+                                    <h3 className="m-0 truncate text-sm font-semibold leading-5 text-crm-fg">
+                                        {vehicle.marca} {vehicle.modelo} {getVehicleYear(vehicle)}
+                                    </h3>
+                                    <p className="m-0 mt-1 truncate text-xs text-crm-fg-muted">
+                                        {getStatusLabel(vehicle.estado)} {formatMoney(vehicle.moneda, vehicle.precioPublicado)} · {vehicle.dominio || '--'}
+                                    </p>
+                                </div>
+                                <ChevronDown
+                                    size={18}
+                                    className={`shrink-0 text-crm-fg-muted transition-transform ${isExpanded ? 'rotate-180' : ''}`}
+                                />
+                            </button>
 
-                    <div className="pt-3 border-t border-crm-border flex flex-col gap-1">
-                        <div className="flex justify-between items-center text-sm">
-                            <span className="text-crm-fg-muted">Precio Publicado</span>
-                            <span className="text-[#22C55E] font-bold">{vehicle.moneda} {vehicle.precioPublicado.toLocaleString('es-AR')}</span>
-                        </div>
-                        {vehicle.costoTotal > 0 && (
-                            <div className="flex justify-between items-center text-xs">
-                                <span className="text-crm-fg-muted">Margen Estimado</span>
-                                <span className="text-white">{vehicle.moneda} {vehicle.margenEstimado.toLocaleString('es-AR')}</span>
-                            </div>
-                        )}
-                    </div>
-                </div>
-            ))}
+                            {isExpanded && (
+                                <div className="border-t border-crm-border bg-crm-bg/40 px-3 py-3">
+                                    <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-xs">
+                                        <InfoItem label="KM" value={`${formatNumber(vehicle.kilometraje)} km`} />
+                                        <InfoItem label="Color" value={vehicle.color || '--'} />
+                                        <InfoItem label="Cond." value={vehicle.condicion || '--'} />
+                                        <InfoItem label="Ubic." value={getLocation(vehicle)} />
+                                        <InfoItem label="Prop." value={getOwner(vehicle)} />
+                                        <InfoItem label="Ingreso" value={formatDate(vehicle.fechaIngreso)} />
+                                    </div>
+
+                                    <div className="mt-4">
+                                        <div className="flex items-center justify-between text-xs text-crm-fg">
+                                            <span>{days}d / 60d</span>
+                                            <span>{progress}%</span>
+                                        </div>
+                                        <div className="mt-1 h-1 overflow-hidden rounded-full bg-crm-surface">
+                                            <div
+                                                className="h-full rounded-full bg-crm-red"
+                                                style={{ width: `${progress}%` }}
+                                            />
+                                        </div>
+                                    </div>
+
+                                    <div className="mt-4 flex items-center gap-2 border-t border-crm-border pt-3">
+                                        <Link
+                                            href={`/admin/stock/${vehicle.id}`}
+                                            className="inline-flex h-7 items-center justify-center rounded-lg bg-crm-red/10 px-3 text-xs font-semibold text-red-300 no-underline transition-colors hover:bg-crm-red/15"
+                                        >
+                                            Ver detalle
+                                        </Link>
+                                        <Link
+                                            href={`/admin/stock/${vehicle.id}`}
+                                            className="inline-flex h-7 items-center justify-center rounded-lg bg-crm-surface-raised px-3 text-xs font-semibold text-crm-fg no-underline transition-colors hover:bg-crm-border"
+                                        >
+                                            Editar
+                                        </Link>
+                                    </div>
+                                </div>
+                            )}
+                        </article>
+                    );
+                })}
+            </div>
+        </div>
+    );
+}
+
+function InfoItem({ label, value }) {
+    return (
+        <div className="min-w-0 text-crm-fg-muted">
+            <span className="font-semibold text-crm-fg-muted">{label}: </span>
+            <span className="text-crm-fg">{value}</span>
         </div>
     );
 }

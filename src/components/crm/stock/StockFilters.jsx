@@ -1,54 +1,123 @@
 "use client";
-import { Search, Filter, Plus } from 'lucide-react';
-import CrmButton from '../ui/CrmButton';
-import CrmInput from '../ui/CrmInput';
+import { Search } from 'lucide-react';
 
-export default function StockFilters({ searchTerm, setSearchTerm, filterStatus, setFilterStatus, onNewVehicle }) {
+const tabs = [
+    { id: 'stock', label: 'Stock general' },
+    { id: 'consignaciones', label: 'Consignaciones' },
+    { id: 'mandatos', label: 'Mandatos' }
+];
+
+const statusChips = [
+    {
+        id: 'disponible',
+        icon: '✅',
+        label: 'Disponible',
+        active: 'border-crm-red bg-crm-red/15 text-red-300',
+        idle: 'border-emerald-500/40 bg-crm-surface text-emerald-300 hover:border-emerald-400/70'
+    },
+    {
+        id: 'senado',
+        icon: '⚠️',
+        label: 'Señado',
+        active: 'border-crm-red bg-crm-red/15 text-red-300',
+        idle: 'border-amber-500/40 bg-crm-surface text-amber-300 hover:border-amber-400/70'
+    },
+    {
+        id: 'vendido_sin_confirmar',
+        icon: '⏳',
+        label: 'Vendido sin confirmar',
+        active: 'border-crm-red bg-crm-red/15 text-red-300',
+        idle: 'border-orange-500/40 bg-crm-surface text-orange-300 hover:border-orange-400/70'
+    },
+    {
+        id: 'vendido',
+        icon: '⛔',
+        label: 'Vendido',
+        active: 'border-crm-red bg-crm-red/15 text-red-300',
+        idle: 'border-crm-fg-subtle/40 bg-crm-surface text-crm-fg-muted hover:border-crm-border-strong'
+    }
+];
+
+export default function StockFilters({
+    searchTerm,
+    setSearchTerm,
+    filterStatus,
+    setFilterStatus,
+    stockTab,
+    setStockTab,
+    brandFilter,
+    setBrandFilter,
+    brandOptions = [],
+    counts = {}
+}) {
     return (
-        <div className="flex flex-col lg:flex-row gap-4 items-center justify-between bg-crm-surface p-4 rounded-xl border border-crm-border mb-6">
-            <div className="flex flex-col sm:flex-row gap-4 w-full lg:w-auto flex-1">
-                <div className="relative w-full sm:max-w-xs">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-crm-fg-muted" size={18} />
-                    <CrmInput
-                        type="text"
-                        placeholder="Buscar por marca, modelo..."
-                        value={searchTerm}
-                        onChange={(e) => setSearchTerm(e.target.value)}
-                        className="pl-10"
-                    />
-                </div>
-                
-                <div className="flex bg-crm-bg p-1 rounded-xl border border-crm-border w-full sm:w-auto overflow-x-auto gap-1 items-center">
-                    <button 
-                        onClick={() => setFilterStatus('todos')}
-                        className={`rounded-full h-[26px] px-3 text-xs border transition-colors whitespace-nowrap ${filterStatus === 'todos' ? 'border-crm-border bg-crm-surface-raised text-crm-fg' : 'border-transparent text-crm-fg-muted hover:text-crm-fg'}`}
-                    >
-                        Todos
-                    </button>
-                    <button 
-                        onClick={() => setFilterStatus('disponible')}
-                        className={`rounded-full h-[26px] px-3 text-xs border transition-colors whitespace-nowrap ${filterStatus === 'disponible' ? 'border-crm-border bg-crm-surface-raised text-crm-fg' : 'border-transparent text-crm-fg-muted hover:text-crm-fg'}`}
-                    >
-                        Disponibles
-                    </button>
-                    <button 
-                        onClick={() => setFilterStatus('reservado')}
-                        className={`rounded-full h-[26px] px-3 text-xs border transition-colors whitespace-nowrap ${filterStatus === 'reservado' ? 'border-crm-border bg-crm-surface-raised text-crm-fg' : 'border-transparent text-crm-fg-muted hover:text-crm-fg'}`}
-                    >
-                        Reservados
-                    </button>
-                </div>
+        <div className="flex flex-col gap-5">
+            <div className="-mx-1 flex items-center gap-6 border-b border-crm-border px-1">
+                {tabs.map(tab => {
+                    const isActive = stockTab === tab.id;
+
+                    return (
+                        <button
+                            key={tab.id}
+                            type="button"
+                            onClick={() => setStockTab(tab.id)}
+                            className={`m-0 appearance-none border-0 border-b-2 bg-transparent px-1 pb-3 pt-1 text-sm font-semibold transition-colors ${
+                                isActive
+                                    ? 'border-crm-red text-crm-red'
+                                    : 'border-transparent text-crm-fg-muted hover:text-crm-fg'
+                            }`}
+                        >
+                            {tab.label}
+                            {tab.id === 'stock' && counts.total > 0 && (
+                                <span className="ml-2 text-xs text-current">{counts.total}</span>
+                            )}
+                        </button>
+                    );
+                })}
             </div>
 
-            <div className="flex items-center gap-3 w-full lg:w-auto shrink-0 justify-end">
-                <CrmButton variant="secondary" className="gap-2">
-                    <Filter size={16} />
-                    Más Filtros
-                </CrmButton>
-                <CrmButton variant="primary" onClick={onNewVehicle} className="gap-2">
-                    <Plus size={16} />
-                    Nuevo Vehículo
-                </CrmButton>
+            <div className="flex flex-wrap items-center gap-2">
+                {statusChips.map(chip => {
+                    const isActive = filterStatus === chip.id;
+
+                    return (
+                        <button
+                            key={chip.id}
+                            type="button"
+                            onClick={() => setFilterStatus(chip.id)}
+                            className={`m-0 inline-flex h-[26px] appearance-none items-center gap-1 rounded-full border px-3 text-xs font-semibold leading-none transition-colors ${
+                                isActive ? chip.active : chip.idle
+                            }`}
+                        >
+                            <span aria-hidden="true">{chip.icon}</span>
+                            {chip.label}
+                        </button>
+                    );
+                })}
+            </div>
+
+            <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_162px]">
+                <div className="relative">
+                    <Search className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-crm-fg-muted" size={17} />
+                    <input
+                        type="text"
+                        placeholder="Buscar marca, modelo, patente, año, propietario, teléfono, consig., ubicación, notas..."
+                        value={searchTerm}
+                        onChange={(event) => setSearchTerm(event.target.value)}
+                        className="m-0 h-[38px] w-full appearance-none rounded-lg border border-crm-border bg-crm-surface py-2 pl-9 pr-3 text-sm text-crm-fg outline-none transition-colors placeholder:text-crm-fg-muted focus:border-crm-red focus:ring-2 focus:ring-crm-red/20"
+                    />
+                </div>
+
+                <select
+                    value={brandFilter}
+                    onChange={(event) => setBrandFilter(event.target.value)}
+                    className="m-0 h-[38px] w-full appearance-none rounded-lg border border-crm-border bg-crm-surface px-3 text-sm text-crm-fg outline-none transition-colors focus:border-crm-red focus:ring-2 focus:ring-crm-red/20"
+                >
+                    <option value="todas">Todas las marcas</option>
+                    {brandOptions.map(brand => (
+                        <option key={brand} value={brand}>{brand}</option>
+                    ))}
+                </select>
             </div>
         </div>
     );

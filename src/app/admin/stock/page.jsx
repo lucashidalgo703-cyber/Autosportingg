@@ -1,7 +1,8 @@
 "use client";
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo } from 'react';
+import { Download, Eye, FileText, Plus } from 'lucide-react';
 
-import CrmStatCard from '../../../components/crm/ui/CrmStatCard';
+import CrmButton from '../../../components/crm/ui/CrmButton';
 import StockFilters from '../../../components/crm/stock/StockFilters';
 import StockTable from '../../../components/crm/stock/StockTable';
 import StockMobileCards from '../../../components/crm/stock/StockMobileCards';
@@ -12,41 +13,70 @@ import { mapRealCarToCRM } from '../../../components/crm/stock/vehicleAdapter';
 export default function AdminStockPage() {
     const { cars, loading, error } = useAdminCars();
     const [searchTerm, setSearchTerm] = useState('');
-    const [filterStatus, setFilterStatus] = useState('todos');
+    const [filterStatus, setFilterStatus] = useState('disponible');
+    const [stockTab, setStockTab] = useState('stock');
+    const [brandFilter, setBrandFilter] = useState('todas');
     const [isFormOpen, setIsFormOpen] = useState(false);
 
-    // Mapeo de datos reales al formato esperado por el CRM
     const vehicles = useMemo(() => {
         if (!cars || cars.length === 0) return [];
         return cars.map(mapRealCarToCRM);
     }, [cars]);
 
-    // Filtrado de datos
-    const filteredVehicles = useMemo(() => {
-        return vehicles.filter(v => {
-            const searchLower = searchTerm.toLowerCase();
-            const matchesSearch = 
-                v.marca.toLowerCase().includes(searchLower) ||
-                v.modelo.toLowerCase().includes(searchLower) ||
-                v.version.toLowerCase().includes(searchLower) ||
-                (v.dominio && v.dominio.toLowerCase().includes(searchLower));
-            
-            const matchesStatus = filterStatus === 'todos' || v.estado === filterStatus;
-            
-            return matchesSearch && matchesStatus;
-        });
-    }, [vehicles, searchTerm, filterStatus]);
+    const stockSummary = useMemo(() => {
+        const disponibles = vehicles.filter(v => v.estado === 'disponible');
+        const valorActivoUSD = disponibles
+            .filter(v => v.moneda === 'USD')
+            .reduce((sum, v) => sum + (v.precioPublicado || 0), 0);
+        const valorActivoARS = disponibles
+            .filter(v => v.moneda !== 'USD')
+            .reduce((sum, v) => sum + (v.precioPublicado || 0), 0);
 
-    // KPIs calculados sobre el stock total (no el filtrado)
-    const kpis = useMemo(() => {
-        const total = vehicles.length;
-        const totalCapitalUSD = vehicles.filter(v => v.moneda === 'USD').reduce((sum, v) => sum + v.costoTotal, 0);
-        const propias = vehicles.filter(v => v.origen === 'propio').length;
-        const consignadas = vehicles.filter(v => v.origen === 'consignación').length;
-        const alertas = vehicles.filter(v => v.diasEnStock >= 60 && v.estado === 'disponible').length;
-
-        return { total, totalCapitalUSD, propias, consignadas, alertas };
+        return {
+            total: vehicles.length,
+            disponibles: disponibles.length,
+            consignaciones: vehicles.filter(v => (v.origen || '').toLowerCase().includes('consign')).length,
+            mandatos: vehicles.filter(v => (v.origen || '').toLowerCase().includes('mandato')).length,
+            valorActivoUSD,
+            valorActivoARS
+        };
     }, [vehicles]);
+
+    const brandOptions = useMemo(() => {
+        return Array.from(new Set(vehicles.map(v => v.marca).filter(Boolean))).sort((a, b) => a.localeCompare(b));
+    }, [vehicles]);
+
+    const filteredVehicles = useMemo(() => {
+        return vehicles.filter(vehicle => {
+            const searchLower = searchTerm.trim().toLowerCase();
+            const matchesSearch =
+                !searchLower ||
+                vehicle.marca.toLowerCase().includes(searchLower) ||
+                vehicle.modelo.toLowerCase().includes(searchLower) ||
+                vehicle.version.toLowerCase().includes(searchLower) ||
+                (vehicle.dominio && vehicle.dominio.toLowerCase().includes(searchLower)) ||
+                (vehicle.origen && vehicle.origen.toLowerCase().includes(searchLower));
+
+            const statusMap = {
+                disponible: ['disponible'],
+                senado: ['reservado'],
+                vendido_sin_confirmar: ['pausado'],
+                vendido: ['vendido']
+            };
+
+            const matchesStatus =
+                filterStatus === 'todos' ||
+                (statusMap[filterStatus] || [filterStatus]).includes(vehicle.estado);
+
+            const matchesBrand = brandFilter === 'todas' || vehicle.marca === brandFilter;
+            const matchesTab =
+                stockTab === 'stock' ||
+                (stockTab === 'consignaciones' && (vehicle.origen || '').toLowerCase().includes('consign')) ||
+                (stockTab === 'mandatos' && (vehicle.origen || '').toLowerCase().includes('mandato'));
+
+            return matchesSearch && matchesStatus && matchesBrand && matchesTab;
+        });
+    }, [vehicles, searchTerm, filterStatus, brandFilter, stockTab]);
 
     const handleNewVehicle = () => {
         setIsFormOpen(true);
@@ -58,10 +88,10 @@ export default function AdminStockPage() {
 
     if (loading) {
         return (
-            <div className="flex items-center justify-center h-[50vh]">
+            <div className="mx-auto flex min-h-[50vh] w-full max-w-7xl items-center justify-center p-4 md:p-6">
                 <div className="flex flex-col items-center gap-3">
-                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-crm-red"></div>
-                    <span className="text-[#A1A1AA] text-sm">Cargando stock real...</span>
+                    <div className="h-8 w-8 animate-spin rounded-full border-2 border-crm-border border-b-crm-red" />
+                    <span className="text-sm text-crm-fg-muted">Cargando stock real...</span>
                 </div>
             </div>
         );
@@ -69,78 +99,95 @@ export default function AdminStockPage() {
 
     if (error) {
         return (
-            <div className="flex items-center justify-center h-[50vh]">
-                <div className="flex flex-col items-center gap-3 text-center">
-                    <span className="text-[#EF3329] font-bold">Error de conexión</span>
-                    <span className="text-[#A1A1AA] text-sm">{error}</span>
+            <div className="mx-auto flex min-h-[50vh] w-full max-w-7xl items-center justify-center p-4 md:p-6">
+                <div className="rounded-xl border border-crm-red/30 bg-crm-red/10 px-6 py-5 text-center">
+                    <p className="m-0 text-sm font-bold text-crm-red">Error de conexion</p>
+                    <p className="m-0 mt-2 text-sm text-crm-fg-muted">{error}</p>
                 </div>
             </div>
         );
     }
 
     return (
-        <div className="mx-auto w-full max-w-7xl p-4 md:p-6">
-                <div className="flex flex-col gap-6">
-                    <div className="flex items-center justify-between">
-                        <div>
-                            <h1 className="text-2xl font-bold text-crm-fg m-0 mb-1">Stock de Vehículos</h1>
-                            <p className="text-sm text-crm-fg-muted m-0 flex items-center gap-2">
-                                Gestión de inventario y valuaciones
-                                <span className="bg-crm-success/10 text-crm-success text-[10px] px-2 py-0.5 rounded font-medium border border-crm-success/20">Datos reales (Solo lectura)</span>
-                            </p>
-                        </div>
+        <div className="mx-auto w-full max-w-7xl p-4 pb-20 md:p-6">
+            <div className="flex flex-col gap-6">
+                <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+                    <div>
+                        <h1 className="m-0 text-[26px] font-bold leading-tight text-crm-fg">Stock</h1>
+                        <p className="m-0 mt-1 text-sm text-crm-fg-muted">
+                            {stockSummary.disponibles} vehículos disponibles para vender
+                        </p>
                     </div>
 
-                    <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
-                        <CrmStatCard 
-                            title="Total Unidades" 
-                            value={kpis.total} 
-                        />
-                        <CrmStatCard 
-                            title="Capital Inv. (USD)" 
-                            value={kpis.totalCapitalUSD.toLocaleString('es-AR')} 
-                            prefix="USD " 
-                        />
-                        <CrmStatCard 
-                            title="Unidades Propias" 
-                            value={kpis.propias} 
-                        />
-                        <CrmStatCard 
-                            title="Consignaciones" 
-                            value={kpis.consignadas} 
-                        />
-                        <CrmStatCard 
-                            title="Alertas +60 días" 
-                            value={kpis.alertas} 
-                            trend={kpis.alertas > 0 ? "down" : "up"}
-                            trendValue={kpis.alertas > 0 ? "Atención" : "Óptimo"}
-                        />
-                    </div>
-
-                    <div className="flex flex-col">
-                        <StockFilters 
-                            searchTerm={searchTerm} 
-                            setSearchTerm={setSearchTerm}
-                            filterStatus={filterStatus}
-                            setFilterStatus={setFilterStatus}
-                            onNewVehicle={handleNewVehicle}
-                        />
-
-                        {/* Responsive Views */}
-                        <div className="hidden lg:block">
-                            <StockTable data={filteredVehicles} />
-                        </div>
-                        <div className="block lg:hidden">
-                            <StockMobileCards data={filteredVehicles} />
-                        </div>
+                    <div className="flex flex-wrap items-center gap-2 md:justify-end">
+                        <CrmButton variant="secondary" size="sm" className="gap-2 border-amber-500/30 bg-amber-500/10 text-amber-200 hover:bg-amber-500/15">
+                            <Eye size={14} />
+                            Vista previa
+                        </CrmButton>
+                        <CrmButton variant="secondary" size="sm" className="gap-2">
+                            <Download size={14} />
+                            Exportar XLSX
+                        </CrmButton>
+                        <CrmButton variant="secondary" size="sm" className="gap-2">
+                            <FileText size={14} />
+                            Nuevo mandato + Stock
+                        </CrmButton>
+                        <CrmButton variant="primary" size="sm" onClick={handleNewVehicle} className="gap-2">
+                            <Plus size={14} />
+                            Nuevo vehículo
+                        </CrmButton>
                     </div>
                 </div>
 
-                <VehicleFormDemo 
-                    isOpen={isFormOpen} 
-                    onClose={() => setIsFormOpen(false)} 
-                    onSubmit={handleFormSubmit}
-                />
+                <div className="flex flex-col gap-2 rounded-xl border border-crm-border bg-crm-surface px-4 py-3 text-sm text-crm-fg-muted sm:flex-row sm:items-center sm:gap-6">
+                    <div className="flex items-center gap-2">
+                        <span className="text-base">🚗</span>
+                        <span className="font-semibold text-crm-fg">{stockSummary.disponibles}</span>
+                        <span>disponibles</span>
+                    </div>
+                    <div className="flex flex-wrap items-center gap-2">
+                        <span className="text-[11px] font-bold uppercase tracking-[0.08em] text-crm-fg-subtle">
+                            Valor activo(disponible):
+                        </span>
+                        <span className="font-semibold text-crm-fg">
+                            {stockSummary.valorActivoUSD > 0 ? `USD ${stockSummary.valorActivoUSD.toLocaleString('es-AR')}` : '--'}
+                        </span>
+                        {stockSummary.valorActivoARS > 0 && (
+                            <span className="text-crm-fg-muted">
+                                ARS {stockSummary.valorActivoARS.toLocaleString('es-AR')}
+                            </span>
+                        )}
+                    </div>
+                </div>
+
+                <div className="flex flex-col">
+                    <StockFilters
+                        searchTerm={searchTerm}
+                        setSearchTerm={setSearchTerm}
+                        filterStatus={filterStatus}
+                        setFilterStatus={setFilterStatus}
+                        stockTab={stockTab}
+                        setStockTab={setStockTab}
+                        brandFilter={brandFilter}
+                        setBrandFilter={setBrandFilter}
+                        brandOptions={brandOptions}
+                        counts={stockSummary}
+                    />
+
+                    <div className="hidden lg:block">
+                        <StockTable data={filteredVehicles} />
+                    </div>
+                    <div className="block lg:hidden">
+                        <StockMobileCards data={filteredVehicles} />
+                    </div>
+                </div>
+            </div>
+
+            <VehicleFormDemo
+                isOpen={isFormOpen}
+                onClose={() => setIsFormOpen(false)}
+                onSubmit={handleFormSubmit}
+            />
         </div>
     );
 }
