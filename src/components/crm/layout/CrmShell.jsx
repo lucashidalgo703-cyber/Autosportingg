@@ -38,11 +38,11 @@ export default function CrmShell({ children }) {
     }, [isSidebarOpen]);
 
     return (
-        <div data-admin-shell className="m-0 flex min-h-[100dvh] w-full max-w-full overflow-x-hidden bg-crm-bg p-0 font-sans text-crm-fg">
+        <div data-admin-shell className="m-0 flex h-[100dvh] w-full max-w-full overflow-hidden bg-crm-bg p-0 font-sans text-crm-fg">
             <CrmSidebar isOpen={isSidebarOpen} onClose={closeSidebar} />
-            <div className="flex min-w-0 max-w-full flex-1 flex-col overflow-x-hidden">
+            <div className="flex min-h-0 min-w-0 max-w-full flex-1 flex-col overflow-hidden">
                 <CrmHeader onMenuClick={() => setSidebarOpen(true)} />
-                <main className="min-w-0 flex-1 overscroll-contain overflow-x-hidden overflow-y-auto pb-[calc(5.25rem+var(--safe-bottom,0px))] md:pb-0">
+                <main className="min-h-0 min-w-0 flex-1 touch-pan-y overscroll-y-contain overflow-x-hidden overflow-y-auto pb-[calc(5.25rem+var(--safe-bottom,0px))] [-webkit-overflow-scrolling:touch] md:pb-0">
                     {children}
                 </main>
                 <CrmBottomNav isHidden={isSidebarOpen} />

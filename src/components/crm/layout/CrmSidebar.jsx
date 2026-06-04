@@ -121,7 +121,7 @@ export default function CrmSidebar({ isOpen, onClose }) {
                 )}
             </div>
 
-            <nav className="flex flex-1 flex-col gap-6 overflow-y-auto overscroll-contain px-3 py-4 pb-[calc(1rem+var(--safe-bottom,0px))] custom-scrollbar">
+            <nav className="flex min-h-0 flex-1 touch-pan-y flex-col gap-6 overflow-y-auto overscroll-y-contain px-3 py-4 pb-[calc(1rem+var(--safe-bottom,0px))] [-webkit-overflow-scrolling:touch] custom-scrollbar">
                 {menuGroups.map((group) => {
                     const visibleItems = group.items.filter(item => hasItemPermission(item.name));
                     if (visibleItems.length === 0) return null;
@@ -162,13 +162,13 @@ export default function CrmSidebar({ isOpen, onClose }) {
 
     return (
         <>
-            <aside className="sticky top-0 hidden h-[100dvh] w-64 shrink-0 flex-col border-r border-crm-border bg-crm-sidebar lg:flex custom-scrollbar">
+            <aside className="sticky top-0 hidden h-[100dvh] min-h-0 w-64 shrink-0 flex-col border-r border-crm-border bg-crm-sidebar lg:flex custom-scrollbar">
                 {renderContent()}
             </aside>
 
             {isOpen && (
                 <div className="fixed inset-0 z-[100] flex bg-black/75 backdrop-blur-sm lg:hidden">
-                    <aside className="flex h-[100dvh] w-[min(23rem,92vw)] max-w-full flex-col border-r border-crm-border bg-crm-sidebar shadow-2xl custom-scrollbar">
+                    <aside className="flex h-[100dvh] min-h-0 w-[min(23rem,92vw)] max-w-full flex-col border-r border-crm-border bg-crm-sidebar shadow-2xl custom-scrollbar">
                         {renderContent({ showCloseButton: true })}
                     </aside>
                     <button
