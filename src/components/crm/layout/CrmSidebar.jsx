@@ -69,6 +69,9 @@ const menuGroups = [
 export default function CrmSidebar({ isOpen, onClose }) {
     const pathname = usePathname();
     const { user } = useAuth();
+    const closeMenu = () => {
+        if (typeof onClose === 'function') onClose();
+    };
 
     const hasItemPermission = (itemName) => {
         if (itemName === 'Usuarios') return hasPermission(user, PERMISSIONS.USUARIOS_READ);
@@ -91,10 +94,16 @@ export default function CrmSidebar({ isOpen, onClose }) {
     return (
         <>
             {isOpen && (
-                <div className="fixed inset-0 z-40 bg-black/75 backdrop-blur-sm lg:hidden" onClick={onClose} />
+                <button
+                    type="button"
+                    aria-label="Cerrar menu"
+                    className="fixed inset-0 z-40 m-0 appearance-none border-0 bg-black/75 p-0 backdrop-blur-sm lg:hidden"
+                    onClick={closeMenu}
+                    onTouchStart={closeMenu}
+                />
             )}
             
-            <aside className={`fixed left-0 top-0 z-50 flex h-[100dvh] w-[min(23rem,92vw)] max-w-full flex-col border-r border-crm-border bg-crm-sidebar transition-transform duration-300 lg:sticky lg:w-64 custom-scrollbar ${isOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}`}>
+            <aside className={`fixed left-0 top-0 z-50 flex h-[100dvh] w-[min(23rem,92vw)] max-w-full transform-gpu flex-col border-r border-crm-border bg-crm-sidebar transition-transform duration-300 lg:sticky lg:w-64 custom-scrollbar ${isOpen ? 'translate-x-0' : 'pointer-events-none -translate-x-full lg:pointer-events-auto lg:translate-x-0'}`}>
                 <div className="flex h-[calc(3.5rem+var(--safe-top,0px))] shrink-0 items-center gap-3 border-b border-crm-border px-4 pt-[var(--safe-top,0px)] md:h-14 md:pt-0">
                     <div className="w-9 h-9 rounded-lg bg-crm-surface border border-crm-border flex items-center justify-center shadow-crm-red text-white font-bold text-sm shrink-0">
                         AS
@@ -105,11 +114,9 @@ export default function CrmSidebar({ isOpen, onClose }) {
                     </div>
                     <button
                         type="button"
-                        onClick={onClose}
-                        onPointerDown={(event) => {
-                            event.preventDefault();
-                            onClose();
-                        }}
+                        onClick={closeMenu}
+                        onTouchStart={closeMenu}
+                        onPointerDown={closeMenu}
                         className="m-0 flex h-9 w-9 appearance-none items-center justify-center rounded-lg border border-transparent bg-transparent text-crm-fg-muted transition-colors hover:bg-crm-surface hover:text-crm-fg lg:hidden"
                         aria-label="Cerrar menu"
                     >
@@ -139,7 +146,8 @@ export default function CrmSidebar({ isOpen, onClose }) {
                                             key={item.name} 
                                             href={item.path}
                                             prefetch={item.prefetch === false ? false : undefined}
-                                            onClick={() => onClose && onClose()}
+                                            onClick={closeMenu}
+                                            onTouchStart={closeMenu}
                                             style={{ textDecoration: 'none' }}
                                             className={`${baseItemClasses} ${isActive ? activeClasses : inactiveClasses}`}
                                         >
