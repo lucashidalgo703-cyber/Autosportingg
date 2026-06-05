@@ -1,5 +1,5 @@
 import React from 'react';
-import { Search, Filter, RefreshCcw } from 'lucide-react';
+import { RefreshCcw, Search } from 'lucide-react';
 import CrmInput from '../ui/CrmInput';
 import CrmSelect from '../ui/CrmSelect';
 import { CrmIconButton } from '../ui/CrmButton';
@@ -18,25 +18,21 @@ export default function SalesFilters({ filters, setFilters }) {
     };
 
     return (
-        <div className="bg-crm-surface border border-crm-border rounded-2xl p-4 mb-6">
-            <div className="flex flex-col md:flex-row gap-4">
-                
-                {/* Search */}
-                <div className="flex-1 relative">
+        <div className="rounded-xl border border-crm-border bg-crm-surface p-3">
+            <div className="flex flex-col gap-3 xl:flex-row">
+                <div className="relative flex-1">
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-crm-fg-muted" size={18} />
                     <CrmInput
                         type="text"
-                        placeholder="Buscar por cliente, lead, teléfono, vehículo, dominio..."
+                        placeholder="Buscar por cliente, cotizacion, telefono, vehiculo, dominio..."
                         className="pl-10"
                         value={filters.search}
                         onChange={(e) => setFilters({ ...filters, search: e.target.value })}
                     />
                 </div>
 
-                {/* Filters */}
-                <div className="flex flex-wrap md:flex-nowrap gap-3">
-                    {/* Status */}
-                    <div className="flex-1 md:flex-none">
+                <div className="grid grid-cols-2 gap-2 md:grid-cols-3 xl:flex xl:flex-nowrap">
+                    <div className="min-w-0 xl:w-40">
                         <CrmSelect
                             value={filters.status}
                             onChange={(e) => setFilters({ ...filters, status: e.target.value })}
@@ -50,8 +46,7 @@ export default function SalesFilters({ filters, setFilters }) {
                         </CrmSelect>
                     </div>
 
-                    {/* Currency */}
-                    <div className="flex-1 md:flex-none">
+                    <div className="min-w-0 xl:w-36">
                         <CrmSelect
                             value={filters.currency}
                             onChange={(e) => setFilters({ ...filters, currency: e.target.value })}
@@ -62,13 +57,12 @@ export default function SalesFilters({ filters, setFilters }) {
                         </CrmSelect>
                     </div>
 
-                    {/* Payment Method */}
-                    <div className="flex-1 md:flex-none">
+                    <div className="min-w-0 xl:w-40">
                         <CrmSelect
                             value={filters.paymentMethod}
                             onChange={(e) => setFilters({ ...filters, paymentMethod: e.target.value })}
                         >
-                            <option value="todas">Método (Todos)</option>
+                            <option value="todas">Metodo (Todos)</option>
                             <option value="contado">Contado</option>
                             <option value="financiado">Financiado</option>
                             <option value="mixto">Mixto</option>
@@ -76,8 +70,7 @@ export default function SalesFilters({ filters, setFilters }) {
                         </CrmSelect>
                     </div>
 
-                    {/* Doc Status */}
-                    <div className="flex-1 md:flex-none">
+                    <div className="min-w-0 xl:w-36">
                         <CrmSelect
                             value={filters.documentationStatus}
                             onChange={(e) => setFilters({ ...filters, documentationStatus: e.target.value })}
@@ -89,8 +82,7 @@ export default function SalesFilters({ filters, setFilters }) {
                         </CrmSelect>
                     </div>
 
-                    {/* Delivery Status */}
-                    <div className="flex-1 md:flex-none">
+                    <div className="min-w-0 xl:w-40">
                         <CrmSelect
                             value={filters.deliveryStatus}
                             onChange={(e) => setFilters({ ...filters, deliveryStatus: e.target.value })}
@@ -103,8 +95,7 @@ export default function SalesFilters({ filters, setFilters }) {
                         </CrmSelect>
                     </div>
 
-                    {/* Collection Status */}
-                    <div className="flex-1 md:flex-none">
+                    <div className="min-w-0 xl:w-40">
                         <CrmSelect
                             value={filters.collectionStatus || 'todas'}
                             onChange={(e) => setFilters({ ...filters, collectionStatus: e.target.value })}
@@ -117,11 +108,10 @@ export default function SalesFilters({ filters, setFilters }) {
                         </CrmSelect>
                     </div>
 
-                    {/* Clear Button */}
                     <CrmIconButton
                         onClick={handleClear}
                         title="Limpiar filtros"
-                        className="shrink-0"
+                        className="shrink-0 justify-self-end"
                     >
                         <RefreshCcw size={16} className="text-crm-fg-muted" />
                     </CrmIconButton>

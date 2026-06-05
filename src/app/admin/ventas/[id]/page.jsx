@@ -129,16 +129,16 @@ export default function SaleDetailPage() {
 
     if (loading && !sale) {
         return (
-            <div className="flex-1 flex justify-center items-center min-h-[50vh]">
-                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
+            <div className="flex min-h-[50vh] flex-1 items-center justify-center">
+                <div className="h-8 w-8 animate-spin rounded-full border-2 border-crm-border border-b-crm-red"></div>
             </div>
         );
     }
 
     if (error || !sale) {
         return (
-            <div className="max-w-7xl mx-auto p-4">
-                <div className="bg-red-500/10 border border-red-500/20 text-red-400 p-6 rounded-2xl flex flex-col items-center justify-center gap-4 text-center">
+            <div className="mx-auto w-full max-w-7xl p-4 md:p-6">
+                <div className="flex flex-col items-center justify-center gap-4 rounded-xl border border-crm-red/30 bg-crm-red/10 p-6 text-center text-red-300">
                     <ShieldAlert size={48} />
                     <div>
                         <h2 className="text-xl font-bold mb-2">Error al cargar la venta</h2>
@@ -146,7 +146,7 @@ export default function SaleDetailPage() {
                     </div>
                     <button 
                         onClick={() => router.push('/admin/ventas')}
-                        className="px-6 py-2 bg-neutral-800 hover:bg-neutral-700 text-white rounded-xl transition-colors mt-4"
+                        className="mt-4 rounded-lg border border-crm-border bg-crm-surface px-6 py-2 text-crm-fg transition-colors hover:bg-crm-surface-raised"
                     >
                         Volver a Ventas
                     </button>
@@ -156,7 +156,7 @@ export default function SaleDetailPage() {
     }
 
     return (
-        <div className="max-w-7xl mx-auto flex flex-col h-full min-h-[85vh] pb-12">
+        <div className="mx-auto flex w-full max-w-7xl flex-col p-4 pb-20 md:p-6">
             
             <SaleDetailHeader 
                 sale={sale} 
@@ -165,7 +165,7 @@ export default function SaleDetailPage() {
                         {sale.status !== 'cancelada' && (['owner', 'admin'].includes(user?.role) || hasPermission(user, PERMISSIONS.VENTAS_CANCEL)) && (
                             <button
                                 onClick={() => setIsCancelModalOpen(true)}
-                                className="flex items-center gap-2 px-3 py-1.5 bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/20 rounded-lg text-xs font-bold transition-colors"
+                            className="flex items-center gap-2 rounded-lg border border-crm-red/20 bg-crm-red/10 px-3 py-1.5 text-xs font-bold text-red-300 transition-colors hover:bg-crm-red/20"
                             >
                                 <XCircle size={14} />
                                 Anular Venta
@@ -184,7 +184,7 @@ export default function SaleDetailPage() {
                         />
                         <button
                             onClick={() => setIsTaskModalOpen(true)}
-                            className="flex items-center gap-2 px-3 py-1.5 bg-blue-500/10 hover:bg-blue-500/20 text-blue-400 border border-blue-500/20 rounded-lg text-xs font-bold transition-colors"
+                            className="flex items-center gap-2 rounded-lg border border-blue-500/20 bg-blue-500/10 px-3 py-1.5 text-xs font-bold text-blue-300 transition-colors hover:bg-blue-500/20"
                         >
                             <Target size={14} />
                             Crear Tarea
@@ -286,19 +286,19 @@ export default function SaleDetailPage() {
             />
 
             {isCancelModalOpen && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
-                    <div className="bg-crm-surface border border-crm-red/50 rounded-2xl w-full max-w-md shadow-2xl p-6">
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 backdrop-blur-sm">
+                    <div className="w-full max-w-md rounded-xl border border-crm-red/30 bg-crm-surface p-6 shadow-2xl">
                         <div className="flex items-center gap-3 mb-4">
                             <div className="w-10 h-10 rounded-full bg-red-500/10 flex items-center justify-center">
                                 <XCircle className="text-red-500" size={24} />
                             </div>
                             <div>
-                                <h3 className="text-lg font-bold text-white">Anular Venta</h3>
+                                <h3 className="text-lg font-bold text-crm-fg">Anular Venta</h3>
                                 <p className="text-xs text-neutral-400">Esta acción no se puede deshacer.</p>
                             </div>
                         </div>
 
-                        <div className="mb-4 bg-orange-500/10 border border-orange-500/20 p-3 rounded-lg">
+                        <div className="mb-4 rounded-lg border border-amber-500/20 bg-amber-500/10 p-3">
                             <p className="text-xs text-orange-200 flex items-start gap-2">
                                 <Info size={14} className="shrink-0 mt-0.5" />
                                 La venta quedará anulada para auditoría. No se modificarán caja, cuotas ni movimientos financieros automáticamente.
@@ -313,21 +313,21 @@ export default function SaleDetailPage() {
                                 value={cancelReason}
                                 onChange={(e) => setCancelReason(e.target.value)}
                                 placeholder="Escribe el motivo aquí..."
-                                className="w-full bg-black/40 border border-red-500/30 rounded-xl p-3 text-sm text-white focus:outline-none focus:border-red-500 min-h-[100px] resize-none"
+                                className="min-h-[100px] w-full resize-none rounded-xl border border-crm-red/30 bg-crm-bg p-3 text-sm text-crm-fg focus:border-crm-red focus:outline-none"
                             ></textarea>
                         </div>
 
                         <div className="flex justify-end gap-3 mt-6">
                             <button
                                 onClick={() => setIsCancelModalOpen(false)}
-                                className="px-4 py-2 bg-neutral-800 hover:bg-neutral-700 text-white rounded-lg text-sm font-bold transition-colors"
+                                className="rounded-lg border border-crm-border bg-crm-surface px-4 py-2 text-sm font-bold text-crm-fg transition-colors hover:bg-crm-surface-raised"
                             >
                                 Cancelar
                             </button>
                             <button
                                 onClick={handleCancelSale}
                                 disabled={isCancelling || !cancelReason.trim()}
-                                className="px-4 py-2 bg-red-600 hover:bg-red-500 text-white rounded-lg text-sm font-bold transition-colors disabled:opacity-50"
+                                className="rounded-lg bg-crm-red px-4 py-2 text-sm font-bold text-white transition-colors hover:bg-crm-red-hover disabled:opacity-50"
                             >
                                 {isCancelling ? 'Anulando...' : 'Confirmar Anulación'}
                             </button>

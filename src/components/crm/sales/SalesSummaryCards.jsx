@@ -1,5 +1,5 @@
 import React from 'react';
-import { Handshake, DollarSign, CheckCircle2, Clock, Truck, XCircle, AlertTriangle, ShieldCheck } from 'lucide-react';
+import { AlertTriangle, Clock, DollarSign, FileCheck2, Handshake, Truck, XCircle } from 'lucide-react';
 
 export default function SalesSummaryCards({ sales }) {
     if (!sales) return null;
@@ -12,12 +12,10 @@ export default function SalesSummaryCards({ sales }) {
         if (sale.status === 'cancelada') acc.canceladas++;
 
         if (sale.status !== 'cancelada') {
-            if (sale.saleCurrency === 'ARS') {
-                acc.totalARS += (sale.salePrice || 0);
-            } else if (sale.saleCurrency === 'USD') {
-                acc.totalUSD += (sale.salePrice || 0);
-            }
+            if (sale.saleCurrency === 'ARS') acc.totalARS += (sale.salePrice || 0);
+            if (sale.saleCurrency === 'USD') acc.totalUSD += (sale.salePrice || 0);
         }
+
         return acc;
     }, {
         total: 0,
@@ -38,131 +36,109 @@ export default function SalesSummaryCards({ sales }) {
     sales.forEach(sale => {
         if (sale.status === 'cancelada') return;
 
-        if (sale.documentationStatus !== 'completo') {
-            metrics.docPendiente++;
-        }
-        if (sale.deliveryStatus === 'listo_para_entregar') {
-            metrics.listaParaEntregar++;
-        }
+        if (sale.documentationStatus !== 'completo') metrics.docPendiente++;
+        if (sale.deliveryStatus === 'listo_para_entregar') metrics.listaParaEntregar++;
+
         if (sale.estimatedDeliveryDate && sale.deliveryStatus !== 'entregado') {
             const estDate = new Date(sale.estimatedDeliveryDate);
-            if (estDate < today) {
-                metrics.demoradas++;
-            }
+            if (estDate < today) metrics.demoradas++;
         }
     });
 
+    const cards = [
+        {
+            label: 'Ventas registradas',
+            value: metrics.total,
+            helper: `${metrics.confirmadas} confirmadas`,
+            icon: Handshake,
+            tone: 'bg-crm-red/10 text-crm-red border-crm-red/20'
+        },
+        {
+            label: 'Volumen USD',
+            value: `USD ${metrics.totalUSD.toLocaleString('es-AR')}`,
+            helper: 'Excluye canceladas',
+            icon: DollarSign,
+            tone: 'bg-emerald-500/10 text-emerald-300 border-emerald-500/20'
+        },
+        {
+            label: 'Volumen ARS',
+            value: `ARS ${metrics.totalARS.toLocaleString('es-AR')}`,
+            helper: 'Excluye canceladas',
+            icon: DollarSign,
+            tone: 'bg-emerald-500/10 text-emerald-300 border-emerald-500/20'
+        },
+        {
+            label: 'Pendiente entrega',
+            value: metrics.pendientes,
+            helper: `${metrics.listaParaEntregar} listas`,
+            icon: Clock,
+            tone: 'bg-amber-500/10 text-amber-300 border-amber-500/20'
+        },
+        {
+            label: 'Entregadas',
+            value: metrics.entregadas,
+            helper: 'Operaciones completas',
+            icon: Truck,
+            tone: 'bg-emerald-500/10 text-emerald-300 border-emerald-500/20'
+        },
+        {
+            label: 'Doc. incompleta',
+            value: metrics.docPendiente,
+            helper: 'Requiere seguimiento',
+            icon: FileCheck2,
+            tone: 'bg-blue-500/10 text-blue-300 border-blue-500/20'
+        },
+        {
+            label: 'Demoradas',
+            value: metrics.demoradas,
+            helper: 'Entrega vencida',
+            icon: AlertTriangle,
+            tone: 'bg-crm-red/10 text-red-300 border-crm-red/20'
+        },
+        {
+            label: 'Canceladas',
+            value: metrics.canceladas,
+            helper: 'Historico',
+            icon: XCircle,
+            tone: 'bg-crm-surface-raised text-crm-fg-muted border-crm-border'
+        }
+    ];
+
     return (
-        <div className="mb-6">
-            <div className="mb-4 bg-blue-500/10 border border-blue-500/20 p-3 rounded-xl flex items-start gap-3">
-                <AlertTriangle size={18} className="text-blue-500 shrink-0 mt-0.5" />
+        <div className="flex flex-col gap-3">
+            <div className="flex items-start gap-3 rounded-xl border border-amber-500/20 bg-amber-500/10 p-3">
+                <AlertTriangle size={18} className="mt-0.5 shrink-0 text-amber-300" />
                 <div>
-                    <span className="font-bold text-blue-400 block text-sm">Ventas Comerciales Registradas</span>
-                    <p className="text-xs text-blue-200 mt-1">Estos valores reflejan el volumen comercial de ventas. No representan la caja real ni los cobros efectivamente ingresados.</p>
+                    <span className="block text-sm font-bold text-amber-200">Ventas comerciales registradas</span>
+                    <p className="m-0 mt-1 text-xs leading-5 text-amber-100/80">
+                        Estos valores reflejan volumen comercial. No representan caja real ni cobros efectivamente ingresados.
+                    </p>
                 </div>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                
-                {/* Volumen Comercial USD */}
-                <div className="bg-gradient-to-br from-green-900/40 to-green-900/10 border border-green-500/30 rounded-2xl p-5 relative overflow-hidden group">
-                    <div className="absolute -right-4 -top-4 w-24 h-24 bg-green-500/10 rounded-full blur-2xl group-hover:bg-green-500/20 transition-all duration-500"></div>
-                    <div className="flex items-center gap-3 mb-2">
-                        <div className="w-8 h-8 rounded-lg bg-green-500/20 flex items-center justify-center border border-green-500/30">
-                            <DollarSign size={16} className="text-green-400" />
-                        </div>
-                        <span className="text-xs font-bold text-green-500 uppercase tracking-wider">Volumen USD</span>
-                    </div>
-                    <p className="text-2xl font-black text-white mt-2 font-mono">
-                        U$S {metrics.totalUSD.toLocaleString('es-AR')}
-                    </p>
-                    <p className="text-[10px] text-green-400/80 mt-1 uppercase tracking-wider">Excluye canceladas</p>
-                </div>
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                {cards.map((card) => {
+                    const Icon = card.icon;
 
-                {/* Volumen Comercial ARS */}
-                <div className="bg-gradient-to-br from-green-900/20 to-neutral-900/50 border border-green-500/20 rounded-2xl p-5 relative overflow-hidden group">
-                    <div className="flex items-center gap-3 mb-2">
-                        <div className="w-8 h-8 rounded-lg bg-green-500/10 flex items-center justify-center border border-green-500/20">
-                            <DollarSign size={16} className="text-green-500/70" />
+                    return (
+                        <div key={card.label} className="rounded-xl border border-crm-border bg-crm-surface p-4">
+                            <div className="flex items-start justify-between gap-3">
+                                <div className="min-w-0">
+                                    <p className="m-0 text-[11px] font-bold uppercase tracking-[0.08em] text-crm-fg-muted">
+                                        {card.label}
+                                    </p>
+                                    <p className="m-0 mt-3 truncate text-2xl font-bold leading-none text-crm-fg">
+                                        {card.value}
+                                    </p>
+                                    <p className="m-0 mt-2 text-xs text-crm-fg-muted">{card.helper}</p>
+                                </div>
+                                <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border ${card.tone}`}>
+                                    <Icon size={18} />
+                                </span>
+                            </div>
                         </div>
-                        <span className="text-xs font-bold text-green-500/70 uppercase tracking-wider">Volumen ARS</span>
-                    </div>
-                    <p className="text-2xl font-black text-white mt-2 font-mono">
-                        $ {metrics.totalARS.toLocaleString('es-AR')}
-                    </p>
-                    <p className="text-[10px] text-green-500/50 mt-1 uppercase tracking-wider">Excluye canceladas</p>
-                </div>
-
-                {/* Métricas de Estado */}
-                <div className="bg-neutral-900 border border-neutral-800 rounded-2xl p-4 lg:col-span-2 grid grid-cols-2 md:grid-cols-4 gap-4">
-                    <div className="flex flex-col justify-center">
-                        <div className="flex items-center gap-2 mb-1">
-                            <CheckCircle2 size={14} className="text-blue-500" />
-                            <span className="text-[10px] font-bold text-neutral-500 uppercase">Confirmadas</span>
-                        </div>
-                        <span className="text-xl font-bold text-white">{metrics.confirmadas}</span>
-                    </div>
-
-                    <div className="flex flex-col justify-center">
-                        <div className="flex items-center gap-2 mb-1">
-                            <Clock size={14} className="text-orange-500" />
-                            <span className="text-[10px] font-bold text-neutral-500 uppercase">Pdte. Entrega</span>
-                        </div>
-                        <span className="text-xl font-bold text-white">{metrics.pendientes}</span>
-                    </div>
-
-                    <div className="flex flex-col justify-center">
-                        <div className="flex items-center gap-2 mb-1">
-                            <Truck size={14} className="text-green-500" />
-                            <span className="text-[10px] font-bold text-neutral-500 uppercase">Entregadas</span>
-                        </div>
-                        <span className="text-xl font-bold text-white">{metrics.entregadas}</span>
-                    </div>
-
-                    <div className="flex flex-col justify-center">
-                        <div className="flex items-center gap-2 mb-1">
-                            <XCircle size={14} className="text-red-500" />
-                            <span className="text-[10px] font-bold text-neutral-500 uppercase">Canceladas</span>
-                        </div>
-                        <span className="text-xl font-bold text-white">{metrics.canceladas}</span>
-                    </div>
-                </div>
-
-                {/* Métricas Operativas y Logísticas */}
-                <div className="bg-neutral-900 border border-neutral-800 rounded-2xl p-4 lg:col-span-4 grid grid-cols-2 md:grid-cols-4 gap-4">
-                    <div className="flex flex-col justify-center">
-                        <div className="flex items-center gap-2 mb-1">
-                            <ShieldCheck size={14} className="text-purple-500" />
-                            <span className="text-[10px] font-bold text-neutral-500 uppercase">Doc. Incompleta</span>
-                        </div>
-                        <span className="text-xl font-bold text-white">{metrics.docPendiente}</span>
-                    </div>
-
-                    <div className="flex flex-col justify-center">
-                        <div className="flex items-center gap-2 mb-1">
-                            <Truck size={14} className="text-blue-500" />
-                            <span className="text-[10px] font-bold text-neutral-500 uppercase">Lista p/Entregar</span>
-                        </div>
-                        <span className="text-xl font-bold text-white">{metrics.listaParaEntregar}</span>
-                    </div>
-
-                    <div className="flex flex-col justify-center">
-                        <div className="flex items-center gap-2 mb-1">
-                            <CheckCircle2 size={14} className="text-green-500" />
-                            <span className="text-[10px] font-bold text-neutral-500 uppercase">Vehíc. Entregados</span>
-                        </div>
-                        <span className="text-xl font-bold text-white">{metrics.entregadas}</span>
-                    </div>
-
-                    <div className="flex flex-col justify-center">
-                        <div className="flex items-center gap-2 mb-1">
-                            <AlertTriangle size={14} className="text-red-500" />
-                            <span className="text-[10px] font-bold text-neutral-500 uppercase">Ent. Demoradas</span>
-                        </div>
-                        <span className="text-xl font-bold text-white">{metrics.demoradas}</span>
-                    </div>
-                </div>
-                
+                    );
+                })}
             </div>
         </div>
     );

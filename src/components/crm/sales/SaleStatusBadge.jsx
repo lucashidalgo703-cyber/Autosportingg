@@ -6,10 +6,10 @@ export default function SaleStatusBadge({ status }) {
         switch (status) {
             case 'borrador':
                 return {
-                    bg: 'bg-neutral-500/10',
-                    border: 'border-neutral-500/20',
-                    text: 'text-neutral-400',
-                    icon: <FileEdit size={14} className="text-neutral-500" />,
+                    bg: 'bg-crm-surface-raised',
+                    border: 'border-crm-border',
+                    text: 'text-crm-fg-muted',
+                    icon: <FileEdit size={14} className="text-crm-fg-muted" />,
                     label: 'Borrador'
                 };
             case 'confirmada':
@@ -46,9 +46,9 @@ export default function SaleStatusBadge({ status }) {
                 };
             default:
                 return {
-                    bg: 'bg-neutral-800',
-                    border: 'border-neutral-700',
-                    text: 'text-neutral-400',
+                    bg: 'bg-crm-surface-raised',
+                    border: 'border-crm-border',
+                    text: 'text-crm-fg-muted',
                     icon: null,
                     label: status || 'Desconocido'
                 };

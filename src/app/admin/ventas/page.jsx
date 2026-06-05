@@ -1,6 +1,6 @@
 "use client";
-import React, { useState, useEffect, useMemo } from 'react';
-import { Handshake, ShieldAlert } from 'lucide-react';
+import React, { useEffect, useMemo, useState } from 'react';
+import { ShieldAlert } from 'lucide-react';
 import { useAdminSales } from '../../../hooks/useAdminSales';
 import SalesSummaryCards from '../../../components/crm/sales/SalesSummaryCards';
 import SalesFilters from '../../../components/crm/sales/SalesFilters';
@@ -11,8 +11,6 @@ import SaleDetailDrawer from '../../../components/crm/sales/SaleDetailDrawer';
 export default function VentasPage() {
     const { fetchSales, loading, error } = useAdminSales();
     const [allSales, setAllSales] = useState([]);
-    
-    // Drawer state
     const [isDrawerOpen, setIsDrawerOpen] = useState(false);
     const [selectedSale, setSelectedSale] = useState(null);
 
@@ -38,56 +36,32 @@ export default function VentasPage() {
 
     const filteredSales = useMemo(() => {
         return allSales.filter(sale => {
-            // 1. Search filter
             if (filters.search) {
                 const searchLower = filters.search.toLowerCase();
                 const clientName = (sale.clientId?.fullName || sale.clientId?.firstName || '').toLowerCase();
-                const leadName = (sale.leadId?.name || '').toLowerCase();
+                const quoteName = (sale.leadId?.name || '').toLowerCase();
                 const vehicleBrand = (sale.vehicleId?.brand || '').toLowerCase();
                 const vehicleName = (sale.vehicleId?.name || '').toLowerCase();
                 const vehicleVin = (sale.vehicleId?.plateOrVin || '').toLowerCase();
                 const phone = (sale.clientId?.phone || sale.leadId?.phone || '').toLowerCase();
 
-                const matchSearch = 
-                    clientName.includes(searchLower) || 
-                    leadName.includes(searchLower) || 
-                    vehicleBrand.includes(searchLower) || 
-                    vehicleName.includes(searchLower) || 
-                    vehicleVin.includes(searchLower) || 
+                const matchSearch =
+                    clientName.includes(searchLower) ||
+                    quoteName.includes(searchLower) ||
+                    vehicleBrand.includes(searchLower) ||
+                    vehicleName.includes(searchLower) ||
+                    vehicleVin.includes(searchLower) ||
                     phone.includes(searchLower);
 
                 if (!matchSearch) return false;
             }
 
-            // 2. Status filter
-            if (filters.status !== 'todas' && sale.status !== filters.status) {
-                return false;
-            }
-
-            // 3. Currency filter
-            if (filters.currency !== 'todas' && sale.saleCurrency !== filters.currency) {
-                return false;
-            }
-
-            // 4. Payment Method filter
-            if (filters.paymentMethod !== 'todas' && sale.paymentMethod !== filters.paymentMethod) {
-                return false;
-            }
-
-            // 5. Documentation Status filter
-            if (filters.documentationStatus && filters.documentationStatus !== 'todas' && (sale.documentationStatus || 'pendiente') !== filters.documentationStatus) {
-                return false;
-            }
-
-            // 6. Delivery Status filter
-            if (filters.deliveryStatus && filters.deliveryStatus !== 'todas' && (sale.deliveryStatus || 'pendiente') !== filters.deliveryStatus) {
-                return false;
-            }
-
-            // 7. Collection Status filter
-            if (filters.collectionStatus && filters.collectionStatus !== 'todas' && (sale.finance?.collectionStatus || 'sin_cobro') !== filters.collectionStatus) {
-                return false;
-            }
+            if (filters.status !== 'todas' && sale.status !== filters.status) return false;
+            if (filters.currency !== 'todas' && sale.saleCurrency !== filters.currency) return false;
+            if (filters.paymentMethod !== 'todas' && sale.paymentMethod !== filters.paymentMethod) return false;
+            if (filters.documentationStatus && filters.documentationStatus !== 'todas' && (sale.documentationStatus || 'pendiente') !== filters.documentationStatus) return false;
+            if (filters.deliveryStatus && filters.deliveryStatus !== 'todas' && (sale.deliveryStatus || 'pendiente') !== filters.deliveryStatus) return false;
+            if (filters.collectionStatus && filters.collectionStatus !== 'todas' && (sale.finance?.collectionStatus || 'sin_cobro') !== filters.collectionStatus) return false;
 
             return true;
         });
@@ -99,50 +73,51 @@ export default function VentasPage() {
     };
 
     return (
-        <div className="mx-auto w-full max-w-7xl p-4 md:p-6 flex flex-col h-full min-h-[85vh]">
-            {/* Header */}
-            <div className="flex justify-between items-center mb-6">
+        <div className="mx-auto flex w-full max-w-7xl flex-col gap-6 p-4 pb-20 md:p-6">
+            <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
                 <div>
-                    <h1 className="text-2xl font-bold text-crm-fg tracking-tight m-0 mb-1">Gestión de Ventas</h1>
-                    <p className="text-sm text-crm-fg-muted mt-0.5 m-0">Control comercial e histórico de oportunidades cerradas</p>
+                    <div className="flex flex-wrap items-center gap-2">
+                        <h1 className="m-0 text-[26px] font-bold leading-tight text-crm-fg">Ventas</h1>
+                        <span className="rounded border border-crm-red/20 bg-crm-red/10 px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.08em] text-crm-red">
+                            Comercial
+                        </span>
+                    </div>
+                    <p className="m-0 mt-1 text-sm text-crm-fg-muted">
+                        Operaciones cerradas, entregas y seguimiento comercial.
+                    </p>
                 </div>
             </div>
 
             {error && (
-                <div className="bg-red-500/10 border border-red-500/20 text-red-400 p-4 rounded-xl mb-6 flex items-center gap-3">
+                <div className="flex items-center gap-3 rounded-xl border border-crm-red/30 bg-crm-red/10 p-4 text-sm text-red-300">
                     <ShieldAlert size={20} />
                     {error}
                 </div>
             )}
 
             {loading && allSales.length === 0 ? (
-                <div className="flex-1 flex justify-center items-center">
-                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
+                <div className="flex h-64 items-center justify-center rounded-xl border border-crm-border bg-crm-surface">
+                    <div className="flex flex-col items-center gap-3">
+                        <div className="h-8 w-8 animate-spin rounded-full border-2 border-crm-border border-b-crm-red" />
+                        <span className="text-sm text-crm-fg-muted">Cargando ventas...</span>
+                    </div>
                 </div>
             ) : (
                 <>
                     <SalesSummaryCards sales={allSales} />
                     <SalesFilters filters={filters} setFilters={setFilters} />
-                    
-                    <div className="flex justify-between items-center mb-4 mt-6">
-                        <h2 className="text-lg font-bold text-crm-fg m-0">
-                            Resultados <span className="text-crm-fg-muted font-normal">({filteredSales.length})</span>
+
+                    <div className="flex items-center justify-between rounded-xl border border-crm-border bg-crm-surface p-3">
+                        <h2 className="m-0 text-sm font-bold text-crm-fg">
+                            Resultados <span className="font-normal text-crm-fg-muted">({filteredSales.length})</span>
                         </h2>
                     </div>
 
-                    <SalesTable 
-                        sales={filteredSales} 
-                        onViewDetail={handleViewDetail} 
-                    />
-                    
-                    <SaleMobileCards 
-                        sales={filteredSales} 
-                        onViewDetail={handleViewDetail} 
-                    />
+                    <SalesTable sales={filteredSales} onViewDetail={handleViewDetail} />
+                    <SaleMobileCards sales={filteredSales} onViewDetail={handleViewDetail} />
                 </>
             )}
 
-            {/* Detalle de Venta (Drawer) */}
             <SaleDetailDrawer
                 isOpen={isDrawerOpen}
                 onClose={() => {
