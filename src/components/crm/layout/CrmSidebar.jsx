@@ -10,7 +10,7 @@ const menuGroups = [
         name: 'PRINCIPAL',
         items: [
             { name: 'Dashboard', path: '/admin', icon: '📊' },
-            { name: 'Agenda', path: '/admin/agenda', icon: '📅' },
+            { name: 'Calendario', path: '/admin/agenda', icon: '📅' },
             { name: 'Mis pendientes', path: '/admin/mis-pendientes', icon: '🔔' },
             { name: 'Reportes', path: '/admin/reportes', icon: '📈' },
             { name: 'Mi Espacio', path: '/admin/mis-pendientes', icon: '📂' },

@@ -1,34 +1,30 @@
 "use client";
-import React, { useEffect, useState, useMemo } from 'react';
-import { CalendarClock, AlertCircle } from 'lucide-react';
+import React, { useEffect, useMemo, useState } from 'react';
+import { AlertCircle, CalendarClock, Plus } from 'lucide-react';
 import { useAdminLeads } from '../../../hooks/useAdminLeads';
 import { useAdminCrmTasks } from '../../../hooks/useAdminCrmTasks';
 import AgendaSummaryCards from '../../../components/crm/agenda/AgendaSummaryCards';
 import AgendaSection from '../../../components/crm/agenda/AgendaSection';
 import AgendaFilters from '../../../components/crm/agenda/AgendaFilters';
 import CrmTaskModal from '../../../components/crm/agenda/CrmTaskModal';
-import { Plus } from 'lucide-react';
 
 export default function AdminAgendaPage() {
     const { leads, loading: loadingLeads, error: errorLeads, fetchLeads, updateLead, updateTaskStatus } = useAdminLeads();
     const { tasks: crmTasks, loading: loadingTasks, error: errorTasks, fetchTasks, createTask: createCrmTask, updateTask: updateCrmTask } = useAdminCrmTasks();
-    
-    // Filters State
-    const [filters, setFilters] = useState({ 
-        search: '', 
-        status: '', 
-        priority: '', 
+
+    const [filters, setFilters] = useState({
+        search: '',
+        status: '',
+        priority: '',
         type: '',
         dueDate: '',
-        linkType: '' 
+        linkType: ''
     });
 
-    // CrmTask Modal State
     const [isCrmTaskModalOpen, setIsCrmTaskModalOpen] = useState(false);
     const [selectedTaskForEdit, setSelectedTaskForEdit] = useState(null);
 
     useEffect(() => {
-        // Fetch up to 500 leads to populate agenda properly for now
         fetchLeads({ ...filters, limit: 500 });
         fetchTasks();
         // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -78,15 +74,15 @@ export default function AdminAgendaPage() {
             }
             setIsCrmTaskModalOpen(false);
             setSelectedTaskForEdit(null);
-            await fetchTasks(); // Asegurar refresco en caliente
+            await fetchTasks();
         } catch (error) {
             console.error(error);
-            alert('No se pudo guardar la tarea. Revisá la sesión o intentá nuevamente.');
+            alert('No se pudo guardar la tarea. Revisa la sesion o intenta nuevamente.');
         }
     };
 
     const handleCancelCrmTask = async (taskId) => {
-        if (!window.confirm('¿Estás seguro de cancelar este recordatorio?')) return;
+        if (!window.confirm('Estas seguro de cancelar este recordatorio?')) return;
         try {
             await updateCrmTask(taskId, { status: 'cancelada' });
         } catch (error) {
@@ -102,47 +98,44 @@ export default function AdminAgendaPage() {
         }
     };
 
-    // --- Classification Logic ---
     const classifiedLeads = useMemo(() => {
         const today = new Date();
         today.setHours(0, 0, 0, 0);
-        
+
         const endOfToday = new Date(today);
         endOfToday.setHours(23, 59, 59, 999);
-        
+
         const next7Days = new Date(today);
         next7Days.setDate(today.getDate() + 7);
         next7Days.setHours(23, 59, 59, 999);
 
-        // Result buckets
         const overdue = [];
         const forToday = [];
         const next7 = [];
         const noAction = [];
         let totalPendingTasks = 0;
 
-        // 1. Process Legacy Leads
         const filteredLeads = leads.filter(l => {
             if (filters.status && l.crmStatus !== filters.status) return false;
             if (!filters.status && ['perdido', 'convertido'].includes(l.crmStatus)) return false;
             if (filters.type && filters.type !== 'lead') return false;
-            
+
             if (filters.search) {
                 const searchStr = filters.search.toLowerCase();
-                const matchName = (l.firstName + ' ' + l.lastName).toLowerCase().includes(searchStr);
+                const matchName = `${l.firstName || ''} ${l.lastName || ''} ${l.name || ''}`.toLowerCase().includes(searchStr);
                 const matchPhone = (l.phone || '').toLowerCase().includes(searchStr);
                 if (!matchName && !matchPhone) return false;
             }
 
             if (filters.priority && l.priority !== filters.priority) return false;
-            if (filters.linkType === 'sin_vinculo') return false; // Leads always have the lead link
-            
+            if (filters.linkType === 'sin_vinculo') return false;
+
             return true;
         });
 
         filteredLeads.forEach(lead => {
             const pendingTasks = lead.tasks ? lead.tasks.filter(t => t.status === 'pendiente') : [];
-            
+
             let isOverdue = false;
             let isToday = false;
             let isNext7 = false;
@@ -163,15 +156,13 @@ export default function AdminAgendaPage() {
                 }
             });
 
-            // Apply due date filter for leads
             if (filters.dueDate === 'vencidas' && !isOverdue) return;
             if (filters.dueDate === 'hoy' && !isToday) return;
             if (filters.dueDate === 'proximos_7' && !isNext7) return;
 
-            // Apply priority filter to tasks if available
             if (filters.priority && pendingTasks.length > 0) {
-                 const hasPriorityTask = pendingTasks.some(t => t.priority === filters.priority);
-                 if (!hasPriorityTask && lead.priority !== filters.priority) return;
+                const hasPriorityTask = pendingTasks.some(t => t.priority === filters.priority);
+                if (!hasPriorityTask && lead.priority !== filters.priority) return;
             }
 
             totalPendingTasks += pendingTasks.length;
@@ -184,20 +175,19 @@ export default function AdminAgendaPage() {
             else if (!lead.nextActionDate && pendingTasks.length === 0 && filters.dueDate === '') noAction.push(normalizedLead);
         });
 
-        // 2. Process New CrmTasks (Pendientes)
         const activeCrmTasks = crmTasks.filter(t => t.status === 'pendiente');
-        
+
         activeCrmTasks.forEach(task => {
             if (filters.type && filters.type !== task.type) return;
             if (filters.priority && filters.priority !== task.priority) return;
-            
+
             if (filters.search) {
                 const searchStr = filters.search.toLowerCase();
                 const matchTitle = (task.title || '').toLowerCase().includes(searchStr);
                 const matchDesc = (task.description || '').toLowerCase().includes(searchStr);
                 const matchClient = (task.clientId?.fullName || task.clientId?.firstName || '').toLowerCase().includes(searchStr);
                 const matchVehicle = (task.vehicleId?.brand || task.vehicleId?.name || '').toLowerCase().includes(searchStr);
-                
+
                 if (!matchTitle && !matchDesc && !matchClient && !matchVehicle) return;
             }
 
@@ -240,12 +230,11 @@ export default function AdminAgendaPage() {
             else if (filters.dueDate === '') noAction.push(normalizedTask);
         });
 
-        // Metrics calculations
         let completedRecent = 0;
         let collectionsPending = 0;
-        
+
         const recentDateLimit = new Date();
-        recentDateLimit.setDate(recentDateLimit.getDate() - 3); // last 3 days
+        recentDateLimit.setDate(recentDateLimit.getDate() - 3);
 
         crmTasks.forEach(t => {
             if (t.status === 'completada' && t.completedAt && new Date(t.completedAt) >= recentDateLimit) {
@@ -282,59 +271,61 @@ export default function AdminAgendaPage() {
     const loading = loadingLeads || loadingTasks;
 
     return (
-        <div className="flex flex-col gap-6 max-w-[1600px] mx-auto w-full pb-10">
-            {/* Header */}
-            <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-2">
+        <div className="mx-auto flex w-full max-w-7xl flex-col gap-6 p-4 pb-20 md:p-6">
+            <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
                 <div>
-                    <div className="flex items-center gap-3 mb-2">
-                        <CalendarClock className="text-red-600" size={32} />
-                        <h1 className="text-3xl font-bold text-white tracking-tight">Agenda Comercial</h1>
-                        <span className="bg-red-500/10 text-red-500 border border-red-500/20 px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider ml-2">
-                            Fase 4.2E
+                    <div className="flex flex-wrap items-center gap-2">
+                        <h1 className="m-0 text-[26px] font-bold leading-tight text-crm-fg">Calendario</h1>
+                        <span className="rounded border border-crm-red/20 bg-crm-red/10 px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.08em] text-crm-red">
+                            Operacion
                         </span>
                     </div>
-                    <p className="text-neutral-400 text-sm">
-                        Centro unificado de tareas CRM y seguimientos operativos.
+                    <p className="m-0 mt-1 text-sm text-crm-fg-muted">
+                        Tareas CRM, seguimientos y recordatorios operativos.
                     </p>
                 </div>
                 <button
+                    type="button"
                     onClick={() => setIsCrmTaskModalOpen(true)}
-                    className="flex items-center gap-2 px-4 py-2 bg-crm-red hover:bg-crm-red-hover text-white text-sm font-bold rounded-xl transition-colors shadow-lg shadow-crm-red/20"
+                    className="inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-crm-red px-4 text-sm font-bold text-white shadow-crm-red transition-colors hover:bg-crm-red-hover"
                 >
                     <Plus size={18} />
-                    Crear Tarea
+                    Crear tarea
                 </button>
             </div>
 
             <AgendaSummaryCards metrics={metrics} />
 
-            <div className="bg-black/20 p-4 md:p-6 rounded-2xl border border-neutral-800/50">
+            <div className="flex flex-col gap-5 rounded-xl border border-crm-border bg-crm-surface p-3 md:p-4">
                 <AgendaFilters filters={filters} setFilters={setFilters} onSearch={handleSearch} />
-                
+
                 {errorLeads && (
-                    <div className="bg-red-500/10 border border-red-500/20 text-red-400 p-4 rounded-xl mb-6 text-sm flex items-center gap-2">
+                    <div className="flex items-center gap-2 rounded-xl border border-crm-red/30 bg-crm-red/10 p-4 text-sm text-red-300">
                         <AlertCircle size={18} />
-                        No se pudieron cargar los datos de leads en la agenda. {errorLeads}
+                        No se pudieron cargar los datos de cotizaciones en el calendario. {errorLeads}
                     </div>
                 )}
-                
+
                 {errorTasks && !errorLeads && (
-                    <div className="bg-yellow-500/10 border border-yellow-500/20 text-yellow-500 p-4 rounded-xl mb-6 text-sm flex items-center gap-2">
+                    <div className="flex items-center gap-2 rounded-xl border border-amber-500/20 bg-amber-500/10 p-4 text-sm text-amber-200">
                         <AlertCircle size={18} />
-                        No se pudieron cargar las tareas CRM (Cobranzas). Solo verás las tareas de Leads. {errorTasks}
+                        No se pudieron cargar las tareas CRM. Solo veras las tareas de cotizaciones. {errorTasks}
                     </div>
                 )}
-                
+
                 {loading ? (
-                    <div className="flex justify-center items-center h-64">
-                        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-red-500"></div>
+                    <div className="flex h-64 items-center justify-center rounded-xl border border-crm-border bg-crm-bg">
+                        <div className="flex flex-col items-center gap-3">
+                            <div className="h-8 w-8 animate-spin rounded-full border-2 border-crm-border border-b-crm-red" />
+                            <span className="text-sm text-crm-fg-muted">Cargando calendario...</span>
+                        </div>
                     </div>
                 ) : !errorLeads ? (
-                    <div className="flex flex-col gap-6">
-                        <AgendaSection 
-                            title="Vencidos (Atención Urgente)" 
+                    <div className="flex flex-col gap-5">
+                        <AgendaSection
+                            title="Vencidos"
                             icon={AlertCircle}
-                            colorClass={{ bg: 'bg-red-500/10', border: 'border-red-500/20', text: 'text-red-500' }}
+                            colorClass={{ bg: 'bg-crm-red/10', border: 'border-crm-red/20', text: 'text-red-300' }}
                             leads={classifiedLeads.overdue}
                             onChangeStatus={handleStatusChange}
                             onCompleteTask={handleCompleteTask}
@@ -345,10 +336,10 @@ export default function AdminAgendaPage() {
                             defaultOpen={true}
                         />
 
-                        <AgendaSection 
-                            title="Para Hoy" 
+                        <AgendaSection
+                            title="Para Hoy"
                             icon={CalendarClock}
-                            colorClass={{ bg: 'bg-blue-500/10', border: 'border-blue-500/20', text: 'text-blue-500' }}
+                            colorClass={{ bg: 'bg-blue-500/10', border: 'border-blue-500/20', text: 'text-blue-300' }}
                             leads={classifiedLeads.forToday}
                             onChangeStatus={handleStatusChange}
                             onCompleteTask={handleCompleteTask}
@@ -359,10 +350,10 @@ export default function AdminAgendaPage() {
                             defaultOpen={true}
                         />
 
-                        <AgendaSection 
-                            title="Próximos 7 Días" 
+                        <AgendaSection
+                            title="Proximos 7 Dias"
                             icon={CalendarClock}
-                            colorClass={{ bg: 'bg-purple-500/10', border: 'border-purple-500/20', text: 'text-purple-500' }}
+                            colorClass={{ bg: 'bg-purple-500/10', border: 'border-purple-500/20', text: 'text-purple-300' }}
                             leads={classifiedLeads.next7}
                             onChangeStatus={handleStatusChange}
                             onCompleteTask={handleCompleteTask}
@@ -373,8 +364,8 @@ export default function AdminAgendaPage() {
                             defaultOpen={false}
                         />
 
-                        <AgendaSection 
-                            title="Sin Acción Programada (Solo Leads)" 
+                        <AgendaSection
+                            title="Sin Accion Programada"
                             icon={AlertCircle}
                             colorClass={{ bg: 'bg-crm-bg', border: 'border-crm-border', text: 'text-crm-fg-muted' }}
                             leads={classifiedLeads.noAction.filter(l => !l.isCrmTask)}
@@ -386,7 +377,7 @@ export default function AdminAgendaPage() {
                 ) : null}
             </div>
 
-            <CrmTaskModal 
+            <CrmTaskModal
                 isOpen={isCrmTaskModalOpen}
                 onClose={() => {
                     setIsCrmTaskModalOpen(false);

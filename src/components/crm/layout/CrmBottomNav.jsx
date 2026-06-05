@@ -10,7 +10,7 @@ export default function CrmBottomNav({ isHidden = false }) {
         { name: 'Stock', path: '/admin/stock', icon: '🚗' },
         { name: 'Clientes', path: '/admin/clientes', icon: '👥' },
         { name: 'Ventas', path: '/admin/ventas', icon: '💼' },
-        { name: 'Agenda', path: '/admin/agenda', icon: '📅' },
+        { name: 'Calendario', path: '/admin/agenda', icon: '📅' },
     ];
 
     return (
