@@ -19,7 +19,7 @@ export default function LeadActivityPanel({ lead }) {
                         <History size={28} className="mb-4 text-crm-fg-muted" />
                         <span className="font-semibold text-crm-fg">Sin historial</span>
                         <p className="m-0 mt-2 max-w-xs text-sm text-crm-fg-muted">
-                            Todavia no hay movimientos registrados para este lead.
+                            Todavia no hay movimientos registrados para esta cotizacion.
                         </p>
                     </div>
                 ) : (

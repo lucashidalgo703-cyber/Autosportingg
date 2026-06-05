@@ -21,7 +21,7 @@ const menuGroups = [
         items: [
             { name: 'Stock', path: '/admin/stock', icon: '🚗' },
             { name: 'Clientes', path: '/admin/clientes', icon: '👥' },
-            { name: 'Leads', path: '/admin/leads', icon: '📝' },
+            { name: 'Cotizaciones', path: '/admin/leads', icon: '📝' },
             { name: 'Ventas', path: '/admin/ventas', icon: '💼' },
             { name: 'Reservas', path: '/admin/reservas', icon: '🔍' },
         ]

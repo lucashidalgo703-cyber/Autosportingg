@@ -38,7 +38,7 @@ export default function LeadKanbanColumn({ title, status, leads, onChangeStatus 
 
                 {leads.length === 0 && (
                     <div className="m-2 flex flex-1 items-center justify-center rounded-xl border border-dashed border-crm-border bg-crm-bg">
-                        <span className="text-xs font-semibold text-crm-fg-muted">Sin leads</span>
+                        <span className="text-xs font-semibold text-crm-fg-muted">Sin cotizaciones</span>
                     </div>
                 )}
             </div>

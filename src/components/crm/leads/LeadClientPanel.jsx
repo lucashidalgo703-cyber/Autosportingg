@@ -71,7 +71,7 @@ export default function LeadClientPanel({ lead, onOpenLinkModal }) {
                     </div>
                     <h4 className="m-0 mb-2 font-bold text-crm-fg">Posible cliente relacionado</h4>
                     <p className="m-0 mb-4 max-w-[220px] text-sm text-crm-fg-muted">
-                        Este lead todavia no esta vinculado a un perfil de cliente real.
+                        Esta cotizacion todavia no esta vinculada a un perfil de cliente real.
                     </p>
                     <CrmButton type="button" variant="secondary" onClick={onOpenLinkModal} className="w-full gap-2">
                         <LinkIcon size={16} />

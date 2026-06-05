@@ -26,7 +26,7 @@ export default function LeadMobileCards({ leads }) {
     return (
         <div className="flex flex-col gap-4">
             <div className="rounded-xl border border-crm-border bg-crm-surface p-3 text-sm font-semibold text-crm-fg">
-                {leads.length} {leads.length === 1 ? 'lead' : 'leads'} en lista
+                {leads.length} {leads.length === 1 ? 'cotizacion' : 'cotizaciones'} en lista
                 <span className="mx-1 text-crm-fg-muted">·</span>
                 <span className="text-crm-fg-muted">Seguimiento comercial</span>
             </div>

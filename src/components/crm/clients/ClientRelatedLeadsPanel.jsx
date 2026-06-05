@@ -18,7 +18,7 @@ export default function ClientRelatedLeadsPanel({ client }) {
         <div className="flex h-full flex-col rounded-xl border border-crm-border bg-crm-surface p-5">
             <h3 className="m-0 mb-5 flex items-center gap-2 text-lg font-bold text-crm-fg">
                 <Target size={19} className="text-crm-red" />
-                Oportunidades asociadas
+                Cotizaciones asociadas
             </h3>
 
             {loading ? (
@@ -34,9 +34,9 @@ export default function ClientRelatedLeadsPanel({ client }) {
                     <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-xl border border-crm-border bg-crm-surface text-crm-fg-muted">
                         <AlertCircle size={24} />
                     </div>
-                    <h4 className="m-0 mb-2 font-bold text-crm-fg">Sin oportunidades</h4>
+                    <h4 className="m-0 mb-2 font-bold text-crm-fg">Sin cotizaciones</h4>
                     <p className="m-0 text-sm text-crm-fg-muted">
-                        Este cliente no tiene leads ni oportunidades vinculadas.
+                        Este cliente no tiene cotizaciones vinculadas.
                     </p>
                 </div>
             ) : (
@@ -80,7 +80,7 @@ export default function ClientRelatedLeadsPanel({ client }) {
                                     href={`/admin/leads/${lead._id}`}
                                     className="flex items-center gap-1 text-xs font-semibold text-crm-red no-underline transition-colors hover:text-red-300"
                                 >
-                                    Ver lead
+                                    Ver cotizacion
                                     <ArrowRight size={12} />
                                 </Link>
                             </div>

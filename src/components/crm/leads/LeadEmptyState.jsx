@@ -8,12 +8,12 @@ export default function LeadEmptyState({ hasFilters }) {
                 <Target size={20} />
             </div>
             <h3 className="m-0 text-lg font-bold text-crm-fg">
-                {hasFilters ? 'No se encontraron resultados' : 'No hay oportunidades registradas'}
+                {hasFilters ? 'No se encontraron resultados' : 'No hay cotizaciones registradas'}
             </h3>
             <p className="m-0 mt-2 max-w-md text-sm leading-6 text-crm-fg-muted">
                 {hasFilters
-                    ? 'Ajusta los filtros de busqueda para encontrar el lead que necesitas.'
-                    : 'Las oportunidades provenientes de formularios web y WhatsApp apareceran automaticamente aca.'}
+                    ? 'Ajusta los filtros de busqueda para encontrar la cotizacion que necesitas.'
+                    : 'Las cotizaciones provenientes de formularios web y WhatsApp apareceran automaticamente aca.'}
             </p>
         </div>
     );

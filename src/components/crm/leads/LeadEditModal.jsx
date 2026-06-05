@@ -74,7 +74,7 @@ export default function LeadEditModal({ isOpen, onClose, onSave, lead }) {
                 
                 {/* Header */}
                 <div className="flex shrink-0 items-center justify-between border-b border-crm-border bg-crm-topbar p-5">
-                    <h2 className="m-0 text-lg font-bold text-crm-fg">Editar oportunidad</h2>
+                    <h2 className="m-0 text-lg font-bold text-crm-fg">Editar cotizacion</h2>
                     <button 
                         type="button"
                         onClick={onClose} 

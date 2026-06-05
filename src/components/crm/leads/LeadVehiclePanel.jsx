@@ -61,7 +61,7 @@ export default function LeadVehiclePanel({ lead }) {
                     </div>
                     <h4 className="m-0 mb-2 font-bold text-crm-fg">Sin vehiculo</h4>
                     <p className="m-0 max-w-[220px] text-sm text-crm-fg-muted">
-                        Esta oportunidad no esta asociada a un vehiculo especifico del stock.
+                        Esta cotizacion no esta asociada a un vehiculo especifico del stock.
                     </p>
                 </div>
             )}

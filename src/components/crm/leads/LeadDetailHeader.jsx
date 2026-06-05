@@ -31,7 +31,7 @@ export default function LeadDetailHeader({ lead, onEdit, onReserve, onCancelRese
                         <Link
                             href="/admin/leads"
                             className="flex h-9 w-9 items-center justify-center rounded-lg border border-crm-border bg-crm-bg text-crm-fg-muted no-underline transition-colors hover:bg-crm-surface-raised hover:text-crm-fg"
-                            title="Volver a leads"
+                            title="Volver a cotizaciones"
                         >
                             <ArrowLeft size={18} />
                         </Link>
@@ -93,7 +93,7 @@ export default function LeadDetailHeader({ lead, onEdit, onReserve, onCancelRese
 
                     <CrmButton type="button" variant="secondary" size="sm" onClick={onEdit} className="flex-1 gap-2 lg:flex-none">
                         <Edit size={15} />
-                        Editar lead
+                        Editar cotizacion
                     </CrmButton>
                 </div>
             </div>

@@ -138,7 +138,7 @@ export default function AdminLeadDetailPage() {
             <div className="mx-auto flex h-[50vh] w-full max-w-7xl items-center justify-center p-4 md:p-6">
                 <div className="flex max-w-xl items-center gap-3 rounded-xl border border-crm-red/30 bg-crm-red/10 p-6 text-red-300">
                     <AlertCircle size={24} />
-                    <p>{fetchError || 'No se encontró la oportunidad comercial solicitada.'}</p>
+                    <p>{fetchError || 'No se encontro la cotizacion solicitada.'}</p>
                 </div>
             </div>
         );
