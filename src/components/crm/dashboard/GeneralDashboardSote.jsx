@@ -526,7 +526,7 @@ export default function GeneralDashboardSote({ metrics, canSeeFinancials = false
             detail: '',
             icon: Bell,
             tone: alertCount > 0 ? 'red' : 'slate',
-            href: '/admin/mis-pendientes'
+            href: '/admin/alertas'
         },
         {
             label: 'Ticket promedio (USD)',

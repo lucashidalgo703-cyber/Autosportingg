@@ -66,6 +66,12 @@ const menuGroups = [
     }
 ];
 
+menuGroups[0].items[2] = {
+    ...menuGroups[0].items[2],
+    name: 'Alertas',
+    path: '/admin/alertas'
+};
+
 export default function CrmSidebar({ isOpen, onClose }) {
     const pathname = usePathname();
     const { user } = useAuth();
