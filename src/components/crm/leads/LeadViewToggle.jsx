@@ -1,33 +1,35 @@
 import React from 'react';
-import { List, KanbanSquare } from 'lucide-react';
+import { KanbanSquare, List } from 'lucide-react';
 
 export default function LeadViewToggle({ view, setView }) {
+    const items = [
+        { id: 'list', label: 'Lista', icon: List },
+        { id: 'kanban', label: 'Kanban', icon: KanbanSquare }
+    ];
+
     return (
-        <div className="flex items-center gap-1 bg-neutral-900 border border-neutral-800 p-1 rounded-lg">
-            <button
-                onClick={() => setView('list')}
-                className={`flex items-center gap-2 px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
-                    view === 'list' 
-                    ? 'bg-neutral-800 text-white' 
-                    : 'text-neutral-500 hover:text-neutral-300'
-                }`}
-                title="Vista Lista"
-            >
-                <List size={16} />
-                Lista
-            </button>
-            <button
-                onClick={() => setView('kanban')}
-                className={`flex items-center gap-2 px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
-                    view === 'kanban' 
-                    ? 'bg-neutral-800 text-white' 
-                    : 'text-neutral-500 hover:text-neutral-300'
-                }`}
-                title="Vista Kanban"
-            >
-                <KanbanSquare size={16} />
-                Kanban
-            </button>
+        <div className="inline-flex h-9 rounded-lg border border-crm-border bg-crm-surface p-1">
+            {items.map(item => {
+                const Icon = item.icon;
+                const active = view === item.id;
+
+                return (
+                    <button
+                        key={item.id}
+                        type="button"
+                        onClick={() => setView(item.id)}
+                        className={`m-0 inline-flex appearance-none items-center gap-2 rounded-md border-0 px-3 text-xs font-semibold transition-colors ${
+                            active
+                                ? 'bg-crm-red/10 text-crm-red'
+                                : 'bg-transparent text-crm-fg-muted hover:bg-crm-surface-raised hover:text-crm-fg'
+                        }`}
+                        title={`Vista ${item.label}`}
+                    >
+                        <Icon size={15} />
+                        {item.label}
+                    </button>
+                );
+            })}
         </div>
     );
 }

@@ -1,19 +1,16 @@
 import React from 'react';
 
 export default function LeadPriorityBadge({ priority }) {
-    const p = priority || 'media';
-    
+    const value = priority || 'media';
     const styles = {
-        alta: 'bg-red-500/10 text-red-500 border-red-500/20',
-        media: 'bg-yellow-500/10 text-yellow-500 border-yellow-500/20',
-        baja: 'bg-neutral-800 text-neutral-400 border-neutral-700'
+        alta: 'border-crm-red/20 bg-crm-red/10 text-red-300',
+        media: 'border-amber-500/20 bg-amber-500/10 text-amber-300',
+        baja: 'border-crm-border bg-crm-bg text-crm-fg-muted'
     };
 
-    const className = styles[p];
-
     return (
-        <span className={`text-[10px] font-bold px-2 py-0.5 rounded border capitalize ${className}`}>
-            {p}
+        <span className={`rounded border px-2 py-0.5 text-[10px] font-bold capitalize ${styles[value] || styles.media}`}>
+            {value}
         </span>
     );
 }

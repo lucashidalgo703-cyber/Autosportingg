@@ -127,16 +127,16 @@ export default function AdminLeadDetailPage() {
 
     if (loading && !lead) {
         return (
-            <div className="flex justify-center items-center h-[50vh]">
-                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-red-500"></div>
+            <div className="mx-auto flex h-[50vh] w-full max-w-7xl items-center justify-center p-4 md:p-6">
+                <div className="h-8 w-8 animate-spin rounded-full border-2 border-crm-border border-b-crm-red" />
             </div>
         );
     }
 
     if (fetchError || (!loading && !lead)) {
         return (
-            <div className="flex items-center justify-center h-[50vh]">
-                <div className="bg-red-500/10 border border-red-500/20 text-red-400 p-6 rounded-xl flex items-center gap-3 max-w-xl">
+            <div className="mx-auto flex h-[50vh] w-full max-w-7xl items-center justify-center p-4 md:p-6">
+                <div className="flex max-w-xl items-center gap-3 rounded-xl border border-crm-red/30 bg-crm-red/10 p-6 text-red-300">
                     <AlertCircle size={24} />
                     <p>{fetchError || 'No se encontró la oportunidad comercial solicitada.'}</p>
                 </div>
@@ -145,7 +145,7 @@ export default function AdminLeadDetailPage() {
     }
 
     return (
-        <div className="flex flex-col gap-6 max-w-[1600px] mx-auto w-full pb-10">
+        <div className="mx-auto flex w-full max-w-7xl flex-col gap-6 p-4 pb-20 md:p-6">
             <LeadDetailHeader 
                 lead={lead} 
                 onEdit={() => setIsEditModalOpen(true)} 

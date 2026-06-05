@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { X, Search, Link as LinkIcon, User, AlertCircle, Phone, Mail, MapPin } from 'lucide-react';
+import React, { useEffect, useState } from 'react';
+import { AlertCircle, Link as LinkIcon, Mail, MapPin, Phone, Search, User, X } from 'lucide-react';
 import { useAdminClients } from '../../../hooks/useAdminClients';
 
 export default function LeadLinkClientModal({ isOpen, onClose, onLink, lead }) {
@@ -8,28 +8,24 @@ export default function LeadLinkClientModal({ isOpen, onClose, onLink, lead }) {
     const [isLinking, setIsLinking] = useState(false);
     const [linkError, setLinkError] = useState(null);
 
-    // Initial search suggestion based on lead phone or email
     useEffect(() => {
         if (isOpen && lead) {
             setSearchTerm('');
             const initialSearch = lead.phone || lead.email || '';
-            
-            // We use the initialSearch just as a default value in the input,
-            // or we could fetch right away. Let's fetch if there is something.
+
             if (initialSearch) {
                 setSearchTerm(initialSearch);
                 fetchClients({ search: initialSearch });
             } else {
-                fetchClients(); // fetch last created
+                fetchClients();
             }
             setLinkError(null);
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [isOpen, lead]);
 
-    // Handle manual search
-    const handleSearchSubmit = (e) => {
-        e.preventDefault();
+    const handleSearchSubmit = (event) => {
+        event.preventDefault();
         fetchClients({ search: searchTerm });
     };
 
@@ -48,98 +44,92 @@ export default function LeadLinkClientModal({ isOpen, onClose, onLink, lead }) {
 
     if (!isOpen || !lead) return null;
 
-    // Check if the search term matches lead exactly for suggestion visual cue
     const isSuggestion = searchTerm === lead.phone || searchTerm === lead.email;
 
     return (
-        <div className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4 backdrop-blur-sm overflow-y-auto">
-            <div className="bg-crm-surface border border-crm-border rounded-2xl w-full max-w-3xl flex flex-col my-auto max-h-[90vh]">
-                
-                {/* Header */}
-                <div className="flex justify-between items-center p-6 border-b border-crm-border bg-crm-surface shrink-0 rounded-t-2xl">
+        <div className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-black/80 p-4 backdrop-blur-sm">
+            <div className="my-auto flex max-h-[90vh] w-full max-w-3xl flex-col rounded-xl border border-crm-border bg-crm-surface">
+                <div className="flex shrink-0 items-center justify-between border-b border-crm-border bg-crm-topbar p-5">
                     <div>
-                        <h2 className="text-xl font-bold text-white flex items-center gap-2">
+                        <h2 className="m-0 flex items-center gap-2 text-lg font-bold text-crm-fg">
                             <LinkIcon size={20} className="text-crm-red" />
-                            Vincular Oportunidad a Cliente Real
+                            Vincular oportunidad a cliente real
                         </h2>
-                        <p className="text-sm text-crm-fg-muted mt-1">
-                            Buscá un cliente existente para asignarle esta oportunidad.
+                        <p className="m-0 mt-1 text-sm text-crm-fg-muted">
+                            Busca un cliente existente para asignarle esta oportunidad.
                         </p>
                     </div>
-                    <button 
-                        onClick={onClose} 
-                        className="p-2 rounded-lg hover:bg-crm-surface-raised text-crm-fg-muted hover:text-crm-fg transition-colors"
+                    <button
+                        type="button"
+                        onClick={onClose}
+                        className="m-0 flex h-9 w-9 appearance-none items-center justify-center rounded-lg border border-transparent bg-transparent text-crm-fg-muted transition-colors hover:bg-crm-surface hover:text-crm-fg"
                     >
-                        <X size={20} />
+                        <X size={19} />
                     </button>
                 </div>
 
-                {/* Body */}
-                <div className="p-6 overflow-y-auto custom-scrollbar flex-1 flex flex-col gap-6">
-                    
+                <div className="flex flex-1 flex-col gap-6 overflow-y-auto p-5 custom-scrollbar">
                     {linkError && (
-                        <div className="bg-red-500/10 border border-red-500/20 text-red-400 p-4 rounded-xl text-sm flex items-start gap-3 shrink-0">
-                            <AlertCircle size={18} className="shrink-0 mt-0.5" />
+                        <div className="flex shrink-0 items-start gap-3 rounded-xl border border-crm-red/20 bg-crm-red/10 p-4 text-sm text-red-300">
+                            <AlertCircle size={18} className="mt-0.5 shrink-0" />
                             <span>{linkError}</span>
                         </div>
                     )}
 
-                    {/* Search Bar */}
                     <form onSubmit={handleSearchSubmit} className="relative shrink-0">
                         <Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-crm-fg-muted" />
-                        <input 
-                            type="text" 
-                            placeholder="Buscar cliente por nombre, teléfono o email..." 
+                        <input
+                            type="text"
+                            placeholder="Buscar cliente por nombre, telefono o email..."
                             value={searchTerm}
-                            onChange={(e) => setSearchTerm(e.target.value)}
-                            className="w-full bg-crm-bg border border-crm-border rounded-lg pl-10 pr-24 py-3 text-crm-fg focus:outline-none focus:border-crm-red focus:ring-1 focus:ring-crm-red transition-colors"
+                            onChange={(event) => setSearchTerm(event.target.value)}
+                            className="w-full rounded-lg border border-crm-border bg-crm-bg py-3 pl-10 pr-24 text-crm-fg transition-colors focus:border-crm-red focus:outline-none focus:ring-1 focus:ring-crm-red"
                         />
-                        <button 
-                            type="submit" 
-                            className="absolute right-1.5 top-1/2 -translate-y-1/2 bg-crm-red hover:bg-crm-red-hover text-white text-xs font-bold px-4 py-1.5 rounded-md transition-colors"
+                        <button
+                            type="submit"
+                            className="absolute right-1.5 top-1/2 rounded-md bg-crm-red px-4 py-1.5 text-xs font-bold text-white transition-colors -translate-y-1/2 hover:bg-crm-red-hover"
                         >
                             Buscar
                         </button>
                     </form>
 
-                    {/* Results Area */}
-                    <div className="flex flex-col gap-3 flex-1">
+                    <div className="flex flex-1 flex-col gap-3">
                         {loading ? (
-                            <div className="flex justify-center items-center h-40">
-                                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-crm-red"></div>
+                            <div className="flex h-40 items-center justify-center">
+                                <div className="h-8 w-8 animate-spin rounded-full border-2 border-crm-border border-b-crm-red" />
                             </div>
                         ) : error ? (
-                            <div className="text-center text-red-400 p-4 border border-red-500/20 rounded-xl bg-red-500/5">
+                            <div className="rounded-xl border border-crm-red/20 bg-crm-red/10 p-4 text-center text-red-300">
                                 {error}
                             </div>
                         ) : clients.length === 0 ? (
-                            <div className="flex flex-col items-center justify-center text-center py-10 opacity-50">
-                                <User size={40} className="text-crm-fg-muted mb-4" />
-                                <span className="text-white font-medium">Sin resultados</span>
-                                <p className="text-sm text-crm-fg-muted max-w-xs mt-2">
-                                    No se encontraron clientes con esos datos. Deberás crearlo primero en el listado de clientes.
+                            <div className="flex flex-col items-center justify-center py-10 text-center">
+                                <User size={40} className="mb-4 text-crm-fg-muted" />
+                                <span className="font-semibold text-crm-fg">Sin resultados</span>
+                                <p className="m-0 mt-2 max-w-xs text-sm text-crm-fg-muted">
+                                    No se encontraron clientes con esos datos. Primero crealo en el listado de clientes.
                                 </p>
                             </div>
                         ) : (
                             <>
                                 {isSuggestion && clients.length > 0 && (
-                                    <span className="text-xs font-bold text-crm-red bg-crm-red/10 px-3 py-1 rounded w-max border border-crm-red/20 mb-2">
-                                        Sugerencias automáticas por coincidencia
+                                    <span className="mb-2 w-max rounded border border-crm-red/20 bg-crm-red/10 px-3 py-1 text-xs font-bold text-crm-red">
+                                        Sugerencias automaticas por coincidencia
                                     </span>
                                 )}
-                                
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+
+                                <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                                     {clients.map(client => (
-                                        <div key={client._id} className="bg-crm-surface-raised border border-crm-border p-4 rounded-xl flex flex-col gap-3 hover:border-crm-red/50 transition-colors group">
-                                            <div className="flex justify-between items-start">
+                                        <div key={client._id} className="flex flex-col gap-3 rounded-xl border border-crm-border bg-crm-bg p-4 transition-colors hover:border-crm-red/50">
+                                            <div className="flex items-start justify-between">
                                                 <div className="flex items-center gap-2">
-                                                    <div className="w-8 h-8 rounded-full bg-crm-red/10 flex items-center justify-center border border-crm-red/20">
-                                                        <User size={14} className="text-crm-red" />
+                                                    <div className="flex h-8 w-8 items-center justify-center rounded-lg border border-crm-red/20 bg-crm-red/10 text-crm-red">
+                                                        <User size={14} />
                                                     </div>
                                                     <div>
-                                                        <span className="text-white font-bold block">{client.fullName || client.firstName}</span>
-                                                        <span className="text-[10px] uppercase bg-crm-bg text-crm-fg-muted border border-crm-border px-1.5 py-0.5 rounded">
-                                                            {client.type || 'Físico'}
+                                                        <span className="block font-bold text-crm-fg">{client.fullName || client.firstName}</span>
+                                                        <span className="rounded border border-crm-border bg-crm-surface px-1.5 py-0.5 text-[10px] uppercase text-crm-fg-muted">
+                                                            {client.type || 'Fisico'}
                                                         </span>
                                                     </div>
                                                 </div>
@@ -147,24 +137,28 @@ export default function LeadLinkClientModal({ isOpen, onClose, onLink, lead }) {
 
                                             <div className="flex flex-col gap-1 text-xs text-crm-fg-muted">
                                                 <div className="flex items-center gap-2">
-                                                    <Phone size={12} /> {client.phone}
+                                                    <Phone size={12} />
+                                                    {client.phone || '--'}
                                                 </div>
                                                 {client.email && (
                                                     <div className="flex items-center gap-2">
-                                                        <Mail size={12} /> {client.email}
+                                                        <Mail size={12} />
+                                                        {client.email}
                                                     </div>
                                                 )}
                                                 {client.locality && (
                                                     <div className="flex items-center gap-2">
-                                                        <MapPin size={12} /> {client.locality}
+                                                        <MapPin size={12} />
+                                                        {client.locality}
                                                     </div>
                                                 )}
                                             </div>
 
-                                            <button 
+                                            <button
+                                                type="button"
                                                 onClick={() => handleLink(client._id)}
                                                 disabled={isLinking}
-                                                className="mt-2 w-full py-2 rounded-lg bg-crm-red/10 hover:bg-crm-red text-crm-red hover:text-white font-medium text-sm transition-all border border-crm-red/20 flex items-center justify-center gap-2 disabled:opacity-50"
+                                                className="mt-2 flex w-full items-center justify-center gap-2 rounded-lg border border-crm-red/20 bg-crm-red/10 py-2 text-sm font-semibold text-crm-red transition-all hover:bg-crm-red hover:text-white disabled:opacity-50"
                                             >
                                                 <LinkIcon size={14} />
                                                 Vincular este cliente
@@ -175,7 +169,6 @@ export default function LeadLinkClientModal({ isOpen, onClose, onLink, lead }) {
                             </>
                         )}
                     </div>
-
                 </div>
             </div>
         </div>

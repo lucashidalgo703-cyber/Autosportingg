@@ -1,6 +1,7 @@
 import React from 'react';
-import { User, Mail, Phone, ArrowRight, UserX, Link as LinkIcon, RefreshCw } from 'lucide-react';
 import Link from 'next/link';
+import { ArrowRight, Link as LinkIcon, Mail, Phone, RefreshCw, User, UserX } from 'lucide-react';
+import CrmButton from '../ui/CrmButton';
 
 export default function LeadClientPanel({ lead, onOpenLinkModal }) {
     if (!lead) return null;
@@ -8,81 +9,74 @@ export default function LeadClientPanel({ lead, onOpenLinkModal }) {
     const hasClient = Boolean(lead.clientId);
 
     return (
-        <div className="bg-neutral-900 border border-neutral-800 rounded-2xl p-6 h-full flex flex-col">
-            <div className="flex justify-between items-center mb-6">
-                <h3 className="text-lg font-bold text-white flex items-center gap-2">
-                    <User size={20} className="text-blue-500" />
-                    Cliente Asociado
+        <div className="flex h-full flex-col rounded-xl border border-crm-border bg-crm-surface p-5">
+            <div className="mb-5 flex items-center justify-between gap-3">
+                <h3 className="m-0 flex items-center gap-2 text-lg font-bold text-crm-fg">
+                    <User size={19} className="text-blue-300" />
+                    Cliente asociado
                 </h3>
                 {!hasClient && (
-                    <span className="text-[10px] font-bold px-2 py-0.5 rounded border border-orange-500/20 bg-orange-500/10 text-orange-400">
-                        SIN VINCULAR
+                    <span className="rounded border border-amber-500/20 bg-amber-500/10 px-2 py-0.5 text-[10px] font-bold uppercase text-amber-300">
+                        Sin vincular
                     </span>
                 )}
             </div>
 
             {hasClient ? (
-                <div className="flex flex-col gap-4 flex-1">
-                    <div className="bg-black/30 border border-blue-500/20 rounded-xl p-4 flex flex-col gap-3">
+                <div className="flex flex-1 flex-col gap-4">
+                    <div className="flex flex-col gap-3 rounded-xl border border-blue-500/20 bg-blue-500/10 p-4">
                         <div className="flex items-center gap-3">
-                            <div className="w-10 h-10 rounded-full bg-blue-500/10 flex items-center justify-center border border-blue-500/20 shrink-0">
-                                <User size={20} className="text-blue-500" />
+                            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-blue-500/20 bg-blue-500/10 text-blue-300">
+                                <User size={20} />
                             </div>
-                            <div className="flex flex-col">
-                                <span className="text-white font-bold text-lg">{lead.clientId.fullName || lead.clientId.firstName}</span>
-                                <span className="text-xs text-blue-400">Perfil Principal CRM</span>
+                            <div className="min-w-0">
+                                <span className="block truncate text-lg font-bold text-crm-fg">{lead.clientId.fullName || lead.clientId.firstName}</span>
+                                <span className="text-xs text-blue-300">Perfil principal CRM</span>
                             </div>
                         </div>
 
-                        <div className="h-px w-full bg-neutral-800/50 my-1"></div>
+                        <div className="h-px w-full bg-crm-border" />
 
-                        <div className="flex items-center gap-3 text-sm text-neutral-300">
-                            <Phone size={16} className="text-neutral-500 shrink-0" />
-                            <span>{lead.clientId.phone}</span>
+                        <div className="flex items-center gap-3 text-sm text-crm-fg-muted">
+                            <Phone size={16} className="shrink-0" />
+                            <span>{lead.clientId.phone || '--'}</span>
                         </div>
 
                         {lead.clientId.email && (
-                            <div className="flex items-center gap-3 text-sm text-neutral-300">
-                                <Mail size={16} className="text-neutral-500 shrink-0" />
+                            <div className="flex items-center gap-3 text-sm text-crm-fg-muted">
+                                <Mail size={16} className="shrink-0" />
                                 <span className="truncate">{lead.clientId.email}</span>
                             </div>
                         )}
                     </div>
 
-                    <div className="mt-auto pt-4 flex flex-col gap-2">
-                        <Link 
-                            href={`/admin/clientes/${lead.clientId._id}`}
-                            className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-medium transition-colors border border-blue-500"
-                        >
-                            Ver Perfil del Cliente
-                            <ArrowRight size={16} />
+                    <div className="mt-auto flex flex-col gap-2 pt-2">
+                        <Link href={`/admin/clientes/${lead.clientId._id}`} className="no-underline">
+                            <CrmButton type="button" variant="secondary" className="w-full gap-2">
+                                Ver perfil del cliente
+                                <ArrowRight size={16} />
+                            </CrmButton>
                         </Link>
-                        
-                        <button 
-                            onClick={onOpenLinkModal}
-                            className="w-full flex items-center justify-center gap-2 px-4 py-2 rounded-lg bg-neutral-900 hover:bg-neutral-800 text-neutral-400 hover:text-white transition-colors border border-neutral-800 text-sm"
-                        >
+
+                        <CrmButton type="button" variant="ghost" onClick={onOpenLinkModal} className="w-full gap-2">
                             <RefreshCw size={14} />
-                            Cambiar Cliente Vinculado
-                        </button>
+                            Cambiar cliente vinculado
+                        </CrmButton>
                     </div>
                 </div>
             ) : (
-                <div className="flex-1 flex flex-col items-center justify-center text-center p-6 border-2 border-dashed border-neutral-800 rounded-xl bg-neutral-900/50">
-                    <div className="w-16 h-16 rounded-full bg-neutral-800 flex items-center justify-center mb-4">
-                        <UserX size={32} className="text-neutral-500" />
+                <div className="flex flex-1 flex-col items-center justify-center rounded-xl border border-dashed border-crm-border bg-crm-bg p-6 text-center">
+                    <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-xl border border-crm-border bg-crm-surface text-crm-fg-muted">
+                        <UserX size={24} />
                     </div>
-                    <h4 className="text-white font-bold mb-2">Posible cliente relacionado</h4>
-                    <p className="text-sm text-neutral-400 max-w-[200px] mb-4">
-                        Este lead todavía no está vinculado a un perfil de cliente real. Buscá o sugerimos coincidencias.
+                    <h4 className="m-0 mb-2 font-bold text-crm-fg">Posible cliente relacionado</h4>
+                    <p className="m-0 mb-4 max-w-[220px] text-sm text-crm-fg-muted">
+                        Este lead todavia no esta vinculado a un perfil de cliente real.
                     </p>
-                    <button 
-                        onClick={onOpenLinkModal}
-                        className="flex items-center justify-center gap-2 text-sm text-blue-400 hover:text-white bg-blue-500/10 hover:bg-blue-500/20 px-4 py-2.5 rounded-lg border border-blue-500/20 transition-colors w-full font-bold"
-                    >
+                    <CrmButton type="button" variant="secondary" onClick={onOpenLinkModal} className="w-full gap-2">
                         <LinkIcon size={16} />
-                        Vincular Cliente
-                    </button>
+                        Vincular cliente
+                    </CrmButton>
                 </div>
             )}
         </div>

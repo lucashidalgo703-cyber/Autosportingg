@@ -1,131 +1,161 @@
-import React, { useState } from 'react';
-import { Search, Filter, X } from 'lucide-react';
-import { CrmIconButton } from '../ui/CrmButton';
-import CrmInput from '../ui/CrmInput';
-import CrmSelect from '../ui/CrmSelect';
+import React, { useEffect, useState } from 'react';
+import { Filter, Search, X } from 'lucide-react';
+import CrmButton from '../ui/CrmButton';
+
+const statusTabs = [
+    { id: '', label: 'Todos' },
+    { id: 'nuevo', label: 'Nuevo' },
+    { id: 'contactado', label: 'Contactado' },
+    { id: 'interesado', label: 'Interesado' },
+    { id: 'seguimiento', label: 'Seguimiento' },
+    { id: 'reservado', label: 'Reservado' },
+    { id: 'convertido', label: 'Convertido' },
+    { id: 'perdido', label: 'Perdido' }
+];
+
+const priorityChips = [
+    { id: '', icon: '•', label: 'Todas', idle: 'border-crm-fg-subtle/40 bg-crm-surface text-crm-fg-muted hover:border-crm-border-strong' },
+    { id: 'alta', icon: '!', label: 'Alta', idle: 'border-crm-red/40 bg-crm-surface text-red-300 hover:border-crm-red/70' },
+    { id: 'media', icon: '↗', label: 'Media', idle: 'border-amber-500/40 bg-crm-surface text-amber-300 hover:border-amber-400/70' },
+    { id: 'baja', icon: '○', label: 'Baja', idle: 'border-crm-fg-subtle/40 bg-crm-surface text-crm-fg-muted hover:border-crm-border-strong' }
+];
+
 export default function LeadFilters({ filters, setFilters, onSearch }) {
     const [localSearch, setLocalSearch] = useState(filters.search || '');
 
-    const handleSearchSubmit = (e) => {
-        e.preventDefault();
-        const newFilters = { ...filters, search: localSearch };
-        setFilters(newFilters);
-        onSearch(newFilters);
+    useEffect(() => {
+        setLocalSearch(filters.search || '');
+    }, [filters.search]);
+
+    const applyFilters = (nextFilters) => {
+        setFilters(nextFilters);
+        onSearch(nextFilters);
     };
 
-    const handleFilterChange = (key, value) => {
-        const newFilters = { ...filters, [key]: value };
-        setFilters(newFilters);
-        onSearch(newFilters);
+    const handleSearchSubmit = (event) => {
+        event.preventDefault();
+        applyFilters({ ...filters, search: localSearch });
     };
 
     const clearFilters = () => {
-        const cleared = { search: '', crmStatus: '', priority: '', source: '', sourceDetail: '', unlinked: '' };
         setLocalSearch('');
-        setFilters(cleared);
-        onSearch(cleared);
+        applyFilters({ search: '', crmStatus: '', priority: '', source: '', sourceDetail: '', unlinked: '' });
     };
 
     const hasActiveFilters = filters.search || filters.crmStatus || filters.priority || filters.source || filters.sourceDetail || filters.unlinked;
 
     return (
-        <div className="bg-crm-surface border border-crm-border rounded-xl p-4 mb-6">
-            <div className="flex flex-col lg:flex-row gap-4">
-                
-                {/* Search Bar */}
-                <form onSubmit={handleSearchSubmit} className="flex-1 relative">
-                    <Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-crm-fg-muted" />
-                    <CrmInput 
-                        type="text" 
-                        placeholder="Buscar por nombre, teléfono o email..." 
+        <div className="mb-6 flex flex-col gap-5">
+            <div className="-mx-1 flex items-center gap-6 overflow-x-auto border-b border-crm-border px-1 [-webkit-overflow-scrolling:touch]">
+                {statusTabs.map(tab => {
+                    const isActive = filters.crmStatus === tab.id;
+
+                    return (
+                        <button
+                            key={tab.id || 'todos'}
+                            type="button"
+                            onClick={() => applyFilters({ ...filters, crmStatus: tab.id })}
+                            className={`m-0 shrink-0 appearance-none border-0 border-b-2 bg-transparent px-1 pb-3 pt-1 text-sm font-semibold transition-colors ${
+                                isActive
+                                    ? 'border-crm-red text-crm-red'
+                                    : 'border-transparent text-crm-fg-muted hover:text-crm-fg'
+                            }`}
+                        >
+                            {tab.label}
+                        </button>
+                    );
+                })}
+            </div>
+
+            <div className="flex flex-wrap items-center gap-2">
+                {priorityChips.map(chip => {
+                    const isActive = filters.priority === chip.id;
+
+                    return (
+                        <button
+                            key={chip.id || 'todas'}
+                            type="button"
+                            onClick={() => applyFilters({ ...filters, priority: chip.id })}
+                            className={`m-0 inline-flex h-[26px] appearance-none items-center gap-1 rounded-full border px-3 text-xs font-semibold leading-none transition-colors ${
+                                isActive ? 'border-crm-red bg-crm-red/15 text-red-300' : chip.idle
+                            }`}
+                        >
+                            <span aria-hidden="true">{chip.icon}</span>
+                            {chip.label}
+                        </button>
+                    );
+                })}
+                <button
+                    type="button"
+                    onClick={() => applyFilters({ ...filters, unlinked: filters.unlinked === 'true' ? '' : 'true' })}
+                    className={`m-0 inline-flex h-[26px] appearance-none items-center rounded-full border px-3 text-xs font-semibold leading-none transition-colors ${
+                        filters.unlinked === 'true'
+                            ? 'border-crm-red bg-crm-red/15 text-red-300'
+                            : 'border-amber-500/40 bg-crm-surface text-amber-300 hover:border-amber-400/70'
+                    }`}
+                >
+                    Sin cliente
+                </button>
+            </div>
+
+            <form onSubmit={handleSearchSubmit} className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_172px_210px_auto]">
+                <div className="relative">
+                    <Search className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-crm-fg-muted" size={17} />
+                    <input
+                        type="text"
+                        placeholder="Buscar nombre, telefono, email, vehiculo..."
                         value={localSearch}
-                        onChange={(e) => setLocalSearch(e.target.value)}
-                        className="pl-10"
+                        onChange={(event) => setLocalSearch(event.target.value)}
+                        className="m-0 h-[38px] w-full appearance-none rounded-lg border border-crm-border bg-crm-surface py-2 pl-9 pr-3 text-sm text-crm-fg outline-none transition-colors placeholder:text-crm-fg-muted focus:border-crm-red focus:ring-2 focus:ring-crm-red/20"
                     />
-                    <button type="submit" className="hidden">Buscar</button>
-                </form>
+                </div>
 
-                {/* Filters Row */}
-                <div className="flex flex-wrap md:flex-nowrap gap-3 items-center">
-                    <div className="flex-1 md:flex-none">
-                        <CrmSelect 
-                            value={filters.crmStatus || ''} 
-                            onChange={(e) => handleFilterChange('crmStatus', e.target.value)}
-                        >
-                            <option value="">Todos los estados</option>
-                            <option value="nuevo">Nuevo</option>
-                            <option value="contactado">Contactado</option>
-                            <option value="interesado">Interesado</option>
-                            <option value="seguimiento">Seguimiento</option>
-                            <option value="reservado">Reservado</option>
-                            <option value="convertido">Convertido</option>
-                            <option value="perdido">Perdido</option>
-                        </CrmSelect>
-                    </div>
+                <select
+                    value={filters.source || ''}
+                    onChange={(event) => applyFilters({ ...filters, source: event.target.value })}
+                    className="m-0 h-[38px] w-full appearance-none rounded-lg border border-crm-border bg-crm-surface px-3 text-sm text-crm-fg outline-none transition-colors focus:border-crm-red focus:ring-2 focus:ring-crm-red/20"
+                >
+                    <option value="">Todos los origenes</option>
+                    <option value="web">Web</option>
+                    <option value="whatsapp">WhatsApp</option>
+                    <option value="instagram">Instagram</option>
+                    <option value="local">Local</option>
+                    <option value="referido">Referido</option>
+                    <option value="mercadolibre">MercadoLibre</option>
+                    <option value="otro">Otro</option>
+                </select>
 
-                    <div className="flex-1 md:flex-none">
-                        <CrmSelect 
-                            value={filters.priority || ''} 
-                            onChange={(e) => handleFilterChange('priority', e.target.value)}
-                        >
-                            <option value="">Cualquier prioridad</option>
-                            <option value="alta">Alta</option>
-                            <option value="media">Media</option>
-                            <option value="baja">Baja</option>
-                        </CrmSelect>
-                    </div>
+                <select
+                    value={filters.sourceDetail || ''}
+                    onChange={(event) => applyFilters({ ...filters, sourceDetail: event.target.value })}
+                    className="m-0 h-[38px] w-full appearance-none rounded-lg border border-crm-border bg-crm-surface px-3 text-sm text-crm-fg outline-none transition-colors focus:border-crm-red focus:ring-2 focus:ring-crm-red/20"
+                >
+                    <option value="">Origen detallado</option>
+                    <option value="contact_form">Contacto Web</option>
+                    <option value="vehicle_detail_whatsapp">Ficha Auto</option>
+                    <option value="financing_whatsapp">Financiacion</option>
+                    <option value="manual_crm">Manual CRM</option>
+                    <option value="unknown">Desconocido</option>
+                </select>
 
-                    <div className="flex-1 md:flex-none">
-                        <CrmSelect 
-                            value={filters.source || ''} 
-                            onChange={(e) => handleFilterChange('source', e.target.value)}
-                        >
-                            <option value="">Cualquier origen</option>
-                            <option value="web">Web</option>
-                            <option value="whatsapp">WhatsApp</option>
-                            <option value="instagram">Instagram</option>
-                            <option value="local">Local</option>
-                            <option value="referido">Referido</option>
-                            <option value="mercadolibre">MercadoLibre</option>
-                            <option value="otro">Otro</option>
-                        </CrmSelect>
-                    </div>
-
-                    <div className="flex-1 md:flex-none">
-                        <CrmSelect 
-                            value={filters.sourceDetail || ''} 
-                            onChange={(e) => handleFilterChange('sourceDetail', e.target.value)}
-                        >
-                            <option value="">Cualquier origen detallado</option>
-                            <option value="contact_form">Contacto Web</option>
-                            <option value="vehicle_detail_whatsapp">Ficha Auto</option>
-                            <option value="financing_whatsapp">Financiación</option>
-                            <option value="manual_crm">Manual CRM</option>
-                            <option value="unknown">Desconocido</option>
-                        </CrmSelect>
-                    </div>
-                    
-                    <div className="flex-1 md:flex-none">
-                        <CrmSelect 
-                            value={filters.unlinked || ''} 
-                            onChange={(e) => handleFilterChange('unlinked', e.target.value)}
-                        >
-                            <option value="">Todos (Con o sin cliente)</option>
-                            <option value="true">Sin cliente asociado</option>
-                        </CrmSelect>
-                    </div>
-
+                <div className="flex gap-2">
+                    <CrmButton type="submit" className="flex-1 gap-2 lg:flex-none">
+                        <Filter size={16} />
+                        Filtrar
+                    </CrmButton>
                     {hasActiveFilters && (
-                        <CrmIconButton 
+                        <CrmButton
+                            type="button"
+                            variant="secondary"
                             onClick={clearFilters}
+                            className="px-3"
                             title="Limpiar filtros"
-                            className="hover:border-[#EF3329]/50"
                         >
-                            <X size={18} className="text-[#EF3329]" />
-                        </CrmIconButton>
+                            <X size={16} />
+                        </CrmButton>
                     )}
                 </div>
-            </div>
+            </form>
         </div>
     );
 }

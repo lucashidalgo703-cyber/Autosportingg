@@ -1,100 +1,126 @@
-import React from 'react';
+import React, { useState } from 'react';
 import Link from 'next/link';
-import { ArrowRight, Phone, Mail, Car, Clock, User } from 'lucide-react';
+import { ArrowRight, Car, ChevronDown, Clock, Mail, Phone, User } from 'lucide-react';
 import LeadStatusBadge from './LeadStatusBadge';
 import LeadPriorityBadge from './LeadPriorityBadge';
 
+const formatDate = (value) => {
+    if (!value) return '--';
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return '--';
+    return date.toISOString().slice(0, 10);
+};
+
+const formatSourceDetail = (detail) => {
+    if (!detail || detail === 'unknown') return null;
+    if (detail === 'contact_form') return 'Contacto Web';
+    if (detail === 'vehicle_detail_whatsapp') return 'Ficha Auto';
+    if (detail === 'financing_whatsapp') return 'Financiacion';
+    if (detail === 'manual_crm') return 'Manual CRM';
+    return detail;
+};
+
 export default function LeadMobileCards({ leads }) {
+    const [expandedId, setExpandedId] = useState(leads?.[0]?._id || null);
+
     return (
         <div className="flex flex-col gap-4">
-            {leads.map((lead) => (
-                <div key={lead._id} className="bg-crm-surface border border-crm-border p-4 rounded-xl flex flex-col gap-4">
-                    
-                    {/* Header: Name and Badges */}
-                    <div className="flex justify-between items-start gap-3">
-                        <div className="flex flex-col gap-1">
-                            <span className="text-white font-bold text-lg">{lead.name}</span>
-                            <div className="flex flex-wrap gap-2 mt-1">
-                                <LeadStatusBadge status={lead.crmStatus} legacyStage={lead.pipelineStage} />
-                                <LeadPriorityBadge priority={lead.priority} />
-                                <span className="text-[10px] font-bold px-2 py-0.5 rounded border capitalize bg-crm-bg text-crm-fg-muted border-crm-border">
-                                    {lead.source || 'otro'}
-                                </span>
-                                {lead.sourceDetail && lead.sourceDetail !== 'unknown' && (
-                                    <span className="text-[10px] font-medium px-2 py-0.5 rounded border bg-crm-surface text-crm-fg-muted border-crm-border">
-                                        {lead.sourceDetail === 'contact_form' ? 'Contacto Web' :
-                                         lead.sourceDetail === 'vehicle_detail_whatsapp' ? 'Ficha Auto' :
-                                         lead.sourceDetail === 'financing_whatsapp' ? 'Financiación' :
-                                         lead.sourceDetail === 'manual_crm' ? 'Manual CRM' : lead.sourceDetail}
-                                    </span>
-                                )}
-                            </div>
-                        </div>
-                    </div>
+            <div className="rounded-xl border border-crm-border bg-crm-surface p-3 text-sm font-semibold text-crm-fg">
+                {leads.length} {leads.length === 1 ? 'lead' : 'leads'} en lista
+                <span className="mx-1 text-crm-fg-muted">·</span>
+                <span className="text-crm-fg-muted">Seguimiento comercial</span>
+            </div>
 
-                    <div className="h-px w-full bg-crm-border"></div>
+            <div className="flex flex-col gap-3">
+                {leads.map((lead) => {
+                    const isExpanded = expandedId === lead._id;
+                    const overdue = lead.nextActionDate && new Date(lead.nextActionDate) < new Date();
 
-                    {/* Content: Info */}
-                    <div className="flex flex-col gap-3">
-                        <div className="flex items-center gap-3 text-sm text-crm-fg-muted">
-                            <Phone size={16} className="text-crm-fg-muted shrink-0" />
-                            <span>{lead.phone}</span>
-                        </div>
-                        
-                        {lead.email && (
-                            <div className="flex items-center gap-3 text-sm text-crm-fg-muted">
-                                <Mail size={16} className="text-crm-fg-muted shrink-0" />
-                                <span className="truncate">{lead.email}</span>
-                            </div>
-                        )}
+                    return (
+                        <article key={lead._id} className="overflow-hidden rounded-xl border border-crm-border bg-crm-surface">
+                            <button
+                                type="button"
+                                onClick={() => setExpandedId(isExpanded ? null : lead._id)}
+                                className="m-0 flex w-full appearance-none items-center justify-between gap-3 border-0 bg-transparent px-3 py-3 text-left text-crm-fg"
+                            >
+                                <div className="min-w-0">
+                                    <h3 className="m-0 truncate text-sm font-semibold leading-5 text-crm-fg">{lead.name}</h3>
+                                    <p className="m-0 mt-1 truncate text-xs text-crm-fg-muted">
+                                        {lead.source || 'otro'} · {formatDate(lead.createdAt)}
+                                    </p>
+                                </div>
+                                <ChevronDown
+                                    size={18}
+                                    className={`shrink-0 text-crm-fg-muted transition-transform ${isExpanded ? 'rotate-180' : ''}`}
+                                />
+                            </button>
 
-                        {lead.vehicleId && (
-                            <div className="flex items-center gap-3 text-sm text-crm-fg-muted">
-                                <Car size={16} className="text-crm-red shrink-0" />
-                                <span>{lead.vehicleId.brand} {lead.vehicleId.name}</span>
-                            </div>
-                        )}
+                            {isExpanded && (
+                                <div className="border-t border-crm-border bg-crm-bg/40 px-3 py-3">
+                                    <div className="mb-3 flex flex-wrap gap-2">
+                                        <LeadStatusBadge status={lead.crmStatus} legacyStage={lead.pipelineStage} />
+                                        <LeadPriorityBadge priority={lead.priority} />
+                                        {formatSourceDetail(lead.sourceDetail) && (
+                                            <span className="rounded border border-crm-border bg-crm-surface px-2 py-0.5 text-[10px] font-semibold text-crm-fg-muted">
+                                                {formatSourceDetail(lead.sourceDetail)}
+                                            </span>
+                                        )}
+                                    </div>
 
-                        <div className="flex items-center gap-3 text-sm text-crm-fg-muted">
-                            <User size={16} className="text-crm-fg-muted shrink-0" />
-                            {lead.clientId ? (
-                                <Link href={`/admin/clientes/${lead.clientId._id}`} className="text-blue-400 hover:underline">
-                                    Cliente Vinculado
-                                </Link>
-                            ) : (
-                                <span className="text-orange-400 font-medium">Sin Vincular</span>
+                                    <div className="grid grid-cols-1 gap-2 text-xs">
+                                        <InfoItem icon={Phone} label="Tel" value={lead.phone || '--'} />
+                                        <InfoItem icon={Mail} label="Email" value={lead.email || '--'} />
+                                        {lead.vehicleId && (
+                                            <InfoItem icon={Car} label="Vehiculo" value={`${lead.vehicleId.brand} ${lead.vehicleId.name}`} />
+                                        )}
+                                        <div className="flex min-w-0 items-center gap-2 text-crm-fg-muted">
+                                            <User size={12} className="shrink-0" />
+                                            <span className="font-semibold text-crm-fg-muted">Cliente: </span>
+                                            {lead.clientId ? (
+                                                <Link href={`/admin/clientes/${lead.clientId._id}`} className="truncate text-blue-300 no-underline">
+                                                    Vinculado
+                                                </Link>
+                                            ) : (
+                                                <span className="text-amber-300">Sin vincular</span>
+                                            )}
+                                        </div>
+                                        {lead.nextActionDate && (
+                                            <div className="flex min-w-0 items-center gap-2 text-crm-fg-muted">
+                                                <Clock size={12} className="shrink-0" />
+                                                <span className="font-semibold text-crm-fg-muted">Accion: </span>
+                                                <span className={overdue ? 'font-semibold text-red-300' : 'font-semibold text-blue-300'}>
+                                                    {formatDate(lead.nextActionDate)}
+                                                </span>
+                                                {overdue && <span className="rounded bg-crm-red/15 px-1.5 py-0.5 text-[10px] font-bold uppercase text-red-300">Vencida</span>}
+                                            </div>
+                                        )}
+                                    </div>
+
+                                    <div className="mt-4 flex items-center gap-2 border-t border-crm-border pt-3">
+                                        <Link
+                                            href={`/admin/leads/${lead._id}`}
+                                            className="inline-flex h-7 items-center justify-center gap-1 rounded-lg bg-crm-red/10 px-3 text-xs font-semibold text-red-300 no-underline transition-colors hover:bg-crm-red/15"
+                                        >
+                                            Ver ficha
+                                            <ArrowRight size={12} />
+                                        </Link>
+                                    </div>
+                                </div>
                             )}
-                        </div>
+                        </article>
+                    );
+                })}
+            </div>
+        </div>
+    );
+}
 
-                        {lead.nextActionDate && (
-                            <div className="flex items-center gap-3 text-sm mt-1">
-                                <Clock size={16} className={new Date(lead.nextActionDate) < new Date() ? 'text-red-500 shrink-0' : 'text-blue-500 shrink-0'} />
-                                <span className={new Date(lead.nextActionDate) < new Date() ? 'text-red-400 font-bold' : 'text-blue-400 font-bold'}>
-                                    Acción: {new Date(lead.nextActionDate).toLocaleDateString()}
-                                </span>
-                                {new Date(lead.nextActionDate) < new Date() && (
-                                    <span className="text-[10px] bg-red-500/20 text-red-400 px-1.5 py-0.5 rounded uppercase font-bold">Vencida</span>
-                                )}
-                            </div>
-                        )}
-                    </div>
-
-                    <div className="h-px w-full bg-crm-border"></div>
-
-                    {/* Footer: Date and Action */}
-                    <div className="flex justify-between items-center">
-                        <div className="flex items-center gap-1.5 text-xs text-crm-fg-muted">
-                            <Clock size={14} />
-                            <span>{new Date(lead.createdAt).toLocaleDateString()}</span>
-                        </div>
-                        <Link href={`/admin/leads/${lead._id}`} className="flex items-center justify-center gap-2 text-xs font-bold text-crm-red hover:text-crm-red bg-crm-red/10 hover:bg-crm-red/20 px-3 py-2 rounded-lg border border-crm-red/20 transition-colors">
-                            Ver Ficha
-                            <ArrowRight size={14} />
-                        </Link>
-                    </div>
-
-                </div>
-            ))}
+function InfoItem({ icon: Icon, label, value }) {
+    return (
+        <div className="flex min-w-0 items-center gap-2 text-crm-fg-muted">
+            <Icon size={12} className="shrink-0" />
+            <span className="font-semibold text-crm-fg-muted">{label}: </span>
+            <span className="truncate text-crm-fg">{value}</span>
         </div>
     );
 }

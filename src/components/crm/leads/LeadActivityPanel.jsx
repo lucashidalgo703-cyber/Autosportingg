@@ -1,5 +1,5 @@
 import React from 'react';
-import { Activity, History, Plus, CornerDownRight } from 'lucide-react';
+import { Activity, ArrowRight, CornerDownRight, History, Plus } from 'lucide-react';
 
 export default function LeadActivityPanel({ lead }) {
     if (!lead) return null;
@@ -7,80 +7,74 @@ export default function LeadActivityPanel({ lead }) {
     const hasAuditLog = Array.isArray(lead.leadAuditLog) && lead.leadAuditLog.length > 0;
 
     return (
-        <div className="bg-neutral-900 border border-neutral-800 rounded-2xl p-6 h-full flex flex-col">
-            <h3 className="text-lg font-bold text-white mb-6 flex items-center gap-2">
-                <Activity size={20} className="text-red-500" />
-                Historial de Actividad
+        <div className="flex h-full flex-col rounded-xl border border-crm-border bg-crm-surface p-5">
+            <h3 className="m-0 mb-5 flex items-center gap-2 text-lg font-bold text-crm-fg">
+                <Activity size={19} className="text-crm-red" />
+                Historial de actividad
             </h3>
 
-            <div className="flex-1 bg-black/30 border border-neutral-800 rounded-xl p-4 overflow-y-auto custom-scrollbar max-h-[500px]">
+            <div className="max-h-[500px] flex-1 overflow-y-auto rounded-xl border border-crm-border bg-crm-bg p-4 custom-scrollbar">
                 {!hasAuditLog ? (
-                    <div className="flex flex-col items-center justify-center h-full text-center py-10 opacity-50">
-                        <History size={32} className="text-neutral-500 mb-4" />
-                        <span className="text-white font-medium">Sin historial</span>
-                        <p className="text-sm text-neutral-400 max-w-xs mt-2">
-                            Todavía no hay movimientos registrados para este lead. Las interacciones futuras aparecerán aquí.
+                    <div className="flex h-full flex-col items-center justify-center py-10 text-center">
+                        <History size={28} className="mb-4 text-crm-fg-muted" />
+                        <span className="font-semibold text-crm-fg">Sin historial</span>
+                        <p className="m-0 mt-2 max-w-xs text-sm text-crm-fg-muted">
+                            Todavia no hay movimientos registrados para este lead.
                         </p>
                     </div>
                 ) : (
-                    <div className="flex flex-col gap-0 relative">
-                        {/* Timeline line */}
-                        <div className="absolute left-[15px] top-4 bottom-4 w-px bg-neutral-800 z-0"></div>
+                    <div className="relative flex flex-col gap-0">
+                        <div className="absolute bottom-4 left-[15px] top-4 z-0 w-px bg-crm-border" />
 
                         {[...lead.leadAuditLog].reverse().map((log, index) => {
-                            // Icon mapping
                             let Icon = History;
-                            let iconColor = 'text-neutral-400';
-                            let bgColor = 'bg-neutral-900';
-                            
+                            let iconColor = 'text-crm-fg-muted';
+                            let bgColor = 'bg-crm-surface border-crm-border';
+
                             if (log.action === 'CREACION') {
                                 Icon = Plus;
-                                iconColor = 'text-green-500';
-                                bgColor = 'bg-green-500/10 border-green-500/20';
+                                iconColor = 'text-emerald-300';
+                                bgColor = 'bg-emerald-500/10 border-emerald-500/20';
                             } else if (log.action === 'ACTUALIZACION') {
                                 Icon = Activity;
-                                iconColor = 'text-blue-500';
+                                iconColor = 'text-blue-300';
                                 bgColor = 'bg-blue-500/10 border-blue-500/20';
                             } else if (log.action === 'CAMBIO_ESTADO') {
                                 Icon = CornerDownRight;
-                                iconColor = 'text-yellow-500';
-                                bgColor = 'bg-yellow-500/10 border-yellow-500/20';
+                                iconColor = 'text-amber-300';
+                                bgColor = 'bg-amber-500/10 border-amber-500/20';
                             }
 
                             return (
-                                <div key={index} className="flex gap-4 relative z-10 pb-6 last:pb-0">
-                                    <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 border ${bgColor}`}>
+                                <div key={index} className="relative z-10 flex gap-4 pb-6 last:pb-0">
+                                    <div className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full border ${bgColor}`}>
                                         <Icon size={14} className={iconColor} />
                                     </div>
-                                    <div className="flex flex-col gap-1 flex-1 pt-1">
-                                        <div className="flex justify-between items-start gap-4">
-                                            <div>
-                                                <span className="text-sm font-bold text-white block">
-                                                    {log.action}
-                                                </span>
-                                                <span className="text-xs text-neutral-400">
-                                                    {log.details || 'Movimiento registrado'}
-                                                </span>
+                                    <div className="min-w-0 flex-1 pt-1">
+                                        <div className="flex items-start justify-between gap-4">
+                                            <div className="min-w-0">
+                                                <span className="block text-sm font-bold text-crm-fg">{log.action}</span>
+                                                <span className="text-xs text-crm-fg-muted">{log.details || 'Movimiento registrado'}</span>
                                             </div>
-                                            <span className="text-[10px] text-neutral-500 whitespace-nowrap bg-neutral-900 px-2 py-1 rounded">
+                                            <span className="whitespace-nowrap rounded bg-crm-surface px-2 py-1 text-[10px] text-crm-fg-muted">
                                                 {new Date(log.date).toLocaleString()}
                                             </span>
                                         </div>
 
                                         {(log.oldValue || log.newValue) && log.action !== 'CREACION' && (
-                                            <div className="mt-2 bg-neutral-900 border border-neutral-800 p-2.5 rounded-lg flex items-center gap-2 text-xs">
-                                                <span className="text-neutral-500 line-through truncate max-w-[120px]">{String(log.oldValue || 'vacío')}</span>
-                                                <ArrowRight size={12} className="text-neutral-600 shrink-0" />
-                                                <span className="text-white font-medium truncate max-w-[120px]">{String(log.newValue || 'vacío')}</span>
+                                            <div className="mt-3 flex items-center gap-2 rounded-lg border border-crm-border bg-crm-surface p-2.5 text-xs">
+                                                <span className="max-w-[120px] truncate text-crm-fg-muted line-through">{String(log.oldValue || 'vacio')}</span>
+                                                <ArrowRight size={12} className="shrink-0 text-crm-fg-subtle" />
+                                                <span className="max-w-[120px] truncate font-semibold text-crm-fg">{String(log.newValue || 'vacio')}</span>
                                             </div>
                                         )}
-                                        
-                                        <div className="flex items-center gap-1.5 mt-1">
-                                            <span className="w-4 h-4 rounded-full bg-neutral-800 flex items-center justify-center text-[8px] font-bold text-white border border-neutral-700">
+
+                                        <div className="mt-2 flex items-center gap-1.5">
+                                            <span className="flex h-4 w-4 items-center justify-center rounded-full border border-crm-border bg-crm-surface text-[8px] font-bold text-crm-fg">
                                                 {log.user ? log.user.charAt(0).toUpperCase() : 'U'}
                                             </span>
-                                            <span className="text-[10px] text-neutral-500">
-                                                Por <strong className="text-neutral-400">{log.user || 'Sistema'}</strong> via {log.source}
+                                            <span className="text-[10px] text-crm-fg-muted">
+                                                Por <strong className="text-crm-fg">{log.user || 'Sistema'}</strong> via {log.source}
                                             </span>
                                         </div>
                                     </div>
@@ -91,15 +85,5 @@ export default function LeadActivityPanel({ lead }) {
                 )}
             </div>
         </div>
-    );
-}
-
-// Re-importing ArrowRight just for the inner div above
-function ArrowRight({ size, className }) {
-    return (
-        <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
-            <line x1="5" y1="12" x2="19" y2="12"></line>
-            <polyline points="12 5 19 12 12 19"></polyline>
-        </svg>
     );
 }

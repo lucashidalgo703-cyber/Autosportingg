@@ -1,6 +1,6 @@
 "use client";
-import React, { useEffect, useState } from 'react';
-import { Target, AlertCircle } from 'lucide-react';
+import React, { useEffect, useMemo, useState } from 'react';
+import { AlertCircle, Link2Off, MessageSquare, Target, TrendingUp, UserCheck } from 'lucide-react';
 import { useAdminLeads } from '../../../hooks/useAdminLeads';
 import LeadFilters from '../../../components/crm/leads/LeadFilters';
 import LeadsTable from '../../../components/crm/leads/LeadsTable';
@@ -9,19 +9,25 @@ import LeadEmptyState from '../../../components/crm/leads/LeadEmptyState';
 import LeadViewToggle from '../../../components/crm/leads/LeadViewToggle';
 import LeadKanbanBoard from '../../../components/crm/leads/LeadKanbanBoard';
 
+const summaryCards = [
+    { key: 'total', label: 'Leads cargados', icon: Target, tone: 'bg-blue-500/15 text-blue-300' },
+    { key: 'contactados', label: 'Contactados', icon: MessageSquare, tone: 'bg-purple-500/15 text-purple-300' },
+    { key: 'convertidos', label: 'Convertidos', icon: UserCheck, tone: 'bg-emerald-500/15 text-emerald-300' },
+    { key: 'alta', label: 'Prioridad alta', icon: TrendingUp, tone: 'bg-crm-red/15 text-red-300' },
+    { key: 'sinCliente', label: 'Sin cliente', icon: Link2Off, tone: 'bg-amber-500/15 text-amber-300' }
+];
+
 export default function AdminLeadsPage() {
     const { leads, loading, error, fetchLeads, updateLead, total } = useAdminLeads();
-    
+
     const [view, setView] = useState('list'); // 'list' | 'kanban'
-    
-    // Filters State
-    const [filters, setFilters] = useState({ 
-        search: '', 
-        crmStatus: '', 
-        priority: '', 
-        source: '', 
+    const [filters, setFilters] = useState({
+        search: '',
+        crmStatus: '',
+        priority: '',
+        source: '',
         sourceDetail: '',
-        unlinked: '' 
+        unlinked: ''
     });
 
     useEffect(() => {
@@ -44,69 +50,72 @@ export default function AdminLeadsPage() {
         }
     };
 
-    // Basic Metrics (Calculated over currently loaded leads - which might be paginated, 
-    // but useful for quick context as requested)
-    const webContactCount = leads.filter(l => l.sourceDetail === 'contact_form').length;
-    const vehicleDetailCount = leads.filter(l => l.sourceDetail === 'vehicle_detail_whatsapp').length;
-    const financingCount = leads.filter(l => l.sourceDetail === 'financing_whatsapp').length;
-    const unlinkedCount = leads.filter(l => !l.clientId).length;
+    const summary = useMemo(() => {
+        const source = leads || [];
+
+        return {
+            total: total || source.length,
+            contactados: source.filter(lead => ['contactado', 'interesado', 'seguimiento'].includes(lead.crmStatus)).length,
+            convertidos: source.filter(lead => lead.crmStatus === 'convertido').length,
+            alta: source.filter(lead => lead.priority === 'alta').length,
+            sinCliente: source.filter(lead => !lead.clientId).length
+        };
+    }, [leads, total]);
 
     return (
-        <div className="mx-auto w-full max-w-7xl p-4 md:p-6 flex flex-col gap-6">
-            {/* Header */}
-            <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-2">
+        <div className="mx-auto flex w-full max-w-7xl flex-col gap-6 p-4 pb-20 md:p-6">
+            <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
                 <div>
-                    <h1 className="text-2xl font-bold text-crm-fg tracking-tight m-0 mb-1 flex items-center gap-2">
-                        Gestión de Oportunidades
-                        <span className="bg-crm-success/10 text-crm-success border border-crm-success/20 px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider">
-                            Fase 3.2
+                    <div className="flex flex-wrap items-center gap-2">
+                        <h1 className="m-0 text-[26px] font-bold leading-tight text-crm-fg">Leads</h1>
+                        <span className="rounded border border-crm-success/20 bg-crm-success/10 px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.08em] text-crm-success">
+                            CRM Comercial
                         </span>
-                    </h1>
-                    <p className="text-sm text-crm-fg-muted m-0">
-                        Total de leads: <strong className="text-crm-fg">{total}</strong> registros activos
+                    </div>
+                    <p className="m-0 mt-1 text-sm text-crm-fg-muted">
+                        Oportunidades, consultas web y seguimiento comercial.
                     </p>
                 </div>
+
                 <LeadViewToggle view={view} setView={setView} />
             </div>
 
-            {/* Metrics Cards */}
-            <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-                <div className="bg-crm-surface border border-crm-border p-4 rounded-xl flex flex-col">
-                    <span className="text-crm-fg-muted text-xs font-bold uppercase tracking-wider mb-1">Total Actuales</span>
-                    <span className="text-crm-fg text-2xl font-bold">{leads.length}</span>
-                </div>
-                <div className="bg-crm-surface border border-crm-border p-4 rounded-xl flex flex-col">
-                    <span className="text-crm-fg-muted text-xs font-bold uppercase tracking-wider mb-1">Contacto Web</span>
-                    <span className="text-blue-400 text-2xl font-bold">{webContactCount}</span>
-                </div>
-                <div className="bg-crm-surface border border-crm-border p-4 rounded-xl flex flex-col">
-                    <span className="text-crm-fg-muted text-xs font-bold uppercase tracking-wider mb-1">Fichas Auto</span>
-                    <span className="text-crm-red text-2xl font-bold">{vehicleDetailCount}</span>
-                </div>
-                <div className="bg-crm-surface border border-crm-border p-4 rounded-xl flex flex-col">
-                    <span className="text-crm-fg-muted text-xs font-bold uppercase tracking-wider mb-1">Financiación</span>
-                    <span className="text-crm-success text-2xl font-bold">{financingCount}</span>
-                </div>
-                <div className="bg-crm-surface border border-crm-border p-4 rounded-xl flex flex-col">
-                    <span className="text-crm-fg-muted text-xs font-bold uppercase tracking-wider mb-1">Sin Cliente</span>
-                    <span className="text-orange-400 text-2xl font-bold">{unlinkedCount}</span>
-                </div>
+            <div className="grid grid-cols-2 gap-3 md:grid-cols-5">
+                {summaryCards.map((card) => {
+                    const Icon = card.icon;
+
+                    return (
+                        <div key={card.key} className="rounded-xl border border-crm-border bg-crm-surface p-4">
+                            <div className="flex items-start justify-between gap-3">
+                                <div className="min-w-0">
+                                    <p className="m-0 text-[11px] font-bold uppercase tracking-[0.08em] text-crm-fg-muted">{card.label}</p>
+                                    <p className="m-0 mt-3 text-2xl font-bold leading-none text-crm-fg">{summary[card.key]}</p>
+                                </div>
+                                <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg ${card.tone}`}>
+                                    <Icon size={18} />
+                                </span>
+                            </div>
+                        </div>
+                    );
+                })}
             </div>
 
-            {/* Content Container */}
             <div className="flex flex-col">
                 <LeadFilters filters={filters} setFilters={setFilters} onSearch={handleSearch} />
-                
+
                 {error && (
-                    <div className="bg-red-500/10 border border-red-500/20 text-red-400 p-4 rounded-xl mb-6 text-sm flex items-center gap-2">
+                    <div className="mb-6 flex items-center gap-2 rounded-xl border border-crm-red/30 bg-crm-red/10 p-4 text-sm text-red-300">
                         <AlertCircle size={18} />
                         No se pudieron cargar los leads. {error}
                     </div>
                 )}
-                
+
                 {loading ? (
-                    <div className="flex justify-center items-center h-64">
-                        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-[#EF3329]"></div>
+                    <div className="flex h-64 items-center justify-center rounded-xl border border-crm-border bg-crm-surface">
+                        <div className="flex flex-col items-center gap-3">
+                            <div className="h-8 w-8 animate-spin rounded-full border-2 border-crm-border border-b-crm-red" />
+                            <span className="text-sm text-crm-fg-muted">Cargando leads...</span>
+                        </div>
                     </div>
                 ) : !error && leads.length === 0 ? (
                     <LeadEmptyState hasFilters={hasActiveFilters} />

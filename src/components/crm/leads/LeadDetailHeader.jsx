@@ -1,110 +1,101 @@
 import React from 'react';
-import { Target, ArrowLeft, Calendar, Phone, Edit, User, UserCheck, Lock, CheckCircle2 } from 'lucide-react';
 import Link from 'next/link';
+import { ArrowLeft, Calendar, CheckCircle2, Edit, Lock, Phone, Target, UserCheck } from 'lucide-react';
 import LeadStatusBadge from './LeadStatusBadge';
 import LeadPriorityBadge from './LeadPriorityBadge';
+import CrmButton from '../ui/CrmButton';
+
+const formatSourceDetail = (detail) => {
+    if (!detail || detail === 'unknown') return null;
+    if (detail === 'contact_form') return 'Contacto Web';
+    if (detail === 'vehicle_detail_whatsapp') return 'Ficha Auto';
+    if (detail === 'financing_whatsapp') return 'Financiacion';
+    if (detail === 'manual_crm') return 'Manual CRM';
+    return detail;
+};
 
 export default function LeadDetailHeader({ lead, onEdit, onReserve, onCancelReserve, activeReservation, extraActions }) {
     if (!lead) return null;
 
+    const canReserve = lead?.vehicleId
+        && lead?.crmStatus !== 'perdido'
+        && lead?.crmStatus !== 'convertido'
+        && (typeof lead.vehicleId === 'string' || lead.vehicleId?.status !== 'Vendido')
+        && !activeReservation?._id;
+
     return (
-        <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 mb-6">
-            <div className="flex flex-col gap-2">
-                <div className="flex items-center gap-3">
-                    <Link 
-                        href="/admin/leads" 
-                        className="p-2 rounded-lg bg-neutral-900 border border-neutral-800 text-neutral-400 hover:text-white transition-colors"
-                        title="Volver a Oportunidades"
-                    >
-                        <ArrowLeft size={20} />
-                    </Link>
-                    <div className="w-10 h-10 rounded-xl bg-red-500/10 flex items-center justify-center border border-red-500/20">
-                        <Target size={20} className="text-red-500" />
-                    </div>
-                    <div>
-                        <h1 className="text-2xl font-bold text-white tracking-tight flex items-center gap-3">
-                            {lead.name}
-                            {lead.clientId && (
-                                <UserCheck size={20} className="text-blue-500" title="Cliente Asociado" />
-                            )}
-                        </h1>
-                    </div>
-                </div>
-
-                <div className="flex flex-wrap items-center gap-3 mt-2 ml-14">
-                    <div className="flex items-center gap-1.5 text-sm text-neutral-400 bg-neutral-900 px-3 py-1 rounded-full border border-neutral-800">
-                        <Phone size={14} className="text-neutral-500" />
-                        {lead.phone}
+        <div className="rounded-xl border border-crm-border bg-crm-surface p-4 md:p-5">
+            <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
+                <div className="min-w-0">
+                    <div className="mb-4 flex items-center gap-3">
+                        <Link
+                            href="/admin/leads"
+                            className="flex h-9 w-9 items-center justify-center rounded-lg border border-crm-border bg-crm-bg text-crm-fg-muted no-underline transition-colors hover:bg-crm-surface-raised hover:text-crm-fg"
+                            title="Volver a leads"
+                        >
+                            <ArrowLeft size={18} />
+                        </Link>
+                        <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-crm-red/20 bg-crm-red/10 text-crm-red">
+                            <Target size={20} />
+                        </div>
+                        <div className="min-w-0">
+                            <div className="flex min-w-0 flex-wrap items-center gap-2">
+                                <h1 className="m-0 truncate text-2xl font-bold leading-tight text-crm-fg">{lead.name}</h1>
+                                {lead.clientId && <UserCheck size={18} className="text-blue-300" title="Cliente asociado" />}
+                            </div>
+                        </div>
                     </div>
 
-                    <div className="h-4 w-px bg-neutral-800 hidden md:block"></div>
-                    
-                    <div className="flex items-center gap-2">
+                    <div className="flex flex-wrap items-center gap-2">
+                        <span className="flex items-center gap-1.5 rounded-full border border-crm-border bg-crm-bg px-3 py-1 text-sm text-crm-fg-muted">
+                            <Phone size={14} />
+                            {lead.phone}
+                        </span>
                         <LeadStatusBadge status={lead.crmStatus} legacyStage={lead.pipelineStage} />
                         <LeadPriorityBadge priority={lead.priority} />
-                        <span className="text-[10px] uppercase font-bold px-2 py-0.5 rounded border bg-neutral-900 text-neutral-400 border-neutral-800">
+                        <span className="rounded border border-crm-border bg-crm-bg px-2 py-0.5 text-[10px] font-bold uppercase text-crm-fg-muted">
                             Origen: {lead.source || 'otro'}
                         </span>
-                        {lead.sourceDetail && lead.sourceDetail !== 'unknown' && (
-                            <span className="text-[10px] font-bold px-2 py-0.5 rounded border bg-neutral-900 text-neutral-300 border-neutral-700">
-                                {lead.sourceDetail === 'contact_form' ? 'Contacto Web' :
-                                 lead.sourceDetail === 'vehicle_detail_whatsapp' ? 'Ficha Auto' :
-                                 lead.sourceDetail === 'financing_whatsapp' ? 'Financiación' :
-                                 lead.sourceDetail === 'manual_crm' ? 'Manual CRM' : lead.sourceDetail}
+                        {formatSourceDetail(lead.sourceDetail) && (
+                            <span className="rounded border border-crm-border bg-crm-bg px-2 py-0.5 text-[10px] font-bold text-crm-fg-muted">
+                                {formatSourceDetail(lead.sourceDetail)}
                             </span>
                         )}
                         {activeReservation?._id && (
-                            <span className="flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded border bg-red-500/10 text-red-400 border-red-500/20">
+                            <span className="flex items-center gap-1 rounded border border-crm-red/20 bg-crm-red/10 px-2 py-0.5 text-[10px] font-bold uppercase text-red-300">
                                 <Lock size={12} />
-                                RESERVA ACTIVA
+                                Reserva activa
                             </span>
                         )}
-                    </div>
-
-                    <div className="h-4 w-px bg-neutral-800 hidden md:block"></div>
-
-                    <div className="flex items-center gap-1.5 text-sm text-neutral-500">
-                        <Calendar size={14} />
-                        Creado: {new Date(lead.createdAt).toLocaleDateString()}
+                        <span className="flex items-center gap-1.5 text-sm text-crm-fg-muted">
+                            <Calendar size={14} />
+                            Creado: {new Date(lead.createdAt).toLocaleDateString()}
+                        </span>
                     </div>
                 </div>
-            </div>
 
-            <div className="flex items-center gap-3 ml-14 lg:ml-0 mt-2 lg:mt-0 flex-wrap">
-                {extraActions && extraActions}
-                
-                {/* Logic to show "Tomar reserva" button */}
-                {lead?.vehicleId && 
-                 lead?.crmStatus !== 'perdido' && 
-                 lead?.crmStatus !== 'convertido' && 
-                 (typeof lead.vehicleId === 'string' || lead.vehicleId?.status !== 'Vendido') && 
-                 !activeReservation?._id && (
-                    <button 
-                        onClick={onReserve}
-                        className="flex items-center gap-2 px-4 py-2 rounded-lg bg-[#E63027] hover:bg-[#C42620] text-white font-semibold transition-colors shadow-lg"
-                    >
-                        <CheckCircle2 size={16} />
-                        Tomar Reserva
-                    </button>
-                )}
-                
-                {activeReservation?._id && (
-                    <button 
-                        onClick={onCancelReserve}
-                        className="flex items-center gap-2 px-4 py-2 rounded-lg bg-neutral-900 border border-neutral-700 hover:bg-neutral-800 text-neutral-300 font-medium transition-colors"
-                    >
-                        <Lock size={16} className="text-red-500" />
-                        Liberar Reserva
-                    </button>
-                )}
-                
-                <button 
-                    onClick={onEdit}
-                    className="flex items-center gap-2 px-4 py-2 rounded-lg bg-red-600 hover:bg-red-700 text-white font-medium transition-colors border border-red-500 shadow-lg shadow-red-900/20"
-                >
-                    <Edit size={16} />
-                    Editar Lead
-                </button>
+                <div className="flex w-full flex-wrap items-center gap-2 lg:w-auto lg:justify-end">
+                    {extraActions && extraActions}
+
+                    {canReserve && (
+                        <CrmButton type="button" onClick={onReserve} size="sm" className="flex-1 gap-2 lg:flex-none">
+                            <CheckCircle2 size={15} />
+                            Tomar reserva
+                        </CrmButton>
+                    )}
+
+                    {activeReservation?._id && (
+                        <CrmButton type="button" variant="secondary" size="sm" onClick={onCancelReserve} className="flex-1 gap-2 lg:flex-none">
+                            <Lock size={15} className="text-crm-red" />
+                            Liberar reserva
+                        </CrmButton>
+                    )}
+
+                    <CrmButton type="button" variant="secondary" size="sm" onClick={onEdit} className="flex-1 gap-2 lg:flex-none">
+                        <Edit size={15} />
+                        Editar lead
+                    </CrmButton>
+                </div>
             </div>
         </div>
     );

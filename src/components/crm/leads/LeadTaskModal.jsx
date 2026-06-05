@@ -57,27 +57,28 @@ export default function LeadTaskModal({ isOpen, onClose, onSave }) {
     };
 
     return (
-        <div className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
-            <div className="bg-[#161619] border border-neutral-800 rounded-2xl w-full max-w-lg flex flex-col shadow-2xl">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 backdrop-blur-sm">
+            <div className="flex w-full max-w-lg flex-col rounded-xl border border-crm-border bg-crm-surface shadow-2xl">
                 
                 {/* Header */}
-                <div className="flex justify-between items-center p-6 border-b border-neutral-800">
-                    <h2 className="text-xl font-bold text-white flex items-center gap-2">
-                        <CheckCircle size={20} className="text-blue-500" />
+                <div className="flex items-center justify-between border-b border-crm-border bg-crm-topbar p-5">
+                    <h2 className="m-0 flex items-center gap-2 text-lg font-bold text-crm-fg">
+                        <CheckCircle size={19} className="text-blue-300" />
                         Agregar Tarea
                     </h2>
                     <button 
+                        type="button"
                         onClick={onClose} 
-                        className="p-2 rounded-lg hover:bg-neutral-800 text-neutral-400 hover:text-white transition-colors"
+                        className="m-0 flex h-9 w-9 appearance-none items-center justify-center rounded-lg border border-transparent bg-transparent text-crm-fg-muted transition-colors hover:bg-crm-surface hover:text-crm-fg"
                     >
-                        <X size={20} />
+                        <X size={19} />
                     </button>
                 </div>
 
                 {/* Body */}
-                <div className="p-6">
+                <div className="p-5">
                     {error && (
-                        <div className="bg-red-500/10 border border-red-500/20 text-red-400 p-3 rounded-lg mb-4 text-sm">
+                        <div className="mb-4 rounded-lg border border-crm-red/20 bg-crm-red/10 p-3 text-sm text-red-300">
                             {error}
                         </div>
                     )}
@@ -85,7 +86,7 @@ export default function LeadTaskModal({ isOpen, onClose, onSave }) {
                     <form id="taskForm" onSubmit={handleSubmit} className="flex flex-col gap-5">
                         
                         <div className="flex flex-col gap-2">
-                            <label className="text-sm font-medium text-neutral-400 flex items-center gap-2">
+                            <label className="flex items-center gap-2 text-sm font-semibold text-crm-fg-muted">
                                 Título de la tarea *
                             </label>
                             <input 
@@ -94,13 +95,13 @@ export default function LeadTaskModal({ isOpen, onClose, onSave }) {
                                 value={formData.title}
                                 onChange={handleChange}
                                 placeholder="Ej. Llamar para ofrecer financiación"
-                                className="w-full bg-black/50 border border-neutral-800 rounded-lg px-4 py-2.5 text-white focus:outline-none focus:border-blue-500 transition-colors"
+                                className="w-full rounded-lg border border-crm-border bg-crm-bg px-4 py-2.5 text-crm-fg transition-colors focus:border-crm-red focus:outline-none focus:ring-1 focus:ring-crm-red"
                                 required
                             />
                         </div>
 
                         <div className="flex flex-col gap-2">
-                            <label className="text-sm font-medium text-neutral-400 flex items-center gap-2">
+                            <label className="flex items-center gap-2 text-sm font-semibold text-crm-fg-muted">
                                 <Calendar size={14} />
                                 Fecha de vencimiento (Opcional)
                             </label>
@@ -110,12 +111,12 @@ export default function LeadTaskModal({ isOpen, onClose, onSave }) {
                                 value={formData.dueDate}
                                 onChange={handleChange}
                                 min={new Date().toISOString().split('T')[0]} // no permitir fechas pasadas
-                                className="w-full bg-black/50 border border-neutral-800 rounded-lg px-4 py-2.5 text-white focus:outline-none focus:border-blue-500 transition-colors"
+                                className="w-full rounded-lg border border-crm-border bg-crm-bg px-4 py-2.5 text-crm-fg transition-colors focus:border-crm-red focus:outline-none focus:ring-1 focus:ring-crm-red"
                             />
                         </div>
 
                         <div className="flex flex-col gap-2">
-                            <label className="text-sm font-medium text-neutral-400 flex items-center gap-2">
+                            <label className="flex items-center gap-2 text-sm font-semibold text-crm-fg-muted">
                                 <FileText size={14} />
                                 Detalles adicionales (Opcional)
                             </label>
@@ -125,7 +126,7 @@ export default function LeadTaskModal({ isOpen, onClose, onSave }) {
                                 onChange={handleChange}
                                 placeholder="Anotaciones útiles para cuando toque hacer esta tarea..."
                                 rows="3"
-                                className="w-full bg-black/50 border border-neutral-800 rounded-lg px-4 py-2.5 text-white focus:outline-none focus:border-blue-500 transition-colors custom-scrollbar"
+                                className="w-full rounded-lg border border-crm-border bg-crm-bg px-4 py-2.5 text-crm-fg transition-colors focus:border-crm-red focus:outline-none focus:ring-1 focus:ring-crm-red custom-scrollbar"
                             />
                         </div>
 
@@ -133,12 +134,12 @@ export default function LeadTaskModal({ isOpen, onClose, onSave }) {
                 </div>
 
                 {/* Footer */}
-                <div className="p-6 border-t border-neutral-800 flex justify-end gap-3 bg-neutral-900/50 rounded-b-2xl">
+                <div className="flex justify-end gap-3 border-t border-crm-border bg-crm-topbar p-5">
                     <button 
                         type="button"
                         onClick={onClose}
                         disabled={isSaving}
-                        className="px-5 py-2.5 rounded-lg font-medium text-neutral-400 hover:text-white hover:bg-neutral-800 transition-colors"
+                        className="rounded-lg px-5 py-2.5 font-semibold text-crm-fg-muted transition-colors hover:bg-crm-surface hover:text-crm-fg"
                     >
                         Cancelar
                     </button>
@@ -146,7 +147,7 @@ export default function LeadTaskModal({ isOpen, onClose, onSave }) {
                         type="submit"
                         form="taskForm"
                         disabled={isSaving}
-                        className="flex items-center gap-2 px-6 py-2.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-bold transition-colors disabled:opacity-50"
+                        className="flex items-center gap-2 rounded-lg bg-crm-red px-6 py-2.5 font-bold text-white transition-colors hover:bg-crm-red-hover disabled:opacity-50"
                     >
                         {isSaving ? 'Guardando...' : 'Agregar Tarea'}
                     </button>
