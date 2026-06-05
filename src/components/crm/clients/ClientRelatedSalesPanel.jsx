@@ -1,7 +1,7 @@
 import React, { useEffect } from 'react';
-import { Handshake, AlertCircle, ArrowRight, Calendar, DollarSign } from 'lucide-react';
-import { useAdminSales } from '../../../hooks/useAdminSales';
 import Link from 'next/link';
+import { AlertCircle, ArrowRight, Calendar, Handshake } from 'lucide-react';
+import { useAdminSales } from '../../../hooks/useAdminSales';
 import SaleStatusBadge from '../sales/SaleStatusBadge';
 
 export default function ClientRelatedSalesPanel({ client }) {
@@ -16,7 +16,7 @@ export default function ClientRelatedSalesPanel({ client }) {
 
     const loadSales = async () => {
         const data = await fetchSales();
-        // Filtrar localmente por clientId ya que el hook podría no soportar el query param directo o mejor lo hacemos seguro
+        // Filtrar localmente por clientId ya que el hook podria no soportar el query param directo.
         const clientSales = (data || []).filter(s => s.clientId?._id === client._id || s.clientId === client._id);
         setSales(clientSales);
     };
@@ -24,56 +24,56 @@ export default function ClientRelatedSalesPanel({ client }) {
     if (!client) return null;
 
     return (
-        <div className="bg-neutral-900 border border-neutral-800 rounded-2xl p-6 h-full flex flex-col">
-            <h3 className="text-lg font-bold text-white mb-6 flex items-center gap-2">
-                <Handshake size={20} className="text-blue-500" />
+        <div className="flex h-full flex-col rounded-xl border border-crm-border bg-crm-surface p-5">
+            <h3 className="m-0 mb-5 flex items-center gap-2 text-lg font-bold text-crm-fg">
+                <Handshake size={19} className="text-blue-300" />
                 Ventas del cliente
             </h3>
 
             {loading && sales.length === 0 ? (
-                <div className="flex-1 flex justify-center items-center h-32">
-                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
+                <div className="flex h-32 flex-1 items-center justify-center">
+                    <div className="h-8 w-8 animate-spin rounded-full border-2 border-crm-border border-b-blue-400" />
                 </div>
             ) : error ? (
-                <div className="bg-red-500/10 border border-red-500/20 text-red-400 p-4 rounded-xl text-sm">
+                <div className="rounded-xl border border-crm-red/30 bg-crm-red/10 p-4 text-sm text-red-300">
                     {error}
                 </div>
             ) : sales.length === 0 ? (
-                <div className="flex-1 flex flex-col items-center justify-center text-center p-6 border-2 border-dashed border-neutral-800 rounded-xl bg-neutral-900/50">
-                    <div className="w-16 h-16 rounded-full bg-neutral-800 flex items-center justify-center mb-4">
-                        <AlertCircle size={32} className="text-neutral-500" />
+                <div className="flex flex-1 flex-col items-center justify-center rounded-xl border border-dashed border-crm-border bg-crm-bg p-6 text-center">
+                    <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-xl border border-crm-border bg-crm-surface text-crm-fg-muted">
+                        <AlertCircle size={24} />
                     </div>
-                    <h4 className="text-white font-bold mb-2">Sin Ventas</h4>
-                    <p className="text-sm text-neutral-400">
+                    <h4 className="m-0 mb-2 font-bold text-crm-fg">Sin ventas</h4>
+                    <p className="m-0 text-sm text-crm-fg-muted">
                         Este cliente no tiene ventas oficiales vinculadas.
                     </p>
                 </div>
             ) : (
-                <div className="flex flex-col gap-3 overflow-y-auto pr-2 custom-scrollbar max-h-[300px]">
+                <div className="flex max-h-[300px] flex-col gap-3 overflow-y-auto pr-2 custom-scrollbar">
                     {sales.map(sale => (
-                        <div key={sale._id} className="bg-black/30 border border-neutral-800 rounded-xl p-4 flex flex-col gap-3 transition-colors hover:border-neutral-700">
-                            <div className="flex justify-between items-start">
-                                <div>
+                        <div key={sale._id} className="flex flex-col gap-3 rounded-xl border border-crm-border bg-crm-bg p-4 transition-colors hover:border-crm-border-strong">
+                            <div className="flex items-start justify-between gap-3">
+                                <div className="min-w-0">
                                     <SaleStatusBadge status={sale.status} />
-                                    <p className="text-white font-medium text-sm line-clamp-1 mt-2">
-                                        {sale.vehicleId ? `${sale.vehicleId.brand} ${sale.vehicleId.name}` : 'Vehículo'}
+                                    <p className="m-0 mt-2 truncate text-sm font-semibold text-crm-fg">
+                                        {sale.vehicleId ? `${sale.vehicleId.brand} ${sale.vehicleId.name}` : 'Vehiculo'}
                                     </p>
                                 </div>
-                                <span className="text-sm font-bold text-green-400">
+                                <span className="text-sm font-bold text-emerald-300">
                                     {sale.saleCurrency} {(sale.salePrice || 0).toLocaleString('es-AR')}
                                 </span>
                             </div>
 
-                            <div className="flex justify-between items-center mt-2 pt-3 border-t border-neutral-800/50">
-                                <div className="flex items-center gap-1.5 text-xs text-neutral-500">
+                            <div className="mt-1 flex items-center justify-between border-t border-crm-border pt-3">
+                                <div className="flex items-center gap-1.5 text-xs text-crm-fg-muted">
                                     <Calendar size={12} />
                                     <span>{new Date(sale.saleDate || sale.createdAt).toLocaleDateString()}</span>
                                 </div>
-                                <Link 
+                                <Link
                                     href={`/admin/ventas/${sale._id}`}
-                                    className="text-xs text-blue-500 hover:text-blue-400 font-medium flex items-center gap-1 transition-colors"
+                                    className="flex items-center gap-1 text-xs font-semibold text-blue-300 no-underline transition-colors hover:text-blue-200"
                                 >
-                                    Ver Venta
+                                    Ver venta
                                     <ArrowRight size={12} />
                                 </Link>
                             </div>

@@ -1,69 +1,129 @@
 import React from 'react';
-import { Search, Filter, X } from 'lucide-react';
-import CrmInput from '../ui/CrmInput';
-import CrmSelect from '../ui/CrmSelect';
+import { Filter, Search, X } from 'lucide-react';
 import CrmButton from '../ui/CrmButton';
 
+const typeTabs = [
+    { id: '', label: 'Todos' },
+    { id: 'comprador', label: 'Compradores' },
+    { id: 'vendedor', label: 'Vendedores' },
+    { id: 'ambos', label: 'Ambos' },
+    { id: 'potencial', label: 'Potenciales' }
+];
+
+const statusChips = [
+    {
+        id: '',
+        icon: '•',
+        label: 'Todos',
+        idle: 'border-crm-fg-subtle/40 bg-crm-surface text-crm-fg-muted hover:border-crm-border-strong'
+    },
+    {
+        id: 'activo',
+        icon: '✓',
+        label: 'Activo',
+        idle: 'border-emerald-500/40 bg-crm-surface text-emerald-300 hover:border-emerald-400/70'
+    },
+    {
+        id: 'inactivo',
+        icon: '○',
+        label: 'Inactivo',
+        idle: 'border-crm-fg-subtle/40 bg-crm-surface text-crm-fg-muted hover:border-crm-border-strong'
+    },
+    {
+        id: 'bloqueado',
+        icon: '!',
+        label: 'Bloqueado',
+        idle: 'border-crm-red/40 bg-crm-surface text-red-300 hover:border-crm-red/70'
+    }
+];
+
 export default function ClientFilters({ filters, setFilters, onSearch }) {
-    const handleReset = () => {
-        setFilters({ search: '', type: '', source: '', status: '' });
-        onSearch({ search: '', type: '', source: '', status: '' });
+    const applyFilters = (nextFilters) => {
+        setFilters(nextFilters);
+        onSearch(nextFilters);
     };
 
-    const handleChange = (e) => {
-        const { name, value } = e.target;
+    const handleReset = () => {
+        applyFilters({ search: '', type: '', source: '', status: '' });
+    };
+
+    const handleChange = (event) => {
+        const { name, value } = event.target;
         setFilters(prev => ({ ...prev, [name]: value }));
     };
 
-    const handleKeyDown = (e) => {
-        if (e.key === 'Enter') {
+    const handleKeyDown = (event) => {
+        if (event.key === 'Enter') {
             onSearch(filters);
         }
     };
 
+    const hasActiveFilters = filters.search || filters.type || filters.source || filters.status;
+
     return (
-        <div className="bg-crm-surface border border-crm-border rounded-xl p-4 mb-6 flex flex-col md:flex-row gap-4 items-end">
-            <div className="w-full md:w-1/3">
-                <label className="block text-xs font-bold text-crm-fg-muted uppercase tracking-wider mb-2">
-                    Buscar Cliente
-                </label>
+        <div className="mb-6 flex flex-col gap-5">
+            <div className="-mx-1 flex items-center gap-6 overflow-x-auto border-b border-crm-border px-1 [-webkit-overflow-scrolling:touch]">
+                {typeTabs.map(tab => {
+                    const isActive = filters.type === tab.id;
+
+                    return (
+                        <button
+                            key={tab.id || 'todos'}
+                            type="button"
+                            onClick={() => applyFilters({ ...filters, type: tab.id })}
+                            className={`m-0 shrink-0 appearance-none border-0 border-b-2 bg-transparent px-1 pb-3 pt-1 text-sm font-semibold transition-colors ${
+                                isActive
+                                    ? 'border-crm-red text-crm-red'
+                                    : 'border-transparent text-crm-fg-muted hover:text-crm-fg'
+                            }`}
+                        >
+                            {tab.label}
+                        </button>
+                    );
+                })}
+            </div>
+
+            <div className="flex flex-wrap items-center gap-2">
+                {statusChips.map(chip => {
+                    const isActive = filters.status === chip.id;
+
+                    return (
+                        <button
+                            key={chip.id || 'todos'}
+                            type="button"
+                            onClick={() => applyFilters({ ...filters, status: chip.id })}
+                            className={`m-0 inline-flex h-[26px] appearance-none items-center gap-1 rounded-full border px-3 text-xs font-semibold leading-none transition-colors ${
+                                isActive ? 'border-crm-red bg-crm-red/15 text-red-300' : chip.idle
+                            }`}
+                        >
+                            <span aria-hidden="true">{chip.icon}</span>
+                            {chip.label}
+                        </button>
+                    );
+                })}
+            </div>
+
+            <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_180px_auto]">
                 <div className="relative">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-crm-fg-muted" size={18} />
-                    <CrmInput
+                    <Search className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-crm-fg-muted" size={17} />
+                    <input
                         type="text"
                         name="search"
                         value={filters.search}
                         onChange={handleChange}
                         onKeyDown={handleKeyDown}
-                        placeholder="Nombre, email, teléfono, localidad..."
-                        className="pl-10"
+                        placeholder="Buscar nombre, email, telefono, localidad, DNI..."
+                        className="m-0 h-[38px] w-full appearance-none rounded-lg border border-crm-border bg-crm-surface py-2 pl-9 pr-3 text-sm text-crm-fg outline-none transition-colors placeholder:text-crm-fg-muted focus:border-crm-red focus:ring-2 focus:ring-crm-red/20"
                     />
                 </div>
-            </div>
 
-            <div className="w-full md:w-1/6">
-                <label className="block text-xs font-bold text-crm-fg-muted uppercase tracking-wider mb-2">Tipo</label>
-                <CrmSelect
-                    name="type"
-                    value={filters.type}
-                    onChange={handleChange}
-                >
-                    <option value="">Todos</option>
-                    <option value="comprador">Comprador</option>
-                    <option value="vendedor">Vendedor</option>
-                    <option value="ambos">Ambos</option>
-                    <option value="potencial">Potencial</option>
-                </CrmSelect>
-            </div>
-
-            <div className="w-full md:w-1/6">
-                <label className="block text-xs font-bold text-crm-fg-muted uppercase tracking-wider mb-2">Origen</label>
-                <CrmSelect
+                <select
                     name="source"
                     value={filters.source}
-                    onChange={handleChange}
+                    onChange={(event) => applyFilters({ ...filters, source: event.target.value })}
+                    className="m-0 h-[38px] w-full appearance-none rounded-lg border border-crm-border bg-crm-surface px-3 text-sm text-crm-fg outline-none transition-colors focus:border-crm-red focus:ring-2 focus:ring-crm-red/20"
                 >
-                    <option value="">Todos</option>
+                    <option value="">Todos los origenes</option>
                     <option value="web">Web</option>
                     <option value="whatsapp">WhatsApp</option>
                     <option value="instagram">Instagram</option>
@@ -71,40 +131,29 @@ export default function ClientFilters({ filters, setFilters, onSearch }) {
                     <option value="local">Local</option>
                     <option value="mercadolibre">MercadoLibre</option>
                     <option value="otro">Otro</option>
-                </CrmSelect>
-            </div>
+                </select>
 
-            <div className="w-full md:w-1/6">
-                <label className="block text-xs font-bold text-crm-fg-muted uppercase tracking-wider mb-2">Estado</label>
-                <CrmSelect
-                    name="status"
-                    value={filters.status}
-                    onChange={handleChange}
-                >
-                    <option value="">Todos</option>
-                    <option value="activo">Activo</option>
-                    <option value="inactivo">Inactivo</option>
-                    <option value="bloqueado">Bloqueado</option>
-                </CrmSelect>
-            </div>
-
-            <div className="w-full md:w-auto flex gap-2">
-                <CrmButton
-                    onClick={() => onSearch(filters)}
-                    className="flex-1 md:flex-none gap-2"
-                >
-                    <Filter size={16} /> Filtrar
-                </CrmButton>
-                {(filters.search || filters.type || filters.source || filters.status) && (
+                <div className="flex gap-2">
                     <CrmButton
-                        variant="secondary"
-                        onClick={handleReset}
-                        className="flex-none px-3"
-                        title="Limpiar filtros"
+                        type="button"
+                        onClick={() => onSearch(filters)}
+                        className="flex-1 gap-2 lg:flex-none"
                     >
-                        <X size={16} />
+                        <Filter size={16} />
+                        Filtrar
                     </CrmButton>
-                )}
+                    {hasActiveFilters && (
+                        <CrmButton
+                            type="button"
+                            variant="secondary"
+                            onClick={handleReset}
+                            className="px-3"
+                            title="Limpiar filtros"
+                        >
+                            <X size={16} />
+                        </CrmButton>
+                    )}
+                </div>
             </div>
         </div>
     );

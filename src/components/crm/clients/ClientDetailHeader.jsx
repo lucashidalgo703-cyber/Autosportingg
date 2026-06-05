@@ -1,6 +1,7 @@
 import React from 'react';
 import { ArrowLeft, Edit2, User } from 'lucide-react';
 import { useRouter } from 'next/navigation';
+import CrmButton from '../ui/CrmButton';
 
 export default function ClientDetailHeader({ client, onEdit, extraActions }) {
     const router = useRouter();
@@ -8,64 +9,66 @@ export default function ClientDetailHeader({ client, onEdit, extraActions }) {
     if (!client) return null;
 
     const getStatusColor = (status) => {
-        switch(status) {
-            case 'activo': return 'bg-green-500/10 text-green-400 border-green-500/20';
-            case 'inactivo': return 'bg-neutral-500/10 text-neutral-400 border-neutral-500/20';
-            case 'bloqueado': return 'bg-red-500/10 text-red-400 border-red-500/20';
-            default: return 'bg-neutral-500/10 text-neutral-400 border-neutral-500/20';
+        switch (status) {
+            case 'activo': return 'border-emerald-500/30 bg-emerald-500/10 text-emerald-300';
+            case 'bloqueado': return 'border-crm-red/30 bg-crm-red/10 text-red-300';
+            default: return 'border-crm-border bg-crm-bg text-crm-fg-muted';
         }
     };
 
     return (
-        <div className="bg-neutral-900 border border-neutral-800 rounded-2xl p-6 md:p-8 mb-6 relative overflow-hidden">
-            {/* Background decoration */}
-            <div className="absolute right-0 top-0 w-64 h-full bg-gradient-to-l from-red-900/10 to-transparent pointer-events-none"></div>
-            
-            <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 relative z-10">
-                <div className="flex flex-col items-start gap-4">
-                    <button 
+        <div className="rounded-xl border border-crm-border bg-crm-surface p-4 md:p-5">
+            <div className="flex flex-col gap-5 md:flex-row md:items-start md:justify-between">
+                <div className="min-w-0">
+                    <button
+                        type="button"
                         onClick={() => router.push('/admin/clientes')}
-                        className="text-neutral-400 hover:text-white flex items-center gap-2 text-sm font-medium transition-colors"
+                        className="m-0 mb-4 inline-flex appearance-none items-center gap-2 border-0 bg-transparent p-0 text-sm font-semibold text-crm-fg-muted transition-colors hover:text-crm-fg"
                     >
-                        <ArrowLeft size={16} /> Volver a clientes
+                        <ArrowLeft size={16} />
+                        Volver a clientes
                     </button>
-                    
-                    <div className="flex items-center gap-4">
-                        <div className="w-16 h-16 rounded-full bg-neutral-800 border border-neutral-700 flex items-center justify-center shrink-0">
-                            <User size={32} className="text-neutral-500" />
+
+                    <div className="flex min-w-0 items-center gap-4">
+                        <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-xl border border-crm-border bg-crm-bg text-crm-fg-muted">
+                            <User size={26} />
                         </div>
-                        <div>
-                            <div className="flex items-center gap-3 flex-wrap">
-                                <h1 className="text-2xl md:text-3xl font-bold text-white tracking-tight leading-none">
+                        <div className="min-w-0">
+                            <div className="flex flex-wrap items-center gap-2">
+                                <h1 className="m-0 truncate text-2xl font-bold leading-tight text-crm-fg">
                                     {client.fullName}
                                 </h1>
-                                <span className={`px-2.5 py-1 rounded-full text-xs font-bold uppercase tracking-wider border ${getStatusColor(client.status)}`}>
-                                    {client.status}
+                                <span className={`rounded-full border px-2.5 py-1 text-[10px] font-bold uppercase ${getStatusColor(client.status)}`}>
+                                    {client.status || 'sin estado'}
                                 </span>
                             </div>
-                            <p className="text-neutral-400 text-sm mt-2 flex items-center gap-2">
+                            <p className="m-0 mt-1 text-sm text-crm-fg-muted">
                                 Registrado el {new Date(client.createdAt).toLocaleDateString('es-AR')}
-                                {client.createdBy && <span className="text-neutral-600">• Por {client.createdBy}</span>}
+                                {client.createdBy && <span className="text-crm-fg-subtle"> · Por {client.createdBy}</span>}
                             </p>
                         </div>
                     </div>
                 </div>
 
-                <div className="flex flex-wrap items-center gap-3 w-full md:w-auto">
+                <div className="flex w-full flex-wrap items-center gap-2 md:w-auto md:justify-end">
                     {client.tags && client.tags.map((tag, idx) => (
-                        <span key={idx} className="bg-neutral-800 text-neutral-300 px-3 py-1.5 rounded-lg text-xs font-medium border border-neutral-700">
+                        <span key={idx} className="rounded-lg border border-crm-border bg-crm-bg px-3 py-1.5 text-xs font-semibold text-crm-fg-muted">
                             #{tag}
                         </span>
                     ))}
-                    
+
                     {extraActions && extraActions}
 
-                    <button 
+                    <CrmButton
+                        type="button"
+                        variant="secondary"
+                        size="sm"
                         onClick={onEdit}
-                        className="bg-neutral-800 hover:bg-neutral-700 text-white border border-neutral-700 px-5 py-2.5 rounded-lg font-bold transition-colors flex items-center justify-center gap-2 flex-1 md:flex-none"
+                        className="flex-1 gap-2 md:flex-none"
                     >
-                        <Edit2 size={16} /> Editar
-                    </button>
+                        <Edit2 size={15} />
+                        Editar
+                    </CrmButton>
                 </div>
             </div>
         </div>

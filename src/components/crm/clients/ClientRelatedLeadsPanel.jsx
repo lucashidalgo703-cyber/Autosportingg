@@ -1,7 +1,7 @@
 import React, { useEffect } from 'react';
-import { Target, AlertCircle, ArrowRight, Clock, Car } from 'lucide-react';
-import { useAdminLeads } from '../../../hooks/useAdminLeads';
 import Link from 'next/link';
+import { AlertCircle, ArrowRight, Car, Clock, Target } from 'lucide-react';
+import { useAdminLeads } from '../../../hooks/useAdminLeads';
 
 export default function ClientRelatedLeadsPanel({ client }) {
     const { leads, loading, error, fetchLeads } = useAdminLeads();
@@ -15,72 +15,72 @@ export default function ClientRelatedLeadsPanel({ client }) {
     if (!client) return null;
 
     return (
-        <div className="bg-neutral-900 border border-neutral-800 rounded-2xl p-6 h-full flex flex-col">
-            <h3 className="text-lg font-bold text-white mb-6 flex items-center gap-2">
-                <Target size={20} className="text-red-500" />
-                Oportunidades Asociadas
+        <div className="flex h-full flex-col rounded-xl border border-crm-border bg-crm-surface p-5">
+            <h3 className="m-0 mb-5 flex items-center gap-2 text-lg font-bold text-crm-fg">
+                <Target size={19} className="text-crm-red" />
+                Oportunidades asociadas
             </h3>
 
             {loading ? (
-                <div className="flex-1 flex justify-center items-center h-32">
-                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-red-500"></div>
+                <div className="flex h-32 flex-1 items-center justify-center">
+                    <div className="h-8 w-8 animate-spin rounded-full border-2 border-crm-border border-b-crm-red" />
                 </div>
             ) : error ? (
-                <div className="bg-red-500/10 border border-red-500/20 text-red-400 p-4 rounded-xl text-sm">
+                <div className="rounded-xl border border-crm-red/30 bg-crm-red/10 p-4 text-sm text-red-300">
                     {error}
                 </div>
             ) : leads.length === 0 ? (
-                <div className="flex-1 flex flex-col items-center justify-center text-center p-6 border-2 border-dashed border-neutral-800 rounded-xl bg-neutral-900/50">
-                    <div className="w-16 h-16 rounded-full bg-neutral-800 flex items-center justify-center mb-4">
-                        <AlertCircle size={32} className="text-neutral-500" />
+                <div className="flex flex-1 flex-col items-center justify-center rounded-xl border border-dashed border-crm-border bg-crm-bg p-6 text-center">
+                    <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-xl border border-crm-border bg-crm-surface text-crm-fg-muted">
+                        <AlertCircle size={24} />
                     </div>
-                    <h4 className="text-white font-bold mb-2">Sin Oportunidades</h4>
-                    <p className="text-sm text-neutral-400">
+                    <h4 className="m-0 mb-2 font-bold text-crm-fg">Sin oportunidades</h4>
+                    <p className="m-0 text-sm text-crm-fg-muted">
                         Este cliente no tiene leads ni oportunidades vinculadas.
                     </p>
                 </div>
             ) : (
-                <div className="flex flex-col gap-3 overflow-y-auto pr-2 custom-scrollbar max-h-[300px]">
+                <div className="flex max-h-[300px] flex-col gap-3 overflow-y-auto pr-2 custom-scrollbar">
                     {leads.map(lead => (
-                        <div key={lead._id} className="bg-black/30 border border-neutral-800 rounded-xl p-4 flex flex-col gap-3 transition-colors hover:border-neutral-700">
-                            <div className="flex justify-between items-start">
-                                <div>
-                                    <span className={`text-[10px] uppercase font-bold px-2 py-0.5 rounded border mb-2 inline-block ${
-                                        lead.crmStatus === 'nuevo' ? 'bg-blue-500/10 text-blue-400 border-blue-500/20' :
-                                        lead.crmStatus === 'convertido' ? 'bg-green-500/10 text-green-400 border-green-500/20' :
-                                        lead.crmStatus === 'perdido' ? 'bg-neutral-500/10 text-neutral-400 border-neutral-500/20' :
-                                        'bg-orange-500/10 text-orange-400 border-orange-500/20'
+                        <div key={lead._id} className="flex flex-col gap-3 rounded-xl border border-crm-border bg-crm-bg p-4 transition-colors hover:border-crm-border-strong">
+                            <div className="flex items-start justify-between gap-3">
+                                <div className="min-w-0">
+                                    <span className={`mb-2 inline-block rounded border px-2 py-0.5 text-[10px] font-bold uppercase ${
+                                        lead.crmStatus === 'nuevo' ? 'border-blue-500/20 bg-blue-500/10 text-blue-300' :
+                                        lead.crmStatus === 'convertido' ? 'border-emerald-500/20 bg-emerald-500/10 text-emerald-300' :
+                                        lead.crmStatus === 'perdido' ? 'border-crm-border bg-crm-surface text-crm-fg-muted' :
+                                        'border-amber-500/20 bg-amber-500/10 text-amber-300'
                                     }`}>
                                         {lead.crmStatus || 'S/E'}
                                     </span>
-                                    <p className="text-white font-medium text-sm line-clamp-1">{lead.name}</p>
+                                    <p className="m-0 truncate text-sm font-semibold text-crm-fg">{lead.name}</p>
                                 </div>
-                                <span className={`text-[10px] font-bold px-2 py-0.5 rounded border ${
-                                    lead.priority === 'alta' ? 'bg-red-500/10 text-red-500 border-red-500/20' :
-                                    lead.priority === 'media' ? 'bg-yellow-500/10 text-yellow-500 border-yellow-500/20' :
-                                    'bg-neutral-800 text-neutral-400 border-neutral-700'
+                                <span className={`rounded border px-2 py-0.5 text-[10px] font-bold uppercase ${
+                                    lead.priority === 'alta' ? 'border-crm-red/20 bg-crm-red/10 text-red-300' :
+                                    lead.priority === 'media' ? 'border-amber-500/20 bg-amber-500/10 text-amber-300' :
+                                    'border-crm-border bg-crm-surface text-crm-fg-muted'
                                 }`}>
                                     {lead.priority || 'media'}
                                 </span>
                             </div>
 
                             {lead.vehicleId && (
-                                <div className="flex items-center gap-2 text-xs text-neutral-400">
-                                    <Car size={14} className="text-neutral-500" />
+                                <div className="flex items-center gap-2 text-xs text-crm-fg-muted">
+                                    <Car size={14} />
                                     <span>{lead.vehicleId.brand} {lead.vehicleId.name}</span>
                                 </div>
                             )}
 
-                            <div className="flex justify-between items-center mt-2 pt-3 border-t border-neutral-800/50">
-                                <div className="flex items-center gap-1.5 text-xs text-neutral-500">
+                            <div className="mt-1 flex items-center justify-between border-t border-crm-border pt-3">
+                                <div className="flex items-center gap-1.5 text-xs text-crm-fg-muted">
                                     <Clock size={12} />
                                     <span>{new Date(lead.createdAt).toLocaleDateString()}</span>
                                 </div>
-                                <Link 
+                                <Link
                                     href={`/admin/leads/${lead._id}`}
-                                    className="text-xs text-red-500 hover:text-red-400 font-medium flex items-center gap-1 transition-colors"
+                                    className="flex items-center gap-1 text-xs font-semibold text-crm-red no-underline transition-colors hover:text-red-300"
                                 >
-                                    Ver Lead
+                                    Ver lead
                                     <ArrowRight size={12} />
                                 </Link>
                             </div>

@@ -114,26 +114,30 @@ export default function ClientFormModal({ isOpen, onClose, onSave, client = null
     if (!isOpen) return null;
 
     return (
-        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 overflow-y-auto">
-            <div className="bg-crm-surface border border-crm-border rounded-2xl w-full max-w-2xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
+        <div className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-black/80 p-4 backdrop-blur-sm">
+            <div className="flex max-h-[90vh] w-full max-w-2xl flex-col overflow-hidden rounded-xl border border-crm-border bg-crm-surface shadow-2xl">
                 
                 {/* Header */}
-                <div className="flex justify-between items-center p-6 border-b border-crm-border bg-crm-surface">
-                    <h2 className="text-xl font-bold text-white">
+                <div className="flex items-center justify-between border-b border-crm-border bg-crm-topbar p-5">
+                    <h2 className="m-0 text-lg font-bold text-crm-fg">
                         {client ? 'Editar Cliente' : 'Nuevo Cliente'}
                     </h2>
-                    <button onClick={onClose} className="text-crm-fg-muted hover:text-crm-fg transition-colors">
-                        <X size={24} />
+                    <button
+                        type="button"
+                        onClick={onClose}
+                        className="m-0 flex h-9 w-9 appearance-none items-center justify-center rounded-lg border border-transparent bg-transparent text-crm-fg-muted transition-colors hover:bg-crm-surface hover:text-crm-fg"
+                    >
+                        <X size={19} />
                     </button>
                 </div>
 
                 {/* Body */}
-                <div className="p-6 overflow-y-auto custom-scrollbar flex-1">
+                <div className="flex-1 overflow-y-auto p-5 custom-scrollbar">
                     <form id="client-form" onSubmit={handleSubmit} className="space-y-6">
                         
                         {/* Alerta de datos mínimos */}
-                        <div className="bg-red-500/10 border border-red-500/20 rounded-lg p-3 flex gap-3 text-sm text-red-200">
-                            <AlertCircle size={18} className="text-red-500 shrink-0 mt-0.5" />
+                        <div className="flex gap-3 rounded-lg border border-crm-red/20 bg-crm-red/10 p-3 text-sm text-red-200">
+                            <AlertCircle size={18} className="mt-0.5 shrink-0 text-crm-red" />
                             <p>El <strong>Nombre</strong> es obligatorio, junto con al menos un medio de contacto (<strong>Teléfono</strong> o <strong>Email</strong>).</p>
                         </div>
 
@@ -263,7 +267,7 @@ export default function ClientFormModal({ isOpen, onClose, onSave, client = null
                 </div>
 
                 {/* Footer */}
-                <div className="p-6 border-t border-crm-border bg-crm-surface flex justify-end gap-3">
+                <div className="flex justify-end gap-3 border-t border-crm-border bg-crm-topbar p-5">
                     <button 
                         type="button" 
                         onClick={onClose}

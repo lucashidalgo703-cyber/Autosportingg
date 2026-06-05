@@ -1,101 +1,126 @@
 import React from 'react';
-import { useRouter } from 'next/navigation';
-import { Mail, Phone, MapPin, AlertCircle, ArrowRight } from 'lucide-react';
-import CrmButton from '../ui/CrmButton';
+import Link from 'next/link';
+import { ArrowRight, Filter, Mail, MapPin, Phone } from 'lucide-react';
+
+const formatDate = (value) => {
+    if (!value) return '--';
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return '--';
+    return date.toISOString().slice(0, 10);
+};
+
+const getTypeLabel = (type) => {
+    const normalized = type || 'potencial';
+    if (normalized === 'comprador') return 'Comprador';
+    if (normalized === 'vendedor') return 'Vendedor';
+    if (normalized === 'ambos') return 'Ambos';
+    return 'Potencial';
+};
+
+const getStatusLabel = (status) => {
+    if (status === 'activo') return '✓ Activo';
+    if (status === 'bloqueado') return '! Bloqueado';
+    if (status === 'inactivo') return '○ Inactivo';
+    return status || '--';
+};
+
+const getTypeColor = (type) => {
+    switch (type) {
+        case 'comprador': return 'border-blue-500/30 bg-blue-500/10 text-blue-300';
+        case 'vendedor': return 'border-purple-500/30 bg-purple-500/10 text-purple-300';
+        case 'ambos': return 'border-emerald-500/30 bg-emerald-500/10 text-emerald-300';
+        default: return 'border-amber-500/30 bg-amber-500/10 text-amber-300';
+    }
+};
+
+const getStatusColor = (status) => {
+    if (status === 'activo') return 'text-emerald-300';
+    if (status === 'bloqueado') return 'text-red-300';
+    return 'text-crm-fg-muted';
+};
 
 export default function ClientsTable({ clients }) {
-    const router = useRouter();
-
     if (!clients || clients.length === 0) {
         return (
-            <div className="bg-crm-surface border border-crm-border rounded-xl p-12 text-center">
-                <p className="text-crm-fg-muted">No se encontraron clientes.</p>
+            <div className="flex min-h-[320px] flex-col items-center justify-center rounded-xl border border-dashed border-crm-border bg-crm-surface px-6 py-16 text-center">
+                <div className="mb-4 flex h-11 w-11 items-center justify-center rounded-xl border border-crm-border bg-crm-bg text-crm-fg-muted">
+                    <Filter size={20} />
+                </div>
+                <h2 className="m-0 text-lg font-bold text-crm-fg">Sin resultados</h2>
+                <p className="m-0 mt-2 max-w-md text-sm leading-6 text-crm-fg-muted">
+                    No hay clientes para los filtros seleccionados.
+                </p>
             </div>
         );
     }
 
-    const getTypeColor = (type) => {
-        switch(type) {
-            case 'comprador': return 'bg-blue-500/10 text-blue-400 border-blue-500/20';
-            case 'vendedor': return 'bg-purple-500/10 text-purple-400 border-purple-500/20';
-            case 'ambos': return 'bg-green-500/10 text-green-400 border-green-500/20';
-            default: return 'bg-neutral-500/10 text-neutral-400 border-neutral-500/20';
-        }
-    };
-
     return (
-        <div className="bg-crm-surface border border-crm-border rounded-xl overflow-hidden">
-            <div className="overflow-x-auto">
-                <table className="w-full text-left text-sm text-crm-fg-muted">
-                    <thead className="bg-crm-topbar text-[10px] uppercase text-crm-fg-muted font-bold border-b border-crm-border">
+        <div className="flex flex-col gap-4">
+            <div className="rounded-xl border border-crm-border bg-crm-surface p-3 text-sm font-semibold text-crm-fg">
+                {clients.length} {clients.length === 1 ? 'cliente' : 'clientes'} en lista
+                <span className="mx-1 text-crm-fg-muted">·</span>
+                <span className="text-crm-fg-muted">Base comercial</span>
+            </div>
+
+            <div className="overflow-x-auto rounded-xl border border-crm-border bg-crm-surface">
+                <table className="w-full min-w-[980px] border-collapse text-left">
+                    <thead className="bg-crm-surface-raised text-xs uppercase text-crm-fg-muted">
                         <tr>
-                            <th className="px-6 py-4">Cliente</th>
-                            <th className="px-6 py-4">Contacto</th>
-                            <th className="px-6 py-4">Tipo / Origen</th>
-                            <th className="px-6 py-4">Ubicación</th>
-                            <th className="px-6 py-4">Alta</th>
-                            <th className="px-6 py-4 text-right">Acciones</th>
+                            <th className="px-3 py-2 font-semibold">Cliente</th>
+                            <th className="px-3 py-2 font-semibold">Contacto</th>
+                            <th className="px-3 py-2 font-semibold">Tipo</th>
+                            <th className="px-3 py-2 font-semibold">Estado</th>
+                            <th className="px-3 py-2 font-semibold">Origen</th>
+                            <th className="px-3 py-2 font-semibold">Ubicacion</th>
+                            <th className="px-3 py-2 font-semibold">Alta</th>
+                            <th className="px-3 py-2 font-semibold">Acciones</th>
                         </tr>
                     </thead>
                     <tbody className="divide-y divide-crm-border">
                         {clients.map(client => (
-                            <tr key={client._id} className="hover:bg-crm-surface-raised transition-colors group">
-                                <td className="px-6 py-4">
-                                    <div className="flex flex-col">
-                                        <span className="font-bold text-white text-base">{client.fullName}</span>
-                                        {client.dniCuit && <span className="text-xs text-crm-fg-muted">Doc: {client.dniCuit}</span>}
-                                    </div>
+                            <tr key={client._id} className="h-[76px] text-sm text-crm-fg transition-colors hover:bg-crm-surface-raised/70">
+                                <td className="px-3 py-2 align-middle">
+                                    <div className="font-semibold leading-5 text-crm-fg">{client.fullName}</div>
+                                    <div className="mt-0.5 text-xs text-crm-fg-muted">{client.dniCuit ? `Doc: ${client.dniCuit}` : 'Sin documento'}</div>
                                 </td>
-                                <td className="px-6 py-4">
-                                    <div className="flex flex-col gap-1">
-                                        {client.phone && (
-                                            <div className="flex items-center gap-2 text-crm-fg-muted text-xs">
-                                                <Phone size={12} />
-                                                <span>{client.phone}</span>
-                                            </div>
-                                        )}
-                                        {client.email && (
-                                            <div className="flex items-center gap-2 text-crm-fg-muted text-xs">
-                                                <Mail size={12} />
-                                                <span className="truncate max-w-[150px]">{client.email}</span>
-                                            </div>
-                                        )}
-                                    </div>
-                                </td>
-                                <td className="px-6 py-4">
-                                    <div className="flex flex-col gap-2 items-start">
-                                        <span className={`px-2.5 py-1 rounded-full text-[10px] uppercase font-bold border ${getTypeColor(client.type)}`}>
-                                            {client.type}
+                                <td className="px-3 py-2 align-middle">
+                                    <div className="flex flex-col gap-1 text-xs text-crm-fg-muted">
+                                        <span className="flex min-w-0 items-center gap-2">
+                                            <Phone size={12} className="shrink-0" />
+                                            <span className="truncate">{client.phone || '--'}</span>
                                         </span>
-                                        <span className="text-xs text-crm-fg-muted uppercase tracking-wider">
-                                            {client.source}
+                                        <span className="flex min-w-0 items-center gap-2">
+                                            <Mail size={12} className="shrink-0" />
+                                            <span className="max-w-[180px] truncate">{client.email || '--'}</span>
                                         </span>
                                     </div>
                                 </td>
-                                <td className="px-6 py-4">
-                                    {(client.locality || client.province) ? (
-                                        <div className="flex items-center gap-2 text-crm-fg-muted text-xs">
-                                            <MapPin size={12} className="shrink-0" />
-                                            <span className="truncate max-w-[120px]">
-                                                {[client.locality, client.province].filter(Boolean).join(', ')}
-                                            </span>
-                                        </div>
-                                    ) : (
-                                        <span className="text-crm-fg-muted text-xs">-</span>
-                                    )}
+                                <td className="px-3 py-2 align-middle">
+                                    <span className={`inline-flex rounded-full border px-2.5 py-1 text-[10px] font-bold uppercase ${getTypeColor(client.type)}`}>
+                                        {getTypeLabel(client.type)}
+                                    </span>
                                 </td>
-                                <td className="px-6 py-4 text-xs text-crm-fg-muted">
-                                    {new Date(client.createdAt).toLocaleDateString('es-AR')}
+                                <td className={`px-3 py-2 align-middle text-xs font-semibold ${getStatusColor(client.status)}`}>
+                                    {getStatusLabel(client.status)}
                                 </td>
-                                <td className="px-6 py-4 text-right">
-                                    <CrmButton 
-                                        variant="secondary"
-                                        onClick={() => router.push(`/admin/clientes/${client._id}`)}
-                                        className="gap-2 px-3 opacity-0 group-hover:opacity-100 transition-opacity float-right"
+                                <td className="px-3 py-2 align-middle text-xs uppercase tracking-[0.08em] text-crm-fg-muted">
+                                    {client.source || '--'}
+                                </td>
+                                <td className="px-3 py-2 align-middle">
+                                    <div className="flex max-w-[150px] items-center gap-2 text-xs text-crm-fg-muted">
+                                        <MapPin size={12} className="shrink-0" />
+                                        <span className="truncate">{[client.locality, client.province].filter(Boolean).join(', ') || '--'}</span>
+                                    </div>
+                                </td>
+                                <td className="px-3 py-2 align-middle text-xs text-crm-fg-muted">{formatDate(client.createdAt)}</td>
+                                <td className="px-3 py-2 align-middle">
+                                    <Link
+                                        href={`/admin/clientes/${client._id}`}
+                                        className="inline-flex h-8 items-center gap-2 rounded-lg border border-transparent bg-transparent px-2 text-xs font-semibold text-crm-fg no-underline transition-colors hover:bg-crm-surface-raised"
                                     >
-                                        Ver Ficha
-                                        <ArrowRight size={14} />
-                                    </CrmButton>
+                                        Ver ficha
+                                        <ArrowRight size={13} />
+                                    </Link>
                                 </td>
                             </tr>
                         ))}

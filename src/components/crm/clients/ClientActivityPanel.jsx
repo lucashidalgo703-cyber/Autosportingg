@@ -5,53 +5,57 @@ export default function ClientActivityPanel({ client }) {
     if (!client) return null;
 
     const getActionIcon = (action) => {
-        switch(action?.toLowerCase()) {
-            case 'creación': return <UserPlus size={16} className="text-green-500" />;
-            case 'actualización': return <Edit3 size={16} className="text-blue-500" />;
-            default: return <Activity size={16} className="text-neutral-500" />;
+        switch (action?.toLowerCase()) {
+            case 'creacion':
+            case 'creación':
+                return <UserPlus size={15} className="text-emerald-300" />;
+            case 'actualizacion':
+            case 'actualización':
+                return <Edit3 size={15} className="text-blue-300" />;
+            default:
+                return <Activity size={15} className="text-crm-fg-muted" />;
         }
     };
 
     const logs = [...(client.clientAuditLog || [])].sort((a, b) => new Date(b.date) - new Date(a.date));
 
     return (
-        <div className="bg-neutral-900 border border-neutral-800 rounded-2xl p-6 flex flex-col h-full max-h-[600px]">
-            <h3 className="text-lg font-bold text-white mb-6 flex items-center gap-2 shrink-0">
-                <Clock size={20} className="text-red-500" />
-                Historial de Actividad
+        <div className="flex h-full max-h-[600px] flex-col rounded-xl border border-crm-border bg-crm-surface p-5">
+            <h3 className="m-0 mb-5 flex shrink-0 items-center gap-2 text-lg font-bold text-crm-fg">
+                <Clock size={19} className="text-crm-red" />
+                Historial de actividad
             </h3>
 
-            <div className="flex-1 overflow-y-auto custom-scrollbar pr-2">
+            <div className="min-h-0 flex-1 overflow-y-auto pr-2 custom-scrollbar">
                 {logs.length === 0 ? (
-                    <div className="text-center py-8 text-neutral-500 text-sm italic">
+                    <div className="rounded-xl border border-dashed border-crm-border bg-crm-bg px-5 py-8 text-center text-sm italic text-crm-fg-muted">
                         No hay registros de actividad.
                     </div>
                 ) : (
-                    <div className="relative border-l border-neutral-800 ml-3 space-y-6 pb-4">
+                    <div className="relative ml-3 space-y-5 border-l border-crm-border pb-2">
                         {logs.map((log, idx) => (
                             <div key={idx} className="relative pl-6">
-                                {/* Dot */}
-                                <div className="absolute -left-3 top-0 w-6 h-6 rounded-full bg-neutral-900 border border-neutral-700 flex items-center justify-center">
+                                <div className="absolute -left-3 top-0 flex h-6 w-6 items-center justify-center rounded-full border border-crm-border bg-crm-surface">
                                     {getActionIcon(log.action)}
                                 </div>
-                                
-                                <div className="bg-neutral-800/30 border border-neutral-800/50 rounded-xl p-4">
-                                    <div className="flex justify-between items-start mb-2 gap-4">
-                                        <h4 className="text-sm font-bold text-white capitalize">{log.action}</h4>
-                                        <span className="text-xs text-neutral-500 whitespace-nowrap">
+
+                                <div className="rounded-xl border border-crm-border bg-crm-bg p-4">
+                                    <div className="mb-2 flex items-start justify-between gap-4">
+                                        <h4 className="m-0 text-sm font-bold capitalize text-crm-fg">{log.action}</h4>
+                                        <span className="whitespace-nowrap text-xs text-crm-fg-muted">
                                             {new Date(log.date).toLocaleString('es-AR', {
                                                 day: '2-digit', month: 'short', year: 'numeric',
                                                 hour: '2-digit', minute: '2-digit'
                                             })}
                                         </span>
                                     </div>
-                                    
-                                    <p className="text-xs text-neutral-400 mb-1">
-                                        Por <span className="text-white font-medium">{log.user || 'Sistema'}</span>
+
+                                    <p className="m-0 text-xs text-crm-fg-muted">
+                                        Por <span className="font-semibold text-crm-fg">{log.user || 'Sistema'}</span>
                                     </p>
-                                    
+
                                     {log.details && (
-                                        <p className="text-sm text-neutral-300 mt-2 bg-black/20 p-2 rounded border border-neutral-800/50">
+                                        <p className="m-0 mt-3 rounded-lg border border-crm-border bg-crm-surface p-2 text-sm text-crm-fg-muted">
                                             {log.details}
                                         </p>
                                     )}
