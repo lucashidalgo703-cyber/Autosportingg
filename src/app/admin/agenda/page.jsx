@@ -31,7 +31,7 @@ const MONTHS = [
     'Diciembre'
 ];
 
-const WEEK_DAYS = ['DOM', 'LUN', 'MAR', 'MIE', 'JUE', 'VIE', 'SAB'];
+const WEEK_DAYS = ['DOM', 'LUN', 'MAR', 'MIÉ', 'JUE', 'VIE', 'SÁB'];
 const EVENT_TYPES = ['general', 'venta', 'cobranza', 'documentacion', 'entrega', 'postventa', 'cotizacion'];
 
 const todayStart = () => {
@@ -110,6 +110,8 @@ const eventTypeLabel = (type) => {
 
     return labels[type] || 'Otro';
 };
+
+const formatMonthTitle = (month, year) => `${MONTHS[month]} De ${year}`;
 
 const formatEventDate = (date) => {
     if (!date) return '';
@@ -192,6 +194,7 @@ export default function AdminAgendaPage() {
     const [dateFrom, setDateFrom] = useState('');
     const [dateTo, setDateTo] = useState('');
     const [selectedTypeFilter, setSelectedTypeFilter] = useState('Todos los tipos');
+    const [selectedCreatorFilter, setSelectedCreatorFilter] = useState('Todos los creadores');
     const [isCrmTaskModalOpen, setIsCrmTaskModalOpen] = useState(false);
     const [selectedTaskForEdit, setSelectedTaskForEdit] = useState(null);
     const [taskDefaultData, setTaskDefaultData] = useState(null);
@@ -225,12 +228,6 @@ export default function AdminAgendaPage() {
         } else {
             setCurrentMonth((prev) => prev + 1);
         }
-    };
-
-    const handleToday = () => {
-        const now = todayStart();
-        setCurrentMonth(now.getMonth());
-        setCurrentYear(now.getFullYear());
     };
 
     const openNewEvent = (date = todayStart()) => {
@@ -419,10 +416,15 @@ export default function AdminAgendaPage() {
             }
 
             if (selectedTypeFilter !== 'Todos los tipos' && event.type !== selectedTypeFilter) return false;
+            if (selectedCreatorFilter !== 'Todos los creadores' && event.owner !== selectedCreatorFilter) return false;
 
             return true;
         }).sort(activeTab === 'Pasados' ? sortEventsDesc : sortEventsAsc);
-    }, [normalizedEvents, activeTab, searchQuery, dateFrom, dateTo, selectedTypeFilter]);
+    }, [normalizedEvents, activeTab, searchQuery, dateFrom, dateTo, selectedTypeFilter, selectedCreatorFilter]);
+
+    const creatorOptions = useMemo(() => {
+        return Array.from(new Set(normalizedEvents.map((event) => event.owner).filter(Boolean))).sort((a, b) => a.localeCompare(b));
+    }, [normalizedEvents]);
 
     const getDayEvents = (day) => {
         return normalizedEvents.filter((event) => (
@@ -439,19 +441,38 @@ export default function AdminAgendaPage() {
         eventDate.setHours(0, 0, 0, 0);
         return eventDate >= todayStart();
     }).sort(sortEventsAsc);
+    const pastEventsCount = normalizedEvents.length - upcomingEvents.length;
 
     const loading = loadingLeads || loadingTasks;
 
     return (
-        <div className="mx-auto w-full max-w-7xl space-y-6 p-4 pb-24 font-sans text-[#f4f4f5] animate-in fade-in duration-300 md:p-6">
-            <div className="border-b border-[#27272a] pb-6">
+        <div className="mx-auto w-full max-w-7xl space-y-6 px-4 pb-24 pt-6 font-sans text-[#f4f4f5] animate-in fade-in duration-300 md:px-6 md:pt-7">
+            <div className="flex flex-col gap-4 border-b border-[#33333a] pb-5 lg:flex-row lg:items-start lg:justify-between">
                 <div>
                     <h1 className="m-0 flex items-center gap-3 text-2xl font-bold tracking-tight text-white">
                         Calendario
                     </h1>
-                    <p className="m-0 mt-1 text-xs text-zinc-500">
-                        Planificacion y seguimiento de compromisos y entregas.
+                    <p className="m-0 mt-1 text-base font-medium text-zinc-400">
+                        {normalizedEvents.length} eventos · {upcomingEvents.length} próximos · {pastEventsCount} pasados
                     </p>
+                </div>
+
+                <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+                    <button
+                        type="button"
+                        className="m-0 inline-flex h-9 appearance-none items-center justify-center gap-2 rounded-lg border border-[#33333a] bg-[#24242b] px-4 text-sm font-bold text-white transition-colors hover:bg-[#2d2d35]"
+                    >
+                        <span className="text-sm font-black text-blue-400">G</span>
+                        Conectar Google Calendar
+                    </button>
+                    <button
+                        type="button"
+                        onClick={() => openNewEvent()}
+                        className="m-0 inline-flex h-9 appearance-none items-center justify-center gap-2 rounded-lg border border-red-500/50 bg-[#ef3329] px-4 text-sm font-bold text-white shadow-[0_0_28px_rgba(239,51,41,0.45)] transition-colors hover:bg-red-500"
+                    >
+                        <Plus size={15} />
+                        Nuevo evento
+                    </button>
                 </div>
             </div>
 
@@ -473,50 +494,41 @@ export default function AdminAgendaPage() {
                 </div>
             ) : (
                 <>
-                    <div className="grid w-full grid-cols-1 gap-6 xl:grid-cols-12">
-                        <section className="rounded-2xl border border-[#27272a] bg-[#18181b]/50 p-5 shadow-sm xl:col-span-8">
-                            <div className="mb-6 flex items-center justify-between">
-                                <h2 className="m-0 text-sm font-bold uppercase tracking-wider text-white">
-                                    {MONTHS[currentMonth]} <span className="font-normal text-zinc-500">{currentYear}</span>
+                    <div className="grid w-full items-start gap-4 xl:grid-cols-12">
+                        <section className="rounded-lg border border-[#33333a] bg-[#1e1e24] p-5 shadow-sm xl:col-span-8">
+                            <div className="relative mb-6 flex h-7 items-center justify-center">
+                                <button
+                                    type="button"
+                                    onClick={handlePrevMonth}
+                                    className="absolute left-0 top-1/2 m-0 inline-flex h-8 w-8 -translate-y-1/2 appearance-none items-center justify-center rounded-lg border-0 bg-transparent p-0 text-zinc-400 transition-colors hover:text-white"
+                                    aria-label="Mes anterior"
+                                >
+                                    <ChevronLeft size={18} />
+                                </button>
+                                <h2 className="m-0 text-base font-bold text-white">
+                                    {formatMonthTitle(currentMonth, currentYear)}
                                 </h2>
-                                <div className="flex items-center gap-1.5">
-                                    <button
-                                        type="button"
-                                        onClick={handlePrevMonth}
-                                        className="m-0 inline-flex h-8 w-8 appearance-none items-center justify-center rounded-lg border border-[#27272a] bg-[#18181b] p-0 text-zinc-400 transition-colors hover:bg-zinc-800 hover:text-white"
-                                        aria-label="Mes anterior"
-                                    >
-                                        <ChevronLeft size={16} />
-                                    </button>
-                                    <button
-                                        type="button"
-                                        onClick={handleToday}
-                                        className="m-0 inline-flex h-8 appearance-none items-center rounded-lg border border-[#27272a] bg-[#18181b] px-3 text-xs font-medium text-zinc-300 transition-colors hover:bg-zinc-800 hover:text-white"
-                                    >
-                                        Hoy
-                                    </button>
-                                    <button
-                                        type="button"
-                                        onClick={handleNextMonth}
-                                        className="m-0 inline-flex h-8 w-8 appearance-none items-center justify-center rounded-lg border border-[#27272a] bg-[#18181b] p-0 text-zinc-400 transition-colors hover:bg-zinc-800 hover:text-white"
-                                        aria-label="Mes siguiente"
-                                    >
-                                        <ChevronRight size={16} />
-                                    </button>
-                                </div>
+                                <button
+                                    type="button"
+                                    onClick={handleNextMonth}
+                                    className="absolute right-0 top-1/2 m-0 inline-flex h-8 w-8 -translate-y-1/2 appearance-none items-center justify-center rounded-lg border-0 bg-transparent p-0 text-zinc-400 transition-colors hover:text-white"
+                                    aria-label="Mes siguiente"
+                                >
+                                    <ChevronRight size={18} />
+                                </button>
                             </div>
 
-                            <div className="mb-2 grid grid-cols-7 gap-1.5 text-center">
+                            <div className="mb-3 grid grid-cols-7 text-center">
                                 {WEEK_DAYS.map((day) => (
-                                    <span key={day} className="py-2 text-xs font-semibold text-zinc-500">
+                                    <span key={day} className="py-2 text-xs font-bold uppercase text-zinc-500">
                                         {day}
                                     </span>
                                 ))}
                             </div>
 
-                            <div className="grid grid-cols-7 gap-1.5 text-center">
+                            <div className="grid grid-cols-7 gap-y-1 text-center">
                                 {Array.from({ length: firstDayOffset }).map((_, index) => (
-                                    <div key={`offset-${index}`} className="h-12 bg-transparent" />
+                                    <div key={`offset-${index}`} className="h-11 bg-transparent" />
                                 ))}
 
                                 {Array.from({ length: daysInMonth }).map((_, index) => {
@@ -530,16 +542,16 @@ export default function AdminAgendaPage() {
                                             key={day}
                                             type="button"
                                             onClick={() => openNewEvent(clickedDate)}
-                                            className={`relative m-0 flex h-12 min-h-[48px] appearance-none cursor-pointer flex-col items-center justify-between rounded-lg border p-1.5 transition-colors hover:bg-zinc-800/50 ${
+                                            className={`relative m-0 flex h-11 appearance-none cursor-pointer items-center justify-center rounded-lg border-0 p-0 text-base font-bold transition-colors hover:bg-zinc-800/40 ${
                                                 isTodayDay
-                                                    ? 'border-[#dc2626] bg-[#dc2626] font-bold text-white shadow-md shadow-[#dc2626]/20 hover:bg-[#dc2626]/80'
-                                                    : 'border-[#27272a] bg-zinc-900/30 text-zinc-300'
+                                                    ? 'bg-[#ef3329] text-white shadow-md shadow-[#ef3329]/25 hover:bg-red-500'
+                                                    : 'bg-transparent text-zinc-200'
                                             }`}
                                         >
-                                            <span className="text-xs font-semibold">{day}</span>
+                                            <span>{day}</span>
 
                                             {dayEvents.length > 0 && (
-                                                <div className="flex max-w-full flex-wrap items-center justify-center gap-1">
+                                                <div className="absolute bottom-1.5 flex max-w-full flex-wrap items-center justify-center gap-1">
                                                     {dayEvents.slice(0, 3).map((event) => (
                                                         <span
                                                             key={event.id}
@@ -560,19 +572,16 @@ export default function AdminAgendaPage() {
                             </div>
                         </section>
 
-                        <aside className="flex min-h-[300px] flex-col justify-between rounded-2xl border border-[#27272a] bg-[#18181b]/50 p-5 shadow-sm xl:col-span-4">
+                        <aside className="min-h-[146px] self-start rounded-lg border border-[#33333a] bg-[#1e1e24] p-5 shadow-sm xl:col-span-4">
                             <div>
-                                <div className="mb-4 flex items-center justify-between border-b border-[#27272a] pb-3">
-                                    <span className="text-xs font-bold uppercase tracking-wider text-white">Compromisos / Agenda</span>
-                                    <span className="rounded border border-[#dc2626]/20 bg-[#dc2626]/10 px-2 py-0.5 text-[10px] font-bold text-[#dc2626]">
-                                        {upcomingEvents.length} activos
-                                    </span>
+                                <div className="mb-8 flex items-center justify-between">
+                                    <span className="text-base font-bold text-white">📅 Próximos eventos</span>
                                 </div>
 
-                                <div className="custom-scrollbar max-h-[320px] space-y-3 overflow-y-auto pr-1">
+                                <div className="custom-scrollbar max-h-[240px] space-y-3 overflow-y-auto pr-1">
                                     {upcomingEvents.slice(0, 5).length === 0 ? (
-                                        <div className="py-12 text-center text-xs italic text-zinc-600">
-                                            Sin compromisos agendados.
+                                        <div className="py-7 text-center text-sm text-zinc-500">
+                                            Sin próximos eventos.
                                         </div>
                                     ) : (
                                         upcomingEvents.slice(0, 5).map((event) => (
@@ -596,79 +605,68 @@ export default function AdminAgendaPage() {
                                     )}
                                 </div>
                             </div>
-
-                            <button
-                                type="button"
-                                onClick={() => openNewEvent()}
-                                className="m-0 mt-4 flex w-full appearance-none items-center justify-center gap-2 rounded-xl border-0 bg-[#dc2626] bg-gradient-to-r from-red-600 to-red-700 px-4 py-2.5 text-xs font-bold text-white shadow-[0_0_15px_rgba(220,38,38,0.2)] transition-colors hover:from-red-500 hover:to-red-600"
-                            >
-                                <Plus size={14} />
-                                Agendar compromiso
-                            </button>
                         </aside>
                     </div>
 
-                    <section className="w-full space-y-4 rounded-2xl border border-[#27272a] bg-[#18181b]/50 p-4 shadow-sm">
+                    <section className="mt-4 w-full space-y-4">
                         <div className="flex flex-col items-start justify-between gap-4 md:flex-row md:items-center">
-                            <div className="flex w-full gap-6 border-b border-[#27272a] md:w-auto">
+                            <div className="flex w-full gap-9 border-b border-[#33333a]">
                                 {['Proximos', 'Pasados', 'Todos'].map((tab) => (
                                     <button
                                         key={tab}
                                         type="button"
                                         onClick={() => setActiveTab(tab)}
-                                        className={`relative m-0 appearance-none border-0 bg-transparent p-0 pb-2 text-xs font-bold uppercase tracking-wider transition-colors ${
+                                        className={`relative m-0 appearance-none border-0 bg-transparent p-0 pb-3 text-sm font-bold transition-colors ${
                                             activeTab === tab
-                                                ? 'text-[#dc2626]'
+                                                ? 'text-[#ef3329]'
                                                 : 'text-zinc-500 hover:text-zinc-300'
                                         }`}
                                     >
-                                        {tab === 'Proximos' ? 'Proximos' : tab}
+                                        {tab === 'Proximos' ? 'Próximos' : tab}
                                         {activeTab === tab && (
-                                            <span className="absolute bottom-0 left-0 h-[2px] w-full rounded-t-full bg-[#dc2626]" />
+                                            <span className="absolute bottom-0 left-0 h-[2px] w-full rounded-t-full bg-[#ef3329]" />
                                         )}
                                     </button>
                                 ))}
                             </div>
                         </div>
 
-                        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 md:grid-cols-4">
-                            <div className="flex items-center rounded-lg border border-[#27272a] bg-zinc-900 px-3 py-2 text-zinc-400 transition-colors focus-within:border-zinc-600">
+                        <div className="grid grid-cols-1 gap-2 md:grid-cols-[minmax(280px,1fr)_200px_200px_200px_200px]">
+                            <div className="flex h-10 items-center rounded-lg border border-[#33333a] bg-[#1e1e24] px-3 text-zinc-400 transition-colors focus-within:border-zinc-600">
                                 <Search size={14} className="shrink-0" />
                                 <input
                                     type="text"
-                                    placeholder="Buscar por titulo, notas..."
+                                    placeholder="Titulo, cliente, vehiculo, tipo..."
                                     value={searchQuery}
                                     onChange={(event) => setSearchQuery(event.target.value)}
-                                    className="ml-2 w-full border-none bg-transparent text-xs font-medium text-white outline-none placeholder:text-zinc-600"
+                                    className="ml-2 w-full border-none bg-transparent text-sm font-medium text-white outline-none placeholder:text-zinc-500"
                                 />
                             </div>
 
-                            <div className="flex items-center rounded-lg border border-[#27272a] bg-zinc-900 px-3 py-2 text-zinc-400">
-                                <span className="mr-2 shrink-0 text-[10px] font-bold uppercase tracking-wider">Desde:</span>
+                            <div className="flex h-10 items-center rounded-lg border border-[#33333a] bg-[#1e1e24] px-3 text-zinc-400">
                                 <input
                                     type="date"
                                     value={dateFrom}
                                     onChange={(event) => setDateFrom(event.target.value)}
-                                    className="w-full border-none bg-transparent text-xs font-medium text-white outline-none [color-scheme:dark]"
+                                    className="w-full border-none bg-transparent text-sm font-bold text-white outline-none [color-scheme:dark]"
                                 />
                             </div>
 
-                            <div className="flex items-center rounded-lg border border-[#27272a] bg-zinc-900 px-3 py-2 text-zinc-400">
-                                <span className="mr-2 shrink-0 text-[10px] font-bold uppercase tracking-wider">Hasta:</span>
+                            <div className="flex h-10 items-center rounded-lg border border-[#33333a] bg-[#1e1e24] px-3 text-zinc-400">
                                 <input
                                     type="date"
                                     value={dateTo}
                                     onChange={(event) => setDateTo(event.target.value)}
-                                    className="w-full border-none bg-transparent text-xs font-medium text-white outline-none [color-scheme:dark]"
+                                    className="w-full border-none bg-transparent text-sm font-bold text-white outline-none [color-scheme:dark]"
                                 />
                             </div>
 
-                            <div className="flex items-center rounded-lg border border-[#27272a] bg-zinc-900 px-3 py-2 text-zinc-400">
+                            <div className="flex h-10 items-center rounded-lg border border-[#33333a] bg-[#1e1e24] px-3 text-zinc-400">
                                 <Filter size={12} className="mr-2 shrink-0" />
                                 <select
                                     value={selectedTypeFilter}
                                     onChange={(event) => setSelectedTypeFilter(event.target.value)}
-                                    className="w-full cursor-pointer appearance-none border-none bg-transparent text-xs font-medium text-white outline-none"
+                                    className="w-full cursor-pointer appearance-none border-none bg-transparent text-sm font-bold text-white outline-none"
                                 >
                                     <option value="Todos los tipos">Todos los tipos</option>
                                     {EVENT_TYPES.map((type) => (
@@ -677,22 +675,33 @@ export default function AdminAgendaPage() {
                                 </select>
                             </div>
 
+                            <div className="flex h-10 items-center rounded-lg border border-[#33333a] bg-[#1e1e24] px-3 text-zinc-400">
+                                <select
+                                    value={selectedCreatorFilter}
+                                    onChange={(event) => setSelectedCreatorFilter(event.target.value)}
+                                    className="w-full cursor-pointer appearance-none border-none bg-transparent text-sm font-bold text-white outline-none"
+                                >
+                                    <option value="Todos los creadores">Todos los creadores</option>
+                                    {creatorOptions.map((owner) => (
+                                        <option key={owner} value={owner}>{owner}</option>
+                                    ))}
+                                </select>
+                            </div>
                         </div>
                     </section>
 
-                    <section className="overflow-hidden rounded-2xl border border-[#27272a] bg-[#18181b]/50 shadow-sm">
-                        <div className="flex items-center justify-between border-b border-[#27272a] bg-zinc-900/60 px-4 py-3 text-xs font-bold uppercase tracking-wider text-white">
-                            <span>Lista de Eventos ({filteredEvents.length} encontrados)</span>
-                        </div>
-
-                        <div className="divide-y divide-[#27272a]">
-                            {filteredEvents.length === 0 ? (
-                                <div className="flex flex-col items-center justify-center gap-2 p-12 text-center text-sm text-zinc-500">
-                                    <CalendarIcon size={32} className="text-zinc-800" />
-                                    <span>Sin resultados o no hay eventos cargados.</span>
-                                </div>
-                            ) : (
-                                filteredEvents.map((event) => (
+                    <section className="overflow-hidden rounded-lg border border-dashed border-[#33333a] bg-[#1e1e24] shadow-sm">
+                        {filteredEvents.length === 0 ? (
+                            <div className="flex min-h-[205px] flex-col items-center justify-center gap-3 p-12 text-center">
+                                <CalendarIcon size={34} className="text-zinc-600" />
+                                <span className="text-base font-bold text-white">Sin resultados</span>
+                                <p className="m-0 max-w-md text-base leading-snug text-zinc-400">
+                                    Todavía no hay eventos cargados. Podés crear uno con el botón de arriba.
+                                </p>
+                            </div>
+                        ) : (
+                            <div className="divide-y divide-[#27272a]">
+                                {filteredEvents.map((event) => (
                                     <EventListRow
                                         key={event.id}
                                         event={event}
@@ -700,9 +709,9 @@ export default function AdminAgendaPage() {
                                         onCompleteLeadTask={handleCompleteLeadTask}
                                         onEditCrmTask={handleEditCrmTask}
                                     />
-                                ))
-                            )}
-                        </div>
+                                ))}
+                            </div>
+                        )}
                     </section>
                 </>
             )}
