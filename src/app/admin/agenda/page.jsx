@@ -9,7 +9,6 @@ import {
     Clock,
     ExternalLink,
     Filter,
-    Link2,
     Plus,
     Search,
     User
@@ -123,7 +122,7 @@ const sortEventsDesc = (a, b) => b.date.getTime() - a.date.getTime();
 
 function EventListRow({ event, onCompleteCrmTask, onCompleteLeadTask, onEditCrmTask }) {
     return (
-        <div className="group flex flex-col gap-4 border-b border-crm-border p-4 transition-colors last:border-b-0 hover:bg-crm-bg/70 sm:flex-row sm:items-center sm:justify-between">
+        <div className="group flex flex-col gap-4 border-b border-[#27272a] p-4 transition-colors last:border-b-0 hover:bg-zinc-900/40 sm:flex-row sm:items-center sm:justify-between">
             <div className="flex min-w-0 items-start gap-4">
                 <span
                     className="mt-1 h-10 w-1.5 shrink-0 rounded-full"
@@ -131,15 +130,15 @@ function EventListRow({ event, onCompleteCrmTask, onCompleteLeadTask, onEditCrmT
                 />
                 <div className="min-w-0 space-y-1">
                     <div className="flex flex-wrap items-center gap-2">
-                        <h4 className="m-0 truncate text-sm font-bold text-crm-fg">{event.title}</h4>
-                        <span className="rounded border border-crm-border bg-crm-bg px-2 py-0.5 text-[9px] font-bold uppercase tracking-[0.12em] text-crm-fg-muted">
+                        <h4 className="m-0 truncate text-sm font-bold text-white">{event.title}</h4>
+                        <span className="rounded border border-[#27272a] bg-zinc-900 px-2 py-0.5 text-[9px] font-bold uppercase tracking-[0.12em] text-zinc-500">
                             {event.typeLabel}
                         </span>
                     </div>
-                    <p className="m-0 max-w-xl whitespace-pre-line text-xs leading-relaxed text-crm-fg-muted">
+                    <p className="m-0 max-w-xl whitespace-pre-line text-xs leading-relaxed text-zinc-400">
                         {event.description || 'Sin descripcion adicional.'}
                     </p>
-                    <div className="flex flex-wrap items-center gap-3 text-[10px] font-medium text-crm-fg-muted">
+                    <div className="flex flex-wrap items-center gap-3 text-[10px] font-medium text-zinc-500">
                         {event.owner && (
                             <span className="inline-flex items-center gap-1">
                                 <User size={11} />
@@ -156,10 +155,10 @@ function EventListRow({ event, onCompleteCrmTask, onCompleteLeadTask, onEditCrmT
                 </div>
             </div>
 
-            <div className="flex shrink-0 items-center justify-between gap-4 border-t border-crm-border pt-3 sm:justify-end sm:border-t-0 sm:pt-0">
+            <div className="flex shrink-0 items-center justify-between gap-4 border-t border-[#27272a] pt-3 sm:justify-end sm:border-t-0 sm:pt-0">
                 <div className="flex flex-col sm:items-end">
-                    <span className="text-xs font-bold text-crm-fg">{formatEventDate(event.date)}</span>
-                    <span className="mt-1 text-[9px] font-bold uppercase tracking-widest text-crm-fg-muted">
+                    <span className="text-xs font-bold text-white">{formatEventDate(event.date)}</span>
+                    <span className="mt-1 text-[9px] font-bold uppercase tracking-widest text-zinc-500">
                         Fecha limite
                     </span>
                 </div>
@@ -167,7 +166,7 @@ function EventListRow({ event, onCompleteCrmTask, onCompleteLeadTask, onEditCrmT
                     {event.href && (
                         <a
                             href={event.href}
-                            className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-crm-border bg-crm-bg text-crm-fg-muted opacity-100 transition-colors hover:border-crm-red/30 hover:text-crm-red sm:opacity-0 sm:group-hover:opacity-100"
+                            className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-[#27272a] bg-zinc-900 text-zinc-500 opacity-100 transition-colors hover:border-zinc-700 hover:text-white sm:opacity-0 sm:group-hover:opacity-100"
                             title="Ver detalle"
                         >
                             <ExternalLink size={14} />
@@ -177,7 +176,7 @@ function EventListRow({ event, onCompleteCrmTask, onCompleteLeadTask, onEditCrmT
                         <button
                             type="button"
                             onClick={() => onEditCrmTask(event.rawTask)}
-                            className="inline-flex h-9 items-center rounded-lg border border-crm-border bg-crm-bg px-3 text-xs font-bold text-crm-fg-muted opacity-100 transition-colors hover:border-crm-red/30 hover:text-crm-red sm:opacity-0 sm:group-hover:opacity-100"
+                            className="inline-flex h-9 items-center rounded-lg border border-[#27272a] bg-zinc-900 px-3 text-xs font-bold text-zinc-500 opacity-100 transition-colors hover:border-zinc-700 hover:text-white sm:opacity-0 sm:group-hover:opacity-100"
                         >
                             Editar
                         </button>
@@ -213,7 +212,6 @@ export default function AdminAgendaPage() {
     const [dateFrom, setDateFrom] = useState('');
     const [dateTo, setDateTo] = useState('');
     const [selectedTypeFilter, setSelectedTypeFilter] = useState('Todos los tipos');
-    const [selectedCreatorFilter, setSelectedCreatorFilter] = useState('Todos los creadores');
     const [isCrmTaskModalOpen, setIsCrmTaskModalOpen] = useState(false);
     const [selectedTaskForEdit, setSelectedTaskForEdit] = useState(null);
     const [taskDefaultData, setTaskDefaultData] = useState(null);
@@ -407,10 +405,6 @@ export default function AdminAgendaPage() {
         return events.sort(sortEventsAsc);
     }, [leads, crmTasks]);
 
-    const creatorOptions = useMemo(() => {
-        return Array.from(new Set(normalizedEvents.map((event) => event.owner).filter(Boolean))).sort();
-    }, [normalizedEvents]);
-
     const filteredEvents = useMemo(() => {
         return normalizedEvents.filter((event) => {
             const eventDate = new Date(event.date);
@@ -445,11 +439,10 @@ export default function AdminAgendaPage() {
             }
 
             if (selectedTypeFilter !== 'Todos los tipos' && event.type !== selectedTypeFilter) return false;
-            if (selectedCreatorFilter !== 'Todos los creadores' && event.owner !== selectedCreatorFilter) return false;
 
             return true;
         }).sort(activeTab === 'Pasados' ? sortEventsDesc : sortEventsAsc);
-    }, [normalizedEvents, activeTab, searchQuery, dateFrom, dateTo, selectedTypeFilter, selectedCreatorFilter]);
+    }, [normalizedEvents, activeTab, searchQuery, dateFrom, dateTo, selectedTypeFilter]);
 
     const getDayEvents = (day) => {
         return normalizedEvents.filter((event) => (
@@ -470,37 +463,14 @@ export default function AdminAgendaPage() {
     const loading = loadingLeads || loadingTasks;
 
     return (
-        <div className="mx-auto flex w-full max-w-7xl flex-col gap-6 p-4 pb-24 md:p-6">
-            <div className="flex flex-col gap-4 border-b border-crm-border pb-6 lg:flex-row lg:items-start lg:justify-between">
-                <div>
-                    <div className="flex flex-wrap items-center gap-2">
-                        <h1 className="m-0 text-2xl font-bold tracking-tight text-crm-fg">Calendario</h1>
-                        <span className="rounded border border-crm-red/20 bg-crm-red/10 px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.1em] text-crm-red">
-                            Operacion
-                        </span>
-                    </div>
-                    <p className="m-0 mt-1 text-xs text-crm-fg-muted">
-                        Planificacion y seguimiento de compromisos y entregas.
-                    </p>
-                </div>
-
-                <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-                    <button
-                        type="button"
-                        className="inline-flex h-10 items-center justify-center gap-2 rounded-xl border border-emerald-500/25 bg-emerald-500/10 px-4 text-xs font-bold text-emerald-200 transition-colors hover:bg-emerald-500/15"
-                    >
-                        <Link2 size={15} />
-                        Google Calendar
-                    </button>
-                    <button
-                        type="button"
-                        onClick={() => openNewEvent()}
-                        className="inline-flex h-10 items-center justify-center gap-2 rounded-xl bg-crm-red px-4 text-xs font-bold text-white shadow-crm-red transition-colors hover:bg-crm-red-hover"
-                    >
-                        <Plus size={15} />
-                        Nuevo evento
-                    </button>
-                </div>
+        <div className="w-full space-y-6 p-4 pb-24 font-sans text-[#f4f4f5] md:p-6">
+            <div className="border-b border-[#27272a] pb-6">
+                <h1 className="m-0 flex items-center gap-3 text-2xl font-bold tracking-tight text-white">
+                    Calendario
+                </h1>
+                <p className="m-0 mt-1 text-xs text-zinc-500">
+                    Planificacion y seguimiento de compromisos y entregas.
+                </p>
             </div>
 
             {(errorLeads || errorTasks) && (
@@ -513,25 +483,25 @@ export default function AdminAgendaPage() {
             )}
 
             {loading ? (
-                <div className="flex h-72 items-center justify-center rounded-2xl border border-crm-border bg-crm-surface">
+                <div className="flex h-72 items-center justify-center rounded-2xl border border-[#27272a] bg-[#18181b]/50">
                     <div className="flex flex-col items-center gap-3">
-                        <div className="h-8 w-8 animate-spin rounded-full border-2 border-crm-border border-b-crm-red" />
-                        <span className="text-xs font-medium uppercase tracking-wider text-crm-fg-muted">Cargando agenda...</span>
+                        <div className="h-8 w-8 animate-spin rounded-full border-2 border-[#27272a] border-b-[#dc2626]" />
+                        <span className="text-xs font-medium uppercase tracking-wider text-zinc-500">Cargando agenda...</span>
                     </div>
                 </div>
             ) : (
                 <>
                     <div className="grid w-full grid-cols-1 gap-6 xl:grid-cols-12">
-                        <section className="rounded-2xl border border-crm-border bg-crm-surface/70 p-5 shadow-sm xl:col-span-8">
+                        <section className="rounded-2xl border border-[#27272a] bg-[#18181b]/50 p-5 shadow-sm xl:col-span-8">
                             <div className="mb-6 flex items-center justify-between">
-                                <h2 className="m-0 text-sm font-bold uppercase tracking-wider text-crm-fg">
-                                    {MONTHS[currentMonth]} <span className="font-normal text-crm-fg-muted">{currentYear}</span>
+                                <h2 className="m-0 text-sm font-bold uppercase tracking-wider text-white">
+                                    {MONTHS[currentMonth]} <span className="font-normal text-zinc-500">{currentYear}</span>
                                 </h2>
                                 <div className="flex items-center gap-1.5">
                                     <button
                                         type="button"
                                         onClick={handlePrevMonth}
-                                        className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-crm-border bg-crm-bg text-crm-fg-muted transition-colors hover:bg-crm-surface-raised hover:text-crm-fg"
+                                        className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-[#27272a] bg-[#18181b] text-zinc-400 transition-colors hover:bg-zinc-800 hover:text-white"
                                         aria-label="Mes anterior"
                                     >
                                         <ChevronLeft size={16} />
@@ -539,14 +509,14 @@ export default function AdminAgendaPage() {
                                     <button
                                         type="button"
                                         onClick={handleToday}
-                                        className="inline-flex h-8 items-center rounded-lg border border-crm-border bg-crm-bg px-3 text-xs font-medium text-crm-fg-muted transition-colors hover:bg-crm-surface-raised hover:text-crm-fg"
+                                        className="inline-flex h-8 items-center rounded-lg border border-[#27272a] bg-[#18181b] px-3 text-xs font-medium text-zinc-300 transition-colors hover:bg-zinc-800 hover:text-white"
                                     >
                                         Hoy
                                     </button>
                                     <button
                                         type="button"
                                         onClick={handleNextMonth}
-                                        className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-crm-border bg-crm-bg text-crm-fg-muted transition-colors hover:bg-crm-surface-raised hover:text-crm-fg"
+                                        className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-[#27272a] bg-[#18181b] text-zinc-400 transition-colors hover:bg-zinc-800 hover:text-white"
                                         aria-label="Mes siguiente"
                                     >
                                         <ChevronRight size={16} />
@@ -556,7 +526,7 @@ export default function AdminAgendaPage() {
 
                             <div className="mb-2 grid grid-cols-7 gap-1.5 text-center">
                                 {WEEK_DAYS.map((day) => (
-                                    <span key={day} className="py-2 text-xs font-semibold text-crm-fg-muted">
+                                    <span key={day} className="py-2 text-xs font-semibold text-zinc-500">
                                         {day}
                                     </span>
                                 ))}
@@ -578,10 +548,10 @@ export default function AdminAgendaPage() {
                                             key={day}
                                             type="button"
                                             onClick={() => openNewEvent(clickedDate)}
-                                            className={`relative flex min-h-[48px] cursor-pointer flex-col items-center justify-between rounded-lg border p-1.5 transition-colors hover:bg-crm-surface-raised ${
+                                            className={`relative flex min-h-[48px] cursor-pointer flex-col items-center justify-between rounded-lg border p-1.5 transition-colors hover:bg-zinc-800/50 ${
                                                 isTodayDay
-                                                    ? 'border-crm-red bg-crm-red font-bold text-white shadow-crm-red hover:bg-crm-red-hover'
-                                                    : 'border-crm-border bg-crm-bg/60 text-crm-fg'
+                                                    ? 'border-[#dc2626] bg-[#dc2626] font-bold text-white shadow-md shadow-[#dc2626]/20 hover:bg-[#dc2626]/80'
+                                                    : 'border-[#27272a] bg-zinc-900/30 text-zinc-300'
                                             }`}
                                         >
                                             <span className="text-xs font-semibold">{day}</span>
@@ -596,7 +566,7 @@ export default function AdminAgendaPage() {
                                                         />
                                                     ))}
                                                     {dayEvents.length > 3 && (
-                                                        <span className={`text-[7px] font-bold leading-none ${isTodayDay ? 'text-white/80' : 'text-crm-fg-muted'}`}>
+                                                        <span className={`text-[7px] font-bold leading-none ${isTodayDay ? 'text-white/80' : 'text-zinc-500'}`}>
                                                             +
                                                         </span>
                                                     )}
@@ -608,33 +578,33 @@ export default function AdminAgendaPage() {
                             </div>
                         </section>
 
-                        <aside className="flex min-h-[300px] flex-col justify-between rounded-2xl border border-crm-border bg-crm-surface/70 p-5 shadow-sm xl:col-span-4">
+                        <aside className="flex min-h-[300px] flex-col justify-between rounded-2xl border border-[#27272a] bg-[#18181b]/50 p-5 shadow-sm xl:col-span-4">
                             <div>
-                                <div className="mb-4 flex items-center justify-between border-b border-crm-border pb-3">
-                                    <span className="text-xs font-bold uppercase tracking-wider text-crm-fg">Compromisos / Agenda</span>
-                                    <span className="rounded border border-crm-red/20 bg-crm-red/10 px-2 py-0.5 text-[10px] font-bold text-crm-red">
+                                <div className="mb-4 flex items-center justify-between border-b border-[#27272a] pb-3">
+                                    <span className="text-xs font-bold uppercase tracking-wider text-white">Compromisos / Agenda</span>
+                                    <span className="rounded border border-[#dc2626]/20 bg-[#dc2626]/10 px-2 py-0.5 text-[10px] font-bold text-[#dc2626]">
                                         {upcomingEvents.length} activos
                                     </span>
                                 </div>
 
                                 <div className="custom-scrollbar max-h-[320px] space-y-3 overflow-y-auto pr-1">
                                     {upcomingEvents.slice(0, 5).length === 0 ? (
-                                        <div className="py-12 text-center text-xs italic text-crm-fg-muted">
+                                        <div className="py-12 text-center text-xs italic text-zinc-600">
                                             Sin compromisos agendados.
                                         </div>
                                     ) : (
                                         upcomingEvents.slice(0, 5).map((event) => (
                                             <div
                                                 key={event.id}
-                                                className="flex items-start gap-3 rounded-xl border border-white/5 bg-crm-bg/70 p-3 transition-colors hover:border-crm-border"
+                                                className="flex items-start gap-3 rounded-xl border border-white/5 bg-zinc-900/60 p-3 transition-colors hover:border-zinc-700"
                                             >
                                                 <span
                                                     className="h-8 w-1 shrink-0 rounded-full"
                                                     style={{ backgroundColor: event.color }}
                                                 />
                                                 <div className="min-w-0 flex-1">
-                                                    <p className="m-0 truncate text-xs font-bold leading-tight text-crm-fg">{event.title}</p>
-                                                    <div className="mt-1.5 flex items-center gap-1.5 text-[10px] font-medium text-crm-fg-muted">
+                                                    <p className="m-0 truncate text-xs font-bold leading-tight text-white">{event.title}</p>
+                                                    <div className="mt-1.5 flex items-center gap-1.5 text-[10px] font-medium text-zinc-500">
                                                         <Clock size={10} />
                                                         <span>{formatEventDate(event.date)}</span>
                                                     </div>
@@ -648,7 +618,7 @@ export default function AdminAgendaPage() {
                             <button
                                 type="button"
                                 onClick={() => openNewEvent()}
-                                className="mt-4 flex w-full items-center justify-center gap-2 rounded-xl bg-crm-red px-4 py-2.5 text-xs font-bold text-white shadow-crm-red transition-colors hover:bg-crm-red-hover"
+                                className="mt-4 flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-red-600 to-red-700 px-4 py-2.5 text-xs font-bold text-white shadow-[0_0_15px_rgba(220,38,38,0.2)] transition-colors hover:from-red-500 hover:to-red-600"
                             >
                                 <Plus size={14} />
                                 Agendar compromiso
@@ -656,9 +626,9 @@ export default function AdminAgendaPage() {
                         </aside>
                     </div>
 
-                    <section className="w-full space-y-4 rounded-2xl border border-crm-border bg-crm-surface/70 p-4 shadow-sm">
+                    <section className="w-full space-y-4 rounded-2xl border border-[#27272a] bg-[#18181b]/50 p-4 shadow-sm">
                         <div className="flex flex-col items-start justify-between gap-4 md:flex-row md:items-center">
-                            <div className="flex w-full gap-6 border-b border-crm-border md:w-auto">
+                            <div className="flex w-full gap-6 border-b border-[#27272a] md:w-auto">
                                 {['Proximos', 'Pasados', 'Todos'].map((tab) => (
                                     <button
                                         key={tab}
@@ -666,57 +636,57 @@ export default function AdminAgendaPage() {
                                         onClick={() => setActiveTab(tab)}
                                         className={`relative pb-2 text-xs font-bold uppercase tracking-wider transition-colors ${
                                             activeTab === tab
-                                                ? 'text-crm-red'
-                                                : 'text-crm-fg-muted hover:text-crm-fg'
+                                                ? 'text-[#dc2626]'
+                                                : 'text-zinc-500 hover:text-zinc-300'
                                         }`}
                                     >
                                         {tab}
                                         {activeTab === tab && (
-                                            <span className="absolute bottom-0 left-0 h-[2px] w-full rounded-t-full bg-crm-red" />
+                                            <span className="absolute bottom-0 left-0 h-[2px] w-full rounded-t-full bg-[#dc2626]" />
                                         )}
                                     </button>
                                 ))}
                             </div>
                         </div>
 
-                        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-5">
-                            <div className="flex items-center rounded-lg border border-crm-border bg-crm-bg px-3 py-2 text-crm-fg-muted transition-colors focus-within:border-crm-border">
+                        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 md:grid-cols-4">
+                            <div className="flex items-center rounded-lg border border-[#27272a] bg-zinc-900 px-3 py-2 text-zinc-400 transition-colors focus-within:border-zinc-600">
                                 <Search size={14} className="shrink-0" />
                                 <input
                                     type="text"
                                     placeholder="Buscar por titulo, notas..."
                                     value={searchQuery}
                                     onChange={(event) => setSearchQuery(event.target.value)}
-                                    className="ml-2 w-full border-none bg-transparent text-xs font-medium text-crm-fg outline-none placeholder:text-crm-fg-muted"
+                                    className="ml-2 w-full border-none bg-transparent text-xs font-medium text-white outline-none placeholder:text-zinc-600"
                                 />
                             </div>
 
-                            <div className="flex items-center rounded-lg border border-crm-border bg-crm-bg px-3 py-2 text-crm-fg-muted">
+                            <div className="flex items-center rounded-lg border border-[#27272a] bg-zinc-900 px-3 py-2 text-zinc-400">
                                 <span className="mr-2 shrink-0 text-[10px] font-bold uppercase tracking-wider">Desde:</span>
                                 <input
                                     type="date"
                                     value={dateFrom}
                                     onChange={(event) => setDateFrom(event.target.value)}
-                                    className="w-full border-none bg-transparent text-xs font-medium text-crm-fg outline-none [color-scheme:dark]"
+                                    className="w-full border-none bg-transparent text-xs font-medium text-white outline-none [color-scheme:dark]"
                                 />
                             </div>
 
-                            <div className="flex items-center rounded-lg border border-crm-border bg-crm-bg px-3 py-2 text-crm-fg-muted">
+                            <div className="flex items-center rounded-lg border border-[#27272a] bg-zinc-900 px-3 py-2 text-zinc-400">
                                 <span className="mr-2 shrink-0 text-[10px] font-bold uppercase tracking-wider">Hasta:</span>
                                 <input
                                     type="date"
                                     value={dateTo}
                                     onChange={(event) => setDateTo(event.target.value)}
-                                    className="w-full border-none bg-transparent text-xs font-medium text-crm-fg outline-none [color-scheme:dark]"
+                                    className="w-full border-none bg-transparent text-xs font-medium text-white outline-none [color-scheme:dark]"
                                 />
                             </div>
 
-                            <div className="flex items-center rounded-lg border border-crm-border bg-crm-bg px-3 py-2 text-crm-fg-muted">
+                            <div className="flex items-center rounded-lg border border-[#27272a] bg-zinc-900 px-3 py-2 text-zinc-400">
                                 <Filter size={12} className="mr-2 shrink-0" />
                                 <select
                                     value={selectedTypeFilter}
                                     onChange={(event) => setSelectedTypeFilter(event.target.value)}
-                                    className="w-full cursor-pointer appearance-none border-none bg-transparent text-xs font-medium text-crm-fg outline-none"
+                                    className="w-full cursor-pointer appearance-none border-none bg-transparent text-xs font-medium text-white outline-none"
                                 >
                                     <option value="Todos los tipos">Todos los tipos</option>
                                     {EVENT_TYPES.map((type) => (
@@ -725,31 +695,18 @@ export default function AdminAgendaPage() {
                                 </select>
                             </div>
 
-                            <div className="flex items-center rounded-lg border border-crm-border bg-crm-bg px-3 py-2 text-crm-fg-muted">
-                                <User size={12} className="mr-2 shrink-0" />
-                                <select
-                                    value={selectedCreatorFilter}
-                                    onChange={(event) => setSelectedCreatorFilter(event.target.value)}
-                                    className="w-full cursor-pointer appearance-none border-none bg-transparent text-xs font-medium text-crm-fg outline-none"
-                                >
-                                    <option value="Todos los creadores">Todos los creadores</option>
-                                    {creatorOptions.map((creator) => (
-                                        <option key={creator} value={creator}>{creator}</option>
-                                    ))}
-                                </select>
-                            </div>
                         </div>
                     </section>
 
-                    <section className="overflow-hidden rounded-2xl border border-crm-border bg-crm-surface/70 shadow-sm">
-                        <div className="flex items-center justify-between border-b border-crm-border bg-crm-bg/60 px-4 py-3 text-xs font-bold uppercase tracking-wider text-crm-fg">
+                    <section className="overflow-hidden rounded-2xl border border-[#27272a] bg-[#18181b]/50 shadow-sm">
+                        <div className="flex items-center justify-between border-b border-[#27272a] bg-zinc-900/60 px-4 py-3 text-xs font-bold uppercase tracking-wider text-white">
                             <span>Lista de Eventos ({filteredEvents.length} encontrados)</span>
                         </div>
 
-                        <div className="divide-y divide-crm-border">
+                        <div className="divide-y divide-[#27272a]">
                             {filteredEvents.length === 0 ? (
-                                <div className="flex flex-col items-center justify-center gap-2 p-12 text-center text-sm text-crm-fg-muted">
-                                    <CalendarIcon size={32} className="text-crm-border" />
+                                <div className="flex flex-col items-center justify-center gap-2 p-12 text-center text-sm text-zinc-500">
+                                    <CalendarIcon size={32} className="text-zinc-800" />
                                     <span>Sin resultados o no hay eventos cargados.</span>
                                 </div>
                             ) : (
