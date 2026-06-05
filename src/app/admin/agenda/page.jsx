@@ -9,9 +9,9 @@ import {
     Clock,
     ExternalLink,
     Filter,
+    Link2,
     Plus,
-    Search,
-    User
+    Search
 } from 'lucide-react';
 import { useAdminLeads } from '../../../hooks/useAdminLeads';
 import { useAdminCrmTasks } from '../../../hooks/useAdminCrmTasks';
@@ -129,29 +129,10 @@ function EventListRow({ event, onCompleteCrmTask, onCompleteLeadTask, onEditCrmT
                     style={{ backgroundColor: event.color }}
                 />
                 <div className="min-w-0 space-y-1">
-                    <div className="flex flex-wrap items-center gap-2">
-                        <h4 className="m-0 truncate text-sm font-bold text-white">{event.title}</h4>
-                        <span className="rounded border border-[#27272a] bg-zinc-900 px-2 py-0.5 text-[9px] font-bold uppercase tracking-[0.12em] text-zinc-500">
-                            {event.typeLabel}
-                        </span>
-                    </div>
+                    <h4 className="m-0 truncate text-sm font-bold text-white">{event.title}</h4>
                     <p className="m-0 max-w-xl whitespace-pre-line text-xs leading-relaxed text-zinc-400">
                         {event.description || 'Sin descripcion adicional.'}
                     </p>
-                    <div className="flex flex-wrap items-center gap-3 text-[10px] font-medium text-zinc-500">
-                        {event.owner && (
-                            <span className="inline-flex items-center gap-1">
-                                <User size={11} />
-                                {event.owner}
-                            </span>
-                        )}
-                        {event.time && (
-                            <span className="inline-flex items-center gap-1">
-                                <Clock size={11} />
-                                {event.time}
-                            </span>
-                        )}
-                    </div>
                 </div>
             </div>
 
@@ -463,14 +444,34 @@ export default function AdminAgendaPage() {
     const loading = loadingLeads || loadingTasks;
 
     return (
-        <div className="w-full space-y-6 p-4 pb-24 font-sans text-[#f4f4f5] md:p-6">
-            <div className="border-b border-[#27272a] pb-6">
-                <h1 className="m-0 flex items-center gap-3 text-2xl font-bold tracking-tight text-white">
-                    Calendario
-                </h1>
-                <p className="m-0 mt-1 text-xs text-zinc-500">
-                    Planificacion y seguimiento de compromisos y entregas.
-                </p>
+        <div className="mx-auto flex w-full max-w-7xl flex-col gap-6 p-4 pb-24 font-sans text-[#f4f4f5] md:p-6">
+            <div className="flex flex-col gap-4 border-b border-[#27272a] pb-6 lg:flex-row lg:items-start lg:justify-between">
+                <div>
+                    <h1 className="m-0 flex items-center gap-3 text-2xl font-bold tracking-tight text-white">
+                        Calendario
+                    </h1>
+                    <p className="m-0 mt-1 text-xs text-zinc-500">
+                        Planificacion y seguimiento de compromisos y entregas.
+                    </p>
+                </div>
+
+                <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+                    <button
+                        type="button"
+                        className="inline-flex h-10 items-center justify-center gap-2 rounded-xl border border-emerald-500/25 bg-emerald-500/10 px-4 text-xs font-bold text-emerald-200 transition-colors hover:bg-emerald-500/15"
+                    >
+                        <Link2 size={15} />
+                        Google Calendar
+                    </button>
+                    <button
+                        type="button"
+                        onClick={() => openNewEvent()}
+                        className="inline-flex h-10 items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-red-600 to-red-700 px-4 text-xs font-bold text-white shadow-[0_0_15px_rgba(220,38,38,0.2)] transition-colors hover:from-red-500 hover:to-red-600"
+                    >
+                        <Plus size={15} />
+                        Nuevo evento
+                    </button>
+                </div>
             </div>
 
             {(errorLeads || errorTasks) && (
