@@ -9,7 +9,6 @@ import {
     Clock,
     ExternalLink,
     Filter,
-    Link2,
     Plus,
     Search
 } from 'lucide-react';
@@ -143,7 +142,7 @@ function EventListRow({ event, onCompleteCrmTask, onCompleteLeadTask, onEditCrmT
                         Fecha limite
                     </span>
                 </div>
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 opacity-0 transition-opacity group-hover:opacity-100">
                     {event.href && (
                         <a
                             href={event.href}
@@ -444,8 +443,8 @@ export default function AdminAgendaPage() {
     const loading = loadingLeads || loadingTasks;
 
     return (
-        <div className="mx-auto flex w-full max-w-7xl flex-col gap-6 p-4 pb-24 font-sans text-[#f4f4f5] md:p-6">
-            <div className="flex flex-col gap-4 border-b border-[#27272a] pb-6 lg:flex-row lg:items-start lg:justify-between">
+        <div className="mx-auto w-full max-w-7xl space-y-6 p-4 pb-24 font-sans text-[#f4f4f5] animate-in fade-in duration-300 md:p-6">
+            <div className="border-b border-[#27272a] pb-6">
                 <div>
                     <h1 className="m-0 flex items-center gap-3 text-2xl font-bold tracking-tight text-white">
                         Calendario
@@ -453,24 +452,6 @@ export default function AdminAgendaPage() {
                     <p className="m-0 mt-1 text-xs text-zinc-500">
                         Planificacion y seguimiento de compromisos y entregas.
                     </p>
-                </div>
-
-                <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-                    <button
-                        type="button"
-                        className="inline-flex h-10 items-center justify-center gap-2 rounded-xl border border-emerald-500/25 bg-emerald-500/10 px-4 text-xs font-bold text-emerald-200 transition-colors hover:bg-emerald-500/15"
-                    >
-                        <Link2 size={15} />
-                        Google Calendar
-                    </button>
-                    <button
-                        type="button"
-                        onClick={() => openNewEvent()}
-                        className="inline-flex h-10 items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-red-600 to-red-700 px-4 text-xs font-bold text-white shadow-[0_0_15px_rgba(220,38,38,0.2)] transition-colors hover:from-red-500 hover:to-red-600"
-                    >
-                        <Plus size={15} />
-                        Nuevo evento
-                    </button>
                 </div>
             </div>
 
@@ -641,7 +622,7 @@ export default function AdminAgendaPage() {
                                                 : 'text-zinc-500 hover:text-zinc-300'
                                         }`}
                                     >
-                                        {tab}
+                                        {tab === 'Proximos' ? 'Proximos' : tab}
                                         {activeTab === tab && (
                                             <span className="absolute bottom-0 left-0 h-[2px] w-full rounded-t-full bg-[#dc2626]" />
                                         )}

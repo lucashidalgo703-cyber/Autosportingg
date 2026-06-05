@@ -85,8 +85,13 @@ export default function CrmTaskModal({ isOpen, onClose, task, onSave, defaultDat
 
     const isEditMode = !!task;
     const isCalendarMode = !isEditMode && defaultData?.source === 'agenda';
-    const inputClass = "w-full rounded-lg border border-crm-border bg-crm-bg px-4 py-2.5 text-sm text-crm-fg transition-colors focus:border-crm-red focus:outline-none focus:ring-1 focus:ring-crm-red";
-    const labelClass = "mb-2 block text-xs font-bold uppercase tracking-[0.08em] text-crm-fg-muted";
+    const calendarColors = ['#dc2626', '#3b82f6', '#10b981', '#f59e0b', '#8b5cf6', '#ec4899', '#14b8a6', '#6b7280'];
+    const inputClass = isCalendarMode
+        ? "w-full rounded-lg border border-[#27272a] bg-zinc-900 px-3 py-2 text-xs font-semibold text-white transition-colors focus:border-zinc-700 focus:outline-none"
+        : "w-full rounded-lg border border-crm-border bg-crm-bg px-4 py-2.5 text-sm text-crm-fg transition-colors focus:border-crm-red focus:outline-none focus:ring-1 focus:ring-crm-red";
+    const labelClass = isCalendarMode
+        ? "mb-1 block text-[10px] font-bold uppercase tracking-widest text-zinc-400"
+        : "mb-2 block text-xs font-bold uppercase tracking-[0.08em] text-crm-fg-muted";
     const modalTitle = isCalendarMode ? 'Nuevo Evento' : (isEditMode ? 'Editar tarea' : 'Crear tarea');
     const modalSubtitle = isCalendarMode ? 'Planifica compromisos, entregas y seguimientos' : 'Agendar nueva accion o seguimiento';
     const titleLabel = isCalendarMode ? 'Titulo del compromiso *' : 'Titulo de la tarea';
@@ -96,32 +101,36 @@ export default function CrmTaskModal({ isOpen, onClose, task, onSave, defaultDat
     const submitLabel = isCalendarMode ? 'Crear Evento' : 'Guardar tarea';
 
     return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 backdrop-blur-sm">
-            <div className={`flex max-h-[90vh] w-full flex-col rounded-2xl border border-crm-border bg-crm-surface shadow-2xl ${isCalendarMode ? 'max-w-3xl' : 'max-w-lg'}`}>
-                <div className="flex shrink-0 items-center justify-between border-b border-crm-border bg-crm-topbar p-5">
-                    <div className="flex items-center gap-3">
-                        <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-crm-red/20 bg-crm-red/10">
-                            <Target size={20} className="text-crm-red" />
+        <div className={`fixed inset-0 flex items-center justify-center p-4 backdrop-blur-sm ${isCalendarMode ? 'z-[60] bg-black/60' : 'z-50 bg-black/80'}`}>
+            <div className={`flex max-h-[90vh] w-full flex-col overflow-hidden rounded-2xl shadow-2xl ${isCalendarMode ? 'max-w-3xl border border-[#27272a] bg-[#18181b]' : 'max-w-lg border border-crm-border bg-crm-surface'}`}>
+                <div className={`flex shrink-0 items-center justify-between border-b ${isCalendarMode ? 'border-[#27272a] px-6 py-4' : 'border-crm-border bg-crm-topbar p-5'}`}>
+                    {isCalendarMode ? (
+                        <h3 className="m-0 text-sm font-bold uppercase tracking-wider text-white">{modalTitle}</h3>
+                    ) : (
+                        <div className="flex items-center gap-3">
+                            <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-crm-red/20 bg-crm-red/10">
+                                <Target size={20} className="text-crm-red" />
+                            </div>
+                            <div>
+                                <h2 className="m-0 text-lg font-bold text-crm-fg">{modalTitle}</h2>
+                                <p className="m-0 mt-1 text-xs text-crm-fg-muted">{modalSubtitle}</p>
+                            </div>
                         </div>
-                        <div>
-                            <h2 className="m-0 text-lg font-bold text-crm-fg">{modalTitle}</h2>
-                            <p className="m-0 mt-1 text-xs text-crm-fg-muted">{modalSubtitle}</p>
-                        </div>
-                    </div>
+                    )}
                     <button
                         type="button"
                         onClick={onClose}
-                        className="m-0 flex h-9 w-9 appearance-none items-center justify-center rounded-lg border border-transparent bg-transparent text-crm-fg-muted transition-colors hover:bg-crm-surface hover:text-crm-fg"
+                        className={`m-0 flex h-9 w-9 appearance-none items-center justify-center rounded-lg border border-transparent bg-transparent transition-colors ${isCalendarMode ? 'text-zinc-500 hover:text-white' : 'text-crm-fg-muted hover:bg-crm-surface hover:text-crm-fg'}`}
                     >
                         <X size={20} />
                     </button>
                 </div>
 
-                <div className="flex-1 overflow-y-auto p-5 custom-scrollbar">
+                <div className={`flex-1 overflow-y-auto ${isCalendarMode ? 'p-6' : 'p-5 custom-scrollbar'}`}>
                     <form id="crm-task-form" onSubmit={handleSubmit} className={isCalendarMode ? 'grid grid-cols-1 gap-6 md:grid-cols-2' : 'flex flex-col gap-5'}>
                         <div className="space-y-4">
                             {isCalendarMode && (
-                                <span className="block border-b border-crm-border pb-1 text-[10px] font-bold uppercase tracking-wider text-crm-red">
+                                <span className="block border-b border-[#27272a] pb-1 text-[10px] font-bold uppercase tracking-wider text-[#dc2626]">
                                     Detalles del Compromiso
                                 </span>
                             )}
@@ -182,21 +191,53 @@ export default function CrmTaskModal({ isOpen, onClose, task, onSave, defaultDat
                                         className={`${inputClass} [color-scheme:dark]`}
                                     />
                                 </div>
-                                <div>
-                                    <label className={`${labelClass} flex items-center gap-1.5`}>
-                                        <AlertCircle size={14} /> Prioridad
-                                    </label>
-                                    <select
-                                        value={formData.priority}
-                                        onChange={(e) => setFormData({ ...formData, priority: e.target.value })}
-                                        className={`${inputClass} cursor-pointer appearance-none`}
-                                    >
-                                        <option value="baja">Baja</option>
-                                        <option value="media">Media</option>
-                                        <option value="alta">Alta</option>
-                                    </select>
-                                </div>
+                                {isCalendarMode ? (
+                                    <div>
+                                        <label className={labelClass}>Notificar a</label>
+                                        <select
+                                            value="Todos los sectores"
+                                            disabled
+                                            className={`${inputClass} cursor-not-allowed appearance-none text-zinc-500`}
+                                        >
+                                            <option>Todos los sectores</option>
+                                        </select>
+                                    </div>
+                                ) : (
+                                    <div>
+                                        <label className={`${labelClass} flex items-center gap-1.5`}>
+                                            <AlertCircle size={14} /> Prioridad
+                                        </label>
+                                        <select
+                                            value={formData.priority}
+                                            onChange={(e) => setFormData({ ...formData, priority: e.target.value })}
+                                            className={`${inputClass} cursor-pointer appearance-none`}
+                                        >
+                                            <option value="baja">Baja</option>
+                                            <option value="media">Media</option>
+                                            <option value="alta">Alta</option>
+                                        </select>
+                                    </div>
+                                )}
                             </div>
+
+                            {isCalendarMode && (
+                                <div className="space-y-2">
+                                    <label className="block text-[10px] font-bold uppercase tracking-widest text-zinc-400">
+                                        Color de Etiqueta
+                                    </label>
+                                    <div className="flex gap-2">
+                                        {calendarColors.map((color, index) => (
+                                            <span
+                                                key={color}
+                                                className={`flex h-6 w-6 items-center justify-center rounded-full border-2 transition-all ${index === 0 ? 'scale-105 border-white shadow-md' : 'border-transparent'}`}
+                                                style={{ backgroundColor: color }}
+                                            >
+                                                {index === 0 && <span className="h-1.5 w-1.5 rounded-full bg-white" />}
+                                            </span>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
 
                             {!isCalendarMode && !isEditMode && defaultData?.saleId && (
                                 <div className="flex items-center gap-3 rounded-xl border border-blue-500/20 bg-blue-500/10 p-3">
@@ -211,9 +252,46 @@ export default function CrmTaskModal({ isOpen, onClose, task, onSave, defaultDat
 
                         <div className="space-y-4">
                             {isCalendarMode && (
-                                <span className="block border-b border-crm-border pb-1 text-[10px] font-bold uppercase tracking-wider text-amber-400">
+                                <span className="block border-b border-[#27272a] pb-1 text-[10px] font-bold uppercase tracking-wider text-amber-500">
                                     Vinculacion y Notas
                                 </span>
+                            )}
+
+                            {isCalendarMode && (
+                                <>
+                                    <div className="grid grid-cols-2 gap-4">
+                                        <div>
+                                            <label className={labelClass}>Cliente</label>
+                                            <select
+                                                value="Sin cliente"
+                                                disabled
+                                                className={`${inputClass} cursor-not-allowed appearance-none text-zinc-500`}
+                                            >
+                                                <option>Sin cliente</option>
+                                            </select>
+                                        </div>
+                                        <div>
+                                            <label className={labelClass}>Telefono Cliente</label>
+                                            <input
+                                                type="text"
+                                                disabled
+                                                placeholder="Ingresa telefono"
+                                                className={`${inputClass} cursor-not-allowed text-zinc-500 placeholder:text-zinc-600`}
+                                            />
+                                        </div>
+                                    </div>
+
+                                    <div>
+                                        <label className={labelClass}>Vehiculo del Stock</label>
+                                        <select
+                                            value="Sin vehiculo"
+                                            disabled
+                                            className={`${inputClass} cursor-not-allowed appearance-none text-zinc-500`}
+                                        >
+                                            <option>Sin vehiculo</option>
+                                        </select>
+                                    </div>
+                                </>
                             )}
 
                             {isCalendarMode && (
@@ -223,7 +301,7 @@ export default function CrmTaskModal({ isOpen, onClose, task, onSave, defaultDat
                                         type="text"
                                         disabled
                                         value="Equipo AutoSporting"
-                                        className="w-full cursor-not-allowed rounded-lg border border-crm-border bg-crm-bg/60 px-4 py-2.5 text-sm text-crm-fg-muted"
+                                        className="w-full cursor-not-allowed rounded-lg border border-[#27272a] bg-[#141416] px-3 py-2 text-xs font-semibold text-zinc-500"
                                     />
                                 </div>
                             )}
@@ -240,25 +318,29 @@ export default function CrmTaskModal({ isOpen, onClose, task, onSave, defaultDat
                             </div>
 
                             {isCalendarMode && (
-                                <div className="rounded-xl border border-crm-border bg-crm-bg p-3">
-                                    <p className="m-0 text-[10px] font-bold uppercase tracking-wider text-crm-fg-muted">
-                                        Color de etiqueta
-                                    </p>
-                                    <div className="mt-3 flex gap-2">
-                                        {['#dc2626', '#3b82f6', '#10b981', '#f59e0b', '#8b5cf6', '#14b8a6', '#71717a'].map((color, index) => (
-                                            <span
-                                                key={color}
-                                                className={`h-6 w-6 rounded-full border-2 ${index === 0 ? 'border-white' : 'border-transparent'}`}
-                                                style={{ backgroundColor: color }}
-                                            />
-                                        ))}
-                                    </div>
+                                <div className="flex justify-end gap-3 pt-3">
+                                    <button
+                                        type="button"
+                                        onClick={onClose}
+                                        disabled={isSubmitting}
+                                        className="rounded-lg border border-[#27272a] bg-zinc-900 px-4 py-2 text-xs font-bold text-zinc-300 transition-colors hover:bg-zinc-800 disabled:opacity-50"
+                                    >
+                                        Cancelar
+                                    </button>
+                                    <button
+                                        type="submit"
+                                        disabled={isSubmitting}
+                                        className="rounded-lg bg-[#dc2626] px-5 py-2 text-xs font-bold text-white shadow-[0_0_15px_rgba(220,38,38,0.2)] transition-colors hover:bg-red-500 disabled:opacity-50"
+                                    >
+                                        {isSubmitting ? 'Guardando...' : submitLabel}
+                                    </button>
                                 </div>
                             )}
                         </div>
                     </form>
                 </div>
 
+                {!isCalendarMode && (
                 <div className="flex shrink-0 justify-end gap-3 border-t border-crm-border bg-crm-topbar p-5">
                     <button
                         type="button"
@@ -277,6 +359,7 @@ export default function CrmTaskModal({ isOpen, onClose, task, onSave, defaultDat
                         {isSubmitting ? 'Guardando...' : submitLabel}
                     </button>
                 </div>
+                )}
             </div>
         </div>
     );
