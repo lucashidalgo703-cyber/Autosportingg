@@ -156,7 +156,7 @@ function EventListRow({ event, onCompleteCrmTask, onCompleteLeadTask, onEditCrmT
                         <button
                             type="button"
                             onClick={() => onEditCrmTask(event.rawTask)}
-                            className="inline-flex h-9 items-center rounded-lg border border-[#27272a] bg-zinc-900 px-3 text-xs font-bold text-zinc-500 opacity-100 transition-colors hover:border-zinc-700 hover:text-white sm:opacity-0 sm:group-hover:opacity-100"
+                            className="m-0 inline-flex h-9 appearance-none items-center rounded-lg border border-[#27272a] bg-zinc-900 px-3 text-xs font-bold text-zinc-500 opacity-100 transition-colors hover:border-zinc-700 hover:text-white sm:opacity-0 sm:group-hover:opacity-100"
                         >
                             Editar
                         </button>
@@ -168,7 +168,7 @@ function EventListRow({ event, onCompleteCrmTask, onCompleteLeadTask, onEditCrmT
                                 if (event.kind === 'crm-task') onCompleteCrmTask(event.taskId);
                                 if (event.kind === 'lead-task') onCompleteLeadTask(event.leadId, event.taskId);
                             }}
-                            className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-emerald-500/20 bg-emerald-500/10 text-emerald-300 opacity-100 transition-colors hover:bg-emerald-500/15 sm:opacity-0 sm:group-hover:opacity-100"
+                            className="m-0 inline-flex h-9 w-9 appearance-none items-center justify-center rounded-lg border border-emerald-500/20 bg-emerald-500/10 text-emerald-300 opacity-100 transition-colors hover:bg-emerald-500/15 sm:opacity-0 sm:group-hover:opacity-100"
                             title="Completar"
                         >
                             <CheckCircle2 size={14} />
@@ -483,7 +483,7 @@ export default function AdminAgendaPage() {
                                     <button
                                         type="button"
                                         onClick={handlePrevMonth}
-                                        className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-[#27272a] bg-[#18181b] text-zinc-400 transition-colors hover:bg-zinc-800 hover:text-white"
+                                        className="m-0 inline-flex h-8 w-8 appearance-none items-center justify-center rounded-lg border border-[#27272a] bg-[#18181b] p-0 text-zinc-400 transition-colors hover:bg-zinc-800 hover:text-white"
                                         aria-label="Mes anterior"
                                     >
                                         <ChevronLeft size={16} />
@@ -491,14 +491,14 @@ export default function AdminAgendaPage() {
                                     <button
                                         type="button"
                                         onClick={handleToday}
-                                        className="inline-flex h-8 items-center rounded-lg border border-[#27272a] bg-[#18181b] px-3 text-xs font-medium text-zinc-300 transition-colors hover:bg-zinc-800 hover:text-white"
+                                        className="m-0 inline-flex h-8 appearance-none items-center rounded-lg border border-[#27272a] bg-[#18181b] px-3 text-xs font-medium text-zinc-300 transition-colors hover:bg-zinc-800 hover:text-white"
                                     >
                                         Hoy
                                     </button>
                                     <button
                                         type="button"
                                         onClick={handleNextMonth}
-                                        className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-[#27272a] bg-[#18181b] text-zinc-400 transition-colors hover:bg-zinc-800 hover:text-white"
+                                        className="m-0 inline-flex h-8 w-8 appearance-none items-center justify-center rounded-lg border border-[#27272a] bg-[#18181b] p-0 text-zinc-400 transition-colors hover:bg-zinc-800 hover:text-white"
                                         aria-label="Mes siguiente"
                                     >
                                         <ChevronRight size={16} />
@@ -516,7 +516,7 @@ export default function AdminAgendaPage() {
 
                             <div className="grid grid-cols-7 gap-1.5 text-center">
                                 {Array.from({ length: firstDayOffset }).map((_, index) => (
-                                    <div key={`offset-${index}`} className="aspect-square bg-transparent" />
+                                    <div key={`offset-${index}`} className="h-12 bg-transparent" />
                                 ))}
 
                                 {Array.from({ length: daysInMonth }).map((_, index) => {
@@ -530,7 +530,7 @@ export default function AdminAgendaPage() {
                                             key={day}
                                             type="button"
                                             onClick={() => openNewEvent(clickedDate)}
-                                            className={`relative flex min-h-[48px] cursor-pointer flex-col items-center justify-between rounded-lg border p-1.5 transition-colors hover:bg-zinc-800/50 ${
+                                            className={`relative m-0 flex h-12 min-h-[48px] appearance-none cursor-pointer flex-col items-center justify-between rounded-lg border p-1.5 transition-colors hover:bg-zinc-800/50 ${
                                                 isTodayDay
                                                     ? 'border-[#dc2626] bg-[#dc2626] font-bold text-white shadow-md shadow-[#dc2626]/20 hover:bg-[#dc2626]/80'
                                                     : 'border-[#27272a] bg-zinc-900/30 text-zinc-300'
@@ -600,7 +600,7 @@ export default function AdminAgendaPage() {
                             <button
                                 type="button"
                                 onClick={() => openNewEvent()}
-                                className="mt-4 flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-red-600 to-red-700 px-4 py-2.5 text-xs font-bold text-white shadow-[0_0_15px_rgba(220,38,38,0.2)] transition-colors hover:from-red-500 hover:to-red-600"
+                                className="m-0 mt-4 flex w-full appearance-none items-center justify-center gap-2 rounded-xl border-0 bg-[#dc2626] bg-gradient-to-r from-red-600 to-red-700 px-4 py-2.5 text-xs font-bold text-white shadow-[0_0_15px_rgba(220,38,38,0.2)] transition-colors hover:from-red-500 hover:to-red-600"
                             >
                                 <Plus size={14} />
                                 Agendar compromiso
@@ -616,7 +616,7 @@ export default function AdminAgendaPage() {
                                         key={tab}
                                         type="button"
                                         onClick={() => setActiveTab(tab)}
-                                        className={`relative pb-2 text-xs font-bold uppercase tracking-wider transition-colors ${
+                                        className={`relative m-0 appearance-none border-0 bg-transparent p-0 pb-2 text-xs font-bold uppercase tracking-wider transition-colors ${
                                             activeTab === tab
                                                 ? 'text-[#dc2626]'
                                                 : 'text-zinc-500 hover:text-zinc-300'

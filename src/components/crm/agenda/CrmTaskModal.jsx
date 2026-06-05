@@ -323,14 +323,14 @@ export default function CrmTaskModal({ isOpen, onClose, task, onSave, defaultDat
                                         type="button"
                                         onClick={onClose}
                                         disabled={isSubmitting}
-                                        className="rounded-lg border border-[#27272a] bg-zinc-900 px-4 py-2 text-xs font-bold text-zinc-300 transition-colors hover:bg-zinc-800 disabled:opacity-50"
+                                        className="m-0 appearance-none rounded-lg border border-[#27272a] bg-zinc-900 px-4 py-2 text-xs font-bold text-zinc-300 transition-colors hover:bg-zinc-800 disabled:opacity-50"
                                     >
                                         Cancelar
                                     </button>
                                     <button
                                         type="submit"
                                         disabled={isSubmitting}
-                                        className="rounded-lg bg-[#dc2626] px-5 py-2 text-xs font-bold text-white shadow-[0_0_15px_rgba(220,38,38,0.2)] transition-colors hover:bg-red-500 disabled:opacity-50"
+                                        className="m-0 appearance-none rounded-lg border-0 bg-[#dc2626] px-5 py-2 text-xs font-bold text-white shadow-[0_0_15px_rgba(220,38,38,0.2)] transition-colors hover:bg-red-500 disabled:opacity-50"
                                     >
                                         {isSubmitting ? 'Guardando...' : submitLabel}
                                     </button>
@@ -346,7 +346,7 @@ export default function CrmTaskModal({ isOpen, onClose, task, onSave, defaultDat
                         type="button"
                         onClick={onClose}
                         disabled={isSubmitting}
-                        className="rounded-lg border border-crm-border bg-transparent px-5 py-2.5 text-sm font-bold text-crm-fg transition-colors hover:bg-crm-surface-raised disabled:opacity-50"
+                        className="m-0 appearance-none rounded-lg border border-crm-border bg-transparent px-5 py-2.5 text-sm font-bold text-crm-fg transition-colors hover:bg-crm-surface-raised disabled:opacity-50"
                     >
                         Cancelar
                     </button>
@@ -354,7 +354,7 @@ export default function CrmTaskModal({ isOpen, onClose, task, onSave, defaultDat
                         type="submit"
                         form="crm-task-form"
                         disabled={isSubmitting}
-                        className="flex items-center gap-2 rounded-lg bg-crm-red px-5 py-2.5 text-sm font-bold text-white shadow-crm-red transition-colors hover:bg-crm-red-hover disabled:opacity-50"
+                        className="m-0 flex appearance-none items-center gap-2 rounded-lg border-0 bg-crm-red px-5 py-2.5 text-sm font-bold text-white shadow-crm-red transition-colors hover:bg-crm-red-hover disabled:opacity-50"
                     >
                         {isSubmitting ? 'Guardando...' : submitLabel}
                     </button>
