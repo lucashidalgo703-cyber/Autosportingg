@@ -4,14 +4,17 @@ import { useRouter } from 'next/navigation';
 import { useAuth } from '../context/AuthContext';
 
 const ProtectedRoute = ({ children }) => {
-    const { isAuthenticated, loading } = useAuth();
+    const { isAuthenticated, loading, validateSession, logout } = useAuth();
     const router = useRouter();
 
     useEffect(() => {
-        if (!loading && !isAuthenticated) {
-            router.push('/login');
+        if (loading) return;
+
+        if (!isAuthenticated || !validateSession()) {
+            logout();
+            router.replace('/login');
         }
-    }, [isAuthenticated, loading, router]);
+    }, [isAuthenticated, loading, logout, router, validateSession]);
 
     if (loading || !isAuthenticated) {
         return <div>Cargando...</div>;

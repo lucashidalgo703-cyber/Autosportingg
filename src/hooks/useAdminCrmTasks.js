@@ -5,27 +5,39 @@ export function useAdminCrmTasks() {
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState(null);
 
+    const getStoredToken = () => {
+        if (typeof window === 'undefined') return null;
+        return localStorage.getItem('token');
+    };
+
+    const notifyExpiredSession = () => {
+        if (typeof window === 'undefined') return;
+        localStorage.removeItem('token');
+        window.dispatchEvent(new Event('autosporting-auth-expired'));
+    };
+
     const getAuthHeaders = () => {
-        const token = localStorage.getItem('token'); // Fixed from adminToken to token
+        const token = getStoredToken();
         return {
             'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}`
+            ...(token ? { 'Authorization': `Bearer ${token}` } : {})
         };
     };
 
     const parseErrorResponse = async (res) => {
+        if (res.status === 401 || res.status === 403) {
+            notifyExpiredSession();
+            return new Error('Tu sesion vencio o no esta autorizada. Volve a iniciar sesion para crear eventos.');
+        }
+
         const contentType = res.headers.get("content-type") || "";
-        
+
         if (contentType.includes("application/json")) {
             const data = await res.json().catch(() => ({}));
             return new Error(data.message || data.error || `Error ${res.status}`);
         }
-        
+
         const text = await res.text().catch(() => "");
-        if (res.status === 403) {
-            return new Error('Sesión no autorizada para tareas CRM. Volvé a iniciar sesión.');
-        }
-        
         return new Error(text || `Error ${res.status}`);
     };
 
@@ -53,9 +65,15 @@ export function useAdminCrmTasks() {
         setLoading(true);
         setError(null);
         try {
+            const headers = getAuthHeaders();
+            if (!headers.Authorization) {
+                notifyExpiredSession();
+                throw new Error('No hay una sesion activa. Volve a iniciar sesion para crear eventos.');
+            }
+
             const response = await fetch('/api/admin/crm-tasks', {
                 method: 'POST',
-                headers: getAuthHeaders(),
+                headers,
                 body: JSON.stringify(taskData)
             });
             if (!response.ok) throw await parseErrorResponse(response);
@@ -74,9 +92,15 @@ export function useAdminCrmTasks() {
         setLoading(true);
         setError(null);
         try {
+            const headers = getAuthHeaders();
+            if (!headers.Authorization) {
+                notifyExpiredSession();
+                throw new Error('No hay una sesion activa. Volve a iniciar sesion para editar eventos.');
+            }
+
             const response = await fetch(`/api/admin/crm-tasks/${id}`, {
                 method: 'PATCH',
-                headers: getAuthHeaders(),
+                headers,
                 body: JSON.stringify(updateData)
             });
             if (!response.ok) throw await parseErrorResponse(response);
