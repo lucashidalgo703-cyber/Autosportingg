@@ -32,7 +32,7 @@ const MONTHS = [
 ];
 
 const WEEK_DAYS = ['DOM', 'LUN', 'MAR', 'MIÉ', 'JUE', 'VIE', 'SÁB'];
-const EVENT_TYPES = ['general', 'venta', 'cobranza', 'documentacion', 'entrega', 'postventa', 'cotizacion'];
+const EVENT_TYPES = ['general', 'entrega', 'documentacion', 'postventa', 'cobranza', 'lead', 'venta', 'cotizacion'];
 
 const todayStart = () => {
     const date = new Date();
@@ -99,12 +99,13 @@ const eventColorByType = (type, priority) => {
 
 const eventTypeLabel = (type) => {
     const labels = {
-        general: 'General',
+        general: 'Reunion',
         venta: 'Venta',
-        cobranza: 'Cobro',
-        documentacion: 'Gestoria',
+        cobranza: 'Pago',
+        documentacion: 'Vencimiento',
         entrega: 'Entrega',
-        postventa: 'Postventa',
+        postventa: 'Seguimiento',
+        lead: 'Llamada',
         cotizacion: 'Cotizacion'
     };
 
@@ -280,6 +281,7 @@ export default function AdminAgendaPage() {
         } catch (error) {
             console.error(error);
             alert('No se pudo guardar la tarea. Revisa la sesion o intenta nuevamente.');
+            throw error;
         }
     };
 

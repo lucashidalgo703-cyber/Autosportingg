@@ -1,5 +1,42 @@
 import React, { useEffect, useState } from 'react';
-import { AlertCircle, Calendar, Clock, Handshake, Tag, Target, X } from 'lucide-react';
+import { AlertCircle, Calendar, Clock, Handshake, Tag, Target, User, X } from 'lucide-react';
+
+const CALENDAR_COLORS = ['#6366f1', '#10b981', '#f59e0b', '#ef4444', '#3b82f6', '#8b5cf6', '#ec4899', '#14b8a6'];
+const CALENDAR_TYPE_OPTIONS = [
+    { label: 'Reuni\u00f3n', value: 'general' },
+    { label: 'Entrega', value: 'entrega' },
+    { label: 'Vencimiento', value: 'documentacion' },
+    { label: 'Seguimiento', value: 'postventa' },
+    { label: 'Pago', value: 'cobranza' },
+    { label: 'Llamada', value: 'lead' },
+    { label: 'Otro', value: 'venta' }
+];
+const NOTIFY_OPTIONS = [
+    '\u{1F310} Todos los sectores',
+    '\u{1F4BC} Ventas',
+    '\u{1F3DB} Gestor\u00eda',
+    '\u{1F4B5} Finanzas',
+    '\u{1F454} Administraci\u00f3n',
+    '\u{1F4DE} Recepci\u00f3n'
+];
+
+const toInputDate = (value) => {
+    if (!value) return '';
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return '';
+    return [
+        date.getFullYear(),
+        String(date.getMonth() + 1).padStart(2, '0'),
+        String(date.getDate()).padStart(2, '0')
+    ].join('-');
+};
+
+const calendarFieldClass = 'w-full rounded-lg border border-[#33333a] bg-[#1e1e24] px-3 text-sm font-medium text-white outline-none transition-colors placeholder:text-zinc-500 focus:border-[#ef3329] focus:ring-1 focus:ring-[#ef3329]';
+const calendarLabelClass = 'mb-1.5 block text-xs font-semibold leading-4 text-zinc-400';
+
+function CalendarLabel({ children }) {
+    return <label className={calendarLabelClass}>{children}</label>;
+}
 
 export default function CrmTaskModal({ isOpen, onClose, task, onSave, defaultData }) {
     const [formData, setFormData] = useState({
@@ -8,9 +45,16 @@ export default function CrmTaskModal({ isOpen, onClose, task, onSave, defaultDat
         type: 'general',
         dueDate: '',
         dueTime: '',
-        priority: 'media'
+        priority: 'media',
+        notifyTo: NOTIFY_OPTIONS[0],
+        clientName: '',
+        clientPhone: '',
+        vehicleDescription: '',
+        creatorLabel: 'Equipo AutoSporting'
     });
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const [selectedColor, setSelectedColor] = useState(CALENDAR_COLORS[0]);
+    const [formError, setFormError] = useState('');
 
     useEffect(() => {
         if (isOpen) {
@@ -19,9 +63,14 @@ export default function CrmTaskModal({ isOpen, onClose, task, onSave, defaultDat
                     title: task.title || '',
                     description: task.description || '',
                     type: task.type || 'general',
-                    dueDate: task.dueDate ? new Date(task.dueDate).toISOString().split('T')[0] : '',
+                    dueDate: toInputDate(task.dueDate),
                     dueTime: task.dueTime || '',
-                    priority: task.priority || 'media'
+                    priority: task.priority || 'media',
+                    notifyTo: NOTIFY_OPTIONS[0],
+                    clientName: '',
+                    clientPhone: '',
+                    vehicleDescription: '',
+                    creatorLabel: task.user || 'Equipo AutoSporting'
                 });
             } else if (defaultData) {
                 const tomorrow = new Date();
@@ -31,9 +80,14 @@ export default function CrmTaskModal({ isOpen, onClose, task, onSave, defaultDat
                     title: defaultData.title || '',
                     description: defaultData.description || '',
                     type: defaultData.type || 'general',
-                    dueDate: defaultData.dueDate || tomorrow.toISOString().split('T')[0],
+                    dueDate: defaultData.dueDate || toInputDate(tomorrow),
                     dueTime: defaultData.dueTime || '10:00',
-                    priority: defaultData.priority || 'media'
+                    priority: defaultData.priority || 'media',
+                    notifyTo: NOTIFY_OPTIONS[0],
+                    clientName: '',
+                    clientPhone: '',
+                    vehicleDescription: '',
+                    creatorLabel: 'Equipo AutoSporting'
                 });
             } else {
                 const tomorrow = new Date();
@@ -43,12 +97,19 @@ export default function CrmTaskModal({ isOpen, onClose, task, onSave, defaultDat
                     title: '',
                     description: '',
                     type: 'general',
-                    dueDate: tomorrow.toISOString().split('T')[0],
+                    dueDate: toInputDate(tomorrow),
                     dueTime: '10:00',
-                    priority: 'media'
+                    priority: 'media',
+                    notifyTo: NOTIFY_OPTIONS[0],
+                    clientName: '',
+                    clientPhone: '',
+                    vehicleDescription: '',
+                    creatorLabel: 'Equipo AutoSporting'
                 });
             }
             setIsSubmitting(false);
+            setSelectedColor(CALENDAR_COLORS[0]);
+            setFormError('');
         }
     }, [isOpen, task, defaultData]);
 
@@ -57,8 +118,40 @@ export default function CrmTaskModal({ isOpen, onClose, task, onSave, defaultDat
     const handleSubmit = async (e) => {
         e.preventDefault();
         setIsSubmitting(true);
+        setFormError('');
+
+        if (!formData.title.trim() || !formData.dueDate || !formData.type) {
+            setFormError('Completa titulo, fecha y tipo para crear el evento.');
+            setIsSubmitting(false);
+            return;
+        }
 
         let taskData = { ...formData };
+
+        if (!task && defaultData?.source === 'agenda') {
+            const contextLines = [
+                formData.clientName ? `Cliente: ${formData.clientName}` : '',
+                formData.clientPhone ? `Telefono: ${formData.clientPhone}` : '',
+                formData.vehicleDescription ? `Vehiculo: ${formData.vehicleDescription}` : ''
+            ].filter(Boolean);
+
+            taskData = {
+                ...taskData,
+                title: formData.title.trim(),
+                description: [formData.description?.trim(), ...contextLines].filter(Boolean).join('\n')
+            };
+        }
+
+        const {
+            notifyTo,
+            clientName,
+            clientPhone,
+            vehicleDescription,
+            creatorLabel,
+            ...cleanTaskData
+        } = taskData;
+
+        taskData = cleanTaskData;
 
         if (!task) {
             taskData = {
@@ -78,6 +171,7 @@ export default function CrmTaskModal({ isOpen, onClose, task, onSave, defaultDat
             onClose();
         } catch (error) {
             console.error('Error saving task:', error);
+            setFormError(error?.message || 'No se pudo crear el evento. Revisa los datos e intenta nuevamente.');
         } finally {
             setIsSubmitting(false);
         }
@@ -99,6 +193,244 @@ export default function CrmTaskModal({ isOpen, onClose, task, onSave, defaultDat
     const notesLabel = isCalendarMode ? 'Descripcion / Notas' : 'Detalle / Notas';
     const notesPlaceholder = isCalendarMode ? 'Escribe comentarios, notas o la agenda del compromiso...' : 'Notas adicionales de la tarea...';
     const submitLabel = isCalendarMode ? 'Crear Evento' : 'Guardar tarea';
+
+    if (isCalendarMode) {
+        return (
+            <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/75 p-4 backdrop-blur-sm">
+                <div className="flex max-h-[calc(100vh-48px)] w-full max-w-[896px] flex-col overflow-hidden rounded-2xl border border-[#33333a] bg-[#1e1e24] text-white shadow-2xl">
+                    <div className="flex shrink-0 items-start justify-between border-b border-[#33333a] px-5 py-4 md:px-7">
+                        <div>
+                            <h2 className="m-0 text-lg font-bold leading-6 text-white">Nuevo evento</h2>
+                            <p className="m-0 mt-0.5 text-sm leading-5 text-zinc-400">
+                                {'Complet\u00e1 t\u00edtulo, fecha y tipo. El resto es opcional.'}
+                            </p>
+                        </div>
+                        <button
+                            type="button"
+                            onClick={onClose}
+                            className="m-0 inline-flex h-8 w-8 appearance-none items-center justify-center rounded-lg border-0 bg-transparent p-0 text-zinc-400 transition-colors hover:bg-white/5 hover:text-white"
+                            aria-label="Cerrar"
+                        >
+                            <X size={18} />
+                        </button>
+                    </div>
+
+                    <form id="crm-task-form" onSubmit={handleSubmit} className="flex min-h-0 flex-1 flex-col">
+                        <div className="custom-scrollbar min-h-0 flex-1 space-y-6 overflow-y-auto px-5 py-5 md:px-7">
+                            {formError && (
+                                <div className="rounded-lg border border-[#ef3329]/40 bg-[#ef3329]/10 px-4 py-3 text-sm font-medium text-red-200">
+                                    {formError}
+                                </div>
+                            )}
+
+                            <section className="space-y-4">
+                                <div className="flex items-center gap-2 text-sm font-bold uppercase tracking-wider text-zinc-400">
+                                    <Tag size={16} />
+                                    Detalles
+                                </div>
+
+                                <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+                                    <div className="md:col-span-2">
+                                        <CalendarLabel>{'T\u00edtulo'} <span className="text-[#ef3329]">*</span></CalendarLabel>
+                                        <input
+                                            type="text"
+                                            required
+                                            value={formData.title}
+                                            onChange={(e) => setFormData({ ...formData, title: e.target.value })}
+                                            placeholder="Ej. Reunion con cliente, entrega Hilux"
+                                            className={`${calendarFieldClass} h-9 ${!formData.title.trim() ? 'border-[#ef3329]' : ''}`}
+                                        />
+                                    </div>
+
+                                    <div>
+                                        <CalendarLabel>Tipo <span className="text-[#ef3329]">*</span></CalendarLabel>
+                                        <select
+                                            required
+                                            value={formData.type}
+                                            onChange={(e) => setFormData({ ...formData, type: e.target.value })}
+                                            className={`${calendarFieldClass} h-9 cursor-pointer appearance-none pr-8`}
+                                        >
+                                            {CALENDAR_TYPE_OPTIONS.map((option) => (
+                                                <option key={option.label} value={option.value}>{option.label}</option>
+                                            ))}
+                                        </select>
+                                    </div>
+
+                                    <div>
+                                        <CalendarLabel>Fecha <span className="text-[#ef3329]">*</span></CalendarLabel>
+                                        <input
+                                            type="date"
+                                            required
+                                            value={formData.dueDate}
+                                            onChange={(e) => setFormData({ ...formData, dueDate: e.target.value })}
+                                            className={`${calendarFieldClass} h-10 [color-scheme:dark]`}
+                                        />
+                                    </div>
+
+                                    <div>
+                                        <CalendarLabel>Hora (opcional)</CalendarLabel>
+                                        <input
+                                            type="time"
+                                            value={formData.dueTime}
+                                            onChange={(e) => setFormData({ ...formData, dueTime: e.target.value })}
+                                            className={`${calendarFieldClass} h-10 [color-scheme:dark]`}
+                                        />
+                                        <p className="m-0 mt-1.5 text-xs text-zinc-500">
+                                            {'Dej\u00e1 vac\u00edo para eventos de d\u00eda entero'}
+                                        </p>
+                                    </div>
+
+                                    <div>
+                                        <CalendarLabel>Notificar a</CalendarLabel>
+                                        <select
+                                            value={formData.notifyTo}
+                                            onChange={(e) => setFormData({ ...formData, notifyTo: e.target.value })}
+                                            className={`${calendarFieldClass} h-9 cursor-pointer appearance-none pr-8`}
+                                        >
+                                            {NOTIFY_OPTIONS.map((option) => (
+                                                <option key={option} value={option}>{option}</option>
+                                            ))}
+                                        </select>
+                                    </div>
+                                </div>
+
+                                <div>
+                                    <CalendarLabel>Color</CalendarLabel>
+                                    <div className="flex flex-wrap items-center gap-2">
+                                        {CALENDAR_COLORS.map((color) => (
+                                            <button
+                                                key={color}
+                                                type="button"
+                                                onClick={() => {
+                                                    setSelectedColor(color);
+                                                    setFormData({
+                                                        ...formData,
+                                                        priority: color === '#ef4444' ? 'alta' : color === '#3b82f6' ? 'baja' : 'media'
+                                                    });
+                                                }}
+                                                className={`m-0 flex h-9 w-9 appearance-none items-center justify-center rounded-full border-2 p-0 transition-all ${
+                                                    selectedColor === color ? 'scale-105 border-white shadow-md' : 'border-transparent'
+                                                }`}
+                                                style={{ backgroundColor: color }}
+                                                aria-label={`Color ${color}`}
+                                            >
+                                                {selectedColor === color && <span className="h-2 w-2 rounded-full bg-white" />}
+                                            </button>
+                                        ))}
+                                    </div>
+                                </div>
+                            </section>
+
+                            <section className="space-y-4">
+                                <div className="flex items-center gap-2 text-sm font-bold uppercase tracking-wider text-zinc-400">
+                                    <User size={16} />
+                                    {'Vinculaci\u00f3n'}
+                                </div>
+
+                                <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+                                    <div>
+                                        <CalendarLabel>Cliente</CalendarLabel>
+                                        <select className={`${calendarFieldClass} h-9 cursor-pointer appearance-none pr-8`} defaultValue="Sin cliente">
+                                            <option>Sin cliente</option>
+                                        </select>
+                                        <p className="m-0 mt-1.5 text-xs text-zinc-500 md:hidden">
+                                            {'Autorellena nombre y tel\u00e9fono'}
+                                        </p>
+                                    </div>
+
+                                    <div>
+                                        <CalendarLabel>Nombre cliente</CalendarLabel>
+                                        <input
+                                            type="text"
+                                            value={formData.clientName}
+                                            onChange={(e) => setFormData({ ...formData, clientName: e.target.value })}
+                                            placeholder="Se autocompleta al elegir cliente"
+                                            className={`${calendarFieldClass} h-9`}
+                                        />
+                                    </div>
+
+                                    <div>
+                                        <CalendarLabel>{'Tel\u00e9fono cliente'}</CalendarLabel>
+                                        <input
+                                            type="text"
+                                            value={formData.clientPhone}
+                                            onChange={(e) => setFormData({ ...formData, clientPhone: e.target.value })}
+                                            placeholder="+54 11 5555 5555"
+                                            className={`${calendarFieldClass} h-9`}
+                                        />
+                                    </div>
+
+                                    <p className="m-0 hidden text-xs text-zinc-500 md:col-span-3 md:block">
+                                        {'Autorellena nombre y tel\u00e9fono'}
+                                    </p>
+
+                                    <div>
+                                        <CalendarLabel>{'Veh\u00edculo del stock'}</CalendarLabel>
+                                        <select className={`${calendarFieldClass} h-9 cursor-pointer appearance-none pr-8`} defaultValue="Sin vehiculo">
+                                            <option>Sin vehiculo</option>
+                                        </select>
+                                    </div>
+
+                                    <div className="md:col-span-2">
+                                        <CalendarLabel>{'Descripci\u00f3n del veh\u00edculo'}</CalendarLabel>
+                                        <input
+                                            type="text"
+                                            value={formData.vehicleDescription}
+                                            onChange={(e) => setFormData({ ...formData, vehicleDescription: e.target.value })}
+                                            className={`${calendarFieldClass} h-9`}
+                                        />
+                                        <p className="m-0 mt-1.5 text-xs text-zinc-500">
+                                            {'Autocompleta al elegir del stock; editable'}
+                                        </p>
+                                    </div>
+
+                                    <div className="md:col-span-3">
+                                        <CalendarLabel>Creador / asignado</CalendarLabel>
+                                        <input
+                                            type="text"
+                                            disabled
+                                            value={formData.creatorLabel}
+                                            className={`${calendarFieldClass} h-9 cursor-not-allowed text-zinc-300 disabled:opacity-100`}
+                                        />
+                                    </div>
+
+                                    <div className="md:col-span-3">
+                                        <CalendarLabel>{'Descripci\u00f3n / notas'}</CalendarLabel>
+                                        <textarea
+                                            value={formData.description}
+                                            onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                                            rows={4}
+                                            placeholder="Detalles del evento, agenda, contexto..."
+                                            className={`${calendarFieldClass} min-h-20 resize-y py-2`}
+                                        />
+                                    </div>
+                                </div>
+                            </section>
+                        </div>
+
+                        <div className="flex shrink-0 justify-end gap-3 border-t border-[#33333a] px-5 py-4 md:px-7">
+                            <button
+                                type="button"
+                                onClick={onClose}
+                                disabled={isSubmitting}
+                                className="m-0 inline-flex h-9 appearance-none items-center justify-center rounded-lg border border-[#33333a] bg-transparent px-4 text-sm font-bold text-white transition-colors hover:bg-white/5 disabled:opacity-50"
+                            >
+                                Cancelar
+                            </button>
+                            <button
+                                type="submit"
+                                disabled={isSubmitting}
+                                className="m-0 inline-flex h-9 appearance-none items-center justify-center gap-2 rounded-lg border-0 bg-[#ef3329] px-4 text-sm font-bold text-white shadow-[0_12px_40px_rgba(239,51,41,0.45)] transition-colors hover:bg-red-500 disabled:opacity-50"
+                            >
+                                <Calendar size={16} />
+                                {isSubmitting ? 'Guardando...' : 'Crear evento'}
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        );
+    }
 
     return (
         <div className={`fixed inset-0 flex items-center justify-center p-4 backdrop-blur-sm ${isCalendarMode ? 'z-[60] bg-black/60' : 'z-50 bg-black/80'}`}>
