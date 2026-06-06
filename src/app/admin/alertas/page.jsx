@@ -24,7 +24,6 @@ const groups = [
         text: 'text-red-400',
         pill: 'bg-red-500/15 text-red-200',
         counter: 'border-red-500/35 bg-red-500/10 text-red-300',
-        card: 'border-red-500/40 bg-red-950/20',
         badge: 'bg-red-500/15 text-red-200'
     },
     {
@@ -36,7 +35,6 @@ const groups = [
         text: 'text-emerald-400',
         pill: 'bg-emerald-500/15 text-emerald-200',
         counter: 'border-emerald-500/35 bg-emerald-500/10 text-emerald-300',
-        card: 'border-emerald-500/40 bg-emerald-950/25',
         badge: 'bg-emerald-500/15 text-emerald-200'
     },
     {
@@ -48,7 +46,6 @@ const groups = [
         text: 'text-yellow-300',
         pill: 'bg-yellow-500/15 text-yellow-200',
         counter: 'border-yellow-500/35 bg-yellow-500/10 text-yellow-300',
-        card: 'border-yellow-500/40 bg-yellow-950/20',
         badge: 'bg-yellow-500/15 text-yellow-200'
     },
     {
@@ -60,7 +57,6 @@ const groups = [
         text: 'text-blue-300',
         pill: 'bg-blue-500/15 text-blue-200',
         counter: 'border-blue-500/35 bg-blue-500/10 text-blue-300',
-        card: 'border-blue-500/40 bg-blue-950/20',
         badge: 'bg-blue-500/15 text-blue-200'
     }
 ];
@@ -96,49 +92,56 @@ const isRecent = (value, maxDays = 3) => {
     return Math.floor((today.getTime() - date.getTime()) / 86400000) <= maxDays;
 };
 
-function AlertCard({ alert, theme, onDismiss }) {
-    const Icon = alert.icon || Bell;
+const capitalize = (value) => {
+    const text = String(value || '').trim();
+    return text ? text.charAt(0).toUpperCase() + text.slice(1) : '';
+};
 
+const getTaskDetail = (task) => {
+    const time = task.dueTime || task.time || task.hour || '';
+    const type = capitalize(task.type || task.category || task.source || 'Entrega');
+    return [time, type, 'Para: Todos'].filter(Boolean).join(' \u00b7 ');
+};
+
+function AlertCard({ alert, onDismiss }) {
     return (
-        <article className={`relative rounded-xl border p-4 shadow-sm ${theme.card}`}>
-            <div className="flex items-start gap-3">
-                <span className={`mt-2 h-2 w-2 shrink-0 rounded-full ${theme.dot}`} />
-                <div className="flex h-5 w-5 shrink-0 items-center justify-center rounded bg-blue-500/20 text-[8px] font-black uppercase text-blue-300">
-                    {alert.mark || 'new'}
-                </div>
+        <article className="relative flex gap-3 rounded-xl border border-indigo-500/40 bg-indigo-500/10 p-4 shadow-none">
+            <span className="mt-[9px] h-2 w-2 shrink-0 rounded-full bg-indigo-500" />
+            <span className="mt-[1px] flex h-5 w-5 shrink-0 items-center justify-center text-sm leading-5">
+                {alert.mark || '\u{1F4C5}'}
+            </span>
 
-                <div className="min-w-0 flex-1">
-                    <div className="flex flex-wrap items-start justify-between gap-3">
-                        <div className="min-w-0">
-                            <h3 className={`m-0 text-sm font-bold ${theme.text}`}>{alert.title}</h3>
-                            <p className="m-0 mt-1 text-xs font-medium text-zinc-400">{alert.date}</p>
-                        </div>
-                        <div className="flex shrink-0 items-center gap-2">
-                            <span className={`rounded-full px-2 py-1 text-[10px] font-bold ${theme.badge}`}>
-                                {alert.badge}
-                            </span>
-                            <button
-                                type="button"
-                                onClick={() => onDismiss(alert.id)}
-                                className="m-0 inline-flex h-7 w-7 appearance-none items-center justify-center rounded-lg border-0 bg-transparent p-0 text-zinc-500 transition-colors hover:text-white"
-                                aria-label="Descartar alerta"
-                            >
-                                <X size={14} />
-                            </button>
-                        </div>
+            <div className="min-w-0 flex-1">
+                <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                        <h3 className="m-0 text-sm font-semibold leading-5 text-indigo-300">{alert.title}</h3>
+                        <p className="m-0 mt-1 text-xs font-medium leading-4 text-zinc-400">{alert.date}</p>
                     </div>
-
-                    <p className="m-0 mt-2 max-w-3xl text-xs leading-relaxed text-zinc-400">
-                        {alert.description}
-                    </p>
-
-                    <Link
-                        href={alert.href}
-                        className={`mt-2 inline-flex text-xs font-bold no-underline ${theme.text}`}
-                    >
-                        {alert.action} →
-                    </Link>
+                    <div className="flex shrink-0 items-center gap-2">
+                        <span className="rounded-full bg-indigo-500/20 px-2 py-0.5 text-xs font-semibold leading-4 text-indigo-200">
+                            {alert.badge}
+                        </span>
+                        <button
+                            type="button"
+                            onClick={() => onDismiss(alert.id)}
+                            className="m-0 inline-flex h-6 w-6 appearance-none items-center justify-center rounded-lg border-0 bg-transparent p-0 text-zinc-500 transition-colors hover:text-white"
+                            aria-label="Descartar alerta"
+                        >
+                            <X size={14} />
+                        </button>
+                    </div>
                 </div>
+
+                <p className="m-0 mt-1 text-xs leading-4 text-zinc-400">
+                    {alert.description}
+                </p>
+
+                <Link
+                    href={alert.href}
+                    className="mt-2 inline-flex text-xs font-semibold leading-4 text-indigo-300 no-underline hover:text-indigo-200"
+                >
+                    {alert.action}{' \u2192'}
+                </Link>
             </div>
         </article>
     );
@@ -146,22 +149,26 @@ function AlertCard({ alert, theme, onDismiss }) {
 
 function AlertSection({ group, alerts, onDismiss }) {
     return (
-        <section className="space-y-3">
-            <div className="flex items-center gap-3">
-                <ChevronDown size={15} className="text-zinc-500" />
-                <span className={`h-4 w-4 rounded-full ${group.dot}`} />
-                <h2 className={`m-0 text-sm font-black uppercase tracking-[0.08em] ${group.text}`}>{group.title}</h2>
-                <span className={`rounded-full px-2 py-0.5 text-[10px] font-black ${group.pill}`}>
+        <section className="space-y-4">
+            <button
+                type="button"
+                className="group -mx-1 flex w-[calc(100%+8px)] appearance-none items-center gap-3 rounded-lg border-0 bg-transparent p-1 text-left"
+                aria-label={group.title}
+            >
+                <ChevronDown size={15} className="shrink-0 text-zinc-500" />
+                <span className={`h-4 w-4 shrink-0 rounded-full ${group.dot}`} />
+                <h2 className={`m-0 text-sm font-bold uppercase leading-5 tracking-[0.08em] ${group.text}`}>{group.title}</h2>
+                <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold leading-4 ${group.pill}`}>
                     {alerts.length}
                 </span>
-            </div>
+            </button>
 
             {alerts.length === 0 ? (
-                <p className="m-0 pl-7 text-sm italic text-zinc-500">{group.empty}</p>
+                <p className="m-0 pl-1 text-sm italic leading-5 text-zinc-500">{group.empty}</p>
             ) : (
-                <div className="pl-0">
+                <div className="space-y-3">
                     {alerts.map((alert) => (
-                        <AlertCard key={alert.id} alert={alert} theme={group} onDismiss={onDismiss} />
+                        <AlertCard key={alert.id} alert={alert} onDismiss={onDismiss} />
                     ))}
                 </div>
             )}
@@ -238,13 +245,13 @@ export default function AdminAlertasPage() {
                 items.push({
                     id: `task-overdue-${task._id}`,
                     category: 'Alta',
-                    title: task.title || 'Tarea vencida',
+                    title: `Vencida \u2014 ${task.title || 'tarea pendiente'}`,
                     date: formatDate(task.dueDate),
-                    description: task.description || 'Tarea del calendario que requiere atención inmediata.',
+                    description: getTaskDetail(task) || task.description || 'Requiere atencion inmediata.',
                     href: '/admin/agenda',
-                    action: 'Ver Agenda',
+                    action: 'Ver Calendario',
                     badge: 'Alta',
-                    mark: '!'
+                    mark: '\u{1F4C5}'
                 });
             });
 
@@ -255,9 +262,9 @@ export default function AdminAlertasPage() {
                 items.push({
                     id: `postventa-${sale._id}`,
                     category: 'Alta',
-                    title: `Postventa pendiente — ${shortId(sale._id)}`,
+                    title: `Postventa pendiente \u2014 ${shortId(sale._id)}`,
                     date: sale.postSaleStatus || 'Pendiente',
-                    description: 'La operación requiere seguimiento de postventa.',
+                    description: 'La operacion requiere seguimiento de postventa.',
                     href: '/admin/postventa',
                     action: 'Ver Postventa',
                     badge: 'Alta',
@@ -270,14 +277,14 @@ export default function AdminAlertasPage() {
             .sort((a, b) => new Date(b.createdAt || b.updatedAt || 0) - new Date(a.createdAt || a.updatedAt || 0))
             .slice(0, 3)
             .forEach((car) => {
-                const name = `${car.brand || ''} ${car.name || car.model || ''} ${car.year || ''}`.replace(/\s+/g, ' ').trim() || 'Vehículo en stock';
+                const name = `${car.brand || ''} ${car.name || car.model || ''} ${car.year || ''}`.replace(/\s+/g, ' ').trim() || 'Vehiculo en stock';
                 const price = car.currency && car.price ? `${car.currency} ${Number(car.price).toLocaleString('es-AR')}` : 'Sin precio publicado';
                 items.push({
                     id: `stock-new-${car._id || car.id}`,
                     category: 'Novedades',
-                    title: `Nuevo vehículo en stock — ${name}`,
+                    title: `Nuevo vehiculo en stock \u2014 ${name}`,
                     date: formatDate(car.createdAt || car.updatedAt),
-                    description: `Ingresó hace poco. Estado: ${car.status || 'Disponible'}. Precio: ${price}. Ubicación: ${car.location || 'Stock principal'}.`,
+                    description: `Ingreso hace poco. Estado: ${car.status || 'Disponible'}. Precio: ${price}. Ubicacion: ${car.location || 'Stock principal'}.`,
                     href: `/admin/stock/${car._id || car.id}`,
                     action: 'Ver Stock',
                     badge: 'Novedad',
@@ -293,11 +300,11 @@ export default function AdminAlertasPage() {
                 items.push({
                     id: `doc-${sale._id}`,
                     category: 'Media',
-                    title: `Documentación pendiente — ${shortId(sale._id)}`,
+                    title: `Documentacion pendiente \u2014 ${shortId(sale._id)}`,
                     date: sale.documentationStatus || 'Pendiente',
-                    description: 'La operación tiene documentación sin completar.',
+                    description: 'La operacion tiene documentacion sin completar.',
                     href: '/admin/documentacion',
-                    action: 'Ver Documentación',
+                    action: 'Ver Documentacion',
                     badge: 'Media',
                     mark: 'doc',
                     icon: FileText
@@ -313,14 +320,14 @@ export default function AdminAlertasPage() {
             .forEach((task) => {
                 items.push({
                     id: `task-today-${task._id}`,
-                    category: 'Media',
-                    title: task.title || 'Tarea para hoy',
-                    date: 'Hoy',
-                    description: task.description || 'Compromiso programado para hoy.',
+                    category: 'Alta',
+                    title: `Hoy \u2014 ${task.title || 'evento'}`,
+                    date: formatDate(task.dueDate),
+                    description: getTaskDetail(task),
                     href: '/admin/agenda',
-                    action: 'Ver Agenda',
-                    badge: 'Media',
-                    mark: 'cal',
+                    action: 'Ver Calendario',
+                    badge: 'Alta',
+                    mark: '\u{1F4C5}',
                     icon: Calendar
                 });
             });
@@ -333,13 +340,13 @@ export default function AdminAlertasPage() {
             })
             .slice(0, 5)
             .forEach((lead) => {
-                const name = `${lead.firstName || ''} ${lead.lastName || ''}`.trim() || lead.name || 'Cotización';
+                const name = `${lead.firstName || ''} ${lead.lastName || ''}`.trim() || lead.name || 'Cotizacion';
                 items.push({
                     id: `lead-${lead._id}`,
                     category: 'Media',
-                    title: `Cotización sin avance — ${name}`,
+                    title: `Cotizacion sin avance \u2014 ${name}`,
                     date: formatDate(lead.nextActionDate || lead.updatedAt || lead.createdAt),
-                    description: 'La cotización activa necesita seguimiento comercial.',
+                    description: 'La cotizacion activa necesita seguimiento comercial.',
                     href: '/admin/leads',
                     action: 'Ver Cotizaciones',
                     badge: 'Media',
@@ -355,9 +362,9 @@ export default function AdminAlertasPage() {
                 items.push({
                     id: `reservation-${reservation._id}`,
                     category: 'Baja',
-                    title: `Reserva activa — ${shortId(reservation._id)}`,
+                    title: `Reserva activa \u2014 ${shortId(reservation._id)}`,
                     date: reservation.status || 'Activa',
-                    description: 'Reserva activa pendiente de seguimiento o conversión.',
+                    description: 'Reserva activa pendiente de seguimiento o conversion.',
                     href: '/admin/reservas',
                     action: 'Ver Reservas',
                     badge: 'Baja',
@@ -376,6 +383,10 @@ export default function AdminAlertasPage() {
     }, [alerts]);
 
     const totalAlerts = alerts.length;
+    const visibleGroups = groups.filter((group) => {
+        if (group.key === 'Novedades') return (groupedAlerts.Novedades || []).length > 0;
+        return group.key === 'Alta' || group.key === 'Media' || group.key === 'Baja';
+    });
 
     if (loading) {
         return (
@@ -389,11 +400,11 @@ export default function AdminAlertasPage() {
         <div className="mx-auto w-full max-w-[720px] space-y-7 px-4 pb-24 pt-6 font-sans text-[#f4f4f5] animate-in fade-in duration-300 md:px-0 md:pt-7">
             <div className="flex flex-col justify-between gap-5 border-b border-[#27272a] pb-6 lg:flex-row lg:items-start">
                 <div>
-                    <h1 className="m-0 text-2xl font-bold tracking-tight text-white">
+                    <h1 className="m-0 text-xl font-semibold leading-7 tracking-tight text-white">
                         Centro de Alertas
                     </h1>
                     <p className="m-0 mt-1 text-sm font-medium text-zinc-400">
-                        Items que requieren atención, ordenados por prioridad
+                        {'Items que requieren atenci\u00f3n, ordenados por prioridad'}
                     </p>
                 </div>
 
@@ -418,7 +429,7 @@ export default function AdminAlertasPage() {
                 </section>
             ) : (
                 <div className="space-y-9">
-                    {groups.map((group) => (
+                    {visibleGroups.map((group) => (
                         <AlertSection
                             key={group.key}
                             group={group}
