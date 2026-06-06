@@ -147,15 +147,23 @@ function AlertCard({ alert, onDismiss }) {
     );
 }
 
-function AlertSection({ group, alerts, onDismiss }) {
+function AlertSection({ group, alerts, isOpen, onToggle, onDismiss }) {
+    const sectionId = `alert-section-${group.key.toLowerCase()}`;
+
     return (
         <section className="space-y-4">
             <button
                 type="button"
-                className="group -mx-1 flex w-[calc(100%+8px)] appearance-none items-center gap-3 rounded-lg border-0 bg-transparent p-1 text-left"
+                onClick={onToggle}
+                className="group -mx-1 flex w-[calc(100%+8px)] appearance-none items-center gap-3 rounded-lg border-0 bg-transparent p-1 text-left transition-colors hover:bg-white/[0.03]"
                 aria-label={group.title}
+                aria-expanded={isOpen}
+                aria-controls={sectionId}
             >
-                <ChevronDown size={15} className="shrink-0 text-zinc-500" />
+                <ChevronDown
+                    size={15}
+                    className={`shrink-0 text-zinc-500 transition-transform duration-200 ${isOpen ? 'rotate-0' : '-rotate-90'}`}
+                />
                 <span className={`h-4 w-4 shrink-0 rounded-full ${group.dot}`} />
                 <h2 className={`m-0 text-sm font-bold uppercase leading-5 tracking-[0.08em] ${group.text}`}>{group.title}</h2>
                 <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold leading-4 ${group.pill}`}>
@@ -163,13 +171,17 @@ function AlertSection({ group, alerts, onDismiss }) {
                 </span>
             </button>
 
-            {alerts.length === 0 ? (
-                <p className="m-0 pl-1 text-sm italic leading-5 text-zinc-500">{group.empty}</p>
-            ) : (
-                <div className="space-y-3">
-                    {alerts.map((alert) => (
-                        <AlertCard key={alert.id} alert={alert} onDismiss={onDismiss} />
-                    ))}
+            {isOpen && (
+                <div id={sectionId}>
+                    {alerts.length === 0 ? (
+                        <p className="m-0 pl-1 text-sm italic leading-5 text-zinc-500">{group.empty}</p>
+                    ) : (
+                        <div className="space-y-3">
+                            {alerts.map((alert) => (
+                                <AlertCard key={alert.id} alert={alert} onDismiss={onDismiss} />
+                            ))}
+                        </div>
+                    )}
                 </div>
             )}
         </section>
@@ -179,6 +191,7 @@ function AlertSection({ group, alerts, onDismiss }) {
 export default function AdminAlertasPage() {
     const [loading, setLoading] = useState(true);
     const [dismissedIds, setDismissedIds] = useState([]);
+    const [closedGroups, setClosedGroups] = useState({});
     const [data, setData] = useState({
         tasks: [],
         leads: [],
@@ -387,6 +400,12 @@ export default function AdminAlertasPage() {
         if (group.key === 'Novedades') return (groupedAlerts.Novedades || []).length > 0;
         return group.key === 'Alta' || group.key === 'Media' || group.key === 'Baja';
     });
+    const toggleGroup = (key) => {
+        setClosedGroups((prev) => ({
+            ...prev,
+            [key]: !prev[key]
+        }));
+    };
 
     if (loading) {
         return (
@@ -410,13 +429,16 @@ export default function AdminAlertasPage() {
 
                 <div className="grid grid-cols-2 gap-2 sm:flex sm:items-center">
                     {groups.map((group) => (
-                        <div
+                        <button
+                            type="button"
                             key={group.key}
-                            className={`flex h-[70px] flex-col items-center justify-center rounded-xl border px-4 py-2.5 ${group.counter}`}
+                            onClick={() => toggleGroup(group.key)}
+                            className={`m-0 flex h-[70px] appearance-none flex-col items-center justify-center rounded-xl border px-4 py-2.5 transition-opacity hover:opacity-90 ${group.counter} ${closedGroups[group.key] ? 'opacity-55' : ''}`}
+                            aria-label={`${closedGroups[group.key] ? 'Abrir' : 'Ocultar'} ${group.title}`}
                         >
                             <span className="text-3xl font-black leading-none">{groupedAlerts[group.key]?.length || 0}</span>
                             <span className="mt-1 text-xs font-bold">{group.short}</span>
-                        </div>
+                        </button>
                     ))}
                 </div>
             </div>
@@ -434,6 +456,8 @@ export default function AdminAlertasPage() {
                             key={group.key}
                             group={group}
                             alerts={groupedAlerts[group.key] || []}
+                            isOpen={!closedGroups[group.key]}
+                            onToggle={() => toggleGroup(group.key)}
                             onDismiss={(id) => setDismissedIds((prev) => [...prev, id])}
                         />
                     ))}
