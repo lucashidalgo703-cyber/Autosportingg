@@ -88,6 +88,14 @@ const shortId = (value) => {
 const isPending = (status) => String(status || '').toLowerCase() === 'pendiente';
 const isActiveVehicle = (status) => ['disponible', 'publicado', 'activo', ''].includes(String(status || '').toLowerCase());
 
+const isRecent = (value, maxDays = 3) => {
+    const date = normalizeDate(value);
+    if (!date) return false;
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    return Math.floor((today.getTime() - date.getTime()) / 86400000) <= maxDays;
+};
+
 function AlertCard({ alert, theme, onDismiss }) {
     const Icon = alert.icon || Bell;
 
@@ -258,7 +266,7 @@ export default function AdminAlertasPage() {
             });
 
         data.cars
-            .filter((car) => isActiveVehicle(car.status))
+            .filter((car) => isActiveVehicle(car.status) && isRecent(car.createdAt || car.updatedAt))
             .sort((a, b) => new Date(b.createdAt || b.updatedAt || 0) - new Date(a.createdAt || a.updatedAt || 0))
             .slice(0, 3)
             .forEach((car) => {
@@ -378,8 +386,8 @@ export default function AdminAlertasPage() {
     }
 
     return (
-        <div className="mx-auto w-full max-w-5xl space-y-7 px-4 pb-24 pt-6 font-sans text-[#f4f4f5] animate-in fade-in duration-300 md:px-6 md:pt-7">
-            <div className="flex flex-col justify-between gap-5 border-b border-[#33333a] pb-6 lg:flex-row lg:items-start">
+        <div className="mx-auto w-full max-w-[720px] space-y-7 px-4 pb-24 pt-6 font-sans text-[#f4f4f5] animate-in fade-in duration-300 md:px-0 md:pt-7">
+            <div className="flex flex-col justify-between gap-5 border-b border-[#27272a] pb-6 lg:flex-row lg:items-start">
                 <div>
                     <h1 className="m-0 text-2xl font-bold tracking-tight text-white">
                         Centro de Alertas
@@ -389,11 +397,11 @@ export default function AdminAlertasPage() {
                     </p>
                 </div>
 
-                <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+                <div className="grid grid-cols-2 gap-2 sm:flex sm:items-center">
                     {groups.map((group) => (
                         <div
                             key={group.key}
-                            className={`flex h-[70px] w-[78px] flex-col items-center justify-center rounded-xl border ${group.counter}`}
+                            className={`flex h-[70px] flex-col items-center justify-center rounded-xl border px-4 py-2.5 ${group.counter}`}
                         >
                             <span className="text-3xl font-black leading-none">{groupedAlerts[group.key]?.length || 0}</span>
                             <span className="mt-1 text-xs font-bold">{group.short}</span>
@@ -403,12 +411,10 @@ export default function AdminAlertasPage() {
             </div>
 
             {totalAlerts === 0 ? (
-                <section className="flex min-h-[240px] flex-col items-center justify-center gap-3 rounded-2xl border border-[#33333a] bg-[#18181b]/50 text-center">
-                    <div className="flex h-12 w-12 items-center justify-center rounded-full border border-emerald-500/20 bg-emerald-500/10 text-emerald-400">
-                        <Check size={24} strokeWidth={3} />
-                    </div>
-                    <h3 className="m-0 text-sm font-bold uppercase tracking-wider text-white">Todo en orden</h3>
-                    <p className="m-0 text-sm text-zinc-500">No hay alertas pendientes en este momento.</p>
+                <section className="flex min-h-[200px] flex-col items-center justify-center rounded-lg border border-dashed border-[#33333a] bg-[#1e1e24] text-center">
+                    <Check size={46} strokeWidth={2.5} className="mb-5 text-zinc-500/70" />
+                    <h3 className="m-0 text-sm font-bold text-white">Todo en orden</h3>
+                    <p className="m-0 mt-2 text-sm text-zinc-400">No hay alertas pendientes en este momento.</p>
                 </section>
             ) : (
                 <div className="space-y-9">
