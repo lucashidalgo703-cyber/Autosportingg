@@ -3959,8 +3959,15 @@ app.get('/api/admin/crm-tasks', authenticateToken, async (req, res) => {
 // POST new task
 app.post('/api/admin/crm-tasks', authenticateToken, async (req, res) => {
     try {
+        await connectDB();
+
         // Validation to prevent empty string cast to ObjectId errors
-        const cleanObjectId = (val) => (val && val.trim() !== '') ? val : undefined;
+        const cleanObjectId = (val) => {
+            if (!val) return undefined;
+            if (typeof val === 'object') return val._id || val.id || undefined;
+            const text = String(val).trim();
+            return text ? text : undefined;
+        };
 
         const taskData = { ...req.body };
         if (taskData.clientId) taskData.clientId = cleanObjectId(taskData.clientId);
@@ -3984,6 +3991,8 @@ app.post('/api/admin/crm-tasks', authenticateToken, async (req, res) => {
 // PATCH task
 app.patch('/api/admin/crm-tasks/:id', authenticateToken, async (req, res) => {
     try {
+        await connectDB();
+
         const updateData = { ...req.body };
         const task = await CrmTask.findById(req.params.id);
         if (!task) return res.status(404).json({ message: 'Task not found' });

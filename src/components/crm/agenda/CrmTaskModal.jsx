@@ -126,44 +126,35 @@ export default function CrmTaskModal({ isOpen, onClose, task, onSave, defaultDat
             return;
         }
 
-        let taskData = { ...formData };
-
-        if (!task && defaultData?.source === 'agenda') {
-            const contextLines = [
+        const contextLines = defaultData?.source === 'agenda'
+            ? [
                 formData.clientName ? `Cliente: ${formData.clientName}` : '',
                 formData.clientPhone ? `Telefono: ${formData.clientPhone}` : '',
                 formData.vehicleDescription ? `Vehiculo: ${formData.vehicleDescription}` : ''
-            ].filter(Boolean);
+            ].filter(Boolean)
+            : [];
 
-            taskData = {
-                ...taskData,
-                title: formData.title.trim(),
-                description: [formData.description?.trim(), ...contextLines].filter(Boolean).join('\n')
-            };
-        }
-
-        const {
-            notifyTo,
-            clientName,
-            clientPhone,
-            vehicleDescription,
-            creatorLabel,
-            ...cleanTaskData
-        } = taskData;
-
-        taskData = cleanTaskData;
+        let taskData = {
+            title: formData.title.trim(),
+            description: [formData.description?.trim(), ...contextLines].filter(Boolean).join('\n'),
+            type: formData.type || 'general',
+            dueDate: formData.dueDate,
+            dueTime: formData.dueTime || '',
+            priority: formData.priority || 'media'
+        };
 
         if (!task) {
             taskData = {
                 ...taskData,
                 status: 'pendiente',
-                source: defaultData?.source || 'agenda',
-                saleId: defaultData?.saleId,
-                clientId: defaultData?.clientId,
-                vehicleId: defaultData?.vehicleId,
-                installmentId: defaultData?.installmentId,
-                leadId: defaultData?.leadId
+                source: defaultData?.source || 'agenda'
             };
+
+            if (defaultData?.saleId) taskData.saleId = defaultData.saleId;
+            if (defaultData?.clientId) taskData.clientId = defaultData.clientId;
+            if (defaultData?.vehicleId) taskData.vehicleId = defaultData.vehicleId;
+            if (defaultData?.installmentId) taskData.installmentId = defaultData.installmentId;
+            if (defaultData?.leadId) taskData.leadId = defaultData.leadId;
         }
 
         try {

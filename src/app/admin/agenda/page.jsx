@@ -280,7 +280,6 @@ export default function AdminAgendaPage() {
             await fetchTasks();
         } catch (error) {
             console.error(error);
-            alert('No se pudo guardar la tarea. Revisa la sesion o intenta nuevamente.');
             throw error;
         }
     };
