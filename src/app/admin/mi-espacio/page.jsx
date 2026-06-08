@@ -8,7 +8,7 @@ import {
     Car,
     CheckCircle2,
     CreditCard,
-    Droplets,
+    ExternalLink,
     Flame,
     HandCoins,
     Landmark,
@@ -19,6 +19,7 @@ import {
     Users,
     Wallet
 } from 'lucide-react';
+import { useRouter } from 'next/navigation';
 import { useAuth } from '../../../context/AuthContext';
 import { useAdminCars } from '../../../hooks/useAdminCars';
 import { useAdminCrmTasks } from '../../../hooks/useAdminCrmTasks';
@@ -30,7 +31,7 @@ const TAB_MI_DIA = 'Mi d\u00eda';
 
 const tabs = [
     { label: TAB_MI_DIA, icon: BarChart3 },
-    { label: 'Mis ventas', icon: Trophy },
+    { label: 'Mis ventas', icon: Trophy, path: '/admin/ventas' },
     { label: 'URGENTE', icon: Flame },
     { label: 'Pagos realizados', icon: Wallet },
     { label: 'Deudas', icon: HandCoins },
@@ -95,7 +96,7 @@ function ActionButton({ children }) {
     return (
         <button
             type="button"
-            className="m-0 inline-flex h-9 appearance-none items-center justify-center gap-2 whitespace-nowrap rounded-lg border border-crm-red/40 bg-crm-red px-3 text-xs font-bold text-white shadow-[0_0_22px_rgba(239,51,41,0.28)] transition-all hover:bg-crm-red-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-crm-red focus-visible:ring-offset-2 focus-visible:ring-offset-crm-bg"
+            className="m-0 inline-flex h-9 appearance-none items-center justify-center gap-2 whitespace-nowrap rounded-lg border border-crm-red/40 bg-crm-red px-3 text-sm font-medium text-white shadow-[0_0_24px_rgba(239,51,41,0.35)] transition-all hover:bg-crm-red-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-crm-red focus-visible:ring-offset-2 focus-visible:ring-offset-crm-bg"
         >
             <Plus size={14} />
             {children}
@@ -115,12 +116,57 @@ function StatCard({ icon: Icon, value, label, note, tone = 'neutral' }) {
 
     return (
         <div className={`rounded-xl border p-4 ${tones[tone] || tones.neutral}`}>
-            <div className="mb-1 flex items-center justify-between">
-                <Icon size={18} className="text-current opacity-80" />
+            <div className="mb-3 flex items-center justify-between">
+                <span className="inline-flex h-6 w-6 items-center justify-center rounded-md border border-current/20 bg-black/10">
+                    <Icon size={15} className="text-current opacity-80" />
+                </span>
             </div>
             <div className="space-y-0.5 text-lg font-bold tabular-nums text-current md:text-2xl">{value}</div>
             <p className="m-0 mt-1 text-[10px] uppercase tracking-wider text-crm-fg-subtle">{label}</p>
             {note && <p className="m-0 mt-0.5 text-xs leading-4 text-crm-fg-muted">{note}</p>}
+        </div>
+    );
+}
+
+function MetricTile({ label, value, note, tone = 'neutral' }) {
+    const tones = {
+        red: 'border-crm-red/30 bg-crm-red/10 hover:bg-crm-red/15',
+        green: 'border-emerald-500/30 bg-emerald-500/5 hover:bg-emerald-500/10',
+        indigo: 'border-indigo-500/30 bg-indigo-500/5 hover:bg-indigo-500/10',
+        neutral: 'border-crm-border bg-crm-surface hover:bg-crm-surface-raised'
+    };
+
+    return (
+        <div className={`flex min-h-[98px] flex-col gap-1 rounded-xl border p-3 text-left transition-colors ${tones[tone] || tones.neutral}`}>
+            <p className="m-0 text-[10px] font-bold uppercase tracking-wider text-crm-fg-muted">{label}</p>
+            <p className="m-0 text-2xl font-bold tabular-nums text-crm-fg">{value}</p>
+            {note && <p className="m-0 text-xs text-crm-fg-subtle">{note}</p>}
+        </div>
+    );
+}
+
+function BalanceCard({ label, value, note, tone = 'neutral' }) {
+    const tones = {
+        red: 'border-crm-red/30 bg-crm-red/10',
+        green: 'border-emerald-500/30 bg-emerald-500/10',
+        blue: 'border-blue-500/30 bg-blue-500/10',
+        neutral: 'border-crm-border bg-crm-surface'
+    };
+
+    return (
+        <div className={`rounded-xl border p-4 ${tones[tone] || tones.neutral}`}>
+            <p className="m-0 text-[10px] font-bold uppercase tracking-wider text-crm-fg-muted">{label}</p>
+            <p className="m-0 mt-2 text-2xl font-bold tabular-nums text-crm-fg">{value}</p>
+            {note && <p className="m-0 mt-1 text-xs text-crm-fg-muted">{note}</p>}
+        </div>
+    );
+}
+
+function PlaceholderPanels() {
+    return (
+        <div className="space-y-3">
+            <div className="min-h-[96px] rounded-xl border border-crm-border bg-crm-surface" />
+            <div className="min-h-[96px] rounded-xl border border-crm-border bg-crm-surface" />
         </div>
     );
 }
@@ -187,6 +233,7 @@ function SimpleRow({ keyValue, title, meta, amount }) {
 }
 
 export default function MiEspacioPage() {
+    const router = useRouter();
     const { user } = useAuth();
     const { refresh: fetchCars } = useAdminCars();
     const { fetchTasks } = useAdminCrmTasks();
@@ -196,6 +243,7 @@ export default function MiEspacioPage() {
 
     const [activeTab, setActiveTab] = useState(TAB_MI_DIA);
     const [loading, setLoading] = useState(true);
+    const [includeStock, setIncludeStock] = useState(false);
     const [data, setData] = useState({
         cars: [],
         tasks: [],
@@ -412,7 +460,8 @@ export default function MiEspacioPage() {
                     <ListPanel
                         items={summary.expenseTransactions.slice(0, 10)}
                         emptyTitle="Sin pagos registrados"
-                        emptyText="Todavía no hay pagos cargados para mostrar."
+                        emptyText="Anotá un pago manual acá, o cargá un pago parcial en Deudas/Urgente/Cuotas a pagar y va a aparecer en esta lista."
+                        actionLabel="Registrar pago manual"
                         renderItem={(tx) => (
                             <SimpleRow
                                 key={tx._id}
@@ -481,10 +530,10 @@ export default function MiEspacioPage() {
                         )}
                     />
                     <section className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
-                        <StatCard icon={Flame} value={overdue.length} label="Vencidas" tone="red" />
-                        <StatCard icon={CheckCircle2} value={overdue.length === 0 ? 'Al día ✓' : overdue.length} label="Estado" tone="green" />
-                        <StatCard icon={CalendarDays} value={summary.monthUnpaidInstallments.length} label="Vence este mes" tone="indigo" />
-                        <StatCard icon={Wallet} value={money(totalDebt)} label="Total adeudado" tone="amber" />
+                        <MetricTile label="Vencidas" value={overdue.length} note={overdue.length === 0 ? 'Al día ✓' : 'Revisar vencidas'} tone="red" />
+                        <MetricTile label="Vence este mes" value={summary.monthUnpaidInstallments.length} note={summary.monthUnpaidInstallments.length === 0 ? 'Sin vencimientos' : 'Pendientes del mes'} tone="indigo" />
+                        <MetricTile label="Pagado este mes" value="USD 0" tone="green" />
+                        <MetricTile label="Total adeudado" value={totalDebt > 0 ? money(totalDebt) : 'Sin deudas'} tone="neutral" />
                     </section>
                     <ListPanel
                         items={summary.unpaidInstallments.slice(0, 10)}
@@ -521,7 +570,6 @@ export default function MiEspacioPage() {
                         items={summary.monthUnpaidInstallments.slice(0, 10)}
                         emptyTitle="Sin cuotas a cobrar"
                         emptyText="Anotá la plata que te deben — préstamos a amigos, fiados, ventas en cuotas privadas..."
-                        actionLabel="Nueva cuota"
                         renderItem={(item) => (
                             <SimpleRow
                                 key={item._id}
@@ -541,10 +589,11 @@ export default function MiEspacioPage() {
                 <>
                     <PanelHeader title="Préstamos cruzados con la agencia — 0 sin saldar" subtitle="Registrá cuando sacás plata de la caja para uso personal o cuando ponés tuya en la agencia." action={<ActionButton>Nuevo movimiento</ActionButton>} />
                     <section className="grid grid-cols-1 gap-3 md:grid-cols-3">
-                        <StatCard icon={Wallet} value="USD 0" label="Agencia me debe" note="$ 0" tone="green" />
-                        <StatCard icon={Wallet} value="USD 0" label="Yo debo a agencia" note="$ 0" tone="red" />
-                        <StatCard icon={Repeat} value="USD 0" label="Neto" note="A favor mío" tone="indigo" />
+                        <BalanceCard label="Agencia me debe" value="USD 0" note="$ 0" tone="green" />
+                        <BalanceCard label="Yo debo a agencia" value="USD 0" note="$ 0" tone="red" />
+                        <BalanceCard label="Neto" value="USD 0" note="A favor mío · $ 0 A favor mío" tone="blue" />
                     </section>
+                    <EmptyState title="Sin movimientos" text="Registrá cuando sacás plata de la caja para gastos personales o cuando ponés tuya a la agencia." />
                 </>
             );
         }
@@ -553,26 +602,25 @@ export default function MiEspacioPage() {
             return (
                 <>
                     <PanelHeader title="Mis autos personales — 0 registrados" action={<ActionButton>Nuevo auto personal</ActionButton>} />
-                    <EmptyState title="Sin autos personales" text="Registrá autos personales separados del stock operativo de la agencia." />
+                    <PlaceholderPanels />
                 </>
             );
         }
 
         if (activeTab === 'Patrimonio') {
-            const stockUsd = summary.availableStock
-                .filter((car) => car.currency === 'USD')
-                .reduce((acc, car) => acc + Number(car.price || 0), 0);
-            const debtArs = summary.unpaidInstallments.reduce((acc, item) => acc + Number(item.amount || 0) - Number(item.paidAmount || 0), 0);
-
             return (
                 <>
                     <PanelHeader title={`Resumen patrimonial — ${displayName}`} subtitle="Vista consolidada de activos y pasivos personales. Cada moneda se calcula por separado — el tipo de cambio es volátil." />
-                    <div className="inline-flex rounded-lg border border-crm-border bg-crm-surface px-3 py-2 text-xs font-bold text-crm-fg-muted">Incluir stock propio (USD)</div>
-                    <section className="grid grid-cols-1 gap-3 md:grid-cols-3">
-                        <StatCard icon={Car} value={money(stockUsd, 'USD')} label="Activos estimados" tone="green" />
-                        <StatCard icon={Droplets} value={money(debtArs)} label="Pasivos" tone="red" />
-                        <StatCard icon={BarChart3} value={money(stockUsd, 'USD')} label="Patrimonio neto" tone="indigo" />
-                    </section>
+                    <label className="inline-flex w-fit cursor-pointer items-center gap-2 rounded-lg border border-crm-border bg-crm-surface px-3 py-2 text-xs font-medium text-crm-fg-muted">
+                        <input
+                            type="checkbox"
+                            checked={includeStock}
+                            onChange={(event) => setIncludeStock(event.target.checked)}
+                            className="h-4 w-4 rounded border-crm-border bg-crm-bg text-crm-red focus:ring-crm-red"
+                        />
+                        Incluir stock propio (USD)
+                    </label>
+                    <PlaceholderPanels />
                 </>
             );
         }
@@ -585,7 +633,6 @@ export default function MiEspacioPage() {
                         items={summary.pendingTasks.slice(0, 12)}
                         emptyTitle="Sin pendientes"
                         emptyText="Cargá tus tareas: llamar al contador, renovar registro, ver médico, comprar regalo cumple..."
-                        actionLabel="Nueva tarea"
                         renderItem={(task) => (
                             <SimpleRow
                                 key={task._id}
@@ -610,7 +657,6 @@ export default function MiEspacioPage() {
                         items={personalEvents.slice(0, 10)}
                         emptyTitle="Sin eventos personales"
                         emptyText="Cargá cumpleaños, vacaciones, turnos médicos, eventos de los chicos…"
-                        actionLabel="Nuevo evento"
                         renderItem={(task) => (
                             <SimpleRow
                                 key={task._id}
@@ -628,7 +674,7 @@ export default function MiEspacioPage() {
             return (
                 <>
                     <PanelHeader title="Mis contactos clave — 0 registrados" subtitle="Tu agenda personal — separada de los clientes de la agencia." action={<ActionButton>Nuevo contacto</ActionButton>} />
-                    <EmptyState title="Sin contactos personales" text="Cargá contactos personales, proveedores o referencias que quieras mantener separadas de clientes." />
+                    <EmptyState title="Sin contactos" text="Cargá contactos importantes: contador, abogado, escribano, mecánico, gerente del banco..." />
                 </>
             );
         }
@@ -660,16 +706,16 @@ export default function MiEspacioPage() {
                 </div>
             </header>
 
-            <nav className="mb-5 overflow-x-auto rounded-xl border border-crm-border bg-crm-surface p-1" aria-label="Pestañas de Mi Espacio">
+            <nav className="mt-6 mb-4 overflow-x-auto rounded-xl border border-crm-border bg-crm-surface p-1" aria-label="Pestañas de Mi Espacio">
                 <div className="flex min-w-max gap-1">
                     {tabs.map((tab) => {
                         const Icon = tab.icon;
-                        const active = activeTab === tab.label;
+                        const active = !tab.path && activeTab === tab.label;
                         return (
                             <button
                                 key={tab.label}
                                 type="button"
-                                onClick={() => setActiveTab(tab.label)}
+                                onClick={() => (tab.path ? router.push(tab.path) : setActiveTab(tab.label))}
                                 className={`m-0 inline-flex shrink-0 appearance-none items-center gap-1.5 whitespace-nowrap rounded-lg border-0 px-3 py-1.5 text-xs font-medium transition-colors ${
                                     active
                                         ? 'bg-crm-red text-white shadow'
@@ -680,6 +726,7 @@ export default function MiEspacioPage() {
                             >
                                 <Icon className="h-3.5 w-3.5" />
                                 {tab.label}
+                                {tab.path && <ExternalLink className="h-3 w-3" />}
                             </button>
                         );
                     })}
