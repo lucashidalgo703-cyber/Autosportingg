@@ -13,7 +13,7 @@ const menuGroups = [
             { name: 'Calendario', path: '/admin/agenda', icon: '📅' },
             { name: 'Mis pendientes', path: '/admin/mis-pendientes', icon: '🔔' },
             { name: 'Reportes', path: '/admin/reportes', icon: '📈' },
-            { name: 'Mi Espacio', path: '/admin/mis-pendientes', icon: '📂' },
+            { name: 'Mi Espacio', path: '/admin/mi-espacio', icon: '📂' },
         ]
     },
     {
