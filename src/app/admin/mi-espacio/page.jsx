@@ -9,11 +9,9 @@ import {
     CheckCircle2,
     CreditCard,
     Droplets,
-    ExternalLink,
     Flame,
     HandCoins,
     Landmark,
-    ListChecks,
     Plus,
     Receipt,
     Repeat,
@@ -97,7 +95,7 @@ function ActionButton({ children }) {
     return (
         <button
             type="button"
-            className="m-0 inline-flex h-9 appearance-none items-center gap-2 rounded-lg border border-[#ef3329]/40 bg-[#ef3329] px-3 text-xs font-bold text-white shadow-[0_0_22px_rgba(239,51,41,0.28)] transition-colors hover:bg-red-500"
+            className="m-0 inline-flex h-9 appearance-none items-center justify-center gap-2 whitespace-nowrap rounded-lg border border-crm-red/40 bg-crm-red px-3 text-xs font-bold text-white shadow-[0_0_22px_rgba(239,51,41,0.28)] transition-all hover:bg-crm-red-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-crm-red focus-visible:ring-offset-2 focus-visible:ring-offset-crm-bg"
         >
             <Plus size={14} />
             {children}
@@ -107,39 +105,41 @@ function ActionButton({ children }) {
 
 function StatCard({ icon: Icon, value, label, note, tone = 'neutral' }) {
     const tones = {
-        red: 'border-red-500/40 bg-red-500/10 text-red-200',
-        green: 'border-emerald-500/35 bg-emerald-500/10 text-emerald-200',
-        indigo: 'border-indigo-500/35 bg-indigo-500/10 text-indigo-200',
-        violet: 'border-violet-500/35 bg-violet-500/10 text-violet-200',
-        amber: 'border-amber-500/35 bg-amber-500/10 text-amber-100',
-        neutral: 'border-[#33333a] bg-[#1e1e24] text-white'
+        red: 'border-crm-red/40 bg-crm-red/10 text-red-200',
+        green: 'border-emerald-500/30 bg-emerald-500/5 text-emerald-200',
+        indigo: 'border-indigo-500/30 bg-indigo-500/5 text-indigo-200',
+        violet: 'border-purple-500/30 bg-purple-500/5 text-purple-200',
+        amber: 'border-amber-500/30 bg-amber-500/5 text-amber-100',
+        neutral: 'border-crm-border bg-crm-surface text-crm-fg'
     };
 
     return (
         <div className={`rounded-xl border p-4 ${tones[tone] || tones.neutral}`}>
-            <Icon size={19} className="mb-4 text-current opacity-80" />
-            <div className="text-2xl font-black leading-none text-white">{value}</div>
-            <p className="m-0 mt-2 text-[11px] font-bold uppercase tracking-wider text-zinc-400">{label}</p>
-            {note && <p className="m-0 mt-1 text-xs leading-4 text-zinc-400">{note}</p>}
+            <div className="mb-1 flex items-center justify-between">
+                <Icon size={18} className="text-current opacity-80" />
+            </div>
+            <div className="space-y-0.5 text-lg font-bold tabular-nums text-current md:text-2xl">{value}</div>
+            <p className="m-0 mt-1 text-[10px] uppercase tracking-wider text-crm-fg-subtle">{label}</p>
+            {note && <p className="m-0 mt-0.5 text-xs leading-4 text-crm-fg-muted">{note}</p>}
         </div>
     );
 }
 
 function SectionTitle({ children, meta }) {
     return (
-        <div className="mb-3 flex items-center justify-between gap-3">
-            <h3 className="m-0 text-xs font-black uppercase tracking-widest text-zinc-400">{children}</h3>
-            {meta && <span className="shrink-0 text-xs font-medium text-zinc-500">{meta}</span>}
+        <div className="mb-2 flex items-center justify-between gap-3">
+            <h3 className="m-0 text-xs font-bold uppercase tracking-wider text-crm-fg-muted">{children}</h3>
+            {meta && <span className="shrink-0 text-xs font-medium text-crm-fg-subtle">{meta}</span>}
         </div>
     );
 }
 
 function PanelHeader({ title, subtitle, action }) {
     return (
-        <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div className="flex flex-wrap items-start justify-between gap-3">
             <div>
-                <h2 className="m-0 text-lg font-bold leading-7 text-white">{title}</h2>
-                {subtitle && <p className="m-0 mt-1 max-w-3xl text-sm leading-5 text-zinc-400">{subtitle}</p>}
+                <h2 className="m-0 text-lg font-bold leading-7 text-crm-fg">{title}</h2>
+                {subtitle && <p className="m-0 mt-1 max-w-3xl text-xs leading-4 text-crm-fg-subtle">{subtitle}</p>}
             </div>
             {action}
         </div>
@@ -148,11 +148,13 @@ function PanelHeader({ title, subtitle, action }) {
 
 function EmptyState({ title, text, actionLabel }) {
     return (
-        <div className="rounded-xl border border-dashed border-[#33333a] bg-[#1e1e24] p-8 text-center">
-            <h3 className="m-0 text-sm font-bold text-white">{title}</h3>
-            <p className="m-0 mx-auto mt-2 max-w-xl text-sm leading-5 text-zinc-400">{text}</p>
+        <div className="flex flex-col items-center justify-center gap-3 rounded-xl border border-dashed border-crm-border bg-crm-surface px-6 py-12 text-center">
+            <div className="space-y-1">
+                <h3 className="m-0 text-sm font-semibold text-crm-fg">{title}</h3>
+                <p className="m-0 mx-auto max-w-sm text-sm leading-5 text-crm-fg-muted">{text}</p>
+            </div>
             {actionLabel && (
-                <div className="mt-5">
+                <div className="mt-2">
                     <ActionButton>{actionLabel}</ActionButton>
                 </div>
             )}
@@ -174,12 +176,12 @@ function ListPanel({ items, renderItem, emptyTitle, emptyText, actionLabel }) {
 
 function SimpleRow({ keyValue, title, meta, amount }) {
     return (
-        <div key={keyValue} className="flex items-center justify-between gap-4 rounded-xl border border-[#33333a] bg-[#1e1e24] p-4">
+        <div key={keyValue} className="flex items-center justify-between gap-4 rounded-xl border border-crm-border bg-crm-surface p-4">
             <div className="min-w-0">
-                <div className="truncate text-sm font-bold text-white">{title}</div>
-                {meta && <div className="mt-1 text-xs text-zinc-500">{meta}</div>}
+                <div className="truncate text-sm font-bold text-crm-fg">{title}</div>
+                {meta && <div className="mt-1 text-xs text-crm-fg-subtle">{meta}</div>}
             </div>
-            {amount && <div className="shrink-0 text-sm font-black text-white">{amount}</div>}
+            {amount && <div className="shrink-0 text-sm font-black text-crm-fg">{amount}</div>}
         </div>
     );
 }
@@ -294,52 +296,60 @@ export default function MiEspacioPage() {
     const role = user?.role === 'admin' ? 'Administrador' : (user?.role || 'Usuario');
 
     const renderMiDia = () => (
-        <>
-            <p className="m-0 mb-5 text-sm text-zinc-400">
-                Tu resumen como administrador - <strong className="text-zinc-300">{formatMonth(new Date())}</strong>
+        <div className="space-y-6">
+            <p className="m-0 mb-5 text-sm text-crm-fg-muted">
+                Tu resumen como administrador <span aria-hidden="true">—</span> <strong className="text-crm-fg-muted">{formatMonth(new Date())}</strong>
             </p>
 
-            <SectionTitle>Plata este mes</SectionTitle>
-            <section className="mb-6 grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
-                <StatCard icon={CreditCard} value={money(summary.toPay)} label="A pagar este mes" note="Cuotas + deudas que vencen" tone="red" />
-                <StatCard icon={Banknote} value={money(summary.paidThisMonth)} label="Ya pague este mes" note="Suma de pagos registrados" tone="green" />
-                <StatCard icon={Wallet} value={money(summary.toCollect)} label="A cobrar este mes" note="Cuotas a cobrar que vencen" tone="indigo" />
-                <StatCard icon={Wallet} value={money(summary.collectedThisMonth)} label="Ya cobre este mes" note="Suma de cobros registrados" tone="green" />
+            <section>
+                <SectionTitle>Plata este mes</SectionTitle>
+                <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+                    <StatCard icon={CreditCard} value={money(summary.toPay)} label="A pagar este mes" note="Cuotas + deudas que vencen" tone="red" />
+                    <StatCard icon={Banknote} value={money(summary.paidThisMonth)} label="Ya pagué este mes" note="Suma de pagos registrados" tone="green" />
+                    <StatCard icon={Wallet} value={money(summary.toCollect)} label="A cobrar este mes" note="Cuotas a cobrar que vencen" tone="indigo" />
+                    <StatCard icon={Wallet} value={money(summary.collectedThisMonth)} label="Ya cobré este mes" note="Suma de cobros registrados" tone="green" />
+                </div>
             </section>
 
-            <SectionTitle meta={`${summary.next7.length} eventos`}>Proximos 7 dias</SectionTitle>
-            <section className="mb-6 rounded-xl border border-[#33333a] bg-[#1e1e24] px-4 py-3">
-                {summary.next7.length === 0 ? (
-                    <p className="m-0 text-sm text-zinc-500">Nada que vence en los proximos 7 dias. Aprovecha la calma.</p>
-                ) : (
-                    <div className="space-y-2">
-                        {summary.next7.slice(0, 5).map((task) => (
-                            <SimpleRow
-                                key={task._id}
-                                keyValue={task._id}
-                                title={task.title || 'Pendiente'}
-                                meta={task.dueDate ? new Date(task.dueDate).toLocaleDateString('es-AR') : 'Sin fecha'}
-                            />
-                        ))}
-                    </div>
-                )}
+            <section>
+                <SectionTitle meta={`${summary.next7.length} eventos`}>Próximos 7 días</SectionTitle>
+                <div className="rounded-xl border border-crm-border bg-crm-surface px-4 py-3 text-xs text-crm-fg-subtle">
+                    {summary.next7.length === 0 ? (
+                        <p className="m-0">Nada que vence en los próximos 7 días. Aprovechá la calma.</p>
+                    ) : (
+                        <div className="space-y-2">
+                            {summary.next7.slice(0, 5).map((task) => (
+                                <SimpleRow
+                                    key={task._id}
+                                    keyValue={task._id}
+                                    title={task.title || 'Pendiente'}
+                                    meta={task.dueDate ? new Date(task.dueDate).toLocaleDateString('es-AR') : 'Sin fecha'}
+                                />
+                            ))}
+                        </div>
+                    )}
+                </div>
             </section>
 
-            <SectionTitle>Tu agencia</SectionTitle>
-            <section className="mb-6 grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
-                <StatCard icon={Car} value={summary.availableStock.length} label="Stock disponible" tone="green" />
-                <StatCard icon={Briefcase} value={summary.thisMonthSales.length} label="Ventas del mes" tone="indigo" />
-                <StatCard icon={Landmark} value={summary.activeFiles.length} label="Expedientes activos" tone="violet" />
-                <StatCard icon={Wallet} value={money(summary.monthIncomeUsd, 'USD')} label="Ingresos del mes" tone="amber" />
+            <section>
+                <SectionTitle>Tu agencia</SectionTitle>
+                <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+                    <StatCard icon={Car} value={summary.availableStock.length} label="Stock disponible" tone="green" />
+                    <StatCard icon={Briefcase} value={summary.thisMonthSales.length} label="Ventas del mes" tone="indigo" />
+                    <StatCard icon={Landmark} value={summary.activeFiles.length} label="Expedientes activos" tone="violet" />
+                    <StatCard icon={Wallet} value={money(summary.monthIncomeUsd, 'USD')} label="Ingresos del mes" tone="amber" />
+                </div>
             </section>
 
-            <SectionTitle>Hoy</SectionTitle>
-            <section className="grid grid-cols-1 gap-3 md:grid-cols-3">
-                <StatCard icon={CheckCircle2} value={summary.pendingTasks.length} label="Mis pendientes" tone="neutral" />
-                <StatCard icon={CalendarDays} value={summary.todayTasks.length} label="Eventos hoy" tone="neutral" />
-                <StatCard icon={Wallet} value="USD 0" label="Gastos fijos / mes" note="Piso comprometido" tone="indigo" />
+            <section>
+                <SectionTitle>Hoy</SectionTitle>
+                <div className="grid grid-cols-2 gap-3 md:grid-cols-3">
+                    <StatCard icon={CheckCircle2} value={summary.pendingTasks.length} label="Mis pendientes" tone="neutral" />
+                    <StatCard icon={CalendarDays} value={summary.todayTasks.length} label="Eventos hoy" tone="neutral" />
+                    <StatCard icon={Wallet} value="USD 0" label="Gastos fijos / mes" note="Piso comprometido" tone="indigo" />
+                </div>
             </section>
-        </>
+        </div>
     );
 
     const renderTabPanel = () => {
@@ -348,8 +358,8 @@ export default function MiEspacioPage() {
         if (activeTab === 'Mis ventas') {
             return (
                 <>
-                    <PanelHeader title={`Mis ventas - ${summary.thisMonthSales.length} operaciones`} subtitle="Tu actividad comercial del mes en AutoSporting." />
-                    <section className="mb-5 grid grid-cols-1 gap-3 md:grid-cols-3">
+                    <PanelHeader title={`Mis ventas — ${summary.thisMonthSales.length} operaciones`} subtitle="Tu actividad comercial del mes en AutoSporting." />
+                    <section className="grid grid-cols-1 gap-3 md:grid-cols-3">
                         <StatCard icon={Trophy} value={summary.thisMonthSales.length} label="Ventas del mes" tone="indigo" />
                         <StatCard icon={Wallet} value={money(summary.monthIncomeUsd, 'USD')} label="Ingresos USD" tone="green" />
                         <StatCard icon={Briefcase} value={summary.activeFiles.length} label="Operaciones abiertas" tone="violet" />
@@ -357,7 +367,7 @@ export default function MiEspacioPage() {
                     <ListPanel
                         items={summary.thisMonthSales.slice(0, 8)}
                         emptyTitle="Sin ventas registradas"
-                        emptyText="Todavia no hay operaciones asociadas a tu usuario este mes."
+                        emptyText="Todavía no hay operaciones asociadas a tu usuario este mes."
                         renderItem={(sale) => (
                             <SimpleRow
                                 key={sale._id}
@@ -375,12 +385,12 @@ export default function MiEspacioPage() {
         if (activeTab === 'URGENTE') {
             return (
                 <>
-                    <PanelHeader title={`URGENTE - ${summary.urgentTasks.length} pendientes`} subtitle="Tus anotaciones de cosas urgentes a pagar. Cada item muestra cuantos dias faltan para el vencimiento." action={<ActionButton>Nuevo urgente</ActionButton>} />
+                    <PanelHeader title={`URGENTE — ${summary.urgentTasks.length} pendientes`} subtitle="Tus anotaciones de cosas urgentes a pagar. Cada item muestra cuántos días faltan para el vencimiento." action={<ActionButton>Nuevo urgente</ActionButton>} />
                     <ListPanel
                         items={summary.urgentTasks.slice(0, 10)}
-                        emptyTitle="Sin urgentes registrados"
-                        emptyText="No hay tareas urgentes o vencimientos cercanos en este momento."
-                        actionLabel="Nuevo urgente"
+                        emptyTitle="Sin items urgentes"
+                        emptyText="Anotá acá pagos / trámites con vencimiento para no olvidarlos."
+                        actionLabel="Agregar urgente"
                         renderItem={(task) => (
                             <SimpleRow
                                 key={task._id}
@@ -397,12 +407,12 @@ export default function MiEspacioPage() {
         if (activeTab === 'Pagos realizados') {
             return (
                 <>
-                    <PanelHeader title={`Pagos realizados - ${summary.expenseTransactions.length} items`} subtitle="Todos tus pagos en un solo lugar - manuales, gastos y egresos registrados." action={<ActionButton>Registrar pago manual</ActionButton>} />
-                    <div className="mb-4 inline-flex rounded-lg border border-[#33333a] bg-[#1e1e24] px-3 py-2 text-xs font-bold text-zinc-400">Mes: Ver todos</div>
+                    <PanelHeader title={`Pagos realizados — ${summary.expenseTransactions.length} items`} subtitle="Todos tus pagos en un solo lugar — los manuales + los parciales que cargaste en Deudas, Urgente y Cuotas a pagar." action={<ActionButton>Registrar pago manual</ActionButton>} />
+                    <div className="inline-flex rounded-lg border border-crm-border bg-crm-surface px-3 py-2 text-xs font-bold text-crm-fg-muted">Mes: Ver todos</div>
                     <ListPanel
                         items={summary.expenseTransactions.slice(0, 10)}
                         emptyTitle="Sin pagos registrados"
-                        emptyText="Todavia no hay pagos cargados para mostrar."
+                        emptyText="Todavía no hay pagos cargados para mostrar."
                         renderItem={(tx) => (
                             <SimpleRow
                                 key={tx._id}
@@ -420,11 +430,11 @@ export default function MiEspacioPage() {
         if (activeTab === 'Deudas') {
             return (
                 <>
-                    <PanelHeader title={`Deudas - ${summary.unpaidInstallments.length} activas`} subtitle="Plata que debes a otras personas. Solo vos lo ves." action={<ActionButton>Nueva deuda</ActionButton>} />
+                    <PanelHeader title={`Deudas — ${summary.unpaidInstallments.length} activas`} subtitle="Plata que le debés a otras personas. Solo vos lo ves." action={<ActionButton>Nueva deuda</ActionButton>} />
                     <ListPanel
                         items={summary.unpaidInstallments.slice(0, 10)}
                         emptyTitle="Sin deudas registradas"
-                        emptyText="Si debes plata a alguien, anotalo aca para no perderle la huella."
+                        emptyText="Si le debés plata a alguien, anotalo acá para no perderle la huella."
                         actionLabel="Nueva deuda"
                         renderItem={(item) => (
                             <SimpleRow
@@ -443,8 +453,8 @@ export default function MiEspacioPage() {
         if (activeTab === 'Gastos fijos') {
             return (
                 <>
-                    <PanelHeader title="Gastos fijos / Suscripciones - 0 items" action={<ActionButton>Nuevo gasto fijo</ActionButton>} />
-                    <EmptyState title="Sin gastos fijos" text="Carga tus gastos fijos: alquiler, prepaga, internet, ABL, sueldos, suscripciones, etc." />
+                    <PanelHeader title="Gastos fijos / Suscripciones — 0 ítems" action={<ActionButton>Nuevo gasto fijo</ActionButton>} />
+                    <EmptyState title="Sin gastos fijos" text="Cargá tus gastos fijos: alquiler, prepaga, internet, ABL, sueldos, suscripciones, etc." />
                 </>
             );
         }
@@ -460,17 +470,26 @@ export default function MiEspacioPage() {
 
             return (
                 <>
-                    <PanelHeader title={`Cuotas a pagar - ${summary.unpaidInstallments.length} pendientes`} subtitle="Tarjeta, hipoteca, prestamos - todo lo que pagas en cuotas." action={<ActionButton>Nueva cuota</ActionButton>} />
-                    <section className="mb-5 grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
+                    <PanelHeader
+                        title={`Cuotas a pagar — ${summary.unpaidInstallments.length} pendientes`}
+                        subtitle="Tarjeta, hipoteca, préstamos — todo lo que pagás en cuotas."
+                        action={(
+                            <div className="flex flex-wrap gap-2">
+                                <ActionButton>Nueva cuota</ActionButton>
+                                <ActionButton>Plan automático</ActionButton>
+                            </div>
+                        )}
+                    />
+                    <section className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
                         <StatCard icon={Flame} value={overdue.length} label="Vencidas" tone="red" />
-                        <StatCard icon={CheckCircle2} value={overdue.length === 0 ? 'Al dia' : overdue.length} label="Estado" tone="green" />
+                        <StatCard icon={CheckCircle2} value={overdue.length === 0 ? 'Al día ✓' : overdue.length} label="Estado" tone="green" />
                         <StatCard icon={CalendarDays} value={summary.monthUnpaidInstallments.length} label="Vence este mes" tone="indigo" />
                         <StatCard icon={Wallet} value={money(totalDebt)} label="Total adeudado" tone="amber" />
                     </section>
                     <ListPanel
                         items={summary.unpaidInstallments.slice(0, 10)}
                         emptyTitle="Sin cuotas registradas"
-                        emptyText="Carga tus deudas: tarjeta de credito, hipoteca, prestamo, leasing, viaje en cuotas..."
+                        emptyText="Cargá tus deudas: tarjeta de crédito, hipoteca, préstamo, leasing, viaje en cuotas..."
                         renderItem={(item) => (
                             <SimpleRow
                                 key={item._id}
@@ -488,11 +507,20 @@ export default function MiEspacioPage() {
         if (activeTab === 'Cuotas a cobrar') {
             return (
                 <>
-                    <PanelHeader title={`Cuotas a cobrar - ${summary.monthUnpaidInstallments.length} pendientes`} subtitle="Plata que te tienen que pagar - prestamos personales, fiados, etc. Solo vos lo ves." action={<ActionButton>Nueva cuota</ActionButton>} />
+                    <PanelHeader
+                        title={`Cuotas a cobrar — ${summary.monthUnpaidInstallments.length} pendientes`}
+                        subtitle="Plata que te tienen que pagar — préstamos personales, fiados, etc. Solo vos lo ves."
+                        action={(
+                            <div className="flex flex-wrap gap-2">
+                                <ActionButton>Nueva cuota</ActionButton>
+                                <ActionButton>Plan automático</ActionButton>
+                            </div>
+                        )}
+                    />
                     <ListPanel
                         items={summary.monthUnpaidInstallments.slice(0, 10)}
                         emptyTitle="Sin cuotas a cobrar"
-                        emptyText="Anota la plata que te deben - prestamos a amigos, fiados, ventas en cuotas privadas..."
+                        emptyText="Anotá la plata que te deben — préstamos a amigos, fiados, ventas en cuotas privadas..."
                         actionLabel="Nueva cuota"
                         renderItem={(item) => (
                             <SimpleRow
@@ -511,11 +539,11 @@ export default function MiEspacioPage() {
         if (activeTab === 'Saldo agencia') {
             return (
                 <>
-                    <PanelHeader title="Prestamos cruzados con la agencia - 0 sin saldar" subtitle="Registra cuando sacas plata de la caja para uso personal o cuando pones tuya en la agencia." action={<ActionButton>Nuevo movimiento</ActionButton>} />
+                    <PanelHeader title="Préstamos cruzados con la agencia — 0 sin saldar" subtitle="Registrá cuando sacás plata de la caja para uso personal o cuando ponés tuya en la agencia." action={<ActionButton>Nuevo movimiento</ActionButton>} />
                     <section className="grid grid-cols-1 gap-3 md:grid-cols-3">
                         <StatCard icon={Wallet} value="USD 0" label="Agencia me debe" note="$ 0" tone="green" />
                         <StatCard icon={Wallet} value="USD 0" label="Yo debo a agencia" note="$ 0" tone="red" />
-                        <StatCard icon={Repeat} value="USD 0" label="Neto" note="A favor mio" tone="indigo" />
+                        <StatCard icon={Repeat} value="USD 0" label="Neto" note="A favor mío" tone="indigo" />
                     </section>
                 </>
             );
@@ -524,8 +552,8 @@ export default function MiEspacioPage() {
         if (activeTab === 'Mis autos') {
             return (
                 <>
-                    <PanelHeader title="Mis autos personales - 0 registrados" action={<ActionButton>Nuevo auto personal</ActionButton>} />
-                    <EmptyState title="Sin autos personales" text="Registra autos personales separados del stock operativo de la agencia." />
+                    <PanelHeader title="Mis autos personales — 0 registrados" action={<ActionButton>Nuevo auto personal</ActionButton>} />
+                    <EmptyState title="Sin autos personales" text="Registrá autos personales separados del stock operativo de la agencia." />
                 </>
             );
         }
@@ -538,8 +566,8 @@ export default function MiEspacioPage() {
 
             return (
                 <>
-                    <PanelHeader title={`Resumen patrimonial - ${displayName}`} subtitle="Vista consolidada de activos y pasivos personales. Cada moneda se calcula por separado." />
-                    <div className="mb-4 inline-flex rounded-lg border border-[#33333a] bg-[#1e1e24] px-3 py-2 text-xs font-bold text-zinc-400">Incluir stock propio (USD)</div>
+                    <PanelHeader title={`Resumen patrimonial — ${displayName}`} subtitle="Vista consolidada de activos y pasivos personales. Cada moneda se calcula por separado — el tipo de cambio es volátil." />
+                    <div className="inline-flex rounded-lg border border-crm-border bg-crm-surface px-3 py-2 text-xs font-bold text-crm-fg-muted">Incluir stock propio (USD)</div>
                     <section className="grid grid-cols-1 gap-3 md:grid-cols-3">
                         <StatCard icon={Car} value={money(stockUsd, 'USD')} label="Activos estimados" tone="green" />
                         <StatCard icon={Droplets} value={money(debtArs)} label="Pasivos" tone="red" />
@@ -552,11 +580,11 @@ export default function MiEspacioPage() {
         if (activeTab === 'Pendientes') {
             return (
                 <>
-                    <PanelHeader title={`Mis pendientes - ${summary.pendingTasks.length} sin completar`} action={<ActionButton>Nueva tarea</ActionButton>} />
+                    <PanelHeader title={`Mis pendientes — ${summary.pendingTasks.length} sin completar`} action={<ActionButton>Nueva tarea</ActionButton>} />
                     <ListPanel
                         items={summary.pendingTasks.slice(0, 12)}
                         emptyTitle="Sin pendientes"
-                        emptyText="Carga tus tareas: llamar al contador, renovar registro, ver medico, comprar regalo cumple..."
+                        emptyText="Cargá tus tareas: llamar al contador, renovar registro, ver médico, comprar regalo cumple..."
                         actionLabel="Nueva tarea"
                         renderItem={(task) => (
                             <SimpleRow
@@ -577,11 +605,11 @@ export default function MiEspacioPage() {
             ));
             return (
                 <>
-                    <PanelHeader title={`Mi calendario personal - ${personalEvents.length} eventos`} subtitle="Eventos no laborales: cumpleanos familia, medico, vacaciones, turnos y recordatorios." action={<ActionButton>Nuevo evento</ActionButton>} />
+                    <PanelHeader title={`Mi calendario personal — ${personalEvents.length} eventos`} subtitle="Eventos no laborales: cumpleaños familia, médico, vacaciones, eventos de los chicos…" action={<ActionButton>Nuevo evento</ActionButton>} />
                     <ListPanel
                         items={personalEvents.slice(0, 10)}
                         emptyTitle="Sin eventos personales"
-                        emptyText="Carga cumpleanos, vacaciones, turnos medicos o recordatorios personales."
+                        emptyText="Cargá cumpleaños, vacaciones, turnos médicos, eventos de los chicos…"
                         actionLabel="Nuevo evento"
                         renderItem={(task) => (
                             <SimpleRow
@@ -599,8 +627,8 @@ export default function MiEspacioPage() {
         if (activeTab === 'Contactos') {
             return (
                 <>
-                    <PanelHeader title="Mis contactos clave - 0 registrados" subtitle="Tu agenda personal - separada de los clientes de la agencia." action={<ActionButton>Nuevo contacto</ActionButton>} />
-                    <EmptyState title="Sin contactos personales" text="Carga contactos personales, proveedores o referencias que quieras mantener separadas de clientes." />
+                    <PanelHeader title="Mis contactos clave — 0 registrados" subtitle="Tu agenda personal — separada de los clientes de la agencia." action={<ActionButton>Nuevo contacto</ActionButton>} />
+                    <EmptyState title="Sin contactos personales" text="Cargá contactos personales, proveedores o referencias que quieras mantener separadas de clientes." />
                 </>
             );
         }
@@ -610,29 +638,29 @@ export default function MiEspacioPage() {
 
     if (loading) {
         return (
-            <div className="flex h-72 items-center justify-center font-sans text-xs font-bold uppercase tracking-wider text-zinc-500">
+            <div className="flex h-72 items-center justify-center font-sans text-xs font-bold uppercase tracking-wider text-crm-fg-subtle">
                 Cargando mi espacio...
             </div>
         );
     }
 
     return (
-        <div className="mx-auto w-full max-w-7xl px-3 py-5 pb-24 font-sans text-[#f4f4f5] animate-in fade-in duration-300 sm:px-4 sm:py-6">
-            <header className="mb-5 border-b border-[#33333a] pb-4">
+        <div className="mx-auto w-full max-w-7xl p-4 pb-24 font-sans text-crm-fg animate-in fade-in duration-300 md:p-6">
+            <header className="mb-5 border-b border-crm-border pb-4">
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                     <div>
-                        <h1 className="m-0 text-2xl font-bold leading-8 text-white">Mi Espacio - {displayName}</h1>
-                        <p className="m-0 mt-1 text-sm font-medium text-zinc-400">
-                            Tu zona personal - separada de la operacion de la agencia. Solo vos ves esto.
+                        <h1 className="m-0 text-xl font-semibold leading-7 text-crm-fg">Mi Espacio — {displayName}</h1>
+                        <p className="m-0 mt-0.5 text-sm text-crm-fg-muted">
+                            Tu zona personal — separada de la operación de la agencia. Solo vos ves esto.
                         </p>
                     </div>
-                    <span className="w-fit rounded-full border border-amber-500/20 bg-amber-500/10 px-3 py-1 text-xs font-bold text-amber-200">
+                    <span className="inline-flex w-fit items-center gap-1 rounded-full bg-amber-500/15 px-2 py-0.5 text-xs font-medium text-amber-200">
                         {role}
                     </span>
                 </div>
             </header>
 
-            <nav className="mb-5 overflow-x-auto rounded-xl border border-[#33333a] bg-[#1e1e24] p-1" aria-label="Pestanas de Mi Espacio">
+            <nav className="mb-5 overflow-x-auto rounded-xl border border-crm-border bg-crm-surface p-1" aria-label="Pestañas de Mi Espacio">
                 <div className="flex min-w-max gap-1">
                     {tabs.map((tab) => {
                         const Icon = tab.icon;
@@ -644,8 +672,8 @@ export default function MiEspacioPage() {
                                 onClick={() => setActiveTab(tab.label)}
                                 className={`m-0 inline-flex shrink-0 appearance-none items-center gap-1.5 whitespace-nowrap rounded-lg border-0 px-3 py-1.5 text-xs font-medium transition-colors ${
                                     active
-                                        ? 'bg-[#ef3329] text-white shadow'
-                                        : 'bg-transparent text-zinc-400 hover:bg-[#24242b] hover:text-white'
+                                        ? 'bg-crm-red text-white shadow'
+                                        : 'bg-transparent text-crm-fg-muted hover:bg-crm-surface-raised hover:text-crm-fg'
                                 }`}
                                 aria-pressed={active}
                                 title={tab.label}
@@ -658,7 +686,9 @@ export default function MiEspacioPage() {
                 </div>
             </nav>
 
-            {renderTabPanel()}
+            <section className={activeTab === TAB_MI_DIA ? '' : 'space-y-4'}>
+                {renderTabPanel()}
+            </section>
         </div>
     );
 }
