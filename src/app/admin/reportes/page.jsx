@@ -63,15 +63,15 @@ const groupBy = (items, getKey) => {
 const sortedEntries = (obj) => Object.entries(obj).sort((a, b) => b[1] - a[1]);
 
 function EmptyText({ children = 'Sin datos.' }) {
-    return <p className="m-0 text-sm font-medium text-zinc-500">{children}</p>;
+    return <p className="m-0 text-sm text-zinc-500">{children}</p>;
 }
 
 function AnalysisCard({ title, children }) {
     return (
-        <section className="min-h-[86px] rounded-xl border border-[#33333a] bg-[#1e1e24] p-4">
+        <div className="rounded-xl border border-[#33333a] bg-[#1e1e24] p-3 sm:p-4">
             <h3 className="m-0 mb-3 text-sm font-bold leading-5 text-white">{title}</h3>
             {children}
-        </section>
+        </div>
     );
 }
 
@@ -172,7 +172,8 @@ function ReportesPageInner() {
                 operationsBySeller[seller] = (operationsBySeller[seller] || 0) + 1;
             });
 
-        const leadOrigins = groupBy(leadItems, (lead) => lead.source || lead.sourceDetail || 'Sin origen');
+        const currentMonthLeads = leadItems.filter((lead) => isSameMonth(lead.createdAt || lead.updatedAt, today));
+        const leadOrigins = groupBy(currentMonthLeads, (lead) => lead.source || lead.sourceDetail || 'Sin origen');
         const clientsByUsd = {};
         sales
             .filter((sale) => sale.saleCurrency === 'USD' && !['cancelada', 'borrador'].includes(String(sale.status || '').toLowerCase()))
@@ -213,6 +214,7 @@ function ReportesPageInner() {
             salesByMonth: sortedEntries(salesByMonth).map(([label, value]) => ({ label, value, display: formatUsd(value) })),
             operationsBySeller: sortedEntries(operationsBySeller).map(([label, value]) => ({ label, value })),
             leadOrigins: sortedEntries(leadOrigins).map(([label, value]) => ({ label, value })),
+            currentMonthLeads: currentMonthLeads.length,
             topClients: sortedEntries(clientsByUsd).map(([label, value]) => ({ label, value, display: formatUsd(value) })),
             stockByStatus,
             stockByBrand
@@ -231,13 +233,13 @@ function ReportesPageInner() {
     const monthTitle = formatMonthTitle(today);
 
     return (
-        <div className="mx-auto w-full max-w-[960px] space-y-6 px-4 pb-24 pt-6 font-sans text-[#f4f4f5] animate-in fade-in duration-300 md:px-6 md:pt-7">
-            <header>
-                <h1 className="m-0 flex items-center gap-2 text-2xl font-bold tracking-tight text-white">
+        <div className="mx-auto w-full max-w-7xl px-3 py-5 pb-24 font-sans text-[#f4f4f5] animate-in fade-in duration-300 sm:px-4 sm:py-6">
+            <header className="mb-4">
+                <h1 className="m-0 flex items-center gap-2 text-2xl font-bold leading-8 tracking-tight text-white">
                     <BarChart3 size={24} />
-                    Reportes y Analisis
+                    Reportes y Análisis
                 </h1>
-                <p className="m-0 mt-1 text-sm font-medium text-zinc-400">Vista completa - todos los modulos.</p>
+                <p className="m-0 mt-1 text-sm font-medium text-zinc-400">Vista completa — todos los módulos.</p>
             </header>
 
             {error && (
@@ -246,51 +248,64 @@ function ReportesPageInner() {
                 </div>
             )}
 
-            <section className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-[#3d2aa8] via-[#5847cd] to-[#3222a4] p-4 shadow-[0_18px_60px_rgba(91,74,214,0.22)]">
-                <Trophy size={28} className="absolute right-5 top-5 text-white" />
-                <p className="m-0 text-xs font-black uppercase tracking-[0.18em] text-white/55">Competencia del mes</p>
-                <h2 className="m-0 mt-1 text-xl font-bold text-white">{monthTitle}</h2>
-
-                <div className="mt-5 overflow-hidden rounded-xl border border-white/10 bg-white/10">
-                    <div className="grid grid-cols-[1.5fr_1fr_1fr_1fr] gap-2 px-4 py-3 text-[11px] font-black uppercase tracking-wider text-white/55">
-                        <span>Vendedor</span>
-                        <span className="text-center">Ventas mes</span>
-                        <span className="text-center">Consig. mes</span>
-                        <span className="text-center">Bono</span>
+            <section className="mb-6 rounded-2xl bg-gradient-to-br from-indigo-900 to-indigo-700 p-4 text-white">
+                <div className="mb-3 flex items-center justify-between">
+                    <div>
+                        <div className="text-[11px] font-bold uppercase tracking-widest text-indigo-300">Competencia del mes</div>
+                        <div className="text-lg font-bold capitalize">{MONTHS[today.getMonth()].toLowerCase()} de {today.getFullYear()}</div>
                     </div>
-                    <div className="grid grid-cols-[1.5fr_1fr_1fr_1fr] items-center gap-2 bg-white/10 px-4 py-4 text-sm font-bold text-white">
-                        <span className="truncate text-yellow-200">🏅 {userName} (vos)</span>
-                        <span className="text-center text-2xl">{report.currentMonthSales}</span>
-                        <span className="text-center text-2xl">{report.consignments}</span>
-                        <span className="text-center text-xs font-semibold text-white/70">5 para USD 300</span>
+                    <Trophy className="h-5 w-5 sm:h-6 sm:w-6" />
+                </div>
+
+                <div className="overflow-x-auto rounded-xl bg-white/10">
+                    <div className="grid min-w-[440px] grid-cols-5 gap-0 border-b border-white/10 px-3 py-2 text-[11px] font-bold uppercase tracking-wider text-indigo-300">
+                        <div className="col-span-2">Vendedor</div>
+                        <div className="text-center">Ventas mes</div>
+                        <div className="text-center">Consig. mes</div>
+                        <div className="text-center">Bono</div>
+                    </div>
+                    <div className="grid min-w-[440px] grid-cols-5 gap-0 border-b border-white/10 bg-white/15 px-3 py-2.5 last:border-0">
+                        <div className="col-span-2 flex items-center gap-2">
+                            <span>🥇</span>
+                            <span className="truncate text-sm font-bold text-amber-300">{userName} (vos)</span>
+                        </div>
+                        <div className="text-center text-base font-bold sm:text-xl">{report.currentMonthSales}</div>
+                        <div className="text-center">{report.consignments}</div>
+                        <div className="text-center text-[11px]">
+                            <span className="text-indigo-300">5 para USD 300</span>
+                        </div>
                     </div>
                 </div>
 
-                <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-3">
+                <div className="mt-3 grid grid-cols-3 gap-2">
                     {[
                         ['🥉', 'USD 300', '5 consig.'],
                         ['🥈', 'USD 500', '8 consig.'],
                         ['🏆', 'USD 1000', '12 consig.']
                     ].map(([icon, amount, detail]) => (
-                        <div key={amount} className="rounded-xl bg-white/10 p-4 text-center">
-                            <div className="text-xl">{icon}</div>
-                            <div className="mt-1 text-base font-black text-white">{amount}</div>
-                            <div className="text-xs font-semibold text-white/55">{detail}</div>
+                        <div key={amount} className="rounded-xl bg-white/10 p-2 text-center">
+                            <div className="text-base">{icon}</div>
+                            <div className="text-sm font-bold">{amount}</div>
+                            <div className="text-[10px] text-indigo-300">{detail}</div>
                         </div>
                     ))}
                 </div>
             </section>
 
-            <section className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-[#075f77] via-[#0b6d86] to-[#075466] p-4 shadow-[0_18px_50px_rgba(8,113,135,0.18)]">
-                <Clock3 size={28} className="absolute right-5 top-5 text-white" />
-                <p className="m-0 text-xs font-black uppercase tracking-[0.18em] text-white/55">Ranking de velocidad</p>
-                <h2 className="m-0 mt-1 text-xl font-bold text-white">{monthTitle}</h2>
-                <p className="m-0 mt-4 text-sm font-semibold text-white/85">
-                    {report.leadOrigins.length ? `${report.leadOrigins.reduce((acc, row) => acc + row.value, 0)} cotizaciones cargadas este mes.` : 'Sin leads asignados este mes.'}
+            <section className="mb-6 rounded-2xl bg-gradient-to-br from-sky-900 to-cyan-800 p-4 text-white">
+                <div className="mb-3 flex items-center justify-between">
+                    <div>
+                        <div className="text-[11px] font-bold uppercase tracking-widest text-cyan-200">Ranking de velocidad</div>
+                        <div className="text-lg font-bold capitalize">{MONTHS[today.getMonth()].toLowerCase()} de {today.getFullYear()}</div>
+                    </div>
+                    <Clock3 className="h-5 w-5 sm:h-6 sm:w-6" />
+                </div>
+                <p className="m-0 text-sm font-semibold text-white/90">
+                    {report.currentMonthLeads ? `${report.currentMonthLeads} cotizaciones cargadas este mes.` : 'Sin leads asignados este mes.'}
                 </p>
             </section>
 
-            <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+            <section className="mb-6 grid gap-4 md:grid-cols-2">
                 <AnalysisCard title="Volumen de Ventas por Mes (USD)">
                     <CompactBars rows={report.salesByMonth.slice(-6)} />
                 </AnalysisCard>
@@ -298,7 +313,9 @@ function ReportesPageInner() {
                 <AnalysisCard title="Operaciones por Vendedor">
                     <CompactBars rows={report.operationsBySeller} accent="bg-emerald-500" />
                 </AnalysisCard>
+            </section>
 
+            <section className="mb-6 grid gap-4 md:grid-cols-2">
                 <AnalysisCard title="Origen de Leads">
                     <CompactBars rows={report.leadOrigins} accent="bg-sky-500" />
                 </AnalysisCard>
@@ -306,7 +323,9 @@ function ReportesPageInner() {
                 <AnalysisCard title="Top 10 Clientes (USD)">
                     <CompactBars rows={report.topClients} accent="bg-amber-500" />
                 </AnalysisCard>
+            </section>
 
+            <section className="mb-6 grid gap-4 md:grid-cols-2">
                 <AnalysisCard title="Stock por Estado">
                     <div className="space-y-2">
                         {report.stockByStatus.map((row) => (
@@ -324,7 +343,7 @@ function ReportesPageInner() {
                 <AnalysisCard title="Stock por Marca">
                     <CompactBars rows={report.stockByBrand} />
                 </AnalysisCard>
-            </div>
+            </section>
         </div>
     );
 }
