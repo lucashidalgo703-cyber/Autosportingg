@@ -113,6 +113,24 @@ export function useAdminSales() {
         }
     };
 
+    const deleteSale = async (id) => {
+        try {
+            const res = await fetch(`${getBaseUrl()}/api/admin/sales/${id}`, {
+                method: 'DELETE',
+                headers: getAuthHeader()
+            });
+
+            if (!res.ok) {
+                const errData = await res.json().catch(() => ({}));
+                throw new Error(errData.error || 'Error al eliminar la venta');
+            }
+
+            return await res.json();
+        } catch (err) {
+            throw err;
+        }
+    };
+
     return {
         sales,
         loading,
@@ -120,6 +138,7 @@ export function useAdminSales() {
         fetchSales,
         fetchSaleById,
         updateSale,
-        createSale
+        createSale,
+        deleteSale
     };
 }

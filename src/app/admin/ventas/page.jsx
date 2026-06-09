@@ -15,7 +15,7 @@ import ConvertReservationToSaleModal from '../../../components/crm/reservations/
 import CrmButton from '../../../components/crm/ui/CrmButton';
 
 export default function VentasPage() {
-    const { fetchSales, loading, error } = useAdminSales();
+    const { fetchSales, loading, error, deleteSale } = useAdminSales();
     const {
         fetchReservations,
         loading: reservationsLoading,
@@ -176,6 +176,18 @@ export default function VentasPage() {
         setIsDrawerOpen(true);
     };
 
+    const handleDeleteSale = async (sale) => {
+        if (sale.status !== 'cancelada') return;
+        if (window.confirm('¿Estás seguro de que quieres eliminar permanentemente esta venta cancelada?')) {
+            try {
+                await deleteSale(sale._id);
+                loadData();
+            } catch (err) {
+                alert(err.message || 'Error al eliminar la venta');
+            }
+        }
+    };
+
     const handleLiberarClick = (reservation) => {
         setSelectedReservation(reservation);
         setIsCancelModalOpen(true);
@@ -302,8 +314,8 @@ export default function VentasPage() {
                         </>
                     ) : (
                         <>
-                            <SalesTable sales={filteredSales} onViewDetail={handleViewDetail} />
-                            <SaleMobileCards sales={filteredSales} onViewDetail={handleViewDetail} />
+                            <SalesTable sales={filteredSales} onViewDetail={handleViewDetail} onDeleteSale={handleDeleteSale} />
+                            <SaleMobileCards sales={filteredSales} onViewDetail={handleViewDetail} onDeleteSale={handleDeleteSale} />
                         </>
                     )}
                 </>

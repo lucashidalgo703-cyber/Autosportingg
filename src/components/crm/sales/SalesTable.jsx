@@ -1,10 +1,10 @@
 import React from 'react';
 import Link from 'next/link';
-import { ArrowRight, CarFront, Search, ShoppingCart, User } from 'lucide-react';
+import { ArrowRight, CarFront, Search, ShoppingCart, User, Trash2 } from 'lucide-react';
 import SaleStatusBadge from './SaleStatusBadge';
 import CrmButton from '../ui/CrmButton';
 
-export default function SalesTable({ sales, onViewDetail }) {
+export default function SalesTable({ sales, onViewDetail, onDeleteSale }) {
     if (!sales || sales.length === 0) {
         return (
             <div className="hidden min-h-[210px] flex-col items-center justify-center rounded-xl border border-dashed border-crm-border bg-crm-surface p-12 text-center md:flex">
@@ -149,17 +149,31 @@ export default function SalesTable({ sales, onViewDetail }) {
                                     </td>
 
                                     <td className="px-4 py-3 text-center align-middle">
-                                        <CrmButton
-                                            variant="secondary"
-                                            size="sm"
-                                            onClick={() => onViewDetail(sale)}
-                                            className="h-8 gap-1 px-3 text-xs"
-                                            title="Ver detalle de venta"
-                                        >
-                                            <Search size={14} />
-                                            Detalle
-                                            <ArrowRight size={12} />
-                                        </CrmButton>
+                                        <div className="flex items-center justify-center gap-2">
+                                            <CrmButton
+                                                variant="secondary"
+                                                size="sm"
+                                                onClick={() => onViewDetail(sale)}
+                                                className="h-8 gap-1 px-3 text-xs"
+                                                title="Ver detalle de venta"
+                                            >
+                                                <Search size={14} />
+                                                Detalle
+                                                <ArrowRight size={12} />
+                                            </CrmButton>
+                                            {sale.status === 'cancelada' && onDeleteSale && (
+                                                <button
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        onDeleteSale(sale);
+                                                    }}
+                                                    className="flex h-8 w-8 items-center justify-center rounded-lg border border-crm-red/20 bg-crm-red/10 text-red-300 transition-colors hover:bg-crm-red/20"
+                                                    title="Eliminar venta cancelada"
+                                                >
+                                                    <Trash2 size={14} />
+                                                </button>
+                                            )}
+                                        </div>
                                     </td>
                                 </tr>
                             );
