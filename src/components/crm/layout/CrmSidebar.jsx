@@ -23,7 +23,6 @@ const menuGroups = [
             { name: 'Clientes', path: '/admin/clientes', icon: '👥' },
             { name: 'Cotizaciones', path: '/admin/leads', icon: '📝' },
             { name: 'Ventas', path: '/admin/ventas', icon: '💼' },
-            { name: 'Reservas', path: '/admin/reservas', icon: '🔍' },
         ]
     },
     {
@@ -138,7 +137,8 @@ export default function CrmSidebar({ isOpen, onClose }) {
                                 {group.name}
                             </h3>
                             {visibleItems.map((item) => {
-                                const isActive = item.path === '/admin' ? pathname === '/admin' : pathname.startsWith(item.path);
+                                const isSalesArea = item.path === '/admin/ventas' && (pathname.startsWith('/admin/ventas') || pathname.startsWith('/admin/reservas'));
+                                const isActive = item.path === '/admin' ? pathname === '/admin' : isSalesArea || pathname.startsWith(item.path);
                                 const baseItemClasses = "group flex min-h-11 items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors";
                                 const activeClasses = "bg-crm-red/10 text-crm-red border-l-2 border-crm-red pl-[10px]";
                                 const inactiveClasses = "text-crm-fg-muted hover:bg-crm-surface hover:text-crm-fg border-l-2 border-transparent";

@@ -149,9 +149,9 @@ export default function ReservasPage() {
         <div className="mx-auto flex min-h-[85vh] w-full max-w-7xl flex-col gap-5 p-4 pb-24 md:p-6">
             <div className="flex flex-col gap-4 border-b border-crm-border pb-5 lg:flex-row lg:items-start lg:justify-between">
                 <div>
-                    <h1 className="m-0 text-[26px] font-bold leading-tight text-crm-fg">Reservas</h1>
+                    <h1 className="m-0 text-[26px] font-bold leading-tight text-crm-fg">Ventas</h1>
                     <p className="m-0 mt-1 text-sm font-medium text-crm-fg-muted">
-                        {totals.total} reservas · {totals.active} activas · {totals.converted} convertidas · {totals.closed} cerradas
+                        {totals.total} operaciones · {totals.active} en curso · {totals.converted} convertidas · {totals.closed} cerradas
                     </p>
                 </div>
 
