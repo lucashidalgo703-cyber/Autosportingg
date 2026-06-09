@@ -200,11 +200,11 @@ app.post('/api/login', async (req, res) => {
             description: `Intento de login fallido para ${email || 'Desconocido'}`
         });
 
-        res.status(401).json({ message: 'Credenciales inválidas' });
+        res.status(401).json({ message: 'Credenciales inv├ílidas' });
 
     } catch (error) {
         console.error("Login Error: ", error);
-        res.status(500).json({ message: 'Error interno de autenticación' });
+        res.status(500).json({ message: 'Error interno de autenticaci├│n' });
     }
 });
 
@@ -226,7 +226,7 @@ app.get('/api/admin/auth/me', authenticateToken, async (req, res) => {
             hasValidObjectId: isValid
         });
     } catch (err) {
-        res.status(500).json({ message: 'Error interno de autenticación me' });
+        res.status(500).json({ message: 'Error interno de autenticaci├│n me' });
     }
 });
 
@@ -262,7 +262,7 @@ app.post('/api/admin/users', authenticateToken, async (req, res) => {
         const { name, email, password, role, permissions } = req.body;
         
         const existing = await AdminUser.findOne({ email: email.toLowerCase() });
-        if (existing) return res.status(400).json({ message: 'El email ya está en uso' });
+        if (existing) return res.status(400).json({ message: 'El email ya est├í en uso' });
 
         const newUser = new AdminUser({
             name,
@@ -302,11 +302,11 @@ app.patch('/api/admin/users/:id', authenticateToken, async (req, res) => {
         const userToUpdate = await AdminUser.findById(req.params.id);
         if (!userToUpdate) return res.status(404).json({ message: 'Usuario no encontrado' });
 
-        // Regla: No desactivar ni quitar rol owner al último owner
+        // Regla: No desactivar ni quitar rol owner al ├║ltimo owner
         if ((active === false || (role && role !== 'owner')) && userToUpdate.role === 'owner') {
             const ownerCount = await AdminUser.countDocuments({ role: 'owner', active: true });
             if (ownerCount <= 1 && userToUpdate.active) {
-                return res.status(400).json({ message: 'No se puede desactivar o degradar al último Owner del sistema.' });
+                return res.status(400).json({ message: 'No se puede desactivar o degradar al ├║ltimo Owner del sistema.' });
             }
         }
 
@@ -343,10 +343,10 @@ app.patch('/api/admin/users/:id', authenticateToken, async (req, res) => {
 app.patch('/api/admin/users/:id/password', authenticateToken, async (req, res) => {
     try {
         if (req.user.role !== 'owner' && req.user.role !== 'admin') {
-            return res.status(403).json({ message: 'Sin permisos para cambiar contraseñas' });
+            return res.status(403).json({ message: 'Sin permisos para cambiar contrase├▒as' });
         }
         const { password } = req.body;
-        if (!password) return res.status(400).json({ message: 'Contraseña requerida' });
+        if (!password) return res.status(400).json({ message: 'Contrase├▒a requerida' });
 
         const userToUpdate = await AdminUser.findById(req.params.id);
         if (!userToUpdate) return res.status(404).json({ message: 'Usuario no encontrado' });
@@ -361,10 +361,10 @@ app.patch('/api/admin/users/:id/password', authenticateToken, async (req, res) =
             entityType: 'User',
             entityId: userToUpdate._id,
             entityLabel: userToUpdate.email,
-            description: `Contraseña actualizada para ${userToUpdate.email}`
+            description: `Contrase├▒a actualizada para ${userToUpdate.email}`
         });
 
-        res.json({ message: 'Contraseña actualizada correctamente' });
+        res.json({ message: 'Contrase├▒a actualizada correctamente' });
     } catch (err) {
         res.status(500).json({ message: err.message });
     }
@@ -379,7 +379,7 @@ app.post('/api/admin/audit-logs/client-event', authenticateToken, async (req, re
         const allowedActions = ['REPORTE_EXPORTADO_CSV', 'REPORTE_IMPRESO'];
         
         if (!allowedActions.includes(action)) {
-            return res.status(400).json({ message: 'Acción no permitida desde el cliente' });
+            return res.status(400).json({ message: 'Acci├│n no permitida desde el cliente' });
         }
 
         await logAudit({
@@ -452,7 +452,7 @@ app.get('/api/public/cars', async (req, res) => {
             .sort({ order: 1, createdAt: -1 });
         res.json(cars);
     } catch (error) {
-        res.status(500).json({ error: 'No se pudo cargar el catálogo de vehículos.' });
+        res.status(500).json({ error: 'No se pudo cargar el cat├ílogo de veh├¡culos.' });
     }
 });
 
@@ -472,7 +472,7 @@ app.get('/api/public/cars/:id', async (req, res) => {
         }
         res.json(car);
     } catch (error) {
-        res.status(500).json({ error: 'No se pudo cargar el vehículo.' });
+        res.status(500).json({ error: 'No se pudo cargar el veh├¡culo.' });
     }
 });
 
@@ -481,7 +481,7 @@ app.get('/api/admin/cars', authenticateToken, async (req, res) => {
     try {
         await connectDB();
         res.setHeader('Cache-Control', 'no-store, max-age=0');
-        const cars = await Car.find().sort({ order: 1, createdAt: -1 });
+        const cars = await Car.find().select('-auditLog').sort({ order: 1, createdAt: -1 }).lean();
         res.json(cars);
     } catch (error) {
         res.status(500).json({ message: error.message });
@@ -546,7 +546,7 @@ app.post('/api/cars', authenticateToken, upload.array('images', 20), async (req,
             entityType: 'Car',
             entityId: savedCar._id,
             entityLabel: `${savedCar.brand} ${savedCar.name}`,
-            description: `Se ingresó el vehículo ${savedCar.brand} ${savedCar.name} al stock.`,
+            description: `Se ingres├│ el veh├¡culo ${savedCar.brand} ${savedCar.name} al stock.`,
             metadata: { price: savedCar.price, currency: savedCar.currency }
         });
 
@@ -655,8 +655,8 @@ app.put('/api/cars/:id', authenticateToken, upload.array('images', 20), async (r
             await ActivityLog.create({
                 action: 'Cambio de Estado',
                 target: `${updatedCar.brand} ${updatedCar.name}`,
-                details: `Tomás actualizó el estado a ${status}`,
-                user: 'Tomás'
+                details: `Tom├ís actualiz├│ el estado a ${status}`,
+                user: 'Tom├ís'
             });
         }
 
@@ -705,7 +705,7 @@ app.put('/api/admin/cars/:id/images', authenticateToken, upload.array('images', 
         car.auditLog.push({
             action: 'IMAGES_UPDATED',
             user: req.user?.username || 'Admin',
-            details: `Imágenes actualizadas. Total: ${finalImages.length}`
+            details: `Im├ígenes actualizadas. Total: ${finalImages.length}`
         });
 
         await car.save();
@@ -751,11 +751,11 @@ app.patch('/api/admin/cars/:id', authenticateToken, async (req, res) => {
         // Update fields if provided & generate logs
         if (brand !== undefined && car.brand !== brand) { checkAndLog('brand', brand, 'EDICION', (o,n) => `Marca modificada de ${o} a ${n}`); car.brand = brand; }
         if (name !== undefined && car.name !== name) { checkAndLog('name', name, 'EDICION', (o,n) => `Modelo modificado de ${o} a ${n}`); car.name = name; }
-        if (year !== undefined && car.year !== Number(year)) { checkAndLog('year', Number(year), 'EDICION', (o,n) => `Año modificado de ${o} a ${n}`); car.year = Number(year); }
+        if (year !== undefined && car.year !== Number(year)) { checkAndLog('year', Number(year), 'EDICION', (o,n) => `A├▒o modificado de ${o} a ${n}`); car.year = Number(year); }
         if (km !== undefined && car.km !== Number(km)) { checkAndLog('km', Number(km), 'EDICION', (o,n) => `Kilometraje modificado de ${o} a ${n}`); car.km = Number(km); }
         if (fuel !== undefined && car.fuel !== fuel) { checkAndLog('fuel', fuel, 'EDICION', (o,n) => `Combustible modificado de ${o} a ${n}`); car.fuel = fuel; }
-        if (condition !== undefined && car.condition !== condition) { checkAndLog('condition', condition, 'EDICION', (o,n) => `Condición modificada de ${o} a ${n}`); car.condition = condition; }
-        if (description !== undefined && car.description !== description) { checkAndLog('description', description, 'EDICION', () => `Descripción modificada`); car.description = description; }
+        if (condition !== undefined && car.condition !== condition) { checkAndLog('condition', condition, 'EDICION', (o,n) => `Condici├│n modificada de ${o} a ${n}`); car.condition = condition; }
+        if (description !== undefined && car.description !== description) { checkAndLog('description', description, 'EDICION', () => `Descripci├│n modificada`); car.description = description; }
         
         if (price !== undefined && car.price !== Number(price)) { 
             checkAndLog('price', Number(price), 'PRECIO', (o,n) => `Precio publicado modificado de ${car.currency || ''} ${o} a ${car.currency || ''} ${n}`); 
@@ -763,7 +763,7 @@ app.patch('/api/admin/cars/:id', authenticateToken, async (req, res) => {
         }
         if (currency !== undefined && car.currency !== currency) { checkAndLog('currency', currency, 'PRECIO', (o,n) => `Moneda modificada de ${o} a ${n}`); car.currency = currency; }
         
-        if (featured !== undefined && car.featured !== featured) { checkAndLog('featured', featured, 'EDICION', (o,n) => `Destacado cambiado a ${n ? 'Sí' : 'No'}`); car.featured = featured; }
+        if (featured !== undefined && car.featured !== featured) { checkAndLog('featured', featured, 'EDICION', (o,n) => `Destacado cambiado a ${n ? 'S├¡' : 'No'}`); car.featured = featured; }
         if (sold !== undefined && car.sold !== sold) { car.sold = sold; }
         
         if (status !== undefined && car.status !== status) { 
@@ -772,7 +772,7 @@ app.patch('/api/admin/cars/:id', authenticateToken, async (req, res) => {
         }
         
         if (visibleEnWeb !== undefined && car.visibleEnWeb !== visibleEnWeb) { 
-            checkAndLog('visibleEnWeb', visibleEnWeb, 'VISIBILIDAD', (o,n) => `Visibilidad web cambiada a ${n ? 'Público' : 'Oculto'}`); 
+            checkAndLog('visibleEnWeb', visibleEnWeb, 'VISIBILIDAD', (o,n) => `Visibilidad web cambiada a ${n ? 'P├║blico' : 'Oculto'}`); 
             car.visibleEnWeb = visibleEnWeb; 
         }
 
@@ -782,17 +782,17 @@ app.patch('/api/admin/cars/:id', authenticateToken, async (req, res) => {
         if (color !== undefined && car.color !== color) { checkAndLog('color', color, 'EDICION', (o,n) => `Color modificado de ${o} a ${n}`); car.color = color; }
         if (purchasePrice !== undefined && car.purchasePrice !== Number(purchasePrice)) { checkAndLog('purchasePrice', Number(purchasePrice), 'PRECIO', (o,n) => `Costo de compra modificado de ${o} a ${n}`); car.purchasePrice = Number(purchasePrice); }
         if (purchaseCurrency !== undefined && car.purchaseCurrency !== purchaseCurrency) { checkAndLog('purchaseCurrency', purchaseCurrency, 'PRECIO', (o,n) => `Moneda de compra modificada de ${o} a ${n}`); car.purchaseCurrency = purchaseCurrency; }
-        if (location !== undefined && car.location !== location) { checkAndLog('location', location, 'EDICION', (o,n) => `Ubicación modificada de ${o} a ${n}`); car.location = location; }
+        if (location !== undefined && car.location !== location) { checkAndLog('location', location, 'EDICION', (o,n) => `Ubicaci├│n modificada de ${o} a ${n}`); car.location = location; }
         if (owners !== undefined && car.owners !== Number(owners)) { car.owners = Number(owners); }
-        if (agencyOwned !== undefined && car.agencyOwned !== agencyOwned) { checkAndLog('agencyOwned', agencyOwned, 'EDICION', (o,n) => `Origen propio cambiado a ${n ? 'Sí' : 'No'}`); car.agencyOwned = agencyOwned; }
-        if (ownerName !== undefined && car.ownerName !== ownerName) { checkAndLog('ownerName', ownerName, 'EDICION', (o,n) => `Dueño modificado a ${n}`); car.ownerName = ownerName; }
+        if (agencyOwned !== undefined && car.agencyOwned !== agencyOwned) { checkAndLog('agencyOwned', agencyOwned, 'EDICION', (o,n) => `Origen propio cambiado a ${n ? 'S├¡' : 'No'}`); car.agencyOwned = agencyOwned; }
+        if (ownerName !== undefined && car.ownerName !== ownerName) { checkAndLog('ownerName', ownerName, 'EDICION', (o,n) => `Due├▒o modificado a ${n}`); car.ownerName = ownerName; }
         if (linkedClient !== undefined && car.linkedClient !== linkedClient) { car.linkedClient = linkedClient; }
         if (ownerPhone !== undefined && car.ownerPhone !== ownerPhone) { car.ownerPhone = ownerPhone; }
         if (ownerEmail !== undefined && car.ownerEmail !== ownerEmail) { car.ownerEmail = ownerEmail; }
         if (consignedBy !== undefined && car.consignedBy !== consignedBy) { checkAndLog('consignedBy', consignedBy, 'EDICION', (o,n) => `Consignado por modificado a ${n}`); car.consignedBy = consignedBy; }
         if (engineNumber !== undefined && car.engineNumber !== engineNumber) { car.engineNumber = engineNumber; }
         if (chassisNumber !== undefined && car.chassisNumber !== chassisNumber) { car.chassisNumber = chassisNumber; }
-        if (notes !== undefined && car.notes !== notes) { checkAndLog('notes', notes, 'OBSERVACION', () => `Observación interna actualizada`); car.notes = notes; }
+        if (notes !== undefined && car.notes !== notes) { checkAndLog('notes', notes, 'OBSERVACION', () => `Observaci├│n interna actualizada`); car.notes = notes; }
 
         // Expenses
         if (expenses !== undefined && Array.isArray(expenses)) {
@@ -827,7 +827,7 @@ app.patch('/api/admin/cars/:id', authenticateToken, async (req, res) => {
                 entityType: 'Car',
                 entityId: updatedCar._id,
                 entityLabel: `${updatedCar.brand} ${updatedCar.name}`,
-                description: `Se editaron ${newAuditLogs.length} campos del vehículo.`,
+                description: `Se editaron ${newAuditLogs.length} campos del veh├¡culo.`,
                 metadata: { changes: newAuditLogs.map(l => ({ field: l.field, oldValue: l.oldValue, newValue: l.newValue })) }
             });
         }
@@ -869,30 +869,30 @@ app.delete('/api/cars/:id', authenticateToken, async (req, res) => {
         const { reason } = req.body;
         
         if (!reason) {
-            return res.status(400).json({ message: 'Se requiere un motivo para eliminar el vehículo.' });
+            return res.status(400).json({ message: 'Se requiere un motivo para eliminar el veh├¡culo.' });
         }
 
         const car = await Car.findById(req.params.id);
-        if (!car) return res.status(404).json({ message: 'Vehículo no encontrado.' });
+        if (!car) return res.status(404).json({ message: 'Veh├¡culo no encontrado.' });
 
         // Reglas de negocio para borrado seguro:
         if (car.visibleEnWeb !== false) {
-            return res.status(400).json({ message: 'No se puede eliminar un vehículo visible en web. Ocultalo primero.' });
+            return res.status(400).json({ message: 'No se puede eliminar un veh├¡culo visible en web. Ocultalo primero.' });
         }
 
         // Check active reservations
         const activeReservations = await Reservation.find({ vehicleId: car._id, status: 'activa' });
         if (activeReservations.length > 0) {
-            return res.status(400).json({ message: 'El vehículo tiene una reserva activa asociada. Cancelala primero.' });
+            return res.status(400).json({ message: 'El veh├¡culo tiene una reserva activa asociada. Cancelala primero.' });
         }
 
         // Check active sales
         const activeSales = await Sale.find({ vehicleId: car._id });
         if (activeSales.length > 0) {
-            return res.status(400).json({ message: 'El vehículo está asociado como unidad principal en una venta. Cancelá la venta primero.' });
+            return res.status(400).json({ message: 'El veh├¡culo est├í asociado como unidad principal en una venta. Cancel├í la venta primero.' });
         }
 
-        // Limpiar linkedStockCarId en permutas donde se ingresó este vehículo de prueba
+        // Limpiar linkedStockCarId en permutas donde se ingres├│ este veh├¡culo de prueba
         const salesWithTradeIn = await Sale.find({ "tradeIns.linkedStockCarId": car._id });
         for (let sale of salesWithTradeIn) {
             let updated = false;
@@ -922,7 +922,7 @@ app.delete('/api/cars/:id', authenticateToken, async (req, res) => {
             }
         });
 
-        res.json({ message: 'Vehículo eliminado con éxito.' });
+        res.json({ message: 'Veh├¡culo eliminado con ├®xito.' });
     } catch (error) {
         console.error("Delete Error:", error);
         res.status(500).json({ message: error.message });
@@ -955,7 +955,8 @@ app.get('/api/admin/clients', authenticateToken, async (req, res) => {
         const clients = await Client.find(query)
             .sort({ createdAt: -1 })
             .skip(skip)
-            .limit(parseInt(limit));
+            .limit(parseInt(limit))
+            .lean();
             
         const total = await Client.countDocuments(query);
             
@@ -986,7 +987,7 @@ app.post('/api/admin/clients', authenticateToken, async (req, res) => {
             return res.status(400).json({ message: 'El nombre es obligatorio.' });
         }
         if (!payload.phone && !payload.email) {
-            return res.status(400).json({ message: 'Debe proveer un teléfono o un email.' });
+            return res.status(400).json({ message: 'Debe proveer un tel├®fono o un email.' });
         }
         
         // Sanitization using explicitly allowed fields
@@ -1021,7 +1022,7 @@ app.post('/api/admin/clients', authenticateToken, async (req, res) => {
             entityType: 'Client',
             entityId: savedClient._id,
             entityLabel: savedClient.fullName || savedClient.firstName,
-            description: `Se creó el cliente ${savedClient.fullName || savedClient.firstName}.`,
+            description: `Se cre├│ el cliente ${savedClient.fullName || savedClient.firstName}.`,
             metadata: { type: savedClient.type, source: savedClient.source }
         });
 
@@ -1061,7 +1062,7 @@ app.patch('/api/admin/clients/:id', authenticateToken, async (req, res) => {
                     entityType: 'Client',
                     entityId: client._id,
                     entityLabel: client.fullName,
-                    description: `Se reasignó el cliente.`,
+                    description: `Se reasign├│ el cliente.`,
                     metadata: { oldAssigned, newAssigned }
                 });
             }
@@ -1151,7 +1152,8 @@ app.get('/api/admin/leads', authenticateToken, async (req, res) => {
             .populate('clientId', 'fullName phone email')
             .sort({ createdAt: -1 })
             .skip(parseInt(skip))
-            .limit(parseInt(limit));
+            .limit(parseInt(limit))
+            .lean();
             
         const total = await Lead.countDocuments(query);
         
@@ -1220,7 +1222,7 @@ app.post('/api/admin/leads', authenticateToken, async (req, res) => {
             entityType: 'Lead',
             entityId: savedLead._id,
             entityLabel: savedLead.name,
-            description: `Se creó el lead ${savedLead.name}.`,
+            description: `Se cre├│ el lead ${savedLead.name}.`,
             metadata: { source: savedLead.source, status: savedLead.crmStatus }
         });
 
@@ -1311,7 +1313,7 @@ app.patch('/api/admin/leads/:id', authenticateToken, async (req, res) => {
                 entityType: 'Lead',
                 entityId: updatedLead._id,
                 entityLabel: updatedLead.name,
-                description: `Se actualizó el lead (tareas/notas o campos).`,
+                description: `Se actualiz├│ el lead (tareas/notas o campos).`,
                 metadata: { changes: newAuditLogs.length }
             });
         }
@@ -1450,9 +1452,9 @@ app.post('/api/leads/public', async (req, res) => {
         const leadAuditLog = [{
             action: 'CREACION_WEB',
             field: 'lead',
-            details: 'Lead creado desde formulario web público',
+            details: 'Lead creado desde formulario web p├║blico',
             date: new Date(),
-            user: 'Web Pública',
+            user: 'Web P├║blica',
             source: 'CRM_V2'
         }];
         
@@ -1508,8 +1510,8 @@ app.post('/api/leads', authenticateToken, async (req, res) => {
         await ActivityLog.create({
             action: 'Nuevo Contacto',
             target: name,
-            details: `Tomás creó un nuevo prospecto en estado ${pipelineStage}`,
-            user: 'Tomás'
+            details: `Tom├ís cre├│ un nuevo prospecto en estado ${pipelineStage}`,
+            user: 'Tom├ís'
         });
 
         res.status(201).json(savedLead);
@@ -1538,7 +1540,7 @@ app.put('/api/leads/:id', authenticateToken, async (req, res) => {
                 entityType: 'Lead',
                 entityId: lead._id,
                 entityLabel: lead.name,
-                description: `Se reasignó el lead.`,
+                description: `Se reasign├│ el lead.`,
                 metadata: { oldAssigned, newAssigned }
             });
         }
@@ -1561,16 +1563,16 @@ app.put('/api/leads/:id', authenticateToken, async (req, res) => {
             lead.pipelineStage = pipelineStage;
             
             await ActivityLog.create({
-                action: 'Actualización CRM',
+                action: 'Actualizaci├│n CRM',
                 target: lead.name,
-                details: `Tomás movió el contacto a la etapa: ${pipelineStage}`,
-                user: 'Tomás'
+                details: `Tom├ís movi├│ el contacto a la etapa: ${pipelineStage}`,
+                user: 'Tom├ís'
             });
 
             // Sync with Car status if needed
             if (lead.vehicleId) {
                 let newCarStatus = null;
-                if (pipelineStage === 'Señado') {
+                if (pipelineStage === 'Se├▒ado') {
                     newCarStatus = 'Reservado';
                     await Car.findByIdAndUpdate(lead.vehicleId, { status: 'Reservado' });
                 } else if (pipelineStage === 'Entregado / Vendido') {
@@ -1584,7 +1586,7 @@ app.put('/api/leads/:id', authenticateToken, async (req, res) => {
                          await ActivityLog.create({
                              action: 'Auto ' + newCarStatus,
                              target: `${linkedCar.brand} ${linkedCar.name}`,
-                             details: `El vehículo pasó a estado ${newCarStatus} por un cierre en CRM.`,
+                             details: `El veh├¡culo pas├│ a estado ${newCarStatus} por un cierre en CRM.`,
                              user: 'Sistema'
                          });
                     }
@@ -1594,8 +1596,8 @@ app.put('/api/leads/:id', authenticateToken, async (req, res) => {
             await ActivityLog.create({
                 action: 'Nueva Nota',
                 target: lead.name,
-                details: `Tomás añadió una nota al historial.`,
-                user: 'Tomás'
+                details: `Tom├ís a├▒adi├│ una nota al historial.`,
+                user: 'Tom├ís'
             });
         }
 
@@ -1727,7 +1729,7 @@ app.post('/api/accounts', authenticateToken, async (req, res) => {
                 type: 'Ingreso',
                 amount: balance,
                 currency,
-                description: `Saldo inicial de caja — ${name}`,
+                description: `Saldo inicial de caja ÔÇö ${name}`,
                 category: 'Saldo inicial',
                 date: new Date(),
                 accountId: savedAccount._id
@@ -1747,7 +1749,7 @@ app.delete('/api/accounts/:id', authenticateToken, async (req, res) => {
         await Transaction.deleteMany({ accountId: req.params.id });
         const account = await Account.findByIdAndDelete(req.params.id);
         if (!account) return res.status(404).json({ message: 'Account not found' });
-        res.json({ message: 'Caja y sus movimientos asociados eliminados con éxito' });
+        res.json({ message: 'Caja y sus movimientos asociados eliminados con ├®xito' });
     } catch (error) {
         res.status(500).json({ message: error.message });
     }
@@ -1817,7 +1819,7 @@ app.delete('/api/transactions/:id', authenticateToken, async (req, res) => {
     try {
         if (req.user && req.user.role === 'ventas') return res.status(403).json({ message: 'Sin permisos financieros' });
         const tx = await Transaction.findById(req.params.id);
-        if (!tx) return res.status(404).json({ message: 'Transacción no encontrada' });
+        if (!tx) return res.status(404).json({ message: 'Transacci├│n no encontrada' });
 
         const account = await Account.findById(tx.accountId);
         if (account) {
@@ -1827,7 +1829,7 @@ app.delete('/api/transactions/:id', authenticateToken, async (req, res) => {
         }
 
         await Transaction.findByIdAndDelete(req.params.id);
-        res.json({ message: 'Transacción eliminada y balance de caja revertido' });
+        res.json({ message: 'Transacci├│n eliminada y balance de caja revertido' });
     } catch (error) {
         res.status(500).json({ message: error.message });
     }
@@ -1860,7 +1862,9 @@ app.get('/api/admin/reservations', authenticateToken, async (req, res) => {
                 path: 'vehicleId',
                 select: 'brand name year plateOrVin price currency status'
             })
-            .sort({ createdAt: -1 });
+            .sort({ createdAt: -1 })
+            .select('-reservationAuditLog')
+            .lean();
         
         res.json(reservations);
     } catch (error) {
@@ -1952,7 +1956,7 @@ app.post('/api/admin/reservations', authenticateToken, async (req, res) => {
             field: 'status',
             oldValue: 'Disponible',
             newValue: 'Reservado',
-            details: `Vehículo reservado (Reserva ID: ${savedReservation._id})`,
+            details: `Veh├¡culo reservado (Reserva ID: ${savedReservation._id})`,
             user: user,
             source: 'CRM_V2'
         });
@@ -1970,7 +1974,7 @@ app.post('/api/admin/reservations', authenticateToken, async (req, res) => {
                     field: 'crmStatus',
                     oldValue: oldStatus,
                     newValue: 'reservado',
-                    details: `Señal de reserva recibida por el vehículo asociado`,
+                    details: `Se├▒al de reserva recibida por el veh├¡culo asociado`,
                     user: user,
                     source: 'CRM_V2'
                 });
@@ -2014,7 +2018,7 @@ app.patch('/api/admin/reservations/:id', authenticateToken, async (req, res) => 
                     entityType: 'Reservation',
                     entityId: reservation._id,
                     entityLabel: 'Reserva',
-                    description: `Se reasignó la reserva.`,
+                    description: `Se reasign├│ la reserva.`,
                     metadata: { oldAssigned, newAssigned }
                 });
             }
@@ -2062,7 +2066,7 @@ app.patch('/api/admin/reservations/:id', authenticateToken, async (req, res) => 
                             field: 'status',
                             oldValue: 'Reservado',
                             newValue: 'Disponible',
-                            details: `Vehículo liberado por reserva ${status} (ID: ${reservation._id})`,
+                            details: `Veh├¡culo liberado por reserva ${status} (ID: ${reservation._id})`,
                             user: user,
                             source: 'CRM_V2'
                         });
@@ -2143,7 +2147,7 @@ app.patch('/api/admin/reservations/:id/link-client', authenticateToken, async (r
             entityType: 'Reservation',
             entityId: reservation._id,
             entityLabel: 'Reserva',
-            description: `Se vinculó el cliente ${client.fullName || client.firstName} a la reserva.`,
+            description: `Se vincul├│ el cliente ${client.fullName || client.firstName} a la reserva.`,
             metadata: { clientId: client._id, oldClient }
         });
 
@@ -2193,6 +2197,7 @@ app.get('/api/admin/sales', authenticateToken, async (req, res) => {
                 select: 'status depositAmount depositCurrency expiresAt'
             })
             .sort({ saleDate: -1, createdAt: -1 })
+            .select('-saleAuditLog -postSaleChecklist -documentationChecklist -deliveryChecklist')
             .lean();
 
         // Calculate collection status for each sale
@@ -2203,7 +2208,7 @@ app.get('/api/admin/sales', authenticateToken, async (req, res) => {
             module: 'crm_v2' 
         });
 
-        // Optimización O(N) para agrupar transacciones por saleId
+        // Optimizaci├│n O(N) para agrupar transacciones por saleId
         const txsBySale = {};
         transactions.forEach(tx => {
             const sid = String(tx.saleId);
@@ -2258,7 +2263,7 @@ app.get('/api/admin/sales/:id', authenticateToken, async (req, res) => {
     try {
         await connectDB();
         if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
-            return res.status(400).json({ message: 'Sale ID inválido' });
+            return res.status(400).json({ message: 'Sale ID inv├ílido' });
         }
         const sale = await Sale.findById(req.params.id)
             .populate('clientId')
@@ -2338,7 +2343,7 @@ app.post('/api/admin/sales', authenticateToken, async (req, res) => {
             if (existingSale) throw new Error('There is already an active sale for this vehicle');
         }
 
-        // 2. Creación
+        // 2. Creaci├│n
         const newSale = new Sale({
             vehicleId: vehicleId || undefined,
             clientId: clientId || undefined,
@@ -2366,7 +2371,7 @@ app.post('/api/admin/sales', authenticateToken, async (req, res) => {
             
             saleAuditLog: [{
                 action: 'VENTA_CREADA_MANUAL',
-                details: isManualImport ? 'Venta histórica (manual import) registrada' : 'Venta creada manualmente sin reserva previa',
+                details: isManualImport ? 'Venta hist├│rica (manual import) registrada' : 'Venta creada manualmente sin reserva previa',
                 user: user,
                 source: 'CRM_V2'
             }]
@@ -2380,12 +2385,12 @@ app.post('/api/admin/sales', authenticateToken, async (req, res) => {
             module: 'ventas',
             entityType: 'Sale',
             entityId: savedSale._id,
-            entityLabel: vehicle ? `Venta de ${vehicle.brand} ${vehicle.name}` : `Venta histórica manual`,
-            description: `Se creó una venta manual por ${finalSaleCurrency} ${finalSalePrice}.`,
+            entityLabel: vehicle ? `Venta de ${vehicle.brand} ${vehicle.name}` : `Venta hist├│rica manual`,
+            description: `Se cre├│ una venta manual por ${finalSaleCurrency} ${finalSalePrice}.`,
             metadata: { vehicleId: vehicle?._id, salePrice: finalSalePrice, currency: finalSaleCurrency, isManualImport }
         });
 
-        // 3. Rollback Manual Controlado (solo si hay vehículo)
+        // 3. Rollback Manual Controlado (solo si hay veh├¡culo)
         try {
             if (vehicle) {
                 vehicle.status = 'Vendido';
@@ -2394,7 +2399,7 @@ app.post('/api/admin/sales', authenticateToken, async (req, res) => {
                     field: 'status',
                     oldValue: 'Disponible',
                     newValue: 'Vendido',
-                    details: `Vehículo vendido (Venta ID: ${savedSale._id})`,
+                    details: `Veh├¡culo vendido (Venta ID: ${savedSale._id})`,
                     user: user,
                     source: 'CRM_V2'
                 });
@@ -2481,7 +2486,7 @@ app.post('/api/admin/reservations/:id/convert-to-sale', authenticateToken, async
         const reservationId = req.params.id;
         
         if (!mongoose.Types.ObjectId.isValid(reservationId)) {
-            return res.status(400).json({ error: "ID de reserva inválido." });
+            return res.status(400).json({ error: "ID de reserva inv├ílido." });
         }
 
         const { salePrice, saleCurrency, paymentMethod, saleDate, salesperson, tradeIns, tradeInTotalAmount, balanceAfterTradeIn } = req.body;
@@ -2501,13 +2506,13 @@ app.post('/api/admin/reservations/:id/convert-to-sale', authenticateToken, async
             return res.status(400).json({ error: "La reserva debe tener un cliente vinculado antes de convertirla en venta." });
         }
         if (!reservation.vehicleId) {
-            return res.status(400).json({ error: "La reserva debe tener un vehículo vinculado antes de convertirla en venta." });
+            return res.status(400).json({ error: "La reserva debe tener un veh├¡culo vinculado antes de convertirla en venta." });
         }
 
         const existingSale = await Sale.findOne({ vehicleId, status: { $ne: 'cancelada' } }).populate('clientId', 'firstName fullName');
         if (existingSale) {
             return res.status(409).json({
-                error: 'Este vehículo ya tiene una venta activa asociada.',
+                error: 'Este veh├¡culo ya tiene una venta activa asociada.',
                 activeSaleId: existingSale._id,
                 activeSaleStatus: existingSale.status,
                 activeSaleClientName: existingSale.clientId ? (existingSale.clientId.fullName || existingSale.clientId.firstName) : 'Sin Nombre',
@@ -2521,7 +2526,7 @@ app.post('/api/admin/reservations/:id/convert-to-sale', authenticateToken, async
         if (finalSalePrice < 0) throw new Error('Sale price cannot be negative');
         if (!['ARS', 'USD'].includes(finalSaleCurrency)) throw new Error('Invalid sale currency');
 
-        // 2. Creación de Sale
+        // 2. Creaci├│n de Sale
         const newSale = new Sale({
             reservationId: reservation._id,
             vehicleId: vehicle._id,
@@ -2555,8 +2560,8 @@ app.post('/api/admin/reservations/:id/convert-to-sale', authenticateToken, async
             module: 'reservas',
             entityType: 'Sale',
             entityId: savedSale._id,
-            entityLabel: `Conversión Reserva a Venta ${vehicle.brand} ${vehicle.name}`,
-            description: `Se convirtió la reserva ${reservation._id} a venta final por ${finalSaleCurrency} ${finalSalePrice}.`,
+            entityLabel: `Conversi├│n Reserva a Venta ${vehicle.brand} ${vehicle.name}`,
+            description: `Se convirti├│ la reserva ${reservation._id} a venta final por ${finalSaleCurrency} ${finalSalePrice}.`,
             metadata: { reservationId: reservation._id, vehicleId: vehicle._id }
         });
 
@@ -2585,7 +2590,7 @@ app.post('/api/admin/reservations/:id/convert-to-sale', authenticateToken, async
                 field: 'status',
                 oldValue: oldVehStatus,
                 newValue: 'Vendido',
-                details: `Vehículo vendido por conversión de reserva (Venta ID: ${savedSale._id})`,
+                details: `Veh├¡culo vendido por conversi├│n de reserva (Venta ID: ${savedSale._id})`,
                 user: user,
                 source: 'CRM_V2'
             });
@@ -2604,7 +2609,7 @@ app.post('/api/admin/reservations/:id/convert-to-sale', authenticateToken, async
                             field: 'crmStatus',
                             oldValue: oldLeadStatus,
                             newValue: 'convertido',
-                            details: `Lead convertido por venta de vehículo`,
+                            details: `Lead convertido por venta de veh├¡culo`,
                             user: user,
                             source: 'CRM_V2'
                         });
@@ -2639,7 +2644,7 @@ app.post('/api/admin/reservations/:id/convert-to-sale', authenticateToken, async
     } catch (error) {
         console.error("Error converting reservation to sale:", error);
         return res.status(500).json({
-            error: "No se pudo convertir la reserva en venta. Reintentá en unos segundos."
+            error: "No se pudo convertir la reserva en venta. Reintent├í en unos segundos."
         });
     }
 });
@@ -2681,7 +2686,7 @@ app.patch('/api/admin/sales/:id/link-client', authenticateToken, async (req, res
             entityType: 'Sale',
             entityId: sale._id,
             entityLabel: 'Venta',
-            description: `Se vinculó el cliente ${client.fullName || client.firstName} a la venta.`,
+            description: `Se vincul├│ el cliente ${client.fullName || client.firstName} a la venta.`,
             metadata: { clientId: client._id, oldClient }
         });
 
@@ -2722,7 +2727,7 @@ app.post('/api/admin/sales/:id/backfill-client-from-reservation', authenticateTo
             field: 'clientId',
             oldValue: oldClient,
             newValue: reservation.clientId.toString(),
-            details: `Cliente copiado automáticamente desde la reserva de origen`,
+            details: `Cliente copiado autom├íticamente desde la reserva de origen`,
             user: user,
             source: 'CRM_V2'
         });
@@ -2734,7 +2739,7 @@ app.post('/api/admin/sales/:id/backfill-client-from-reservation', authenticateTo
             entityType: 'Sale',
             entityId: sale._id,
             entityLabel: 'Venta',
-            description: `Se copió el cliente de la reserva ${reservation._id} a la venta.`,
+            description: `Se copi├│ el cliente de la reserva ${reservation._id} a la venta.`,
             metadata: { clientId: reservation.clientId, reservationId: reservation._id }
         });
 
@@ -2779,7 +2784,7 @@ app.patch('/api/admin/sales/:id/cancel', authenticateToken, async (req, res) => 
         await connectDB();
         const { reason } = req.body;
         if (!reason || reason.trim() === '') {
-            return res.status(400).json({ error: 'El motivo de anulación es obligatorio.' });
+            return res.status(400).json({ error: 'El motivo de anulaci├│n es obligatorio.' });
         }
 
         const sale = await Sale.findById(req.params.id);
@@ -2801,7 +2806,7 @@ app.patch('/api/admin/sales/:id/cancel', authenticateToken, async (req, res) => 
                 return res.status(403).json({ error: 'La venta tiene movimientos o cuotas. Solo un administrador puede anularla.' });
             }
         } else {
-            // Vendors might be allowed? The prompt says "Vendedor: no puede anular ventas salvo permiso explícito ya existente."
+            // Vendors might be allowed? The prompt says "Vendedor: no puede anular ventas salvo permiso expl├¡cito ya existente."
             // We'll enforce owner/admin or ventascancel permission. Since "ventascancel" might not exist, we just restrict to owner/admin.
             const perms = req.user?.permissions || [];
             if (!['owner', 'admin'].includes(userRole) && !perms.includes('ventas.cancel')) {
@@ -2832,7 +2837,7 @@ app.patch('/api/admin/sales/:id/cancel', authenticateToken, async (req, res) => 
             entityType: 'Sale',
             entityId: sale._id,
             entityLabel: 'Venta',
-            description: `Se anuló la venta por motivo: ${reason}.`,
+            description: `Se anul├│ la venta por motivo: ${reason}.`,
             metadata: { reason }
         });
 
@@ -2861,7 +2866,7 @@ app.patch('/api/admin/sales/:id/trade-ins', authenticateToken, async (req, res) 
         
         const user = req.user?.username || 'Admin';
 
-        // Solo permitir editar si no está cancelada
+        // Solo permitir editar si no est├í cancelada
         if (sale.status === 'cancelada') {
             return res.status(400).json({ error: 'No se puede editar una venta anulada.' });
         }
@@ -2875,7 +2880,7 @@ app.patch('/api/admin/sales/:id/trade-ins', authenticateToken, async (req, res) 
         sale.saleAuditLog.push({
             action: 'VEHICULOS_RECIBIDOS_ACTUALIZADOS',
             field: 'tradeIns',
-            details: `Se actualizaron los vehículos recibidos en parte de pago. Valor total tomado: ${tradeInTotalAmount}`,
+            details: `Se actualizaron los veh├¡culos recibidos en parte de pago. Valor total tomado: ${tradeInTotalAmount}`,
             user: user,
             source: 'CRM_V2'
         });
@@ -2887,7 +2892,7 @@ app.patch('/api/admin/sales/:id/trade-ins', authenticateToken, async (req, res) 
             entityType: 'Sale',
             entityId: sale._id,
             entityLabel: 'Venta',
-            description: `Se actualizaron los vehículos en parte de pago de la venta ${sale._id}.`,
+            description: `Se actualizaron los veh├¡culos en parte de pago de la venta ${sale._id}.`,
             metadata: { tradeInTotalAmount, count: tradeIns?.length || 0 }
         });
 
@@ -2910,7 +2915,7 @@ const buildCarFromTradeIn = ({ sale, tradeIn, tradeInIndex }) => {
     const estimatedValue = Number(tradeIn.estimatedValue || 0);
     const name = `${tradeIn.brand} ${tradeIn.model} ${tradeIn.version || ""} ${tradeIn.year || ""}`.trim();
 
-    if (!name) throw new Error("El nombre del vehículo generado quedó vacío.");
+    if (!name) throw new Error("El nombre del veh├¡culo generado qued├│ vac├¡o.");
 
     return {
         name,
@@ -2926,7 +2931,7 @@ const buildCarFromTradeIn = ({ sale, tradeIn, tradeInIndex }) => {
         plateOrVin: tradeIn.plate || '',
         purchasePrice: isNaN(estimatedValue) ? 0 : estimatedValue,
         purchaseCurrency: tradeIn.currency === 'USD' ? 'USD' : 'ARS',
-        notes: `Vehículo ingresado como parte de pago de venta ${sale._id}. \nEstado documental: ${tradeIn.documentationStatus}. \nObservaciones: ${tradeIn.conditionNotes || ''} ${tradeIn.mechanicalNotes || ''}`
+        notes: `Veh├¡culo ingresado como parte de pago de venta ${sale._id}. \nEstado documental: ${tradeIn.documentationStatus}. \nObservaciones: ${tradeIn.conditionNotes || ''} ${tradeIn.mechanicalNotes || ''}`
     };
 };
 
@@ -2942,19 +2947,19 @@ app.post('/api/admin/sales/:id/trade-ins/:tradeInIndex/create-stock-car', authen
         if (!sale) return res.status(404).json({ error: 'Sale not found' });
         
         if (!sale.tradeIns || !sale.tradeIns[index]) {
-            return res.status(404).json({ error: 'Vehículo recibido no encontrado en ese índice.' });
+            return res.status(404).json({ error: 'Veh├¡culo recibido no encontrado en ese ├¡ndice.' });
         }
 
         const tradeIn = sale.tradeIns[index];
 
         if (tradeIn.linkedStockCarId) {
-            return res.status(400).json({ error: 'Este vehículo ya ha sido ingresado al stock.' });
+            return res.status(400).json({ error: 'Este veh├¡culo ya ha sido ingresado al stock.' });
         }
 
         const user = req.user?.username || 'Admin';
 
         if (!tradeIn.brand || !tradeIn.model || !tradeIn.estimatedValue) {
-            return res.status(400).json({ error: "Faltan datos obligatorios para ingresar el vehículo al stock." });
+            return res.status(400).json({ error: "Faltan datos obligatorios para ingresar el veh├¡culo al stock." });
         }
 
         // Crear nuevo Car en stock usando mapper seguro
@@ -2976,7 +2981,7 @@ app.post('/api/admin/sales/:id/trade-ins/:tradeInIndex/create-stock-car', authen
                     saleAuditLog: {
                         action: 'VEHICULO_RECIBIDO_INGRESADO_A_STOCK',
                         field: 'tradeIns',
-                        details: `Vehículo ${tradeIn.brand} ${tradeIn.model} ingresado a stock con ID ${savedCar._id}`,
+                        details: `Veh├¡culo ${tradeIn.brand} ${tradeIn.model} ingresado a stock con ID ${savedCar._id}`,
                         user: user,
                         source: 'CRM_V2',
                         date: now
@@ -2994,7 +2999,7 @@ app.post('/api/admin/sales/:id/trade-ins/:tradeInIndex/create-stock-car', authen
                 entityType: 'Sale',
                 entityId: sale._id,
                 entityLabel: 'Venta',
-                description: `Se ingresó el vehículo recibido ${tradeIn.brand} ${tradeIn.model} al stock de AutoSporting.`,
+                description: `Se ingres├│ el veh├¡culo recibido ${tradeIn.brand} ${tradeIn.model} al stock de AutoSporting.`,
                 metadata: { stockCarId: savedCar._id, tradeInIndex: index }
             });
         } catch (auditErr) {
@@ -3015,7 +3020,7 @@ app.post('/api/admin/sales/:id/trade-ins/:tradeInIndex/create-stock-car', authen
             tradeInIndex: req.params.tradeInIndex,
         });
         res.status(500).json({ 
-            error: 'No se pudo ingresar el vehículo al stock. Revisá los datos del vehículo recibido.',
+            error: 'No se pudo ingresar el veh├¡culo al stock. Revis├í los datos del veh├¡culo recibido.',
             details: error.message 
         });
     }
@@ -3067,7 +3072,7 @@ app.patch('/api/admin/sales/:id', authenticateToken, async (req, res) => {
                     entityType: 'Sale',
                     entityId: sale._id,
                     entityLabel: 'Venta',
-                    description: `Se reasignó la venta.`,
+                    description: `Se reasign├│ la venta.`,
                     metadata: { oldAssigned, newAssigned }
                 });
             }
@@ -3079,7 +3084,7 @@ app.patch('/api/admin/sales/:id', authenticateToken, async (req, res) => {
                 field: 'paymentMethod',
                 oldValue: sale.paymentMethod,
                 newValue: paymentMethod,
-                details: `Método de pago actualizado a ${paymentMethod}`,
+                details: `M├®todo de pago actualizado a ${paymentMethod}`,
                 user: user,
                 source: 'CRM_V2'
             });
@@ -3112,7 +3117,7 @@ app.patch('/api/admin/sales/:id', authenticateToken, async (req, res) => {
                 field: 'depositAppliedAmount',
                 oldValue: sale.depositAppliedAmount,
                 newValue: Number(depositAppliedAmount),
-                details: `Seña aplicada actualizada de ${sale.depositAppliedAmount || 0} a ${depositAppliedAmount}`,
+                details: `Se├▒a aplicada actualizada de ${sale.depositAppliedAmount || 0} a ${depositAppliedAmount}`,
                 user: user,
                 source: 'CRM_V2'
             });
@@ -3145,7 +3150,7 @@ app.patch('/api/admin/sales/:id', authenticateToken, async (req, res) => {
                 field: 'documentationStatus',
                 oldValue: sale.documentationStatus,
                 newValue: documentationStatus,
-                details: `Estado de documentación actualizado a ${documentationStatus}`,
+                details: `Estado de documentaci├│n actualizado a ${documentationStatus}`,
                 user: user,
                 source: 'CRM_V2'
             });
@@ -3172,7 +3177,7 @@ app.patch('/api/admin/sales/:id', authenticateToken, async (req, res) => {
                     field: 'actualDeliveryDate',
                     oldValue: null,
                     newValue: sale.actualDeliveryDate,
-                    details: `Fecha de entrega asignada automáticamente al marcar como entregado`,
+                    details: `Fecha de entrega asignada autom├íticamente al marcar como entregado`,
                     user: user,
                     source: 'CRM_V2'
                 });
@@ -3185,7 +3190,7 @@ app.patch('/api/admin/sales/:id', authenticateToken, async (req, res) => {
             sale.saleAuditLog.push({
                 action: 'CHECKLIST_DOCUMENTACION',
                 field: 'documentationChecklist',
-                details: 'Checklist de documentación actualizado',
+                details: 'Checklist de documentaci├│n actualizado',
                 user: user,
                 source: 'CRM_V2'
             });
@@ -3280,7 +3285,7 @@ app.patch('/api/admin/sales/:id', authenticateToken, async (req, res) => {
                 field: 'satisfactionRating',
                 oldValue: sale.satisfactionRating,
                 newValue: satisfactionRating,
-                details: `Nivel de satisfacción actualizado a ${satisfactionRating}`,
+                details: `Nivel de satisfacci├│n actualizado a ${satisfactionRating}`,
                 user: user,
                 source: 'CRM_V2'
             });
@@ -3318,7 +3323,7 @@ app.patch('/api/admin/sales/:id', authenticateToken, async (req, res) => {
                 entityType: 'Sale',
                 entityId: updatedSale._id,
                 entityLabel: `Venta ID: ${updatedSale._id}`,
-                description: `Se actualizó la venta (estado: ${updatedSale.status}, documentacion: ${updatedSale.documentationStatus}, entrega: ${updatedSale.deliveryStatus}, postventa: ${updatedSale.postSaleStatus}).`,
+                description: `Se actualiz├│ la venta (estado: ${updatedSale.status}, documentacion: ${updatedSale.documentationStatus}, entrega: ${updatedSale.deliveryStatus}, postventa: ${updatedSale.postSaleStatus}).`,
                 metadata: { status: updatedSale.status }
             });
 
@@ -3409,7 +3414,7 @@ app.get('/api/admin/transactions', authenticateToken, async (req, res) => {
             query.saleId = req.query.saleId;
         }
 
-        const transactions = await Transaction.find(query).sort({ date: -1 });
+        const transactions = await Transaction.find(query).sort({ date: -1 }).lean();
         res.json(transactions);
     } catch (error) {
         console.error('GET /api/admin/transactions error:', error);
@@ -3441,9 +3446,9 @@ app.get('/api/admin/finance/deposits', authenticateToken, async (req, res) => {
                 module: 'crm_v2',
                 status: { $ne: 'anulado' },
                 $or: [
-                    { category: /seña|sena|reserva/i },
-                    { concept: /seña|sena|reserva/i },
-                    { notes: /seña|sena|reserva/i },
+                    { category: /se├▒a|sena|reserva/i },
+                    { concept: /se├▒a|sena|reserva/i },
+                    { notes: /se├▒a|sena|reserva/i },
                     { reservationId: { $exists: true } }
                 ]
             }).lean()
@@ -3554,7 +3559,7 @@ app.get('/api/admin/finance/deposits', authenticateToken, async (req, res) => {
         console.error('GET /api/admin/finance/deposits error:', error);
         return res.status(500).json({
             ok: false,
-            error: 'No se pudieron cargar las señas financieras.'
+            error: 'No se pudieron cargar las se├▒as financieras.'
         });
     }
 });
@@ -3590,7 +3595,7 @@ app.post('/api/admin/transactions', authenticateToken, async (req, res) => {
         if (!concept) return res.status(400).json({ message: 'Concept is required' });
         if (!category) return res.status(400).json({ message: 'Category is required' });
 
-        // Vínculos opcionales (Verificación de existencia)
+        // V├¡nculos opcionales (Verificaci├│n de existencia)
         if (saleId) {
             const sale = await Sale.findById(saleId);
             if (!sale) return res.status(400).json({ message: 'La Venta vinculada no existe' });
@@ -3605,7 +3610,7 @@ app.post('/api/admin/transactions', authenticateToken, async (req, res) => {
         }
         if (vehicleId) {
             const vehicle = await Car.findById(vehicleId);
-            if (!vehicle) return res.status(400).json({ message: 'El Vehículo vinculado no existe' });
+            if (!vehicle) return res.status(400).json({ message: 'El Veh├¡culo vinculado no existe' });
         }
         if (installmentId) {
             const installment = await Installment.findById(installmentId);
@@ -3660,7 +3665,7 @@ app.post('/api/admin/transactions', authenticateToken, async (req, res) => {
             entityType: 'Transaction',
             entityId: savedTx._id,
             entityLabel: `${savedTx.type} - ${savedTx.concept}`,
-            description: `Se creó un movimiento financiero por ${savedTx.currency} ${savedTx.amount}.`,
+            description: `Se cre├│ un movimiento financiero por ${savedTx.currency} ${savedTx.amount}.`,
             metadata: { type: savedTx.type, amount: savedTx.amount, currency: savedTx.currency }
         });
 
@@ -3713,7 +3718,7 @@ app.patch('/api/admin/transactions/:id', authenticateToken, async (req, res) => 
             hasChanges = true;
         }
 
-        // Actualización de Vínculos
+        // Actualizaci├│n de V├¡nculos
         const updateLink = async (field, value, model, name) => {
             if (value !== undefined && String(tx[field] || '') !== String(value || '')) {
                 if (value) {
@@ -3725,7 +3730,7 @@ app.patch('/api/admin/transactions/:id', authenticateToken, async (req, res) => 
                 tx.transactionAuditLog.push({
                     action: 'VINCULO_ACTUALIZADO',
                     field: field,
-                    details: `Vínculo de ${name} actualizado`,
+                    details: `V├¡nculo de ${name} actualizado`,
                     user: user,
                     source: 'CRM_V2'
                 });
@@ -3735,7 +3740,7 @@ app.patch('/api/admin/transactions/:id', authenticateToken, async (req, res) => 
         await updateLink('saleId', saleId, Sale, 'Venta');
         await updateLink('reservationId', reservationId, Reservation, 'Reserva');
         await updateLink('clientId', clientId, Client, 'Cliente');
-        await updateLink('vehicleId', vehicleId, Car, 'Vehículo');
+        await updateLink('vehicleId', vehicleId, Car, 'Veh├¡culo');
         await updateLink('installmentId', installmentId, Installment, 'Cuota');
 
         // Handle Annulment
@@ -3781,7 +3786,7 @@ app.patch('/api/admin/transactions/:id', authenticateToken, async (req, res) => 
                 entityType: 'Transaction',
                 entityId: updatedTx._id,
                 entityLabel: `${updatedTx.type} - ${updatedTx.concept}`,
-                description: `Se actualizó el movimiento financiero (estado: ${updatedTx.status}).`,
+                description: `Se actualiz├│ el movimiento financiero (estado: ${updatedTx.status}).`,
                 metadata: { status: updatedTx.status }
             });
 
@@ -3876,7 +3881,7 @@ app.get('/api/admin/installments/:id', authenticateToken, async (req, res) => {
     try {
         await connectDB();
         if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
-            return res.status(400).json({ message: 'Installment ID inválido' });
+            return res.status(400).json({ message: 'Installment ID inv├ílido' });
         }
         if (req.user && req.user.role === 'ventas') return res.status(403).json({ message: 'Sin permisos financieros' });
         const installment = await Installment.findById(req.params.id)
@@ -3931,7 +3936,7 @@ app.post('/api/admin/installments', authenticateToken, async (req, res) => {
 
         if (!saleId || !installmentNumber || !dueDate || amount === undefined || !currency) {
             return res.status(400).json({ 
-                message: 'Faltan campos obligatorios: venta, número de cuota, vencimiento, importe o moneda.',
+                message: 'Faltan campos obligatorios: venta, n├║mero de cuota, vencimiento, importe o moneda.',
                 missing: {
                     saleId: !saleId,
                     installmentNumber: !installmentNumber,
@@ -3952,13 +3957,13 @@ app.post('/api/admin/installments', authenticateToken, async (req, res) => {
         const cleanVehicleId = sanitizeOptionalObjectId(vehicleId);
 
         if (!saleId || !mongoose.Types.ObjectId.isValid(saleId)) {
-            return res.status(400).json({ message: "saleId inválido o faltante" });
+            return res.status(400).json({ message: "saleId inv├ílido o faltante" });
         }
         if (cleanClientId && !mongoose.Types.ObjectId.isValid(cleanClientId)) {
-            return res.status(400).json({ message: "clientId inválido" });
+            return res.status(400).json({ message: "clientId inv├ílido" });
         }
         if (cleanVehicleId && !mongoose.Types.ObjectId.isValid(cleanVehicleId)) {
-            return res.status(400).json({ message: "vehicleId inválido" });
+            return res.status(400).json({ message: "vehicleId inv├ílido" });
         }
 
         const newInstallment = new Installment({
@@ -3988,7 +3993,7 @@ app.post('/api/admin/installments', authenticateToken, async (req, res) => {
             entityType: 'Installment',
             entityId: savedInstallment._id,
             entityLabel: `Cuota ${savedInstallment.installmentNumber} (${savedInstallment.currency} ${savedInstallment.amount})`,
-            description: `Se creó la cuota manual número ${savedInstallment.installmentNumber} por ${savedInstallment.currency} ${savedInstallment.amount}.`,
+            description: `Se cre├│ la cuota manual n├║mero ${savedInstallment.installmentNumber} por ${savedInstallment.currency} ${savedInstallment.amount}.`,
             metadata: { saleId: savedInstallment.saleId, amount: savedInstallment.amount, currency: savedInstallment.currency }
         });
 
@@ -4003,7 +4008,7 @@ app.patch('/api/admin/installments/:id', authenticateToken, async (req, res) => 
     try {
         await connectDB();
         if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
-            return res.status(400).json({ message: 'Installment ID inválido' });
+            return res.status(400).json({ message: 'Installment ID inv├ílido' });
         }
         const user = req.user ? (req.user.email || req.user.role) : 'System';
         const updates = req.body;
@@ -4032,7 +4037,7 @@ app.patch('/api/admin/installments/:id', authenticateToken, async (req, res) => 
             installment.updatedBy = user;
             installment.installmentAuditLog.push({
                 action: actionStr,
-                details: `Actualización manual.`,
+                details: `Actualizaci├│n manual.`,
                 user: user
             });
             const updatedInst = await installment.save();
@@ -4044,7 +4049,7 @@ app.patch('/api/admin/installments/:id', authenticateToken, async (req, res) => 
                 entityType: 'Installment',
                 entityId: updatedInst._id,
                 entityLabel: `Cuota ${updatedInst.installmentNumber}`,
-                description: `Se actualizó la cuota (estado: ${updatedInst.status}).`,
+                description: `Se actualiz├│ la cuota (estado: ${updatedInst.status}).`,
                 metadata: { status: updatedInst.status, amount: updatedInst.amount, currency: updatedInst.currency }
             });
 
@@ -4062,7 +4067,7 @@ app.delete('/api/admin/installments/:id', authenticateToken, async (req, res) =>
     try {
         await connectDB();
         if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
-            return res.status(400).json({ message: 'Installment ID inválido' });
+            return res.status(400).json({ message: 'Installment ID inv├ílido' });
         }
         if (!req.user || (req.user.role !== 'owner' && req.user.role !== 'admin')) {
             return res.status(403).json({ message: 'Solo owner/admin pueden eliminar cuotas.' });
@@ -4078,7 +4083,7 @@ app.delete('/api/admin/installments/:id', authenticateToken, async (req, res) =>
 
         if (linkedTx) {
             return res.status(400).json({ 
-                message: 'No se puede eliminar esta cuota porque tiene movimientos financieros vinculados. Podés anularla, pero no borrarla.' 
+                message: 'No se puede eliminar esta cuota porque tiene movimientos financieros vinculados. Pod├®s anularla, pero no borrarla.' 
             });
         }
 
@@ -4097,7 +4102,7 @@ app.delete('/api/admin/installments/:id', authenticateToken, async (req, res) =>
             entityType: 'Installment',
             entityId: installment._id,
             entityLabel: `Cuota ${installment.installmentNumber}`,
-            description: `Se eliminó definitivamente la cuota ${installment.installmentNumber} de importe ${installment.amount}.`,
+            description: `Se elimin├│ definitivamente la cuota ${installment.installmentNumber} de importe ${installment.amount}.`,
             metadata: { saleId: installment.saleId }
         });
 
@@ -4113,7 +4118,7 @@ app.post('/api/admin/sales/:id/installments/generate', authenticateToken, async 
     try {
         await connectDB();
         if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
-            return res.status(400).json({ message: 'Sale ID inválido' });
+            return res.status(400).json({ message: 'Sale ID inv├ílido' });
         }
         const user = req.user ? (req.user.email || req.user.role) : 'System';
         const saleId = req.params.id;
@@ -4171,11 +4176,11 @@ app.post('/api/admin/sales/:id/installments/generate', authenticateToken, async 
                 amount,
                 currency,
                 status: 'pendiente',
-                notes: notes || `Generada en plan de ${installmentsCount} cuotas. Base: ${base}. Interés: ${interest}%.`,
+                notes: notes || `Generada en plan de ${installmentsCount} cuotas. Base: ${base}. Inter├®s: ${interest}%.`,
                 createdBy: user,
                 installmentAuditLog: [{
                     action: 'PLAN_GENERADO',
-                    details: `Cuota ${i+1} de ${installmentsCount} generada por sistema. Base: ${base}. Interés: ${interest}%.`,
+                    details: `Cuota ${i+1} de ${installmentsCount} generada por sistema. Base: ${base}. Inter├®s: ${interest}%.`,
                     user: user
                 }]
             }));
@@ -4270,7 +4275,7 @@ app.patch('/api/admin/crm-tasks/:id', authenticateToken, async (req, res) => {
                 entityType: 'CrmTask',
                 entityId: task._id,
                 entityLabel: task.title,
-                description: `Se reasignó la tarea.`,
+                description: `Se reasign├│ la tarea.`,
                 metadata: { oldAssigned, newAssigned }
             });
         }
@@ -4343,7 +4348,7 @@ app.get('/api/admin/notifications', authenticateToken, async (req, res) => {
                         type: 'installment_overdue',
                         severity: 'danger',
                         title: 'Cuota Vencida',
-                        description: `La cuota ${inst.installmentNumber} (${inst.currency} ${inst.amount}) está vencida.`,
+                        description: `La cuota ${inst.installmentNumber} (${inst.currency} ${inst.amount}) est├í vencida.`,
                         module: 'cuotas',
                         entityType: 'Installment',
                         entityId: inst._id.toString(),
@@ -4354,7 +4359,7 @@ app.get('/api/admin/notifications', authenticateToken, async (req, res) => {
                     rawNotifs.push({
                         type: 'installment_due_soon',
                         severity: 'warning',
-                        title: 'Cuota Próxima a Vencer',
+                        title: 'Cuota Pr├│xima a Vencer',
                         description: `La cuota ${inst.installmentNumber} vence el ${new Date(inst.dueDate).toLocaleDateString('es-AR')}.`,
                         module: 'cuotas',
                         entityType: 'Installment',
@@ -4418,7 +4423,7 @@ app.get('/api/admin/notifications', authenticateToken, async (req, res) => {
                     rawNotifs.push({
                         type: 'documentation_pending',
                         severity: 'warning',
-                        title: 'Documentación Incompleta',
+                        title: 'Documentaci├│n Incompleta',
                         description: `La venta ${sale._id.toString().slice(-6).toUpperCase()} tiene doc pendiente.`,
                         module: 'documentacion',
                         entityType: 'Sale',
@@ -4433,7 +4438,7 @@ app.get('/api/admin/notifications', authenticateToken, async (req, res) => {
                         type: 'delivery_pending',
                         severity: 'info',
                         title: 'Entrega Pendiente',
-                        description: `Vehículo pendiente de entrega (Venta ${sale._id.toString().slice(-6).toUpperCase()}).`,
+                        description: `Veh├¡culo pendiente de entrega (Venta ${sale._id.toString().slice(-6).toUpperCase()}).`,
                         module: 'documentacion',
                         entityType: 'Sale',
                         entityId: sale._id.toString(),
@@ -4467,7 +4472,7 @@ app.get('/api/admin/notifications', authenticateToken, async (req, res) => {
                     type: 'reservation_pending',
                     severity: 'info',
                     title: 'Reserva Activa',
-                    description: `Reserva activa pendiente de conversión.`,
+                    description: `Reserva activa pendiente de conversi├│n.`,
                     module: 'reservas',
                     entityType: 'Reservation',
                     entityId: res._id.toString(),
@@ -4489,7 +4494,7 @@ app.get('/api/admin/notifications', authenticateToken, async (req, res) => {
                         type: 'lead_without_followup',
                         severity: 'warning',
                         title: 'Lead sin seguimiento',
-                        description: `El lead ${lead.name} lleva 3 días sin actividad.`,
+                        description: `El lead ${lead.name} lleva 3 d├¡as sin actividad.`,
                         module: 'leads',
                         entityType: 'Lead',
                         entityId: lead._id.toString(),
@@ -4502,7 +4507,7 @@ app.get('/api/admin/notifications', authenticateToken, async (req, res) => {
 
 
 
-        // 5. AUDITORÍA CRÍTICA (Solo owner/admin)
+        // 5. AUDITOR├ìA CR├ìTICA (Solo owner/admin)
         if (isOwnerAdmin) {
             const criticalLogs = await AuditLog.find({
                 action: { $in: ['LOGIN_FALLIDO', 'CUOTA_ELIMINADA_DEFINITIVAMENTE', 'MOVIMIENTO_ANULADO', 'ROL_ACTUALIZADO'] },
@@ -4549,18 +4554,18 @@ app.get('/api/admin/notifications', authenticateToken, async (req, res) => {
                     };
 
                     if (goal.status === 'vencido') {
-                        rawNotifs.push({ ...baseNotif, type: 'goal_overdue', severity: 'danger', title: 'Meta Vencida', description: `La meta de ${goal.userId?.name} cerró sin cumplirse al 100%.` });
+                        rawNotifs.push({ ...baseNotif, type: 'goal_overdue', severity: 'danger', title: 'Meta Vencida', description: `La meta de ${goal.userId?.name} cerr├│ sin cumplirse al 100%.` });
                     } else if (goal.overallPercent >= 120) {
-                        rawNotifs.push({ ...baseNotif, type: 'goal_exceeded', severity: 'success', title: 'Meta Superada', description: `¡${goal.userId?.name} superó la meta (${goal.overallPercent}%)!` });
+                        rawNotifs.push({ ...baseNotif, type: 'goal_exceeded', severity: 'success', title: 'Meta Superada', description: `┬í${goal.userId?.name} super├│ la meta (${goal.overallPercent}%)!` });
                     } else if (goal.status === 'cumplido') {
-                        rawNotifs.push({ ...baseNotif, type: 'goal_completed', severity: 'success', title: 'Meta Cumplida', description: `¡${goal.userId?.name} alcanzó el 100% de la meta!` });
+                        rawNotifs.push({ ...baseNotif, type: 'goal_completed', severity: 'success', title: 'Meta Cumplida', description: `┬í${goal.userId?.name} alcanz├│ el 100% de la meta!` });
                     } else if (goal.status === 'sin_avance' && (nowTime - startT) > 3 * 24 * 60 * 60 * 1000) {
-                        rawNotifs.push({ ...baseNotif, type: 'goal_no_progress', severity: 'warning', title: 'Meta Sin Avance', description: `La meta de ${goal.userId?.name} lleva varios días en 0%.` });
+                        rawNotifs.push({ ...baseNotif, type: 'goal_no_progress', severity: 'warning', title: 'Meta Sin Avance', description: `La meta de ${goal.userId?.name} lleva varios d├¡as en 0%.` });
                     } else if (goal.overallPercent < timePassedPercent - 20 && timePassedPercent > 10) {
-                        // Atrasado: va un 20% por detrás del tiempo ideal
+                        // Atrasado: va un 20% por detr├ís del tiempo ideal
                         rawNotifs.push({ ...baseNotif, type: 'goal_behind', severity: 'warning', title: 'Meta Atrasada', description: `${goal.userId?.name} va por debajo del progreso esperado (${goal.overallPercent}%).` });
                     } else if ((endT - nowTime) <= 3 * 24 * 60 * 60 * 1000 && (endT - nowTime) > 0 && goal.overallPercent < 100) {
-                        rawNotifs.push({ ...baseNotif, type: 'goal_due_soon', severity: 'warning', title: 'Meta Próxima a Vencer', description: `La meta de ${goal.userId?.name} vence en menos de 3 días y va al ${goal.overallPercent}%.` });
+                        rawNotifs.push({ ...baseNotif, type: 'goal_due_soon', severity: 'warning', title: 'Meta Pr├│xima a Vencer', description: `La meta de ${goal.userId?.name} vence en menos de 3 d├¡as y va al ${goal.overallPercent}%.` });
                     }
                 });
             }
@@ -4574,7 +4579,7 @@ app.get('/api/admin/notifications', authenticateToken, async (req, res) => {
             return n;
         });
 
-        // Filtrar leídas
+        // Filtrar le├¡das
         const keys = notifications.map(n => n.id);
         const readStates = await NotificationReadState.find({ userId, notificationKey: { $in: keys } }).lean();
         const readKeys = new Set(readStates.map(rs => rs.notificationKey));
@@ -4629,7 +4634,7 @@ app.patch('/api/admin/notifications/read-all', authenticateToken, async (req, re
                 module: 'sistema',
                 entityType: 'Notification',
                 entityLabel: 'Bulk',
-                description: `Se marcaron ${keys.length} notificaciones como leídas.`,
+                description: `Se marcaron ${keys.length} notificaciones como le├¡das.`,
                 metadata: { count: keys.length }
             });
         }
@@ -5005,7 +5010,7 @@ app.post('/api/admin/communication-logs', authenticateToken, async (req, res) =>
         const authUserId = req.user?.id || req.user?.userId;
 
         if (!authUserId || !mongoose.Types.ObjectId.isValid(authUserId)) {
-            return res.status(401).json({ message: 'Usuario autenticado no válido. Se requiere un usuario registrado con ID válido.' });
+            return res.status(401).json({ message: 'Usuario autenticado no v├ílido. Se requiere un usuario registrado con ID v├ílido.' });
         }
 
         const canWrite = ['owner', 'admin'].includes(userRole) || perms.includes('communicationLogs.write') || perms.includes('ventas.write');
@@ -5027,7 +5032,7 @@ app.post('/api/admin/communication-logs', authenticateToken, async (req, res) =>
         if (payload.shouldCreateTask && payload.nextActionDate) {
             const newTask = new CrmTask({
                 title: `Seguimiento: ${payload.title}`,
-                description: payload.notes ? payload.notes.substring(0, 500) : 'Generado desde historial de comunicación.',
+                description: payload.notes ? payload.notes.substring(0, 500) : 'Generado desde historial de comunicaci├│n.',
                 dueDate: payload.nextActionDate,
                 assignedTo: finalAssignedTo,
                 user: req.user?.username || req.user?.email || 'CRM_V2',
@@ -5196,7 +5201,7 @@ app.post('/api/admin/message-templates', authenticateToken, async (req, res) => 
             entityType: 'MessageTemplate',
             entityId: newTemplate._id,
             entityLabel: newTemplate.name,
-            description: `Categoría: ${newTemplate.category}`
+            description: `Categor├¡a: ${newTemplate.category}`
         });
 
         res.status(201).json(newTemplate);
@@ -5285,7 +5290,7 @@ app.post('/api/admin/message-templates/init', authenticateToken, async (req, res
                 name: 'Primer contacto lead',
                 category: 'lead',
                 channel: 'whatsapp',
-                body: 'Hola {{nombre_cliente}}, ¿cómo estás? Te habla {{vendedor}} de AutoSporting. Recibimos tu consulta por {{vehiculo}}. ¿Querés que te pase más información y coordinamos para verlo?',
+                body: 'Hola {{nombre_cliente}}, ┬┐c├│mo est├ís? Te habla {{vendedor}} de AutoSporting. Recibimos tu consulta por {{vehiculo}}. ┬┐Quer├®s que te pase m├ís informaci├│n y coordinamos para verlo?',
                 variables: ['nombre_cliente', 'vendedor', 'vehiculo'],
                 isSystem: true
             },
@@ -5293,31 +5298,31 @@ app.post('/api/admin/message-templates/init', authenticateToken, async (req, res
                 name: 'Seguimiento lead sin respuesta',
                 category: 'lead',
                 channel: 'whatsapp',
-                body: 'Hola {{nombre_cliente}}, ¿cómo estás? Te escribo nuevamente por la consulta del {{vehiculo}}. Si seguís interesado, puedo pasarte detalles, opciones de financiación o coordinar una visita.',
+                body: 'Hola {{nombre_cliente}}, ┬┐c├│mo est├ís? Te escribo nuevamente por la consulta del {{vehiculo}}. Si segu├¡s interesado, puedo pasarte detalles, opciones de financiaci├│n o coordinar una visita.',
                 variables: ['nombre_cliente', 'vehiculo'],
                 isSystem: true
             },
             {
-                name: 'Pedido de documentación',
+                name: 'Pedido de documentaci├│n',
                 category: 'documentation',
                 channel: 'whatsapp',
-                body: 'Hola {{nombre_cliente}}, para avanzar con la operación necesitamos que nos envíes la documentación correspondiente. Apenas la recibamos, seguimos con el proceso.',
+                body: 'Hola {{nombre_cliente}}, para avanzar con la operaci├│n necesitamos que nos env├¡es la documentaci├│n correspondiente. Apenas la recibamos, seguimos con el proceso.',
                 variables: ['nombre_cliente'],
                 isSystem: true
             },
             {
-                name: 'Confirmación de reserva',
+                name: 'Confirmaci├│n de reserva',
                 category: 'reservation',
                 channel: 'whatsapp',
-                body: 'Hola {{nombre_cliente}}, te confirmamos que la reserva del {{vehiculo}} quedó registrada. Cualquier novedad te vamos avisando por este medio.',
+                body: 'Hola {{nombre_cliente}}, te confirmamos que la reserva del {{vehiculo}} qued├│ registrada. Cualquier novedad te vamos avisando por este medio.',
                 variables: ['nombre_cliente', 'vehiculo'],
                 isSystem: true
             },
             {
-                name: 'Aviso de cuota próxima',
+                name: 'Aviso de cuota pr├│xima',
                 category: 'installment',
                 channel: 'whatsapp',
-                body: 'Hola {{nombre_cliente}}, te recordamos que el próximo vencimiento de tu cuota es el día {{fecha_vencimiento}} por {{monto_cuota}}. Cualquier consulta estamos a disposición.',
+                body: 'Hola {{nombre_cliente}}, te recordamos que el pr├│ximo vencimiento de tu cuota es el d├¡a {{fecha_vencimiento}} por {{monto_cuota}}. Cualquier consulta estamos a disposici├│n.',
                 variables: ['nombre_cliente', 'fecha_vencimiento', 'monto_cuota'],
                 isSystem: true
             },
@@ -5325,7 +5330,7 @@ app.post('/api/admin/message-templates/init', authenticateToken, async (req, res
                 name: 'Aviso de cuota vencida',
                 category: 'installment',
                 channel: 'whatsapp',
-                body: 'Hola {{nombre_cliente}}, te contactamos porque figura pendiente el pago de la cuota con vencimiento {{fecha_vencimiento}}. Avisanos por favor cuándo podrías regularizarlo.',
+                body: 'Hola {{nombre_cliente}}, te contactamos porque figura pendiente el pago de la cuota con vencimiento {{fecha_vencimiento}}. Avisanos por favor cu├índo podr├¡as regularizarlo.',
                 variables: ['nombre_cliente', 'fecha_vencimiento'],
                 isSystem: true
             },
@@ -5333,23 +5338,23 @@ app.post('/api/admin/message-templates/init', authenticateToken, async (req, res
                 name: 'Postventa 24 hs',
                 category: 'post_sale',
                 channel: 'whatsapp',
-                body: 'Hola {{nombre_cliente}}, ¿cómo estás? Te escribimos desde AutoSporting para saber cómo fue todo con tu vehículo y si necesitás algo después de la entrega.',
+                body: 'Hola {{nombre_cliente}}, ┬┐c├│mo est├ís? Te escribimos desde AutoSporting para saber c├│mo fue todo con tu veh├¡culo y si necesit├ís algo despu├®s de la entrega.',
                 variables: ['nombre_cliente'],
                 isSystem: true
             },
             {
-                name: 'Pedido de reseña Google',
+                name: 'Pedido de rese├▒a Google',
                 category: 'review',
                 channel: 'whatsapp',
-                body: 'Hola {{nombre_cliente}}, nos alegra que hayas confiado en AutoSporting. Si tu experiencia fue buena, nos ayudaría mucho que nos dejes una reseña en Google: {{link_google_reviews}}',
+                body: 'Hola {{nombre_cliente}}, nos alegra que hayas confiado en AutoSporting. Si tu experiencia fue buena, nos ayudar├¡a mucho que nos dejes una rese├▒a en Google: {{link_google_reviews}}',
                 variables: ['nombre_cliente', 'link_google_reviews'],
                 isSystem: true
             },
             {
-                name: 'Invitación a visitar agencia',
+                name: 'Invitaci├│n a visitar agencia',
                 category: 'lead',
                 channel: 'whatsapp',
-                body: 'Hola {{nombre_cliente}}, si querés podés acercarte a la agencia para ver la unidad personalmente y resolver cualquier duda. Coordinamos el horario que te quede cómodo.',
+                body: 'Hola {{nombre_cliente}}, si quer├®s pod├®s acercarte a la agencia para ver la unidad personalmente y resolver cualquier duda. Coordinamos el horario que te quede c├│modo.',
                 variables: ['nombre_cliente'],
                 isSystem: true
             },
@@ -5468,7 +5473,7 @@ app.patch('/api/admin/team-goals/:id', authenticateToken, async (req, res) => {
     }
 });
 
-// Función helper para calcular progreso
+// Funci├│n helper para calcular progreso
 async function getGoalsProgress(activeGoals) {
     if (!activeGoals || !activeGoals.length) return [];
 
@@ -5611,7 +5616,7 @@ app.patch('/api/admin/assignments', authenticateToken, async (req, res) => {
         const { entityType, entityId, assignedTo } = req.body;
         
         if (!['lead', 'reservation', 'sale', 'task'].includes(entityType)) {
-            return res.status(400).json({ message: 'Tipo de entidad no válido.' });
+            return res.status(400).json({ message: 'Tipo de entidad no v├ílido.' });
         }
 
         const newAssigned = assignedTo === "" || assignedTo === null ? null : assignedTo;
@@ -5651,7 +5656,7 @@ app.patch('/api/admin/assignments', authenticateToken, async (req, res) => {
                 entityType: Model.modelName,
                 entityId: doc._id,
                 entityLabel: entityLabel,
-                description: `Asignación rápida desde Team Dashboard.`,
+                description: `Asignaci├│n r├ípida desde Team Dashboard.`,
                 metadata: { oldAssigned, newAssigned }
             });
         }
@@ -5714,14 +5719,14 @@ app.get('/api/admin/settings', authenticateToken, async (req, res) => {
         const canRead = ['owner', 'admin'].includes(userRole) || perms.includes('settings.read') || perms.includes('settings.write');
         
         if (!canRead) {
-            return res.status(403).json({ message: 'Sin permisos para ver la configuración general.' });
+            return res.status(403).json({ message: 'Sin permisos para ver la configuraci├│n general.' });
         }
 
         const settings = await getOrCreateCrmSettings();
         res.json({ ok: true, settings });
     } catch (error) {
         console.error("GET /api/admin/settings error:", error);
-        res.status(500).json({ ok: false, error: 'No se pudo cargar la configuración general.' });
+        res.status(500).json({ ok: false, error: 'No se pudo cargar la configuraci├│n general.' });
     }
 });
 
@@ -5732,7 +5737,7 @@ app.patch('/api/admin/settings', authenticateToken, async (req, res) => {
         const canWrite = ['owner', 'admin'].includes(userRole) || perms.includes('settings.write');
         
         if (!canWrite) {
-            return res.status(403).json({ message: 'Sin permisos para editar la configuración general.' });
+            return res.status(403).json({ message: 'Sin permisos para editar la configuraci├│n general.' });
         }
 
         let settings = await CrmSettings.findOne();
@@ -5749,7 +5754,7 @@ app.patch('/api/admin/settings', authenticateToken, async (req, res) => {
         const isValidOperation = updates.every(update => allowedUpdates.includes(update));
 
         if (!isValidOperation) {
-            return res.status(400).json({ message: 'Updates no válidos o campos no permitidos.' });
+            return res.status(400).json({ message: 'Updates no v├ílidos o campos no permitidos.' });
         }
 
         updates.forEach(update => {
@@ -5771,8 +5776,8 @@ app.patch('/api/admin/settings', authenticateToken, async (req, res) => {
             module: 'configuracion',
             entityType: 'CrmSettings',
             entityId: settings._id,
-            entityLabel: 'Configuración General',
-            description: `Configuración general actualizada.`,
+            entityLabel: 'Configuraci├│n General',
+            description: `Configuraci├│n general actualizada.`,
             metadata: { updatedFields: updates }
         });
 
@@ -5829,7 +5834,7 @@ app.get('/api/admin/system-health', authenticateToken, async (req, res) => {
 
         const checks = [
             {
-                name: 'Conexión a Base de Datos',
+                name: 'Conexi├│n a Base de Datos',
                 status: dbConnected ? 'ok' : 'critical',
                 description: dbConnected ? 'MongoDB conectada.' : 'Falla al conectar a MongoDB.',
                 suggestedAction: dbConnected ? '' : 'Revisar servidor de base de datos y credenciales.'
@@ -5844,7 +5849,7 @@ app.get('/api/admin/system-health', authenticateToken, async (req, res) => {
                 name: 'Latencia de Base de Datos',
                 status: latencyMs < 500 ? 'ok' : (latencyMs < 1500 ? 'warning' : 'critical'),
                 description: `Latencia de ${latencyMs}ms.`,
-                suggestedAction: latencyMs < 500 ? '' : 'Considerar optimización de base de datos.'
+                suggestedAction: latencyMs < 500 ? '' : 'Considerar optimizaci├│n de base de datos.'
             }
         ];
 
@@ -5925,7 +5930,7 @@ app.get('/api/admin/data-quality', authenticateToken, async (req, res) => {
 
         const daysAgo = (days) => new Date(Date.now() - days * 24 * 60 * 60 * 1000);
 
-        // A & B: Clients & Leads duplicados y huérfanos
+        // A & B: Clients & Leads duplicados y hu├®rfanos
         // Hacemos query base dependiendo del user restricted
         const clientQuery = isRestricted ? { assignedTo: userId } : {};
         const leadQuery = isRestricted ? { assignedTo: userId } : {};
@@ -5943,7 +5948,7 @@ app.get('/api/admin/data-quality', authenticateToken, async (req, res) => {
             updatedAt: { $lt: daysAgo(thresholds.leadWithoutFollowupDays) } 
         }).lean();
         for (const l of oldLeads) {
-            addIssue('leads', 'warning', 'Lead sin seguimiento reciente', `El lead "${l.name}" lleva más de ${thresholds.leadWithoutFollowupDays} días sin actualización.`, 'lead', l._id, `/admin/leads/${l._id}`, 'Contactar o cerrar');
+            addIssue('leads', 'warning', 'Lead sin seguimiento reciente', `El lead "${l.name}" lleva m├ís de ${thresholds.leadWithoutFollowupDays} d├¡as sin actualizaci├│n.`, 'lead', l._id, `/admin/leads/${l._id}`, 'Contactar o cerrar');
         }
 
         // E: Reservas viejas
@@ -5954,7 +5959,7 @@ app.get('/api/admin/data-quality', authenticateToken, async (req, res) => {
             createdAt: { $lt: daysAgo(thresholds.oldReservationDays) }
         }).lean();
         oldReservations.forEach(r => {
-            addIssue('reservations', 'warning', 'Reserva antigua sin cerrar', `Reserva de más de ${thresholds.oldReservationDays} días sin convertirse ni cancelarse.`, 'reservation', r._id, `/admin/reservas`, 'Gestionar reserva');
+            addIssue('reservations', 'warning', 'Reserva antigua sin cerrar', `Reserva de m├ís de ${thresholds.oldReservationDays} d├¡as sin convertirse ni cancelarse.`, 'reservation', r._id, `/admin/reservas`, 'Gestionar reserva');
         });
 
         // F & G: Ventas sin cliente o responsable
@@ -5962,16 +5967,16 @@ app.get('/api/admin/data-quality', authenticateToken, async (req, res) => {
         const orphanSales = await Sale.find(saleQuery).lean();
         orphanSales.forEach(s => {
             if (!s.clientId) {
-                addIssue('sales', 'critical', 'Venta sin cliente asociado', `Expediente ${s._id} no tiene cliente válido.`, 'sale', s._id, `/admin/ventas/${s._id}`, 'Vincular cliente');
+                addIssue('sales', 'critical', 'Venta sin cliente asociado', `Expediente ${s._id} no tiene cliente v├ílido.`, 'sale', s._id, `/admin/ventas/${s._id}`, 'Vincular cliente');
             }
             if (!s.assignedTo) {
                 addIssue('sales', 'warning', 'Venta sin responsable', `Expediente ${s._id} no tiene responsable.`, 'sale', s._id, `/admin/ventas/${s._id}`, 'Asignar responsable');
             }
             if (s.status === 'entregado' && s.documentationStatus !== 'completo') {
-                addIssue('documentation', 'warning', 'Venta entregada con documentación incompleta', `Expediente ${s._id} figurar como entregado pero falta documentación.`, 'sale', s._id, `/admin/ventas/${s._id}`, 'Completar documentación');
+                addIssue('documentation', 'warning', 'Venta entregada con documentaci├│n incompleta', `Expediente ${s._id} figurar como entregado pero falta documentaci├│n.`, 'sale', s._id, `/admin/ventas/${s._id}`, 'Completar documentaci├│n');
             }
             if (s.status === 'entregado' && s.postSaleStatus === 'pendiente' && new Date(s.updatedAt) < daysAgo(thresholds.postSalePendingDays)) {
-                addIssue('documentation', 'info', 'Postventa sin seguimiento', `Venta entregada hace más de ${thresholds.postSalePendingDays} días sin avance en postventa.`, 'sale', s._id, `/admin/ventas/${s._id}`, 'Contactar cliente');
+                addIssue('documentation', 'info', 'Postventa sin seguimiento', `Venta entregada hace m├ís de ${thresholds.postSalePendingDays} d├¡as sin avance en postventa.`, 'sale', s._id, `/admin/ventas/${s._id}`, 'Contactar cliente');
             }
         });
 
@@ -5979,15 +5984,15 @@ app.get('/api/admin/data-quality', authenticateToken, async (req, res) => {
         // Si el usuario es restricted (ventas) solo mostramos si le concierne, pero Stock es general.
         // Lo dejamos visible solo si no es restricted para evitar abrumar, o general si tiene permiso.
         // Mejor dejarlo general, no hay asignado en Car.
-        const soldVisible = await Car.find({ status: { $in: ['Vendido', 'Señado'] }, isVisibleOnWeb: true }).lean();
+        const soldVisible = await Car.find({ status: { $in: ['Vendido', 'Se├▒ado'] }, isVisibleOnWeb: true }).lean();
         soldVisible.forEach(c => {
-            addIssue('stock', 'critical', 'Vehículo vendido/señado visible en web', `El vehículo ${c.make} ${c.model} está publicado.`, 'car', c._id, `/admin/stock/${c._id}`, 'Ocultar publicación');
+            addIssue('stock', 'critical', 'Veh├¡culo vendido/se├▒ado visible en web', `El veh├¡culo ${c.make} ${c.model} est├í publicado.`, 'car', c._id, `/admin/stock/${c._id}`, 'Ocultar publicaci├│n');
         });
-        const reservedAvailable = await Car.find({ status: 'Disponible' }).lean(); // Deberíamos cruzar con reservas activas.
+        const reservedAvailable = await Car.find({ status: 'Disponible' }).lean(); // Deber├¡amos cruzar con reservas activas.
         const activeResVehicles = oldReservations.map(r => r.vehicleId?.toString()).filter(Boolean);
         reservedAvailable.forEach(c => {
             if (activeResVehicles.includes(c._id.toString())) {
-                addIssue('stock', 'warning', 'Vehículo reservado pero figura disponible', `El vehículo ${c.make} ${c.model} tiene reserva activa.`, 'car', c._id, `/admin/stock/${c._id}`, 'Actualizar estado');
+                addIssue('stock', 'warning', 'Veh├¡culo reservado pero figura disponible', `El veh├¡culo ${c.make} ${c.model} tiene reserva activa.`, 'car', c._id, `/admin/stock/${c._id}`, 'Actualizar estado');
             }
         });
 
@@ -6004,7 +6009,7 @@ app.get('/api/admin/data-quality', authenticateToken, async (req, res) => {
         const oldTasks = await CrmTask.find({ ...taskQuery, status: 'pendiente', dueDate: { $lt: new Date() } }).lean();
         oldTasks.forEach(t => {
             if (!t.assignedTo) {
-                addIssue('tasks', 'warning', 'Tarea vencida sin responsable', `"${t.title}" está vencida y no tiene asignado.`, 'task', t._id, `/admin/agenda`, 'Asignar responsable');
+                addIssue('tasks', 'warning', 'Tarea vencida sin responsable', `"${t.title}" est├í vencida y no tiene asignado.`, 'task', t._id, `/admin/agenda`, 'Asignar responsable');
             }
         });
 
@@ -6083,7 +6088,7 @@ app.get('/api/admin/exports/:type', authenticateToken, async (req, res) => {
         const canAudit = ['owner', 'admin'].includes(userRole) || perms.includes('exports.audit');
 
         if (type === 'auditoria' && !canAudit) {
-            return res.status(403).json({ message: 'Sin permisos para exportar auditoría.' });
+            return res.status(403).json({ message: 'Sin permisos para exportar auditor├¡a.' });
         }
         if (type !== 'auditoria' && !canRead) {
             return res.status(403).json({ message: 'Sin permisos para exportar datos.' });
@@ -6146,19 +6151,19 @@ app.get('/api/admin/exports/:type', authenticateToken, async (req, res) => {
                 fields.push('metadataSummary');
                 break;
             default:
-                return res.status(400).json({ message: 'Tipo de exportación no válido.' });
+                return res.status(400).json({ message: 'Tipo de exportaci├│n no v├ílido.' });
         }
 
         const csvContent = toCSV(data, fields);
         const dateStr = new Date().toISOString().split('T')[0];
         const filename = `autosporting_${type}_${dateStr}.csv`;
 
-        // Registrar auditoría
+        // Registrar auditor├¡a
         await logAudit({
             req,
             action: 'EXPORTACION_GENERADA',
             module: 'exportaciones',
-            description: `Exportó ${data.length} registros de ${type}.`,
+            description: `Export├│ ${data.length} registros de ${type}.`,
             metadata: { type, count: data.length }
         });
 
