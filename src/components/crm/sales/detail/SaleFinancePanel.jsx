@@ -117,11 +117,14 @@ export default function SaleFinancePanel({ sale }) {
             }
         });
 
-        const pendingBalance = sale.salePrice - netoCobradoPrincipal;
+        const tradeInTotal = sale.tradeInTotalAmount || 0;
+        const effectiveSalePrice = sale.salePrice - tradeInTotal;
+        const pendingBalance = effectiveSalePrice - netoCobradoPrincipal;
+        
         let collectionStatus = 'sin_cobro';
-        if (netoCobradoPrincipal > 0 && netoCobradoPrincipal < sale.salePrice) collectionStatus = 'parcial';
-        else if (netoCobradoPrincipal === sale.salePrice) collectionStatus = 'cobrada';
-        else if (netoCobradoPrincipal > sale.salePrice) collectionStatus = 'sobrecobrada';
+        if (netoCobradoPrincipal > 0 && netoCobradoPrincipal < effectiveSalePrice) collectionStatus = 'parcial';
+        else if (netoCobradoPrincipal === effectiveSalePrice) collectionStatus = 'cobrada';
+        else if (netoCobradoPrincipal > effectiveSalePrice) collectionStatus = 'sobrecobrada';
 
         const data = {
             ingresosARS, egresosARS, balanceARS: ingresosARS - egresosARS,
@@ -130,8 +133,10 @@ export default function SaleFinancePanel({ sale }) {
             pendingBalance,
             collectionStatus,
             depositApplied,
+            tradeInTotal,
             saleCurrency,
-            salePrice: sale.salePrice
+            salePrice: sale.salePrice,
+            effectiveSalePrice
         };
         setFinanceData(data);
         return data;
@@ -210,10 +215,16 @@ export default function SaleFinancePanel({ sale }) {
             <div className="p-6">
                 <div className="mb-6 bg-neutral-800/30 rounded-xl p-5 border border-neutral-800">
                     <h3 className="text-sm font-bold text-neutral-400 mb-4 uppercase tracking-wider">Estado de cobranza</h3>
-                    <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
+                    <div className="grid grid-cols-2 lg:grid-cols-6 gap-4">
                         <div>
                             <div className="text-[10px] text-neutral-500 uppercase font-bold mb-1">Precio Venta</div>
                             <div className="text-sm font-bold text-white">{formatCurrency(sale.salePrice, sale.saleCurrency)}</div>
+                        </div>
+                        <div>
+                            <div className="text-[10px] text-neutral-500 uppercase font-bold mb-1">Permuta</div>
+                            <div className="text-sm font-bold text-purple-400">
+                                {financeData?.tradeInTotal > 0 ? `-${formatCurrency(financeData.tradeInTotal, sale.saleCurrency)}` : '$0'}
+                            </div>
                         </div>
                         <div>
                             <div className="text-[10px] text-neutral-500 uppercase font-bold mb-1">Seña Aplicada</div>
