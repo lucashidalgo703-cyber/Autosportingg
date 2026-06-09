@@ -15,6 +15,7 @@ import {
 } from 'lucide-react';
 import { useAdminTransactions } from '../../../hooks/useAdminTransactions';
 import TransactionModal from '../../../components/crm/finance/TransactionModal';
+import PersonalFinanceTab from '../../../components/crm/finance/PersonalFinanceTab';
 import PermissionGuard from '../../../components/crm/layout/PermissionGuard';
 import { PERMISSIONS } from '../../../utils/adminPermissions';
 
@@ -27,6 +28,7 @@ const FINANCE_TABS = [
     { id: 'tarjeta', icon: '💳', label: 'Tarjeta' },
     { id: 'retiros', icon: '🏧', label: 'Retiros' },
     { id: 'comisiones', icon: '🪙', label: 'Comisiones' },
+    { id: 'mi-caja', icon: '👤', label: 'Mi Caja' },
     { id: 'rentabilidad', icon: '📈', label: 'Rentabilidad' },
     { id: 'cuentas', icon: '🏦', label: 'Cuentas' },
     { id: 'cobrar-pagar', icon: '🔁', label: 'x Cobrar/Pagar' },
@@ -431,7 +433,11 @@ function FinanzasPage() {
                             />
                         )}
 
-                        {activeTab !== 'resumen' && activeTab !== 'movimientos' && activeTab !== 'senas' && (
+                        {activeTab === 'mi-caja' && (
+                            <PersonalFinanceTab />
+                        )}
+
+                        {activeTab !== 'resumen' && activeTab !== 'movimientos' && activeTab !== 'senas' && activeTab !== 'mi-caja' && (
                             <FinanceTabPlaceholder
                                 tab={FINANCE_TABS.find((item) => item.id === activeTab)}
                                 balances={balances}

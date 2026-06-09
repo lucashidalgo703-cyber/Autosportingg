@@ -6342,6 +6342,68 @@ app.get('/api/admin/exports/:type', authenticateToken, async (req, res) => {
     }
 });
 
+import PersonalTransaction from './src/models/PersonalTransaction.js';
+
+app.get('/api/admin/personal-transactions', authenticateToken, async (req, res) => {
+    try {
+        await connectDB();
+        const transactions = await PersonalTransaction.find().sort({ transactionDate: -1, createdAt: -1 }).lean();
+        res.json(transactions);
+    } catch (error) {
+        console.error('GET /api/admin/personal-transactions error:', error);
+        res.status(500).json({ message: 'Error interno al obtener transacciones personales' });
+    }
+});
+
+app.post('/api/admin/personal-transactions', authenticateToken, async (req, res) => {
+    try {
+        await connectDB();
+        const user = req.user ? (req.user.email || req.user.role) : 'System';
+        const data = { ...req.body, createdBy: user };
+        const newTransaction = new PersonalTransaction(data);
+        const saved = await newTransaction.save();
+        res.status(201).json(saved);
+    } catch (error) {
+        console.error('POST /api/admin/personal-transactions error:', error);
+        res.status(500).json({ message: 'Error interno al crear transacción personal', error: error.message });
+    }
+});
+
+app.patch('/api/admin/personal-transactions/:id', authenticateToken, async (req, res) => {
+    try {
+        await connectDB();
+        const { id } = req.params;
+        const user = req.user ? (req.user.email || req.user.role) : 'System';
+        const updated = await PersonalTransaction.findByIdAndUpdate(
+            id,
+            { ...req.body, updatedBy: user },
+            { new: true, runValidators: true }
+        );
+        if (!updated) {
+            return res.status(404).json({ message: 'Transacción personal no encontrada' });
+        }
+        res.json(updated);
+    } catch (error) {
+        console.error('PATCH /api/admin/personal-transactions error:', error);
+        res.status(500).json({ message: 'Error interno al actualizar transacción personal', error: error.message });
+    }
+});
+
+app.delete('/api/admin/personal-transactions/:id', authenticateToken, async (req, res) => {
+    try {
+        await connectDB();
+        const { id } = req.params;
+        const deleted = await PersonalTransaction.findByIdAndDelete(id);
+        if (!deleted) {
+            return res.status(404).json({ message: 'Transacción personal no encontrada' });
+        }
+        res.json({ message: 'Transacción personal eliminada' });
+    } catch (error) {
+        console.error('DELETE /api/admin/personal-transactions error:', error);
+        res.status(500).json({ message: 'Error interno al eliminar transacción personal', error: error.message });
+    }
+});
+
 // Global Error Handler
 app.use((err, req, res, next) => {
     console.error("Global Error Handler (Timestamp: " + new Date().toISOString() + ")");
