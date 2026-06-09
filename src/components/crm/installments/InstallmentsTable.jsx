@@ -34,8 +34,9 @@ export default function InstallmentsTable({ installments, onEdit, onRegisterPaym
                     </thead>
                     <tbody className="divide-y divide-neutral-800/50">
                         {installments.map(inst => {
-                            const clientName = inst.clientId?.fullName || inst.clientId?.firstName || 'Sin cliente';
-                            const vehicleName = inst.vehicleId ? `${inst.vehicleId.brand} ${inst.vehicleId.name}` : 'Sin vehículo';
+                            const isManual = inst.source === 'manual';
+                            const clientName = isManual ? inst.customerName : (inst.clientId?.fullName || inst.clientId?.firstName || 'Sin cliente');
+                            const vehicleName = isManual ? (inst.concept || 'Cuenta por cobrar') : (inst.vehicleId ? `${inst.vehicleId.brand} ${inst.vehicleId.name}` : 'Sin vehículo');
                             const isOverdue = inst.status === 'pendiente' && new Date(inst.dueDate) < new Date();
 
                             // Financial Status Calculation
@@ -68,10 +69,17 @@ export default function InstallmentsTable({ installments, onEdit, onRegisterPaym
                                     {/* Venta / Cliente */}
                                     <td className="p-4">
                                         <div className="flex flex-col gap-0.5">
-                                            <Link href={`/admin/ventas/${inst.saleId?._id || inst.saleId}`} className="text-sm font-bold text-white hover:text-red-400 transition-colors flex items-center gap-1.5 truncate max-w-[200px]">
-                                                <Handshake size={14} className="text-neutral-500" />
-                                                Venta Asociada
-                                            </Link>
+                                            {isManual ? (
+                                                <div className="text-sm font-bold text-purple-400 flex items-center gap-1.5 truncate max-w-[200px]">
+                                                    <Landmark size={14} className="text-purple-500" />
+                                                    Cuenta por Cobrar
+                                                </div>
+                                            ) : (
+                                                <Link href={`/admin/ventas/${inst.saleId?._id || inst.saleId}`} className="text-sm font-bold text-white hover:text-red-400 transition-colors flex items-center gap-1.5 truncate max-w-[200px]">
+                                                    <Handshake size={14} className="text-neutral-500" />
+                                                    Venta Asociada
+                                                </Link>
+                                            )}
                                             <span className="text-xs text-neutral-400 truncate max-w-[200px]">{clientName}</span>
                                             <span className="text-[10px] text-neutral-500 uppercase tracking-wider">{vehicleName}</span>
                                         </div>
@@ -81,7 +89,7 @@ export default function InstallmentsTable({ installments, onEdit, onRegisterPaym
                                     <td className="p-4 whitespace-nowrap">
                                         <div className="flex flex-col gap-1">
                                             <span className="text-sm font-bold text-neutral-300">
-                                                Cuota {inst.installmentNumber}
+                                                {isManual ? 'A cobrar' : `Cuota ${inst.installmentNumber}`}
                                             </span>
                                             {finStatus !== 'Sin cobro' && (
                                                 <span className="text-[10px] text-green-400 font-bold">{finStatus}</span>

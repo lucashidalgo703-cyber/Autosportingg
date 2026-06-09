@@ -4058,15 +4058,15 @@ app.post('/api/admin/installments', authenticateToken, async (req, res) => {
     try {
         await connectDB();
         const user = req.user ? (req.user.email || req.user.role) : 'System';
-        const { saleId, clientId, vehicleId, installmentNumber, dueDate, amount, currency, notes, status, source } = req.body;
+        const { saleId, clientId, vehicleId, installmentNumber, dueDate, amount, currency, notes, status, source, customerName, customerPhone, concept, paymentMethod } = req.body;
         const isManual = source === 'manual';
 
-        if ((!isManual && !saleId) || !installmentNumber || !dueDate || amount === undefined || !currency) {
+        if ((!isManual && !saleId) || (!isManual && !installmentNumber) || !dueDate || amount === undefined || !currency) {
             return res.status(400).json({ 
                 message: 'Faltan campos obligatorios: número de cuota, vencimiento, importe o moneda.',
                 missing: {
                     saleId: !isManual && !saleId,
-                    installmentNumber: !installmentNumber,
+                    installmentNumber: !isManual && !installmentNumber,
                     dueDate: !dueDate,
                     amount: amount === undefined,
                     currency: !currency
@@ -4102,7 +4102,11 @@ app.post('/api/admin/installments', authenticateToken, async (req, res) => {
             ...(cleanClientId && { clientId: cleanClientId }),
             ...(cleanVehicleId && { vehicleId: cleanVehicleId }),
             source: isManual ? 'manual' : 'venta',
-            installmentNumber,
+            customerName: isManual ? customerName : undefined,
+            customerPhone: isManual ? customerPhone : undefined,
+            concept: isManual ? concept : undefined,
+            paymentMethod: isManual ? paymentMethod : undefined,
+            installmentNumber: isManual ? (installmentNumber || 1) : installmentNumber,
             dueDate,
             amount,
             currency,
@@ -4111,7 +4115,7 @@ app.post('/api/admin/installments', authenticateToken, async (req, res) => {
             createdBy: user,
             installmentAuditLog: [{
                 action: 'CUOTA_CREADA',
-                details: 'Cuota manual creada',
+                details: isManual ? 'Cuenta por cobrar manual creada' : 'Cuota manual creada',
                 user: user
             }]
         });
@@ -4149,7 +4153,7 @@ app.patch('/api/admin/installments/:id', authenticateToken, async (req, res) => 
         if (!installment) return res.status(404).json({ message: 'Installment not found' });
 
         let hasChanges = false;
-        const allowedUpdates = ['dueDate', 'amount', 'currency', 'status', 'notes'];
+        const allowedUpdates = ['dueDate', 'amount', 'currency', 'status', 'notes', 'customerName', 'customerPhone', 'concept', 'paymentMethod'];
         let actionStr = 'CUOTA_EDITADA';
 
         allowedUpdates.forEach(field => {

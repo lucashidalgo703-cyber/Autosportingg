@@ -21,6 +21,18 @@ const installmentSchema = new mongoose.Schema({
         enum: ['venta', 'manual'],
         default: 'venta'
     },
+    customerName: {
+        type: String
+    },
+    customerPhone: {
+        type: String
+    },
+    concept: {
+        type: String
+    },
+    paymentMethod: {
+        type: String
+    },
     clientId: {
         type: mongoose.Schema.Types.ObjectId,
         ref: 'Client'

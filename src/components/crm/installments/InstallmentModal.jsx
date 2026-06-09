@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, Calendar, DollarSign, FileText, Activity } from 'lucide-react';
+import { X, Calendar, DollarSign, FileText, Activity, User, Phone, Tag, Banknote } from 'lucide-react';
 
 export default function InstallmentModal({ isOpen, onClose, installment, onSave, mode = 'edit' }) {
     const [formData, setFormData] = useState({
@@ -11,7 +11,12 @@ export default function InstallmentModal({ isOpen, onClose, installment, onSave,
         amount: '',
         currency: 'ARS',
         status: 'pendiente',
-        notes: ''
+        notes: '',
+        source: 'venta',
+        customerName: '',
+        customerPhone: '',
+        concept: '',
+        paymentMethod: ''
     });
 
     useEffect(() => {
@@ -25,10 +30,34 @@ export default function InstallmentModal({ isOpen, onClose, installment, onSave,
                 amount: installment.amount || '',
                 currency: installment.currency || 'ARS',
                 status: installment.status || 'pendiente',
-                notes: installment.notes || ''
+                notes: installment.notes || '',
+                source: installment.source || (installment.saleId ? 'venta' : 'manual'),
+                customerName: installment.customerName || '',
+                customerPhone: installment.customerPhone || '',
+                concept: installment.concept || '',
+                paymentMethod: installment.paymentMethod || ''
             });
+        } else if (isOpen && mode === 'create') {
+            // Default to manual if no saleId is provided from context
+            setFormData(prev => ({
+                ...prev,
+                saleId: '',
+                clientId: '',
+                vehicleId: '',
+                installmentNumber: 1,
+                dueDate: '',
+                amount: '',
+                currency: 'ARS',
+                status: 'pendiente',
+                notes: '',
+                source: 'venta',
+                customerName: '',
+                customerPhone: '',
+                concept: '',
+                paymentMethod: ''
+            }));
         }
-    }, [installment, isOpen]);
+    }, [installment, isOpen, mode]);
 
     if (!isOpen) return null;
 
@@ -48,9 +77,12 @@ export default function InstallmentModal({ isOpen, onClose, installment, onSave,
             clientId: cleanOptionalId(formData.clientId),
             vehicleId: cleanOptionalId(formData.vehicleId),
             amount: Number(formData.amount),
-            installmentNumber: Number(formData.installmentNumber),
-            source: 'manual'
+            installmentNumber: Number(formData.installmentNumber) || 1
         };
+
+        if (formData.source === 'manual') {
+            delete data.saleId; // Force remove saleId if manual
+        }
         
         Object.keys(data).forEach((key) => {
             if (data[key] === undefined || data[key] === "") {
@@ -61,15 +93,17 @@ export default function InstallmentModal({ isOpen, onClose, installment, onSave,
         await onSave(data);
     };
 
+    const isManual = formData.source === 'manual';
+
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
             <div className="absolute inset-0 bg-black/80 backdrop-blur-sm" onClick={onClose}></div>
             
-            <div className="bg-[#121214] border border-neutral-800 rounded-2xl w-full max-w-md relative z-10 flex flex-col max-h-[90vh]">
+            <div className="bg-[#121214] border border-neutral-800 rounded-2xl w-full max-w-lg relative z-10 flex flex-col max-h-[90vh]">
                 <div className="p-6 border-b border-neutral-800 flex justify-between items-center shrink-0">
                     <div>
                         <h2 className="text-xl font-bold text-white">
-                            {mode === 'create' ? 'Crear Cuota Manual' : `Gestionar Cuota ${formData.installmentNumber}`}
+                            {mode === 'create' ? 'Crear Cuota / Cuenta por Cobrar' : `Gestionar Cuota ${formData.installmentNumber}`}
                         </h2>
                         {mode === 'edit' && (
                             <p className="text-xs text-neutral-500 mt-1">Modifica los detalles de la cuota.</p>
@@ -87,12 +121,35 @@ export default function InstallmentModal({ isOpen, onClose, installment, onSave,
                     <form id="installment-form" onSubmit={handleSubmit} className="flex flex-col gap-5">
                         
                         {mode === 'create' && !installment?.saleId && (
+                            <div className="flex bg-neutral-900 rounded-xl p-1 border border-neutral-800">
+                                <button
+                                    type="button"
+                                    onClick={() => setFormData({ ...formData, source: 'venta' })}
+                                    className={`flex-1 py-2 text-sm font-bold rounded-lg transition-colors ${
+                                        !isManual ? 'bg-blue-600/20 text-blue-500 border border-blue-500/20' : 'text-neutral-400 hover:text-white'
+                                    }`}
+                                >
+                                    Vinculada a Venta
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => setFormData({ ...formData, source: 'manual' })}
+                                    className={`flex-1 py-2 text-sm font-bold rounded-lg transition-colors ${
+                                        isManual ? 'bg-purple-600/20 text-purple-500 border border-purple-500/20' : 'text-neutral-400 hover:text-white'
+                                    }`}
+                                >
+                                    Manual Independiente
+                                </button>
+                            </div>
+                        )}
+
+                        {!isManual && mode === 'create' && !installment?.saleId && (
                             <div>
                                 <label className="text-xs font-bold text-neutral-400 uppercase tracking-wider mb-2 block">ID de Venta Asociada</label>
                                 <input
                                     type="text"
-                                    required
-                                    placeholder="Ej: 60d5ecb8b48... (ID de Venta)"
+                                    required={!isManual}
+                                    placeholder="Ej: 60d5ecb8b48... (Obligatorio)"
                                     className="w-full bg-black border border-neutral-800 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-neutral-600 transition-colors"
                                     value={formData.saleId}
                                     onChange={(e) => setFormData({...formData, saleId: e.target.value})}
@@ -100,12 +157,59 @@ export default function InstallmentModal({ isOpen, onClose, installment, onSave,
                             </div>
                         )}
 
-                        {mode === 'create' && (
+                        {isManual && (
+                            <>
+                                <div>
+                                    <label className="text-xs font-bold text-neutral-400 uppercase tracking-wider mb-2 block">Nombre del Deudor / Cliente</label>
+                                    <div className="relative">
+                                        <User className="absolute left-4 top-1/2 -translate-y-1/2 text-neutral-500" size={16} />
+                                        <input
+                                            type="text"
+                                            required={isManual}
+                                            placeholder="Ej: Juan Pérez"
+                                            className="w-full bg-black border border-neutral-800 rounded-xl px-4 py-3 pl-11 text-sm text-white focus:outline-none focus:border-neutral-600 transition-colors"
+                                            value={formData.customerName}
+                                            onChange={(e) => setFormData({...formData, customerName: e.target.value})}
+                                        />
+                                    </div>
+                                </div>
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div>
+                                        <label className="text-xs font-bold text-neutral-400 uppercase tracking-wider mb-2 block">Teléfono (Opcional)</label>
+                                        <div className="relative">
+                                            <Phone className="absolute left-4 top-1/2 -translate-y-1/2 text-neutral-500" size={16} />
+                                            <input
+                                                type="text"
+                                                placeholder="Ej: 1123456789"
+                                                className="w-full bg-black border border-neutral-800 rounded-xl px-4 py-3 pl-11 text-sm text-white focus:outline-none focus:border-neutral-600 transition-colors"
+                                                value={formData.customerPhone}
+                                                onChange={(e) => setFormData({...formData, customerPhone: e.target.value})}
+                                            />
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <label className="text-xs font-bold text-neutral-400 uppercase tracking-wider mb-2 block">Concepto (Opcional)</label>
+                                        <div className="relative">
+                                            <Tag className="absolute left-4 top-1/2 -translate-y-1/2 text-neutral-500" size={16} />
+                                            <input
+                                                type="text"
+                                                placeholder="Ej: Préstamo, Saldo..."
+                                                className="w-full bg-black border border-neutral-800 rounded-xl px-4 py-3 pl-11 text-sm text-white focus:outline-none focus:border-neutral-600 transition-colors"
+                                                value={formData.concept}
+                                                onChange={(e) => setFormData({...formData, concept: e.target.value})}
+                                            />
+                                        </div>
+                                    </div>
+                                </div>
+                            </>
+                        )}
+
+                        {!isManual && (
                             <div>
                                 <label className="text-xs font-bold text-neutral-400 uppercase tracking-wider mb-2 block">Número de Cuota</label>
                                 <input
                                     type="number"
-                                    required
+                                    required={!isManual}
                                     min="1"
                                     className="w-full bg-black border border-neutral-800 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-neutral-600 transition-colors"
                                     value={formData.installmentNumber}
@@ -114,18 +218,39 @@ export default function InstallmentModal({ isOpen, onClose, installment, onSave,
                             </div>
                         )}
 
-                        <div>
-                            <label className="text-xs font-bold text-neutral-400 uppercase tracking-wider mb-2 block">Vencimiento</label>
-                            <div className="relative">
-                                <Calendar className="absolute left-4 top-1/2 -translate-y-1/2 text-neutral-500" size={16} />
-                                <input
-                                    type="date"
-                                    required
-                                    className="w-full bg-black border border-neutral-800 rounded-xl px-4 py-3 pl-11 text-sm text-white focus:outline-none focus:border-neutral-600 transition-colors"
-                                    value={formData.dueDate}
-                                    onChange={(e) => setFormData({...formData, dueDate: e.target.value})}
-                                />
+                        <div className="grid grid-cols-2 gap-4">
+                            <div>
+                                <label className="text-xs font-bold text-neutral-400 uppercase tracking-wider mb-2 block">Vencimiento</label>
+                                <div className="relative">
+                                    <Calendar className="absolute left-4 top-1/2 -translate-y-1/2 text-neutral-500" size={16} />
+                                    <input
+                                        type="date"
+                                        required
+                                        className="w-full bg-black border border-neutral-800 rounded-xl px-4 py-3 pl-11 text-sm text-white focus:outline-none focus:border-neutral-600 transition-colors"
+                                        value={formData.dueDate}
+                                        onChange={(e) => setFormData({...formData, dueDate: e.target.value})}
+                                    />
+                                </div>
                             </div>
+                            {isManual && (
+                                <div>
+                                    <label className="text-xs font-bold text-neutral-400 uppercase tracking-wider mb-2 block">Método Pago Prometido</label>
+                                    <div className="relative">
+                                        <Banknote className="absolute left-4 top-1/2 -translate-y-1/2 text-neutral-500" size={16} />
+                                        <select
+                                            className="w-full bg-black border border-neutral-800 rounded-xl px-4 py-3 pl-11 text-sm text-white focus:outline-none focus:border-neutral-600 transition-colors appearance-none"
+                                            value={formData.paymentMethod}
+                                            onChange={(e) => setFormData({...formData, paymentMethod: e.target.value})}
+                                        >
+                                            <option value="">Seleccionar...</option>
+                                            <option value="efectivo">Efectivo</option>
+                                            <option value="transferencia">Transferencia</option>
+                                            <option value="cheque">Cheque</option>
+                                            <option value="otro">Otro</option>
+                                        </select>
+                                    </div>
+                                </div>
+                            )}
                         </div>
 
                         <div className="flex gap-4">
@@ -210,7 +335,7 @@ export default function InstallmentModal({ isOpen, onClose, installment, onSave,
                         form="installment-form"
                         className="flex-1 px-4 py-3 rounded-xl font-bold text-sm text-white bg-blue-600 hover:bg-blue-500 transition-colors"
                     >
-                        Guardar Cuota
+                        Guardar {isManual ? 'Cuenta' : 'Cuota'}
                     </button>
                 </div>
             </div>

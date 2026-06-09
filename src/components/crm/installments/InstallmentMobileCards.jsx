@@ -17,8 +17,9 @@ export default function InstallmentMobileCards({ installments, onEdit, onRegiste
     return (
         <div className="md:hidden flex flex-col gap-4">
             {installments.map(inst => {
-                const clientName = inst.clientId?.fullName || inst.clientId?.firstName || 'Sin cliente';
-                const vehicleName = inst.vehicleId ? `${inst.vehicleId.brand} ${inst.vehicleId.name}` : 'Sin vehículo';
+                const isManual = inst.source === 'manual';
+                const clientName = isManual ? inst.customerName : (inst.clientId?.fullName || inst.clientId?.firstName || 'Sin cliente');
+                const vehicleName = isManual ? (inst.concept || 'Cuenta por cobrar') : (inst.vehicleId ? `${inst.vehicleId.brand} ${inst.vehicleId.name}` : 'Sin vehículo');
                 const isOverdue = inst.status === 'pendiente' && new Date(inst.dueDate) < new Date();
 
                 // Financial Status Calculation
@@ -53,7 +54,9 @@ export default function InstallmentMobileCards({ installments, onEdit, onRegiste
                                 )}
                             </div>
                             <div className="flex flex-col items-end">
-                                <span className="text-[10px] text-neutral-500 uppercase tracking-wider mb-0.5">Cuota {inst.installmentNumber}</span>
+                                <span className="text-[10px] text-neutral-500 uppercase tracking-wider mb-0.5">
+                                    {isManual ? 'A cobrar' : `Cuota ${inst.installmentNumber}`}
+                                </span>
                                 <div className="flex items-center gap-1.5">
                                     <Calendar size={12} className={isOverdue ? "text-red-400" : "text-neutral-500"} />
                                     <span className={`text-xs ${isOverdue ? 'font-bold text-red-400' : 'text-neutral-300'}`}>
@@ -66,10 +69,17 @@ export default function InstallmentMobileCards({ installments, onEdit, onRegiste
                         {/* Details */}
                         <div className="flex flex-col gap-3">
                             <div className="flex flex-col">
-                                <Link href={`/admin/ventas/${inst.saleId?._id || inst.saleId}`} className="text-sm font-bold text-white hover:text-red-400 transition-colors flex items-center gap-1.5">
-                                    <Handshake size={14} className="text-neutral-500" />
-                                    Venta Asociada
-                                </Link>
+                                {isManual ? (
+                                    <div className="text-sm font-bold text-purple-400 flex items-center gap-1.5">
+                                        <Handshake size={14} className="text-purple-500" />
+                                        Cuenta por Cobrar
+                                    </div>
+                                ) : (
+                                    <Link href={`/admin/ventas/${inst.saleId?._id || inst.saleId}`} className="text-sm font-bold text-white hover:text-red-400 transition-colors flex items-center gap-1.5">
+                                        <Handshake size={14} className="text-neutral-500" />
+                                        Venta Asociada
+                                    </Link>
+                                )}
                                 <span className="text-xs text-neutral-400 mt-1">{clientName}</span>
                                 <span className="text-[10px] text-neutral-500 uppercase tracking-wider">{vehicleName}</span>
                             </div>
