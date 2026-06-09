@@ -2703,6 +2703,59 @@ app.patch('/api/admin/sales/:id/link-client', authenticateToken, async (req, res
     }
 });
 
+app.patch('/api/admin/sales/:id/link-vehicle', authenticateToken, async (req, res) => {
+    try {
+        await connectDB();
+        const { vehicleId } = req.body;
+        if (!vehicleId) return res.status(400).json({ error: 'Falta vehicleId' });
+
+        const sale = await Sale.findById(req.params.id);
+        if (!sale) return res.status(404).json({ error: 'Sale not found' });
+
+        const vehicle = await Car.findById(vehicleId);
+        if (!vehicle) return res.status(404).json({ error: 'Vehicle not found' });
+
+        const user = req.user?.username || 'Admin';
+        const oldVehicle = sale.vehicleId ? sale.vehicleId.toString() : null;
+
+        sale.vehicleId = vehicle._id;
+        sale.updatedBy = user;
+        
+        if (!sale.saleAuditLog) sale.saleAuditLog = [];
+        sale.saleAuditLog.push({
+            action: 'VEHICULO_VINCULADO',
+            field: 'vehicleId',
+            oldValue: oldVehicle,
+            newValue: vehicle._id.toString(),
+            details: `Vehículo vinculado a la venta: ${vehicle.brand} ${vehicle.name}`,
+            user: user,
+            source: 'CRM_V2'
+        });
+
+        await logAudit({
+            req,
+            action: 'VENTA_VEHICULO_VINCULADO',
+            module: 'ventas',
+            entityType: 'Sale',
+            entityId: sale._id,
+            entityLabel: 'Venta',
+            description: `Se vinculó el vehículo ${vehicle.brand} ${vehicle.name} a la venta.`,
+            metadata: { vehicleId: vehicle._id, oldVehicle }
+        });
+
+        await sale.save();
+        
+        const populatedSale = await Sale.findById(sale._id)
+            .populate('vehicleId', 'brand name year plateOrVin price currency status')
+            .lean();
+
+        res.json(populatedSale);
+    } catch (error) {
+        console.error('Error linking vehicle to sale:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
 // POST backfill client from reservation
 app.post('/api/admin/sales/:id/backfill-client-from-reservation', authenticateToken, async (req, res) => {
     try {

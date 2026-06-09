@@ -4,8 +4,13 @@ import { Link2, CarFront, User, CalendarClock, ChevronRight, AlertTriangle, Sear
 
 export default function SaleLinkedEntitiesPanel({ sale, onUpdate }) {
     const [clientSearch, setClientSearch] = useState('');
-    const [searchResults, setSearchResults] = useState([]);
+    const [clientSearchResults, setClientSearchResults] = useState([]);
     const [searchingClient, setSearchingClient] = useState(false);
+    
+    const [vehicleSearch, setVehicleSearch] = useState('');
+    const [vehicleSearchResults, setVehicleSearchResults] = useState([]);
+    const [searchingVehicle, setSearchingVehicle] = useState(false);
+    
     const [isLinking, setIsLinking] = useState(false);
     const [error, setError] = useState(null);
 
@@ -20,7 +25,7 @@ export default function SaleLinkedEntitiesPanel({ sale, onUpdate }) {
                     });
                     if (res.ok) {
                         const data = await res.json();
-                        setSearchResults(data.clients || []);
+                        setClientSearchResults(data.clients || []);
                     }
                 } catch (err) {
                     console.error("Error searching clients", err);
@@ -30,9 +35,36 @@ export default function SaleLinkedEntitiesPanel({ sale, onUpdate }) {
             }, 500);
             return () => clearTimeout(delayDebounceFn);
         } else {
-            setSearchResults([]);
+            setClientSearchResults([]);
         }
     }, [clientSearch]);
+
+    useEffect(() => {
+        if (vehicleSearch.length > 2) {
+            const delayDebounceFn = setTimeout(async () => {
+                setSearchingVehicle(true);
+                try {
+                    const token = localStorage.getItem('token');
+                    const res = await fetch(`/api/admin/cars?search=${encodeURIComponent(vehicleSearch)}&limit=5`, {
+                        headers: { 'Authorization': `Bearer ${token}` }
+                    });
+                    if (res.ok) {
+                        const data = await res.json();
+                        // In /api/admin/cars, data is usually the array directly or inside a wrapper. 
+                        // It returns an array directly based on my previous checks.
+                        setVehicleSearchResults(Array.isArray(data) ? data : (data.cars || []));
+                    }
+                } catch (err) {
+                    console.error("Error searching vehicles", err);
+                } finally {
+                    setSearchingVehicle(false);
+                }
+            }, 500);
+            return () => clearTimeout(delayDebounceFn);
+        } else {
+            setVehicleSearchResults([]);
+        }
+    }, [vehicleSearch]);
 
     const handleLinkClient = async (clientId) => {
         setIsLinking(true);
@@ -50,6 +82,32 @@ export default function SaleLinkedEntitiesPanel({ sale, onUpdate }) {
             if (!res.ok) {
                 const data = await res.json();
                 throw new Error(data.error || 'Error al vincular cliente');
+            }
+            if (onUpdate) onUpdate();
+            else window.location.reload();
+        } catch (err) {
+            setError(err.message);
+        } finally {
+            setIsLinking(false);
+        }
+    };
+
+    const handleLinkVehicle = async (vehicleId) => {
+        setIsLinking(true);
+        setError(null);
+        try {
+            const token = localStorage.getItem('token');
+            const res = await fetch(`/api/admin/sales/${sale._id}/link-vehicle`, {
+                method: 'PATCH',
+                headers: { 
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ vehicleId })
+            });
+            if (!res.ok) {
+                const data = await res.json();
+                throw new Error(data.error || 'Error al vincular vehículo');
             }
             if (onUpdate) onUpdate();
             else window.location.reload();
@@ -106,23 +164,70 @@ export default function SaleLinkedEntitiesPanel({ sale, onUpdate }) {
             <div className="p-5 space-y-4 flex-1">
                 
                 {/* Vehicle */}
-                <div className="bg-black/30 border border-neutral-800/50 rounded-xl p-4 flex justify-between items-center group hover:bg-neutral-800 transition-colors">
-                    <div className="flex items-center gap-4">
-                        <div className="w-10 h-10 rounded-xl bg-neutral-800 flex items-center justify-center border border-neutral-700">
-                            <CarFront size={18} className="text-neutral-400" />
+                {sale.vehicleId ? (
+                    <div className="bg-black/30 border border-neutral-800/50 rounded-xl p-4 flex justify-between items-center group hover:bg-neutral-800 transition-colors">
+                        <div className="flex items-center gap-4">
+                            <div className="w-10 h-10 rounded-xl bg-neutral-800 flex items-center justify-center border border-neutral-700">
+                                <CarFront size={18} className="text-neutral-400" />
+                            </div>
+                            <div className="flex flex-col">
+                                <span className="text-[10px] text-neutral-500 uppercase font-bold tracking-wider mb-0.5">Vehículo</span>
+                                <span className="text-sm font-bold text-white">{vehicleName}</span>
+                                {vehicleVin && <span className="text-[10px] text-neutral-500 font-mono mt-1">{vehicleVin}</span>}
+                            </div>
                         </div>
-                        <div className="flex flex-col">
-                            <span className="text-[10px] text-neutral-500 uppercase font-bold tracking-wider mb-0.5">Vehículo</span>
-                            <span className="text-sm font-bold text-white">{vehicleName}</span>
-                            {vehicleVin && <span className="text-[10px] text-neutral-500 font-mono mt-1">{vehicleVin}</span>}
-                        </div>
-                    </div>
-                    {sale.vehicleId && (
                         <Link href={vehicleHref} className="w-10 h-10 rounded-xl bg-neutral-800 hover:bg-neutral-700 text-white flex items-center justify-center transition-colors shadow-sm">
                             <ChevronRight size={18} />
                         </Link>
-                    )}
-                </div>
+                    </div>
+                ) : (
+                    <div className="bg-red-500/10 border border-red-500/20 rounded-xl p-4 flex flex-col gap-4">
+                        <div className="flex gap-3 items-start">
+                            <AlertTriangle size={18} className="text-red-500 shrink-0 mt-0.5" />
+                            <div>
+                                <span className="text-sm font-bold text-red-400 block mb-1">Venta sin vehículo vinculado</span>
+                                <p className="text-xs text-red-200/70">Esta venta no tiene un vehículo oficial asociado. Búscalo y vincúlalo para mantener la integridad del CRM.</p>
+                            </div>
+                        </div>
+
+                        {error && <div className="text-xs text-red-400 font-bold">{error}</div>}
+
+                        <div className="relative">
+                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-500" size={14} />
+                            <input
+                                type="text"
+                                placeholder="Buscar vehículo por marca, modelo, patente o VIN..."
+                                className="w-full bg-black/40 border border-neutral-800 rounded-lg py-2 pl-9 pr-3 text-xs text-white focus:outline-none focus:border-[#EF3329]/50 transition-colors"
+                                value={vehicleSearch}
+                                onChange={(e) => setVehicleSearch(e.target.value)}
+                                disabled={isLinking}
+                            />
+                        </div>
+
+                        {vehicleSearchResults.length > 0 && (
+                            <div className="space-y-2 max-h-40 overflow-y-auto custom-scrollbar bg-[#161619] rounded-lg p-2 border border-neutral-800">
+                                {vehicleSearchResults.map(car => (
+                                    <div key={car._id} className="flex items-center justify-between bg-black/40 p-2 rounded-lg">
+                                        <div className="flex flex-col">
+                                            <span className="text-[11px] font-bold text-white">{car.brand} {car.name}</span>
+                                            <span className="text-[10px] text-neutral-500 font-mono">{car.plateOrVin}</span>
+                                        </div>
+                                        <button 
+                                            onClick={() => handleLinkVehicle(car._id)}
+                                            disabled={isLinking}
+                                            className="px-2 py-1 text-[10px] font-bold bg-[#E63027] hover:bg-[#C42620] text-white rounded transition-colors disabled:opacity-50"
+                                        >
+                                            Vincular
+                                        </button>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+                        {vehicleSearch.length > 2 && vehicleSearchResults.length === 0 && !searchingVehicle && (
+                            <div className="text-[10px] text-neutral-500 text-center">No se encontraron vehículos.</div>
+                        )}
+                    </div>
+                )}
 
                 {/* Client / Lead */}
                 {sale.clientId ? (
@@ -188,9 +293,9 @@ export default function SaleLinkedEntitiesPanel({ sale, onUpdate }) {
                             />
                         </div>
 
-                        {searchResults.length > 0 && (
+                        {clientSearchResults.length > 0 && (
                             <div className="space-y-2 max-h-40 overflow-y-auto custom-scrollbar bg-[#161619] rounded-lg p-2 border border-neutral-800">
-                                {searchResults.map(client => (
+                                {clientSearchResults.map(client => (
                                     <div key={client._id} className="flex items-center justify-between bg-black/40 p-2 rounded-lg">
                                         <div className="flex flex-col">
                                             <span className="text-[11px] font-bold text-white">{client.fullName || client.firstName}</span>
@@ -207,7 +312,7 @@ export default function SaleLinkedEntitiesPanel({ sale, onUpdate }) {
                                 ))}
                             </div>
                         )}
-                        {clientSearch.length > 2 && searchResults.length === 0 && !searchingClient && (
+                        {clientSearch.length > 2 && clientSearchResults.length === 0 && !searchingClient && (
                             <div className="text-[10px] text-neutral-500 text-center">No se encontraron clientes.</div>
                         )}
                     </div>
