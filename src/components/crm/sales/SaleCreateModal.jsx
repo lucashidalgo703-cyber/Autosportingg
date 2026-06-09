@@ -97,6 +97,8 @@ export default function SaleCreateModal({ isOpen, onClose, onSuccess }) {
             vehicleCard: false
         },
         
+        documents: {},
+        
         estimatedDeliveryDate: '',
         notes: ''
     });
@@ -586,16 +588,58 @@ export default function SaleCreateModal({ isOpen, onClose, onSuccess }) {
                             <p className="text-xs text-crm-fg-muted mb-4 -mt-3">Podés adjuntar los archivos ahora o subirlos después desde el expediente. Máx. 15 MB por archivo.</p>
                             
                             <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-                                {['DNI Frente', 'DNI Dorso', 'Cédula Verde Frente', 'Cédula Verde Dorso'].map(doc => (
-                                    <div key={doc} className="rounded-xl border border-dashed border-yellow-500/40 bg-yellow-500/5 p-4 flex flex-col items-center justify-center gap-3">
-                                        <span className="text-xs font-bold text-white text-center flex items-center gap-2">
-                                            <FileBadge size={14} className="text-yellow-500" /> {doc}
-                                        </span>
-                                        <button type="button" className="flex items-center gap-2 px-4 py-1.5 rounded-full bg-yellow-500/10 border border-yellow-500/20 text-yellow-500 text-[11px] font-bold hover:bg-yellow-500/20 transition-colors">
-                                            <Paperclip size={12} /> Adjuntar
-                                        </button>
-                                    </div>
-                                ))}
+                                {['DNI Frente', 'DNI Dorso', 'Cédula Verde Frente', 'Cédula Verde Dorso'].map(doc => {
+                                    const file = formData.documents[doc];
+                                    
+                                    return (
+                                        <div key={doc} className={`relative rounded-xl border border-dashed p-4 flex flex-col items-center justify-center gap-3 ${file ? 'border-yellow-500 bg-yellow-500/10' : 'border-yellow-500/40 bg-yellow-500/5'}`}>
+                                            <span className="text-xs font-bold text-white text-center flex items-center gap-2">
+                                                <FileBadge size={14} className="text-yellow-500" /> {doc}
+                                            </span>
+                                            
+                                            {file ? (
+                                                <div className="flex flex-col items-center gap-2">
+                                                    <span className="text-[10px] text-crm-fg-muted truncate max-w-[120px]" title={file.name}>
+                                                        {file.name}
+                                                    </span>
+                                                    <button 
+                                                        type="button" 
+                                                        onClick={() => {
+                                                            const newDocs = { ...formData.documents };
+                                                            delete newDocs[doc];
+                                                            updateField('documents', newDocs);
+                                                        }}
+                                                        className="flex items-center gap-1 px-3 py-1 rounded-full bg-crm-surface text-crm-red text-[10px] font-bold hover:bg-crm-surface-raised transition-colors"
+                                                    >
+                                                        <X size={10} /> Quitar
+                                                    </button>
+                                                </div>
+                                            ) : (
+                                                <>
+                                                    <input 
+                                                        type="file" 
+                                                        id={`file-upload-${doc}`}
+                                                        className="hidden"
+                                                        accept=".jpg,.jpeg,.png,.pdf"
+                                                        onChange={(e) => {
+                                                            if (e.target.files && e.target.files[0]) {
+                                                                const newDocs = { ...formData.documents, [doc]: e.target.files[0] };
+                                                                updateField('documents', newDocs);
+                                                            }
+                                                        }}
+                                                    />
+                                                    <button 
+                                                        type="button" 
+                                                        onClick={() => document.getElementById(`file-upload-${doc}`).click()}
+                                                        className="flex items-center gap-2 px-4 py-1.5 rounded-full bg-yellow-500/10 border border-yellow-500/20 text-yellow-500 text-[11px] font-bold hover:bg-yellow-500/20 transition-colors"
+                                                    >
+                                                        <Paperclip size={12} /> Adjuntar
+                                                    </button>
+                                                </>
+                                            )}
+                                        </div>
+                                    );
+                                })}
                             </div>
                         </>
                     )}
