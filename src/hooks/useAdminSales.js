@@ -94,12 +94,32 @@ export function useAdminSales() {
         }
     };
 
+    const createSale = async (payload) => {
+        try {
+            const res = await fetch(`${getBaseUrl()}/api/admin/sales`, {
+                method: 'POST',
+                headers: getAuthHeader(),
+                body: JSON.stringify(payload)
+            });
+
+            if (!res.ok) {
+                const errData = await res.json().catch(() => ({}));
+                throw new Error(errData.message || 'Error al crear la venta');
+            }
+
+            return await res.json();
+        } catch (err) {
+            throw err;
+        }
+    };
+
     return {
         sales,
         loading,
         error,
         fetchSales,
         fetchSaleById,
-        updateSale
+        updateSale,
+        createSale
     };
 }

@@ -2292,12 +2292,14 @@ app.post('/api/admin/sales', authenticateToken, async (req, res) => {
     try {
         await connectDB();
         const { vehicleId, clientId, leadId, salePrice, saleCurrency, paymentMethod, notes, salesperson, saleDate } = req.body;
+        const finalSalePrice = Number(salePrice);
+        const finalSaleCurrency = saleCurrency;
         const user = req.user?.username || 'Admin';
 
         // 1. Validaciones previas
         if (!vehicleId) throw new Error('Vehicle ID is required');
-        if (salePrice < 0) throw new Error('Sale price cannot be negative');
-        if (!['ARS', 'USD'].includes(saleCurrency)) throw new Error('Invalid sale currency');
+        if (!Number.isFinite(finalSalePrice) || finalSalePrice < 0) throw new Error('Sale price cannot be negative');
+        if (!['ARS', 'USD'].includes(finalSaleCurrency)) throw new Error('Invalid sale currency');
 
         const vehicle = await Car.findById(vehicleId);
         if (!vehicle) throw new Error('Vehicle not found');
@@ -2311,8 +2313,8 @@ app.post('/api/admin/sales', authenticateToken, async (req, res) => {
             vehicleId,
             clientId: clientId || undefined,
             leadId: leadId || undefined,
-            salePrice,
-            saleCurrency,
+            salePrice: finalSalePrice,
+            saleCurrency: finalSaleCurrency,
             paymentMethod: paymentMethod || 'contado',
             notes,
             salesperson,
