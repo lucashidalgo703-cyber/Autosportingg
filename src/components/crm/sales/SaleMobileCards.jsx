@@ -1,21 +1,21 @@
 import React from 'react';
 import Link from 'next/link';
-import { CarFront, ChevronRight, Search, User } from 'lucide-react';
+import { CarFront, ChevronRight, Search, ShoppingCart, User } from 'lucide-react';
 import SaleStatusBadge from './SaleStatusBadge';
 
 export default function SaleMobileCards({ sales, onViewDetail }) {
     if (!sales || sales.length === 0) {
         return (
-            <div className="m-3 flex flex-col items-center justify-center rounded-xl border border-dashed border-crm-border bg-crm-bg p-8 text-center md:hidden">
-                <p className="m-0 text-sm text-crm-fg-muted">
-                    No hay resultados que coincidan con los filtros actuales.
-                </p>
+            <div className="flex min-h-[210px] flex-col items-center justify-center rounded-xl border border-dashed border-crm-border bg-crm-surface p-8 text-center md:hidden">
+                <ShoppingCart size={36} className="mb-3 text-crm-fg-subtle" />
+                <h3 className="m-0 text-base font-bold text-crm-fg">Sin resultados</h3>
+                <p className="m-0 mt-2 text-sm text-crm-fg-muted">Todavía no hay ventas cargadas.</p>
             </div>
         );
     }
 
     return (
-        <div className="flex flex-col gap-3 p-3 md:hidden">
+        <div className="flex flex-col gap-3 md:hidden">
             {sales.map(sale => {
                 const name = sale.clientId?.fullName || sale.clientId?.firstName || sale.leadId?.name || 'Sin Nombre';
                 const vehicleName = sale.vehicleId ? `${sale.vehicleId.brand} ${sale.vehicleId.name}` : 'Vehiculo no asignado';

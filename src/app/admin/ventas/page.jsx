@@ -1,8 +1,8 @@
 "use client";
 import React, { useEffect, useMemo, useState } from 'react';
-import { RefreshCcw, ShieldAlert } from 'lucide-react';
+import { Download, Plus, ShieldAlert } from 'lucide-react';
+import { useRouter } from 'next/navigation';
 import { useAdminSales } from '../../../hooks/useAdminSales';
-import SalesSummaryCards from '../../../components/crm/sales/SalesSummaryCards';
 import SalesFilters from '../../../components/crm/sales/SalesFilters';
 import SalesTable from '../../../components/crm/sales/SalesTable';
 import SaleMobileCards from '../../../components/crm/sales/SaleMobileCards';
@@ -10,6 +10,7 @@ import SaleDetailDrawer from '../../../components/crm/sales/SaleDetailDrawer';
 import CrmButton from '../../../components/crm/ui/CrmButton';
 
 export default function VentasPage() {
+    const router = useRouter();
     const { fetchSales, loading, error } = useAdminSales();
     const [allSales, setAllSales] = useState([]);
     const [isDrawerOpen, setIsDrawerOpen] = useState(false);
@@ -17,12 +18,17 @@ export default function VentasPage() {
 
     const [filters, setFilters] = useState({
         search: '',
+        seller: '',
         status: 'todas',
         currency: 'todas',
         paymentMethod: 'todas',
         documentationStatus: 'todas',
         deliveryStatus: 'todas',
-        collectionStatus: 'todas'
+        collectionStatus: 'todas',
+        dateFrom: '',
+        dateTo: '',
+        month: '',
+        tradeInOnly: false
     });
 
     const loadData = async () => {
@@ -45,6 +51,7 @@ export default function VentasPage() {
                 const vehicleName = (sale.vehicleId?.name || '').toLowerCase();
                 const vehicleVin = (sale.vehicleId?.plateOrVin || '').toLowerCase();
                 const phone = (sale.clientId?.phone || sale.leadId?.phone || '').toLowerCase();
+                const dni = (sale.clientId?.dni || sale.leadId?.dni || '').toLowerCase();
 
                 const matchSearch =
                     clientName.includes(searchLower) ||
@@ -52,9 +59,16 @@ export default function VentasPage() {
                     vehicleBrand.includes(searchLower) ||
                     vehicleName.includes(searchLower) ||
                     vehicleVin.includes(searchLower) ||
-                    phone.includes(searchLower);
+                    phone.includes(searchLower) ||
+                    dni.includes(searchLower);
 
                 if (!matchSearch) return false;
+            }
+
+            if (filters.seller) {
+                const sellerLower = filters.seller.toLowerCase();
+                const seller = `${sale.salesperson || ''} ${sale.assignedTo?.name || ''} ${sale.assignedTo?.email || ''}`.toLowerCase();
+                if (!seller.includes(sellerLower)) return false;
             }
 
             if (filters.status !== 'todas' && sale.status !== filters.status) return false;
@@ -63,6 +77,21 @@ export default function VentasPage() {
             if (filters.documentationStatus && filters.documentationStatus !== 'todas' && (sale.documentationStatus || 'pendiente') !== filters.documentationStatus) return false;
             if (filters.deliveryStatus && filters.deliveryStatus !== 'todas' && (sale.deliveryStatus || 'pendiente') !== filters.deliveryStatus) return false;
             if (filters.collectionStatus && filters.collectionStatus !== 'todas' && (sale.finance?.collectionStatus || 'sin_cobro') !== filters.collectionStatus) return false;
+            if (filters.tradeInOnly && (!sale.tradeIns || sale.tradeIns.length === 0)) return false;
+
+            const saleDate = new Date(sale.saleDate || sale.createdAt);
+            if (filters.dateFrom) {
+                const from = new Date(`${filters.dateFrom}T00:00:00`);
+                if (saleDate < from) return false;
+            }
+            if (filters.dateTo) {
+                const to = new Date(`${filters.dateTo}T23:59:59`);
+                if (saleDate > to) return false;
+            }
+            if (filters.month) {
+                const saleMonth = `${saleDate.getFullYear()}-${String(saleDate.getMonth() + 1).padStart(2, '0')}`;
+                if (saleMonth !== filters.month) return false;
+            }
 
             return true;
         });
@@ -83,29 +112,58 @@ export default function VentasPage() {
         };
     }, [allSales]);
 
+    const handleExport = () => {
+        const headers = ['Fecha', 'Cliente', 'Vehiculo', 'Estado', 'Metodo', 'Moneda', 'Precio'];
+        const rows = filteredSales.map((sale) => ([
+            new Date(sale.saleDate || sale.createdAt).toLocaleDateString('es-AR'),
+            sale.clientId?.fullName || sale.clientId?.firstName || sale.leadId?.name || '',
+            sale.vehicleId ? `${sale.vehicleId.brand || ''} ${sale.vehicleId.name || ''}`.trim() : '',
+            sale.status || '',
+            sale.paymentMethod || '',
+            sale.saleCurrency || '',
+            sale.salePrice || 0
+        ]));
+        const csv = [headers, ...rows]
+            .map((row) => row.map((value) => `"${String(value).replace(/"/g, '""')}"`).join(','))
+            .join('\n');
+        const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = `autosporting_ventas_${new Date().toISOString().slice(0, 10)}.csv`;
+        link.click();
+        URL.revokeObjectURL(url);
+    };
+
     return (
         <div className="mx-auto flex w-full max-w-7xl flex-col gap-5 p-4 pb-24 md:p-6">
             <div className="flex flex-col gap-4 border-b border-crm-border pb-5 lg:flex-row lg:items-start lg:justify-between">
                 <div>
                     <h1 className="m-0 text-[26px] font-bold leading-tight text-crm-fg">Ventas</h1>
                     <p className="m-0 mt-1 text-sm font-medium text-crm-fg-muted">
-                        {totals.total} ventas · {totals.active} activas · {totals.delivered} entregadas
+                        {totals.total} ventas · {totals.active} en curso · {totals.delivered} cerradas
                     </p>
                 </div>
 
                 <div className="flex flex-wrap items-center gap-2">
-                    <span className="inline-flex h-9 items-center rounded-full border border-crm-border bg-crm-surface px-3 text-xs font-bold text-crm-fg-muted">
-                        {totals.pending} pendientes de entrega
-                    </span>
                     <CrmButton
                         variant="secondary"
                         size="sm"
-                        onClick={loadData}
-                        disabled={loading}
+                        onClick={handleExport}
+                        disabled={filteredSales.length === 0}
                         className="h-9"
                     >
-                        <RefreshCcw size={14} className={loading ? 'animate-spin' : ''} />
-                        Actualizar
+                        <Download size={14} />
+                        Exportar
+                    </CrmButton>
+                    <CrmButton
+                        variant="primary"
+                        size="sm"
+                        onClick={() => router.push('/admin/reservas')}
+                        className="h-9 shadow-[0_0_28px_rgba(239,51,41,0.45)]"
+                    >
+                        <Plus size={14} />
+                        Nueva venta
                     </CrmButton>
                 </div>
             </div>
@@ -126,23 +184,10 @@ export default function VentasPage() {
                 </div>
             ) : (
                 <>
-                    <SalesSummaryCards sales={allSales} />
-                    <SalesFilters filters={filters} setFilters={setFilters} />
+                    <SalesFilters filters={filters} setFilters={setFilters} onRefresh={loadData} loading={loading} />
 
-                    <section className="overflow-hidden rounded-xl border border-crm-border bg-crm-surface">
-                        <div className="flex flex-col gap-1 border-b border-crm-border px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
-                            <div>
-                                <h2 className="m-0 text-sm font-bold uppercase tracking-[0.06em] text-crm-fg">Listado de ventas</h2>
-                                <p className="m-0 mt-0.5 text-xs text-crm-fg-muted">{filteredSales.length} resultados encontrados</p>
-                            </div>
-                            <span className="inline-flex w-fit rounded-full border border-crm-red/20 bg-crm-red/10 px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.08em] text-crm-red">
-                                Comercial
-                            </span>
-                        </div>
-
-                        <SalesTable sales={filteredSales} onViewDetail={handleViewDetail} />
-                        <SaleMobileCards sales={filteredSales} onViewDetail={handleViewDetail} />
-                    </section>
+                    <SalesTable sales={filteredSales} onViewDetail={handleViewDetail} />
+                    <SaleMobileCards sales={filteredSales} onViewDetail={handleViewDetail} />
                 </>
             )}
 

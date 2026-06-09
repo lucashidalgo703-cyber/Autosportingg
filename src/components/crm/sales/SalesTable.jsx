@@ -1,24 +1,24 @@
 import React from 'react';
 import Link from 'next/link';
-import { ArrowRight, CarFront, Handshake, Search, User } from 'lucide-react';
+import { ArrowRight, CarFront, Search, ShoppingCart, User } from 'lucide-react';
 import SaleStatusBadge from './SaleStatusBadge';
 import CrmButton from '../ui/CrmButton';
 
 export default function SalesTable({ sales, onViewDetail }) {
     if (!sales || sales.length === 0) {
         return (
-            <div className="hidden min-h-[320px] flex-col items-center justify-center border-t border-dashed border-crm-border bg-crm-bg/40 p-12 text-center md:flex">
-                <Handshake size={42} className="mb-4 text-crm-fg-muted" />
-                <h3 className="m-0 text-lg font-bold text-crm-fg">No se encontraron ventas</h3>
+            <div className="hidden min-h-[210px] flex-col items-center justify-center rounded-xl border border-dashed border-crm-border bg-crm-surface p-12 text-center md:flex">
+                <ShoppingCart size={42} className="mb-4 text-crm-fg-subtle" />
+                <h3 className="m-0 text-base font-bold text-crm-fg">Sin resultados</h3>
                 <p className="m-0 mt-2 max-w-md text-sm leading-6 text-crm-fg-muted">
-                    No hay resultados que coincidan con los filtros actuales.
+                    Todavía no hay ventas cargadas. Podés crear una desde el botón de arriba.
                 </p>
             </div>
         );
     }
 
     return (
-        <div className="hidden bg-crm-surface md:block">
+        <div className="hidden overflow-hidden rounded-xl border border-crm-border bg-crm-surface md:block">
             <div className="overflow-x-auto">
                 <table className="w-full min-w-[1120px] border-collapse text-left">
                     <thead className="bg-crm-bg text-[10px] uppercase tracking-[0.08em] text-crm-fg-muted">
