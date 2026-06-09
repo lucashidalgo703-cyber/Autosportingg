@@ -28,7 +28,7 @@ const FINANCE_TABS = [
     { id: 'tarjeta', icon: '💳', label: 'Tarjeta' },
     { id: 'retiros', icon: '🏧', label: 'Retiros' },
     { id: 'comisiones', icon: '🪙', label: 'Comisiones' },
-    { id: 'mi-caja', icon: '👤', label: 'Mi Caja' },
+    { id: 'gastos-personales', icon: '👤', label: 'Gastos Personales' },
     { id: 'rentabilidad', icon: '📈', label: 'Rentabilidad' },
     { id: 'cuentas', icon: '🏦', label: 'Cuentas' },
     { id: 'cobrar-pagar', icon: '🔁', label: 'x Cobrar/Pagar' },
@@ -433,11 +433,11 @@ function FinanzasPage() {
                             />
                         )}
 
-                        {activeTab === 'mi-caja' && (
+                        {activeTab === 'gastos-personales' && (
                             <PersonalFinanceTab />
                         )}
 
-                        {activeTab !== 'resumen' && activeTab !== 'movimientos' && activeTab !== 'senas' && activeTab !== 'mi-caja' && (
+                        {activeTab !== 'resumen' && activeTab !== 'movimientos' && activeTab !== 'senas' && activeTab !== 'gastos-personales' && (
                             <FinanceTabPlaceholder
                                 tab={FINANCE_TABS.find((item) => item.id === activeTab)}
                                 balances={balances}

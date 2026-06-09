@@ -94,7 +94,7 @@ export default function PersonalFinanceTab() {
                 <section className="rounded-2xl border border-neutral-800 bg-[#121214] p-5">
                     <div className="mb-5 flex items-start justify-between gap-3">
                         <div>
-                            <h2 className="text-base font-black text-white">💰 Mi Saldo Personal</h2>
+                            <h2 className="text-base font-black text-white">💰 Gastos Personales</h2>
                             <p className="mt-1 text-xs text-neutral-400">Total acumulado en tu caja independiente.</p>
                         </div>
                         <Wallet className="text-blue-500" size={20} />
