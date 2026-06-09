@@ -7,7 +7,7 @@ import CrmButton from '../ui/CrmButton';
 export default function SalesTable({ sales, onViewDetail }) {
     if (!sales || sales.length === 0) {
         return (
-            <div className="hidden min-h-[320px] flex-col items-center justify-center rounded-xl border border-dashed border-crm-border bg-crm-surface p-12 text-center md:flex">
+            <div className="hidden min-h-[320px] flex-col items-center justify-center border-t border-dashed border-crm-border bg-crm-bg/40 p-12 text-center md:flex">
                 <Handshake size={42} className="mb-4 text-crm-fg-muted" />
                 <h3 className="m-0 text-lg font-bold text-crm-fg">No se encontraron ventas</h3>
                 <p className="m-0 mt-2 max-w-md text-sm leading-6 text-crm-fg-muted">
@@ -18,19 +18,19 @@ export default function SalesTable({ sales, onViewDetail }) {
     }
 
     return (
-        <div className="hidden overflow-hidden rounded-xl border border-crm-border bg-crm-surface md:block">
+        <div className="hidden bg-crm-surface md:block">
             <div className="overflow-x-auto">
                 <table className="w-full min-w-[1120px] border-collapse text-left">
-                    <thead className="bg-crm-surface-raised text-xs uppercase text-crm-fg-muted">
+                    <thead className="bg-crm-bg text-[10px] uppercase tracking-[0.08em] text-crm-fg-muted">
                         <tr>
-                            <th className="px-3 py-2 font-semibold">Fecha</th>
-                            <th className="px-3 py-2 font-semibold">Cliente / Cotizacion</th>
-                            <th className="px-3 py-2 font-semibold">Vehiculo</th>
-                            <th className="px-3 py-2 font-semibold">Estado</th>
-                            <th className="px-3 py-2 text-right font-semibold">Cobranza</th>
-                            <th className="px-3 py-2 font-semibold">Doc.</th>
-                            <th className="px-3 py-2 font-semibold">Logistica</th>
-                            <th className="px-3 py-2 text-center font-semibold">Acciones</th>
+                            <th className="px-4 py-3 font-bold">Fecha</th>
+                            <th className="px-4 py-3 font-bold">Cliente / Cotizacion</th>
+                            <th className="px-4 py-3 font-bold">Vehiculo</th>
+                            <th className="px-4 py-3 font-bold">Estado</th>
+                            <th className="px-4 py-3 text-right font-bold">Cobranza</th>
+                            <th className="px-4 py-3 font-bold">Doc.</th>
+                            <th className="px-4 py-3 font-bold">Logistica</th>
+                            <th className="px-4 py-3 text-center font-bold">Acciones</th>
                         </tr>
                     </thead>
                     <tbody className="divide-y divide-crm-border">
@@ -47,12 +47,12 @@ export default function SalesTable({ sales, onViewDetail }) {
 
                             return (
                                 <tr key={sale._id} className="h-[78px] text-sm text-crm-fg transition-colors hover:bg-crm-surface-raised/70">
-                                    <td className="px-3 py-2 align-middle">
+                                    <td className="px-4 py-3 align-middle">
                                         <span className="block text-sm text-crm-fg">{new Date(sale.saleDate || sale.createdAt).toLocaleDateString()}</span>
                                         <span className="text-[10px] uppercase text-crm-fg-muted">{sale.paymentMethod || 'contado'}</span>
                                     </td>
 
-                                    <td className="px-3 py-2 align-middle">
+                                    <td className="px-4 py-3 align-middle">
                                         <div className="flex flex-col">
                                             {hasClientLink ? (
                                                 <Link href={clientHref} className="flex max-w-[190px] items-center gap-2 truncate text-sm font-bold text-crm-fg no-underline transition-colors hover:text-crm-red">
@@ -69,7 +69,7 @@ export default function SalesTable({ sales, onViewDetail }) {
                                         </div>
                                     </td>
 
-                                    <td className="px-3 py-2 align-middle">
+                                    <td className="px-4 py-3 align-middle">
                                         <div className="flex flex-col">
                                             {sale.vehicleId ? (
                                                 <Link href={vehicleHref} className="flex max-w-[190px] items-center gap-2 truncate text-sm font-bold text-crm-fg no-underline transition-colors hover:text-crm-red">
@@ -87,11 +87,11 @@ export default function SalesTable({ sales, onViewDetail }) {
                                         </div>
                                     </td>
 
-                                    <td className="px-3 py-2 align-middle">
+                                    <td className="px-4 py-3 align-middle">
                                         <SaleStatusBadge status={sale.status} />
                                     </td>
 
-                                    <td className="px-3 py-2 text-right align-middle">
+                                    <td className="px-4 py-3 text-right align-middle">
                                         <div className="flex flex-col items-end gap-1">
                                             <span className={`text-sm font-bold ${sale.status === 'cancelada' ? 'text-crm-fg-muted line-through' : 'text-emerald-300'}`}>
                                                 {sale.saleCurrency} {(sale.salePrice || 0).toLocaleString('es-AR')}
@@ -107,7 +107,7 @@ export default function SalesTable({ sales, onViewDetail }) {
                                         </div>
                                     </td>
 
-                                    <td className="px-3 py-2 align-middle">
+                                    <td className="px-4 py-3 align-middle">
                                         <div className="flex flex-col gap-1">
                                             <span className={`w-max rounded border px-2 py-0.5 text-[10px] font-bold uppercase ${
                                                 sale.documentationStatus === 'completo' ? 'border-blue-500/20 bg-blue-500/10 text-blue-300' :
@@ -127,7 +127,7 @@ export default function SalesTable({ sales, onViewDetail }) {
                                         </div>
                                     </td>
 
-                                    <td className="px-3 py-2 align-middle">
+                                    <td className="px-4 py-3 align-middle">
                                         <div className="flex flex-col">
                                             {sale.deliveryStatus === 'entregado' ? (
                                                 <>
@@ -148,7 +148,7 @@ export default function SalesTable({ sales, onViewDetail }) {
                                         </div>
                                     </td>
 
-                                    <td className="px-3 py-2 text-center align-middle">
+                                    <td className="px-4 py-3 text-center align-middle">
                                         <CrmButton
                                             variant="secondary"
                                             size="sm"

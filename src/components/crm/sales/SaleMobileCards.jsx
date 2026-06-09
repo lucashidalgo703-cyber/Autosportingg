@@ -6,7 +6,7 @@ import SaleStatusBadge from './SaleStatusBadge';
 export default function SaleMobileCards({ sales, onViewDetail }) {
     if (!sales || sales.length === 0) {
         return (
-            <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-crm-border bg-crm-surface p-8 text-center md:hidden">
+            <div className="m-3 flex flex-col items-center justify-center rounded-xl border border-dashed border-crm-border bg-crm-bg p-8 text-center md:hidden">
                 <p className="m-0 text-sm text-crm-fg-muted">
                     No hay resultados que coincidan con los filtros actuales.
                 </p>
@@ -15,7 +15,7 @@ export default function SaleMobileCards({ sales, onViewDetail }) {
     }
 
     return (
-        <div className="flex flex-col gap-3 md:hidden">
+        <div className="flex flex-col gap-3 p-3 md:hidden">
             {sales.map(sale => {
                 const name = sale.clientId?.fullName || sale.clientId?.firstName || sale.leadId?.name || 'Sin Nombre';
                 const vehicleName = sale.vehicleId ? `${sale.vehicleId.brand} ${sale.vehicleId.name}` : 'Vehiculo no asignado';
@@ -24,7 +24,7 @@ export default function SaleMobileCards({ sales, onViewDetail }) {
                 const vehicleHref = sale.vehicleId?._id ? `/admin/stock/${sale.vehicleId._id}` : '#';
 
                 return (
-                    <article key={sale._id} className="overflow-hidden rounded-xl border border-crm-border bg-crm-surface">
+                    <article key={sale._id} className="overflow-hidden rounded-xl border border-crm-border bg-crm-bg">
                         <div className="flex items-start justify-between gap-3 border-b border-crm-border bg-crm-surface-raised/60 px-3 py-3">
                             <SaleStatusBadge status={sale.status} />
                             <div className="flex flex-col items-end">

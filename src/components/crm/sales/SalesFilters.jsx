@@ -5,6 +5,15 @@ import CrmSelect from '../ui/CrmSelect';
 import { CrmIconButton } from '../ui/CrmButton';
 
 export default function SalesFilters({ filters, setFilters }) {
+    const statusTabs = [
+        { label: 'Todas', value: 'todas' },
+        { label: 'Borrador', value: 'borrador' },
+        { label: 'Confirmadas', value: 'confirmada' },
+        { label: 'Pend. entrega', value: 'pendiente_entrega' },
+        { label: 'Entregadas', value: 'entregada' },
+        { label: 'Canceladas', value: 'cancelada' }
+    ];
+
     const handleClear = () => {
         setFilters({
             search: '',
@@ -19,12 +28,32 @@ export default function SalesFilters({ filters, setFilters }) {
 
     return (
         <div className="rounded-xl border border-crm-border bg-crm-surface p-3">
+            <div className="mb-3 flex gap-5 overflow-x-auto border-b border-crm-border px-1 pb-0">
+                {statusTabs.map((tab) => {
+                    const active = filters.status === tab.value;
+                    return (
+                        <button
+                            key={tab.value}
+                            type="button"
+                            onClick={() => setFilters({ ...filters, status: tab.value })}
+                            className={`m-0 shrink-0 appearance-none border-0 border-b-2 bg-transparent px-0 pb-3 pt-1 text-sm font-bold transition-colors ${
+                                active
+                                    ? 'border-crm-red text-crm-red'
+                                    : 'border-transparent text-crm-fg-muted hover:text-crm-fg'
+                            }`}
+                        >
+                            {tab.label}
+                        </button>
+                    );
+                })}
+            </div>
+
             <div className="flex flex-col gap-3 xl:flex-row">
                 <div className="relative flex-1">
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-crm-fg-muted" size={18} />
                     <CrmInput
                         type="text"
-                        placeholder="Buscar por cliente, cotizacion, telefono, vehiculo, dominio..."
+                        placeholder="Buscar venta, cliente, vehiculo, dominio..."
                         className="pl-10"
                         value={filters.search}
                         onChange={(e) => setFilters({ ...filters, search: e.target.value })}
@@ -32,20 +61,6 @@ export default function SalesFilters({ filters, setFilters }) {
                 </div>
 
                 <div className="grid grid-cols-2 gap-2 md:grid-cols-3 xl:flex xl:flex-nowrap">
-                    <div className="min-w-0 xl:w-40">
-                        <CrmSelect
-                            value={filters.status}
-                            onChange={(e) => setFilters({ ...filters, status: e.target.value })}
-                        >
-                            <option value="todas">Todos los Estados</option>
-                            <option value="borrador">Borrador</option>
-                            <option value="confirmada">Confirmada</option>
-                            <option value="pendiente_entrega">Pdte. Entrega</option>
-                            <option value="entregada">Entregada</option>
-                            <option value="cancelada">Cancelada</option>
-                        </CrmSelect>
-                    </div>
-
                     <div className="min-w-0 xl:w-36">
                         <CrmSelect
                             value={filters.currency}
@@ -111,7 +126,7 @@ export default function SalesFilters({ filters, setFilters }) {
                     <CrmIconButton
                         onClick={handleClear}
                         title="Limpiar filtros"
-                        className="shrink-0 justify-self-end"
+                        className="shrink-0 justify-self-end bg-crm-bg"
                     >
                         <RefreshCcw size={16} className="text-crm-fg-muted" />
                     </CrmIconButton>

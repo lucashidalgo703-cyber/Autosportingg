@@ -45,10 +45,10 @@ export default function SaleDetailDrawer({ sale, isOpen, onClose }) {
                 </div>
 
                 <div className="flex-1 space-y-5 overflow-y-auto p-5 custom-scrollbar">
-                    <div className="flex items-start gap-3 rounded-xl border border-blue-500/20 bg-blue-500/10 p-3">
-                        <ShieldCheck size={18} className="mt-0.5 shrink-0 text-blue-300" />
-                        <div className="text-xs leading-5 text-blue-100/80">
-                            <span className="mb-0.5 block font-bold text-blue-200">Vista de solo lectura</span>
+                    <div className="flex items-start gap-3 rounded-xl border border-crm-red/20 bg-crm-red/10 p-3">
+                        <ShieldCheck size={18} className="mt-0.5 shrink-0 text-crm-red" />
+                        <div className="text-xs leading-5 text-red-100/80">
+                            <span className="mb-0.5 block font-bold text-red-200">Vista de solo lectura</span>
                             La edicion y cancelacion de ventas se gestionan desde la ficha completa.
                         </div>
                     </div>

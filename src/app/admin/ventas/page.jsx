@@ -1,12 +1,13 @@
 "use client";
 import React, { useEffect, useMemo, useState } from 'react';
-import { ShieldAlert } from 'lucide-react';
+import { RefreshCcw, ShieldAlert } from 'lucide-react';
 import { useAdminSales } from '../../../hooks/useAdminSales';
 import SalesSummaryCards from '../../../components/crm/sales/SalesSummaryCards';
 import SalesFilters from '../../../components/crm/sales/SalesFilters';
 import SalesTable from '../../../components/crm/sales/SalesTable';
 import SaleMobileCards from '../../../components/crm/sales/SaleMobileCards';
 import SaleDetailDrawer from '../../../components/crm/sales/SaleDetailDrawer';
+import CrmButton from '../../../components/crm/ui/CrmButton';
 
 export default function VentasPage() {
     const { fetchSales, loading, error } = useAdminSales();
@@ -72,19 +73,40 @@ export default function VentasPage() {
         setIsDrawerOpen(true);
     };
 
+    const totals = useMemo(() => {
+        const validSales = allSales.filter((sale) => sale.status !== 'cancelada');
+        return {
+            total: allSales.length,
+            active: validSales.length,
+            delivered: allSales.filter((sale) => sale.status === 'entregada').length,
+            pending: allSales.filter((sale) => sale.status === 'pendiente_entrega').length
+        };
+    }, [allSales]);
+
     return (
-        <div className="mx-auto flex w-full max-w-7xl flex-col gap-6 p-4 pb-20 md:p-6">
-            <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+        <div className="mx-auto flex w-full max-w-7xl flex-col gap-5 p-4 pb-24 md:p-6">
+            <div className="flex flex-col gap-4 border-b border-crm-border pb-5 lg:flex-row lg:items-start lg:justify-between">
                 <div>
-                    <div className="flex flex-wrap items-center gap-2">
-                        <h1 className="m-0 text-[26px] font-bold leading-tight text-crm-fg">Ventas</h1>
-                        <span className="rounded border border-crm-red/20 bg-crm-red/10 px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.08em] text-crm-red">
-                            Comercial
-                        </span>
-                    </div>
-                    <p className="m-0 mt-1 text-sm text-crm-fg-muted">
-                        Operaciones cerradas, entregas y seguimiento comercial.
+                    <h1 className="m-0 text-[26px] font-bold leading-tight text-crm-fg">Ventas</h1>
+                    <p className="m-0 mt-1 text-sm font-medium text-crm-fg-muted">
+                        {totals.total} ventas · {totals.active} activas · {totals.delivered} entregadas
                     </p>
+                </div>
+
+                <div className="flex flex-wrap items-center gap-2">
+                    <span className="inline-flex h-9 items-center rounded-full border border-crm-border bg-crm-surface px-3 text-xs font-bold text-crm-fg-muted">
+                        {totals.pending} pendientes de entrega
+                    </span>
+                    <CrmButton
+                        variant="secondary"
+                        size="sm"
+                        onClick={loadData}
+                        disabled={loading}
+                        className="h-9"
+                    >
+                        <RefreshCcw size={14} className={loading ? 'animate-spin' : ''} />
+                        Actualizar
+                    </CrmButton>
                 </div>
             </div>
 
@@ -107,14 +129,20 @@ export default function VentasPage() {
                     <SalesSummaryCards sales={allSales} />
                     <SalesFilters filters={filters} setFilters={setFilters} />
 
-                    <div className="flex items-center justify-between rounded-xl border border-crm-border bg-crm-surface p-3">
-                        <h2 className="m-0 text-sm font-bold text-crm-fg">
-                            Resultados <span className="font-normal text-crm-fg-muted">({filteredSales.length})</span>
-                        </h2>
-                    </div>
+                    <section className="overflow-hidden rounded-xl border border-crm-border bg-crm-surface">
+                        <div className="flex flex-col gap-1 border-b border-crm-border px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+                            <div>
+                                <h2 className="m-0 text-sm font-bold uppercase tracking-[0.06em] text-crm-fg">Listado de ventas</h2>
+                                <p className="m-0 mt-0.5 text-xs text-crm-fg-muted">{filteredSales.length} resultados encontrados</p>
+                            </div>
+                            <span className="inline-flex w-fit rounded-full border border-crm-red/20 bg-crm-red/10 px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.08em] text-crm-red">
+                                Comercial
+                            </span>
+                        </div>
 
-                    <SalesTable sales={filteredSales} onViewDetail={handleViewDetail} />
-                    <SaleMobileCards sales={filteredSales} onViewDetail={handleViewDetail} />
+                        <SalesTable sales={filteredSales} onViewDetail={handleViewDetail} />
+                        <SaleMobileCards sales={filteredSales} onViewDetail={handleViewDetail} />
+                    </section>
                 </>
             )}
 

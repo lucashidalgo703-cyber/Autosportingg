@@ -47,7 +47,7 @@ export default function SalesSummaryCards({ sales }) {
 
     const cards = [
         {
-            label: 'Ventas registradas',
+            label: 'Ventas del mes',
             value: metrics.total,
             helper: `${metrics.confirmadas} confirmadas`,
             icon: Handshake,
@@ -105,41 +105,29 @@ export default function SalesSummaryCards({ sales }) {
     ];
 
     return (
-        <div className="flex flex-col gap-3">
-            <div className="flex items-start gap-3 rounded-xl border border-amber-500/20 bg-amber-500/10 p-3">
-                <AlertTriangle size={18} className="mt-0.5 shrink-0 text-amber-300" />
-                <div>
-                    <span className="block text-sm font-bold text-amber-200">Ventas comerciales registradas</span>
-                    <p className="m-0 mt-1 text-xs leading-5 text-amber-100/80">
-                        Estos valores reflejan volumen comercial. No representan caja real ni cobros efectivamente ingresados.
-                    </p>
-                </div>
-            </div>
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
+            {cards.map((card) => {
+                const Icon = card.icon;
 
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
-                {cards.map((card) => {
-                    const Icon = card.icon;
-
-                    return (
-                        <div key={card.label} className="rounded-xl border border-crm-border bg-crm-surface p-4">
-                            <div className="flex items-start justify-between gap-3">
-                                <div className="min-w-0">
-                                    <p className="m-0 text-[11px] font-bold uppercase tracking-[0.08em] text-crm-fg-muted">
-                                        {card.label}
-                                    </p>
-                                    <p className="m-0 mt-3 truncate text-2xl font-bold leading-none text-crm-fg">
-                                        {card.value}
-                                    </p>
-                                    <p className="m-0 mt-2 text-xs text-crm-fg-muted">{card.helper}</p>
-                                </div>
-                                <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border ${card.tone}`}>
-                                    <Icon size={18} />
-                                </span>
+                return (
+                    <div key={card.label} className="min-h-[132px] rounded-xl border border-crm-border bg-crm-surface p-4 transition-colors hover:border-crm-border-strong hover:bg-crm-surface-raised/40">
+                        <div className="flex h-full items-start justify-between gap-3">
+                            <div className="flex min-w-0 flex-col">
+                                <p className="m-0 text-[11px] font-bold uppercase tracking-[0.08em] text-crm-fg-muted">
+                                    {card.label}
+                                </p>
+                                <p className="m-0 mt-5 truncate text-[28px] font-black leading-none text-crm-fg">
+                                    {card.value}
+                                </p>
+                                <p className="m-0 mt-3 text-xs text-crm-fg-muted">{card.helper}</p>
                             </div>
+                            <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border ${card.tone}`}>
+                                <Icon size={18} />
+                            </span>
                         </div>
-                    );
-                })}
-            </div>
+                    </div>
+                );
+            })}
         </div>
     );
 }
