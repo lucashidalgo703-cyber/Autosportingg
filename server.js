@@ -3005,7 +3005,11 @@ app.patch('/api/admin/sales/:id', authenticateToken, async (req, res) => {
         await connectDB();
         const { 
             status, 
-            paymentMethod, 
+            paymentMethod,
+            salePrice,
+            saleCurrency,
+            depositAppliedAmount,
+            depositAppliedCurrency,
             notes,
             documentationChecklist,
             deliveryChecklist,
@@ -3048,7 +3052,54 @@ app.patch('/api/admin/sales/:id', authenticateToken, async (req, res) => {
         }
         
         if (paymentMethod !== undefined && paymentMethod !== sale.paymentMethod) {
+            sale.saleAuditLog.push({
+                action: 'METODO_PAGO_ACTUALIZADO',
+                field: 'paymentMethod',
+                oldValue: sale.paymentMethod,
+                newValue: paymentMethod,
+                details: `Método de pago actualizado a ${paymentMethod}`,
+                user: user,
+                source: 'CRM_V2'
+            });
             sale.paymentMethod = paymentMethod;
+            hasChanges = true;
+        }
+
+        if (salePrice !== undefined && Number(salePrice) !== Number(sale.salePrice || 0)) {
+            sale.saleAuditLog.push({
+                action: 'PRECIO_VENTA_ACTUALIZADO',
+                field: 'salePrice',
+                oldValue: sale.salePrice,
+                newValue: Number(salePrice),
+                details: `Precio de venta actualizado de ${sale.salePrice || 0} a ${salePrice}`,
+                user: user,
+                source: 'CRM_V2'
+            });
+            sale.salePrice = Number(salePrice);
+            hasChanges = true;
+        }
+
+        if (saleCurrency !== undefined && saleCurrency !== sale.saleCurrency) {
+            sale.saleCurrency = saleCurrency;
+            hasChanges = true;
+        }
+
+        if (depositAppliedAmount !== undefined && Number(depositAppliedAmount) !== Number(sale.depositAppliedAmount || 0)) {
+            sale.saleAuditLog.push({
+                action: 'SENA_ACTUALIZADA',
+                field: 'depositAppliedAmount',
+                oldValue: sale.depositAppliedAmount,
+                newValue: Number(depositAppliedAmount),
+                details: `Seña aplicada actualizada de ${sale.depositAppliedAmount || 0} a ${depositAppliedAmount}`,
+                user: user,
+                source: 'CRM_V2'
+            });
+            sale.depositAppliedAmount = Number(depositAppliedAmount);
+            hasChanges = true;
+        }
+
+        if (depositAppliedCurrency !== undefined && depositAppliedCurrency !== sale.depositAppliedCurrency) {
+            sale.depositAppliedCurrency = depositAppliedCurrency;
             hasChanges = true;
         }
         

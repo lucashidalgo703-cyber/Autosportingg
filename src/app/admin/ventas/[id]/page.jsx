@@ -201,7 +201,7 @@ export default function SaleDetailPage() {
                         <SaleLinkedEntitiesPanel sale={sale} onUpdate={loadSale} />
                     </div>
                     <div className="h-auto">
-                        <SaleCommercialPanel sale={sale} />
+                        <SaleCommercialPanel sale={sale} onSave={handleSave} />
                     </div>
                     <div className="h-auto">
                         <SaleTradeInPanel sale={sale} onUpdate={loadSale} />
