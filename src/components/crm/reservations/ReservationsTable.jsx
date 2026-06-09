@@ -1,10 +1,10 @@
 import React from 'react';
 import Link from 'next/link';
-import { AlertCircle, CarFront, ChevronRight, Lock, User, XCircle } from 'lucide-react';
+import { AlertCircle, CarFront, ChevronRight, Lock, User, XCircle, Trash2 } from 'lucide-react';
 import ReservationStatusBadge from './ReservationStatusBadge';
 import CrmButton from '../ui/CrmButton';
 
-export default function ReservationsTable({ reservations, onLiberar, onConvertir, getIsOverdue }) {
+export default function ReservationsTable({ reservations, onLiberar, onConvertir, getIsOverdue, onDelete }) {
     if (!reservations || reservations.length === 0) {
         return (
             <div className="hidden min-h-[210px] flex-col items-center justify-center rounded-xl border border-dashed border-crm-border bg-crm-surface p-12 text-center md:flex">
@@ -135,6 +135,17 @@ export default function ReservationsTable({ reservations, onLiberar, onConvertir
                                                         <XCircle size={16} />
                                                     </button>
                                                 </>
+                                            )}
+
+                                            {(res.status === 'cancelada' || res.status === 'convertida') && onDelete && (
+                                                <button
+                                                    type="button"
+                                                    onClick={() => onDelete(res)}
+                                                    className="flex h-8 w-8 items-center justify-center rounded-lg border border-crm-red/20 bg-crm-red/10 text-red-300 transition-colors hover:bg-crm-red/20"
+                                                    title={`Eliminar reserva ${res.status}`}
+                                                >
+                                                    <Trash2 size={16} />
+                                                </button>
                                             )}
 
                                             <Link

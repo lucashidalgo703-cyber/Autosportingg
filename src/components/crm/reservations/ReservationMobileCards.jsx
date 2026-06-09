@@ -1,9 +1,9 @@
 import React from 'react';
 import Link from 'next/link';
-import { AlertCircle, CarFront, ChevronRight, Lock, User, XCircle } from 'lucide-react';
+import { AlertCircle, CarFront, ChevronRight, Lock, User, XCircle, Trash2 } from 'lucide-react';
 import ReservationStatusBadge from './ReservationStatusBadge';
 
-export default function ReservationMobileCards({ reservations, onLiberar, onConvertir, getIsOverdue }) {
+export default function ReservationMobileCards({ reservations, onLiberar, onConvertir, getIsOverdue, onDelete }) {
     if (!reservations || reservations.length === 0) {
         return (
             <div className="flex min-h-[210px] flex-col items-center justify-center rounded-xl border border-dashed border-crm-border bg-crm-surface p-8 text-center md:hidden">
@@ -96,9 +96,20 @@ export default function ReservationMobileCards({ reservations, onLiberar, onConv
                                 </>
                             )}
 
+                            {(res.status === 'cancelada' || res.status === 'convertida') && onDelete && (
+                                <button
+                                    type="button"
+                                    onClick={() => onDelete(res)}
+                                    className="m-0 flex h-11 w-11 appearance-none items-center justify-center rounded-lg border border-crm-red/20 bg-crm-red/10 text-red-300 transition-colors hover:bg-crm-red/20"
+                                    title={`Eliminar reserva ${res.status}`}
+                                >
+                                    <Trash2 size={16} />
+                                </button>
+                            )}
+
                             <Link
                                 href={vehicleHref}
-                                className={`${res.status === 'activa' ? 'w-11 flex-none' : 'flex-1'} flex h-11 items-center justify-center rounded-lg border border-crm-border bg-crm-surface-raised text-crm-fg-muted no-underline transition-colors hover:bg-crm-border`}
+                                className={`${res.status === 'activa' ? 'w-11 flex-none' : (onDelete ? 'flex-1' : 'flex-1')} flex h-11 items-center justify-center rounded-lg border border-crm-border bg-crm-surface-raised text-crm-fg-muted no-underline transition-colors hover:bg-crm-border`}
                             >
                                 <ChevronRight size={18} />
                             </Link>

@@ -18,6 +18,7 @@ export default function VentasPage() {
     const { fetchSales, loading, error, deleteSale } = useAdminSales();
     const {
         fetchReservations,
+        deleteReservation,
         loading: reservationsLoading,
         error: reservationsError
     } = useAdminReservations();
@@ -188,6 +189,18 @@ export default function VentasPage() {
         }
     };
 
+    const handleDeleteReservation = async (reservation) => {
+        if (reservation.status !== 'cancelada' && reservation.status !== 'convertida') return;
+        if (window.confirm(`¿Estás seguro de que quieres eliminar permanentemente esta reserva ${reservation.status}?`)) {
+            try {
+                await deleteReservation(reservation._id);
+                loadData();
+            } catch (err) {
+                alert(err.message || 'Error al eliminar la reserva');
+            }
+        }
+    };
+
     const handleLiberarClick = (reservation) => {
         setSelectedReservation(reservation);
         setIsCancelModalOpen(true);
@@ -304,12 +317,14 @@ export default function VentasPage() {
                                 onLiberar={handleLiberarClick}
                                 onConvertir={handleConvertirClick}
                                 getIsOverdue={getIsOverdue}
+                                onDelete={handleDeleteReservation}
                             />
                             <ReservationMobileCards
                                 reservations={filteredReservations}
                                 onLiberar={handleLiberarClick}
                                 onConvertir={handleConvertirClick}
                                 getIsOverdue={getIsOverdue}
+                                onDelete={handleDeleteReservation}
                             />
                         </>
                     ) : (

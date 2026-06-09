@@ -132,6 +132,24 @@ export function useAdminReservations() {
         }
     };
 
+    const deleteReservation = async (id) => {
+        try {
+            const res = await fetch(`${getBaseUrl()}/api/admin/reservations/${id}`, {
+                method: 'DELETE',
+                headers: getAuthHeader()
+            });
+
+            if (!res.ok) {
+                const errData = await res.json().catch(() => ({}));
+                throw new Error(errData.error || errData.message || 'Error al eliminar la reserva');
+            }
+
+            return await res.json();
+        } catch (err) {
+            throw err;
+        }
+    };
+
     return {
         reservations,
         loading,
@@ -140,6 +158,7 @@ export function useAdminReservations() {
         fetchReservationById,
         createReservation,
         updateReservation,
-        convertReservationToSale
+        convertReservationToSale,
+        deleteReservation
     };
 }

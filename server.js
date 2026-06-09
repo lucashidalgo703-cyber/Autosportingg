@@ -2085,6 +2085,28 @@ app.patch('/api/admin/reservations/:id', authenticateToken, async (req, res) => 
     }
 });
 
+// DELETE reservation
+app.delete('/api/admin/reservations/:id', authenticateToken, async (req, res) => {
+    try {
+        await connectDB();
+        const reservation = await Reservation.findById(req.params.id);
+        
+        if (!reservation) {
+            return res.status(404).json({ error: 'Reserva no encontrada.' });
+        }
+        
+        if (reservation.status !== 'cancelada' && reservation.status !== 'convertida') {
+            return res.status(400).json({ error: 'Solo se pueden eliminar reservas canceladas o convertidas.' });
+        }
+
+        await Reservation.findByIdAndDelete(req.params.id);
+        res.json({ message: 'Reserva eliminada exitosamente.' });
+    } catch (error) {
+        console.error('Error deleting reservation:', error);
+        res.status(500).json({ error: 'Error interno al eliminar la reserva.' });
+    }
+});
+
 // PATCH link client to reservation
 app.patch('/api/admin/reservations/:id/link-client', authenticateToken, async (req, res) => {
     try {
