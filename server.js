@@ -4209,28 +4209,7 @@ app.delete('/api/admin/sales/:id/installments', authenticateToken, async (req, r
         }
         const saleId = req.params.id;
 
-        // Check if there are any transactions linked to ANY installment of this sale
-        const saleInstallments = await Installment.find({ saleId });
-        const installmentIds = saleInstallments.map(i => i._id);
-        
-        const linkedTx = await Transaction.findOne({ 
-            installmentId: { $in: installmentIds }, 
-            status: { $ne: 'anulado' } 
-        });
-
-        if (linkedTx) {
-            return res.status(400).json({ 
-                message: 'No se puede eliminar el plan de cuotas porque existen movimientos financieros vinculados a una o más cuotas. Anúlelos primero.' 
-            });
-        }
-        
-        // Also check if any installment has paidAmount > 0 or status == pagada / pagada_manual
-        const hasPaid = saleInstallments.some(i => i.paidAmount > 0 || i.status === 'pagada' || i.status === 'pagada_manual');
-        if (hasPaid) {
-            return res.status(400).json({ 
-                message: 'No se puede eliminar el plan porque existen cuotas con pagos registrados o marcadas como pagadas.' 
-            });
-        }
+        // Removed safety checks per user request: deleting plan forcefully.
 
         await Installment.deleteMany({ saleId });
 
@@ -4242,7 +4221,7 @@ app.delete('/api/admin/sales/:id/installments', authenticateToken, async (req, r
             entityId: saleId,
             entityLabel: `Venta ${saleId}`,
             description: `Se eliminó completamente el plan de cuotas de la venta.`,
-            metadata: { saleId, count: saleInstallments.length }
+            metadata: { saleId }
         });
 
         res.json({ message: 'Plan de cuotas eliminado exitosamente.' });
