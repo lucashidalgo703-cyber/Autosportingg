@@ -63,7 +63,7 @@ const saleSchema = new mongoose.Schema({
     reservationId: { type: mongoose.Schema.Types.ObjectId, ref: 'Reservation' },
     leadId: { type: mongoose.Schema.Types.ObjectId, ref: 'Lead' },
     clientId: { type: mongoose.Schema.Types.ObjectId, ref: 'Client' },
-    vehicleId: { type: mongoose.Schema.Types.ObjectId, ref: 'Car', required: true },
+    vehicleId: { type: mongoose.Schema.Types.ObjectId, ref: 'Car' },
     
     status: { 
         type: String, 
@@ -117,6 +117,36 @@ const saleSchema = new mongoose.Schema({
     cancelledBy: { type: String },
     cancellationReason: { type: String },
     cancellationNotes: { type: String },
+    
+    // CARGA MANUAL Y PROPIETARIO
+    isManualImport: { type: Boolean, default: false },
+    vehicleOwnerName: { type: String },
+    vehicleOwnerPhone: { type: String },
+    
+    // CONSIGNACIÓN
+    consignationOwnerId: { type: mongoose.Schema.Types.ObjectId, ref: 'AdminUser' },
+    consignationManagerId: { type: mongoose.Schema.Types.ObjectId, ref: 'AdminUser' },
+    
+    // COMISIONES
+    commissionSettings: {
+        isManual: { type: Boolean, default: false },
+        sellerPct: { type: Number, default: 1 },
+        consignationPct: { type: Number, default: 0.5 },
+        extraAmount: { type: Number, default: 0 },
+        extraCurrency: { type: String, enum: ['ARS', 'USD'], default: 'USD' },
+        isSplit: { type: Boolean, default: false }
+    },
+    
+    // ITEMS FÍSICOS DE ENTREGA
+    deliveryItems: {
+        securityNut: { type: Boolean, default: false },
+        spareKey: { type: Boolean, default: false },
+        manuals: { type: Boolean, default: false },
+        vehicleCard: { type: Boolean, default: false }
+    },
+    
+    // PAGO EXTENDIDO
+    installmentsCount: { type: Number, default: 0 },
     
     assignedTo: { type: mongoose.Schema.Types.ObjectId, ref: 'AdminUser', default: null },
     assignedAt: { type: Date },

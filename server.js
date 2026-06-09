@@ -2291,26 +2291,34 @@ app.get('/api/admin/sales/:id', authenticateToken, async (req, res) => {
 app.post('/api/admin/sales', authenticateToken, async (req, res) => {
     try {
         await connectDB();
-        const { vehicleId, clientId, leadId, salePrice, saleCurrency, paymentMethod, notes, salesperson, saleDate } = req.body;
+        const { 
+            vehicleId, clientId, leadId, salePrice, saleCurrency, paymentMethod, notes, salesperson, saleDate, status,
+            isManualImport, vehicleOwnerName, vehicleOwnerPhone,
+            consignationOwnerId, consignationManagerId,
+            commissionSettings, deliveryItems, installmentsCount, depositAppliedAmount, depositAppliedCurrency
+        } = req.body;
         const finalSalePrice = Number(salePrice);
         const finalSaleCurrency = saleCurrency;
         const user = req.user?.username || 'Admin';
 
         // 1. Validaciones previas
-        if (!vehicleId) throw new Error('Vehicle ID is required');
+        if (!isManualImport && !vehicleId) throw new Error('Vehicle ID is required for standard sales');
         if (!Number.isFinite(finalSalePrice) || finalSalePrice < 0) throw new Error('Sale price cannot be negative');
         if (!['ARS', 'USD'].includes(finalSaleCurrency)) throw new Error('Invalid sale currency');
 
-        const vehicle = await Car.findById(vehicleId);
-        if (!vehicle) throw new Error('Vehicle not found');
-        if (vehicle.status !== 'Disponible') throw new Error(`Vehicle is ${vehicle.status}, only Disponible vehicles can be manually sold`);
+        let vehicle = null;
+        if (vehicleId) {
+            vehicle = await Car.findById(vehicleId);
+            if (!vehicle) throw new Error('Vehicle not found');
+            if (vehicle.status !== 'Disponible') throw new Error(`Vehicle is ${vehicle.status}, only Disponible vehicles can be manually sold`);
 
-        const existingSale = await Sale.findOne({ vehicleId, status: { $ne: 'cancelada' } });
-        if (existingSale) throw new Error('There is already an active sale for this vehicle');
+            const existingSale = await Sale.findOne({ vehicleId, status: { $ne: 'cancelada' } });
+            if (existingSale) throw new Error('There is already an active sale for this vehicle');
+        }
 
         // 2. Creación
         const newSale = new Sale({
-            vehicleId,
+            vehicleId: vehicleId || undefined,
             clientId: clientId || undefined,
             leadId: leadId || undefined,
             salePrice: finalSalePrice,
@@ -2319,11 +2327,24 @@ app.post('/api/admin/sales', authenticateToken, async (req, res) => {
             notes,
             salesperson,
             saleDate: saleDate || new Date(),
-            status: 'confirmada',
+            status: status || 'confirmada',
             createdBy: user,
+            
+            // Nuevos campos
+            isManualImport: !!isManualImport,
+            vehicleOwnerName,
+            vehicleOwnerPhone,
+            consignationOwnerId: consignationOwnerId || undefined,
+            consignationManagerId: consignationManagerId || undefined,
+            commissionSettings,
+            deliveryItems,
+            installmentsCount: installmentsCount || 0,
+            depositAppliedAmount: depositAppliedAmount || 0,
+            depositAppliedCurrency,
+            
             saleAuditLog: [{
                 action: 'VENTA_CREADA_MANUAL',
-                details: 'Venta creada manualmente sin reserva previa',
+                details: isManualImport ? 'Venta histórica (manual import) registrada' : 'Venta creada manualmente sin reserva previa',
                 user: user,
                 source: 'CRM_V2'
             }]
@@ -2337,24 +2358,26 @@ app.post('/api/admin/sales', authenticateToken, async (req, res) => {
             module: 'ventas',
             entityType: 'Sale',
             entityId: savedSale._id,
-            entityLabel: `Venta de ${vehicle.brand} ${vehicle.name}`,
+            entityLabel: vehicle ? `Venta de ${vehicle.brand} ${vehicle.name}` : `Venta histórica manual`,
             description: `Se creó una venta manual por ${finalSaleCurrency} ${finalSalePrice}.`,
-            metadata: { vehicleId: vehicle._id, salePrice: finalSalePrice, currency: finalSaleCurrency }
+            metadata: { vehicleId: vehicle?._id, salePrice: finalSalePrice, currency: finalSaleCurrency, isManualImport }
         });
 
-        // 3. Rollback Manual Controlado
+        // 3. Rollback Manual Controlado (solo si hay vehículo)
         try {
-            vehicle.status = 'Vendido';
-            vehicle.auditLog.push({
-                action: 'ESTADO',
-                field: 'status',
-                oldValue: 'Disponible',
-                newValue: 'Vendido',
-                details: `Vehículo vendido (Venta ID: ${savedSale._id})`,
-                user: user,
-                source: 'CRM_V2'
-            });
-            await vehicle.save();
+            if (vehicle) {
+                vehicle.status = 'Vendido';
+                vehicle.auditLog.push({
+                    action: 'ESTADO',
+                    field: 'status',
+                    oldValue: 'Disponible',
+                    newValue: 'Vendido',
+                    details: `Vehículo vendido (Venta ID: ${savedSale._id})`,
+                    user: user,
+                    source: 'CRM_V2'
+                });
+                await vehicle.save();
+            }
 
             if (leadId) {
                 const lead = await Lead.findById(leadId);
@@ -2380,7 +2403,7 @@ app.post('/api/admin/sales', authenticateToken, async (req, res) => {
             console.error('Inner error during manual sale, performing manual rollback', innerError);
             await Sale.findByIdAndDelete(savedSale._id);
             
-            if (vehicle.status === 'Vendido') {
+            if (vehicle && vehicle.status === 'Vendido') {
                 vehicle.status = 'Disponible';
                 vehicle.auditLog.pop();
                 await vehicle.save();
