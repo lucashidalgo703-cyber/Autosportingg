@@ -14,8 +14,12 @@ const installmentAuditSchema = new mongoose.Schema({
 const installmentSchema = new mongoose.Schema({
     saleId: {
         type: mongoose.Schema.Types.ObjectId,
-        ref: 'Sale',
-        required: true
+        ref: 'Sale'
+    },
+    source: {
+        type: String,
+        enum: ['venta', 'manual'],
+        default: 'venta'
     },
     clientId: {
         type: mongoose.Schema.Types.ObjectId,

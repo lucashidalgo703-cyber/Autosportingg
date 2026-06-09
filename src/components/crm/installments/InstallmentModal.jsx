@@ -48,7 +48,8 @@ export default function InstallmentModal({ isOpen, onClose, installment, onSave,
             clientId: cleanOptionalId(formData.clientId),
             vehicleId: cleanOptionalId(formData.vehicleId),
             amount: Number(formData.amount),
-            installmentNumber: Number(formData.installmentNumber)
+            installmentNumber: Number(formData.installmentNumber),
+            source: 'manual'
         };
         
         Object.keys(data).forEach((key) => {

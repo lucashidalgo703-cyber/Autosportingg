@@ -4058,13 +4058,14 @@ app.post('/api/admin/installments', authenticateToken, async (req, res) => {
     try {
         await connectDB();
         const user = req.user ? (req.user.email || req.user.role) : 'System';
-        const { saleId, clientId, vehicleId, installmentNumber, dueDate, amount, currency, notes, status } = req.body;
+        const { saleId, clientId, vehicleId, installmentNumber, dueDate, amount, currency, notes, status, source } = req.body;
+        const isManual = source === 'manual';
 
-        if (!saleId || !installmentNumber || !dueDate || amount === undefined || !currency) {
+        if ((!isManual && !saleId) || !installmentNumber || !dueDate || amount === undefined || !currency) {
             return res.status(400).json({ 
-                message: 'Faltan campos obligatorios: venta, n├║mero de cuota, vencimiento, importe o moneda.',
+                message: 'Faltan campos obligatorios: número de cuota, vencimiento, importe o moneda.',
                 missing: {
-                    saleId: !saleId,
+                    saleId: !isManual && !saleId,
                     installmentNumber: !installmentNumber,
                     dueDate: !dueDate,
                     amount: amount === undefined,
@@ -4079,23 +4080,28 @@ app.post('/api/admin/installments', authenticateToken, async (req, res) => {
             return value;
         };
 
+        const cleanSaleId = sanitizeOptionalObjectId(saleId);
         const cleanClientId = sanitizeOptionalObjectId(clientId);
         const cleanVehicleId = sanitizeOptionalObjectId(vehicleId);
 
-        if (!saleId || !mongoose.Types.ObjectId.isValid(saleId)) {
-            return res.status(400).json({ message: "saleId inv├ílido o faltante" });
+        if (!isManual && (!cleanSaleId || !mongoose.Types.ObjectId.isValid(cleanSaleId))) {
+            return res.status(400).json({ message: "saleId inválido o faltante" });
+        }
+        if (cleanSaleId && !mongoose.Types.ObjectId.isValid(cleanSaleId)) {
+            return res.status(400).json({ message: "saleId inválido" });
         }
         if (cleanClientId && !mongoose.Types.ObjectId.isValid(cleanClientId)) {
-            return res.status(400).json({ message: "clientId inv├ílido" });
+            return res.status(400).json({ message: "clientId inválido" });
         }
         if (cleanVehicleId && !mongoose.Types.ObjectId.isValid(cleanVehicleId)) {
-            return res.status(400).json({ message: "vehicleId inv├ílido" });
+            return res.status(400).json({ message: "vehicleId inválido" });
         }
 
         const newInstallment = new Installment({
-            saleId,
+            ...(cleanSaleId && { saleId: cleanSaleId }),
             ...(cleanClientId && { clientId: cleanClientId }),
             ...(cleanVehicleId && { vehicleId: cleanVehicleId }),
+            source: isManual ? 'manual' : 'venta',
             installmentNumber,
             dueDate,
             amount,
