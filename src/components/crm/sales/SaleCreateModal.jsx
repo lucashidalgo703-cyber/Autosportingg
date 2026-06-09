@@ -319,11 +319,15 @@ export default function SaleCreateModal({ isOpen, onClose, onSuccess }) {
                         <div>
                             <FieldLabel required>Precio de Venta (al comprador)</FieldLabel>
                             <div className="flex gap-2">
-                                <CrmSelect value={formData.saleCurrency} onChange={(e) => updateField('saleCurrency', e.target.value)} className="w-[88px] h-10 bg-crm-bg font-bold">
-                                    <option value="USD">USD</option>
-                                    <option value="ARS">ARS</option>
-                                </CrmSelect>
-                                <CrmInput type="number" min="0" value={formData.salePrice} onChange={(e) => updateField('salePrice', e.target.value)} className="flex-1 h-10 bg-crm-bg" placeholder="Ej: 38800" />
+                                <div className="w-24 shrink-0">
+                                    <CrmSelect value={formData.saleCurrency} onChange={(e) => updateField('saleCurrency', e.target.value)} className="h-10 bg-crm-bg font-bold">
+                                        <option value="USD">USD</option>
+                                        <option value="ARS">ARS</option>
+                                    </CrmSelect>
+                                </div>
+                                <div className="flex-1">
+                                    <CrmInput type="number" min="0" value={formData.salePrice} onChange={(e) => updateField('salePrice', e.target.value)} className="h-10 bg-crm-bg" placeholder="Ej: 38800" />
+                                </div>
                             </div>
                         </div>
 
@@ -538,11 +542,15 @@ export default function SaleCreateModal({ isOpen, onClose, onSuccess }) {
                                     <div>
                                         <FieldLabel>Extra cobrado al cliente (bruto)</FieldLabel>
                                         <div className="flex gap-2">
-                                            <CrmSelect value={formData.extraCurrency} onChange={(e) => updateField('extraCurrency', e.target.value)} disabled={!formData.manualCommission} className="w-[80px] h-10 bg-crm-bg disabled:opacity-50">
-                                                <option value="USD">USD</option>
-                                                <option value="ARS">ARS</option>
-                                            </CrmSelect>
-                                            <CrmInput type="number" value={formData.extraAmount} onChange={(e) => updateField('extraAmount', e.target.value)} disabled={!formData.manualCommission} placeholder="Monto fijo" className="flex-1 h-10 bg-crm-bg disabled:opacity-50" />
+                                            <div className="w-24 shrink-0">
+                                                <CrmSelect value={formData.extraCurrency} onChange={(e) => updateField('extraCurrency', e.target.value)} disabled={!formData.manualCommission} className="h-10 bg-crm-bg disabled:opacity-50">
+                                                    <option value="USD">USD</option>
+                                                    <option value="ARS">ARS</option>
+                                                </CrmSelect>
+                                            </div>
+                                            <div className="flex-1">
+                                                <CrmInput type="number" value={formData.extraAmount} onChange={(e) => updateField('extraAmount', e.target.value)} disabled={!formData.manualCommission} placeholder="Monto fijo" className="h-10 bg-crm-bg disabled:opacity-50" />
+                                            </div>
                                         </div>
                                         <p className="m-0 mt-1 text-[10px] text-crm-fg-muted leading-tight">Recargo a favor de la agencia (ej. gestión de transferencia). De acá se liquida la parte del vendedor según el % de abajo.</p>
                                     </div>
