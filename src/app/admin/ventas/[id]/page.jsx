@@ -17,7 +17,7 @@ import CommunicationLogPanel from '../../../../components/crm/communications/Com
 import MessageTemplatePicker from '../../../../components/crm/templates/MessageTemplatePicker';
 import CrmTaskModal from '../../../../components/crm/agenda/CrmTaskModal';
 import { useAdminCrmTasks } from '../../../../hooks/useAdminCrmTasks';
-import { ShieldAlert, Target, XCircle, Info } from 'lucide-react';
+import { ShieldAlert, Target, XCircle, Info, CheckCircle } from 'lucide-react';
 import { useAuth } from '../../../../context/AuthContext';
 import { hasPermission, PERMISSIONS } from '../../../../utils/adminPermissions';
 
@@ -162,6 +162,19 @@ export default function SaleDetailPage() {
                 sale={sale} 
                 actions={
                     <div className="flex gap-2">
+                        {sale.status === 'borrador' && (
+                            <button
+                                onClick={async () => {
+                                    if (window.confirm('¿Estás seguro de que quieres activar esta venta? Pasará de Borrador a Activa.')) {
+                                        await handleSave({ status: 'confirmada' });
+                                    }
+                                }}
+                                className="flex items-center gap-2 rounded-lg border border-emerald-500/20 bg-emerald-500/10 px-3 py-1.5 text-xs font-bold text-emerald-300 transition-colors hover:bg-emerald-500/20"
+                            >
+                                <CheckCircle size={14} />
+                                Activar Venta
+                            </button>
+                        )}
                         {sale.status !== 'cancelada' && (['owner', 'admin'].includes(user?.role) || hasPermission(user, PERMISSIONS.VENTAS_CANCEL)) && (
                             <button
                                 onClick={() => setIsCancelModalOpen(true)}
