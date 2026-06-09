@@ -11,6 +11,12 @@ export default function SaleLinkedEntitiesPanel({ sale, onUpdate }) {
     const [vehicleSearchResults, setVehicleSearchResults] = useState([]);
     const [searchingVehicle, setSearchingVehicle] = useState(false);
     
+    // Manual Vehicle State
+    const [isManualVehicleMode, setIsManualVehicleMode] = useState(false);
+    const [manualBrand, setManualBrand] = useState('');
+    const [manualModel, setManualModel] = useState('');
+    const [manualPlate, setManualPlate] = useState('');
+
     const [isLinking, setIsLinking] = useState(false);
     const [error, setError] = useState(null);
 
@@ -118,6 +124,40 @@ export default function SaleLinkedEntitiesPanel({ sale, onUpdate }) {
         }
     };
 
+    const handleManualVehicleCreate = async () => {
+        if (!manualBrand.trim() || !manualModel.trim()) {
+            setError('Marca y modelo son obligatorios');
+            return;
+        }
+        setIsLinking(true);
+        setError(null);
+        try {
+            const token = localStorage.getItem('token');
+            const res = await fetch(`/api/admin/sales/${sale._id}/create-link-vehicle`, {
+                method: 'POST',
+                headers: { 
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    brand: manualBrand,
+                    name: manualModel,
+                    plateOrVin: manualPlate
+                })
+            });
+            if (!res.ok) {
+                const data = await res.json();
+                throw new Error(data.error || 'Error al crear vehículo manual');
+            }
+            if (onUpdate) onUpdate();
+            else window.location.reload();
+        } catch (err) {
+            setError(err.message);
+        } finally {
+            setIsLinking(false);
+        }
+    };
+
     const handleBackfillFromReservation = async () => {
         setIsLinking(true);
         setError(null);
@@ -186,45 +226,111 @@ export default function SaleLinkedEntitiesPanel({ sale, onUpdate }) {
                             <AlertTriangle size={18} className="text-red-500 shrink-0 mt-0.5" />
                             <div>
                                 <span className="text-sm font-bold text-red-400 block mb-1">Venta sin vehículo vinculado</span>
-                                <p className="text-xs text-red-200/70">Esta venta no tiene un vehículo oficial asociado. Búscalo y vincúlalo para mantener la integridad del CRM.</p>
+                                <p className="text-xs text-red-200/70">Esta venta no tiene un vehículo oficial asociado. Búscalo o cárgalo manualmente para mantener la integridad del CRM.</p>
                             </div>
                         </div>
 
                         {error && <div className="text-xs text-red-400 font-bold">{error}</div>}
 
-                        <div className="relative">
-                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-500" size={14} />
-                            <input
-                                type="text"
-                                placeholder="Buscar vehículo por marca, modelo, patente o VIN..."
-                                className="w-full bg-black/40 border border-neutral-800 rounded-lg py-2 pl-9 pr-3 text-xs text-white focus:outline-none focus:border-[#EF3329]/50 transition-colors"
-                                value={vehicleSearch}
-                                onChange={(e) => setVehicleSearch(e.target.value)}
-                                disabled={isLinking}
-                            />
+                        {/* Tabs for Vehicle Linking */}
+                        <div className="flex gap-2 p-1 bg-black/40 rounded-lg">
+                            <button
+                                onClick={() => setIsManualVehicleMode(false)}
+                                className={`flex-1 py-1.5 text-[11px] font-bold rounded-md transition-colors ${!isManualVehicleMode ? 'bg-[#EF3329] text-white shadow-sm' : 'text-neutral-400 hover:text-white'}`}
+                            >
+                                Buscar en Stock
+                            </button>
+                            <button
+                                onClick={() => setIsManualVehicleMode(true)}
+                                className={`flex-1 py-1.5 text-[11px] font-bold rounded-md transition-colors ${isManualVehicleMode ? 'bg-[#EF3329] text-white shadow-sm' : 'text-neutral-400 hover:text-white'}`}
+                            >
+                                Cargar Manual
+                            </button>
                         </div>
 
-                        {vehicleSearchResults.length > 0 && (
-                            <div className="space-y-2 max-h-40 overflow-y-auto custom-scrollbar bg-[#161619] rounded-lg p-2 border border-neutral-800">
-                                {vehicleSearchResults.map(car => (
-                                    <div key={car._id} className="flex items-center justify-between bg-black/40 p-2 rounded-lg">
-                                        <div className="flex flex-col">
-                                            <span className="text-[11px] font-bold text-white">{car.brand} {car.name}</span>
-                                            <span className="text-[10px] text-neutral-500 font-mono">{car.plateOrVin}</span>
-                                        </div>
-                                        <button 
-                                            onClick={() => handleLinkVehicle(car._id)}
-                                            disabled={isLinking}
-                                            className="px-2 py-1 text-[10px] font-bold bg-[#E63027] hover:bg-[#C42620] text-white rounded transition-colors disabled:opacity-50"
-                                        >
-                                            Vincular
-                                        </button>
+                        {!isManualVehicleMode ? (
+                            <>
+                                <div className="relative">
+                                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-500" size={14} />
+                                    <input
+                                        type="text"
+                                        placeholder="Buscar vehículo por marca, modelo, patente o VIN..."
+                                        className="w-full bg-black/40 border border-neutral-800 rounded-lg py-2 pl-9 pr-3 text-xs text-white focus:outline-none focus:border-[#EF3329]/50 transition-colors"
+                                        value={vehicleSearch}
+                                        onChange={(e) => setVehicleSearch(e.target.value)}
+                                        disabled={isLinking}
+                                    />
+                                </div>
+
+                                {vehicleSearchResults.length > 0 && (
+                                    <div className="space-y-2 max-h-40 overflow-y-auto custom-scrollbar bg-[#161619] rounded-lg p-2 border border-neutral-800">
+                                        {vehicleSearchResults.map(car => (
+                                            <div key={car._id} className="flex items-center justify-between bg-black/40 p-2 rounded-lg">
+                                                <div className="flex flex-col">
+                                                    <span className="text-[11px] font-bold text-white">{car.brand} {car.name}</span>
+                                                    <span className="text-[10px] text-neutral-500 font-mono">{car.plateOrVin}</span>
+                                                </div>
+                                                <button 
+                                                    onClick={() => handleLinkVehicle(car._id)}
+                                                    disabled={isLinking}
+                                                    className="px-2 py-1 text-[10px] font-bold bg-[#E63027] hover:bg-[#C42620] text-white rounded transition-colors disabled:opacity-50"
+                                                >
+                                                    Vincular
+                                                </button>
+                                            </div>
+                                        ))}
                                     </div>
-                                ))}
+                                )}
+                                {vehicleSearch.length > 2 && vehicleSearchResults.length === 0 && !searchingVehicle && (
+                                    <div className="text-[10px] text-neutral-500 text-center">No se encontraron vehículos.</div>
+                                )}
+                            </>
+                        ) : (
+                            <div className="space-y-3 bg-black/20 p-3 rounded-xl border border-neutral-800/50">
+                                <div className="grid grid-cols-2 gap-3">
+                                    <div>
+                                        <label className="text-[10px] font-bold text-neutral-500 uppercase tracking-wider mb-1 block">Marca *</label>
+                                        <input
+                                            type="text"
+                                            className="w-full bg-black/40 border border-neutral-800 rounded-lg py-1.5 px-3 text-xs text-white focus:outline-none focus:border-[#EF3329]/50 transition-colors"
+                                            placeholder="Ej: Toyota"
+                                            value={manualBrand}
+                                            onChange={(e) => setManualBrand(e.target.value)}
+                                            disabled={isLinking}
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="text-[10px] font-bold text-neutral-500 uppercase tracking-wider mb-1 block">Modelo *</label>
+                                        <input
+                                            type="text"
+                                            className="w-full bg-black/40 border border-neutral-800 rounded-lg py-1.5 px-3 text-xs text-white focus:outline-none focus:border-[#EF3329]/50 transition-colors"
+                                            placeholder="Ej: Hilux SRV"
+                                            value={manualModel}
+                                            onChange={(e) => setManualModel(e.target.value)}
+                                            disabled={isLinking}
+                                        />
+                                    </div>
+                                </div>
+                                <div>
+                                    <label className="text-[10px] font-bold text-neutral-500 uppercase tracking-wider mb-1 block">Patente (Opcional)</label>
+                                    <input
+                                        type="text"
+                                        className="w-full bg-black/40 border border-neutral-800 rounded-lg py-1.5 px-3 text-xs text-white focus:outline-none focus:border-[#EF3329]/50 transition-colors uppercase"
+                                        placeholder="Ej: AB123CD"
+                                        value={manualPlate}
+                                        onChange={(e) => setManualPlate(e.target.value.toUpperCase())}
+                                        disabled={isLinking}
+                                    />
+                                </div>
+                                <button
+                                    onClick={handleManualVehicleCreate}
+                                    disabled={isLinking || !manualBrand.trim() || !manualModel.trim()}
+                                    className="w-full mt-2 bg-[#EF3329] hover:bg-[#D92B22] text-white text-[11px] font-bold py-2 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                                >
+                                    <CarFront size={14} />
+                                    Crear y Vincular Vehículo
+                                </button>
                             </div>
-                        )}
-                        {vehicleSearch.length > 2 && vehicleSearchResults.length === 0 && !searchingVehicle && (
-                            <div className="text-[10px] text-neutral-500 text-center">No se encontraron vehículos.</div>
                         )}
                     </div>
                 )}

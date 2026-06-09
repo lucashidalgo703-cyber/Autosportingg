@@ -2756,6 +2756,79 @@ app.patch('/api/admin/sales/:id/link-vehicle', authenticateToken, async (req, re
     }
 });
 
+app.post('/api/admin/sales/:id/create-link-vehicle', authenticateToken, async (req, res) => {
+    try {
+        await connectDB();
+        const { brand, name, plateOrVin } = req.body;
+        if (!brand || !name) return res.status(400).json({ error: 'Marca y modelo son obligatorios' });
+
+        const sale = await Sale.findById(req.params.id);
+        if (!sale) return res.status(404).json({ error: 'Sale not found' });
+
+        const user = req.user?.username || 'Admin';
+
+        // Create the ghost vehicle
+        const newVehicle = new Car({
+            brand,
+            name,
+            plateOrVin: plateOrVin || '',
+            year: new Date().getFullYear(),
+            km: 0,
+            fuel: 'Nafta',
+            condition: 'Usado',
+            price: sale.totalAmount || 0,
+            currency: sale.currency || 'USD',
+            status: 'Vendido',
+            notes: `Vehículo creado manualmente desde la venta ${sale._id}`,
+            auditLog: [{
+                action: 'CREACION_MANUAL_DESDE_VENTA',
+                details: `Creado al vuelo desde la venta ${sale._id}`,
+                user: user,
+                source: 'CRM_V2'
+            }]
+        });
+
+        await newVehicle.save();
+
+        const oldVehicle = sale.vehicleId ? sale.vehicleId.toString() : null;
+        sale.vehicleId = newVehicle._id;
+        sale.updatedBy = user;
+        
+        if (!sale.saleAuditLog) sale.saleAuditLog = [];
+        sale.saleAuditLog.push({
+            action: 'VEHICULO_CREADO_Y_VINCULADO',
+            field: 'vehicleId',
+            oldValue: oldVehicle,
+            newValue: newVehicle._id.toString(),
+            details: `Vehículo creado manualmente y vinculado: ${newVehicle.brand} ${newVehicle.name}`,
+            user: user,
+            source: 'CRM_V2'
+        });
+
+        await logAudit({
+            req,
+            action: 'VENTA_VEHICULO_CREADO_VINCULADO',
+            module: 'ventas',
+            entityType: 'Sale',
+            entityId: sale._id,
+            entityLabel: 'Venta',
+            description: `Se creó y vinculó el vehículo ${newVehicle.brand} ${newVehicle.name} a la venta.`,
+            metadata: { vehicleId: newVehicle._id, oldVehicle }
+        });
+
+        await sale.save();
+        
+        const populatedSale = await Sale.findById(sale._id)
+            .populate('vehicleId', 'brand name year plateOrVin price currency status')
+            .lean();
+
+        res.json(populatedSale);
+    } catch (error) {
+        console.error('Error creating/linking vehicle to sale:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
 // POST backfill client from reservation
 app.post('/api/admin/sales/:id/backfill-client-from-reservation', authenticateToken, async (req, res) => {
     try {
