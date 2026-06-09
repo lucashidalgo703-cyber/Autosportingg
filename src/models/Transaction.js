@@ -15,7 +15,7 @@ const transactionSchema = new mongoose.Schema({
     module: { type: String, enum: ['legacy', 'crm_v2'], default: 'legacy' },
     source: { type: String, enum: ['manual', 'venta', 'reserva', 'cuota', 'otro'], default: 'manual' },
     concept: { type: String },
-    paymentMethod: { type: String, enum: ['efectivo', 'transferencia', 'tarjeta', 'cheque', 'otro'] },
+    paymentMethod: { type: String, enum: ['efectivo', 'transferencia', 'tarjeta', 'cheque', 'otro', 'transferencia BANCO GALICIA', 'transferencia BANCO SANTANDER', 'transferencia BANCO NACION'] },
     status: { type: String, enum: ['activo', 'anulado'], default: 'activo' },
     saleId: { type: mongoose.Schema.Types.ObjectId, ref: 'Sale' },
     reservationId: { type: mongoose.Schema.Types.ObjectId, ref: 'Reservation' },

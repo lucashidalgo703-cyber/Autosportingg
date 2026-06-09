@@ -306,6 +306,9 @@ export default function TransactionModal({ isOpen, onClose, transaction, onSave,
                             >
                                 <option value="efectivo">Efectivo</option>
                                 <option value="transferencia">Transferencia</option>
+                                <option value="transferencia BANCO GALICIA">Transferencia BANCO GALICIA</option>
+                                <option value="transferencia BANCO SANTANDER">Transferencia BANCO SANTANDER</option>
+                                <option value="transferencia BANCO NACION">Transferencia BANCO NACION</option>
                                 <option value="tarjeta">Tarjeta</option>
                                 <option value="cheque">Cheque</option>
                                 <option value="otro">Otro</option>
