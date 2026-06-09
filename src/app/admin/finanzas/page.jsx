@@ -49,6 +49,16 @@ const BASE_FILTERS = {
     endDate: ''
 };
 
+const EMPTY_DEPOSIT_DATA = {
+    items: [],
+    summary: {
+        received: { ARS: 0, USD: 0 },
+        applied: { ARS: 0, USD: 0 },
+        returned: { ARS: 0, USD: 0 },
+        activeCount: 0
+    }
+};
+
 const normalizeType = (tx) => String(tx?.type || '').toLowerCase();
 
 const isIncome = (tx) => normalizeType(tx) === 'ingreso';
@@ -81,14 +91,47 @@ function FinanzasPage() {
     const [movementMode, setMovementMode] = useState('todos');
     const [senaMode, setSenaMode] = useState('todos');
     const [senaSearch, setSenaSearch] = useState('');
+    const [financeDeposits, setFinanceDeposits] = useState(EMPTY_DEPOSIT_DATA);
+    const [depositsLoading, setDepositsLoading] = useState(false);
     const [filters, setFilters] = useState(BASE_FILTERS);
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [selectedTx, setSelectedTx] = useState(null);
     const [modalPreset, setModalPreset] = useState(null);
 
+    const fetchFinanceDeposits = async () => {
+        const token = localStorage.getItem('token');
+        if (!token) return EMPTY_DEPOSIT_DATA;
+
+        setDepositsLoading(true);
+        try {
+            const response = await fetch('/api/admin/finance/deposits', {
+                headers: {
+                    'Content-Type': 'application/json',
+                    Authorization: `Bearer ${token}`
+                }
+            });
+
+            if (!response.ok) return EMPTY_DEPOSIT_DATA;
+            const data = await response.json();
+            return {
+                items: Array.isArray(data.items) ? data.items : [],
+                summary: data.summary || EMPTY_DEPOSIT_DATA.summary
+            };
+        } catch (err) {
+            console.error('Error loading finance deposits:', err);
+            return EMPTY_DEPOSIT_DATA;
+        } finally {
+            setDepositsLoading(false);
+        }
+    };
+
     const loadData = async () => {
-        const data = await fetchTransactions();
-        setAllTransactions(data || []);
+        const [transactionsData, depositsData] = await Promise.all([
+            fetchTransactions(),
+            fetchFinanceDeposits()
+        ]);
+        setAllTransactions(transactionsData || []);
+        setFinanceDeposits(depositsData || EMPTY_DEPOSIT_DATA);
     };
 
     useEffect(() => {
@@ -155,34 +198,16 @@ function FinanzasPage() {
         });
     }, [allTransactions, filters, movementMode]);
 
-    const senaTransactions = useMemo(() => {
-        return allTransactions.filter((tx) => {
-            if (!isSenaTransaction(tx)) return false;
-            const text = `${tx.concept || tx.description || ''} ${tx.category || ''} ${tx.notes || ''}`.toLowerCase();
+    const senaItems = useMemo(() => {
+        return (financeDeposits.items || []).filter((item) => {
+            const text = `${item.vehicle || ''} ${item.client || ''} ${item.notes || ''} ${item.sourceLabel || ''}`.toLowerCase();
             if (senaSearch && !text.includes(senaSearch.toLowerCase())) return false;
-            if (senaMode === 'recibida' && !isIncome(tx)) return false;
-            if (senaMode === 'devuelta' && !isExpense(tx)) return false;
-            if (senaMode === 'aplicada' && !text.includes('aplic')) return false;
+            if (senaMode !== 'todos' && item.status !== senaMode) return false;
             return true;
         });
-    }, [allTransactions, senaMode, senaSearch]);
+    }, [financeDeposits.items, senaMode, senaSearch]);
 
-    const senaTotals = useMemo(() => {
-        return allTransactions.filter(isSenaTransaction).reduce((acc, tx) => {
-            if (tx.status === 'anulado') return acc;
-            const bucket = tx.currency === 'USD' ? 'USD' : 'ARS';
-            if (isIncome(tx)) acc.received[bucket] += getAmount(tx);
-            if (isExpense(tx)) acc.returned[bucket] += getAmount(tx);
-            if (`${tx.concept || ''} ${tx.category || ''} ${tx.notes || ''}`.toLowerCase().includes('aplic')) {
-                acc.applied[bucket] += getAmount(tx);
-            }
-            return acc;
-        }, {
-            received: { ARS: 0, USD: 0 },
-            applied: { ARS: 0, USD: 0 },
-            returned: { ARS: 0, USD: 0 }
-        });
-    }, [allTransactions]);
+    const senaTotals = financeDeposits.summary || EMPTY_DEPOSIT_DATA.summary;
 
     const monthlyFlow = useMemo(() => {
         const currentMonth = new Date().toLocaleDateString('es-AR', { month: 'short', year: '2-digit' });
@@ -249,6 +274,27 @@ function FinanzasPage() {
         setSelectedTx(tx);
         setModalPreset(null);
         setIsModalOpen(true);
+    };
+
+    const handleEditDeposit = (item) => {
+        if (item.transactionId) {
+            const tx = allTransactions.find((transaction) => String(transaction._id) === String(item.transactionId));
+            if (tx) {
+                handleEditTransaction(tx);
+                return;
+            }
+        }
+
+        if (item.saleId) {
+            window.location.href = `/admin/ventas/${item.saleId}`;
+            return;
+        }
+
+        if (item.reservationId) {
+            setActiveTab('movimientos');
+            setMovementMode('todos');
+            setFilters({ ...BASE_FILTERS, linkedTo: 'reservation' });
+        }
     };
 
     const closeModal = () => {
@@ -373,14 +419,15 @@ function FinanzasPage() {
 
                         {activeTab === 'senas' && (
                             <SenasFinancieras
+                                depositsLoading={depositsLoading}
+                                senaItems={senaItems}
                                 senaMode={senaMode}
                                 senaSearch={senaSearch}
                                 senaTotals={senaTotals}
-                                senaTransactions={senaTransactions}
                                 onChangeMode={setSenaMode}
                                 onChangeSearch={setSenaSearch}
-                                onEdit={handleEditTransaction}
-                                onNew={() => openTransactionModal({ type: 'ingreso', currency: 'USD', concept: 'Seña recibida', category: 'Seña', paymentMethod: 'efectivo' })}
+                                onEdit={handleEditDeposit}
+                                onNew={() => openTransactionModal({ type: 'ingreso', currency: 'USD', concept: 'Seña recibida', category: 'Seña', paymentMethod: 'efectivo', notes: '[SENA_FINANZAS]' })}
                             />
                         )}
 
@@ -652,7 +699,7 @@ function MovimientosFinancieros({
     );
 }
 
-function SenasFinancieras({ senaMode, senaSearch, senaTotals, senaTransactions, onChangeMode, onChangeSearch, onEdit, onNew }) {
+function SenasFinancieras({ depositsLoading, senaItems, senaMode, senaSearch, senaTotals, onChangeMode, onChangeSearch, onEdit, onNew }) {
     const modeButton = (id, label) => (
         <button
             type="button"
@@ -673,7 +720,7 @@ function SenasFinancieras({ senaMode, senaSearch, senaTotals, senaTransactions, 
             <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
                 <SenaTotalCard label="Total Recibido" usd={senaTotals.received.USD} ars={senaTotals.received.ARS} />
                 <SenaTotalCard label="Total Aplicado" usd={senaTotals.applied.USD} ars={senaTotals.applied.ARS} />
-                <SenaTotalCard label="Señas Activas" value={senaTransactions.length} />
+                <SenaTotalCard label="Señas Activas" value={senaTotals.activeCount || 0} />
             </div>
 
             <section className="rounded-2xl border border-crm-border bg-crm-surface p-4">
@@ -708,9 +755,13 @@ function SenasFinancieras({ senaMode, senaSearch, senaTotals, senaTransactions, 
             </section>
 
             <section className="space-y-3">
-                {senaTransactions.length > 0 ? (
-                    senaTransactions.map((tx) => (
-                        <MovementRow key={tx._id} tx={tx} onEdit={onEdit} />
+                {depositsLoading ? (
+                    <div className="flex min-h-[180px] items-center justify-center rounded-2xl border border-crm-border bg-crm-surface">
+                        <div className="h-7 w-7 animate-spin rounded-full border-2 border-crm-border border-t-crm-red" />
+                    </div>
+                ) : senaItems.length > 0 ? (
+                    senaItems.map((item) => (
+                        <SenaRow key={item.id} item={item} onEdit={onEdit} />
                     ))
                 ) : (
                     <EmptyPanel icon={<Wallet size={34} />} title="Aún no hay señas" copy="Cargá la primera seña con el botón Nueva seña." />
@@ -718,9 +769,54 @@ function SenasFinancieras({ senaMode, senaSearch, senaTotals, senaTransactions, 
             </section>
 
             <p className="text-xs font-medium text-crm-fg-subtle">
-                {senaTransactions.length} de {senaTransactions.length} señas. Click en Editar para abrir el formulario. Recibida/Devuelta crean un movimiento en Finanzas; Aplicada no toca caja.
+                {senaItems.length} de {senaItems.length} señas. Click en Editar para abrir el formulario. Recibida/Devuelta crean un movimiento en Finanzas; Aplicada no toca caja.
             </p>
         </div>
+    );
+}
+
+function SenaRow({ item, onEdit }) {
+    const statusConfig = {
+        recibida: 'border-crm-success/20 bg-crm-success/10 text-crm-success',
+        aplicada: 'border-crm-info/20 bg-crm-info/10 text-crm-info',
+        devuelta: 'border-crm-red/20 bg-crm-red/10 text-crm-red'
+    };
+    const statusLabel = {
+        recibida: 'Recibida',
+        aplicada: 'Aplicada',
+        devuelta: 'Devuelta'
+    };
+
+    return (
+        <article className="grid grid-cols-1 gap-3 rounded-xl border border-crm-border bg-crm-surface p-4 transition hover:bg-crm-surface-raised md:grid-cols-[1fr_auto_auto] md:items-center">
+            <div>
+                <div className="mb-2 flex flex-wrap items-center gap-2">
+                    <span className={`rounded-lg border px-2 py-1 text-[11px] font-black uppercase tracking-wider ${statusConfig[item.status] || statusConfig.recibida}`}>
+                        {statusLabel[item.status] || item.status}
+                    </span>
+                    <span className="rounded-lg bg-crm-bg px-2 py-1 text-[11px] font-black uppercase tracking-wider text-crm-fg-muted">
+                        {item.sourceLabel || 'Origen'}
+                    </span>
+                </div>
+                <h3 className="text-sm font-black text-crm-fg">{item.vehicle || 'Sin vehículo'}</h3>
+                <p className="mt-1 text-xs font-medium text-crm-fg-muted">
+                    {item.client || 'Sin cliente'} · {item.method || 'sin método'} · {formatDate(item.date)}
+                </p>
+                {item.notes && <p className="mt-2 line-clamp-2 text-xs text-crm-fg-subtle">{item.notes}</p>}
+            </div>
+            <div className="md:text-right">
+                <p className="text-base font-black text-crm-fg">{formatMoney(item.amount, item.currency)}</p>
+                <span className="text-xs font-bold uppercase tracking-wider text-crm-fg-subtle">{item.currency}</span>
+            </div>
+            <button
+                type="button"
+                onClick={() => onEdit(item)}
+                className="inline-flex h-9 items-center justify-center gap-2 rounded-xl border border-crm-border bg-crm-bg px-3 text-xs font-black text-crm-fg transition hover:border-crm-red hover:text-crm-red"
+            >
+                {item.transactionId ? 'Editar' : 'Ver origen'}
+                <ChevronDown size={14} />
+            </button>
+        </article>
     );
 }
 

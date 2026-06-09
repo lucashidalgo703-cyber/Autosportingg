@@ -3398,6 +3398,145 @@ app.get('/api/admin/transactions', authenticateToken, async (req, res) => {
     }
 });
 
+// GET consolidated finance deposits / senas
+app.get('/api/admin/finance/deposits', authenticateToken, async (req, res) => {
+    try {
+        await connectDB();
+        if (req.user && req.user.role === 'ventas') return res.status(403).json({ message: 'Sin permisos financieros' });
+
+        const [reservations, sales, transactions] = await Promise.all([
+            Reservation.find({ depositAmount: { $gt: 0 } })
+                .populate('clientId', 'fullName firstName lastName phone')
+                .populate('leadId', 'name phone')
+                .populate('vehicleId', 'brand name model plateOrVin')
+                .lean(),
+            Sale.find({ depositAppliedAmount: { $gt: 0 } })
+                .populate('clientId', 'fullName firstName lastName phone')
+                .populate('vehicleId', 'brand name model plateOrVin')
+                .populate('reservationId', 'depositAmount depositCurrency status')
+                .lean(),
+            Transaction.find({
+                module: 'crm_v2',
+                status: { $ne: 'anulado' },
+                $or: [
+                    { category: /seña|sena|reserva/i },
+                    { concept: /seña|sena|reserva/i },
+                    { notes: /seña|sena|reserva/i },
+                    { reservationId: { $exists: true } }
+                ]
+            }).lean()
+        ]);
+
+        const formatClient = (client, fallback) => {
+            if (client?.fullName) return client.fullName;
+            const name = `${client?.firstName || ''} ${client?.lastName || ''}`.trim();
+            return name || fallback || 'Sin cliente';
+        };
+
+        const formatVehicle = (vehicle, fallback) => {
+            if (!vehicle) return fallback || 'Sin vehiculo';
+            return [vehicle.brand, vehicle.name || vehicle.model, vehicle.plateOrVin ? `(${vehicle.plateOrVin})` : '']
+                .filter(Boolean)
+                .join(' ')
+                .trim() || fallback || 'Sin vehiculo';
+        };
+
+        const items = [];
+
+        reservations.forEach((reservation) => {
+            const status = reservation.status === 'devuelta' ? 'devuelta' : 'recibida';
+            items.push({
+                id: `reservation-${reservation._id}`,
+                source: 'reservation',
+                sourceLabel: 'Reserva',
+                status,
+                amount: Number(reservation.depositAmount || 0),
+                currency: reservation.depositCurrency || 'USD',
+                method: reservation.depositMethod || 'sin metodo',
+                date: reservation.depositDate || reservation.createdAt,
+                vehicle: formatVehicle(reservation.vehicleId),
+                client: formatClient(reservation.clientId, reservation.leadId?.name),
+                notes: reservation.notes || reservation.conditions || '',
+                reservationId: reservation._id,
+                clientId: reservation.clientId?._id,
+                vehicleId: reservation.vehicleId?._id
+            });
+        });
+
+        sales.forEach((sale) => {
+            items.push({
+                id: `sale-${sale._id}`,
+                source: 'sale',
+                sourceLabel: 'Venta',
+                status: 'aplicada',
+                amount: Number(sale.depositAppliedAmount || 0),
+                currency: sale.depositAppliedCurrency || sale.saleCurrency || 'USD',
+                method: sale.paymentMethod || 'sin metodo',
+                date: sale.saleDate || sale.createdAt,
+                vehicle: formatVehicle(sale.vehicleId),
+                client: formatClient(sale.clientId, 'Sin cliente'),
+                notes: sale.notes || '',
+                saleId: sale._id,
+                reservationId: sale.reservationId?._id || sale.reservationId,
+                clientId: sale.clientId?._id,
+                vehicleId: sale.vehicleId?._id
+            });
+        });
+
+        transactions.forEach((tx) => {
+            const searchText = `${tx.concept || ''} ${tx.description || ''} ${tx.category || ''} ${tx.notes || ''}`.toLowerCase();
+            const status = tx.type === 'Egreso'
+                ? 'devuelta'
+                : searchText.includes('aplic')
+                    ? 'aplicada'
+                    : 'recibida';
+
+            items.push({
+                id: `transaction-${tx._id}`,
+                source: 'transaction',
+                sourceLabel: 'Movimiento',
+                status,
+                amount: Number(tx.amount || 0),
+                currency: tx.currency || 'USD',
+                method: tx.paymentMethod || 'sin metodo',
+                date: tx.date || tx.createdAt,
+                vehicle: tx.vehicleId ? 'Vehiculo vinculado' : 'Sin vehiculo',
+                client: tx.clientId ? 'Cliente vinculado' : 'Sin cliente',
+                notes: tx.notes || tx.concept || tx.description || '',
+                transactionId: tx._id,
+                saleId: tx.saleId,
+                reservationId: tx.reservationId,
+                clientId: tx.clientId,
+                vehicleId: tx.vehicleId
+            });
+        });
+
+        items.sort((a, b) => new Date(b.date || 0) - new Date(a.date || 0));
+
+        const summary = items.reduce((acc, item) => {
+            const currency = item.currency === 'ARS' ? 'ARS' : 'USD';
+            if (item.status === 'recibida') acc.received[currency] += item.amount;
+            if (item.status === 'aplicada') acc.applied[currency] += item.amount;
+            if (item.status === 'devuelta') acc.returned[currency] += item.amount;
+            return acc;
+        }, {
+            received: { ARS: 0, USD: 0 },
+            applied: { ARS: 0, USD: 0 },
+            returned: { ARS: 0, USD: 0 }
+        });
+
+        const activeCount = reservations.filter((reservation) => reservation.status === 'activa' && Number(reservation.depositAmount || 0) > 0).length;
+
+        res.json({ items, summary: { ...summary, activeCount } });
+    } catch (error) {
+        console.error('GET /api/admin/finance/deposits error:', error);
+        return res.status(500).json({
+            ok: false,
+            error: 'No se pudieron cargar las señas financieras.'
+        });
+    }
+});
+
 // GET admin transaction by id
 app.get('/api/admin/transactions/:id', authenticateToken, async (req, res) => {
     try {
