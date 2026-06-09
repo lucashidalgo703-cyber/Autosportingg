@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { Landmark, Plus, Settings2, Calendar } from 'lucide-react';
+import { Landmark, Plus, Settings2, Calendar, Trash2 } from 'lucide-react';
 import InstallmentModal from '../../installments/InstallmentModal';
 import GenerateInstallmentsModal from '../../installments/GenerateInstallmentsModal';
 import InstallmentStatusBadge from '../../installments/InstallmentStatusBadge';
@@ -8,7 +8,7 @@ import { useAdminInstallments } from '../../../../hooks/useAdminInstallments';
 import { useAdminTransactions } from '../../../../hooks/useAdminTransactions';
 
 export default function SaleInstallmentsPanel({ sale, saleFinanceData }) {
-    const { fetchInstallments, createInstallment, updateInstallment, generateInstallments, loading, error } = useAdminInstallments();
+    const { fetchInstallments, createInstallment, updateInstallment, generateInstallments, deleteInstallment, loading, error } = useAdminInstallments();
     const { createTransaction } = useAdminTransactions();
     const [installments, setInstallments] = useState([]);
     
@@ -75,6 +75,18 @@ export default function SaleInstallmentsPanel({ sale, saleFinanceData }) {
             setIsSingleModalOpen(false);
         } catch (err) {
             console.error(err.message);
+        }
+    };
+
+    const handleDeleteSingle = async (inst) => {
+        if (inst.status !== 'anulada') return;
+        if (window.confirm('¿Estás seguro de que quieres eliminar esta cuota anulada permanentemente?')) {
+            try {
+                await deleteInstallment(inst._id);
+                await loadData();
+            } catch (err) {
+                alert(err.message || 'Error al eliminar la cuota');
+            }
         }
     };
 
@@ -248,7 +260,7 @@ export default function SaleInstallmentsPanel({ sale, saleFinanceData }) {
                                 </tr>
                             </thead>
                             <tbody>
-                                {installments.map(inst => {
+                                {[...installments].sort((a, b) => a.installmentNumber - b.installmentNumber).map(inst => {
                                     const isOverdue = inst.status === 'pendiente' && new Date(inst.dueDate) < new Date();
                                     
                                     // Financial Status Calculation
@@ -323,6 +335,15 @@ export default function SaleInstallmentsPanel({ sale, saleFinanceData }) {
                                                     >
                                                         Editar
                                                     </button>
+                                                    {inst.status === 'anulada' && (
+                                                        <button 
+                                                            onClick={() => handleDeleteSingle(inst)}
+                                                            className="text-xs font-bold text-red-400 hover:text-red-300 transition-colors flex items-center justify-center ml-2"
+                                                            title="Eliminar cuota"
+                                                        >
+                                                            <Trash2 size={14} />
+                                                        </button>
+                                                    )}
                                                 </div>
                                             </td>
                                         </tr>
