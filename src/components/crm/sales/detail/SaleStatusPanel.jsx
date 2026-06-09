@@ -128,6 +128,31 @@ export default function SaleStatusPanel({ sale, onSave }) {
                     </p>
                 </div>
 
+                {sale.deliveryStatus === 'entregado' && sale.status !== 'entregada' && sale.status !== 'cancelada' && (
+                    <div className="bg-emerald-500/10 border border-emerald-500/20 rounded-xl p-3 flex flex-col gap-2">
+                        <div className="flex gap-2 items-start">
+                            <AlertTriangle size={16} className="text-emerald-500 shrink-0 mt-0.5" />
+                            <p className="text-[10px] text-emerald-300 font-bold uppercase tracking-wider">
+                                El vehículo fue entregado pero la venta sigue abierta ({sale.status}).
+                            </p>
+                        </div>
+                        <button 
+                            onClick={async () => {
+                                setIsSaving(true);
+                                try {
+                                    await onSave({ status: 'entregada' });
+                                } finally {
+                                    setIsSaving(false);
+                                }
+                            }}
+                            disabled={isSaving}
+                            className="h-8 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs flex items-center justify-center transition-colors shadow-lg"
+                        >
+                            Cerrar Venta Comercialmente
+                        </button>
+                    </div>
+                )}
+
                 {saveError && (
                     <div className="bg-red-500/10 border border-red-500/20 rounded-xl p-3 flex gap-3 items-start">
                         <AlertTriangle size={16} className="text-red-500 shrink-0 mt-0.5" />
