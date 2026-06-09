@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { X, Save, AlertTriangle, Trash2 } from 'lucide-react';
 
-export default function TransactionModal({ isOpen, onClose, transaction, onSave, onAnnul }) {
+export default function TransactionModal({ isOpen, onClose, transaction, onSave, onAnnul, initialData = null }) {
     const isEdit = !!transaction;
     const isAnnulled = transaction?.status === 'anulado';
 
@@ -107,11 +107,12 @@ export default function TransactionModal({ isOpen, onClose, transaction, onSave,
                 reservationId: '',
                 clientId: '',
                 vehicleId: '',
-                installmentId: ''
+                installmentId: '',
+                ...(initialData || {})
             });
         }
         setErrors({});
-    }, [isOpen, transaction]);
+    }, [isOpen, transaction, initialData]);
 
     if (!isOpen) return null;
 
