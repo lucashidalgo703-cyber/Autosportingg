@@ -1,92 +1,97 @@
 import React from 'react';
 import Link from 'next/link';
-import { User, CarFront, Lock, CheckCircle2, ChevronRight, XCircle, AlertCircle } from 'lucide-react';
+import { AlertCircle, CarFront, ChevronRight, Lock, User, XCircle } from 'lucide-react';
 import ReservationStatusBadge from './ReservationStatusBadge';
+import CrmButton from '../ui/CrmButton';
 
 export default function ReservationsTable({ reservations, onLiberar, onConvertir, getIsOverdue }) {
     if (!reservations || reservations.length === 0) {
         return (
-            <div className="hidden md:flex flex-col items-center justify-center p-12 bg-crm-surface border border-crm-border rounded-2xl opacity-80">
-                <Lock size={48} className="text-crm-fg-muted mb-4" />
-                <h3 className="text-xl font-bold text-white mb-2">No se encontraron reservas</h3>
-                <p className="text-crm-fg-muted text-center max-w-md">
-                    No hay resultados que coincidan con los filtros actuales.
+            <div className="hidden min-h-[210px] flex-col items-center justify-center rounded-xl border border-dashed border-crm-border bg-crm-surface p-12 text-center md:flex">
+                <Lock size={42} className="mb-4 text-crm-fg-subtle" />
+                <h3 className="m-0 text-base font-bold text-crm-fg">Sin resultados</h3>
+                <p className="m-0 mt-2 max-w-md text-sm leading-6 text-crm-fg-muted">
+                    Todavia no hay reservas cargadas o no coinciden con los filtros actuales.
                 </p>
             </div>
         );
     }
 
     return (
-        <div className="hidden md:block bg-crm-surface border border-crm-border rounded-2xl overflow-hidden">
+        <div className="hidden overflow-hidden rounded-xl border border-crm-border bg-crm-surface md:block">
             <div className="overflow-x-auto">
-                <table className="w-full text-left border-collapse">
-                    <thead className="bg-crm-topbar">
-                        <tr className="border-b border-crm-border">
-                            <th className="p-4 text-[10px] font-bold text-crm-fg-muted uppercase tracking-wider">Fecha</th>
-                            <th className="p-4 text-[10px] font-bold text-crm-fg-muted uppercase tracking-wider">Cliente / Lead</th>
-                            <th className="p-4 text-[10px] font-bold text-crm-fg-muted uppercase tracking-wider">Vehículo</th>
-                            <th className="p-4 text-[10px] font-bold text-crm-fg-muted uppercase tracking-wider">Estado</th>
-                            <th className="p-4 text-[10px] font-bold text-crm-fg-muted uppercase tracking-wider text-right">Seña</th>
-                            <th className="p-4 text-[10px] font-bold text-crm-fg-muted uppercase tracking-wider text-right">Vencimiento</th>
-                            <th className="p-4 text-[10px] font-bold text-crm-fg-muted uppercase tracking-wider text-center">Acciones</th>
+                <table className="w-full min-w-[1060px] border-collapse text-left">
+                    <thead className="bg-crm-bg text-[10px] uppercase tracking-[0.08em] text-crm-fg-muted">
+                        <tr>
+                            <th className="px-4 py-3 font-bold">Fecha</th>
+                            <th className="px-4 py-3 font-bold">Cliente / Lead</th>
+                            <th className="px-4 py-3 font-bold">Vehiculo</th>
+                            <th className="px-4 py-3 font-bold">Estado</th>
+                            <th className="px-4 py-3 text-right font-bold">Sena</th>
+                            <th className="px-4 py-3 text-right font-bold">Vencimiento</th>
+                            <th className="px-4 py-3 text-center font-bold">Acciones</th>
                         </tr>
                     </thead>
                     <tbody className="divide-y divide-crm-border">
-                        {reservations.map(res => {
+                        {reservations.map((res) => {
                             const isOverdue = getIsOverdue(res);
-                            const name = res.clientId?.fullName || res.clientId?.firstName || res.leadId?.name || 'Sin Nombre';
+                            const name = res.clientId?.fullName || res.clientId?.firstName || res.leadId?.name || 'Sin nombre';
                             const phone = res.clientId?.phone || res.leadId?.phone || '';
-                            const vehicleName = res.vehicleId ? `${res.vehicleId.brand} ${res.vehicleId.name}` : 'Vehículo no asignado';
+                            const vehicleName = res.vehicleId ? `${res.vehicleId.brand} ${res.vehicleId.name}` : 'Vehiculo no asignado';
                             const vehicleVin = res.vehicleId?.plateOrVin || '';
                             const hasLink = res.clientId?._id || res.leadId?._id;
                             const linkHref = res.clientId?._id ? `/admin/clientes/${res.clientId._id}` : (res.leadId?._id ? `/admin/leads/${res.leadId._id}` : '#');
                             const vehicleHref = res.vehicleId?._id ? `/admin/stock/${res.vehicleId._id}` : '#';
 
                             return (
-                                <tr key={res._id} className={`hover:bg-crm-surface-raised transition-colors group ${isOverdue && res.status === 'activa' ? 'bg-orange-500/5' : ''}`}>
-                                    {/* Fecha */}
-                                    <td className="p-4 whitespace-nowrap">
-                                        <span className="text-sm text-crm-fg-muted block">{new Date(res.createdAt).toLocaleDateString()}</span>
-                                        <span className="text-xs text-crm-fg-muted">{new Date(res.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                                <tr key={res._id} className={`h-[78px] text-sm text-crm-fg transition-colors hover:bg-crm-surface-raised/70 ${isOverdue && res.status === 'activa' ? 'bg-amber-500/5' : ''}`}>
+                                    <td className="whitespace-nowrap px-4 py-3 align-middle">
+                                        <span className="block text-sm text-crm-fg">{new Date(res.createdAt).toLocaleDateString('es-AR')}</span>
+                                        <span className="text-[10px] uppercase text-crm-fg-muted">{new Date(res.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
                                     </td>
 
-                                    {/* Cliente / Lead */}
-                                    <td className="p-4">
+                                    <td className="px-4 py-3 align-middle">
                                         <div className="flex flex-col">
                                             {hasLink ? (
-                                                <Link href={linkHref} className="text-sm font-bold text-white hover:text-red-400 transition-colors truncate max-w-[200px]">
+                                                <Link href={linkHref} className="flex max-w-[200px] items-center gap-2 truncate text-sm font-bold text-crm-fg no-underline transition-colors hover:text-crm-red">
+                                                    <User size={13} className="shrink-0 text-crm-fg-muted" />
                                                     {name}
                                                 </Link>
                                             ) : (
-                                                <span className="text-sm font-bold text-white truncate max-w-[200px]">{name}</span>
+                                                <span className="flex max-w-[200px] items-center gap-2 truncate text-sm font-bold text-crm-fg">
+                                                    <User size={13} className="shrink-0 text-crm-fg-muted" />
+                                                    {name}
+                                                </span>
                                             )}
-                                            {phone && <span className="text-xs text-crm-fg-muted">{phone}</span>}
+                                            {phone && <span className="mt-0.5 text-xs text-crm-fg-muted">{phone}</span>}
                                         </div>
                                     </td>
 
-                                    {/* Vehículo */}
-                                    <td className="p-4">
+                                    <td className="px-4 py-3 align-middle">
                                         <div className="flex flex-col">
                                             {res.vehicleId ? (
-                                                <Link href={vehicleHref} className="text-sm font-bold text-white hover:text-red-400 transition-colors truncate max-w-[200px]">
+                                                <Link href={vehicleHref} className="flex max-w-[210px] items-center gap-2 truncate text-sm font-bold text-crm-fg no-underline transition-colors hover:text-crm-red">
+                                                    <CarFront size={14} className="shrink-0 text-crm-red" />
                                                     {vehicleName}
                                                 </Link>
                                             ) : (
                                                 <span className="text-sm font-bold text-crm-fg-muted">N/A</span>
                                             )}
-                                            {vehicleVin && <span className="text-[10px] bg-crm-bg text-crm-fg-muted px-1.5 py-0.5 rounded w-max mt-1 border border-crm-border font-mono uppercase">{vehicleVin}</span>}
+                                            {vehicleVin && (
+                                                <span className="mt-1 w-max rounded border border-crm-border bg-crm-bg px-1.5 py-0.5 font-mono text-[10px] uppercase text-crm-fg-muted">
+                                                    {vehicleVin}
+                                                </span>
+                                            )}
                                         </div>
                                     </td>
 
-                                    {/* Estado */}
-                                    <td className="p-4 whitespace-nowrap">
+                                    <td className="whitespace-nowrap px-4 py-3 align-middle">
                                         <ReservationStatusBadge status={res.status} isOverdue={isOverdue} />
                                     </td>
 
-                                    {/* Seña */}
-                                    <td className="p-4 text-right whitespace-nowrap">
+                                    <td className="whitespace-nowrap px-4 py-3 text-right align-middle">
                                         <div className="flex flex-col items-end">
-                                            <span className={`text-sm font-bold ${res.status === 'activa' ? 'text-green-400' : 'text-crm-fg-muted'}`}>
+                                            <span className={`text-sm font-bold ${res.status === 'activa' ? 'text-emerald-300' : 'text-crm-fg-muted'}`}>
                                                 {res.depositCurrency} {(res.depositAmount || 0).toLocaleString('es-AR')}
                                             </span>
                                             <span className="text-[10px] text-crm-fg-muted">
@@ -95,46 +100,47 @@ export default function ReservationsTable({ reservations, onLiberar, onConvertir
                                         </div>
                                     </td>
 
-                                    {/* Vencimiento */}
-                                    <td className="p-4 text-right whitespace-nowrap">
+                                    <td className="whitespace-nowrap px-4 py-3 text-right align-middle">
                                         {res.expiresAt ? (
                                             <div className="flex flex-col items-end">
-                                                <span className={`text-sm font-medium ${isOverdue && res.status === 'activa' ? 'text-orange-400 font-bold flex items-center gap-1' : 'text-crm-fg-muted'}`}>
+                                                <span className={`inline-flex items-center gap-1 text-sm font-medium ${isOverdue && res.status === 'activa' ? 'font-bold text-amber-300' : 'text-crm-fg-muted'}`}>
                                                     {isOverdue && res.status === 'activa' && <AlertCircle size={12} />}
-                                                    {new Date(res.expiresAt).toLocaleDateString()}
+                                                    {new Date(res.expiresAt).toLocaleDateString('es-AR')}
                                                 </span>
                                             </div>
                                         ) : (
-                                            <span className="text-sm text-crm-fg-muted italic">Sin fecha</span>
+                                            <span className="text-sm italic text-crm-fg-muted">Sin fecha</span>
                                         )}
                                     </td>
 
-                                    {/* Acciones */}
-                                    <td className="p-4 text-center">
-                                        <div className="flex justify-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                                    <td className="px-4 py-3 text-center align-middle">
+                                        <div className="flex items-center justify-center gap-2">
                                             {res.status === 'activa' && (
                                                 <>
-                                                    <button 
+                                                    <CrmButton
+                                                        variant="primary"
+                                                        size="sm"
                                                         onClick={() => onConvertir(res)}
-                                                        className="h-8 px-3 rounded-lg bg-blue-500/10 hover:bg-blue-500/20 text-blue-400 font-bold text-xs flex items-center justify-center transition-colors border border-blue-500/20"
-                                                        title="Convertir a Venta"
+                                                        className="h-8 px-3 text-xs"
+                                                        title="Convertir a venta"
                                                     >
                                                         Vender
-                                                    </button>
-                                                    <button 
+                                                    </CrmButton>
+                                                    <button
+                                                        type="button"
                                                         onClick={() => onLiberar(res)}
-                                                        className="w-8 h-8 rounded-lg bg-crm-surface-raised hover:bg-crm-red/20 text-crm-fg-muted hover:text-crm-red flex items-center justify-center transition-colors border border-crm-border hover:border-crm-red/30"
-                                                        title="Liberar / Cancelar Reserva"
+                                                        className="m-0 flex h-8 w-8 appearance-none items-center justify-center rounded-lg border border-crm-border bg-crm-surface-raised text-crm-fg-muted transition-colors hover:border-crm-red/40 hover:bg-crm-red/10 hover:text-crm-red"
+                                                        title="Liberar / cancelar reserva"
                                                     >
                                                         <XCircle size={16} />
                                                     </button>
                                                 </>
                                             )}
-                                            
-                                            <Link 
+
+                                            <Link
                                                 href={vehicleHref}
-                                                className="w-8 h-8 rounded-lg bg-crm-surface-raised hover:bg-crm-border text-crm-fg-muted flex items-center justify-center transition-colors border border-crm-border"
-                                                title="Ver Vehículo"
+                                                className="flex h-8 w-8 items-center justify-center rounded-lg border border-crm-border bg-crm-surface-raised text-crm-fg-muted no-underline transition-colors hover:bg-crm-border hover:text-crm-fg"
+                                                title="Ver vehiculo"
                                             >
                                                 <ChevronRight size={16} />
                                             </Link>
