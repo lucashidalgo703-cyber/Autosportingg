@@ -8,7 +8,6 @@ import {
     Car,
     CheckCircle2,
     CreditCard,
-    ExternalLink,
     Flame,
     HandCoins,
     Landmark,
@@ -19,7 +18,6 @@ import {
     Users,
     Wallet
 } from 'lucide-react';
-import { useRouter } from 'next/navigation';
 import { useAuth } from '../../../context/AuthContext';
 import { useAdminCars } from '../../../hooks/useAdminCars';
 import { useAdminCrmTasks } from '../../../hooks/useAdminCrmTasks';
@@ -44,7 +42,7 @@ const PERSONAL_MARKERS = {
 
 const tabs = [
     { label: TAB_MI_DIA, icon: BarChart3 },
-    { label: 'Mis ventas', icon: Trophy, path: '/admin/ventas' },
+    { label: 'Mis ventas', icon: Trophy },
     { label: 'URGENTE', icon: Flame },
     { label: 'Pagos realizados', icon: Wallet },
     { label: 'Deudas', icon: HandCoins },
@@ -103,6 +101,17 @@ const sumAmount = (items, currency = null) => (
     items
         .filter((item) => !currency || item.currency === currency || item.saleCurrency === currency)
         .reduce((acc, item) => acc + Number(item.amount || item.salePrice || 0), 0)
+);
+
+const safeArray = (value) => Array.isArray(value) ? value : [];
+
+const withTimeout = (promise, fallback = [], timeoutMs = 7000) => (
+    Promise.race([
+        promise.catch(() => fallback),
+        new Promise((resolve) => {
+            window.setTimeout(() => resolve(fallback), timeoutMs);
+        })
+    ])
 );
 
 function ActionButton({ children, onClick, disabled = false }) {
@@ -628,7 +637,6 @@ function MoneyActionModal({ isOpen, mode, onClose, onSubmit, saving, error }) {
 }
 
 export default function MiEspacioPage() {
-    const router = useRouter();
     const { user } = useAuth();
     const { refresh: fetchCars } = useAdminCars();
     const { fetchTasks, createTask } = useAdminCrmTasks();
@@ -653,19 +661,19 @@ export default function MiEspacioPage() {
 
     const refreshMiSpaceData = async () => {
         const [cars, tasks, installments, sales, transactions] = await Promise.all([
-            fetchCars(),
-            fetchTasks(),
-            fetchInstallments(),
-            fetchSales(),
-            fetchTransactions()
+            withTimeout(fetchCars()),
+            withTimeout(fetchTasks()),
+            withTimeout(fetchInstallments()),
+            withTimeout(fetchSales()),
+            withTimeout(fetchTransactions())
         ]);
 
         setData({
-            cars: Array.isArray(cars) ? cars : [],
-            tasks: Array.isArray(tasks) ? tasks : [],
-            installments: Array.isArray(installments) ? installments : [],
-            sales: Array.isArray(sales) ? sales : [],
-            transactions: Array.isArray(transactions) ? transactions : []
+            cars: safeArray(cars),
+            tasks: safeArray(tasks),
+            installments: safeArray(installments),
+            sales: safeArray(sales),
+            transactions: safeArray(transactions)
         });
     };
 
@@ -1201,12 +1209,12 @@ export default function MiEspacioPage() {
                 <div className="flex min-w-max gap-1">
                     {tabs.map((tab) => {
                         const Icon = tab.icon;
-                        const active = !tab.path && activeTab === tab.label;
+                        const active = activeTab === tab.label;
                         return (
                             <button
                                 key={tab.label}
                                 type="button"
-                                onClick={() => (tab.path ? router.push(tab.path) : setActiveTab(tab.label))}
+                                onClick={() => setActiveTab(tab.label)}
                                 className={`m-0 inline-flex shrink-0 appearance-none items-center gap-1.5 whitespace-nowrap rounded-lg border-0 px-3 py-1.5 text-xs font-medium transition-colors ${
                                     active
                                         ? 'bg-crm-red text-white shadow'
@@ -1217,7 +1225,6 @@ export default function MiEspacioPage() {
                             >
                                 <Icon className="h-3.5 w-3.5" />
                                 {tab.label}
-                                {tab.path && <ExternalLink className="h-3 w-3" />}
                             </button>
                         );
                     })}
