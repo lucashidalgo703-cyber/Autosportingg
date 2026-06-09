@@ -8,7 +8,7 @@ import { useAdminInstallments } from '../../../../hooks/useAdminInstallments';
 import { useAdminTransactions } from '../../../../hooks/useAdminTransactions';
 
 export default function SaleInstallmentsPanel({ sale, saleFinanceData }) {
-    const { fetchInstallments, createInstallment, updateInstallment, generateInstallments, deleteInstallment, loading, error } = useAdminInstallments();
+    const { fetchInstallments, createInstallment, updateInstallment, generateInstallments, deleteInstallment, deleteInstallmentPlan, loading, error } = useAdminInstallments();
     const { createTransaction } = useAdminTransactions();
     const [installments, setInstallments] = useState([]);
     
@@ -100,6 +100,17 @@ export default function SaleInstallmentsPanel({ sale, saleFinanceData }) {
         }
     };
 
+    const handleDeletePlan = async () => {
+        if (window.confirm('¿Estás seguro de que quieres eliminar TODO el plan de cuotas? Esta acción es irreversible.')) {
+            try {
+                await deleteInstallmentPlan(sale._id);
+                await loadData();
+            } catch (err) {
+                alert(err.message || 'Error al eliminar el plan');
+            }
+        }
+    };
+
     const handleRegisterPayment = (inst) => {
         const getMongoId = (value) => {
             if (!value) return undefined;
@@ -188,19 +199,28 @@ export default function SaleInstallmentsPanel({ sale, saleFinanceData }) {
                     </div>
                 </div>
                 <div className="flex gap-2">
+                    {installments.length > 0 && (
+                        <button
+                            onClick={handleDeletePlan}
+                            className="h-9 px-4 rounded-xl bg-red-500/10 hover:bg-red-500/20 text-red-500 font-bold text-sm transition-colors flex items-center gap-2 border border-red-500/20"
+                        >
+                            <Trash2 size={16} />
+                            <span className="hidden sm:inline">Eliminar Plan</span>
+                        </button>
+                    )}
                     <button
                         onClick={() => setIsGenerateModalOpen(true)}
                         className="h-9 px-4 rounded-xl bg-neutral-800 hover:bg-neutral-700 text-white font-bold text-sm transition-colors flex items-center gap-2"
                     >
                         <Settings2 size={16} />
-                        <span>Generar Plan</span>
+                        <span className="hidden sm:inline">Generar Plan</span>
                     </button>
                     <button
                         onClick={handleNewSingle}
                         className="h-9 px-4 rounded-xl bg-purple-600 hover:bg-purple-500 text-white font-bold text-sm transition-colors flex items-center gap-2"
                     >
                         <Plus size={16} />
-                        <span>Crear Cuota Manual</span>
+                        <span className="hidden sm:inline">Crear Cuota Manual</span>
                     </button>
                 </div>
             </div>
