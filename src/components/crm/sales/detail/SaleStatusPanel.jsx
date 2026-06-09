@@ -41,11 +41,17 @@ export default function SaleStatusPanel({ sale, onSave }) {
         setIsSaving(true);
         try {
             setSaveError(null);
-            await onSave({
+            const payload = {
                 documentationStatus: docStatus,
                 deliveryStatus: delStatus,
                 estimatedDeliveryDate: estDate || null
-            });
+            };
+            
+            if (delStatus === 'entregado' && sale.status !== 'entregada') {
+                payload.status = 'entregada';
+            }
+
+            await onSave(payload);
             setHasChanges(false);
         } catch (error) {
             console.error('Error saving statuses', error);
