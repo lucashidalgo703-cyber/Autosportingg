@@ -52,6 +52,7 @@ export default function SaleCreateModal({ isOpen, onClose, onSuccess }) {
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
     const [vehicleSearch, setVehicleSearch] = useState('');
+    const [isAddingDeposit, setIsAddingDeposit] = useState(false);
     
     const [formData, setFormData] = useState({
         manualImport: false,
@@ -412,17 +413,50 @@ export default function SaleCreateModal({ isOpen, onClose, onSuccess }) {
                                 <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
                                     <div>
                                         <p className="m-0 text-sm font-bold text-yellow-500 flex items-center gap-2">
-                                            <DollarSign size={16} /> Seña / adelanto (0)
+                                            <DollarSign size={16} /> Seña / adelanto ({formData.depositAppliedAmount > 0 ? '1' : '0'})
                                         </p>
                                         <p className="m-0 mt-1 text-xs text-crm-fg-muted max-w-[80%]">Cargá cada pago a cuenta con su monto, moneda y fecha, y adjuntá el comprobante. El total se acredita como seña en la liquidación del expediente — lo ven Tesorería y Gestoría.</p>
                                     </div>
-                                    <button type="button" className="flex items-center gap-2 px-4 py-2 bg-yellow-500/10 text-yellow-500 hover:bg-yellow-500/20 rounded-lg text-xs font-bold transition-colors border border-yellow-500/20">
-                                        <Plus size={14} /> Agregar seña
+                                    <button 
+                                        type="button" 
+                                        onClick={() => setIsAddingDeposit(!isAddingDeposit)} 
+                                        className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-bold transition-colors border ${isAddingDeposit ? 'bg-transparent text-crm-fg-muted hover:text-white border-neutral-700' : 'bg-yellow-500/10 text-yellow-500 hover:bg-yellow-500/20 border-yellow-500/20'}`}
+                                    >
+                                        {isAddingDeposit ? <X size={14} /> : <Plus size={14} />} 
+                                        {isAddingDeposit ? 'Cancelar seña' : 'Agregar seña'}
                                     </button>
                                 </div>
-                                <div className="rounded-lg border border-dashed border-yellow-500/20 p-4 text-center">
-                                    <span className="text-xs text-crm-fg-muted font-medium">Sin seña registrada. Si el cliente abonó algo a cuenta, agregalo con el botón de arriba.</span>
-                                </div>
+                                
+                                {isAddingDeposit ? (
+                                    <div className="rounded-lg border border-yellow-500/20 bg-black/20 p-4">
+                                        <div className="flex gap-4 items-end">
+                                            <div className="w-1/3">
+                                                <FieldLabel>Moneda</FieldLabel>
+                                                <CrmSelect value={formData.depositAppliedCurrency} onChange={(e) => updateField('depositAppliedCurrency', e.target.value)} className="h-10 bg-crm-bg border-yellow-500/20 focus:border-yellow-500 text-yellow-500 font-bold">
+                                                    <option value="USD">USD</option>
+                                                    <option value="ARS">ARS</option>
+                                                </CrmSelect>
+                                            </div>
+                                            <div className="flex-1">
+                                                <FieldLabel>Monto de la seña</FieldLabel>
+                                                <CrmInput type="number" min="0" value={formData.depositAppliedAmount || ''} onChange={(e) => updateField('depositAppliedAmount', e.target.value)} placeholder="Ej: 1000" className="h-10 bg-crm-bg border-yellow-500/20 focus:border-yellow-500 text-yellow-500 font-bold" />
+                                            </div>
+                                            <button type="button" onClick={() => setIsAddingDeposit(false)} className="h-10 px-4 bg-yellow-500 text-black font-bold text-sm rounded-lg hover:bg-yellow-400 transition-colors">Guardar</button>
+                                        </div>
+                                    </div>
+                                ) : formData.depositAppliedAmount > 0 ? (
+                                    <div className="rounded-lg border border-dashed border-yellow-500/40 p-4 flex justify-between items-center bg-yellow-500/10">
+                                        <span className="text-sm text-yellow-500 font-bold flex items-center gap-2">
+                                            <CheckSquare size={16} className="text-yellow-500" />
+                                            Seña registrada: {formData.depositAppliedCurrency} {Number(formData.depositAppliedAmount).toLocaleString()}
+                                        </span>
+                                        <button type="button" onClick={() => updateField('depositAppliedAmount', 0)} className="text-xs text-crm-red hover:text-red-400 font-medium">Eliminar</button>
+                                    </div>
+                                ) : (
+                                    <div className="rounded-lg border border-dashed border-yellow-500/20 p-4 text-center">
+                                        <span className="text-xs text-crm-fg-muted font-medium">Sin seña registrada. Si el cliente abonó algo a cuenta, agregalo con el botón de arriba.</span>
+                                    </div>
+                                )}
                             </div>
 
                             <div className="grid grid-cols-1 gap-5 lg:grid-cols-2 mb-8">
