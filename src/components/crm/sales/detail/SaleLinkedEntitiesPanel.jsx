@@ -97,6 +97,31 @@ export default function SaleLinkedEntitiesPanel({ sale, onUpdate }) {
             setIsLinking(false);
         }
     };
+    const handleCreateLinkClient = async () => {
+        setIsLinking(true);
+        setError(null);
+        try {
+            const token = localStorage.getItem('token');
+            const res = await fetch(`/api/admin/sales/${sale._id}/create-link-client`, {
+                method: 'POST',
+                headers: { 
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({})
+            });
+            if (!res.ok) {
+                const data = await res.json();
+                throw new Error(data.error || 'Error al crear y vincular cliente');
+            }
+            if (onUpdate) onUpdate();
+            else window.location.reload();
+        } catch (err) {
+            setError(err.message);
+        } finally {
+            setIsLinking(false);
+        }
+    };
 
     const handleLinkVehicle = async (vehicleId) => {
         setIsLinking(true);
@@ -386,6 +411,15 @@ export default function SaleLinkedEntitiesPanel({ sale, onUpdate }) {
                                 Usar cliente de la reserva
                             </button>
                         )}
+
+                        <button
+                            onClick={handleCreateLinkClient}
+                            disabled={isLinking}
+                            className="w-full flex items-center justify-center gap-2 bg-[#EF3329]/10 hover:bg-[#EF3329]/20 border border-[#EF3329]/30 text-[#EF3329] py-2 rounded-lg text-xs font-bold transition-colors disabled:opacity-50"
+                        >
+                            <User size={14} />
+                            Crear y Vincular Cliente Rápido
+                        </button>
 
                         <div className="relative">
                             <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-500" size={14} />
