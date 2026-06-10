@@ -12,12 +12,14 @@ export default function ConsignacionesPage() {
         fetchCars();
     }, [fetchCars]);
 
-    // Consignaciones = Vehículos en stock (No vendidos/cancelados) donde agencyOwned es false
-    const consignaciones = cars.filter(car => 
-        !car.agencyOwned && 
-        car.status !== 'Vendido' && 
-        car.status !== 'Cancelado'
-    );
+    // Consignaciones = Vehículos en stock que tienen un consignador (consignedBy)
+    // o que explícitamente no son de la agencia y tienen un dueño registrado.
+    const consignaciones = cars.filter(car => {
+        const isConsigned = (car.consignedBy && car.consignedBy.trim() !== '') || 
+                            (car.agencyOwned === false && car.ownerName && car.ownerName.trim() !== '');
+        
+        return isConsigned && car.status !== 'Vendido' && car.status !== 'Cancelado';
+    });
 
     const filteredConsignaciones = consignaciones.filter(car => {
         const query = search.toLowerCase();
@@ -62,7 +64,7 @@ export default function ConsignacionesPage() {
                 </div>
             </div>
 
-            {error && (
+            {error && typeof error === 'string' && cars.length === 0 && (
                 <div className="rounded-xl border border-crm-red/30 bg-crm-red/10 p-4 text-sm text-red-300">
                     {error}
                 </div>
