@@ -55,30 +55,30 @@ export default function SalesFilters({ filters, setFilters, onRefresh, loading }
             </div>
 
             <div className="grid grid-cols-1 gap-3 xl:grid-cols-[minmax(260px,1.35fr)_minmax(190px,0.7fr)_200px_146px_146px_200px]">
-                <div className="relative">
+                <div className="relative self-end">
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-crm-fg-muted" size={17} />
                     <CrmInput
                         type="text"
                         placeholder="Comprador, vehículo, DNI, teléfono..."
-                        className="h-11 bg-crm-surface pl-10 text-sm"
+                        className="h-11 bg-crm-surface pl-10 text-sm w-full"
                         value={filters.search}
                         onChange={(e) => setFilters({ ...filters, search: e.target.value })}
                     />
                 </div>
 
-                <div className="relative">
+                <div className="relative self-end">
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-crm-fg-muted" size={17} />
                     <CrmInput
                         type="text"
                         placeholder="Buscar vendedor..."
-                        className="h-11 bg-crm-surface pl-10 text-sm"
+                        className="h-11 bg-crm-surface pl-10 text-sm w-full"
                         value={filters.seller}
                         onChange={(e) => setFilters({ ...filters, seller: e.target.value })}
                     />
                 </div>
 
                 <CrmSelect
-                    className="h-11 bg-crm-surface text-sm font-semibold"
+                    className="h-11 bg-crm-surface text-sm font-semibold self-end"
                     value={filters.paymentMethod}
                     onChange={(e) => setFilters({ ...filters, paymentMethod: e.target.value })}
                 >
