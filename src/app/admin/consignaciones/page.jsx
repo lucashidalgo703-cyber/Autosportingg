@@ -5,7 +5,7 @@ import { useAdminCars } from '../../../hooks/useAdminCars';
 import Link from 'next/link';
 
 export default function ConsignacionesPage() {
-    const { cars, loading, error, fetchCars } = useAdminCars();
+    const { cars, loading, error, refresh: fetchCars } = useAdminCars();
     const [search, setSearch] = useState('');
 
     useEffect(() => {
