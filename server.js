@@ -1902,7 +1902,7 @@ app.get('/api/admin/reservations', authenticateToken, async (req, res) => {
             })
             .populate({
                 path: 'vehicleId',
-                select: 'brand name year plateOrVin price currency status'
+                select: 'brand name year plateOrVin price currency status purchasePrice purchaseCurrency'
             })
             .sort({ createdAt: -1 })
             .select('-reservationAuditLog')
@@ -2232,7 +2232,7 @@ app.get('/api/admin/sales', authenticateToken, async (req, res) => {
             })
             .populate({
                 path: 'vehicleId',
-                select: 'brand name year plateOrVin price currency status'
+                select: 'brand name year plateOrVin price currency status purchasePrice purchaseCurrency'
             })
             .populate({
                 path: 'reservationId',
