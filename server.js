@@ -2761,6 +2761,71 @@ app.patch('/api/admin/sales/:id/link-client', authenticateToken, async (req, res
     }
 });
 
+// POST create and link client to sale
+app.post('/api/admin/sales/:id/create-link-client', authenticateToken, async (req, res) => {
+    try {
+        await connectDB();
+        const saleId = req.params.id;
+        const sale = await Sale.findById(saleId);
+        if (!sale) return res.status(404).json({ error: 'Venta no encontrada' });
+
+        const user = req.user?.username || 'Admin';
+
+        // Extract data from the sale itself if it exists, or from req.body
+        const fullName = req.body.fullName || sale.buyerName || sale.vehicleOwnerName || 'Cliente de Venta Histórica';
+        const phone = req.body.phone || sale.buyerPhone || '0000000000';
+        const email = req.body.email || sale.buyerEmail || '';
+        const dni = req.body.dni || sale.buyerDni || '';
+
+        // Create the new client
+        const newClient = new Client({
+            firstName: fullName.split(' ')[0],
+            lastName: fullName.split(' ').slice(1).join(' '),
+            fullName: fullName,
+            phone: phone,
+            email: email,
+            documentNumber: dni,
+            source: 'Venta Manual',
+            status: 'Comprador'
+        });
+
+        await newClient.save();
+
+        const oldClient = sale.clientId ? sale.clientId.toString() : null;
+        sale.clientId = newClient._id;
+        sale.updatedBy = user;
+        
+        if (!sale.saleAuditLog) sale.saleAuditLog = [];
+        sale.saleAuditLog.push({
+            action: 'CLIENTE_CREADO_Y_VINCULADO',
+            field: 'clientId',
+            oldValue: oldClient,
+            newValue: newClient._id.toString(),
+            details: `Cliente creado manualmente desde la venta y vinculado: ${fullName}`,
+            user: user,
+            source: 'CRM_V2'
+        });
+
+        await sale.save();
+
+        await logAudit({
+            req,
+            action: 'VENTA_CLIENTE_CREADO_Y_VINCULADO',
+            module: 'ventas',
+            entityType: 'Sale',
+            entityId: sale._id,
+            entityLabel: 'Venta',
+            description: `Se creó y vinculó el cliente ${fullName} a la venta.`,
+            metadata: { clientId: newClient._id }
+        });
+
+        res.json({ ok: true, sale, client: newClient });
+    } catch (err) {
+        console.error("Error creating and linking client:", err);
+        res.status(500).json({ error: 'Error interno del servidor al crear y vincular cliente' });
+    }
+});
+
 app.patch('/api/admin/sales/:id/link-vehicle', authenticateToken, async (req, res) => {
     try {
         await connectDB();

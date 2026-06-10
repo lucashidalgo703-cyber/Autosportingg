@@ -17,6 +17,12 @@ export default function SaleLinkedEntitiesPanel({ sale, onUpdate }) {
     const [manualModel, setManualModel] = useState('');
     const [manualPlate, setManualPlate] = useState('');
 
+    // Manual Client State
+    const [isManualClientMode, setIsManualClientMode] = useState(false);
+    const [manualClientName, setManualClientName] = useState(sale?.buyerName || sale?.vehicleOwnerName || '');
+    const [manualClientDNI, setManualClientDNI] = useState(sale?.buyerDni || '');
+    const [manualClientPhone, setManualClientPhone] = useState(sale?.buyerPhone || '');
+
     const [isLinking, setIsLinking] = useState(false);
     const [error, setError] = useState(null);
 
@@ -108,7 +114,11 @@ export default function SaleLinkedEntitiesPanel({ sale, onUpdate }) {
                     'Authorization': `Bearer ${token}`,
                     'Content-Type': 'application/json'
                 },
-                body: JSON.stringify({})
+                body: JSON.stringify({
+                    fullName: manualClientName,
+                    dni: manualClientDNI,
+                    phone: manualClientPhone
+                })
             });
             if (!res.ok) {
                 const data = await res.json();
@@ -412,48 +422,107 @@ export default function SaleLinkedEntitiesPanel({ sale, onUpdate }) {
                             </button>
                         )}
 
-                        <button
-                            onClick={handleCreateLinkClient}
-                            disabled={isLinking}
-                            className="w-full flex items-center justify-center gap-2 bg-[#EF3329]/10 hover:bg-[#EF3329]/20 border border-[#EF3329]/30 text-[#EF3329] py-2 rounded-lg text-xs font-bold transition-colors disabled:opacity-50"
-                        >
-                            <User size={14} />
-                            Crear y Vincular Cliente Rápido
-                        </button>
-
-                        <div className="relative">
-                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-500" size={14} />
-                            <input
-                                type="text"
-                                placeholder="Buscar cliente por DNI, nombre..."
-                                className="w-full bg-black/40 border border-neutral-800 rounded-lg py-2 pl-9 pr-3 text-xs text-white focus:outline-none focus:border-[#EF3329]/50 transition-colors"
-                                value={clientSearch}
-                                onChange={(e) => setClientSearch(e.target.value)}
-                                disabled={isLinking}
-                            />
+                        {/* Tabs for Client Linking */}
+                        <div className="flex gap-2 p-1 bg-black/40 rounded-lg">
+                            <button
+                                onClick={() => setIsManualClientMode(false)}
+                                className={`flex-1 py-1.5 text-[11px] font-bold rounded-md transition-colors ${!isManualClientMode ? 'bg-[#EF3329] text-white shadow-sm' : 'text-neutral-400 hover:text-white'}`}
+                            >
+                                Buscar Existente
+                            </button>
+                            <button
+                                onClick={() => setIsManualClientMode(true)}
+                                className={`flex-1 py-1.5 text-[11px] font-bold rounded-md transition-colors ${isManualClientMode ? 'bg-[#EF3329] text-white shadow-sm' : 'text-neutral-400 hover:text-white'}`}
+                            >
+                                Cargar Manual
+                            </button>
                         </div>
 
-                        {clientSearchResults.length > 0 && (
-                            <div className="space-y-2 max-h-40 overflow-y-auto custom-scrollbar bg-[#161619] rounded-lg p-2 border border-neutral-800">
-                                {clientSearchResults.map(client => (
-                                    <div key={client._id} className="flex items-center justify-between bg-black/40 p-2 rounded-lg">
-                                        <div className="flex flex-col">
-                                            <span className="text-[11px] font-bold text-white">{client.fullName || client.firstName}</span>
-                                            <span className="text-[10px] text-neutral-500">{client.phone}</span>
-                                        </div>
-                                        <button 
-                                            onClick={() => handleLinkClient(client._id)}
-                                            disabled={isLinking}
-                                            className="px-2 py-1 text-[10px] font-bold bg-[#E63027] hover:bg-[#C42620] text-white rounded transition-colors disabled:opacity-50"
-                                        >
-                                            Vincular
-                                        </button>
+                        {!isManualClientMode ? (
+                            <>
+                                <div className="relative mt-2">
+                                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-500" size={14} />
+                                    <input
+                                        type="text"
+                                        placeholder="Buscar cliente por DNI, nombre..."
+                                        className="w-full bg-black/40 border border-neutral-800 rounded-lg py-2 pl-9 pr-3 text-xs text-white focus:outline-none focus:border-[#EF3329]/50 transition-colors"
+                                        value={clientSearch}
+                                        onChange={(e) => setClientSearch(e.target.value)}
+                                        disabled={isLinking}
+                                    />
+                                </div>
+
+                                {clientSearchResults.length > 0 && (
+                                    <div className="space-y-2 max-h-40 overflow-y-auto custom-scrollbar bg-[#161619] rounded-lg p-2 border border-neutral-800">
+                                        {clientSearchResults.map(client => (
+                                            <div key={client._id} className="flex items-center justify-between bg-black/40 p-2 rounded-lg">
+                                                <div className="flex flex-col">
+                                                    <span className="text-[11px] font-bold text-white">{client.fullName || client.firstName}</span>
+                                                    <span className="text-[10px] text-neutral-500">{client.phone}</span>
+                                                </div>
+                                                <button 
+                                                    onClick={() => handleLinkClient(client._id)}
+                                                    disabled={isLinking}
+                                                    className="px-2 py-1 text-[10px] font-bold bg-[#E63027] hover:bg-[#C42620] text-white rounded transition-colors disabled:opacity-50"
+                                                >
+                                                    Vincular
+                                                </button>
+                                            </div>
+                                        ))}
                                     </div>
-                                ))}
+                                )}
+                                {clientSearch.length > 2 && clientSearchResults.length === 0 && !searchingClient && (
+                                    <div className="text-[10px] text-neutral-500 text-center">No se encontraron clientes.</div>
+                                )}
+                            </>
+                        ) : (
+                            <div className="space-y-3 bg-black/20 p-3 rounded-xl border border-neutral-800/50 mt-2">
+                                <div className="grid grid-cols-1 gap-3">
+                                    <div>
+                                        <label className="text-[10px] font-bold text-neutral-500 uppercase tracking-wider mb-1 block">Nombre Completo *</label>
+                                        <input
+                                            type="text"
+                                            className="w-full bg-black/40 border border-neutral-800 rounded-lg py-1.5 px-3 text-xs text-white focus:outline-none focus:border-[#EF3329]/50 transition-colors"
+                                            placeholder="Ej: Juan Pérez"
+                                            value={manualClientName}
+                                            onChange={(e) => setManualClientName(e.target.value)}
+                                            disabled={isLinking}
+                                        />
+                                    </div>
+                                </div>
+                                <div className="grid grid-cols-2 gap-3">
+                                    <div>
+                                        <label className="text-[10px] font-bold text-neutral-500 uppercase tracking-wider mb-1 block">DNI *</label>
+                                        <input
+                                            type="text"
+                                            className="w-full bg-black/40 border border-neutral-800 rounded-lg py-1.5 px-3 text-xs text-white focus:outline-none focus:border-[#EF3329]/50 transition-colors"
+                                            placeholder="Ej: 35123456"
+                                            value={manualClientDNI}
+                                            onChange={(e) => setManualClientDNI(e.target.value)}
+                                            disabled={isLinking}
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="text-[10px] font-bold text-neutral-500 uppercase tracking-wider mb-1 block">Teléfono</label>
+                                        <input
+                                            type="text"
+                                            className="w-full bg-black/40 border border-neutral-800 rounded-lg py-1.5 px-3 text-xs text-white focus:outline-none focus:border-[#EF3329]/50 transition-colors"
+                                            placeholder="Ej: 2974000000"
+                                            value={manualClientPhone}
+                                            onChange={(e) => setManualClientPhone(e.target.value)}
+                                            disabled={isLinking}
+                                        />
+                                    </div>
+                                </div>
+                                <button
+                                    onClick={handleCreateLinkClient}
+                                    disabled={isLinking || !manualClientName.trim() || !manualClientDNI.trim()}
+                                    className="w-full mt-2 bg-[#EF3329] hover:bg-[#D92B22] text-white text-[11px] font-bold py-2 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                                >
+                                    <User size={14} />
+                                    Crear y Vincular Cliente
+                                </button>
                             </div>
-                        )}
-                        {clientSearch.length > 2 && clientSearchResults.length === 0 && !searchingClient && (
-                            <div className="text-[10px] text-neutral-500 text-center">No se encontraron clientes.</div>
                         )}
                     </div>
                 )}
