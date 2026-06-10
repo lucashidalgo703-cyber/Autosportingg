@@ -1,7 +1,8 @@
 "use client";
-import { useMemo, useState } from 'react';
+import { useMemo, useState, useEffect } from 'react';
 
 import { useAdminCars } from '../../hooks/useAdminCars';
+import { useAdminSales } from '../../hooks/useAdminSales';
 import { calculateDashboardMetrics } from '../../components/crm/dashboard/dashboardMetrics';
 import { BarChart3, Loader2, AlertCircle, Target } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
@@ -11,7 +12,8 @@ import GeneralDashboardSote from '../../components/crm/dashboard/GeneralDashboar
 import CockpitCeoSote from '../../components/crm/dashboard/CockpitCeoSote';
 
 export default function AdminDashboardPage() {
-    const { cars, loading, error } = useAdminCars();
+    const { cars, loading: loadingCars, error: errorCars } = useAdminCars();
+    const { sales, loading: loadingSales, error: errorSales, fetchSales } = useAdminSales();
     const { user } = useAuth();
     const [activeTab, setActiveTab] = useState('cockpit');
     const displayName = user?.name || user?.username || (user?.email ? user.email.split('@')[0] : 'Equipo');
@@ -21,10 +23,14 @@ export default function AdminDashboardPage() {
         .map((word) => word ? word.charAt(0).toUpperCase() + word.slice(1) : word)
         .join(' ');
 
+    useEffect(() => {
+        fetchSales();
+    }, [fetchSales]);
+
     const metrics = useMemo(() => {
         if (!cars || cars.length === 0) return null;
-        return calculateDashboardMetrics(cars);
-    }, [cars]);
+        return calculateDashboardMetrics(cars, sales || []);
+    }, [cars, sales]);
 
     return (
         <div className="mx-auto flex w-full max-w-7xl flex-col p-4 pb-12 md:p-6">
@@ -59,18 +65,18 @@ export default function AdminDashboardPage() {
                 </button>
             </div>
 
-                    {loading ? (
+                    {loadingCars || loadingSales ? (
                         <div className="lg:col-span-2">
                             <div className="flex flex-col items-center justify-center h-64 border border-crm-border bg-crm-surface rounded-xl">
                                 <Loader2 size={32} className="text-crm-red animate-spin mb-4" />
                                 <p className="text-crm-fg-muted font-medium">Cargando métricas de dirección...</p>
                             </div>
                         </div>
-                    ) : error ? (
+                    ) : (errorCars || errorSales) ? (
                         <div className="flex flex-col items-center justify-center h-64 border border-red-500/20 bg-red-500/10 rounded-xl">
                             <AlertCircle size={32} className="text-red-500 mb-4" />
                             <p className="text-red-400 font-medium">Error al cargar datos del dashboard</p>
-                            <p className="text-red-400/70 text-sm">{error}</p>
+                            <p className="text-red-400/70 text-sm">{errorCars || errorSales}</p>
                         </div>
                     ) : metrics ? (
                         activeTab === 'cockpit' ? (

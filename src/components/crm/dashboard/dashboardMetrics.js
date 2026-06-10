@@ -143,5 +143,46 @@ export function calculateDashboardMetrics(cars = []) {
         .sort((a, b) => new Date(b.date) - new Date(a.date))
         .slice(0, 15);
 
+    // --- Real Sales Data Overrides ---
+    // If sales data is provided, use it to compute REAL monthly profit and sales counts
+    if (arguments.length > 1 && arguments[1] && Array.isArray(arguments[1])) {
+        const sales = arguments[1];
+        metrics.counts.vendidos = 0;
+        let realMarginARS = 0;
+        let realMarginUSD = 0;
+        
+        const currentMonth = new Date().getMonth();
+        const currentYear = new Date().getFullYear();
+
+        sales.forEach(sale => {
+            const saleDate = new Date(sale.saleDate || sale.createdAt);
+            // Only count sales from the current month
+            if (saleDate.getMonth() === currentMonth && saleDate.getFullYear() === currentYear) {
+                if (['confirmada', 'pendiente_entrega', 'entregada'].includes(sale.status)) {
+                    metrics.counts.vendidos++;
+                    
+                    // Match with car to get purchase price
+                    const carIdStr = typeof sale.vehicleId === 'object' ? sale.vehicleId?._id : sale.vehicleId;
+                    const car = cars.find(c => c._id === carIdStr);
+                    
+                    if (car && car.purchasePrice) {
+                        const cost = Number(car.purchasePrice);
+                        const price = Number(sale.salePrice);
+                        
+                        // Simple exact currency margin
+                        if (sale.saleCurrency === 'USD' && car.purchaseCurrency === 'USD') {
+                            realMarginUSD += (price - cost);
+                        } else if (sale.saleCurrency === 'ARS' && car.purchaseCurrency === 'ARS') {
+                            realMarginARS += (price - cost);
+                        }
+                    }
+                }
+            }
+        });
+        
+        metrics.margenEstimado.ARS = realMarginARS;
+        metrics.margenEstimado.USD = realMarginUSD;
+    }
+
     return metrics;
 }
