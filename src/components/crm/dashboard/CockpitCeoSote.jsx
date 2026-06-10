@@ -189,6 +189,7 @@ export default function CockpitCeoSote({ metrics, canSeeFinancials = false, user
 
     const monthLabel = selectedDate.toLocaleDateString('es-AR', { month: 'long', year: 'numeric' });
     const viewingLabel = isCurrentMonth ? 'Mes Actual' : monthLabel.charAt(0).toUpperCase() + monthLabel.slice(1);
+    const monthParam = `?month=${selectedDate.getFullYear()}-${String(selectedDate.getMonth() + 1).padStart(2, '0')}`;
 
     return (
         <div className="space-y-4">
@@ -248,7 +249,7 @@ export default function CockpitCeoSote({ metrics, canSeeFinancials = false, user
             </section>
 
             <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-                <KpiPanel title="Autos vendidos" icon={Car} href="/admin/ventas" className="min-h-[194px]">
+                <KpiPanel title="Autos vendidos" icon={Car} href={`/admin/ventas${monthParam}`} className="min-h-[194px]">
                     <div className="flex items-end gap-3">
                         <p className="text-5xl font-bold leading-none text-crm-fg sm:text-6xl">{formatNumber(soldCount)}</p>
                         <p className="mb-2 text-lg text-crm-fg-muted">/ {salesObjective} obj</p>

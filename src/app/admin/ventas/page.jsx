@@ -62,6 +62,13 @@ export default function VentasPage() {
     };
 
     useEffect(() => {
+        if (typeof window !== 'undefined') {
+            const params = new URLSearchParams(window.location.search);
+            const monthParam = params.get('month');
+            if (monthParam) {
+                setFilters(prev => ({ ...prev, month: monthParam }));
+            }
+        }
         loadData();
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
