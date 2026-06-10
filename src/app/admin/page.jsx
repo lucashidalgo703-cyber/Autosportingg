@@ -16,6 +16,8 @@ export default function AdminDashboardPage() {
     const { sales, loading: loadingSales, error: errorSales, fetchSales } = useAdminSales();
     const { user } = useAuth();
     const [activeTab, setActiveTab] = useState('cockpit');
+    const [selectedDate, setSelectedDate] = useState(new Date());
+
     const displayName = user?.name || user?.username || (user?.email ? user.email.split('@')[0] : 'Equipo');
     const dashboardDate = new Date()
         .toLocaleDateString('es-AR', { weekday: 'long', day: 'numeric', month: 'long' })
@@ -29,8 +31,20 @@ export default function AdminDashboardPage() {
 
     const metrics = useMemo(() => {
         if (!cars || cars.length === 0) return null;
-        return calculateDashboardMetrics(cars, sales || []);
-    }, [cars, sales]);
+        return calculateDashboardMetrics(cars, sales || [], selectedDate);
+    }, [cars, sales, selectedDate]);
+
+    const handlePrevMonth = () => {
+        const prev = new Date(selectedDate);
+        prev.setMonth(prev.getMonth() - 1);
+        setSelectedDate(prev);
+    };
+
+    const handleNextMonth = () => {
+        const next = new Date(selectedDate);
+        next.setMonth(next.getMonth() + 1);
+        setSelectedDate(next);
+    };
 
     return (
         <div className="mx-auto flex w-full max-w-7xl flex-col p-4 pb-12 md:p-6">
@@ -84,6 +98,9 @@ export default function AdminDashboardPage() {
                                     metrics={metrics}
                                     canSeeFinancials={hasPermission(user, PERMISSIONS.FINANZAS_READ)}
                                     user={user}
+                                    selectedDate={selectedDate}
+                                    onPrevMonth={handlePrevMonth}
+                                    onNextMonth={handleNextMonth}
                                 />
                             ) : (
                                 <GeneralDashboardSote

@@ -169,14 +169,16 @@ function AnnualSummaryPanel({ soldCount }) {
     );
 }
 
-export default function CockpitCeoSote({ metrics, canSeeFinancials = false, user }) {
+export default function CockpitCeoSote({ metrics, canSeeFinancials = false, user, selectedDate = new Date(), onPrevMonth, onNextMonth }) {
     const [showDetailsModal, setShowDetailsModal] = useState(false);
     const counts = metrics.counts || {};
     const soldCount = counts.vendidos || 0;
     const userName = user?.name || user?.username || (user?.email ? user.email.split('@')[0] : 'Equipo');
     const today = new Date();
-    const totalDays = new Date(today.getFullYear(), today.getMonth() + 1, 0).getDate();
-    const dayOfMonth = today.getDate();
+    const isCurrentMonth = selectedDate.getMonth() === today.getMonth() && selectedDate.getFullYear() === today.getFullYear();
+    const totalDays = new Date(selectedDate.getFullYear(), selectedDate.getMonth() + 1, 0).getDate();
+    // Use actual day of month if current month, otherwise use total days of that month
+    const dayOfMonth = isCurrentMonth ? today.getDate() : totalDays;
     const monthProgress = Math.max(1, Math.round((dayOfMonth / totalDays) * 100));
     const salesObjective = 30;
     const salesPercent = Math.min(100, Math.round((soldCount / salesObjective) * 100));
@@ -184,6 +186,9 @@ export default function CockpitCeoSote({ metrics, canSeeFinancials = false, user
     const gainArs = canSeeFinancials ? metrics.margenEstimado?.ARS || 0 : 0;
     const gainPerCarUsd = soldCount > 0 ? gainUsd / soldCount : 0;
     const gainPerCarArs = soldCount > 0 ? gainArs / soldCount : 0;
+
+    const monthLabel = selectedDate.toLocaleDateString('es-AR', { month: 'long', year: 'numeric' });
+    const viewingLabel = isCurrentMonth ? 'Mes Actual' : monthLabel.charAt(0).toUpperCase() + monthLabel.slice(1);
 
     return (
         <div className="space-y-4">
@@ -223,18 +228,22 @@ export default function CockpitCeoSote({ metrics, canSeeFinancials = false, user
             </section>
 
             <section className="flex h-[54px] items-center justify-between rounded-xl border border-crm-border bg-crm-surface px-4 py-0">
-                <button type="button" className="appearance-none m-0 flex h-8 w-8 items-center justify-center rounded-lg border-0 bg-transparent p-0 text-crm-fg-muted hover:bg-crm-surface-raised hover:text-crm-fg">
+                <button type="button" onClick={onPrevMonth} className="appearance-none m-0 flex h-8 w-8 items-center justify-center rounded-lg border-0 bg-transparent p-0 text-crm-fg-muted hover:bg-crm-surface-raised hover:text-crm-fg cursor-pointer">
                     <ChevronLeft size={16} />
                 </button>
                 <div className="text-center">
                     <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-crm-fg-muted">Viendo cockpit de</p>
-                    <p className="text-sm font-bold text-crm-fg">Mes Actual</p>
+                    <p className="text-sm font-bold text-crm-fg">{viewingLabel}</p>
                 </div>
                 <div className="flex items-center gap-4">
-                    <button type="button" className="appearance-none m-0 flex h-8 w-8 items-center justify-center rounded-lg border-0 bg-transparent p-0 text-crm-fg-muted hover:bg-crm-surface-raised hover:text-crm-fg">
+                    <button type="button" onClick={onNextMonth} disabled={isCurrentMonth} className={`appearance-none m-0 flex h-8 w-8 items-center justify-center rounded-lg border-0 p-0 ${isCurrentMonth ? 'text-crm-border cursor-not-allowed' : 'text-crm-fg-muted hover:bg-crm-surface-raised hover:text-crm-fg cursor-pointer bg-transparent'}`}>
                         <ChevronRight size={16} />
                     </button>
-                    <span className="rounded-full border border-emerald-500/20 bg-emerald-500/10 px-3 py-1 text-xs font-bold text-emerald-300">● EN VIVO</span>
+                    {isCurrentMonth ? (
+                        <span className="rounded-full border border-emerald-500/20 bg-emerald-500/10 px-3 py-1 text-xs font-bold text-emerald-300">● EN VIVO</span>
+                    ) : (
+                        <span className="rounded-full border border-crm-border bg-crm-surface-raised px-3 py-1 text-xs font-bold text-crm-fg-muted">HISTÓRICO</span>
+                    )}
                 </div>
             </section>
 

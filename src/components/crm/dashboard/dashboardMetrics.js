@@ -147,12 +147,14 @@ export function calculateDashboardMetrics(cars = []) {
     // If sales data is provided, use it to compute REAL monthly profit and sales counts
     if (arguments.length > 1 && arguments[1] && Array.isArray(arguments[1])) {
         const sales = arguments[1];
+        const selectedDate = arguments.length > 2 && arguments[2] ? new Date(arguments[2]) : new Date();
+        
         metrics.counts.vendidos = 0;
         let realMarginARS = 0;
         let realMarginUSD = 0;
         
-        const currentMonth = new Date().getMonth();
-        const currentYear = new Date().getFullYear();
+        const targetMonth = selectedDate.getMonth();
+        const targetYear = selectedDate.getFullYear();
 
         const salesDetails = [];
 
@@ -163,7 +165,7 @@ export function calculateDashboardMetrics(cars = []) {
             const status = (sale.status || '').toLowerCase();
             const isValidStatus = status !== 'cancelada' && status !== 'borrador';
 
-            if (saleDate.getMonth() === currentMonth && saleDate.getFullYear() === currentYear) {
+            if (saleDate.getMonth() === targetMonth && saleDate.getFullYear() === targetYear) {
                 if (isValidStatus) {
                     metrics.counts.vendidos++;
                     
