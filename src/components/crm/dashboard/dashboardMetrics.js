@@ -155,10 +155,14 @@ export function calculateDashboardMetrics(cars = []) {
         const currentYear = new Date().getFullYear();
 
         sales.forEach(sale => {
-            const saleDate = new Date(sale.saleDate || sale.createdAt);
-            // Only count sales from the current month
+            const saleDate = new Date(sale.saleDate || sale.createdAt || new Date());
+            
+            // Allow all valid sales (ignore only purely cancelled ones for the count)
+            const status = (sale.status || '').toLowerCase();
+            const isValidStatus = status !== 'cancelada' && status !== 'borrador';
+
             if (saleDate.getMonth() === currentMonth && saleDate.getFullYear() === currentYear) {
-                if (['confirmada', 'pendiente_entrega', 'entregada'].includes(sale.status)) {
+                if (isValidStatus) {
                     metrics.counts.vendidos++;
                     
                     // Match with car to get purchase price
