@@ -81,6 +81,11 @@ textarea {
   font: inherit;
 }
 
+option {
+  background-color: rgb(30, 30, 36); /* Color oscuro base del CRM */
+  color: white;
+}
+
 @media (max-width: 767px) {
   input,
   select,
