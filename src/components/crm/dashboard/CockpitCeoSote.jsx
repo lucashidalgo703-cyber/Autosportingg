@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import Link from 'next/link';
 import {
     AlertTriangle,
@@ -169,6 +170,7 @@ function AnnualSummaryPanel({ soldCount }) {
 }
 
 export default function CockpitCeoSote({ metrics, canSeeFinancials = false, user }) {
+    const [showDetailsModal, setShowDetailsModal] = useState(false);
     const counts = metrics.counts || {};
     const soldCount = counts.vendidos || 0;
     const userName = user?.name || user?.username || (user?.email ? user.email.split('@')[0] : 'Equipo');
@@ -269,7 +271,7 @@ export default function CockpitCeoSote({ metrics, canSeeFinancials = false, user
                     <div className="mt-3 flex items-center gap-3 text-[11px] text-crm-fg-muted">
                         <span className="text-emerald-400">●</span>
                         Se actualiza en vivo con cada venta
-                        <button type="button" className="inline-flex items-center gap-1 rounded border border-blue-500/30 bg-blue-500/10 px-2 py-1 text-blue-300">
+                        <button type="button" onClick={(e) => { e.preventDefault(); e.stopPropagation(); setShowDetailsModal(true); }} className="inline-flex items-center gap-1 rounded border border-blue-500/30 bg-blue-500/10 px-2 py-1 text-blue-300">
                             <ExternalLink size={12} />
                             Ver detalle del calculo
                         </button>
@@ -384,6 +386,45 @@ export default function CockpitCeoSote({ metrics, canSeeFinancials = false, user
             {canSeeFinancials && <CashProjectionPanel metrics={metrics} />}
             <MonthlyGainPanel />
             <AnnualSummaryPanel soldCount={soldCount} />
+
+            {showDetailsModal && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm">
+                    <div className="w-full max-w-3xl rounded-2xl border border-crm-border bg-crm-surface p-6 shadow-2xl">
+                        <div className="mb-6 flex items-center justify-between">
+                            <h2 className="text-xl font-bold text-white">Detalle de Ganancias (Mes Actual)</h2>
+                            <button onClick={() => setShowDetailsModal(false)} className="text-crm-fg-muted hover:text-white">✕</button>
+                        </div>
+                        <div className="max-h-[60vh] overflow-y-auto">
+                            <table className="w-full text-left text-sm">
+                                <thead className="border-b border-crm-border text-xs text-crm-fg-muted">
+                                    <tr>
+                                        <th className="pb-3">Vehículo</th>
+                                        <th className="pb-3 text-right">Precio Venta</th>
+                                        <th className="pb-3 text-right">Costo Compra</th>
+                                        <th className="pb-3 text-right">Ganancia Bruta</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y divide-crm-border">
+                                    {(metrics.salesDetails || []).length === 0 ? (
+                                        <tr><td colSpan="4" className="py-4 text-center text-crm-fg-muted">No hay ganancias registradas este mes.</td></tr>
+                                    ) : (
+                                        (metrics.salesDetails || []).map((detail, idx) => (
+                                            <tr key={idx} className="hover:bg-crm-surface-raised transition-colors">
+                                                <td className="py-3 font-medium text-white">{detail.carName}</td>
+                                                <td className="py-3 text-right">{detail.saleCurrency} {formatCurrency(detail.salePrice)}</td>
+                                                <td className="py-3 text-right">{detail.purchaseCurrency || 'ARS/USD'} {formatCurrency(detail.purchasePrice)}</td>
+                                                <td className="py-3 text-right font-bold text-emerald-400">
+                                                    {detail.profitUSD > 0 ? `USD ${formatCurrency(detail.profitUSD)}` : detail.profitARS > 0 ? `ARS ${formatCurrency(detail.profitARS)}` : '0'}
+                                                </td>
+                                            </tr>
+                                        ))
+                                    )}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }

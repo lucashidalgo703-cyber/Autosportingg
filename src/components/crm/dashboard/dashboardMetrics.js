@@ -154,6 +154,8 @@ export function calculateDashboardMetrics(cars = []) {
         const currentMonth = new Date().getMonth();
         const currentYear = new Date().getFullYear();
 
+        const salesDetails = [];
+
         sales.forEach(sale => {
             const saleDate = new Date(sale.saleDate || sale.createdAt || new Date());
             
@@ -169,23 +171,41 @@ export function calculateDashboardMetrics(cars = []) {
                     const carIdStr = typeof sale.vehicleId === 'object' ? sale.vehicleId?._id : sale.vehicleId;
                     const car = cars.find(c => c._id === carIdStr);
                     
+                    let profitUSD = 0;
+                    let profitARS = 0;
+
                     if (car && car.purchasePrice) {
                         const cost = Number(car.purchasePrice);
                         const price = Number(sale.salePrice);
                         
                         // Simple exact currency margin
                         if (sale.saleCurrency === 'USD' && car.purchaseCurrency === 'USD') {
-                            realMarginUSD += (price - cost);
+                            profitUSD = price - cost;
+                            realMarginUSD += profitUSD;
                         } else if (sale.saleCurrency === 'ARS' && car.purchaseCurrency === 'ARS') {
-                            realMarginARS += (price - cost);
+                            profitARS = price - cost;
+                            realMarginARS += profitARS;
                         }
                     }
+
+                    salesDetails.push({
+                        id: sale._id,
+                        carName: car ? `${car.brand} ${car.name}` : 'Vehículo eliminado',
+                        salePrice: Number(sale.salePrice) || 0,
+                        saleCurrency: sale.saleCurrency,
+                        purchasePrice: car ? Number(car.purchasePrice) || 0 : 0,
+                        purchaseCurrency: car ? car.purchaseCurrency : null,
+                        profitUSD,
+                        profitARS,
+                        date: saleDate
+                    });
                 }
             }
         });
         
         metrics.margenEstimado.ARS = realMarginARS;
         metrics.margenEstimado.USD = realMarginUSD;
+        metrics.salesDetails = salesDetails;
     }
 
     return metrics;
