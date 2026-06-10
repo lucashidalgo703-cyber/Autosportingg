@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import connectDB from '../../../../utils/db';
+import connectDB from '../../../../config/db';
 import PhoneContact from '../../../../models/PhoneContact';
 // If authentication is needed, we would add the token check here,
 // similar to other admin API routes. We can start with a basic CRUD.
