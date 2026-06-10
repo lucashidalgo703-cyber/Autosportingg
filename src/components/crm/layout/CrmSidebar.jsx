@@ -23,15 +23,19 @@ const menuGroups = [
             { name: 'Clientes', path: '/admin/clientes', icon: '👥' },
             { name: 'Cotizaciones', path: '/admin/leads', icon: '📝' },
             { name: 'Ventas', path: '/admin/ventas', icon: '💼' },
+            { name: 'Mis ventas', path: '/admin/mis-ventas', icon: '🏆' },
         ]
     },
     {
         name: 'OPERACIÓN',
         items: [
+            { name: 'Pedidos', path: '/admin/pedidos', icon: '🔍', prefetch: false },
             { name: 'Postventa', path: '/admin/postventa', icon: '📞', prefetch: false },
-            { name: 'Documentación', path: '/admin/documentacion', icon: '📁', prefetch: false },
-            { name: 'Auditoría', path: '/admin/auditoria', icon: '📋', prefetch: false },
-            { name: 'Calidad de Datos', path: '/admin/calidad-datos', icon: '🔑', prefetch: false },
+            { name: 'Expedientes', path: '/admin/expedientes', icon: '📁', prefetch: false },
+            { name: 'Gestoría', path: '/admin/gestoria', icon: '🔑', prefetch: false },
+            { name: 'Consignaciones', path: '/admin/consignaciones', icon: '🤝', prefetch: false },
+            { name: 'Infracciones', path: '/admin/infracciones', icon: '🏛️', prefetch: false },
+            { name: 'Teléfonos útiles', path: '/admin/telefonos', icon: '☎️', prefetch: false },
         ]
     },
     {
@@ -73,7 +77,7 @@ menuGroups[0].items[2] = {
 
 export default function CrmSidebar({ isOpen, onClose }) {
     const pathname = usePathname();
-    const { user } = useAuth();
+    const { user, logout } = useAuth();
 
     const closeMenu = () => {
         if (typeof onClose === 'function') onClose();
@@ -91,8 +95,13 @@ export default function CrmSidebar({ isOpen, onClose }) {
         if (itemName === 'Cuotas') return hasPermission(user, PERMISSIONS.CUOTAS_READ);
         if (itemName === 'Cobranzas') return hasPermission(user, PERMISSIONS.COBRANZAS_READ);
         if (itemName === 'Reportes') return hasPermission(user, PERMISSIONS.REPORTES_READ);
-        if (itemName === 'Auditoría') return hasPermission(user, PERMISSIONS.AUDITORIA_READ);
-        if (itemName === 'Calidad de Datos') return hasPermission(user, PERMISSIONS.DATAQUALITY_READ);
+        if (itemName === 'Mis ventas') return true;
+        if (itemName === 'Pedidos') return true;
+        if (itemName === 'Expedientes') return true;
+        if (itemName === 'Gestoría') return true;
+        if (itemName === 'Consignaciones') return true;
+        if (itemName === 'Infracciones') return true;
+        if (itemName === 'Teléfonos útiles') return true;
         if (itemName === 'Sistema') return hasPermission(user, PERMISSIONS.SYSTEMHEALTH_READ);
         if (itemName === 'Exportaciones') return hasPermission(user, PERMISSIONS.EXPORTS_READ) || hasPermission(user, PERMISSIONS.EXPORTS_AUDIT);
         if (itemName === 'Equipo') return hasPermission(user, PERMISSIONS.EQUIPO_READ);
@@ -163,6 +172,25 @@ export default function CrmSidebar({ isOpen, onClose }) {
                     );
                 })}
             </nav>
+
+            <div className="flex shrink-0 flex-col gap-1 border-t border-crm-border px-4 py-4 mt-auto">
+                <div className="flex flex-col mb-2">
+                    <span className="text-sm font-bold text-crm-fg">{user?.displayName || user?.email?.split('@')[0] || 'Usuario'}</span>
+                    <span className="text-[10px] font-bold uppercase text-crm-red">ADMINISTRADOR</span>
+                </div>
+                <button
+                    onClick={() => logout()}
+                    className="flex items-center gap-2 text-xs font-medium text-crm-fg-muted transition-colors hover:text-crm-fg"
+                >
+                    <span className="text-base">←</span> Cerrar sesión
+                </button>
+                <button
+                    onClick={() => window.location.reload(true)}
+                    className="flex items-center gap-2 text-xs font-medium text-crm-fg-muted transition-colors hover:text-crm-fg mt-2"
+                >
+                    <span className="text-base">⟳</span> Forzar recarga
+                </button>
+            </div>
         </>
     );
 
