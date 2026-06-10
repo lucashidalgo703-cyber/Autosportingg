@@ -30,7 +30,9 @@ export default function VehicleEditModal({ isOpen, onClose, onSave, vehicleData 
                 consignedBy: vehicleData.origen === 'consignación' ? (vehicleData._original?.consignedBy || 'Consignador') : '',
                 plateOrVin: vehicleData.dominio || '',
                 location: vehicleData._original?.location || 'Salón Principal',
-                notes: vehicleData.observaciones === 'Sin observaciones.' ? '' : vehicleData.observaciones
+                notes: vehicleData.observaciones === 'Sin observaciones.' ? '' : vehicleData.observaciones,
+                createdAt: vehicleData._original?.createdAt ? new Date(vehicleData._original.createdAt).toISOString().split('T')[0] : '',
+                soldAt: vehicleData._original?.soldAt ? new Date(vehicleData._original.soldAt).toISOString().split('T')[0] : ''
             });
         }
     }, [isOpen, vehicleData]);
@@ -84,7 +86,9 @@ export default function VehicleEditModal({ isOpen, onClose, onSave, vehicleData 
                 consignedBy: formData.consignedBy,
                 plateOrVin: formData.plateOrVin,
                 location: formData.location,
-                notes: formData.notes
+                notes: formData.notes,
+                createdAt: formData.createdAt ? formData.createdAt : undefined,
+                soldAt: formData.soldAt ? formData.soldAt : undefined
             };
 
             await onSave(payload);
@@ -253,14 +257,24 @@ export default function VehicleEditModal({ isOpen, onClose, onSave, vehicleData 
                                 </div>
                             </div>
 
-                            <div className="flex flex-col gap-1.5">
-                                <label className="text-xs font-medium text-crm-fg-muted uppercase tracking-wider">Estado Operativo</label>
-                                <select name="status" value={formData.status} onChange={handleChange} className="bg-crm-bg border border-crm-border text-crm-fg rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-crm-red focus:ring-1 focus:ring-crm-red">
-                                    <option value="Disponible">Disponible</option>
-                                    <option value="Reservado">Reservado</option>
-                                    <option value="Vendido">Vendido</option>
-                                    <option value="Pausado">Pausado</option>
-                                </select>
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                <div className="flex flex-col gap-1.5">
+                                    <label className="text-xs font-medium text-crm-fg-muted uppercase tracking-wider">Estado Operativo</label>
+                                    <select name="status" value={formData.status} onChange={handleChange} className="bg-crm-bg border border-crm-border text-crm-fg rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-crm-red focus:ring-1 focus:ring-crm-red">
+                                        <option value="Disponible">Disponible</option>
+                                        <option value="Reservado">Reservado</option>
+                                        <option value="Vendido">Vendido</option>
+                                        <option value="Pausado">Pausado</option>
+                                    </select>
+                                </div>
+                                <div className="flex flex-col gap-1.5">
+                                    <label className="text-xs font-medium text-crm-fg-muted uppercase tracking-wider">Fecha Ingreso</label>
+                                    <input type="date" name="createdAt" value={formData.createdAt} onChange={handleChange} className="bg-crm-bg border border-crm-border text-crm-fg rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-crm-red focus:ring-1 focus:ring-crm-red appearance-none" style={{colorScheme: 'dark'}} />
+                                </div>
+                                <div className="flex flex-col gap-1.5">
+                                    <label className="text-xs font-medium text-crm-fg-muted uppercase tracking-wider">Fecha Venta</label>
+                                    <input type="date" name="soldAt" value={formData.soldAt} onChange={handleChange} disabled={formData.status !== 'Vendido'} className="bg-crm-bg border border-crm-border text-crm-fg rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-crm-red focus:ring-1 focus:ring-crm-red appearance-none disabled:opacity-50" style={{colorScheme: 'dark'}} />
+                                </div>
                             </div>
 
                             <div className="flex flex-col gap-1.5 flex-1">

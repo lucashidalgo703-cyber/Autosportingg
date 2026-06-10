@@ -37,6 +37,7 @@ const carSchema = new mongoose.Schema({
 
     featured: { type: Boolean, default: false },
     sold: { type: Boolean, default: false },
+    soldAt: { type: Date },
     status: { type: String, enum: ['Disponible', 'Vendido', 'Reservado', 'Pausado'], default: 'Disponible' },
     
     // Phase 2.4: Visibility and Expenses

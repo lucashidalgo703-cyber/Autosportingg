@@ -722,7 +722,7 @@ app.patch('/api/admin/cars/:id', authenticateToken, async (req, res) => {
             brand, name, year, km, fuel, condition, description, price, currency, featured, sold, status,
             vehicleType, plateOrVin, color, purchasePrice, purchaseCurrency, location, owners, agencyOwned,
             ownerName, linkedClient, ownerPhone, ownerEmail, consignedBy, engineNumber, chassisNumber,
-            notes, visibleEnWeb, expenses
+            notes, visibleEnWeb, expenses, createdAt, soldAt
         } = req.body;
 
         const car = await Car.findById(req.params.id);
@@ -793,6 +793,48 @@ app.patch('/api/admin/cars/:id', authenticateToken, async (req, res) => {
         if (engineNumber !== undefined && car.engineNumber !== engineNumber) { car.engineNumber = engineNumber; }
         if (chassisNumber !== undefined && car.chassisNumber !== chassisNumber) { car.chassisNumber = chassisNumber; }
         if (notes !== undefined && car.notes !== notes) { checkAndLog('notes', notes, 'OBSERVACION', () => `Observaci├│n interna actualizada`); car.notes = notes; }
+
+        if (createdAt !== undefined) {
+            const newCreatedAt = new Date(createdAt);
+            if (!isNaN(newCreatedAt)) {
+                const oldTime = car.createdAt ? new Date(car.createdAt).getTime() : 0;
+                if (oldTime !== newCreatedAt.getTime()) {
+                    newAuditLogs.push({
+                        action: 'EDICION',
+                        field: 'createdAt',
+                        oldValue: car.createdAt,
+                        newValue: newCreatedAt,
+                        details: `Fecha de ingreso modificada a ${newCreatedAt.toLocaleDateString('es-AR')}`,
+                        user,
+                        source: 'CRM_V2'
+                    });
+                    car.createdAt = newCreatedAt;
+                }
+            }
+        }
+        
+        if (soldAt !== undefined) {
+            if (soldAt === null || soldAt === '') {
+                car.soldAt = undefined;
+            } else {
+                const newSoldAt = new Date(soldAt);
+                if (!isNaN(newSoldAt)) {
+                    const oldTime = car.soldAt ? new Date(car.soldAt).getTime() : 0;
+                    if (oldTime !== newSoldAt.getTime()) {
+                        newAuditLogs.push({
+                            action: 'EDICION',
+                            field: 'soldAt',
+                            oldValue: car.soldAt,
+                            newValue: newSoldAt,
+                            details: `Fecha de venta modificada a ${newSoldAt.toLocaleDateString('es-AR')}`,
+                            user,
+                            source: 'CRM_V2'
+                        });
+                        car.soldAt = newSoldAt;
+                    }
+                }
+            }
+        }
 
         // Expenses
         if (expenses !== undefined && Array.isArray(expenses)) {
