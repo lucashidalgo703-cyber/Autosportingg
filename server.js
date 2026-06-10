@@ -2235,12 +2235,20 @@ app.get('/api/admin/sales', authenticateToken, async (req, res) => {
                 }
             });
 
-            let collectionStatus = 'sin_cobro';
-            const pendingBalance = sale.salePrice - netoCobrado;
+            const tradeInValue = sale.tradeInTotalAmount || 0;
+            const totalToCollect = Math.max(0, sale.salePrice - tradeInValue);
+            const pendingBalance = totalToCollect - netoCobrado;
 
-            if (netoCobrado > 0 && netoCobrado < sale.salePrice) collectionStatus = 'parcial';
-            else if (netoCobrado === sale.salePrice) collectionStatus = 'cobrada';
-            else if (netoCobrado > sale.salePrice) collectionStatus = 'sobrecobrada';
+            let collectionStatus = 'sin_cobro';
+            if (netoCobrado >= totalToCollect) {
+                collectionStatus = netoCobrado > totalToCollect && totalToCollect > 0 ? 'sobrecobrada' : 'cobrada';
+            } else if (netoCobrado > 0) {
+                collectionStatus = 'parcial';
+            }
+            
+            if (totalToCollect === 0 && netoCobrado === 0) {
+                collectionStatus = 'cobrada';
+            }
 
             sale.finance = {
                 netoCobrado,
@@ -2293,12 +2301,20 @@ app.get('/api/admin/sales/:id', authenticateToken, async (req, res) => {
             }
         });
 
-        let collectionStatus = 'sin_cobro';
-        const pendingBalance = sale.salePrice - netoCobrado;
+        const tradeInValue = sale.tradeInTotalAmount || 0;
+        const totalToCollect = Math.max(0, sale.salePrice - tradeInValue);
+        const pendingBalance = totalToCollect - netoCobrado;
 
-        if (netoCobrado > 0 && netoCobrado < sale.salePrice) collectionStatus = 'parcial';
-        else if (netoCobrado === sale.salePrice) collectionStatus = 'cobrada';
-        else if (netoCobrado > sale.salePrice) collectionStatus = 'sobrecobrada';
+        let collectionStatus = 'sin_cobro';
+        if (netoCobrado >= totalToCollect) {
+            collectionStatus = netoCobrado > totalToCollect && totalToCollect > 0 ? 'sobrecobrada' : 'cobrada';
+        } else if (netoCobrado > 0) {
+            collectionStatus = 'parcial';
+        }
+        
+        if (totalToCollect === 0 && netoCobrado === 0) {
+            collectionStatus = 'cobrada';
+        }
 
         const saleObj = sale.toObject();
         saleObj.finance = {
