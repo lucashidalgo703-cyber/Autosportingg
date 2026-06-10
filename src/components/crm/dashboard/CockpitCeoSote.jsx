@@ -179,7 +179,9 @@ export default function CockpitCeoSote({ metrics, canSeeFinancials = false, user
     const salesObjective = 30;
     const salesPercent = Math.min(100, Math.round((soldCount / salesObjective) * 100));
     const gainUsd = canSeeFinancials ? metrics.margenEstimado?.USD || 0 : 0;
-    const gainPerCar = soldCount > 0 ? gainUsd / soldCount : 0;
+    const gainArs = canSeeFinancials ? metrics.margenEstimado?.ARS || 0 : 0;
+    const gainPerCarUsd = soldCount > 0 ? gainUsd / soldCount : 0;
+    const gainPerCarArs = soldCount > 0 ? gainArs / soldCount : 0;
 
     return (
         <div className="space-y-4">
@@ -247,9 +249,15 @@ export default function CockpitCeoSote({ metrics, canSeeFinancials = false, user
                 </KpiPanel>
 
                 <KpiPanel title="Ganancia del mes" icon={CircleDollarSign} href="/admin/finanzas" className="min-h-[194px]">
-                    <div className="flex items-start gap-2">
-                        <span className="mt-3 text-xs font-bold uppercase text-crm-fg-muted">USD</span>
-                        <p className="text-5xl font-bold leading-none text-crm-fg sm:text-6xl">{formatCurrency(gainUsd)}</p>
+                    <div className="flex flex-col gap-1">
+                        <div className="flex items-start gap-2">
+                            <span className="mt-2 text-xs font-bold uppercase text-crm-fg-muted">USD</span>
+                            <p className="text-4xl font-bold leading-none text-crm-fg sm:text-5xl">{formatCurrency(gainUsd)}</p>
+                        </div>
+                        <div className="flex items-start gap-2">
+                            <span className="mt-1 text-[10px] font-bold uppercase text-crm-fg-muted">ARS</span>
+                            <p className="text-2xl font-bold leading-none text-crm-fg-muted">{formatCurrency(gainArs)}</p>
+                        </div>
                     </div>
                     <div className="mt-5">
                         <ProgressLine value={0} color="bg-emerald-500" />
@@ -270,10 +278,16 @@ export default function CockpitCeoSote({ metrics, canSeeFinancials = false, user
             </div>
 
             <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
-                <KpiPanel title="Ganancia x auto (USD)" icon={Award} className="min-h-[240px]">
-                    <div className="flex items-start gap-2">
-                        <span className="mt-3 text-xs font-bold uppercase text-crm-fg-muted">USD</span>
-                        <p className="text-4xl font-bold leading-none text-crm-fg sm:text-5xl">{formatCurrency(gainPerCar)}</p>
+                <KpiPanel title="Ganancia x auto (USD/ARS)" icon={Award} className="min-h-[240px]">
+                    <div className="flex flex-col gap-1">
+                        <div className="flex items-start gap-2">
+                            <span className="mt-2 text-xs font-bold uppercase text-crm-fg-muted">USD</span>
+                            <p className="text-3xl font-bold leading-none text-crm-fg sm:text-4xl">{formatCurrency(gainPerCarUsd)}</p>
+                        </div>
+                        <div className="flex items-start gap-2">
+                            <span className="mt-1 text-[10px] font-bold uppercase text-crm-fg-muted">ARS</span>
+                            <p className="text-xl font-bold leading-none text-crm-fg-muted">{formatCurrency(gainPerCarArs)}</p>
+                        </div>
                     </div>
                     <div className="mt-5 space-y-2 border-t border-crm-border pt-4 text-xs">
                         <p className="flex justify-between text-crm-fg-muted">HIST 2025 <span className="text-crm-fg">USD 0</span></p>
