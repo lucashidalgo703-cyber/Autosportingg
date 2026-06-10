@@ -1,10 +1,19 @@
 "use client";
 import CrmCard from '../ui/CrmCard';
+import { Edit } from 'lucide-react';
 
-export default function VehicleFinancialSummary({ vehicle }) {
+export default function VehicleFinancialSummary({ vehicle, onEdit }) {
     return (
         <CrmCard>
-            <h3 className="text-white font-semibold text-lg mb-4">Resumen Financiero</h3>
+            <div className="flex items-center justify-between mb-4">
+                <h3 className="text-white font-semibold text-lg">Resumen Financiero</h3>
+                {onEdit && (
+                    <button onClick={onEdit} className="flex items-center gap-2 px-3 py-1.5 text-xs font-medium text-crm-fg-muted bg-crm-surface-raised border border-crm-border rounded hover:text-white hover:border-crm-fg transition-colors">
+                        <Edit size={14} />
+                        Editar Valores
+                    </button>
+                )}
+            </div>
             
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
                 <div className="flex flex-col gap-1 p-3 bg-[#161619] rounded-lg border border-[#33333A]">
