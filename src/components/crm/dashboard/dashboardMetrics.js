@@ -45,8 +45,10 @@ export function calculateDashboardMetrics(cars = []) {
         if (isActive) {
             // Price
             if (car.price !== undefined && car.price !== null && car.price > 0) {
-                if (car.currency === 'USD') metrics.capitalPublicado.USD += Number(car.price);
-                else if (car.currency === 'ARS') metrics.capitalPublicado.ARS += Number(car.price);
+                const currency = (car.currency === 'U$S' || car.currency === 'USD') ? 'USD' : (car.currency === '$' || car.currency === 'ARS') ? 'ARS' : car.currency;
+
+                if (currency === 'USD') metrics.capitalPublicado.USD += Number(car.price);
+                else if (currency === 'ARS') metrics.capitalPublicado.ARS += Number(car.price);
                 else {
                     metrics.capitalPublicado.NONE += Number(car.price);
                     metrics.unidadesSinMoneda++;
@@ -55,8 +57,10 @@ export function calculateDashboardMetrics(cars = []) {
 
             // Purchase Price
             if (car.purchasePrice !== undefined && car.purchasePrice !== null && car.purchasePrice > 0) {
-                if (car.purchaseCurrency === 'USD') metrics.capitalCosto.USD += Number(car.purchasePrice);
-                else if (car.purchaseCurrency === 'ARS') metrics.capitalCosto.ARS += Number(car.purchasePrice);
+                const purchaseCurrency = (car.purchaseCurrency === 'U$S' || car.purchaseCurrency === 'USD') ? 'USD' : (car.purchaseCurrency === '$' || car.purchaseCurrency === 'ARS') ? 'ARS' : car.purchaseCurrency;
+
+                if (purchaseCurrency === 'USD') metrics.capitalCosto.USD += Number(car.purchasePrice);
+                else if (purchaseCurrency === 'ARS') metrics.capitalCosto.ARS += Number(car.purchasePrice);
                 else metrics.capitalCosto.NONE += Number(car.purchasePrice);
             }
         }
@@ -185,10 +189,13 @@ export function calculateDashboardMetrics(cars = []) {
                         const price = Number(sale.salePrice);
                         
                         // Simple exact currency margin
-                        if (sale.saleCurrency === 'USD' && carData.purchaseCurrency === 'USD') {
+                        const normalizedSaleCurrency = (sale.saleCurrency === 'U$S' || sale.saleCurrency === 'USD') ? 'USD' : (sale.saleCurrency === '$' || sale.saleCurrency === 'ARS') ? 'ARS' : sale.saleCurrency;
+                        const normalizedPurchaseCurrency = (carData.purchaseCurrency === 'U$S' || carData.purchaseCurrency === 'USD') ? 'USD' : (carData.purchaseCurrency === '$' || carData.purchaseCurrency === 'ARS') ? 'ARS' : carData.purchaseCurrency;
+
+                        if (normalizedSaleCurrency === 'USD' && normalizedPurchaseCurrency === 'USD') {
                             profitUSD = price - cost;
                             realMarginUSD += profitUSD;
-                        } else if (sale.saleCurrency === 'ARS' && carData.purchaseCurrency === 'ARS') {
+                        } else if (normalizedSaleCurrency === 'ARS' && normalizedPurchaseCurrency === 'ARS') {
                             profitARS = price - cost;
                             realMarginARS += profitARS;
                         }
