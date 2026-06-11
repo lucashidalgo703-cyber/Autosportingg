@@ -2,8 +2,12 @@ import React from 'react';
 import Link from 'next/link';
 import { CarFront, ChevronRight, Search, ShoppingCart, User, Trash2 } from 'lucide-react';
 import SaleStatusBadge from './SaleStatusBadge';
+import { useAuth } from '../../../context/AuthContext';
+import { hasPermission, PERMISSIONS } from '../../../utils/adminPermissions';
 
 export default function SaleMobileCards({ sales, onViewDetail, onDeleteSale }) {
+    const { user } = useAuth();
+    const canCancelSales = hasPermission(user, PERMISSIONS.VENTAS_CANCEL);
     if (!sales || sales.length === 0) {
         return (
             <div className="flex min-h-[210px] flex-col items-center justify-center rounded-xl border border-dashed border-crm-border bg-crm-surface p-8 text-center md:hidden">
@@ -116,14 +120,14 @@ export default function SaleMobileCards({ sales, onViewDetail, onDeleteSale }) {
                                 Ver detalle
                             </button>
 
-                            {sale.status === 'cancelada' && onDeleteSale ? (
+                            {sale.status === 'cancelada' && onDeleteSale && canCancelSales ? (
                                 <button
                                     type="button"
                                     onClick={(e) => {
                                         e.preventDefault();
                                         onDeleteSale(sale);
                                     }}
-                                    className="flex w-12 flex-none items-center justify-center rounded-lg border border-crm-red/20 bg-crm-red/10 text-red-300 transition-colors hover:bg-crm-red/20"
+                                    className="flex w-12 flex-none items-center justify-center rounded-lg border border-crm-red/20 bg-crm-red/10 text-crm-red transition-colors hover:bg-crm-red/20"
                                 >
                                     <Trash2 size={18} />
                                 </button>

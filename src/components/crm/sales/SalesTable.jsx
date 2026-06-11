@@ -4,8 +4,13 @@ import { ArrowRight, CarFront, Search, ShoppingCart, User, Trash2 } from 'lucide
 import SaleStatusBadge from './SaleStatusBadge';
 import CrmButton from '../ui/CrmButton';
 import CrmTable from '../ui/CrmTable';
+import { useAuth } from '../../../context/AuthContext';
+import { hasPermission, PERMISSIONS } from '../../../utils/adminPermissions';
 
 export default function SalesTable({ sales, onViewDetail, onDeleteSale }) {
+    const { user } = useAuth();
+    const canCancelSales = hasPermission(user, PERMISSIONS.VENTAS_CANCEL);
+
     const columns = [
         {
             label: 'Fecha',
@@ -164,13 +169,13 @@ export default function SalesTable({ sales, onViewDetail, onDeleteSale }) {
                         Detalle
                         <ArrowRight size={12} />
                     </CrmButton>
-                    {sale.status === 'cancelada' && onDeleteSale && (
+                    {sale.status === 'cancelada' && onDeleteSale && canCancelSales && (
                         <button
                             onClick={(e) => {
                                 e.stopPropagation();
                                 onDeleteSale(sale);
                             }}
-                            className="flex h-8 w-8 items-center justify-center rounded-lg border border-crm-red/20 bg-crm-red/10 text-red-300 transition-colors hover:bg-crm-red/20"
+                            className="flex h-8 w-8 items-center justify-center rounded-lg border border-crm-red/20 bg-crm-red/10 text-crm-red transition-colors hover:bg-crm-red/20"
                             title="Eliminar venta cancelada"
                         >
                             <Trash2 size={14} />

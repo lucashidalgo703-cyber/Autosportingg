@@ -220,8 +220,12 @@ const [filters, setFilters] = useState({
             ) : (
                 <>
                     <SalesFilters filters={filters} setFilters={setFilters} onRefresh={loadData} loading={loading} />
-                    <SalesTable sales={filteredSales} onViewDetail={handleViewDetail} onDeleteSale={handleDeleteSale} />
-                    <SaleMobileCards sales={filteredSales} onViewDetail={handleViewDetail} onDeleteSale={handleDeleteSale} />
+                    <div className="hidden lg:block">
+                        <SalesTable sales={filteredSales} onViewDetail={handleViewDetail} onDeleteSale={handleDeleteSale} />
+                    </div>
+                    <div className="block lg:hidden">
+                        <SaleMobileCards sales={filteredSales} onViewDetail={handleViewDetail} onDeleteSale={handleDeleteSale} />
+                    </div>
                 </>
             )}
 
