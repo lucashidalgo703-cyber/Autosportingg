@@ -1,12 +1,16 @@
 "use client";
 import React, { useEffect, useMemo, useState } from 'react';
 import {
+    AlertTriangle,
+    ArrowRight,
     Banknote,
     BarChart3,
+    BellRing,
     Briefcase,
     CalendarDays,
     Car,
     CheckCircle2,
+    Clock,
     CreditCard,
     Flame,
     HandCoins,
@@ -635,6 +639,46 @@ function MoneyActionModal({ isOpen, mode, onClose, onSubmit, saving, error }) {
         </div>
     );
 }
+function AlertasVendedorPanel({ alerts }) {
+    if (!alerts || alerts.length === 0) return null;
+
+    return (
+        <section className="mb-8">
+            <SectionTitle>Alertas Activas</SectionTitle>
+            <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
+                {alerts.map((alerta, idx) => {
+                    const icons = {
+                        task: Clock,
+                        installment: Banknote,
+                        reservation: AlertTriangle
+                    };
+                    const Icon = icons[alerta.type] || BellRing;
+                    
+                    return (
+                        <a
+                            key={idx}
+                            href={alerta.href}
+                            className="group flex flex-col gap-2 rounded-xl border border-crm-red/30 bg-crm-red/5 p-4 transition-all hover:bg-crm-red/10"
+                        >
+                            <div className="flex items-start justify-between gap-3">
+                                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-crm-red/10 text-crm-red">
+                                    <Icon size={16} />
+                                </div>
+                                <div className="flex h-8 w-8 items-center justify-center text-crm-red opacity-0 transition-opacity group-hover:opacity-100">
+                                    <ArrowRight size={16} />
+                                </div>
+                            </div>
+                            <div>
+                                <h4 className="m-0 text-sm font-bold text-crm-fg">{alerta.title}</h4>
+                                <p className="m-0 mt-0.5 text-xs text-crm-red">{alerta.description}</p>
+                            </div>
+                        </a>
+                    );
+                })}
+            </div>
+        </section>
+    );
+}
 
 export default function MiEspacioPage() {
     const { user } = useAuth();
@@ -735,7 +779,43 @@ export default function MiEspacioPage() {
         const manualPayments = miSpaceTransactions.filter((transaction) => String(transaction.category || '').toLowerCase().includes('pago'));
         const agencyTransactions = miSpaceTransactions.filter((transaction) => String(transaction.category || '').toLowerCase().includes('saldo agencia'));
 
+        const overdueTasksAlerts = overdueTasks.filter(t => !String(t.description || '').includes('[MI_ESPACIO')).map(t => ({
+            type: 'task',
+            title: `Tarea vencida: ${t.title}`,
+            description: t.dueDate ? `Venció el ${new Date(t.dueDate).toLocaleDateString('es-AR')}` : 'Vencida',
+            href: `/admin/clientes`
+        }));
+        
+        const todayTasksAlerts = pendingTasks.filter((task) => isToday(task.dueDate)).filter(t => !String(t.description || '').includes('[MI_ESPACIO')).map(t => ({
+            type: 'task',
+            title: `Para hoy: ${t.title}`,
+            description: 'Vence hoy',
+            href: `/admin/clientes`
+        }));
+        
+        const overdueInstallmentAlerts = unpaidInstallments.filter(i => {
+            const date = getDateOnly(i.dueDate);
+            const today = new Date();
+            today.setHours(0,0,0,0);
+            return date && date < today;
+        }).map(i => ({
+            type: 'installment',
+            title: `Cuota Vencida`,
+            description: `${money(i.amount, i.currency)} venció el ${new Date(i.dueDate).toLocaleDateString('es-AR')}`,
+            href: `/admin/cuotas`
+        }));
+        
+        const activeReservations = data.sales.filter(s => String(s.status || '').toLowerCase() === 'señado').map(s => ({
+            type: 'reservation',
+            title: `Reserva pendiente`,
+            description: `A la espera de cierre o cancelación`,
+            href: `/admin/ventas?id=${s._id}`
+        }));
+
+        const sellerAlerts = [...overdueTasksAlerts, ...todayTasksAlerts, ...overdueInstallmentAlerts, ...activeReservations];
+
         return {
+            sellerAlerts,
             pendingTasks,
             overdueTasks,
             urgentTasks: [...overdueTasks, ...pendingTasks.filter((task) => isWithinNext7Days(task.dueDate))],
@@ -836,6 +916,7 @@ export default function MiEspacioPage() {
 
     const renderMiDia = () => (
         <div className="space-y-6">
+            <AlertasVendedorPanel alerts={summary.sellerAlerts} />
             <p className="m-0 mb-5 text-sm text-crm-fg-muted">
                 Tu resumen como administrador <span aria-hidden="true">—</span> <strong className="text-crm-fg-muted">{formatMonth(new Date())}</strong>
             </p>
