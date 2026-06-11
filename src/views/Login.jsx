@@ -25,7 +25,7 @@ const Login = () => {
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ email: email.trim() || undefined, password }),
+        body: JSON.stringify({ email: email.trim(), password }),
       });
 
       const data = await response.json();
@@ -34,7 +34,7 @@ const Login = () => {
         login(data.token);
         router.push('/admin');
       } else {
-        setError(data.message || 'Contraseña incorrecta');
+        setError(data.message || 'No se pudo iniciar sesión');
       }
     } catch (err) {
       setError('Error de conexión con el servidor');
@@ -50,7 +50,7 @@ const Login = () => {
           <Lock size={32} color="var(--color-primary)" />
         </div>
         <h1>Acceso Admin</h1>
-        <p>Ingresa la contraseña maestra para gestionar el sitio.</p>
+        <p>Ingresa con tu usuario autorizado para gestionar el CRM.</p>
 
         <form onSubmit={handleSubmit}>
           <div className="input-group">
@@ -58,7 +58,9 @@ const Login = () => {
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              placeholder="Email (opcional para Master Admin)..."
+              placeholder="Email..."
+              autoComplete="username"
+              required
             />
           </div>
           <div className="input-group">
@@ -67,6 +69,7 @@ const Login = () => {
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               placeholder="Contraseña..."
+              autoComplete="current-password"
               required
             />
           </div>

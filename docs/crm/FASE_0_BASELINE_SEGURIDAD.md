@@ -4,7 +4,7 @@ Fecha: 11 de junio de 2026
 
 Estado: **completada con bloqueos**
 
-Actualizacion: la Fase 0.1 recupero el build el 11 de junio de 2026. Los bloqueos de autenticacion y autorizacion continúan vigentes.
+Actualizacion: la Fase 0.1 recupero el build y la Fase 0.2 retiro los fallbacks de autenticacion el 11 de junio de 2026. El despliegue de Fase 0.2 requiere configurar `JWT_SECRET` en Vercel. Los bloqueos de autorizacion continúan vigentes.
 
 Esta fase fue exclusivamente de auditoria. No se modifico codigo de producto, backend, datos, endpoints ni dependencias.
 
@@ -380,8 +380,8 @@ Se puede continuar con trabajo visual aislado, pero no se recomienda iniciar for
 - [x] `npm.cmd run build` despues de desactivar la ruta temporal `test-sales`.
 - [x] Endpoint admin rechaza acceso anonimo.
 - [x] Endpoint publico no expone campos privados en la muestra.
-- [ ] Secretos sin fallback literal.
-- [ ] Login legacy retirado.
+- [x] Secretos sin fallback literal en codigo.
+- [x] Login legacy retirado del codigo.
 - [ ] Permisos faltantes definidos.
 - [ ] Autorizacion backend por permiso.
 - [ ] QA autenticado por rol.

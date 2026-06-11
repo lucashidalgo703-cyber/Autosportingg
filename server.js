@@ -31,8 +31,11 @@ import crypto from 'crypto';
 
 const app = express();
 const PORT = process.env.PORT || 3001;
-const JWT_SECRET = process.env.JWT_SECRET || 'secret_key_123';
-const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || '116sporting';
+const JWT_SECRET = process.env.JWT_SECRET?.trim();
+const LOGIN_WINDOW_MS = 15 * 60 * 1000;
+const LOGIN_MAX_ATTEMPTS_PER_IDENTITY = 5;
+const LOGIN_MAX_ATTEMPTS_PER_IP = 20;
+const loginAttempts = new Map();
 
 // Connect to MongoDB (disabled at top-level to prevent Serverless/NextJS TDZ)
 // connectDB();
@@ -52,8 +55,99 @@ const storage = new CloudinaryStorage({
 
 const upload = multer({ storage: storage });
 
+const getClientIp = (req) => {
+    const forwardedFor = req.headers['x-forwarded-for'];
+    if (typeof forwardedFor === 'string' && forwardedFor.trim()) {
+        return forwardedFor.split(',')[0].trim();
+    }
+    return req.ip || req.socket?.remoteAddress || 'unknown';
+};
+
+const getLoginAttemptKeys = (req) => {
+    const ip = getClientIp(req);
+    const email = typeof req.body?.email === 'string'
+        ? req.body.email.trim().toLowerCase()
+        : 'missing-email';
+
+    return {
+        ipKey: `ip:${ip}`,
+        identityKey: `identity:${ip}:${email}`
+    };
+};
+
+const getActiveLoginAttempt = (key) => {
+    const attempt = loginAttempts.get(key);
+    if (!attempt) return null;
+
+    if (Date.now() - attempt.firstAttemptAt >= LOGIN_WINDOW_MS) {
+        loginAttempts.delete(key);
+        return null;
+    }
+
+    return attempt;
+};
+
+const incrementLoginAttempt = (key) => {
+    const attempt = getActiveLoginAttempt(key);
+    if (!attempt) {
+        loginAttempts.set(key, { count: 1, firstAttemptAt: Date.now() });
+        return;
+    }
+
+    attempt.count += 1;
+    loginAttempts.set(key, attempt);
+};
+
+const recordFailedLogin = (req) => {
+    const { ipKey, identityKey } = getLoginAttemptKeys(req);
+    incrementLoginAttempt(ipKey);
+    incrementLoginAttempt(identityKey);
+};
+
+const clearLoginAttempts = (req) => {
+    const { ipKey, identityKey } = getLoginAttemptKeys(req);
+    loginAttempts.delete(identityKey);
+
+    const ipAttempt = getActiveLoginAttempt(ipKey);
+    if (ipAttempt) {
+        ipAttempt.count = Math.max(0, ipAttempt.count - 1);
+        if (ipAttempt.count === 0) loginAttempts.delete(ipKey);
+    }
+};
+
+const requireJwtConfiguration = (req, res, next) => {
+    if (!JWT_SECRET) {
+        console.error('Authentication unavailable: JWT_SECRET is not configured.');
+        return res.status(503).json({ message: 'Servicio de autenticacion no disponible.' });
+    }
+    next();
+};
+
+const enforceLoginRateLimit = (req, res, next) => {
+    const { ipKey, identityKey } = getLoginAttemptKeys(req);
+    const ipAttempt = getActiveLoginAttempt(ipKey);
+    const identityAttempt = getActiveLoginAttempt(identityKey);
+
+    if (
+        (ipAttempt?.count || 0) >= LOGIN_MAX_ATTEMPTS_PER_IP ||
+        (identityAttempt?.count || 0) >= LOGIN_MAX_ATTEMPTS_PER_IDENTITY
+    ) {
+        res.setHeader('Retry-After', String(Math.ceil(LOGIN_WINDOW_MS / 1000)));
+        return res.status(429).json({
+            message: 'Demasiados intentos. Espera unos minutos antes de volver a intentar.'
+        });
+    }
+
+    next();
+};
+
 // Authentication Middleware
 const authenticateToken = (req, res, next) => {
+    if (!JWT_SECRET) {
+        console.error('Authentication unavailable: JWT_SECRET is not configured.');
+        return res.status(503).json({ message: 'Servicio de autenticacion no disponible.' });
+    }
+
     const authHeader = req.headers['authorization'];
     const token = authHeader && authHeader.split(' ')[1];
 
@@ -95,116 +189,72 @@ const verifyPassword = (password, hash) => {
     }
 };
 
-async function getOrCreateMasterAdminUser() {
-    let masterUser = await AdminUser.findOne({ email: 'master@autosporting.local' });
-    if (!masterUser) {
-        masterUser = await AdminUser.findOne({ role: 'owner', active: true });
-    }
-    if (!masterUser) {
-        const { PERMISSIONS } = await import('./src/utils/adminPermissions.js');
-        const randomPass = crypto.randomBytes(32).toString('hex');
-        masterUser = new AdminUser({
-            name: 'Master Admin',
-            email: 'master@autosporting.local',
-            role: 'owner',
-            active: true,
-            permissions: Object.values(PERMISSIONS),
-            passwordHash: hashPassword(randomPass)
-        });
-        await masterUser.save();
-    }
-    return masterUser;
-}
-
-// Login Endpoint (Mixed fallback)
-app.post('/api/login', async (req, res) => {
+// Login Endpoint
+app.post('/api/login', requireJwtConfiguration, enforceLoginRateLimit, async (req, res) => {
     try {
         const { email, password } = req.body;
-        
-        // 1. Try to find the user in the database if email is provided
-        if (email) {
-            const user = await AdminUser.findOne({ email: email.toLowerCase() });
-            if (user && user.active) {
-                const isValid = verifyPassword(password, user.passwordHash);
-                if (isValid) {
-                    // Update last login
-                    user.lastLoginAt = new Date();
-                    await user.save();
-                    
-                    const token = jwt.sign(
-                        { 
-                            id: user._id,
-                            userId: user._id, 
-                            email: user.email, 
-                            username: user.name, 
-                            role: user.role,
-                            permissions: user.permissions 
-                        }, 
-                        JWT_SECRET, 
-                        { expiresIn: '24h' }
-                    );
 
-                    await logAudit({
-                        req,
-                        action: 'LOGIN_EXITOSO',
-                        module: 'usuarios',
-                        entityType: 'User',
-                        entityId: user._id,
-                        entityLabel: user.email,
-                        description: `Login exitoso DB de ${user.email}`
-                    });
-
-                    return res.json({ token, role: user.role, name: user.name });
-                }
-            }
+        if (
+            typeof email !== 'string' ||
+            typeof password !== 'string' ||
+            !email.trim() ||
+            !password
+        ) {
+            recordFailedLogin(req);
+            return res.status(400).json({ message: 'Email y contrasena son obligatorios.' });
         }
 
-        // 2. Fallback to Legacy Master Password if no DB match or no email provided
-        if (password === ADMIN_PASSWORD) {
-            
-            const masterUser = await getOrCreateMasterAdminUser();
+        const normalizedEmail = email.trim().toLowerCase();
+        const user = await AdminUser.findOne({ email: normalizedEmail });
+        const isValid = Boolean(user?.active) && verifyPassword(password, user.passwordHash);
 
-            // Emite token con rol owner y su ObjectId real
+        if (isValid) {
+            clearLoginAttempts(req);
+            user.lastLoginAt = new Date();
+            await user.save();
+
             const token = jwt.sign(
-                { 
-                    id: masterUser._id.toString(),
-                    userId: masterUser._id.toString(), 
-                    email: masterUser.email, 
-                    username: masterUser.name, 
-                    role: 'owner',
-                    permissions: masterUser.permissions || []
-                }, 
-                JWT_SECRET, 
+                {
+                    id: user._id,
+                    userId: user._id,
+                    email: user.email,
+                    username: user.name,
+                    role: user.role,
+                    permissions: user.permissions
+                },
+                JWT_SECRET,
                 { expiresIn: '24h' }
             );
-            
+
             await logAudit({
                 req,
                 action: 'LOGIN_EXITOSO',
                 module: 'usuarios',
                 entityType: 'User',
-                entityId: masterUser._id,
-                entityLabel: masterUser.name,
-                description: `Login exitoso por fallback legacy Master Password.`
+                entityId: user._id,
+                entityLabel: user.email,
+                description: `Login exitoso DB de ${user.email}`
             });
 
-            return res.json({ token, role: 'owner', name: masterUser.name });
+            return res.json({ token, role: user.role, name: user.name });
         }
+
+        recordFailedLogin(req);
 
         await logAudit({
             req,
             action: 'LOGIN_FALLIDO',
             module: 'usuarios',
             entityType: 'User',
-            entityLabel: email || 'Desconocido',
-            description: `Intento de login fallido para ${email || 'Desconocido'}`
+            entityLabel: normalizedEmail,
+            description: `Intento de login fallido para ${normalizedEmail}`
         });
 
-        res.status(401).json({ message: 'Credenciales inv├ílidas' });
+        res.status(401).json({ message: 'Credenciales invalidas.' });
 
     } catch (error) {
         console.error("Login Error: ", error);
-        res.status(500).json({ message: 'Error interno de autenticaci├│n' });
+        res.status(500).json({ message: 'Error interno de autenticacion.' });
     }
 });
 
