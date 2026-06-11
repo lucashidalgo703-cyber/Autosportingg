@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useCallback } from 'react';
 
 export const useAdminInstallments = () => {
     const [loading, setLoading] = useState(false);
@@ -24,7 +24,7 @@ export const useAdminInstallments = () => {
         return new Error(text || `Error ${res.status}`);
     };
 
-    const fetchInstallments = async (filters = {}) => {
+    const fetchInstallments = useCallback(async (filters = {}) => {
         setLoading(true);
         setError(null);
         try {
@@ -48,7 +48,7 @@ export const useAdminInstallments = () => {
         } finally {
             setLoading(false);
         }
-    };
+    }, []);
 
     const fetchInstallmentById = async (id) => {
         setLoading(true);
