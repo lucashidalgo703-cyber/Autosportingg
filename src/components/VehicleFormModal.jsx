@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { X, Upload, Plus, ArrowLeft, ArrowRight, Star, Scan } from 'lucide-react';
 import toast from 'react-hot-toast';
-
+import CrmModal from './crm/ui/CrmModal';
 export default function VehicleFormModal({ isOpen, onClose, onSave, editingCar }) {
     const [isDragging, setIsDragging] = useState(false);
     const [files, setFiles] = useState([]);
@@ -128,23 +128,33 @@ export default function VehicleFormModal({ isOpen, onClose, onSave, editingCar }
         </select>
     );
 
-    return (
-        <div className="fixed inset-0 z-50 flex justify-center items-start pt-10 pb-10 bg-black/80 backdrop-blur-sm overflow-y-auto custom-scrollbar animate-in fade-in duration-200">
-            <div className="bg-[#141416] w-full max-w-3xl rounded-xl border border-white/10 shadow-2xl relative mb-10 overflow-hidden flex flex-col">
-                
-                {/* Header */}
-                <div className="flex justify-between items-start p-6 border-b border-white/5 bg-[#1a1a1f]">
-                    <div>
-                        <h2 className="text-lg font-bold text-white tracking-tight">{editingCar ? 'Editar vehículo' : 'Nuevo vehículo'}</h2>
-                        <p className="text-[10px] text-gray-500 mt-1">Datos básicos del vehículo. Las fotos se configuran en esta pantalla.</p>
-                    </div>
-                    <button onClick={onClose} className="text-gray-500 hover:text-white transition-colors">
-                        <X size={20} />
-                    </button>
-                </div>
+    const modalTitle = (
+        <div>
+            <h2 className="text-lg font-bold text-white tracking-tight">{editingCar ? 'Editar vehículo' : 'Nuevo vehículo'}</h2>
+            <p className="text-[10px] text-gray-500 mt-1">Datos básicos del vehículo. Las fotos se configuran en esta pantalla.</p>
+        </div>
+    );
 
-                {/* Body */}
-                <div className="p-6 space-y-8">
+    const modalFooter = (
+        <div className="flex justify-end gap-3 w-full">
+            <button type="button" onClick={onClose} className="px-5 py-2.5 rounded-lg text-xs font-medium text-white bg-[#2a2a2e] hover:bg-[#33333a] border border-white/5 transition-colors">
+                Cancelar
+            </button>
+            <button type="submit" form="vehicleForm" className="px-6 py-2.5 rounded-lg text-xs font-bold text-white bg-[#e63027] hover:bg-red-600 shadow-[0_0_15px_rgba(230,48,39,0.3)] transition-all flex items-center gap-2">
+                Dar de alta
+            </button>
+        </div>
+    );
+
+    return (
+        <CrmModal
+            isOpen={isOpen}
+            onClose={onClose}
+            title={modalTitle}
+            maxWidth="max-w-3xl"
+            footer={modalFooter}
+        >
+            <div className="p-6 space-y-8">
                     
                     {/* Cédula Escáner (MocK) */}
                     <div className="bg-[#1e1e22] border border-dashed border-white/10 rounded-xl p-4 flex justify-between items-center">
@@ -335,20 +345,9 @@ export default function VehicleFormModal({ isOpen, onClose, onSave, editingCar }
                         </section>
 
                     </form>
-                </div>
-
-                {/* Footer Buttons */}
-                <div className="border-t border-white/5 bg-[#1a1a1f] p-4 flex justify-end gap-3 rounded-b-xl sticky bottom-0 z-30">
-                    <button type="button" onClick={onClose} className="px-5 py-2.5 rounded-lg text-xs font-medium text-white bg-[#2a2a2e] hover:bg-[#33333a] border border-white/5 transition-colors">
-                        Cancelar
-                    </button>
-                    <button type="submit" form="vehicleForm" className="px-6 py-2.5 rounded-lg text-xs font-bold text-white bg-[#e63027] hover:bg-red-600 shadow-[0_0_15px_rgba(230,48,39,0.3)] transition-all flex items-center gap-2">
-                        Dar de alta
-                    </button>
-                </div>
-
+                    </form>
             </div>
-        </div>
+        </CrmModal>
     );
 }
 

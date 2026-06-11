@@ -8,6 +8,7 @@ import SaleMobileCards from '../../../components/crm/sales/SaleMobileCards';
 import SaleDetailDrawer from '../../../components/crm/sales/SaleDetailDrawer';
 import SaleCreateModal from '../../../components/crm/sales/SaleCreateModal';
 import CrmButton from '../../../components/crm/ui/CrmButton';
+import CrmPageHeader from '../../../components/crm/ui/CrmPageHeader';
 
 export default function VentasPage() {
     const { fetchSales, loading, error, deleteSale } = useAdminSales();
@@ -146,21 +147,9 @@ const [filters, setFilters] = useState({
     }, [allSales]);
 
     const handleExport = () => {
-        const headers = isReservationsTab
-            ? ['Fecha', 'Cliente', 'Vehiculo', 'Estado', 'Moneda sena', 'Monto sena', 'Vencimiento']
-            : ['Fecha', 'Cliente', 'Vehiculo', 'Estado', 'Metodo', 'Moneda', 'Precio'];
+        const headers = ['Fecha', 'Cliente', 'Vehiculo', 'Estado', 'Metodo', 'Moneda', 'Precio'];
 
-        const rows = isReservationsTab
-            ? filteredReservations.map((reservation) => ([
-                new Date(reservation.createdAt).toLocaleDateString('es-AR'),
-                reservation.clientId?.fullName || reservation.clientId?.firstName || reservation.leadId?.name || '',
-                reservation.vehicleId ? `${reservation.vehicleId.brand || ''} ${reservation.vehicleId.name || ''}`.trim() : '',
-                reservation.status || '',
-                reservation.depositCurrency || '',
-                reservation.depositAmount || 0,
-                reservation.expiresAt ? new Date(reservation.expiresAt).toLocaleDateString('es-AR') : ''
-            ]))
-            : filteredSales.map((sale) => ([
+        const rows = filteredSales.map((sale) => ([
                 new Date(sale.saleDate || sale.createdAt).toLocaleDateString('es-AR'),
                 sale.clientId?.fullName || sale.clientId?.firstName || sale.leadId?.name || '',
                 sale.vehicleId ? `${sale.vehicleId.brand || ''} ${sale.vehicleId.name || ''}`.trim() : '',
@@ -168,7 +157,7 @@ const [filters, setFilters] = useState({
                 sale.paymentMethod || '',
                 sale.saleCurrency || '',
                 sale.salePrice || 0
-            ]));
+        ]));
 
         const csv = [headers, ...rows]
             .map((row) => row.map((value) => `"${String(value).replace(/"/g, '""')}"`).join(','))
@@ -186,36 +175,33 @@ const [filters, setFilters] = useState({
 
     return (
         <div className="mx-auto flex w-full max-w-7xl flex-col gap-5 p-4 pb-24 md:p-6">
-            <div className="flex flex-col gap-4 border-b border-crm-border pb-5 lg:flex-row lg:items-start lg:justify-between">
-                <div>
-                    <h1 className="m-0 text-[26px] font-bold leading-tight text-crm-fg">Ventas</h1>
-                    <p className="m-0 mt-1 text-sm font-medium text-crm-fg-muted">
-                        {totals.total} ventas · {totals.active} en curso · {totals.closed} cerradas
-                    </p>
-                </div>
-
-                <div className="flex flex-wrap items-center gap-2">
-                    <CrmButton
-                        variant="secondary"
-                        size="sm"
-                        onClick={handleExport}
-                        disabled={activeRowsCount === 0}
-                        className="h-9"
-                    >
-                        <Download size={14} />
-                        Exportar
-                    </CrmButton>
-                    <CrmButton
-                        variant="primary"
-                        size="sm"
-                        onClick={() => setIsCreateModalOpen(true)}
-                        className="h-9 shadow-[0_0_28px_rgba(239,51,41,0.45)]"
-                    >
-                        <Plus size={14} />
-                        Nueva venta
-                    </CrmButton>
-                </div>
-            </div>
+            <CrmPageHeader
+                title="Ventas"
+                subtitle={totals ? `${totals.total} ventas · ${totals.active} en curso · ${totals.closed} cerradas` : 'Cargando métricas...'}
+                actions={
+                    <>
+                        <CrmButton
+                            variant="secondary"
+                            size="sm"
+                            onClick={handleExport}
+                            disabled={activeRowsCount === 0}
+                            className="h-9"
+                        >
+                            <Download size={14} />
+                            Exportar
+                        </CrmButton>
+                        <CrmButton
+                            variant="primary"
+                            size="sm"
+                            onClick={() => setIsCreateModalOpen(true)}
+                            className="h-9 shadow-[0_0_28px_rgba(239,51,41,0.45)]"
+                        >
+                            <Plus size={14} />
+                            Nueva venta
+                        </CrmButton>
+                    </>
+                }
+            />
 
             {pageError && (
                 <div className="flex items-center gap-3 rounded-xl border border-crm-red/30 bg-crm-red/10 p-4 text-sm text-red-300">
@@ -234,30 +220,8 @@ const [filters, setFilters] = useState({
             ) : (
                 <>
                     <SalesFilters filters={filters} setFilters={setFilters} onRefresh={loadData} loading={loading} />
-
-                    {isReservationsTab ? (
-                        <>
-                            <ReservationsTable
-                                reservations={filteredReservations}
-                                onLiberar={handleLiberarClick}
-                                onConvertir={handleConvertirClick}
-                                getIsOverdue={getIsOverdue}
-                                onDelete={handleDeleteReservation}
-                            />
-                            <ReservationMobileCards
-                                reservations={filteredReservations}
-                                onLiberar={handleLiberarClick}
-                                onConvertir={handleConvertirClick}
-                                getIsOverdue={getIsOverdue}
-                                onDelete={handleDeleteReservation}
-                            />
-                        </>
-                    ) : (
-                        <>
-                            <SalesTable sales={filteredSales} onViewDetail={handleViewDetail} onDeleteSale={handleDeleteSale} />
-                            <SaleMobileCards sales={filteredSales} onViewDetail={handleViewDetail} onDeleteSale={handleDeleteSale} />
-                        </>
-                    )}
+                    <SalesTable sales={filteredSales} onViewDetail={handleViewDetail} onDeleteSale={handleDeleteSale} />
+                    <SaleMobileCards sales={filteredSales} onViewDetail={handleViewDetail} onDeleteSale={handleDeleteSale} />
                 </>
             )}
 
@@ -276,37 +240,6 @@ const [filters, setFilters] = useState({
                 sale={selectedSale}
             />
 
-            {selectedReservation && (
-                <ReservationCancelModal
-                    isOpen={isCancelModalOpen}
-                    onClose={() => {
-                        setIsCancelModalOpen(false);
-                        setSelectedReservation(null);
-                    }}
-                    onSuccess={() => {
-                        setIsCancelModalOpen(false);
-                        setSelectedReservation(null);
-                        loadData();
-                    }}
-                    reservation={selectedReservation}
-                />
-            )}
-
-            {selectedReservationForSale && (
-                <ConvertReservationToSaleModal
-                    isOpen={isConvertModalOpen}
-                    onClose={() => {
-                        setIsConvertModalOpen(false);
-                        setSelectedReservationForSale(null);
-                    }}
-                    onSuccess={() => {
-                        setIsConvertModalOpen(false);
-                        setSelectedReservationForSale(null);
-                        loadData();
-                    }}
-                    reservation={selectedReservationForSale}
-                />
-            )}
         </div>
     );
 }

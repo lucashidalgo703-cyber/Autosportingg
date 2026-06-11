@@ -3,6 +3,7 @@ import { useState, useMemo } from 'react';
 import { Download, Eye, FileText, Plus } from 'lucide-react';
 
 import CrmButton from '../../../components/crm/ui/CrmButton';
+import CrmPageHeader from '../../../components/crm/ui/CrmPageHeader';
 import StockFilters from '../../../components/crm/stock/StockFilters';
 import StockTable from '../../../components/crm/stock/StockTable';
 import StockMobileCards from '../../../components/crm/stock/StockMobileCards';
@@ -182,33 +183,30 @@ export default function AdminStockPage() {
     return (
         <div className="mx-auto w-full max-w-7xl p-4 pb-20 md:p-6">
             <div className="flex flex-col gap-6">
-                <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
-                    <div>
-                        <h1 className="m-0 text-[26px] font-bold leading-tight text-crm-fg">Stock</h1>
-                        <p className="m-0 mt-1 text-sm text-crm-fg-muted">
-                            {stockSummary.disponibles} vehículos disponibles para vender
-                        </p>
-                    </div>
-
-                    <div className="flex flex-wrap items-center gap-2 md:justify-end">
-                        <CrmButton variant="secondary" size="sm" className="gap-2 border-amber-500/30 bg-amber-500/10 text-amber-200 hover:bg-amber-500/15">
-                            <Eye size={14} />
-                            Vista previa
-                        </CrmButton>
-                        <CrmButton variant="secondary" size="sm" className="gap-2">
-                            <Download size={14} />
-                            Exportar XLSX
-                        </CrmButton>
-                        <CrmButton variant="secondary" size="sm" className="gap-2">
-                            <FileText size={14} />
-                            Nuevo mandato + Stock
-                        </CrmButton>
-                        <CrmButton variant="primary" size="sm" onClick={handleNewVehicle} className="gap-2">
-                            <Plus size={14} />
-                            Nuevo vehículo
-                        </CrmButton>
-                    </div>
-                </div>
+                <CrmPageHeader 
+                    title="Stock"
+                    subtitle={`${stockSummary.disponibles} vehículos disponibles para vender`}
+                    actions={
+                        <>
+                            <CrmButton variant="secondary" size="sm" className="gap-2 border-amber-500/30 bg-amber-500/10 text-amber-200 hover:bg-amber-500/15">
+                                <Eye size={14} />
+                                Vista previa
+                            </CrmButton>
+                            <CrmButton variant="secondary" size="sm" className="gap-2">
+                                <Download size={14} />
+                                Exportar XLSX
+                            </CrmButton>
+                            <CrmButton variant="secondary" size="sm" className="gap-2">
+                                <FileText size={14} />
+                                Nuevo mandato + Stock
+                            </CrmButton>
+                            <CrmButton variant="primary" size="sm" onClick={handleNewVehicle} className="gap-2">
+                                <Plus size={14} />
+                                Nuevo vehículo
+                            </CrmButton>
+                        </>
+                    }
+                />
 
                 <div className="flex flex-col gap-2 rounded-xl border border-crm-border bg-crm-surface px-4 py-3 text-sm text-crm-fg-muted sm:flex-row sm:items-center sm:gap-6">
                     <div className="flex items-center gap-2">

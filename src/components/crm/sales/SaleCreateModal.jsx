@@ -27,7 +27,7 @@ import CrmButton from '../ui/CrmButton';
 import CrmInput from '../ui/CrmInput';
 import CrmSelect from '../ui/CrmSelect';
 import CrmTextarea from '../ui/CrmTextarea';
-
+import CrmModal from '../ui/CrmModal';
 const today = () => new Date().toISOString().slice(0, 10);
 
 const FieldLabel = ({ children, required = false }) => (
@@ -224,27 +224,39 @@ export default function SaleCreateModal({ isOpen, onClose, onSuccess }) {
 
     const noVehicleSelected = !formData.vehicleId || formData.vehicleId === '';
 
-    return (
-        <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/80 px-4 py-8 backdrop-blur-sm">
-            <div className="flex w-full max-w-4xl flex-col overflow-hidden rounded-2xl border border-crm-border bg-crm-surface shadow-2xl">
-                
-                <div className="flex items-start justify-between gap-4 border-b border-crm-border px-6 py-5">
-                    <div>
-                        <h2 className="m-0 text-xl font-bold text-white tracking-tight">Nueva venta</h2>
-                        <p className="m-0 mt-1 text-sm text-crm-fg-muted">
-                            Se crea en estado Activa si hay vehículo del stock asignado, caso contrario Borrador. El estado se cambia después desde el detalle.
-                        </p>
-                    </div>
-                    <button
-                        type="button"
-                        onClick={resetAndClose}
-                        className="m-0 flex h-9 w-9 appearance-none items-center justify-center rounded-lg border border-transparent bg-transparent text-crm-fg-muted transition-colors hover:bg-crm-surface-raised hover:text-white"
-                    >
-                        <X size={20} />
-                    </button>
-                </div>
+    const modalTitle = (
+        <div>
+            <h2 className="m-0 text-xl font-bold text-white tracking-tight">Nueva venta</h2>
+            <p className="m-0 mt-1 text-sm text-crm-fg-muted">
+                Se crea en estado Activa si hay vehículo del stock asignado, caso contrario Borrador. El estado se cambia después desde el detalle.
+            </p>
+        </div>
+    );
 
-                <div className="max-h-[75vh] overflow-y-auto px-6 py-6 custom-scrollbar">
+    const modalFooter = (
+        <div className="flex flex-col-reverse gap-3 sm:flex-row sm:justify-start">
+            <CrmButton type="button" variant="secondary" onClick={resetAndClose} disabled={loading} className="px-6 border-neutral-700 bg-transparent hover:bg-neutral-800">
+                Cancelar
+            </CrmButton>
+            <div className="flex-1 hidden sm:block"></div>
+            <CrmButton type="button" variant="secondary" onClick={() => setError('El guardado como borrador requiere soporte del endpoint actual. Usá Crear venta.')} disabled={loading} className="px-6 border-neutral-700 bg-[#161619] hover:bg-neutral-800 text-white">
+                <FileText size={15} /> Guardar borrador
+            </CrmButton>
+            <CrmButton type="button" variant="primary" onClick={handleSubmit} disabled={loading} className="px-6 bg-crm-red hover:bg-red-600 text-white">
+                <FileText size={15} /> {loading ? 'Creando...' : 'Crear venta'}
+            </CrmButton>
+        </div>
+    );
+
+    return (
+        <CrmModal
+            isOpen={isOpen}
+            onClose={resetAndClose}
+            title={modalTitle}
+            maxWidth="max-w-4xl"
+            footer={modalFooter}
+        >
+            <div className="px-6 py-6">
                     {error && (
                         <div className="mb-6 rounded-xl border border-crm-red/30 bg-crm-red/10 px-4 py-3 text-sm font-semibold text-red-300 flex items-center gap-2">
                             <X size={16} className="text-red-400" /> {error}
@@ -669,21 +681,9 @@ export default function SaleCreateModal({ isOpen, onClose, onSuccess }) {
                         </div>
                     </div>
 
-                </div>
+                    </div>
 
-                <div className="flex flex-col-reverse gap-3 border-t border-crm-border px-6 py-5 sm:flex-row sm:justify-start bg-crm-surface">
-                    <CrmButton type="button" variant="secondary" onClick={resetAndClose} disabled={loading} className="px-6 border-neutral-700 bg-transparent hover:bg-neutral-800">
-                        Cancelar
-                    </CrmButton>
-                    <div className="flex-1 hidden sm:block"></div>
-                    <CrmButton type="button" variant="secondary" onClick={() => setError('El guardado como borrador requiere soporte del endpoint actual. Usá Crear venta.')} disabled={loading} className="px-6 border-neutral-700 bg-[#161619] hover:bg-neutral-800 text-white">
-                        <FileText size={15} /> Guardar borrador
-                    </CrmButton>
-                    <CrmButton type="button" variant="primary" onClick={handleSubmit} disabled={loading} className="px-6 bg-crm-red hover:bg-red-600 text-white">
-                        <FileText size={15} /> {loading ? 'Creando...' : 'Crear venta'}
-                    </CrmButton>
-                </div>
             </div>
-        </div>
+        </CrmModal>
     );
 }
