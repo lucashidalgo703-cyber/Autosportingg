@@ -5,14 +5,28 @@ import { hasPermission } from '../../../utils/adminPermissions';
 import { ShieldAlert } from 'lucide-react';
 import Link from 'next/link';
 
-export default function PermissionGuard({ permission, children }) {
+export default function PermissionGuard({
+    permission,
+    requiredPermission,
+    allowedRoles = [],
+    fallback,
+    children
+}) {
     const { user, loading } = useAuth();
+    const effectivePermission = permission || requiredPermission;
 
     if (loading) {
         return <div className="p-8 text-center text-neutral-400">Verificando accesos...</div>;
     }
 
-    if (!hasPermission(user, permission)) {
+    const hasAllowedRole = Boolean(user?.role) && allowedRoles.includes(user.role);
+    const hasRequiredPermission = effectivePermission
+        ? hasPermission(user, effectivePermission)
+        : false;
+
+    if (!hasAllowedRole && !hasRequiredPermission) {
+        if (fallback) return fallback;
+
         return (
             <div className="p-8 max-w-2xl mx-auto mt-10">
                 <div className="bg-red-500/10 border border-red-500/20 text-red-500 p-8 rounded-2xl flex flex-col items-center text-center gap-4">

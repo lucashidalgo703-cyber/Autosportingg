@@ -23,6 +23,7 @@ import CommunicationLog from './src/models/CommunicationLog.js';
 import MessageTemplate from './src/models/MessageTemplate.js';
 import CrmSettings from './src/models/CrmSettings.js';
 import { logAudit } from './src/utils/auditLogger.js';
+import { hasPermission, PERMISSIONS, ROLES } from './src/utils/adminPermissions.js';
 import { CloudinaryStorage } from 'multer-storage-cloudinary';
 import jwt from 'jsonwebtoken';
 import crypto from 'crypto';
@@ -162,6 +163,30 @@ const authenticateToken = (req, res, next) => {
     });
 };
 
+const requirePermission = (permission, allowedRoles = [ROLES.OWNER, ROLES.ADMIN]) => {
+    return (req, res, next) => {
+        const roleAllowed = allowedRoles.includes(req.user?.role);
+        if (roleAllowed || hasPermission(req.user, permission)) {
+            return next();
+        }
+
+        return res.status(403).json({ message: 'No tenes permisos para realizar esta accion.' });
+    };
+};
+
+const requireAnyPermission = (permissions, allowedRoles = [ROLES.OWNER, ROLES.ADMIN]) => {
+    return (req, res, next) => {
+        const roleAllowed = allowedRoles.includes(req.user?.role);
+        const permissionAllowed = permissions.some((permission) => hasPermission(req.user, permission));
+
+        if (roleAllowed || permissionAllowed) {
+            return next();
+        }
+
+        return res.status(403).json({ message: 'No tenes permisos para realizar esta accion.' });
+    };
+};
+
 // Routes
 
 // Helper functions for password hashing using native crypto
@@ -287,7 +312,7 @@ app.get('/api/admin/auth/me', authenticateToken, async (req, res) => {
 });
 
 // GET Admin Users
-app.get('/api/admin/users', authenticateToken, async (req, res) => {
+app.get('/api/admin/users', authenticateToken, requirePermission(PERMISSIONS.USUARIOS_READ), async (req, res) => {
     try {
         if (req.user.role !== 'owner' && req.user.role !== 'admin') {
             return res.status(403).json({ message: 'Sin permisos para ver usuarios' });
@@ -310,7 +335,7 @@ app.get('/api/admin/users/active', authenticateToken, async (req, res) => {
 });
 
 // POST Create Admin User
-app.post('/api/admin/users', authenticateToken, async (req, res) => {
+app.post('/api/admin/users', authenticateToken, requirePermission(PERMISSIONS.USUARIOS_WRITE), async (req, res) => {
     try {
         if (req.user.role !== 'owner' && req.user.role !== 'admin') {
             return res.status(403).json({ message: 'Sin permisos para crear usuarios' });
@@ -348,7 +373,7 @@ app.post('/api/admin/users', authenticateToken, async (req, res) => {
 });
 
 // PATCH Edit Admin User
-app.patch('/api/admin/users/:id', authenticateToken, async (req, res) => {
+app.patch('/api/admin/users/:id', authenticateToken, requirePermission(PERMISSIONS.USUARIOS_WRITE), async (req, res) => {
     try {
         if (req.user.role !== 'owner' && req.user.role !== 'admin') {
             return res.status(403).json({ message: 'Sin permisos para editar usuarios' });
@@ -396,7 +421,7 @@ app.patch('/api/admin/users/:id', authenticateToken, async (req, res) => {
 });
 
 // PATCH Change Password
-app.patch('/api/admin/users/:id/password', authenticateToken, async (req, res) => {
+app.patch('/api/admin/users/:id/password', authenticateToken, requirePermission(PERMISSIONS.USUARIOS_WRITE), async (req, res) => {
     try {
         if (req.user.role !== 'owner' && req.user.role !== 'admin') {
             return res.status(403).json({ message: 'Sin permisos para cambiar contrase├▒as' });
@@ -456,7 +481,7 @@ app.post('/api/admin/audit-logs/client-event', authenticateToken, async (req, re
 });
 
 // GET /api/admin/audit-logs
-app.get('/api/admin/audit-logs', authenticateToken, async (req, res) => {
+app.get('/api/admin/audit-logs', authenticateToken, requirePermission(PERMISSIONS.AUDITORIA_READ), async (req, res) => {
     try {
         if (!req.user || (req.user.role !== 'owner' && req.user.role !== 'admin')) {
             return res.status(403).json({ message: 'Sin permisos de auditoria' });
@@ -3062,7 +3087,7 @@ app.post('/api/admin/sales/:id/backfill-client-from-reservation', authenticateTo
 });
 
 // DELETE sale
-app.delete('/api/admin/sales/:id', authenticateToken, async (req, res) => {
+app.delete('/api/admin/sales/:id', authenticateToken, requirePermission(PERMISSIONS.VENTAS_CANCEL), async (req, res) => {
     try {
         await connectDB();
         const sale = await Sale.findById(req.params.id);
@@ -3084,7 +3109,7 @@ app.delete('/api/admin/sales/:id', authenticateToken, async (req, res) => {
 });
 
 // PATCH cancel sale
-app.patch('/api/admin/sales/:id/cancel', authenticateToken, async (req, res) => {
+app.patch('/api/admin/sales/:id/cancel', authenticateToken, requirePermission(PERMISSIONS.VENTAS_CANCEL), async (req, res) => {
     try {
         await connectDB();
         const { reason } = req.body;
@@ -3663,7 +3688,7 @@ async function getOrCreateCrmV2Account(currency) {
 }
 
 // GET admin transactions
-app.get('/api/admin/transactions', authenticateToken, async (req, res) => {
+app.get('/api/admin/transactions', authenticateToken, requirePermission(PERMISSIONS.FINANZAS_READ), async (req, res) => {
     try {
         await connectDB();
         if (req.user && req.user.role === 'ventas') return res.status(403).json({ message: 'Sin permisos financieros' });
@@ -3731,7 +3756,7 @@ app.get('/api/admin/transactions', authenticateToken, async (req, res) => {
 });
 
 // GET consolidated finance deposits / senas
-app.get('/api/admin/finance/deposits', authenticateToken, async (req, res) => {
+app.get('/api/admin/finance/deposits', authenticateToken, requirePermission(PERMISSIONS.FINANZAS_READ), async (req, res) => {
     try {
         await connectDB();
         if (req.user && req.user.role === 'ventas') return res.status(403).json({ message: 'Sin permisos financieros' });
@@ -3870,7 +3895,7 @@ app.get('/api/admin/finance/deposits', authenticateToken, async (req, res) => {
 });
 
 // GET admin transaction by id
-app.get('/api/admin/transactions/:id', authenticateToken, async (req, res) => {
+app.get('/api/admin/transactions/:id', authenticateToken, requirePermission(PERMISSIONS.FINANZAS_READ), async (req, res) => {
     try {
         await connectDB();
         if (req.user && req.user.role === 'ventas') return res.status(403).json({ message: 'Sin permisos financieros' });
@@ -3887,7 +3912,7 @@ app.get('/api/admin/transactions/:id', authenticateToken, async (req, res) => {
 });
 
 // POST admin transaction (manual only)
-app.post('/api/admin/transactions', authenticateToken, async (req, res) => {
+app.post('/api/admin/transactions', authenticateToken, requirePermission(PERMISSIONS.FINANZAS_WRITE), async (req, res) => {
     try {
         await connectDB();
         if (req.user && req.user.role === 'ventas') return res.status(403).json({ message: 'Sin permisos financieros' });
@@ -3985,7 +4010,7 @@ app.post('/api/admin/transactions', authenticateToken, async (req, res) => {
 });
 
 // PATCH admin transaction
-app.patch('/api/admin/transactions/:id', authenticateToken, async (req, res) => {
+app.patch('/api/admin/transactions/:id', authenticateToken, requirePermission(PERMISSIONS.FINANZAS_WRITE), async (req, res) => {
     try {
         await connectDB();
         if (req.user && req.user.role === 'ventas') return res.status(403).json({ message: 'Sin permisos financieros' });
@@ -6060,7 +6085,7 @@ async function getOrCreateCrmSettings() {
         };
     }
 }
-app.get('/api/admin/settings', authenticateToken, async (req, res) => {
+app.get('/api/admin/settings', authenticateToken, requireAnyPermission([PERMISSIONS.SETTINGS_READ, PERMISSIONS.SETTINGS_WRITE]), async (req, res) => {
     try {
         const userRole = req.user?.role || 'solo_lectura';
         const perms = req.user?.permissions || [];
@@ -6078,7 +6103,7 @@ app.get('/api/admin/settings', authenticateToken, async (req, res) => {
     }
 });
 
-app.patch('/api/admin/settings', authenticateToken, async (req, res) => {
+app.patch('/api/admin/settings', authenticateToken, requirePermission(PERMISSIONS.SETTINGS_WRITE), async (req, res) => {
     try {
         const userRole = req.user?.role || 'solo_lectura';
         const perms = req.user?.permissions || [];
@@ -6139,7 +6164,7 @@ app.patch('/api/admin/settings', authenticateToken, async (req, res) => {
 // ========================================== //
 // ============ SYSTEM HEALTH =============== //
 // ========================================== //
-app.get('/api/admin/system-health', authenticateToken, async (req, res) => {
+app.get('/api/admin/system-health', authenticateToken, requirePermission(PERMISSIONS.SYSTEMHEALTH_READ), async (req, res) => {
     try {
         await connectDB();
         const userRole = req.user?.role || 'solo_lectura';
@@ -6238,7 +6263,7 @@ app.get('/api/admin/system-health', authenticateToken, async (req, res) => {
 // ========================================== //
 // ============ DATA QUALITY ================ //
 // ========================================== //
-app.get('/api/admin/data-quality', authenticateToken, async (req, res) => {
+app.get('/api/admin/data-quality', authenticateToken, requirePermission(PERMISSIONS.DATAQUALITY_READ), async (req, res) => {
     try {
         await connectDB();
         const userRole = req.user?.role || 'solo_lectura';
@@ -6399,7 +6424,7 @@ function toCSV(data, fields) {
     return BOM + header + '\n' + rows.join('\n');
 }
 
-app.get('/api/admin/exports', authenticateToken, async (req, res) => {
+app.get('/api/admin/exports', authenticateToken, requireAnyPermission([PERMISSIONS.EXPORTS_READ, PERMISSIONS.EXPORTS_AUDIT]), async (req, res) => {
     try {
         await connectDB();
         const userRole = req.user?.role || 'solo_lectura';
@@ -6424,7 +6449,7 @@ app.get('/api/admin/exports', authenticateToken, async (req, res) => {
     }
 });
 
-app.get('/api/admin/exports/:type', authenticateToken, async (req, res) => {
+app.get('/api/admin/exports/:type', authenticateToken, requireAnyPermission([PERMISSIONS.EXPORTS_READ, PERMISSIONS.EXPORTS_AUDIT]), async (req, res) => {
     try {
         const { type } = req.params;
         const userRole = req.user?.role || 'solo_lectura';

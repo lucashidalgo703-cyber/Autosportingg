@@ -21,8 +21,11 @@ export const PERMISSIONS = {
     RESERVAS_WRITE: 'reservas.write',
     VENTAS_READ: 'ventas.read',
     VENTAS_WRITE: 'ventas.write',
+    VENTAS_CANCEL: 'ventas.cancel',
     FINANZAS_READ: 'finanzas.read',
     FINANZAS_WRITE: 'finanzas.write',
+    CAJA_READ: 'caja.read',
+    CAJA_WRITE: 'caja.write',
     CUOTAS_READ: 'cuotas.read',
     CUOTAS_WRITE: 'cuotas.write',
     COBRANZAS_READ: 'cobranzas.read',
@@ -100,9 +103,7 @@ export const DEFAULT_ROLE_PERMISSIONS = {
 
 // Helper para verificar en frontend/backend
 export const hasPermission = (user, permission) => {
-    if (!user) return false;
-    // Si viene del login legacy, asumimos owner
-    if (!user.role && !user.permissions) return true;
+    if (!user || !permission) return false;
     
     if (user.role === ROLES.OWNER) return true;
     
