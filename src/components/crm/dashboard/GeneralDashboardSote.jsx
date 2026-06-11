@@ -358,45 +358,59 @@ function SalesLastSixPanel() {
 }
 
 function CashFlowMonthPanel({ metrics }) {
+    const finanzas = metrics.finanzas || {
+        ingresosUSD: 0, ingresosARS: 0,
+        egresosUSD: 0, egresosARS: 0,
+        saldos: { USD: 0, ARS: 0 }
+    };
+
+    const ingresosFormat = finanzas.ingresosUSD > 0 ? `USD ${formatCurrency(finanzas.ingresosUSD)}` : `ARS ${formatCurrency(finanzas.ingresosARS)}`;
+    const egresosFormat = finanzas.egresosUSD > 0 ? `USD ${formatCurrency(finanzas.egresosUSD)}` : `ARS ${formatCurrency(finanzas.egresosARS)}`;
+    const netoUSD = finanzas.saldos.USD;
+    const netoARS = finanzas.saldos.ARS;
+    
     return (
-        <Panel title="Cash Flow del mes" subtitle="0 movimientos · admin/finanzas" href="/admin/finanzas" icon={Landmark} className="min-h-[460px]">
+        <Panel title="Cash Flow del mes" subtitle="Movimientos generales del mes actual" href="/admin/finanzas" icon={Landmark} className="min-h-[460px]">
             <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
-                <SmallMetric label="Ingresos" value="USD 0" tone="green" />
-                <SmallMetric label="Egresos" value="USD 0" tone="red" />
-                <SmallMetric label="Neto" value="USD 0" tone="green" />
+                <SmallMetric label="Ingresos" value={ingresosFormat} tone="green" />
+                <SmallMetric label="Egresos" value={egresosFormat} tone="red" />
+                <SmallMetric label="Neto USD" value={`USD ${formatCurrency(netoUSD)}`} tone={netoUSD < 0 ? 'red' : 'green'} />
             </div>
             <div className="mt-4 rounded-xl border border-crm-border bg-crm-bg p-3">
-                <p className="mb-3 text-[10px] font-bold uppercase tracking-[0.14em] text-crm-fg-muted">Saldos por cuenta · 2</p>
+                <p className="mb-3 text-[10px] font-bold uppercase tracking-[0.14em] text-crm-fg-muted">Balance mensual de cajas</p>
                 <div className="space-y-3 text-xs">
                     <div className="flex items-center justify-between gap-3">
-                        <span className="text-crm-fg-muted">Caja USD</span>
-                        <strong className="text-crm-fg">USD {formatCurrency(metrics.margenEstimado?.USD || 0)}</strong>
+                        <span className="text-crm-fg-muted">Caja USD (Mes)</span>
+                        <strong className="text-crm-fg">USD {formatCurrency(netoUSD)}</strong>
                     </div>
                     <div className="flex items-center justify-between gap-3">
-                        <span className="text-crm-fg-muted">Caja ARS</span>
-                        <strong className="text-crm-fg">ARS {formatCurrency(metrics.margenEstimado?.ARS || 0)}</strong>
+                        <span className="text-crm-fg-muted">Caja ARS (Mes)</span>
+                        <strong className="text-crm-fg">ARS {formatCurrency(netoARS)}</strong>
                     </div>
                 </div>
             </div>
             <div className="mt-4 grid grid-cols-2 gap-3 text-xs text-crm-fg-muted">
-                <p>Sin ingresos registrados este mes.</p>
-                <p>Sin egresos registrados este mes.</p>
+                <p>{finanzas.ingresosUSD > 0 || finanzas.ingresosARS > 0 ? 'Ingresos registrados este mes.' : 'Sin ingresos registrados este mes.'}</p>
+                <p>{finanzas.egresosUSD > 0 || finanzas.egresosARS > 0 ? 'Egresos registrados este mes.' : 'Sin egresos registrados este mes.'}</p>
             </div>
         </Panel>
     );
 }
 
-function InstallmentsMonthPanel() {
+function InstallmentsMonthPanel({ metrics }) {
+    const cuotas = metrics.cuotas || { cantidadMes: 0, vencidas: 0, totalMontoUSD: 0, totalMontoARS: 0 };
+    const hasVencidas = cuotas.vencidas > 0;
+    
     return (
-        <Panel title="Cuotas a pagar - este mes" subtitle="Desde Mi Espacio Personal · 0 cuotas del mes" href="/admin/cuotas" icon={CreditCard} className="min-h-[460px]">
-            <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/10 p-4 text-sm font-bold text-emerald-300">
-                Sin cuotas vencidas
+        <Panel title="Cuotas a pagar - este mes" subtitle={`${cuotas.cantidadMes} cuotas pendientes del mes`} href="/admin/cuotas" icon={CreditCard} className="min-h-[460px]">
+            <div className={`rounded-xl border p-4 text-sm font-bold ${hasVencidas ? 'border-red-500/20 bg-red-500/10 text-red-300' : 'border-emerald-500/20 bg-emerald-500/10 text-emerald-300'}`}>
+                {hasVencidas ? `Atención: ${cuotas.vencidas} cuotas vencidas` : 'Todas las cuotas al día'}
             </div>
             <div className="mt-4 grid grid-cols-2 gap-3">
-                <SmallMetric label="Total del mes" value="-" />
-                <SmallMetric label="Cuotas" value="0" />
+                <SmallMetric label="Total a cobrar USD" value={`USD ${formatCurrency(cuotas.totalMontoUSD)}`} />
+                <SmallMetric label="Cuotas del mes" value={cuotas.cantidadMes} />
             </div>
-            <p className="mt-3 text-xs text-crm-fg-muted">0 vencidas</p>
+            <p className="mt-3 text-xs text-crm-fg-muted">{cuotas.vencidas} vencidas · ARS {formatCurrency(cuotas.totalMontoARS)}</p>
         </Panel>
     );
 }
@@ -495,10 +509,10 @@ export default function GeneralDashboardSote({ metrics, canSeeFinancials = false
         },
         {
             label: 'Cuotas a pagar (mes)',
-            value: 'Al dia ✓',
-            detail: 'USD 0 este mes',
+            value: metrics.cuotas?.vencidas > 0 ? `${metrics.cuotas.vencidas} vencidas` : 'Al dia ✓',
+            detail: metrics.cuotas?.totalMontoUSD > 0 ? `USD ${formatCurrency(metrics.cuotas.totalMontoUSD)} este mes` : `ARS ${formatCurrency(metrics.cuotas?.totalMontoARS || 0)} este mes`,
             icon: CreditCard,
-            tone: 'green',
+            tone: metrics.cuotas?.vencidas > 0 ? 'red' : 'green',
             href: '/admin/cuotas'
         },
         {
@@ -623,7 +637,7 @@ export default function GeneralDashboardSote({ metrics, canSeeFinancials = false
             {canSeeFinancials && (
                 <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
                     <CashFlowMonthPanel metrics={metrics} />
-                    <InstallmentsMonthPanel />
+                    <InstallmentsMonthPanel metrics={metrics} />
                 </div>
             )}
             <ShowroomPanel />

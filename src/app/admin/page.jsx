@@ -3,6 +3,8 @@ import { useMemo, useState, useEffect } from 'react';
 
 import { useAdminCars } from '../../hooks/useAdminCars';
 import { useAdminSales } from '../../hooks/useAdminSales';
+import { useAdminTransactions } from '../../hooks/useAdminTransactions';
+import { useAdminInstallments } from '../../hooks/useAdminInstallments';
 import { calculateDashboardMetrics } from '../../components/crm/dashboard/dashboardMetrics';
 import { BarChart3, Loader2, AlertCircle, Target } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
@@ -14,9 +16,13 @@ import CockpitCeoSote from '../../components/crm/dashboard/CockpitCeoSote';
 export default function AdminDashboardPage() {
     const { cars, loading: loadingCars, error: errorCars } = useAdminCars();
     const { sales, loading: loadingSales, error: errorSales, fetchSales } = useAdminSales();
+    const { fetchTransactions } = useAdminTransactions();
+    const { fetchInstallments } = useAdminInstallments();
     const { user } = useAuth();
     const [activeTab, setActiveTab] = useState('cockpit');
     const [selectedDate, setSelectedDate] = useState(new Date());
+    const [transactions, setTransactions] = useState([]);
+    const [installments, setInstallments] = useState([]);
 
     const displayName = user?.name || user?.username || (user?.email ? user.email.split('@')[0] : 'Equipo');
     const dashboardDate = new Date()
@@ -27,12 +33,20 @@ export default function AdminDashboardPage() {
 
     useEffect(() => {
         fetchSales();
-    }, [fetchSales]);
+        fetchTransactions().then(data => {
+            if (data && Array.isArray(data.transactions)) setTransactions(data.transactions);
+            else if (Array.isArray(data)) setTransactions(data);
+        });
+        fetchInstallments().then(data => {
+            if (data && Array.isArray(data.installments)) setInstallments(data.installments);
+            else if (Array.isArray(data)) setInstallments(data);
+        });
+    }, [fetchSales, fetchTransactions, fetchInstallments]);
 
     const metrics = useMemo(() => {
         if (!cars || cars.length === 0) return null;
-        return calculateDashboardMetrics(cars, sales || [], selectedDate);
-    }, [cars, sales, selectedDate]);
+        return calculateDashboardMetrics(cars, sales || [], selectedDate, transactions || [], installments || []);
+    }, [cars, sales, selectedDate, transactions, installments]);
 
     const handlePrevMonth = () => {
         const prev = new Date(selectedDate);

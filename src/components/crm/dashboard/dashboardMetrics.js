@@ -229,6 +229,64 @@ export function calculateDashboardMetrics(cars = []) {
         metrics.margenEstimado.ARS = realMarginARS;
         metrics.margenEstimado.USD = realMarginUSD;
         metrics.salesDetails = salesDetails;
+        
+        // --- Transacciones (Cash Flow) ---
+        const transactions = arguments.length > 3 && arguments[3] ? arguments[3] : [];
+        const installments = arguments.length > 4 && arguments[4] ? arguments[4] : [];
+
+        metrics.finanzas = {
+            ingresosUSD: 0, ingresosARS: 0,
+            egresosUSD: 0, egresosARS: 0,
+            saldos: { USD: 0, ARS: 0 }
+        };
+
+        transactions.forEach(t => {
+            const tDate = new Date(t.date || t.createdAt);
+            if (tDate.getMonth() === targetMonth && tDate.getFullYear() === targetYear) {
+                const amount = Number(t.amount) || 0;
+                const currency = (t.currency === 'ARS' || t.currency === '$') ? 'ARS' : 'USD';
+                
+                if (t.type === 'ingreso') {
+                    if (currency === 'USD') metrics.finanzas.ingresosUSD += amount;
+                    else metrics.finanzas.ingresosARS += amount;
+                } else if (t.type === 'egreso') {
+                    if (currency === 'USD') metrics.finanzas.egresosUSD += amount;
+                    else metrics.finanzas.egresosARS += amount;
+                }
+            }
+        });
+        metrics.finanzas.saldos.USD = metrics.finanzas.ingresosUSD - metrics.finanzas.egresosUSD;
+        metrics.finanzas.saldos.ARS = metrics.finanzas.ingresosARS - metrics.finanzas.egresosARS;
+
+        // --- Cuotas (Installments) ---
+        metrics.cuotas = {
+            totalMontoUSD: 0, totalMontoARS: 0,
+            cantidadMes: 0, vencidas: 0
+        };
+
+        const today = new Date();
+        today.setHours(0,0,0,0);
+
+        installments.forEach(inst => {
+            const dueDate = new Date(inst.dueDate);
+            const status = (inst.status || '').toLowerCase();
+            
+            // Ignorar pagadas o anuladas
+            if (status === 'pagada' || status === 'anulada' || status === 'cancelada') return;
+
+            if (dueDate.getMonth() === targetMonth && dueDate.getFullYear() === targetYear) {
+                metrics.cuotas.cantidadMes++;
+                const amount = Number(inst.amount) || 0;
+                const currency = (inst.currency === 'ARS' || inst.currency === '$') ? 'ARS' : 'USD';
+
+                if (currency === 'USD') metrics.cuotas.totalMontoUSD += amount;
+                else metrics.cuotas.totalMontoARS += amount;
+
+                if (dueDate < today) {
+                    metrics.cuotas.vencidas++;
+                }
+            }
+        });
     }
 
     return metrics;
