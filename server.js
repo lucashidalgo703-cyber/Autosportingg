@@ -204,6 +204,12 @@ app.post('/api/login', requireJwtConfiguration, enforceLoginRateLimit, async (re
             return res.status(400).json({ message: 'Email y contrasena son obligatorios.' });
         }
 
+        await connectDB();
+        if (mongoose.connection.readyState !== 1) {
+            console.error('Authentication unavailable: MongoDB connection could not be established.');
+            return res.status(503).json({ message: 'Servicio de autenticacion no disponible.' });
+        }
+
         const normalizedEmail = email.trim().toLowerCase();
         const user = await AdminUser.findOne({ email: normalizedEmail });
         const isValid = Boolean(user?.active) && verifyPassword(password, user.passwordHash);
