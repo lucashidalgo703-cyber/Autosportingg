@@ -154,8 +154,8 @@ export default function SaleStatusPanel({ sale, onSave }) {
                 )}
 
                 {saveError && (
-                    <div className="bg-red-500/10 border border-red-500/20 rounded-xl p-3 flex gap-3 items-start">
-                        <AlertTriangle size={16} className="text-red-500 shrink-0 mt-0.5" />
+                    <div className="bg-crm-red/10 border border-red-500/20 rounded-xl p-3 flex gap-3 items-start">
+                        <AlertTriangle size={16} className="text-crm-red shrink-0 mt-0.5" />
                         <p className="text-[10px] text-red-400 font-bold uppercase tracking-wider">
                             {saveError}
                         </p>
@@ -173,7 +173,7 @@ export default function SaleStatusPanel({ sale, onSave }) {
                             <button 
                                 onClick={() => handleQuickAction('documentacion_completa')}
                                 disabled={isSaving}
-                                className="text-[10px] bg-neutral-800 hover:bg-neutral-700 text-white px-2 py-1 rounded transition-colors flex items-center gap-1"
+                                className="text-[10px] bg-crm-surface-raised hover:bg-neutral-700 text-white px-2 py-1 rounded transition-colors flex items-center gap-1"
                             >
                                 <CheckSquare size={10} />
                                 Marcar Completa
@@ -183,7 +183,7 @@ export default function SaleStatusPanel({ sale, onSave }) {
 
                     {/* Progress Bar Doc */}
                     <div className="w-full flex justify-between items-center relative mb-1">
-                        <div className="absolute top-1/2 left-0 w-full h-0.5 bg-neutral-800 -translate-y-1/2 z-0"></div>
+                        <div className="absolute top-1/2 left-0 w-full h-0.5 bg-crm-surface-raised -translate-y-1/2 z-0"></div>
                         <div className="absolute top-1/2 left-0 h-0.5 bg-purple-500 -translate-y-1/2 z-0 transition-all duration-500" style={{ width: `${(docSteps.indexOf(docStatus) / (docSteps.length - 1)) * 100}%` }}></div>
                         {docSteps.map((step, idx) => (
                             <div key={step} className={`w-3 h-3 rounded-full z-10 border-2 transition-colors ${docSteps.indexOf(docStatus) >= idx ? 'bg-purple-500 border-purple-500' : 'bg-neutral-900 border-neutral-700'}`} title={step}></div>
@@ -214,7 +214,7 @@ export default function SaleStatusPanel({ sale, onSave }) {
                                 <button 
                                     onClick={() => handleQuickAction('listo_para_entregar')}
                                     disabled={isSaving}
-                                    className="text-[10px] bg-neutral-800 hover:bg-neutral-700 text-white px-2 py-1 rounded transition-colors flex items-center gap-1"
+                                    className="text-[10px] bg-crm-surface-raised hover:bg-neutral-700 text-white px-2 py-1 rounded transition-colors flex items-center gap-1"
                                 >
                                     Listo para Entregar
                                 </button>
@@ -234,7 +234,7 @@ export default function SaleStatusPanel({ sale, onSave }) {
 
                     {/* Progress Bar Del */}
                     <div className="w-full flex justify-between items-center relative mb-1">
-                        <div className="absolute top-1/2 left-0 w-full h-0.5 bg-neutral-800 -translate-y-1/2 z-0"></div>
+                        <div className="absolute top-1/2 left-0 w-full h-0.5 bg-crm-surface-raised -translate-y-1/2 z-0"></div>
                         <div className="absolute top-1/2 left-0 h-0.5 bg-green-500 -translate-y-1/2 z-0 transition-all duration-500" style={{ width: `${(delSteps.indexOf(delStatus) / (delSteps.length - 1)) * 100}%` }}></div>
                         {delSteps.map((step, idx) => (
                             <div key={step} className={`w-3 h-3 rounded-full z-10 border-2 transition-colors ${delSteps.indexOf(delStatus) >= idx ? 'bg-green-500 border-green-500' : 'bg-neutral-900 border-neutral-700'}`} title={step.replace(/_/g, ' ')}></div>
@@ -275,7 +275,7 @@ export default function SaleStatusPanel({ sale, onSave }) {
                             <CalendarDays size={12} />
                             Fecha Real
                         </label>
-                        <div className="w-full bg-neutral-800/50 border border-neutral-800 rounded-xl py-2 px-3 text-xs text-neutral-400">
+                        <div className="w-full bg-crm-surface-raised/50 border border-neutral-800 rounded-xl py-2 px-3 text-xs text-neutral-400">
                             {sale.actualDeliveryDate ? new Date(sale.actualDeliveryDate).toLocaleDateString() : 'Pendiente'}
                         </div>
                     </div>

@@ -129,7 +129,7 @@ export default function DocumentacionPage() {
             </div>
 
             {errorSales && (
-                <div className="bg-red-500/10 border border-red-500/20 text-red-400 p-4 rounded-xl mb-6 flex items-center gap-3">
+                <div className="bg-crm-red/10 border border-red-500/20 text-red-400 p-4 rounded-xl mb-6 flex items-center gap-3">
                     <ShieldAlert size={20} />
                     {errorSales}
                 </div>

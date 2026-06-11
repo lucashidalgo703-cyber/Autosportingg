@@ -55,7 +55,7 @@ export default function FinanceSummaryCards({ transactions }) {
                         </div>
                         <div className="bg-black/40 rounded-xl p-3 border border-neutral-800/50">
                             <div className="flex items-center gap-1.5 mb-1">
-                                <ArrowDownRight size={14} className="text-red-500" />
+                                <ArrowDownRight size={14} className="text-crm-red" />
                                 <span className="text-[10px] font-bold text-neutral-500 uppercase">Egresos</span>
                             </div>
                             <span className="text-lg font-bold text-white">${metrics.ars.egresos.toLocaleString('es-AR')}</span>
@@ -90,7 +90,7 @@ export default function FinanceSummaryCards({ transactions }) {
                         </div>
                         <div className="bg-black/40 rounded-xl p-3 border border-neutral-800/50">
                             <div className="flex items-center gap-1.5 mb-1">
-                                <ArrowDownRight size={14} className="text-red-500" />
+                                <ArrowDownRight size={14} className="text-crm-red" />
                                 <span className="text-[10px] font-bold text-neutral-500 uppercase">Egresos</span>
                             </div>
                             <span className="text-lg font-bold text-white">U$S {metrics.usd.egresos.toLocaleString('es-AR')}</span>

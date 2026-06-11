@@ -42,7 +42,7 @@ export default function TransactionsTable({ transactions, onEdit }) {
                                     {tx.notes && <span className="text-xs text-neutral-500 truncate max-w-xs block">{tx.notes}</span>}
                                 </td>
                                 <td className="p-4 whitespace-nowrap">
-                                    <span className="text-xs font-bold text-neutral-400 uppercase tracking-wider bg-neutral-800 px-2 py-1 rounded-md border border-neutral-700">{tx.category}</span>
+                                    <span className="text-xs font-bold text-neutral-400 uppercase tracking-wider bg-crm-surface-raised px-2 py-1 rounded-md border border-neutral-700">{tx.category}</span>
                                 </td>
                                 <td className="p-4">
                                     {tx.installmentId ? (
@@ -73,7 +73,7 @@ export default function TransactionsTable({ transactions, onEdit }) {
                                         {tx.type === 'Ingreso' ? (
                                             <ArrowUpRight size={16} className="text-green-500" />
                                         ) : (
-                                            <ArrowDownRight size={16} className="text-red-500" />
+                                            <ArrowDownRight size={16} className="text-crm-red" />
                                         )}
                                         <span className={`text-sm font-bold ${tx.status === 'anulado' ? 'text-neutral-500 line-through' : (tx.type === 'Ingreso' ? 'text-green-400' : 'text-red-400')}`}>
                                             {tx.currency === 'USD' ? 'U$S' : '$'} {tx.amount.toLocaleString('es-AR')}

@@ -111,7 +111,7 @@ export default function InstallmentModal({ isOpen, onClose, installment, onSave,
                     </div>
                     <button 
                         onClick={onClose}
-                        className="w-8 h-8 flex items-center justify-center rounded-xl bg-neutral-800/50 text-neutral-400 hover:text-white hover:bg-neutral-800 transition-colors"
+                        className="w-8 h-8 flex items-center justify-center rounded-xl bg-crm-surface-raised/50 text-neutral-400 hover:text-white hover:bg-crm-surface-raised transition-colors"
                     >
                         <X size={18} />
                     </button>
@@ -326,7 +326,7 @@ export default function InstallmentModal({ isOpen, onClose, installment, onSave,
                     <button
                         type="button"
                         onClick={onClose}
-                        className="flex-1 px-4 py-3 rounded-xl font-bold text-sm text-white bg-neutral-800 hover:bg-neutral-700 transition-colors"
+                        className="flex-1 px-4 py-3 rounded-xl font-bold text-sm text-white bg-crm-surface-raised hover:bg-neutral-700 transition-colors"
                     >
                         Cancelar
                     </button>

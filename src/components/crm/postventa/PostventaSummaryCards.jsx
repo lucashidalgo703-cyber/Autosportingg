@@ -49,8 +49,8 @@ export default function PostventaSummaryCards({ sales, getSaleTaskStatus }) {
             title: 'Incidencias Abiertas',
             value: incidencias,
             icon: AlertTriangle,
-            color: 'text-red-500',
-            bg: 'bg-red-500/10',
+            color: 'text-crm-red',
+            bg: 'bg-crm-red/10',
             border: 'border-red-500/20'
         },
         {
@@ -66,7 +66,7 @@ export default function PostventaSummaryCards({ sales, getSaleTaskStatus }) {
     return (
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4 mb-6">
             {cards.map((card, index) => (
-                <div key={index} className="bg-[#161619] border border-[#33333A] rounded-2xl p-4 flex flex-col justify-between">
+                <div key={index} className="bg-[#161619] border border-crm-border rounded-2xl p-4 flex flex-col justify-between">
                     <div className="flex justify-between items-start mb-4">
                         <div className={`w-10 h-10 rounded-xl ${card.bg} flex items-center justify-center border ${card.border}`}>
                             <card.icon size={20} className={card.color} />
@@ -74,7 +74,7 @@ export default function PostventaSummaryCards({ sales, getSaleTaskStatus }) {
                     </div>
                     <div>
                         <div className="text-2xl font-bold text-white mb-1">{card.value}</div>
-                        <div className="text-xs text-[#A1A1AA] font-medium tracking-wide uppercase">{card.title}</div>
+                        <div className="text-xs text-crm-fg-muted font-medium tracking-wide uppercase">{card.title}</div>
                     </div>
                 </div>
             ))}

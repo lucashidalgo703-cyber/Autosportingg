@@ -28,12 +28,12 @@ export default function SaleAuditTimeline({ sale }) {
                                 <div className="flex flex-col items-center mt-1">
                                     <div className="w-2 h-2 rounded-full bg-neutral-600 ring-4 ring-neutral-900 z-10"></div>
                                     {idx !== sortedLog.length - 1 && (
-                                        <div className="w-px h-full bg-neutral-800 my-1 -mb-4"></div>
+                                        <div className="w-px h-full bg-crm-surface-raised my-1 -mb-4"></div>
                                     )}
                                 </div>
                                 <div className="flex-1 bg-black/20 border border-neutral-800/50 rounded-xl p-3 pb-3">
                                     <div className="flex justify-between items-start mb-1">
-                                        <span className="text-xs font-bold text-white bg-neutral-800 px-2 py-0.5 rounded uppercase tracking-wider">
+                                        <span className="text-xs font-bold text-white bg-crm-surface-raised px-2 py-0.5 rounded uppercase tracking-wider">
                                             {log.action}
                                         </span>
                                         <span className="text-[10px] text-neutral-500 text-right">

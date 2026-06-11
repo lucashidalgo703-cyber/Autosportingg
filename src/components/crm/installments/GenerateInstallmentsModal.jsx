@@ -44,7 +44,7 @@ export default function GenerateInstallmentsModal({ isOpen, onClose, onGenerate,
                     </div>
                     <button 
                         onClick={onClose}
-                        className="w-8 h-8 flex items-center justify-center rounded-xl bg-neutral-800/50 text-neutral-400 hover:text-white hover:bg-neutral-800 transition-colors"
+                        className="w-8 h-8 flex items-center justify-center rounded-xl bg-crm-surface-raised/50 text-neutral-400 hover:text-white hover:bg-crm-surface-raised transition-colors"
                     >
                         <X size={18} />
                     </button>
@@ -129,7 +129,7 @@ export default function GenerateInstallmentsModal({ isOpen, onClose, onGenerate,
                             </div>
                         </div>
 
-                        <div className="p-4 bg-neutral-800/50 border border-neutral-700/50 rounded-xl">
+                        <div className="p-4 bg-crm-surface-raised/50 border border-neutral-700/50 rounded-xl">
                             <div className="flex justify-between items-center mb-2">
                                 <span className="text-xs text-neutral-400">Total financiado con interés:</span>
                                 <span className="text-sm font-bold text-white">{totalAmountNum.toLocaleString()} {formData.currency}</span>
@@ -167,7 +167,7 @@ export default function GenerateInstallmentsModal({ isOpen, onClose, onGenerate,
                     <button
                         type="button"
                         onClick={onClose}
-                        className="flex-1 px-4 py-3 rounded-xl font-bold text-sm text-white bg-neutral-800 hover:bg-neutral-700 transition-colors"
+                        className="flex-1 px-4 py-3 rounded-xl font-bold text-sm text-white bg-crm-surface-raised hover:bg-neutral-700 transition-colors"
                     >
                         Cancelar
                     </button>

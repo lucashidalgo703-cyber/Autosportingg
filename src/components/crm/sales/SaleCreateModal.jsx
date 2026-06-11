@@ -235,11 +235,11 @@ export default function SaleCreateModal({ isOpen, onClose, onSuccess }) {
 
     const modalFooter = (
         <div className="flex flex-col-reverse gap-3 sm:flex-row sm:justify-start">
-            <CrmButton type="button" variant="secondary" onClick={resetAndClose} disabled={loading} className="px-6 border-neutral-700 bg-transparent hover:bg-neutral-800">
+            <CrmButton type="button" variant="secondary" onClick={resetAndClose} disabled={loading} className="px-6 border-neutral-700 bg-transparent hover:bg-crm-surface-raised">
                 Cancelar
             </CrmButton>
             <div className="flex-1 hidden sm:block"></div>
-            <CrmButton type="button" variant="secondary" onClick={() => setError('El guardado como borrador requiere soporte del endpoint actual. Usá Crear venta.')} disabled={loading} className="px-6 border-neutral-700 bg-[#161619] hover:bg-neutral-800 text-white">
+            <CrmButton type="button" variant="secondary" onClick={() => setError('El guardado como borrador requiere soporte del endpoint actual. Usá Crear venta.')} disabled={loading} className="px-6 border-neutral-700 bg-[#161619] hover:bg-crm-surface-raised text-white">
                 <FileText size={15} /> Guardar borrador
             </CrmButton>
             <CrmButton type="button" variant="primary" onClick={handleSubmit} disabled={loading} className="px-6 bg-crm-red hover:bg-red-600 text-white">

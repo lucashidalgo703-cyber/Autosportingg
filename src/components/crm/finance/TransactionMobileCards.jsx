@@ -34,7 +34,7 @@ export default function TransactionMobileCards({ transactions, onEdit }) {
                                 {tx.type === 'Ingreso' ? (
                                     <ArrowUpRight size={14} className="text-green-500" />
                                 ) : (
-                                    <ArrowDownRight size={14} className="text-red-500" />
+                                    <ArrowDownRight size={14} className="text-crm-red" />
                                 )}
                                 <span className={`text-sm font-bold ${tx.status === 'anulado' ? 'text-neutral-500 line-through' : (tx.type === 'Ingreso' ? 'text-green-400' : 'text-red-400')}`}>
                                     {tx.currency === 'USD' ? 'U$S' : '$'} {tx.amount.toLocaleString('es-AR')}
@@ -48,7 +48,7 @@ export default function TransactionMobileCards({ transactions, onEdit }) {
                     </div>
 
                     {(tx.saleId || tx.reservationId || tx.clientId || tx.vehicleId || tx.installmentId) && (
-                        <div className="bg-neutral-800/50 rounded-xl p-3 border border-neutral-800/50 flex flex-col gap-1">
+                        <div className="bg-crm-surface-raised/50 rounded-xl p-3 border border-neutral-800/50 flex flex-col gap-1">
                             <span className="text-[10px] text-neutral-500 uppercase">Vinculado a</span>
                             {tx.installmentId && (
                                 <div className="flex flex-col gap-0.5">

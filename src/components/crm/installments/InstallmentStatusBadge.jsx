@@ -31,7 +31,7 @@ export default function InstallmentStatusBadge({ status, dueDate }) {
             );
         default:
             return (
-                <span className="text-xs font-bold text-neutral-400 bg-neutral-800 px-2.5 py-1 rounded-full border border-neutral-700">
+                <span className="text-xs font-bold text-neutral-400 bg-crm-surface-raised px-2.5 py-1 rounded-full border border-neutral-700">
                     {status}
                 </span>
             );

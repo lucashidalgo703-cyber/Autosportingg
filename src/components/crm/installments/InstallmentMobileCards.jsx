@@ -125,7 +125,7 @@ export default function InstallmentMobileCards({ installments, onEdit, onRegiste
                             {(currentUserRole === 'owner' || currentUserRole === 'admin') && (
                                 <button 
                                     onClick={() => onDelete && onDelete(inst)}
-                                    className="h-8 px-4 rounded-lg bg-red-500/10 text-red-500 hover:bg-red-500/20 text-xs font-bold transition-colors"
+                                    className="h-8 px-4 rounded-lg bg-crm-red/10 text-crm-red hover:bg-crm-red/20 text-xs font-bold transition-colors"
                                 >
                                     Eliminar
                                 </button>

@@ -120,7 +120,7 @@ export default function FinanceFilters({ filters, setFilters }) {
 
                     <button
                         onClick={handleClear}
-                        className="w-10 h-[42px] shrink-0 bg-neutral-800 hover:bg-neutral-700 text-neutral-400 hover:text-white rounded-xl flex items-center justify-center transition-colors border border-neutral-700"
+                        className="w-10 h-[42px] shrink-0 bg-crm-surface-raised hover:bg-neutral-700 text-neutral-400 hover:text-white rounded-xl flex items-center justify-center transition-colors border border-neutral-700"
                         title="Limpiar filtros"
                     >
                         <RefreshCcw size={16} />

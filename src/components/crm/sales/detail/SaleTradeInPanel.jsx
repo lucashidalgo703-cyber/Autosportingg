@@ -171,7 +171,7 @@ export default function SaleTradeInPanel({ sale, onUpdate }) {
                 {hasWritePermission && sale.status !== 'cancelada' && !isEditing && (
                     <button 
                         onClick={handleAddClick}
-                        className="text-[10px] bg-neutral-800 hover:bg-neutral-700 text-white px-2 py-1 rounded transition-colors flex items-center gap-1 font-bold uppercase tracking-wider border border-neutral-700"
+                        className="text-[10px] bg-crm-surface-raised hover:bg-neutral-700 text-white px-2 py-1 rounded transition-colors flex items-center gap-1 font-bold uppercase tracking-wider border border-neutral-700"
                     >
                         <Plus size={10} />
                         Agregar
@@ -183,7 +183,7 @@ export default function SaleTradeInPanel({ sale, onUpdate }) {
                 {isEditing ? (
                     <div className="space-y-4">
                         {error && (
-                            <div className="bg-red-500/10 border border-red-500/20 text-red-400 p-3 rounded-lg text-xs flex gap-2 items-start">
+                            <div className="bg-crm-red/10 border border-red-500/20 text-red-400 p-3 rounded-lg text-xs flex gap-2 items-start">
                                 <AlertTriangle size={14} className="shrink-0 mt-0.5" />
                                 <span>{error}</span>
                             </div>
@@ -265,7 +265,7 @@ export default function SaleTradeInPanel({ sale, onUpdate }) {
                 ) : sale.tradeIns && sale.tradeIns.length > 0 ? (
                     <div className="space-y-4">
                         {stockError && (
-                            <div className="bg-red-500/10 border border-red-500/20 text-red-400 p-3 rounded-lg text-xs flex gap-2 items-start mb-4">
+                            <div className="bg-crm-red/10 border border-red-500/20 text-red-400 p-3 rounded-lg text-xs flex gap-2 items-start mb-4">
                                 <AlertTriangle size={14} className="shrink-0 mt-0.5" />
                                 <span>{stockError}</span>
                             </div>
@@ -287,7 +287,7 @@ export default function SaleTradeInPanel({ sale, onUpdate }) {
                                     <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider ${tradeIn.documentationStatus === 'completo' ? 'bg-green-500/10 text-green-400 border border-green-500/20' : 'bg-orange-500/10 text-orange-400 border border-orange-500/20'}`}>
                                         Doc: {tradeIn.documentationStatus}
                                     </span>
-                                    <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider ${tradeIn.transferStatus === 'transferido' ? 'bg-blue-500/10 text-blue-400 border border-blue-500/20' : 'bg-neutral-800 text-neutral-400 border border-neutral-700'}`}>
+                                    <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider ${tradeIn.transferStatus === 'transferido' ? 'bg-blue-500/10 text-blue-400 border border-blue-500/20' : 'bg-crm-surface-raised text-neutral-400 border border-neutral-700'}`}>
                                         Transf: {tradeIn.transferStatus.replace('_', ' ')}
                                     </span>
                                 </div>

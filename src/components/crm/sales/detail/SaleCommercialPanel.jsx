@@ -63,7 +63,7 @@ export default function SaleCommercialPanel({ sale, onSave }) {
                 {canEdit && !isEditing && (
                     <button
                         onClick={handleEditClick}
-                        className="flex items-center gap-2 rounded-lg border border-neutral-700 bg-crm-bg px-3 py-1.5 text-xs font-bold text-crm-fg transition-colors hover:bg-neutral-800"
+                        className="flex items-center gap-2 rounded-lg border border-neutral-700 bg-crm-bg px-3 py-1.5 text-xs font-bold text-crm-fg transition-colors hover:bg-crm-surface-raised"
                     >
                         <Edit2 size={12} />
                         Editar

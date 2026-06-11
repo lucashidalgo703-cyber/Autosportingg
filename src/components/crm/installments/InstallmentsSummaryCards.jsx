@@ -31,10 +31,10 @@ export default function InstallmentsSummaryCards({ stats }) {
 
             {/* Total Vencido ARS */}
             <div className="bg-neutral-900 border border-neutral-800 rounded-2xl p-5 relative overflow-hidden">
-                <div className="absolute -right-4 -top-4 w-24 h-24 bg-red-500/5 rounded-full blur-2xl"></div>
+                <div className="absolute -right-4 -top-4 w-24 h-24 bg-crm-red/5 rounded-full blur-2xl"></div>
                 <div className="flex justify-between items-start mb-4 relative z-10">
-                    <div className="w-10 h-10 rounded-xl bg-red-500/10 flex items-center justify-center border border-red-500/20">
-                        <AlertCircle size={20} className="text-red-500" />
+                    <div className="w-10 h-10 rounded-xl bg-crm-red/10 flex items-center justify-center border border-red-500/20">
+                        <AlertCircle size={20} className="text-crm-red" />
                     </div>
                 </div>
                 <div className="relative z-10">
@@ -63,10 +63,10 @@ export default function InstallmentsSummaryCards({ stats }) {
 
             {/* Total Vencido USD */}
             <div className="bg-neutral-900 border border-neutral-800 rounded-2xl p-5 relative overflow-hidden">
-                <div className="absolute -right-4 -top-4 w-24 h-24 bg-red-500/5 rounded-full blur-2xl"></div>
+                <div className="absolute -right-4 -top-4 w-24 h-24 bg-crm-red/5 rounded-full blur-2xl"></div>
                 <div className="flex justify-between items-start mb-4 relative z-10">
-                    <div className="w-10 h-10 rounded-xl bg-red-500/10 flex items-center justify-center border border-red-500/20">
-                        <AlertCircle size={20} className="text-red-500" />
+                    <div className="w-10 h-10 rounded-xl bg-crm-red/10 flex items-center justify-center border border-red-500/20">
+                        <AlertCircle size={20} className="text-crm-red" />
                     </div>
                 </div>
                 <div className="relative z-10">

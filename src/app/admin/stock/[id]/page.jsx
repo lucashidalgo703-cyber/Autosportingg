@@ -116,7 +116,7 @@ export default function VehicleDetailPage() {
             <div className="flex items-center justify-center h-[50vh]">
                 <div className="flex flex-col items-center gap-3">
                     <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-crm-red"></div>
-                    <span className="text-[#A1A1AA] text-sm">Cargando datos reales del vehículo...</span>
+                    <span className="text-crm-fg-muted text-sm">Cargando datos reales del vehículo...</span>
                 </div>
             </div>
         );
@@ -127,7 +127,7 @@ export default function VehicleDetailPage() {
             <div className="flex items-center justify-center h-[50vh]">
                 <div className="flex flex-col items-center gap-3 text-center">
                     <span className="text-[#EF3329] font-bold">Error de conexión</span>
-                    <span className="text-[#A1A1AA] text-sm">{error}</span>
+                    <span className="text-crm-fg-muted text-sm">{error}</span>
                 </div>
             </div>
         );
@@ -138,7 +138,7 @@ export default function VehicleDetailPage() {
             <div className="flex flex-col items-center justify-center h-[50vh] gap-4">
                 <div className="text-center">
                     <h2 className="text-xl font-bold text-white mb-2">Vehículo no encontrado</h2>
-                    <p className="text-[#A1A1AA] text-sm">El vehículo con ID "{params.id}" no existe en la base de datos de demostración.</p>
+                    <p className="text-crm-fg-muted text-sm">El vehículo con ID "{params.id}" no existe en la base de datos de demostración.</p>
                 </div>
                 <Link 
                     href="/admin/stock"

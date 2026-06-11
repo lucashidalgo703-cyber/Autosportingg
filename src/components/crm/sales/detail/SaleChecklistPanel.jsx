@@ -110,8 +110,8 @@ export default function SaleChecklistPanel({ sale, type, onSave }) {
             <div className="p-5 flex-1 flex flex-col gap-4">
                 
                 {saveError && (
-                    <div className="bg-red-500/10 border border-red-500/20 rounded-xl p-3 flex gap-3 items-start">
-                        <AlertTriangle size={16} className="text-red-500 shrink-0 mt-0.5" />
+                    <div className="bg-crm-red/10 border border-red-500/20 rounded-xl p-3 flex gap-3 items-start">
+                        <AlertTriangle size={16} className="text-crm-red shrink-0 mt-0.5" />
                         <p className="text-[10px] text-red-400 font-bold uppercase tracking-wider">
                             {saveError}
                         </p>
@@ -119,7 +119,7 @@ export default function SaleChecklistPanel({ sale, type, onSave }) {
                 )}
 
                 {/* Progress bar */}
-                <div className="w-full bg-neutral-800 rounded-full h-1.5 overflow-hidden">
+                <div className="w-full bg-crm-surface-raised rounded-full h-1.5 overflow-hidden">
                     <div 
                         className={`h-full transition-all duration-500 ${isDoc ? 'bg-purple-500' : 'bg-green-500'}`}
                         style={{ width: `${progress}%` }}
@@ -138,7 +138,7 @@ export default function SaleChecklistPanel({ sale, type, onSave }) {
                             className={`flex items-start gap-3 p-3 rounded-xl border cursor-pointer transition-colors group ${
                                 item.completed 
                                     ? 'bg-black/40 border-neutral-800/80 opacity-60' 
-                                    : 'bg-neutral-800/30 border-neutral-700 hover:bg-neutral-800'
+                                    : 'bg-crm-surface-raised/30 border-neutral-700 hover:bg-crm-surface-raised'
                             }`}
                         >
                             <input 
@@ -151,7 +151,7 @@ export default function SaleChecklistPanel({ sale, type, onSave }) {
                             <div className={`w-5 h-5 rounded flex items-center justify-center shrink-0 border mt-0.5 transition-colors ${
                                 item.completed 
                                     ? (isDoc ? 'bg-purple-500 border-purple-500' : 'bg-green-500 border-green-500') 
-                                    : (sale.status === 'cancelada' ? 'bg-neutral-800/50 border-neutral-700' : 'bg-black/50 border-neutral-600 group-hover:border-neutral-500')
+                                    : (sale.status === 'cancelada' ? 'bg-crm-surface-raised/50 border-neutral-700' : 'bg-black/50 border-neutral-600 group-hover:border-neutral-500')
                             }`}>
                                 {item.completed && <CheckSquare size={12} className="text-white opacity-0" />}
                                 {item.completed && (

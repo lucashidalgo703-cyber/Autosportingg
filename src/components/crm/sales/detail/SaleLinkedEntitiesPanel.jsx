@@ -240,9 +240,9 @@ export default function SaleLinkedEntitiesPanel({ sale, onUpdate }) {
                 
                 {/* Vehicle */}
                 {sale.vehicleId ? (
-                    <div className="bg-black/30 border border-neutral-800/50 rounded-xl p-4 flex justify-between items-center group hover:bg-neutral-800 transition-colors">
+                    <div className="bg-black/30 border border-neutral-800/50 rounded-xl p-4 flex justify-between items-center group hover:bg-crm-surface-raised transition-colors">
                         <div className="flex items-center gap-4">
-                            <div className="w-10 h-10 rounded-xl bg-neutral-800 flex items-center justify-center border border-neutral-700">
+                            <div className="w-10 h-10 rounded-xl bg-crm-surface-raised flex items-center justify-center border border-neutral-700">
                                 <CarFront size={18} className="text-neutral-400" />
                             </div>
                             <div className="flex flex-col">
@@ -251,14 +251,14 @@ export default function SaleLinkedEntitiesPanel({ sale, onUpdate }) {
                                 {vehicleVin && <span className="text-[10px] text-neutral-500 font-mono mt-1">{vehicleVin}</span>}
                             </div>
                         </div>
-                        <Link href={vehicleHref} className="w-10 h-10 rounded-xl bg-neutral-800 hover:bg-neutral-700 text-white flex items-center justify-center transition-colors shadow-sm">
+                        <Link href={vehicleHref} className="w-10 h-10 rounded-xl bg-crm-surface-raised hover:bg-neutral-700 text-white flex items-center justify-center transition-colors shadow-sm">
                             <ChevronRight size={18} />
                         </Link>
                     </div>
                 ) : (
-                    <div className="bg-red-500/10 border border-red-500/20 rounded-xl p-4 flex flex-col gap-4">
+                    <div className="bg-crm-red/10 border border-red-500/20 rounded-xl p-4 flex flex-col gap-4">
                         <div className="flex gap-3 items-start">
-                            <AlertTriangle size={18} className="text-red-500 shrink-0 mt-0.5" />
+                            <AlertTriangle size={18} className="text-crm-red shrink-0 mt-0.5" />
                             <div>
                                 <span className="text-sm font-bold text-red-400 block mb-1">Venta sin vehículo vinculado</span>
                                 <p className="text-xs text-red-200/70">Esta venta no tiene un vehículo oficial asociado. Búscalo o cárgalo manualmente para mantener la integridad del CRM.</p>
@@ -271,13 +271,13 @@ export default function SaleLinkedEntitiesPanel({ sale, onUpdate }) {
                         <div className="flex gap-2 p-1 bg-black/40 rounded-lg">
                             <button
                                 onClick={() => setIsManualVehicleMode(false)}
-                                className={`flex-1 py-1.5 text-[11px] font-bold rounded-md transition-colors ${!isManualVehicleMode ? 'bg-[#EF3329] text-white shadow-sm' : 'text-neutral-400 hover:text-white'}`}
+                                className={`flex-1 py-1.5 text-[11px] font-bold rounded-md transition-colors ${!isManualVehicleMode ? 'bg-crm-red text-white shadow-sm' : 'text-neutral-400 hover:text-white'}`}
                             >
                                 Buscar en Stock
                             </button>
                             <button
                                 onClick={() => setIsManualVehicleMode(true)}
-                                className={`flex-1 py-1.5 text-[11px] font-bold rounded-md transition-colors ${isManualVehicleMode ? 'bg-[#EF3329] text-white shadow-sm' : 'text-neutral-400 hover:text-white'}`}
+                                className={`flex-1 py-1.5 text-[11px] font-bold rounded-md transition-colors ${isManualVehicleMode ? 'bg-crm-red text-white shadow-sm' : 'text-neutral-400 hover:text-white'}`}
                             >
                                 Cargar Manual
                             </button>
@@ -360,7 +360,7 @@ export default function SaleLinkedEntitiesPanel({ sale, onUpdate }) {
                                 <button
                                     onClick={handleManualVehicleCreate}
                                     disabled={isLinking || !manualBrand.trim() || !manualModel.trim()}
-                                    className="w-full mt-2 bg-[#EF3329] hover:bg-[#D92B22] text-white text-[11px] font-bold py-2 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                                    className="w-full mt-2 bg-crm-red hover:bg-[#D92B22] text-white text-[11px] font-bold py-2 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                                 >
                                     <CarFront size={14} />
                                     Crear y Vincular Vehículo
@@ -372,9 +372,9 @@ export default function SaleLinkedEntitiesPanel({ sale, onUpdate }) {
 
                 {/* Client / Lead */}
                 {sale.clientId ? (
-                    <div className="bg-black/30 border border-neutral-800/50 rounded-xl p-4 flex justify-between items-center group hover:bg-neutral-800 transition-colors">
+                    <div className="bg-black/30 border border-neutral-800/50 rounded-xl p-4 flex justify-between items-center group hover:bg-crm-surface-raised transition-colors">
                         <div className="flex items-center gap-4">
-                            <div className="w-10 h-10 rounded-xl bg-neutral-800 flex items-center justify-center border border-neutral-700">
+                            <div className="w-10 h-10 rounded-xl bg-crm-surface-raised flex items-center justify-center border border-neutral-700">
                                 <User size={18} className="text-neutral-400" />
                             </div>
                             <div className="flex flex-col">
@@ -394,15 +394,15 @@ export default function SaleLinkedEntitiesPanel({ sale, onUpdate }) {
                             </div>
                         </div>
                         {hasClientLink && (
-                            <Link href={clientHref} className="w-10 h-10 rounded-xl bg-neutral-800 hover:bg-neutral-700 text-white flex items-center justify-center transition-colors shadow-sm">
+                            <Link href={clientHref} className="w-10 h-10 rounded-xl bg-crm-surface-raised hover:bg-neutral-700 text-white flex items-center justify-center transition-colors shadow-sm">
                                 <ChevronRight size={18} />
                             </Link>
                         )}
                     </div>
                 ) : (
-                    <div className="bg-red-500/10 border border-red-500/20 rounded-xl p-4 flex flex-col gap-4">
+                    <div className="bg-crm-red/10 border border-red-500/20 rounded-xl p-4 flex flex-col gap-4">
                         <div className="flex gap-3 items-start">
-                            <AlertTriangle size={18} className="text-red-500 shrink-0 mt-0.5" />
+                            <AlertTriangle size={18} className="text-crm-red shrink-0 mt-0.5" />
                             <div>
                                 <span className="text-sm font-bold text-red-400 block mb-1">Venta sin cliente vinculado</span>
                                 <p className="text-xs text-red-200/70">Esta venta no tiene un cliente oficial asociado. Vincula un cliente para mantener la integridad del CRM.</p>
@@ -415,7 +415,7 @@ export default function SaleLinkedEntitiesPanel({ sale, onUpdate }) {
                             <button
                                 onClick={handleBackfillFromReservation}
                                 disabled={isLinking}
-                                className="w-full flex items-center justify-center gap-2 bg-[#1E1E24] hover:bg-[#28282E] border border-[#33333A] text-white py-2 rounded-lg text-xs font-bold transition-colors disabled:opacity-50"
+                                className="w-full flex items-center justify-center gap-2 bg-[#1E1E24] hover:bg-crm-surface-raised border border-crm-border text-white py-2 rounded-lg text-xs font-bold transition-colors disabled:opacity-50"
                             >
                                 <CalendarClock size={14} />
                                 Usar cliente de la reserva
@@ -426,13 +426,13 @@ export default function SaleLinkedEntitiesPanel({ sale, onUpdate }) {
                         <div className="flex gap-2 p-1 bg-black/40 rounded-lg">
                             <button
                                 onClick={() => setIsManualClientMode(false)}
-                                className={`flex-1 py-1.5 text-[11px] font-bold rounded-md transition-colors ${!isManualClientMode ? 'bg-[#EF3329] text-white shadow-sm' : 'text-neutral-400 hover:text-white'}`}
+                                className={`flex-1 py-1.5 text-[11px] font-bold rounded-md transition-colors ${!isManualClientMode ? 'bg-crm-red text-white shadow-sm' : 'text-neutral-400 hover:text-white'}`}
                             >
                                 Buscar Existente
                             </button>
                             <button
                                 onClick={() => setIsManualClientMode(true)}
-                                className={`flex-1 py-1.5 text-[11px] font-bold rounded-md transition-colors ${isManualClientMode ? 'bg-[#EF3329] text-white shadow-sm' : 'text-neutral-400 hover:text-white'}`}
+                                className={`flex-1 py-1.5 text-[11px] font-bold rounded-md transition-colors ${isManualClientMode ? 'bg-crm-red text-white shadow-sm' : 'text-neutral-400 hover:text-white'}`}
                             >
                                 Cargar Manual
                             </button>
@@ -517,7 +517,7 @@ export default function SaleLinkedEntitiesPanel({ sale, onUpdate }) {
                                 <button
                                     onClick={handleCreateLinkClient}
                                     disabled={isLinking || !manualClientName.trim() || !manualClientDNI.trim()}
-                                    className="w-full mt-2 bg-[#EF3329] hover:bg-[#D92B22] text-white text-[11px] font-bold py-2 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                                    className="w-full mt-2 bg-crm-red hover:bg-[#D92B22] text-white text-[11px] font-bold py-2 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                                 >
                                     <User size={14} />
                                     Crear y Vincular Cliente
@@ -529,9 +529,9 @@ export default function SaleLinkedEntitiesPanel({ sale, onUpdate }) {
 
                 {/* Reservation */}
                 {sale.reservationId && (
-                    <div className="bg-black/30 border border-neutral-800/50 rounded-xl p-4 flex justify-between items-center group hover:bg-neutral-800 transition-colors">
+                    <div className="bg-black/30 border border-neutral-800/50 rounded-xl p-4 flex justify-between items-center group hover:bg-crm-surface-raised transition-colors">
                         <div className="flex items-center gap-4">
-                            <div className="w-10 h-10 rounded-xl bg-neutral-800 flex items-center justify-center border border-neutral-700">
+                            <div className="w-10 h-10 rounded-xl bg-crm-surface-raised flex items-center justify-center border border-neutral-700">
                                 <CalendarClock size={18} className="text-neutral-400" />
                             </div>
                             <div className="flex flex-col">
@@ -539,7 +539,7 @@ export default function SaleLinkedEntitiesPanel({ sale, onUpdate }) {
                                 <span className="text-sm font-bold text-white">Convertida Exitosamente</span>
                             </div>
                         </div>
-                        <Link href="/admin/reservas" className="w-10 h-10 rounded-xl bg-neutral-800 hover:bg-neutral-700 text-white flex items-center justify-center transition-colors shadow-sm">
+                        <Link href="/admin/reservas" className="w-10 h-10 rounded-xl bg-crm-surface-raised hover:bg-neutral-700 text-white flex items-center justify-center transition-colors shadow-sm">
                             <ChevronRight size={18} />
                         </Link>
                     </div>

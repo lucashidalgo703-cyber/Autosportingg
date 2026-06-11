@@ -27,12 +27,12 @@ export default function PostventaFilters({ filters, setFilters }) {
         filters.tarea !== 'todas';
 
     return (
-        <div className="bg-[#161619] border border-[#33333A] rounded-2xl p-4 mb-6">
+        <div className="bg-[#161619] border border-crm-border rounded-2xl p-4 mb-6">
             <div className="flex flex-col lg:flex-row gap-4">
                 {/* Search */}
                 <div className="flex-1 relative">
                     <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                        <Search size={18} className="text-[#A1A1AA]" />
+                        <Search size={18} className="text-crm-fg-muted" />
                     </div>
                     <input
                         type="text"
@@ -40,7 +40,7 @@ export default function PostventaFilters({ filters, setFilters }) {
                         value={filters.search}
                         onChange={handleChange}
                         placeholder="Buscar cliente, vehículo, patente..."
-                        className="w-full bg-[#0B0B0D] border border-[#33333A] text-white rounded-xl pl-10 pr-4 py-2.5 focus:outline-none focus:border-pink-500 transition-colors text-sm"
+                        className="w-full bg-crm-bg border border-crm-border text-white rounded-xl pl-10 pr-4 py-2.5 focus:outline-none focus:border-pink-500 transition-colors text-sm"
                     />
                 </div>
 
@@ -50,7 +50,7 @@ export default function PostventaFilters({ filters, setFilters }) {
                         name="postSaleStatus"
                         value={filters.postSaleStatus}
                         onChange={handleChange}
-                        className="bg-[#0B0B0D] border border-[#33333A] text-[#FAFAFA] text-sm rounded-xl px-4 py-2.5 focus:outline-none focus:border-pink-500 min-w-[140px]"
+                        className="bg-crm-bg border border-crm-border text-[#FAFAFA] text-sm rounded-xl px-4 py-2.5 focus:outline-none focus:border-pink-500 min-w-[140px]"
                     >
                         <option value="todos">Estado: Todos</option>
                         <option value="pendiente">Pendiente</option>
@@ -64,7 +64,7 @@ export default function PostventaFilters({ filters, setFilters }) {
                         name="resena"
                         value={filters.resena}
                         onChange={handleChange}
-                        className="bg-[#0B0B0D] border border-[#33333A] text-[#FAFAFA] text-sm rounded-xl px-4 py-2.5 focus:outline-none focus:border-pink-500 min-w-[140px]"
+                        className="bg-crm-bg border border-crm-border text-[#FAFAFA] text-sm rounded-xl px-4 py-2.5 focus:outline-none focus:border-pink-500 min-w-[140px]"
                     >
                         <option value="todas">Reseña: Todas</option>
                         <option value="no solicitada">No Solicitada</option>
@@ -76,7 +76,7 @@ export default function PostventaFilters({ filters, setFilters }) {
                         name="satisfaccion"
                         value={filters.satisfaccion}
                         onChange={handleChange}
-                        className="bg-[#0B0B0D] border border-[#33333A] text-[#FAFAFA] text-sm rounded-xl px-4 py-2.5 focus:outline-none focus:border-pink-500 min-w-[140px]"
+                        className="bg-crm-bg border border-crm-border text-[#FAFAFA] text-sm rounded-xl px-4 py-2.5 focus:outline-none focus:border-pink-500 min-w-[140px]"
                     >
                         <option value="todas">Rating: Todos</option>
                         <option value="sin calificar">Sin Calificar</option>
@@ -88,7 +88,7 @@ export default function PostventaFilters({ filters, setFilters }) {
                         name="tarea"
                         value={filters.tarea}
                         onChange={handleChange}
-                        className="bg-[#0B0B0D] border border-[#33333A] text-[#FAFAFA] text-sm rounded-xl px-4 py-2.5 focus:outline-none focus:border-pink-500 min-w-[140px]"
+                        className="bg-crm-bg border border-crm-border text-[#FAFAFA] text-sm rounded-xl px-4 py-2.5 focus:outline-none focus:border-pink-500 min-w-[140px]"
                     >
                         <option value="todas">Tareas: Todas</option>
                         <option value="con tarea pendiente">Con Pendiente</option>
@@ -99,7 +99,7 @@ export default function PostventaFilters({ filters, setFilters }) {
                     {hasActiveFilters && (
                         <button
                             onClick={clearFilters}
-                            className="flex items-center gap-2 px-4 py-2.5 bg-red-500/10 hover:bg-red-500/20 text-red-500 rounded-xl transition-colors text-sm font-medium border border-red-500/20 whitespace-nowrap"
+                            className="flex items-center gap-2 px-4 py-2.5 bg-crm-red/10 hover:bg-crm-red/20 text-crm-red rounded-xl transition-colors text-sm font-medium border border-red-500/20 whitespace-nowrap"
                         >
                             <X size={16} />
                             Limpiar

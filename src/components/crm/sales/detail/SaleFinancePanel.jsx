@@ -178,7 +178,7 @@ export default function SaleFinancePanel({ sale }) {
                 <div className="flex gap-2">
                     <button
                         onClick={() => handleNewTransaction('egreso', 'Gasto venta')}
-                        className="h-9 px-4 rounded-xl bg-neutral-800 hover:bg-neutral-700 text-white font-bold text-sm transition-colors flex items-center gap-2"
+                        className="h-9 px-4 rounded-xl bg-crm-surface-raised hover:bg-neutral-700 text-white font-bold text-sm transition-colors flex items-center gap-2"
                     >
                         <span>Registrar egreso vinculado</span>
                     </button>
@@ -193,7 +193,7 @@ export default function SaleFinancePanel({ sale }) {
             </div>
 
             {error && (
-                <div className="bg-red-500/10 text-red-400 p-4 border-b border-neutral-800 flex items-center gap-2 text-sm">
+                <div className="bg-crm-red/10 text-red-400 p-4 border-b border-neutral-800 flex items-center gap-2 text-sm">
                     <ShieldAlert size={16} />
                     {error}
                 </div>
@@ -213,7 +213,7 @@ export default function SaleFinancePanel({ sale }) {
             )}
 
             <div className="p-6">
-                <div className="mb-6 bg-neutral-800/30 rounded-xl p-5 border border-neutral-800">
+                <div className="mb-6 bg-crm-surface-raised/30 rounded-xl p-5 border border-neutral-800">
                     <h3 className="text-sm font-bold text-neutral-400 mb-4 uppercase tracking-wider">Estado de cobranza</h3>
                     <div className="grid grid-cols-2 lg:grid-cols-6 gap-4">
                         <div>
@@ -266,14 +266,14 @@ export default function SaleFinancePanel({ sale }) {
                 {loading ? (
                     <div className="text-center py-8 text-neutral-500">Cargando movimientos...</div>
                 ) : transactions.length === 0 ? (
-                    <div className="text-center py-8 text-neutral-500 bg-neutral-800/20 rounded-xl border border-neutral-800 border-dashed">
+                    <div className="text-center py-8 text-neutral-500 bg-crm-surface-raised/20 rounded-xl border border-neutral-800 border-dashed">
                         No hay movimientos manuales vinculados a esta venta.
                     </div>
                 ) : (
                     <div className="overflow-x-auto">
                         <table className="w-full text-left border-collapse">
                             <thead>
-                                <tr className="border-b border-neutral-800 bg-neutral-800/20">
+                                <tr className="border-b border-neutral-800 bg-crm-surface-raised/20">
                                     <th className="py-3 px-4 text-[10px] font-bold text-neutral-500 uppercase tracking-wider">Fecha</th>
                                     <th className="py-3 px-4 text-[10px] font-bold text-neutral-500 uppercase tracking-wider">Concepto</th>
                                     <th className="py-3 px-4 text-[10px] font-bold text-neutral-500 uppercase tracking-wider text-right">Monto</th>
@@ -283,7 +283,7 @@ export default function SaleFinancePanel({ sale }) {
                             </thead>
                             <tbody>
                                 {transactions.map(tx => (
-                                    <tr key={tx._id} className="border-b border-neutral-800/50 hover:bg-neutral-800/30 transition-colors">
+                                    <tr key={tx._id} className="border-b border-neutral-800/50 hover:bg-crm-surface-raised/30 transition-colors">
                                         <td className="py-3 px-4">
                                             <div className="text-sm text-neutral-300">
                                                 {new Date(tx.date || tx.createdAt).toLocaleDateString('es-AR')}

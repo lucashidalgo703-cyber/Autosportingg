@@ -202,7 +202,7 @@ export default function SaleInstallmentsPanel({ sale, saleFinanceData }) {
                     {installments.length > 0 && (
                         <button
                             onClick={handleDeletePlan}
-                            className="h-9 px-4 rounded-xl bg-red-500/10 hover:bg-red-500/20 text-red-500 font-bold text-sm transition-colors flex items-center gap-2 border border-red-500/20"
+                            className="h-9 px-4 rounded-xl bg-crm-red/10 hover:bg-crm-red/20 text-crm-red font-bold text-sm transition-colors flex items-center gap-2 border border-red-500/20"
                         >
                             <Trash2 size={16} />
                             <span className="hidden sm:inline">Eliminar Plan</span>
@@ -210,7 +210,7 @@ export default function SaleInstallmentsPanel({ sale, saleFinanceData }) {
                     )}
                     <button
                         onClick={() => setIsGenerateModalOpen(true)}
-                        className="h-9 px-4 rounded-xl bg-neutral-800 hover:bg-neutral-700 text-white font-bold text-sm transition-colors flex items-center gap-2"
+                        className="h-9 px-4 rounded-xl bg-crm-surface-raised hover:bg-neutral-700 text-white font-bold text-sm transition-colors flex items-center gap-2"
                     >
                         <Settings2 size={16} />
                         <span className="hidden sm:inline">Generar Plan</span>
@@ -226,7 +226,7 @@ export default function SaleInstallmentsPanel({ sale, saleFinanceData }) {
             </div>
 
             {error && (
-                <div className="bg-red-500/10 text-red-400 p-4 border-b border-neutral-800 text-sm">
+                <div className="bg-crm-red/10 text-red-400 p-4 border-b border-neutral-800 text-sm">
                     {error}
                 </div>
             )}
@@ -236,21 +236,21 @@ export default function SaleInstallmentsPanel({ sale, saleFinanceData }) {
                 {/* Metrics */}
                 {installments.length > 0 && (
                     <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-                        <div className="bg-neutral-800/30 rounded-xl p-4 border border-neutral-800">
+                        <div className="bg-crm-surface-raised/30 rounded-xl p-4 border border-neutral-800">
                             <div className="text-[10px] text-neutral-500 uppercase font-bold mb-1">Pdte. ARS</div>
                             <div className="text-sm font-bold text-white">{formatCurrency(metrics.pendienteARS, 'ARS')}</div>
                         </div>
-                        <div className="bg-neutral-800/30 rounded-xl p-4 border border-neutral-800">
+                        <div className="bg-crm-surface-raised/30 rounded-xl p-4 border border-neutral-800">
                             <div className="text-[10px] text-neutral-500 uppercase font-bold mb-1">Vencido ARS</div>
                             <div className={`text-sm font-bold ${metrics.vencidoARS > 0 ? 'text-red-400' : 'text-neutral-500'}`}>
                                 {formatCurrency(metrics.vencidoARS, 'ARS')}
                             </div>
                         </div>
-                        <div className="bg-neutral-800/30 rounded-xl p-4 border border-neutral-800">
+                        <div className="bg-crm-surface-raised/30 rounded-xl p-4 border border-neutral-800">
                             <div className="text-[10px] text-neutral-500 uppercase font-bold mb-1">Pdte. USD</div>
                             <div className="text-sm font-bold text-white">{formatCurrency(metrics.pendienteUSD, 'USD')}</div>
                         </div>
-                        <div className="bg-neutral-800/30 rounded-xl p-4 border border-neutral-800">
+                        <div className="bg-crm-surface-raised/30 rounded-xl p-4 border border-neutral-800">
                             <div className="text-[10px] text-neutral-500 uppercase font-bold mb-1">Vencido USD</div>
                             <div className={`text-sm font-bold ${metrics.vencidoUSD > 0 ? 'text-red-400' : 'text-neutral-500'}`}>
                                 {formatCurrency(metrics.vencidoUSD, 'USD')}
@@ -262,14 +262,14 @@ export default function SaleInstallmentsPanel({ sale, saleFinanceData }) {
                 {loading ? (
                     <div className="text-center py-8 text-neutral-500">Cargando cuotas...</div>
                 ) : installments.length === 0 ? (
-                    <div className="text-center py-8 text-neutral-500 bg-neutral-800/20 rounded-xl border border-neutral-800 border-dashed">
+                    <div className="text-center py-8 text-neutral-500 bg-crm-surface-raised/20 rounded-xl border border-neutral-800 border-dashed">
                         No hay cuotas registradas para esta venta.
                     </div>
                 ) : (
                     <div className="overflow-x-auto">
                         <table className="w-full text-left border-collapse">
                             <thead>
-                                <tr className="border-b border-neutral-800 bg-neutral-800/20">
+                                <tr className="border-b border-neutral-800 bg-crm-surface-raised/20">
                                     <th className="py-3 px-4 text-[10px] font-bold text-neutral-500 uppercase tracking-wider">Cuota</th>
                                     <th className="py-3 px-4 text-[10px] font-bold text-neutral-500 uppercase tracking-wider">Vencimiento</th>
                                     <th className="py-3 px-4 text-[10px] font-bold text-neutral-500 uppercase tracking-wider text-right">Importe</th>
@@ -299,7 +299,7 @@ export default function SaleInstallmentsPanel({ sale, saleFinanceData }) {
                                     const hasWarning = isPaidVisual && saldoCuota > 0;
 
                                     return (
-                                        <tr key={inst._id} className="border-b border-neutral-800/50 hover:bg-neutral-800/30 transition-colors">
+                                        <tr key={inst._id} className="border-b border-neutral-800/50 hover:bg-crm-surface-raised/30 transition-colors">
                                             <td className="py-3 px-4">
                                                 <div className="text-sm font-bold text-white">Nº {inst.installmentNumber}</div>
                                                 {finStatus !== 'Sin cobro' && (

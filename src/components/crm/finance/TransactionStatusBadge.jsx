@@ -11,10 +11,10 @@ export default function TransactionStatusBadge({ status }) {
             label: 'Activo'
         },
         anulado: {
-            bg: 'bg-red-500/10',
+            bg: 'bg-crm-red/10',
             border: 'border-red-500/20',
-            text: 'text-red-500',
-            icon: <XCircle size={14} className="text-red-500" />,
+            text: 'text-crm-red',
+            icon: <XCircle size={14} className="text-crm-red" />,
             label: 'Anulado'
         }
     };

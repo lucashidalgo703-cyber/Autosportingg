@@ -148,7 +148,7 @@ export default function InstallmentsTable({ installments, onEdit, onRegisterPaym
                                             {(currentUserRole === 'owner' || currentUserRole === 'admin') && (
                                                 <button 
                                                     onClick={() => onDelete && onDelete(inst)}
-                                                    className="text-xs font-bold text-red-500 hover:text-red-400 transition-colors"
+                                                    className="text-xs font-bold text-crm-red hover:text-red-400 transition-colors"
                                                     title="Eliminar definitivamente"
                                                 >
                                                     Eliminar

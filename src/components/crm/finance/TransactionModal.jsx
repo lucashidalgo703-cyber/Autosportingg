@@ -167,16 +167,16 @@ export default function TransactionModal({ isOpen, onClose, transaction, onSave,
                         </h2>
                         {isEdit && <span className="text-sm text-neutral-500 mt-1 block">ID: {transaction._id}</span>}
                     </div>
-                    <button onClick={onClose} className="p-2 hover:bg-neutral-800 rounded-xl text-neutral-400 hover:text-white transition-colors">
+                    <button onClick={onClose} className="p-2 hover:bg-crm-surface-raised rounded-xl text-neutral-400 hover:text-white transition-colors">
                         <X size={20} />
                     </button>
                 </div>
 
                 {isAnnulled && (
-                    <div className="bg-red-500/10 border-b border-red-500/20 p-4 flex items-center gap-3">
-                        <AlertTriangle className="text-red-500 shrink-0" size={20} />
+                    <div className="bg-crm-red/10 border-b border-red-500/20 p-4 flex items-center gap-3">
+                        <AlertTriangle className="text-crm-red shrink-0" size={20} />
                         <div>
-                            <span className="font-bold text-red-500 block">Movimiento Anulado</span>
+                            <span className="font-bold text-crm-red block">Movimiento Anulado</span>
                             <p className="text-xs text-red-400">Este movimiento fue anulado y ya no se contabiliza en el balance.</p>
                         </div>
                     </div>
@@ -201,7 +201,7 @@ export default function TransactionModal({ isOpen, onClose, transaction, onSave,
                                         <button
                                             type="button"
                                             onClick={() => setFormData({ ...formData, type: 'egreso' })}
-                                            className={`flex-1 py-2.5 rounded-xl text-sm font-bold transition-colors border ${formData.type === 'egreso' ? 'bg-red-500/20 text-red-400 border-red-500/30' : 'bg-black/40 text-neutral-400 border-neutral-800 hover:border-neutral-700'}`}
+                                            className={`flex-1 py-2.5 rounded-xl text-sm font-bold transition-colors border ${formData.type === 'egreso' ? 'bg-crm-red/20 text-red-400 border-red-500/30' : 'bg-black/40 text-neutral-400 border-neutral-800 hover:border-neutral-700'}`}
                                         >
                                             Egreso
                                         </button>
@@ -257,7 +257,7 @@ export default function TransactionModal({ isOpen, onClose, transaction, onSave,
                                     disabled={isAnnulled || (isEdit && transaction.status === 'anulado')}
                                 />
                             </div>
-                            {errors.amount && <span className="text-xs text-red-500 mt-1 block">{errors.amount}</span>}
+                            {errors.amount && <span className="text-xs text-crm-red mt-1 block">{errors.amount}</span>}
                         </div>
 
                         <div>
@@ -281,7 +281,7 @@ export default function TransactionModal({ isOpen, onClose, transaction, onSave,
                                 onChange={(e) => setFormData({ ...formData, concept: e.target.value })}
                                 disabled={isAnnulled}
                             />
-                            {errors.concept && <span className="text-xs text-red-500 mt-1 block">{errors.concept}</span>}
+                            {errors.concept && <span className="text-xs text-crm-red mt-1 block">{errors.concept}</span>}
                         </div>
 
                         <div>
@@ -411,7 +411,7 @@ export default function TransactionModal({ isOpen, onClose, transaction, onSave,
                         <button
                             type="button"
                             onClick={handleAnnul}
-                            className="px-4 py-2 rounded-xl bg-red-500/10 hover:bg-red-500/20 text-red-500 font-bold text-sm transition-colors flex items-center gap-2 border border-red-500/20"
+                            className="px-4 py-2 rounded-xl bg-crm-red/10 hover:bg-crm-red/20 text-crm-red font-bold text-sm transition-colors flex items-center gap-2 border border-red-500/20"
                         >
                             <Trash2 size={16} />
                             Anular Movimiento
@@ -425,7 +425,7 @@ export default function TransactionModal({ isOpen, onClose, transaction, onSave,
                             <button
                                 type="button"
                                 onClick={onClose}
-                                className="px-4 py-2 rounded-xl bg-neutral-800 hover:bg-neutral-700 text-white font-bold text-sm transition-colors"
+                                className="px-4 py-2 rounded-xl bg-crm-surface-raised hover:bg-neutral-700 text-white font-bold text-sm transition-colors"
                             >
                                 Cancelar
                             </button>

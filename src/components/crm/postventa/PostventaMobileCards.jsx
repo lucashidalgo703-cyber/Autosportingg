@@ -5,10 +5,10 @@ import { Target, Star, Gift, Eye, Clock, AlertTriangle } from 'lucide-react';
 export default function PostventaMobileCards({ sales, getSaleTaskStatus, onCreateTask, onUpdateChecklist, onUpdateStatus }) {
     if (!sales || sales.length === 0) {
         return (
-            <div className="md:hidden flex flex-col items-center justify-center p-8 bg-[#161619] border border-[#33333A] rounded-2xl text-center">
+            <div className="md:hidden flex flex-col items-center justify-center p-8 bg-[#161619] border border-crm-border rounded-2xl text-center">
                 <Star size={48} className="text-[#33333A] mb-4" />
                 <h3 className="text-lg font-bold text-white mb-2">No hay operaciones en postventa</h3>
-                <p className="text-[#A1A1AA]">No hay ventas entregadas recientes o que coincidan con los filtros.</p>
+                <p className="text-crm-fg-muted">No hay ventas entregadas recientes o que coincidan con los filtros.</p>
             </div>
         );
     }
@@ -20,7 +20,7 @@ export default function PostventaMobileCards({ sales, getSaleTaskStatus, onCreat
             case 'conforme':
                 return <span className="px-2 py-1 rounded-md bg-green-500/10 text-green-400 border border-green-500/20 text-[10px] font-bold uppercase">Conforme</span>;
             case 'incidencia':
-                return <span className="px-2 py-1 rounded-md bg-red-500/10 text-red-400 border border-red-500/20 text-[10px] font-bold uppercase">Incidencia</span>;
+                return <span className="px-2 py-1 rounded-md bg-crm-red/10 text-red-400 border border-red-500/20 text-[10px] font-bold uppercase">Incidencia</span>;
             case 'contactado':
                 return <span className="px-2 py-1 rounded-md bg-blue-500/10 text-blue-400 border border-blue-500/20 text-[10px] font-bold uppercase">Contactado</span>;
             default:
@@ -48,35 +48,35 @@ export default function PostventaMobileCards({ sales, getSaleTaskStatus, onCreat
                 const currentStatus = sale.postSaleStatus || 'pendiente';
 
                 return (
-                    <div key={sale._id} className="bg-[#161619] border border-[#33333A] rounded-2xl p-4 flex flex-col gap-4">
+                    <div key={sale._id} className="bg-[#161619] border border-crm-border rounded-2xl p-4 flex flex-col gap-4">
                         {/* Header */}
                         <div className="flex justify-between items-start">
                             <div>
                                 <div className="text-sm font-bold text-white mb-1">
                                     {sale.clientId?.fullName || sale.clientId?.firstName || 'Sin Cliente'}
                                 </div>
-                                <div className="text-xs text-[#A1A1AA]">
+                                <div className="text-xs text-crm-fg-muted">
                                     {sale.vehicleId?.brand} {sale.vehicleId?.name}
                                 </div>
                             </div>
                             <div className="text-right">
-                                <div className="text-xs text-[#A1A1AA] mb-1">
+                                <div className="text-xs text-crm-fg-muted mb-1">
                                     {sale.actualDeliveryDate ? new Date(sale.actualDeliveryDate).toLocaleDateString() : 'Sin fecha'}
                                 </div>
-                                <span className="text-[10px] text-[#A1A1AA] font-mono bg-black/20 px-1.5 py-0.5 rounded">
+                                <span className="text-[10px] text-crm-fg-muted font-mono bg-black/20 px-1.5 py-0.5 rounded">
                                     {sale._id.slice(-6).toUpperCase()}
                                 </span>
                             </div>
                         </div>
 
                         {/* Status Grid */}
-                        <div className="flex items-center justify-between bg-[#0B0B0D] p-3 rounded-xl border border-[#33333A]">
+                        <div className="flex items-center justify-between bg-crm-bg p-3 rounded-xl border border-crm-border">
                             <div className="flex flex-col gap-1.5">
-                                <span className="text-[10px] font-bold text-[#A1A1AA] uppercase">Estado Postventa</span>
+                                <span className="text-[10px] font-bold text-crm-fg-muted uppercase">Estado Postventa</span>
                                 <div>{getStatusBadge(currentStatus)}</div>
                             </div>
                             <div className="flex flex-col gap-1.5 items-end">
-                                <span className="text-[10px] font-bold text-[#A1A1AA] uppercase">Satisfacción</span>
+                                <span className="text-[10px] font-bold text-crm-fg-muted uppercase">Satisfacción</span>
                                 <div>{renderStars(sale.satisfactionRating)}</div>
                             </div>
                         </div>
@@ -110,7 +110,7 @@ export default function PostventaMobileCards({ sales, getSaleTaskStatus, onCreat
                         </div>
 
                         {/* Seguimiento */}
-                        <div className="flex flex-wrap gap-y-3 items-center justify-between border-t border-[#33333A] pt-3">
+                        <div className="flex flex-wrap gap-y-3 items-center justify-between border-t border-crm-border pt-3">
                             <div className="w-full xs:w-auto mb-2 xs:mb-0">
                                 {hasPendingTasks ? (
                                     <div className="flex flex-col gap-1">
@@ -139,7 +139,7 @@ export default function PostventaMobileCards({ sales, getSaleTaskStatus, onCreat
                                 </select>
                                 <button 
                                     onClick={() => onCreateTask(sale)}
-                                    className="w-8 h-8 rounded-lg bg-neutral-800 flex items-center justify-center text-neutral-400 border border-neutral-700"
+                                    className="w-8 h-8 rounded-lg bg-crm-surface-raised flex items-center justify-center text-neutral-400 border border-neutral-700"
                                 >
                                     <Target size={14} />
                                 </button>

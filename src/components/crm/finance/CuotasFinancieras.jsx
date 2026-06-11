@@ -139,7 +139,7 @@ export default function CuotasFinancieras({ installments, loading, onPayInstallm
                         return (
                             <article key={item._id} className="flex flex-col md:flex-row md:items-center justify-between gap-4 rounded-xl border border-crm-border bg-crm-surface p-4 transition hover:bg-crm-surface-raised">
                                 <div className="flex items-start gap-4">
-                                    <div className={`mt-1 flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border ${statusInfo.tone === 'danger' ? 'border-red-500/20 bg-red-500/10 text-red-500' : statusInfo.tone === 'warning' ? 'border-amber-500/20 bg-amber-500/10 text-amber-500' : 'border-emerald-500/20 bg-emerald-500/10 text-emerald-500'}`}>
+                                    <div className={`mt-1 flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border ${statusInfo.tone === 'danger' ? 'border-red-500/20 bg-crm-red/10 text-crm-red' : statusInfo.tone === 'warning' ? 'border-amber-500/20 bg-amber-500/10 text-amber-500' : 'border-emerald-500/20 bg-emerald-500/10 text-emerald-500'}`}>
                                         <statusInfo.icon size={20} />
                                     </div>
                                     <div>

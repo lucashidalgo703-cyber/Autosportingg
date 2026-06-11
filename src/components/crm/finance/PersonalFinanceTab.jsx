@@ -102,13 +102,13 @@ export default function PersonalFinanceTab() {
                     <div className="grid grid-cols-2 gap-3">
                         <div className="rounded-xl bg-black border border-neutral-800 p-4">
                             <p className="text-xs font-bold text-neutral-500 uppercase tracking-wider mb-1">Total ARS</p>
-                            <p className={`text-xl font-black ${balances.ARS >= 0 ? 'text-white' : 'text-red-500'}`}>
+                            <p className={`text-xl font-black ${balances.ARS >= 0 ? 'text-white' : 'text-crm-red'}`}>
                                 {formatMoney(balances.ARS, 'ARS')}
                             </p>
                         </div>
                         <div className="rounded-xl bg-black border border-neutral-800 p-4">
                             <p className="text-xs font-bold text-neutral-500 uppercase tracking-wider mb-1">Total USD</p>
-                            <p className={`text-xl font-black ${balances.USD >= 0 ? 'text-white' : 'text-red-500'}`}>
+                            <p className={`text-xl font-black ${balances.USD >= 0 ? 'text-white' : 'text-crm-red'}`}>
                                 {formatMoney(balances.USD, 'USD')}
                             </p>
                         </div>
@@ -124,7 +124,7 @@ export default function PersonalFinanceTab() {
                         </div>
                         <div className="rounded-xl bg-black border border-neutral-800 p-4">
                             <p className="text-xs font-bold text-neutral-500 uppercase tracking-wider mb-1">Egresos USD</p>
-                            <p className="text-lg font-black text-red-500">{formatMoney(metrics.USD.expense, 'USD')}</p>
+                            <p className="text-lg font-black text-crm-red">{formatMoney(metrics.USD.expense, 'USD')}</p>
                         </div>
                     </div>
                 </section>
@@ -168,11 +168,11 @@ export default function PersonalFinanceTab() {
                             </thead>
                             <tbody className="divide-y divide-neutral-800">
                                 {transactions.map((tx) => (
-                                    <tr key={tx._id} className="hover:bg-neutral-800/30 transition-colors">
+                                    <tr key={tx._id} className="hover:bg-crm-surface-raised/30 transition-colors">
                                         <td className="px-4 py-3 text-neutral-300">{formatDate(tx.transactionDate)}</td>
                                         <td className="px-4 py-3">
                                             <span className={`inline-flex px-2 py-1 rounded-md text-[10px] font-black uppercase tracking-wider ${
-                                                tx.type === 'ingreso' ? 'bg-green-500/10 text-green-500 border border-green-500/20' : 'bg-red-500/10 text-red-500 border border-red-500/20'
+                                                tx.type === 'ingreso' ? 'bg-green-500/10 text-green-500 border border-green-500/20' : 'bg-crm-red/10 text-crm-red border border-red-500/20'
                                             }`}>
                                                 {tx.type}
                                             </span>
@@ -193,10 +193,10 @@ export default function PersonalFinanceTab() {
                                         </td>
                                         <td className="px-4 py-3 text-right">
                                             <div className="flex items-center justify-end gap-2">
-                                                <button onClick={() => openEditModal(tx)} className="p-1.5 text-neutral-400 hover:text-white rounded-lg hover:bg-neutral-800 transition-colors">
+                                                <button onClick={() => openEditModal(tx)} className="p-1.5 text-neutral-400 hover:text-white rounded-lg hover:bg-crm-surface-raised transition-colors">
                                                     <Edit size={15} />
                                                 </button>
-                                                <button onClick={() => handleDelete(tx._id)} className="p-1.5 text-neutral-400 hover:text-red-500 rounded-lg hover:bg-neutral-800 transition-colors">
+                                                <button onClick={() => handleDelete(tx._id)} className="p-1.5 text-neutral-400 hover:text-crm-red rounded-lg hover:bg-crm-surface-raised transition-colors">
                                                     <Trash2 size={15} />
                                                 </button>
                                             </div>

@@ -13,15 +13,15 @@ export default function SalePostventaPanel({ sale }) {
         switch (s) {
             case 'cerrado': return <span className="text-neutral-400 bg-neutral-500/10 px-2 py-0.5 rounded font-bold uppercase text-[10px]">Cerrado</span>;
             case 'conforme': return <span className="text-green-400 bg-green-500/10 px-2 py-0.5 rounded font-bold uppercase text-[10px]">Conforme</span>;
-            case 'incidencia': return <span className="text-red-400 bg-red-500/10 px-2 py-0.5 rounded font-bold uppercase text-[10px]">Incidencia</span>;
+            case 'incidencia': return <span className="text-red-400 bg-crm-red/10 px-2 py-0.5 rounded font-bold uppercase text-[10px]">Incidencia</span>;
             case 'contactado': return <span className="text-blue-400 bg-blue-500/10 px-2 py-0.5 rounded font-bold uppercase text-[10px]">Contactado</span>;
             default: return <span className="text-orange-400 bg-orange-500/10 px-2 py-0.5 rounded font-bold uppercase text-[10px]">Pendiente</span>;
         }
     };
 
     return (
-        <div className="bg-[#161619] border border-[#33333A] rounded-2xl overflow-hidden flex flex-col">
-            <div className="p-4 border-b border-[#33333A] flex justify-between items-center bg-[#1E1E24]">
+        <div className="bg-[#161619] border border-crm-border rounded-2xl overflow-hidden flex flex-col">
+            <div className="p-4 border-b border-crm-border flex justify-between items-center bg-[#1E1E24]">
                 <div className="flex items-center gap-2">
                     <Star size={16} className="text-pink-500" />
                     <h3 className="text-sm font-bold text-white uppercase tracking-wider">Postventa y Fidelización</h3>
@@ -44,7 +44,7 @@ export default function SalePostventaPanel({ sale }) {
                             <span className="text-[10px] text-neutral-400 font-bold uppercase">Estado actual</span>
                             <div>{getStatusBadge(status)}</div>
                         </div>
-                        <div className="flex flex-col gap-1 flex-1 border-l border-[#33333A] pl-4">
+                        <div className="flex flex-col gap-1 flex-1 border-l border-crm-border pl-4">
                             <span className="text-[10px] text-neutral-400 font-bold uppercase">Satisfacción</span>
                             <div className="flex gap-0.5 text-yellow-500 mt-0.5">
                                 {rating > 0 ? (
@@ -90,7 +90,7 @@ export default function SalePostventaPanel({ sale }) {
                     <div className="flex justify-end pt-2 border-t border-neutral-800">
                         <Link
                             href="/admin/postventa"
-                            className="flex items-center gap-2 px-3 py-1.5 bg-neutral-800 hover:bg-neutral-700 text-neutral-300 rounded-lg text-xs font-bold transition-colors border border-neutral-700"
+                            className="flex items-center gap-2 px-3 py-1.5 bg-crm-surface-raised hover:bg-neutral-700 text-neutral-300 rounded-lg text-xs font-bold transition-colors border border-neutral-700"
                         >
                             <Target size={14} />
                             Gestionar seguimiento
