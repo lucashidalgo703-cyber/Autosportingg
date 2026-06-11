@@ -303,6 +303,7 @@ export default function SaleCreateModal({ isOpen, onClose, onSuccess }) {
                             <FieldLabel>Estado</FieldLabel>
                             <CrmSelect value={formData.status} onChange={(e) => updateField('status', e.target.value)} className="h-10 bg-crm-bg text-white font-medium mb-2">
                                 <option value="borrador">Borrador</option>
+                                <option value="señado">Señada (Reserva)</option>
                                 <option value="confirmada">Activa</option>
                                 <option value="entregada">Cerrada</option>
                             </CrmSelect>

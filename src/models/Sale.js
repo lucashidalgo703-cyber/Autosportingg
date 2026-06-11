@@ -67,7 +67,7 @@ const saleSchema = new mongoose.Schema({
     
     status: { 
         type: String, 
-        enum: ['borrador', 'confirmada', 'pendiente_entrega', 'entregada', 'cancelada'], 
+        enum: ['borrador', 'señado', 'confirmada', 'pendiente_entrega', 'entregada', 'cancelada'], 
         default: 'confirmada' 
     },
     

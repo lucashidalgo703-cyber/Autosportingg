@@ -2276,12 +2276,13 @@ app.post('/api/admin/sales', authenticateToken, async (req, res) => {
         // 3. Rollback Manual Controlado (solo si hay veh├¡culo)
         try {
             if (vehicle) {
-                vehicle.status = 'Vendido';
+                const targetCarStatus = status === 'señado' ? 'Reservado' : 'Vendido';
+                vehicle.status = targetCarStatus;
                 vehicle.auditLog.push({
                     action: 'ESTADO',
                     field: 'status',
                     oldValue: 'Disponible',
-                    newValue: 'Vendido',
+                    newValue: targetCarStatus,
                     details: `Veh├¡culo vendido (Venta ID: ${savedSale._id})`,
                     user: user,
                     source: 'CRM_V2'

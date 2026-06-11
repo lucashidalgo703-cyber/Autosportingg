@@ -2,38 +2,21 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Download, Plus, ShieldAlert } from 'lucide-react';
 import { useAdminSales } from '../../../hooks/useAdminSales';
-import { useAdminReservations } from '../../../hooks/useAdminReservations';
 import SalesFilters from '../../../components/crm/sales/SalesFilters';
 import SalesTable from '../../../components/crm/sales/SalesTable';
 import SaleMobileCards from '../../../components/crm/sales/SaleMobileCards';
 import SaleDetailDrawer from '../../../components/crm/sales/SaleDetailDrawer';
 import SaleCreateModal from '../../../components/crm/sales/SaleCreateModal';
-import ReservationsTable from '../../../components/crm/reservations/ReservationsTable';
-import ReservationMobileCards from '../../../components/crm/reservations/ReservationMobileCards';
-import ReservationCancelModal from '../../../components/crm/reservations/ReservationCancelModal';
-import ConvertReservationToSaleModal from '../../../components/crm/reservations/ConvertReservationToSaleModal';
 import CrmButton from '../../../components/crm/ui/CrmButton';
 
 export default function VentasPage() {
     const { fetchSales, loading, error, deleteSale } = useAdminSales();
-    const {
-        fetchReservations,
-        deleteReservation,
-        loading: reservationsLoading,
-        error: reservationsError
-    } = useAdminReservations();
-
-    const [allSales, setAllSales] = useState([]);
-    const [allReservations, setAllReservations] = useState([]);
-    const [isDrawerOpen, setIsDrawerOpen] = useState(false);
+const [allSales, setAllSales] = useState([]);
+const [isDrawerOpen, setIsDrawerOpen] = useState(false);
     const [selectedSale, setSelectedSale] = useState(null);
     const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
     const [isCancelModalOpen, setIsCancelModalOpen] = useState(false);
-    const [selectedReservation, setSelectedReservation] = useState(null);
-    const [isConvertModalOpen, setIsConvertModalOpen] = useState(false);
-    const [selectedReservationForSale, setSelectedReservationForSale] = useState(null);
-
-    const [filters, setFilters] = useState({
+const [filters, setFilters] = useState({
         search: '',
         seller: '',
         status: 'todas',
@@ -48,17 +31,14 @@ export default function VentasPage() {
         tradeInOnly: false
     });
 
-    const isReservationsTab = filters.status === 'reservas';
-    const pageLoading = isReservationsTab ? reservationsLoading : loading;
-    const pageError = isReservationsTab ? reservationsError : error;
+    
+    const pageLoading = loading;
+    const pageError = error;
 
     const loadData = async () => {
-        const [salesData, reservationsData] = await Promise.all([
-            fetchSales(),
-            fetchReservations()
-        ]);
+        const salesData = await fetchSales();
         setAllSales(salesData || []);
-        setAllReservations(reservationsData || []);
+        
     };
 
     useEffect(() => {
@@ -73,13 +53,7 @@ export default function VentasPage() {
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
-    const getIsOverdue = (reservation) => {
-        if (!reservation.expiresAt) return false;
-        const expiry = new Date(reservation.expiresAt);
-        const todayDate = new Date();
-        todayDate.setHours(0, 0, 0, 0);
-        return expiry <= todayDate;
-    };
+    
 
     const filteredSales = useMemo(() => {
         return allSales.filter((sale) => {
@@ -111,7 +85,7 @@ export default function VentasPage() {
                 if (!seller.includes(sellerLower)) return false;
             }
 
-            if (filters.status !== 'todas' && filters.status !== 'reservas' && sale.status !== filters.status) return false;
+            if (filters.status !== 'todas' && sale.status !== filters.status) return false;
             if (filters.currency !== 'todas' && sale.saleCurrency !== filters.currency) return false;
             if (filters.paymentMethod !== 'todas' && sale.paymentMethod !== filters.paymentMethod) return false;
             if (filters.documentationStatus && filters.documentationStatus !== 'todas' && (sale.documentationStatus || 'pendiente') !== filters.documentationStatus) return false;
@@ -137,47 +111,7 @@ export default function VentasPage() {
         });
     }, [allSales, filters]);
 
-    const filteredReservations = useMemo(() => {
-        return allReservations.filter((reservation) => {
-            if (filters.search) {
-                const searchLower = filters.search.toLowerCase();
-                const clientName = (reservation.clientId?.fullName || reservation.clientId?.firstName || '').toLowerCase();
-                const leadName = (reservation.leadId?.name || '').toLowerCase();
-                const vehicleBrand = (reservation.vehicleId?.brand || '').toLowerCase();
-                const vehicleName = (reservation.vehicleId?.name || '').toLowerCase();
-                const vehicleVin = (reservation.vehicleId?.plateOrVin || '').toLowerCase();
-                const phone = (reservation.clientId?.phone || reservation.leadId?.phone || '').toLowerCase();
-
-                const matchSearch =
-                    clientName.includes(searchLower) ||
-                    leadName.includes(searchLower) ||
-                    vehicleBrand.includes(searchLower) ||
-                    vehicleName.includes(searchLower) ||
-                    vehicleVin.includes(searchLower) ||
-                    phone.includes(searchLower);
-
-                if (!matchSearch) return false;
-            }
-
-            if (filters.currency !== 'todas' && reservation.depositCurrency !== filters.currency && reservation.agreedCurrency !== filters.currency) return false;
-
-            const reservationDate = new Date(reservation.createdAt);
-            if (filters.dateFrom) {
-                const from = new Date(`${filters.dateFrom}T00:00:00`);
-                if (reservationDate < from) return false;
-            }
-            if (filters.dateTo) {
-                const to = new Date(`${filters.dateTo}T23:59:59`);
-                if (reservationDate > to) return false;
-            }
-            if (filters.month) {
-                const reservationMonth = `${reservationDate.getFullYear()}-${String(reservationDate.getMonth() + 1).padStart(2, '0')}`;
-                if (reservationMonth !== filters.month) return false;
-            }
-
-            return true;
-        });
-    }, [allReservations, filters]);
+    
 
     const handleViewDetail = (sale) => {
         setSelectedSale(sale);
@@ -196,27 +130,11 @@ export default function VentasPage() {
         }
     };
 
-    const handleDeleteReservation = async (reservation) => {
-        if (reservation.status !== 'cancelada' && reservation.status !== 'convertida') return;
-        if (window.confirm(`¿Estás seguro de que quieres eliminar permanentemente esta reserva ${reservation.status}?`)) {
-            try {
-                await deleteReservation(reservation._id);
-                loadData();
-            } catch (err) {
-                alert(err.message || 'Error al eliminar la reserva');
-            }
-        }
-    };
+    
 
-    const handleLiberarClick = (reservation) => {
-        setSelectedReservation(reservation);
-        setIsCancelModalOpen(true);
-    };
+    
 
-    const handleConvertirClick = (reservation) => {
-        setSelectedReservationForSale(reservation);
-        setIsConvertModalOpen(true);
-    };
+    
 
     const totals = useMemo(() => {
         const activeSales = allSales.filter((sale) => ['borrador', 'confirmada', 'pendiente_entrega'].includes(sale.status));
@@ -259,12 +177,12 @@ export default function VentasPage() {
         const url = URL.createObjectURL(blob);
         const link = document.createElement('a');
         link.href = url;
-        link.download = `autosporting_${isReservationsTab ? 'reservas' : 'ventas'}_${new Date().toISOString().slice(0, 10)}.csv`;
+        link.download = `autosporting_ventas_${new Date().toISOString().slice(0, 10)}.csv`;
         link.click();
         URL.revokeObjectURL(url);
     };
 
-    const activeRowsCount = isReservationsTab ? filteredReservations.length : filteredSales.length;
+    const activeRowsCount = filteredSales.length;
 
     return (
         <div className="mx-auto flex w-full max-w-7xl flex-col gap-5 p-4 pb-24 md:p-6">
@@ -306,7 +224,7 @@ export default function VentasPage() {
                 </div>
             )}
 
-            {pageLoading && allSales.length === 0 && allReservations.length === 0 ? (
+            {pageLoading && allSales.length === 0  ? (
                 <div className="flex h-64 items-center justify-center rounded-xl border border-crm-border bg-crm-surface">
                     <div className="flex flex-col items-center gap-3">
                         <div className="h-8 w-8 animate-spin rounded-full border-2 border-crm-border border-b-crm-red" />
@@ -315,7 +233,7 @@ export default function VentasPage() {
                 </div>
             ) : (
                 <>
-                    <SalesFilters filters={filters} setFilters={setFilters} onRefresh={loadData} loading={loading || reservationsLoading} />
+                    <SalesFilters filters={filters} setFilters={setFilters} onRefresh={loadData} loading={loading} />
 
                     {isReservationsTab ? (
                         <>

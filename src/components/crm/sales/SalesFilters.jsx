@@ -9,7 +9,7 @@ export default function SalesFilters({ filters, setFilters, onRefresh, loading }
         { label: 'Todas', value: 'todas' },
         { label: 'Borradores', value: 'borrador' },
         { label: 'Activas', value: 'confirmada' },
-        { label: 'Reservas', value: 'reservas' },
+        { label: 'Reservas', value: 'señado' },
         { label: 'Cerradas', value: 'entregada' },
         { label: 'Caídas', value: 'caida' },
         { label: 'Canceladas', value: 'cancelada' }
