@@ -681,8 +681,6 @@ export default function SaleCreateModal({ isOpen, onClose, onSuccess }) {
                         </div>
                     </div>
 
-                    </div>
-
             </div>
         </CrmModal>
     );

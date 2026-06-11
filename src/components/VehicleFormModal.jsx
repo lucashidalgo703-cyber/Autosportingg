@@ -345,7 +345,6 @@ export default function VehicleFormModal({ isOpen, onClose, onSave, editingCar }
                         </section>
 
                     </form>
-                    </form>
             </div>
         </CrmModal>
     );
