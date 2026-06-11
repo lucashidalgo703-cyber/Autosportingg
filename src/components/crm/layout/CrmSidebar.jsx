@@ -42,8 +42,6 @@ const menuGroups = [
         name: 'FINANZAS',
         items: [
             { name: 'Finanzas', path: '/admin/finanzas', icon: '💰', prefetch: false },
-            { name: 'Cuotas', path: '/admin/cuotas', icon: '💸' },
-            { name: 'Cobranzas', path: '/admin/cobranzas', icon: '💵' },
         ]
     },
     {
@@ -92,8 +90,6 @@ export default function CrmSidebar({ isOpen, onClose }) {
         if (itemName === 'Usuarios') return hasPermission(user, PERMISSIONS.USUARIOS_READ);
         if (itemName === 'Configuración') return hasPermission(user, PERMISSIONS.USUARIOS_READ) || hasPermission(user, PERMISSIONS.MESSAGETEMPLATES_READ);
         if (itemName === 'Finanzas') return hasPermission(user, PERMISSIONS.FINANZAS_READ);
-        if (itemName === 'Cuotas') return hasPermission(user, PERMISSIONS.CUOTAS_READ);
-        if (itemName === 'Cobranzas') return hasPermission(user, PERMISSIONS.COBRANZAS_READ);
         if (itemName === 'Reportes') return hasPermission(user, PERMISSIONS.REPORTES_READ);
         if (itemName === 'Mis ventas') return true;
         if (itemName === 'Pedidos') return true;
