@@ -286,7 +286,6 @@ export function calculateDashboardMetrics(cars = []) {
                     metrics.cuotas.vencidas++;
                 }
             }
-            }
         });
 
         // --- Tu Operación (Métricas del usuario) ---
