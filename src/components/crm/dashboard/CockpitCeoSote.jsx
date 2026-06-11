@@ -318,18 +318,27 @@ export default function CockpitCeoSote({ metrics, canSeeFinancials = false, user
                 >
                     <div className="flex items-end justify-between gap-4">
                         <div className="flex items-end gap-2">
-                            <p className="text-4xl font-bold leading-none text-crm-fg sm:text-5xl">0</p>
-                            <p className="mb-1 text-crm-fg-muted">/ 0</p>
+                            <p className="text-4xl font-bold leading-none text-crm-fg sm:text-5xl">{metrics.tuOperacion?.ventasUsuarioAno || 0}</p>
+                            <p className="mb-1 text-crm-fg-muted">/ {metrics.tuOperacion?.ventasTotalesAno || 0}</p>
                         </div>
-                        <p className="text-sm font-black text-purple-300">0%</p>
+                        <p className="text-sm font-black text-purple-300">
+                            {metrics.tuOperacion?.ventasTotalesAno > 0 
+                                ? Math.round(((metrics.tuOperacion?.ventasUsuarioAno || 0) / metrics.tuOperacion.ventasTotalesAno) * 100) 
+                                : 0}%
+                        </p>
                     </div>
                     <div className="mt-5 border-t border-purple-400/20 pt-4">
-                        <p className="flex justify-between text-xs text-crm-fg-muted">Tu posicion en el ano <span className="font-bold text-purple-200">Sin ventas en el ano</span></p>
+                        <p className="flex justify-between text-xs text-crm-fg-muted">
+                            Tu posicion en el ano 
+                            <span className="font-bold text-purple-200">
+                                {metrics.tuOperacion?.ventasUsuarioAno > 0 ? `${metrics.tuOperacion.ventasUsuarioAno} ventas en el ano` : 'Sin ventas en el ano'}
+                            </span>
+                        </p>
                     </div>
                     <div className="mt-5 rounded-xl border border-purple-400/20 bg-purple-500/10 p-3">
                         <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-purple-200">Traido + vendido por vos</p>
-                        <p className="mt-2 text-2xl font-bold text-crm-fg">0 <span className="text-xs text-crm-fg-muted">autos</span></p>
-                        <p className="text-xs text-crm-fg-muted">USD 0 · 100% tuyo - consignacion + cierre</p>
+                        <p className="mt-2 text-2xl font-bold text-crm-fg">{metrics.tuOperacion?.autos100Tuyo || 0} <span className="text-xs text-crm-fg-muted">autos</span></p>
+                        <p className="text-xs text-crm-fg-muted">USD {formatCurrency(metrics.tuOperacion?.ganancia100TuyoUSD || 0)} · 100% tuyo - consignacion + cierre</p>
                     </div>
                 </KpiPanel>
 

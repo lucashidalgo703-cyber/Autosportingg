@@ -45,8 +45,8 @@ export default function AdminDashboardPage() {
 
     const metrics = useMemo(() => {
         if (!cars || cars.length === 0) return null;
-        return calculateDashboardMetrics(cars, sales || [], selectedDate, transactions || [], installments || []);
-    }, [cars, sales, selectedDate, transactions, installments]);
+        return calculateDashboardMetrics(cars, sales || [], selectedDate, transactions || [], installments || [], user);
+    }, [cars, sales, selectedDate, transactions, installments, user]);
 
     const handlePrevMonth = () => {
         const prev = new Date(selectedDate);

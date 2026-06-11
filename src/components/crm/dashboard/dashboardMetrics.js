@@ -286,7 +286,45 @@ export function calculateDashboardMetrics(cars = []) {
                     metrics.cuotas.vencidas++;
                 }
             }
+            }
         });
+
+        // --- Tu Operación (Métricas del usuario) ---
+        const user = arguments.length > 5 && arguments[5] ? arguments[5] : null;
+        
+        metrics.tuOperacion = {
+            ventasUsuarioAno: 0,
+            ventasTotalesAno: 0,
+            autos100Tuyo: 0,
+            ganancia100TuyoUSD: 0
+        };
+
+        if (user) {
+            const userId = String(user._id);
+            const userName = (user.name || '').toLowerCase();
+            
+            sales.forEach(s => {
+                const sDate = new Date(s.saleDate || s.createdAt);
+                if (sDate.getFullYear() === targetYear && (s.status === 'confirmada' || s.status === 'entregada')) {
+                    metrics.tuOperacion.ventasTotalesAno++;
+                    
+                    const isSeller = (s.salesperson || '').toLowerCase() === userName || String(s.assignedTo) === userId || (s.createdBy || '').toLowerCase() === userName;
+                    if (isSeller) {
+                        metrics.tuOperacion.ventasUsuarioAno++;
+                    }
+                    
+                    // ¿Es 100% de él? (Lo trajo y lo vendió)
+                    const isCreator = (s.createdBy || '').toLowerCase() === userName || (s.consignationOwnerId && String(s.consignationOwnerId) === userId);
+                    if (isSeller && isCreator) {
+                        metrics.tuOperacion.autos100Tuyo++;
+                        const detail = salesDetails.find(d => d.id === s._id);
+                        if (detail && detail.profitUSD > 0) {
+                            metrics.tuOperacion.ganancia100TuyoUSD += detail.profitUSD;
+                        }
+                    }
+                }
+            });
+        }
     }
 
     return metrics;
