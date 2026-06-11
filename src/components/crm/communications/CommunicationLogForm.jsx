@@ -128,13 +128,13 @@ export default function CommunicationLogForm({
 
     return (
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
-            <div className="bg-[#161619] border border-[#33333A] rounded-xl shadow-2xl w-full max-w-2xl flex flex-col max-h-[90vh]">
-                <div className="flex justify-between items-center p-4 border-b border-[#33333A] bg-[#1E1E24] rounded-t-xl shrink-0">
+            <div className="bg-[#161619] border border-crm-border rounded-xl shadow-2xl w-full max-w-2xl flex flex-col max-h-[90vh]">
+                <div className="flex justify-between items-center p-4 border-b border-crm-border bg-[#1E1E24] rounded-t-xl shrink-0">
                     <h3 className="text-lg font-bold text-white flex items-center gap-2">
                         <MessageCircle size={20} className="text-[#E63027]" />
                         Registrar Interacción
                     </h3>
-                    <button onClick={onClose} className="text-gray-400 hover:text-white transition-colors">
+                    <button onClick={onClose} className="text-crm-fg-muted hover:text-white transition-colors">
                         <X size={20} />
                     </button>
                 </div>
@@ -150,23 +150,23 @@ export default function CommunicationLogForm({
                         
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div>
-                                <label className="block text-xs font-bold text-gray-400 uppercase mb-1">Canal de Contacto *</label>
+                                <label className="block text-xs font-bold text-crm-fg-muted uppercase mb-1">Canal de Contacto *</label>
                                 <select 
                                     name="channel" 
                                     value={formData.channel} 
                                     onChange={handleChange}
-                                    className="w-full bg-[#1E1E24] border border-[#33333A] text-white text-sm rounded-lg p-2.5 focus:outline-none focus:border-[#EF3329]"
+                                    className="w-full bg-[#1E1E24] border border-crm-border text-white text-sm rounded-lg p-2.5 focus:outline-none focus:border-[#EF3329]"
                                 >
                                     {channels.map(c => <option key={c.value} value={c.value}>{c.label}</option>)}
                                 </select>
                             </div>
                             <div>
-                                <label className="block text-xs font-bold text-gray-400 uppercase mb-1">Dirección *</label>
+                                <label className="block text-xs font-bold text-crm-fg-muted uppercase mb-1">Dirección *</label>
                                 <select 
                                     name="direction" 
                                     value={formData.direction} 
                                     onChange={handleChange}
-                                    className="w-full bg-[#1E1E24] border border-[#33333A] text-white text-sm rounded-lg p-2.5 focus:outline-none focus:border-[#EF3329]"
+                                    className="w-full bg-[#1E1E24] border border-crm-border text-white text-sm rounded-lg p-2.5 focus:outline-none focus:border-[#EF3329]"
                                 >
                                     <option value="outbound">Saliente (Nosotros contactamos)</option>
                                     <option value="inbound">Entrante (Ellos nos contactan)</option>
@@ -177,22 +177,22 @@ export default function CommunicationLogForm({
 
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div>
-                                <label className="block text-xs font-bold text-gray-400 uppercase mb-1">Fecha y Hora del Contacto</label>
+                                <label className="block text-xs font-bold text-crm-fg-muted uppercase mb-1">Fecha y Hora del Contacto</label>
                                 <input 
                                     type="datetime-local" 
                                     name="contactDate" 
                                     value={formData.contactDate} 
                                     onChange={handleChange}
-                                    className="w-full bg-[#1E1E24] border border-[#33333A] text-white text-sm rounded-lg p-2.5 focus:outline-none focus:border-[#EF3329]"
+                                    className="w-full bg-[#1E1E24] border border-crm-border text-white text-sm rounded-lg p-2.5 focus:outline-none focus:border-[#EF3329]"
                                 />
                             </div>
                             <div>
-                                <label className="block text-xs font-bold text-gray-400 uppercase mb-1">Resultado de la Interacción *</label>
+                                <label className="block text-xs font-bold text-crm-fg-muted uppercase mb-1">Resultado de la Interacción *</label>
                                 <select 
                                     name="outcome" 
                                     value={formData.outcome} 
                                     onChange={handleChange}
-                                    className="w-full bg-[#1E1E24] border border-[#33333A] text-white text-sm rounded-lg p-2.5 focus:outline-none focus:border-[#EF3329]"
+                                    className="w-full bg-[#1E1E24] border border-crm-border text-white text-sm rounded-lg p-2.5 focus:outline-none focus:border-[#EF3329]"
                                 >
                                     {outcomes.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
                                 </select>
@@ -200,38 +200,38 @@ export default function CommunicationLogForm({
                         </div>
 
                         <div>
-                            <label className="block text-xs font-bold text-gray-400 uppercase mb-1">Asunto / Resumen *</label>
+                            <label className="block text-xs font-bold text-crm-fg-muted uppercase mb-1">Asunto / Resumen *</label>
                             <input 
                                 type="text" 
                                 name="title" 
                                 value={formData.title} 
                                 onChange={handleChange}
                                 placeholder="Ej: Llamada de seguimiento por financiación"
-                                className="w-full bg-[#1E1E24] border border-[#33333A] text-white text-sm rounded-lg p-2.5 focus:outline-none focus:border-[#EF3329]"
+                                className="w-full bg-[#1E1E24] border border-crm-border text-white text-sm rounded-lg p-2.5 focus:outline-none focus:border-[#EF3329]"
                                 required
                             />
                         </div>
 
                         <div>
-                            <label className="block text-xs font-bold text-gray-400 uppercase mb-1">Notas detalladas</label>
+                            <label className="block text-xs font-bold text-crm-fg-muted uppercase mb-1">Notas detalladas</label>
                             <textarea 
                                 name="notes" 
                                 value={formData.notes} 
                                 onChange={handleChange}
                                 rows="3"
                                 placeholder="Detalles de la conversación, acuerdos, objeciones..."
-                                className="w-full bg-[#1E1E24] border border-[#33333A] text-white text-sm rounded-lg p-2.5 focus:outline-none focus:border-[#EF3329] resize-none"
+                                className="w-full bg-[#1E1E24] border border-crm-border text-white text-sm rounded-lg p-2.5 focus:outline-none focus:border-[#EF3329] resize-none"
                             ></textarea>
                         </div>
 
-                        <div className="bg-[#1E1E24] border border-[#33333A] p-4 rounded-lg">
+                        <div className="bg-[#1E1E24] border border-crm-border p-4 rounded-lg">
                             <label className="flex items-center gap-3 cursor-pointer mb-3">
                                 <input 
                                     type="checkbox" 
                                     name="shouldCreateTask" 
                                     checked={formData.shouldCreateTask} 
                                     onChange={handleChange}
-                                    className="w-4 h-4 rounded border-[#33333A] bg-[#24242B] text-[#E63027] focus:ring-[#EF3329]"
+                                    className="w-4 h-4 rounded border-crm-border bg-[#24242B] text-[#E63027] focus:ring-[#EF3329]"
                                 />
                                 <span className="text-sm font-bold text-white flex items-center gap-2">
                                     <CalendarIcon size={16} className="text-[#E63027]" />
@@ -241,16 +241,16 @@ export default function CommunicationLogForm({
 
                             {formData.shouldCreateTask && (
                                 <div className="pl-7 mt-2">
-                                    <label className="block text-xs font-bold text-gray-400 uppercase mb-1">Fecha para el seguimiento *</label>
+                                    <label className="block text-xs font-bold text-crm-fg-muted uppercase mb-1">Fecha para el seguimiento *</label>
                                     <input 
                                         type="datetime-local" 
                                         name="nextActionDate" 
                                         value={formData.nextActionDate} 
                                         onChange={handleChange}
-                                        className="w-full bg-[#24242B] border border-[#33333A] text-white text-sm rounded-lg p-2.5 focus:outline-none focus:border-[#EF3329]"
+                                        className="w-full bg-[#24242B] border border-crm-border text-white text-sm rounded-lg p-2.5 focus:outline-none focus:border-[#EF3329]"
                                         required={formData.shouldCreateTask}
                                     />
-                                    <p className="text-xs text-gray-500 mt-1">Se creará una tarea asociada a esta entidad y responsable actual.</p>
+                                    <p className="text-xs text-crm-fg-muted mt-1">Se creará una tarea asociada a esta entidad y responsable actual.</p>
                                 </div>
                             )}
                         </div>
@@ -261,7 +261,7 @@ export default function CommunicationLogForm({
                                 name="isImportant" 
                                 checked={formData.isImportant} 
                                 onChange={handleChange}
-                                className="w-4 h-4 rounded border-[#33333A] bg-[#24242B] text-red-500 focus:ring-red-500"
+                                className="w-4 h-4 rounded border-crm-border bg-[#24242B] text-crm-red focus:ring-red-500"
                             />
                             <span className="text-sm font-bold text-white flex items-center gap-2">
                                 <AlertTriangle size={16} className="text-red-400" />
@@ -272,11 +272,11 @@ export default function CommunicationLogForm({
                     </form>
                 </div>
 
-                <div className="p-4 border-t border-[#33333A] bg-[#1E1E24] rounded-b-xl flex justify-end gap-3 shrink-0">
+                <div className="p-4 border-t border-crm-border bg-[#1E1E24] rounded-b-xl flex justify-end gap-3 shrink-0">
                     <button 
                         type="button" 
                         onClick={onClose} 
-                        className="px-4 py-2 text-sm font-bold text-gray-300 bg-[#24242B] hover:bg-[#33333A] rounded-lg transition-colors border border-[#33333A]"
+                        className="px-4 py-2 text-sm font-bold text-crm-fg-muted bg-[#24242B] hover:bg-crm-surface-raised rounded-lg transition-colors border border-crm-border"
                     >
                         Cancelar
                     </button>

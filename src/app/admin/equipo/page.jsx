@@ -189,7 +189,7 @@ export default function TeamDashboardPage() {
                                                         u.goalSummary.mainStatus === 'cumplido' ? 'bg-green-500/20 text-green-400' :
                                                         u.goalSummary.mainStatus === 'proximo_vencer' ? 'bg-orange-500/20 text-orange-400' :
                                                         u.goalSummary.mainStatus === 'atrasado' ? 'bg-yellow-500/20 text-yellow-500' :
-                                                        u.goalSummary.mainStatus === 'vencido' ? 'bg-red-500/20 text-red-400' :
+                                                        u.goalSummary.mainStatus === 'vencido' ? 'bg-crm-red/20 text-red-400' :
                                                         u.goalSummary.mainStatus === 'sin_avance' ? 'bg-crm-bg text-crm-fg-muted' :
                                                         'bg-crm-red/10 text-crm-red'
                                                     }`}>

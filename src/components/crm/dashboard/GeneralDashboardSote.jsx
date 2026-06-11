@@ -27,7 +27,7 @@ const toneClasses = {
     blue: 'bg-blue-500/15 text-blue-400',
     amber: 'bg-amber-500/20 text-amber-400',
     purple: 'bg-purple-500/20 text-purple-300',
-    red: 'bg-red-500/20 text-red-300',
+    red: 'bg-crm-red/20 text-red-300',
     slate: 'bg-crm-surface-raised text-crm-fg-muted'
 };
 
@@ -84,7 +84,7 @@ function CashProjectionCard({ label, value, detail, tone = 'neutral' }) {
     const colorMap = {
         neutral: 'bg-crm-surface-raised border-crm-border text-crm-fg',
         green: 'bg-emerald-500/10 border-emerald-500/30 text-emerald-200',
-        red: 'bg-red-500/10 border-red-500/30 text-red-200'
+        red: 'bg-crm-red/10 border-red-500/30 text-red-200'
     };
 
     return (
@@ -153,12 +153,12 @@ function CashProjectionPanel({ metrics }) {
                     </div>
                     <p className="text-xs text-emerald-100/75">Sin entradas previstas.</p>
                 </div>
-                <div className="rounded-xl border border-red-500/20 bg-red-500/10 p-4">
+                <div className="rounded-xl border border-red-500/20 bg-crm-red/10 p-4">
                     <div className="mb-3 flex items-center justify-between">
                         <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-red-200">
                             Salidas previstas
                         </p>
-                        <span className="rounded-md bg-red-500/15 px-2 py-1 text-[10px] font-bold text-red-200">
+                        <span className="rounded-md bg-crm-red/15 px-2 py-1 text-[10px] font-bold text-red-200">
                             Top 0
                         </span>
                     </div>
@@ -403,7 +403,7 @@ function InstallmentsMonthPanel({ metrics }) {
     
     return (
         <Panel title="Cuotas a pagar - este mes" subtitle={`${cuotas.cantidadMes} cuotas pendientes del mes`} href="/admin/cuotas" icon={CreditCard} className="min-h-[460px]">
-            <div className={`rounded-xl border p-4 text-sm font-bold ${hasVencidas ? 'border-red-500/20 bg-red-500/10 text-red-300' : 'border-emerald-500/20 bg-emerald-500/10 text-emerald-300'}`}>
+            <div className={`rounded-xl border p-4 text-sm font-bold ${hasVencidas ? 'border-red-500/20 bg-crm-red/10 text-red-300' : 'border-emerald-500/20 bg-emerald-500/10 text-emerald-300'}`}>
                 {hasVencidas ? `Atención: ${cuotas.vencidas} cuotas vencidas` : 'Todas las cuotas al día'}
             </div>
             <div className="mt-4 grid grid-cols-2 gap-3">

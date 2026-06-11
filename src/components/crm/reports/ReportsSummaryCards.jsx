@@ -72,8 +72,8 @@ export default function ReportsSummaryCards({ data }) {
             value: cuotasVencidas,
             subtitle: 'Requieren gestión',
             icon: Target,
-            color: 'text-red-500',
-            bg: 'bg-red-500/10',
+            color: 'text-crm-red',
+            bg: 'bg-crm-red/10',
             border: 'border-red-500/20'
         },
         {
@@ -90,7 +90,7 @@ export default function ReportsSummaryCards({ data }) {
     return (
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
             {cards.map((card, index) => (
-                <div key={index} className="bg-[#161619] border border-[#33333A] rounded-2xl p-4 flex flex-col justify-between">
+                <div key={index} className="bg-[#161619] border border-crm-border rounded-2xl p-4 flex flex-col justify-between">
                     <div className="flex justify-between items-start mb-4">
                         <div className={`w-10 h-10 rounded-xl ${card.bg} flex items-center justify-center border ${card.border}`}>
                             <card.icon size={20} className={card.color} />
@@ -99,7 +99,7 @@ export default function ReportsSummaryCards({ data }) {
                     <div>
                         <div className="text-xl font-bold text-white mb-0.5 truncate" title={card.value}>{card.value}</div>
                         <div className="flex items-center gap-2">
-                            <span className="text-xs text-[#A1A1AA] font-bold uppercase">{card.title}</span>
+                            <span className="text-xs text-crm-fg-muted font-bold uppercase">{card.title}</span>
                         </div>
                         <div className="text-[10px] text-neutral-500 mt-1">{card.subtitle}</div>
                     </div>

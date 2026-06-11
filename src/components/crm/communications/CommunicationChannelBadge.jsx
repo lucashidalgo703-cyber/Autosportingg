@@ -11,8 +11,8 @@ export default function CommunicationChannelBadge({ channel, className = '' }) {
             case 'instagram': return { icon: Instagram, text: 'Instagram', color: 'bg-pink-500/20 text-pink-400' };
             case 'facebook': return { icon: Facebook, text: 'Facebook', color: 'bg-blue-600/20 text-blue-500' };
             case 'web': return { icon: Globe, text: 'Web', color: 'bg-teal-500/20 text-teal-400' };
-            case 'internal_note': return { icon: FileText, text: 'Nota Interna', color: 'bg-gray-500/20 text-gray-400' };
-            case 'other': default: return { icon: HelpCircle, text: 'Otro', color: 'bg-gray-600/20 text-gray-500' };
+            case 'internal_note': return { icon: FileText, text: 'Nota Interna', color: 'bg-gray-500/20 text-crm-fg-muted' };
+            case 'other': default: return { icon: HelpCircle, text: 'Otro', color: 'bg-gray-600/20 text-crm-fg-muted' };
         }
     };
 

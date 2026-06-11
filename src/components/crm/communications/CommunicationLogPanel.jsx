@@ -51,8 +51,8 @@ export default function CommunicationLogPanel({
     };
 
     return (
-        <div className="bg-[#161619] border border-[#33333A] rounded-xl overflow-hidden flex flex-col h-full">
-            <div className="p-4 border-b border-[#33333A] bg-[#24242B] flex justify-between items-center shrink-0">
+        <div className="bg-[#161619] border border-crm-border rounded-xl overflow-hidden flex flex-col h-full">
+            <div className="p-4 border-b border-crm-border bg-[#24242B] flex justify-between items-center shrink-0">
                 <h3 className="font-bold text-white uppercase text-sm flex items-center gap-2">
                     <MessageCircle size={18} className="text-[#E63027]" />
                     Historial de Contacto
@@ -60,7 +60,7 @@ export default function CommunicationLogPanel({
                 <div className="flex items-center gap-2">
                     <button 
                         onClick={fetchLogs} 
-                        className="p-1.5 text-gray-400 hover:text-white bg-[#1E1E24] hover:bg-[#33333A] rounded transition-colors"
+                        className="p-1.5 text-crm-fg-muted hover:text-white bg-[#1E1E24] hover:bg-crm-surface-raised rounded transition-colors"
                         title="Actualizar historial"
                     >
                         <RefreshCw size={14} className={loading ? "animate-spin" : ""} />
@@ -85,7 +85,7 @@ export default function CommunicationLogPanel({
                             </div>
                             <button 
                                 onClick={fetchLogs}
-                                className="px-4 py-2 bg-neutral-800 hover:bg-neutral-700 rounded-lg text-xs font-bold transition-colors mt-2 text-white"
+                                className="px-4 py-2 bg-crm-surface-raised hover:bg-neutral-700 rounded-lg text-xs font-bold transition-colors mt-2 text-white"
                             >
                                 Reintentar
                             </button>
@@ -96,7 +96,7 @@ export default function CommunicationLogPanel({
                         <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-[#E63027]"></div>
                     </div>
                 ) : logs.length === 0 ? (
-                    <div className="h-full flex flex-col items-center justify-center text-center p-6 text-gray-500">
+                    <div className="h-full flex flex-col items-center justify-center text-center p-6 text-crm-fg-muted">
                         <MessageCircle size={32} className="mb-2 text-[#33333A]" />
                         <p className="text-sm">No hay interacciones registradas aún.</p>
                         <p className="text-xs mt-1">Registrá la primera llamada, WhatsApp o reunión.</p>

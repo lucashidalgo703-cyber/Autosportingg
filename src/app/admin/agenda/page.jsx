@@ -469,7 +469,7 @@ export default function AdminAgendaPage() {
                     <button
                         type="button"
                         onClick={() => openNewEvent()}
-                        className="m-0 inline-flex h-9 appearance-none items-center justify-center gap-2 rounded-lg border border-red-500/50 bg-[#ef3329] px-4 text-sm font-bold text-white shadow-[0_0_28px_rgba(239,51,41,0.45)] transition-colors hover:bg-red-500"
+                        className="m-0 inline-flex h-9 appearance-none items-center justify-center gap-2 rounded-lg border border-red-500/50 bg-[#ef3329] px-4 text-sm font-bold text-white shadow-[0_0_28px_rgba(239,51,41,0.45)] transition-colors hover:bg-crm-red"
                     >
                         <Plus size={15} />
                         Nuevo evento
@@ -545,7 +545,7 @@ export default function AdminAgendaPage() {
                                             onClick={() => openNewEvent(clickedDate)}
                                             className={`relative m-0 flex h-11 appearance-none cursor-pointer items-center justify-center rounded-lg border-0 p-0 text-base font-bold transition-colors hover:bg-zinc-800/40 ${
                                                 isTodayDay
-                                                    ? 'bg-[#ef3329] text-white shadow-md shadow-[#ef3329]/25 hover:bg-red-500'
+                                                    ? 'bg-[#ef3329] text-white shadow-md shadow-[#ef3329]/25 hover:bg-crm-red'
                                                     : 'bg-transparent text-zinc-200'
                                             }`}
                                         >
@@ -588,7 +588,7 @@ export default function AdminAgendaPage() {
                                         upcomingEvents.slice(0, 5).map((event) => (
                                             <div
                                                 key={event.id}
-                                                className="flex items-start gap-3 rounded-xl border border-white/5 bg-zinc-900/60 p-3 transition-colors hover:border-zinc-700"
+                                                className="flex items-start gap-3 rounded-xl border border-crm-border bg-zinc-900/60 p-3 transition-colors hover:border-zinc-700"
                                             >
                                                 <span
                                                     className="h-8 w-1 shrink-0 rounded-full"

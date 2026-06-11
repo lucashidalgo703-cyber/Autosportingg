@@ -146,7 +146,7 @@ export default function PrintableReportPage() {
                 <div className="border-b-2 border-black pb-4 mb-6 flex justify-between items-end">
                     <div>
                         <h1 className="text-3xl font-black tracking-tighter">AUTOSPORTING</h1>
-                        <h2 className="text-xl font-bold text-gray-600 mt-1">Reporte Gerencial</h2>
+                        <h2 className="text-xl font-bold text-crm-fg-muted mt-1">Reporte Gerencial</h2>
                     </div>
                     <div className="text-right text-sm">
                         <div><span className="font-bold">Fecha:</span> {new Date().toLocaleDateString('es-AR')}</div>
@@ -268,7 +268,7 @@ export default function PrintableReportPage() {
                     </table>
                 </div>
                 
-                <div className="text-center text-xs text-gray-400 mt-12 pt-4 border-t border-gray-200">
+                <div className="text-center text-xs text-crm-fg-muted mt-12 pt-4 border-t border-gray-200">
                     Reporte confidencial generado por el sistema AutoSporting CRM.
                 </div>
 

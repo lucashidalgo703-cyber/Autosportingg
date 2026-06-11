@@ -287,7 +287,7 @@ export default function ReportsExportPanel({ data, filters }) {
     };
 
     return (
-        <div className="bg-[#161619] border border-[#33333A] rounded-2xl p-5 mb-6">
+        <div className="bg-[#161619] border border-crm-border rounded-2xl p-5 mb-6">
             <div className="flex flex-col md:flex-row justify-between md:items-center gap-4 mb-4">
                 <div>
                     <h3 className="text-sm font-bold text-white uppercase tracking-wider flex items-center gap-2">
@@ -316,31 +316,31 @@ export default function ReportsExportPanel({ data, filters }) {
                 </button>
                 <button 
                     onClick={handleExportSales}
-                    className="flex items-center gap-2 px-3 py-2 bg-[#1E1E24] hover:bg-neutral-800 border border-[#33333A] text-white rounded-xl text-xs font-bold transition-colors"
+                    className="flex items-center gap-2 px-3 py-2 bg-[#1E1E24] hover:bg-crm-surface-raised border border-crm-border text-white rounded-xl text-xs font-bold transition-colors"
                 >
                     <FileText size={14} /> Ventas
                 </button>
                 <button 
                     onClick={handleExportStock}
-                    className="flex items-center gap-2 px-3 py-2 bg-[#1E1E24] hover:bg-neutral-800 border border-[#33333A] text-white rounded-xl text-xs font-bold transition-colors"
+                    className="flex items-center gap-2 px-3 py-2 bg-[#1E1E24] hover:bg-crm-surface-raised border border-crm-border text-white rounded-xl text-xs font-bold transition-colors"
                 >
                     <CarFront size={14} /> Stock
                 </button>
                 <button 
                     onClick={handleExportCollections}
-                    className="flex items-center gap-2 px-3 py-2 bg-[#1E1E24] hover:bg-neutral-800 border border-[#33333A] text-white rounded-xl text-xs font-bold transition-colors"
+                    className="flex items-center gap-2 px-3 py-2 bg-[#1E1E24] hover:bg-crm-surface-raised border border-crm-border text-white rounded-xl text-xs font-bold transition-colors"
                 >
                     <Target size={14} /> Cobranzas / Cuotas
                 </button>
                 <button 
                     onClick={handleExportOperations}
-                    className="flex items-center gap-2 px-3 py-2 bg-[#1E1E24] hover:bg-neutral-800 border border-[#33333A] text-white rounded-xl text-xs font-bold transition-colors"
+                    className="flex items-center gap-2 px-3 py-2 bg-[#1E1E24] hover:bg-crm-surface-raised border border-crm-border text-white rounded-xl text-xs font-bold transition-colors"
                 >
                     <FileText size={14} /> Doc / Entrega / Postventa
                 </button>
                 <button 
                     onClick={handleExportTasks}
-                    className="flex items-center gap-2 px-3 py-2 bg-[#1E1E24] hover:bg-neutral-800 border border-[#33333A] text-white rounded-xl text-xs font-bold transition-colors"
+                    className="flex items-center gap-2 px-3 py-2 bg-[#1E1E24] hover:bg-crm-surface-raised border border-crm-border text-white rounded-xl text-xs font-bold transition-colors"
                 >
                     <CalendarClock size={14} /> Tareas
                 </button>

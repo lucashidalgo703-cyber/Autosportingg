@@ -51,7 +51,7 @@ export default function CapitalSummary({ metrics }) {
                 <div className="bg-crm-bg border border-crm-border rounded-xl p-4 flex flex-col justify-between">
                     <div className="flex items-center justify-between mb-4">
                         <span className="text-crm-fg-muted text-sm font-medium">Gastos (Stock Activo)</span>
-                        <div className="w-8 h-8 rounded-full bg-red-500/10 flex items-center justify-center text-red-500">
+                        <div className="w-8 h-8 rounded-full bg-crm-red/10 flex items-center justify-center text-crm-red">
                             <AlertCircle size={16} />
                         </div>
                     </div>

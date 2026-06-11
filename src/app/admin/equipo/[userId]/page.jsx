@@ -89,7 +89,7 @@ export default function UserDetailDashboardPage() {
                 <div>
                     <h1 className="text-2xl font-bold text-white flex items-center gap-2">
                         {targetUser.name}
-                        <div className={`w-3 h-3 rounded-full ${targetUser.active ? 'bg-green-500' : 'bg-red-500'}`} title={targetUser.active ? 'Activo' : 'Inactivo'}></div>
+                        <div className={`w-3 h-3 rounded-full ${targetUser.active ? 'bg-green-500' : 'bg-crm-red'}`} title={targetUser.active ? 'Activo' : 'Inactivo'}></div>
                     </h1>
                     <div className="text-sm text-crm-fg-muted flex items-center gap-4 mt-1">
                         <span className="capitalize">{targetUser.role.replace('_', ' ')}</span>

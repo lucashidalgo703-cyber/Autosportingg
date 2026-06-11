@@ -24,20 +24,20 @@ export default function RotationAlertsPanel({ metrics }) {
                                         <img src={car.coverImage} alt={car.brand} className="w-full h-full object-cover" />
                                     </div>
                                 ) : (
-                                    <div className="w-10 h-8 rounded bg-[#2a2a2e] border border-white/5 shrink-0 flex items-center justify-center">
-                                        <Car size={14} className="text-gray-500" />
+                                    <div className="w-10 h-8 rounded bg-crm-surface-raised border border-crm-border shrink-0 flex items-center justify-center">
+                                        <Car size={14} className="text-crm-fg-muted" />
                                     </div>
                                 )}
                                 <div>
                                     <p className="text-sm font-semibold text-white leading-tight">{car.brand} {car.name}</p>
-                                    <p className="text-[10px] text-[#A1A1AA] uppercase">{car.status}</p>
+                                    <p className="text-[10px] text-crm-fg-muted uppercase">{car.status}</p>
                                 </div>
                             </div>
                             <div className="flex items-center gap-4">
                                 <div className="text-right">
                                     <p className={`text-sm font-bold ${colorClass}`}>{car.daysInStock} días</p>
                                 </div>
-                                <Link href={`/admin/stock/${car.id}`} className="text-gray-400 hover:text-white transition-colors">
+                                <Link href={`/admin/stock/${car.id}`} className="text-crm-fg-muted hover:text-white transition-colors">
                                     <ExternalLink size={16} />
                                 </Link>
                             </div>
@@ -54,7 +54,7 @@ export default function RotationAlertsPanel({ metrics }) {
                 <h3 className="text-white font-semibold text-lg flex items-center gap-2">
                     Alertas de Rotación
                     {totalAlerts > 0 && (
-                        <span className="bg-red-500 text-white text-[10px] px-1.5 py-0.5 rounded-full font-bold">
+                        <span className="bg-crm-red text-white text-[10px] px-1.5 py-0.5 rounded-full font-bold">
                             {totalAlerts}
                         </span>
                     )}
@@ -62,9 +62,9 @@ export default function RotationAlertsPanel({ metrics }) {
             </div>
 
             {totalAlerts === 0 ? (
-                <div className="flex flex-col items-center justify-center h-[200px] text-center border border-dashed border-[#33333A] rounded-xl">
+                <div className="flex flex-col items-center justify-center h-[200px] text-center border border-dashed border-crm-border rounded-xl">
                     <Clock size={24} className="text-[#22C55E] mb-2" />
-                    <p className="text-sm text-[#A1A1AA] font-medium">Stock saludable</p>
+                    <p className="text-sm text-crm-fg-muted font-medium">Stock saludable</p>
                     <p className="text-xs text-[#666]">No hay autos activos con más de 60 días.</p>
                 </div>
             ) : (
@@ -72,9 +72,9 @@ export default function RotationAlertsPanel({ metrics }) {
                     <AlertList 
                         title="Crítico (+90 días)" 
                         items={alertas.alerta90} 
-                        colorClass="text-red-500" 
+                        colorClass="text-crm-red" 
                         borderClass="border-red-500/20" 
-                        bgClass="bg-red-500/5" 
+                        bgClass="bg-crm-red/5" 
                     />
                     <AlertList 
                         title="Atención (+60 días)" 

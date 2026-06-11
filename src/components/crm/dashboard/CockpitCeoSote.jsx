@@ -62,7 +62,7 @@ function CashProjectionCard({ label, value, detail, tone = 'neutral' }) {
     const toneMap = {
         neutral: 'border-crm-border bg-crm-surface-raised text-crm-fg',
         green: 'border-emerald-500/30 bg-emerald-500/10 text-emerald-200',
-        red: 'border-red-500/30 bg-red-500/10 text-red-200'
+        red: 'border-red-500/30 bg-crm-red/10 text-red-200'
     };
 
     return (
@@ -106,10 +106,10 @@ function CashProjectionPanel({ metrics }) {
                     </div>
                     <p className="text-xs text-emerald-100/75">Sin entradas previstas.</p>
                 </div>
-                <div className="rounded-xl border border-red-500/20 bg-red-500/10 p-4">
+                <div className="rounded-xl border border-red-500/20 bg-crm-red/10 p-4">
                     <div className="mb-3 flex items-center justify-between">
                         <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-red-200">Salidas previstas</p>
-                        <span className="rounded-md bg-red-500/15 px-2 py-1 text-[10px] font-bold text-red-200">Top 0</span>
+                        <span className="rounded-md bg-crm-red/15 px-2 py-1 text-[10px] font-bold text-red-200">Top 0</span>
                     </div>
                     <p className="text-xs text-red-100/75">Sin salidas previstas.</p>
                 </div>

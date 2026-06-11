@@ -411,7 +411,7 @@ export default function CrmTaskModal({ isOpen, onClose, task, onSave, defaultDat
                             <button
                                 type="submit"
                                 disabled={isSubmitting}
-                                className="m-0 inline-flex h-9 appearance-none items-center justify-center gap-2 rounded-lg border-0 bg-[#ef3329] px-4 text-sm font-bold text-white shadow-[0_12px_40px_rgba(239,51,41,0.45)] transition-colors hover:bg-red-500 disabled:opacity-50"
+                                className="m-0 inline-flex h-9 appearance-none items-center justify-center gap-2 rounded-lg border-0 bg-[#ef3329] px-4 text-sm font-bold text-white shadow-[0_12px_40px_rgba(239,51,41,0.45)] transition-colors hover:bg-crm-red disabled:opacity-50"
                             >
                                 <Calendar size={16} />
                                 {isSubmitting ? 'Guardando...' : 'Crear evento'}
@@ -624,7 +624,7 @@ export default function CrmTaskModal({ isOpen, onClose, task, onSave, defaultDat
                                         type="text"
                                         disabled
                                         value="Equipo AutoSporting"
-                                        className="w-full cursor-not-allowed rounded-lg border border-[#27272a] bg-[#141416] px-3 py-2 text-xs font-semibold text-zinc-500"
+                                        className="w-full cursor-not-allowed rounded-lg border border-[#27272a] bg-crm-surface px-3 py-2 text-xs font-semibold text-zinc-500"
                                     />
                                 </div>
                             )}
@@ -653,7 +653,7 @@ export default function CrmTaskModal({ isOpen, onClose, task, onSave, defaultDat
                                     <button
                                         type="submit"
                                         disabled={isSubmitting}
-                                        className="m-0 appearance-none rounded-lg border-0 bg-[#dc2626] px-5 py-2 text-xs font-bold text-white shadow-[0_0_15px_rgba(220,38,38,0.2)] transition-colors hover:bg-red-500 disabled:opacity-50"
+                                        className="m-0 appearance-none rounded-lg border-0 bg-[#dc2626] px-5 py-2 text-xs font-bold text-white shadow-[0_0_15px_rgba(220,38,38,0.2)] transition-colors hover:bg-crm-red disabled:opacity-50"
                                     >
                                         {isSubmitting ? 'Guardando...' : submitLabel}
                                     </button>

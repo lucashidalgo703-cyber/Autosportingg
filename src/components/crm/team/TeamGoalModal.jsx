@@ -136,13 +136,13 @@ export default function TeamGoalModal({ isOpen, onClose, goal, onSuccess }) {
 
     return (
         <div className="fixed inset-0 bg-black/80 flex justify-center items-center z-50 p-4">
-            <div className="bg-[#161619] border border-[#33333A] rounded-xl w-full max-w-2xl max-h-[90vh] flex flex-col shadow-2xl">
+            <div className="bg-[#161619] border border-crm-border rounded-xl w-full max-w-2xl max-h-[90vh] flex flex-col shadow-2xl">
                 
-                <div className="flex justify-between items-center p-6 border-b border-[#33333A]">
+                <div className="flex justify-between items-center p-6 border-b border-crm-border">
                     <h2 className="text-xl font-bold text-white">
                         {goal ? 'Editar Meta Operativa' : 'Crear Meta Operativa'}
                     </h2>
-                    <button onClick={onClose} className="text-gray-400 hover:text-white transition-colors">
+                    <button onClick={onClose} className="text-crm-fg-muted hover:text-white transition-colors">
                         <X size={24} />
                     </button>
                 </div>
@@ -159,12 +159,12 @@ export default function TeamGoalModal({ isOpen, onClose, goal, onSuccess }) {
                         
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div>
-                                <label className="block text-sm font-medium text-gray-400 mb-1">Usuario Responsable *</label>
+                                <label className="block text-sm font-medium text-crm-fg-muted mb-1">Usuario Responsable *</label>
                                 <select 
                                     value={formData.userId} 
                                     onChange={e => setFormData({...formData, userId: e.target.value})}
                                     disabled={!!goal} // No permitir cambiar usuario si edita
-                                    className="w-full bg-[#1E1E24] border border-[#33333A] rounded-lg p-2.5 text-white focus:outline-none focus:border-[#EF3329] disabled:opacity-50"
+                                    className="w-full bg-[#1E1E24] border border-crm-border rounded-lg p-2.5 text-white focus:outline-none focus:border-[#EF3329] disabled:opacity-50"
                                 >
                                     <option value="">Seleccione un usuario...</option>
                                     {users.map(u => (
@@ -173,11 +173,11 @@ export default function TeamGoalModal({ isOpen, onClose, goal, onSuccess }) {
                                 </select>
                             </div>
                             <div>
-                                <label className="block text-sm font-medium text-gray-400 mb-1">Tipo de Período</label>
+                                <label className="block text-sm font-medium text-crm-fg-muted mb-1">Tipo de Período</label>
                                 <select 
                                     value={formData.periodType} 
                                     onChange={e => setFormData({...formData, periodType: e.target.value})}
-                                    className="w-full bg-[#1E1E24] border border-[#33333A] rounded-lg p-2.5 text-white focus:outline-none focus:border-[#EF3329]"
+                                    className="w-full bg-[#1E1E24] border border-crm-border rounded-lg p-2.5 text-white focus:outline-none focus:border-[#EF3329]"
                                 >
                                     <option value="weekly">Semanal</option>
                                     <option value="monthly">Mensual</option>
@@ -185,86 +185,86 @@ export default function TeamGoalModal({ isOpen, onClose, goal, onSuccess }) {
                                 </select>
                             </div>
                             <div>
-                                <label className="block text-sm font-medium text-gray-400 mb-1">Fecha de Inicio *</label>
+                                <label className="block text-sm font-medium text-crm-fg-muted mb-1">Fecha de Inicio *</label>
                                 <input 
                                     type="date" 
                                     value={formData.startDate} 
                                     onChange={e => setFormData({...formData, startDate: e.target.value})}
-                                    className="w-full bg-[#1E1E24] border border-[#33333A] rounded-lg p-2.5 text-white focus:outline-none focus:border-[#EF3329]"
+                                    className="w-full bg-[#1E1E24] border border-crm-border rounded-lg p-2.5 text-white focus:outline-none focus:border-[#EF3329]"
                                 />
                             </div>
                             <div>
-                                <label className="block text-sm font-medium text-gray-400 mb-1">Fecha de Fin *</label>
+                                <label className="block text-sm font-medium text-crm-fg-muted mb-1">Fecha de Fin *</label>
                                 <input 
                                     type="date" 
                                     value={formData.endDate} 
                                     onChange={e => setFormData({...formData, endDate: e.target.value})}
-                                    className="w-full bg-[#1E1E24] border border-[#33333A] rounded-lg p-2.5 text-white focus:outline-none focus:border-[#EF3329]"
+                                    className="w-full bg-[#1E1E24] border border-crm-border rounded-lg p-2.5 text-white focus:outline-none focus:border-[#EF3329]"
                                 />
                             </div>
                         </div>
 
-                        <div className="border-t border-[#33333A] pt-6">
+                        <div className="border-t border-crm-border pt-6">
                             <h3 className="text-sm font-bold text-white mb-4">Objetivos Operativos (Targets)</h3>
                             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
                                 <div>
-                                    <label className="block text-xs font-medium text-gray-400 mb-1">Tareas Completadas</label>
-                                    <input type="number" min="0" name="tasksCompleted" value={formData.targets.tasksCompleted} onChange={handleTargetChange} className="w-full bg-[#1E1E24] border border-[#33333A] rounded-lg p-2 text-white" />
+                                    <label className="block text-xs font-medium text-crm-fg-muted mb-1">Tareas Completadas</label>
+                                    <input type="number" min="0" name="tasksCompleted" value={formData.targets.tasksCompleted} onChange={handleTargetChange} className="w-full bg-[#1E1E24] border border-crm-border rounded-lg p-2 text-white" />
                                 </div>
                                 <div>
-                                    <label className="block text-xs font-medium text-gray-400 mb-1">Leads Trabajados</label>
-                                    <input type="number" min="0" name="leadsWorked" value={formData.targets.leadsWorked} onChange={handleTargetChange} className="w-full bg-[#1E1E24] border border-[#33333A] rounded-lg p-2 text-white" />
+                                    <label className="block text-xs font-medium text-crm-fg-muted mb-1">Leads Trabajados</label>
+                                    <input type="number" min="0" name="leadsWorked" value={formData.targets.leadsWorked} onChange={handleTargetChange} className="w-full bg-[#1E1E24] border border-crm-border rounded-lg p-2 text-white" />
                                 </div>
                                 <div>
-                                    <label className="block text-xs font-medium text-gray-400 mb-1">Reservas Gestionadas</label>
-                                    <input type="number" min="0" name="reservationsManaged" value={formData.targets.reservationsManaged} onChange={handleTargetChange} className="w-full bg-[#1E1E24] border border-[#33333A] rounded-lg p-2 text-white" />
+                                    <label className="block text-xs font-medium text-crm-fg-muted mb-1">Reservas Gestionadas</label>
+                                    <input type="number" min="0" name="reservationsManaged" value={formData.targets.reservationsManaged} onChange={handleTargetChange} className="w-full bg-[#1E1E24] border border-crm-border rounded-lg p-2 text-white" />
                                 </div>
                                 <div>
-                                    <label className="block text-xs font-medium text-gray-400 mb-1">Ventas Actualizadas</label>
-                                    <input type="number" min="0" name="salesUpdated" value={formData.targets.salesUpdated} onChange={handleTargetChange} className="w-full bg-[#1E1E24] border border-[#33333A] rounded-lg p-2 text-white" />
+                                    <label className="block text-xs font-medium text-crm-fg-muted mb-1">Ventas Actualizadas</label>
+                                    <input type="number" min="0" name="salesUpdated" value={formData.targets.salesUpdated} onChange={handleTargetChange} className="w-full bg-[#1E1E24] border border-crm-border rounded-lg p-2 text-white" />
                                 </div>
                                 <div>
-                                    <label className="block text-xs font-medium text-gray-400 mb-1">Docs. Completada</label>
-                                    <input type="number" min="0" name="documentationCompleted" value={formData.targets.documentationCompleted} onChange={handleTargetChange} className="w-full bg-[#1E1E24] border border-[#33333A] rounded-lg p-2 text-white" />
+                                    <label className="block text-xs font-medium text-crm-fg-muted mb-1">Docs. Completada</label>
+                                    <input type="number" min="0" name="documentationCompleted" value={formData.targets.documentationCompleted} onChange={handleTargetChange} className="w-full bg-[#1E1E24] border border-crm-border rounded-lg p-2 text-white" />
                                 </div>
                                 <div>
-                                    <label className="block text-xs font-medium text-gray-400 mb-1">Postventas Cerradas</label>
-                                    <input type="number" min="0" name="postSalesManaged" value={formData.targets.postSalesManaged} onChange={handleTargetChange} className="w-full bg-[#1E1E24] border border-[#33333A] rounded-lg p-2 text-white" />
+                                    <label className="block text-xs font-medium text-crm-fg-muted mb-1">Postventas Cerradas</label>
+                                    <input type="number" min="0" name="postSalesManaged" value={formData.targets.postSalesManaged} onChange={handleTargetChange} className="w-full bg-[#1E1E24] border border-crm-border rounded-lg p-2 text-white" />
                                 </div>
                             </div>
                         </div>
 
                         <div>
-                            <label className="block text-sm font-medium text-gray-400 mb-1">Notas / Comentarios</label>
+                            <label className="block text-sm font-medium text-crm-fg-muted mb-1">Notas / Comentarios</label>
                             <textarea 
                                 value={formData.notes} 
                                 onChange={e => setFormData({...formData, notes: e.target.value})}
                                 rows="3"
-                                className="w-full bg-[#1E1E24] border border-[#33333A] rounded-lg p-2.5 text-white focus:outline-none focus:border-[#EF3329] custom-scrollbar"
+                                className="w-full bg-[#1E1E24] border border-crm-border rounded-lg p-2.5 text-white focus:outline-none focus:border-[#EF3329] custom-scrollbar"
                                 placeholder="Ej: Meta mensual de invierno..."
                             ></textarea>
                         </div>
 
                         {goal && (
-                            <div className="flex items-center gap-2 mt-4 p-3 bg-[#1E1E24] border border-[#33333A] rounded-lg">
+                            <div className="flex items-center gap-2 mt-4 p-3 bg-[#1E1E24] border border-crm-border rounded-lg">
                                 <input 
                                     type="checkbox" 
                                     id="activeGoal" 
                                     checked={formData.active}
                                     onChange={(e) => setFormData({...formData, active: e.target.checked})}
-                                    className="w-4 h-4 rounded border-[#33333A] text-indigo-500 focus:ring-[#EF3329] bg-[#161619]"
+                                    className="w-4 h-4 rounded border-crm-border text-indigo-500 focus:ring-[#EF3329] bg-[#161619]"
                                 />
-                                <label htmlFor="activeGoal" className="text-sm font-medium text-gray-300">Meta Activa</label>
+                                <label htmlFor="activeGoal" className="text-sm font-medium text-crm-fg-muted">Meta Activa</label>
                             </div>
                         )}
                     </form>
                 </div>
 
-                <div className="p-6 border-t border-[#33333A] bg-[#161619] rounded-b-xl flex justify-end gap-3">
+                <div className="p-6 border-t border-crm-border bg-[#161619] rounded-b-xl flex justify-end gap-3">
                     <button 
                         type="button" 
                         onClick={onClose} 
-                        className="px-4 py-2 text-sm font-medium text-gray-400 hover:text-white transition-colors"
+                        className="px-4 py-2 text-sm font-medium text-crm-fg-muted hover:text-white transition-colors"
                         disabled={loading}
                     >
                         Cancelar

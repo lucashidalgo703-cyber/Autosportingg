@@ -98,23 +98,23 @@ export default function MessageTemplateManager() {
     const canDelete = ['owner', 'admin'].includes(role) || hasPermission('messageTemplates.delete');
 
     return (
-        <div className="bg-[#1E1E24] rounded-xl border border-[#33333A] overflow-hidden">
-            <div className="p-4 border-b border-[#33333A] flex flex-col sm:flex-row justify-between items-center gap-4">
+        <div className="bg-[#1E1E24] rounded-xl border border-crm-border overflow-hidden">
+            <div className="p-4 border-b border-crm-border flex flex-col sm:flex-row justify-between items-center gap-4">
                 <div className="flex gap-2 w-full sm:w-auto">
                     <div className="relative flex-1 sm:w-64">
-                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#71717A]" />
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-crm-fg-subtle" />
                         <input
                             type="text"
                             placeholder="Buscar plantillas..."
                             value={searchTerm}
                             onChange={(e) => setSearchTerm(e.target.value)}
-                            className="w-full pl-9 pr-3 py-2 text-sm bg-[#161619] text-[#FAFAFA] border border-[#33333A] rounded-lg focus:ring-1 focus:ring-[#EF3329] focus:border-[#EF3329] outline-none placeholder-[#71717A]"
+                            className="w-full pl-9 pr-3 py-2 text-sm bg-[#161619] text-[#FAFAFA] border border-crm-border rounded-lg focus:ring-1 focus:ring-[#EF3329] focus:border-[#EF3329] outline-none placeholder-[#71717A]"
                         />
                     </div>
                     <select
                         value={categoryFilter}
                         onChange={(e) => setCategoryFilter(e.target.value)}
-                        className="px-3 py-2 text-sm bg-[#161619] text-[#FAFAFA] border border-[#33333A] rounded-lg focus:ring-1 focus:ring-[#EF3329] outline-none"
+                        className="px-3 py-2 text-sm bg-[#161619] text-[#FAFAFA] border border-crm-border rounded-lg focus:ring-1 focus:ring-[#EF3329] outline-none"
                     >
                         <option value="">Todas las categorías</option>
                         <option value="lead">Leads</option>
@@ -151,7 +151,7 @@ export default function MessageTemplateManager() {
 
             <div className="overflow-x-auto">
                 <table className="w-full text-left text-sm text-[#FAFAFA]">
-                    <thead className="bg-[#161619] text-xs text-[#A1A1AA] uppercase font-medium border-b border-[#33333A]">
+                    <thead className="bg-[#161619] text-xs text-crm-fg-muted uppercase font-medium border-b border-crm-border">
                         <tr>
                             <th className="px-6 py-3">Nombre</th>
                             <th className="px-6 py-3">Categoría</th>
@@ -163,22 +163,22 @@ export default function MessageTemplateManager() {
                     <tbody className="divide-y divide-[#33333A]">
                         {loading ? (
                             <tr>
-                                <td colSpan="5" className="px-6 py-8 text-center text-[#A1A1AA]">
+                                <td colSpan="5" className="px-6 py-8 text-center text-crm-fg-muted">
                                     Cargando plantillas...
                                 </td>
                             </tr>
                         ) : templates.length === 0 ? (
                             <tr>
-                                <td colSpan="5" className="px-6 py-8 text-center text-[#A1A1AA]">
+                                <td colSpan="5" className="px-6 py-8 text-center text-crm-fg-muted">
                                     No se encontraron plantillas.
                                 </td>
                             </tr>
                         ) : (
                             templates.map((template) => (
-                                <tr key={template._id} className="hover:bg-[#28282E] transition-colors border-b border-[#33333A] last:border-0">
+                                <tr key={template._id} className="hover:bg-crm-surface-raised transition-colors border-b border-crm-border last:border-0">
                                     <td className="px-6 py-4 font-medium text-[#FAFAFA]">
                                         {template.name}
-                                        {template.isSystem && <span className="ml-2 text-[10px] bg-[#1E1E24] text-[#A1A1AA] px-1.5 py-0.5 rounded border border-[#33333A]">BASE</span>}
+                                        {template.isSystem && <span className="ml-2 text-[10px] bg-[#1E1E24] text-crm-fg-muted px-1.5 py-0.5 rounded border border-crm-border">BASE</span>}
                                     </td>
                                     <td className="px-6 py-4">
                                         <span className="capitalize">{template.category.replace('_', ' ')}</span>
@@ -191,8 +191,8 @@ export default function MessageTemplateManager() {
                                             onClick={() => handleToggleActive(template)}
                                             disabled={!canWrite}
                                             className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium ${
-                                                template.isActive ? 'bg-[#EF3329]/10 text-[#EF3329] border border-[#EF3329]/20' : 'bg-[#1E1E24] text-[#71717A] border border-[#33333A]'
-                                            } ${canWrite ? 'hover:bg-[#28282E]' : 'cursor-default'}`}
+                                                template.isActive ? 'bg-crm-red/10 text-[#EF3329] border border-[#EF3329]/20' : 'bg-[#1E1E24] text-crm-fg-subtle border border-crm-border'
+                                            } ${canWrite ? 'hover:bg-crm-surface-raised' : 'cursor-default'}`}
                                         >
                                             {template.isActive ? (
                                                 <><CheckCircle className="w-3 h-3" /> Activa</>
@@ -214,7 +214,7 @@ export default function MessageTemplateManager() {
                                             <CrmIconButton
                                                 onClick={() => handleDelete(template._id)}
                                                 title="Desactivar plantilla"
-                                                className="text-[#EF3329] hover:bg-[#EF3329]/10 border-transparent hover:border-[#EF3329]/20"
+                                                className="text-[#EF3329] hover:bg-crm-red/10 border-transparent hover:border-[#EF3329]/20"
                                             >
                                                 <Trash2 className="w-4 h-4" />
                                             </CrmIconButton>

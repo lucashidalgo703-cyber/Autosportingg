@@ -67,19 +67,19 @@ export default function QuickAssignModal({ isOpen, onClose, entityType, entityId
 
     return (
         <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
-            <div className="bg-[#161619] border border-[#33333A] rounded-xl shadow-2xl w-full max-w-md overflow-hidden">
-                <div className="flex items-center justify-between p-4 border-b border-[#33333A]">
+            <div className="bg-[#161619] border border-crm-border rounded-xl shadow-2xl w-full max-w-md overflow-hidden">
+                <div className="flex items-center justify-between p-4 border-b border-crm-border">
                     <h3 className="text-lg font-bold text-white flex items-center gap-2">
                         <Users size={18} className="text-indigo-500" />
                         Asignación Rápida
                     </h3>
-                    <button onClick={onClose} className="text-gray-400 hover:text-white transition-colors">
+                    <button onClick={onClose} className="text-crm-fg-muted hover:text-white transition-colors">
                         <X size={20} />
                     </button>
                 </div>
 
                 <div className="p-4">
-                    <p className="text-sm text-gray-400 mb-4">
+                    <p className="text-sm text-crm-fg-muted mb-4">
                         Asignando responsable a:<br/>
                         <span className="font-bold text-white uppercase">{entityType}:</span> {entityTitle}
                     </p>
@@ -92,11 +92,11 @@ export default function QuickAssignModal({ isOpen, onClose, entityType, entityId
                     )}
 
                     <div className="mb-4">
-                        <label className="block text-xs font-bold text-gray-400 uppercase mb-2">Seleccionar Responsable</label>
+                        <label className="block text-xs font-bold text-crm-fg-muted uppercase mb-2">Seleccionar Responsable</label>
                         <select
                             value={selectedUser}
                             onChange={(e) => setSelectedUser(e.target.value)}
-                            className="w-full bg-[#24242B] border border-[#33333A] text-white rounded-lg p-2 focus:outline-none focus:border-[#EF3329]"
+                            className="w-full bg-[#24242B] border border-crm-border text-white rounded-lg p-2 focus:outline-none focus:border-[#EF3329]"
                         >
                             <option value="">Sin responsable (Quitar asignación)</option>
                             {users.map(u => (
@@ -108,7 +108,7 @@ export default function QuickAssignModal({ isOpen, onClose, entityType, entityId
                     <div className="flex gap-2 justify-end mt-6">
                         <button 
                             onClick={onClose}
-                            className="px-4 py-2 bg-transparent text-white border border-[#33333A] rounded-lg hover:bg-[#33333A] transition-colors text-sm"
+                            className="px-4 py-2 bg-transparent text-white border border-crm-border rounded-lg hover:bg-crm-surface-raised transition-colors text-sm"
                         >
                             Cancelar
                         </button>

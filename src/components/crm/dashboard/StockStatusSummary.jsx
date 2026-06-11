@@ -8,14 +8,14 @@ export default function StockStatusSummary({ metrics }) {
         const percentage = total > 0 ? Math.round((count / total) * 100) : 0;
         
         return (
-            <div className="flex flex-col bg-[#161619] border border-white/5 rounded-xl p-4">
+            <div className="flex flex-col bg-[#161619] border border-crm-border rounded-xl p-4">
                 <div className="flex items-center justify-between mb-3">
-                    <span className="text-[#A1A1AA] text-xs font-medium uppercase tracking-wider">{label}</span>
+                    <span className="text-crm-fg-muted text-xs font-medium uppercase tracking-wider">{label}</span>
                     <Icon size={16} className={colorClass.replace('bg-', 'text-').replace('/10', '')} />
                 </div>
                 <div className="flex items-end gap-2 mb-2">
                     <span className="text-2xl font-bold text-white leading-none">{count}</span>
-                    <span className="text-xs text-[#A1A1AA] mb-1">unds</span>
+                    <span className="text-xs text-crm-fg-muted mb-1">unds</span>
                 </div>
                 {/* Progress Bar Tailwind */}
                 <div className="w-full bg-[#1E1E24] h-1.5 rounded-full overflow-hidden">
@@ -33,22 +33,22 @@ export default function StockStatusSummary({ metrics }) {
                 <StatusItem label="Disponibles" count={counts.disponibles} total={counts.total} icon={Car} colorClass="bg-[#22C55E]" />
                 <StatusItem label="Reservados" count={counts.reservados} total={counts.total} icon={Lock} colorClass="bg-yellow-500" />
                 <StatusItem label="Pausados" count={counts.pausados} total={counts.total} icon={PauseCircle} colorClass="bg-orange-500" />
-                <StatusItem label="Vendidos" count={counts.vendidos} total={counts.total} icon={CheckCircle2} colorClass="bg-red-500" />
+                <StatusItem label="Vendidos" count={counts.vendidos} total={counts.total} icon={CheckCircle2} colorClass="bg-crm-red" />
             </div>
 
-            <div className="border-t border-white/10 pt-5">
-                <h4 className="text-sm font-semibold text-[#A1A1AA] mb-4">Visibilidad en Web Pública</h4>
+            <div className="border-t border-crm-border pt-5">
+                <h4 className="text-sm font-semibold text-crm-fg-muted mb-4">Visibilidad en Web Pública</h4>
                 <div className="flex items-center gap-4">
-                    <div className="flex-1 bg-[#1A1A1F] border border-white/5 rounded-lg p-3 flex items-center justify-between">
+                    <div className="flex-1 bg-[#1A1A1F] border border-crm-border rounded-lg p-3 flex items-center justify-between">
                         <div className="flex items-center gap-2">
                             <Eye size={16} className="text-blue-400" />
                             <span className="text-sm text-white">Públicos</span>
                         </div>
                         <span className="font-bold text-white">{counts.visibles}</span>
                     </div>
-                    <div className="flex-1 bg-[#1A1A1F] border border-white/5 rounded-lg p-3 flex items-center justify-between">
+                    <div className="flex-1 bg-[#1A1A1F] border border-crm-border rounded-lg p-3 flex items-center justify-between">
                         <div className="flex items-center gap-2">
-                            <EyeOff size={16} className="text-gray-500" />
+                            <EyeOff size={16} className="text-crm-fg-muted" />
                             <span className="text-sm text-white">Ocultos</span>
                         </div>
                         <span className="font-bold text-white">{counts.ocultos}</span>
