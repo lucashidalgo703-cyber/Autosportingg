@@ -6,9 +6,10 @@ import CrmButton from '../../../components/crm/ui/CrmButton';
 import StockFilters from '../../../components/crm/stock/StockFilters';
 import StockTable from '../../../components/crm/stock/StockTable';
 import StockMobileCards from '../../../components/crm/stock/StockMobileCards';
-import VehicleFormDemo from '../../../components/crm/stock/VehicleFormDemo';
+import VehicleFormModal from '../../../components/VehicleFormModal';
 import { useAdminCars } from '../../../hooks/useAdminCars';
 import { mapRealCarToCRM } from '../../../components/crm/stock/vehicleAdapter';
+import toast from 'react-hot-toast';
 
 export default function AdminStockPage() {
     const { cars, loading, error } = useAdminCars();
@@ -17,6 +18,7 @@ export default function AdminStockPage() {
     const [stockTab, setStockTab] = useState('stock');
     const [brandFilter, setBrandFilter] = useState('todas');
     const [isFormOpen, setIsFormOpen] = useState(false);
+    const [editingCar, setEditingCar] = useState(null);
 
     const vehicles = useMemo(() => {
         if (!cars || cars.length === 0) return [];
@@ -79,11 +81,80 @@ export default function AdminStockPage() {
     }, [vehicles, searchTerm, filterStatus, brandFilter, stockTab]);
 
     const handleNewVehicle = () => {
+        setEditingCar(null);
         setIsFormOpen(true);
     };
 
-    const handleFormSubmit = () => {
-        setIsFormOpen(false);
+    const handleSaveVehicle = async (formData, files) => {
+        try {
+            const token = localStorage.getItem('token');
+            if (!token) throw new Error("No token found");
+
+            const API_URL = process.env.NEXT_PUBLIC_API_URL;
+            const baseUrl = process.env.NODE_ENV === 'production' ? '' : (API_URL || 'http://localhost:3001');
+            
+            const isEditing = !!formData._id;
+            const endpoint = isEditing ? `${baseUrl}/api/cars/${formData._id}` : `${baseUrl}/api/cars`;
+            const method = isEditing ? 'PUT' : 'POST';
+
+            const payload = new FormData();
+            
+            // Append scalar fields
+            Object.keys(formData).forEach(key => {
+                if (key !== '_id' && key !== 'images' && key !== 'createdAt' && key !== 'updatedAt' && formData[key] !== undefined) {
+                    payload.append(key, formData[key]);
+                }
+            });
+
+            // Handle images and imageOrder for PUT
+            let imageOrder = [];
+            let newFileIndex = 0;
+
+            if (files && files.length > 0) {
+                files.forEach((file) => {
+                    if (file.isExisting) {
+                        imageOrder.push(file.url);
+                    } else {
+                        // Es un archivo nuevo File
+                        payload.append('images', file);
+                        imageOrder.push(`__new__${newFileIndex}`);
+                        newFileIndex++;
+                    }
+                });
+            }
+            
+            if (isEditing) {
+                payload.append('imageOrder', JSON.stringify(imageOrder));
+            }
+
+            const loadingToast = toast.loading(isEditing ? 'Actualizando vehículo...' : 'Creando vehículo...');
+
+            const res = await fetch(endpoint, {
+                method,
+                headers: { 'Authorization': `Bearer ${token}` },
+                body: payload
+            });
+
+            toast.dismiss(loadingToast);
+
+            if (!res.ok) {
+                const errData = await res.json().catch(()=>({}));
+                throw new Error(errData.message || 'Error al guardar el vehículo');
+            }
+
+            toast.success(isEditing ? 'Vehículo actualizado' : 'Vehículo creado exitosamente');
+            setIsFormOpen(false);
+            setEditingCar(null);
+            if (typeof refresh === 'function') {
+                refresh();
+            } else {
+                // fallback to page reload if refresh is not available from useAdminCars
+                window.location.reload();
+            }
+        } catch (error) {
+            console.error("Save vehicle error:", error);
+            toast.error(error.message || 'Error al guardar el vehículo');
+        }
     };
 
     if (loading) {
@@ -183,10 +254,11 @@ export default function AdminStockPage() {
                 </div>
             </div>
 
-            <VehicleFormDemo
+            <VehicleFormModal
                 isOpen={isFormOpen}
-                onClose={() => setIsFormOpen(false)}
-                onSubmit={handleFormSubmit}
+                onClose={() => { setIsFormOpen(false); setEditingCar(null); }}
+                onSave={handleSaveVehicle}
+                editingCar={editingCar}
             />
         </div>
     );
