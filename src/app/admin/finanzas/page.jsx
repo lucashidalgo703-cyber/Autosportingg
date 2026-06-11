@@ -16,8 +16,10 @@ import {
 import { useAdminTransactions } from '../../../hooks/useAdminTransactions';
 import TransactionModal from '../../../components/crm/finance/TransactionModal';
 import PersonalFinanceTab from '../../../components/crm/finance/PersonalFinanceTab';
+import CuotasFinancieras from '../../../components/crm/finance/CuotasFinancieras';
 import PermissionGuard from '../../../components/crm/layout/PermissionGuard';
 import { PERMISSIONS } from '../../../utils/adminPermissions';
+import { useAdminInstallments } from '../../../hooks/useAdminInstallments';
 
 const FINANCE_TABS = [
     { id: 'resumen', icon: '📊', label: 'Resumen' },
@@ -88,7 +90,9 @@ const isSenaTransaction = (tx) => {
 
 function FinanzasPage() {
     const { fetchTransactions, createTransaction, updateTransaction, loading, error } = useAdminTransactions();
+    const { fetchInstallments, loading: installmentsLoading, payInstallment } = useAdminInstallments();
     const [allTransactions, setAllTransactions] = useState([]);
+    const [installments, setInstallments] = useState([]);
     const [activeTab, setActiveTab] = useState('resumen');
     const [movementMode, setMovementMode] = useState('todos');
     const [senaMode, setSenaMode] = useState('todos');
@@ -128,12 +132,14 @@ function FinanzasPage() {
     };
 
     const loadData = async () => {
-        const [transactionsData, depositsData] = await Promise.all([
+        const [transactionsData, depositsData, installmentsData] = await Promise.all([
             fetchTransactions(),
-            fetchFinanceDeposits()
+            fetchFinanceDeposits(),
+            fetchInstallments()
         ]);
         setAllTransactions(transactionsData || []);
         setFinanceDeposits(depositsData || EMPTY_DEPOSIT_DATA);
+        setInstallments(installmentsData || []);
     };
 
     useEffect(() => {
@@ -400,6 +406,7 @@ function FinanzasPage() {
                                 metrics={metrics}
                                 monthlyFlow={monthlyFlow}
                                 expenseCategories={expenseCategories}
+                                installments={installments}
                                 onOpenAccounts={() => setActiveTab('cuentas')}
                             />
                         )}
@@ -437,7 +444,24 @@ function FinanzasPage() {
                             <PersonalFinanceTab />
                         )}
 
-                        {activeTab !== 'resumen' && activeTab !== 'movimientos' && activeTab !== 'senas' && activeTab !== 'gastos-personales' && (
+                        {activeTab === 'cuotas' && (
+                            <CuotasFinancieras 
+                                installments={installments} 
+                                loading={installmentsLoading} 
+                                onPayInstallment={async (item) => {
+                                    // Pagar la cuota por el saldo pendiente
+                                    try {
+                                        const balance = Number(item.amount || 0) - Number(item.paidAmount || 0);
+                                        await payInstallment(item._id, { amount: balance, paymentMethod: 'efectivo', notes: 'Cobro total desde Finanzas' });
+                                        await loadData();
+                                    } catch(e) {
+                                        console.error('Error pagando cuota:', e);
+                                    }
+                                }} 
+                            />
+                        )}
+
+                        {activeTab !== 'resumen' && activeTab !== 'movimientos' && activeTab !== 'senas' && activeTab !== 'gastos-personales' && activeTab !== 'cuotas' && (
                             <FinanceTabPlaceholder
                                 tab={FINANCE_TABS.find((item) => item.id === activeTab)}
                                 balances={balances}
@@ -461,7 +485,33 @@ function FinanzasPage() {
     );
 }
 
-function ResumenFinanciero({ balances, metrics, monthlyFlow, expenseCategories, onOpenAccounts }) {
+function ResumenFinanciero({ balances, metrics, monthlyFlow, expenseCategories, onOpenAccounts, installments = [] }) {
+    const installmentStats = useMemo(() => {
+        let vencidas = 0;
+        let porVencer = 0;
+        let enFecha = 0;
+
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+
+        installments.forEach(item => {
+            const status = String(item.status || '').toLowerCase();
+            if (status === 'pagada' || status === 'anulada') return;
+
+            const dueDate = new Date(item.dueDate);
+            if (dueDate < today) {
+                vencidas++;
+            } else {
+                const diffTime = Math.abs(dueDate - today);
+                const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+                if (diffDays <= 7) porVencer++;
+                else enFecha++;
+            }
+        });
+
+        return { vencidas, porVencer, enFecha };
+    }, [installments]);
+
     return (
         <div className="space-y-4">
             <div className="grid grid-cols-1 gap-4 xl:grid-cols-[1.05fr_0.95fr]">
@@ -501,9 +551,9 @@ function ResumenFinanciero({ balances, metrics, monthlyFlow, expenseCategories, 
             <section className="rounded-2xl border border-crm-border bg-crm-surface p-5">
                 <h2 className="mb-5 text-base font-black text-crm-fg">📅 Cuotas — Estado de cobro</h2>
                 <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
-                    <DebtStatus title="Vencidas" value="0" copy="— sin atrasos" caption="Pendientes con fecha pasada" tone="danger" />
-                    <DebtStatus title="Por vencer" value="0" copy="— sin atrasos" caption="Próximos 7 días" tone="warning" />
-                    <DebtStatus title="En fecha" value="0" copy="— sin atrasos" caption="A más de 7 días — tranquilo" tone="success" />
+                    <DebtStatus title="Vencidas" value={installmentStats.vencidas} copy={installmentStats.vencidas === 0 ? "— sin atrasos" : "— revisar"} caption="Pendientes con fecha pasada" tone="danger" />
+                    <DebtStatus title="Por vencer" value={installmentStats.porVencer} copy={installmentStats.porVencer === 0 ? "— tranquilo" : "— próximas"} caption="Próximos 7 días" tone="warning" />
+                    <DebtStatus title="En fecha" value={installmentStats.enFecha} copy="— sin atrasos" caption="A más de 7 días — tranquilo" tone="success" />
                 </div>
             </section>
 
