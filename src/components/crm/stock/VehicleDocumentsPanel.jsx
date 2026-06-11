@@ -36,8 +36,8 @@ export default function VehicleDocumentsPanel({ vehicle, onSaveComplete }) {
         switch(status) {
             case 'recibido': return <FileCheck size={18} className="text-[#22C55E]" />;
             case 'pendiente': return <FileX size={18} className="text-[#EF3329]" />;
-            case 'no aplica': return <FileMinus size={18} className="text-[#A1A1AA]" />;
-            default: return <FileMinus size={18} className="text-[#A1A1AA]" />;
+            case 'no aplica': return <FileMinus size={18} className="text-crm-fg-muted" />;
+            default: return <FileMinus size={18} className="text-crm-fg-muted" />;
         }
     };
 
@@ -94,7 +94,7 @@ export default function VehicleDocumentsPanel({ vehicle, onSaveComplete }) {
                 {!isEditing && (
                     <button 
                         onClick={() => setIsEditing(true)}
-                        className="text-gray-400 hover:text-white transition-colors"
+                        className="text-crm-fg-muted hover:text-white transition-colors"
                     >
                         <Edit2 size={16} />
                     </button>
@@ -103,7 +103,7 @@ export default function VehicleDocumentsPanel({ vehicle, onSaveComplete }) {
             
             <div className="flex flex-col gap-2">
                 {Object.keys(labels).map((key) => (
-                    <div key={key} className="flex flex-col sm:flex-row sm:items-center justify-between p-3 bg-[#161619] border border-[#33333A] rounded-lg gap-3">
+                    <div key={key} className="flex flex-col sm:flex-row sm:items-center justify-between p-3 bg-[#161619] border border-crm-border rounded-lg gap-3">
                         <div className="flex items-center gap-3">
                             {getStatusIcon(isEditing ? formData[key] : currentDocs[key])}
                             <span className="text-sm text-white">{labels[key]}</span>
@@ -112,7 +112,7 @@ export default function VehicleDocumentsPanel({ vehicle, onSaveComplete }) {
                             <select 
                                 value={formData[key]}
                                 onChange={(e) => handleChange(key, e.target.value)}
-                                className="bg-[#1e1e22] border border-white/10 text-white text-xs rounded px-2 py-1 outline-none focus:border-red-500"
+                                className="bg-crm-surface border border-crm-border text-white text-xs rounded px-2 py-1 outline-none focus:border-red-500"
                             >
                                 <option value="pendiente">Pendiente</option>
                                 <option value="recibido">Recibido</option>
@@ -126,11 +126,11 @@ export default function VehicleDocumentsPanel({ vehicle, onSaveComplete }) {
             </div>
 
             {isEditing && (
-                <div className="flex justify-end gap-2 mt-4 pt-4 border-t border-white/5">
+                <div className="flex justify-end gap-2 mt-4 pt-4 border-t border-crm-border">
                     <button 
                         onClick={handleCancel}
                         disabled={loading}
-                        className="px-3 py-1.5 text-xs text-white bg-[#2a2a2e] hover:bg-[#33333a] rounded transition-colors"
+                        className="px-3 py-1.5 text-xs text-white bg-crm-surface-raised hover:bg-[#33333a] rounded transition-colors"
                     >
                         Cancelar
                     </button>

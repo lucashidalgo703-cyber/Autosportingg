@@ -5,10 +5,10 @@ import { FileText, Clock, AlertCircle, Truck, Eye } from 'lucide-react';
 export default function DocMobileCards({ sales, getSaleTaskStatus, onCreateTask }) {
     if (!sales || sales.length === 0) {
         return (
-            <div className="md:hidden flex flex-col items-center justify-center p-8 bg-[#161619] border border-[#33333A] rounded-2xl text-center">
+            <div className="md:hidden flex flex-col items-center justify-center p-8 bg-[#161619] border border-crm-border rounded-2xl text-center">
                 <FileText size={48} className="text-[#33333A] mb-4" />
                 <h3 className="text-lg font-bold text-white mb-2">No hay ventas operativas</h3>
-                <p className="text-[#A1A1AA]">Ajustá los filtros o generá una nueva venta.</p>
+                <p className="text-crm-fg-muted">Ajustá los filtros o generá una nueva venta.</p>
             </div>
         );
     }
@@ -20,7 +20,7 @@ export default function DocMobileCards({ sales, getSaleTaskStatus, onCreateTask 
             case 'parcial':
                 return <span className="px-2 py-1 rounded-md bg-yellow-500/10 text-yellow-400 border border-yellow-500/20 text-[10px] font-bold uppercase">Parcial</span>;
             default:
-                return <span className="px-2 py-1 rounded-md bg-red-500/10 text-red-400 border border-red-500/20 text-[10px] font-bold uppercase">Pendiente</span>;
+                return <span className="px-2 py-1 rounded-md bg-crm-red/10 text-red-400 border border-red-500/20 text-[10px] font-bold uppercase">Pendiente</span>;
         }
     };
 
@@ -44,41 +44,41 @@ export default function DocMobileCards({ sales, getSaleTaskStatus, onCreateTask 
                 const hasPendingTasks = pendingTasks && pendingTasks.length > 0;
 
                 return (
-                    <div key={sale._id} className="bg-[#161619] border border-[#33333A] rounded-2xl p-4 flex flex-col gap-4">
+                    <div key={sale._id} className="bg-[#161619] border border-crm-border rounded-2xl p-4 flex flex-col gap-4">
                         {/* Header */}
                         <div className="flex justify-between items-start">
                             <div>
                                 <div className="text-sm font-bold text-white mb-1">
                                     {sale.clientId?.fullName || sale.clientId?.firstName || 'Sin Cliente'}
                                 </div>
-                                <div className="text-xs text-[#A1A1AA]">
+                                <div className="text-xs text-crm-fg-muted">
                                     {sale.vehicleId?.brand} {sale.vehicleId?.name}
                                 </div>
                             </div>
                             <div className="text-right">
-                                <div className="text-xs text-[#A1A1AA] mb-1">
+                                <div className="text-xs text-crm-fg-muted mb-1">
                                     {new Date(sale.saleDate || sale.createdAt).toLocaleDateString()}
                                 </div>
-                                <span className="text-[10px] text-[#A1A1AA] font-mono bg-black/20 px-1.5 py-0.5 rounded">
+                                <span className="text-[10px] text-crm-fg-muted font-mono bg-black/20 px-1.5 py-0.5 rounded">
                                     {sale._id.slice(-6).toUpperCase()}
                                 </span>
                             </div>
                         </div>
 
                         {/* Status Grid */}
-                        <div className="grid grid-cols-2 gap-3 bg-[#0B0B0D] p-3 rounded-xl border border-[#33333A]">
+                        <div className="grid grid-cols-2 gap-3 bg-crm-bg p-3 rounded-xl border border-crm-border">
                             <div className="flex flex-col gap-1.5">
-                                <span className="text-[10px] font-bold text-[#A1A1AA] uppercase">Documentación</span>
+                                <span className="text-[10px] font-bold text-crm-fg-muted uppercase">Documentación</span>
                                 <div>{getDocStatusBadge(sale.documentationStatus)}</div>
                             </div>
                             <div className="flex flex-col gap-1.5">
-                                <span className="text-[10px] font-bold text-[#A1A1AA] uppercase">Entrega</span>
+                                <span className="text-[10px] font-bold text-crm-fg-muted uppercase">Entrega</span>
                                 <div>{getDeliveryStatusBadge(sale.deliveryStatus)}</div>
                             </div>
                         </div>
 
                         {/* Seguimiento */}
-                        <div className="flex items-center justify-between border-t border-[#33333A] pt-3">
+                        <div className="flex items-center justify-between border-t border-crm-border pt-3">
                             <div>
                                 {hasPendingTasks ? (
                                     <div className="flex flex-col gap-1">
@@ -96,13 +96,13 @@ export default function DocMobileCards({ sales, getSaleTaskStatus, onCreateTask 
                             <div className="flex gap-2">
                                 <button 
                                     onClick={() => onCreateTask(sale, 'documentacion')}
-                                    className="w-8 h-8 rounded-lg bg-neutral-800 flex items-center justify-center text-neutral-400 border border-neutral-700"
+                                    className="w-8 h-8 rounded-lg bg-crm-surface-raised flex items-center justify-center text-neutral-400 border border-neutral-700"
                                 >
                                     <FileText size={14} />
                                 </button>
                                 <button 
                                     onClick={() => onCreateTask(sale, 'entrega')}
-                                    className="w-8 h-8 rounded-lg bg-neutral-800 flex items-center justify-center text-neutral-400 border border-neutral-700"
+                                    className="w-8 h-8 rounded-lg bg-crm-surface-raised flex items-center justify-center text-neutral-400 border border-neutral-700"
                                 >
                                     <Truck size={14} />
                                 </button>

@@ -49,9 +49,9 @@ export default function VehicleWebStatusPanel({ vehicle, onSaveComplete }) {
 
     return (
         <CrmCard>
-            <div className="flex justify-between items-center mb-4 border-b border-[#33333A] pb-3">
+            <div className="flex justify-between items-center mb-4 border-b border-crm-border pb-3">
                 <h3 className="text-white font-semibold text-lg flex items-center gap-2">
-                    <Globe size={18} className={isPublicado ? "text-blue-400" : "text-gray-400"} />
+                    <Globe size={18} className={isPublicado ? "text-blue-400" : "text-crm-fg-muted"} />
                     Publicación Web
                 </h3>
                 {isPublicado ? (
@@ -59,7 +59,7 @@ export default function VehicleWebStatusPanel({ vehicle, onSaveComplete }) {
                         <CheckCircle size={10} /> Publicado en catálogo
                     </span>
                 ) : (
-                    <span className="text-[10px] bg-[#24242B] text-gray-400 border border-[#33333A] px-2 py-0.5 rounded-full font-bold uppercase flex items-center gap-1">
+                    <span className="text-[10px] bg-[#24242B] text-crm-fg-muted border border-crm-border px-2 py-0.5 rounded-full font-bold uppercase flex items-center gap-1">
                         Oculto del catálogo
                     </span>
                 )}
@@ -67,8 +67,8 @@ export default function VehicleWebStatusPanel({ vehicle, onSaveComplete }) {
 
             <div className="flex flex-col gap-4">
                 <div className="flex flex-col gap-1.5">
-                    <label className="text-sm font-medium text-[#A1A1AA]">Estado Operativo</label>
-                    <select value={status} onChange={(e) => setStatus(e.target.value)} className="bg-[#09090B] border border-[#33333A] text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-[#E63027]">
+                    <label className="text-sm font-medium text-crm-fg-muted">Estado Operativo</label>
+                    <select value={status} onChange={(e) => setStatus(e.target.value)} className="bg-[#09090B] border border-crm-border text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-[#E63027]">
                         <option value="Disponible">Disponible</option>
                         <option value="Reservado">Reservado</option>
                         <option value="Vendido">Vendido</option>
@@ -76,12 +76,12 @@ export default function VehicleWebStatusPanel({ vehicle, onSaveComplete }) {
                     </select>
                 </div>
 
-                <label className="flex items-center justify-between cursor-pointer p-3 bg-[#09090B] border border-[#33333A] rounded-lg group hover:border-[#E63027]/50 transition-colors">
+                <label className="flex items-center justify-between cursor-pointer p-3 bg-[#09090B] border border-crm-border rounded-lg group hover:border-[#E63027]/50 transition-colors">
                     <div className="flex flex-col">
                         <span className="text-white font-medium text-sm">Mostrar en sitio web</span>
-                        <span className="text-[10px] text-[#A1A1AA]">Visibilidad pública del vehículo</span>
+                        <span className="text-[10px] text-crm-fg-muted">Visibilidad pública del vehículo</span>
                     </div>
-                    <div className={`w-10 h-6 rounded-full flex items-center p-1 transition-colors ${visibleEnWeb ? 'bg-[#E63027]' : 'bg-[#33333A]'}`}>
+                    <div className={`w-10 h-6 rounded-full flex items-center p-1 transition-colors ${visibleEnWeb ? 'bg-[#E63027]' : 'bg-crm-surface-raised'}`}>
                         <div className={`w-4 h-4 bg-white rounded-full shadow-md transform transition-transform ${visibleEnWeb ? 'translate-x-4' : 'translate-x-0'}`}></div>
                     </div>
                     {/* Hidden input strictly for React state sync if needed, though state is managed directly */}
@@ -101,7 +101,7 @@ export default function VehicleWebStatusPanel({ vehicle, onSaveComplete }) {
                 )}
 
                 {imageCount === 0 && (
-                    <div className="flex items-start gap-2 p-3 bg-red-500/10 border border-red-500/20 rounded-lg">
+                    <div className="flex items-start gap-2 p-3 bg-crm-red/10 border border-red-500/20 rounded-lg">
                         <AlertTriangle size={16} className="text-red-400 shrink-0 mt-0.5" />
                         <p className="text-xs text-red-400 leading-relaxed">
                             Este vehículo no tiene imágenes cargadas. Se recomienda agregar fotos antes de publicarlo.
@@ -113,7 +113,7 @@ export default function VehicleWebStatusPanel({ vehicle, onSaveComplete }) {
                     <button 
                         onClick={handleSave}
                         disabled={isSaving || (visibleEnWeb === (vehicle?.visibleEnWeb !== false) && status === vehicle?.status)}
-                        className="bg-[#161619] border border-[#33333A] hover:bg-[#24242B] text-white text-xs font-bold px-4 py-2 rounded-lg transition-colors flex items-center gap-2 disabled:opacity-50"
+                        className="bg-[#161619] border border-crm-border hover:bg-[#24242B] text-white text-xs font-bold px-4 py-2 rounded-lg transition-colors flex items-center gap-2 disabled:opacity-50"
                     >
                         {isSaving ? <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-white"></div> : <Save size={14} />}
                         Guardar Publicación

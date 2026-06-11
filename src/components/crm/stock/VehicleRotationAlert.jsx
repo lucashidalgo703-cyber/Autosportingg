@@ -8,5 +8,5 @@ export default function VehicleRotationAlert({ dias }) {
     if (dias >= 60) {
         return <CrmBadge variant="warning">+{dias} días</CrmBadge>;
     }
-    return <span className="text-[#A1A1AA] text-sm">{dias} días</span>;
+    return <span className="text-crm-fg-muted text-sm">{dias} días</span>;
 }

@@ -50,11 +50,11 @@ export default function ExpenseAddModal({ isOpen, onClose, onSave, vehicleCurren
 
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
-            <div className="bg-[#161619] border border-[#33333A] rounded-xl w-full max-w-md overflow-hidden flex flex-col max-h-[90vh]">
+            <div className="bg-[#161619] border border-crm-border rounded-xl w-full max-w-md overflow-hidden flex flex-col max-h-[90vh]">
                 
-                <div className="flex items-center justify-between p-4 border-b border-[#33333A]">
+                <div className="flex items-center justify-between p-4 border-b border-crm-border">
                     <h2 className="text-lg font-bold text-white">Agregar Gasto</h2>
-                    <button onClick={onClose} className="p-1 text-[#A1A1AA] hover:text-white transition-colors" disabled={isSaving}>
+                    <button onClick={onClose} className="p-1 text-crm-fg-muted hover:text-white transition-colors" disabled={isSaving}>
                         <X size={20} />
                     </button>
                 </div>
@@ -62,20 +62,20 @@ export default function ExpenseAddModal({ isOpen, onClose, onSave, vehicleCurren
                 <form onSubmit={handleSubmit} className="p-4 flex-1 overflow-y-auto flex flex-col gap-4">
                     
                     <div className="flex flex-col gap-1.5">
-                        <label className="text-sm font-medium text-[#A1A1AA]">Concepto *</label>
+                        <label className="text-sm font-medium text-crm-fg-muted">Concepto *</label>
                         <input 
                             type="text" 
                             required
                             placeholder="Ej. Cambio de cubiertas, Gestoría..."
                             value={concept}
                             onChange={e => setConcept(e.target.value)}
-                            className="bg-[#09090B] border border-[#33333A] text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-[#E63027]"
+                            className="bg-[#09090B] border border-crm-border text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-[#E63027]"
                         />
                     </div>
 
                     <div className="flex gap-3">
                         <div className="flex flex-col gap-1.5 flex-1">
-                            <label className="text-sm font-medium text-[#A1A1AA]">Monto *</label>
+                            <label className="text-sm font-medium text-crm-fg-muted">Monto *</label>
                             <input 
                                 type="number" 
                                 required
@@ -83,15 +83,15 @@ export default function ExpenseAddModal({ isOpen, onClose, onSave, vehicleCurren
                                 step="any"
                                 value={amount}
                                 onChange={e => setAmount(e.target.value)}
-                                className="bg-[#09090B] border border-[#33333A] text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-[#E63027]"
+                                className="bg-[#09090B] border border-crm-border text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-[#E63027]"
                             />
                         </div>
                         <div className="flex flex-col gap-1.5 w-24">
-                            <label className="text-sm font-medium text-[#A1A1AA]">Moneda</label>
+                            <label className="text-sm font-medium text-crm-fg-muted">Moneda</label>
                             <select 
                                 value={currency}
                                 onChange={e => setCurrency(e.target.value)}
-                                className="bg-[#09090B] border border-[#33333A] text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-[#E63027]"
+                                className="bg-[#09090B] border border-crm-border text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-[#E63027]"
                             >
                                 <option value="USD">USD</option>
                                 <option value="ARS">ARS</option>
@@ -109,13 +109,13 @@ export default function ExpenseAddModal({ isOpen, onClose, onSave, vehicleCurren
                     )}
 
                     <div className="flex flex-col gap-1.5">
-                        <label className="text-sm font-medium text-[#A1A1AA]">Nota (opcional)</label>
+                        <label className="text-sm font-medium text-crm-fg-muted">Nota (opcional)</label>
                         <textarea 
                             rows={2}
                             placeholder="Detalles adicionales..."
                             value={note}
                             onChange={e => setNote(e.target.value)}
-                            className="bg-[#09090B] border border-[#33333A] text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-[#E63027] resize-none"
+                            className="bg-[#09090B] border border-crm-border text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-[#E63027] resize-none"
                         />
                     </div>
 
@@ -124,7 +124,7 @@ export default function ExpenseAddModal({ isOpen, onClose, onSave, vehicleCurren
                             type="button" 
                             onClick={onClose}
                             disabled={isSaving}
-                            className="flex-1 px-4 py-2 bg-transparent border border-[#33333A] text-white rounded-lg hover:bg-[#24242B] transition-colors font-medium text-sm"
+                            className="flex-1 px-4 py-2 bg-transparent border border-crm-border text-white rounded-lg hover:bg-[#24242B] transition-colors font-medium text-sm"
                         >
                             Cancelar
                         </button>

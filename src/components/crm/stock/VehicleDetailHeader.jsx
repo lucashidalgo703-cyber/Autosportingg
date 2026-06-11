@@ -6,19 +6,19 @@ import VehicleRotationAlert from './VehicleRotationAlert';
 
 export default function VehicleDetailHeader({ vehicle, activeReservation }) {
     return (
-        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-[#1E1E24] p-6 rounded-xl border border-[#33333A]">
+        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-[#1E1E24] p-6 rounded-xl border border-crm-border">
             <div className="flex flex-col gap-2">
                 <Link 
                     href="/admin/stock"
-                    className="flex items-center gap-2 text-sm text-[#A1A1AA] hover:text-white transition-colors w-fit mb-2"
+                    className="flex items-center gap-2 text-sm text-crm-fg-muted hover:text-white transition-colors w-fit mb-2"
                 >
                     <ArrowLeft size={16} />
                     Volver al Stock
                 </Link>
                 <h1 className="text-2xl md:text-3xl font-bold text-white m-0">
-                    {vehicle.marca} {vehicle.modelo} <span className="font-light text-[#A1A1AA]">| {vehicle.año}</span>
+                    {vehicle.marca} {vehicle.modelo} <span className="font-light text-crm-fg-muted">| {vehicle.año}</span>
                 </h1>
-                <p className="text-sm text-[#A1A1AA] m-0">{vehicle.version}</p>
+                <p className="text-sm text-crm-fg-muted m-0">{vehicle.version}</p>
             </div>
             
             <div className="flex flex-wrap items-center gap-3">
@@ -27,18 +27,18 @@ export default function VehicleDetailHeader({ vehicle, activeReservation }) {
                         Público Web
                     </span>
                 ) : (
-                    <span className="px-2.5 py-1 rounded-full text-xs font-medium bg-[#A1A1AA]/10 text-[#A1A1AA] border border-[#33333A]">
+                    <span className="px-2.5 py-1 rounded-full text-xs font-medium bg-[#A1A1AA]/10 text-crm-fg-muted border border-crm-border">
                         Oculto Web
                     </span>
                 )}
                 <VehicleStatusBadge status={vehicle.estado} />
                 {activeReservation?._id && (
-                    <span className="flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold bg-red-500/10 text-red-400 border border-red-500/20">
+                    <span className="flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold bg-crm-red/10 text-red-400 border border-red-500/20">
                         <Lock size={12} />
                         RESERVA ACTIVA
                     </span>
                 )}
-                <div className="h-6 w-px bg-[#33333A] hidden md:block"></div>
+                <div className="h-6 w-px bg-crm-surface-raised hidden md:block"></div>
                 <VehicleRotationAlert dias={vehicle.diasEnStock} />
             </div>
         </div>

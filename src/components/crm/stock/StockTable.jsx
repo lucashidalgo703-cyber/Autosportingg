@@ -1,6 +1,7 @@
-"use client";
+import React from 'react';
 import Link from 'next/link';
 import { Filter } from 'lucide-react';
+import CrmTable from '../ui/CrmTable';
 
 const getVehicleYear = (vehicle) => vehicle.year || vehicle['año'] || vehicle['aÃ±o'] || 'S/D';
 const formatNumber = (value) => Number(value || 0).toLocaleString('es-AR');
@@ -49,105 +50,126 @@ const getListValue = (data) => {
 };
 
 export default function StockTable({ data }) {
-    if (data.length === 0) {
-        return (
-            <div className="flex min-h-[320px] flex-col items-center justify-center rounded-xl border border-dashed border-crm-border bg-crm-surface px-6 py-16 text-center">
-                <div className="mb-4 flex h-11 w-11 items-center justify-center rounded-xl border border-crm-border bg-crm-bg text-crm-fg-muted">
-                    <Filter size={20} />
+    const columns = [
+        {
+            label: 'Vehículo',
+            key: 'vehicle',
+            render: (vehicle) => {
+                const days = Number(vehicle.diasEnStock || 0);
+                const progress = getProgress(days);
+                return (
+                    <>
+                        <div className="font-medium leading-5 text-crm-fg">
+                            {vehicle.marca} {vehicle.modelo}
+                        </div>
+                        <div className="mt-0.5 text-xs text-crm-fg-muted">{vehicle.color}</div>
+                        <div className="mt-2">
+                            <div className="flex items-center justify-between gap-2 text-xs text-crm-fg">
+                                <span>{days}d / 60d</span>
+                                <span>{progress}%</span>
+                            </div>
+                            <div className="mt-1 h-1 overflow-hidden rounded-full bg-crm-bg">
+                                <div
+                                    className="h-full rounded-full bg-crm-red"
+                                    style={{ width: `${progress}%` }}
+                                />
+                            </div>
+                        </div>
+                    </>
+                );
+            }
+        },
+        {
+            label: 'Año',
+            key: 'year',
+            render: (v) => getVehicleYear(v)
+        },
+        {
+            label: 'Patente / VIN',
+            key: 'plate',
+            cellClassName: 'font-mono text-xs',
+            render: (v) => v.dominio || '--'
+        },
+        {
+            label: 'KM',
+            key: 'km',
+            render: (v) => `${formatNumber(v.kilometraje)} km`
+        },
+        {
+            label: 'Precio',
+            key: 'price',
+            cellClassName: 'font-semibold',
+            render: (v) => formatMoney(v.moneda, v.precioPublicado)
+        },
+        {
+            label: 'Consig.',
+            key: 'owner',
+            cellClassName: 'text-xs text-crm-fg-muted',
+            render: (v) => getOwner(v)
+        },
+        {
+            label: 'Estado',
+            key: 'status',
+            render: (v) => getStatusLabel(v.estado)
+        },
+        {
+            label: 'Ubicación',
+            key: 'location',
+            cellClassName: 'text-xs text-crm-fg-muted',
+            render: (v) => getLocation(v)
+        },
+        {
+            label: 'Ingreso',
+            key: 'date',
+            cellClassName: 'text-xs text-crm-fg-muted',
+            render: (v) => formatDate(v.fechaIngreso)
+        },
+        {
+            label: 'Acciones',
+            key: 'actions',
+            render: (vehicle) => (
+                <div className="flex items-center gap-2">
+                    <Link
+                        href={`/admin/stock/${vehicle.id}`}
+                        className="inline-flex h-8 items-center rounded-lg border border-transparent bg-transparent px-2 text-xs font-semibold text-crm-fg no-underline transition-colors hover:bg-crm-surface-raised"
+                    >
+                        Editar
+                    </Link>
+                    <button
+                        type="button"
+                        className="m-0 h-8 appearance-none rounded-lg border border-transparent bg-transparent px-2 text-xs font-semibold text-crm-fg transition-colors hover:bg-crm-surface-raised"
+                    >
+                        Señar
+                    </button>
+                    <button
+                        type="button"
+                        className="m-0 h-8 appearance-none rounded-lg border border-transparent bg-transparent px-2 text-xs font-semibold text-crm-red transition-colors hover:bg-crm-red/10"
+                    >
+                        Eliminar
+                    </button>
                 </div>
-                <h2 className="m-0 text-lg font-bold text-crm-fg">Sin resultados</h2>
-                <p className="m-0 mt-2 max-w-md text-sm leading-6 text-crm-fg-muted">
-                    Todavía no hay vehículos en el stock. Cargá el primero con el botón Nuevo vehículo.
-                </p>
-            </div>
-        );
-    }
+            )
+        }
+    ];
 
     return (
         <div className="flex flex-col gap-4">
-            <div className="rounded-xl border border-crm-border bg-crm-surface p-3 text-sm font-semibold text-crm-fg">
-                {data.length} {data.length === 1 ? 'vehículo' : 'vehículos'} en lista
-                <span className="mx-1 text-crm-fg-muted">·</span>
-                <span>{getListValue(data)}</span>
-            </div>
-
-            <div className="overflow-x-auto rounded-xl border border-crm-border bg-crm-surface">
-                <table className="w-full min-w-[1080px] border-collapse text-left">
-                    <thead className="bg-crm-surface-raised text-xs uppercase text-crm-fg-muted">
-                        <tr>
-                            <th className="px-3 py-2 font-semibold">Vehículo</th>
-                            <th className="px-3 py-2 font-semibold">Año</th>
-                            <th className="px-3 py-2 font-semibold">Patente / VIN</th>
-                            <th className="px-3 py-2 font-semibold">KM</th>
-                            <th className="px-3 py-2 font-semibold">Precio</th>
-                            <th className="px-3 py-2 font-semibold">Consig.</th>
-                            <th className="px-3 py-2 font-semibold">Estado</th>
-                            <th className="px-3 py-2 font-semibold">Ubicación</th>
-                            <th className="px-3 py-2 font-semibold">Ingreso</th>
-                            <th className="px-3 py-2 font-semibold">Acciones</th>
-                        </tr>
-                    </thead>
-                    <tbody className="divide-y divide-crm-border">
-                        {data.map((vehicle) => {
-                            const days = Number(vehicle.diasEnStock || 0);
-                            const progress = getProgress(days);
-
-                            return (
-                                <tr key={vehicle.id} className="h-[85px] text-sm text-crm-fg transition-colors hover:bg-crm-surface-raised/70">
-                                    <td className="px-3 py-2 align-middle">
-                                        <div className="font-medium leading-5 text-crm-fg">
-                                            {vehicle.marca} {vehicle.modelo}
-                                        </div>
-                                        <div className="mt-0.5 text-xs text-crm-fg-muted">{vehicle.color}</div>
-                                        <div className="mt-2">
-                                            <div className="flex items-center justify-between gap-2 text-xs text-crm-fg">
-                                                <span>{days}d / 60d</span>
-                                                <span>{progress}%</span>
-                                            </div>
-                                            <div className="mt-1 h-1 overflow-hidden rounded-full bg-crm-bg">
-                                                <div
-                                                    className="h-full rounded-full bg-crm-red"
-                                                    style={{ width: `${progress}%` }}
-                                                />
-                                            </div>
-                                        </div>
-                                    </td>
-                                    <td className="px-3 py-2 align-middle">{getVehicleYear(vehicle)}</td>
-                                    <td className="px-3 py-2 align-middle font-mono text-xs">{vehicle.dominio || '--'}</td>
-                                    <td className="px-3 py-2 align-middle">{formatNumber(vehicle.kilometraje)} km</td>
-                                    <td className="px-3 py-2 align-middle font-semibold">{formatMoney(vehicle.moneda, vehicle.precioPublicado)}</td>
-                                    <td className="px-3 py-2 align-middle text-xs text-crm-fg-muted">{getOwner(vehicle)}</td>
-                                    <td className="px-3 py-2 align-middle">{getStatusLabel(vehicle.estado)}</td>
-                                    <td className="px-3 py-2 align-middle text-xs text-crm-fg-muted">{getLocation(vehicle)}</td>
-                                    <td className="px-3 py-2 align-middle text-xs text-crm-fg-muted">{formatDate(vehicle.fechaIngreso)}</td>
-                                    <td className="px-3 py-2 align-middle">
-                                        <div className="flex items-center gap-2">
-                                            <Link
-                                                href={`/admin/stock/${vehicle.id}`}
-                                                className="inline-flex h-8 items-center rounded-lg border border-transparent bg-transparent px-2 text-xs font-semibold text-crm-fg no-underline transition-colors hover:bg-crm-surface-raised"
-                                            >
-                                                Editar
-                                            </Link>
-                                            <button
-                                                type="button"
-                                                className="m-0 h-8 appearance-none rounded-lg border border-transparent bg-transparent px-2 text-xs font-semibold text-crm-fg transition-colors hover:bg-crm-surface-raised"
-                                            >
-                                                Señar
-                                            </button>
-                                            <button
-                                                type="button"
-                                                className="m-0 h-8 appearance-none rounded-lg border border-transparent bg-transparent px-2 text-xs font-semibold text-crm-red transition-colors hover:bg-crm-red/10"
-                                            >
-                                                Eliminar
-                                            </button>
-                                        </div>
-                                    </td>
-                                </tr>
-                            );
-                        })}
-                    </tbody>
-                </table>
-            </div>
+            {data.length > 0 && (
+                <div className="rounded-xl border border-crm-border bg-crm-surface p-3 text-sm font-semibold text-crm-fg">
+                    {data.length} {data.length === 1 ? 'vehículo' : 'vehículos'} en lista
+                    <span className="mx-1 text-crm-fg-muted">·</span>
+                    <span>{getListValue(data)}</span>
+                </div>
+            )}
+            
+            <CrmTable 
+                data={data}
+                columns={columns}
+                emptyIcon={Filter}
+                emptyTitle="Sin resultados"
+                emptyMessage="Todavía no hay vehículos en el stock. Cargá el primero con el botón Nuevo vehículo."
+                minWidth="min-w-[1080px]"
+            />
         </div>
     );
 }

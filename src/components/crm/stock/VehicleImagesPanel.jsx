@@ -83,10 +83,10 @@ export default function VehicleImagesPanel({ vehicle, onSaveComplete }) {
         <CrmCard>
             <div className="flex justify-between items-center mb-4">
                 <h3 className="text-white font-semibold text-lg flex items-center gap-2">
-                    <ImageIcon size={18} className="text-gray-400" />
+                    <ImageIcon size={18} className="text-crm-fg-muted" />
                     Imágenes del vehículo
                 </h3>
-                <div className="text-xs text-gray-500 font-medium">{files.length} / 20 fotos</div>
+                <div className="text-xs text-crm-fg-muted font-medium">{files.length} / 20 fotos</div>
             </div>
 
             <div
@@ -96,8 +96,8 @@ export default function VehicleImagesPanel({ vehicle, onSaveComplete }) {
                 className={`
                     relative cursor-pointer transition-all duration-300
                     border border-dashed rounded-xl flex flex-col items-center justify-center mb-4
-                    ${files.length > 0 ? 'h-32 border-[#33333A] bg-[#09090B]' : 'h-48 bg-[#09090B]'}
-                    ${isDragging ? 'border-[#E63027] bg-[#E63027]/5' : 'border-[#33333A] hover:border-[#E63027]/50'}
+                    ${files.length > 0 ? 'h-32 border-crm-border bg-[#09090B]' : 'h-48 bg-[#09090B]'}
+                    ${isDragging ? 'border-[#E63027] bg-[#E63027]/5' : 'border-crm-border hover:border-[#E63027]/50'}
                 `}
             >
                 <input
@@ -108,11 +108,11 @@ export default function VehicleImagesPanel({ vehicle, onSaveComplete }) {
 
                 {files.length === 0 ? (
                     <div className="text-center pointer-events-none z-10">
-                        <div className={`w-10 h-10 rounded-full flex items-center justify-center mx-auto mb-3 transition-colors ${isDragging ? 'bg-[#E63027] text-white' : 'bg-[#24242B] text-gray-500'}`}>
+                        <div className={`w-10 h-10 rounded-full flex items-center justify-center mx-auto mb-3 transition-colors ${isDragging ? 'bg-[#E63027] text-white' : 'bg-[#24242B] text-crm-fg-muted'}`}>
                             <Upload size={18} />
                         </div>
-                        <p className="text-gray-300 text-xs font-medium">Arrastra imágenes aquí</p>
-                        <p className="text-gray-600 text-[10px] mt-1">o haz clic para buscar</p>
+                        <p className="text-crm-fg-muted text-xs font-medium">Arrastra imágenes aquí</p>
+                        <p className="text-crm-fg-muted text-[10px] mt-1">o haz clic para buscar</p>
                     </div>
                 ) : (
                     <div className="flex gap-4 px-4 overflow-x-auto w-full items-center justify-start h-full z-10 custom-scrollbar py-2">
@@ -124,7 +124,7 @@ export default function VehicleImagesPanel({ vehicle, onSaveComplete }) {
                                 onDrop={() => handleDropSort(i)}
                                 className={`
                                     flex-shrink-0 relative w-28 h-20 rounded-lg overflow-hidden border shadow-sm group cursor-grab active:cursor-grabbing
-                                    ${i === 0 ? 'border-[#E63027] ring-1 ring-[#E63027]/50' : 'border-[#33333A]'}
+                                    ${i === 0 ? 'border-[#E63027] ring-1 ring-[#E63027]/50' : 'border-crm-border'}
                                 `}
                             >
                                 <img src={file.preview} className="w-full h-full object-cover" />
@@ -132,7 +132,7 @@ export default function VehicleImagesPanel({ vehicle, onSaveComplete }) {
                                 <button
                                     type="button"
                                     onClick={(e) => { e.stopPropagation(); setFiles(files.filter((_, idx) => idx !== i)); }}
-                                    className="absolute top-1 right-1 bg-red-500 hover:bg-red-600 text-white p-1 rounded-full z-20 opacity-0 group-hover:opacity-100 transition-opacity"
+                                    className="absolute top-1 right-1 bg-crm-red hover:bg-red-600 text-white p-1 rounded-full z-20 opacity-0 group-hover:opacity-100 transition-opacity"
                                 >
                                     <X size={10} />
                                 </button>

@@ -54,12 +54,12 @@ export default function VehicleDeleteModal({ isOpen, onClose, vehicle, onSuccess
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
             <div className="bg-[#161619] border border-red-500/30 rounded-xl w-full max-w-md flex flex-col overflow-hidden shadow-2xl shadow-red-900/20">
                 <div className="p-6 flex flex-col items-center text-center">
-                    <div className="w-16 h-16 bg-red-500/10 rounded-full flex items-center justify-center mb-4">
-                        <AlertOctagon size={32} className="text-red-500" />
+                    <div className="w-16 h-16 bg-crm-red/10 rounded-full flex items-center justify-center mb-4">
+                        <AlertOctagon size={32} className="text-crm-red" />
                     </div>
                     
                     <h2 className="text-xl font-bold text-white mb-2">Eliminar Vehículo</h2>
-                    <p className="text-[#A1A1AA] text-sm mb-6">
+                    <p className="text-crm-fg-muted text-sm mb-6">
                         Estás a punto de eliminar el vehículo <strong className="text-white">{vehicle.marca} {vehicle.modelo} {vehicle.año}</strong> (Dominio: {vehicle.dominio}). Esta acción es permanente y quedará registrada en auditoría.
                     </p>
 
@@ -70,29 +70,29 @@ export default function VehicleDeleteModal({ isOpen, onClose, vehicle, onSuccess
                     )}
 
                     <div className="w-full text-left mb-6">
-                        <label className="block text-sm font-medium text-[#A1A1AA] mb-2">Motivo de eliminación *</label>
+                        <label className="block text-sm font-medium text-crm-fg-muted mb-2">Motivo de eliminación *</label>
                         <textarea
                             value={reason}
                             onChange={(e) => setReason(e.target.value)}
                             placeholder="Ej. Vehículo creado por prueba de permuta..."
-                            className="w-full bg-[#09090B] border border-[#33333A] rounded-lg p-3 text-sm text-white focus:outline-none focus:border-red-500 resize-none h-24"
+                            className="w-full bg-[#09090B] border border-crm-border rounded-lg p-3 text-sm text-white focus:outline-none focus:border-red-500 resize-none h-24"
                             disabled={isDeleting}
                         />
                     </div>
                 </div>
 
-                <div className="p-4 border-t border-[#33333A] bg-[#09090B] flex justify-end gap-3">
+                <div className="p-4 border-t border-crm-border bg-[#09090B] flex justify-end gap-3">
                     <button
                         onClick={onClose}
                         disabled={isDeleting}
-                        className="px-4 py-2 bg-transparent text-[#A1A1AA] hover:text-white transition-colors text-sm font-medium"
+                        className="px-4 py-2 bg-transparent text-crm-fg-muted hover:text-white transition-colors text-sm font-medium"
                     >
                         Cancelar
                     </button>
                     <button
                         onClick={handleDelete}
                         disabled={isDeleting || !reason.trim() || isVisibleEnWeb}
-                        className="px-4 py-2 bg-red-500 hover:bg-red-600 text-white rounded-lg transition-colors text-sm font-bold flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                        className="px-4 py-2 bg-crm-red hover:bg-red-600 text-white rounded-lg transition-colors text-sm font-bold flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                         {isDeleting ? <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div> : <Trash2 size={16} />}
                         Confirmar Eliminación

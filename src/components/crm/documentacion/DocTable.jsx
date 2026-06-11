@@ -14,10 +14,10 @@ const formatCurrency = (amount, currency) => {
 export default function DocTable({ sales, getSaleTaskStatus, onCreateTask }) {
     if (!sales || sales.length === 0) {
         return (
-            <div className="hidden md:flex flex-col items-center justify-center p-12 bg-[#161619] border border-[#33333A] rounded-2xl text-center">
+            <div className="hidden md:flex flex-col items-center justify-center p-12 bg-[#161619] border border-crm-border rounded-2xl text-center">
                 <FileText size={48} className="text-[#33333A] mb-4" />
                 <h3 className="text-lg font-bold text-white mb-2">No hay ventas operativas</h3>
-                <p className="text-[#A1A1AA]">Ajustá los filtros o generá una nueva venta.</p>
+                <p className="text-crm-fg-muted">Ajustá los filtros o generá una nueva venta.</p>
             </div>
         );
     }
@@ -29,7 +29,7 @@ export default function DocTable({ sales, getSaleTaskStatus, onCreateTask }) {
             case 'parcial':
                 return <span className="px-2 py-1 rounded-md bg-yellow-500/10 text-yellow-400 border border-yellow-500/20 text-[10px] font-bold uppercase">Parcial</span>;
             default:
-                return <span className="px-2 py-1 rounded-md bg-red-500/10 text-red-400 border border-red-500/20 text-[10px] font-bold uppercase">Pendiente</span>;
+                return <span className="px-2 py-1 rounded-md bg-crm-red/10 text-red-400 border border-red-500/20 text-[10px] font-bold uppercase">Pendiente</span>;
         }
     };
 
@@ -47,17 +47,17 @@ export default function DocTable({ sales, getSaleTaskStatus, onCreateTask }) {
     };
 
     return (
-        <div className="hidden md:block overflow-x-auto bg-[#161619] border border-[#33333A] rounded-2xl mb-6">
+        <div className="hidden md:block overflow-x-auto bg-[#161619] border border-crm-border rounded-2xl mb-6">
             <table className="w-full text-left border-collapse">
                 <thead>
-                    <tr className="border-b border-[#33333A] bg-[#1E1E24]">
-                        <th className="p-4 text-xs font-bold text-[#A1A1AA] uppercase tracking-wider">Fecha / ID</th>
-                        <th className="p-4 text-xs font-bold text-[#A1A1AA] uppercase tracking-wider">Cliente</th>
-                        <th className="p-4 text-xs font-bold text-[#A1A1AA] uppercase tracking-wider">Vehículo</th>
-                        <th className="p-4 text-xs font-bold text-[#A1A1AA] uppercase tracking-wider">Documentación</th>
-                        <th className="p-4 text-xs font-bold text-[#A1A1AA] uppercase tracking-wider">Entrega</th>
-                        <th className="p-4 text-xs font-bold text-[#A1A1AA] uppercase tracking-wider">Seguimiento</th>
-                        <th className="p-4 text-xs font-bold text-[#A1A1AA] uppercase tracking-wider text-right">Acciones</th>
+                    <tr className="border-b border-crm-border bg-[#1E1E24]">
+                        <th className="p-4 text-xs font-bold text-crm-fg-muted uppercase tracking-wider">Fecha / ID</th>
+                        <th className="p-4 text-xs font-bold text-crm-fg-muted uppercase tracking-wider">Cliente</th>
+                        <th className="p-4 text-xs font-bold text-crm-fg-muted uppercase tracking-wider">Vehículo</th>
+                        <th className="p-4 text-xs font-bold text-crm-fg-muted uppercase tracking-wider">Documentación</th>
+                        <th className="p-4 text-xs font-bold text-crm-fg-muted uppercase tracking-wider">Entrega</th>
+                        <th className="p-4 text-xs font-bold text-crm-fg-muted uppercase tracking-wider">Seguimiento</th>
+                        <th className="p-4 text-xs font-bold text-crm-fg-muted uppercase tracking-wider text-right">Acciones</th>
                     </tr>
                 </thead>
                 <tbody className="divide-y divide-[#33333A]">
@@ -72,7 +72,7 @@ export default function DocTable({ sales, getSaleTaskStatus, onCreateTask }) {
                                         <span className="text-sm font-medium text-white">
                                             {new Date(sale.saleDate || sale.createdAt).toLocaleDateString()}
                                         </span>
-                                        <span className="text-[10px] text-[#A1A1AA] font-mono bg-black/20 px-1.5 py-0.5 rounded w-fit">
+                                        <span className="text-[10px] text-crm-fg-muted font-mono bg-black/20 px-1.5 py-0.5 rounded w-fit">
                                             {sale._id.slice(-6).toUpperCase()}
                                         </span>
                                     </div>
@@ -82,7 +82,7 @@ export default function DocTable({ sales, getSaleTaskStatus, onCreateTask }) {
                                     <div className="text-sm font-bold text-white">
                                         {sale.clientId?.fullName || sale.clientId?.firstName || 'Sin Cliente'}
                                     </div>
-                                    <div className="text-xs text-[#A1A1AA]">
+                                    <div className="text-xs text-crm-fg-muted">
                                         {sale.clientId?.phone || 'Sin teléfono'}
                                     </div>
                                 </td>
@@ -91,7 +91,7 @@ export default function DocTable({ sales, getSaleTaskStatus, onCreateTask }) {
                                     <div className="text-sm font-bold text-white">
                                         {sale.vehicleId?.brand} {sale.vehicleId?.name}
                                     </div>
-                                    <div className="text-xs text-[#A1A1AA] uppercase">
+                                    <div className="text-xs text-crm-fg-muted uppercase">
                                         {sale.vehicleId?.plateOrVin || 'Sin Patente'}
                                     </div>
                                 </td>
@@ -138,14 +138,14 @@ export default function DocTable({ sales, getSaleTaskStatus, onCreateTask }) {
                                     <div className="flex items-center justify-end gap-2">
                                         <button 
                                             onClick={() => onCreateTask(sale, 'documentacion')}
-                                            className="p-2 text-neutral-400 hover:text-white hover:bg-neutral-800 rounded-lg transition-colors border border-transparent hover:border-neutral-700"
+                                            className="p-2 text-neutral-400 hover:text-white hover:bg-crm-surface-raised rounded-lg transition-colors border border-transparent hover:border-neutral-700"
                                             title="Crear tarea documentación"
                                         >
                                             <FileText size={16} />
                                         </button>
                                         <button 
                                             onClick={() => onCreateTask(sale, 'entrega')}
-                                            className="p-2 text-neutral-400 hover:text-white hover:bg-neutral-800 rounded-lg transition-colors border border-transparent hover:border-neutral-700"
+                                            className="p-2 text-neutral-400 hover:text-white hover:bg-crm-surface-raised rounded-lg transition-colors border border-transparent hover:border-neutral-700"
                                             title="Crear tarea entrega"
                                         >
                                             <Truck size={16} />
