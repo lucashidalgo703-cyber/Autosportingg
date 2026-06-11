@@ -1,5 +1,5 @@
 "use client";
-import { Search, Bell, User, X, CheckCheck, Menu } from 'lucide-react';
+import { Search, Bell, User, X, CheckCheck, Menu, Car, Users, Handshake, ChevronRight, Loader2 } from 'lucide-react';
 import { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
@@ -8,8 +8,47 @@ export default function CrmHeader({ onMenuClick }) {
     const [notifications, setNotifications] = useState([]);
     const [showDropdown, setShowDropdown] = useState(false);
     const [mobileSearchOpen, setMobileSearchOpen] = useState(false);
+    
+    // Search states
+    const [searchQuery, setSearchQuery] = useState('');
+    const [searchResults, setSearchResults] = useState([]);
+    const [isSearching, setIsSearching] = useState(false);
+    const [showSearchDropdown, setShowSearchDropdown] = useState(false);
+    const searchRef = useRef(null);
+
     const dropdownRef = useRef(null);
     const router = useRouter();
+
+    // Buscar datos
+    useEffect(() => {
+        if (searchQuery.length < 2) {
+            setSearchResults([]);
+            setShowSearchDropdown(false);
+            return;
+        }
+
+        const delayDebounceFn = setTimeout(async () => {
+            setIsSearching(true);
+            try {
+                const token = localStorage.getItem('token');
+                if (!token) return;
+                const res = await fetch(`/api/admin/search?q=${encodeURIComponent(searchQuery)}`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                if (res.ok) {
+                    const data = await res.json();
+                    setSearchResults(data);
+                    setShowSearchDropdown(true);
+                }
+            } catch (err) {
+                console.error("Error searching", err);
+            } finally {
+                setIsSearching(false);
+            }
+        }, 300);
+
+        return () => clearTimeout(delayDebounceFn);
+    }, [searchQuery]);
 
     useEffect(() => {
         const fetchNotifs = async () => {
@@ -36,6 +75,9 @@ export default function CrmHeader({ onMenuClick }) {
         const handleClickOutside = (e) => {
             if (dropdownRef.current && !dropdownRef.current.contains(e.target)) {
                 setShowDropdown(false);
+            }
+            if (searchRef.current && !searchRef.current.contains(e.target)) {
+                setShowSearchDropdown(false);
             }
         };
         document.addEventListener('mousedown', handleClickOutside);
@@ -81,13 +123,73 @@ export default function CrmHeader({ onMenuClick }) {
     };
 
     const searchInput = (
-        <div className="relative flex items-center">
+        <div className="relative flex items-center w-full" ref={searchRef}>
             <Search size={16} className="pointer-events-none absolute left-3 text-crm-fg-muted" />
             <input
                 type="text"
-                placeholder="Buscar..."
+                value={searchQuery}
+                onChange={(e) => {
+                    setSearchQuery(e.target.value);
+                    if (e.target.value.length >= 2) setShowSearchDropdown(true);
+                }}
+                onFocus={() => {
+                    if (searchQuery.length >= 2 && searchResults.length > 0) setShowSearchDropdown(true);
+                }}
+                placeholder="Buscar autos, clientes..."
                 className="m-0 h-10 w-full appearance-none rounded-lg border border-crm-border bg-crm-surface py-2 pl-9 pr-9 text-base text-crm-fg placeholder:text-crm-fg-subtle transition-all focus:border-crm-red focus:outline-none focus:ring-1 focus:ring-crm-red md:h-9 md:text-sm"
             />
+            {isSearching && (
+                <div className="absolute right-3">
+                    <Loader2 size={14} className="animate-spin text-crm-fg-subtle" />
+                </div>
+            )}
+            {searchQuery && !isSearching && (
+                <button 
+                    onClick={() => { setSearchQuery(''); setSearchResults([]); setShowSearchDropdown(false); }}
+                    className="absolute right-2 p-1 text-crm-fg-muted hover:text-white"
+                >
+                    <X size={14} />
+                </button>
+            )}
+
+            {/* Dropdown de resultados */}
+            {showSearchDropdown && (
+                <div className="absolute top-full mt-2 left-0 w-full md:w-[400px] bg-crm-surface border border-crm-border rounded-xl shadow-2xl overflow-hidden z-50">
+                    <div className="max-h-80 overflow-y-auto custom-scrollbar">
+                        {searchResults.length === 0 && !isSearching ? (
+                            <div className="p-4 text-center text-sm text-crm-fg-muted">
+                                No se encontraron resultados para "{searchQuery}"
+                            </div>
+                        ) : (
+                            <div className="py-2">
+                                {searchResults.map((res) => (
+                                    <div 
+                                        key={res.id} 
+                                        onClick={() => {
+                                            setShowSearchDropdown(false);
+                                            setMobileSearchOpen(false);
+                                            router.push(res.url);
+                                        }}
+                                        className="px-4 py-3 hover:bg-crm-surface-raised cursor-pointer border-b border-crm-border/50 last:border-0 flex items-start gap-3 transition-colors group"
+                                    >
+                                        <div className="mt-0.5 w-8 h-8 rounded-lg bg-crm-bg flex items-center justify-center border border-crm-border shrink-0 text-crm-fg-subtle group-hover:text-crm-fg group-hover:border-crm-red/30 transition-colors">
+                                            {res.type === 'car' ? <Car size={16} /> : res.type === 'client' ? <Users size={16} /> : <Handshake size={16} />}
+                                        </div>
+                                        <div className="min-w-0 flex-1">
+                                            <p className="text-sm font-bold text-crm-fg truncate group-hover:text-white">{res.title}</p>
+                                            <p className="text-xs text-crm-fg-muted truncate mt-0.5">{res.subtitle}</p>
+                                        </div>
+                                        <ChevronRight size={14} className="mt-2 text-crm-fg-subtle opacity-0 group-hover:opacity-100 group-hover:text-crm-red transition-all -translate-x-2 group-hover:translate-x-0" />
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+                    </div>
+                    <div className="bg-crm-bg border-t border-crm-border px-4 py-2 text-[10px] uppercase font-bold text-crm-fg-subtle text-center tracking-wider">
+                        Búsqueda Global
+                    </div>
+                </div>
+            )}
         </div>
     );
 

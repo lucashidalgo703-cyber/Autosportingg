@@ -576,6 +576,52 @@ app.get('/api/admin/cars/:id', authenticateToken, async (req, res) => {
         if (!car) return res.status(404).json({ message: 'Car not found' });
         res.json(car);
     } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+});
+
+// PATCH update car
+app.patch('/api/admin/cars/:id', authenticateToken, upload.array('images', 20), async (req, res) => {
+    try {
+        await connectDB();
+        const carId = req.params.id;
+        let updates = req.body;
+        const user = req.user ? (req.user.email || req.user.role) : 'System';
+
+        const car = await Car.findById(carId);
+        if (!car) {
+            return res.status(404).json({ message: 'Car not found' });
+        }
+
+        const newAuditLogs = [];
+        const { createdAt, soldAt, expenses, documentation } = updates;
+
+        if (req.files && req.files.length > 0) {
+            const newImages = req.files.map(file => file.path);
+            updates.images = [...(car.images || []), ...newImages];
+        }
+
+        if (documentation) {
+            let parsedDocs = documentation;
+            if (typeof documentation === 'string') {
+                try {
+                    parsedDocs = JSON.parse(documentation);
+                } catch (e) {
+                    console.error("Error parsing documentation", e);
+                }
+            }
+            if (typeof parsedDocs === 'object') {
+                updates.documentation = { ...car.documentation, ...parsedDocs };
+            }
+        }
+
+        if (createdAt !== undefined) {
+            if (createdAt === null || createdAt === '') {
+                car.createdAt = undefined;
+            } else {
+                const newCreatedAt = new Date(createdAt);
+                if (!isNaN(newCreatedAt)) {
+                    const oldTime = car.createdAt ? new Date(car.createdAt).getTime() : 0;
                 if (oldTime !== newCreatedAt.getTime()) {
                     newAuditLogs.push({
                         action: 'EDICION',
@@ -589,6 +635,7 @@ app.get('/api/admin/cars/:id', authenticateToken, async (req, res) => {
                     car.createdAt = newCreatedAt;
                 }
             }
+        }
         }
         
         if (soldAt !== undefined) {
