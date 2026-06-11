@@ -10,7 +10,7 @@ import VehicleDetailHeader from '../../../../components/crm/stock/VehicleDetailH
 import VehicleFinancialSummary from '../../../../components/crm/stock/VehicleFinancialSummary';
 import VehicleInfoPanel from '../../../../components/crm/stock/VehicleInfoPanel';
 import VehicleHistoryTimeline from '../../../../components/crm/stock/VehicleHistoryTimeline';
-import VehicleDocumentsDemo from '../../../../components/crm/stock/VehicleDocumentsDemo';
+import VehicleDocumentsPanel from '../../../../components/crm/stock/VehicleDocumentsPanel';
 import VehicleActionsPanel from '../../../../components/crm/stock/VehicleActionsPanel';
 import VehicleImagesPanel from '../../../../components/crm/stock/VehicleImagesPanel';
 import VehicleWebStatusPanel from '../../../../components/crm/stock/VehicleWebStatusPanel';
@@ -177,7 +177,7 @@ export default function VehicleDetailPage() {
                                 onDelete={() => setIsDeleteOpen(true)}
                                 activeReservation={activeReservation}
                             />
-                            <VehicleDocumentsDemo vehicle={vehicle} />
+                            <VehicleDocumentsPanel vehicle={vehicle} onSaveComplete={fetchCar} />
                         </div>
                     </div>
                 </div>

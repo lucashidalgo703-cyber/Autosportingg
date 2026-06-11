@@ -35,6 +35,15 @@ const carSchema = new mongoose.Schema({
     mlLink: { type: String },
     notes: { type: String },
 
+    documentation: {
+        tituloAutomotor: { type: String, enum: ['recibido', 'pendiente', 'no aplica'], default: 'pendiente' },
+        cedulaVerde: { type: String, enum: ['recibido', 'pendiente', 'no aplica'], default: 'pendiente' },
+        verificacionPolicial: { type: String, enum: ['recibido', 'pendiente', 'no aplica'], default: 'pendiente' },
+        informeDominio: { type: String, enum: ['recibido', 'pendiente', 'no aplica'], default: 'pendiente' },
+        formulario08: { type: String, enum: ['recibido', 'pendiente', 'no aplica'], default: 'pendiente' },
+        libreDeudaPatentes: { type: String, enum: ['recibido', 'pendiente', 'no aplica'], default: 'pendiente' }
+    },
+
     featured: { type: Boolean, default: false },
     sold: { type: Boolean, default: false },
     soldAt: { type: Date },
