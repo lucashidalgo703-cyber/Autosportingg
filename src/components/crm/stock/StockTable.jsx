@@ -1,6 +1,6 @@
 import React from 'react';
 import Link from 'next/link';
-import { Filter } from 'lucide-react';
+import { Filter, ExternalLink } from 'lucide-react';
 import CrmTable from '../ui/CrmTable';
 
 const getVehicleYear = (vehicle) => vehicle.year || vehicle['año'] || vehicle['aÃ±o'] || 'S/D';
@@ -49,7 +49,7 @@ const getListValue = (data) => {
     return '--';
 };
 
-export default function StockTable({ data }) {
+export default function StockTable({ data, onEditML }) {
     const columns = [
         {
             label: 'Vehículo',
@@ -111,6 +111,26 @@ export default function StockTable({ data }) {
             label: 'Estado',
             key: 'status',
             render: (v) => getStatusLabel(v.estado)
+        },
+        {
+            label: 'Mercado Libre',
+            label: 'Mercado Libre',
+            key: 'ml',
+            render: (v) => {
+                const isPublished = v._original?.publishedOnML === 'Si';
+                return (
+                    <div className="flex items-center gap-2 cursor-pointer group" onClick={() => onEditML && onEditML(v)}>
+                        <span className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider group-hover:ring-1 transition-all ${isPublished ? 'border-yellow-500/30 bg-yellow-500/10 text-yellow-500 ring-yellow-500/50' : 'border-crm-border text-crm-fg-muted ring-crm-border'}`}>
+                            {isPublished ? 'Publicado' : 'No Pub.'}
+                        </span>
+                        {isPublished && v._original?.mlLink && (
+                            <a href={v._original.mlLink} target="_blank" rel="noopener noreferrer" className="text-yellow-500 hover:text-yellow-400" title="Ver en ML" onClick={(e) => e.stopPropagation()}>
+                                <ExternalLink size={14} />
+                            </a>
+                        )}
+                    </div>
+                );
+            }
         },
         {
             label: 'Ubicación',

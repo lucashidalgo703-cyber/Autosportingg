@@ -49,7 +49,7 @@ const getListValue = (data) => {
     return '--';
 };
 
-export default function StockMobileCards({ data }) {
+export default function StockMobileCards({ data, onEditML }) {
     const [expandedId, setExpandedId] = useState(data[0]?.id || null);
 
     if (data.length === 0) {
@@ -138,6 +138,12 @@ export default function StockMobileCards({ data }) {
                                         >
                                             Editar
                                         </Link>
+                                        <button
+                                            onClick={() => onEditML && onEditML(vehicle)}
+                                            className="inline-flex h-7 items-center justify-center rounded-lg border border-yellow-500/30 bg-yellow-500/10 px-3 text-xs font-semibold text-yellow-500 transition-colors hover:bg-yellow-500/20 ml-auto"
+                                        >
+                                            Mercado Libre
+                                        </button>
                                     </div>
                                 </div>
                             )}

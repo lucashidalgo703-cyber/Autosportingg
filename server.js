@@ -6651,6 +6651,123 @@ app.delete('/api/admin/quotes/:id', authenticateToken, requirePermission(PERMISS
     }
 });
 
+// =======================
+// STOCK (CARS) IMPORT ROUTES
+// =======================
+
+app.post('/api/admin/cars/validate-import', authenticateToken, requirePermission(PERMISSIONS.STOCK_WRITE), async (req, res) => {
+    try {
+        await connectDB();
+        const { rows } = req.body;
+        if (!Array.isArray(rows)) return res.status(400).json({ message: 'Se esperaba un array de filas.' });
+
+        const results = [];
+        let validCount = 0;
+        let duplicateCount = 0;
+        let errorCount = 0;
+
+        for (const [index, row] of rows.entries()) {
+            const rowIndex = index + 2; // Excel row logic
+            
+            if (!row.brand || !row.name) {
+                results.push({ row: rowIndex, status: 'error', data: row, message: 'Falta marca o modelo' });
+                errorCount++;
+                continue;
+            }
+
+            // Normalization
+            const plate = row.plateOrVin ? String(row.plateOrVin).trim().toUpperCase() : null;
+            let statusEnum = 'Disponible';
+            if (row.status) {
+                const s = String(row.status).toLowerCase();
+                if (s.includes('vendi')) statusEnum = 'Vendido';
+                else if (s.includes('reserv') || s.includes('seña')) statusEnum = 'Reservado';
+                else if (s.includes('paus')) statusEnum = 'Pausado';
+            }
+
+            let currency = 'USD';
+            if (row.currency && String(row.currency).toUpperCase().includes('AR')) currency = 'ARS';
+
+            // Check for duplicate by plateOrVin
+            if (plate) {
+                const existing = await Car.findOne({ 
+                    $or: [
+                        { plateOrVin: plate },
+                        { dominio: plate }
+                    ]
+                }).lean();
+
+                if (existing) {
+                    results.push({ row: rowIndex, status: 'duplicate', data: row, message: `Patente/VIN duplicado (${plate})` });
+                    duplicateCount++;
+                    continue;
+                }
+            }
+
+            // If we reach here, it's valid
+            const cleanData = {
+                brand: row.brand,
+                name: row.name,
+                year: Number(row.year) || new Date().getFullYear(),
+                km: Number(row.km) || 0,
+                price: Number(row.price) || 0,
+                currency,
+                fuel: row.fuel || 'Nafta',
+                condition: row.condition || 'Usado',
+                plateOrVin: plate,
+                status: statusEnum,
+                vehicleType: row.vehicleType || 'Auto',
+                publishedOnML: row.publishedOnML || 'No'
+            };
+
+            results.push({ row: rowIndex, status: 'valid', data: cleanData });
+            validCount++;
+        }
+
+        res.json({ results, summary: { validCount, duplicateCount, errorCount } });
+    } catch (error) {
+        console.error('POST /api/admin/cars/validate-import error:', error);
+        res.status(500).json({ message: error.message });
+    }
+});
+
+app.post('/api/admin/cars/bulk', authenticateToken, requirePermission(PERMISSIONS.STOCK_WRITE), async (req, res) => {
+    try {
+        await connectDB();
+        const { cars } = req.body;
+        
+        if (!Array.isArray(cars) || cars.length === 0) {
+            return res.status(400).json({ message: 'No hay autos para importar.' });
+        }
+
+        const toInsert = cars.map(car => ({
+            ...car,
+            auditLog: [{
+                action: 'CREACION',
+                details: 'Importación masiva XLSX',
+                user: req.user?.id || 'CRM_V2'
+            }]
+        }));
+
+        const inserted = await Car.insertMany(toInsert);
+
+        // Global audit
+        await logAudit({
+            req,
+            action: 'CREACION_MASIVA',
+            module: 'stock',
+            entityId: null,
+            entityType: 'Car',
+            description: `Se importaron ${inserted.length} vehículos desde XLSX`
+        });
+
+        res.json({ message: 'Importación exitosa', count: inserted.length });
+    } catch (error) {
+        console.error('POST /api/admin/cars/bulk error:', error);
+        res.status(500).json({ message: error.message });
+    }
+});
+
 // Global Error Handler
 app.use((err, req, res, next) => {
     console.error("Global Error Handler (Timestamp: " + new Date().toISOString() + ")");

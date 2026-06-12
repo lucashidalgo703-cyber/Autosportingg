@@ -47,6 +47,8 @@ export default function StockFilters({
     setStockTab,
     brandFilter,
     setBrandFilter,
+    mlFilter,
+    setMlFilter,
     brandOptions = [],
     counts = {}
 }) {
@@ -108,7 +110,18 @@ export default function StockFilters({
                     />
                 </div>
 
-                <select
+                <div className="flex gap-3">
+                    <select
+                        value={mlFilter}
+                        onChange={(event) => setMlFilter(event.target.value)}
+                        className="m-0 h-[38px] w-full appearance-none rounded-lg border border-crm-border bg-crm-surface px-3 text-sm text-crm-fg outline-none transition-colors focus:border-crm-red focus:ring-2 focus:ring-crm-red/20"
+                    >
+                        <option value="todas">Mercado Libre: Todos</option>
+                        <option value="publicados">Mercado Libre: Publicados</option>
+                        <option value="no_publicados">Mercado Libre: No Publicados</option>
+                    </select>
+
+                    <select
                     value={brandFilter}
                     onChange={(event) => setBrandFilter(event.target.value)}
                     className="m-0 h-[38px] w-full appearance-none rounded-lg border border-crm-border bg-crm-surface px-3 text-sm text-crm-fg outline-none transition-colors focus:border-crm-red focus:ring-2 focus:ring-crm-red/20"
@@ -118,6 +131,7 @@ export default function StockFilters({
                         <option key={brand} value={brand}>{brand}</option>
                     ))}
                 </select>
+                </div>
             </div>
         </div>
     );

@@ -1,6 +1,6 @@
 "use client";
 import { useState, useMemo } from 'react';
-import { Download, Eye, FileText, Plus } from 'lucide-react';
+import { Download, Eye, FileText, Plus, ExternalLink } from 'lucide-react';
 
 import CrmButton from '../../../components/crm/ui/CrmButton';
 import CrmPageHeader from '../../../components/crm/ui/CrmPageHeader';
@@ -8,9 +8,12 @@ import StockFilters from '../../../components/crm/stock/StockFilters';
 import StockTable from '../../../components/crm/stock/StockTable';
 import StockMobileCards from '../../../components/crm/stock/StockMobileCards';
 import VehicleFormModal from '../../../components/VehicleFormModal';
+import StockImportModal from '../../../components/crm/stock/StockImportModal';
+import MLActionModal from '../../../components/crm/stock/MLActionModal';
 import { useAdminCars } from '../../../hooks/useAdminCars';
 import { mapRealCarToCRM } from '../../../components/crm/stock/vehicleAdapter';
 import toast from 'react-hot-toast';
+import Link from 'next/link';
 
 export default function AdminStockPage() {
     const { cars, loading, error } = useAdminCars();
@@ -18,8 +21,11 @@ export default function AdminStockPage() {
     const [filterStatus, setFilterStatus] = useState('disponible');
     const [stockTab, setStockTab] = useState('stock');
     const [brandFilter, setBrandFilter] = useState('todas');
+    const [mlFilter, setMlFilter] = useState('todas');
     const [isFormOpen, setIsFormOpen] = useState(false);
+    const [isImportModalOpen, setIsImportModalOpen] = useState(false);
     const [editingCar, setEditingCar] = useState(null);
+    const [mlEditingCar, setMlEditingCar] = useState(null);
 
     const vehicles = useMemo(() => {
         if (!cars || cars.length === 0) return [];
@@ -76,10 +82,17 @@ export default function AdminStockPage() {
                 stockTab === 'stock' ||
                 (stockTab === 'consignaciones' && (vehicle.origen || '').toLowerCase().includes('consign')) ||
                 (stockTab === 'mandatos' && (vehicle.origen || '').toLowerCase().includes('mandato'));
+                
+            let matchesML = true;
+            if (mlFilter === 'publicados') {
+                matchesML = vehicle._original?.publishedOnML === 'Si';
+            } else if (mlFilter === 'no_publicados') {
+                matchesML = vehicle._original?.publishedOnML !== 'Si';
+            }
 
-            return matchesSearch && matchesStatus && matchesBrand && matchesTab;
+            return matchesSearch && matchesStatus && matchesBrand && matchesTab && matchesML;
         });
-    }, [vehicles, searchTerm, filterStatus, brandFilter, stockTab]);
+    }, [vehicles, searchTerm, filterStatus, brandFilter, stockTab, mlFilter]);
 
     const handleNewVehicle = () => {
         setEditingCar(null);
@@ -192,13 +205,16 @@ export default function AdminStockPage() {
                                 <Eye size={14} />
                                 Vista previa
                             </CrmButton>
+                            <CrmButton variant="secondary" size="sm" className="gap-2" onClick={() => window.open('/catalogo', '_blank', 'noopener,noreferrer')}>
+                                <ExternalLink size={14} /> Tu catálogo
+                            </CrmButton>
                             <CrmButton variant="secondary" size="sm" className="gap-2">
                                 <Download size={14} />
                                 Exportar XLSX
                             </CrmButton>
-                            <CrmButton variant="secondary" size="sm" className="gap-2">
+                            <CrmButton variant="secondary" size="sm" className="gap-2" onClick={() => setIsImportModalOpen(true)}>
                                 <FileText size={14} />
-                                Nuevo mandato + Stock
+                                Importar XLSX
                             </CrmButton>
                             <CrmButton variant="primary" size="sm" onClick={handleNewVehicle} className="gap-2">
                                 <Plus size={14} />
@@ -239,15 +255,17 @@ export default function AdminStockPage() {
                         setStockTab={setStockTab}
                         brandFilter={brandFilter}
                         setBrandFilter={setBrandFilter}
+                        mlFilter={mlFilter}
+                        setMlFilter={setMlFilter}
                         brandOptions={brandOptions}
                         counts={stockSummary}
                     />
 
                     <div className="hidden lg:block">
-                        <StockTable data={filteredVehicles} />
+                        <StockTable data={filteredVehicles} onEditML={setMlEditingCar} />
                     </div>
                     <div className="block lg:hidden">
-                        <StockMobileCards data={filteredVehicles} />
+                        <StockMobileCards data={filteredVehicles} onEditML={setMlEditingCar} />
                     </div>
                 </div>
             </div>
@@ -257,6 +275,27 @@ export default function AdminStockPage() {
                 onClose={() => { setIsFormOpen(false); setEditingCar(null); }}
                 onSave={handleSaveVehicle}
                 editingCar={editingCar}
+            />
+            
+            <StockImportModal
+                isOpen={isImportModalOpen}
+                onClose={() => setIsImportModalOpen(false)}
+                onSuccess={(count) => {
+                    toast.success(`Se importaron ${count} vehículos correctamente.`);
+                    if (typeof refresh === 'function') refresh();
+                    else window.location.reload();
+                }}
+            />
+
+            <MLActionModal
+                isOpen={!!mlEditingCar}
+                onClose={() => setMlEditingCar(null)}
+                vehicle={mlEditingCar}
+                onSave={() => {
+                    setMlEditingCar(null);
+                    if (typeof refresh === 'function') refresh();
+                    else window.location.reload();
+                }}
             />
         </div>
     );
