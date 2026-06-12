@@ -10,6 +10,7 @@ import StockMobileCards from '../../../components/crm/stock/StockMobileCards';
 import VehicleFormModal from '../../../components/VehicleFormModal';
 import StockImportModal from '../../../components/crm/stock/StockImportModal';
 import MLActionModal from '../../../components/crm/stock/MLActionModal';
+import VehicleDeleteModal from '../../../components/crm/stock/VehicleDeleteModal';
 import { useAdminCars } from '../../../hooks/useAdminCars';
 import { mapRealCarToCRM } from '../../../components/crm/stock/vehicleAdapter';
 import toast from 'react-hot-toast';
@@ -26,6 +27,7 @@ export default function AdminStockPage() {
     const [isImportModalOpen, setIsImportModalOpen] = useState(false);
     const [editingCar, setEditingCar] = useState(null);
     const [mlEditingCar, setMlEditingCar] = useState(null);
+    const [deletingCar, setDeletingCar] = useState(null);
 
     const vehicles = useMemo(() => {
         if (!cars || cars.length === 0) return [];
@@ -262,10 +264,10 @@ export default function AdminStockPage() {
                     />
 
                     <div className="hidden lg:block">
-                        <StockTable data={filteredVehicles} onEditML={setMlEditingCar} />
+                        <StockTable data={filteredVehicles} onEditML={setMlEditingCar} onDelete={setDeletingCar} />
                     </div>
                     <div className="block lg:hidden">
-                        <StockMobileCards data={filteredVehicles} onEditML={setMlEditingCar} />
+                        <StockMobileCards data={filteredVehicles} onEditML={setMlEditingCar} onDelete={setDeletingCar} />
                     </div>
                 </div>
             </div>
@@ -293,6 +295,17 @@ export default function AdminStockPage() {
                 vehicle={mlEditingCar}
                 onSave={() => {
                     setMlEditingCar(null);
+                    if (typeof refresh === 'function') refresh();
+                    else window.location.reload();
+                }}
+            />
+
+            <VehicleDeleteModal
+                isOpen={!!deletingCar}
+                onClose={() => setDeletingCar(null)}
+                vehicle={deletingCar}
+                onSuccess={() => {
+                    setDeletingCar(null);
                     if (typeof refresh === 'function') refresh();
                     else window.location.reload();
                 }}

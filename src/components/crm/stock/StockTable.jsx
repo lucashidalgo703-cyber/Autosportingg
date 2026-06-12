@@ -49,7 +49,7 @@ const getListValue = (data) => {
     return '--';
 };
 
-export default function StockTable({ data, onEditML }) {
+export default function StockTable({ data, onEditML, onDelete }) {
     const columns = [
         {
             label: 'Vehículo',
@@ -163,7 +163,8 @@ export default function StockTable({ data, onEditML }) {
                     </button>
                     <button
                         type="button"
-                        className="m-0 h-8 appearance-none rounded-lg border border-transparent bg-transparent px-2 text-xs font-semibold text-crm-red transition-colors hover:bg-crm-red/10"
+                        onClick={() => onDelete && onDelete(vehicle)}
+                        className="m-0 h-8 appearance-none rounded-lg border border-transparent bg-transparent px-2 text-xs font-semibold text-crm-red transition-colors hover:bg-crm-red/10 cursor-pointer"
                     >
                         Eliminar
                     </button>
