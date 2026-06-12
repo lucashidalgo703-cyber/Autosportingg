@@ -23,6 +23,18 @@ const GestoriaSchema = new mongoose.Schema({
         type: mongoose.Schema.Types.ObjectId,
         ref: 'Client'
     },
+    saleId: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'Sale'
+    },
+    organismo: {
+        type: String,
+        trim: true
+    },
+    chargedToClient: {
+        type: Boolean,
+        default: false
+    },
     gestorName: {
         type: String,
         trim: true
@@ -58,7 +70,13 @@ const GestoriaSchema = new mongoose.Schema({
     createdBy: {
         type: mongoose.Schema.Types.ObjectId,
         ref: 'AdminUser'
-    }
+    },
+    auditLog: [{
+        action: { type: String, required: true },
+        details: { type: String },
+        date: { type: Date, default: Date.now },
+        user: { type: String, default: 'Admin' }
+    }]
 }, {
     timestamps: true
 });

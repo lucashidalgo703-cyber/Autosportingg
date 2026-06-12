@@ -99,6 +99,16 @@ const saleSchema = new mongoose.Schema({
         enum: ['pendiente', 'parcial', 'completo'], 
         default: 'pendiente' 
     },
+
+    // EXPEDIENTE UNIFICADO
+    expedienteStatus: {
+        type: String,
+        enum: ['pendiente', 'en_proceso', 'observado', 'listo', 'entregado', 'cancelado'],
+        default: 'pendiente'
+    },
+    expedienteResponsible: { type: mongoose.Schema.Types.ObjectId, ref: 'AdminUser' },
+    expedienteDueDate: { type: Date },
+
     deliveryStatus: { 
         type: String, 
         enum: ['pendiente', 'preparando', 'listo_para_entregar', 'entregado'], 

@@ -8,29 +8,49 @@ export default function ExpedientesPage() {
     const { sales, loading, error, fetchSales } = useAdminSales();
     const [search, setSearch] = useState('');
     const [filterStatus, setFilterStatus] = useState('activos');
+    const [filterSeller, setFilterSeller] = useState('todos');
+    const [filterResponsible, setFilterResponsible] = useState('todos');
+    const [filterDueDate, setFilterDueDate] = useState('todos');
 
     useEffect(() => {
         fetchSales();
     }, [fetchSales]);
 
-    // Un Expediente activo es una Venta no cancelada que:
-    // 1. Aún no se entregó (confirmada, pendiente_entrega)
-    // 2. O ya se entregó pero faltan papeles (documentationStatus !== 'completo')
     const expedientes = sales.filter(sale => {
         if (sale.status === 'cancelada' || sale.status === 'borrador') return false;
         
-        const isNotDelivered = sale.status === 'confirmada' || sale.status === 'pendiente_entrega';
-        const isMissingDocs = sale.documentationStatus !== 'completo';
-        
+        let matchesStatus = true;
         if (filterStatus === 'activos') {
-            return isNotDelivered || isMissingDocs;
+            matchesStatus = sale.expedienteStatus !== 'entregado' && sale.expedienteStatus !== 'cancelado';
         } else if (filterStatus === 'demorados') {
-            // Ejemplo: documentación pendiente por mucho tiempo
-            return isMissingDocs;
+            matchesStatus = sale.expedienteStatus === 'observado';
         } else if (filterStatus === 'cerrados') {
-            return sale.status === 'entregada' && sale.documentationStatus === 'completo';
+            matchesStatus = sale.expedienteStatus === 'entregado';
+        } else if (filterStatus !== 'todos') {
+            matchesStatus = sale.expedienteStatus === filterStatus;
         }
-        return true;
+
+        let matchesSeller = true;
+        if (filterSeller !== 'todos') {
+            matchesSeller = sale.assignedTo?._id === filterSeller || sale.assignedTo === filterSeller;
+        }
+
+        let matchesResponsible = true;
+        if (filterResponsible !== 'todos') {
+            matchesResponsible = sale.expedienteResponsible?._id === filterResponsible || sale.expedienteResponsible === filterResponsible;
+        }
+
+        let matchesDueDate = true;
+        if (filterDueDate === 'vencidos') {
+            matchesDueDate = sale.expedienteDueDate && new Date(sale.expedienteDueDate) < new Date();
+        } else if (filterDueDate === 'proximos_7_dias') {
+            const nextWeek = new Date();
+            nextWeek.setDate(nextWeek.getDate() + 7);
+            const today = new Date();
+            matchesDueDate = sale.expedienteDueDate && new Date(sale.expedienteDueDate) >= today && new Date(sale.expedienteDueDate) <= nextWeek;
+        }
+
+        return matchesStatus && matchesSeller && matchesResponsible && matchesDueDate;
     });
 
     const filteredExpedientes = expedientes.filter(sale => {
@@ -40,6 +60,12 @@ export default function ExpedientesPage() {
         const plate = sale.vehicleId?.plateOrVin?.toLowerCase() || '';
         return clientName.includes(query) || carName.includes(query) || plate.includes(query);
     });
+
+    const sellers = Array.from(new Set(sales.map(s => s.assignedTo?._id).filter(Boolean)))
+        .map(id => sales.find(s => s.assignedTo?._id === id).assignedTo);
+    
+    const responsibles = Array.from(new Set(sales.map(s => s.expedienteResponsible?._id).filter(Boolean)))
+        .map(id => sales.find(s => s.expedienteResponsible?._id === id).expedienteResponsible);
 
     const getDocStatusColor = (status) => {
         switch (status) {
@@ -54,6 +80,17 @@ export default function ExpedientesPage() {
             case 'entregado': return 'text-green-400 border-green-400/30 bg-green-400/10';
             case 'listo_para_entregar': return 'text-blue-400 border-blue-400/30 bg-blue-400/10';
             case 'preparando': return 'text-yellow-400 border-yellow-400/30 bg-yellow-400/10';
+            default: return 'text-crm-fg-muted border-crm-border bg-crm-bg';
+        }
+    };
+
+    const getExpedienteStatusColor = (status) => {
+        switch (status) {
+            case 'listo': return 'text-blue-400 border-blue-400/30 bg-blue-400/10';
+            case 'entregado': return 'text-green-400 border-green-400/30 bg-green-400/10';
+            case 'en_proceso': return 'text-yellow-400 border-yellow-400/30 bg-yellow-400/10';
+            case 'observado': return 'text-red-400 border-red-400/30 bg-red-400/10';
+            case 'cancelado': return 'text-gray-400 border-gray-400/30 bg-gray-400/10';
             default: return 'text-crm-fg-muted border-crm-border bg-crm-bg';
         }
     };
@@ -88,9 +125,49 @@ export default function ExpedientesPage() {
                             onChange={(e) => setFilterStatus(e.target.value)}
                             className="h-9 rounded-lg border border-crm-border bg-crm-surface pl-9 pr-8 text-sm text-crm-fg focus:border-crm-red focus:outline-none focus:ring-1 focus:ring-crm-red appearance-none"
                         >
-                            <option value="activos">Archivos Activos</option>
-                            <option value="demorados">Faltan Papeles</option>
-                            <option value="cerrados">Histórico Cerrados</option>
+                            <option value="todos">Todos los Estados</option>
+                            <option value="activos">Expedientes Activos</option>
+                            <option value="pendiente">Pendiente</option>
+                            <option value="en_proceso">En Proceso</option>
+                            <option value="observado">Observado</option>
+                            <option value="listo">Listo</option>
+                            <option value="entregado">Entregado</option>
+                            <option value="cancelado">Cancelado</option>
+                        </select>
+                    </div>
+                    <div className="relative">
+                        <select 
+                            value={filterSeller}
+                            onChange={(e) => setFilterSeller(e.target.value)}
+                            className="h-9 rounded-lg border border-crm-border bg-crm-surface px-3 pr-8 text-sm text-crm-fg focus:border-crm-red focus:outline-none focus:ring-1 focus:ring-crm-red appearance-none"
+                        >
+                            <option value="todos">Cualquier Vendedor</option>
+                            {sellers.map(s => (
+                                <option key={s._id} value={s._id}>{s.name}</option>
+                            ))}
+                        </select>
+                    </div>
+                    <div className="relative">
+                        <select 
+                            value={filterResponsible}
+                            onChange={(e) => setFilterResponsible(e.target.value)}
+                            className="h-9 rounded-lg border border-crm-border bg-crm-surface px-3 pr-8 text-sm text-crm-fg focus:border-crm-red focus:outline-none focus:ring-1 focus:ring-crm-red appearance-none"
+                        >
+                            <option value="todos">Cualquier Responsable</option>
+                            {responsibles.map(r => (
+                                <option key={r._id} value={r._id}>{r.name}</option>
+                            ))}
+                        </select>
+                    </div>
+                    <div className="relative">
+                        <select 
+                            value={filterDueDate}
+                            onChange={(e) => setFilterDueDate(e.target.value)}
+                            className="h-9 rounded-lg border border-crm-border bg-crm-surface px-3 pr-8 text-sm text-crm-fg focus:border-crm-red focus:outline-none focus:ring-1 focus:ring-crm-red appearance-none"
+                        >
+                            <option value="todos">Todas las Fechas</option>
+                            <option value="vencidos">Vencidos</option>
+                            <option value="proximos_7_dias">Próx. 7 Días</option>
                         </select>
                     </div>
                 </div>
@@ -108,8 +185,11 @@ export default function ExpedientesPage() {
                 </div>
             ) : (
                 <div className="grid grid-cols-1 gap-4 lg:grid-cols-2 xl:grid-cols-3">
-                    {filteredExpedientes.map(sale => (
-                        <div key={sale._id} className="flex flex-col justify-between rounded-xl border border-crm-border bg-crm-surface p-5 transition-all hover:border-crm-red/50">
+                    {filteredExpedientes.map(sale => {
+                        const isOverdue = sale.expedienteDueDate && new Date(sale.expedienteDueDate) < new Date();
+                        
+                        return (
+                        <div key={sale._id} className={`flex flex-col justify-between rounded-xl border bg-crm-surface p-5 transition-all ${isOverdue ? 'border-red-500/50' : 'border-crm-border hover:border-crm-red/50'}`}>
                             <div>
                                 <div className="mb-4 flex items-start justify-between">
                                     <div>
@@ -121,12 +201,26 @@ export default function ExpedientesPage() {
                                             <span className="truncate max-w-[180px]">{sale.vehicleId?.brand} {sale.vehicleId?.name}</span>
                                         </div>
                                     </div>
-                                    <span className="text-xs font-bold text-crm-fg-muted bg-crm-bg px-2 py-1 rounded border border-crm-border">
-                                        #{sale._id.slice(-6).toUpperCase()}
-                                    </span>
+                                    <div className="flex flex-col items-end gap-2">
+                                        <span className="text-xs font-bold text-crm-fg-muted bg-crm-bg px-2 py-1 rounded border border-crm-border">
+                                            #{sale._id.slice(-6).toUpperCase()}
+                                        </span>
+                                        {isOverdue && (
+                                            <span className="text-[10px] text-red-400 font-bold uppercase tracking-wider">Vencido</span>
+                                        )}
+                                    </div>
                                 </div>
                                 
                                 <div className="flex flex-col gap-3 mt-4">
+                                    <div className="flex items-center justify-between text-xs">
+                                        <span className="flex items-center gap-1.5 text-crm-fg-muted">
+                                            <FolderOpen size={14} /> Estado Expediente
+                                        </span>
+                                        <span className={`px-2 py-0.5 rounded font-bold uppercase tracking-wider border ${getExpedienteStatusColor(sale.expedienteStatus)}`}>
+                                            {sale.expedienteStatus?.replace(/_/g, ' ')}
+                                        </span>
+                                    </div>
+                                    
                                     <div className="flex items-center justify-between text-xs">
                                         <span className="flex items-center gap-1.5 text-crm-fg-muted">
                                             <FileText size={14} /> Documentación
@@ -160,7 +254,7 @@ export default function ExpedientesPage() {
                                 Abrir Expediente <ArrowRight size={14} />
                             </Link>
                         </div>
-                    ))}
+                    )})}
                     
                     {filteredExpedientes.length === 0 && (
                         <div className="col-span-full py-12 flex flex-col items-center justify-center text-crm-fg-muted">

@@ -7,12 +7,22 @@ export async function PUT(request, { params }) {
         await connectDB();
         const { id } = params;
         const body = await request.json();
-        
-        const updatedTramite = await Gestoria.findByIdAndUpdate(id, body, { new: true, runValidators: true });
-        
-        if (!updatedTramite) {
+        const existingTramite = await Gestoria.findById(id);
+        if (!existingTramite) {
             return NextResponse.json({ error: 'Trámite no encontrado' }, { status: 404 });
         }
+
+        if (body.status && existingTramite.status !== body.status) {
+            body.auditLog = existingTramite.auditLog || [];
+            body.auditLog.push({
+                action: 'CAMBIO_ESTADO',
+                details: `Estado cambió de ${existingTramite.status} a ${body.status}`,
+                date: new Date(),
+                user: 'Admin' // Should be from auth token, but we don't have it directly here
+            });
+        }
+
+        const updatedTramite = await Gestoria.findByIdAndUpdate(id, body, { new: true, runValidators: true });
         
         return NextResponse.json(updatedTramite);
     } catch (error) {

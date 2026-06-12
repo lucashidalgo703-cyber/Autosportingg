@@ -2,21 +2,25 @@
 import React, { useEffect, useState } from 'react';
 import { Plus, Search, Edit2, Trash2, FileSignature, DollarSign, Calendar, CarFront, User } from 'lucide-react';
 import { useGestoria } from '../../../hooks/useGestoria';
+import { useAdminSales } from '../../../hooks/useAdminSales';
 import CrmButton from '../../../components/crm/ui/CrmButton';
 
 export default function GestoriaPage() {
     const { tramites, loading, error, fetchTramites, createTramite, updateTramite, deleteTramite } = useGestoria();
+    const { sales, fetchSales } = useAdminSales();
     const [search, setSearch] = useState('');
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [editingTramite, setEditingTramite] = useState(null);
     const [formData, setFormData] = useState({
         title: '', type: 'Transferencia Ingreso', vehiclePlate: '', gestorName: '',
-        status: 'Iniciado', cost: '', currency: 'ARS', estimatedEndDate: '', notes: ''
+        status: 'Iniciado', cost: '', currency: 'ARS', estimatedEndDate: '', notes: '',
+        saleId: '', organismo: '', chargedToClient: false
     });
 
     useEffect(() => {
         fetchTramites();
-    }, [fetchTramites]);
+        fetchSales();
+    }, [fetchTramites, fetchSales]);
 
     const filteredTramites = tramites.filter(t => 
         t.title?.toLowerCase().includes(search.toLowerCase()) || 
@@ -34,13 +38,17 @@ export default function GestoriaPage() {
                 status: tramite.status || 'Iniciado', cost: tramite.cost || '', 
                 currency: tramite.currency || 'ARS', 
                 estimatedEndDate: tramite.estimatedEndDate ? new Date(tramite.estimatedEndDate).toISOString().split('T')[0] : '', 
-                notes: tramite.notes || '' 
+                notes: tramite.notes || '',
+                saleId: tramite.saleId || '',
+                organismo: tramite.organismo || '',
+                chargedToClient: tramite.chargedToClient || false
             });
         } else {
             setEditingTramite(null);
             setFormData({ 
                 title: '', type: 'Transferencia Ingreso', vehiclePlate: '', gestorName: '',
-                status: 'Iniciado', cost: '', currency: 'ARS', estimatedEndDate: '', notes: '' 
+                status: 'Iniciado', cost: '', currency: 'ARS', estimatedEndDate: '', notes: '',
+                saleId: '', organismo: '', chargedToClient: false
             });
         }
         setIsModalOpen(true);
@@ -175,7 +183,16 @@ export default function GestoriaPage() {
                                 <div className="flex items-center gap-2">
                                     <DollarSign size={14} className="text-crm-fg opacity-70" />
                                     <span className="font-medium text-crm-fg">{tramite.currency} {tramite.cost?.toLocaleString('es-AR') || '0'}</span>
+                                    {tramite.chargedToClient && <span className="ml-2 px-1.5 py-0.5 rounded bg-blue-500/20 text-blue-300 text-[10px] font-bold uppercase">Cobrado</span>}
                                 </div>
+                                {tramite.saleId && (
+                                    <div className="col-span-full mt-2 pt-2 border-t border-crm-border flex items-center justify-between">
+                                        <span className="text-xs text-crm-fg-muted">Expediente Vinculado:</span>
+                                        <a href={`/admin/ventas/${tramite.saleId}`} className="text-xs font-bold text-crm-red hover:text-red-400 uppercase">
+                                            Ir al Expediente
+                                        </a>
+                                    </div>
+                                )}
                             </div>
 
                             {tramite.notes && (
@@ -227,6 +244,24 @@ export default function GestoriaPage() {
                                         <label className="mb-1.5 block text-xs font-bold uppercase tracking-wider text-crm-fg-muted">Patente del Vehículo</label>
                                         <input type="text" placeholder="Ej: AB123CD" value={formData.vehiclePlate} onChange={e => setFormData({...formData, vehiclePlate: e.target.value})} className="w-full rounded-lg border border-crm-border bg-crm-bg px-4 py-2.5 text-sm text-crm-fg uppercase focus:border-crm-red focus:outline-none focus:ring-1 focus:ring-crm-red" />
                                     </div>
+                                    <div>
+                                        <label className="mb-1.5 block text-xs font-bold uppercase tracking-wider text-crm-fg-muted">Vincular Expediente (Venta)</label>
+                                        <select value={formData.saleId} onChange={e => {
+                                            const selectedSale = sales.find(s => s._id === e.target.value);
+                                            setFormData({
+                                                ...formData, 
+                                                saleId: e.target.value,
+                                                vehiclePlate: selectedSale?.vehicleId?.plateOrVin || formData.vehiclePlate
+                                            });
+                                        }} className="w-full rounded-lg border border-crm-border bg-crm-bg px-4 py-2.5 text-sm text-crm-fg focus:border-crm-red focus:outline-none focus:ring-1 focus:ring-crm-red appearance-none">
+                                            <option value="">Ninguno</option>
+                                            {sales.filter(s => s.status !== 'cancelada' && s.status !== 'borrador').map(s => (
+                                                <option key={s._id} value={s._id}>
+                                                    {s.clientId?.name} - {s.vehicleId?.brand} {s.vehicleId?.name} ({s.vehicleId?.plateOrVin})
+                                                </option>
+                                            ))}
+                                        </select>
+                                    </div>
                                 </div>
                             </div>
 
@@ -253,6 +288,14 @@ export default function GestoriaPage() {
                                             <label className="mb-1.5 block text-xs font-bold uppercase tracking-wider text-crm-fg-muted">Costo / Arancel</label>
                                             <input type="number" value={formData.cost} onChange={e => setFormData({...formData, cost: e.target.value})} className="w-full rounded-lg border border-crm-border bg-crm-bg px-4 py-2.5 text-sm text-crm-fg focus:border-crm-red focus:outline-none focus:ring-1 focus:ring-crm-red" />
                                         </div>
+                                    </div>
+                                    <div>
+                                        <label className="mb-1.5 block text-xs font-bold uppercase tracking-wider text-crm-fg-muted">Organismo Registral</label>
+                                        <input type="text" placeholder="Ej: RNPA Seccional 2" value={formData.organismo} onChange={e => setFormData({...formData, organismo: e.target.value})} className="w-full rounded-lg border border-crm-border bg-crm-bg px-4 py-2.5 text-sm text-crm-fg focus:border-crm-red focus:outline-none focus:ring-1 focus:ring-crm-red" />
+                                    </div>
+                                    <div className="flex items-center gap-3">
+                                        <input type="checkbox" id="chargedToClient" checked={formData.chargedToClient} onChange={e => setFormData({...formData, chargedToClient: e.target.checked})} className="h-4 w-4 rounded border-crm-border text-crm-red focus:ring-crm-red" />
+                                        <label htmlFor="chargedToClient" className="text-sm font-medium text-crm-fg">Costos a cargo del Cliente (Cobrado)</label>
                                     </div>
                                 </div>
                             </div>
