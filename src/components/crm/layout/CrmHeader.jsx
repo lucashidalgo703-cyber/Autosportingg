@@ -123,11 +123,29 @@ export default function CrmHeader({ onMenuClick }) {
 
                 let sales = 0, stock = 0;
                 try {
-                    const metricsRes = await fetch('/api/stats/dashboard', { headers: { 'Authorization': `Bearer ${token}` } });
-                    if (metricsRes.ok) {
-                        const metrics = await metricsRes.json();
-                        sales = metrics.soldCarsThisMonth || 0;
-                        stock = metrics.stockCount || 0;
+                    const headers = { 'Authorization': `Bearer ${token}` };
+                    const [carsRes, salesRes] = await Promise.all([
+                        fetch('/api/admin/cars', { headers }),
+                        fetch('/api/admin/sales', { headers })
+                    ]);
+
+                    if (carsRes.ok && salesRes.ok) {
+                        const [carsData, salesData] = await Promise.all([
+                            carsRes.json(),
+                            salesRes.json()
+                        ]);
+                        const today = new Date();
+
+                        stock = carsData.filter((car) => (car.status || '').toLowerCase() === 'disponible').length;
+                        sales = salesData.filter((sale) => {
+                            const saleDate = new Date(sale.saleDate || sale.createdAt);
+                            const status = (sale.status || '').toLowerCase();
+
+                            return status !== 'cancelada'
+                                && status !== 'borrador'
+                                && saleDate.getMonth() === today.getMonth()
+                                && saleDate.getFullYear() === today.getFullYear();
+                        }).length;
                     }
                 } catch (e) {}
 
