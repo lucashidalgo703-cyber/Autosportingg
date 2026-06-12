@@ -2,6 +2,30 @@ import React, { useState, useEffect } from 'react';
 import { X, Upload, Plus, ArrowLeft, ArrowRight, Star, Scan } from 'lucide-react';
 import toast from 'react-hot-toast';
 import CrmModal from './crm/ui/CrmModal';
+
+const InputLabel = ({ children, required }) => (
+    <label className="text-[10px] text-gray-400 font-medium mb-1.5 block">
+        {children} {required && <span className="text-red-500">*</span>}
+    </label>
+);
+
+const TextInput = ({ name, value, onChange, placeholder, type="text", required }) => (
+    <input 
+        type={type} name={name} value={value} onChange={onChange} placeholder={placeholder} required={required}
+        className="w-full bg-[#1e1e22] border border-white/5 rounded-md px-3 py-2 text-xs text-white placeholder-gray-600 focus:border-red-500 focus:outline-none transition-colors"
+    />
+);
+
+const SelectInput = ({ name, value, onChange, options }) => (
+    <select 
+        name={name} value={value} onChange={onChange}
+        className="w-full bg-[#1e1e22] border border-white/5 rounded-md px-3 py-2 text-xs text-white focus:border-red-500 focus:outline-none transition-colors appearance-none"
+        style={{ backgroundImage: 'url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns=\'http://www.w3.org/2000/svg\' viewBox=\'0 0 24 24\' fill=\'none\' stroke=\'white\' stroke-width=\'2\' stroke-linecap=\'round\' stroke-linejoin=\'round\'%3e%3cpolyline points=\'6 9 12 15 18 9\'%3e%3c/polyline%3e%3c/svg%3e")', backgroundRepeat: 'no-repeat', backgroundPosition: 'right 0.5rem center', backgroundSize: '1em' }}
+    >
+        {options.map((opt, i) => <option key={i} value={opt} className="bg-[#1e1e22] text-white">{opt}</option>)}
+    </select>
+);
+
 export default function VehicleFormModal({ isOpen, onClose, onSave, editingCar }) {
     const [isDragging, setIsDragging] = useState(false);
     const [files, setFiles] = useState([]);
@@ -105,28 +129,7 @@ export default function VehicleFormModal({ isOpen, onClose, onSave, editingCar }
         onSave(formData, files);
     };
 
-    const InputLabel = ({ children, required }) => (
-        <label className="text-[10px] text-gray-400 font-medium mb-1.5 block">
-            {children} {required && <span className="text-red-500">*</span>}
-        </label>
-    );
 
-    const TextInput = ({ name, value, onChange, placeholder, type="text", required }) => (
-        <input 
-            type={type} name={name} value={value} onChange={onChange} placeholder={placeholder} required={required}
-            className="w-full bg-[#1e1e22] border border-white/5 rounded-md px-3 py-2 text-xs text-white placeholder-gray-600 focus:border-red-500 focus:outline-none transition-colors"
-        />
-    );
-
-    const SelectInput = ({ name, value, onChange, options }) => (
-        <select 
-            name={name} value={value} onChange={onChange}
-            className="w-full bg-[#1e1e22] border border-white/5 rounded-md px-3 py-2 text-xs text-white focus:border-red-500 focus:outline-none transition-colors appearance-none"
-            style={{ backgroundImage: 'url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns=\'http://www.w3.org/2000/svg\' viewBox=\'0 0 24 24\' fill=\'none\' stroke=\'white\' stroke-width=\'2\' stroke-linecap=\'round\' stroke-linejoin=\'round\'%3e%3cpolyline points=\'6 9 12 15 18 9\'%3e%3c/polyline%3e%3c/svg%3e")', backgroundRepeat: 'no-repeat', backgroundPosition: 'right 0.5rem center', backgroundSize: '1em' }}
-        >
-            {options.map((opt, i) => <option key={i} value={opt} className="bg-[#1e1e22] text-white">{opt}</option>)}
-        </select>
-    );
 
     const modalTitle = (
         <div>
