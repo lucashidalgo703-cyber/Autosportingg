@@ -458,15 +458,15 @@ export default function GeneralDashboardSote({ metrics, canSeeFinancials = false
     const primaryCards = [
         {
             label: 'Revenue del mes',
-            value: `USD ${formatCurrency(0)}`,
-            detail: '0 operaciones',
+            value: `ARS ${formatCurrency(estimatedMarginArs)}`,
+            detail: `${counts.vendidos || 0} operaciones`,
             icon: DollarSign,
             tone: 'green',
             href: '/admin/ventas'
         },
         {
             label: 'Stock activo',
-            value: `USD ${formatCurrency(activeCapitalUsd)}`,
+            value: `ARS ${formatCurrency(activeCapitalArs)}`,
             detail: `${activeStock} vehiculos · ${counts.disponibles || 0} disp.`,
             icon: Warehouse,
             tone: 'blue',
@@ -474,8 +474,8 @@ export default function GeneralDashboardSote({ metrics, canSeeFinancials = false
         },
         {
             label: 'Operaciones del mes',
-            value: '0',
-            detail: 'Sin operaciones aun',
+            value: formatNumber(counts.vendidos || 0),
+            detail: counts.vendidos > 0 ? 'Ventas confirmadas' : 'Sin operaciones aun',
             icon: TrendingUp,
             tone: 'amber',
             href: '/admin/ventas'
@@ -501,8 +501,8 @@ export default function GeneralDashboardSote({ metrics, canSeeFinancials = false
         },
         {
             label: 'Ventas del mes',
-            value: '0',
-            detail: 'USD 0',
+            value: formatNumber(counts.vendidos || 0),
+            detail: `ARS ${formatCurrency(estimatedMarginArs)}`,
             icon: ShoppingCart,
             tone: 'green',
             href: '/admin/ventas'
@@ -516,9 +516,9 @@ export default function GeneralDashboardSote({ metrics, canSeeFinancials = false
             href: '/admin/cuotas'
         },
         {
-            label: 'Balance neto (USD)',
-            value: canSeeFinancials ? `USD ${formatCurrency(estimatedMarginUsd)}` : 'Oculto',
-            detail: canSeeFinancials ? `ARS ${formatCurrency(estimatedMarginArs)} · stock activo` : 'Sin permiso financiero',
+            label: 'Balance neto (ARS)',
+            value: canSeeFinancials ? `ARS ${formatCurrency(estimatedMarginArs)}` : 'Oculto',
+            detail: canSeeFinancials ? `USD ${formatCurrency(estimatedMarginUsd)} · alternativo` : 'Sin permiso financiero',
             icon: TrendingUp,
             tone: 'purple',
             href: '/admin/finanzas'
