@@ -6,12 +6,15 @@ import ClientFilters from '../../../components/crm/clients/ClientFilters';
 import ClientsTable from '../../../components/crm/clients/ClientsTable';
 import ClientMobileCards from '../../../components/crm/clients/ClientMobileCards';
 import ClientFormModal from '../../../components/crm/clients/ClientFormModal';
+import ClientBulkActionBar from '../../../components/crm/clients/ClientBulkActionBar';
+import ClientImportModal from '../../../components/crm/clients/ClientImportModal';
 import CrmButton from '../../../components/crm/ui/CrmButton';
 import { useAdminLeads } from '../../../hooks/useAdminLeads';
 import LeadKanbanBoard from '../../../components/crm/leads/LeadKanbanBoard';
-import { LayoutList, KanbanSquare } from 'lucide-react';
+import { LayoutList, KanbanSquare, Download, Upload } from 'lucide-react';
 import { useAuth } from '../../../context/AuthContext';
 import { hasPermission, PERMISSIONS } from '../../../utils/adminPermissions';
+import * as XLSX from 'xlsx';
 
 const summaryCards = [
     { key: 'total', label: 'Clientes cargados', icon: Users, tone: 'bg-blue-500/15 text-blue-300' },
@@ -29,8 +32,10 @@ export default function AdminClientesPage() {
     const { leads, loading: leadsLoading, fetchLeads, updateLead } = useAdminLeads();
 
     const [view, setView] = useState('lista');
-    const [filters, setFilters] = useState({ search: '', type: '', source: '', status: '' });
+    const [filters, setFilters] = useState({ search: '', segment: '', source: '', status: '' });
     const [isModalOpen, setIsModalOpen] = useState(false);
+    const [isImportModalOpen, setIsImportModalOpen] = useState(false);
+    const [selectedIds, setSelectedIds] = useState([]);
 
     useEffect(() => {
         fetchClients(filters);
@@ -62,6 +67,32 @@ export default function AdminClientesPage() {
         }
     };
 
+    const handleExportXLSX = () => {
+        const clientsToExport = selectedIds.length > 0 
+            ? clients.filter(c => selectedIds.includes(c._id))
+            : clients;
+            
+        if (clientsToExport.length === 0) return;
+
+        const dataToExport = clientsToExport.map(c => ({
+            'Nombre Completo': c.fullName,
+            'Teléfono': c.phone,
+            'Email': c.email,
+            'DNI/CUIT': c.dniCuit,
+            'Localidad': c.locality,
+            'Tipo': c.type,
+            'Origen': c.source,
+            'Estado': c.status,
+            'Fecha Registro': new Date(c.createdAt).toLocaleDateString()
+        }));
+
+        const ws = XLSX.utils.json_to_sheet(dataToExport);
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, "Clientes");
+        XLSX.writeFile(wb, `autosporting_clientes_${new Date().getTime()}.xlsx`);
+        setSelectedIds([]);
+    };
+
     const summary = useMemo(() => {
         const source = clients || [];
 
@@ -89,15 +120,24 @@ export default function AdminClientesPage() {
                         </p>
                     </div>
 
-                    <CrmButton
-                        variant="primary"
-                        size="sm"
-                        onClick={() => setIsModalOpen(true)}
-                        className="w-full gap-2 md:w-auto"
-                    >
-                        <Plus size={16} />
-                        Nuevo Cliente
-                    </CrmButton>
+                    <div className="flex w-full md:w-auto gap-2">
+                        {hasPermission(user, PERMISSIONS.EXPORTS_READ) && (
+                            <CrmButton variant="secondary" size="sm" onClick={handleExportXLSX} className="gap-2" title="Exportar XLSX">
+                                <Download size={16} />
+                                <span className="hidden md:inline">Exportar</span>
+                            </CrmButton>
+                        )}
+                        {hasPermission(user, PERMISSIONS.CLIENTES_WRITE) && (
+                            <CrmButton variant="secondary" size="sm" onClick={() => setIsImportModalOpen(true)} className="gap-2" title="Importar XLSX">
+                                <Upload size={16} />
+                                <span className="hidden md:inline">Importar</span>
+                            </CrmButton>
+                        )}
+                        <CrmButton variant="primary" size="sm" onClick={() => setIsModalOpen(true)} className="gap-2">
+                            <Plus size={16} />
+                            Nuevo Cliente
+                        </CrmButton>
+                    </div>
                 </div>
 
                 <div className="flex gap-6 border-b border-crm-border">
@@ -160,7 +200,11 @@ export default function AdminClientesPage() {
                     ) : (
                         <>
                             <div className="hidden md:block">
-                                <ClientsTable clients={clients} />
+                                <ClientsTable 
+                                    clients={clients} 
+                                    selectedIds={selectedIds} 
+                                    setSelectedIds={setSelectedIds} 
+                                />
                             </div>
 
                             <div className="md:hidden">
@@ -193,6 +237,21 @@ export default function AdminClientesPage() {
                     isOpen={isModalOpen}
                     onClose={() => setIsModalOpen(false)}
                     onSave={handleCreateClient}
+                />
+
+                <ClientImportModal
+                    isOpen={isImportModalOpen}
+                    onClose={() => setIsImportModalOpen(false)}
+                    onSuccess={(count) => {
+                        alert(`Se importaron ${count} clientes correctamente.`);
+                        fetchClients(filters);
+                    }}
+                />
+
+                <ClientBulkActionBar
+                    selectedIds={selectedIds}
+                    onClearSelection={() => setSelectedIds([])}
+                    onExport={handleExportXLSX}
                 />
             </div>
         </div>

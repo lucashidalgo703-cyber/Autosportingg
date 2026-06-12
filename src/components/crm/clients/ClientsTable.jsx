@@ -39,7 +39,7 @@ const getStatusColor = (status) => {
     return 'text-crm-fg-muted';
 };
 
-export default function ClientsTable({ clients }) {
+export default function ClientsTable({ clients, selectedIds = [], setSelectedIds }) {
     if (!clients || clients.length === 0) {
         return (
             <div className="flex min-h-[320px] flex-col items-center justify-center rounded-xl border border-dashed border-crm-border bg-crm-surface px-6 py-16 text-center">
@@ -54,6 +54,27 @@ export default function ClientsTable({ clients }) {
         );
     }
 
+    const handleSelectAll = (e) => {
+        if (e.target.checked) {
+            const allVisibleIds = clients.map(c => c._id);
+            // Combine without duplicates
+            setSelectedIds(Array.from(new Set([...selectedIds, ...allVisibleIds])));
+        } else {
+            const visibleIds = new Set(clients.map(c => c._id));
+            setSelectedIds(selectedIds.filter(id => !visibleIds.has(id)));
+        }
+    };
+
+    const handleSelectRow = (e, id) => {
+        if (e.target.checked) {
+            setSelectedIds([...selectedIds, id]);
+        } else {
+            setSelectedIds(selectedIds.filter(selectedId => selectedId !== id));
+        }
+    };
+
+    const isAllVisibleSelected = clients.length > 0 && clients.every(c => selectedIds.includes(c._id));
+
     return (
         <div className="flex flex-col gap-4">
             <div className="rounded-xl border border-crm-border bg-crm-surface p-3 text-sm font-semibold text-crm-fg">
@@ -66,6 +87,14 @@ export default function ClientsTable({ clients }) {
                 <table className="w-full min-w-[980px] border-collapse text-left">
                     <thead className="bg-crm-surface-raised text-xs uppercase text-crm-fg-muted">
                         <tr>
+                            <th className="px-3 py-2 text-center w-[40px]">
+                                <input 
+                                    type="checkbox" 
+                                    className="cursor-pointer accent-crm-red"
+                                    checked={isAllVisibleSelected}
+                                    onChange={handleSelectAll}
+                                />
+                            </th>
                             <th className="px-3 py-2 font-semibold">Cliente</th>
                             <th className="px-3 py-2 font-semibold">Contacto</th>
                             <th className="px-3 py-2 font-semibold">Tipo</th>
@@ -77,10 +106,20 @@ export default function ClientsTable({ clients }) {
                         </tr>
                     </thead>
                     <tbody className="divide-y divide-crm-border">
-                        {clients.map(client => (
-                            <tr key={client._id} className="h-[76px] text-sm text-crm-fg transition-colors hover:bg-crm-surface-raised/70">
-                                <td className="px-3 py-2 align-middle">
-                                    <div className="font-semibold leading-5 text-crm-fg">{client.fullName}</div>
+                        {clients.map(client => {
+                            const isSelected = selectedIds.includes(client._id);
+                            return (
+                                <tr key={client._id} className={`h-[76px] text-sm text-crm-fg transition-colors hover:bg-crm-surface-raised/70 ${isSelected ? 'bg-crm-red/5' : ''}`}>
+                                    <td className="px-3 py-2 align-middle text-center">
+                                        <input 
+                                            type="checkbox" 
+                                            className="cursor-pointer accent-crm-red"
+                                            checked={isSelected}
+                                            onChange={(e) => handleSelectRow(e, client._id)}
+                                        />
+                                    </td>
+                                    <td className="px-3 py-2 align-middle">
+                                        <div className="font-semibold leading-5 text-crm-fg">{client.fullName}</div>
                                     <div className="mt-0.5 text-xs text-crm-fg-muted">{client.dniCuit ? `Doc: ${client.dniCuit}` : 'Sin documento'}</div>
                                 </td>
                                 <td className="px-3 py-2 align-middle">
@@ -123,7 +162,7 @@ export default function ClientsTable({ clients }) {
                                     </Link>
                                 </td>
                             </tr>
-                        ))}
+                        )})}
                     </tbody>
                 </table>
             </div>

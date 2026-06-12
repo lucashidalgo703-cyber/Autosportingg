@@ -2,12 +2,13 @@ import React from 'react';
 import { Filter, Search, X } from 'lucide-react';
 import CrmButton from '../ui/CrmButton';
 
-const typeTabs = [
+const segmentTabs = [
     { id: '', label: 'Todos' },
-    { id: 'comprador', label: 'Compradores' },
-    { id: 'vendedor', label: 'Vendedores' },
-    { id: 'ambos', label: 'Ambos' },
-    { id: 'potencial', label: 'Potenciales' }
+    { id: 'mis-clientes', label: 'Mis Clientes' },
+    { id: 'sin-contactar', label: 'Sin contactar' },
+    { id: 'contactados', label: 'Contactados' },
+    { id: 'compraron', label: 'Compraron' },
+    { id: 'vendieron', label: 'Vendieron' }
 ];
 
 const statusChips = [
@@ -44,7 +45,7 @@ export default function ClientFilters({ filters, setFilters, onSearch }) {
     };
 
     const handleReset = () => {
-        applyFilters({ search: '', type: '', source: '', status: '' });
+        applyFilters({ search: '', segment: '', source: '', status: '' });
     };
 
     const handleChange = (event) => {
@@ -58,19 +59,19 @@ export default function ClientFilters({ filters, setFilters, onSearch }) {
         }
     };
 
-    const hasActiveFilters = filters.search || filters.type || filters.source || filters.status;
+    const hasActiveFilters = filters.search || filters.segment || filters.source || filters.status;
 
     return (
         <div className="mb-6 flex flex-col gap-5">
             <div className="-mx-1 flex items-center gap-6 overflow-x-auto border-b border-crm-border px-1 [-webkit-overflow-scrolling:touch]">
-                {typeTabs.map(tab => {
-                    const isActive = filters.type === tab.id;
+                {segmentTabs.map(tab => {
+                    const isActive = filters.segment === tab.id;
 
                     return (
                         <button
                             key={tab.id || 'todos'}
                             type="button"
-                            onClick={() => applyFilters({ ...filters, type: tab.id })}
+                            onClick={() => applyFilters({ ...filters, segment: tab.id })}
                             className={`m-0 shrink-0 appearance-none border-0 border-b-2 bg-transparent px-1 pb-3 pt-1 text-sm font-semibold transition-colors ${
                                 isActive
                                     ? 'border-crm-red text-crm-red'

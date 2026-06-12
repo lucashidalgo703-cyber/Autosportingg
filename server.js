@@ -801,7 +801,8 @@ app.delete('/api/cars/:id', authenticateToken, async (req, res) => {
 // GET all clients
 app.get('/api/admin/clients', authenticateToken, async (req, res) => {
     try {
-        const { search, type, source, status, limit = 50, page = 1 } = req.query;
+        await connectDB();
+        const { search, type, source, status, segment, limit = 50, page = 1 } = req.query;
         let query = {};
         
         if (search) {
@@ -818,6 +819,55 @@ app.get('/api/admin/clients', authenticateToken, async (req, res) => {
         if (status) query.status = status;
         
         const skip = (parseInt(page) - 1) * parseInt(limit);
+        const parsedLimit = parseInt(limit);
+
+        const reqUserId = req.user?.id ? new mongoose.Types.ObjectId(req.user.id) : null;
+        if (segment === 'mis-clientes' && reqUserId) {
+            query.assignedTo = reqUserId;
+        } else if (segment === 'vendieron') {
+            query.type = { $in: ['vendedor', 'ambos'] };
+        }
+
+        if (segment === 'contactados' || segment === 'sin-contactar' || segment === 'compraron') {
+            const pipeline = [];
+            if (Object.keys(query).length > 0) pipeline.push({ $match: query });
+
+            if (segment === 'contactados' || segment === 'sin-contactar') {
+                pipeline.push({ $lookup: { from: 'leads', localField: '_id', foreignField: 'clientId', as: 'relatedLeads' } });
+                if (segment === 'sin-contactar') {
+                    pipeline.push({
+                        $match: {
+                            $and: [
+                                { $or: [{ interactions: { $exists: false } }, { interactions: { $size: 0 } }] },
+                                { $or: [{ relatedLeads: { $size: 0 } }, { "relatedLeads": { $not: { $elemMatch: { crmStatus: { $ne: 'nuevo' } } } } }] }
+                            ]
+                        }
+                    });
+                } else if (segment === 'contactados') {
+                    pipeline.push({
+                        $match: {
+                            $or: [
+                                { "interactions.0": { $exists: true } },
+                                { "relatedLeads": { $elemMatch: { crmStatus: { $ne: 'nuevo' } } } }
+                            ]
+                        }
+                    });
+                }
+            } else if (segment === 'compraron') {
+                pipeline.push({ $lookup: { from: 'sales', localField: '_id', foreignField: 'clientId', as: 'relatedSales' } });
+                pipeline.push({
+                    $match: { "relatedSales": { $elemMatch: { status: { $nin: ['cancelada', 'borrador'] } } } }
+                });
+            }
+
+            const countPipeline = [...pipeline, { $count: 'total' }];
+            const countResult = await Client.aggregate(countPipeline);
+            const total = countResult.length > 0 ? countResult[0].total : 0;
+
+            pipeline.push({ $sort: { createdAt: -1 } }, { $skip: skip }, { $limit: parsedLimit }, { $project: { relatedLeads: 0, relatedSales: 0 } });
+            const clients = await Client.aggregate(pipeline);
+            return res.json({ clients, total, pages: Math.ceil(total / parsedLimit) });
+        }
         
         const clients = await Client.find(query)
             .sort({ createdAt: -1 })
@@ -839,6 +889,101 @@ app.get('/api/admin/clients/:id', authenticateToken, async (req, res) => {
         const client = await Client.findById(req.params.id);
         if (!client) return res.status(404).json({ message: 'Client not found' });
         res.json(client);
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+});
+
+// POST validate import
+app.post('/api/admin/clients/validate-import', authenticateToken, requirePermission(PERMISSIONS.CLIENTES_WRITE), async (req, res) => {
+    try {
+        await connectDB();
+        const { rows } = req.body;
+        if (!Array.isArray(rows)) return res.status(400).json({ message: 'Rows must be an array' });
+
+        const results = [];
+        for (const row of rows) {
+            let status = 'valid';
+            let message = 'Listo para importar';
+            let existingClient = null;
+
+            // Normalize fields for check
+            const phoneNormalized = row.phone ? String(row.phone).replace(/\D/g, '') : '';
+            const emailNormalized = row.email ? String(row.email).toLowerCase().trim() : '';
+            const dniCuit = row.dni ? String(row.dni).trim() : '';
+
+            // Check duplicates
+            const orConditions = [];
+            if (phoneNormalized) orConditions.push({ phoneNormalized });
+            if (emailNormalized) orConditions.push({ emailNormalized });
+            if (dniCuit) orConditions.push({ dniCuit });
+
+            if (orConditions.length > 0) {
+                existingClient = await Client.findOne({ $or: orConditions }).lean();
+            }
+
+            if (existingClient) {
+                status = 'duplicate';
+                message = 'Cliente duplicado (coincide teléfono, email o DNI)';
+            } else if (!row.firstName && !row.fullName) {
+                status = 'error';
+                message = 'Falta el nombre/apellido';
+            } else if (!phoneNormalized && !emailNormalized) {
+                status = 'error';
+                message = 'Debe tener teléfono o email';
+            }
+
+            results.push({ ...row, _importStatus: status, _importMessage: message, _duplicateId: existingClient?._id });
+        }
+
+        res.json({ results });
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+});
+
+// POST bulk insert clients
+app.post('/api/admin/clients/bulk', authenticateToken, requirePermission(PERMISSIONS.CLIENTES_WRITE), async (req, res) => {
+    try {
+        await connectDB();
+        const { clients } = req.body;
+        if (!Array.isArray(clients)) return res.status(400).json({ message: 'Clients must be an array' });
+
+        const toInsert = clients.map(clientData => {
+            const client = new Client({
+                firstName: clientData.firstName || '',
+                lastName: clientData.lastName || '',
+                fullName: clientData.fullName || `${clientData.firstName || ''} ${clientData.lastName || ''}`.trim(),
+                phone: clientData.phone || '',
+                email: clientData.email || '',
+                dniCuit: clientData.dni || '',
+                locality: clientData.locality || '',
+                type: clientData.type || 'potencial',
+                source: clientData.source || 'otro',
+                notes: clientData.notes || 'Importado via Excel',
+                createdBy: req.user?.id || 'CRM_V2'
+            });
+            
+            client.clientAuditLog.push({
+                action: 'CREACION',
+                details: 'Cliente importado masivamente',
+                user: req.user?.id || 'CRM_V2'
+            });
+
+            return client;
+        });
+
+        const inserted = await Client.insertMany(toInsert);
+
+        await logAudit({
+            req,
+            action: 'IMPORTACION_MASIVA',
+            module: 'clientes',
+            entityType: 'Client',
+            description: `Se importaron ${inserted.length} clientes masivamente.`
+        });
+
+        res.json({ ok: true, count: inserted.length });
     } catch (error) {
         res.status(500).json({ message: error.message });
     }
