@@ -2754,15 +2754,16 @@ app.post('/api/admin/sales/:id/create-link-client', authenticateToken, async (re
         const dni = req.body.dni || sale.buyerDni || '';
 
         // Create the new client
-        const newClient = new Client({
+                const newClient = new Client({
             firstName: fullName.split(' ')[0],
             lastName: fullName.split(' ').slice(1).join(' '),
             fullName: fullName,
             phone: phone,
             email: email,
-            documentNumber: dni,
-            source: 'Venta Manual',
-            status: 'Comprador'
+            dniCuit: dni,
+            source: 'otro',
+            type: 'comprador',
+            status: 'activo'
         });
 
         await newClient.save();
