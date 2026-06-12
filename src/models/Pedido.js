@@ -50,6 +50,21 @@ const PedidoSchema = new mongoose.Schema({
     createdBy: {
         type: mongoose.Schema.Types.ObjectId,
         ref: 'AdminUser'
+    },
+    nextActionDate: {
+        type: Date
+    },
+    auditLog: {
+        type: [{
+            action: { type: String, required: true },
+            field: { type: String },
+            oldValue: mongoose.Schema.Types.Mixed,
+            newValue: mongoose.Schema.Types.Mixed,
+            details: { type: String },
+            date: { type: Date, default: Date.now },
+            user: { type: String, default: 'Admin' }
+        }],
+        default: []
     }
 }, {
     timestamps: true

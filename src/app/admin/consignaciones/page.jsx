@@ -3,10 +3,13 @@ import React, { useEffect, useState } from 'react';
 import { Search, Car, User, Phone, MapPin, DollarSign, Calendar, Info, Link as LinkIcon } from 'lucide-react';
 import { useAdminCars } from '../../../hooks/useAdminCars';
 import Link from 'next/link';
+import ConsignationKanban from '../../../components/crm/consignaciones/ConsignationKanban';
+import toast from 'react-hot-toast';
 
 export default function ConsignacionesPage() {
     const { cars, loading, error, refresh: fetchCars } = useAdminCars();
     const [search, setSearch] = useState('');
+    const [viewMode, setViewMode] = useState('pipeline'); // 'lista' or 'pipeline'
 
     useEffect(() => {
         fetchCars();
@@ -38,6 +41,49 @@ export default function ConsignacionesPage() {
         }
     };
 
+    const handleStatusChange = async (carId, newConsignmentStatus) => {
+        try {
+            const token = localStorage.getItem('token');
+            const car = consignaciones.find(c => c._id === carId);
+            if (!car) return;
+            if (car.consignmentStatus === newConsignmentStatus) return;
+
+            let updates = { consignmentStatus: newConsignmentStatus };
+            let actionDetails = `Cambio a etapa: ${newConsignmentStatus}`;
+
+            if (newConsignmentStatus === 'publicado') {
+                updates.status = 'Disponible';
+                updates.visibleEnWeb = true;
+                actionDetails += ' (Publicado en web)';
+            } else if (newConsignmentStatus === 'reservado') {
+                updates.status = 'Reservado';
+            } else if (newConsignmentStatus === 'vendido' || newConsignmentStatus === 'cerrado') {
+                updates.status = 'Vendido';
+            } else if (newConsignmentStatus === 'cancelado') {
+                updates.status = 'Cancelado';
+            }
+
+            const res = await fetch(`/api/admin/cars/${carId}`, {
+                method: 'PATCH',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                },
+                body: JSON.stringify({
+                    ...updates,
+                    auditMessage: actionDetails
+                })
+            });
+
+            if (!res.ok) throw new Error('Error al cambiar de estado');
+            
+            toast.success('Estado actualizado');
+            fetchCars();
+        } catch (err) {
+            toast.error(err.message);
+        }
+    };
+
     return (
         <div className="mx-auto flex w-full max-w-7xl flex-col gap-5 p-4 pb-24 md:p-6">
             <div className="flex flex-col gap-4 border-b border-crm-border pb-5 lg:flex-row lg:items-start lg:justify-between">
@@ -64,6 +110,23 @@ export default function ConsignacionesPage() {
                 </div>
             </div>
 
+            <div className="flex space-x-1 border-b border-crm-border mt-2">
+                <button
+                    onClick={() => setViewMode('pipeline')}
+                    className={`px-4 py-2 text-sm font-semibold transition-colors relative ${viewMode === 'pipeline' ? 'text-white' : 'text-crm-fg-muted hover:text-white'}`}
+                >
+                    Pipeline Kanban
+                    {viewMode === 'pipeline' && <span className="absolute bottom-[-1px] left-0 right-0 h-0.5 bg-crm-red" />}
+                </button>
+                <button
+                    onClick={() => setViewMode('lista')}
+                    className={`px-4 py-2 text-sm font-semibold transition-colors relative ${viewMode === 'lista' ? 'text-white' : 'text-crm-fg-muted hover:text-white'}`}
+                >
+                    Vista Lista
+                    {viewMode === 'lista' && <span className="absolute bottom-[-1px] left-0 right-0 h-0.5 bg-crm-red" />}
+                </button>
+            </div>
+
             {error && typeof error === 'string' && cars.length === 0 && (
                 <div className="rounded-xl border border-crm-red/30 bg-crm-red/10 p-4 text-sm text-red-300">
                     {error}
@@ -74,6 +137,8 @@ export default function ConsignacionesPage() {
                 <div className="flex h-64 items-center justify-center rounded-xl border border-crm-border bg-crm-surface">
                     <div className="h-8 w-8 animate-spin rounded-full border-2 border-crm-border border-b-crm-red" />
                 </div>
+            ) : viewMode === 'pipeline' ? (
+                <ConsignationKanban consignations={filteredConsignaciones} onChangeStatus={handleStatusChange} />
             ) : (
                 <div className="grid grid-cols-1 gap-4 lg:grid-cols-2 xl:grid-cols-3">
                     {filteredConsignaciones.map(car => (

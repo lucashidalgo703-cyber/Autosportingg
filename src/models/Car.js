@@ -22,9 +22,15 @@ const carSchema = new mongoose.Schema({
     agencyOwned: { type: Boolean, default: false },
     ownerName: { type: String },
     linkedClient: { type: String },
+    clientId: { type: mongoose.Schema.Types.ObjectId, ref: 'Client' },
     ownerPhone: { type: String },
     ownerEmail: { type: String },
     consignedBy: { type: String },
+    consignmentStatus: { 
+        type: String, 
+        enum: ['ingreso', 'tasacion', 'documentacion', 'publicado', 'reservado', 'vendido', 'cerrado', 'cancelado'],
+        default: 'ingreso'
+    },
     engineNumber: { type: String },
     chassisNumber: { type: String },
     hasManuals: { type: String, default: 'No' },
