@@ -1542,9 +1542,9 @@ app.get('/api/stats/dashboard', authenticateToken, async (req, res) => {
         startOfMonth.setHours(0, 0, 0, 0);
         
         // Unidades Vendidas este mes
-        const soldCarsThisMonth = await Car.countDocuments({ 
-            status: 'Vendido',
-            updatedAt: { $gte: startOfMonth }
+        const soldCarsThisMonth = await Sale.countDocuments({
+            status: { $nin: ['cancelada', 'borrador'] },
+            saleDate: { $gte: startOfMonth }
         });
 
         // Or we can count Leads sold this month, both work. Let's use cars to reflect actual stock sales.

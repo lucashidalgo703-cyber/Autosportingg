@@ -103,12 +103,13 @@ export default function CrmHeader({ onMenuClick }) {
 
                 if (canSeeFinancials) {
                     try {
-                        const accRes = await fetch('/api/admin/finance/accounts', { headers: { 'Authorization': `Bearer ${token}` } });
+                        const accRes = await fetch('/api/accounts', { headers: { 'Authorization': `Bearer ${token}` } });
                         if (accRes.ok) {
                             const accounts = await accRes.json();
                             const getBal = (curr) => {
-                                const acc = accounts.find(a => a.currency === curr && (a.type === 'cash' || a.type === 'efectivo'));
-                                return acc ? acc.balance : 0;
+                                return accounts
+                                    .filter(a => a.currency === curr && a.isActive !== false)
+                                    .reduce((sum, a) => sum + (a.balance || 0), 0);
                             };
                             ars = getBal('ARS');
                             usd = getBal('USD');
@@ -122,13 +123,11 @@ export default function CrmHeader({ onMenuClick }) {
 
                 let sales = 0, stock = 0;
                 try {
-                    const today = new Date();
-                    const monthParam = `?month=${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}`;
-                    const metricsRes = await fetch(`/api/admin/dashboard/metrics${monthParam}`, { headers: { 'Authorization': `Bearer ${token}` } });
+                    const metricsRes = await fetch('/api/stats/dashboard', { headers: { 'Authorization': `Bearer ${token}` } });
                     if (metricsRes.ok) {
                         const metrics = await metricsRes.json();
-                        sales = metrics.counts?.vendidos || 0;
-                        stock = metrics.counts?.disponibles || 0;
+                        sales = metrics.soldCarsThisMonth || 0;
+                        stock = metrics.stockCount || 0;
                     }
                 } catch (e) {}
 

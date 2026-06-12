@@ -318,7 +318,7 @@ function LeadResponsePanel() {
 
 function DeadlinesPanel() {
     return (
-        <Panel title="Proximas entregas y vencimientos" subtitle="Entregas, expedientes y cuotas - proximos 7 dias" href="/admin/documentacion" icon={Timer} className="min-h-[399px]">
+        <Panel title="Proximas entregas y vencimientos" subtitle="Entregas, expedientes y cuotas - proximos 7 dias" href="/admin/agenda" icon={Timer} className="min-h-[399px]">
             <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
                 <SmallMetric label="Vencidos" value="0" tone="red" />
                 <SmallMetric label="Hoy" value="0" tone="amber" />
