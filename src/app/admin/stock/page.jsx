@@ -108,8 +108,8 @@ export default function AdminStockPage() {
             const baseUrl = process.env.NODE_ENV === 'production' ? '' : (API_URL || 'http://localhost:3001');
             
             const isEditing = !!formData._id;
-            const endpoint = isEditing ? `${baseUrl}/api/cars/${formData._id}` : `${baseUrl}/api/cars`;
-            const method = isEditing ? 'PUT' : 'POST';
+            const endpoint = isEditing ? `${baseUrl}/api/admin/cars/${formData._id}` : `${baseUrl}/api/cars`;
+            const method = isEditing ? 'PATCH' : 'POST';
 
             const payload = new FormData();
             
