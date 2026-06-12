@@ -312,7 +312,7 @@ export default function CockpitCeoSote({ metrics, canSeeFinancials = false, user
                 <KpiPanel
                     title="Tu operacion"
                     icon={TrendingUp}
-                    href="/admin/productividad"
+                    href="/admin/mis-ventas"
                     className="min-h-[240px]"
                     style={{ background: 'linear-gradient(135deg, #1E1E24 0%, #262342 100%)' }}
                 >
@@ -350,7 +350,7 @@ export default function CockpitCeoSote({ metrics, canSeeFinancials = false, user
             </div>
 
             <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-                <KpiPanel title="Ganancia infracciones · mes" icon={ShieldAlert} href="/admin/calidad-datos" className="min-h-[188px]">
+                <KpiPanel title="Ganancia infracciones · mes" icon={ShieldAlert} href="/admin/infracciones" className="min-h-[188px]">
                     <div className="flex items-center justify-between gap-4">
                         <p className="text-sm text-crm-fg-muted">0 gestionadas</p>
                         <p className="text-3xl font-bold text-crm-fg">ARS 0</p>
@@ -362,7 +362,7 @@ export default function CockpitCeoSote({ metrics, canSeeFinancials = false, user
                     <p className="mt-4 text-xs text-crm-fg-muted">Sin infracciones gestionadas este mes</p>
                 </KpiPanel>
 
-                <KpiPanel title="Gestoria / transferencias · mes" icon={ClipboardCheck} href="/admin/documentacion" className="min-h-[188px]">
+                <KpiPanel title="Gestoria / transferencias · mes" icon={ClipboardCheck} href="/admin/expedientes" className="min-h-[188px]">
                     <p className="text-sm text-crm-fg-muted">0 expedientes</p>
                     <div className="mt-4 rounded-xl border border-crm-border bg-crm-bg p-4">
                         <p className="text-sm font-semibold text-crm-fg">Sin gastos cargados a compradores este mes</p>

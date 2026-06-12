@@ -1,13 +1,21 @@
 "use client";
-import { Search, Bell, User, X, CheckCheck, Menu, Car, Users, Handshake, ChevronRight, Loader2 } from 'lucide-react';
+import { Search, Bell, User, X, CheckCheck, Menu, Car, Users, Handshake, ChevronRight, Loader2, DollarSign, ShoppingCart } from 'lucide-react';
 import { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import { useAuth } from '../../../context/AuthContext';
+import { hasPermission, PERMISSIONS } from '../../../utils/adminPermissions';
+
+const formatCurrency = (val) => new Intl.NumberFormat('es-AR').format(Math.round(val || 0));
 
 export default function CrmHeader({ onMenuClick }) {
+    const { user } = useAuth();
+    const canSeeFinancials = hasPermission(user, PERMISSIONS.FINANZAS_READ);
+
     const [notifications, setNotifications] = useState([]);
     const [showDropdown, setShowDropdown] = useState(false);
-    const [mobileSearchOpen, setMobileSearchOpen] = useState(false);
+    
+    const [summaryData, setSummaryData] = useState({ ars: 0, usd: 0, sales: 0, stock: 0, accountsError: false });
     
     // Search states
     const [searchQuery, setSearchQuery] = useState('');
@@ -83,6 +91,54 @@ export default function CrmHeader({ onMenuClick }) {
         document.addEventListener('mousedown', handleClickOutside);
         return () => document.removeEventListener('mousedown', handleClickOutside);
     }, []);
+
+    useEffect(() => {
+        const fetchSummary = async () => {
+            try {
+                const token = localStorage.getItem('token');
+                if (!token) return;
+
+                let ars = 0, usd = 0;
+                let accountsError = false;
+
+                if (canSeeFinancials) {
+                    try {
+                        const accRes = await fetch('/api/admin/finance/accounts', { headers: { 'Authorization': `Bearer ${token}` } });
+                        if (accRes.ok) {
+                            const accounts = await accRes.json();
+                            const getBal = (curr) => {
+                                const acc = accounts.find(a => a.currency === curr && (a.type === 'cash' || a.type === 'efectivo'));
+                                return acc ? acc.balance : 0;
+                            };
+                            ars = getBal('ARS');
+                            usd = getBal('USD');
+                        } else {
+                            accountsError = true;
+                        }
+                    } catch (e) {
+                        accountsError = true;
+                    }
+                }
+
+                let sales = 0, stock = 0;
+                try {
+                    const today = new Date();
+                    const monthParam = `?month=${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}`;
+                    const metricsRes = await fetch(`/api/admin/dashboard/metrics${monthParam}`, { headers: { 'Authorization': `Bearer ${token}` } });
+                    if (metricsRes.ok) {
+                        const metrics = await metricsRes.json();
+                        sales = metrics.counts?.vendidos || 0;
+                        stock = metrics.counts?.disponibles || 0;
+                    }
+                } catch (e) {}
+
+                setSummaryData({ ars, usd, sales, stock, accountsError });
+            } catch (err) {}
+        };
+        fetchSummary();
+        const interval = setInterval(fetchSummary, 60000);
+        return () => clearInterval(interval);
+    }, [canSeeFinancials]);
 
     const unreadCount = notifications.filter(n => !n.read).length;
 
@@ -167,7 +223,6 @@ export default function CrmHeader({ onMenuClick }) {
                                         key={res.id} 
                                         onClick={() => {
                                             setShowSearchDropdown(false);
-                                            setMobileSearchOpen(false);
                                             router.push(res.url);
                                         }}
                                         className="px-4 py-3 hover:bg-crm-surface-raised cursor-pointer border-b border-crm-border/50 last:border-0 flex items-start gap-3 transition-colors group"
@@ -206,26 +261,25 @@ export default function CrmHeader({ onMenuClick }) {
                         <Menu size={22} />
                     </button>
 
-                    <div className="min-w-0 md:hidden">
-                        <p className="m-0 truncate text-sm font-bold leading-tight text-crm-fg">AutoSporting</p>
-                        <p className="m-0 text-[10px] font-semibold uppercase text-crm-fg-muted">v2 CRM</p>
-                    </div>
-
-                    <div className="hidden w-72 md:block">
+                    <div className="flex-1 min-w-0 md:w-72 md:flex-none">
                         {searchInput}
                     </div>
                 </div>
 
-                <div className="relative flex shrink-0 items-center gap-1.5 md:gap-3" ref={dropdownRef}>
-                    <button
-                        type="button"
-                        onClick={() => setMobileSearchOpen(prev => !prev)}
-                        className="m-0 flex h-10 w-10 appearance-none items-center justify-center rounded-lg border border-transparent bg-transparent text-crm-fg-muted transition-colors hover:bg-crm-surface hover:text-crm-fg md:hidden"
-                        aria-label={mobileSearchOpen ? 'Cerrar busqueda' : 'Abrir busqueda'}
-                    >
-                        {mobileSearchOpen ? <X size={19} /> : <Search size={19} />}
-                    </button>
+                <div className="hidden flex-1 items-center justify-center gap-6 xl:flex">
+                    {canSeeFinancials && !summaryData.accountsError && (
+                        <div className="flex items-center gap-4 text-xs font-semibold text-crm-fg-muted">
+                            <span className="flex items-center gap-1.5" title="Caja Fuerte USD"><DollarSign size={14} className="text-emerald-400"/> USD {formatCurrency(summaryData.usd)}</span>
+                            <span className="flex items-center gap-1.5" title="Caja Fuerte ARS"><DollarSign size={14} className="text-emerald-400"/> ARS {formatCurrency(summaryData.ars)}</span>
+                        </div>
+                    )}
+                    <div className="flex items-center gap-4 text-xs font-semibold text-crm-fg-muted">
+                        <span className="flex items-center gap-1.5" title="Ventas del mes"><ShoppingCart size={14} className="text-amber-400"/> {summaryData.sales} ventas</span>
+                        <span className="flex items-center gap-1.5" title="Stock disponible"><Car size={14} className="text-blue-400"/> {summaryData.stock} disponibles</span>
+                    </div>
+                </div>
 
+                <div className="relative flex shrink-0 items-center gap-2 md:gap-3" ref={dropdownRef}>
                     <button
                         type="button"
                         onClick={() => setShowDropdown(!showDropdown)}
@@ -286,17 +340,17 @@ export default function CrmHeader({ onMenuClick }) {
                         </div>
                     )}
 
-                    <div className="flex h-10 w-10 items-center justify-center rounded-lg border border-crm-border bg-crm-surface text-crm-fg transition-colors hover:bg-crm-surface-raised md:h-9 md:w-9">
-                        <User size={16} />
+                    <div className="flex items-center gap-3 ml-2">
+                        <div className="hidden flex-col items-end md:flex">
+                            <span className="text-xs font-bold text-crm-fg leading-none">{user?.displayName || user?.email?.split('@')[0] || 'Usuario'}</span>
+                            <span className="text-[10px] font-bold uppercase text-crm-red mt-1 leading-none">{user?.role || 'ADMIN'}</span>
+                        </div>
+                        <div className="flex h-9 w-9 items-center justify-center rounded-lg border border-crm-border bg-crm-surface text-sm font-bold text-crm-fg transition-colors hover:bg-crm-surface-raised">
+                            {(user?.displayName || user?.email || 'U').charAt(0).toUpperCase()}
+                        </div>
                     </div>
                 </div>
             </div>
-
-            {mobileSearchOpen && (
-                <div className="border-t border-crm-border px-3 py-2 md:hidden">
-                    {searchInput}
-                </div>
-            )}
         </header>
     );
 }

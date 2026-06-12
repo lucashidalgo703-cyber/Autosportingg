@@ -575,7 +575,7 @@ export default function GeneralDashboardSote({ metrics, canSeeFinancials = false
             detail: '0 vencidos · 0 por vencer (7d)',
             icon: FileText,
             tone: 'amber',
-            href: '/admin/documentacion'
+            href: '/admin/expedientes'
         },
         {
             label: 'Comisiones pendientes',
@@ -591,7 +591,7 @@ export default function GeneralDashboardSote({ metrics, canSeeFinancials = false
             detail: 'Sin pendientes',
             icon: AlertTriangle,
             tone: 'red',
-            href: '/admin/calidad-datos'
+            href: '/admin/infracciones'
         },
         {
             label: 'Pedidos activos',

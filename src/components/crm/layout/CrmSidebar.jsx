@@ -1,7 +1,8 @@
 "use client";
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { X } from 'lucide-react';
+import { X, ChevronLeft, ChevronRight } from 'lucide-react';
+import { useState, useEffect } from 'react';
 import { useAuth } from '../../../context/AuthContext';
 import { hasPermission, PERMISSIONS } from '../../../utils/adminPermissions';
 
@@ -76,6 +77,20 @@ menuGroups[0].items[2] = {
 export default function CrmSidebar({ isOpen, onClose }) {
     const pathname = usePathname();
     const { user, logout } = useAuth();
+    const [isCollapsed, setIsCollapsed] = useState(false);
+
+    useEffect(() => {
+        const saved = localStorage.getItem('sidebarCollapsed');
+        if (saved) setIsCollapsed(saved === 'true');
+    }, []);
+
+    const toggleCollapse = () => {
+        setIsCollapsed(prev => {
+            const next = !prev;
+            localStorage.setItem('sidebarCollapsed', next.toString());
+            return next;
+        });
+    };
 
     const closeMenu = () => {
         if (typeof onClose === 'function') onClose();
@@ -107,16 +122,18 @@ export default function CrmSidebar({ isOpen, onClose }) {
         return true;
     };
 
-    const renderContent = ({ showCloseButton = false } = {}) => (
+    const renderContent = ({ showCloseButton = false, isDesktopCollapsed = false } = {}) => (
         <>
-            <div className="flex h-[calc(3.5rem+var(--safe-top,0px))] shrink-0 items-center gap-3 border-b border-crm-border px-4 pt-[var(--safe-top,0px)] md:h-14 md:pt-0">
+            <div className={`flex h-[calc(3.5rem+var(--safe-top,0px))] shrink-0 items-center border-b border-crm-border px-4 pt-[var(--safe-top,0px)] md:h-14 md:pt-0 ${isDesktopCollapsed ? 'justify-center' : 'gap-3'}`}>
                 <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-crm-border bg-crm-surface text-sm font-bold text-white shadow-crm-red">
                     AS
                 </div>
-                <div className="flex min-w-0 flex-1 flex-col">
-                    <span className="truncate text-sm font-bold leading-tight tracking-tight text-crm-fg">AutoSporting</span>
-                    <span className="text-[10px] font-semibold uppercase text-crm-fg-muted">v2 CRM</span>
-                </div>
+                {!isDesktopCollapsed && (
+                    <div className="flex min-w-0 flex-1 flex-col">
+                        <span className="truncate text-sm font-bold leading-tight tracking-tight text-crm-fg">AutoSporting</span>
+                        <span className="text-[10px] font-semibold uppercase text-crm-fg-muted">v2 CRM</span>
+                    </div>
+                )}
                 {showCloseButton && (
                     <button
                         type="button"
@@ -138,9 +155,13 @@ export default function CrmSidebar({ isOpen, onClose }) {
 
                     return (
                         <div key={group.name} className="flex flex-col gap-1">
-                            <h3 className="mb-2 px-3 text-xs font-bold uppercase tracking-wider text-crm-fg-muted">
-                                {group.name}
-                            </h3>
+                            {!isDesktopCollapsed ? (
+                                <h3 className="mb-2 px-3 text-xs font-bold uppercase tracking-wider text-crm-fg-muted">
+                                    {group.name}
+                                </h3>
+                            ) : (
+                                <div className="mb-2 h-4" />
+                            )}
                             {visibleItems.map((item) => {
                                 const isSalesArea = item.path === '/admin/ventas' && (pathname.startsWith('/admin/ventas') || pathname.startsWith('/admin/reservas'));
                                 const isActive = item.path === '/admin' ? pathname === '/admin' : isSalesArea || pathname.startsWith(item.path);
@@ -154,13 +175,14 @@ export default function CrmSidebar({ isOpen, onClose }) {
                                         href={item.path}
                                         prefetch={item.prefetch === false ? false : undefined}
                                         onClick={closeMenu}
+                                        title={isDesktopCollapsed ? item.name : undefined}
                                         style={{ textDecoration: 'none' }}
-                                        className={`${baseItemClasses} ${isActive ? activeClasses : inactiveClasses}`}
+                                        className={`${baseItemClasses} ${isActive ? activeClasses : inactiveClasses} ${isDesktopCollapsed ? 'justify-center px-0' : ''}`}
                                     >
                                         <span className="flex h-5 w-5 shrink-0 items-center justify-center text-base leading-none" role="img" aria-label={item.name}>
                                             {item.icon}
                                         </span>
-                                        <span className="truncate">{item.name}</span>
+                                        {!isDesktopCollapsed && <span className="truncate">{item.name}</span>}
                                     </Link>
                                 );
                             })}
@@ -169,31 +191,45 @@ export default function CrmSidebar({ isOpen, onClose }) {
                 })}
             </nav>
 
-            <div className="flex shrink-0 flex-col gap-1 border-t border-crm-border px-4 py-4 mt-auto">
-                <div className="flex flex-col mb-2">
-                    <span className="text-sm font-bold text-crm-fg">{user?.displayName || user?.email?.split('@')[0] || 'Usuario'}</span>
-                    <span className="text-[10px] font-bold uppercase text-crm-red">ADMINISTRADOR</span>
-                </div>
+            <div className={`flex shrink-0 flex-col gap-1 border-t border-crm-border px-4 py-4 mt-auto ${isDesktopCollapsed ? 'items-center' : ''}`}>
+                {!isDesktopCollapsed && (
+                    <div className="flex flex-col mb-2">
+                        <span className="text-sm font-bold text-crm-fg">{user?.displayName || user?.email?.split('@')[0] || 'Usuario'}</span>
+                        <span className="text-[10px] font-bold uppercase text-crm-red">ADMINISTRADOR</span>
+                    </div>
+                )}
                 <button
                     onClick={() => logout()}
-                    className="flex items-center gap-2 text-xs font-medium text-crm-fg-muted transition-colors hover:text-crm-fg"
+                    title={isDesktopCollapsed ? "Cerrar sesión" : undefined}
+                    className={`flex items-center gap-2 text-xs font-medium text-crm-fg-muted transition-colors hover:text-crm-fg ${isDesktopCollapsed ? 'justify-center w-full' : ''}`}
                 >
-                    <span className="text-base">←</span> Cerrar sesión
+                    <span className="text-base">←</span> {!isDesktopCollapsed && "Cerrar sesión"}
                 </button>
                 <button
                     onClick={() => window.location.reload(true)}
-                    className="flex items-center gap-2 text-xs font-medium text-crm-fg-muted transition-colors hover:text-crm-fg mt-2"
+                    title={isDesktopCollapsed ? "Forzar recarga" : undefined}
+                    className={`flex items-center gap-2 text-xs font-medium text-crm-fg-muted transition-colors hover:text-crm-fg mt-2 ${isDesktopCollapsed ? 'justify-center w-full' : ''}`}
                 >
-                    <span className="text-base">⟳</span> Forzar recarga
+                    <span className="text-base">⟳</span> {!isDesktopCollapsed && "Forzar recarga"}
                 </button>
+                {!showCloseButton && (
+                    <button
+                        onClick={toggleCollapse}
+                        title={isDesktopCollapsed ? "Expandir menú" : "Colapsar menú"}
+                        className={`flex items-center ${isDesktopCollapsed ? 'justify-center' : 'justify-between'} mt-4 rounded-lg p-2 text-crm-fg-muted hover:bg-crm-surface-raised hover:text-crm-fg transition-colors`}
+                    >
+                        {!isDesktopCollapsed && <span className="text-xs font-medium">Colapsar menú</span>}
+                        {isDesktopCollapsed ? <ChevronRight size={16} /> : <ChevronLeft size={16} />}
+                    </button>
+                )}
             </div>
         </>
     );
 
     return (
         <>
-            <aside className="sticky top-0 hidden h-[100dvh] min-h-0 w-64 shrink-0 flex-col border-r border-crm-border bg-crm-sidebar lg:flex custom-scrollbar">
-                {renderContent()}
+            <aside className={`sticky top-0 hidden h-[100dvh] min-h-0 shrink-0 flex-col border-r border-crm-border bg-crm-sidebar lg:flex custom-scrollbar transition-all duration-300 ${isCollapsed ? 'w-20' : 'w-64'}`}>
+                {renderContent({ isDesktopCollapsed: isCollapsed })}
             </aside>
 
             {isOpen && (
