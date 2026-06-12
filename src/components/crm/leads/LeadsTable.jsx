@@ -24,7 +24,7 @@ export default function LeadsTable({ leads }) {
     return (
         <div className="flex flex-col gap-4">
             <div className="rounded-xl border border-crm-border bg-crm-surface p-3 text-sm font-semibold text-crm-fg">
-                {leads.length} {leads.length === 1 ? 'cotizacion' : 'cotizaciones'} en lista
+                {leads.length} {leads.length === 1 ? 'lead' : 'leades'} en lista
                 <span className="mx-1 text-crm-fg-muted">·</span>
                 <span className="text-crm-fg-muted">Seguimiento comercial</span>
             </div>
@@ -33,7 +33,7 @@ export default function LeadsTable({ leads }) {
                 <table className="w-full min-w-[1120px] border-collapse text-left">
                     <thead className="bg-crm-surface-raised text-xs uppercase text-crm-fg-muted">
                         <tr>
-                            <th className="px-3 py-2 font-semibold">Cotizacion</th>
+                            <th className="px-3 py-2 font-semibold">lead</th>
                             <th className="px-3 py-2 font-semibold">Contacto</th>
                             <th className="px-3 py-2 font-semibold">Vehiculo</th>
                             <th className="px-3 py-2 font-semibold">Estado</th>

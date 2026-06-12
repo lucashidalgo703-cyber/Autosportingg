@@ -43,7 +43,7 @@ export default function LeadInfoPanel({ lead }) {
                 <div className="flex flex-1 flex-col gap-3">
                     <span className="flex items-center gap-2 text-[11px] font-bold uppercase tracking-[0.08em] text-crm-fg-muted">
                         <FileText size={14} />
-                        Notas de la cotizacion
+                        Notas de la lead
                     </span>
                     <div className="flex max-h-[300px] min-h-[150px] flex-1 flex-col gap-3 overflow-y-auto rounded-xl border border-crm-border bg-crm-bg p-4 custom-scrollbar">
                         {notes && notes.length > 0 ? (

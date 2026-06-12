@@ -10,7 +10,7 @@ import LeadViewToggle from '../../../components/crm/leads/LeadViewToggle';
 import LeadKanbanBoard from '../../../components/crm/leads/LeadKanbanBoard';
 
 const summaryCards = [
-    { key: 'total', label: 'Cotizaciones cargadas', icon: Target, tone: 'bg-blue-500/15 text-blue-300' },
+    { key: 'total', label: 'Leads cargados', icon: Target, tone: 'bg-blue-500/15 text-blue-300' },
     { key: 'contactados', label: 'Contactados', icon: MessageSquare, tone: 'bg-purple-500/15 text-purple-300' },
     { key: 'convertidos', label: 'Convertidos', icon: UserCheck, tone: 'bg-emerald-500/15 text-emerald-300' },
     { key: 'alta', label: 'Prioridad alta', icon: TrendingUp, tone: 'bg-crm-red/15 text-red-300' },
@@ -67,13 +67,13 @@ export default function AdminLeadsPage() {
             <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
                 <div>
                     <div className="flex flex-wrap items-center gap-2">
-                        <h1 className="m-0 text-[26px] font-bold leading-tight text-crm-fg">Cotizaciones</h1>
+                        <h1 className="m-0 text-[26px] font-bold leading-tight text-crm-fg">Leads</h1>
                         <span className="rounded border border-crm-success/20 bg-crm-success/10 px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.08em] text-crm-success">
                             CRM Comercial
                         </span>
                     </div>
                     <p className="m-0 mt-1 text-sm text-crm-fg-muted">
-                        Cotizaciones, consultas web y seguimiento comercial.
+                        Consultas web, oportunidades y seguimiento comercial.
                     </p>
                 </div>
 
@@ -106,7 +106,7 @@ export default function AdminLeadsPage() {
                 {error && (
                     <div className="mb-6 flex items-center gap-2 rounded-xl border border-crm-red/30 bg-crm-red/10 p-4 text-sm text-red-300">
                         <AlertCircle size={18} />
-                        No se pudieron cargar las cotizaciones. {error}
+                        No se pudieron cargar los leads. {error}
                     </div>
                 )}
 
@@ -114,7 +114,7 @@ export default function AdminLeadsPage() {
                     <div className="flex h-64 items-center justify-center rounded-xl border border-crm-border bg-crm-surface">
                         <div className="flex flex-col items-center gap-3">
                             <div className="h-8 w-8 animate-spin rounded-full border-2 border-crm-border border-b-crm-red" />
-                            <span className="text-sm text-crm-fg-muted">Cargando cotizaciones...</span>
+                            <span className="text-sm text-crm-fg-muted">Cargando leads...</span>
                         </div>
                     </div>
                 ) : !error && leads.length === 0 ? (

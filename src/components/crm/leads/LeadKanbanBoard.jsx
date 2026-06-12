@@ -1,7 +1,7 @@
 import React from 'react';
 import LeadKanbanColumn from './LeadKanbanColumn';
 
-export default function LeadKanbanBoard({ leads, onChangeStatus }) {
+export default function LeadKanbanBoard({ leads, onChangeStatus, readOnly }) {
     
     const columns = [
         { id: 'nuevo', title: 'Nuevo' },
@@ -27,6 +27,7 @@ export default function LeadKanbanBoard({ leads, onChangeStatus }) {
                         title={col.title}
                         leads={getLeadsByStatus(col.id)}
                         onChangeStatus={onChangeStatus}
+                        readOnly={readOnly}
                     />
                 ))}
             </div>

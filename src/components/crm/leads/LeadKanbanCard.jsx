@@ -4,7 +4,7 @@ import { AlertCircle, ArrowRight, Car, CheckSquare, Clock, MoreHorizontal, Phone
 import LeadPriorityBadge from './LeadPriorityBadge';
 import CrmButton from '../ui/CrmButton';
 
-export default function LeadKanbanCard({ lead, onChangeStatus }) {
+export default function LeadKanbanCard({ lead, onChangeStatus, readOnly }) {
     const [isStatusMenuOpen, setIsStatusMenuOpen] = useState(false);
 
     const pendingTasks = lead.tasks ? lead.tasks.filter(t => t.status !== 'completada' && t.status !== 'cancelada').length : 0;
@@ -44,14 +44,16 @@ export default function LeadKanbanCard({ lead, onChangeStatus }) {
                 </span>
 
                 <div className="absolute right-3 top-3">
-                    <button
-                        type="button"
-                        onClick={() => setIsStatusMenuOpen(!isStatusMenuOpen)}
-                        className="m-0 flex h-7 w-7 appearance-none items-center justify-center rounded-md border border-transparent bg-transparent text-crm-fg-muted transition-colors hover:bg-crm-surface hover:text-crm-fg"
-                        title="Cambiar estado"
-                    >
-                        <MoreHorizontal size={16} />
-                    </button>
+                    {!readOnly && (
+                        <button
+                            type="button"
+                            onClick={() => setIsStatusMenuOpen(!isStatusMenuOpen)}
+                            className="m-0 flex h-7 w-7 appearance-none items-center justify-center rounded-md border border-transparent bg-transparent text-crm-fg-muted transition-colors hover:bg-crm-surface hover:text-crm-fg"
+                            title="Cambiar estado"
+                        >
+                            <MoreHorizontal size={16} />
+                        </button>
+                    )}
 
                     {isStatusMenuOpen && (
                         <div className="absolute right-0 top-full z-50 mt-1 w-40 overflow-hidden rounded-lg border border-crm-border bg-crm-surface shadow-2xl">

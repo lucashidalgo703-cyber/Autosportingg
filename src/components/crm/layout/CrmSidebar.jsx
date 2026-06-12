@@ -22,7 +22,7 @@ const menuGroups = [
         items: [
             { name: 'Stock', path: '/admin/stock', icon: '🚗' },
             { name: 'Clientes', path: '/admin/clientes', icon: '👥' },
-            { name: 'Cotizaciones', path: '/admin/leads', icon: '📝' },
+            { name: 'Leads', path: '/admin/leads', icon: '📝' },
             { name: 'Ventas', path: '/admin/ventas', icon: '💼' },
             { name: 'Mis ventas', path: '/admin/mis-ventas', icon: '🏆' },
         ]

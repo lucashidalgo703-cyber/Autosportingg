@@ -1,7 +1,7 @@
 import React from 'react';
 import LeadKanbanCard from './LeadKanbanCard';
 
-export default function LeadKanbanColumn({ title, status, leads, onChangeStatus }) {
+export default function LeadKanbanColumn({ title, status, leads, onChangeStatus, readOnly }) {
     const getHeaderColors = (value) => {
         switch (value) {
             case 'nuevo': return 'border-blue-500/30 bg-blue-500/10';
@@ -33,12 +33,13 @@ export default function LeadKanbanColumn({ title, status, leads, onChangeStatus 
                         key={lead._id}
                         lead={lead}
                         onChangeStatus={onChangeStatus}
+                        readOnly={readOnly}
                     />
                 ))}
 
                 {leads.length === 0 && (
                     <div className="m-2 flex flex-1 items-center justify-center rounded-xl border border-dashed border-crm-border bg-crm-bg">
-                        <span className="text-xs font-semibold text-crm-fg-muted">Sin cotizaciones</span>
+                        <span className="text-xs font-semibold text-crm-fg-muted">Sin leads</span>
                     </div>
                 )}
             </div>

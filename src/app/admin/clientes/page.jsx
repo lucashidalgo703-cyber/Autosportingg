@@ -7,6 +7,11 @@ import ClientsTable from '../../../components/crm/clients/ClientsTable';
 import ClientMobileCards from '../../../components/crm/clients/ClientMobileCards';
 import ClientFormModal from '../../../components/crm/clients/ClientFormModal';
 import CrmButton from '../../../components/crm/ui/CrmButton';
+import { useAdminLeads } from '../../../hooks/useAdminLeads';
+import LeadKanbanBoard from '../../../components/crm/leads/LeadKanbanBoard';
+import { LayoutList, KanbanSquare } from 'lucide-react';
+import { useAuth } from '../../../context/AuthContext';
+import { hasPermission, PERMISSIONS } from '../../../utils/adminPermissions';
 
 const summaryCards = [
     { key: 'total', label: 'Clientes cargados', icon: Users, tone: 'bg-blue-500/15 text-blue-300' },
@@ -16,8 +21,14 @@ const summaryCards = [
 ];
 
 export default function AdminClientesPage() {
-    const { clients, loading, error, total, fetchClients, createClient } = useAdminClients();
+    const { user } = useAuth();
+    const canSeeLeads = hasPermission(user, PERMISSIONS.LEADS_READ);
+    const canWriteLeads = hasPermission(user, PERMISSIONS.LEADS_WRITE);
 
+    const { clients, loading, error, total, fetchClients, createClient } = useAdminClients();
+    const { leads, loading: leadsLoading, fetchLeads, updateLead } = useAdminLeads();
+
+    const [view, setView] = useState('lista');
     const [filters, setFilters] = useState({ search: '', type: '', source: '', status: '' });
     const [isModalOpen, setIsModalOpen] = useState(false);
 
@@ -32,6 +43,23 @@ export default function AdminClientesPage() {
     const handleCreateClient = async (clientData) => {
         await createClient(clientData);
         fetchClients(filters); // Reload list
+    };
+
+    const handleViewChange = (newView) => {
+        setView(newView);
+        if (newView === 'pipeline' && leads.length === 0) {
+            fetchLeads();
+        }
+    };
+
+    const handleLeadStatusChange = async (leadId, newStatus) => {
+        try {
+            await updateLead(leadId, { crmStatus: newStatus });
+            fetchLeads();
+        } catch (err) {
+            console.error(err);
+            alert(err.message || 'Error al cambiar de estado');
+        }
     };
 
     const summary = useMemo(() => {
@@ -72,7 +100,28 @@ export default function AdminClientesPage() {
                     </CrmButton>
                 </div>
 
-                <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+                <div className="flex gap-6 border-b border-crm-border">
+                    <button
+                        type="button"
+                        onClick={() => handleViewChange('lista')}
+                        className={`flex items-center gap-2 border-b-2 px-1 pb-3 text-sm font-bold transition-colors ${view === 'lista' ? 'border-crm-red text-crm-red' : 'border-transparent text-crm-fg-muted hover:border-crm-border hover:text-crm-fg'}`}
+                    >
+                        <LayoutList size={16} /> Lista
+                    </button>
+                    {canSeeLeads && (
+                        <button
+                            type="button"
+                            onClick={() => handleViewChange('pipeline')}
+                            className={`flex items-center gap-2 border-b-2 px-1 pb-3 text-sm font-bold transition-colors ${view === 'pipeline' ? 'border-crm-red text-crm-red' : 'border-transparent text-crm-fg-muted hover:border-crm-border hover:text-crm-fg'}`}
+                        >
+                            <KanbanSquare size={16} /> Pipeline
+                        </button>
+                    )}
+                </div>
+
+                {view === 'lista' ? (
+                    <>
+                        <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
                     {summaryCards.map((card) => {
                         const Icon = card.icon;
 
@@ -120,6 +169,25 @@ export default function AdminClientesPage() {
                         </>
                     )}
                 </div>
+                </>
+                ) : (
+                    <div className="flex flex-col gap-4">
+                        {leadsLoading ? (
+                            <div className="flex h-64 items-center justify-center rounded-xl border border-crm-border bg-crm-surface">
+                                <div className="flex flex-col items-center gap-3">
+                                    <div className="h-8 w-8 animate-spin rounded-full border-2 border-crm-border border-b-crm-red" />
+                                    <span className="text-sm text-crm-fg-muted">Cargando pipeline...</span>
+                                </div>
+                            </div>
+                        ) : (
+                            <LeadKanbanBoard
+                                leads={leads}
+                                onChangeStatus={handleLeadStatusChange}
+                                readOnly={!canWriteLeads}
+                            />
+                        )}
+                    </div>
+                )}
 
                 <ClientFormModal
                     isOpen={isModalOpen}

@@ -53,10 +53,10 @@ export default function LeadLinkClientModal({ isOpen, onClose, onLink, lead }) {
                     <div>
                         <h2 className="m-0 flex items-center gap-2 text-lg font-bold text-crm-fg">
                             <LinkIcon size={20} className="text-crm-red" />
-                            Vincular cotizacion a cliente real
+                            Vincular lead a cliente real
                         </h2>
                         <p className="m-0 mt-1 text-sm text-crm-fg-muted">
-                            Busca un cliente existente para asignarle esta cotizacion.
+                            Busca un cliente existente para asignarle este lead.
                         </p>
                     </div>
                     <button
