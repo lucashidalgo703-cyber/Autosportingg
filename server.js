@@ -6,6 +6,7 @@ import connectDB from './src/config/db.js';
 import cloudinary from './src/config/cloudinary.js';
 import Car from './src/models/Car.js';
 import Lead from './src/models/Lead.js';
+import Quote from './src/models/Quote.js';
 import Client from './src/models/Client.js';
 import Task from './src/models/Task.js';
 import ActivityLog from './src/models/ActivityLog.js';
@@ -6503,6 +6504,150 @@ app.delete('/api/admin/personal-transactions/:id', authenticateToken, async (req
     } catch (error) {
         console.error('DELETE /api/admin/personal-transactions error:', error);
         res.status(500).json({ message: 'Error interno al eliminar transacción personal', error: error.message });
+    }
+});
+// =======================
+// QUOTES (COTIZACIONES) ROUTES
+// =======================
+
+app.get('/api/admin/quotes', authenticateToken, async (req, res) => {
+    try {
+        await connectDB();
+        const { search, status, clientId, limit = 50, page = 1 } = req.query;
+        let query = {};
+
+        if (status) query.status = status;
+        if (clientId) query.clientId = clientId;
+        if (search) {
+            const isNum = !isNaN(parseInt(search));
+            if (isNum) {
+                query.quoteNumber = parseInt(search);
+            } else {
+                query.vehicleDescription = { $regex: new RegExp(search, 'i') };
+            }
+        }
+
+        const skip = (parseInt(page) - 1) * parseInt(limit);
+        const parsedLimit = parseInt(limit);
+
+        const quotes = await Quote.find(query)
+            .sort({ createdAt: -1 })
+            .skip(skip)
+            .limit(parsedLimit)
+            .populate('clientId', 'firstName lastName fullName phone email dniCuit')
+            .populate('vehicleId', 'brand model year price')
+            .populate('assignedTo', 'firstName lastName email')
+            .lean();
+
+        const total = await Quote.countDocuments(query);
+
+        res.json({ quotes, total, pages: Math.ceil(total / parsedLimit) });
+    } catch (error) {
+        console.error('GET /api/admin/quotes error:', error);
+        res.status(500).json({ message: error.message });
+    }
+});
+
+app.get('/api/admin/quotes/:id', authenticateToken, async (req, res) => {
+    try {
+        await connectDB();
+        const quote = await Quote.findById(req.params.id)
+            .populate('clientId', 'firstName lastName fullName phone email dniCuit locality')
+            .populate('vehicleId', 'brand model year price currency mileage domain')
+            .populate('assignedTo', 'firstName lastName email')
+            .lean();
+            
+        if (!quote) return res.status(404).json({ message: 'Cotización no encontrada' });
+        res.json(quote);
+    } catch (error) {
+        console.error('GET /api/admin/quotes/:id error:', error);
+        res.status(500).json({ message: error.message });
+    }
+});
+
+app.post('/api/admin/quotes', authenticateToken, requirePermission(PERMISSIONS.COTIZACIONES_WRITE), async (req, res) => {
+    try {
+        await connectDB();
+        
+        // Auto-generate quoteNumber
+        const lastQuote = await Quote.findOne({}, 'quoteNumber').sort({ quoteNumber: -1 });
+        const nextNumber = lastQuote && lastQuote.quoteNumber ? lastQuote.quoteNumber + 1 : 1000;
+        
+        const payload = req.body;
+        payload.quoteNumber = nextNumber;
+        payload.createdBy = req.user?.id || 'CRM_V2';
+        payload.quoteAuditLog = [{
+            action: 'CREACION',
+            details: 'Cotización inicial creada',
+            user: req.user?.id || 'CRM_V2'
+        }];
+
+        const quote = new Quote(payload);
+        const saved = await quote.save();
+
+        await logAudit({
+            req,
+            action: 'CREACION',
+            module: 'cotizaciones',
+            entityId: saved._id,
+            entityType: 'Quote',
+            description: `Cotización #${saved.quoteNumber} creada`
+        });
+
+        res.status(201).json(saved);
+    } catch (error) {
+        console.error('POST /api/admin/quotes error:', error);
+        res.status(500).json({ message: error.message });
+    }
+});
+
+app.patch('/api/admin/quotes/:id', authenticateToken, requirePermission(PERMISSIONS.COTIZACIONES_WRITE), async (req, res) => {
+    try {
+        await connectDB();
+        const { id } = req.params;
+        const payload = req.body;
+        
+        const quote = await Quote.findById(id);
+        if (!quote) return res.status(404).json({ message: 'Cotización no encontrada' });
+
+        // Add to audit log
+        quote.quoteAuditLog.push({
+            action: payload.status && payload.status !== quote.status ? 'CAMBIO_ESTADO' : 'ACTUALIZACION',
+            details: payload.auditMessage || 'Cotización actualizada',
+            user: req.user?.id || 'CRM_V2'
+        });
+
+        payload.updatedBy = req.user?.id || 'CRM_V2';
+        
+        Object.assign(quote, payload);
+        const updated = await quote.save();
+
+        res.json(updated);
+    } catch (error) {
+        console.error('PATCH /api/admin/quotes error:', error);
+        res.status(500).json({ message: error.message });
+    }
+});
+
+app.delete('/api/admin/quotes/:id', authenticateToken, requirePermission(PERMISSIONS.COTIZACIONES_DELETE), async (req, res) => {
+    try {
+        await connectDB();
+        const deleted = await Quote.findByIdAndDelete(req.params.id);
+        if (!deleted) return res.status(404).json({ message: 'Cotización no encontrada' });
+        
+        await logAudit({
+            req,
+            action: 'ELIMINACION',
+            module: 'cotizaciones',
+            entityId: req.params.id,
+            entityType: 'Quote',
+            description: `Cotización #${deleted.quoteNumber} eliminada`
+        });
+
+        res.json({ message: 'Cotización eliminada correctamente' });
+    } catch (error) {
+        console.error('DELETE /api/admin/quotes error:', error);
+        res.status(500).json({ message: error.message });
     }
 });
 
