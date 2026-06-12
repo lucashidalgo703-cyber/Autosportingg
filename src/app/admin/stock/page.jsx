@@ -37,10 +37,10 @@ export default function AdminStockPage() {
     const stockSummary = useMemo(() => {
         const disponibles = vehicles.filter(v => v.estado === 'disponible');
         const valorActivoUSD = disponibles
-            .filter(v => v.moneda === 'USD')
+            .filter(v => v.moneda === 'USD' && v.origen === 'propio')
             .reduce((sum, v) => sum + (v.precioPublicado || 0), 0);
         const valorActivoARS = disponibles
-            .filter(v => v.moneda !== 'USD')
+            .filter(v => v.moneda !== 'USD' && v.origen === 'propio')
             .reduce((sum, v) => sum + (v.precioPublicado || 0), 0);
 
         return {

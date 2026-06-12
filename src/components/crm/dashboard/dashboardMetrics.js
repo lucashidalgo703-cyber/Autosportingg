@@ -42,7 +42,8 @@ export function calculateDashboardMetrics(cars = []) {
 
         // --- 2. Active Capital ---
         const isActive = activeStatuses.includes(status);
-        if (isActive) {
+        const isAgencyOwned = car.agencyOwned !== false;
+        if (isActive && isAgencyOwned) {
             // Price
             if (car.price !== undefined && car.price !== null && car.price > 0) {
                 const currency = (car.currency === 'U$S' || car.currency === 'USD') ? 'USD' : (car.currency === '$' || car.currency === 'ARS') ? 'ARS' : car.currency;
@@ -67,7 +68,7 @@ export function calculateDashboardMetrics(cars = []) {
 
         // --- 3. Expenses (All cars or active?) Usually expenses are costs, active only for margin?
         // Let's count expenses for active cars to calculate active margin.
-        if (isActive && car.expenses && Array.isArray(car.expenses)) {
+        if (isActive && isAgencyOwned && car.expenses && Array.isArray(car.expenses)) {
             car.expenses.forEach(exp => {
                 if (exp.amount) {
                     if (exp.currency === 'USD') metrics.gastosTotales.USD += Number(exp.amount);
