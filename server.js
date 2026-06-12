@@ -639,7 +639,11 @@ app.patch('/api/admin/cars/:id', authenticateToken, upload.array('images', 20), 
         }
 
         const newAuditLogs = [];
-        const { createdAt, soldAt, expenses, documentation } = updates;
+        const { _id, auditLog, createdAt, soldAt, expenses, documentation, images, ...otherUpdates } = updates;
+
+        Object.keys(otherUpdates).forEach(key => {
+            car[key] = otherUpdates[key];
+        });
 
         if (req.files && req.files.length > 0) {
             const newImages = req.files.map(file => file.path);
