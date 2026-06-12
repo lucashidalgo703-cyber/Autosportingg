@@ -1,5 +1,5 @@
 "use client";
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { Download, Eye, FileText, Plus, ExternalLink } from 'lucide-react';
 
 import CrmButton from '../../../components/crm/ui/CrmButton';
@@ -28,6 +28,18 @@ export default function AdminStockPage() {
     const [editingCar, setEditingCar] = useState(null);
     const [mlEditingCar, setMlEditingCar] = useState(null);
     const [deletingCar, setDeletingCar] = useState(null);
+    const [dolarBlue, setDolarBlue] = useState(null);
+
+    useEffect(() => {
+        fetch('https://dolarapi.com/v1/dolares/blue')
+            .then(res => res.json())
+            .then(data => {
+                if (data && data.venta) {
+                    setDolarBlue(data.venta);
+                }
+            })
+            .catch(err => console.error('Error fetching dolar blue:', err));
+    }, []);
 
     const vehicles = useMemo(() => {
         if (!cars || cars.length === 0) return [];
@@ -236,12 +248,24 @@ export default function AdminStockPage() {
                         <span className="text-[11px] font-bold uppercase tracking-[0.08em] text-crm-fg-subtle">
                             Valor activo(disponible):
                         </span>
-                        <span className="font-semibold text-crm-fg">
-                            {stockSummary.valorActivoUSD > 0 ? `USD ${stockSummary.valorActivoUSD.toLocaleString('es-AR')}` : '--'}
+                        <span className="font-semibold text-crm-fg flex items-center gap-2">
+                            {stockSummary.valorActivoUSD > 0 || (stockSummary.valorActivoARS > 0 && dolarBlue) ? (
+                                <span>
+                                    USD {Math.round(
+                                        stockSummary.valorActivoUSD + 
+                                        (dolarBlue ? stockSummary.valorActivoARS / dolarBlue : 0)
+                                    ).toLocaleString('es-AR')}
+                                </span>
+                            ) : '--'}
                         </span>
                         {stockSummary.valorActivoARS > 0 && (
-                            <span className="text-crm-fg-muted">
+                            <span className="text-crm-fg-muted flex items-center gap-1">
                                 ARS {stockSummary.valorActivoARS.toLocaleString('es-AR')}
+                                {dolarBlue && (
+                                    <span className="text-[10px] bg-crm-bg px-1.5 py-0.5 rounded text-crm-fg-subtle border border-crm-border ml-1" title="Cotización Dólar Blue">
+                                        (Blue: ${dolarBlue})
+                                    </span>
+                                )}
                             </span>
                         )}
                     </div>
