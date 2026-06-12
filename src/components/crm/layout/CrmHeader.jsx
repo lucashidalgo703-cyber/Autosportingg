@@ -136,7 +136,7 @@ export default function CrmHeader({ onMenuClick }) {
                         ]);
                         const today = new Date();
 
-                        stock = carsData.filter((car) => (car.status || '').toLowerCase() === 'disponible').length;
+                        stock = carsData.filter((car) => (car.status || 'disponible').toLowerCase() === 'disponible').length;
                         sales = salesData.filter((sale) => {
                             const saleDate = new Date(sale.saleDate || sale.createdAt);
                             const status = (sale.status || '').toLowerCase();
