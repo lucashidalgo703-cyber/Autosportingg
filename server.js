@@ -558,6 +558,50 @@ app.get('/api/public/cars/:id', async (req, res) => {
     }
 });
 
+// POST create new car (Protected)
+app.post('/api/cars', authenticateToken, upload.array('images', 20), async (req, res) => {
+    try {
+        await connectDB();
+        const carData = req.body;
+        const user = req.user ? (req.user.username || req.user.email || req.user.role) : 'System';
+
+        if (req.files && req.files.length > 0) {
+            carData.images = req.files.map(file => file.path);
+        }
+
+        // Convert scalar string values that should be boolean or number if needed
+        // Mongoose will cast them based on the schema, but just in case
+        
+        const newCar = new Car({
+            ...carData,
+            auditLog: [{
+                action: 'ALTA',
+                field: 'all',
+                details: `Vehículo creado manualmente desde CRM`,
+                user,
+                source: 'CRM_V2'
+            }]
+        });
+
+        const savedCar = await newCar.save();
+
+        await logAudit({
+            req,
+            action: 'VEHICULO_CREADO',
+            module: 'stock',
+            entityType: 'Car',
+            entityId: savedCar._id,
+            entityLabel: `${savedCar.brand} ${savedCar.name}`,
+            description: `Se dio de alta un nuevo vehículo en stock.`
+        });
+
+        res.status(201).json(savedCar);
+    } catch (error) {
+        console.error("POST /api/cars error:", error);
+        res.status(400).json({ message: error.message });
+    }
+});
+
 // GET all cars for Admin (Protected, Full Data)
 app.get('/api/admin/cars', authenticateToken, async (req, res) => {
     try {
