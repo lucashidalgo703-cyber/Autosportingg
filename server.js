@@ -1534,17 +1534,20 @@ app.delete('/api/tasks/:id', authenticateToken, async (req, res) => {
 // --- DASHBOARD STATS ROUTE ---
 app.get('/api/stats/dashboard', authenticateToken, async (req, res) => {
     try {
+        await connectDB();
         const stockCount = await Car.countDocuments({ status: 'Disponible' });
         const leadsCount = await Lead.countDocuments({ pipelineStage: { $ne: 'Entregado / Vendido' } });
         
         const startOfMonth = new Date();
         startOfMonth.setDate(1);
         startOfMonth.setHours(0, 0, 0, 0);
+        const startOfNextMonth = new Date(startOfMonth);
+        startOfNextMonth.setMonth(startOfNextMonth.getMonth() + 1);
         
         // Unidades Vendidas este mes
         const soldCarsThisMonth = await Sale.countDocuments({
             status: { $nin: ['cancelada', 'borrador'] },
-            saleDate: { $gte: startOfMonth }
+            saleDate: { $gte: startOfMonth, $lt: startOfNextMonth }
         });
 
         // Or we can count Leads sold this month, both work. Let's use cars to reflect actual stock sales.
@@ -1565,6 +1568,7 @@ app.get('/api/stats/dashboard', authenticateToken, async (req, res) => {
 // --- FINANCE ACCOUNTS ROUTES ---
 app.get('/api/accounts', authenticateToken, async (req, res) => {
     try {
+        await connectDB();
         if (req.user && req.user.role === 'ventas') return res.status(403).json({ message: 'Sin permisos financieros' });
         const accounts = await Account.find().sort({ name: 1 });
         res.json(accounts);
