@@ -19,11 +19,16 @@ const getLocation = (vehicle) => {
     return vehicle._original?.location || vehicle._original?.ubicacion || vehicle._original?.showroom || 'Salón Principal';
 };
 const getOwner = (vehicle) => {
-    if (!(vehicle.origen || '').toLowerCase().includes('consign')) return '--';
+    if (vehicle.origen === 'propio') {
+        return <span className="text-green-500 font-medium bg-green-500/10 px-2 py-0.5 rounded">Propio</span>;
+    }
     const owner = vehicle._original?.consignedBy;
-    if (!owner) return 'Consignado';
-    if (typeof owner === 'string') return owner;
-    return owner.name || owner.fullName || owner.phone || 'Consignado';
+    const ownerName = typeof owner === 'string' ? owner : (owner?.name || owner?.fullName || owner?.phone || '');
+    return (
+        <span className="text-amber-500 font-medium bg-amber-500/10 px-2 py-0.5 rounded">
+            Consigna {ownerName ? `(${ownerName})` : ''}
+        </span>
+    );
 };
 const getStatusLabel = (status) => {
     const normalized = status?.toLowerCase();
@@ -102,9 +107,9 @@ export default function StockTable({ data, onEditML, onDelete }) {
             render: (v) => formatMoney(v.moneda, v.precioPublicado)
         },
         {
-            label: 'Consig.',
+            label: 'Origen',
             key: 'owner',
-            cellClassName: 'text-xs text-crm-fg-muted',
+            cellClassName: 'text-xs',
             render: (v) => getOwner(v)
         },
         {

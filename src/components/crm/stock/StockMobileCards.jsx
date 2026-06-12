@@ -19,11 +19,16 @@ const getLocation = (vehicle) => {
     return vehicle._original?.location || vehicle._original?.ubicacion || vehicle._original?.showroom || 'Salón Principal';
 };
 const getOwner = (vehicle) => {
-    if (!(vehicle.origen || '').toLowerCase().includes('consign')) return 'AutoSporting';
+    if (vehicle.origen === 'propio') {
+        return <span className="text-green-500 font-medium">Propio</span>;
+    }
     const owner = vehicle._original?.consignedBy;
-    if (!owner) return 'Consignado';
-    if (typeof owner === 'string') return owner;
-    return owner.name || owner.fullName || owner.phone || 'Consignado';
+    const ownerName = typeof owner === 'string' ? owner : (owner?.name || owner?.fullName || owner?.phone || '');
+    return (
+        <span className="text-amber-500 font-medium">
+            Consigna {ownerName ? `(${ownerName})` : ''}
+        </span>
+    );
 };
 const getStatusLabel = (status) => {
     const normalized = status?.toLowerCase();
@@ -108,7 +113,7 @@ export default function StockMobileCards({ data, onEditML, onDelete }) {
                                         <InfoItem label="Color" value={vehicle.color || '--'} />
                                         <InfoItem label="Cond." value={vehicle.condicion || '--'} />
                                         <InfoItem label="Ubic." value={getLocation(vehicle)} />
-                                        <InfoItem label="Prop." value={getOwner(vehicle)} />
+                                        <InfoItem label="Origen" value={getOwner(vehicle)} />
                                         <InfoItem label="Ingreso" value={formatDate(vehicle.fechaIngreso)} />
                                     </div>
 
