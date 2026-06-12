@@ -6,7 +6,10 @@ export async function GET(request) {
     try {
         await connectDB();
         const infracciones = await Infraccion.find()
-            .populate('vehicleId', 'brand name')
+            .populate('vehicleId', 'brand name plateOrVin')
+            .populate('clientId', 'name')
+            .populate('saleId', 'status')
+            .populate('responsible', 'name')
             .sort({ createdAt: -1 });
         return NextResponse.json(infracciones);
     } catch (error) {

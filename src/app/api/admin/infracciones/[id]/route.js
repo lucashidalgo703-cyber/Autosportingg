@@ -8,11 +8,22 @@ export async function PUT(request, { params }) {
         const { id } = params;
         const body = await request.json();
         
-        const updatedInfraccion = await Infraccion.findByIdAndUpdate(id, body, { new: true, runValidators: true });
-        
-        if (!updatedInfraccion) {
+        const existingInfraccion = await Infraccion.findById(id);
+        if (!existingInfraccion) {
             return NextResponse.json({ error: 'Infracción no encontrada' }, { status: 404 });
         }
+
+        if (body.status && existingInfraccion.status !== body.status) {
+            body.auditLog = existingInfraccion.auditLog || [];
+            body.auditLog.push({
+                action: 'CAMBIO_ESTADO',
+                details: `Estado cambió de ${existingInfraccion.status} a ${body.status}`,
+                date: new Date(),
+                user: 'Admin'
+            });
+        }
+
+        const updatedInfraccion = await Infraccion.findByIdAndUpdate(id, body, { new: true, runValidators: true });
         
         return NextResponse.json(updatedInfraccion);
     } catch (error) {

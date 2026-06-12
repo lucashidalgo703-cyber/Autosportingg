@@ -11,6 +11,14 @@ const InfraccionSchema = new mongoose.Schema({
         type: mongoose.Schema.Types.ObjectId,
         ref: 'Car'
     },
+    clientId: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'Client'
+    },
+    saleId: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'Sale'
+    },
     issueDate: {
         type: Date
     },
@@ -31,6 +39,14 @@ const InfraccionSchema = new mongoose.Schema({
         type: Number,
         default: 0
     },
+    cost: {
+        type: Number,
+        default: 0
+    },
+    chargedToClient: {
+        type: Boolean,
+        default: false
+    },
     currency: {
         type: String,
         enum: ['ARS', 'USD'],
@@ -38,8 +54,8 @@ const InfraccionSchema = new mongoose.Schema({
     },
     status: {
         type: String,
-        enum: ['Pendiente', 'En Plan de Pago', 'Pagada', 'Desestimada'],
-        default: 'Pendiente'
+        enum: ['detectada', 'informada', 'en_gestion', 'pagada', 'resuelta', 'cancelada'],
+        default: 'detectada'
     },
     dueDate: {
         type: Date
@@ -51,7 +67,17 @@ const InfraccionSchema = new mongoose.Schema({
     createdBy: {
         type: mongoose.Schema.Types.ObjectId,
         ref: 'AdminUser'
-    }
+    },
+    responsible: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'AdminUser'
+    },
+    auditLog: [{
+        action: { type: String, required: true },
+        details: { type: String },
+        date: { type: Date, default: Date.now },
+        user: { type: String, default: 'Admin' }
+    }]
 }, {
     timestamps: true
 });

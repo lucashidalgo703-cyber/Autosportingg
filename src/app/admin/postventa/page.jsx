@@ -1,239 +1,226 @@
 "use client";
-import React, { useState, useEffect, useMemo } from 'react';
-import { Star, ShieldAlert } from 'lucide-react';
+import React, { useEffect, useState } from 'react';
+import { Headset, Search, Filter, PhoneCall, CheckCircle, AlertOctagon, Star, MessageSquare } from 'lucide-react';
 import { useAdminSales } from '../../../hooks/useAdminSales';
-import { useAdminCrmTasks } from '../../../hooks/useAdminCrmTasks';
-import PostventaSummaryCards from '../../../components/crm/postventa/PostventaSummaryCards';
-import PostventaFilters from '../../../components/crm/postventa/PostventaFilters';
-import PostventaTable from '../../../components/crm/postventa/PostventaTable';
-import PostventaMobileCards from '../../../components/crm/postventa/PostventaMobileCards';
-import CrmTaskModal from '../../../components/crm/agenda/CrmTaskModal';
 
 export default function PostventaPage() {
-    const { fetchSales, updateSale, loading: loadingSales, error: errorSales } = useAdminSales();
-    const { fetchTasks, createTask, tasks } = useAdminCrmTasks();
-    const [allSales, setAllSales] = useState([]);
-    const [allTasks, setAllTasks] = useState([]);
-    
-    // Modal State
-    const [isTaskModalOpen, setIsTaskModalOpen] = useState(false);
-    const [selectedSaleForTask, setSelectedSaleForTask] = useState(null);
-
-    const [filters, setFilters] = useState({
-        search: '',
-        postSaleStatus: 'todos',
-        resena: 'todas',
-        obsequio: 'todos',
-        satisfaccion: 'todas',
-        tarea: 'todas'
-    });
-
-    const loadData = async () => {
-        const salesData = await fetchSales();
-        // Solo ventas entregadas o pendientes de seguimiento
-        const validSales = (salesData || []).filter(s => 
-            s.status === 'entregada' || s.postSaleStatus !== 'pendiente'
-        );
-        setAllSales(validSales);
-        const tasksData = await fetchTasks();
-        setAllTasks(tasksData || []);
-    };
+    const { sales, loading, error, fetchSales, updateSale } = useAdminSales();
+    const [search, setSearch] = useState('');
+    const [activeTab, setActiveTab] = useState('pendientes'); // pendientes, contactados, conformes, incidencias, cerrados
 
     useEffect(() => {
-        loadData();
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, []);
+        fetchSales();
+    }, [fetchSales]);
 
-    const getSaleTaskStatus = (saleId) => {
-        return allTasks.filter(t => 
-            String(t.saleId?._id || t.saleId) === String(saleId) && 
-            t.status === 'pendiente' &&
-            t.type === 'postventa'
-        );
-    };
+    // Filtrar ventas entregadas o listas
+    const postventas = sales.filter(sale => 
+        sale.status === 'entregada' || sale.deliveryStatus === 'entregado'
+    );
 
-    const filteredSales = useMemo(() => {
-        return allSales.filter(sale => {
-            if (filters.search) {
-                const searchLower = filters.search.toLowerCase();
-                const clientName = (sale.clientId?.fullName || sale.clientId?.firstName || '').toLowerCase();
-                const vehicleBrand = (sale.vehicleId?.brand || '').toLowerCase();
-                const vehicleName = (sale.vehicleId?.name || '').toLowerCase();
-                const vehicleVin = (sale.vehicleId?.plateOrVin || '').toLowerCase();
+    const filteredPostventas = postventas.filter(sale => {
+        const query = search.toLowerCase();
+        const clientName = sale.clientId?.name?.toLowerCase() || '';
+        const carName = `${sale.vehicleId?.brand} ${sale.vehicleId?.name}`.toLowerCase();
+        
+        let matchesTab = false;
+        const status = sale.postSaleStatus || 'pendiente';
+        if (activeTab === 'pendientes') matchesTab = status === 'pendiente';
+        else if (activeTab === 'contactados') matchesTab = status === 'contactado';
+        else if (activeTab === 'conformes') matchesTab = status === 'conforme';
+        else if (activeTab === 'incidencias') matchesTab = status === 'incidencia';
+        else if (activeTab === 'cerrados') matchesTab = status === 'cerrado';
+        
+        return matchesTab && (clientName.includes(query) || carName.includes(query));
+    });
 
-                const matchSearch = 
-                    clientName.includes(searchLower) || 
-                    vehicleBrand.includes(searchLower) || 
-                    vehicleName.includes(searchLower) || 
-                    vehicleVin.includes(searchLower) ||
-                    sale._id.toLowerCase().includes(searchLower);
-
-                if (!matchSearch) return false;
-            }
-
-            if (filters.postSaleStatus !== 'todos') {
-                const currentStatus = sale.postSaleStatus || 'pendiente';
-                if (currentStatus !== filters.postSaleStatus) return false;
-            }
-
-            if (filters.resena !== 'todas') {
-                const isSolicitada = sale.postSaleChecklist?.resenaSolicitada;
-                const isRecibida = sale.postSaleChecklist?.resenaRecibida;
-                if (filters.resena === 'recibida' && !isRecibida) return false;
-                if (filters.resena === 'solicitada' && (!isSolicitada || isRecibida)) return false;
-                if (filters.resena === 'no solicitada' && isSolicitada) return false;
-            }
-
-            if (filters.obsequio !== 'todos') {
-                const obsequio = sale.postSaleChecklist?.obsequioEntregado;
-                if (filters.obsequio === 'entregado' && !obsequio) return false;
-                if (filters.obsequio === 'pendiente' && obsequio) return false;
-            }
-
-            if (filters.satisfaccion !== 'todas') {
-                const rating = sale.satisfactionRating || 0;
-                if (filters.satisfaccion === 'sin calificar' && rating > 0) return false;
-                if (filters.satisfaccion === '1 a 3' && (rating === 0 || rating > 3)) return false;
-                if (filters.satisfaccion === '4 a 5' && rating < 4) return false;
-            }
-
-            if (filters.tarea !== 'todas') {
-                const pendingTasks = getSaleTaskStatus(sale._id);
-                if (filters.tarea === 'con tarea pendiente' && pendingTasks.length === 0) return false;
-                if (filters.tarea === 'sin tarea' && pendingTasks.length > 0) return false;
-                // 'tarea vencida' simplificado
-                if (filters.tarea === 'tarea vencida') {
-                    const today = new Date();
-                    today.setHours(0,0,0,0);
-                    const hasOverdue = pendingTasks.some(t => {
-                        const d = new Date(t.dueDate);
-                        d.setHours(0,0,0,0);
-                        return d < today;
-                    });
-                    if (!hasOverdue) return false;
-                }
-            }
-
-            return true;
-        });
-    }, [allSales, filters, allTasks]);
-
-    const handleCreateTask = (sale) => {
-        setSelectedSaleForTask(sale);
-        setIsTaskModalOpen(true);
-    };
-
-    const handleSaveTask = async (taskData) => {
+    const handleUpdateChecklist = async (saleId, field, value) => {
+        const sale = sales.find(s => s._id === saleId);
+        if (!sale) return;
+        
+        const updatedChecklist = {
+            ...sale.postSaleChecklist,
+            [field]: value
+        };
+        
         try {
-            await createTask(taskData);
-            alert('Tarea agendada exitosamente');
-            setIsTaskModalOpen(false);
-            const tasksData = await fetchTasks();
-            setAllTasks(tasksData || []);
-        } catch (err) {
-            console.error(err);
-            if (err.message?.includes('enum') || err.message?.includes('validation failed')) {
-                alert('No se pudo crear la tarea. Revisá el tipo u origen.');
-            } else {
-                alert('Error al crear la tarea: ' + err.message);
-            }
-        }
-    };
-
-    const handleUpdateChecklist = async (sale, field, value) => {
-        try {
-            const currentChecklist = sale.postSaleChecklist || {};
-            await updateSale(sale._id, {
-                postSaleChecklist: {
-                    ...currentChecklist,
-                    [field]: value
-                }
-            });
-            await loadData();
+            await updateSale(saleId, { postSaleChecklist: updatedChecklist });
         } catch (err) {
             alert('Error al actualizar checklist: ' + err.message);
         }
     };
 
-    const handleUpdateStatus = async (sale, status) => {
+    const handleUpdateStatus = async (saleId, newStatus) => {
         try {
-            await updateSale(sale._id, {
-                postSaleStatus: status
-            });
-            await loadData();
+            await updateSale(saleId, { postSaleStatus: newStatus });
         } catch (err) {
             alert('Error al actualizar estado: ' + err.message);
         }
     };
 
+    const handleUpdateNotes = async (saleId, notes) => {
+        try {
+            await updateSale(saleId, { postSaleNotes: notes });
+        } catch (err) {
+            alert('Error al actualizar notas: ' + err.message);
+        }
+    };
+
+    const tabs = [
+        { id: 'pendientes', label: 'Pendientes', icon: <Headset size={16} /> },
+        { id: 'contactados', label: 'Contactados', icon: <PhoneCall size={16} /> },
+        { id: 'conformes', label: 'Conformes', icon: <CheckCircle size={16} /> },
+        { id: 'incidencias', label: 'Incidencias', icon: <AlertOctagon size={16} /> },
+        { id: 'cerrados', label: 'Cerrados', icon: <Star size={16} /> }
+    ];
+
     return (
-        <div className="max-w-7xl mx-auto flex flex-col h-full min-h-[85vh] pb-12">
-            <div className="flex justify-between items-center mb-6">
-                <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-xl bg-pink-500/10 flex items-center justify-center border border-pink-500/20">
-                        <Star size={20} className="text-pink-500" />
-                    </div>
-                    <div>
-                        <h1 className="text-2xl font-bold text-white tracking-tight">Postventa y Fidelización</h1>
-                        <p className="text-sm text-neutral-400 mt-0.5">Seguimiento de satisfacción, reseñas e incidencias</p>
+        <div className="mx-auto flex w-full max-w-7xl flex-col gap-5 p-4 pb-24 md:p-6">
+            <div className="flex flex-col gap-4 border-b border-crm-border pb-5 lg:flex-row lg:items-end lg:justify-between">
+                <div>
+                    <h1 className="m-0 text-[26px] font-bold leading-tight text-crm-fg flex items-center gap-2">
+                        <Headset size={28} className="text-crm-red" />
+                        Postventa
+                    </h1>
+                    <p className="m-0 mt-1 text-sm font-medium text-crm-fg-muted">
+                        Seguimiento y fidelización de clientes con vehículos entregados.
+                    </p>
+                </div>
+                <div className="flex flex-wrap items-center gap-3">
+                    <div className="relative">
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-crm-fg-muted" size={16} />
+                        <input
+                            type="text"
+                            placeholder="Buscar cliente, vehículo..."
+                            value={search}
+                            onChange={(e) => setSearch(e.target.value)}
+                            className="h-9 w-64 rounded-lg border border-crm-border bg-crm-surface pl-9 pr-3 text-sm text-crm-fg placeholder-crm-fg-muted focus:border-crm-red focus:outline-none focus:ring-1 focus:ring-crm-red"
+                        />
                     </div>
                 </div>
             </div>
 
-            {errorSales && (
-                <div className="bg-crm-red/10 border border-red-500/20 text-red-400 p-4 rounded-xl mb-6 flex items-center gap-3">
-                    <ShieldAlert size={20} />
-                    {errorSales}
+            {/* TABS */}
+            <div className="flex space-x-1 rounded-xl bg-crm-surface p-1 border border-crm-border overflow-x-auto">
+                {tabs.map(tab => (
+                    <button
+                        key={tab.id}
+                        onClick={() => setActiveTab(tab.id)}
+                        className={`flex flex-1 items-center justify-center gap-2 rounded-lg py-2.5 text-sm font-bold transition-all whitespace-nowrap px-4 ${
+                            activeTab === tab.id
+                                ? 'bg-crm-border text-white shadow-sm'
+                                : 'text-crm-fg-muted hover:text-white hover:bg-crm-bg/50'
+                        }`}
+                    >
+                        {tab.icon}
+                        {tab.label}
+                    </button>
+                ))}
+            </div>
+
+            {error && (
+                <div className="rounded-xl border border-crm-red/30 bg-crm-red/10 p-4 text-sm text-red-300">
+                    {error}
                 </div>
             )}
 
-            {loadingSales && allSales.length === 0 ? (
-                <div className="flex-1 flex justify-center items-center">
-                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-pink-500"></div>
+            {loading && sales.length === 0 ? (
+                <div className="flex h-64 items-center justify-center rounded-xl border border-crm-border bg-crm-surface">
+                    <div className="h-8 w-8 animate-spin rounded-full border-2 border-crm-border border-b-crm-red" />
                 </div>
             ) : (
-                <>
-                    <PostventaSummaryCards sales={allSales} getSaleTaskStatus={getSaleTaskStatus} />
-                    <PostventaFilters filters={filters} setFilters={setFilters} />
-                    
-                    <div className="flex justify-between items-center mb-4">
-                        <h2 className="text-lg font-bold text-white">
-                            Operaciones Entregadas <span className="text-neutral-500 font-normal">({filteredSales.length})</span>
-                        </h2>
-                    </div>
+                <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+                    {filteredPostventas.map(sale => (
+                        <div key={sale._id} className="flex flex-col rounded-xl border border-crm-border bg-crm-surface p-5 transition-all hover:border-crm-red/50">
+                            <div className="mb-4 flex items-start justify-between border-b border-crm-border pb-4">
+                                <div>
+                                    <h3 className="text-xl font-black text-white leading-tight">
+                                        {sale.clientId?.name || 'Cliente desconocido'}
+                                    </h3>
+                                    <div className="text-sm text-crm-fg-muted mt-1 font-medium">
+                                        {sale.vehicleId?.brand} {sale.vehicleId?.name} ({sale.vehicleId?.plateOrVin})
+                                    </div>
+                                    <div className="text-xs text-crm-fg-muted mt-1">
+                                        Entregado: {sale.actualDeliveryDate ? new Date(sale.actualDeliveryDate).toLocaleDateString('es-AR') : 'S/F'}
+                                    </div>
+                                </div>
+                                <div className="flex flex-col gap-2 items-end">
+                                    <select 
+                                        value={sale.postSaleStatus || 'pendiente'} 
+                                        onChange={(e) => handleUpdateStatus(sale._id, e.target.value)}
+                                        className="h-8 rounded bg-crm-bg border border-crm-border text-xs font-bold text-crm-fg focus:border-crm-red focus:outline-none px-2 uppercase"
+                                    >
+                                        <option value="pendiente">Pendiente</option>
+                                        <option value="contactado">Contactado</option>
+                                        <option value="conforme">Conforme</option>
+                                        <option value="incidencia">Incidencia</option>
+                                        <option value="cerrado">Cerrado</option>
+                                    </select>
+                                </div>
+                            </div>
+                            
+                            <div className="grid grid-cols-2 gap-x-4 gap-y-3 mt-2">
+                                {/* Checklist */}
+                                <label className="flex items-center gap-2 text-sm text-crm-fg-muted hover:text-white cursor-pointer">
+                                    <input 
+                                        type="checkbox" 
+                                        checked={sale.postSaleChecklist?.seguimiento24h || false} 
+                                        onChange={e => handleUpdateChecklist(sale._id, 'seguimiento24h', e.target.checked)}
+                                        className="rounded border-crm-border bg-crm-bg text-crm-red focus:ring-crm-red"
+                                    />
+                                    Llamado 24/48hs
+                                </label>
+                                <label className="flex items-center gap-2 text-sm text-crm-fg-muted hover:text-white cursor-pointer">
+                                    <input 
+                                        type="checkbox" 
+                                        checked={sale.postSaleChecklist?.seguimiento7d || false} 
+                                        onChange={e => handleUpdateChecklist(sale._id, 'seguimiento7d', e.target.checked)}
+                                        className="rounded border-crm-border bg-crm-bg text-crm-red focus:ring-crm-red"
+                                    />
+                                    Seguimiento 7 Días
+                                </label>
+                                <label className="flex items-center gap-2 text-sm text-crm-fg-muted hover:text-white cursor-pointer">
+                                    <input 
+                                        type="checkbox" 
+                                        checked={sale.postSaleChecklist?.obsequioEntregado || false} 
+                                        onChange={e => handleUpdateChecklist(sale._id, 'obsequioEntregado', e.target.checked)}
+                                        className="rounded border-crm-border bg-crm-bg text-crm-red focus:ring-crm-red"
+                                    />
+                                    Obsequio Entregado
+                                </label>
+                                <label className="flex items-center gap-2 text-sm text-crm-fg-muted hover:text-white cursor-pointer">
+                                    <input 
+                                        type="checkbox" 
+                                        checked={sale.postSaleChecklist?.resenaSolicitada || false} 
+                                        onChange={e => handleUpdateChecklist(sale._id, 'resenaSolicitada', e.target.checked)}
+                                        className="rounded border-crm-border bg-crm-bg text-crm-red focus:ring-crm-red"
+                                    />
+                                    Reseña Solicitada
+                                </label>
+                            </div>
 
-                    <PostventaTable 
-                        sales={filteredSales} 
-                        getSaleTaskStatus={getSaleTaskStatus}
-                        onCreateTask={handleCreateTask}
-                        onUpdateChecklist={handleUpdateChecklist}
-                        onUpdateStatus={handleUpdateStatus}
-                    />
+                            <div className="mt-4 pt-4 border-t border-crm-border">
+                                <label className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-crm-fg-muted mb-2">
+                                    <MessageSquare size={14} />
+                                    Notas y Comentarios del Cliente
+                                </label>
+                                <textarea 
+                                    className="w-full rounded-lg bg-crm-bg border border-crm-border p-3 text-sm text-crm-fg focus:border-crm-red focus:ring-1 focus:ring-crm-red resize-none"
+                                    rows="2"
+                                    placeholder="Anotaciones de llamadas, quejas o conformidades..."
+                                    defaultValue={sale.postSaleNotes || ''}
+                                    onBlur={(e) => handleUpdateNotes(sale._id, e.target.value)}
+                                ></textarea>
+                            </div>
+                        </div>
+                    ))}
                     
-                    <PostventaMobileCards 
-                        sales={filteredSales} 
-                        getSaleTaskStatus={getSaleTaskStatus}
-                        onCreateTask={handleCreateTask}
-                        onUpdateChecklist={handleUpdateChecklist}
-                        onUpdateStatus={handleUpdateStatus}
-                    />
-                </>
-            )}
-
-            {selectedSaleForTask && (
-                <CrmTaskModal 
-                    isOpen={isTaskModalOpen}
-                    onClose={() => setIsTaskModalOpen(false)}
-                    onSave={handleSaveTask}
-                    defaultData={{
-                        source: 'postventa',
-                        type: 'postventa',
-                        title: 'Seguimiento postventa',
-                        saleId: selectedSaleForTask._id,
-                        ...(selectedSaleForTask.clientId && { clientId: selectedSaleForTask.clientId._id || selectedSaleForTask.clientId }),
-                        ...(selectedSaleForTask.vehicleId && { vehicleId: selectedSaleForTask.vehicleId._id || selectedSaleForTask.vehicleId })
-                    }}
-                />
+                    {filteredPostventas.length === 0 && (
+                        <div className="col-span-full py-12 flex flex-col items-center justify-center text-crm-fg-muted">
+                            <Headset size={48} className="mb-4 opacity-20" />
+                            <p>No hay operaciones en este estado de postventa.</p>
+                        </div>
+                    )}
+                </div>
             )}
         </div>
     );
