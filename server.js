@@ -12,6 +12,20 @@ import Task from './src/models/Task.js';
 import ActivityLog from './src/models/ActivityLog.js';
 import Account from './src/models/Account.js';
 import Transaction from './src/models/Transaction.js';
+import Reservation from './src/models/Reservation.js';
+import Sale from './src/models/Sale.js';
+import Installment from './src/models/Installment.js';
+import CrmTask from './src/models/CrmTask.js';
+import AdminUser from './src/models/AdminUser.js';
+import AuditLog from './src/models/AuditLog.js';
+import NotificationReadState from './src/models/NotificationReadState.js';
+import TeamGoal from './src/models/TeamGoal.js';
+import Check from './src/models/Check.js';
+import CommunicationLog from './src/models/CommunicationLog.js';
+import MessageTemplate from './src/models/MessageTemplate.js';
+import CrmSettings from './src/models/CrmSettings.js';
+import { logAudit } from './src/utils/auditLogger.js';
+import { hasPermission, PERMISSIONS, ROLES } from './src/utils/adminPermissions.js';
 import { CloudinaryStorage } from 'multer-storage-cloudinary';
 import jwt from 'jsonwebtoken';
 import crypto from 'crypto';
@@ -6803,6 +6817,7 @@ app.post('/api/admin/cars/bulk', authenticateToken, requirePermission(PERMISSION
         res.status(500).json({ message: error.message });
     }
 });
+
 
 // --- TESORERIA ROUTES ---
 
