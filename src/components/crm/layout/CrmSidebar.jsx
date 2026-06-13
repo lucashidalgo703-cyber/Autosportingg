@@ -45,6 +45,8 @@ const menuGroups = [
         items: [
             { name: 'Finanzas', path: '/admin/finanzas', icon: '💰', prefetch: false },
             { name: 'Tesorería', path: '/admin/tesoreria', icon: '🏦', prefetch: false },
+            { name: 'Liquidaciones', path: '/admin/liquidaciones', icon: '🧾', prefetch: false },
+            { name: 'Mis comisiones', path: '/admin/mis-comisiones', icon: '💸', prefetch: false },
         ]
     },
     {
@@ -108,6 +110,8 @@ export default function CrmSidebar({ isOpen, onClose }) {
         if (itemName === 'Configuración') return hasPermission(user, PERMISSIONS.USUARIOS_READ) || hasPermission(user, PERMISSIONS.MESSAGETEMPLATES_READ);
         if (itemName === 'Finanzas') return hasPermission(user, PERMISSIONS.FINANZAS_READ);
         if (itemName === 'Tesorería') return hasPermission(user, PERMISSIONS.CAJA_READ) || hasPermission(user, PERMISSIONS.FINANZAS_READ);
+        if (itemName === 'Liquidaciones') return hasPermission(user, PERMISSIONS.LIQUIDACIONES_READ);
+        if (itemName === 'Mis comisiones') return hasPermission(user, PERMISSIONS.COMISIONES_READ);
         if (itemName === 'Reportes') return hasPermission(user, PERMISSIONS.REPORTES_READ);
         if (itemName === 'Mis ventas') return true;
         if (itemName === 'Pedidos') return true;

@@ -59,7 +59,10 @@ export const PERMISSIONS = {
     SYSTEMHEALTH_READ: 'systemHealth.read',
     EXPORTS_READ: 'exports.read',
     EXPORTS_AUDIT: 'exports.audit',
-    HELP_READ: 'help.read'
+    HELP_READ: 'help.read',
+    LIQUIDACIONES_READ: 'liquidaciones.read',
+    LIQUIDACIONES_WRITE: 'liquidaciones.write',
+    COMISIONES_READ: 'comisiones.read'
 };
 
 // Mapa de permisos por defecto según el rol
@@ -77,6 +80,7 @@ export const DEFAULT_ROLE_PERMISSIONS = {
         PERMISSIONS.POSTVENTA_READ, PERMISSIONS.POSTVENTA_WRITE,
         PERMISSIONS.COMMUNICATIONLOGS_READ, PERMISSIONS.COMMUNICATIONLOGS_WRITE,
         PERMISSIONS.MESSAGETEMPLATES_READ,
+        PERMISSIONS.COMISIONES_READ,
         PERMISSIONS.HELP_READ
     ],
     [ROLES.ADMINISTRATIVO]: [
