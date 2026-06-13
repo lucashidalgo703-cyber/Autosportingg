@@ -7,7 +7,7 @@ import { PERMISSIONS } from '../../../utils/adminPermissions';
 import CrmPageHeader from '../../../components/crm/ui/CrmPageHeader';
 
 const formatMoney = (amount, currency = 'ARS') => {
-    return \`\${currency} \${Number(amount || 0).toLocaleString('es-AR')}\`;
+    return `${currency} ${Number(amount || 0).toLocaleString('es-AR')}`;
 };
 
 const getStatusBadge = (status) => {
@@ -33,7 +33,7 @@ export default function MisComisionesPage() {
                 setLoading(true);
                 const token = localStorage.getItem('token');
                 const res = await fetch('/api/admin/my-commissions', {
-                    headers: { 'Authorization': \`Bearer \${token}\` }
+                    headers: { 'Authorization': `Bearer ${token}` }
                 });
                 if (!res.ok) throw new Error('Error al cargar mis comisiones');
                 const json = await res.json();
@@ -81,7 +81,7 @@ export default function MisComisionesPage() {
                                     </td>
                                     <td className="px-4 py-3">{formatMoney(s.salePrice, s.saleCurrency)}</td>
                                     <td className="px-4 py-3 text-right font-black text-crm-success">
-                                        {s.commissionSettings?.isManual ? 'Variable (Manual)' : \`\${s.commissionSettings?.sellerPct || 0}%\`}
+                                        {s.commissionSettings?.isManual ? 'Variable (Manual)' : `${s.commissionSettings?.sellerPct || 0}%`}
                                     </td>
                                 </tr>
                             ))}
@@ -127,7 +127,7 @@ export default function MisComisionesPage() {
                                     <td className="px-4 py-3 text-center">{s.includedSales?.length || 0}</td>
                                     <td className="px-4 py-3 text-right font-black text-crm-success">{formatMoney(s.totalAmount, s.currency)}</td>
                                     <td className="px-4 py-3">
-                                        <span className={\`inline-flex items-center rounded-full border px-2.5 py-0.5 text-[10px] font-black uppercase tracking-wide \${getStatusBadge(s.status)}\`}>
+                                        <span className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-[10px] font-black uppercase tracking-wide ${getStatusBadge(s.status)}`}>
                                             {s.status}
                                         </span>
                                     </td>
@@ -190,13 +190,13 @@ export default function MisComisionesPage() {
                         <div className="flex border-b border-crm-border">
                             <button
                                 onClick={() => setActiveTab('pendientes')}
-                                className={\`px-4 py-3 text-sm font-black transition-colors \${activeTab === 'pendientes' ? 'border-b-2 border-crm-red text-crm-red' : 'text-crm-fg-muted hover:text-crm-fg bg-transparent border-0 appearance-none'}\`}
+                                className={`px-4 py-3 text-sm font-black transition-colors ${activeTab === 'pendientes' ? 'border-b-2 border-crm-red text-crm-red' : 'text-crm-fg-muted hover:text-crm-fg bg-transparent border-0 appearance-none'}`}
                             >
                                 <span className="flex items-center gap-2"><TrendingUp size={16} /> Por Liquidar</span>
                             </button>
                             <button
                                 onClick={() => setActiveTab('historial')}
-                                className={\`px-4 py-3 text-sm font-black transition-colors \${activeTab === 'historial' ? 'border-b-2 border-crm-red text-crm-red' : 'text-crm-fg-muted hover:text-crm-fg bg-transparent border-0 appearance-none'}\`}
+                                className={`px-4 py-3 text-sm font-black transition-colors ${activeTab === 'historial' ? 'border-b-2 border-crm-red text-crm-red' : 'text-crm-fg-muted hover:text-crm-fg bg-transparent border-0 appearance-none'}`}
                             >
                                 <span className="flex items-center gap-2"><History size={16} /> Historial de Pagos</span>
                             </button>

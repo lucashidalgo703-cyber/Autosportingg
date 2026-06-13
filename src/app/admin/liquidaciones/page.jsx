@@ -9,7 +9,7 @@ import toast from 'react-hot-toast';
 import { useAuth } from '../../../context/AuthContext';
 
 const formatMoney = (amount, currency = 'ARS') => {
-    return \`\${currency} \${Number(amount || 0).toLocaleString('es-AR')}\`;
+    return `${currency} ${Number(amount || 0).toLocaleString('es-AR')}`;
 };
 
 const getStatusBadge = (status) => {
@@ -40,7 +40,7 @@ export default function LiquidacionesPage() {
             setLoading(true);
             const token = localStorage.getItem('token');
             const res = await fetch('/api/admin/settlements', {
-                headers: { 'Authorization': \`Bearer \${token}\` }
+                headers: { 'Authorization': `Bearer ${token}` }
             });
             if (!res.ok) throw new Error('Error al cargar liquidaciones');
             const data = await res.json();
@@ -59,16 +59,16 @@ export default function LiquidacionesPage() {
     const handleStatusChange = async (id, newStatus) => {
         try {
             const token = localStorage.getItem('token');
-            const res = await fetch(\`/api/admin/settlements/\${id}\`, {
+            const res = await fetch(`/api/admin/settlements/${id}`, {
                 method: 'PATCH',
-                headers: { 'Content-Type': 'application/json', 'Authorization': \`Bearer \${token}\` },
+                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
                 body: JSON.stringify({ status: newStatus })
             });
             if (!res.ok) {
                 const err = await res.json();
                 throw new Error(err.message);
             }
-            toast.success(\`Liquidación marcada como \${newStatus}\`);
+            toast.success(`Liquidación marcada como ${newStatus}`);
             loadSettlements();
         } catch (error) {
             toast.error(error.message);
@@ -147,7 +147,7 @@ export default function LiquidacionesPage() {
                                                 <td className="px-4 py-3 text-crm-fg-muted">{s.includedSales.length} ventas</td>
                                                 <td className="px-4 py-3 font-black text-crm-success">{formatMoney(s.totalAmount, s.currency)}</td>
                                                 <td className="px-4 py-3">
-                                                    <span className={\`inline-flex items-center rounded-full border px-2.5 py-0.5 text-[10px] font-black uppercase tracking-wide \${getStatusBadge(s.status)}\`}>
+                                                    <span className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-[10px] font-black uppercase tracking-wide ${getStatusBadge(s.status)}`}>
                                                         {s.status}
                                                     </span>
                                                 </td>
@@ -210,7 +210,7 @@ export default function LiquidacionesPage() {
 function CreateSettlementModal({ isOpen, onClose, onSuccess }) {
     const [loading, setLoading] = useState(false);
     const [username, setUsername] = useState('');
-    const [period, setPeriod] = useState(\`\${new Date().getFullYear()}-\${String(new Date().getMonth() + 1).padStart(2, '0')}\`);
+    const [period, setPeriod] = useState(`${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}`);
     const [pendingSales, setPendingSales] = useState([]);
     const [selectedSaleIds, setSelectedSaleIds] = useState(new Set());
     const [adjustments, setAdjustments] = useState([]);
@@ -234,8 +234,8 @@ function CreateSettlementModal({ isOpen, onClose, onSuccess }) {
         setLoading(true);
         try {
             const token = localStorage.getItem('token');
-            const res = await fetch(\`/api/admin/settlements/pending-sales/\${username}\`, {
-                headers: { 'Authorization': \`Bearer \${token}\` }
+            const res = await fetch(`/api/admin/settlements/pending-sales/${username}`, {
+                headers: { 'Authorization': `Bearer ${token}` }
             });
             if (!res.ok) throw new Error('Error al buscar ventas');
             const data = await res.json();
@@ -299,7 +299,7 @@ function CreateSettlementModal({ isOpen, onClose, onSuccess }) {
             const token = localStorage.getItem('token');
             const res = await fetch('/api/admin/settlements', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json', 'Authorization': \`Bearer \${token}\` },
+                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
                 body: JSON.stringify({
                     period,
                     username,
@@ -392,7 +392,7 @@ function CreateSettlementModal({ isOpen, onClose, onSuccess }) {
                                                 <td className="px-4 py-2 font-medium">{s.vehicleId?.brand} {s.vehicleId?.model} ({s.vehicleId?.year})</td>
                                                 <td className="px-4 py-2">{formatMoney(s.salePrice, s.saleCurrency)}</td>
                                                 <td className="px-4 py-2 text-crm-success font-bold">
-                                                    {s.commissionSettings?.isManual ? 'Manual' : \`\${s.commissionSettings?.sellerPct || 0}%\`}
+                                                    {s.commissionSettings?.isManual ? 'Manual' : `${s.commissionSettings?.sellerPct || 0}%`}
                                                 </td>
                                             </tr>
                                         ))}
@@ -471,7 +471,7 @@ function PaySettlementModal({ isOpen, onClose, settlement, onSuccess }) {
         if (isOpen) {
             // Cargar cuentas para poder pagar
             const token = localStorage.getItem('token');
-            fetch('/api/admin/tesoreria/dashboard', { headers: { 'Authorization': \`Bearer \${token}\` }})
+            fetch('/api/admin/tesoreria/dashboard', { headers: { 'Authorization': `Bearer ${token}` }})
                 .then(res => res.json())
                 .then(data => {
                     // Filtrar solo las que coinciden con la moneda de la liquidación
@@ -488,9 +488,9 @@ function PaySettlementModal({ isOpen, onClose, settlement, onSuccess }) {
         setLoading(true);
         try {
             const token = localStorage.getItem('token');
-            const res = await fetch(\`/api/admin/settlements/\${settlement._id}\`, {
+            const res = await fetch(`/api/admin/settlements/${settlement._id}`, {
                 method: 'PATCH',
-                headers: { 'Content-Type': 'application/json', 'Authorization': \`Bearer \${token}\` },
+                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
                 body: JSON.stringify({ status: 'pagada', accountId })
             });
             if (!res.ok) throw new Error('Error al registrar el pago');

@@ -20,6 +20,7 @@ import CuotasFinancieras from '../../../components/crm/finance/CuotasFinancieras
 import PermissionGuard from '../../../components/crm/layout/PermissionGuard';
 import { PERMISSIONS } from '../../../utils/adminPermissions';
 import { useAdminInstallments } from '../../../hooks/useAdminInstallments';
+import CrmPageHeader from '../../../components/crm/ui/CrmPageHeader';
 
 const FINANCE_TABS = [
     { id: 'resumen', icon: '📊', label: 'Resumen' },
@@ -338,32 +339,30 @@ function FinanzasPage() {
     return (
         <PermissionGuard permission={PERMISSIONS.FINANZAS_READ}>
             <div className="mx-auto w-full max-w-7xl p-4 pb-24 md:p-6">
-                <header className="mb-5 flex flex-col gap-4 border-b border-crm-border pb-5 lg:flex-row lg:items-start lg:justify-between">
-                    <div>
-                        <h1 className="text-2xl font-black tracking-tight text-crm-fg">Administración Financiera</h1>
-                        <p className="mt-1 text-sm font-medium text-crm-fg-muted">
-                            Movimientos, saldos por caja, comisiones, presupuestos y cierres.
-                        </p>
-                    </div>
-                    <div className="flex flex-wrap gap-2">
-                        <button
-                            type="button"
-                            onClick={() => openTransactionModal({ type: 'ingreso', concept: 'Nuevo recibo', category: 'Recibo', paymentMethod: 'efectivo' })}
-                            className="inline-flex h-10 items-center gap-2 rounded-xl border border-crm-border bg-crm-surface px-4 text-sm font-bold text-crm-fg transition hover:bg-crm-surface-raised"
-                        >
-                            <ReceiptText size={16} />
-                            Nuevo Recibo
-                        </button>
-                        <button
-                            type="button"
-                            onClick={() => openTransactionModal({ type: 'ingreso', concept: 'Nuevo boleto', category: 'Boleto', paymentMethod: 'transferencia' })}
-                            className="inline-flex h-10 items-center gap-2 rounded-xl bg-crm-red-gradient px-4 text-sm font-black text-white shadow-crm-shadow-red transition hover:opacity-95"
-                        >
-                            <Plus size={16} />
-                            Nuevo Boleto
-                        </button>
-                    </div>
-                </header>
+                <CrmPageHeader
+                    title="Administración Financiera"
+                    subtitle="Movimientos, saldos por caja, comisiones, presupuestos y cierres."
+                    actions={
+                        <>
+                            <button
+                                type="button"
+                                onClick={() => openTransactionModal({ type: 'ingreso', concept: 'Nuevo recibo', category: 'Recibo', paymentMethod: 'efectivo' })}
+                                className="inline-flex h-10 items-center gap-2 rounded-xl border border-crm-border bg-crm-surface px-4 text-sm font-bold text-crm-fg transition hover:bg-crm-surface-raised"
+                            >
+                                <ReceiptText size={16} />
+                                Nuevo Recibo
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => openTransactionModal({ type: 'ingreso', concept: 'Nuevo boleto', category: 'Boleto', paymentMethod: 'transferencia' })}
+                                className="inline-flex h-10 items-center gap-2 rounded-xl bg-crm-red-gradient px-4 text-sm font-black text-white shadow-crm-shadow-red transition hover:opacity-95"
+                            >
+                                <Plus size={16} />
+                                Nuevo Boleto
+                            </button>
+                        </>
+                    }
+                />
 
                 {error && (
                     <div className="mb-5 flex items-center gap-3 rounded-xl border border-crm-warning/20 bg-crm-warning/10 p-4 text-sm font-bold text-crm-warning">
