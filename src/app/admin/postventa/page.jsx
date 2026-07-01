@@ -8,9 +8,16 @@ export default function PostventaPage() {
     const { sales, loading, error, fetchSales, updateSale } = useAdminSales();
     const [search, setSearch] = useState('');
     const [activeTab, setActiveTab] = useState('pendientes'); // pendientes, contactados, conformes, incidencias, cerrados
+    const [users, setUsers] = useState([]);
 
     useEffect(() => {
         fetchSales();
+        fetch('/api/admin/users', {
+            headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
+        })
+        .then(res => res.json())
+        .then(data => setUsers(Array.isArray(data) ? data : []))
+        .catch(err => console.error(err));
     }, [fetchSales]);
 
     // Filtrar ventas entregadas o listas
@@ -55,6 +62,14 @@ export default function PostventaPage() {
             await updateSale(saleId, { postSaleStatus: newStatus });
         } catch (err) {
             toast.error('Error al actualizar estado: ' + err.message);
+        }
+    };
+
+    const handleUpdateField = async (saleId, field, value) => {
+        try {
+            await updateSale(saleId, { [field]: value });
+        } catch (err) {
+            toast.error(`Error al actualizar ${field}: ` + err.message);
         }
     };
 
@@ -134,14 +149,22 @@ export default function PostventaPage() {
                         <div key={sale._id} className="flex flex-col rounded-xl border border-crm-border bg-crm-surface p-5 transition-all hover:border-crm-red/50">
                             <div className="mb-4 flex items-start justify-between border-b border-crm-border pb-4">
                                 <div>
-                                    <h3 className="text-xl font-black text-white leading-tight">
+                                    <h3 className="text-xl font-black text-white leading-tight flex items-center gap-2">
                                         {(sale.clientId?.fullName || sale.clientId?.firstName) || 'Cliente desconocido'}
+                                        {sale.clientId && (
+                                            <a href={`/admin/clientes/${sale.clientId._id}`} target="_blank" rel="noreferrer" className="text-xs text-crm-fg-muted hover:text-crm-red underline">Ver</a>
+                                        )}
                                     </h3>
-                                    <div className="text-sm text-crm-fg-muted mt-1 font-medium">
+                                    <div className="text-sm text-crm-fg-muted mt-1 font-medium flex items-center gap-2">
                                         {sale.vehicleId?.brand} {sale.vehicleId?.name} ({sale.vehicleId?.plateOrVin})
+                                        {sale.vehicleId && (
+                                            <a href={`/admin/stock/${sale.vehicleId._id}`} target="_blank" rel="noreferrer" className="text-xs text-crm-fg-muted hover:text-crm-red underline">Ver</a>
+                                        )}
                                     </div>
-                                    <div className="text-xs text-crm-fg-muted mt-1">
-                                        Entregado: {sale.actualDeliveryDate ? new Date(sale.actualDeliveryDate).toLocaleDateString('es-AR') : 'S/F'}
+                                    <div className="text-xs text-crm-fg-muted mt-1 flex items-center gap-2">
+                                        <span>Entregado: {sale.actualDeliveryDate ? new Date(sale.actualDeliveryDate).toLocaleDateString('es-AR') : 'S/F'}</span>
+                                        <span>•</span>
+                                        <a href={`/admin/ventas/${sale._id}`} target="_blank" rel="noreferrer" className="text-crm-fg-muted hover:text-crm-red underline">Ver Venta</a>
                                     </div>
                                 </div>
                                 <div className="flex flex-col gap-2 items-end">
@@ -159,6 +182,45 @@ export default function PostventaPage() {
                                 </div>
                             </div>
                             
+                            <div className="grid grid-cols-2 gap-x-4 gap-y-3 mt-2 mb-4 border-b border-crm-border pb-4">
+                                <div className="flex flex-col gap-1">
+                                    <label className="text-xs font-bold uppercase tracking-wider text-crm-fg-muted">Tipo de contacto</label>
+                                    <select 
+                                        value={sale.postSaleType || 'WhatsApp'} 
+                                        onChange={(e) => handleUpdateField(sale._id, 'postSaleType', e.target.value)}
+                                        className="h-8 rounded bg-crm-bg border border-crm-border text-xs text-crm-fg focus:border-crm-red focus:outline-none px-2"
+                                    >
+                                        <option value="WhatsApp">WhatsApp</option>
+                                        <option value="Llamado">Llamado</option>
+                                        <option value="Email">Email</option>
+                                        <option value="Presencial">Presencial</option>
+                                        <option value="Otro">Otro</option>
+                                    </select>
+                                </div>
+                                <div className="flex flex-col gap-1">
+                                    <label className="text-xs font-bold uppercase tracking-wider text-crm-fg-muted">Próximo contacto</label>
+                                    <input 
+                                        type="date" 
+                                        value={sale.postSaleNextContact ? new Date(sale.postSaleNextContact).toISOString().split('T')[0] : ''}
+                                        onChange={(e) => handleUpdateField(sale._id, 'postSaleNextContact', e.target.value)}
+                                        className="h-8 rounded bg-crm-bg border border-crm-border text-xs text-crm-fg focus:border-crm-red focus:outline-none px-2"
+                                    />
+                                </div>
+                                <div className="flex flex-col gap-1">
+                                    <label className="text-xs font-bold uppercase tracking-wider text-crm-fg-muted">Responsable</label>
+                                    <select 
+                                        value={sale.postSaleResponsible?._id || sale.postSaleResponsible || ''} 
+                                        onChange={(e) => handleUpdateField(sale._id, 'postSaleResponsible', e.target.value)}
+                                        className="h-8 rounded bg-crm-bg border border-crm-border text-xs text-crm-fg focus:border-crm-red focus:outline-none px-2"
+                                    >
+                                        <option value="">Sin asignar</option>
+                                        {users.map(u => (
+                                            <option key={u._id} value={u._id}>{u.firstName} {u.lastName}</option>
+                                        ))}
+                                    </select>
+                                </div>
+                            </div>
+
                             <div className="grid grid-cols-2 gap-x-4 gap-y-3 mt-2">
                                 {/* Checklist */}
                                 <label className="flex items-center gap-2 text-sm text-crm-fg-muted hover:text-white cursor-pointer">

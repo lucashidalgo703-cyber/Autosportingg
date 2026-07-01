@@ -7,6 +7,7 @@ import CrmButton from '../../../components/crm/ui/CrmButton';
 import ConfirmModal from '../../../components/crm/ui/ConfirmModal';
 import PedidosTable from '../../../components/crm/pedidos/PedidosTable';
 import PedidosMobileCards from '../../../components/crm/pedidos/PedidosMobileCards';
+import PedidoCreateModal from '../../../components/crm/pedidos/PedidoCreateModal';
 
 const TABS = [
     { id: 'activos', label: 'Activos (Pendiente / Buscando)' },
@@ -22,11 +23,6 @@ export default function PedidosPage() {
     const [filterAssigned, setFilterAssigned] = useState('todos');
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [editingPedido, setEditingPedido] = useState(null);
-    const [formData, setFormData] = useState({
-        clientName: '', clientPhone: '', requestedBrand: '', requestedModel: '',
-        yearRange: '', budget: '', currency: 'ARS', status: 'Pendiente', notes: '',
-        nextActionDate: ''
-    });
     const [confirmDeleteModal, setConfirmDeleteModal] = useState({ isOpen: false, id: null });
 
     useEffect(() => {
@@ -39,8 +35,8 @@ export default function PedidosPage() {
                               p.requestedModel?.toLowerCase().includes(search.toLowerCase());
         
         let matchesTab = true;
-        if (activeTab === 'activos') matchesTab = p.status === 'Pendiente' || p.status === 'Buscando' || p.status === 'Encontrado';
-        if (activeTab === 'completados') matchesTab = p.status === 'Completado';
+        if (activeTab === 'activos') matchesTab = p.status === 'Pendiente' || p.status === 'Buscando';
+        if (activeTab === 'completados') matchesTab = p.status === 'Cumplido';
         if (activeTab === 'cancelados') matchesTab = p.status === 'Cancelado';
         
         let matchesAssigned = true;
@@ -56,45 +52,13 @@ export default function PedidosPage() {
         .map(id => pedidos.find(p => p.assignedTo?._id === id).assignedTo);
 
     const handleOpenModal = (pedido = null) => {
-        if (pedido) {
-            setEditingPedido(pedido);
-            setFormData({ 
-                clientName: pedido.clientName, clientPhone: pedido.clientPhone, 
-                requestedBrand: pedido.requestedBrand, requestedModel: pedido.requestedModel,
-                yearRange: pedido.yearRange || '', budget: pedido.budget || '', 
-                currency: pedido.currency || 'ARS', status: pedido.status || 'Pendiente', 
-                notes: pedido.notes || '',
-                nextActionDate: pedido.nextActionDate ? new Date(pedido.nextActionDate).toISOString().slice(0, 10) : ''
-            });
-        } else {
-            setEditingPedido(null);
-            setFormData({ 
-                clientName: '', clientPhone: '', requestedBrand: '', requestedModel: '',
-                yearRange: '', budget: '', currency: 'ARS', status: 'Pendiente', notes: '',
-                nextActionDate: ''
-            });
-        }
+        setEditingPedido(pedido);
         setIsModalOpen(true);
     };
 
     const handleCloseModal = () => {
         setIsModalOpen(false);
         setEditingPedido(null);
-    };
-
-    const handleSubmit = async (e) => {
-        e.preventDefault();
-        try {
-            if (editingPedido) {
-                await updatePedido(editingPedido._id, formData);
-            } else {
-                await createPedido(formData);
-            }
-            handleCloseModal();
-            fetchPedidos();
-        } catch (err) {
-            toast.error(err.message);
-        }
     };
 
     const handleDelete = (id) => {
@@ -189,92 +153,12 @@ export default function PedidosPage() {
                 </>
             )}
 
-            {isModalOpen && (
-                <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 overflow-y-auto">
-                    <div className="w-full max-w-2xl rounded-2xl border border-crm-border bg-crm-surface shadow-2xl my-auto">
-                        <div className="flex items-center justify-between border-b border-crm-border px-6 py-4 sticky top-0 bg-crm-surface z-10 rounded-t-2xl">
-                            <h2 className="text-lg font-bold text-white">{editingPedido ? 'Editar Pedido' : 'Nuevo Pedido'}</h2>
-                            <button type="button" onClick={handleCloseModal} className="text-crm-fg-muted hover:text-white text-2xl leading-none">&times;</button>
-                        </div>
-                        <form onSubmit={handleSubmit} className="p-6 space-y-6">
-                            
-                            <div className="space-y-4">
-                                <h3 className="text-sm font-bold text-crm-red border-b border-crm-border/50 pb-2 uppercase tracking-wider">Datos del Cliente</h3>
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                    <div>
-                                        <label className="mb-1.5 block text-xs font-bold uppercase tracking-wider text-crm-fg-muted">Nombre del Cliente *</label>
-                                        <input required type="text" value={formData.clientName} onChange={e => setFormData({...formData, clientName: e.target.value})} className="w-full rounded-lg border border-crm-border bg-crm-bg px-4 py-2.5 text-sm text-crm-fg focus:border-crm-red focus:outline-none focus:ring-1 focus:ring-crm-red" />
-                                    </div>
-                                    <div>
-                                        <label className="mb-1.5 block text-xs font-bold uppercase tracking-wider text-crm-fg-muted">Teléfono / WhatsApp *</label>
-                                        <input required type="text" value={formData.clientPhone} onChange={e => setFormData({...formData, clientPhone: e.target.value})} className="w-full rounded-lg border border-crm-border bg-crm-bg px-4 py-2.5 text-sm text-crm-fg focus:border-crm-red focus:outline-none focus:ring-1 focus:ring-crm-red" />
-                                    </div>
-                                </div>
-                            </div>
-
-                            <div className="space-y-4">
-                                <h3 className="text-sm font-bold text-crm-red border-b border-crm-border/50 pb-2 uppercase tracking-wider">Vehículo Buscado</h3>
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                    <div>
-                                        <label className="mb-1.5 block text-xs font-bold uppercase tracking-wider text-crm-fg-muted">Marca *</label>
-                                        <input required type="text" placeholder="Ej: Volkswagen" value={formData.requestedBrand} onChange={e => setFormData({...formData, requestedBrand: e.target.value})} className="w-full rounded-lg border border-crm-border bg-crm-bg px-4 py-2.5 text-sm text-crm-fg focus:border-crm-red focus:outline-none focus:ring-1 focus:ring-crm-red" />
-                                    </div>
-                                    <div>
-                                        <label className="mb-1.5 block text-xs font-bold uppercase tracking-wider text-crm-fg-muted">Modelo *</label>
-                                        <input required type="text" placeholder="Ej: Amarok V6" value={formData.requestedModel} onChange={e => setFormData({...formData, requestedModel: e.target.value})} className="w-full rounded-lg border border-crm-border bg-crm-bg px-4 py-2.5 text-sm text-crm-fg focus:border-crm-red focus:outline-none focus:ring-1 focus:ring-crm-red" />
-                                    </div>
-                                    <div>
-                                        <label className="mb-1.5 block text-xs font-bold uppercase tracking-wider text-crm-fg-muted">Rango de Años</label>
-                                        <input type="text" placeholder="Ej: 2018 - 2022" value={formData.yearRange} onChange={e => setFormData({...formData, yearRange: e.target.value})} className="w-full rounded-lg border border-crm-border bg-crm-bg px-4 py-2.5 text-sm text-crm-fg focus:border-crm-red focus:outline-none focus:ring-1 focus:ring-crm-red" />
-                                    </div>
-                                    <div className="flex gap-2">
-                                        <div className="w-1/3">
-                                            <label className="mb-1.5 block text-xs font-bold uppercase tracking-wider text-crm-fg-muted">Moneda</label>
-                                            <select value={formData.currency} onChange={e => setFormData({...formData, currency: e.target.value})} className="w-full rounded-lg border border-crm-border bg-crm-bg px-4 py-2.5 text-sm text-crm-fg focus:border-crm-red focus:outline-none focus:ring-1 focus:ring-crm-red appearance-none">
-                                                <option value="ARS">ARS</option>
-                                                <option value="USD">USD</option>
-                                            </select>
-                                        </div>
-                                        <div className="w-2/3">
-                                            <label className="mb-1.5 block text-xs font-bold uppercase tracking-wider text-crm-fg-muted">Presupuesto</label>
-                                            <input type="number" value={formData.budget} onChange={e => setFormData({...formData, budget: e.target.value})} className="w-full rounded-lg border border-crm-border bg-crm-bg px-4 py-2.5 text-sm text-crm-fg focus:border-crm-red focus:outline-none focus:ring-1 focus:ring-crm-red" />
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <div className="space-y-4">
-                                <h3 className="text-sm font-bold text-crm-red border-b border-crm-border/50 pb-2 uppercase tracking-wider">Estado y Observaciones</h3>
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                    <div>
-                                        <label className="mb-1.5 block text-xs font-bold uppercase tracking-wider text-crm-fg-muted">Estado del Pedido</label>
-                                        <select value={formData.status} onChange={e => setFormData({...formData, status: e.target.value})} className="w-full rounded-lg border border-crm-border bg-crm-bg px-4 py-2.5 text-sm text-white font-bold focus:border-crm-red focus:outline-none focus:ring-1 focus:ring-crm-red appearance-none">
-                                            <option value="Pendiente">Pendiente</option>
-                                            <option value="Buscando">Buscando</option>
-                                            <option value="Encontrado">Encontrado</option>
-                                            <option value="Cancelado">Cancelado</option>
-                                            <option value="Completado">Completado</option>
-                                        </select>
-                                    </div>
-                                    <div>
-                                        <label className="mb-1.5 block text-xs font-bold uppercase tracking-wider text-crm-fg-muted">Notas Internas</label>
-                                        <textarea rows="2" placeholder="Colores preferidos, formas de pago, etc." value={formData.notes} onChange={e => setFormData({...formData, notes: e.target.value})} className="w-full rounded-lg border border-crm-border bg-crm-bg px-4 py-2.5 text-sm text-crm-fg focus:border-crm-red focus:outline-none focus:ring-1 focus:ring-crm-red resize-none"></textarea>
-                                    </div>
-                                    <div className="col-span-1 md:col-span-2">
-                                        <label className="mb-1.5 block text-xs font-bold uppercase tracking-wider text-crm-fg-muted">Próxima Acción (Fecha)</label>
-                                        <input type="date" value={formData.nextActionDate} onChange={e => setFormData({...formData, nextActionDate: e.target.value})} className="w-full rounded-lg border border-crm-border bg-crm-bg px-4 py-2.5 text-sm text-crm-fg focus:border-crm-red focus:outline-none focus:ring-1 focus:ring-crm-red" />
-                                    </div>
-                                </div>
-                            </div>
-
-                            <div className="pt-4 flex justify-end gap-3 border-t border-crm-border">
-                                <CrmButton type="button" variant="secondary" onClick={handleCloseModal}>Cancelar</CrmButton>
-                                <CrmButton type="submit" variant="primary">Guardar Pedido</CrmButton>
-                            </div>
-                        </form>
-                    </div>
-                </div>
-            )}
+            <PedidoCreateModal 
+                isOpen={isModalOpen}
+                onClose={handleCloseModal}
+                editingPedido={editingPedido}
+                onSaved={fetchPedidos}
+            />
 
             <ConfirmModal
                 isOpen={confirmDeleteModal.isOpen}

@@ -3441,7 +3441,7 @@ app.get('/api/admin/sales', authenticateToken, requirePermission(PERMISSIONS.VEN
         const sales = await Sale.find(query)
             .populate({
                 path: 'clientId',
-                select: 'firstName lastName fullName phone email'
+                select: 'firstName lastName fullName phone email documentNumber'
             })
             .populate({
                 path: 'leadId',
@@ -3454,6 +3454,18 @@ app.get('/api/admin/sales', authenticateToken, requirePermission(PERMISSIONS.VEN
             .populate({
                 path: 'reservationId',
                 select: 'status depositAmount depositCurrency expiresAt'
+            })
+            .populate({
+                path: 'postSaleResponsible',
+                select: 'firstName lastName email'
+            })
+            .populate({
+                path: 'assignedTo',
+                select: 'firstName lastName email'
+            })
+            .populate({
+                path: 'expedienteResponsible',
+                select: 'firstName lastName email'
             })
             .sort({ saleDate: -1, createdAt: -1 })
             .select('-saleAuditLog -postSaleChecklist -documentationChecklist -deliveryChecklist')
@@ -3533,10 +3545,16 @@ app.get('/api/admin/sales/:id', authenticateToken, requirePermission(PERMISSIONS
             return res.status(400).json({ message: 'Sale ID inv├ílido' });
         }
         const sale = await Sale.findById(req.params.id)
-            .populate('clientId')
+            .populate({
+                path: 'clientId',
+                select: 'firstName lastName fullName phone email documentNumber'
+            })
             .populate('leadId')
             .populate('vehicleId')
-            .populate('reservationId');
+            .populate('reservationId')
+            .populate('postSaleResponsible')
+            .populate('expedienteResponsible')
+            .populate('assignedTo');
 
         if (!sale) return res.status(404).json({ message: 'Sale not found' });
 
@@ -12475,7 +12493,7 @@ app.get('/api/admin/reclamos', authenticateToken, requirePermission(PERMISSIONS.
 app.post('/api/admin/reclamos', authenticateToken, requirePermission(PERMISSIONS.RECLAMOS_WRITE), async (req, res) => {
     try {
         await connectDB();
-        const { title, description, priority, assignedTo, client } = req.body;
+        const { title, description, priority, assignedTo, client, phone, reference, type, sla } = req.body;
 
         if (!title || title.trim() === '') {
             return res.status(400).json({ message: 'El título del reclamo es obligatorio.' });
@@ -12494,6 +12512,10 @@ app.post('/api/admin/reclamos', authenticateToken, requirePermission(PERMISSIONS
             priority: priority || 'medium',
             assignedTo,
             client,
+            phone,
+            reference,
+            type: type || 'Otro',
+            sla,
             createdBy: req.user.userId || req.user.id
         });
         await newComplaint.save();
@@ -12509,11 +12531,16 @@ app.patch('/api/admin/reclamos/:id', authenticateToken, requirePermission(PERMIS
         const reclamo = await Complaint.findById(req.params.id);
         if (!reclamo) return res.status(404).json({ message: 'Reclamo no encontrado' });
 
-        const { status, priority, assignedTo, newNote } = req.body;
+        const { status, priority, assignedTo, newNote, phone, reference, type, sla, client } = req.body;
 
         if (status) reclamo.status = status;
         if (priority) reclamo.priority = priority;
         if (assignedTo !== undefined) reclamo.assignedTo = assignedTo || null;
+        if (phone !== undefined) reclamo.phone = phone;
+        if (reference !== undefined) reclamo.reference = reference;
+        if (type !== undefined) reclamo.type = type;
+        if (sla !== undefined) reclamo.sla = sla;
+        if (client !== undefined) reclamo.client = client || null;
 
         if (newNote && newNote.trim() !== '') {
             reclamo.notes.push({

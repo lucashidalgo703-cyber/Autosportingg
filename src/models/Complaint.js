@@ -3,10 +3,14 @@ import mongoose from 'mongoose';
 const complaintSchema = new mongoose.Schema({
     title: { type: String, required: true },
     description: { type: String, required: true },
-    status: { type: String, enum: ['open', 'in_progress', 'closed'], default: 'open' },
+    status: { type: String, enum: ['abierto', 'en_curso', 'cerrado'], default: 'abierto' },
     priority: { type: String, enum: ['low', 'medium', 'high', 'urgent'], default: 'medium' },
     assignedTo: { type: mongoose.Schema.Types.ObjectId, ref: 'AdminUser' },
     client: { type: mongoose.Schema.Types.ObjectId, ref: 'Client' }, // Optional reference to a client
+    phone: { type: String },
+    reference: { type: String },
+    type: { type: String, enum: ['Mecánico', 'Administrativo', 'Documentación', 'Atención', 'Otro'], default: 'Otro' },
+    sla: { type: Date },
     notes: [{
         text: String,
         author: { type: mongoose.Schema.Types.ObjectId, ref: 'AdminUser' },
@@ -28,9 +32,9 @@ complaintSchema.pre('save', function() {
     
     // Auto-set closedAt
     if (this.isModified('status')) {
-        if (this.status === 'closed' && !this.closedAt) {
+        if (this.status === 'cerrado' && !this.closedAt) {
             this.closedAt = new Date();
-        } else if (this.status !== 'closed') {
+        } else if (this.status !== 'cerrado') {
             this.closedAt = undefined;
         }
     }

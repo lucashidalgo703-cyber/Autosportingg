@@ -7,9 +7,8 @@ export default function PedidosTable({ data, onEdit, onDelete }) {
         switch (status) {
             case 'Pendiente': return 'text-yellow-400 border-yellow-400/30 bg-yellow-400/10';
             case 'Buscando': return 'text-blue-400 border-blue-400/30 bg-blue-400/10';
-            case 'Encontrado': return 'text-green-400 border-green-400/30 bg-green-400/10';
+            case 'Cumplido': return 'text-green-400 border-green-400/30 bg-green-400/10';
             case 'Cancelado': return 'text-red-400 border-red-400/30 bg-red-400/10';
-            case 'Completado': return 'text-gray-400 border-gray-400/30 bg-gray-400/10';
             default: return 'text-crm-fg-muted border-crm-border bg-crm-bg';
         }
     };
@@ -35,8 +34,8 @@ export default function PedidosTable({ data, onEdit, onDelete }) {
             key: 'client',
             render: (v) => (
                 <div>
-                    <div className="font-medium text-crm-fg">{v.clientName}</div>
-                    <div className="text-xs text-crm-fg-muted mt-0.5">{v.clientPhone}</div>
+                    <div className="font-medium text-crm-fg">{v.clientId?.fullName || v.clientName || 'Sin Nombre'}</div>
+                    <div className="text-xs text-crm-fg-muted mt-0.5">{v.clientId?.phone || v.clientPhone || '--'}</div>
                 </div>
             )
         },
@@ -60,7 +59,7 @@ export default function PedidosTable({ data, onEdit, onDelete }) {
             render: (v) => {
                 if (!v.nextActionDate) return '--';
                 const dateStr = new Date(v.nextActionDate).toLocaleDateString();
-                const overdue = isOverdue(v.nextActionDate) && v.status !== 'Completado' && v.status !== 'Cancelado';
+                const overdue = isOverdue(v.nextActionDate) && v.status !== 'Cumplido' && v.status !== 'Cancelado';
                 return (
                     <span className={`text-xs font-semibold ${overdue ? 'text-red-400' : 'text-crm-fg'}`}>
                         {dateStr} {overdue && '(Vencido)'}
@@ -71,7 +70,7 @@ export default function PedidosTable({ data, onEdit, onDelete }) {
         {
             label: 'Asignado',
             key: 'assigned',
-            render: (v) => v.assignedTo?.name || '--'
+            render: (v) => v.assignedTo ? `${v.assignedTo.firstName || ''} ${v.assignedTo.lastName || ''}`.trim() || v.assignedTo.name : '--'
         },
         {
             label: 'Acciones',

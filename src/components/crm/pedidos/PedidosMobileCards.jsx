@@ -8,9 +8,8 @@ export default function PedidosMobileCards({ data, onEdit, onDelete }) {
         switch (status) {
             case 'Pendiente': return 'text-yellow-400 border-yellow-400/30 bg-yellow-400/10';
             case 'Buscando': return 'text-blue-400 border-blue-400/30 bg-blue-400/10';
-            case 'Encontrado': return 'text-green-400 border-green-400/30 bg-green-400/10';
+            case 'Cumplido': return 'text-green-400 border-green-400/30 bg-green-400/10';
             case 'Cancelado': return 'text-red-400 border-red-400/30 bg-red-400/10';
-            case 'Completado': return 'text-gray-400 border-gray-400/30 bg-gray-400/10';
             default: return 'text-crm-fg-muted border-crm-border bg-crm-bg';
         }
     };
@@ -32,7 +31,7 @@ export default function PedidosMobileCards({ data, onEdit, onDelete }) {
         <div className="flex flex-col gap-3">
             {data.map(pedido => {
                 const isExpanded = expandedId === pedido._id;
-                const overdue = isOverdue(pedido.nextActionDate) && pedido.status !== 'Completado' && pedido.status !== 'Cancelado';
+                const overdue = isOverdue(pedido.nextActionDate) && pedido.status !== 'Cumplido' && pedido.status !== 'Cancelado';
                 
                 return (
                     <div key={pedido._id} className={`flex flex-col rounded-xl border bg-crm-surface transition-all ${overdue ? 'border-red-500/50' : 'border-crm-border hover:border-crm-red/50'}`}>
@@ -65,11 +64,11 @@ export default function PedidosMobileCards({ data, onEdit, onDelete }) {
                                 <div className="grid grid-cols-2 gap-y-3 text-xs text-crm-fg-muted mb-4">
                                     <div className="flex items-center gap-2">
                                         <User size={14} className="text-crm-fg opacity-70" />
-                                        <span className="font-medium text-crm-fg">{pedido.clientName}</span>
+                                        <span className="font-medium text-crm-fg">{pedido.clientId?.fullName || pedido.clientName || 'Sin Nombre'}</span>
                                     </div>
                                     <div className="flex items-center gap-2">
                                         <span className="text-xs">📱</span>
-                                        <a href={`https://wa.me/${pedido.clientPhone.replace(/\D/g, '')}`} target="_blank" rel="noreferrer" className="hover:text-crm-red transition-colors">{pedido.clientPhone}</a>
+                                        <a href={`https://wa.me/${(pedido.clientId?.phone || pedido.clientPhone || '').replace(/\D/g, '')}`} target="_blank" rel="noreferrer" className="hover:text-crm-red transition-colors">{pedido.clientId?.phone || pedido.clientPhone || '--'}</a>
                                     </div>
                                     <div className="flex items-center gap-2">
                                         <Calendar size={14} className="text-crm-fg opacity-70" />
@@ -84,7 +83,7 @@ export default function PedidosMobileCards({ data, onEdit, onDelete }) {
                                 <div className="grid grid-cols-2 gap-y-3 text-xs text-crm-fg-muted mb-4 pt-3 border-t border-crm-border">
                                     <div>
                                         <span className="block font-semibold mb-0.5">Asignado a:</span>
-                                        <span className="text-crm-fg">{pedido.assignedTo?.name || 'Sin asignar'}</span>
+                                        <span className="text-crm-fg">{pedido.assignedTo ? `${pedido.assignedTo.firstName || ''} ${pedido.assignedTo.lastName || ''}`.trim() || pedido.assignedTo.name : 'Sin asignar'}</span>
                                     </div>
                                     <div>
                                         <span className="block font-semibold mb-0.5">Próx. Acción:</span>

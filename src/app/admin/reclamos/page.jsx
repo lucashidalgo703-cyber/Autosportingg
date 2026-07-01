@@ -22,10 +22,18 @@ export default function ReclamosPage() {
     const [selectedReclamo, setSelectedReclamo] = useState(null);
 
     // Form states
-    const [newReclamo, setNewReclamo] = useState({ title: '', description: '', priority: 'medium' });
+    const [newReclamo, setNewReclamo] = useState({ title: '', description: '', priority: 'medium', client: '', phone: '', reference: '', type: 'Otro', sla: '', assignedTo: '' });
     const [statusUpdate, setStatusUpdate] = useState('');
     const [priorityUpdate, setPriorityUpdate] = useState('');
+    const [typeUpdate, setTypeUpdate] = useState('');
+    const [assignedToUpdate, setAssignedToUpdate] = useState('');
+    const [slaUpdate, setSlaUpdate] = useState('');
+    const [phoneUpdate, setPhoneUpdate] = useState('');
+    const [referenceUpdate, setReferenceUpdate] = useState('');
     const [newNote, setNewNote] = useState('');
+
+    const [users, setUsers] = useState([]);
+    const [clients, setClients] = useState([]);
 
     const getUserDisplayName = (account, fallback = 'Sin asignar') => {
         if (!account) return fallback;
@@ -51,6 +59,17 @@ export default function ReclamosPage() {
 
     useEffect(() => {
         fetchReclamos();
+        if (token) {
+            fetch('/api/admin/users', { headers: { 'Authorization': `Bearer ${token}` } })
+                .then(res => res.json())
+                .then(data => setUsers(Array.isArray(data) ? data : []))
+                .catch(err => console.error(err));
+            
+            fetch('/api/admin/clients', { headers: { 'Authorization': `Bearer ${token}` } })
+                .then(res => res.json())
+                .then(data => setClients(Array.isArray(data) ? data : []))
+                .catch(err => console.error(err));
+        }
     }, [token]);
 
     const handleCreate = async (e) => {
@@ -67,7 +86,7 @@ export default function ReclamosPage() {
             }
             toast.success('Reclamo registrado con éxito');
             setIsCreateOpen(false);
-            setNewReclamo({ title: '', description: '', priority: 'medium' });
+            setNewReclamo({ title: '', description: '', priority: 'medium', client: '', phone: '', reference: '', type: 'Otro', sla: '', assignedTo: '' });
             fetchReclamos();
         } catch (error) {
             toast.error(error.message);
@@ -80,6 +99,11 @@ export default function ReclamosPage() {
             const body = {};
             if (statusUpdate && statusUpdate !== selectedReclamo.status) body.status = statusUpdate;
             if (priorityUpdate && priorityUpdate !== selectedReclamo.priority) body.priority = priorityUpdate;
+            if (typeUpdate && typeUpdate !== selectedReclamo.type) body.type = typeUpdate;
+            if (assignedToUpdate !== selectedReclamo.assignedTo?._id) body.assignedTo = assignedToUpdate;
+            if (slaUpdate && slaUpdate !== selectedReclamo.sla) body.sla = slaUpdate;
+            if (phoneUpdate !== selectedReclamo.phone) body.phone = phoneUpdate;
+            if (referenceUpdate !== selectedReclamo.reference) body.reference = referenceUpdate;
             if (newNote) body.newNote = newNote;
 
             if (Object.keys(body).length === 0) return;
@@ -106,15 +130,20 @@ export default function ReclamosPage() {
         setSelectedReclamo(r);
         setStatusUpdate(r.status);
         setPriorityUpdate(r.priority);
+        setTypeUpdate(r.type || 'Otro');
+        setAssignedToUpdate(r.assignedTo?._id || '');
+        setSlaUpdate(r.sla ? new Date(r.sla).toISOString().split('T')[0] : '');
+        setPhoneUpdate(r.phone || '');
+        setReferenceUpdate(r.reference || '');
         setNewNote('');
     };
 
     // Filtros
     const filteredReclamos = reclamos.filter(r => {
         // Status filter
-        if (filterStatus === 'abiertos' && r.status !== 'open') return false;
-        if (filterStatus === 'en_curso' && r.status !== 'in_progress') return false;
-        if (filterStatus === 'cerrados' && r.status !== 'closed') return false;
+        if (filterStatus === 'abiertos' && r.status !== 'abierto') return false;
+        if (filterStatus === 'en_curso' && r.status !== 'en_curso') return false;
+        if (filterStatus === 'cerrados' && r.status !== 'cerrado') return false;
         
         // Priority filter
         if (filterPriority !== 'all' && r.priority !== filterPriority) return false;
@@ -130,11 +159,11 @@ export default function ReclamosPage() {
     // Métricas (KPIs)
     const SLA_LIMIT_HOURS = 48;
     const stats = {
-        abiertos: reclamos.filter(r => r.status === 'open').length,
-        enCurso: reclamos.filter(r => r.status === 'in_progress').length,
-        urgentes: reclamos.filter(r => r.status !== 'closed' && r.priority === 'urgent').length,
+        abiertos: reclamos.filter(r => r.status === 'abierto').length,
+        enCurso: reclamos.filter(r => r.status === 'en_curso').length,
+        urgentes: reclamos.filter(r => r.status !== 'cerrado' && r.priority === 'urgent').length,
         estancados: reclamos.filter(r => {
-            if (r.status === 'closed') return false;
+            if (r.status === 'cerrado') return false;
             const hoursSinceLastActivity = (new Date() - new Date(r.lastActivityAt || r.createdAt)) / (1000 * 60 * 60);
             return hoursSinceLastActivity > SLA_LIMIT_HOURS;
         }).length
@@ -142,11 +171,11 @@ export default function ReclamosPage() {
 
     const getStatusBadge = (status) => {
         const styles = {
-            open: 'bg-yellow-500/10 text-yellow-600',
-            in_progress: 'bg-blue-500/10 text-blue-600',
-            closed: 'bg-green-500/10 text-green-600'
+            abierto: 'bg-yellow-500/10 text-yellow-600',
+            en_curso: 'bg-blue-500/10 text-blue-600',
+            cerrado: 'bg-green-500/10 text-green-600'
         };
-        const labels = { open: 'Abierto', in_progress: 'En Curso', closed: 'Cerrado' };
+        const labels = { abierto: 'Abierto', en_curso: 'En Curso', cerrado: 'Cerrado' };
         return <span className={`px-2 py-1 rounded-md text-[10px] font-black uppercase ${styles[status]}`}>{labels[status]}</span>;
     };
 
@@ -258,12 +287,18 @@ export default function ReclamosPage() {
                                 <h3 className="font-black text-crm-fg text-lg mb-2">{r.title}</h3>
                                 <p className="text-sm text-crm-fg-muted line-clamp-2 mb-4 flex-1">{r.description}</p>
                                 
-                                <div className="flex items-center justify-between text-xs text-crm-fg-subtle pt-4 border-t border-crm-border">
-                                    <div className="flex items-center gap-1 font-medium">
-                                        <User size={12} /> {getUserDisplayName(r.assignedTo)}
+                                <div className="flex flex-col gap-2 text-xs text-crm-fg-subtle pt-4 border-t border-crm-border">
+                                    <div className="flex items-center justify-between font-medium">
+                                        <div className="flex items-center gap-1">
+                                            <User size={12} /> {getUserDisplayName(r.assignedTo)}
+                                        </div>
+                                        <div className="flex items-center gap-1">
+                                            <Clock size={12} /> {new Date(r.lastActivityAt || r.createdAt).toLocaleDateString()}
+                                        </div>
                                     </div>
-                                    <div className="flex items-center gap-1 font-medium">
-                                        <Clock size={12} /> {new Date(r.lastActivityAt || r.createdAt).toLocaleDateString()}
+                                    <div className="flex items-center justify-between">
+                                        <span><span className="font-bold">Cliente:</span> {r.client?.fullName || r.client?.firstName || 'S/D'}</span>
+                                        <span className="bg-crm-bg border border-crm-border px-1.5 py-0.5 rounded text-[10px] uppercase font-bold">{r.type || 'Otro'}</span>
                                     </div>
                                 </div>
                             </div>
@@ -291,15 +326,59 @@ export default function ReclamosPage() {
                                 <textarea required rows={4} className="w-full rounded-xl border border-crm-border bg-crm-bg p-4 text-sm text-crm-fg outline-none focus:border-crm-red resize-none"
                                     value={newReclamo.description} onChange={e => setNewReclamo({...newReclamo, description: e.target.value})} placeholder="Describe el problema del cliente..."></textarea>
                             </div>
-                            <div>
-                                <label className="block text-xs font-bold uppercase tracking-wider text-crm-fg-muted mb-1.5">Prioridad Inicial</label>
-                                <select className="w-full h-11 rounded-xl border border-crm-border bg-crm-bg px-4 text-sm text-crm-fg outline-none"
-                                    value={newReclamo.priority} onChange={e => setNewReclamo({...newReclamo, priority: e.target.value})}>
-                                    <option value="low">Baja</option>
-                                    <option value="medium">Media</option>
-                                    <option value="high">Alta</option>
-                                    <option value="urgent">Urgente</option>
-                                </select>
+                            <div className="grid grid-cols-2 gap-4">
+                                <div>
+                                    <label className="block text-xs font-bold uppercase tracking-wider text-crm-fg-muted mb-1.5">Cliente</label>
+                                    <select className="w-full h-11 rounded-xl border border-crm-border bg-crm-bg px-4 text-sm text-crm-fg outline-none focus:border-crm-red"
+                                        value={newReclamo.client} onChange={e => setNewReclamo({...newReclamo, client: e.target.value})}>
+                                        <option value="">Ninguno</option>
+                                        {clients.map(c => <option key={c._id} value={c._id}>{c.fullName || c.firstName + ' ' + c.lastName}</option>)}
+                                    </select>
+                                </div>
+                                <div>
+                                    <label className="block text-xs font-bold uppercase tracking-wider text-crm-fg-muted mb-1.5">Teléfono</label>
+                                    <input className="w-full h-11 rounded-xl border border-crm-border bg-crm-bg px-4 text-sm text-crm-fg outline-none focus:border-crm-red"
+                                        value={newReclamo.phone} onChange={e => setNewReclamo({...newReclamo, phone: e.target.value})} placeholder="Teléfono de contacto..." />
+                                </div>
+                                <div>
+                                    <label className="block text-xs font-bold uppercase tracking-wider text-crm-fg-muted mb-1.5">Referencia</label>
+                                    <input className="w-full h-11 rounded-xl border border-crm-border bg-crm-bg px-4 text-sm text-crm-fg outline-none focus:border-crm-red"
+                                        value={newReclamo.reference} onChange={e => setNewReclamo({...newReclamo, reference: e.target.value})} placeholder="Patente, N° venta..." />
+                                </div>
+                                <div>
+                                    <label className="block text-xs font-bold uppercase tracking-wider text-crm-fg-muted mb-1.5">Tipo</label>
+                                    <select className="w-full h-11 rounded-xl border border-crm-border bg-crm-bg px-4 text-sm text-crm-fg outline-none focus:border-crm-red"
+                                        value={newReclamo.type} onChange={e => setNewReclamo({...newReclamo, type: e.target.value})}>
+                                        <option value="Mecánico">Mecánico</option>
+                                        <option value="Administrativo">Administrativo</option>
+                                        <option value="Documentación">Documentación</option>
+                                        <option value="Atención">Atención</option>
+                                        <option value="Otro">Otro</option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <label className="block text-xs font-bold uppercase tracking-wider text-crm-fg-muted mb-1.5">SLA (Fecha Límite)</label>
+                                    <input type="date" className="w-full h-11 rounded-xl border border-crm-border bg-crm-bg px-4 text-sm text-crm-fg outline-none focus:border-crm-red"
+                                        value={newReclamo.sla} onChange={e => setNewReclamo({...newReclamo, sla: e.target.value})} />
+                                </div>
+                                <div>
+                                    <label className="block text-xs font-bold uppercase tracking-wider text-crm-fg-muted mb-1.5">Prioridad Inicial</label>
+                                    <select className="w-full h-11 rounded-xl border border-crm-border bg-crm-bg px-4 text-sm text-crm-fg outline-none"
+                                        value={newReclamo.priority} onChange={e => setNewReclamo({...newReclamo, priority: e.target.value})}>
+                                        <option value="low">Baja</option>
+                                        <option value="medium">Media</option>
+                                        <option value="high">Alta</option>
+                                        <option value="urgent">Urgente</option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <label className="block text-xs font-bold uppercase tracking-wider text-crm-fg-muted mb-1.5">Asignado a</label>
+                                    <select className="w-full h-11 rounded-xl border border-crm-border bg-crm-bg px-4 text-sm text-crm-fg outline-none focus:border-crm-red"
+                                        value={newReclamo.assignedTo} onChange={e => setNewReclamo({...newReclamo, assignedTo: e.target.value})}>
+                                        <option value="">Sin asignar</option>
+                                        {users.map(u => <option key={u._id} value={u._id}>{u.firstName} {u.lastName}</option>)}
+                                    </select>
+                                </div>
                             </div>
                             <div className="pt-4 flex justify-end gap-3">
                                 <button type="button" onClick={() => setIsCreateOpen(false)} className="px-4 py-2 text-sm font-bold text-crm-fg-muted hover:text-crm-fg">Cancelar</button>
@@ -355,7 +434,7 @@ export default function ReclamosPage() {
                             )}
 
                             {/* Panel Admin / Edición */}
-                            {canWrite && selectedReclamo.status !== 'closed' ? (
+                            {canWrite && selectedReclamo.status !== 'cerrado' ? (
                                 <form onSubmit={handleUpdate} className="border-t border-crm-border pt-4 space-y-4">
                                     <h4 className="text-xs font-bold uppercase tracking-wider text-crm-fg-muted">Actualizar Estado</h4>
                                     <div className="grid grid-cols-2 gap-4">
@@ -363,9 +442,9 @@ export default function ReclamosPage() {
                                             <label className="block text-xs font-bold mb-1">Estado</label>
                                             <select className="w-full h-11 rounded-xl border border-crm-border bg-crm-bg px-4 text-sm text-crm-fg outline-none focus:border-crm-red"
                                                 value={statusUpdate} onChange={e => setStatusUpdate(e.target.value)}>
-                                                <option value="open">Abierto</option>
-                                                <option value="in_progress">En Curso</option>
-                                                <option value="closed">Cerrado / Resuelto</option>
+                                                <option value="abierto">Abierto</option>
+                                                <option value="en_curso">En Curso</option>
+                                                <option value="cerrado">Cerrado / Resuelto</option>
                                             </select>
                                         </div>
                                         <div>
@@ -377,6 +456,40 @@ export default function ReclamosPage() {
                                                 <option value="high">Alta</option>
                                                 <option value="urgent">Urgente</option>
                                             </select>
+                                        </div>
+                                        <div>
+                                            <label className="block text-xs font-bold mb-1">Tipo</label>
+                                            <select className="w-full h-11 rounded-xl border border-crm-border bg-crm-bg px-4 text-sm text-crm-fg outline-none focus:border-crm-red"
+                                                value={typeUpdate} onChange={e => setTypeUpdate(e.target.value)}>
+                                                <option value="Mecánico">Mecánico</option>
+                                                <option value="Administrativo">Administrativo</option>
+                                                <option value="Documentación">Documentación</option>
+                                                <option value="Atención">Atención</option>
+                                                <option value="Otro">Otro</option>
+                                            </select>
+                                        </div>
+                                        <div>
+                                            <label className="block text-xs font-bold mb-1">SLA (Límite)</label>
+                                            <input type="date" className="w-full h-11 rounded-xl border border-crm-border bg-crm-bg px-4 text-sm text-crm-fg outline-none focus:border-crm-red"
+                                                value={slaUpdate} onChange={e => setSlaUpdate(e.target.value)} />
+                                        </div>
+                                        <div>
+                                            <label className="block text-xs font-bold mb-1">Asignar a</label>
+                                            <select className="w-full h-11 rounded-xl border border-crm-border bg-crm-bg px-4 text-sm text-crm-fg outline-none focus:border-crm-red"
+                                                value={assignedToUpdate} onChange={e => setAssignedToUpdate(e.target.value)}>
+                                                <option value="">Nadie</option>
+                                                {users.map(u => <option key={u._id} value={u._id}>{u.firstName} {u.lastName}</option>)}
+                                            </select>
+                                        </div>
+                                        <div>
+                                            <label className="block text-xs font-bold mb-1">Teléfono</label>
+                                            <input type="text" className="w-full h-11 rounded-xl border border-crm-border bg-crm-bg px-4 text-sm text-crm-fg outline-none focus:border-crm-red"
+                                                value={phoneUpdate} onChange={e => setPhoneUpdate(e.target.value)} />
+                                        </div>
+                                        <div>
+                                            <label className="block text-xs font-bold mb-1">Referencia</label>
+                                            <input type="text" className="w-full h-11 rounded-xl border border-crm-border bg-crm-bg px-4 text-sm text-crm-fg outline-none focus:border-crm-red"
+                                                value={referenceUpdate} onChange={e => setReferenceUpdate(e.target.value)} />
                                         </div>
                                     </div>
                                     <div>

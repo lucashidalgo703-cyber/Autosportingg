@@ -58,7 +58,13 @@ export default function ExpedientesPage() {
         const clientName = ((sale.clientId?.fullName || sale.clientId?.firstName || '').toLowerCase()) || '';
         const carName = `${sale.vehicleId?.brand} ${sale.vehicleId?.name}`.toLowerCase();
         const plate = sale.vehicleId?.plateOrVin?.toLowerCase() || '';
-        return clientName.includes(query) || carName.includes(query) || plate.includes(query);
+        const document = sale.clientId?.documentNumber?.toLowerCase() || '';
+        const phone = sale.clientId?.phone?.toLowerCase() || '';
+        const gestor = sale.expedienteResponsible?.name?.toLowerCase() || sale.expedienteResponsible?.firstName?.toLowerCase() || '';
+        const seller = sale.salesperson?.toLowerCase() || sale.assignedTo?.name?.toLowerCase() || sale.assignedTo?.firstName?.toLowerCase() || '';
+        const owner = sale.vehicleOwnerName?.toLowerCase() || '';
+
+        return clientName.includes(query) || carName.includes(query) || plate.includes(query) || document.includes(query) || phone.includes(query) || gestor.includes(query) || seller.includes(query) || owner.includes(query);
     });
 
     const sellers = Array.from(new Set(sales.map(s => s.assignedTo?._id).filter(Boolean)))
@@ -89,6 +95,8 @@ export default function ExpedientesPage() {
             case 'listo': return 'text-blue-400 border-blue-400/30 bg-blue-400/10';
             case 'entregado': return 'text-green-400 border-green-400/30 bg-green-400/10';
             case 'en_proceso': return 'text-yellow-400 border-yellow-400/30 bg-yellow-400/10';
+            case 'transferido': return 'text-purple-400 border-purple-400/30 bg-purple-400/10';
+            case 'finalizado': return 'text-green-400 border-green-400/30 bg-green-400/10';
             case 'observado': return 'text-red-400 border-red-400/30 bg-red-400/10';
             case 'cancelado': return 'text-gray-400 border-gray-400/30 bg-gray-400/10';
             default: return 'text-crm-fg-muted border-crm-border bg-crm-bg';
@@ -131,6 +139,8 @@ export default function ExpedientesPage() {
                             <option value="en_proceso">En Proceso</option>
                             <option value="observado">Observado</option>
                             <option value="listo">Listo</option>
+                            <option value="transferido">Transferido</option>
+                            <option value="finalizado">Finalizado</option>
                             <option value="entregado">Entregado</option>
                             <option value="cancelado">Cancelado</option>
                         </select>
@@ -194,11 +204,21 @@ export default function ExpedientesPage() {
                                 <div className="mb-4 flex items-start justify-between">
                                     <div>
                                         <h3 className="text-base font-bold text-white truncate max-w-[200px]">
-                                            {(sale.clientId?.fullName || sale.clientId?.firstName) || 'Cliente desconocido'}
+                                            {sale.clientId ? (
+                                                <Link href={`/admin/clientes/${sale.clientId._id}`} className="hover:text-crm-red hover:underline">
+                                                    {sale.clientId.fullName || sale.clientId.firstName}
+                                                </Link>
+                                            ) : 'Cliente desconocido'}
                                         </h3>
                                         <div className="flex items-center gap-1.5 mt-1 text-sm text-crm-fg-muted">
                                             <Car size={14} />
-                                            <span className="truncate max-w-[180px]">{sale.vehicleId?.brand} {sale.vehicleId?.name}</span>
+                                            {sale.vehicleId ? (
+                                                <Link href={`/admin/stock/${sale.vehicleId._id}`} className="truncate max-w-[180px] hover:text-crm-red hover:underline">
+                                                    {sale.vehicleId.brand} {sale.vehicleId.name}
+                                                </Link>
+                                            ) : (
+                                                <span className="truncate max-w-[180px]">Vehículo desconocido</span>
+                                            )}
                                         </div>
                                     </div>
                                     <div className="flex flex-col items-end gap-2">

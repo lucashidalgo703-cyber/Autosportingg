@@ -1,14 +1,16 @@
 import mongoose from 'mongoose';
 
 const PedidoSchema = new mongoose.Schema({
+    clientId: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'Client'
+    },
     clientName: {
         type: String,
-        required: [true, 'El nombre del cliente es requerido'],
         trim: true
     },
     clientPhone: {
         type: String,
-        required: [true, 'El teléfono del cliente es requerido'],
         trim: true
     },
     requestedBrand: {
@@ -36,7 +38,7 @@ const PedidoSchema = new mongoose.Schema({
     },
     status: {
         type: String,
-        enum: ['Pendiente', 'Buscando', 'Encontrado', 'Cancelado', 'Completado'],
+        enum: ['Pendiente', 'Buscando', 'Cumplido', 'Cancelado'],
         default: 'Pendiente'
     },
     notes: {

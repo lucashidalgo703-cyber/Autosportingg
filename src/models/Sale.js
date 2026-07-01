@@ -103,8 +103,8 @@ const saleSchema = new mongoose.Schema({
     // EXPEDIENTE UNIFICADO
     expedienteStatus: {
         type: String,
-        enum: ['pendiente', 'en_proceso', 'observado', 'listo', 'entregado', 'cancelado'],
-        default: 'pendiente'
+        enum: ['pendiente', 'en_proceso', 'observado', 'listo', 'transferido', 'finalizado', 'entregado', 'cancelado'],
+        default: 'en_proceso'
     },
     expedienteResponsible: { type: mongoose.Schema.Types.ObjectId, ref: 'AdminUser' },
     expedienteDueDate: { type: Date },
@@ -167,6 +167,9 @@ const saleSchema = new mongoose.Schema({
         enum: ['pendiente', 'contactado', 'conforme', 'incidencia', 'cerrado'], 
         default: 'pendiente' 
     },
+    postSaleResponsible: { type: mongoose.Schema.Types.ObjectId, ref: 'AdminUser' },
+    postSaleNextContact: { type: Date },
+    postSaleType: { type: String, enum: ['Llamado', 'WhatsApp', 'Email', 'Presencial', 'Otro'], default: 'WhatsApp' },
     postSaleChecklist: {
         seguimiento24h: { type: Boolean, default: false },
         seguimiento7d: { type: Boolean, default: false },
