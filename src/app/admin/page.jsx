@@ -1,10 +1,7 @@
 "use client";
 import { useMemo, useState, useEffect } from 'react';
 
-import { useAdminCars } from '../../hooks/useAdminCars';
-import { useAdminSales } from '../../hooks/useAdminSales';
-import { useAdminTransactions } from '../../hooks/useAdminTransactions';
-import { useAdminInstallments } from '../../hooks/useAdminInstallments';
+import { useAdminDashboard } from '../../hooks/useAdminDashboard';
 import { calculateDashboardMetrics } from '../../components/crm/dashboard/dashboardMetrics';
 import { BarChart3, Loader2, AlertCircle, Target, EyeOff, Eye } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
@@ -15,15 +12,10 @@ import CockpitCeoSote from '../../components/crm/dashboard/CockpitCeoSote';
 import LoadingSkeleton from '../../components/crm/ui/LoadingSkeleton';
 
 export default function AdminDashboardPage() {
-    const { cars, loading: loadingCars, error: errorCars } = useAdminCars();
-    const { sales, loading: loadingSales, error: errorSales, fetchSales } = useAdminSales();
-    const { fetchTransactions } = useAdminTransactions();
-    const { fetchInstallments } = useAdminInstallments();
+    const { data, loading, error } = useAdminDashboard();
     const { user } = useAuth();
     const [activeTab, setActiveTab] = useState('cockpit');
     const [selectedDate, setSelectedDate] = useState(new Date());
-    const [transactions, setTransactions] = useState([]);
-    const [installments, setInstallments] = useState([]);
     const [hideAmounts, setHideAmounts] = useState(false);
 
     const displayName = user?.name || user?.username || (user?.email ? user.email.split('@')[0] : 'Equipo');
@@ -33,22 +25,12 @@ export default function AdminDashboardPage() {
         .map((word) => word ? word.charAt(0).toUpperCase() + word.slice(1) : word)
         .join(' ');
 
-    useEffect(() => {
-        fetchSales();
-        fetchTransactions().then(data => {
-            if (data && Array.isArray(data.transactions)) setTransactions(data.transactions);
-            else if (Array.isArray(data)) setTransactions(data);
-        });
-        fetchInstallments().then(data => {
-            if (data && Array.isArray(data.installments)) setInstallments(data.installments);
-            else if (Array.isArray(data)) setInstallments(data);
-        });
-    }, [fetchSales, fetchTransactions, fetchInstallments]);
+    // Fetches removed since useAdminDashboard handles it
 
     const metrics = useMemo(() => {
-        if (!cars || cars.length === 0) return null;
-        return calculateDashboardMetrics(cars, sales || [], selectedDate, transactions || [], installments || [], user);
-    }, [cars, sales, selectedDate, transactions, installments, user]);
+        if (!data || !data.cars || data.cars.length === 0) return null;
+        return calculateDashboardMetrics(data.cars, data.sales || [], selectedDate, data.transactions || [], data.installments || [], user);
+    }, [data, selectedDate, user]);
 
     const handlePrevMonth = () => {
         const prev = new Date(selectedDate);
@@ -102,7 +84,7 @@ export default function AdminDashboardPage() {
                 </button>
             </div>
 
-            {loadingCars || loadingSales ? (
+            {loading ? (
                 <div className="space-y-4">
                     <LoadingSkeleton className="h-[212px] w-full" />
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -114,11 +96,11 @@ export default function AdminDashboardPage() {
                         <LoadingSkeleton className="h-48" />
                     </div>
                 </div>
-            ) : (errorCars || errorSales) ? (
+            ) : error ? (
                 <div className="flex flex-col items-center justify-center h-64 border border-red-500/20 bg-red-500/10 rounded-xl">
                     <AlertCircle size={32} className="text-red-500 mb-4" />
                     <p className="text-red-400 font-medium">Error al cargar datos del dashboard</p>
-                    <p className="text-red-400/70 text-sm">{errorCars || errorSales}</p>
+                    <p className="text-red-400/70 text-sm">{error}</p>
                 </div>
             ) : metrics ? (
                 activeTab === 'cockpit' ? (

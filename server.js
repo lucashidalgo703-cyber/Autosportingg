@@ -972,6 +972,27 @@ app.get('/api/admin/cars/export', authenticateToken, requirePermission(PERMISSIO
     }
 });
 
+// GET combined dashboard data (Optimized single request to avoid SSL connection errors)
+app.get('/api/admin/dashboard', authenticateToken, async (req, res) => {
+    try {
+        await connectDB();
+        res.setHeader('Cache-Control', 'no-store, max-age=0');
+        
+        // Ejecutar las 4 queries en paralelo usando 1 sola invocación
+        const [cars, sales, transactions, installments] = await Promise.all([
+            Car.find({}).lean(),
+            Sale.find({}).populate('vehicleId', 'brand name year purchasePrice purchaseCurrency').lean(),
+            Transaction.find({}).lean(),
+            Installment.find({}).lean()
+        ]);
+        
+        res.json({ cars, sales, transactions, installments, user: req.user });
+    } catch (error) {
+        console.error('Error fetching dashboard data:', error);
+        res.status(500).json({ message: 'Error fetching dashboard data' });
+    }
+});
+
 // GET all cars for Admin (Protected, Full Data)
 app.get('/api/admin/cars', authenticateToken, requirePermission(PERMISSIONS.STOCK_READ), async (req, res) => {
     try {
