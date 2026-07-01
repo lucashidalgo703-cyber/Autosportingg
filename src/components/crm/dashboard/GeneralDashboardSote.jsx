@@ -99,7 +99,7 @@ function CashProjectionCard({ label, value, detail, tone = 'neutral' }) {
     );
 }
 
-function CashProjectionPanel({ metrics }) {
+function CashProjectionPanel({ metrics, hideAmounts }) {
     const usdBalance = metrics.margenEstimado?.USD || 0;
     const arsBalance = metrics.margenEstimado?.ARS || 0;
 
@@ -108,36 +108,36 @@ function CashProjectionPanel({ metrics }) {
             <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                 <h3 className="flex items-center gap-2 text-base font-semibold text-crm-fg">
                     <Landmark size={15} className="text-amber-400" />
-                    Proyeccion de caja
+                    Proyección de caja
                 </h3>
                 <div className="flex items-center gap-4 text-xs">
                     <span className="text-crm-fg-muted">0 entradas · 0 salidas previstas</span>
                     <Link href="/admin/finanzas" className="font-semibold text-amber-300 transition hover:text-amber-200">
-                        Ver mas →
+                        Ver más →
                     </Link>
                 </div>
             </div>
             <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-4">
                 <CashProjectionCard
                     label="Saldo actual"
-                    value={`USD ${formatCurrency(usdBalance)}`}
-                    detail={`ARS ${formatCurrency(arsBalance)}`}
+                    value={hideAmounts ? '***' : `USD ${formatCurrency(usdBalance)}`}
+                    detail={hideAmounts ? '***' : `ARS ${formatCurrency(arsBalance)}`}
                 />
                 <CashProjectionCard
                     label="A cobrar"
-                    value="USD 0"
+                    value={hideAmounts ? '***' : "USD 0"}
                     detail="Sin entradas pendientes"
                     tone="green"
                 />
                 <CashProjectionCard
                     label="A pagar"
-                    value="USD 0"
+                    value={hideAmounts ? '***' : "USD 0"}
                     detail="Sin salidas previstas"
                     tone="red"
                 />
                 <CashProjectionCard
                     label="Resultado"
-                    value={`USD ${formatCurrency(usdBalance)}`}
+                    value={hideAmounts ? '***' : `USD ${formatCurrency(usdBalance)}`}
                     detail="Balance estimado"
                     tone={usdBalance < 0 ? 'red' : 'green'}
                 />
@@ -167,7 +167,7 @@ function CashProjectionPanel({ metrics }) {
                 </div>
             </div>
             <p className="mt-4 border-t border-crm-border pt-3 text-[11px] leading-relaxed text-crm-fg-muted">
-                Mismos numeros que la pantalla x Cobrar/Pagar: a cobrar toma valores, cuotas y gastos del comprador; a pagar contempla pagos a propietarios, registros y comisiones.
+                Mismos números que la pantalla x Cobrar/Pagar: a cobrar toma valores, cuotas y gastos del comprador; a pagar contempla pagos a propietarios, registros y comisiones.
             </p>
         </section>
     );
@@ -256,14 +256,19 @@ function StockOverviewPanel({ counts }) {
     );
 }
 
-function MonthlyGainPanel() {
-    const months = ['JUL 25', 'AGO 25', 'SEP 25', 'OCT 25', 'NOV 25', 'DIC 25', 'ENE 26', 'FEB 26', 'MAR 26', 'ABR 26', 'MAY 26', 'JUN 26'];
+function MonthlyGainPanel({ selectedDate = new Date() }) {
+    // Generate dynamic months (last 11 months + current month)
+    const months = Array.from({ length: 12 }).map((_, i) => {
+        const d = new Date(selectedDate);
+        d.setMonth(d.getMonth() - (11 - i));
+        return d.toLocaleDateString('es-AR', { month: 'short', year: '2-digit' }).toUpperCase();
+    });
 
     return (
-        <Panel title="ULTIMOS 12 MESES · GANANCIA USD" icon={TrendingUp} className="min-h-[329px]">
+        <Panel title="ÚLTIMOS 12 MESES · GANANCIA USD" icon={TrendingUp} className="min-h-[329px]">
             <div className="mb-4 flex flex-wrap gap-2">
                 <span className="rounded-md bg-crm-surface-raised px-2 py-1 text-[10px] font-bold uppercase text-crm-fg-muted">Mes actual</span>
-                <span className="rounded-md bg-emerald-500/10 px-2 py-1 text-[10px] font-bold uppercase text-emerald-300">Supero obj</span>
+                <span className="rounded-md bg-emerald-500/10 px-2 py-1 text-[10px] font-bold uppercase text-emerald-300">Superó obj</span>
                 <span className="rounded-md bg-crm-bg px-2 py-1 text-[10px] font-bold uppercase text-crm-fg-muted">Mes normal</span>
             </div>
             <p className="mb-5 text-xs text-crm-fg-muted">Objetivo USD 110k no visible - max 12m: USD 0k</p>
@@ -279,7 +284,7 @@ function MonthlyGainPanel() {
     );
 }
 
-function AnnualSummaryPanel({ soldCount }) {
+function AnnualSummaryPanel({ soldCount, hideAmounts }) {
     const currentYear = new Date().getFullYear();
     const years = [
         { year: currentYear - 2, cars: 0, current: false },
@@ -294,8 +299,10 @@ function AnnualSummaryPanel({ soldCount }) {
                 {years.map((item) => (
                     <div key={item.year} className={`rounded-xl border p-3 ${item.current ? 'border-indigo-400/40 bg-indigo-500/10' : 'border-crm-border bg-crm-surface-raised'}`}>
                         <p className="text-xs font-bold text-crm-fg">{item.year}</p>
-                        <p className="mt-3 text-[10px] font-bold uppercase tracking-[0.14em] text-crm-fg-muted">{formatNumber(item.cars)} autos</p>
-                        <p className="mt-2 text-lg font-bold text-crm-fg">USD 0</p>
+                        <p className="mt-3 text-[10px] font-bold uppercase tracking-[0.14em] text-crm-fg-muted">
+                            {formatNumber(item.cars)} {item.cars === 1 ? 'auto' : 'autos'}
+                        </p>
+                        <p className="mt-2 text-lg font-bold text-crm-fg">{hideAmounts ? '***' : 'USD 0'}</p>
                     </div>
                 ))}
             </div>
@@ -618,12 +625,12 @@ export default function GeneralDashboardSote({ metrics, canSeeFinancials = false
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-5">
                 {compactCards.map((card) => <KpiCard key={card.label} {...card} compact />)}
             </div>
-            {canSeeFinancials && <CashProjectionPanel metrics={metrics} />}
+            {canSeeFinancials && <CashProjectionPanel metrics={metrics} hideAmounts={hideAmounts} />}
             <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
                 <StockOverviewPanel counts={counts} />
                 <MonthlyGainPanel />
             </div>
-            <AnnualSummaryPanel soldCount={counts.vendidos || 0} />
+            <AnnualSummaryPanel soldCount={counts.vendidos || 0} hideAmounts={hideAmounts} />
             <LeadResponsePanel />
             <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
                 <Panel title="Agenda - proximos 7 dias" subtitle="Todo lo que viene esta semana" href="/admin/agenda" icon={CalendarClock} className="min-h-[399px]">

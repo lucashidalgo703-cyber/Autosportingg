@@ -1,4 +1,8 @@
 export function calculateDashboardMetrics(cars = []) {
+    const selectedDate = arguments.length > 2 && arguments[2] ? new Date(arguments[2]) : new Date();
+    const targetMonth = selectedDate.getMonth();
+    const targetYear = selectedDate.getFullYear();
+
     const metrics = {
         capitalPublicado: { ARS: 0, USD: 0, NONE: 0 },
         capitalCosto: { ARS: 0, USD: 0, NONE: 0 },
@@ -14,6 +18,11 @@ export function calculateDashboardMetrics(cars = []) {
             pausados: 0,
             visibles: 0,
             ocultos: 0
+        },
+
+        consignaciones: {
+            mes: 0,
+            target: 10
         },
 
         alertas: {
@@ -78,7 +87,7 @@ export function calculateDashboardMetrics(cars = []) {
             });
         }
 
-        // --- 4. Rotation / Days in Stock ---
+        // --- 4. Rotation / Days in Stock & Consignaciones ---
         let daysInStock = null;
         let baseDateStr = car.fechaIngresoStock || car.createdAt;
         if (baseDateStr) {
@@ -86,6 +95,13 @@ export function calculateDashboardMetrics(cars = []) {
             if (!isNaN(baseDate.getTime())) {
                 const diffTime = Math.abs(Date.now() - baseDate.getTime());
                 daysInStock = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+                
+                // Consignaciones del mes
+                if (car.consignedBy && car.consignedBy !== '') {
+                    if (baseDate.getMonth() === targetMonth && baseDate.getFullYear() === targetYear) {
+                        metrics.consignaciones.mes++;
+                    }
+                }
             }
         }
 
@@ -152,14 +168,10 @@ export function calculateDashboardMetrics(cars = []) {
     // If sales data is provided, use it to compute REAL monthly profit and sales counts
     if (arguments.length > 1 && arguments[1] && Array.isArray(arguments[1])) {
         const sales = arguments[1];
-        const selectedDate = arguments.length > 2 && arguments[2] ? new Date(arguments[2]) : new Date();
         
         metrics.counts.vendidos = 0;
         let realMarginARS = 0;
         let realMarginUSD = 0;
-        
-        const targetMonth = selectedDate.getMonth();
-        const targetYear = selectedDate.getFullYear();
 
         const salesDetails = [];
 
@@ -203,9 +215,13 @@ export function calculateDashboardMetrics(cars = []) {
                     }
 
                     // Determinar el nombre a mostrar
-                    let displayCarName = 'Vehículo eliminado/no asignado';
+                    let displayCarName = 'Vehículo sin especificar';
                     if (carData) {
-                        displayCarName = `${carData.brand || ''} ${carData.name || ''}`.trim();
+                        const brand = carData.brand || '';
+                        const name = carData.name || '';
+                        const year = carData.year ? `(${carData.year})` : '';
+                        const fullName = `${brand} ${name} ${year}`.trim();
+                        if (fullName) displayCarName = fullName;
                     } else if (sale.vehicleOwnerName) {
                         displayCarName = `Manual: ${sale.vehicleOwnerName}`;
                     } else if (sale.notes) {

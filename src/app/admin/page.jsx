@@ -12,6 +12,7 @@ import { hasPermission, PERMISSIONS } from '../../utils/adminPermissions';
 
 import GeneralDashboardSote from '../../components/crm/dashboard/GeneralDashboardSote';
 import CockpitCeoSote from '../../components/crm/dashboard/CockpitCeoSote';
+import LoadingSkeleton from '../../components/crm/ui/LoadingSkeleton';
 
 export default function AdminDashboardPage() {
     const { cars, loading: loadingCars, error: errorCars } = useAdminCars();
@@ -102,10 +103,15 @@ export default function AdminDashboardPage() {
             </div>
 
             {loadingCars || loadingSales ? (
-                <div className="lg:col-span-2">
-                    <div className="flex flex-col items-center justify-center h-64 border border-crm-border bg-crm-surface rounded-xl">
-                        <Loader2 size={32} className="text-crm-red animate-spin mb-4" />
-                        <p className="text-crm-fg-muted font-medium">Cargando métricas de dirección...</p>
+                <div className="space-y-4">
+                    <LoadingSkeleton className="h-[212px] w-full" />
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                        <LoadingSkeleton className="h-48" />
+                        <LoadingSkeleton className="h-48" />
+                        <LoadingSkeleton className="h-48" />
+                        <LoadingSkeleton className="h-48" />
+                        <LoadingSkeleton className="h-48" />
+                        <LoadingSkeleton className="h-48" />
                     </div>
                 </div>
             ) : (errorCars || errorSales) ? (

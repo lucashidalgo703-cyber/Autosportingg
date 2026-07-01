@@ -139,8 +139,12 @@ export default function CrmHeader({ onMenuClick }) {
                         ]);
                         const today = new Date();
 
-                        stock = carsData.filter((car) => (car.status || 'disponible').toLowerCase() === 'disponible').length;
-                        sales = salesData.filter((sale) => {
+                        // `/api/admin/cars` returns { cars, summary } because it is paginated
+                        stock = carsData.summary?.disponibles || 0;
+                        
+                        // `/api/admin/sales` currently returns an array, but we check to be safe
+                        const salesArray = Array.isArray(salesData) ? salesData : (salesData.sales || []);
+                        sales = salesArray.filter((sale) => {
                             const saleDate = new Date(sale.saleDate || sale.createdAt);
                             const status = (sale.status || '').toLowerCase();
 
