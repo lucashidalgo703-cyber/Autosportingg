@@ -12,7 +12,7 @@ export default function CrmTable({
 }) {
     if (loading && (!data || data.length === 0)) {
         return (
-            <div className="flex h-64 items-center justify-center rounded-xl border border-crm-border bg-crm-surface">
+            <div className="flex h-64 items-center justify-center rounded-[var(--crm-radius)] border border-crm-border bg-crm-surface">
                 <div className="flex flex-col items-center gap-3">
                     <div className="h-8 w-8 animate-spin rounded-full border-2 border-crm-border border-b-crm-red" />
                     <span className="text-sm text-crm-fg-muted">Cargando...</span>
@@ -23,7 +23,7 @@ export default function CrmTable({
 
     if (!data || data.length === 0) {
         return (
-            <div className="hidden min-h-[210px] flex-col items-center justify-center rounded-xl border border-dashed border-crm-border bg-crm-surface p-12 text-center md:flex">
+            <div className="hidden min-h-[210px] flex-col items-center justify-center rounded-[var(--crm-radius)] border border-dashed border-crm-border bg-crm-surface p-12 text-center md:flex">
                 {EmptyIcon && <EmptyIcon size={42} className="mb-4 text-crm-fg-subtle" />}
                 <h3 className="m-0 text-base font-bold text-crm-fg">{emptyTitle}</h3>
                 <p className="m-0 mt-2 max-w-md text-sm leading-6 text-crm-fg-muted">
@@ -34,7 +34,7 @@ export default function CrmTable({
     }
 
     return (
-        <div className="hidden overflow-hidden rounded-xl border border-crm-border bg-crm-surface md:block">
+        <div className="hidden overflow-hidden rounded-[var(--crm-radius)] border border-crm-border bg-crm-surface md:block shadow-[var(--crm-shadow-card)]">
             <div className="overflow-x-auto">
                 <table className={`w-full ${minWidth} border-collapse text-left`}>
                     <thead className="bg-crm-bg text-[10px] uppercase tracking-[0.08em] text-crm-fg-muted">

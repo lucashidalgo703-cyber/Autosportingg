@@ -33,7 +33,7 @@ export default function CrmModal({
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 bg-black/80 backdrop-blur-sm animate-fade-in">
             <div
-                className={`bg-crm-surface w-full ${maxWidth} rounded-xl border border-crm-border shadow-2xl flex flex-col max-h-[90dvh] overflow-hidden`}
+                className={`bg-crm-surface w-full ${maxWidth} rounded-[var(--crm-radius)] border border-crm-border shadow-[var(--crm-shadow-card)] flex flex-col max-h-[90dvh] overflow-hidden`}
                 onClick={(e) => e.stopPropagation()}
             >
                 {/* Header */}
