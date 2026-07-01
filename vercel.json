@@ -8,7 +8,7 @@
     "crons": [
         {
             "path": "/api/internal/jobs/lead-sla",
-            "schedule": "*/5 * * * *"
+            "schedule": "0 0 * * *"
         }
     ]
 }

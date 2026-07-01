@@ -20,15 +20,15 @@ test.describe('Admin Smoke Tests', () => {
 
   for (const route of adminRoutes) {
     test(`Renderizado de ruta ${route}`, async ({ page }) => {
-      // Intercept API calls to prevent DB access and return fixtures
+      // Intercept API calls to prevent DB access and return empty fixture by default
       await page.route('**/api/admin/**', async route => {
         const method = route.request().method();
         if (method === 'GET') {
-           // Provide basic empty fixture
+           // Provide empty fixture to test stable render
            await route.fulfill({
              status: 200,
              contentType: 'application/json',
-             body: JSON.stringify({ data: [], summary: {}, total: 0, cars: [], mandates: [], movements: [] })
+             path: './tests/fixtures/empty.json'
            });
         } else {
            await route.continue();

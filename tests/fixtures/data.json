@@ -1,0 +1,39 @@
+{
+  "success": true,
+  "data": [
+    {
+      "_id": "mock_car_1",
+      "brand": "Toyota",
+      "model": "Corolla",
+      "year": 2022,
+      "price": 25000,
+      "status": "disponible",
+      "agencyOwned": true
+    },
+    {
+      "_id": "mock_car_2",
+      "brand": "Ford",
+      "model": "Focus",
+      "year": 2019,
+      "price": 18000,
+      "status": "reservado",
+      "agencyOwned": false,
+      "consignedBy": "Juan Perez"
+    }
+  ],
+  "cars": [
+    {
+      "_id": "mock_car_1",
+      "brand": "Toyota"
+    }
+  ],
+  "mandates": [
+    {
+      "_id": "mock_mandate_1",
+      "ownerName": "Carlos Lopez",
+      "agreedPrice": 20000,
+      "status": "activo"
+    }
+  ],
+  "total": 2
+}
