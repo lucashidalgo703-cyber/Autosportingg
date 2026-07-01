@@ -278,14 +278,6 @@ export default function CrmHeader({ onMenuClick }) {
 
     return (
         <header className="sticky top-0 z-30 flex flex-col border-b border-crm-border bg-crm-topbar/95 pt-[var(--safe-top,0px)] backdrop-blur">
-            {summaryData.subscription?.enabled && summaryData.subscription?.subscriptionExpiresAt && (
-                <div className="flex w-full items-center justify-center gap-4 bg-amber-500/10 px-4 py-1.5 text-xs text-amber-200 sm:text-sm">
-                    <span>Tu suscripción vence el {new Date(summaryData.subscription.subscriptionExpiresAt).toLocaleDateString('es-AR')}.</span>
-                    {summaryData.subscription.paymentEmail && (
-                        <a href={`mailto:${summaryData.subscription.paymentEmail}`} className="font-bold underline hover:text-white">Enviar comprobante por mail</a>
-                    )}
-                </div>
-            )}
             <div className="flex h-14 items-center justify-between gap-2 px-3 md:gap-4 md:px-6">
                 <div className="flex min-w-0 flex-1 items-center gap-3 md:flex-none md:gap-4">
                     <button
@@ -393,7 +385,7 @@ export default function CrmHeader({ onMenuClick }) {
                     <div className="flex items-center gap-3 ml-2">
                         <div className="hidden flex-col items-end md:flex">
                             <span className="text-xs font-bold text-crm-fg leading-none">{user?.displayName || user?.email?.split('@')[0] || 'Usuario'}</span>
-                            <span className="text-[10px] font-bold uppercase text-crm-red mt-1 leading-none">{user?.role || 'ADMIN'}</span>
+                            <span className="text-[10px] font-bold uppercase text-crm-red mt-1 leading-none">ADMINISTRADOR</span>
                         </div>
                         <div className="flex h-9 w-9 items-center justify-center rounded-lg border border-crm-border bg-crm-surface text-sm font-bold text-crm-fg transition-colors hover:bg-crm-surface-raised">
                             {(user?.displayName || user?.email || 'U').charAt(0).toUpperCase()}

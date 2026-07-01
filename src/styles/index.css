@@ -10,8 +10,8 @@
   --color-border: #333333;
 
   /* Typography */
-  --font-main: 'Archivo', system-ui, -apple-system, sans-serif;
-  --font-title: 'Anton', system-ui, -apple-system, sans-serif;
+  --font-main: 'Inter', system-ui, -apple-system, sans-serif;
+  --font-title: 'Inter', system-ui, -apple-system, sans-serif;
   /* New font for headings */
 
   /* Layout */
@@ -214,6 +214,10 @@ ul {
   --crm-warning: #F59E0B;
   --crm-info: #3B82F6;
   --crm-purple: #8B5CF6;
+  
+  /* Shared CRM Components Tokens */
+  --crm-radius: 16px;
+  --crm-shadow-card: 0 10px 15px -3px rgba(0,0,0,.10), 0 4px 6px -4px rgba(0,0,0,.10);
 }
 
 .light {

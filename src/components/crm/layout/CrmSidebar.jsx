@@ -79,8 +79,7 @@ export default function CrmSidebar({ isOpen, onClose }) {
     const [flags, setFlags] = useState({});
     const { user, logout, token } = useAuth();
 
-    // El sidebar siempre estará expandido en desktop por pedido del usuario.
-    const isCollapsed = false;
+    const [isCollapsed, setIsCollapsed] = useState(false);
 
     useEffect(() => {
         if (!token) return;
@@ -156,10 +155,21 @@ export default function CrmSidebar({ isOpen, onClose }) {
                         </span>
                     </div>
                 ) : (
-                    <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-crm-border bg-crm-surface text-sm font-bold text-white shadow-crm-red">
+                    <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-crm-border bg-crm-surface text-sm font-bold text-white shadow-crm-red cursor-pointer" onClick={() => setIsCollapsed(!isCollapsed)}>
                         AS
                     </div>
                 )}
+                
+                {!isDesktopCollapsed && (
+                    <button 
+                        onClick={() => setIsCollapsed(!isCollapsed)}
+                        className="ml-auto hidden md:flex h-7 w-7 items-center justify-center rounded border border-crm-border bg-crm-surface text-crm-fg hover:bg-crm-surface-raised transition-colors"
+                        title="Colapsar menú"
+                    >
+                        <span className="text-xs">◀</span>
+                    </button>
+                )}
+
                 {showCloseButton && (
                     <button
                         type="button"
@@ -250,12 +260,12 @@ export default function CrmSidebar({ isOpen, onClose }) {
 
     return (
         <>
-            <aside className={`sticky top-0 hidden h-[100dvh] min-h-0 shrink-0 flex-col border-r border-crm-border bg-crm-sidebar lg:flex custom-scrollbar transition-all duration-300 w-64`}>
+            <aside className={`sticky top-0 hidden h-[100dvh] min-h-0 shrink-0 flex-col border-r border-crm-border bg-crm-sidebar md:flex custom-scrollbar transition-all duration-300 ${isCollapsed ? 'w-20' : 'w-64'}`}>
                 {renderContent({ isDesktopCollapsed: isCollapsed })}
             </aside>
 
             {isOpen && (
-                <div className="fixed inset-0 z-[100] flex bg-black/75 backdrop-blur-sm lg:hidden">
+                <div className="fixed inset-0 z-[100] flex bg-black/75 backdrop-blur-sm md:hidden">
                     <aside className="flex h-[100dvh] min-h-0 w-[min(23rem,92vw)] max-w-full flex-col border-r border-crm-border bg-crm-sidebar shadow-2xl custom-scrollbar">
                         {renderContent({ showCloseButton: true })}
                     </aside>
