@@ -201,46 +201,31 @@ export default function VehicleFormModal({ isOpen, onClose, onSave, editingCar }
         >
             <div className="p-6 space-y-8">
                     
-                    {/* Cédula Escáner (MocK) */}
-                    <div className="bg-crm-surface border border-dashed border-crm-border rounded-xl p-4 flex justify-between items-center">
-                        <div className="flex items-center gap-4">
-                            <div className="w-10 h-10 rounded-lg bg-red-500/10 flex items-center justify-center text-red-500 border border-red-500/20">
-                                <Scan size={18} />
-                            </div>
-                            <div>
-                                <p className="text-xs font-bold text-white mb-0.5">Escanear cédula verde (opcional)</p>
-                                <p className="text-[10px] text-gray-400">Subí una foto clara del frente para extraer datos automáticamente.</p>
-                            </div>
-                        </div>
-                        <button className="bg-crm-surface-raised hover:bg-crm-surface-raised border border-crm-border text-white text-xs px-4 py-2 rounded-lg flex items-center gap-2 transition-colors">
-                            <Upload size={14} /> Subir foto
-                        </button>
-                    </div>
-
                     <form id="vehicleForm" onSubmit={handleSubmit} className="space-y-8">
                         
-                        {/* IDENTIDAD */}
+                        {/* 1. IDENTIDAD */}
                         <section>
-                            <div className="flex items-center gap-2 mb-4">
-                                <span className="text-[10px] font-bold text-gray-500 uppercase tracking-widest"><CarIcon /> Identidad</span>
+                            <div className="flex items-center gap-2 mb-4 border-b border-crm-border pb-2">
+                                <span className="text-xs font-bold text-white uppercase tracking-widest">1. Identidad</span>
                             </div>
                             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                                <div><InputLabel>Tipo de vehículo</InputLabel><SelectInput name="vehicleType" value={formData.vehicleType} onChange={handleChange} options={['Auto', 'Moto', 'Camioneta', 'SUV']} /></div>
+                                <div><InputLabel>Tipo de vehículo</InputLabel><SelectInput name="vehicleType" value={formData.vehicleType} onChange={handleChange} options={['Auto', 'Camioneta/SUV', 'Pick-up', 'Moto', 'Cuatriciclo', 'UTV', 'Moto de agua', 'Náutica', 'Camión', 'Otro']} /></div>
                                 <div><InputLabel required>Marca</InputLabel><TextInput name="brand" value={formData.brand} onChange={handleChange} required /></div>
                                 <div><InputLabel required>Modelo / Versión</InputLabel><TextInput name="name" value={formData.name} onChange={handleChange} required /></div>
                                 
                                 <div><InputLabel required>Año</InputLabel><TextInput name="year" value={formData.year} onChange={handleChange} type="number" required /></div>
                                 <div><InputLabel required>Patente / VIN</InputLabel><TextInput name="plateOrVin" value={formData.plateOrVin} onChange={handleChange} required /></div>
-                                <div><InputLabel required>Condición</InputLabel><SelectInput name="condition" value={formData.condition} onChange={handleChange} options={['Excelente', 'Muy bueno', 'Bueno', 'Regular']} /></div>
-                                
                                 <div><InputLabel required>Color</InputLabel><TextInput name="color" value={formData.color} onChange={handleChange} required /></div>
+
+                                <div><InputLabel>Nº Motor</InputLabel><TextInput name="engineNumber" value={formData.engineNumber} onChange={handleChange} /></div>
+                                <div><InputLabel>Nº Chasis</InputLabel><TextInput name="chassisNumber" value={formData.chassisNumber} onChange={handleChange} /></div>
                             </div>
                         </section>
 
-                        {/* PRECIO Y ESTADO */}
+                        {/* 2. PRECIO Y ESTADO */}
                         <section>
-                            <div className="flex items-center gap-2 mb-4">
-                                <span className="text-[10px] font-bold text-gray-500 uppercase tracking-widest">Precio y Estado</span>
+                            <div className="flex items-center gap-2 mb-4 border-b border-crm-border pb-2 mt-6">
+                                <span className="text-xs font-bold text-white uppercase tracking-widest">2. Precio y Estado</span>
                             </div>
                             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                                 <div><InputLabel required>Kilómetros</InputLabel><TextInput name="km" value={formData.km} onChange={handleChange} type="number" required /></div>
@@ -248,18 +233,18 @@ export default function VehicleFormModal({ isOpen, onClose, onSave, editingCar }
                                 <div><InputLabel>Moneda venta</InputLabel><SelectInput name="currency" value={formData.currency} onChange={handleChange} options={['USD', 'ARS']} /></div>
                                 
                                 <div><InputLabel>Precio compra (opcional)</InputLabel><TextInput name="purchasePrice" value={formData.purchasePrice} onChange={handleChange} type="number" /></div>
-                                <div><InputLabel>Moneda compra</InputLabel><SelectInput name="purchaseCurrency" value={formData.purchaseCurrency} onChange={handleChange} options={['USD', 'ARS']} /></div>
-                                <div><InputLabel>Estado inicial</InputLabel><SelectInput name="status" value={formData.status} onChange={handleChange} options={['Disponible', 'Reservado', 'Vendido']} /></div>
+                                <div><InputLabel required>Condición</InputLabel><SelectInput name="condition" value={formData.condition} onChange={handleChange} options={['0 km', 'Excelente', 'Muy bueno', 'Bueno', 'Regular']} /></div>
+                                <div><InputLabel>Combustible</InputLabel><SelectInput name="fuel" value={formData.fuel} onChange={handleChange} options={['Nafta', 'Diésel', 'GNC', 'Híbrido', 'Eléctrico']} /></div>
+                                <div><InputLabel>Estado inicial</InputLabel><SelectInput name="status" value={formData.status} onChange={handleChange} options={['Disponible', 'Reservado', 'Señado', 'Vendido', 'En preparación']} /></div>
 
-                                <div><InputLabel required>Ubicación</InputLabel><SelectInput name="location" value={formData.location} onChange={handleChange} options={['Salón Principal', 'Depósito', 'Taller', 'En tránsito']} /></div>
-                                <div><InputLabel>Dueños</InputLabel><TextInput name="owners" value={formData.owners} onChange={handleChange} type="number" /></div>
+                                <div><InputLabel required>Ubicación</InputLabel><SelectInput name="location" value={formData.location} onChange={handleChange} options={['Salón Principal', 'Depósito', 'Con cliente', 'Taller Mecánico', 'Taller Chapa y Pintura', 'Otra']} /></div>
                             </div>
                         </section>
 
-                        {/* PROPIETARIO */}
+                        {/* 3. PROPIETARIO */}
                         <section>
-                            <div className="flex items-center gap-2 mb-4">
-                                <span className="text-[10px] font-bold text-gray-500 uppercase tracking-widest">Propietario</span>
+                            <div className="flex items-center gap-2 mb-4 border-b border-crm-border pb-2 mt-6">
+                                <span className="text-xs font-bold text-white uppercase tracking-widest">3. Propietario</span>
                             </div>
                             
                             <div className="bg-crm-surface border border-crm-border rounded-xl p-4 mb-4 flex flex-col gap-4">
@@ -270,11 +255,26 @@ export default function VehicleFormModal({ isOpen, onClose, onSave, editingCar }
                                         <span className="text-[10px] text-gray-500">El auto es de la agencia, no consignado por un tercero.</span>
                                     </div>
                                 </label>
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    <div><InputLabel>Nombre / Razón Social</InputLabel><TextInput name="ownerName" value={formData.ownerName} onChange={handleChange} /></div>
+                                    <div><InputLabel>Teléfono</InputLabel><TextInput name="ownerPhone" value={formData.ownerPhone} onChange={handleChange} /></div>
+                                    <div><InputLabel>Email</InputLabel><TextInput name="ownerEmail" value={formData.ownerEmail} onChange={handleChange} type="email" /></div>
+                                    <div><InputLabel>Consignado por</InputLabel><SelectInput name="consignedBy" value={formData.consignedBy} onChange={handleChange} options={['— Sin asignar —', 'Vendedor 1']} /></div>
+                                </div>
+                            </div>
+                        </section>
 
-                                <label className="flex items-center gap-3 cursor-pointer pt-4 border-t border-crm-border">
+                        {/* 4. INVERSIÓN COMPARTIDA */}
+                        <section>
+                            <div className="flex items-center gap-2 mb-4 border-b border-crm-border pb-2 mt-6">
+                                <span className="text-xs font-bold text-white uppercase tracking-widest">4. Inversión Compartida</span>
+                            </div>
+
+                            <div className="bg-crm-surface border border-crm-border rounded-xl p-4 flex flex-col gap-4">
+                                <label className="flex items-center gap-3 cursor-pointer">
                                     <input type="checkbox" name="isSharedInvestment" checked={formData.isSharedInvestment} onChange={handleChange} className="w-4 h-4 rounded border-gray-600 text-blue-500 focus:ring-blue-500 bg-crm-surface-raised" />
                                     <div>
-                                        <span className="text-xs font-bold text-white block">Vehículo con inversión compartida (Inversionista)</span>
+                                        <span className="text-xs font-bold text-white block">Vehículo con inversión compartida</span>
                                         <span className="text-[10px] text-gray-500">El auto fue comprado a medias con un inversionista.</span>
                                     </div>
                                 </label>
@@ -293,34 +293,41 @@ export default function VehicleFormModal({ isOpen, onClose, onSave, editingCar }
                                     </div>
                                 )}
                             </div>
-
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                <div><InputLabel>Nombre</InputLabel><TextInput name="ownerName" value={formData.ownerName} onChange={handleChange} /></div>
-                                <div><InputLabel>Cliente vinculado</InputLabel><SelectInput name="linkedClient" value={formData.linkedClient} onChange={handleChange} options={['— Sin vincular —']} /></div>
-                                <div><InputLabel>Teléfono</InputLabel><TextInput name="ownerPhone" value={formData.ownerPhone} onChange={handleChange} /></div>
-                                <div><InputLabel>Email</InputLabel><TextInput name="ownerEmail" value={formData.ownerEmail} onChange={handleChange} type="email" /></div>
-                                <div><InputLabel>Consignado por</InputLabel><SelectInput name="consignedBy" value={formData.consignedBy} onChange={handleChange} options={['— Sin asignar —', 'Vendedor 1']} /></div>
-                                <div><InputLabel>Nº motor</InputLabel><TextInput name="engineNumber" value={formData.engineNumber} onChange={handleChange} /></div>
-                                <div><InputLabel>Nº chasis</InputLabel><TextInput name="chassisNumber" value={formData.chassisNumber} onChange={handleChange} /></div>
-                            </div>
                         </section>
 
-                        {/* DOCUMENTACIÓN */}
+                        {/* 5. DOCUMENTACIÓN */}
                         <section>
-                            <div className="flex items-center gap-2 mb-4">
-                                <span className="text-[10px] font-bold text-gray-500 uppercase tracking-widest">Documentación</span>
+                            <div className="flex items-center gap-2 mb-4 border-b border-crm-border pb-2 mt-6">
+                                <span className="text-xs font-bold text-white uppercase tracking-widest">5. Documentación</span>
                             </div>
+
+                            {/* Escaneo Cédula Verde */}
+                            <div className="bg-crm-surface border border-dashed border-crm-border rounded-xl p-4 flex justify-between items-center mb-6">
+                                <div className="flex items-center gap-4">
+                                    <div className="w-10 h-10 rounded-lg bg-red-500/10 flex items-center justify-center text-red-500 border border-red-500/20">
+                                        <Scan size={18} />
+                                    </div>
+                                    <div>
+                                        <p className="text-xs font-bold text-white mb-0.5">Escanear cédula verde (opcional)</p>
+                                        <p className="text-[10px] text-gray-400">Subí una foto clara del frente para extraer datos automáticamente y autocompletar la Identidad.</p>
+                                    </div>
+                                </div>
+                                <button type="button" className="bg-crm-surface-raised hover:bg-crm-surface-raised border border-crm-border text-white text-xs px-4 py-2 rounded-lg flex items-center gap-2 transition-colors">
+                                    <Upload size={14} /> Subir foto
+                                </button>
+                            </div>
+
                             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                                <div><InputLabel>Manuales</InputLabel><SelectInput name="hasManuals" value={formData.hasManuals} onChange={handleChange} options={['No', 'Sí']} /></div>
-                                <div><InputLabel>Duplicado de llaves</InputLabel><SelectInput name="hasDuplicateKeys" value={formData.hasDuplicateKeys} onChange={handleChange} options={['No', 'Sí']} /></div>
-                                <div><InputLabel>Servicios oficiales</InputLabel><SelectInput name="hasOfficialServices" value={formData.hasOfficialServices} onChange={handleChange} options={['No', 'Sí']} /></div>
+                                <div><InputLabel>Manuales</InputLabel><SelectInput name="hasManuals" value={formData.hasManuals} onChange={handleChange} options={['No', 'Sí', 'Parcial']} /></div>
+                                <div><InputLabel>Duplicado de llaves</InputLabel><SelectInput name="hasDuplicateKeys" value={formData.hasDuplicateKeys} onChange={handleChange} options={['No', 'Sí', 'Parcial']} /></div>
+                                <div><InputLabel>Servicios oficiales</InputLabel><SelectInput name="hasOfficialServices" value={formData.hasOfficialServices} onChange={handleChange} options={['No', 'Sí', 'Parcial']} /></div>
                             </div>
                         </section>
 
-                        {/* PUBLICACIÓN */}
+                        {/* 6. PUBLICACIÓN */}
                         <section>
-                            <div className="flex items-center gap-2 mb-4">
-                                <span className="text-[10px] font-bold text-gray-500 uppercase tracking-widest">Publicación</span>
+                            <div className="flex items-center gap-2 mb-4 border-b border-crm-border pb-2 mt-6">
+                                <span className="text-xs font-bold text-white uppercase tracking-widest">6. Publicación</span>
                             </div>
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
                                 <div>
@@ -343,19 +350,20 @@ export default function VehicleFormModal({ isOpen, onClose, onSave, editingCar }
                                 <InputLabel>Link de MercadoLibre</InputLabel>
                                 <TextInput name="mlLink" value={formData.mlLink} onChange={handleChange} placeholder="https://articulo.mercadolibre.com.ar/..." />
                             </div>
-                            <div>
-                                <InputLabel>Notas</InputLabel>
-                                <textarea 
-                                    name="notes" value={formData.notes} onChange={handleChange} rows="3"
-                                    className="w-full bg-crm-surface border border-crm-border rounded-md px-3 py-2 text-xs text-white placeholder-gray-600 focus:border-red-500 focus:outline-none transition-colors resize-none"
-                                />
                             </div>
                         </section>
 
-                        {/* IMÁGENES (Dropzone integrada) */}
+                        {/* 7. FOTOS Y NOTAS */}
                         <section>
-                            <div className="flex items-center gap-2 mb-4">
-                                <span className="text-[10px] font-bold text-gray-500 uppercase tracking-widest">Fotografías</span>
+                            <div className="flex items-center gap-2 mb-4 border-b border-crm-border pb-2 mt-6">
+                                <span className="text-xs font-bold text-white uppercase tracking-widest">7. Fotos y Notas</span>
+                            </div>
+                            <div className="mb-6">
+                                <InputLabel>Notas Internas</InputLabel>
+                                <textarea 
+                                    name="notes" value={formData.notes} onChange={handleChange} rows="3" placeholder="Observaciones privadas sobre el vehículo..."
+                                    className="w-full bg-crm-surface border border-crm-border rounded-md px-3 py-2 text-xs text-white placeholder-gray-600 focus:border-red-500 focus:outline-none transition-colors resize-none"
+                                />
                             </div>
                             <div
                                 onDragOver={(e) => { e.preventDefault(); setIsDragging(true); }}

@@ -284,6 +284,26 @@ export default function AdminStockPage() {
 
     const handleSaveVehicle = async (formData, files) => {
         try {
+            // Normalización de marcas
+            if (formData.brand) {
+                const brandLower = formData.brand.toLowerCase().trim();
+                if (brandLower === 'fiat') formData.brand = 'Fiat';
+                else if (brandLower === 'volskwagen' || brandLower === 'volkswagen') formData.brand = 'Volkswagen';
+                else formData.brand = formData.brand.trim();
+            }
+
+            // Validación de precio anómalo
+            if (formData.price && Number(formData.price) <= 100 && formData.currency === 'ARS') {
+                if (!window.confirm("⚠️ El precio publicado en ARS parece anómalo (<= 100). ¿Guardar de todas formas?")) {
+                    return;
+                }
+            }
+
+            // Preservar estado agencyOwned si está activado
+            if (formData.agencyOwned) {
+                formData.consignedBy = '';
+            }
+
             const token = localStorage.getItem('token');
             if (!token) throw new Error("No token found");
 
