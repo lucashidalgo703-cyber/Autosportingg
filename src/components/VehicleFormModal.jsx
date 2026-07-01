@@ -350,7 +350,6 @@ export default function VehicleFormModal({ isOpen, onClose, onSave, editingCar }
                                 <InputLabel>Link de MercadoLibre</InputLabel>
                                 <TextInput name="mlLink" value={formData.mlLink} onChange={handleChange} placeholder="https://articulo.mercadolibre.com.ar/..." />
                             </div>
-                            </div>
                         </section>
 
                         {/* 7. FOTOS Y NOTAS */}
