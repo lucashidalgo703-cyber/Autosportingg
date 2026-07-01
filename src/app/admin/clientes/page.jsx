@@ -12,8 +12,7 @@ import ClientImportModal from '../../../components/crm/clients/ClientImportModal
 import CrmButton from '../../../components/crm/ui/CrmButton';
 import CrmPagination from '../../../components/crm/ui/CrmPagination';
 import { useAdminLeads } from '../../../hooks/useAdminLeads';
-
-import LeadKanbanBoard from '../../../components/crm/leads/LeadKanbanBoard';
+import ClientPipelineBoard from '../../../components/crm/clients/ClientPipelineBoard';
 import { LayoutList, KanbanSquare, Download, Upload } from 'lucide-react';
 import { useAuth } from '../../../context/AuthContext';
 import { hasPermission, PERMISSIONS } from '../../../utils/adminPermissions';
@@ -31,8 +30,7 @@ export default function AdminClientesPage() {
     const canSeeLeads = hasPermission(user, PERMISSIONS.LEADS_READ);
     const canWriteLeads = hasPermission(user, PERMISSIONS.LEADS_WRITE);
 
-    const { clients, loading, error, total, totalPages, fetchClients, createClient } = useAdminClients();
-    const { leads, loading: leadsLoading, fetchLeads, updateLead } = useAdminLeads();
+    const { clients, loading, error, total, totalPages, fetchClients, createClient, updateClient } = useAdminClients();
 
     const [view, setView] = useState('lista');
     const [filters, setFilters] = useState({ search: '', segment: '', source: '', status: '' });
@@ -58,15 +56,12 @@ export default function AdminClientesPage() {
 
     const handleViewChange = (newView) => {
         setView(newView);
-        if (newView === 'pipeline' && leads.length === 0) {
-            fetchLeads();
-        }
     };
 
-    const handleLeadStatusChange = async (leadId, newStatus) => {
+    const handleClientStatusChange = async (clientId, newStage) => {
         try {
-            await updateLead(leadId, { crmStatus: newStatus });
-            fetchLeads();
+            await updateClient(clientId, { pipelineStage: newStage });
+            fetchClients(filters);
         } catch (err) {
             console.error(err);
             toast.error(err.message || 'Error al cambiar de estado');
@@ -247,9 +242,9 @@ export default function AdminClientesPage() {
                                 </div>
                             </div>
                         ) : (
-                            <LeadKanbanBoard
-                                leads={leads}
-                                onChangeStatus={handleLeadStatusChange}
+                            <ClientPipelineBoard 
+                                clients={clients || []} 
+                                onChangeStatus={handleClientStatusChange} 
                                 readOnly={!canWriteLeads}
                             />
                         )}

@@ -38,6 +38,14 @@ const statusChips = [
     }
 ];
 
+const typeChips = [
+    { id: '', label: 'Todos los tipos' },
+    { id: 'potencial', label: 'Potencial' },
+    { id: 'comprador', label: 'Comprador' },
+    { id: 'vendedor', label: 'Vendedor' },
+    { id: 'ambos', label: 'Ambos' }
+];
+
 export default function ClientFilters({ filters, setFilters, onSearch }) {
     const applyFilters = (nextFilters) => {
         setFilters(nextFilters);
@@ -45,7 +53,7 @@ export default function ClientFilters({ filters, setFilters, onSearch }) {
     };
 
     const handleReset = () => {
-        applyFilters({ search: '', segment: '', source: '', status: '' });
+        applyFilters({ search: '', segment: '', source: '', status: '', type: '' });
     };
 
     const handleChange = (event) => {
@@ -59,7 +67,7 @@ export default function ClientFilters({ filters, setFilters, onSearch }) {
         }
     };
 
-    const hasActiveFilters = filters.search || filters.segment || filters.source || filters.status;
+    const hasActiveFilters = filters.search || filters.segment || filters.source || filters.status || filters.type;
 
     return (
         <div className="mb-6 flex flex-col gap-5">
@@ -101,6 +109,26 @@ export default function ClientFilters({ filters, setFilters, onSearch }) {
                             {chip.label}
                         </button>
                     );
+            </div>
+
+            <div className="flex flex-wrap items-center gap-2">
+                {typeChips.map(chip => {
+                    const isActive = filters.type === chip.id;
+
+                    return (
+                        <button
+                            key={chip.id || 'todos-tipo'}
+                            type="button"
+                            onClick={() => applyFilters({ ...filters, type: chip.id })}
+                            className={`m-0 inline-flex h-[26px] appearance-none items-center gap-1 rounded-full border px-3 text-xs font-semibold leading-none transition-colors ${
+                                isActive 
+                                ? 'border-crm-red bg-crm-red/15 text-red-300' 
+                                : 'border-crm-fg-subtle/40 bg-crm-surface text-crm-fg-muted hover:border-crm-border-strong'
+                            }`}
+                        >
+                            {chip.label}
+                        </button>
+                    );
                 })}
             </div>
 
@@ -113,6 +141,7 @@ export default function ClientFilters({ filters, setFilters, onSearch }) {
                         value={filters.search}
                         onChange={handleChange}
                         onKeyDown={handleKeyDown}
+                        aria-label="Búsqueda de clientes"
                         placeholder="Buscar nombre, email, telefono, localidad, DNI..."
                         className="m-0 h-[38px] w-full appearance-none rounded-lg border border-crm-border bg-crm-surface py-2 pl-9 pr-3 text-sm text-crm-fg outline-none transition-colors placeholder:text-crm-fg-muted focus:border-crm-red focus:ring-2 focus:ring-crm-red/20"
                     />
