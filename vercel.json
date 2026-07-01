@@ -1,0 +1,14 @@
+{
+    "rewrites": [
+        {
+            "source": "/api/(.*)",
+            "destination": "/api/index.js"
+        }
+    ],
+    "crons": [
+        {
+            "path": "/api/internal/jobs/lead-sla",
+            "schedule": "*/5 * * * *"
+        }
+    ]
+}

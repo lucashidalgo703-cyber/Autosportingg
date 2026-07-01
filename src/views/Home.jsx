@@ -1,0 +1,218 @@
+"use client";
+import Hero from '../components/Hero';
+import CarCarousel from '../components/CarCarousel';
+import CategoryNav from '../components/CategoryNav';
+import Features from '../components/Features';
+import Testimonials from '../components/Testimonials';
+import FAQ from '../components/FAQ';
+import { useCars } from '../hooks/useCars';
+import { motion } from 'framer-motion';
+
+const containerVariants = {
+  hidden: { opacity: 0 },
+  visible: {
+    opacity: 1,
+    transition: { staggerChildren: 0.15 }
+  }
+};
+
+const itemVariants = {
+  hidden: { opacity: 0, y: 30 },
+  visible: {
+    opacity: 1, y: 0,
+    transition: { duration: 0.5, ease: "easeOut" }
+  }
+};
+
+const sectionVariants = {
+  hidden: { opacity: 0, y: 40 },
+  visible: {
+    opacity: 1, y: 0,
+    transition: { duration: 0.6, ease: "easeOut" }
+  }
+};
+
+const Home = () => {
+  const { cars, loading } = useCars();
+
+  const featuredCars = cars.filter(car => car.featured || car.year > 2020).slice(0, 8);
+
+  return (
+    <div className="home-container">
+      <Hero />
+
+      <CategoryNav />
+
+      <motion.section
+        className="featured container section-padding"
+        initial="hidden"
+        whileInView="visible"
+        viewport={{ once: true, amount: 0.1 }}
+        variants={sectionVariants}
+      >
+        <div className="section-header mb-8">
+          <h2 className="text-3xl font-bold border-l-4 border-[var(--color-primary)] pl-4">Nuestros Vehículos</h2>
+          <a href="/catalogo" className="view-all-link text-[var(--color-primary)] font-semibold hover:underline">Ver todo el catálogo →</a>
+        </div>
+
+        <motion.div
+          initial={{ opacity: 0, y: 30 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5, ease: "easeOut" }}
+          viewport={{ once: true, amount: 0.1 }}
+          className="mt-8"
+        >
+          <CarCarousel cars={featuredCars} />
+        </motion.div>
+      </motion.section>
+
+      <Features />
+
+      <Testimonials />
+
+      <motion.section
+        className="trust-banner"
+        initial="hidden"
+        whileInView="visible"
+        viewport={{ once: true, amount: 0.3 }}
+        variants={sectionVariants}
+      >
+        <div className="container trust-content">
+          <h2>Confianza y Experiencia</h2>
+          <motion.div className="trust-stats" variants={containerVariants}>
+            <motion.div className="stat-item" variants={itemVariants}>
+              <span className="stat-number">+20</span>
+              <span className="stat-label">Años de trayectoria</span>
+            </motion.div>
+            <motion.div className="stat-item" variants={itemVariants}>
+              <span className="stat-number">100%</span>
+              <span className="stat-label">Garantía asegurada</span>
+            </motion.div>
+          </motion.div>
+        </div>
+      </motion.section>
+
+      <FAQ />
+
+      <style>{`
+        .section-padding {
+          padding-top: 5rem;
+          padding-bottom: 5rem;
+        }
+        
+        .section-header {
+          display: flex;
+          justify-content: space-between;
+          align-items: end;
+          margin-bottom: 3rem;
+        }
+
+        .section-header h2 {
+          font-size: 2.5rem;
+          font-weight: 700;
+          color: white;
+        }
+
+        .view-all-link {
+          background-color: var(--color-primary);
+          color: white;
+          font-weight: 700;
+          font-size: 0.9rem;
+          text-transform: uppercase;
+          letter-spacing: 0.1em;
+          padding: 0.75rem 1.5rem;
+          border-radius: 50px;
+          transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+          box-shadow: 0 4px 15px rgba(235, 38, 40, 0.4);
+          display: inline-flex;
+          align-items: center;
+          border: 1px solid transparent;
+        }
+
+        .view-all-link:hover {
+          background-color: transparent;
+          color: white;
+          border-color: var(--color-primary);
+          transform: translateY(-3px) scale(1.05);
+          box-shadow: 0 8px 25px rgba(235, 38, 40, 0.6);
+        }
+
+        .cars-grid {
+          display: grid;
+          grid-template-columns: 1fr;
+          gap: 2rem;
+        }
+
+        @media (min-width: 640px) {
+          .cars-grid {
+            grid-template-columns: repeat(2, 1fr);
+          }
+        }
+
+        @media (min-width: 1024px) {
+          .cars-grid {
+            grid-template-columns: repeat(4, 1fr);
+          }
+        }
+        
+        /* Trust Banner Styles */
+        .trust-banner {
+            position: relative;
+            padding: 8rem 0;
+            margin-bottom: 5rem;
+            text-align: center;
+            /* Glassmorphism for banner */
+            background: rgba(10, 10, 10, 0.3);
+            backdrop-filter: blur(8px);
+            border-top: 1px solid rgba(255,255,255,0.05);
+            border-bottom: 1px solid rgba(255,255,255,0.05);
+        }
+
+        .trust-content {
+            position: relative;
+            z-index: 10;
+        }
+
+        .trust-content h2 {
+            font-size: 3rem;
+            margin-bottom: 4rem;
+            font-weight: 800;
+        }
+
+        .trust-stats {
+            display: flex;
+            justify-content: center;
+            gap: 5rem;
+        }
+
+        .stat-item {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+
+        .stat-number {
+             font-size: 4rem;
+             font-weight: 900;
+             color: var(--color-primary);
+             line-height: 1;
+        }
+
+        .stat-label {
+             font-size: 1.2rem;
+             color: white;
+             text-transform: uppercase;
+             letter-spacing: 0.1em;
+        }
+
+        @media (max-width: 768px) {
+          .section-header { flex-direction: column; align-items: start; gap: 1rem; }
+          .section-header h2 { font-size: 2rem; }
+          .trust-stats { flex-direction: column; gap: 3rem; }
+        }
+      `}</style>
+    </div>
+  );
+};
+
+export default Home;

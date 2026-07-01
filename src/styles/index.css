@@ -1,0 +1,510 @@
+:root {
+  /* Colors */
+  --color-primary: #EB2628;
+  --color-primary-dark: #c01c1e;
+  --color-bg: #000000;
+  --color-surface: #171717;
+  --color-surface-hover: #222222;
+  --color-text-main: #FFFFFF;
+  --color-text-muted: #9CA3AF;
+  --color-border: #333333;
+
+  /* Typography */
+  --font-main: 'Archivo', system-ui, -apple-system, sans-serif;
+  --font-title: 'Anton', system-ui, -apple-system, sans-serif;
+  /* New font for headings */
+
+  /* Layout */
+  --container-width: 1200px;
+  --header-height: 80px;
+  --safe-top: env(safe-area-inset-top, 0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+.font-title {
+  font-family: 'Anton', sans-serif !important;
+  font-weight: 400;
+  /* Anton is 400 only */
+  text-transform: uppercase;
+}
+
+.font-body {
+  font-family: 'Archivo', sans-serif;
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: var(--font-main);
+  background-color: #020202 !important;
+  /* ... background styles ... */
+  background-image:
+    linear-gradient(135deg, transparent 35%, rgba(255, 50, 50, 0.3) 35.1%, transparent 35.2%),
+    linear-gradient(135deg, transparent 82%, rgba(255, 0, 0, 0.9) 82.2%, transparent 82.4%),
+    linear-gradient(135deg, transparent 15%, rgba(100, 0, 0, 0.6) 20%, transparent 35%),
+    linear-gradient(135deg, transparent 45%, rgba(220, 0, 0, 1) 45.2%, rgba(200, 0, 0, 0.5) 50%, rgba(50, 0, 0, 0) 65%),
+    linear-gradient(135deg, transparent 70%, rgba(180, 0, 0, 0.9) 70.2%, rgba(100, 0, 0, 0) 80%),
+    radial-gradient(circle at 50% 50%, rgba(50, 0, 0, 0.2), transparent 80%) !important;
+
+  background-size: cover !important;
+  background-attachment: fixed !important;
+  min-height: 100vh;
+  color: var(--color-text-main);
+  -webkit-font-smoothing: antialiased;
+  overflow-x: hidden;
+  /* Prevent horizontal scroll */
+  width: 100%;
+  position: relative;
+}
+
+html {
+  overflow-x: hidden;
+  width: 100%;
+  min-height: 100%;
+  background: #0B0B0D;
+}
+
+html,
+#root {
+  background-color: transparent !important;
+  min-height: 100vh;
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+}
+
+option {
+  background-color: rgb(30, 30, 36); /* Color oscuro base del CRM */
+  color: white;
+}
+
+@media (max-width: 767px) {
+  input,
+  select,
+  textarea {
+    font-size: 16px !important;
+  }
+
+  button,
+  a,
+  input,
+  select,
+  textarea {
+    -webkit-tap-highlight-color: transparent;
+  }
+}
+
+[data-admin-shell],
+[data-admin-shell] main {
+  max-width: 100vw;
+  overflow-x: hidden;
+}
+
+@media (max-width: 767px) {
+  [data-admin-shell] main > * {
+    max-width: 100%;
+  }
+}
+
+a {
+  text-decoration: none;
+  color: inherit;
+}
+
+ul {
+  list-style: none;
+}
+
+.container {
+  max-width: var(--container-width);
+  margin: 0 auto;
+  padding: 0 1.25rem;
+  width: 100%;
+}
+
+@media (min-width: 1280px) {
+  .container {
+    max-width: 1300px;
+    /* Slightly wider for modern displays */
+  }
+}
+
+.section-padding {
+  padding: 3rem 0;
+}
+
+@media (min-width: 768px) {
+  .section-padding {
+    padding: 6rem 0;
+  }
+}
+
+/* Utilities */
+.text-primary {
+  color: var(--color-primary);
+}
+
+.bg-primary {
+  background-color: var(--color-primary);
+}
+
+.flex {
+  display: flex;
+}
+
+.justify-between {
+  justify-content: space-between;
+}
+
+.items-center {
+  align-items: center;
+}
+
+.grid {
+  display: grid;
+}
+
+/* Animations */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
+}
+
+.fade-in {
+  animation: fadeIn 1s ease-in-out forwards;
+}
+
+/* SOTE CUSTOM CRM CLASSES & SCROLLBAR */
+:root, .dark {
+  --c-bg: 11 11 13; /* rgb(11, 11, 13) */
+  --c-surface: 30 30 36; /* rgb(30, 30, 36) */
+  --c-border: 51 51 58; /* rgb(51, 51, 58) */
+  --c-fg: 250 250 250; /* rgb(250, 250, 250) */
+  --brand-primary: #E63027;
+
+  /* CRM Tailwind Tokens */
+  --crm-bg: #0B0B0D;
+  --crm-topbar: #161619;
+  --crm-sidebar: #161619;
+  --crm-surface: #1E1E24;
+  --crm-surface-raised: #28282E;
+  --crm-border: #33333A;
+  --crm-border-strong: #4A4A52;
+  --crm-fg: #FAFAFA;
+  --crm-fg-muted: #A1A1AA;
+  --crm-fg-subtle: #71717A;
+  --crm-red: #EF3329;
+  --crm-red-brand: #E63027;
+  --crm-red-hover: #C42620;
+  --crm-red-soft: #F87171;
+  --crm-success: #10B981;
+  --crm-warning: #F59E0B;
+  --crm-info: #3B82F6;
+  --crm-purple: #8B5CF6;
+}
+
+.light {
+  --c-bg: 243 244 246; /* rgb(243, 244, 246) */
+  --c-surface: 255 255 255; /* rgb(255, 255, 255) */
+  --c-border: 229 231 235; /* rgb(229, 231, 235) */
+  --c-fg: 17 24 39; /* rgb(17, 24, 39) */
+  --brand-primary: #E63027;
+
+  /* CRM Tailwind Tokens for Light Theme */
+  --crm-bg: #F3F4F6; /* light gray bg */
+  --crm-topbar: #FFFFFF;
+  --crm-sidebar: #FFFFFF;
+  --crm-surface: #FFFFFF;
+  --crm-surface-raised: #F9FAFB;
+  --crm-border: #E5E7EB; /* border gray-200 */
+  --crm-border-strong: #D1D5DB; /* border gray-300 */
+  --crm-fg: #111827; /* gray-900 */
+  --crm-fg-muted: #374151; /* gray-700 for better contrast */
+  --crm-fg-subtle: #4B5563; /* gray-600 */
+  --crm-red: #EF3329;
+  --crm-red-brand: #E63027;
+  --crm-red-hover: #C42620;
+  --crm-red-soft: #FCA5A5; /* red-300 for soft light mode */
+  --crm-success: #059669; /* emerald-600 */
+  --crm-warning: #D97706; /* amber-600 */
+  --crm-info: #2563EB; /* blue-600 */
+  --crm-purple: #7D3AED; /* purple-600 */
+}
+
+/* Light Theme Global overrides */
+.light body {
+  background-color: var(--crm-bg) !important;
+  background-image: none !important;
+  color: var(--crm-fg);
+}
+.light html {
+  background-color: var(--crm-bg) !important;
+}
+.light ::-webkit-scrollbar-thumb {
+  background: rgb(209, 213, 219); /* gray-300 */
+  border-color: var(--crm-bg);
+}
+.light ::-webkit-scrollbar-track {
+  background: var(--crm-bg);
+}
+
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-thumb { background: rgb(74, 74, 82); border-radius: 8px; border: 2px solid rgb(11, 11, 13); }
+::-webkit-scrollbar-track { background: rgb(11, 11, 13); }
+
+.bg-sote-bg {
+  background-color: rgb(var(--c-bg) / var(--tw-bg-opacity, 1));
+}
+
+.bg-sote-surface {
+  background-color: rgb(var(--c-surface) / var(--tw-bg-opacity, 1));
+}
+
+.border-sote-border {
+  border-color: rgb(var(--c-border) / var(--tw-border-opacity, 1));
+}
+
+.text-sote-fg {
+  color: rgb(var(--c-fg) / var(--tw-text-opacity, 1));
+}
+
+
+/* --- PRELOADER ANIMATION --- */
+.preloader-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100vh;
+  z-index: 9999;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  background-color: #020202;
+  /* Solid black */
+}
+
+.preloader-overlay.fade-out {
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transition: opacity 0.5s ease-out, visibility 0.5s ease-out;
+}
+
+.preloader-content {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  z-index: 2;
+}
+
+/* Converging red flare simulating particles forming the logo */
+.preloader-particles-flare {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%) scale(2);
+  width: 150px;
+  height: 150px;
+  background: radial-gradient(circle, rgba(235, 38, 40, 0.8) 0%, transparent 60%);
+  filter: blur(20px);
+  border-radius: 50%;
+  z-index: -1;
+  animation: convergeFlare 0.8s cubic-bezier(0.1, 0.8, 0.2, 1) forwards;
+  opacity: 0;
+}
+
+@keyframes convergeFlare {
+  0% {
+    transform: translate(-50%, -50%) scale(2.5);
+    opacity: 0;
+  }
+
+  30% {
+    opacity: 1;
+  }
+
+  100% {
+    transform: translate(-50%, -50%) scale(0.6);
+    opacity: 0;
+    filter: blur(30px);
+  }
+}
+
+.preloader-logo-container {
+  position: relative;
+  overflow: hidden;
+  animation: logoRevealE11 0.8s ease-out 0.2s forwards;
+  opacity: 0;
+  transform: scale(0.95);
+  margin-bottom: 8px;
+  /* space between logo and slogan */
+}
+
+.preloader-logo {
+  height: 100px;
+  /* Sized up for more presence */
+  width: auto;
+  max-width: 90vw;
+  /* Protect against wide logos stretching mobile screens */
+  object-fit: contain;
+  display: block;
+}
+
+@media (max-width: 768px) {
+  .preloader-logo {
+    height: 60px;
+    /* Elegantly scale back down on mobile */
+  }
+}
+
+@keyframes logoRevealE11 {
+  0% {
+    opacity: 0;
+    transform: scale(0.95);
+    filter: blur(4px);
+  }
+
+  100% {
+    opacity: 1;
+    transform: scale(1);
+    filter: blur(0px);
+  }
+}
+
+/* The metallic/red light sweep across the logo */
+.light-sweep.red-sweep {
+  position: absolute;
+  top: -50%;
+  left: -150%;
+  width: 50%;
+  height: 200%;
+  background: linear-gradient(to right,
+      rgba(235, 38, 40, 0) 0%,
+      rgba(235, 38, 40, 0.5) 40%,
+      rgba(255, 255, 255, 0.9) 50%,
+      rgba(235, 38, 40, 0.5) 60%,
+      rgba(235, 38, 40, 0) 100%);
+  transform: skewX(-25deg);
+  animation: sweepE11 1.2s cubic-bezier(0.4, 0, 0.2, 1) 0.5s forwards;
+  pointer-events: none;
+  mix-blend-mode: overlay;
+}
+
+@keyframes sweepE11 {
+  0% {
+    left: -150%;
+  }
+
+  100% {
+    left: 200%;
+  }
+}
+
+/* E11even style slogan */
+.preloader-slogan {
+  color: #EB2628;
+  /* Deep red variant of the brand */
+  font-family: 'Inter', system-ui, sans-serif;
+  font-size: 0.75rem;
+  letter-spacing: 0.15em;
+  /* Adjusted for longer text */
+  text-transform: uppercase;
+  font-weight: 500;
+  text-align: center;
+  opacity: 0;
+  animation: sloganFade 0.8s ease-out 1s forwards;
+  /* Appears shortly after logo */
+}
+
+@keyframes sloganFade {
+  0% {
+
+    opacity: 0;
+    transform: translateY(5px);
+    filter: blur(2px);
+  }
+
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+    filter: blur(0px);
+  }
+}
+
+/* --- TAILWIND CSS PARA PANEL DE ADMINISTRACIÓN --- */
+@tailwind components;
+@tailwind utilities;
+
+/* GLOBAL BUTTON FIX FOR MISSING TAILWIND BASE */
+button {
+  background-color: transparent;
+  background-image: none;
+  border: none;
+}
+
+/* VEHICLE FLYER PRINT AND PDF STYLES */
+.vehicle-flyer-print-root {
+  display: none !important;
+}
+
+@media print {
+  @page {
+    size: A4 portrait;
+    margin: 1.5cm;
+  }
+
+  html, body {
+    background-color: #ffffff !important;
+    background-image: none !important;
+    color: #000000 !important;
+    overflow: visible !important;
+    height: auto !important;
+    min-height: 0 !important;
+  }
+
+  .vehicle-flyer-print-root {
+    display: flex !important;
+  }
+
+  .crm-no-print,
+  [data-admin-shell] aside,
+  [data-admin-shell] header,
+  [data-admin-shell] nav,
+  [data-admin-shell] button,
+  [data-admin-shell] .no-print,
+  .preloader-overlay,
+  .whatsapp-float,
+  .whatsapp-container {
+    display: none !important;
+  }
+
+  [data-admin-shell] {
+    background: #ffffff !important;
+    color: #000000 !important;
+    display: block !important;
+    min-height: 0 !important;
+  }
+
+  [data-admin-shell] main {
+    padding: 0 !important;
+    margin: 0 !important;
+    background: #ffffff !important;
+    min-height: 0 !important;
+  }
+}

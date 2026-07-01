@@ -1,0 +1,189 @@
+"use client";
+import React, { useState, useEffect } from 'react';
+import { useAuth } from '../../../context/AuthContext';
+import { useRouter } from 'next/navigation';
+import { Flag, Plus, AlertTriangle, TrendingUp, CheckCircle, Clock } from 'lucide-react';
+import TeamGoalModal from '../../../components/crm/team/TeamGoalModal';
+import GoalStatusBadge from '../../../components/crm/goals/GoalStatusBadge';
+import GoalProgressBar from '../../../components/crm/goals/GoalProgressBar';
+
+export default function GoalsDashboardPage() {
+    const { user } = useAuth();
+    const router = useRouter();
+
+    const [loading, setLoading] = useState(true);
+    const [progressData, setProgressData] = useState([]);
+    const [error, setError] = useState(null);
+    const [modalConfig, setModalConfig] = useState({ isOpen: false, goal: null });
+
+    const fetchGoalsProgress = async () => {
+        setLoading(true);
+        try {
+            const token = localStorage.getItem('token');
+            const res = await fetch(`/api/admin/team-goals/progress`, {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+
+            if (!res.ok) {
+                if (res.status === 403) throw new Error("Sin permisos para ver las metas.");
+                throw new Error("Error cargando el progreso de metas.");
+            }
+
+            const data = await res.json();
+            setProgressData(data);
+        } catch (err) {
+            setError(err.message);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    useEffect(() => {
+        if (user) {
+            fetchGoalsProgress();
+        }
+    }, [user]);
+
+    if (!user) return null;
+
+    if (error) {
+        return (
+            <div className="p-6">
+                <div className="bg-crm-red/10 text-crm-red p-4 rounded-lg border border-crm-red/20 flex items-center gap-2">
+                    <AlertTriangle size={20} /> {error}
+                </div>
+            </div>
+        );
+    }
+
+    const activeGoals = progressData;
+    const cumplidas = activeGoals.filter(g => g.status === 'cumplido');
+    const atrasadas = activeGoals.filter(g => g.status === 'atrasado' || g.status === 'vencido');
+    const promedio = activeGoals.length > 0 ? activeGoals.reduce((a,b) => a + b.overallPercent, 0) / activeGoals.length : 0;
+
+    return (
+        <div className="p-6 font-sans">
+            <div className="flex flex-col md:flex-row md:items-center justify-between mb-8 gap-4">
+                <div className="flex items-center gap-3">
+                    <div className="w-12 h-12 bg-crm-red/10 rounded-xl flex items-center justify-center text-crm-red">
+                        <Flag size={24} />
+                    </div>
+                    <div>
+                        <h1 className="text-2xl font-bold text-white">Metas Operativas</h1>
+                        <p className="text-sm text-crm-fg-muted">Objetivos y cumplimiento del equipo por período.</p>
+                    </div>
+                </div>
+
+                <button 
+                    onClick={() => setModalConfig({ isOpen: true, goal: null })}
+                    className="flex items-center gap-2 bg-crm-red hover:bg-crm-red-hover text-white px-4 py-2 rounded-lg font-medium transition-colors"
+                >
+                    <Plus size={18} /> Nueva Meta
+                </button>
+            </div>
+
+            {loading ? (
+                <div className="flex justify-center items-center h-64">
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-crm-red"></div>
+                </div>
+            ) : (
+                <>
+                    {/* CARDS */}
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+                        <div className="bg-crm-bg border border-crm-border rounded-xl p-5 flex flex-col justify-center">
+                            <div className="flex items-center gap-2 text-crm-red mb-2">
+                                <Flag size={16} /> <span className="text-xs font-bold uppercase">Metas Activas</span>
+                            </div>
+                            <div className="text-3xl text-white font-bold">{activeGoals.length}</div>
+                        </div>
+                        <div className="bg-crm-bg border border-crm-border rounded-xl p-5 flex flex-col justify-center">
+                            <div className="flex items-center gap-2 text-green-500 mb-2">
+                                <CheckCircle size={16} /> <span className="text-xs font-bold uppercase">Cumplidas</span>
+                            </div>
+                            <div className="text-3xl text-white font-bold">{cumplidas.length}</div>
+                        </div>
+                        <div className="bg-crm-bg border border-crm-border rounded-xl p-5 flex flex-col justify-center">
+                            <div className="flex items-center gap-2 text-crm-red mb-2">
+                                <Clock size={16} /> <span className="text-xs font-bold uppercase">Atrasadas / Venc.</span>
+                            </div>
+                            <div className="text-3xl text-white font-bold">{atrasadas.length}</div>
+                        </div>
+                        <div className="bg-crm-bg border border-crm-border rounded-xl p-5 flex flex-col justify-center">
+                            <div className="flex items-center gap-2 text-crm-fg-muted mb-2">
+                                <TrendingUp size={16} /> <span className="text-xs font-bold uppercase">Promedio Equipo</span>
+                            </div>
+                            <div className="text-3xl text-white font-bold">{Math.round(promedio)}%</div>
+                        </div>
+                    </div>
+
+                    <div className="bg-crm-surface border border-crm-border rounded-xl overflow-hidden">
+                        <div className="p-5 border-b border-crm-border bg-crm-bg">
+                            <h2 className="font-bold text-white uppercase text-sm">Progreso Actual de Metas</h2>
+                        </div>
+                        
+                        <div className="overflow-x-auto">
+                            <table className="w-full text-left border-collapse min-w-[900px]">
+                                <thead>
+                                    <tr className="border-b border-crm-border bg-crm-surface-raised">
+                                        <th className="p-4 text-xs font-bold text-crm-fg-muted uppercase">Usuario</th>
+                                        <th className="p-4 text-xs font-bold text-crm-fg-muted uppercase">Período</th>
+                                        <th className="p-4 text-xs font-bold text-crm-fg-muted uppercase min-w-[200px]">Progreso Global</th>
+                                        <th className="p-4 text-xs font-bold text-crm-fg-muted uppercase">Detalle Target</th>
+                                        <th className="p-4 text-xs font-bold text-crm-fg-muted uppercase">Estado</th>
+                                        <th className="p-4 text-xs font-bold text-crm-fg-muted uppercase text-right">Acción</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {activeGoals.length === 0 ? (
+                                        <tr><td colSpan="6" className="p-4 text-center text-sm text-crm-fg-muted">No hay metas activas.</td></tr>
+                                    ) : (
+                                        activeGoals.map(goal => (
+                                            <tr key={goal.goalId} className="border-b border-crm-border hover:bg-crm-surface-raised transition-colors">
+                                                <td className="p-4">
+                                                    <div className="text-sm font-bold text-white">{goal.userId?.name || 'Usuario eliminado'}</div>
+                                                    <div className="text-xs text-crm-fg-muted capitalize">{goal.userId?.role}</div>
+                                                </td>
+                                                <td className="p-4">
+                                                    <div className="text-sm text-crm-fg">{goal.periodLabel}</div>
+                                                    <div className="text-xs text-crm-fg-muted">{new Date(goal.startDate).toLocaleDateString()} al {new Date(goal.endDate).toLocaleDateString()}</div>
+                                                </td>
+                                                <td className="p-4">
+                                                    <GoalProgressBar percent={goal.overallPercent} />
+                                                </td>
+                                                <td className="p-4">
+                                                    <div className="flex flex-wrap gap-2">
+                                                        {Object.entries(goal.progress).map(([key, p]) => (
+                                                            <div key={key} className="bg-crm-bg border border-crm-border px-2 py-1 rounded text-xs" title={`${p.real} de ${p.target}`}>
+                                                                <span className="text-crm-fg-muted mr-1">{key.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase())}:</span>
+                                                                <span className={p.real >= p.target ? 'text-green-400 font-bold' : 'text-white'}>{p.real}/{p.target}</span>
+                                                            </div>
+                                                        ))}
+                                                    </div>
+                                                </td>
+                                                <td className="p-4">
+                                                    <GoalStatusBadge status={goal.status} />
+                                                </td>
+                                                <td className="p-4 text-right">
+                                                    <button onClick={() => setModalConfig({ isOpen: true, goal })} className="text-xs bg-crm-surface hover:bg-crm-surface-raised border border-crm-border text-white px-3 py-1.5 rounded transition-colors">
+                                                        Editar
+                                                    </button>
+                                                </td>
+                                            </tr>
+                                        ))
+                                    )}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </>
+            )}
+
+            <TeamGoalModal 
+                isOpen={modalConfig.isOpen} 
+                onClose={() => setModalConfig({ isOpen: false, goal: null })} 
+                goal={modalConfig.goal}
+                onSuccess={fetchGoalsProgress}
+            />
+        </div>
+    );
+}

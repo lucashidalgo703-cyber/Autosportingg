@@ -1,0 +1,50 @@
+{
+  "name": "autosporting-replica",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "eslint src",
+    "check": "node --check server.js && npm run lint && node scripts/validate-codebase.js",
+    "api": "node server.js",
+    "test:smoke": "playwright test"
+  },
+  "dependencies": {
+    "@vercel/analytics": "^1.6.1",
+    "cloudinary": "^2.9.0",
+    "cors": "^2.8.6",
+    "dotenv": "^17.2.3",
+    "embla-carousel-auto-scroll": "^8.6.0",
+    "embla-carousel-autoplay": "^8.6.0",
+    "embla-carousel-react": "^8.6.0",
+    "express": "^5.2.1",
+    "firebase": "^12.8.0",
+    "framer-motion": "^12.38.0",
+    "jsonwebtoken": "^9.0.3",
+    "lucide-react": "^0.562.0",
+    "mongoose": "^9.1.5",
+    "multer": "^1.4.5-lts.1",
+    "multer-storage-cloudinary": "^4.0.0",
+    "next": "^16.2.2",
+    "nodemailer": "^9.0.0",
+    "qrcode": "^1.5.4",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "react-hot-toast": "^2.6.0",
+    "speakeasy": "^2.0.0",
+    "xlsx": "^0.18.5"
+  },
+  "devDependencies": {
+    "@types/react": "^19.2.5",
+    "@types/react-dom": "^19.2.3",
+    "autoprefixer": "^10.5.0",
+    "eslint": "^10.5.0",
+    "eslint-config-next": "^16.2.9",
+    "eslint-plugin-react-hooks": "^7.1.1",
+    "postcss": "^8.5.15",
+    "tailwindcss": "^3.4.0"
+  }
+}
