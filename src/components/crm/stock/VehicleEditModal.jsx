@@ -26,8 +26,8 @@ export default function VehicleEditModal({ isOpen, onClose, onSave, vehicleData 
                 // Internal fields
                 purchasePrice: vehicleData.precioCompra || 0,
                 purchaseCurrency: vehicleData.monedaCompra || 'USD',
-                agencyOwned: vehicleData.origen === 'propio',
-                consignedBy: vehicleData.origen === 'consignación' ? (vehicleData._original?.consignedBy || 'Consignador') : '',
+                agencyOwned: vehicleData._original?.agencyOwned || vehicleData.origen === 'propio' || false,
+                consignedBy: vehicleData._original?.consignedBy || (vehicleData.origen === 'consignación' ? 'Consignador' : ''),
                 plateOrVin: vehicleData.dominio || '',
                 location: vehicleData._original?.location || 'Salón Principal',
                 notes: vehicleData.observaciones === 'Sin observaciones.' ? '' : vehicleData.observaciones,
@@ -55,7 +55,7 @@ export default function VehicleEditModal({ isOpen, onClose, onSave, vehicleData 
         setFormData(prev => ({
             ...prev,
             agencyOwned: val === 'propio',
-            consignedBy: val === 'consignación' ? prev.consignedBy : ''
+            consignedBy: val === 'consignación' ? (prev.consignedBy || 'Dueño ') : ''
         }));
     };
 
