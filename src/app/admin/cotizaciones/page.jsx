@@ -8,7 +8,7 @@ import CrmButton from '../../../components/crm/ui/CrmButton';
 import CrmSelect from '../../../components/crm/ui/CrmSelect';
 import ConfirmModal from '../../../components/crm/ui/ConfirmModal';
 import QuoteList from '../../../components/crm/quotes/QuoteList';
-import Link from 'next/link';
+import QuoteCreateModal from '../../../components/crm/quotes/QuoteCreateModal';
 import toast from 'react-hot-toast';
 
 export default function AdminCotizacionesPage() {
@@ -19,6 +19,7 @@ export default function AdminCotizacionesPage() {
     const [loading, setLoading] = useState(true);
     const [migrating, setMigrating] = useState(false);
     const [confirmMigrateModal, setConfirmMigrateModal] = useState(false);
+    const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
     const [sellers, setSellers] = useState([]);
     const [filters, setFilters] = useState({ search: '', status: '', sellerId: '', dateFrom: '', dateTo: '' });
     const [stats, setStats] = useState({ total: 0, aprobadas: 0, pendientes: 0, rechazadas: 0 });
@@ -127,12 +128,10 @@ export default function AdminCotizacionesPage() {
                             </CrmButton>
                         )}
                         {canWrite && (
-                            <Link href="/admin/cotizaciones/nueva" passHref legacyBehavior>
-                                <CrmButton variant="primary" size="sm" className="w-full gap-2 md:w-auto">
-                                    <Plus size={16} />
-                                    Nueva cotización
-                                </CrmButton>
-                            </Link>
+                            <CrmButton variant="primary" size="sm" className="w-full gap-2 md:w-auto" onClick={() => setIsCreateModalOpen(true)}>
+                                <Plus size={16} />
+                                Nueva cotización
+                            </CrmButton>
                         )}
                     </div>
                 </div>
@@ -225,6 +224,14 @@ export default function AdminCotizacionesPage() {
                     <QuoteList quotes={quotes} />
                 )}
             </div>
+
+            <QuoteCreateModal
+                isOpen={isCreateModalOpen}
+                onClose={() => {
+                    setIsCreateModalOpen(false);
+                    fetchQuotes();
+                }}
+            />
         </div>
     );
 }

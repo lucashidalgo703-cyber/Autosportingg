@@ -45,8 +45,8 @@ export default function QuoteDetailPage({ params }) {
                 // Fetch basic lists for selects
                 const [clientsRes, carsRes, sellersRes] = await Promise.all([
                     fetch('/api/admin/clients?limit=1000', { headers: { 'Authorization': `Bearer ${token}` } }),
-                    fetch('/api/admin/cars?limit=1000', { headers: { 'Authorization': `Bearer ${token}` } }),
-                    fetch('/api/admin/users/active', { headers: { 'Authorization': `Bearer ${token}` } })
+                    fetch('/api/admin/cars?limit=1000&status=disponible', { headers: { 'Authorization': `Bearer ${token}` } }),
+                    fetch('/api/admin/users', { headers: { 'Authorization': `Bearer ${token}` } })
                 ]);
                 
                 if (clientsRes.ok) {
@@ -55,7 +55,18 @@ export default function QuoteDetailPage({ params }) {
                 }
                 if (carsRes.ok) {
                     const data = await parseResponseSafe(carsRes);
-                    setCars(data.cars || data || []);
+                    const rawCars = data.cars || data || [];
+                    // Remove duplicates by brand+model+year for the dropdown
+                    const uniqueCars = [];
+                    const seen = new Set();
+                    rawCars.forEach(c => {
+                        const key = `${c.brand}-${c.model}-${c.year}`;
+                        if (!seen.has(key)) {
+                            seen.add(key);
+                            uniqueCars.push(c);
+                        }
+                    });
+                    setCars(uniqueCars);
                 }
                 if (sellersRes.ok) {
                     const data = await parseResponseSafe(sellersRes);

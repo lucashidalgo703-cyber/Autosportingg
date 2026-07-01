@@ -70,6 +70,20 @@ export default function SalesPerformanceDashboard({
 
     const goalMetric = getGoalMetric(currentGoal);
 
+    const monthSales = mySales.filter(s => {
+        const d = new Date(s.saleDate || s.createdAt);
+        return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}` === currentMonth;
+    });
+
+    const monthReservations = myReservations.filter(r => {
+        const d = new Date(r.createdAt);
+        return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}` === currentMonth;
+    });
+
+    const activeReservations = monthReservations.filter(r => r.status === 'activa' || r.status === 'pendiente');
+    const closedSales = monthSales.filter(s => ['entregada'].includes(s.status));
+    const inProgressSales = monthSales.filter(s => ['confirmada', 'pendiente_entrega'].includes(s.status));
+
     // Default goal fallback if no active goal is found (as requested in plan)
     const fallbackGoalMetric = {
         real: closedSales?.length || 0,
@@ -87,20 +101,6 @@ export default function SalesPerformanceDashboard({
     };
     
     const userLevel = getLevel(activeMetric.percent || 0);
-
-    const monthSales = mySales.filter(s => {
-        const d = new Date(s.saleDate || s.createdAt);
-        return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}` === currentMonth;
-    });
-
-    const monthReservations = myReservations.filter(r => {
-        const d = new Date(r.createdAt);
-        return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}` === currentMonth;
-    });
-
-    const activeReservations = monthReservations.filter(r => r.status === 'activa' || r.status === 'pendiente');
-    const closedSales = monthSales.filter(s => ['entregada'].includes(s.status));
-    const inProgressSales = monthSales.filter(s => ['confirmada', 'pendiente_entrega'].includes(s.status));
 
     const funnelLeads = '--';
     const funnelReservations = monthReservations.length;
