@@ -336,20 +336,45 @@ export default function MisComisionesPage() {
 
 function ManualCommissionModal({ users, onClose, onSuccess }) {
     const [loading, setLoading] = useState(false);
+    const [sales, setSales] = useState([]);
     const [formData, setFormData] = useState({
         username: '',
-        period: '',
+        date: new Date().toISOString().split('T')[0],
         amount: '',
         type: 'bono',
         currency: 'USD',
+        saleId: '',
         notes: ''
     });
+
+    // Fetch pending sales when username changes
+    useEffect(() => {
+        const fetchPendingSales = async () => {
+            if (!formData.username) {
+                setSales([]);
+                return;
+            }
+            try {
+                const token = localStorage.getItem('token');
+                const res = await fetch(`/api/admin/settlements/pending-sales/${formData.username}`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                if (res.ok) {
+                    const data = await res.json();
+                    setSales(Array.isArray(data) ? data : []);
+                }
+            } catch (err) {
+                console.error('Error fetching pending sales for user:', err);
+            }
+        };
+        fetchPendingSales();
+    }, [formData.username]);
 
     const handleSubmit = async (e) => {
         e.preventDefault();
 
-        if (!/^\d{4}-\d{2}$/.test(formData.period)) {
-            toast.error('El periodo debe tener formato YYYY-MM');
+        if (!formData.notes || formData.notes.trim() === '') {
+            toast.error('El motivo de la comisión es obligatorio');
             return;
         }
 
@@ -373,9 +398,10 @@ function ManualCommissionModal({ users, onClose, onSuccess }) {
                 },
                 body: JSON.stringify({
                     username: formData.username,
-                    period: formData.period,
+                    date: formData.date,
                     amount: finalAmount,
                     currency: formData.currency,
+                    saleId: formData.saleId || undefined,
                     notes: formData.notes
                 })
             });
@@ -407,11 +433,11 @@ function ManualCommissionModal({ users, onClose, onSuccess }) {
                 <div className="overflow-y-auto p-4 flex-1">
                     <form id="manual-comm-form" onSubmit={handleSubmit} className="space-y-4">
                         <div>
-                            <label className="mb-1 block text-sm font-bold text-crm-fg-muted">Vendedor</label>
+                            <label className="mb-1 block text-sm font-bold text-crm-fg-muted">Vendedor *</label>
                             <select
                                 required
                                 value={formData.username}
-                                onChange={e => setFormData({...formData, username: e.target.value})}
+                                onChange={e => setFormData({...formData, username: e.target.value, saleId: ''})}
                                 className="w-full rounded-xl border border-crm-border bg-crm-bg px-3 py-2 text-crm-fg outline-none focus:border-crm-red"
                             >
                                 <option value="">Seleccionar vendedor...</option>
@@ -422,14 +448,31 @@ function ManualCommissionModal({ users, onClose, onSuccess }) {
                         </div>
 
                         <div>
-                            <label className="mb-1 block text-sm font-bold text-crm-fg-muted">Período (YYYY-MM)</label>
+                            <label className="mb-1 block text-sm font-bold text-crm-fg-muted">Fecha de Carga *</label>
                             <input
-                                type="month"
+                                type="date"
                                 required
-                                value={formData.period}
-                                onChange={e => setFormData({...formData, period: e.target.value})}
+                                value={formData.date}
+                                onChange={e => setFormData({...formData, date: e.target.value})}
                                 className="w-full rounded-xl border border-crm-border bg-crm-bg px-3 py-2 text-crm-fg outline-none focus:border-crm-red"
                             />
+                        </div>
+
+                        <div>
+                            <label className="mb-1 block text-sm font-bold text-crm-fg-muted">Venta Relacionada (Opcional)</label>
+                            <select
+                                value={formData.saleId}
+                                onChange={e => setFormData({...formData, saleId: e.target.value})}
+                                disabled={!formData.username}
+                                className="w-full rounded-xl border border-crm-border bg-crm-bg px-3 py-2 text-crm-fg outline-none focus:border-crm-red disabled:opacity-50"
+                            >
+                                <option value="">Ninguna / No vinculada</option>
+                                {sales.map(s => (
+                                    <option key={s._id} value={s._id}>
+                                        {s.vehicleId ? `${s.vehicleId.brand} ${s.vehicleId.model}` : 'Vehículo N/A'} - {s.saleCurrency} {s.salePrice?.toLocaleString('es-AR')}
+                                    </option>
+                                ))}
+                            </select>
                         </div>
 
                         <div className="flex gap-4">
@@ -458,7 +501,7 @@ function ManualCommissionModal({ users, onClose, onSuccess }) {
                         </div>
 
                         <div>
-                            <label className="mb-1 block text-sm font-bold text-crm-fg-muted">Monto Bruto</label>
+                            <label className="mb-1 block text-sm font-bold text-crm-fg-muted">Monto Bruto *</label>
                             <input
                                 type="number"
                                 required
@@ -471,9 +514,11 @@ function ManualCommissionModal({ users, onClose, onSuccess }) {
                         </div>
 
                         <div>
-                            <label className="mb-1 block text-sm font-bold text-crm-fg-muted">Notas</label>
+                            <label className="mb-1 block text-sm font-bold text-crm-fg-muted">Motivo (Obligatorio) *</label>
                             <textarea
+                                required
                                 rows="3"
+                                placeholder="Describa el motivo o justificación de esta comisión manual..."
                                 value={formData.notes}
                                 onChange={e => setFormData({...formData, notes: e.target.value})}
                                 className="w-full rounded-xl border border-crm-border bg-crm-bg px-3 py-2 text-crm-fg outline-none focus:border-crm-red"

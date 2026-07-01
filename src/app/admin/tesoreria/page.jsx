@@ -6,6 +6,7 @@ import PermissionGuard from '../../../components/crm/layout/PermissionGuard';
 import { PERMISSIONS } from '../../../utils/adminPermissions';
 import CrmPageHeader from '../../../components/crm/ui/CrmPageHeader';
 import toast from 'react-hot-toast';
+import TesoreriaTransferModal from '../../../components/crm/finance/TransferModal';
 
 const formatMoney = (amount, currency = 'ARS') => {
     return `${currency} ${Number(amount || 0).toLocaleString('es-AR')}`;
@@ -16,7 +17,9 @@ export default function TesoreriaPage() {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
     
+    const [search, setSearch] = useState('');
     const [isTransferModalOpen, setTransferModalOpen] = useState(false);
+    const [isSubmittingTransfer, setIsSubmittingTransfer] = useState(false);
     const [isArqueoModalOpen, setArqueoModalOpen] = useState(false);
     const [activeTab, setActiveTab] = useState('activos');
 
@@ -40,6 +43,56 @@ export default function TesoreriaPage() {
     useEffect(() => {
         loadDashboard();
     }, []);
+
+    const handleTransferSubmit = async (formData) => {
+        setIsSubmittingTransfer(true);
+        try {
+            const token = localStorage.getItem('token');
+            const res = await fetch('/api/admin/tesoreria/transfer', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+                body: JSON.stringify(formData)
+            });
+            if (!res.ok) {
+                const err = await res.json();
+                throw new Error(err.message || 'Error en la transferencia');
+            }
+            toast.success('Transferencia exitosa');
+            await loadDashboard();
+            setTransferModalOpen(false);
+        } catch (error) {
+            toast.error(error.message);
+        } finally {
+            setIsSubmittingTransfer(false);
+        }
+    };
+
+    const getTabSales = (tabId) => {
+        if (!data?.sales) return [];
+        return data.sales.filter(s => {
+            const status = String(s.status).toLowerCase();
+            if (tabId === 'activos') {
+                return ['señado', 'confirmada', 'pendiente_entrega'].includes(status);
+            }
+            if (tabId === 'procesados') {
+                return ['entregada'].includes(status);
+            }
+            if (tabId === 'caidas') {
+                return ['cancelada'].includes(status);
+            }
+            return false;
+        });
+    };
+
+    const countActivos = getTabSales('activos').length;
+    const countProcesados = getTabSales('procesados').length;
+    const countCaidas = getTabSales('caidas').length;
+
+    const tabSales = getTabSales(activeTab);
+    const filteredSales = tabSales.filter(s => {
+        const text = `${s.clientId?.fullName || s.clientId?.firstName || ''} ${s.clientId?.lastName || ''} ${s.vehicleId?.brand || ''} ${s.vehicleId?.name || ''} ${s.vehicleId?.plateOrVin || ''} ${s.salesperson || ''}`.toLowerCase();
+        return text.includes(search.toLowerCase());
+    });
 
     const totalArs = data?.accounts?.filter(a => a.currency === 'ARS').reduce((acc, a) => acc + (a.balance || 0), 0) || 0;
     const totalUsd = data?.accounts?.filter(a => a.currency === 'USD').reduce((acc, a) => acc + (a.balance || 0), 0) || 0;
@@ -83,27 +136,94 @@ export default function TesoreriaPage() {
                     </div>
                 ) : (
                     <div className="space-y-6">
-                        {/* TABS DE EXPEDIENTES */}
-                        <div className="flex border-b border-crm-border">
-                            {['activos', 'procesados', 'caidas'].map(tab => (
-                                <button
-                                    key={tab}
-                                    onClick={() => setActiveTab(tab)}
-                                    className={`px-4 py-3 text-sm font-black transition-colors ${activeTab === tab ? 'border-b-2 border-crm-red text-crm-red' : 'text-crm-fg-muted hover:text-crm-fg bg-transparent border-0 appearance-none'}`}
-                                >
-                                    {tab === 'activos' ? 'Activos' : tab === 'procesados' ? 'Procesados' : 'Operaciones caídas'}
-                                </button>
-                            ))}
+                        {/* TABS DE EXPEDIENTES Y BÚSQUEDA */}
+                        <div className="flex flex-col md:flex-row md:items-center justify-between border-b border-crm-border gap-4 pb-2">
+                            <div className="flex gap-1 overflow-x-auto">
+                                {[
+                                    { id: 'activos', label: `Activos (${countActivos})` },
+                                    { id: 'procesados', label: `Procesados (${countProcesados})` },
+                                    { id: 'caidas', label: `Operaciones caídas (${countCaidas})` }
+                                ].map(tab => (
+                                    <button
+                                        key={tab.id}
+                                        onClick={() => setActiveTab(tab.id)}
+                                        className={`px-4 py-3 text-sm font-black transition-colors shrink-0 ${activeTab === tab.id ? 'border-b-2 border-crm-red text-crm-red' : 'text-crm-fg-muted hover:text-crm-fg bg-transparent border-0 appearance-none'}`}
+                                    >
+                                        {tab.label}
+                                    </button>
+                                ))}
+                            </div>
+                            <div className="relative w-full md:w-64">
+                                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-crm-fg-muted">🔍</span>
+                                <input
+                                    type="text"
+                                    placeholder="Buscar patente, cliente..."
+                                    value={search}
+                                    onChange={(e) => setSearch(e.target.value)}
+                                    className="h-9 w-full rounded-lg border border-crm-border bg-crm-surface pl-9 pr-3 text-sm text-crm-fg placeholder-crm-fg-muted focus:border-crm-red focus:outline-none"
+                                />
+                            </div>
                         </div>
 
-                        {/* EMPTY STATE EXPEDIENTES */}
-                        <div className="flex flex-col items-center justify-center rounded-2xl border border-crm-border bg-crm-surface p-12 text-center shadow-sm">
-                            <Target size={48} className="text-crm-border mb-4" />
-                            <h3 className="text-lg font-black text-crm-fg">Sin expedientes</h3>
-                            <p className="text-sm font-medium text-crm-fg-muted max-w-md mt-2">
-                                Los expedientes aparecerán aquí cuando se creen desde Expedientes Gestoría.
-                            </p>
-                        </div>
+                        {/* LISTADO DE EXPEDIENTES / VENTAS */}
+                        {filteredSales.length > 0 ? (
+                            <div className="rounded-2xl border border-crm-border bg-crm-surface overflow-hidden">
+                                <div className="overflow-x-auto">
+                                    <table className="w-full text-left text-sm text-crm-fg">
+                                        <thead className="bg-crm-bg text-xs font-bold uppercase text-crm-fg-muted">
+                                            <tr>
+                                                <th className="px-6 py-4">Cliente</th>
+                                                <th className="px-6 py-4">Vehículo</th>
+                                                <th className="px-6 py-4">Precio</th>
+                                                <th className="px-6 py-4">Vendedor</th>
+                                                <th className="px-6 py-4">Documentación</th>
+                                                <th className="px-6 py-4">Estado</th>
+                                                <th className="px-6 py-4 text-right">Acciones</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {filteredSales.map(sale => (
+                                                <tr key={sale._id} className="border-b border-crm-border last:border-0 hover:bg-crm-bg/50 transition-colors">
+                                                    <td className="px-6 py-4 font-bold">
+                                                        {sale.clientId?.fullName || `${sale.clientId?.firstName || ''} ${sale.clientId?.lastName || ''}`}
+                                                        {sale.clientId?.phone && <span className="block text-xs text-crm-fg-muted font-normal mt-0.5">{sale.clientId.phone}</span>}
+                                                    </td>
+                                                    <td className="px-6 py-4">
+                                                        <span className="font-bold text-white block">{sale.vehicleId ? `${sale.vehicleId.brand} ${sale.vehicleId.name}` : 'N/A'}</span>
+                                                        {sale.vehicleId?.plateOrVin && <span className="text-xs uppercase font-black tracking-wider text-crm-fg-muted">{sale.vehicleId.plateOrVin}</span>}
+                                                    </td>
+                                                    <td className="px-6 py-4 font-bold">
+                                                        {formatMoney(sale.salePrice, sale.saleCurrency)}
+                                                    </td>
+                                                    <td className="px-6 py-4 text-xs font-medium">{sale.salesperson || 'Sin asignar'}</td>
+                                                    <td className="px-6 py-4">
+                                                        <span className={`inline-block rounded px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider border ${sale.documentationStatus === 'completo' ? 'text-green-400 border-green-400/30 bg-green-400/10' : 'text-yellow-400 border-yellow-400/30 bg-yellow-400/10'}`}>
+                                                            {sale.documentationStatus}
+                                                        </span>
+                                                    </td>
+                                                    <td className="px-6 py-4">
+                                                        <span className="text-xs font-bold uppercase">{sale.status}</span>
+                                                    </td>
+                                                    <td className="px-6 py-4 text-right">
+                                                        <a href={`/admin/ventas/${sale._id}`} className="text-xs font-black uppercase text-crm-red hover:underline inline-flex items-center gap-1">
+                                                            Ver Expediente ↗
+                                                        </a>
+                                                    </td>
+                                                </tr>
+                                            ))}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        ) : (
+                            <div className="flex flex-col items-center justify-center rounded-2xl border border-crm-border bg-crm-surface p-12 text-center shadow-sm">
+                                <Target size={48} className="text-crm-border mb-4" />
+                                <h3 className="text-lg font-black text-crm-fg">Sin expedientes</h3>
+                                <p className="text-sm font-medium text-crm-fg-muted max-w-md mt-2">
+                                    No se encontraron expedientes en esta pestaña que coincidan con la búsqueda.
+                                </p>
+                            </div>
+                        )}
 
                         {/* SECCIÓN SECUNDARIA: CAJAS Y BANCOS ACTUALES */}
                         <div className="mt-12">
@@ -202,11 +322,12 @@ export default function TesoreriaPage() {
                 )}
             </div>
 
-            <TransferModal
+            <TesoreriaTransferModal
                 isOpen={isTransferModalOpen}
                 onClose={() => setTransferModalOpen(false)}
                 accounts={data?.accounts || []}
-                onSuccess={loadDashboard}
+                onSubmit={handleTransferSubmit}
+                isSubmitting={isSubmittingTransfer}
             />
 
             <ArqueoModal
@@ -220,117 +341,6 @@ export default function TesoreriaPage() {
 }
 
 // === Subcomponents for Modals ===
-
-function TransferModal({ isOpen, onClose, accounts, onSuccess }) {
-    const [loading, setLoading] = useState(false);
-    const [formData, setFormData] = useState({
-        fromAccountId: '',
-        toAccountId: '',
-        amount: '',
-        currency: 'ARS',
-        concept: ''
-    });
-
-    if (!isOpen) return null;
-
-    const handleSubmit = async (e) => {
-        e.preventDefault();
-        setLoading(true);
-        try {
-            const token = localStorage.getItem('token');
-            const res = await fetch('/api/admin/tesoreria/transfer', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-                body: JSON.stringify(formData)
-            });
-            if (!res.ok) {
-                const err = await res.json();
-                throw new Error(err.message || 'Error en la transferencia');
-            }
-            toast.success('Transferencia exitosa');
-            onSuccess();
-            onClose();
-        } catch (error) {
-            toast.error(error.message);
-        } finally {
-            setLoading(false);
-        }
-    };
-
-    return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
-            <div className="w-full max-w-md rounded-2xl bg-crm-surface shadow-2xl">
-                <div className="flex items-center justify-between border-b border-crm-border px-6 py-4">
-                    <h3 className="text-lg font-black text-crm-fg">Transferencia Interna</h3>
-                    <button onClick={onClose} className="text-crm-fg-muted hover:text-crm-fg">✕</button>
-                </div>
-                <form onSubmit={handleSubmit} className="p-6 space-y-4">
-                    <div>
-                        <label className="block text-xs font-bold uppercase tracking-wider text-crm-fg-muted mb-1">Origen</label>
-                        <select
-                            required
-                            className="w-full rounded-xl border border-crm-border bg-crm-bg px-3 py-2 text-sm text-crm-fg"
-                            value={formData.fromAccountId}
-                            onChange={e => setFormData({...formData, fromAccountId: e.target.value})}
-                        >
-                            <option value="">Seleccionar cuenta...</option>
-                            {accounts.map(a => <option key={a._id} value={a._id}>{a.name} ({a.currency})</option>)}
-                        </select>
-                    </div>
-                    <div>
-                        <label className="block text-xs font-bold uppercase tracking-wider text-crm-fg-muted mb-1">Destino</label>
-                        <select
-                            required
-                            className="w-full rounded-xl border border-crm-border bg-crm-bg px-3 py-2 text-sm text-crm-fg"
-                            value={formData.toAccountId}
-                            onChange={e => setFormData({...formData, toAccountId: e.target.value})}
-                        >
-                            <option value="">Seleccionar cuenta...</option>
-                            {accounts.map(a => <option key={a._id} value={a._id}>{a.name} ({a.currency})</option>)}
-                        </select>
-                    </div>
-                    <div className="grid grid-cols-2 gap-3">
-                        <div>
-                            <label className="block text-xs font-bold uppercase tracking-wider text-crm-fg-muted mb-1">Monto</label>
-                            <input
-                                type="number" required min="1"
-                                className="w-full rounded-xl border border-crm-border bg-crm-bg px-3 py-2 text-sm text-crm-fg"
-                                value={formData.amount}
-                                onChange={e => setFormData({...formData, amount: e.target.value})}
-                            />
-                        </div>
-                        <div>
-                            <label className="block text-xs font-bold uppercase tracking-wider text-crm-fg-muted mb-1">Moneda</label>
-                            <select
-                                className="w-full rounded-xl border border-crm-border bg-crm-bg px-3 py-2 text-sm text-crm-fg"
-                                value={formData.currency}
-                                onChange={e => setFormData({...formData, currency: e.target.value})}
-                            >
-                                <option value="ARS">ARS</option>
-                                <option value="USD">USD</option>
-                            </select>
-                        </div>
-                    </div>
-                    <div>
-                        <label className="block text-xs font-bold uppercase tracking-wider text-crm-fg-muted mb-1">Concepto</label>
-                        <input
-                            type="text" required
-                            className="w-full rounded-xl border border-crm-border bg-crm-bg px-3 py-2 text-sm text-crm-fg"
-                            value={formData.concept}
-                            onChange={e => setFormData({...formData, concept: e.target.value})}
-                        />
-                    </div>
-                    <div className="pt-4 flex justify-end gap-3 border-t border-crm-border mt-6">
-                        <button type="button" onClick={onClose} className="px-4 py-2 text-sm font-bold text-crm-fg-muted hover:text-crm-fg">Cancelar</button>
-                        <button disabled={loading} type="submit" className="rounded-xl bg-crm-red-gradient px-6 py-2 text-sm font-black text-white shadow-crm-shadow-red disabled:opacity-50">
-                            Transferir
-                        </button>
-                    </div>
-                </form>
-            </div>
-        </div>
-    );
-}
 
 function ArqueoModal({ isOpen, onClose, accounts, onSuccess }) {
     const [loading, setLoading] = useState(false);

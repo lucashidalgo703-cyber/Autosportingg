@@ -30,6 +30,7 @@ export default function LiquidacionesPage() {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
     const [search, setSearch] = useState('');
+    const [monthFilter, setMonthFilter] = useState('');
     const [isSyncing, setIsSyncing] = useState(false);
 
     // Modals
@@ -108,10 +109,12 @@ export default function LiquidacionesPage() {
         }
     };
 
+    const uniquePeriods = Array.from(new Set(settlements.map(s => s.period).filter(Boolean))).sort();
+
     // Derived states
     const filteredSettlements = settlements.filter(s => {
-        const matchesSearch = (s.username?.toLowerCase() || s.beneficiaryName?.toLowerCase() || '').includes(search.toLowerCase()) || 
-                              s.period.toLowerCase().includes(search.toLowerCase());
+        const matchesSearch = (s.username?.toLowerCase() || s.beneficiaryName?.toLowerCase() || '').includes(search.toLowerCase());
+        const matchesMonth = monthFilter ? s.period === monthFilter : true;
         
         const matchesState = filterState === 'todos' ? true : 
                              filterState === 'finalizados' ? ['pagada', 'anulada'].includes(s.status) :
@@ -121,7 +124,7 @@ export default function LiquidacionesPage() {
         if (activeTab === 'transferencias') matchesTab = s.type === 'transferencia_manual';
         if (activeTab === 'liquidaciones') matchesTab = s.type === 'gestoria' || s.type === 'ventas' || !s.type;
         
-        return matchesSearch && matchesState && matchesTab;
+        return matchesSearch && matchesMonth && matchesState && matchesTab;
     });
 
     const renderSummary = () => {
@@ -190,14 +193,28 @@ export default function LiquidacionesPage() {
                     </div>
                 )}
 
-                <div className="mb-6 max-w-md relative">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-crm-fg-subtle" size={16} />
-                    <input
-                        value={search}
-                        onChange={(e) => setSearch(e.target.value)}
-                        placeholder="Buscar por beneficiario o período..."
-                        className="h-10 w-full rounded-xl border border-crm-border bg-crm-bg pl-10 pr-3 text-sm font-medium text-crm-fg outline-none transition focus:border-crm-red"
-                    />
+                <div className="mb-6 flex flex-col sm:flex-row gap-3 max-w-2xl">
+                    <div className="flex-1 relative">
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-crm-fg-subtle" size={16} />
+                        <input
+                            value={search}
+                            onChange={(e) => setSearch(e.target.value)}
+                            placeholder="Buscar por beneficiario..."
+                            className="h-10 w-full rounded-xl border border-crm-border bg-crm-bg pl-10 pr-3 text-sm font-medium text-crm-fg outline-none transition focus:border-crm-red"
+                        />
+                    </div>
+                    <div className="w-full sm:w-48">
+                        <select
+                            value={monthFilter}
+                            onChange={(e) => setMonthFilter(e.target.value)}
+                            className="h-10 w-full rounded-xl border border-crm-border bg-crm-bg px-3 text-sm font-medium text-crm-fg outline-none transition focus:border-crm-red"
+                        >
+                            <option value="">Todos los meses</option>
+                            {uniquePeriods.map(p => (
+                                <option key={p} value={p}>{p}</option>
+                            ))}
+                        </select>
+                    </div>
                 </div>
 
                 {loading ? (

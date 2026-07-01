@@ -41,6 +41,9 @@ const transactionSchema = new mongoose.Schema({
     ivaRate: { type: Number, default: 0 },
     invoiceNumber: { type: String },
     taxNotes: { type: String },
+    // --- Conversión ---
+    exchangeRate: { type: Number },
+    conversionDate: { type: Date },
     // --------------------------------------------------------
 
     createdAt: { type: Date, default: Date.now },

@@ -8427,7 +8427,13 @@ app.get('/api/admin/tesoreria/dashboard', authenticateToken, requirePermission(P
         // Cheques en cartera
         const checks = await Check.find({ status: 'en_cartera' }).lean();
 
-        res.json({ accounts, cuentasPorCobrar, checks });
+        // Ventas / Expedientes
+        const sales = await Sale.find()
+            .populate('vehicleId', 'brand name plateOrVin')
+            .populate('clientId', 'firstName lastName fullName phone')
+            .lean();
+
+        res.json({ accounts, cuentasPorCobrar, checks, sales });
     } catch (error) {
         console.error('GET /api/admin/tesoreria/dashboard error:', error);
         res.status(500).json({ message: error.message });
@@ -8459,12 +8465,28 @@ app.post('/api/admin/tesoreria/transfer', authenticateToken, requirePermission(P
         if (!fromAccount || !toAccount) {
             return res.status(404).json({ message: 'Cuentas no encontradas' });
         }
-        if (fromAccount.currency !== currency || toAccount.currency !== currency) {
-            return res.status(400).json({ message: 'Las monedas de las cuentas no coinciden con la transferencia' });
-        }
 
+        const isConversion = fromAccount.currency !== toAccount.currency;
         const txAmount = Number(amount);
         if (txAmount <= 0) return res.status(400).json({ message: 'Monto inválido' });
+
+        let destAmount = txAmount;
+        let rate = req.body.exchangeRate ? Number(req.body.exchangeRate) : 1;
+
+        if (isConversion) {
+            if (!req.body.exchangeRate) {
+                return res.status(400).json({ message: 'Se requiere la cotización para transferencias multimonedas (conversión)' });
+            }
+            if (!req.body.destAmount) {
+                return res.status(400).json({ message: 'Se requiere el monto de destino para transferencias multimonedas (conversión)' });
+            }
+            destAmount = Number(req.body.destAmount);
+            if (destAmount <= 0) return res.status(400).json({ message: 'Monto de destino inválido' });
+        } else {
+            if (fromAccount.currency !== currency || toAccount.currency !== currency) {
+                return res.status(400).json({ message: 'Las monedas de las cuentas no coinciden con la transferencia' });
+            }
+        }
 
         const txDate = date ? new Date(date) : new Date();
 
@@ -8472,8 +8494,8 @@ app.post('/api/admin/tesoreria/transfer', authenticateToken, requirePermission(P
         const egreso = new Transaction({
             type: 'Egreso',
             amount: txAmount,
-            currency,
-            description: `Transferencia enviada a ${toAccount.name}`,
+            currency: fromAccount.currency,
+            description: `Transferencia enviada a ${toAccount.name}${isConversion ? ` (Conv. a ${toAccount.currency} @ ${rate})` : ''}`,
             category: 'Transferencia Interna',
             accountId: sourceId,
             concept: concept || 'Transferencia entre cuentas',
@@ -8484,6 +8506,8 @@ app.post('/api/admin/tesoreria/transfer', authenticateToken, requirePermission(P
             date: txDate,
             createdBy: req.user?.username || 'Admin',
             status: 'activo',
+            exchangeRate: isConversion ? rate : undefined,
+            conversionDate: isConversion ? txDate : undefined,
             transactionAuditLog: [{ action: 'CREACION', details: 'Transferencia saliente', user: req.user?.username || 'Admin' }]
         });
         await egreso.save();
@@ -8493,9 +8517,9 @@ app.post('/api/admin/tesoreria/transfer', authenticateToken, requirePermission(P
         // Ingreso
         const ingreso = new Transaction({
             type: 'Ingreso',
-            amount: txAmount,
-            currency,
-            description: `Transferencia recibida de ${fromAccount.name}`,
+            amount: destAmount,
+            currency: toAccount.currency,
+            description: `Transferencia recibida de ${fromAccount.name}${isConversion ? ` (Conv. de ${fromAccount.currency} @ ${rate})` : ''}`,
             category: 'Transferencia Interna',
             accountId: destId,
             concept: concept || 'Transferencia entre cuentas',
@@ -8506,10 +8530,12 @@ app.post('/api/admin/tesoreria/transfer', authenticateToken, requirePermission(P
             date: txDate,
             createdBy: req.user?.username || 'Admin',
             status: 'activo',
+            exchangeRate: isConversion ? rate : undefined,
+            conversionDate: isConversion ? txDate : undefined,
             transactionAuditLog: [{ action: 'CREACION', details: 'Transferencia entrante', user: req.user?.username || 'Admin' }]
         });
         await ingreso.save();
-        toAccount.balance += txAmount;
+        toAccount.balance += destAmount;
         await toAccount.save();
 
         const populatedEgreso = await Transaction.findById(egreso._id).populate('accountId');
@@ -10275,42 +10301,70 @@ app.post('/api/admin/finance/seller-commissions/manual', authenticateToken, asyn
             return res.status(403).json({ message: 'Sin permisos para cargar liquidaciones manuales' });
         }
         await connectDB();
-        const { username, period, amount, currency, notes } = req.body;
+        const { username, date, amount, currency, notes, saleId } = req.body;
 
         if (!username || typeof username !== 'string' || username.trim() === '') {
-            return res.status(400).json({ message: 'username es requerido y debe ser texto' });
+            return res.status(400).json({ message: 'El usuario/vendedor es requerido' });
         }
-        if (!period || !/^\d{4}-\d{2}$/.test(period)) {
-            return res.status(400).json({ message: 'period es requerido y debe tener formato YYYY-MM' });
+        if (!date) {
+            return res.status(400).json({ message: 'La fecha es requerida' });
+        }
+        const parsedDate = new Date(date);
+        if (isNaN(parsedDate.getTime())) {
+            return res.status(400).json({ message: 'Fecha inválida' });
+        }
+        const period = date.slice(0, 7); // YYYY-MM
+
+        if (!notes || typeof notes !== 'string' || notes.trim() === '') {
+            return res.status(400).json({ message: 'El motivo es obligatorio' });
         }
         if (!['ARS', 'USD'].includes(currency)) {
-            return res.status(400).json({ message: 'currency debe ser ARS o USD' });
+            return res.status(400).json({ message: 'La moneda debe ser ARS o USD' });
         }
         if (amount === undefined || amount === null || typeof amount !== 'number' || !Number.isFinite(amount) || amount === 0) {
-            return res.status(400).json({ message: 'amount es requerido, debe ser un número finito y distinto de 0' });
+            return res.status(400).json({ message: 'El monto es requerido y no puede ser 0' });
         }
 
         const adjustmentType = amount > 0 ? 'bono' : 'descuento';
         const actionUser = req.user.username || req.user.name || req.user.email || req.user.userId || 'Sistema';
 
+        const includedSales = [];
+        if (saleId) {
+            includedSales.push({
+                saleId,
+                amount,
+                notes
+            });
+        }
+
         const settlement = new Settlement({
             username: username.trim(),
             period,
-            includedSales: [],
+            includedSales,
             totalAmount: amount,
             status: 'borrador',
             adjustments: [{
-                description: 'Ajuste Manual / Comisión Adicional',
+                description: notes.trim(),
                 amount: amount,
                 type: adjustmentType
             }],
-            notes,
+            notes: notes.trim(),
             currency,
-            history: [{ action: 'CREACION_MANUAL', user: actionUser, notes }],
+            history: [{ action: 'CREACION_MANUAL', user: actionUser, notes: notes.trim() }],
             createdBy: req.user.userId || req.user.id
         });
 
         await settlement.save();
+
+        await logAudit({
+            req,
+            action: 'CREACION_MANUAL_COMISION',
+            module: 'finanzas',
+            entityId: settlement._id,
+            entityType: 'Settlement',
+            description: `Comisión manual cargada para ${username} por ${currency} ${amount}. Motivo: ${notes}${saleId ? ` (Venta vinculada: ${saleId})` : ''}`
+        });
+
         res.status(201).json(settlement);
     } catch (err) {
         res.status(500).json({ message: err.message });
@@ -10596,21 +10650,44 @@ app.post('/api/admin/settlements/sync-gestoria', authenticateToken, requirePermi
         const newSettlements = [];
         for (const key in groups) {
             const g = groups[key];
-            const settlement = new Settlement({
-                period: g.period,
+            let settlement = await Settlement.findOne({
                 type: 'gestoria',
                 beneficiaryName: g.gestorName,
-                totalAmount: g.totalAmount,
+                period: g.period,
                 currency: g.currency,
-                includedGestorias: g.gestorias.map(x => ({
-                    gestoriaId: x._id,
-                    amount: x.cost
-                })),
-                status: 'borrador',
-                createdBy: req.user.username
+                status: { $ne: 'anulada' }
             });
-            await settlement.save();
-            newSettlements.push(settlement);
+
+            if (settlement) {
+                // Check if any of these are already in it to avoid duplicates
+                const existingIds = new Set((settlement.includedGestorias || []).map(x => x.gestoriaId.toString()));
+                const toAdd = g.gestorias.filter(x => !existingIds.has(x._id.toString()));
+                if (toAdd.length > 0) {
+                    settlement.includedGestorias.push(...toAdd.map(x => ({
+                        gestoriaId: x._id,
+                        amount: x.cost
+                    })));
+                    settlement.totalAmount += toAdd.reduce((sum, x) => sum + x.cost, 0);
+                    await settlement.save();
+                    newSettlements.push(settlement);
+                }
+            } else {
+                settlement = new Settlement({
+                    period: g.period,
+                    type: 'gestoria',
+                    beneficiaryName: g.gestorName,
+                    totalAmount: g.totalAmount,
+                    currency: g.currency,
+                    includedGestorias: g.gestorias.map(x => ({
+                        gestoriaId: x._id,
+                        amount: x.cost
+                    })),
+                    status: 'borrador',
+                    createdBy: req.user.username
+                });
+                await settlement.save();
+                newSettlements.push(settlement);
+            }
         }
 
         res.json({ message: 'Sincronización completada', count: newSettlements.length });
