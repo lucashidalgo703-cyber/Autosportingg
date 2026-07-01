@@ -109,6 +109,7 @@ export default function ClientFilters({ filters, setFilters, onSearch }) {
                             {chip.label}
                         </button>
                     );
+                })}
             </div>
 
             <div className="flex flex-wrap items-center gap-2">
