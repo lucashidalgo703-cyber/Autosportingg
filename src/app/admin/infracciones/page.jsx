@@ -178,7 +178,7 @@ export default function InfraccionesPage() {
                 <div className="flex h-64 items-center justify-center rounded-xl border border-crm-border bg-crm-surface">
                     <div className="h-8 w-8 animate-spin rounded-full border-2 border-crm-border border-b-crm-red" />
                 </div>
-            ) : (
+            ) : activeTab === 'lista' ? (
                 <div className="grid grid-cols-1 gap-4 lg:grid-cols-2 xl:grid-cols-3">
                     {filteredInfracciones.map(infraccion => (
                         <div key={infraccion._id} className="flex flex-col rounded-xl border border-crm-border bg-crm-surface p-5 transition-all hover:border-crm-red/50">
