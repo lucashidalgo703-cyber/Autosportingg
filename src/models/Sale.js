@@ -82,7 +82,7 @@ const saleSchema = new mongoose.Schema({
     
     paymentMethod: { 
         type: String, 
-        enum: ['contado', 'financiado', 'mixto', 'otro'], 
+        enum: ['contado', 'financiado', 'mixto', 'leasing', 'permuta', 'criptomonedas', 'otro'], 
         default: 'contado' 
     },
     

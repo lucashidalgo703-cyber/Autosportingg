@@ -333,6 +333,23 @@ export default function MisVentasPage() {
                         <Download size={14} />
                         Exportar
                     </CrmButton>
+                    <div className="h-4 w-px bg-crm-border mx-1"></div>
+                    <CrmButton
+                        variant="secondary"
+                        size="sm"
+                        onClick={() => toast('Ir a Nueva Venta para generar Recibo', { icon: '📄' })}
+                        className="h-9 border-neutral-700 bg-crm-surface hover:bg-crm-surface-raised"
+                    >
+                        Nuevo Recibo
+                    </CrmButton>
+                    <CrmButton
+                        variant="secondary"
+                        size="sm"
+                        onClick={() => toast('Ir a Nueva Venta para generar Boleto', { icon: '📝' })}
+                        className="h-9 border-neutral-700 bg-crm-surface hover:bg-crm-surface-raised"
+                    >
+                        Nuevo Boleto
+                    </CrmButton>
                     <CrmButton
                         variant="primary"
                         size="sm"

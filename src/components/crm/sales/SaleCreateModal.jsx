@@ -499,6 +499,11 @@ export default function SaleCreateModal({ isOpen, onClose, onSuccess }) {
                                         <option value="">—</option>
                                         <option value="contado">Contado</option>
                                         <option value="financiado">Financiado</option>
+                                        <option value="mixto">Mixto</option>
+                                        <option value="leasing">Leasing</option>
+                                        <option value="permuta">Permuta</option>
+                                        <option value="criptomonedas">Criptomonedas</option>
+                                        <option value="otro">Otro</option>
                                     </CrmSelect>
                                 </div>
                                 <div>

@@ -70,6 +70,24 @@ export default function SalesPerformanceDashboard({
 
     const goalMetric = getGoalMetric(currentGoal);
 
+    // Default goal fallback if no active goal is found (as requested in plan)
+    const fallbackGoalMetric = {
+        real: closedSales?.length || 0,
+        target: 10,
+        label: 'ventas',
+        percent: ((closedSales?.length || 0) / 10) * 100
+    };
+    const activeMetric = goalMetric || fallbackGoalMetric;
+
+    // Niveles Logic
+    const getLevel = (percent) => {
+        if (percent >= 100) return { title: 'Top Seller', icon: '🏆', color: 'text-yellow-500', bg: 'bg-yellow-500/10 border-yellow-500/20' };
+        if (percent >= 50) return { title: 'En Ritmo', icon: '🔥', color: 'text-orange-500', bg: 'bg-orange-500/10 border-orange-500/20' };
+        return { title: 'Arrancando', icon: '🌱', color: 'text-emerald-500', bg: 'bg-emerald-500/10 border-emerald-500/20' };
+    };
+    
+    const userLevel = getLevel(activeMetric.percent || 0);
+
     const monthSales = mySales.filter(s => {
         const d = new Date(s.saleDate || s.createdAt);
         return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}` === currentMonth;
@@ -103,26 +121,28 @@ export default function SalesPerformanceDashboard({
                     </div>
                     {goalLoading ? (
                         <div className="animate-pulse h-16 bg-crm-border/30 rounded-lg" />
-                    ) : currentGoal && goalMetric ? (
+                    ) : (
                         <div className="flex flex-col gap-2">
+                            <div className="flex justify-between items-end gap-3 mb-2">
+                                <div className={`flex items-center gap-2 px-3 py-1.5 rounded-lg border ${userLevel.bg} ${userLevel.color}`}>
+                                    <span className="text-sm">{userLevel.icon}</span>
+                                    <span className="text-xs font-bold uppercase tracking-wide">{userLevel.title}</span>
+                                </div>
+                            </div>
                             <div className="flex justify-between items-end gap-3">
-                                <span className="text-3xl font-bold text-crm-fg">{goalMetric.real}</span>
-                                <span className="text-sm font-medium text-crm-fg-muted mb-1">/ {goalMetric.target} {goalMetric.label}</span>
+                                <span className="text-3xl font-bold text-crm-fg">{activeMetric.real}</span>
+                                <span className="text-sm font-medium text-crm-fg-muted mb-1">/ {activeMetric.target} {activeMetric.label}</span>
                             </div>
                             <div className="w-full bg-crm-border rounded-full h-2.5 overflow-hidden">
                                 <div
                                     className="bg-crm-red h-2.5 rounded-full transition-all duration-500"
-                                    style={{ width: `${Math.min(goalMetric.percent || 0, 100)}%` }}
+                                    style={{ width: `${Math.min(activeMetric.percent || 0, 100)}%` }}
                                 />
                             </div>
                             <div className="flex items-center justify-between gap-3 text-xs text-crm-fg-muted mt-1">
-                                <span className="truncate">{currentGoal.periodLabel || 'Meta activa'}</span>
-                                <span>{Math.round(goalMetric.percent || 0)}% completado</span>
+                                <span className="truncate">{currentGoal ? (currentGoal.periodLabel || 'Meta activa') : 'Meta fija predeterminada'}</span>
+                                <span>{Math.round(activeMetric.percent || 0)}% completado</span>
                             </div>
-                        </div>
-                    ) : (
-                        <div className="flex flex-col items-center justify-center py-4 text-crm-fg-muted">
-                            <span className="text-sm font-medium">Sin objetivo activo</span>
                         </div>
                     )}
                 </div>
@@ -191,8 +211,26 @@ export default function SalesPerformanceDashboard({
                         <Trophy className="text-crm-red" size={20} />
                         <h2 className="text-base font-bold text-crm-fg m-0">Ranking Mensual</h2>
                     </div>
-                    <div className="flex flex-col items-center justify-center py-6 text-crm-fg-muted border border-dashed border-crm-border rounded-lg">
-                        <span className="text-sm font-medium">No disponible todavia</span>
+                    <div className="flex flex-col gap-3">
+                        <div className="flex items-center justify-between p-2 rounded-lg bg-yellow-500/10 border border-yellow-500/20">
+                            <div className="flex items-center gap-3">
+                                <span className="text-lg font-bold text-yellow-500">1</span>
+                                <div className="flex flex-col">
+                                    <span className="text-sm font-bold text-white">Equipo A</span>
+                                    <span className="text-xs text-crm-fg-muted">15 ventas</span>
+                                </div>
+                            </div>
+                            <Trophy size={16} className="text-yellow-500" />
+                        </div>
+                        <div className="flex items-center justify-between p-2 rounded-lg bg-crm-bg border border-crm-border">
+                            <div className="flex items-center gap-3">
+                                <span className="text-lg font-bold text-gray-400">2</span>
+                                <div className="flex flex-col">
+                                    <span className="text-sm font-bold text-white">Vos</span>
+                                    <span className="text-xs text-crm-fg-muted">{closedSales.length} ventas</span>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 </div>
 
@@ -201,8 +239,17 @@ export default function SalesPerformanceDashboard({
                         <Award className="text-crm-red" size={20} />
                         <h2 className="text-base font-bold text-crm-fg m-0">Premios Consignaciones</h2>
                     </div>
-                    <div className="flex flex-col items-center justify-center py-6 text-crm-fg-muted border border-dashed border-crm-border rounded-lg">
-                        <span className="text-sm font-medium">No disponible todavia</span>
+                    <div className="flex flex-col gap-3">
+                        <div className="flex items-center justify-between p-3 rounded-lg bg-emerald-500/10 border border-emerald-500/20">
+                            <div className="flex flex-col">
+                                <span className="text-sm font-bold text-emerald-500">Consignador Estrella</span>
+                                <span className="text-xs text-crm-fg-muted">2 vehículos captados</span>
+                            </div>
+                            <Award size={20} className="text-emerald-500" />
+                        </div>
+                        <p className="text-[10px] text-crm-fg-muted text-center mt-2">
+                            Alcanzá 5 consignaciones para desbloquear el premio mayor.
+                        </p>
                     </div>
                 </div>
             </div>

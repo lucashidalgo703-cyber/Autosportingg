@@ -28,6 +28,7 @@ const quoteSchema = new mongoose.Schema({
         year: { type: Number, default: null },
         plate: { type: String, default: '' },
         mileage: { type: Number, default: null },
+        condition: { type: String, default: '' },
         value: { type: Number, default: 0 },
         currency: { type: String, enum: ['ARS', 'USD'], default: 'USD' }
     },
