@@ -1,7 +1,7 @@
 "use client";
 import toast from 'react-hot-toast';
 import React, { useEffect, useState } from 'react';
-import { Plus, Search, Edit2, Trash2, Phone, Mail, Building2, AlignLeft } from 'lucide-react';
+import { Plus, Search, Edit2, Trash2, Phone, Mail, Building2, AlignLeft, MapPin, Clock, Copy, Check } from 'lucide-react';
 import { useTelefonos } from '../../../hooks/useTelefonos';
 import CrmButton from '../../../components/crm/ui/CrmButton';
 import ConfirmModal from '../../../components/crm/ui/ConfirmModal';
@@ -11,26 +11,36 @@ export default function TelefonosPage() {
     const [search, setSearch] = useState('');
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [editingContact, setEditingContact] = useState(null);
-    const [formData, setFormData] = useState({ name: '', category: 'Otro', phone: '', email: '', notes: '' });
+    const [formData, setFormData] = useState({ name: '', category: 'Otro', phone: '', email: '', address: '', schedule: '', notes: '' });
     const [confirmDelete, setConfirmDelete] = useState({ isOpen: false, id: null });
+    const [copiedId, setCopiedId] = useState(null);
 
     useEffect(() => {
         fetchTelefonos();
     }, [fetchTelefonos]);
 
     const filteredTelefonos = telefonos.filter(t => 
-        t.name.toLowerCase().includes(search.toLowerCase()) || 
-        t.category.toLowerCase().includes(search.toLowerCase()) ||
-        t.phone.toLowerCase().includes(search.toLowerCase())
+        t.name?.toLowerCase().includes(search.toLowerCase()) || 
+        t.category?.toLowerCase().includes(search.toLowerCase()) ||
+        t.phone?.toLowerCase().includes(search.toLowerCase()) ||
+        t.address?.toLowerCase().includes(search.toLowerCase())
     );
 
     const handleOpenModal = (contact = null) => {
         if (contact) {
             setEditingContact(contact);
-            setFormData({ name: contact.name, category: contact.category, phone: contact.phone, email: contact.email || '', notes: contact.notes || '' });
+            setFormData({ 
+                name: contact.name, 
+                category: contact.category, 
+                phone: contact.phone, 
+                email: contact.email || '', 
+                address: contact.address || '',
+                schedule: contact.schedule || '',
+                notes: contact.notes || '' 
+            });
         } else {
             setEditingContact(null);
-            setFormData({ name: '', category: 'Otro', phone: '', email: '', notes: '' });
+            setFormData({ name: '', category: 'Otro', phone: '', email: '', address: '', schedule: '', notes: '' });
         }
         setIsModalOpen(true);
     };
@@ -130,14 +140,40 @@ export default function TelefonosPage() {
                             </div>
                             
                             <div className="flex flex-col gap-3 text-sm text-crm-fg-muted">
-                                <div className="flex items-center gap-3">
-                                    <Phone size={16} className="text-crm-fg opacity-70" />
-                                    <a href={`tel:${contact.phone}`} className="hover:text-crm-red transition-colors font-medium text-crm-fg">{contact.phone}</a>
+                                <div className="flex items-center justify-between">
+                                    <div className="flex items-center gap-3">
+                                        <Phone size={16} className="text-crm-fg opacity-70" />
+                                        <a href={`tel:${contact.phone}`} className="hover:text-crm-red transition-colors font-medium text-crm-fg">{contact.phone}</a>
+                                    </div>
+                                    <button 
+                                        onClick={() => {
+                                            navigator.clipboard.writeText(contact.phone);
+                                            setCopiedId(contact._id);
+                                            toast.success('Número copiado al portapapeles');
+                                            setTimeout(() => setCopiedId(null), 2000);
+                                        }}
+                                        className="text-crm-fg-muted hover:text-white p-1 rounded hover:bg-crm-bg transition-colors"
+                                        title="Copiar número"
+                                    >
+                                        {copiedId === contact._id ? <Check size={14} className="text-green-400" /> : <Copy size={14} />}
+                                    </button>
                                 </div>
                                 {contact.email && (
                                     <div className="flex items-center gap-3">
                                         <Mail size={16} className="text-crm-fg opacity-70" />
-                                        <a href={`mailto:${contact.email}`} className="hover:text-crm-red transition-colors">{contact.email}</a>
+                                        <a href={`mailto:${contact.email}`} className="hover:text-crm-red transition-colors truncate">{contact.email}</a>
+                                    </div>
+                                )}
+                                {contact.schedule && (
+                                    <div className="flex items-center gap-3">
+                                        <Clock size={16} className="text-crm-fg opacity-70" />
+                                        <span className="text-xs">{contact.schedule}</span>
+                                    </div>
+                                )}
+                                {contact.address && (
+                                    <div className="flex items-center gap-3">
+                                        <MapPin size={16} className="text-crm-fg opacity-70 shrink-0" />
+                                        <span className="text-xs truncate" title={contact.address}>{contact.address}</span>
                                     </div>
                                 )}
                                 {contact.notes && (
@@ -192,6 +228,16 @@ export default function TelefonosPage() {
                                 <div>
                                     <label className="mb-1.5 block text-xs font-bold uppercase tracking-wider text-crm-fg-muted">Email (Opcional)</label>
                                     <input type="email" value={formData.email} onChange={e => setFormData({...formData, email: e.target.value})} className="w-full rounded-lg border border-crm-border bg-crm-bg px-4 py-2.5 text-sm text-crm-fg focus:border-crm-red focus:outline-none focus:ring-1 focus:ring-crm-red" />
+                                </div>
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div>
+                                        <label className="mb-1.5 block text-xs font-bold uppercase tracking-wider text-crm-fg-muted">Horario de Atención</label>
+                                        <input type="text" placeholder="Ej: Lun a Vie 9 a 18 hs" value={formData.schedule} onChange={e => setFormData({...formData, schedule: e.target.value})} className="w-full rounded-lg border border-crm-border bg-crm-bg px-4 py-2.5 text-sm text-crm-fg focus:border-crm-red focus:outline-none focus:ring-1 focus:ring-crm-red" />
+                                    </div>
+                                    <div>
+                                        <label className="mb-1.5 block text-xs font-bold uppercase tracking-wider text-crm-fg-muted">Dirección</label>
+                                        <input type="text" placeholder="Ej: Av. Córdoba 1234" value={formData.address} onChange={e => setFormData({...formData, address: e.target.value})} className="w-full rounded-lg border border-crm-border bg-crm-bg px-4 py-2.5 text-sm text-crm-fg focus:border-crm-red focus:outline-none focus:ring-1 focus:ring-crm-red" />
+                                    </div>
                                 </div>
                                 <div>
                                     <label className="mb-1.5 block text-xs font-bold uppercase tracking-wider text-crm-fg-muted">Notas adicionales</label>

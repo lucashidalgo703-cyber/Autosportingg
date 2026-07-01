@@ -52,8 +52,8 @@ export default function WorkshopPage() {
     // Mapped tabs for Sote CRM
     const tabs = [
         { id: 'resumen', label: 'Resumen' },
-        { id: 'ing_vendedor', label: 'Ing. x vendedor' },
-        { id: 'ing_taller', label: 'Ing. x taller' },
+        { id: 'ing_vendedor', label: 'Ingresado por vendedor' },
+        { id: 'ing_taller', label: 'Ingresado por taller' },
         { id: 'presupuestado', label: 'Presupuestado' },
         { id: 'aprobado', label: 'Aprobado' },
         { id: 'en_proceso', label: 'En proceso' },

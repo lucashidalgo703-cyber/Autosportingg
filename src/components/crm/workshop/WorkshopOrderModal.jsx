@@ -682,16 +682,18 @@ export default function WorkshopOrderModal({ isOpen, onClose, onSuccess }) {
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div>
                             <FieldLabel required>Marca</FieldLabel>
-                            <CrmSelect
+                            <CrmInput
                                 value={brand}
                                 onChange={(e) => setBrand(e.target.value)}
+                                placeholder="Escribe o selecciona marca..."
+                                list="brand-options"
                                 className="h-10 bg-crm-bg text-crm-fg font-medium"
-                            >
-                                <option value="">Elegí la marca...</option>
+                            />
+                            <datalist id="brand-options">
                                 {popularBrands.map(b => (
-                                    <option key={b} value={b}>{b}</option>
+                                    <option key={b} value={b} />
                                 ))}
-                            </CrmSelect>
+                            </datalist>
                         </div>
                         <div>
                             <FieldLabel required>Modelo</FieldLabel>

@@ -25,6 +25,14 @@ const PhoneContactSchema = new mongoose.Schema({
         type: String,
         trim: true
     },
+    address: {
+        type: String,
+        trim: true
+    },
+    schedule: {
+        type: String,
+        trim: true
+    },
     createdBy: {
         type: mongoose.Schema.Types.ObjectId,
         ref: 'AdminUser'
