@@ -234,7 +234,7 @@ export default function AdminClientesPage() {
                 </>
                 ) : (
                     <div className="flex flex-col gap-4">
-                        {leadsLoading ? (
+                        {loading ? (
                             <div className="flex h-64 items-center justify-center rounded-xl border border-crm-border bg-crm-surface">
                                 <div className="flex flex-col items-center gap-3">
                                     <div className="h-8 w-8 animate-spin rounded-full border-2 border-crm-border border-b-crm-red" />
@@ -245,7 +245,7 @@ export default function AdminClientesPage() {
                             <ClientPipelineBoard 
                                 clients={clients || []} 
                                 onChangeStatus={handleClientStatusChange} 
-                                readOnly={!canWriteLeads}
+                                readOnly={!hasPermission(user, PERMISSIONS.CLIENTES_WRITE)}
                             />
                         )}
                     </div>
