@@ -43,6 +43,26 @@ const InfraccionSchema = new mongoose.Schema({
         type: Number,
         default: 0
     },
+    chargedAmount: {
+        type: Number,
+        default: 0
+    },
+    grossProfit: {
+        type: Number,
+        default: 0
+    },
+    agencyPercentage: {
+        type: Number,
+        default: 100
+    },
+    paymentStatus: {
+        type: String,
+        enum: ['Pendiente', 'Pagado', 'Parcial'],
+        default: 'Pendiente'
+    },
+    receiptImage: {
+        type: String
+    },
     chargedToClient: {
         type: Boolean,
         default: false

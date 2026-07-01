@@ -1151,6 +1151,7 @@ app.get('/api/admin/cars', authenticateToken, requirePermission(PERMISSIONS.STOC
         const totalFiltered = await Car.countDocuments(query);
         const cars = await Car.find(query)
             .select('-auditLog')
+            .populate('consignmentSeller', 'name email')
             .sort({ order: 1, createdAt: -1 })
             .skip(skip)
             .limit(parsedLimit)

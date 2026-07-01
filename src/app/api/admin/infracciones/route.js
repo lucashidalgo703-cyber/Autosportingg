@@ -9,9 +9,9 @@ export const GET = withAdminAuth(PERMISSIONS.INFRACCIONES_READ, async (request) 
         await connectDB();
         const infracciones = await Infraccion.find()
             .populate('vehicleId', 'brand name plateOrVin')
-            .populate('clientId', 'name')
+            .populate('clientId', 'firstName lastName fullName documentNumber')
             .populate('saleId', 'status')
-            .populate('responsible', 'name')
+            .populate('responsible', 'name email')
             .sort({ createdAt: -1 });
         return NextResponse.json(infracciones);
     } catch (error) {

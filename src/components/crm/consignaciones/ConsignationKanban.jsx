@@ -4,6 +4,9 @@ import ConsignationKanbanColumn from './ConsignationKanbanColumn';
 export default function ConsignationKanban({ consignations, onChangeStatus }) {
     
     const columns = [
+        { id: 'pendiente_contacto', title: 'Pdte Contacto' },
+        { id: 'contactado', title: 'Contactado' },
+        { id: 'agendado', title: 'Agendado' },
         { id: 'ingreso', title: 'Ingreso' },
         { id: 'tasacion', title: 'Tasación' },
         { id: 'documentacion', title: 'Documentación' },

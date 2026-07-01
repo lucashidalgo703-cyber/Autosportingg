@@ -10,9 +10,10 @@ export const GET = withAdminAuth(PERMISSIONS.GESTORIA_READ, async (request) => {
     try {
         await connectDB();
         // Populate vehicle to show brand/model if linked
-        const tramites = await Gestoria.find()
+            const tramites = await Gestoria.find()
             .populate('vehicleId', 'brand name plateOrVin')
-            .populate('clientId', 'name')
+            .populate('clientId', 'firstName lastName fullName documentNumber')
+            .populate('sellerId', 'firstName lastName fullName documentNumber')
             .sort({ createdAt: -1 });
         return NextResponse.json(tramites);
     } catch (error) {

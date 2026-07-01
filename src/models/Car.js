@@ -32,9 +32,15 @@ const carSchema = new mongoose.Schema({
     consignedBy: { type: String },
     consignmentStatus: { 
         type: String, 
-        enum: ['ingreso', 'tasacion', 'documentacion', 'publicado', 'reservado', 'vendido', 'cerrado', 'cancelado'],
-        default: 'ingreso'
+        enum: ['pendiente_contacto', 'contactado', 'agendado', 'ingreso', 'tasacion', 'documentacion', 'publicado', 'reservado', 'vendido', 'cerrado', 'cancelado'],
+        default: 'pendiente_contacto'
     },
+    consignmentExpectedPrice: { type: Number },
+    consignmentValuation: { type: Number },
+    consignmentCommission: { type: Number },
+    consignmentNextContact: { type: Date },
+    consignmentSeller: { type: mongoose.Schema.Types.ObjectId, ref: 'AdminUser' },
+    consignmentGoal: { type: Number },
     engineNumber: { type: String },
     chassisNumber: { type: String },
     hasManuals: { type: String, default: 'No' },

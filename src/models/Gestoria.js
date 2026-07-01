@@ -21,7 +21,11 @@ const GestoriaSchema = new mongoose.Schema({
     },
     clientId: {
         type: mongoose.Schema.Types.ObjectId,
-        ref: 'Client'
+        ref: 'Client' // Comprador
+    },
+    sellerId: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'Client' // Propietario / Vendedor
     },
     saleId: {
         type: mongoose.Schema.Types.ObjectId,
@@ -41,12 +45,16 @@ const GestoriaSchema = new mongoose.Schema({
     },
     status: {
         type: String,
-        enum: ['Iniciado', 'En Registro', 'Observado', 'Para Retirar', 'Finalizado', 'Cancelado'],
-        default: 'Iniciado'
+        enum: ['Pendiente', 'Documentación', 'Presentado', 'Observado', 'Transferido', 'Finalizado', 'Cancelado'],
+        default: 'Pendiente'
     },
     cost: {
         type: Number,
-        default: 0
+        default: 0 // Costo real
+    },
+    chargedAmount: {
+        type: Number,
+        default: 0 // Cobro al cliente
     },
     currency: {
         type: String,
@@ -67,6 +75,11 @@ const GestoriaSchema = new mongoose.Schema({
         type: String,
         trim: true
     },
+    documents: [{
+        name: String,
+        url: String,
+        type: String
+    }],
     createdBy: {
         type: mongoose.Schema.Types.ObjectId,
         ref: 'AdminUser'

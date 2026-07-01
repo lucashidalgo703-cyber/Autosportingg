@@ -10,6 +10,13 @@ export default function ConsignacionesPage() {
     const { cars, loading, error, refresh: fetchCars } = useAdminCars();
     const [search, setSearch] = useState('');
     const [viewMode, setViewMode] = useState('pipeline'); // 'lista' or 'pipeline'
+    const [isModalOpen, setIsModalOpen] = useState(false);
+    const [formData, setFormData] = useState({
+        brand: '', name: '', year: new Date().getFullYear(), km: 0, fuel: 'Nafta', condition: 'Usado',
+        price: '', currency: 'USD', ownerName: '', ownerPhone: '', consignedBy: '',
+        consignmentExpectedPrice: '', consignmentValuation: '', consignmentCommission: '', consignmentNextContact: '',
+        agencyOwned: false, status: 'Disponible', consignmentStatus: 'pendiente_contacto'
+    });
 
     useEffect(() => {
         fetchCars();
@@ -61,6 +68,8 @@ export default function ConsignacionesPage() {
                 updates.status = 'Vendido';
             } else if (newConsignmentStatus === 'cancelado') {
                 updates.status = 'Cancelado';
+            } else {
+                updates.status = 'Disponible';
             }
 
             const res = await fetch(`/api/admin/cars/${carId}`, {
@@ -78,6 +87,33 @@ export default function ConsignacionesPage() {
             if (!res.ok) throw new Error('Error al cambiar de estado');
             
             toast.success('Estado actualizado');
+            fetchCars();
+        } catch (err) {
+            toast.error(err.message);
+        }
+    };
+
+    const handleCreateConsignacion = async (e) => {
+        e.preventDefault();
+        try {
+            const token = localStorage.getItem('token');
+            const res = await fetch('/api/cars', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                },
+                body: JSON.stringify(formData)
+            });
+            if (!res.ok) throw new Error('Error al crear consignación');
+            toast.success('Consignación creada exitosamente');
+            setIsModalOpen(false);
+            setFormData({
+                brand: '', name: '', year: new Date().getFullYear(), km: 0, fuel: 'Nafta', condition: 'Usado',
+                price: '', currency: 'USD', ownerName: '', ownerPhone: '', consignedBy: '',
+                consignmentExpectedPrice: '', consignmentValuation: '', consignmentCommission: '', consignmentNextContact: '',
+                agencyOwned: false, status: 'Disponible', consignmentStatus: 'pendiente_contacto'
+            });
             fetchCars();
         } catch (err) {
             toast.error(err.message);
@@ -107,6 +143,10 @@ export default function ConsignacionesPage() {
                             className="h-9 w-64 rounded-lg border border-crm-border bg-crm-surface pl-9 pr-3 text-sm text-crm-fg placeholder-crm-fg-muted focus:border-crm-red focus:outline-none focus:ring-1 focus:ring-crm-red"
                         />
                     </div>
+                    <button onClick={() => setIsModalOpen(true)} className="flex h-9 items-center justify-center gap-2 rounded-lg bg-crm-red px-4 text-sm font-bold text-white transition-all hover:bg-red-600">
+                        <Plus size={14} />
+                        Nueva Consignación
+                    </button>
                 </div>
             </div>
 
@@ -193,6 +233,12 @@ export default function ConsignacionesPage() {
                                         <span>Consignado por: <span className="text-crm-fg font-medium">{car.consignedBy}</span></span>
                                     </div>
                                 )}
+                                {(car.consignmentExpectedPrice || car.consignmentCommission) && (
+                                    <div className="mt-2 pt-2 border-t border-crm-border/50 flex flex-col gap-1 text-xs">
+                                        {car.consignmentExpectedPrice && <div>Precio Pretendido: <span className="text-white font-bold">{car.currency} {car.consignmentExpectedPrice.toLocaleString('es-AR')}</span></div>}
+                                        {car.consignmentCommission && <div>Comisión: <span className="text-white font-bold">{car.consignmentCommission}%</span></div>}
+                                    </div>
+                                )}
                                 <div className="flex items-center gap-2">
                                     <MapPin size={14} className="text-crm-fg opacity-70 shrink-0" />
                                     <span>Ubicación: {car.location || 'Salón Principal'}</span>
@@ -210,6 +256,86 @@ export default function ConsignacionesPage() {
                             <p>No hay vehículos en consignación activos.</p>
                         </div>
                     )}
+                </div>
+            )}
+
+            {isModalOpen && (
+                <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 overflow-y-auto">
+                    <div className="w-full max-w-2xl rounded-2xl border border-crm-border bg-crm-surface shadow-2xl my-auto">
+                        <div className="flex items-center justify-between border-b border-crm-border px-6 py-4 sticky top-0 bg-crm-surface z-10 rounded-t-2xl">
+                            <h2 className="text-lg font-bold text-white">Nueva Consignación</h2>
+                            <button type="button" onClick={() => setIsModalOpen(false)} className="text-crm-fg-muted hover:text-white text-2xl leading-none">&times;</button>
+                        </div>
+                        <form onSubmit={handleCreateConsignacion} className="p-6 space-y-6">
+                            
+                            <div className="space-y-4">
+                                <h3 className="text-sm font-bold text-crm-red border-b border-crm-border/50 pb-2 uppercase tracking-wider">Vehículo</h3>
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    <div>
+                                        <label className="mb-1.5 block text-xs font-bold uppercase tracking-wider text-crm-fg-muted">Marca *</label>
+                                        <input required type="text" placeholder="Ej: Toyota" value={formData.brand} onChange={e => setFormData({...formData, brand: e.target.value})} className="w-full rounded-lg border border-crm-border bg-crm-bg px-4 py-2.5 text-sm text-crm-fg focus:border-crm-red focus:outline-none focus:ring-1 focus:ring-crm-red" />
+                                    </div>
+                                    <div>
+                                        <label className="mb-1.5 block text-xs font-bold uppercase tracking-wider text-crm-fg-muted">Modelo / Versión *</label>
+                                        <input required type="text" placeholder="Ej: Hilux SRX" value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} className="w-full rounded-lg border border-crm-border bg-crm-bg px-4 py-2.5 text-sm text-crm-fg focus:border-crm-red focus:outline-none focus:ring-1 focus:ring-crm-red" />
+                                    </div>
+                                    <div>
+                                        <label className="mb-1.5 block text-xs font-bold uppercase tracking-wider text-crm-fg-muted">Año</label>
+                                        <input type="number" value={formData.year} onChange={e => setFormData({...formData, year: e.target.value})} className="w-full rounded-lg border border-crm-border bg-crm-bg px-4 py-2.5 text-sm text-crm-fg focus:border-crm-red focus:outline-none focus:ring-1 focus:ring-crm-red" />
+                                    </div>
+                                    <div>
+                                        <label className="mb-1.5 block text-xs font-bold uppercase tracking-wider text-crm-fg-muted">Kilómetros</label>
+                                        <input type="number" value={formData.km} onChange={e => setFormData({...formData, km: e.target.value})} className="w-full rounded-lg border border-crm-border bg-crm-bg px-4 py-2.5 text-sm text-crm-fg focus:border-crm-red focus:outline-none focus:ring-1 focus:ring-crm-red" />
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div className="space-y-4">
+                                <h3 className="text-sm font-bold text-crm-red border-b border-crm-border/50 pb-2 uppercase tracking-wider">Propietario</h3>
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    <div>
+                                        <label className="mb-1.5 block text-xs font-bold uppercase tracking-wider text-crm-fg-muted">Nombre del Dueño *</label>
+                                        <input required type="text" value={formData.ownerName} onChange={e => setFormData({...formData, ownerName: e.target.value})} className="w-full rounded-lg border border-crm-border bg-crm-bg px-4 py-2.5 text-sm text-crm-fg focus:border-crm-red focus:outline-none focus:ring-1 focus:ring-crm-red" />
+                                    </div>
+                                    <div>
+                                        <label className="mb-1.5 block text-xs font-bold uppercase tracking-wider text-crm-fg-muted">Teléfono</label>
+                                        <input type="text" value={formData.ownerPhone} onChange={e => setFormData({...formData, ownerPhone: e.target.value})} className="w-full rounded-lg border border-crm-border bg-crm-bg px-4 py-2.5 text-sm text-crm-fg focus:border-crm-red focus:outline-none focus:ring-1 focus:ring-crm-red" />
+                                    </div>
+                                    <div className="col-span-full">
+                                        <label className="mb-1.5 block text-xs font-bold uppercase tracking-wider text-crm-fg-muted">Vendedor a Cargo de la Consignación</label>
+                                        <input type="text" placeholder="Ej: Juan Perez" value={formData.consignedBy} onChange={e => setFormData({...formData, consignedBy: e.target.value})} className="w-full rounded-lg border border-crm-border bg-crm-bg px-4 py-2.5 text-sm text-crm-fg focus:border-crm-red focus:outline-none focus:ring-1 focus:ring-crm-red" />
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div className="space-y-4">
+                                <h3 className="text-sm font-bold text-crm-red border-b border-crm-border/50 pb-2 uppercase tracking-wider">Acuerdo Comercial</h3>
+                                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                    <div>
+                                        <label className="mb-1.5 block text-xs font-bold uppercase tracking-wider text-crm-fg-muted">Precio Pretendido</label>
+                                        <input type="number" value={formData.consignmentExpectedPrice} onChange={e => setFormData({...formData, consignmentExpectedPrice: e.target.value})} className="w-full rounded-lg border border-crm-border bg-crm-bg px-4 py-2.5 text-sm text-crm-fg focus:border-crm-red focus:outline-none focus:ring-1 focus:ring-crm-red" />
+                                    </div>
+                                    <div>
+                                        <label className="mb-1.5 block text-xs font-bold uppercase tracking-wider text-crm-fg-muted">Nuestra Tasación</label>
+                                        <input type="number" value={formData.consignmentValuation} onChange={e => setFormData({...formData, consignmentValuation: e.target.value})} className="w-full rounded-lg border border-crm-border bg-crm-bg px-4 py-2.5 text-sm text-crm-fg focus:border-crm-red focus:outline-none focus:ring-1 focus:ring-crm-red" />
+                                    </div>
+                                    <div>
+                                        <label className="mb-1.5 block text-xs font-bold uppercase tracking-wider text-crm-fg-muted">Comisión %</label>
+                                        <input type="number" value={formData.consignmentCommission} onChange={e => setFormData({...formData, consignmentCommission: e.target.value})} className="w-full rounded-lg border border-crm-border bg-crm-bg px-4 py-2.5 text-sm text-crm-fg focus:border-crm-red focus:outline-none focus:ring-1 focus:ring-crm-red" />
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div className="pt-4 flex justify-end gap-3 border-t border-crm-border">
+                                <button type="button" onClick={() => setIsModalOpen(false)} className="rounded-lg border border-crm-border bg-crm-bg px-4 py-2 text-sm font-bold text-white transition-colors hover:border-crm-red hover:text-crm-red">
+                                    Cancelar
+                                </button>
+                                <button type="submit" className="rounded-lg bg-crm-red px-6 py-2 text-sm font-bold text-white shadow-lg transition-all hover:bg-red-600">
+                                    Crear Consignación
+                                </button>
+                            </div>
+                        </form>
+                    </div>
                 </div>
             )}
         </div>
