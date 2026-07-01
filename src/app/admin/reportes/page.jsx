@@ -7,6 +7,7 @@ import { useAdminCars } from '../../../hooks/useAdminCars';
 import { useAdminLeads } from '../../../hooks/useAdminLeads';
 import PermissionGuard from '../../../components/crm/layout/PermissionGuard';
 import { PERMISSIONS } from '../../../utils/adminPermissions';
+import LoadingSkeleton from '../../../components/crm/ui/LoadingSkeleton';
 
 const MONTHS = [
     'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
@@ -113,30 +114,30 @@ function ReportesPageInner() {
         cars: []
     });
 
+    const loadReportData = async () => {
+        setLoading(true);
+        setError(null);
+
+        try {
+            const [salesData, carsData] = await Promise.all([
+                fetchSales(),
+                fetchCars(),
+                fetchLeads({ limit: 1000 })
+            ]);
+
+            setData({
+                sales: Array.isArray(salesData) ? salesData : [],
+                cars: Array.isArray(carsData) ? carsData : []
+            });
+        } catch (err) {
+            console.error('Error loading reports data:', err);
+            setError('No se pudieron cargar los datos de reportes.');
+        } finally {
+            setLoading(false);
+        }
+    };
+
     useEffect(() => {
-        const loadReportData = async () => {
-            setLoading(true);
-            setError(null);
-
-            try {
-                const [salesData, carsData] = await Promise.all([
-                    fetchSales(),
-                    fetchCars(),
-                    fetchLeads({ limit: 1000 })
-                ]);
-
-                setData({
-                    sales: Array.isArray(salesData) ? salesData : [],
-                    cars: Array.isArray(carsData) ? carsData : []
-                });
-            } catch (err) {
-                console.error('Error loading reports data:', err);
-                setError('No se pudieron cargar los datos de reportes.');
-            } finally {
-                setLoading(false);
-            }
-        };
-
         loadReportData();
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
@@ -223,8 +224,24 @@ function ReportesPageInner() {
 
     if (loading) {
         return (
-            <div className="flex h-72 items-center justify-center font-sans text-xs font-bold uppercase tracking-wider text-zinc-500">
-                Cargando reportes...
+            <div className="mx-auto w-full max-w-7xl px-3 py-5 pb-24 font-sans sm:px-4 sm:py-6">
+                <header className="mb-4">
+                    <LoadingSkeleton className="h-8 w-48 mb-2" />
+                    <LoadingSkeleton className="h-4 w-64" />
+                </header>
+                
+                <LoadingSkeleton className="h-32 w-full mb-6 rounded-2xl" />
+                <LoadingSkeleton className="h-24 w-full mb-6 rounded-2xl" />
+                
+                <div className="grid gap-4 md:grid-cols-2 mb-6">
+                    <LoadingSkeleton className="h-48 w-full rounded-xl" />
+                    <LoadingSkeleton className="h-48 w-full rounded-xl" />
+                </div>
+                
+                <div className="grid gap-4 md:grid-cols-2 mb-6">
+                    <LoadingSkeleton className="h-48 w-full rounded-xl" />
+                    <LoadingSkeleton className="h-48 w-full rounded-xl" />
+                </div>
             </div>
         );
     }
@@ -243,8 +260,14 @@ function ReportesPageInner() {
             </header>
 
             {error && (
-                <div className="rounded-xl border border-red-500/20 bg-crm-red/10 p-4 text-sm font-medium text-red-200">
-                    {error}
+                <div className="mb-6 rounded-xl border border-red-500/20 bg-crm-red/10 p-4 flex items-center justify-between gap-4">
+                    <span className="text-sm font-medium text-red-200">{error}</span>
+                    <button 
+                        onClick={loadReportData}
+                        className="rounded-lg bg-crm-red px-4 py-2 text-xs font-bold text-white shadow-sm hover:bg-red-500 transition-colors"
+                    >
+                        Reintentar
+                    </button>
                 </div>
             )}
 

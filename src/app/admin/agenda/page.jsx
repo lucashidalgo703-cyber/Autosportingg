@@ -18,18 +18,8 @@ import { useAdminCrmTasks } from '../../../hooks/useAdminCrmTasks';
 import CrmTaskModal from '../../../components/crm/agenda/CrmTaskModal';
 
 const MONTHS = [
-    'Enero',
-    'Febrero',
-    'Marzo',
-    'Abril',
-    'Mayo',
-    'Junio',
-    'Julio',
-    'Agosto',
-    'Septiembre',
-    'Octubre',
-    'Noviembre',
-    'Diciembre'
+    'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
+    'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'
 ];
 
 const WEEK_DAYS = ['DOM', 'LUN', 'MAR', 'MIÉ', 'JUE', 'VIE', 'SÁB'];
@@ -43,12 +33,10 @@ const todayStart = () => {
 
 const parseDate = (value) => {
     if (!value) return null;
-
     if (typeof value === 'string' && /^\d{4}-\d{2}-\d{2}/.test(value)) {
         const [year, month, day] = value.slice(0, 10).split('-').map(Number);
         return new Date(year, month - 1, day);
     }
-
     const date = new Date(value);
     return Number.isNaN(date.getTime()) ? null : date;
 };
@@ -84,7 +72,6 @@ const getVehicleName = (vehicle) => {
 
 const eventColorByType = (type, priority) => {
     if (priority === 'alta') return '#dc2626';
-
     const colors = {
         venta: '#10b981',
         cobranza: '#f59e0b',
@@ -94,7 +81,6 @@ const eventColorByType = (type, priority) => {
         cotizacion: '#dc2626',
         general: '#71717a'
     };
-
     return colors[type] || colors.general;
 };
 
@@ -109,11 +95,10 @@ const eventTypeLabel = (type) => {
         lead: 'Llamada',
         cotizacion: 'Cotizacion'
     };
-
     return labels[type] || 'Otro';
 };
 
-const formatMonthTitle = (month, year) => `${MONTHS[month]} De ${year}`;
+const formatMonthTitle = (month, year) => `${MONTHS[month]} de ${year}`;
 
 const formatEventDate = (date) => {
     if (!date) return '';
@@ -127,10 +112,7 @@ function EventListRow({ event, onCompleteCrmTask, onCompleteLeadTask, onEditCrmT
     return (
         <div className="group flex flex-col gap-4 border-b border-crm-border p-4 transition-colors last:border-b-0 hover:bg-zinc-900/40 sm:flex-row sm:items-center sm:justify-between">
             <div className="flex min-w-0 items-start gap-4">
-                <span
-                    className="mt-1 h-10 w-1.5 shrink-0 rounded-full"
-                    style={{ backgroundColor: event.color }}
-                />
+                <span className="mt-1 h-10 w-1.5 shrink-0 rounded-full" style={{ backgroundColor: event.color }} />
                 <div className="min-w-0 space-y-1">
                     <h4 className="m-0 truncate text-sm font-bold text-white">{event.title}</h4>
                     <p className="m-0 max-w-xl whitespace-pre-line text-xs leading-relaxed text-zinc-400">
@@ -138,43 +120,27 @@ function EventListRow({ event, onCompleteCrmTask, onCompleteLeadTask, onEditCrmT
                     </p>
                 </div>
             </div>
-
             <div className="flex shrink-0 items-center justify-between gap-4 border-t border-crm-border pt-3 sm:justify-end sm:border-t-0 sm:pt-0">
                 <div className="flex flex-col sm:items-end">
                     <span className="text-xs font-bold text-white">{formatEventDate(event.date)}</span>
-                    <span className="mt-1 text-[9px] font-bold uppercase tracking-widest text-zinc-500">
-                        Fecha limite
-                    </span>
+                    <span className="mt-1 text-[9px] font-bold uppercase tracking-widest text-zinc-500">Fecha limite</span>
                 </div>
                 <div className="flex items-center gap-2 opacity-0 transition-opacity group-hover:opacity-100">
                     {event.href && (
-                        <a
-                            href={event.href}
-                            className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-crm-border bg-zinc-900 text-zinc-500 opacity-100 transition-colors hover:border-zinc-700 hover:text-white sm:opacity-0 sm:group-hover:opacity-100"
-                            title="Ver detalle"
-                        >
+                        <a href={event.href} className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-crm-border bg-zinc-900 text-zinc-500 opacity-100 transition-colors hover:border-zinc-700 hover:text-white sm:opacity-0 sm:group-hover:opacity-100" title="Ver detalle">
                             <ExternalLink size={14} />
                         </a>
                     )}
                     {event.kind === 'crm-task' && (
-                        <button
-                            type="button"
-                            onClick={() => onEditCrmTask(event.rawTask)}
-                            className="m-0 inline-flex h-9 appearance-none items-center rounded-lg border border-crm-border bg-zinc-900 px-3 text-xs font-bold text-zinc-500 opacity-100 transition-colors hover:border-zinc-700 hover:text-white sm:opacity-0 sm:group-hover:opacity-100"
-                        >
+                        <button type="button" onClick={() => onEditCrmTask(event.rawTask)} className="m-0 inline-flex h-9 appearance-none items-center rounded-lg border border-crm-border bg-zinc-900 px-3 text-xs font-bold text-zinc-500 opacity-100 transition-colors hover:border-zinc-700 hover:text-white sm:opacity-0 sm:group-hover:opacity-100">
                             Editar
                         </button>
                     )}
                     {(event.kind === 'crm-task' || event.kind === 'lead-task') && (
-                        <button
-                            type="button"
-                            onClick={() => {
-                                if (event.kind === 'crm-task') onCompleteCrmTask(event.taskId);
-                                if (event.kind === 'lead-task') onCompleteLeadTask(event.leadId, event.taskId);
-                            }}
-                            className="m-0 inline-flex h-9 w-9 appearance-none items-center justify-center rounded-lg border border-emerald-500/20 bg-emerald-500/10 text-emerald-300 opacity-100 transition-colors hover:bg-emerald-500/15 sm:opacity-0 sm:group-hover:opacity-100"
-                            title="Completar"
-                        >
+                        <button type="button" onClick={() => {
+                            if (event.kind === 'crm-task') onCompleteCrmTask(event.taskId);
+                            if (event.kind === 'lead-task') onCompleteLeadTask(event.leadId, event.taskId);
+                        }} className="m-0 inline-flex h-9 w-9 appearance-none items-center justify-center rounded-lg border border-emerald-500/20 bg-emerald-500/10 text-emerald-300 opacity-100 transition-colors hover:bg-emerald-500/15 sm:opacity-0 sm:group-hover:opacity-100" title="Completar">
                             <CheckCircle2 size={14} />
                         </button>
                     )}
@@ -189,8 +155,9 @@ export default function AdminAgendaPage() {
     const { tasks: crmTasks, loading: loadingTasks, error: errorTasks, fetchTasks, createTask: createCrmTask, updateTask: updateCrmTask } = useAdminCrmTasks();
 
     const today = todayStart();
-    const [currentMonth, setCurrentMonth] = useState(today.getMonth());
-    const [currentYear, setCurrentYear] = useState(today.getFullYear());
+    const [currentDate, setCurrentDate] = useState(today);
+    const [viewMode, setViewMode] = useState('Mes'); // 'Mes', 'Semana', 'Día'
+    
     const [activeTab, setActiveTab] = useState('Proximos');
     const [searchQuery, setSearchQuery] = useState('');
     const [dateFrom, setDateFrom] = useState('');
@@ -207,29 +174,28 @@ export default function AdminAgendaPage() {
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
-    useEffect(() => {
-        const firstDay = new Date(currentYear, currentMonth, 1);
-        const lastDay = new Date(currentYear, currentMonth + 1, 0);
-        setDateFrom(toInputDate(firstDay));
-        setDateTo(toInputDate(lastDay));
-    }, [currentMonth, currentYear]);
-
-    const handlePrevMonth = () => {
-        if (currentMonth === 0) {
-            setCurrentMonth(11);
-            setCurrentYear((prev) => prev - 1);
+    const handlePrev = () => {
+        const newDate = new Date(currentDate);
+        if (viewMode === 'Mes') {
+            newDate.setMonth(newDate.getMonth() - 1);
+        } else if (viewMode === 'Semana') {
+            newDate.setDate(newDate.getDate() - 7);
         } else {
-            setCurrentMonth((prev) => prev - 1);
+            newDate.setDate(newDate.getDate() - 1);
         }
+        setCurrentDate(newDate);
     };
 
-    const handleNextMonth = () => {
-        if (currentMonth === 11) {
-            setCurrentMonth(0);
-            setCurrentYear((prev) => prev + 1);
+    const handleNext = () => {
+        const newDate = new Date(currentDate);
+        if (viewMode === 'Mes') {
+            newDate.setMonth(newDate.getMonth() + 1);
+        } else if (viewMode === 'Semana') {
+            newDate.setDate(newDate.getDate() + 7);
         } else {
-            setCurrentMonth((prev) => prev + 1);
+            newDate.setDate(newDate.getDate() + 1);
         }
+        setCurrentDate(newDate);
     };
 
     const openNewEvent = (date = todayStart()) => {
@@ -287,7 +253,6 @@ export default function AdminAgendaPage() {
 
     const normalizedEvents = useMemo(() => {
         const events = [];
-
         leads.forEach((lead) => {
             const leadName = getLeadName(lead);
             const owner = getClientName(lead.assignedTo) || getClientName(lead.createdBy) || 'Equipo';
@@ -428,16 +393,19 @@ export default function AdminAgendaPage() {
         return Array.from(new Set(normalizedEvents.map((event) => event.owner).filter(Boolean))).sort((a, b) => a.localeCompare(b));
     }, [normalizedEvents]);
 
-    const getDayEvents = (day) => {
+    const getDayEvents = (dateObj) => {
         return normalizedEvents.filter((event) => (
-            event.date.getDate() === day &&
-            event.date.getMonth() === currentMonth &&
-            event.date.getFullYear() === currentYear
+            event.date.getDate() === dateObj.getDate() &&
+            event.date.getMonth() === dateObj.getMonth() &&
+            event.date.getFullYear() === dateObj.getFullYear()
         ));
     };
 
+    const currentMonth = currentDate.getMonth();
+    const currentYear = currentDate.getFullYear();
     const daysInMonth = new Date(currentYear, currentMonth + 1, 0).getDate();
     const firstDayOffset = new Date(currentYear, currentMonth, 1).getDay();
+
     const upcomingEvents = normalizedEvents.filter((event) => {
         const eventDate = new Date(event.date);
         eventDate.setHours(0, 0, 0, 0);
@@ -446,6 +414,115 @@ export default function AdminAgendaPage() {
     const pastEventsCount = normalizedEvents.length - upcomingEvents.length;
 
     const loading = loadingLeads || loadingTasks;
+
+    const renderCalendarGrid = () => {
+        if (viewMode === 'Mes') {
+            return (
+                <div className="grid grid-cols-7 gap-y-1 text-center">
+                    {Array.from({ length: firstDayOffset }).map((_, index) => (
+                        <div key={`offset-${index}`} className="h-11 bg-transparent" />
+                    ))}
+                    {Array.from({ length: daysInMonth }).map((_, index) => {
+                        const day = index + 1;
+                        const isTodayDay = day === today.getDate() && currentMonth === today.getMonth() && currentYear === today.getFullYear();
+                        const clickedDate = new Date(currentYear, currentMonth, day);
+                        const dayEvents = getDayEvents(clickedDate);
+
+                        return (
+                            <button
+                                key={day}
+                                type="button"
+                                onClick={() => openNewEvent(clickedDate)}
+                                className={`relative m-0 flex h-16 sm:h-20 appearance-none cursor-pointer flex-col items-center justify-start rounded-lg border border-crm-border/30 p-1 transition-colors hover:bg-zinc-800/40 ${
+                                    isTodayDay ? 'bg-crm-red/10 border-crm-red/30' : 'bg-transparent'
+                                }`}
+                            >
+                                <span className={`text-xs font-bold ${isTodayDay ? 'text-crm-red' : 'text-zinc-200'}`}>{day}</span>
+                                <div className="mt-1 flex w-full flex-col gap-0.5 overflow-hidden px-0.5">
+                                    {dayEvents.slice(0, 3).map((event) => (
+                                        <div key={event.id} className="w-full truncate rounded px-1 py-0.5 text-[9px] font-bold text-white text-left" style={{ backgroundColor: event.color }}>
+                                            {event.title}
+                                        </div>
+                                    ))}
+                                    {dayEvents.length > 3 && (
+                                        <div className="text-[10px] font-bold text-zinc-500">+{dayEvents.length - 3} mas</div>
+                                    )}
+                                </div>
+                            </button>
+                        );
+                    })}
+                </div>
+            );
+        } else if (viewMode === 'Semana') {
+            const startOfWeek = new Date(currentDate);
+            startOfWeek.setDate(currentDate.getDate() - currentDate.getDay());
+            
+            return (
+                <div className="grid grid-cols-7 gap-1">
+                    {Array.from({ length: 7 }).map((_, index) => {
+                        const date = new Date(startOfWeek);
+                        date.setDate(date.getDate() + index);
+                        const isTodayDay = date.getDate() === today.getDate() && date.getMonth() === today.getMonth() && date.getFullYear() === today.getFullYear();
+                        const dayEvents = getDayEvents(date);
+
+                        return (
+                            <div key={index} className={`flex min-h-[300px] flex-col rounded-lg border border-crm-border/30 p-1 ${isTodayDay ? 'bg-crm-red/5 border-crm-red/30' : 'bg-transparent'}`}>
+                                <div className="mb-2 text-center">
+                                    <span className="block text-[10px] font-bold uppercase text-zinc-500">{WEEK_DAYS[date.getDay()]}</span>
+                                    <span className={`text-sm font-bold ${isTodayDay ? 'text-crm-red' : 'text-zinc-200'}`}>{date.getDate()}</span>
+                                </div>
+                                <div className="flex flex-1 flex-col gap-1 overflow-y-auto">
+                                    {dayEvents.map(event => (
+                                        <button key={event.id} onClick={(e) => { e.stopPropagation(); handleEditCrmTask(event.rawTask || event); }} className="w-full truncate rounded px-1.5 py-1 text-[10px] font-bold text-white text-left transition-opacity hover:opacity-80" style={{ backgroundColor: event.color }}>
+                                            {event.title}
+                                        </button>
+                                    ))}
+                                    <button type="button" onClick={() => openNewEvent(date)} className="mt-1 w-full rounded border border-dashed border-crm-border py-1 text-[10px] font-bold text-zinc-500 hover:bg-zinc-800/40 hover:text-white">
+                                        + Añadir
+                                    </button>
+                                </div>
+                            </div>
+                        );
+                    })}
+                </div>
+            );
+        } else {
+            const isTodayDay = currentDate.getDate() === today.getDate() && currentDate.getMonth() === today.getMonth() && currentDate.getFullYear() === today.getFullYear();
+            const dayEvents = getDayEvents(currentDate);
+            
+            return (
+                <div className="flex min-h-[300px] flex-col rounded-lg border border-crm-border/30 p-3">
+                    <div className="mb-4 flex items-center justify-between">
+                        <h3 className={`text-lg font-bold ${isTodayDay ? 'text-crm-red' : 'text-white'}`}>
+                            {WEEK_DAYS[currentDate.getDay()]} {currentDate.getDate()} de {MONTHS[currentDate.getMonth()]}
+                        </h3>
+                        <button type="button" onClick={() => openNewEvent(currentDate)} className="rounded-lg bg-crm-red px-3 py-1.5 text-xs font-bold text-white shadow-sm hover:bg-red-500">
+                            + Nuevo Evento
+                        </button>
+                    </div>
+                    
+                    <div className="flex flex-col gap-2">
+                        {dayEvents.length === 0 ? (
+                            <div className="py-10 text-center text-sm text-zinc-500">No hay eventos para este día.</div>
+                        ) : (
+                            dayEvents.map(event => (
+                                <div key={event.id} className="flex items-center gap-3 rounded-lg border border-crm-border bg-zinc-900/40 p-3 hover:bg-zinc-800/40 cursor-pointer" onClick={() => handleEditCrmTask(event.rawTask || event)}>
+                                    <span className="h-full min-h-[40px] w-1.5 rounded-full" style={{ backgroundColor: event.color }} />
+                                    <div className="min-w-0 flex-1">
+                                        <div className="flex items-center justify-between">
+                                            <h4 className="m-0 truncate text-sm font-bold text-white">{event.title}</h4>
+                                            <span className="text-xs font-bold text-zinc-400">{event.time || 'Todo el día'}</span>
+                                        </div>
+                                        <p className="m-0 mt-1 truncate text-xs text-zinc-500">{event.description}</p>
+                                    </div>
+                                </div>
+                            ))
+                        )}
+                    </div>
+                </div>
+            );
+        }
+    };
 
     return (
         <div className="mx-auto w-full max-w-7xl space-y-6 px-4 pb-24 pt-6 font-sans text-white animate-in fade-in duration-300 md:px-6 md:pt-7">
@@ -498,80 +575,57 @@ export default function AdminAgendaPage() {
                 <>
                     <div className="grid w-full items-start gap-4 xl:grid-cols-12">
                         <section className="rounded-lg border border-crm-border bg-crm-surface p-5 shadow-sm xl:col-span-8">
-                            <div className="relative mb-6 flex h-7 items-center justify-center">
-                                <button
-                                    type="button"
-                                    onClick={handlePrevMonth}
-                                    className="absolute left-0 top-1/2 m-0 inline-flex h-8 w-8 -translate-y-1/2 appearance-none items-center justify-center rounded-lg border-0 bg-transparent p-0 text-zinc-400 transition-colors hover:text-white"
-                                    aria-label="Mes anterior"
-                                >
-                                    <ChevronLeft size={18} />
-                                </button>
-                                <h2 className="m-0 text-base font-bold text-white">
-                                    {formatMonthTitle(currentMonth, currentYear)}
-                                </h2>
-                                <button
-                                    type="button"
-                                    onClick={handleNextMonth}
-                                    className="absolute right-0 top-1/2 m-0 inline-flex h-8 w-8 -translate-y-1/2 appearance-none items-center justify-center rounded-lg border-0 bg-transparent p-0 text-zinc-400 transition-colors hover:text-white"
-                                    aria-label="Mes siguiente"
-                                >
-                                    <ChevronRight size={18} />
-                                </button>
-                            </div>
-
-                            <div className="mb-3 grid grid-cols-7 text-center">
-                                {WEEK_DAYS.map((day) => (
-                                    <span key={day} className="py-2 text-xs font-bold uppercase text-zinc-500">
-                                        {day}
-                                    </span>
-                                ))}
-                            </div>
-
-                            <div className="grid grid-cols-7 gap-y-1 text-center">
-                                {Array.from({ length: firstDayOffset }).map((_, index) => (
-                                    <div key={`offset-${index}`} className="h-11 bg-transparent" />
-                                ))}
-
-                                {Array.from({ length: daysInMonth }).map((_, index) => {
-                                    const day = index + 1;
-                                    const isTodayDay = day === today.getDate() && currentMonth === today.getMonth() && currentYear === today.getFullYear();
-                                    const dayEvents = getDayEvents(day);
-                                    const clickedDate = new Date(currentYear, currentMonth, day);
-
-                                    return (
+                            <div className="mb-6 flex flex-col items-center justify-between gap-4 sm:flex-row">
+                                <div className="flex items-center gap-2 rounded-lg bg-zinc-900/50 p-1">
+                                    {['Mes', 'Semana', 'Día'].map((mode) => (
                                         <button
-                                            key={day}
-                                            type="button"
-                                            onClick={() => openNewEvent(clickedDate)}
-                                            className={`relative m-0 flex h-11 appearance-none cursor-pointer items-center justify-center rounded-lg border-0 p-0 text-base font-bold transition-colors hover:bg-zinc-800/40 ${
-                                                isTodayDay
-                                                    ? 'bg-crm-red text-white shadow-md shadow-crm-red/25 hover:bg-crm-red'
-                                                    : 'bg-transparent text-zinc-200'
-                                            }`}
+                                            key={mode}
+                                            onClick={() => setViewMode(mode)}
+                                            className={`rounded-md px-3 py-1.5 text-xs font-bold transition-colors ${viewMode === mode ? 'bg-crm-surface text-white shadow-sm' : 'text-zinc-500 hover:text-white'}`}
                                         >
-                                            <span>{day}</span>
-
-                                            {dayEvents.length > 0 && (
-                                                <div className="absolute bottom-1.5 flex max-w-full flex-wrap items-center justify-center gap-1">
-                                                    {dayEvents.slice(0, 3).map((event) => (
-                                                        <span
-                                                            key={event.id}
-                                                            className="h-1.5 w-1.5 rounded-full"
-                                                            style={{ backgroundColor: event.color }}
-                                                        />
-                                                    ))}
-                                                    {dayEvents.length > 3 && (
-                                                        <span className={`text-[7px] font-bold leading-none ${isTodayDay ? 'text-white/80' : 'text-zinc-500'}`}>
-                                                            +
-                                                        </span>
-                                                    )}
-                                                </div>
-                                            )}
+                                            {mode}
                                         </button>
-                                    );
-                                })}
+                                    ))}
+                                </div>
+                                <div className="relative flex h-7 items-center justify-center gap-3">
+                                    <button
+                                        type="button"
+                                        onClick={handlePrev}
+                                        className="m-0 inline-flex h-8 w-8 appearance-none items-center justify-center rounded-lg border-0 bg-transparent p-0 text-zinc-400 transition-colors hover:bg-zinc-800 hover:text-white"
+                                        aria-label="Anterior"
+                                    >
+                                        <ChevronLeft size={18} />
+                                    </button>
+                                    <h2 className="m-0 min-w-[140px] text-center text-base font-bold text-white">
+                                        {viewMode === 'Mes' && formatMonthTitle(currentMonth, currentYear)}
+                                        {viewMode === 'Semana' && `Semana del ${new Date(currentDate.setDate(currentDate.getDate() - currentDate.getDay())).getDate()} ${MONTHS[currentDate.getMonth()].slice(0,3)}`}
+                                        {viewMode === 'Día' && `${currentDate.getDate()} de ${MONTHS[currentMonth]}`}
+                                    </h2>
+                                    <button
+                                        type="button"
+                                        onClick={handleNext}
+                                        className="m-0 inline-flex h-8 w-8 appearance-none items-center justify-center rounded-lg border-0 bg-transparent p-0 text-zinc-400 transition-colors hover:bg-zinc-800 hover:text-white"
+                                        aria-label="Siguiente"
+                                    >
+                                        <ChevronRight size={18} />
+                                    </button>
+                                </div>
+                                <button onClick={() => setCurrentDate(todayStart())} className="rounded-lg border border-crm-border px-3 py-1.5 text-xs font-bold text-zinc-400 hover:bg-crm-surface-raised hover:text-white">
+                                    Hoy
+                                </button>
                             </div>
+
+                            {viewMode === 'Mes' && (
+                                <div className="mb-3 grid grid-cols-7 text-center">
+                                    {WEEK_DAYS.map((day) => (
+                                        <span key={day} className="py-2 text-xs font-bold uppercase text-zinc-500">
+                                            {day}
+                                        </span>
+                                    ))}
+                                </div>
+                            )}
+
+                            {renderCalendarGrid()}
                         </section>
 
                         <aside className="min-h-[146px] self-start rounded-lg border border-crm-border bg-crm-surface p-5 shadow-sm xl:col-span-4">
@@ -580,7 +634,7 @@ export default function AdminAgendaPage() {
                                     <span className="text-base font-bold text-white">📅 Próximos eventos</span>
                                 </div>
 
-                                <div className="custom-scrollbar max-h-[240px] space-y-3 overflow-y-auto pr-1">
+                                <div className="custom-scrollbar max-h-[400px] space-y-3 overflow-y-auto pr-1">
                                     {upcomingEvents.slice(0, 5).length === 0 ? (
                                         <div className="py-7 text-center text-sm text-zinc-500">
                                             Sin próximos eventos.
@@ -589,7 +643,8 @@ export default function AdminAgendaPage() {
                                         upcomingEvents.slice(0, 5).map((event) => (
                                             <div
                                                 key={event.id}
-                                                className="flex items-start gap-3 rounded-xl border border-crm-border bg-zinc-900/60 p-3 transition-colors hover:border-zinc-700"
+                                                className="flex items-start gap-3 rounded-xl border border-crm-border bg-zinc-900/60 p-3 transition-colors hover:border-zinc-700 cursor-pointer"
+                                                onClick={() => handleEditCrmTask(event.rawTask || event)}
                                             >
                                                 <span
                                                     className="h-8 w-1 shrink-0 rounded-full"
@@ -599,7 +654,7 @@ export default function AdminAgendaPage() {
                                                     <p className="m-0 truncate text-xs font-bold leading-tight text-white">{event.title}</p>
                                                     <div className="mt-1.5 flex items-center gap-1.5 text-[10px] font-medium text-zinc-500">
                                                         <Clock size={10} />
-                                                        <span>{formatEventDate(event.date)}</span>
+                                                        <span>{formatEventDate(event.date)} {event.time && `- ${event.time}`}</span>
                                                     </div>
                                                 </div>
                                             </div>

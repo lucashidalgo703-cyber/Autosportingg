@@ -9,7 +9,8 @@ import {
     MessageCircle,
     Sparkles,
     UserRoundCheck,
-    X
+    X,
+    Filter
 } from 'lucide-react';
 
 const groups = [
@@ -236,6 +237,31 @@ export default function AdminAlertasPage() {
         reservations: [],
         cars: []
     });
+    
+    const [filterType, setFilterType] = useState('Todas');
+    const [filterOwner, setFilterOwner] = useState('Todos');
+
+    // Load dismissed alerts from local storage on mount
+    useEffect(() => {
+        try {
+            const stored = localStorage.getItem('dismissedAlerts');
+            if (stored) {
+                setDismissedIds(JSON.parse(stored));
+            }
+        } catch (e) {
+            console.error('Failed to parse dismissed alerts from local storage', e);
+        }
+    }, []);
+
+    const handleDismiss = (id) => {
+        setDismissedIds((prev) => {
+            const next = [...prev, id];
+            try {
+                localStorage.setItem('dismissedAlerts', JSON.stringify(next));
+            } catch (e) {}
+            return next;
+        });
+    };
 
     useEffect(() => {
         let mounted = true;
@@ -279,7 +305,9 @@ export default function AdminAlertasPage() {
                 href: '/admin/configuracion/general',
                 action: 'Ir a Configuración',
                 badge: 'Novedad',
-                icon: MessageCircle
+                icon: MessageCircle,
+                owner: 'Sistema',
+                date: null
             }
         ];
 
@@ -292,7 +320,6 @@ export default function AdminAlertasPage() {
                 const date = normalizeDate(task.dueDate);
                 return date && date < today;
             })
-            .slice(0, 6)
             .forEach((task) => {
                 items.push({
                     id: `task-overdue-${task._id || task.id}`,
@@ -302,7 +329,9 @@ export default function AdminAlertasPage() {
                     href: '/admin/agenda',
                     action: 'Ver Calendario',
                     badge: formatDate(task.dueDate),
-                    icon: CalendarDays
+                    icon: CalendarDays,
+                    owner: task.assignedTo?.name || task.assignedTo || 'Equipo',
+                    date: normalizeDate(task.dueDate)
                 });
             });
 
@@ -311,7 +340,6 @@ export default function AdminAlertasPage() {
                 const date = normalizeDate(task.dueDate);
                 return date && date.getTime() === today.getTime();
             })
-            .slice(0, 5)
             .forEach((task) => {
                 items.push({
                     id: `task-today-${task._id || task.id}`,
@@ -321,13 +349,14 @@ export default function AdminAlertasPage() {
                     href: '/admin/agenda',
                     action: 'Ver Calendario',
                     badge: formatDate(task.dueDate),
-                    icon: CalendarDays
+                    icon: CalendarDays,
+                    owner: task.assignedTo?.name || task.assignedTo || 'Equipo',
+                    date: normalizeDate(task.dueDate)
                 });
             });
 
         activeSales
             .filter((sale) => String(sale.documentationStatus || '').toLowerCase() !== 'completo')
-            .slice(0, 5)
             .forEach((sale) => {
                 items.push({
                     id: `doc-${sale._id || sale.id}`,
@@ -337,13 +366,14 @@ export default function AdminAlertasPage() {
                     href: '/admin/documentacion',
                     action: 'Ver Documentación',
                     badge: sale.documentationStatus || 'Pendiente',
-                    icon: FileWarning
+                    icon: FileWarning,
+                    owner: sale.salesperson || sale.assignedTo?.name || 'Ventas',
+                    date: normalizeDate(sale.createdAt || sale.updatedAt)
                 });
             });
 
         activeLeads
             .filter((lead) => daysSince(lead.nextActionDate || lead.updatedAt || lead.createdAt, 0) >= 7)
-            .slice(0, 4)
             .forEach((lead) => {
                 const name = `${lead.firstName || ''} ${lead.lastName || ''}`.trim() || lead.name || 'Cotización';
                 items.push({
@@ -354,14 +384,14 @@ export default function AdminAlertasPage() {
                     href: '/admin/leads',
                     action: 'Ver Cotizaciones',
                     badge: formatDate(lead.nextActionDate || lead.updatedAt || lead.createdAt),
-                    icon: UserRoundCheck
+                    icon: UserRoundCheck,
+                    owner: lead.assignedTo?.name || lead.assignedTo || 'Ventas',
+                    date: normalizeDate(lead.nextActionDate || lead.updatedAt || lead.createdAt)
                 });
             });
 
         data.cars
             .filter((car) => isActiveVehicle(car.status) && daysSince(car.createdAt || car.updatedAt) <= 3)
-            .sort((a, b) => new Date(b.createdAt || b.updatedAt || 0) - new Date(a.createdAt || a.updatedAt || 0))
-            .slice(0, 3)
             .forEach((car) => {
                 const name = `${car.brand || ''} ${car.name || car.model || ''} ${car.year || ''}`.replace(/\s+/g, ' ').trim() || 'Vehículo en stock';
                 items.push({
@@ -372,13 +402,14 @@ export default function AdminAlertasPage() {
                     href: `/admin/stock/${car._id || car.id}`,
                     action: 'Ver Stock',
                     badge: 'Novedad',
-                    icon: Sparkles
+                    icon: Sparkles,
+                    owner: 'Sistema',
+                    date: normalizeDate(car.createdAt || car.updatedAt)
                 });
             });
 
         data.reservations
             .filter((reservation) => String(reservation.status || '').toLowerCase() === 'activa')
-            .slice(0, 4)
             .forEach((reservation) => {
                 items.push({
                     id: `reservation-${reservation._id || reservation.id}`,
@@ -388,12 +419,39 @@ export default function AdminAlertasPage() {
                     href: '/admin/ventas',
                     action: 'Ver Ventas',
                     badge: 'Baja',
-                    icon: Sparkles
+                    icon: Sparkles,
+                    owner: reservation.salesperson || reservation.assignedTo?.name || 'Ventas',
+                    date: normalizeDate(reservation.createdAt || reservation.updatedAt)
                 });
             });
 
-        return items.filter((item) => !dismissedIds.includes(item.id));
-    }, [data, dismissedIds, today]);
+        let filtered = items.filter((item) => !dismissedIds.includes(item.id));
+        
+        if (filterType !== 'Todas') {
+            filtered = filtered.filter(item => item.category === filterType);
+        }
+        
+        if (filterOwner !== 'Todos') {
+            filtered = filtered.filter(item => item.owner === filterOwner);
+        }
+        
+        // Ordenamiento por fecha dentro de la prioridad (las más antiguas primero, es decir las más vencidas)
+        filtered.sort((a, b) => {
+            if (!a.date) return -1;
+            if (!b.date) return 1;
+            return a.date.getTime() - b.date.getTime();
+        });
+
+        return filtered;
+    }, [data, dismissedIds, today, filterType, filterOwner]);
+
+    const ownersList = useMemo(() => {
+        const owners = new Set();
+        alerts.forEach(alert => {
+            if (alert.owner) owners.add(alert.owner);
+        });
+        return ['Todos', ...Array.from(owners).sort()];
+    }, [alerts]);
 
     const groupedAlerts = useMemo(() => {
         return groups.reduce((acc, group) => {
@@ -433,6 +491,35 @@ export default function AdminAlertasPage() {
                     ))}
                 </div>
             </div>
+            
+            <div className="flex flex-col sm:flex-row items-center gap-3">
+                <div className="flex w-full sm:w-auto h-10 items-center rounded-lg border border-crm-border bg-crm-surface px-3 text-zinc-400">
+                    <Filter size={14} className="mr-2 shrink-0" />
+                    <select
+                        value={filterType}
+                        onChange={(e) => setFilterType(e.target.value)}
+                        className="w-full cursor-pointer appearance-none border-none bg-transparent text-sm font-bold text-white outline-none"
+                    >
+                        <option value="Todas">Todas las prioridades</option>
+                        {groups.map(g => (
+                            <option key={g.key} value={g.key}>{g.title}</option>
+                        ))}
+                    </select>
+                </div>
+                
+                <div className="flex w-full sm:w-auto h-10 items-center rounded-lg border border-crm-border bg-crm-surface px-3 text-zinc-400">
+                    <UserRoundCheck size={14} className="mr-2 shrink-0" />
+                    <select
+                        value={filterOwner}
+                        onChange={(e) => setFilterOwner(e.target.value)}
+                        className="w-full cursor-pointer appearance-none border-none bg-transparent text-sm font-bold text-white outline-none"
+                    >
+                        {ownersList.map(owner => (
+                            <option key={owner} value={owner}>{owner === 'Todos' ? 'Todos los responsables' : owner}</option>
+                        ))}
+                    </select>
+                </div>
+            </div>
 
             {loading ? (
                 <section className="flex min-h-[220px] flex-col items-center justify-center rounded-xl border border-crm-border bg-crm-surface text-center">
@@ -450,13 +537,13 @@ export default function AdminAlertasPage() {
                             alerts={groupedAlerts[group.key] || []}
                             isOpen={!closedGroups[group.key]}
                             onToggle={() => toggleGroup(group.key)}
-                            onDismiss={(id) => setDismissedIds((prev) => [...prev, id])}
+                            onDismiss={handleDismiss}
                         />
                     ))}
 
                     {alerts.length === 0 && (
                         <section className="flex min-h-[180px] flex-col items-center justify-center rounded-xl border border-dashed border-crm-border bg-crm-surface text-center">
-                            <Check size={42} className="mb-4 text-crm-fg-muted" />
+                            <Check size={42} className="mb-4 text-emerald-500/50" />
                             <h3 className="m-0 text-sm font-bold text-crm-fg">Todo en orden</h3>
                             <p className="m-0 mt-2 text-sm text-crm-fg-muted">No hay alertas pendientes en este momento.</p>
                         </section>

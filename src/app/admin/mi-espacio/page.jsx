@@ -20,7 +20,8 @@ import {
     Repeat,
     Trophy,
     Users,
-    Wallet
+    Wallet,
+    MessageCircle
 } from 'lucide-react';
 import { useAuth } from '../../../context/AuthContext';
 import { useAdminCars } from '../../../hooks/useAdminCars';
@@ -45,7 +46,14 @@ const PERSONAL_MARKERS = {
     contact: '[MI_ESPACIO_CONTACTO]'
 };
 
-const tabs = [
+const mainTabs = [
+    { label: 'Mi resumen', icon: BarChart3 },
+    { label: 'Mis notificaciones', icon: BellRing },
+    { label: 'Mi WhatsApp', icon: MessageCircle },
+    { label: 'Preferencias', icon: AlertTriangle }
+];
+
+const subTabs = [
     { label: TAB_MI_DIA, icon: BarChart3 },
     { label: 'Mis ventas', icon: Trophy },
     { label: 'URGENTE', icon: Flame },
@@ -56,7 +64,7 @@ const tabs = [
     { label: 'Cuotas a cobrar', icon: HandCoins },
     { label: 'Saldo agencia', icon: Repeat },
     { label: 'Mis autos', icon: Car },
-    { label: 'Patrimonio', icon: BarChart3 },
+    { label: 'Patrimonio', icon: Landmark },
     { label: 'Pendientes', icon: CheckCircle2 },
     { label: 'Calendario', icon: CalendarDays },
     { label: 'Contactos', icon: Users }
@@ -1517,6 +1525,24 @@ export default function MiEspacioPage() {
             );
         }
 
+        if (activeTab === 'Preferencias') {
+            return (
+                <EmptyState title="Preferencias" text="Configuración de notificaciones, privacidad y preferencias de la cuenta." />
+            );
+        }
+
+        if (activeTab === 'Mi WhatsApp') {
+            return (
+                <EmptyState title="Mi WhatsApp" text="Integración con WhatsApp y registro de mensajes." />
+            );
+        }
+
+        if (activeTab === 'Mis notificaciones') {
+            return (
+                <EmptyState title="Mis notificaciones" text="Historial de notificaciones y alertas personales." />
+            );
+        }
+
         return renderMiDia();
     };
 
@@ -1544,31 +1570,52 @@ export default function MiEspacioPage() {
                 </div>
             </header>
 
-            <nav className="mt-6 mb-4 overflow-x-auto rounded-xl border border-crm-border bg-crm-surface p-1" aria-label="Pestañas de Mi Espacio">
-                <div className="flex min-w-max gap-1">
-                    {tabs.map((tab) => {
-                        const Icon = tab.icon;
-                        const active = activeTab === tab.label;
-                        return (
-                            <button
-                                key={tab.label}
-                                type="button"
-                                onClick={() => setActiveTab(tab.label)}
-                                className={`m-0 inline-flex shrink-0 appearance-none items-center gap-1.5 whitespace-nowrap rounded-lg border-0 px-3 py-1.5 text-xs font-medium transition-colors ${
-                                    active
-                                        ? 'bg-crm-red text-white shadow'
-                                        : 'bg-transparent text-crm-fg-muted hover:bg-crm-surface-raised hover:text-crm-fg'
-                                }`}
-                                aria-pressed={active}
-                                title={tab.label}
-                            >
-                                <Icon className="h-3.5 w-3.5" />
-                                {tab.label}
-                            </button>
-                        );
-                    })}
-                </div>
+            <nav className="mt-6 mb-4 flex gap-6 border-b border-crm-border" aria-label="Pestañas Principales">
+                {mainTabs.map((tab) => {
+                    const active = (activeTab === tab.label) || (tab.label === 'Mi resumen' && subTabs.some(t => t.label === activeTab));
+                    return (
+                        <button
+                            key={tab.label}
+                            type="button"
+                            onClick={() => setActiveTab(tab.label === 'Mi resumen' ? TAB_MI_DIA : tab.label)}
+                            className={`relative pb-3 text-sm font-bold transition-colors ${
+                                active ? 'text-crm-red' : 'text-zinc-500 hover:text-zinc-300'
+                            }`}
+                        >
+                            {tab.label}
+                            {active && <span className="absolute bottom-0 left-0 h-[2px] w-full bg-crm-red rounded-t-full" />}
+                        </button>
+                    );
+                })}
             </nav>
+
+            {subTabs.some(t => t.label === activeTab) && (
+                <nav className="mb-4 overflow-x-auto rounded-xl border border-crm-border bg-crm-surface p-1" aria-label="Pestañas de Mi Espacio">
+                    <div className="flex min-w-max gap-1">
+                        {subTabs.map((tab) => {
+                            const Icon = tab.icon;
+                            const active = activeTab === tab.label;
+                            return (
+                                <button
+                                    key={tab.label}
+                                    type="button"
+                                    onClick={() => setActiveTab(tab.label)}
+                                    className={`m-0 inline-flex shrink-0 appearance-none items-center gap-1.5 whitespace-nowrap rounded-lg border-0 px-3 py-1.5 text-xs font-medium transition-colors ${
+                                        active
+                                            ? 'bg-crm-red text-white shadow'
+                                            : 'bg-transparent text-crm-fg-muted hover:bg-crm-surface-raised hover:text-crm-fg'
+                                    }`}
+                                    aria-pressed={active}
+                                    title={tab.label}
+                                >
+                                    <Icon className="h-3.5 w-3.5" />
+                                    {tab.label}
+                                </button>
+                            );
+                        })}
+                    </div>
+                </nav>
+            )}
 
             <section className={activeTab === TAB_MI_DIA ? '' : 'space-y-4'}>
                 {renderTabPanel()}
