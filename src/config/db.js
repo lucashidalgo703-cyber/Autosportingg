@@ -49,7 +49,12 @@ export default async function connectDB() {
 
         if (!mongoCache.promise) {
             mongoCache.promise = mongoose.connect(process.env.MONGODB_URI, {
-                serverSelectionTimeoutMS: 10000
+                serverSelectionTimeoutMS: 15000,
+                socketTimeoutMS: 45000,
+                maxPoolSize: 10,
+                minPoolSize: 1,
+                maxIdleTimeMS: 10000, // Previene usar conexiones muertas tras el freeze de Vercel
+                family: 4             // Fuerza IPv4, soluciona SSL alert 80 en MongoDB Atlas
             }).then((mongooseInstance) => {
                 mongoCache.connection = mongooseInstance.connection;
                 console.log(`MongoDB Connected: ${mongoCache.connection.host}`);

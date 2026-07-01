@@ -164,7 +164,7 @@ export default function CrmHeader({ onMenuClick }) {
             } catch (err) {}
         };
         fetchSummary();
-        const interval = setInterval(fetchSummary, 60000);
+        const interval = setInterval(fetchSummary, 300000); // Polling cada 5 minutos (300000ms) en lugar de 60s para no saturar serverless
         return () => clearInterval(interval);
     }, [canSeeFinancials]);
 
