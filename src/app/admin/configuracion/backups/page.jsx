@@ -6,9 +6,10 @@ import { useAuth } from '../../../../context/AuthContext';
 import SettingsTabs from '../../../../components/crm/settings/SettingsTabs';
 import toast from 'react-hot-toast';
 import ConfirmModal from '../../../../components/crm/ui/ConfirmModal';
+import { ConfigSkeleton } from '../../../../components/crm/layout/ConfigLoaders';
 
 export default function BackupsConfigPage() {
-    const { user, token } = useAuth();
+    const { user, token, loading: authLoading } = useAuth();
     const isOwner = user?.role === 'owner';
     const [downloading, setDownloading] = useState(false);
     const [confirmModalOpen, setConfirmModalOpen] = useState(false);
@@ -42,6 +43,19 @@ export default function BackupsConfigPage() {
             setDownloading(false);
         }
     };
+
+    if (authLoading) {
+        return (
+            <div className="mx-auto w-full max-w-7xl p-4 md:p-6 pb-20 text-white">
+                <div className="mb-6">
+                    <h1 className="text-2xl font-bold tracking-tight text-white">Configuración</h1>
+                    <p className="text-crm-fg-muted mt-1 text-sm">Roster del CRM, roles y 2FA</p>
+                </div>
+                <SettingsTabs />
+                <div className="mt-6"><ConfigSkeleton /></div>
+            </div>
+        );
+    }
 
     if (!isOwner) {
         return (

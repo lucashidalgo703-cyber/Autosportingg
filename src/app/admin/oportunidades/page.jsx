@@ -138,14 +138,21 @@ export default function OportunidadesPage() {
                         <div className="h-8 w-8 animate-spin rounded-full border-4 border-crm-border border-t-crm-red"></div>
                     </div>
                 ) : filteredOpportunities.length === 0 ? (
-                    <div className="flex flex-col items-center justify-center py-20 bg-crm-surface/50 border border-crm-border border-dashed rounded-xl">
-                        <div className="h-16 w-16 mb-4 rounded-full bg-crm-bg flex items-center justify-center text-crm-fg-muted shadow-inner">
+                    <div className="flex flex-col items-center justify-center py-24 bg-crm-surface/30 border border-crm-border border-dashed rounded-2xl mx-auto max-w-2xl text-center">
+                        <div className="h-16 w-16 mb-5 rounded-full bg-crm-bg flex items-center justify-center text-crm-fg-muted shadow-inner border border-crm-border">
                             <Search size={28} />
                         </div>
-                        <h3 className="text-lg font-bold text-white mb-1">Sin oportunidades</h3>
-                        <p className="text-sm text-crm-fg-muted text-center max-w-sm mb-6">
-                            No se encontraron oportunidades que coincidan con los filtros seleccionados.
+                        <h3 className="text-xl font-bold text-white mb-2">No hay oportunidades</h3>
+                        <p className="text-sm text-crm-fg-muted mb-8 max-w-sm">
+                            {searchQuery ? 'No se encontraron oportunidades que coincidan con la búsqueda o filtros.' : 'No hay oportunidades publicadas en esta sección. ¡Sé el primero en compartir una!'}
                         </p>
+                        <button
+                            onClick={openCreateModal}
+                            className="flex items-center gap-2 rounded-xl bg-crm-red-gradient px-6 py-3 text-sm font-black text-white transition-all hover:-translate-y-0.5 shadow-crm-shadow-red"
+                        >
+                            <Plus size={18} />
+                            Publicar Oportunidad
+                        </button>
                     </div>
                 ) : (
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
@@ -191,7 +198,7 @@ function OpportunityCard({ opp, onEdit, onDelete, isOwner }) {
     const typeColor = typeColors[opp.type] || 'bg-crm-fg-muted/10 text-crm-fg border-crm-border';
 
     return (
-        <div className="bg-crm-surface border border-crm-border rounded-xl p-4 flex flex-col hover:border-crm-fg-muted transition-colors relative group">
+        <div className="bg-crm-surface border border-crm-border rounded-2xl p-5 flex flex-col hover:border-crm-red/30 hover:shadow-crm-shadow-sm hover:shadow-crm-red/10 transition-all duration-300 relative group overflow-hidden">
             {isOwner && (
                 <div className="absolute top-4 right-4 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                     <button onClick={onEdit} className="p-1.5 rounded bg-crm-bg text-crm-fg-muted hover:text-white transition-colors"><Edit2 size={14} /></button>

@@ -16,6 +16,7 @@ export default function DormidosPage() {
     // Local filters
     const [sellerFilter, setSellerFilter] = useState('');
     const [brandFilter, setBrandFilter] = useState('');
+    const [pipelineFilter, setPipelineFilter] = useState('');
 
     // Action Modals State
     const [activeModal, setActiveModal] = useState(null); // 'reactivate', 'task', 'reassign'
@@ -59,10 +60,19 @@ export default function DormidosPage() {
         fetchDormant();
     };
 
-    const filteredList = dormantList.filter(d => 
-        (!sellerFilter || (d.assignedTo?.name || d.assignedTo?.email) === sellerFilter) && 
-        (!brandFilter || d.brand === brandFilter)
-    );
+    const filteredList = dormantList.filter(d => {
+        if (sellerFilter && (d.assignedTo?.name || d.assignedTo?.email) !== sellerFilter) return false;
+        if (brandFilter && d.brand !== brandFilter) return false;
+        if (pipelineFilter) {
+            if (pipelineFilter === 'client' && d.type !== 'client') return false;
+            if (pipelineFilter === 'lead' && d.type !== 'lead') return false;
+            if (pipelineFilter.startsWith('lead_')) {
+                const statusToMatch = pipelineFilter.replace('lead_', '');
+                if (d.type !== 'lead' || d.status !== statusToMatch) return false;
+            }
+        }
+        return true;
+    });
 
     return (
         <PermissionGuard permission={PERMISSIONS.DORMANT_READ}>
@@ -86,6 +96,10 @@ export default function DormidosPage() {
                                     value={daysFilter}
                                     onChange={(e) => setDaysFilter(e.target.value)}
                                 >
+                                    <option value="30">+30 días inactivos</option>
+                                    <option value="60">+60 días inactivos</option>
+                                    <option value="90">+90 días inactivos</option>
+                                    <option value="180">+180 días inactivos</option>
                                     <option value="360">+12 meses inactivos</option>
                                     <option value="540">+18 meses inactivos</option>
                                     <option value="720">+24 meses inactivos</option>
@@ -116,6 +130,26 @@ export default function DormidosPage() {
                                 </select>
                             </div>
                         )}
+                        <div className="flex items-center gap-2 bg-crm-surface border border-crm-border px-3 py-1.5 rounded-xl">
+                            <span className="text-xs font-bold text-crm-fg-muted">Pipeline / Estado:</span>
+                            <select 
+                                className="bg-transparent text-sm text-crm-fg outline-none"
+                                value={pipelineFilter}
+                                onChange={(e) => setPipelineFilter(e.target.value)}
+                            >
+                                <option value="">Todos</option>
+                                <option value="client">Clientes</option>
+                                <option value="lead">Leads (Cualquiera)</option>
+                                <option value="lead_nuevo">Lead: Nuevo</option>
+                                <option value="lead_contactado">Lead: Contactado</option>
+                                <option value="lead_recontacto">Lead: Recontacto</option>
+                                <option value="lead_tasacion">Lead: Tasación</option>
+                                <option value="lead_visita">Lead: Visita/Cita</option>
+                                <option value="lead_reservado">Lead: Reservado</option>
+                                <option value="lead_vendido">Lead: Vendido</option>
+                                <option value="lead_cancelado">Lead: Cancelado</option>
+                            </select>
+                        </div>
                         {Array.from(new Set(dormantList.filter(d => d.brand).map(d => d.brand))).length > 0 && (
                             <div className="flex items-center gap-2 bg-crm-surface border border-crm-border px-3 py-1.5 rounded-xl">
                                 <span className="text-xs font-bold text-crm-fg-muted">Marca:</span>

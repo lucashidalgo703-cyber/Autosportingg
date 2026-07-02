@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useEffect, useState, useRef } from 'react';
-import { Send, Search, Archive, Plus, Inbox, ChevronLeft, Paperclip, Smile, Trash2, Users, Image as ImageIcon, FileText, X, CheckCircle } from 'lucide-react';
+import { Send, Search, Archive, Plus, Inbox, ChevronLeft, Paperclip, Smile, Trash2, Users, Image as ImageIcon, FileText, X, CheckCircle, AlertTriangle, RefreshCw } from 'lucide-react';
 import PermissionGuard from '../../../components/crm/layout/PermissionGuard';
 import { PERMISSIONS } from '../../../utils/adminPermissions';
 import toast from 'react-hot-toast';
@@ -143,28 +143,77 @@ export default function MensajesPage() {
         e.preventDefault();
         if ((!newMessage.trim() && attachments.length === 0) || !activeConvId) return;
 
+        const tempId = `temp-${Date.now()}`;
+        const tempMsg = {
+            _id: tempId,
+            author: user?.username,
+            content: newMessage,
+            attachments: [...attachments],
+            createdAt: new Date().toISOString(),
+            status: 'sending',
+            readBy: [user?.username]
+        };
+
+        const contentToSend = newMessage;
+        const attachmentsToSend = [...attachments];
+
+        setNewMessage('');
+        setAttachments([]);
+        setShowEmoji(false);
+
+        // Append temporary message to list
+        setMessages(prev => [...prev, tempMsg]);
+        setTimeout(scrollToBottom, 100);
+
         try {
             const token = localStorage.getItem('token');
             const res = await fetch(`/api/admin/messages/conversations/${activeConvId}/messages`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
                 body: JSON.stringify({
-                    content: newMessage,
-                    attachments
+                    content: contentToSend,
+                    attachments: attachmentsToSend
                 })
             });
             if (!res.ok) {
                 const errData = await res.json();
                 throw new Error(errData.message || 'Error al enviar');
             }
-
-            setNewMessage('');
-            setAttachments([]);
-            setShowEmoji(false);
-            fetchMessages(activeConvId);
+            const savedMsg = await res.json();
+            // Swap temp msg with actual saved message
+            setMessages(prev => prev.map(m => m._id === tempId ? savedMsg : m));
             fetchConversations(true); // update lastMessage
         } catch (error) {
-            toast.error(error.message);
+            setMessages(prev => prev.map(m => m._id === tempId ? { ...m, status: 'error', errorMsg: error.message } : m));
+            toast.error(`Error al enviar: ${error.message}`);
+        }
+    };
+
+    const handleRetrySend = async (tempMsg) => {
+        // Set state back to sending
+        setMessages(prev => prev.map(m => m._id === tempMsg._id ? { ...m, status: 'sending' } : m));
+
+        try {
+            const token = localStorage.getItem('token');
+            const res = await fetch(`/api/admin/messages/conversations/${activeConvId}/messages`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+                body: JSON.stringify({
+                    content: tempMsg.content,
+                    attachments: tempMsg.attachments
+                })
+            });
+            if (!res.ok) {
+                const errData = await res.json();
+                throw new Error(errData.message || 'Error al enviar');
+            }
+            const savedMsg = await res.json();
+            // Swap with saved message
+            setMessages(prev => prev.map(m => m._id === tempMsg._id ? savedMsg : m));
+            fetchConversations(true);
+        } catch (error) {
+            setMessages(prev => prev.map(m => m._id === tempMsg._id ? { ...m, status: 'error', errorMsg: error.message } : m));
+            toast.error(`Reintento fallido: ${error.message}`);
         }
     };
 
@@ -382,6 +431,8 @@ export default function MensajesPage() {
                                     filteredMessages.map((msg, i) => {
                                         const isMe = msg.author === user?.username;
                                         const showHeader = i === 0 || filteredMessages[i-1].author !== msg.author;
+                                        const isSending = msg.status === 'sending';
+                                        const isError = msg.status === 'error';
 
                                         return (
                                             <div key={msg._id} className={`flex ${isMe ? 'justify-end' : 'justify-start'}`}>
@@ -390,8 +441,10 @@ export default function MensajesPage() {
                                                         <span className="text-[10px] font-bold text-crm-fg-muted mb-1 ml-1">{msg.author}</span>
                                                     )}
                                                     <div className={`px-4 py-2.5 rounded-2xl text-sm shadow-sm ${
-                                                        isMe ? 'bg-crm-red text-white rounded-br-sm' : 'bg-crm-surface text-crm-fg border border-crm-border rounded-bl-sm'
-                                                    }`}>
+                                                        isMe 
+                                                            ? isError ? 'bg-crm-warning text-white rounded-br-sm opacity-90' : 'bg-crm-red text-white rounded-br-sm'
+                                                            : 'bg-crm-surface text-crm-fg border border-crm-border rounded-bl-sm'
+                                                    } ${isSending ? 'opacity-50' : ''}`}>
                                                         {msg.content && <p className="whitespace-pre-wrap break-words">{msg.content}</p>}
 
                                                         {msg.attachments && msg.attachments.length > 0 && (
@@ -415,7 +468,14 @@ export default function MensajesPage() {
                                                     </div>
                                                     <span className="text-[10px] text-crm-fg-subtle mt-1 mx-1 flex items-center gap-1">
                                                         {new Date(msg.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                                                        {isMe && <CheckCircle size={10} className={msg.readBy.length > 1 || activeConv.type === 'general' ? 'text-blue-400' : 'text-crm-fg-subtle'} />}
+                                                        {isMe && !isSending && !isError && <CheckCircle size={10} className={msg.readBy && msg.readBy.length > 1 || activeConv.type === 'general' ? 'text-blue-400' : 'text-crm-fg-subtle'} />}
+                                                        {isSending && <RefreshCw size={10} className="animate-spin text-crm-fg-subtle" />}
+                                                        {isError && (
+                                                            <span className="flex items-center gap-1 text-red-500 font-bold">
+                                                                <AlertTriangle size={10} /> Error
+                                                                <button onClick={() => handleRetrySend(msg)} className="text-[10px] text-blue-400 underline hover:text-blue-300 font-bold ml-1">Reintentar</button>
+                                                            </span>
+                                                        )}
                                                     </span>
                                                 </div>
                                             </div>

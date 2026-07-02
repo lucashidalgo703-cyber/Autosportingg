@@ -8,15 +8,19 @@ import PermissionGuard from '../../../../components/crm/layout/PermissionGuard';
 import SettingsTabs from '../../../../components/crm/settings/SettingsTabs';
 import LeadRoutingSettings from '../../../../components/crm/settings/LeadRoutingSettings';
 import toast from 'react-hot-toast';
+import { ConfigSkeleton, ConfigError } from '../../../../components/crm/layout/ConfigLoaders';
 
 export default function FuncionesConfigPage() {
     const { token } = useAuth();
     const [flags, setFlags] = useState({ enableNps: true, enableApprovals: true, enableTrash: true, enableWhatsapp: true });
     const [loading, setLoading] = useState(true);
+    const [error, setError] = useState(null);
     const [saving, setSaving] = useState(false);
 
-    useEffect(() => {
+    const loadSettings = () => {
         if (!token) return;
+        setLoading(true);
+        setError(null);
         fetch('/api/admin/settings', {
             headers: { 'Authorization': `Bearer ${token}` }
         })
@@ -29,13 +33,16 @@ export default function FuncionesConfigPage() {
                 // Attach to window or state
                 window.__fullSettings = data.settings;
             }
-
             setLoading(false);
         })
         .catch(err => {
-            toast.error('Error al cargar configuración');
+            setError(err.message || 'Error al cargar la configuración');
             setLoading(false);
         });
+    };
+
+    useEffect(() => {
+        loadSettings();
     }, [token]);
 
     const handleSave = async (e) => {
@@ -74,9 +81,11 @@ export default function FuncionesConfigPage() {
                 <SettingsTabs />
 
                 {loading ? (
-                    <div className="flex justify-center py-10"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-red-500"></div></div>
+                    <div className="mt-6"><ConfigSkeleton /></div>
+                ) : error ? (
+                    <ConfigError error={error} onRetry={loadSettings} />
                 ) : (
-                    <div className="bg-crm-surface border border-crm-border rounded-2xl p-6 max-w-2xl">
+                    <div className="bg-crm-surface border border-crm-border rounded-2xl p-6 max-w-2xl mt-6">
                         <div className="flex items-center gap-3 mb-6 border-b border-crm-border pb-4">
                             <ToggleLeft className="text-green-500" size={24} />
                             <div>

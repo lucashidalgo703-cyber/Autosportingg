@@ -10,6 +10,7 @@ import AdminUserModal from '../../../../components/crm/settings/AdminUserModal';
 import { hasPermission, PERMISSIONS } from '../../../../utils/adminPermissions';
 import toast from 'react-hot-toast';
 import InputModal from '../../../../components/crm/ui/InputModal';
+import { ConfigSkeleton, ConfigError } from '../../../../components/crm/layout/ConfigLoaders';
 
 export default function UsuariosConfigPage() {
     const { users, fetchUsers, createUser, updateUser, changePassword, loading, error } = useAdminUsers();
@@ -92,15 +93,10 @@ export default function UsuariosConfigPage() {
 
             <SettingsTabs />
 
-            {error && (
-                <div className="bg-red-500/10 border border-red-500/20 text-red-400 p-4 rounded-xl flex items-center gap-3">
-                    <ShieldAlert size={20} />
-                    {error}
-                </div>
-            )}
-
-            {loading && users.length === 0 ? (
-                <div className="text-center py-10 text-crm-fg-muted">Cargando usuarios...</div>
+            {loading ? (
+                <div className="mt-6"><ConfigSkeleton /></div>
+            ) : error ? (
+                <ConfigError error={error} onRetry={fetchUsers} />
             ) : (
                 <AdminUsersTable 
                     users={users} 

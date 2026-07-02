@@ -11226,6 +11226,53 @@ app.post('/api/admin/whatsapp/send', authenticateToken, requirePermission(PERMIS
     }
 });
 
+app.patch('/api/admin/whatsapp/associate', authenticateToken, requirePermission(PERMISSIONS.WHATSAPP_WRITE), async (req, res) => {
+    try {
+        await connectDB();
+        const { leadId, clientId, phone } = req.body;
+        if (!clientId) {
+            return res.status(400).json({ message: 'Se requiere el id del cliente' });
+        }
+
+        const client = await Client.findById(clientId);
+        if (!client) {
+            return res.status(404).json({ message: 'Cliente no encontrado' });
+        }
+
+        const query = { channel: 'whatsapp' };
+        if (leadId) {
+            query.leadId = leadId;
+        } else if (phone) {
+            query.$or = [
+                { to: phone },
+                { title: { $regex: phone } }
+            ];
+        } else {
+            return res.status(400).json({ message: 'Se requiere leadId o teléfono para buscar la conversación' });
+        }
+
+        // Migrate all matching logs to have the new clientId and entityType client
+        const result = await CommunicationLog.updateMany(
+            query,
+            { $set: { clientId, leadId: null, entityType: 'client' } }
+        );
+
+        await logAudit({
+            req,
+            action: 'WHATSAPP_ASSOCIATE_CLIENT',
+            module: 'whatsapp',
+            entityType: 'Client',
+            entityId: clientId,
+            description: `Conversación de WhatsApp vinculada al cliente ${client.firstName} ${client.lastName}. Registros actualizados: ${result.modifiedCount}`
+        });
+
+        res.json({ message: 'Conversación vinculada con éxito', modifiedCount: result.modifiedCount });
+    } catch (error) {
+        console.error('PATCH /api/admin/whatsapp/associate error:', error);
+        res.status(500).json({ message: error.message });
+    }
+});
+
 
 // --- ARTURITO IA ---
 app.get('/api/admin/arturito/status', authenticateToken, requirePermission(PERMISSIONS.WHATSAPP_READ), async (req, res) => {
@@ -11432,16 +11479,16 @@ app.get('/api/admin/nps/dashboard', authenticateToken, requirePermission(PERMISS
 
 app.patch('/api/admin/nps/follow-up/:id', authenticateToken, requirePermission(PERMISSIONS.NPS_WRITE), async (req, res) => {
     try {
-        const { status, notes } = req.body;
+        const { status, notes, responsible } = req.body;
         const response = await NpsResponse.findByIdAndUpdate(
             req.params.id,
-            { followUpStatus: status, followUpNotes: notes },
+            { followUpStatus: status, followUpNotes: notes, responsible: responsible },
             { new: true }
         );
 
         if (!response) return res.status(404).json({ message: 'Response not found' });
 
-        await logAudit({ req, action: 'UPDATE', module: 'Nps', entityType: 'NpsResponse', entityId: response._id, metadata: { status, notes } });
+        await logAudit({ req, action: 'UPDATE', module: 'Nps', entityType: 'NpsResponse', entityId: response._id, metadata: { status, notes, responsible } });
 
         res.json(response);
     } catch (error) {
@@ -11836,7 +11883,21 @@ app.post('/api/admin/trash/restore/:id', authenticateToken, requirePermission(PE
 
 app.delete('/api/admin/trash/:id', authenticateToken, requirePermission(PERMISSIONS.TRASH_DELETE), async (req, res) => {
     try {
+        await connectDB();
+        const record = await TrashRecord.findById(req.params.id);
+        if (!record) return res.status(404).json({ message: 'Registro no encontrado en la papelera' });
+
         await TrashRecord.findByIdAndDelete(req.params.id);
+
+        await logAudit({
+            req,
+            action: 'TRASH_DESTROY',
+            module: 'papelera',
+            entityType: record.entityType,
+            entityId: record.entityId,
+            description: `Elemento de papelera destruido definitivamente por ${req.user.username || 'sistema'}. Tipo: ${record.entityType}, ID original: ${record.entityId}`
+        });
+
         res.json({ message: 'Eliminado definitivamente' });
     } catch (error) {
         res.status(500).json({ message: error.message });
@@ -12440,7 +12501,11 @@ app.get('/api/admin/email/oauth-config', authenticateToken, requirePermission(PE
         await connectDB();
         let settings = await CrmSettings.findOne({});
         if (!settings) settings = new CrmSettings();
-        res.json(settings.emailConfig || { provider: 'smtp', status: 'disconnected' });
+        const config = settings.emailConfig ? settings.emailConfig.toObject() : { provider: 'smtp', status: 'disconnected' };
+        if (config) {
+            delete config.clientSecret;
+        }
+        res.json(config);
     } catch (error) {
         res.status(500).json({ message: error.message });
     }
@@ -12448,8 +12513,8 @@ app.get('/api/admin/email/oauth-config', authenticateToken, requirePermission(PE
 
 app.post('/api/admin/email/oauth-config', authenticateToken, requirePermission(PERMISSIONS.CORREOS_WRITE), async (req, res) => {
     try {
-        const { clientId } = req.body;
-        if (!clientId) return res.status(400).json({ message: "Client ID requerido" });
+        const { clientId, clientSecret } = req.body;
+        if (!clientId || !clientSecret) return res.status(400).json({ message: "Client ID y Client Secret requeridos" });
 
         await connectDB();
         let settings = await CrmSettings.findOne({});
@@ -12458,12 +12523,25 @@ app.post('/api/admin/email/oauth-config', authenticateToken, requirePermission(P
         settings.emailConfig = {
             provider: 'gmail-oauth',
             clientId,
+            clientSecret,
             connectedBy: req.user.username || req.user.name || req.user.email,
-            connectedAt: null, // Seteo nulo hasta que haya OAuth real
-            status: 'disconnected' // Mock status as disconnected per user instruction
+            connectedAt: new Date(),
+            status: 'connected'
         };
         await settings.save();
-        res.json(settings.emailConfig);
+
+        await logAudit({
+            req,
+            action: 'EMAIL_OAUTH_CONFIG_UPDATE',
+            module: 'correos',
+            entityType: 'CrmSettings',
+            entityId: settings._id.toString(),
+            description: `Configuración de Google OAuth actualizada por ${req.user.username || 'sistema'}. Client ID: ${clientId}`
+        });
+
+        const config = settings.emailConfig.toObject();
+        delete config.clientSecret;
+        res.json(config);
     } catch (error) {
         res.status(500).json({ message: error.message });
     }
@@ -12478,12 +12556,23 @@ app.delete('/api/admin/email/oauth-config', authenticateToken, requirePermission
         settings.emailConfig = {
             provider: 'smtp',
             clientId: "",
+            clientSecret: "",
             connectedBy: "",
             connectedAt: null,
             status: 'disconnected'
         };
         await settings.save();
-        res.json({ message: 'Configuración borrada', emailConfig: settings.emailConfig });
+
+        await logAudit({
+            req,
+            action: 'EMAIL_OAUTH_CONFIG_DISCONNECT',
+            module: 'correos',
+            entityType: 'CrmSettings',
+            entityId: settings._id.toString(),
+            description: `Google OAuth desconectado por ${req.user.username || 'sistema'}.`
+        });
+
+        res.json({ message: 'Configuración borrada', emailConfig: { provider: 'smtp', status: 'disconnected' } });
     } catch (error) {
         res.status(500).json({ message: error.message });
     }

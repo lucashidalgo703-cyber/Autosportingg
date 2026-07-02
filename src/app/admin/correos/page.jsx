@@ -18,6 +18,7 @@ export default function CorreosPage() {
     // Modal state
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [clientIdInput, setClientIdInput] = useState('');
+    const [clientSecretInput, setClientSecretInput] = useState('');
     const [confirmDeleteModal, setConfirmDeleteModal] = useState(false);
 
     // Form state
@@ -63,19 +64,22 @@ export default function CorreosPage() {
 
     const handleSaveClientId = async (e) => {
         e.preventDefault();
+        if (!clientIdInput.trim() || !clientSecretInput.trim()) {
+            return toast.error('Se requiere Client ID y Client Secret');
+        }
         setLoading(true);
         try {
             const token = localStorage.getItem('token');
             const res = await fetch('/api/admin/email/oauth-config', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-                body: JSON.stringify({ clientId: clientIdInput })
+                body: JSON.stringify({ clientId: clientIdInput, clientSecret: clientSecretInput })
             });
             if (!res.ok) throw new Error('Error al guardar configuración');
 
             await checkConfig();
             setIsModalOpen(false);
-            toast.success('Client ID guardado. OAuth real pendiente de configuración en Google Cloud.');
+            toast.success('Configuración de Google OAuth guardada exitosamente.');
         } catch (error) {
             toast.error(error.message);
         } finally {
@@ -109,6 +113,7 @@ export default function CorreosPage() {
 
     const openModal = () => {
         setClientIdInput(oauthConfig?.clientId || '');
+        setClientSecretInput('');
         setIsModalOpen(true);
     };
 
@@ -356,13 +361,24 @@ export default function CorreosPage() {
                                     placeholder="Ej. 123456789-abc.apps.googleusercontent.com"
                                     className="w-full h-11 bg-crm-bg border border-crm-border rounded-xl px-4 text-sm text-crm-fg focus:border-blue-500 outline-none transition-colors"
                                 />
+                            </div>
+                            <div>
+                                <label className="block text-xs font-bold uppercase tracking-wider text-crm-fg-muted mb-1.5">Google Client Secret</label>
+                                <input
+                                    required
+                                    type="password"
+                                    value={clientSecretInput}
+                                    onChange={e => setClientSecretInput(e.target.value)}
+                                    placeholder="Ingrese el secreto de cliente"
+                                    className="w-full h-11 bg-crm-bg border border-crm-border rounded-xl px-4 text-sm text-crm-fg focus:border-blue-500 outline-none transition-colors"
+                                />
                                 <p className="text-xs text-crm-fg-muted mt-2">
-                                    El Client Secret deberá configurarse por variable de entorno por seguridad.
+                                    El Client Secret y el Client ID se guardan de forma encriptada en la base de datos y no se exponen al cliente.
                                 </p>
                             </div>
                             <div className="pt-4 flex justify-end gap-3">
                                 <button type="button" onClick={() => setIsModalOpen(false)} className="px-4 py-2 text-sm font-bold text-crm-fg-muted hover:text-crm-fg">Cancelar</button>
-                                <button disabled={loading || !clientIdInput.trim()} type="submit" className="rounded-xl bg-blue-600 px-6 py-2 text-sm font-black text-white hover:bg-blue-500 shadow-sm disabled:opacity-50">
+                                <button disabled={loading || !clientIdInput.trim() || !clientSecretInput.trim()} type="submit" className="rounded-xl bg-blue-600 px-6 py-2 text-sm font-black text-white hover:bg-blue-500 shadow-sm disabled:opacity-50">
                                     Guardar
                                 </button>
                             </div>

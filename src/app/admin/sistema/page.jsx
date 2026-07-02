@@ -7,6 +7,7 @@ import { ShieldAlert, Activity, RefreshCw, Server, Database, Users, ActivitySqua
 import PermissionGuard from '../../../components/crm/layout/PermissionGuard';
 import SettingsTabs from '../../../components/crm/settings/SettingsTabs';
 import Link from 'next/link';
+import { ConfigSkeleton, ConfigError } from '../../../components/crm/layout/ConfigLoaders';
 
 export default function SystemHealthPage() {
     const { token, user, loading: authLoading } = useAuth();
@@ -62,7 +63,18 @@ export default function SystemHealthPage() {
     }, [authLoading, token]);
 
     if (authLoading || loading) {
-        return <div className="flex justify-center items-center h-[50vh]"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-red-500"></div></div>;
+        return (
+            <div className="mx-auto w-full max-w-7xl p-4 md:p-6 pb-20 text-white">
+                <div className="mb-6 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+                    <div>
+                        <h1 className="text-2xl font-bold text-white tracking-tight flex items-center gap-2">Configuración</h1>
+                        <p className="text-crm-fg-muted mt-1 text-sm">Cargando estado del sistema...</p>
+                    </div>
+                </div>
+                <SettingsTabs />
+                <div className="mt-6"><ConfigSkeleton /></div>
+            </div>
+        );
     }
 
     if (!canRead) {
@@ -108,12 +120,10 @@ export default function SystemHealthPage() {
 
             <SettingsTabs />
 
-            {error ? (
-                <div className="mb-6 bg-red-500/10 border border-red-500/20 text-red-400 p-4 rounded-xl flex items-center gap-3">
-                    <ShieldAlert size={20} />
-                    <p>{error}</p>
-                </div>
-            ) : !healthData ? (
+            <div className="mt-6">
+                {error ? (
+                    <ConfigError error={error} onRetry={loadHealthData} />
+                ) : !healthData ? (
                 <div className="text-center text-crm-fg-muted py-10">
                     No se pudo cargar la información del sistema.
                 </div>
@@ -308,7 +318,8 @@ export default function SystemHealthPage() {
                         </div>
                     </div>
                 </div>
-            )}
+                )}
+            </div>
         </div>
     );
 }

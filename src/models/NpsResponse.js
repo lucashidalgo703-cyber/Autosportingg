@@ -31,6 +31,10 @@ const npsResponseSchema = new mongoose.Schema({
     followUpNotes: {
         type: String,
         default: ''
+    },
+    responsible: {
+        type: String,
+        default: ''
     }
 }, { 
     timestamps: true 

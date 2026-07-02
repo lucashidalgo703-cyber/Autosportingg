@@ -117,7 +117,8 @@ export default function PapeleraPage() {
 
     const filteredRecords = records.filter(r => {
         // Tab logic
-        if (tab === 'clientes' && !['Client', 'Lead', 'Quote'].includes(r.entityType)) return false;
+        if (tab === 'clientes' && !['Client', 'Lead'].includes(r.entityType)) return false;
+        if (tab === 'cotizaciones' && !['Quote'].includes(r.entityType)) return false;
         if (tab === 'ventas' && !['Sale'].includes(r.entityType)) return false;
         if (tab === 'expedientes' && !['Gestoria', 'Car', 'Task', 'Reservation', 'Opportunity', 'Complaint', 'Mandate'].includes(r.entityType)) return false;
 
@@ -160,9 +161,12 @@ export default function PapeleraPage() {
                     </div>
 
                     <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-crm-surface border border-crm-border p-2 rounded-xl">
-                        <div className="flex gap-1 bg-crm-bg p-1 rounded-lg w-full md:w-auto">
+                        <div className="flex gap-1 bg-crm-bg p-1 rounded-lg w-full md:w-auto overflow-x-auto hide-scrollbar">
                             <button onClick={() => setTab('clientes')} className={`flex-1 md:flex-none px-4 py-2 rounded-lg text-xs font-bold transition-colors ${tab === 'clientes' ? 'bg-crm-surface text-crm-fg shadow-sm' : 'text-crm-fg-muted hover:text-crm-fg'}`}>
-                                Clientes & Cotizaciones
+                                Clientes
+                            </button>
+                            <button onClick={() => setTab('cotizaciones')} className={`flex-1 md:flex-none px-4 py-2 rounded-lg text-xs font-bold transition-colors ${tab === 'cotizaciones' ? 'bg-crm-surface text-crm-fg shadow-sm' : 'text-crm-fg-muted hover:text-crm-fg'}`}>
+                                Cotizaciones
                             </button>
                             <button onClick={() => setTab('ventas')} className={`flex-1 md:flex-none px-4 py-2 rounded-lg text-xs font-bold transition-colors ${tab === 'ventas' ? 'bg-crm-surface text-crm-fg shadow-sm' : 'text-crm-fg-muted hover:text-crm-fg'}`}>
                                 Ventas

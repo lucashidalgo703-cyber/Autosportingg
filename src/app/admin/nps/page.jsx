@@ -14,6 +14,10 @@ export default function NpsDashboardPage() {
     const [isCallModalOpen, setCallModalOpen] = useState(false);
     const [timeFilter, setTimeFilter] = useState('Este mes');
 
+    const [followUpModal, setFollowUpModal] = useState({ isOpen: false, responseId: null });
+    const [users, setUsers] = useState([]);
+    const [loadingUsers, setLoadingUsers] = useState(false);
+
     const fetchDashboard = async () => {
         try {
             const token = localStorage.getItem('token');
@@ -33,16 +37,37 @@ export default function NpsDashboardPage() {
         fetchDashboard();
     }, []);
 
-    const handleFollowUp = async (id, status) => {
+    const openFollowUpModal = async (responseId) => {
+        setFollowUpModal({ isOpen: true, responseId });
+        if (users.length > 0) return;
+        setLoadingUsers(true);
         try {
             const token = localStorage.getItem('token');
-            const res = await fetch(`/api/admin/nps/follow-up/${id}`, {
+            const res = await fetch('/api/admin/users', {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            if (res.ok) {
+                const data = await res.json();
+                setUsers(Array.isArray(data) ? data : data.users || []);
+            }
+        } catch (err) {
+            console.error('Error fetching users:', err);
+        } finally {
+            setLoadingUsers(false);
+        }
+    };
+
+    const handleConfirmFollowUp = async (notes, responsible) => {
+        try {
+            const token = localStorage.getItem('token');
+            const res = await fetch(`/api/admin/nps/follow-up/${followUpModal.responseId}`, {
                 method: 'PATCH',
                 headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-                body: JSON.stringify({ status, notes: '' })
+                body: JSON.stringify({ status: 'resolved', notes, responsible })
             });
             if (!res.ok) throw new Error('Error actualizando seguimiento');
-            toast.success('Estado actualizado');
+            toast.success('Seguimiento registrado y resuelto');
+            setFollowUpModal({ isOpen: false, responseId: null });
             fetchDashboard();
         } catch (error) {
             toast.error(error.message);
@@ -188,8 +213,8 @@ export default function NpsDashboardPage() {
                                                     </div>
                                                     <PermissionGuard permission={PERMISSIONS.NPS_WRITE}>
                                                         <button 
-                                                            onClick={() => handleFollowUp(r._id, 'resolved')}
-                                                            className="text-xs font-bold bg-white text-crm-fg border border-crm-border px-2 py-1 rounded-lg hover:bg-crm-bg transition-colors"
+                                                            onClick={() => openFollowUpModal(r._id)}
+                                                            className="text-xs font-bold bg-white text-crm-fg border border-crm-border px-2.5 py-1.5 rounded-lg hover:bg-crm-bg transition-colors"
                                                         >
                                                             Marcar Resuelto
                                                         </button>
@@ -269,7 +294,74 @@ export default function NpsDashboardPage() {
                 onSuccess={() => fetchDashboard()}
             />
 
+            <FollowUpModal
+                isOpen={followUpModal.isOpen}
+                onClose={() => setFollowUpModal({ isOpen: false, responseId: null })}
+                onConfirm={handleConfirmFollowUp}
+                users={users}
+                loadingUsers={loadingUsers}
+            />
         </PermissionGuard>
+    );
+}
+
+function FollowUpModal({ isOpen, onClose, onConfirm, users, loadingUsers }) {
+    const [notes, setNotes] = useState('');
+    const [responsible, setResponsible] = useState('');
+
+    if (!isOpen) return null;
+
+    return (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+            <div className="w-full max-w-md rounded-3xl bg-crm-surface border border-crm-border p-6 shadow-2xl flex flex-col">
+                <div className="flex items-center justify-between border-b border-crm-border pb-3 mb-4">
+                    <h3 className="text-lg font-bold text-crm-fg">Seguimiento de Detractor</h3>
+                    <button onClick={onClose} className="rounded-full p-1 text-crm-fg-muted hover:bg-crm-bg hover:text-crm-fg">✕</button>
+                </div>
+                <div className="space-y-4">
+                    <div>
+                        <label className="block text-xs font-bold uppercase tracking-wider text-crm-fg-muted mb-1.5">Responsable de Resolución</label>
+                        {loadingUsers ? (
+                            <div className="w-6 h-6 border-2 border-crm-red border-t-transparent rounded-full animate-spin mx-auto" />
+                        ) : (
+                            <select
+                                required
+                                value={responsible}
+                                onChange={e => setResponsible(e.target.value)}
+                                className="w-full h-11 bg-crm-bg border border-crm-border rounded-xl px-4 text-sm text-crm-fg outline-none focus:border-crm-red"
+                            >
+                                <option value="">Seleccionar responsable...</option>
+                                {users.map(u => (
+                                    <option key={u._id} value={u.name || u.username}>{u.name || u.username} ({u.role})</option>
+                                ))}
+                            </select>
+                        )}
+                    </div>
+                    <div>
+                        <label className="block text-xs font-bold uppercase tracking-wider text-crm-fg-muted mb-1.5">Notas de Seguimiento / Acción Tomada</label>
+                        <textarea
+                            required
+                            value={notes}
+                            onChange={e => setNotes(e.target.value)}
+                            placeholder="Escribe la solución acordada o las notas de la llamada..."
+                            rows={4}
+                            className="w-full bg-crm-bg border border-crm-border rounded-xl p-4 text-sm text-crm-fg focus:border-crm-red outline-none resize-none"
+                        />
+                    </div>
+                    <div className="flex justify-end gap-3 pt-4 border-t border-crm-border">
+                        <button type="button" onClick={onClose} className="px-4 py-2 text-sm font-bold text-crm-fg-muted hover:text-crm-fg">Cancelar</button>
+                        <button
+                            type="button"
+                            disabled={!responsible || !notes.trim()}
+                            onClick={() => onConfirm(notes, responsible)}
+                            className="bg-crm-red-gradient text-white font-black px-6 py-2 rounded-xl text-sm shadow-crm-shadow-red disabled:opacity-50"
+                        >
+                            Guardar Seguimiento
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
     );
 }
 

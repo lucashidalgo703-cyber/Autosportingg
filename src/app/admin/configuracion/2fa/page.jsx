@@ -7,6 +7,7 @@ import SettingsTabs from '../../../../components/crm/settings/SettingsTabs';
 import toast from 'react-hot-toast';
 import Image from 'next/image';
 import InputModal from '../../../../components/crm/ui/InputModal';
+import { ConfigSkeleton } from '../../../../components/crm/layout/ConfigLoaders';
 
 export default function TwoFactorConfigPage() {
     const { token, user } = useAuth();
@@ -118,9 +119,9 @@ export default function TwoFactorConfigPage() {
             <SettingsTabs />
 
             {loading && !setupData && status !== 'success' ? (
-                <div className="flex justify-center py-10"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-red-500"></div></div>
+                <div className="mt-6"><ConfigSkeleton /></div>
             ) : (
-                <div className="bg-crm-surface border border-crm-border rounded-2xl p-6 max-w-2xl">
+                <div className="bg-crm-surface border border-crm-border rounded-2xl p-6 max-w-2xl mt-6">
                     <div className="flex items-center gap-3 mb-6 border-b border-crm-border pb-4">
                         <ShieldCheck className={status === 'active' || status === 'success' ? 'text-green-500' : 'text-crm-fg-muted'} size={24} />
                         <div>

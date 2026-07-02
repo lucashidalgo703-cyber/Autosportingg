@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useEffect, useState, useRef } from 'react';
-import { Send, Search, AlertTriangle, Phone, CheckCircle, ChevronLeft, MessageCircle, Sparkles } from 'lucide-react';
+import { Send, Search, AlertTriangle, Phone, CheckCircle, ChevronLeft, MessageCircle, Sparkles, UserPlus, X } from 'lucide-react';
 import PermissionGuard from '../../../components/crm/layout/PermissionGuard';
 import { PERMISSIONS } from '../../../utils/adminPermissions';
 import { parseResponseSafe } from '../../../utils/apiHelper';
@@ -249,6 +249,87 @@ export default function WhatsAppPage() {
         }
     };
 
+    const [isAssociateOpen, setIsAssociateOpen] = useState(false);
+    const [clientsForAssociation, setClientsForAssociation] = useState([]);
+    const [loadingClients, setLoadingClients] = useState(false);
+
+    const openAssociateModal = async () => {
+        setIsAssociateOpen(true);
+        if (clientsForAssociation.length > 0) return;
+        setLoadingClients(true);
+        try {
+            const token = localStorage.getItem('token');
+            const res = await fetch('/api/admin/clients?limit=1000', {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            if (res.ok) {
+                const data = await res.json();
+                const clientsList = data.clients || data || [];
+                setClientsForAssociation(Array.isArray(clientsList) ? clientsList : []);
+            }
+        } catch (err) {
+            console.error('Error fetching clients for association:', err);
+        } finally {
+            setLoadingClients(false);
+        }
+    };
+
+    const handleAssociateConfirm = async (clientId) => {
+        try {
+            const token = localStorage.getItem('token');
+            const res = await fetch('/api/admin/whatsapp/associate', {
+                method: 'PATCH',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                },
+                body: JSON.stringify({
+                    leadId: activeItem.type === 'lead' ? activeItem.contact._id : undefined,
+                    phone: activeItem.contact.phone,
+                    clientId
+                })
+            });
+            if (!res.ok) {
+                const data = await res.json();
+                throw new Error(data.message || 'Error al vincular cliente');
+            }
+            toast.success('Conversación vinculada al cliente con éxito');
+            setIsAssociateOpen(false);
+            fetchInbox();
+            setActiveContactId(clientId);
+        } catch (error) {
+            toast.error(error.message);
+        }
+    };
+
+    const handleRetryWhatsAppMessage = async (msg) => {
+        if (!isConfigured) return toast.error('Integración no configurada');
+        setLoading(true);
+        try {
+            const token = localStorage.getItem('token');
+            const payload = {
+                to: activeItem.contact.phone,
+                text: msg.notes,
+                [activeItem.type === 'client' ? 'clientId' : 'leadId']: activeItem.contact._id
+            };
+            const res = await fetch('/api/admin/whatsapp/send', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+                body: JSON.stringify(payload)
+            });
+            if (!res.ok) {
+                const data = await res.json();
+                throw new Error(data.message || 'Error al reenviar');
+            }
+            toast.success('Mensaje reenviado exitosamente');
+            fetchInbox();
+        } catch (error) {
+            toast.error(error.message);
+        } finally {
+            setLoading(false);
+        }
+    };
+
     const filteredInbox = inbox.filter(item => {
         if (activeTab === 'Leads' && item.type !== 'lead') return false;
 
@@ -453,6 +534,16 @@ export default function WhatsAppPage() {
                                             </p>
                                         </div>
                                     </div>
+                                    {activeItem.type === 'lead' && (
+                                        <button
+                                            onClick={openAssociateModal}
+                                            className="flex items-center gap-1 text-xs font-bold text-green-500 hover:text-green-600 bg-green-500/10 border border-green-500/20 px-3 py-1.5 rounded-xl transition-all"
+                                            title="Vincular conversación a Cliente"
+                                        >
+                                            <UserPlus size={14} />
+                                            Vincular Cliente
+                                        </button>
+                                    )}
                                 </div>
 
                                 {/* Hilo de Mensajes */}
@@ -464,7 +555,9 @@ export default function WhatsAppPage() {
                                             <div key={msg._id} className={`flex ${isOutbound ? 'justify-end' : 'justify-start'}`}>
                                                 <div className={`max-w-[75%] ${isOutbound ? 'items-end' : 'items-start'} flex flex-col`}>
                                                     <div className={`px-4 py-2.5 rounded-2xl text-sm shadow-sm ${
-                                                        isOutbound ? 'bg-green-600 text-white rounded-br-sm' : 'bg-crm-surface text-crm-fg border border-crm-border rounded-bl-sm'
+                                                        isOutbound 
+                                                            ? msg.deliveryStatus === 'failed' ? 'bg-crm-warning text-white rounded-br-sm opacity-90' : 'bg-green-600 text-white rounded-br-sm' 
+                                                            : 'bg-crm-surface text-crm-fg border border-crm-border rounded-bl-sm'
                                                     }`}>
                                                         <p className="whitespace-pre-wrap break-words">{msg.notes}</p>
                                                     </div>
@@ -472,11 +565,16 @@ export default function WhatsAppPage() {
                                                         {new Date(msg.contactDate).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                                                         {isOutbound && (
                                                             <span className={msg.deliveryStatus === 'read' ? 'text-blue-400' : 'text-crm-fg-subtle'}>
-                                                                {msg.deliveryStatus === 'failed' ? '❌' : (msg.deliveryStatus === 'sent' || msg.deliveryStatus === 'delivered' || msg.deliveryStatus === 'read' ? '✓✓' : '✓')}
+                                                                {msg.deliveryStatus === 'failed' ? (
+                                                                    <span className="flex items-center gap-1 text-red-500 font-bold">
+                                                                        <AlertTriangle size={10} /> Error
+                                                                        <button onClick={() => handleRetryWhatsAppMessage(msg)} className="text-[10px] text-blue-400 underline hover:text-blue-300 font-bold ml-1">Reintentar</button>
+                                                                    </span>
+                                                                ) : (msg.deliveryStatus === 'sent' || msg.deliveryStatus === 'delivered' || msg.deliveryStatus === 'read' ? '✓✓' : '✓')}
                                                             </span>
                                                         )}
                                                     </div>
-                                                    {msg.errorMessage && <div className="text-[10px] text-red-500 mt-0.5 mx-1">Error: {msg.errorMessage}</div>}
+                                                    {msg.errorMessage && msg.deliveryStatus === 'failed' && <div className="text-[10px] text-red-500 mt-0.5 mx-1">Error: {msg.errorMessage}</div>}
                                                 </div>
                                             </div>
                                         );
@@ -579,6 +677,62 @@ export default function WhatsAppPage() {
                     </div>
                 </div>
             </div>
+            {/* Associate Client Modal */}
+            <AssociateClientModal
+                isOpen={isAssociateOpen}
+                onClose={() => setIsAssociateOpen(false)}
+                onConfirm={handleAssociateConfirm}
+                clients={clientsForAssociation}
+                loadingClients={loadingClients}
+            />
         </PermissionGuard>
+    );
+}
+
+function AssociateClientModal({ isOpen, onClose, onConfirm, clients, loadingClients }) {
+    const [selectedClient, setSelectedClient] = useState('');
+    if (!isOpen) return null;
+    return (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+            <div className="w-full max-w-md rounded-3xl bg-crm-surface border border-crm-border p-6 shadow-2xl flex flex-col">
+                <div className="flex items-center justify-between border-b border-crm-border pb-3 mb-4">
+                    <h3 className="text-lg font-bold text-crm-fg">Vincular a Cliente</h3>
+                    <button onClick={onClose} className="rounded-full p-1 text-crm-fg-muted hover:bg-crm-bg hover:text-crm-fg">
+                        <X size={18} />
+                    </button>
+                </div>
+                <p className="text-sm text-crm-fg-muted mb-4">Esta acción asociará todo el historial de chat de este contacto al cliente seleccionado.</p>
+                <div className="space-y-4">
+                    {loadingClients ? (
+                        <div className="flex justify-center p-4">
+                            <div className="w-6 h-6 border-2 border-green-500 border-t-transparent rounded-full animate-spin" />
+                        </div>
+                    ) : (
+                        <select
+                            required
+                            value={selectedClient}
+                            onChange={e => setSelectedClient(e.target.value)}
+                            className="w-full h-11 bg-crm-bg border border-crm-border rounded-xl px-4 text-sm text-crm-fg outline-none focus:border-green-500"
+                        >
+                            <option value="">Seleccionar cliente...</option>
+                            {clients.map(c => (
+                                <option key={c._id} value={c._id}>{c.firstName} {c.lastName} ({c.phone || c.email})</option>
+                            ))}
+                        </select>
+                    )}
+                    <div className="flex justify-end gap-3 pt-4 border-t border-crm-border">
+                        <button type="button" onClick={onClose} className="px-4 py-2 text-sm font-bold text-crm-fg-muted hover:text-crm-fg">Cancelar</button>
+                        <button
+                            type="button"
+                            disabled={!selectedClient || loadingClients}
+                            onClick={() => onConfirm(selectedClient)}
+                            className="bg-green-600 hover:bg-green-500 text-white font-black px-6 py-2 rounded-xl text-sm disabled:opacity-50 transition-colors"
+                        >
+                            Vincular
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
     );
 }

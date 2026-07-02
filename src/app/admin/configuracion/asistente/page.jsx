@@ -7,15 +7,19 @@ import { PERMISSIONS } from '../../../../utils/adminPermissions';
 import PermissionGuard from '../../../../components/crm/layout/PermissionGuard';
 import SettingsTabs from '../../../../components/crm/settings/SettingsTabs';
 import toast from 'react-hot-toast';
+import { ConfigSkeleton, ConfigError } from '../../../../components/crm/layout/ConfigLoaders';
 
 export default function AsistenteConfigPage() {
     const { token } = useAuth();
     const [config, setConfig] = useState({ enabled: false, provider: 'openai' });
     const [loading, setLoading] = useState(true);
+    const [error, setError] = useState(null);
     const [saving, setSaving] = useState(false);
 
-    useEffect(() => {
+    const loadSettings = () => {
         if (!token) return;
+        setLoading(true);
+        setError(null);
         fetch('/api/admin/settings', {
             headers: { 'Authorization': `Bearer ${token}` }
         })
@@ -24,13 +28,16 @@ export default function AsistenteConfigPage() {
             if (data.settings && data.settings.assistantConfig) {
                 setConfig(data.settings.assistantConfig);
             }
-                
             setLoading(false);
         })
         .catch(err => {
-            toast.error('Error al cargar configuración');
+            setError(err.message || 'Error al cargar la configuración');
             setLoading(false);
         });
+    };
+
+    useEffect(() => {
+        loadSettings();
     }, [token]);
 
     const parseErrorMessage = async (res) => {
@@ -78,9 +85,11 @@ export default function AsistenteConfigPage() {
                 <SettingsTabs />
 
                 {loading ? (
-                    <div className="flex justify-center py-10"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-red-500"></div></div>
+                    <div className="mt-6"><ConfigSkeleton /></div>
+                ) : error ? (
+                    <ConfigError error={error} onRetry={loadSettings} />
                 ) : (
-                    <div className="bg-crm-surface border border-crm-border rounded-2xl p-6 max-w-2xl">
+                    <div className="bg-crm-surface border border-crm-border rounded-2xl p-6 max-w-2xl mt-6">
                         <div className="flex items-center gap-3 mb-6 border-b border-crm-border pb-4">
                             <Bot className="text-blue-500" size={24} />
                             <div>

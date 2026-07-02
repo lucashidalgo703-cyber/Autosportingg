@@ -63,6 +63,7 @@ const crmSettingsSchema = new mongoose.Schema({
     emailConfig: {
         provider: { type: String, enum: ['smtp', 'gmail-oauth'], default: 'smtp' },
         clientId: { type: String, default: "" },
+        clientSecret: { type: String, default: "" },
         connectedBy: { type: String, default: "" },
         connectedAt: { type: Date, default: null },
         status: { type: String, enum: ['disconnected', 'connected'], default: 'disconnected' }

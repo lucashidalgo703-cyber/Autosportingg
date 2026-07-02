@@ -7,12 +7,14 @@ import { PERMISSIONS, hasPermission } from '../../../../utils/adminPermissions';
 import PermissionGuard from '../../../../components/crm/layout/PermissionGuard';
 import SettingsTabs from '../../../../components/crm/settings/SettingsTabs';
 import toast from 'react-hot-toast';
+import { ConfigSkeleton, ConfigError } from '../../../../components/crm/layout/ConfigLoaders';
 
 export default function ResumenDiarioConfigPage() {
     const { user } = useAuth();
     const canWrite = hasPermission(user, PERMISSIONS.SETTINGS_WRITE);
 
     const [loading, setLoading] = useState(true);
+    const [error, setError] = useState(null);
     const [saving, setSaving] = useState(false);
     
     const [config, setConfig] = useState({
@@ -30,10 +32,11 @@ export default function ResumenDiarioConfigPage() {
         }
     });
 
-    useEffect(() => {
-        const fetchSettings = async () => {
-            try {
-                const res = await fetch('/api/admin/settings', {
+    const fetchSettings = async () => {
+        setLoading(true);
+        setError(null);
+        try {
+            const res = await fetch('/api/admin/settings', {
                     headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
                 });
                 if (!res.ok) throw new Error('Error al cargar configuración');
@@ -56,13 +59,14 @@ export default function ResumenDiarioConfigPage() {
                         }
                     });
                 }
-            } catch (error) {
-                toast.error(error.message);
-            } finally {
-                setLoading(false);
-            }
-        };
+        } catch (error) {
+            setError(error.message || 'Error al cargar la configuración');
+        } finally {
+            setLoading(false);
+        }
+    };
 
+    useEffect(() => {
         fetchSettings();
     }, []);
 
@@ -109,25 +113,27 @@ export default function ResumenDiarioConfigPage() {
         }));
     };
 
-    if (loading) {
-        return (
-            <div className="flex h-full items-center justify-center">
-                <div className="w-8 h-8 border-4 border-crm-red border-t-transparent rounded-full animate-spin" />
-            </div>
-        );
-    }
-
     return (
         <PermissionGuard permission={PERMISSIONS.SETTINGS_READ}>
-            <div className="max-w-4xl mx-auto w-full space-y-6 pb-20">
+            <div className="max-w-7xl mx-auto p-4 md:p-6 w-full space-y-6 pb-20">
+                <div className="mb-6">
+                    <h1 className="text-2xl font-bold tracking-tight text-white">Configuración</h1>
+                    <p className="text-crm-fg-muted mt-1 text-sm">Resumen Diario</p>
+                </div>
                 <SettingsTabs />
                 
-                <div>
-                    <h1 className="text-2xl font-black text-crm-fg flex items-center gap-2">
-                        <Bell className="text-crm-red" /> Resumen Diario
-                    </h1>
-                    <p className="text-sm text-crm-fg-muted mt-1">Configura el envío automático del resumen de actividad diaria del sistema.</p>
-                </div>
+                {loading ? (
+                    <div className="mt-6"><ConfigSkeleton /></div>
+                ) : error ? (
+                    <ConfigError error={error} onRetry={fetchSettings} />
+                ) : (
+                    <div className="max-w-4xl w-full space-y-6">
+                        <div>
+                            <h2 className="text-2xl font-black text-crm-fg flex items-center gap-2">
+                                <Bell className="text-crm-red" /> Resumen Diario
+                            </h2>
+                            <p className="text-sm text-crm-fg-muted mt-1">Configura el envío automático del resumen de actividad diaria del sistema.</p>
+                        </div>
 
                 <div className="bg-blue-500/10 border border-blue-500/20 rounded-xl p-4 flex items-start gap-3">
                     <Info className="text-blue-500 shrink-0 mt-0.5" size={20} />
@@ -222,15 +228,16 @@ export default function ResumenDiarioConfigPage() {
 
                 {canWrite && (
                     <div className="flex justify-end mt-6">
-                        <button 
-                            onClick={handleSave} 
-                            disabled={saving}
-                            className="bg-crm-red text-white font-bold px-6 py-2 rounded-xl text-sm flex items-center gap-2 hover:bg-crm-red/90 transition-colors disabled:opacity-50"
-                        >
-                            <Save size={16} />
-                            {saving ? 'Guardando...' : 'Guardar Configuración'}
-                        </button>
-                    </div>
+                            <button 
+                                onClick={handleSave} 
+                                disabled={saving || !canWrite}
+                                className="flex items-center gap-2 bg-crm-red-gradient text-white px-6 py-2 rounded-xl font-black hover:shadow-crm-shadow-red disabled:opacity-50 transition-all text-sm"
+                            >
+                                <Save size={16} /> {saving ? 'Guardando...' : 'Guardar Configuración'}
+                            </button>
+                        </div>
+                )}
+            </div>
                 )}
             </div>
         </PermissionGuard>

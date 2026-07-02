@@ -6,6 +6,7 @@ import { hasPermission, PERMISSIONS } from '../../../../utils/adminPermissions';
 import { Save, AlertCircle, RotateCcw, Building2, Clock, Settings, Bell, ShieldAlert } from 'lucide-react';
 import Link from 'next/link';
 import SettingsTabs from '../../../../components/crm/settings/SettingsTabs';
+import { ConfigSkeleton, ConfigError } from '../../../../components/crm/layout/ConfigLoaders';
 
 export default function GeneralSettingsPage() {
     const { token, user, loading: authLoading } = useAuth();
@@ -86,9 +87,17 @@ export default function GeneralSettingsPage() {
     };
 
     if (authLoading || loading) {
-        return <div className="flex justify-center items-center h-[50vh]"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-red-500"></div></div>;
+        return (
+            <div className="max-w-7xl mx-auto p-4 md:p-6 w-full">
+                <div className="mb-6">
+                    <h1 className="text-2xl font-bold text-white tracking-tight">Configuración</h1>
+                    <p className="text-sm text-crm-fg-muted mt-1">Cargando módulos...</p>
+                </div>
+                <SettingsTabs />
+                <div className="mt-6"><ConfigSkeleton /></div>
+            </div>
+        );
     }
-
     if (!canRead) {
         return (
             <div className="p-8 max-w-2xl mx-auto mt-10">
@@ -120,25 +129,20 @@ export default function GeneralSettingsPage() {
 
             <SettingsTabs />
 
-            {error && (
-                <div className="mb-6 bg-red-500/10 border border-red-500/20 text-red-400 p-4 rounded-xl flex items-center gap-3">
-                    <AlertCircle size={20} />
-                    <p>{error}</p>
-                </div>
-            )}
-            {successMessage && (
-                <div className="mb-6 bg-green-500/10 border border-green-500/20 text-green-400 p-4 rounded-xl flex items-center gap-3">
-                    <AlertCircle size={20} />
-                    <p>{successMessage}</p>
-                </div>
-            )}
-
-            {!settings ? (
+            {error ? (
+                <ConfigError error={error} onRetry={loadSettings} />
+            ) : !settings ? (
                 <div className="text-center text-crm-fg-muted py-10">
                     No se pudo cargar la configuración general.
                 </div>
             ) : (
-                <form onSubmit={handleSave} className="space-y-6">
+                <form onSubmit={handleSave} className="space-y-6 mt-6">
+                    {successMessage && (
+                        <div className="bg-green-500/10 border border-green-500/20 text-green-400 p-4 rounded-xl flex items-center gap-3">
+                            <AlertCircle size={20} />
+                            <p>{successMessage}</p>
+                        </div>
+                    )}
                     {/* A. Datos de Agencia */}
                     <div className="bg-crm-surface border border-crm-border rounded-2xl p-6">
                         <h2 className="text-lg font-bold text-white flex items-center gap-2 mb-4 border-b border-crm-border pb-2">
