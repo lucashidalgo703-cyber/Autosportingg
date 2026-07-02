@@ -26,8 +26,32 @@ export const getEnabledChapters = (chapters, user) => {
         if (chapter.featureFlag === false) return false;
 
         // Validar rol
-        const userRole = user.role || 'Solo lectura';
-        if (!chapter.roles.includes(userRole)) return false;
+        const userRole = user.role || 'solo_lectura';
+        
+        let normalizedRoles = [];
+        if (userRole === 'owner' || userRole === 'admin') {
+            normalizedRoles.push('Owner/Admin');
+        } else if (userRole === 'ventas') {
+            normalizedRoles.push('Ventas');
+        } else if (userRole === 'administrativo') {
+            normalizedRoles.push('Administrativo');
+        } else if (userRole === 'solo_lectura') {
+            normalizedRoles.push('Solo lectura');
+        } else if (userRole === 'gestoria') {
+            normalizedRoles.push('Gestoría');
+        } else if (userRole === 'recepcion') {
+            normalizedRoles.push('Recepción');
+        } else if (userRole === 'taller') {
+            normalizedRoles.push('Taller');
+        }
+
+        // Si el usuario tiene el rol 'owner' o 'admin' siempre mostramos todo como salvaguarda
+        if (userRole === 'owner' || userRole === 'admin') return true;
+
+        if (!chapter.roles || chapter.roles.length === 0) return true;
+
+        const hasPermission = chapter.roles.some(r => normalizedRoles.includes(r));
+        if (!hasPermission) return false;
 
         return true;
     });

@@ -99,7 +99,7 @@ function HelpContent() {
         }
     }, [searchParams]);
 
-    const isAdmin = user?.role === 'Owner/Admin';
+    const isAdmin = user?.role === 'owner' || user?.role === 'admin';
 
     return (
         <div className="mx-auto w-full max-w-7xl p-4 md:p-6 text-white pb-20 flex flex-col lg:flex-row gap-8">
