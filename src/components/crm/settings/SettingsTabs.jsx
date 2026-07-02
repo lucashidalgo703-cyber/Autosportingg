@@ -3,7 +3,7 @@
 import React from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Building2, Users, FileText, Bot, ToggleLeft, DatabaseBackup, ShieldCheck, Activity, CalendarClock } from 'lucide-react';
+import { Building2, Users, FileText, Bot, ToggleLeft, DatabaseBackup, ShieldCheck, Activity, CalendarClock, User } from 'lucide-react';
 import { useAuth } from '../../../context/AuthContext';
 import { hasPermission, PERMISSIONS } from '../../../utils/adminPermissions';
 
@@ -13,6 +13,12 @@ export default function SettingsTabs() {
     const role = user?.role;
 
     const tabs = [
+        { 
+            name: 'Mi Perfil', 
+            path: '/admin/configuracion/perfil', 
+            icon: User,
+            visible: true // All users can see their own profile
+        },
         { 
             name: 'Usuarios', 
             path: '/admin/configuracion/usuarios', 

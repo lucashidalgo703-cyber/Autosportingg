@@ -1,5 +1,5 @@
 "use client";
-import { Search, Bell, User, X, CheckCheck, Menu, Car, Users, Handshake, ChevronRight, Loader2, DollarSign, ShoppingCart, Moon, Star, Sun } from 'lucide-react';
+import { Search, Bell, User, X, CheckCheck, Menu, Car, Users, Handshake, ChevronRight, Loader2, DollarSign, ShoppingCart, Star } from 'lucide-react';
 import { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
@@ -7,6 +7,7 @@ import { useAuth } from '../../../context/AuthContext';
 import { useTheme } from '../../../context/ThemeContext';
 import { hasPermission, PERMISSIONS } from '../../../utils/adminPermissions';
 import toast from 'react-hot-toast';
+import UserProfileMenu from './UserProfileMenu';
 
 const formatCurrency = (val) => new Intl.NumberFormat('es-AR').format(Math.round(val || 0));
 
@@ -316,15 +317,7 @@ export default function CrmHeader({ onMenuClick }) {
                 </div>
 
                 <div className="relative flex shrink-0 items-center gap-1 md:gap-2" ref={dropdownRef}>
-                    <button
-                        type="button"
-                        onClick={toggleTheme}
-                        className="relative m-0 flex h-10 w-10 appearance-none items-center justify-center rounded-lg border border-transparent bg-transparent text-crm-fg-muted transition-colors hover:bg-crm-surface hover:text-crm-fg md:h-9 md:w-9"
-                        title={theme === 'dark' ? "Cambiar a tema claro" : "Cambiar a tema oscuro"}
-                        aria-label="Cambiar tema"
-                    >
-                        {theme === 'dark' ? <Sun size={18} /> : <Moon size={18} />}
-                    </button>
+                    {/* Removed independent theme toggle button, it is now inside UserProfileMenu */}
 
                     <button
                         type="button"
@@ -386,14 +379,8 @@ export default function CrmHeader({ onMenuClick }) {
                         </div>
                     )}
 
-                    <div className="flex items-center gap-3 ml-2">
-                        <div className="hidden flex-col items-end md:flex">
-                            <span className="text-xs font-bold text-crm-fg leading-none">{user?.displayName || user?.email?.split('@')[0] || 'Usuario'}</span>
-                            <span className="text-[10px] font-bold uppercase text-crm-red mt-1 leading-none">ADMINISTRADOR</span>
-                        </div>
-                        <div className="flex h-9 w-9 items-center justify-center rounded-lg border border-crm-border bg-crm-surface text-sm font-bold text-crm-fg transition-colors hover:bg-crm-surface-raised">
-                            {(user?.displayName || user?.email || 'U').charAt(0).toUpperCase()}
-                        </div>
+                    <div className="ml-2">
+                        <UserProfileMenu />
                     </div>
                 </div>
             </div>
