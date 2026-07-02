@@ -215,14 +215,13 @@ function HelpContent() {
                                 {category.items.map(chapter => {
                                     const IconComponent = Icons[chapter.icon] || Icons.FileText;
                                     const isExpanded = expandedModules.has(chapter.id);
-                                    const isPartial = chapter.implementationStatus === 'partial';
 
                                     return (
                                         <div 
                                             key={chapter.id}
                                             id={`chapter-${chapter.id}`}
                                             ref={el => moduleRefs.current[chapter.id] = el}
-                                            className={`bg-[#1e1e24] rounded-xl border transition-all duration-200 overflow-hidden ${
+                                            className={`bg-[#1e1e24] rounded-xl border transition-all duration-200 overflow-hidden scroll-mt-28 ${
                                                 isExpanded ? 'border-crm-red shadow-[0_0_0_1px_rgba(239,68,68,0.2)]' : 'border-[#33333a] hover:border-[#44444a]'
                                             }`}
                                         >
@@ -272,16 +271,6 @@ function HelpContent() {
                                                     <p className="text-[#d4d4d8] text-[14px] leading-relaxed mb-5">
                                                         {chapter.summary}
                                                     </p>
-
-                                                    {isPartial && isAdmin && (
-                                                        <div className="mb-5 flex items-start gap-2 p-3 bg-yellow-500/10 border border-yellow-500/20 rounded-lg text-yellow-500 text-[13px]">
-                                                            <AlertTriangle size={16} className="flex-shrink-0 mt-0.5" />
-                                                            <div>
-                                                                <strong className="font-semibold block">Aviso Administrativo</strong>
-                                                                Esta función se encuentra parcialmente implementada.
-                                                            </div>
-                                                        </div>
-                                                    )}
 
                                                     <div className="space-y-5">
                                                         {/* Steps Block */}

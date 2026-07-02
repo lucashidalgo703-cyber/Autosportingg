@@ -1,1549 +1,755 @@
-import { 
-    LayoutDashboard, CarFront, Users, UserPlus, CalendarClock, 
-    Receipt, Landmark, FileText, Star, Flag, BarChart3, 
-    Settings, Download, Activity, FileCheck, ShieldAlert,
-    LogIn, Compass, Smartphone, Calendar, Bell, User,
-    Target, MessageCircle, Moon, FolderOpen, FileSignature, Handshake, AlertOctagon, Wrench, MessageSquareWarning,
-    Wallet, Vault, Calculator, ShieldCheck, PieChart, DollarSign,
-    MessageSquare, StarHalf, Lightbulb, Mail, Phone, Trash2
-} from 'lucide-react';
-
 export const helpRegistry = [
+
+    // ---------------------------------------------------------
+    // CATEGORÍA: PRIMEROS PASOS
+    // ---------------------------------------------------------
     {
-        id: 'acceso',
-        category: 'primeros-pasos',
-        order: 1,
+        id: 'login-y-acceso',
         title: 'Ingresar al CRM',
+        category: 'primeros-pasos',
         icon: 'LogIn',
-        roles: ['Owner/Admin', 'Ventas', 'Administrativo', 'Solo lectura', 'Gestoría', 'Recepción', 'Taller'],
-        summary: 'Instrucciones para iniciar sesión, recuperar tu contraseña y proteger tu cuenta.',
+        route: '/login',
+        roles: ['Owner/Admin', 'Ventas', 'Administrativo', 'Gestoría', 'Recepción', 'Taller', 'Solo lectura'],
+        summary: 'Aprendé cómo iniciar sesión de forma segura y qué hacer si olvidás tu contraseña.',
         steps: [
-            {
-                title: 'Acceso a la plataforma',
-                body: 'Ingresa a la URL oficial de AutoSporting provista por tu administrador. Necesitarás tu correo electrónico y contraseña asignada.',
-                actionLabel: 'Ir al Login',
-                actionRoute: '/login'
-            },
-            {
-                title: 'Recuperación de contraseña',
-                body: 'Si olvidaste tu clave, utiliza el botón "Olvidé mi contraseña" en la pantalla inicial para recibir un enlace de reseteo en tu correo.'
-            },
-            {
-                title: 'Autenticación de dos factores (2FA)',
-                body: 'Para mayor seguridad, te recomendamos activar el 2FA. Se te pedirá un código temporal generado en tu celular cada vez que ingreses.',
-                actionLabel: 'Configurar 2FA',
-                actionRoute: '/admin/configuracion/2fa'
-            },
-            {
-                title: 'Cerrar sesión de forma segura',
-                body: 'Siempre cierra tu sesión desde el menú superior derecho si compartes la computadora con otros vendedores para evitar accesos indebidos.'
-            },
-            {
-                title: 'Forzar recarga',
-                body: 'Si notas que la plataforma no carga información reciente, presiona Ctrl+F5 (o Cmd+Shift+R en Mac) para forzar una actualización profunda.'
-            }
+            { title: 'Iniciá sesión', body: 'Ingresá tu correo corporativo y contraseña en la pantalla principal.' },
+            { title: 'Doble factor', body: 'Si tenés activado 2FA, ingresá el código de 6 dígitos que te llega al celular.' },
+            { title: 'Recuperá tu clave', body: 'Hacé clic en "¿Olvidaste tu contraseña?" para recibir un mail de reseteo.' }
         ],
         tips: [
-            'Nunca compartas tu contraseña con compañeros. Cada acción en el CRM queda registrada bajo tu nombre.',
-            'Si detectas actividad sospechosa, notifica a un Administrador inmediatamente para revocar accesos.',
-            'Configura el 2FA en tu primer día de trabajo para asegurar tu cuenta.'
+            'Nunca compartas tu clave con otros usuarios.',
+            'Si usás una compu pública, acordate de cerrar sesión al terminar.'
         ],
-        keywords: ['login', 'entrar', 'clave', 'contraseña', '2fa', 'seguridad', 'salir'],
-        route: null,
-        featureFlag: null,
-        implementationStatus: 'implemented',
-        version: '1.0',
-        lastReviewed: '2026-07-02',
-        reviewedBy: 'System'
+        keywords: ['login', 'acceso', 'contraseña', 'entrar']
     },
     {
-        id: 'navegacion',
-        category: 'primeros-pasos',
-        order: 2,
+        id: 'navegacion-basica',
         title: 'Cómo moverte por el sistema',
+        category: 'primeros-pasos',
         icon: 'Compass',
-        roles: ['Owner/Admin', 'Ventas', 'Administrativo', 'Solo lectura', 'Gestoría', 'Recepción', 'Taller'],
-        summary: 'Aprende a navegar por los menús, buscar información y personalizar tu pantalla.',
+        route: '/admin/dashboard',
+        roles: ['Owner/Admin', 'Ventas', 'Administrativo', 'Gestoría', 'Recepción', 'Taller', 'Solo lectura'],
+        summary: 'Conocé la barra lateral, los atajos de teclado y el panel superior para navegar rápido.',
         steps: [
-            {
-                title: 'La barra lateral (Sidebar)',
-                body: 'El menú principal se encuentra a la izquierda. Desde allí puedes acceder a todos los módulos permitidos para tu rol (Stock, Ventas, Clientes, etc.).'
-            },
-            {
-                title: 'Buscador Global',
-                body: 'En la parte superior encontrarás una barra de búsqueda para localizar rápidamente clientes por nombre, DNI o vehículos por patente.'
-            },
-            {
-                title: 'Indicadores Superiores',
-                body: 'El header superior muestra notificaciones urgentes, mensajes sin leer y accesos directos a tu perfil.'
-            },
-            {
-                title: 'Tema Oscuro/Claro',
-                body: 'AutoSporting soporta modo oscuro nativo para cuidar tu vista. Actívalo desde tu menú de perfil arriba a la derecha.'
-            }
+            { title: 'Barra lateral', body: 'Usá el menú izquierdo para acceder a todos los módulos. Podés colapsarlo para tener más espacio.' },
+            { title: 'Buscador superior', body: 'El menú superior tiene accesos rápidos a tu perfil, notificaciones y ayuda.' },
+            { title: 'Filtros rápidos', body: 'En cada tabla vas a encontrar filtros para buscar por fecha, estado o nombre.' }
         ],
         tips: [
-            'Usa el buscador global siempre que necesites encontrar un expediente rápido. Es más ágil que navegar por las listas.',
-            'Mantén tu menú lateral colapsado si necesitas más espacio horizontal para ver tablas complejas.'
+            'Guardá en favoritos de tu navegador las pantallas que más uses.'
         ],
-        keywords: ['menu', 'sidebar', 'buscar', 'tema', 'oscuro', 'claro', 'cabecera'],
-        route: null,
-        featureFlag: null,
-        implementationStatus: 'implemented',
-        version: '1.0',
-        lastReviewed: '2026-07-02',
-        reviewedBy: 'System'
+        keywords: ['menu', 'sidebar', 'navegar', 'buscar']
     },
     {
-        id: 'seguridad',
-        category: 'primeros-pasos',
-        order: 3,
+        id: 'roles-permisos',
         title: 'Roles y permisos',
-        icon: 'ShieldAlert',
-        roles: ['Owner/Admin', 'Ventas', 'Administrativo', 'Solo lectura', 'Gestoría', 'Recepción', 'Taller'],
-        summary: 'Niveles de acceso y permisos dentro de AutoSporting.',
-        steps: [
-            {
-                title: 'Owner/Administrador',
-                body: 'Control total. Ve la caja, estadísticas de todos los vendedores, configura comisiones y audita todas las acciones.',
-                actionLabel: 'Ver configuración',
-                actionRoute: '/admin/configuracion/usuarios'
-            },
-            {
-                title: 'Ventas',
-                body: 'Gestiona prospectos y ventas. Solo ve las operaciones asignadas a sí mismo o las liberadas. La ganancia real (costos ocultos) no es visible.'
-            },
-            {
-                title: 'Finanzas y Administrativo',
-                body: 'Maneja cobros, cuotas y documentación. No modifica la fuerza comercial pero asiste en la caja y expedientes.'
-            },
-            {
-                title: 'Gestoría y Taller',
-                body: 'Roles especializados que solo ven módulos operativos (Gestoría para trámites F08 y Taller para revisiones de vehículos).'
-            },
-            {
-                title: 'Lectura vs Edición',
-                body: 'Un rol de solo lectura puede consultar expedientes pero no tiene botones de guardar, editar ni borrar.'
-            }
-        ],
-        tips: [
-            'Si crees que te falta un permiso vital para tu trabajo, no intentes forzar el sistema: solicita al administrador una revisión de rol.',
-            'Los vendedores tienen oculta la ganancia y costos de base de los vehículos para proteger los márgenes reales de la agencia.'
-        ],
-        keywords: ['permisos', 'accesos', 'restricciones', 'vendedor', 'admin', 'gestor', 'taller'],
-        route: '/admin/configuracion',
-        featureFlag: null,
-        implementationStatus: 'implemented',
-        version: '1.0',
-        lastReviewed: '2026-07-02',
-        reviewedBy: 'System'
-    },
-    {
-        id: 'mobile',
         category: 'primeros-pasos',
-        order: 4,
+        icon: 'Shield',
+        route: '/admin/configuracion/usuarios',
+        roles: ['Owner/Admin'],
+        summary: 'Descubrí qué puede ver y hacer cada usuario según su puesto en la agencia.',
+        steps: [
+            { title: 'Roles principales', body: 'Los vendedores solo ven sus propios clientes. Los administradores tienen acceso global.' },
+            { title: 'Permisos especiales', body: 'Configurá quién puede borrar ventas, aprobar descuentos o exportar reportes.' },
+            { title: 'Asignar permisos', body: 'Desde Configuración > Usuarios, elegí el usuario y cambiá su rol desde el selector.' }
+        ],
+        tips: [
+            'No des permisos de Owner a usuarios que solo necesitan cargar datos.'
+        ],
+        keywords: ['seguridad', 'vendedor', 'admin', 'accesos']
+    },
+    {
+        id: 'app-celular',
         title: 'Usar el CRM en el celular',
+        category: 'primeros-pasos',
         icon: 'Smartphone',
-        roles: ['Owner/Admin', 'Ventas', 'Administrativo', 'Solo lectura', 'Gestoría', 'Recepción', 'Taller'],
-        summary: 'Cómo utilizar el CRM eficientemente desde dispositivos móviles.',
-        steps: [
-            {
-                title: 'Acceso desde el navegador',
-                body: 'Abre el navegador de tu celular (Chrome o Safari) e ingresa a la misma URL de siempre. El diseño se adaptará automáticamente.'
-            },
-            {
-                title: 'El Menú Mobile',
-                body: 'En pantallas pequeñas, la barra lateral se oculta. Usa el ícono de las tres líneas (hamburguesa) arriba a la izquierda para navegar.'
-            },
-            {
-                title: 'Tablas de datos',
-                body: 'Para ver tablas anchas (como las de ventas o caja), puedes deslizar el dedo horizontalmente sobre la tabla.'
-            }
-        ],
-        tips: [
-            'Para agilizar la toma de fotos en el patio, puedes usar el CRM desde el celular directamente en el módulo de Stock.',
-            'Cierra las pestañas antiguas del CRM en tu navegador móvil para no consumir recursos innecesarios de tu dispositivo.'
-        ],
-        keywords: ['celular', 'telefono', 'movil', 'responsive', 'iphone', 'android'],
-        route: null,
-        featureFlag: null,
-        implementationStatus: 'implemented',
-        version: '1.0',
-        lastReviewed: '2026-07-02',
-        reviewedBy: 'System'
-    },
-    {
-        id: 'dashboard',
-        category: 'dia-a-dia',
-        order: 5,
-        title: 'Dashboard',
-        icon: 'LayoutDashboard',
-        roles: ['Owner/Admin', 'Ventas', 'Administrativo', 'Solo lectura'],
-        summary: 'El panel principal que resume las estadísticas vitales de la jornada.',
-        steps: [
-            {
-                title: 'Cockpit CEO / Vista General',
-                body: 'Si eres administrador, verás el Cockpit principal con el volumen de ventas, ganancias puras y el estado de la caja general.',
-                actionLabel: 'Ir al Dashboard',
-                actionRoute: '/admin'
-            },
-            {
-                title: 'Control de Objetivos',
-                body: 'Revisa tu barra de progreso respecto a las metas del mes para saber cuántas operaciones faltan cerrar.'
-            },
-            {
-                title: 'Pendientes y Vencimientos',
-                body: 'Un resumen inmediato de tareas atrasadas o cuotas que vencen hoy, crucial para priorizar tus primeras horas.'
-            },
-            {
-                title: 'Widgets interactivos',
-                body: 'Cada métrica es navegable. Si haces clic en "5 Ventas", el sistema te llevará a la tabla filtrando esas operaciones exactas.'
-            }
-        ],
-        tips: [
-            'Inicia tu día revisando los pendientes críticos antes de comenzar a enviar mensajes nuevos.',
-            'Recuerda que como vendedor, los widgets de ganancia y caja total no estarán visibles en tu panel.'
-        ],
-        keywords: ['estadisticas', 'inicio', 'panel', 'pendientes', 'caja', 'ganancia', 'metas'],
-        route: '/admin',
-        featureFlag: null,
-        implementationStatus: 'implemented',
-        version: '1.0',
-        lastReviewed: '2026-07-02',
-        reviewedBy: 'System'
-    },
-    {
-        id: 'calendario',
-        category: 'dia-a-dia',
-        order: 6,
-        title: 'Calendario',
-        icon: 'Calendar',
-        roles: ['Owner/Admin', 'Ventas', 'Administrativo', 'Solo lectura'],
-        summary: 'Tu organizador diario para el seguimiento de tareas, entregas y citas.',
-        steps: [
-            {
-                title: 'Vistas disponibles',
-                body: 'Puedes alternar entre la visión mensual, semanal o del día para ajustar tu perspectiva de carga de trabajo.',
-                actionLabel: 'Ir a Agenda',
-                actionRoute: '/admin/agenda'
-            },
-            {
-                title: 'Nuevo evento',
-                body: 'Agrega manualmente citas con clientes, recordatorios para llamar o fechas de entrega programadas.'
-            },
-            {
-                title: 'Eventos Automáticos',
-                body: 'El sistema inyecta automáticamente en tu calendario los vencimientos de cuotas, reservas y tareas de seguimiento de leads.'
-            },
-            {
-                title: 'Filtros rápidos',
-                body: 'Filtra el calendario para ver solo eventos urgentes o solo entregas de vehículos.'
-            }
-        ],
-        tips: [
-            'Una agenda sin tareas vencidas refleja un operador altamente productivo y evita la pérdida de clientes.',
-            'No confíes en tu memoria: si prometiste llamar a un cliente el jueves, agéndalo en el acto.'
-        ],
-        keywords: ['agenda', 'eventos', 'citas', 'vencimientos', 'recordatorios'],
-        route: '/admin/agenda',
-        featureFlag: null,
-        implementationStatus: 'implemented',
-        version: '1.0',
-        lastReviewed: '2026-07-02',
-        reviewedBy: 'System'
-    },
-    {
-        id: 'alertas',
-        category: 'dia-a-dia',
-        order: 7,
-        title: 'Alertas — Centro de notificaciones',
-        icon: 'Bell',
+        route: '/admin/mi-espacio',
         roles: ['Owner/Admin', 'Ventas', 'Administrativo'],
-        summary: 'El centro de control para avisos urgentes y novedades del sistema.',
+        summary: 'Cómo adaptar la pantalla y usar las funciones clave desde tu móvil.',
         steps: [
-            {
-                title: 'La Campana',
-                body: 'El ícono de campana en la esquina superior derecha acumula tus notificaciones. El punto rojo indica que hay novedades.',
-                actionLabel: 'Ver Alertas',
-                actionRoute: '/admin/alertas'
-            },
-            {
-                title: 'Prioridades',
-                body: 'Las alertas pueden ser normales (asignación de un lead) o críticas (una reserva a punto de caducar que requiere acción).'
-            },
-            {
-                title: 'Acciones relacionadas',
-                body: 'Hacer clic sobre una notificación te llevará directamente al expediente, lead o vehículo en cuestión.'
-            },
-            {
-                title: 'Gestión de lectura',
-                body: 'Marca las notificaciones como leídas una vez que te hayas dado por enterado para mantener tu bandeja limpia.'
-            }
+            { title: 'Acceso móvil', body: 'Abrí el navegador de tu celular, ingresá al CRM y logueate. La interfaz se ajusta sola.' },
+            { title: 'Menú inferior', body: 'Vas a notar que el menú pasa a ser un botón en la barra superior o un menú inferior flotante.' },
+            { title: 'Tablas', body: 'Deslizá hacia la derecha para ver columnas ocultas en las tablas de clientes o stock.' }
         ],
         tips: [
-            'No dejes que se acumulen docenas de alertas. Procesa tus notificaciones al menos dos veces por día.',
-            'Si recibes una alerta crítica de "Reserva Vencida", actúa de inmediato liberando el stock o contactando al cliente.'
+            'Ideal para subir fotos del stock directamente desde la cámara del celu.'
         ],
-        keywords: ['notificaciones', 'campana', 'avisos', 'urgente'],
+        keywords: ['movil', 'responsive', 'celular', 'app']
+    },
+
+    // ---------------------------------------------------------
+    // CATEGORÍA: EL DÍA A DÍA
+    // ---------------------------------------------------------
+    {
+        id: 'dashboard-principal',
+        title: 'Dashboard',
+        category: 'dia-a-dia',
+        icon: 'LayoutDashboard',
+        route: '/admin',
+        roles: ['Owner/Admin', 'Ventas', 'Administrativo'],
+        summary: 'Tu panel de control con métricas rápidas de ventas, cobros y tareas del día.',
+        steps: [
+            { title: 'Métricas clave', body: 'Revisá los autos vendidos, stock activo y objetivos cumplidos en las tarjetas superiores.' },
+            { title: 'Gráficos', body: 'Analizá la evolución mensual de ventas y el embudo de clientes.' },
+            { title: 'Filtro por fechas', body: 'Usá el selector de fecha arriba a la derecha para cambiar el período (hoy, este mes, este año).' }
+        ],
+        tips: [
+            'Revisá el dashboard cada mañana para priorizar tus tareas diarias.'
+        ],
+        keywords: ['inicio', 'graficos', 'resumen', 'metricas']
+    },
+    {
+        id: 'calendario-tareas',
+        title: 'Calendario',
+        category: 'dia-a-dia',
+        icon: 'CalendarDays',
+        route: '/admin/agenda',
+        roles: ['Owner/Admin', 'Ventas', 'Administrativo', 'Gestoría'],
+        summary: 'Agendá llamadas, visitas y entregas para que no se te pase nada.',
+        steps: [
+            { title: 'Ver tu mes', body: 'Ingresá al calendario para ver todas tus citas. Podés alternar entre vista diaria, semanal o mensual.' },
+            { title: 'Crear evento', body: 'Hacé clic en cualquier día vacío o usá el botón "Nueva Tarea" para agendar una reunión.' },
+            { title: 'Vincular a cliente', body: 'Cuando crees la tarea, buská al cliente para que quede en su historial.' }
+        ],
+        tips: [
+            'Marcá las tareas como "Completadas" para limpiar tu agenda.'
+        ],
+        keywords: ['agenda', 'eventos', 'reuniones', 'entregas']
+    },
+    {
+        id: 'centro-alertas',
+        title: 'Alertas',
+        category: 'dia-a-dia',
+        icon: 'BellRing',
         route: '/admin/alertas',
-        featureFlag: null,
-        implementationStatus: 'partial',
-        version: '1.0',
-        lastReviewed: '2026-07-02',
-        reviewedBy: 'System'
+        roles: ['Owner/Admin', 'Ventas', 'Administrativo', 'Gestoría'],
+        summary: 'Notificaciones sobre clientes que esperan respuesta o trámites por vencer.',
+        steps: [
+            { title: 'Campanita superior', body: 'Hacé clic en la campanita arriba a la derecha para ver las alertas recientes.' },
+            { title: 'Centro de Alertas', body: 'Entrá al módulo completo desde el menú para ver el historial y filtrar por tipo.' },
+            { title: 'Marcar leídas', body: 'Hacé clic en el tilde para archivar las alertas que ya revisaste.' }
+        ],
+        tips: [
+            'Las alertas rojas requieren tu atención inmediata (ej. seña por vencer).'
+        ],
+        keywords: ['notificaciones', 'avisos', 'campana']
     },
     {
         id: 'mi-espacio',
-        category: 'dia-a-dia',
-        order: 8,
         title: 'Mi Espacio',
+        category: 'dia-a-dia',
         icon: 'User',
-        roles: ['Owner/Admin', 'Ventas', 'Administrativo', 'Gestoría'],
-        summary: 'Tu rincón personal con un consolidado de todo lo que te pertenece.',
-        steps: [
-            {
-                title: 'Resumen de Mi Día',
-                body: 'Una vista ultra-enfocada con lo que tienes que hacer exclusivamente hoy, sin ruido visual del resto de la agencia.',
-                actionLabel: 'Ir a Mi Espacio',
-                actionRoute: '/admin/mi-espacio'
-            },
-            {
-                title: 'Mis Ventas y Urgencias',
-                body: 'Acceso directo a las operaciones que tú lideras y a los cuellos de botella urgentes que bloquean tus entregas.'
-            },
-            {
-                title: 'Mis Cuotas y Pendientes',
-                body: 'Listado rápido de los pagos que debes reclamar a tus clientes directos.'
-            }
-        ],
-        tips: [
-            'Mi Espacio está diseñado para que los vendedores puedan operar el 80% de su día sin salir de esta pantalla.',
-            'Revisa la pestaña de Urgencias frecuentemente; ahí se asientan los problemas graves de documentación o cobros.'
-        ],
-        keywords: ['personal', 'mis ventas', 'mi dia', 'urgencias', 'perfil'],
         route: '/admin/mi-espacio',
-        featureFlag: null,
-        implementationStatus: 'partial',
-        version: '1.0',
-        lastReviewed: '2026-07-02',
-        reviewedBy: 'System'
-    },
-    {
-        id: 'stock',
-        category: 'comercial',
-        order: 9,
-        title: 'Stock — Vehículos',
-        icon: 'CarFront',
-        roles: ['Owner/Admin', 'Ventas', 'Administrativo', 'Solo lectura'],
-        summary: 'Gestión completa del inventario de vehículos propios, de terceros y en consignación.',
+        roles: ['Owner/Admin', 'Ventas', 'Administrativo', 'Gestoría', 'Recepción', 'Taller'],
+        summary: 'Tu área personal para ver tus comisiones, rendimiento y metas asignadas.',
         steps: [
-            {
-                title: 'Buscar y Filtrar',
-                body: 'Usa la barra superior para buscar por patente, modelo o año. Filtra por estado (Disponible, Reservado, Vendido).'
-            },
-            {
-                title: 'Tipos de Stock',
-                body: 'Agencia Propia (vehículos comprados al 100%), Tercero (solo intermediamos), Consignación (el cliente deja el auto en el local físico), Inversión Compartida (comprado a medias con otro inversor) y Mandatos (poder para vender).'
-            },
-            {
-                title: 'Nuevo Vehículo / Mandato',
-                body: 'Al ingresar un auto 0km o usado, completa todos los detalles físicos, carga fotos de alta resolución y define el origen comercial.',
-                actionLabel: 'Ir a Stock',
-                actionRoute: '/admin/stock'
-            },
-            {
-                title: 'Catálogo Web y Mercado Libre',
-                body: 'Activa el switch de visibilidad para publicar automáticamente el vehículo en tu sitio y en Mercado Libre (si está integrado).'
-            },
-            {
-                title: 'Acciones Operativas',
-                body: 'Desde el perfil del vehículo puedes Señarlo (bloqueo rápido), Editar la información técnica, Imprimir la ficha para el parabrisas, o Exportar/Importar masivamente mediante XLSX.'
-            }
+            { title: 'Tus métricas', body: 'Mirá cuántos autos vendiste en el mes y tu tasa de cierre personal.' },
+            { title: 'Tus comisiones', body: 'Revisá el detalle de cuánto ganaste por cada operación.' },
+            { title: 'Tus metas', body: 'Controlá si estás cerca de cumplir el objetivo mensual que te fijó la agencia.' }
         ],
         tips: [
-            'Nunca publiques un auto que no esté físicamente acondicionado para ser mostrado.',
-            'Mantén las patentes limpias y las fotos nítidas. Las publicaciones con más de 10 fotos venden un 40% más rápido.',
-            'Diferencia bien Consignación (está en tu agencia) de Terceros (lo tiene el dueño en su casa) para no prometer exhibiciones inmediatas.'
+            'Revisá esta sección antes de cerrar el mes para saber cuánto te falta para el bono.'
         ],
-        keywords: ['vehiculos', 'inventario', 'autos', 'catalogo', 'publicar', 'mandatos', 'consignaciones', '0km', 'excel'],
+        keywords: ['perfil', 'comisiones', 'rendimiento', 'estadisticas personales']
+    },
+
+    // ---------------------------------------------------------
+    // CATEGORÍA: COMERCIAL
+    // ---------------------------------------------------------
+    {
+        id: 'gestion-stock',
+        title: 'Stock',
+        category: 'comercial',
+        icon: 'Car',
         route: '/admin/stock',
-        featureFlag: null,
-        implementationStatus: 'implemented',
-        version: '1.0',
-        lastReviewed: '2026-07-02',
-        reviewedBy: 'System'
-    },
-    {
-        id: 'clientes',
-        category: 'comercial',
-        order: 10,
-        title: 'Clientes',
-        icon: 'Users',
-        roles: ['Owner/Admin', 'Ventas', 'Administrativo', 'Solo lectura'],
-        summary: 'Directorio centralizado de compradores, vendedores y prospectos de la agencia.',
+        roles: ['Owner/Admin', 'Ventas', 'Administrativo'],
+        summary: 'Administrá los vehículos disponibles: propios, consignaciones y 0km.',
         steps: [
-            {
-                title: 'Alta y Edición',
-                body: 'Crea un cliente solicitando su nombre completo, DNI y teléfono. Si ya existe, puedes editar sus datos desde su perfil.',
-                actionLabel: 'Ir a Clientes',
-                actionRoute: '/admin/clientes'
-            },
-            {
-                title: 'Tipos y Origen',
-                body: 'Clasifica al cliente por tipo (Comprador, Vendedor, Ambos) e indica su Origen (Facebook, Instagram, Walk-in, etc.) para medir el ROI del marketing.'
-            },
-            {
-                title: 'Pipeline y Estados',
-                body: 'Sigue el estado del cliente en el embudo (Nuevo, Contactado, Negociando). Si hay interés, asigna el Vehículo de interés específico.'
-            },
-            {
-                title: 'Vendedor Asignado y Visibilidad',
-                body: 'El dueño del cliente es el único vendedor que puede ver su información financiera. Los administradores ven la cartera completa.'
-            },
-            {
-                title: 'Actividades y WhatsApp',
-                body: 'Registra llamadas, notas y sube archivos adjuntos. Si usas WhatsApp web, haz clic en el número para abrir el chat directamente.'
-            }
+            { title: 'Buscá vehículos', body: 'Usá los filtros por marca, modelo, año y tipo de ingreso (Propio, Consignación, Compartido).' },
+            { title: 'Cargá uno nuevo', body: 'Hacé clic en "Nuevo vehículo", ingresá la patente (se autocompleta info si está disponible) y cargá el precio.' },
+            { title: 'Fotos y detalles', body: 'Entrá a la ficha técnica para subir la galería de imágenes y cargar el equipamiento.' },
+            { title: 'Exportá el stock', body: 'Usá el botón de Excel para descargar tu lista completa de autos con precios.' }
         ],
         tips: [
-            'Antes de crear un cliente, utiliza el buscador por DNI o Teléfono para evitar Duplicados molestos.',
-            'Anota cada conversación en "Actividades". Si te enfermas, otro vendedor podrá retomar la venta leyendo el historial.'
+            'Mantené los precios actualizados y marcá los autos reservados para evitar que otro vendedor los ofrezca.'
         ],
-        keywords: ['compradores', 'contactos', 'personas', 'whatsapp', 'agenda', 'duplicados'],
+        keywords: ['autos', 'vehiculos', 'inventario', '0km', 'usados']
+    },
+    {
+        id: 'gestion-clientes',
+        title: 'Clientes',
+        category: 'comercial',
+        icon: 'Users',
         route: '/admin/clientes',
-        featureFlag: null,
-        implementationStatus: 'implemented',
-        version: '1.0',
-        lastReviewed: '2026-07-02',
-        reviewedBy: 'System'
+        roles: ['Owner/Admin', 'Ventas', 'Administrativo', 'Gestoría'],
+        summary: 'Mantené tu cartera de contactos al día y registrá todas sus interacciones.',
+        steps: [
+            { title: 'Alta de cliente', body: 'Desde la grilla, hacé clic en "Nuevo Cliente". Cargá nombre, teléfono y correo.' },
+            { title: 'Historial', body: 'Entrá a la ficha del cliente para ver todo: llamadas, ventas previas y notas.' },
+            { title: 'Vehículo de interés', body: 'Asignale qué auto está buscando para poder filtrarlo luego.' },
+            { title: 'Duplicados', body: 'El sistema te va a avisar si intentás cargar un DNI o celular que ya existe.' }
+        ],
+        tips: [
+            'Cargá el DNI para que Gestoría pueda hacer los trámites más rápido luego de la venta.'
+        ],
+        keywords: ['contactos', 'agenda', 'compradores']
     },
     {
         id: 'cotizaciones',
-        category: 'comercial',
-        order: 11,
         title: 'Cotizaciones',
-        icon: 'FileText',
-        roles: ['Owner/Admin', 'Ventas', 'Administrativo'],
-        summary: 'Emisión de presupuestos formales para vehículos en venta o permuta.',
+        category: 'comercial',
+        icon: 'FileSpreadsheet',
+        route: '/admin/cotizaciones',
+        roles: ['Owner/Admin', 'Ventas'],
+        summary: 'Armá presupuestos formales para tus clientes incluyendo permutas y financiación.',
         steps: [
-            {
-                title: 'Nueva Cotización',
-                body: 'Selecciona al cliente, el vehículo de interés y establece el precio final acordado junto con su moneda (ARS o USD).',
-                actionLabel: 'Ir a Cotizaciones',
-                actionRoute: '/admin/cotizaciones'
-            },
-            {
-                title: 'Condiciones y Permuta',
-                body: 'Usa la descripción libre para detallar bonificaciones. Si el cliente entrega un auto en parte de pago, registra la tasación de la permuta.'
-            },
-            {
-                title: 'Estados y Borradores',
-                body: 'Una cotización puede estar en Borrador, Enviada, Aprobada o Rechazada. Migrar borradores sirve para actualizarlos.'
-            },
-            {
-                title: 'Auditoría',
-                body: 'El administrador puede filtrar las cotizaciones y revisar si hubo descuentos excesivos antes de la conversión a venta.'
-            }
+            { title: 'Nueva cotización', body: 'Hacé clic en crear, elegí el cliente y seleccioná el vehículo del stock.' },
+            { title: 'Agregá permutas', body: 'Si entrega su usado, agregalo y definí el precio de toma.' },
+            { title: 'Financiación', body: 'Si va a pagar en cuotas, podés detallar el anticipo y los pagos.' },
+            { title: 'Pasá a venta', body: 'Cuando el cliente acepte, usá el botón "Convertir a venta" para generar el boleto automáticamente.' }
         ],
         tips: [
-            'Una cotización formal en PDF da mucha más confianza que un mensaje de WhatsApp informal.',
-            'Nunca dejes un estado en "Aprobada" si realmente ya es una venta. Procede a la Conversión a Venta.'
+            'Enviá la cotización por WhatsApp directamente desde el sistema para mayor rapidez.'
         ],
-        keywords: ['presupuesto', 'precios', 'permuta', 'borradores', 'tasacion'],
-        route: '/admin/cotizaciones',
-        featureFlag: null,
-        implementationStatus: 'partial',
-        version: '1.0',
-        lastReviewed: '2026-07-02',
-        reviewedBy: 'System'
+        keywords: ['presupuestos', 'permutas', 'ofertas']
     },
     {
-        id: 'ventas',
-        category: 'comercial',
-        order: 12,
+        id: 'gestion-ventas',
         title: 'Ventas',
-        icon: 'Receipt',
-        roles: ['Owner/Admin', 'Ventas', 'Administrativo', 'Solo lectura'],
-        summary: 'Gestión central de operaciones cerradas, cobros y armado de expedientes.',
+        category: 'comercial',
+        icon: 'BadgeDollarSign',
+        route: '/admin/ventas',
+        roles: ['Owner/Admin', 'Administrativo'],
+        summary: 'El registro maestro de todas las operaciones cerradas en la agencia.',
         steps: [
-            {
-                title: 'Nueva Venta',
-                body: 'Une al Comprador, el Propietario anterior y el Vehículo. Define el Precio total de cierre y la moneda de la operación.',
-                actionLabel: 'Ir a Ventas',
-                actionRoute: '/admin/ventas'
-            },
-            {
-                title: 'Esquema de Pago',
-                body: 'Registra la Seña inicial, pagos al contado, cantidad de Cuotas directas y si existe Financiación prendaria.'
-            },
-            {
-                title: 'Permutas y Consignaciones',
-                body: 'Agrega los vehículos entregados en permuta y asocia liquidaciones si el auto original era una consignación de un tercero.'
-            },
-            {
-                title: 'Gestor y Comisiones',
-                body: 'Asigna el Gestor responsable del F08 y los vendedores involucrados para el Split de comisiones.'
-            },
-            {
-                title: 'Expediente',
-                body: 'Controla el avance de la venta mediante los Estados (Señado, Cancelado, Entregado) y adjunta documentos físicos firmados.'
-            }
+            { title: 'Listado global', body: 'Revisá todas las ventas, filtrá por estado (Señado, Vendido, Entregado) y vendedor.' },
+            { title: 'Ver detalles', body: 'Hacé clic en una venta para ver montos exactos, comisiones y autos involucrados.' },
+            { title: 'Auditoría', body: 'Revisá qué usuario modificó el precio o cambió los estados de la operación.' }
         ],
         tips: [
-            'Una venta no es una venta hasta que el cliente paga la seña y firma la reserva. No muevas estados prematuramente.',
-            'Si interviene más de un vendedor, el Split de comisiones debe quedar claro desde el día 1 para evitar roces internos.'
+            'Las ventas eliminadas quedan registradas por seguridad en el historial de auditoría.'
         ],
-        keywords: ['operaciones', 'cierres', 'facturacion', 'entregas', 'seña', 'permuta', 'expediente'],
-        route: '/admin/ventas',
-        featureFlag: null,
-        implementationStatus: 'implemented',
-        version: '1.0',
-        lastReviewed: '2026-07-02',
-        reviewedBy: 'System'
+        keywords: ['operaciones', 'boletos', 'facturacion', 'ingresos']
     },
     {
         id: 'mis-ventas',
-        category: 'comercial',
-        order: 13,
         title: 'Mis ventas',
-        icon: 'Star',
+        category: 'comercial',
+        icon: 'Wallet',
+        route: '/admin/mis-ventas',
         roles: ['Ventas'],
-        summary: 'Panel personal del vendedor con su rendimiento comercial y comisiones.',
+        summary: 'Tu tablero personal para ver qué vendiste este mes y hacerles seguimiento.',
         steps: [
-            {
-                title: 'Rendimiento y Objetivos',
-                body: 'Revisa tu progreso del mes: cantidad de operaciones cerradas vs tu meta asignada.',
-                actionLabel: 'Ver Mis Ventas',
-                actionRoute: '/admin/mis-ventas'
-            },
-            {
-                title: 'Facturación y Comisiones',
-                body: 'Monitorea cuánto has facturado en total y cuál es tu comisión estimada.'
-            },
-            {
-                title: 'Ventas y Consignaciones',
-                body: 'Listado exclusivo de los expedientes donde figuras como vendedor principal, o vehículos que tomaste en consignación.'
-            },
-            {
-                title: 'Ranking y Premios',
-                body: 'Observa tu posición en la agencia. Alcanzar el primer lugar o metas extra desbloquea premios adicionales.'
-            }
+            { title: 'Tus operaciones', body: 'Acá solo vas a ver las ventas donde vos sos el vendedor asignado.' },
+            { title: 'Controlá señas', body: 'Si un auto está señado, fijate los días de vencimiento para apurar al cliente.' },
+            { title: 'Generá entregas', body: 'Coordiná la fecha de entrega y dejá la nota en el sistema.' }
         ],
         tips: [
-            'Si notas discrepancias en tus comisiones estimadas, revisa el Split de las ventas compartidas.',
-            'No olvides subir los recibos y boletos de tus operaciones para que el área administrativa te libere el pago de comisión.'
+            'Hacé seguimiento de tus ventas antiguas para pedirles referidos a clientes satisfechos.'
         ],
-        keywords: ['comisiones', 'ranking', 'premios', 'facturacion', 'vendedor'],
-        route: '/admin/mis-ventas',
-        featureFlag: null,
-        implementationStatus: 'implemented',
-        version: '1.0',
-        lastReviewed: '2026-07-02',
-        reviewedBy: 'System'
+        keywords: ['mis operaciones', 'vendedor', 'logros']
     },
     {
-        id: 'pedidos-busqueda',
+        id: 'busqueda-pedidos',
+        title: 'Pedidos',
         category: 'comercial',
-        order: 14,
-        title: 'Pedidos (búsquedas de clientes)',
-        icon: 'CalendarClock',
-        roles: ['Owner/Admin', 'Ventas', 'Administrativo'],
-        summary: 'Registro de solicitudes de vehículos que los clientes buscan y no tienes en stock.',
+        icon: 'Search',
+        route: '/admin/pedidos',
+        roles: ['Owner/Admin', 'Ventas'],
+        summary: 'Registrá qué auto busca un cliente para avisarle cuando ingrese.',
         steps: [
-            {
-                title: 'Nuevo Pedido',
-                body: 'Registra al cliente, la Marca, el Modelo, Año mínimo/máximo y su Presupuesto disponible.',
-                actionLabel: 'Ir a Pedidos',
-                actionRoute: '/admin/pedidos'
-            },
-            {
-                title: 'Match Inteligente',
-                body: 'El sistema cruza diariamente los pedidos contra el Stock nuevo. Si hay coincidencias, el botón "Match" se ilumina.'
-            },
-            {
-                title: 'Filtros y Seguimiento',
-                body: 'Usa el botón "Solo míos" para ver los pedidos de tus clientes. Mantén los estados limpios (Activo, Cumplido o Cancelado).'
-            },
-            {
-                title: 'Contacto',
-                body: 'Al lograr un Match, haz clic en el cliente para llamarlo inmediatamente e informarle que ingresó el vehículo que busca.'
-            }
+            { title: 'Cargá la búsqueda', body: 'Indicá qué modelo, año y rango de precio busca tu cliente.' },
+            { title: 'Cruces automáticos', body: 'Si cargás un auto nuevo al stock que coincida, el sistema te avisará.' },
+            { title: 'Contactá', body: 'Revisá los pedidos activos semanalmente y ofreceles alternativas.' }
         ],
         tips: [
-            'Los pedidos son oro. Un cliente con pedido está altamente calificado para comprar ya mismo.',
-            'Cancela los pedidos antiguos (más de 90 días) si el cliente compró en otro lado para no ensuciar el Match inteligente.'
+            'Cerrá o archivá los pedidos viejos para no tener la bandeja llena de gente que ya compró en otro lado.'
         ],
-        keywords: ['solicitud', 'busqueda', 'match', 'presupuesto', 'encargo'],
-        route: '/admin/pedidos',
-        featureFlag: null,
-        implementationStatus: 'partial',
-        version: '1.0',
-        lastReviewed: '2026-07-02',
-        reviewedBy: 'System'
+        keywords: ['encargos', 'busquedas', 'solicitudes']
     },
     {
         id: 'oportunidades',
-        category: 'comercial',
-        order: 15,
         title: 'Oportunidades',
+        category: 'comercial',
         icon: 'Target',
-        roles: ['Owner/Admin', 'Ventas', 'Administrativo'],
-        summary: 'Tablero de seguimiento avanzado para potenciales operaciones B2B o grandes lotes.',
+        route: '/admin/oportunidades',
+        roles: ['Owner/Admin', 'Ventas'],
+        summary: 'Manejá el embudo (pipeline) de ventas para saber qué negocios están por salir.',
         steps: [
-            {
-                title: 'Gestión del embudo',
-                body: 'Mueve las oportunidades comerciales de alto nivel por sus distintas etapas hasta el cierre.',
-                actionLabel: 'Ir a Oportunidades',
-                actionRoute: '/admin/oportunidades'
-            }
+            { title: 'Tablero Kanban', body: 'Visualizá tus clientes en columnas: Contactado, Negociando, Para Cierre.' },
+            { title: 'Arrastrá y soltá', body: 'Cuando la negociación avance, arrastrá la tarjeta a la siguiente etapa.' },
+            { title: 'No pierdas contactos', body: 'Filtrá los que lleven más de 7 días sin movimiento y escribiles.' }
         ],
         tips: [
-            'A diferencia de un Lead estándar, la Oportunidad está enfocada en operaciones más maduras y complejas.'
+            'Si se cae una venta, pasala a "Perdido" y dejá el motivo para analizarlo después.'
         ],
-        keywords: ['embudo', 'b2b', 'negocios'],
-        route: '/admin/oportunidades',
-        featureFlag: null,
-        implementationStatus: 'implemented',
-        version: '1.0',
-        lastReviewed: '2026-07-02',
-        reviewedBy: 'System'
+        keywords: ['embudo', 'pipeline', 'negocios', 'kanban']
     },
     {
         id: 'postventa',
-        category: 'comercial',
-        order: 16,
         title: 'Postventa',
-        icon: 'MessageCircle',
-        roles: ['Owner/Admin', 'Ventas', 'Administrativo'],
-        summary: 'Seguimiento de la satisfacción del cliente y manejo de quejas luego de la entrega.',
-        steps: [
-            {
-                title: 'Gestión de Casos',
-                body: 'Revisa el tablero para identificar entregas recientes con llamados Pendientes o Recontactos agendados.',
-                actionLabel: 'Ir a Postventa',
-                actionRoute: '/admin/postventa'
-            },
-            {
-                title: 'Categorización',
-                body: 'Clasifica la respuesta del cliente como Conforme (feliz) o si hay Incidencias (problemas mecánicos, quejas).'
-            },
-            {
-                title: 'Resolución y Cierre',
-                body: 'Añade Notas de lo conversado vía WhatsApp o teléfono. Al solucionar una queja, marca el caso como Cerrado.'
-            }
-        ],
-        tips: [
-            'Un cliente Conforme es el mejor momento para pedirle que te deje una reseña de 5 estrellas en Google.',
-            'Trata las Incidencias como máxima prioridad; una reseña pública negativa te hará perder futuras ventas.'
-        ],
-        keywords: ['fidelizacion', 'encuestas', 'satisfaccion', 'quejas', 'incidencias'],
-        route: '/admin/postventa',
-        featureFlag: null,
-        implementationStatus: 'partial',
-        version: '1.0',
-        lastReviewed: '2026-07-02',
-        reviewedBy: 'System'
-    },
-    {
-        id: 'dormidos',
         category: 'comercial',
-        order: 17,
-        title: 'Clientes Dormidos',
+        icon: 'Wrench',
+        route: '/admin/postventa',
+        roles: ['Owner/Admin', 'Ventas', 'Administrativo', 'Taller'],
+        summary: 'Hacé seguimiento luego de entregar el vehículo para fidelizar al cliente.',
+        steps: [
+            { title: 'Llamados programados', body: 'Revisá la lista de entregas recientes y agendá una llamada a los 7 y 30 días.' },
+            { title: 'Cargá reclamos', body: 'Si falla algo, derivá el caso a Taller o Registrá el incidente acá.' },
+            { title: 'Ofrecé accesorios', body: 'Usá la postventa para intentar vender láminas de seguridad o servicios extra.' }
+        ],
+        tips: [
+            'Un buen seguimiento genera muy buenas reviews en Google y referidos orgánicos.'
+        ],
+        keywords: ['entregas', 'seguimiento', 'fidelizacion']
+    },
+    {
+        id: 'clientes-dormidos',
+        title: 'Dormidos',
+        category: 'comercial',
         icon: 'Moon',
-        roles: ['Owner/Admin', 'Ventas'],
-        summary: 'Recuperación de prospectos y clientes inactivos que dejaron de responder.',
-        steps: [
-            {
-                title: 'Criterio Temporal',
-                body: 'El sistema cataloga automáticamente como Dormido a todo cliente o lead sin interacción por más de ciertos días.',
-                actionLabel: 'Ir a Dormidos',
-                actionRoute: '/admin/dormidos'
-            },
-            {
-                title: 'Filtros y KPIs',
-                body: 'Revisa el panel para ver cuántos leads perdiste recientemente. Usa los filtros para identificar Clientes VIP que valgan el esfuerzo de recontactar.'
-            },
-            {
-                title: 'Recuperación',
-                body: 'Contáctalos uno a uno por WhatsApp con una oferta o pregunta clave para reactivar su interés.'
-            }
-        ],
-        tips: [
-            'No escribas un "Hola, ¿seguís interesado?" genérico. Ofrécele una rebaja, un auto similar que ingresó, o un incentivo claro.',
-            'Dedica una hora todos los viernes a despertar leads inactivos. Es una mina de oro ignorada.'
-        ],
-        keywords: ['inactivos', 'perdidos', 'rescate', 'recuperacion', 'kpi'],
         route: '/admin/dormidos',
-        featureFlag: null,
-        implementationStatus: 'implemented',
-        version: '1.0',
-        lastReviewed: '2026-07-02',
-        reviewedBy: 'System'
-    },
-    {
-        id: 'pedidos',
-        category: 'operacion',
-        order: 18,
-        title: 'Pedidos',
-        icon: 'CalendarClock',
-        roles: ['Owner/Admin', 'Ventas', 'Administrativo'],
-        summary: 'Registro de solicitudes de vehículos que los clientes buscan y no tienes en stock.',
+        roles: ['Owner/Admin', 'Ventas'],
+        summary: 'Recuperá contactos que no contestan hace semanas para reactivar ventas.',
         steps: [
-            {
-                title: 'Nuevo Pedido',
-                body: 'Registra al cliente, la Marca, el Modelo, Año mínimo/máximo y su Presupuesto disponible.',
-                actionLabel: 'Ir a Pedidos',
-                actionRoute: '/admin/pedidos'
-            },
-            {
-                title: 'Match Inteligente',
-                body: 'El sistema cruza diariamente los pedidos contra el Stock nuevo. Si hay coincidencias, el botón "Match" se ilumina.'
-            },
-            {
-                title: 'Filtros y Seguimiento',
-                body: 'Usa el botón "Solo míos" para ver los pedidos de tus clientes. Mantén los estados limpios (Activo, Cumplido o Cancelado).'
-            },
-            {
-                title: 'Contacto',
-                body: 'Al lograr un Match, haz clic en el cliente para llamarlo inmediatamente e informarle que ingresó el vehículo que busca.'
-            }
+            { title: 'Lista de inactivos', body: 'Acá caen los clientes sin interacción registrada en más de 30 días.' },
+            { title: 'Campañas de reactivación', body: 'Seleccionalos y enviales un mensaje de WhatsApp masivo (si tenés permiso) o llamalos.' },
+            { title: 'Limpiá la base', body: 'Si definitivamente no van a comprar, marcalos como "Perdido/Inactivo".' }
         ],
         tips: [
-            'Los pedidos son oro. Un cliente con pedido está altamente calificado para comprar ya mismo.',
-            'Cancela los pedidos antiguos (más de 90 días) si el cliente compró en otro lado para no ensuciar el Match inteligente.'
+            'Usá la excusa de "Ingresó stock nuevo" para volver a hablarles.'
         ],
-        keywords: ['solicitud', 'busqueda', 'match', 'presupuesto', 'encargo'],
-        route: '/admin/pedidos',
-        featureFlag: null,
-        implementationStatus: 'partial',
-        version: '1.0',
-        lastReviewed: '2026-07-02',
-        reviewedBy: 'System'
+        keywords: ['inactivos', 'recupero', 'perdidos']
     },
+    // ---------------------------------------------------------
+    // CATEGORÍA: OPERACIÓN Y TRÁMITES
+    // ---------------------------------------------------------
     {
-        id: 'expedientes',
-        category: 'operacion',
-        order: 19,
+        id: 'expedientes-legales',
         title: 'Expedientes',
+        category: 'operacion',
         icon: 'FolderOpen',
-        roles: ['Owner/Admin', 'Administrativo', 'Gestoría', 'Solo lectura'],
-        summary: 'Centro neurálgico administrativo donde convergen los documentos y finanzas de una venta.',
+        route: '/admin/expedientes',
+        roles: ['Owner/Admin', 'Administrativo', 'Gestoría'],
+        summary: 'Gestioná el papeleo y transferencias de cada venta o permuta.',
         steps: [
-            {
-                title: 'Origen',
-                body: 'Todo expediente nace de una venta cerrada. Puedes buscarlo por número de expediente, patente o cliente.',
-                actionLabel: 'Ir a Expedientes',
-                actionRoute: '/admin/expedientes'
-            },
-            {
-                title: 'Partes Involucradas',
-                body: 'El resumen muestra la Parte Compradora (el nuevo dueño) y la Parte Vendedora (el ex dueño o la agencia). El Gestor asignado es responsable del avance.'
-            },
-            {
-                title: 'Documentación y Boletos',
-                body: 'Controla el checklist de papeles entregados e imprime el Boleto de Compra-Venta.'
-            },
-            {
-                title: 'Gastos y Liquidación',
-                body: 'Solo perfiles con permisos financieros pueden asentar gastos de gestoría o reparaciones finales que impactan en la liquidación de la operación.'
-            },
-            {
-                title: 'Estados y WhatsApp',
-                body: 'Actualiza el estado (En proceso, Faltan firmas, Terminado) y notifica al cliente rápidamente vía WhatsApp integrado.'
-            }
+            { title: 'Generación', body: 'Al convertir una venta, se crea el expediente automáticamente para el comprador y el vendedor (si dejó usado).' },
+            { title: 'Documentación', body: 'Cargá y revisá qué papeles faltan (08, libre deuda, verificación policial).' },
+            { title: 'Liquidación y Gastos', body: 'Asignale los costos de transferencia y cerrá la liquidación económica del trámite.' },
+            { title: 'Boletos', body: 'Imprimí el boleto de compraventa o mandato desde la pestaña "Comprobantes".' }
         ],
         tips: [
-            'No marques un expediente como "Terminado" hasta que el vehículo esté físicamente transferido y la liquidación pagada.',
-            'Usa la pestaña de Observaciones para dejar constancia de cualquier deuda de patente que el cliente prometió pagar luego.'
+            'Asigná un gestor a cada expediente para que se haga responsable del seguimiento.'
         ],
-        keywords: ['carpetas', 'boletos', 'liquidaciones', 'gastos', 'tramites'],
-        route: '/admin/expedientes',
-        featureFlag: null,
-        implementationStatus: 'partial',
-        version: '1.0',
-        lastReviewed: '2026-07-02',
-        reviewedBy: 'System'
+        keywords: ['tramites', 'papeles', 'transferencia', 'carpetas']
     },
     {
-        id: 'gestoria',
+        id: 'gestoria-tramites',
+        title: 'Gestoría',
         category: 'operacion',
-        order: 20,
-        title: 'Gestoría — Trámites de transferencia',
-        icon: 'FileSignature',
+        icon: 'Briefcase',
+        route: '/admin/gestoria',
         roles: ['Owner/Admin', 'Gestoría', 'Administrativo'],
-        summary: 'Seguimiento de trámites de transferencia, inscripciones y reportes de dominio.',
+        summary: 'Panel de control para los gestores donde ven todo el trabajo pendiente.',
         steps: [
-            {
-                title: 'Tablero de Trámites',
-                body: 'Visualiza en forma de tarjetas o listado todos los trámites activos.',
-                actionLabel: 'Ir a Gestoría',
-                actionRoute: '/admin/gestoria'
-            },
-            {
-                title: 'Nuevo Trámite',
-                body: 'Asigna el trámite a un Gestor, establece el nivel de Prioridad y una fecha de Vencimiento límite.'
-            },
-            {
-                title: 'Hitos y Documentos Faltantes',
-                body: 'A medida que el trámite avanza, marca los hitos cumplidos. Si el registro pide más papeles, anótalos en "Documentos faltantes".'
-            },
-            {
-                title: 'Expediente Relacionado',
-                body: 'Todo trámite debe estar vinculado a su expediente de origen para que el área de finanzas sepa por qué se están pagando aranceles.'
-            }
+            { title: 'Tarjetas de tareas', body: 'Revisá los trámites por prioridad o vencimiento. Cada uno indica qué documentos faltan.' },
+            { title: 'Hitos', body: 'Marcá pasos completados (Ej: "Firma certificada", "Trámite ingresado al registro").' },
+            { title: 'WhatsApp', body: 'Escribile al cliente desde la misma tarjeta para pedirle una foto del DNI o recordarle firmas.' }
         ],
         tips: [
-            'Revisa diariamente los trámites con "Prioridad Alta" que estén cerca del vencimiento del boleto.',
-            'Avisa al cliente por WhatsApp directamente desde el panel cuando las chapas o la cédula verde estén listas para retirar.'
+            'Filtrá por "Vencidos" cada mañana para evitar multas registrales.'
         ],
-        keywords: ['transferencias', 'f08', 'cedulas', 'registros', 'tramites'],
-        route: '/admin/gestoria',
-        featureFlag: null,
-        implementationStatus: 'partial',
-        version: '1.0',
-        lastReviewed: '2026-07-02',
-        reviewedBy: 'System'
+        keywords: ['mandatario', 'registro automotor', 'titulos']
     },
     {
         id: 'consignaciones',
-        category: 'operacion',
-        order: 21,
         title: 'Consignaciones',
+        category: 'operacion',
         icon: 'Handshake',
-        roles: ['Owner/Admin', 'Ventas', 'Administrativo', 'Solo lectura'],
-        summary: 'Control del ciclo de vida de los vehículos que terceros dejan en la agencia para vender.',
-        steps: [
-            {
-                title: 'El Kanban',
-                body: 'Arrastra las consignaciones por sus etapas: Ingreso, Tasación, Documentación, Publicado, Reservado, Vendido y Cerrado.',
-                actionLabel: 'Ir a Consignaciones',
-                actionRoute: '/admin/consignaciones'
-            },
-            {
-                title: 'Vista Lista y Datos Base',
-                body: 'Alterna a la vista de Lista para ver en detalle el Propietario, el Vendedor a cargo, el Precio pretendido y la Comisión acordada.'
-            },
-            {
-                title: 'Seguimientos',
-                body: 'Anota cada contacto con el dueño. Un campo de "Último contacto" te avisará si llevas meses sin informarle sobre el estado de su auto.'
-            },
-            {
-                title: 'Vehículo Relacionado',
-                body: 'Una vez que la consignación llega a "Publicado", debe existir un vínculo directo al auto en el módulo de Stock.'
-            }
-        ],
-        tips: [
-            'Nunca pases una consignación a "Publicado" si no has completado la fase de "Documentación" (F08 firmado, libre deuda, etc.).',
-            'Si el dueño retira el auto, arrastra la tarjeta a "Cancelado" para limpiar tu inventario y frenar la publicidad.'
-        ],
-        keywords: ['terceros', 'dueños', 'kanban', 'mandatos', 'comision'],
         route: '/admin/consignaciones',
-        featureFlag: null,
-        implementationStatus: 'implemented',
-        version: '1.0',
-        lastReviewed: '2026-07-02',
-        reviewedBy: 'System'
-    },
-    {
-        id: 'infracciones',
-        category: 'operacion',
-        order: 22,
-        title: 'Infracciones',
-        icon: 'AlertOctagon',
-        roles: ['Owner/Admin', 'Administrativo', 'Gestoría'],
-        summary: 'Gestión y cobro de multas de tránsito asociadas a los vehículos en stock.',
-        steps: [
-            {
-                title: 'Alta de Infracción',
-                body: 'Carga la patente, la jurisdicción (ej. CABA, PBA) y el motivo detallado de la multa.',
-                actionLabel: 'Ir a Infracciones',
-                actionRoute: '/admin/infracciones'
-            },
-            {
-                title: 'Manejo de Montos',
-                body: 'Registra el "Pago Real" (lo que le pagas al municipio) y el "Cobro al Cliente" (lo que le cobras al dueño o comprador). La diferencia es tu Ganancia.'
-            },
-            {
-                title: 'Estados y Liquidación',
-                body: 'Controla si la multa está Pendiente, Pagada o en proceso de Liquidación en el expediente correspondiente.'
-            }
-        ],
-        tips: [
-            'Es vital cruzar las infracciones impagas antes de liquidarle el dinero a un cliente que dejó su auto en consignación.'
-        ],
-        keywords: ['multas', 'fotomultas', 'deudas', 'patentes'],
-        route: '/admin/infracciones',
-        featureFlag: null,
-        implementationStatus: 'partial',
-        version: '1.0',
-        lastReviewed: '2026-07-02',
-        reviewedBy: 'System'
-    },
-    {
-        id: 'taller',
-        category: 'operacion',
-        order: 23,
-        title: 'Taller',
-        icon: 'Wrench',
-        roles: ['Owner/Admin', 'Taller', 'Administrativo'],
-        summary: 'Control de órdenes de trabajo, mantenimientos de stock y reparaciones a clientes.',
-        steps: [
-            {
-                title: 'Nueva Orden de Trabajo (OT)',
-                body: 'Indica si es para un Cliente Externo o para un Auto del Stock. Define si es ingreso inmediato o por turno.',
-                actionLabel: 'Ir a Taller',
-                actionRoute: '/admin/taller'
-            },
-            {
-                title: 'Recepción y Fotos',
-                body: 'Documenta el estado de recepción del vehículo (marcas, rayones, combustible) adjuntando fotos para evitar reclamos.'
-            },
-            {
-                title: 'Presupuesto',
-                body: 'Desglosa la Mano de Obra y los Repuestos. Asigna un Mecánico y un Proveedor. El sistema calculará el Costo interno y el Precio final.'
-            },
-            {
-                title: 'Aprobación y Cobro',
-                body: 'Envía el presupuesto por PDF o WhatsApp. Una vez aprobado por el cliente, procede a la reparación y posterior ingreso a la Caja Taller.'
-            },
-            {
-                title: 'Tablero e Historial',
-                body: 'La tabla principal te permite ver qué autos están en rampa. Al finalizar, agenda la fecha del Próximo Service.'
-            }
-        ],
-        tips: [
-            'Si el auto es del stock propio, imputa la OT para que el costo de reparación se sume al costo base del auto y reduzca la ganancia pura de forma realista.',
-            'Un buen chequeo visual con fotos al recibir el auto te ahorrará discusiones sobre "rayones que antes no estaban".'
-        ],
-        keywords: ['mecanica', 'service', 'reparacion', 'ot', 'presupuesto', 'repuestos'],
-        route: '/admin/taller',
-        featureFlag: null,
-        implementationStatus: 'implemented',
-        version: '1.0',
-        lastReviewed: '2026-07-02',
-        reviewedBy: 'System'
-    },
-    {
-        id: 'reclamos',
-        category: 'operacion',
-        order: 24,
-        title: 'Reclamos',
-        icon: 'MessageSquareWarning',
-        roles: ['Owner/Admin', 'Administrativo', 'Recepción'],
-        summary: 'Sistema de tickets para atención de garantías, quejas y consultas de clientes.',
-        steps: [
-            {
-                title: 'Nuevo Reclamo y KPIs',
-                body: 'Carga el ticket indicando el Tipo (Garantía, Documentación, etc.) y su Prioridad. Arriba verás los KPIs generales de la agencia.',
-                actionLabel: 'Ir a Reclamos',
-                actionRoute: '/admin/reclamos'
-            },
-            {
-                title: 'Asignación',
-                body: 'Un reclamo puede entrar sin dueño. Utiliza el botón "Tomar" para hacerte cargo o asígnalo a otro usuario responsable.'
-            },
-            {
-                title: 'Seguimiento',
-                body: 'Agrega comentarios internos, sube fotos/adjuntos y utiliza el botón "Pedir atención" si necesitas que un gerente intervenga.'
-            },
-            {
-                title: 'Cierre y Reapertura',
-                body: 'Cuando el problema se solucione, cambia el estado a Cierre. Si el cliente vuelve con la misma falla, usa la acción "Volver a abierto" (Reapertura).'
-            }
-        ],
-        tips: [
-            'Revisa diariamente si hay reclamos "estancados" (sin respuestas recientes) para evitar que una simple queja se transforme en una demanda.',
-            'El contacto rápido calma las aguas. Usa el acceso directo de WhatsApp para informarle al cliente que ya estás evaluando su caso.'
-        ],
-        keywords: ['quejas', 'garantia', 'tickets', 'soporte', 'problemas'],
-        route: '/admin/reclamos',
-        featureFlag: null,
-        implementationStatus: 'implemented',
-        version: '1.0',
-        lastReviewed: '2026-07-02',
-        reviewedBy: 'System'
-    },
-    {
-        id: 'finanzas',
-        category: 'finanzas',
-        order: 25,
-        title: 'Finanzas — Administración financiera',
-        icon: 'Wallet',
-        roles: ['Owner/Admin', 'Administrativo'],
-        summary: 'Panel de control maestro para todas las cajas, movimientos y rentabilidad de la agencia.',
-        steps: [
-            {
-                title: 'Cajas y Cuentas',
-                body: 'Gestiona ingresos y egresos separando siempre ARS de USD. Puedes ver los saldos actuales en la pestaña de Resumen y Cuentas.',
-                actionLabel: 'Ir a Finanzas',
-                actionRoute: '/admin/finanzas'
-            },
-            {
-                title: 'Movimientos y Comprobantes',
-                body: 'Registra cobros parciales de ventas, señas, gastos personales, préstamos o cobros por tarjetas. Cada movimiento permite adjuntar su comprobante.'
-            },
-            {
-                title: 'Reversiones y Autorizaciones',
-                body: 'Si te equivocas en un ingreso, debes solicitar la Reversión. Las alteraciones de caja requieren permisos especiales o Autorizaciones del Owner.'
-            },
-            {
-                title: 'Análisis de Rentabilidad',
-                body: 'Revisa las pestañas de Comisiones, Retiros, Pago empresas y Rentabilidad para entender la salud financiera mensual.'
-            }
-        ],
-        tips: [
-            'No mezcles ingresos en pesos con dólares. El sistema tiene cajas estrictamente separadas para evitar desfasajes cambiarios.',
-            'Un cobro parcial a un cliente debe asentarse inmediatamente para que el saldo de su expediente se actualice en tiempo real.'
-        ],
-        keywords: ['caja', 'ingresos', 'egresos', 'dolares', 'pesos', 'gastos', 'cheques'],
-        route: '/admin/finanzas',
-        featureFlag: null,
-        implementationStatus: 'partial',
-        version: '1.0',
-        lastReviewed: '2026-07-02',
-        reviewedBy: 'System'
-    },
-    {
-        id: 'tesoreria',
-        category: 'finanzas',
-        order: 26,
-        title: 'Tesorería',
-        icon: 'Vault',
-        roles: ['Owner/Admin', 'Administrativo'],
-        summary: 'Gestión exclusiva de los fondos que entran y salen por ventas concretadas (Expedientes).',
-        steps: [
-            {
-                title: 'Expedientes Activos',
-                body: 'Observa en un solo lugar todas las ventas en curso que requieren movimientos de dinero.',
-                actionLabel: 'Ir a Tesorería',
-                actionRoute: '/admin/tesoreria'
-            },
-            {
-                title: 'Flujo de Dinero',
-                body: 'Asienta el "Pago del comprador" (lo que entra) y el "Pago al propietario" (lo que sale si era una consignación).'
-            },
-            {
-                title: 'Caja y Arqueo',
-                body: 'Verifica la Caja de tesorería, haz Transferencias internas hacia la caja general, sube Comprobantes y ejecuta el Arqueo.'
-            },
-            {
-                title: 'Márgenes y Financiación',
-                body: 'Revisa el Margen bruto de la operación, el peso de la financiación y los Cheques asociados, comparándolo siempre con el Boleto.'
-            }
-        ],
-        tips: [
-            'Tesorería es el puente entre una Venta y las Finanzas puras de la agencia. Un descuadre aquí frena la entrega del vehículo.'
-        ],
-        keywords: ['fondos', 'pagos', 'propietario', 'comprador', 'arqueo', 'margen'],
-        route: '/admin/tesoreria',
-        featureFlag: null,
-        implementationStatus: 'implemented',
-        version: '1.0',
-        lastReviewed: '2026-07-02',
-        reviewedBy: 'System'
-    },
-    {
-        id: 'liquidaciones',
-        category: 'finanzas',
-        order: 27,
-        title: 'Liquidaciones',
-        icon: 'Calculator',
-        roles: ['Owner/Admin', 'Administrativo'],
-        summary: 'Armado de pagos formales a socios, inversores o la agencia misma.',
-        steps: [
-            {
-                title: 'Sincronización y Duplicados',
-                body: 'Sincroniza los datos de las operaciones y utiliza la herramienta de "Limpieza de duplicados" para evitar pagar doble.',
-                actionLabel: 'Ir a Liquidaciones',
-                actionRoute: '/admin/liquidaciones'
-            },
-            {
-                title: 'Liquidación Mensual',
-                body: 'Genera el Resumen de agencia para un Período específico determinando el Beneficiario.'
-            },
-            {
-                title: 'Estados y Cierre',
-                body: 'Mueve la liquidación por sus estados (Borrador, Aprobada, Pagada). Al finalizar, asienta las Transferencias y haz el Cierre formal.'
-            }
-        ],
-        tips: [
-            'La limpieza de duplicados es mandatoria antes de generar el reporte final del mes para no comprometer el capital de la agencia.'
-        ],
-        keywords: ['pagos', 'socios', 'inversores', 'cierres', 'mensual'],
-        route: '/admin/liquidaciones',
-        featureFlag: null,
-        implementationStatus: 'implemented',
-        version: '1.0',
-        lastReviewed: '2026-07-02',
-        reviewedBy: 'System'
-    },
-    {
-        id: 'cuotas',
-        category: 'finanzas',
-        order: 28,
-        title: 'Cobros',
-        icon: 'Landmark',
-        roles: ['Owner/Admin', 'Administrativo'],
-        summary: 'Gestión de vencimientos y cobranzas directas a clientes financiados.',
-        steps: [
-            {
-                title: 'Seguimiento de Vencimientos',
-                body: 'Filtra las cuotas por su estado: Vencidas, Próximas a vencer o En fecha.',
-                actionLabel: 'Ir a Cuotas',
-                actionRoute: '/admin/cuotas'
-            },
-            {
-                title: 'Cobros e Imputación',
-                body: 'Al recibir el dinero (ARS o USD), usa "Marcar cobrada" especificando la Fecha real del pago.'
-            },
-            {
-                title: 'Cobros Parciales',
-                body: 'Si el cliente entrega la mitad, asienta el cobro parcial; el sistema mantendrá el saldo remanente pendiente en la operación relacionada.'
-            }
-        ],
-        tips: [
-            'Atacar las cuotas "Vencidas" en la primera hora de la mañana mejora drásticamente el flujo de caja diario.'
-        ],
-        keywords: ['pagos', 'cobranzas', 'morosos', 'deudores', 'vencimientos'],
-        route: '/admin/cuotas',
-        featureFlag: null,
-        implementationStatus: 'implemented',
-        version: '1.0',
-        lastReviewed: '2026-07-02',
-        reviewedBy: 'System'
-    },
-    {
-        id: 'autorizaciones',
-        category: 'finanzas',
-        order: 29,
-        title: 'Autorizaciones',
-        icon: 'ShieldCheck',
-        roles: ['Owner/Admin'],
-        summary: 'Aprobaciones de seguridad para acciones sensibles en la plataforma.',
-        steps: [
-            {
-                title: 'Solicitud y Riesgo',
-                body: 'Cuando un vendedor quiere borrar un pago o hacer un gran descuento, el sistema bloquea la acción y genera una Solicitud con un Nivel de riesgo asignado.',
-                actionLabel: 'Ir a Autorizaciones',
-                actionRoute: '/admin/autorizaciones'
-            },
-            {
-                title: 'Aprobación / Rechazo',
-                body: 'Un perfil con Roles superiores revisa el Historial del cliente y decide Rechazar o Aprobar.'
-            },
-            {
-                title: 'Aplicación Automática',
-                body: 'Si ingresas tu PIN de aprobación, la acción bloqueada se ejecuta inmediatamente sin que el vendedor deba volver a intentar.'
-            }
-        ],
-        tips: [
-            'Las autorizaciones previenen fraudes y errores de tipeo catastróficos. Trata cada solicitud de "Riesgo Alto" con máximo escrutinio.'
-        ],
-        keywords: ['permisos', 'bloqueos', 'seguridad', 'pin', 'aprobacion'],
-        route: '/admin/autorizaciones',
-        featureFlag: null,
-        implementationStatus: 'partial',
-        version: '1.0',
-        lastReviewed: '2026-07-02',
-        reviewedBy: 'System'
-    },
-    {
-        id: 'reportes',
-        category: 'finanzas',
-        order: 30,
-        title: 'Reportes',
-        icon: 'PieChart',
-        roles: ['Owner/Admin', 'Administrativo'],
-        summary: 'Tableros de Business Intelligence e informes detallados.',
-        steps: [
-            {
-                title: 'Uso de Paneles',
-                body: 'Explora todos los paneles disponibles para ver la distribución de ventas, eficiencia por vendedor y proyecciones de caja.',
-                actionLabel: 'Ir a Reportes',
-                actionRoute: '/admin/reportes'
-            },
-            {
-                title: 'Filtros Avanzados',
-                body: 'Utiliza los filtros de fecha, modelo y vendedor para cruzar datos y exportar conclusiones concretas.'
-            }
-        ],
-        tips: [
-            'El reporte de rentabilidad por modelo te indicará qué autos debes seguir comprando y cuáles te están generando pérdidas.'
-        ],
-        keywords: ['bi', 'estadisticas', 'graficos', 'informes', 'kpi'],
-        route: '/admin/reportes',
-        featureFlag: null,
-        implementationStatus: 'implemented',
-        version: '1.0',
-        lastReviewed: '2026-07-02',
-        reviewedBy: 'System'
-    },
-    {
-        id: 'comisiones',
-        category: 'finanzas',
-        order: 31,
-        title: 'Mis Comisiones',
-        icon: 'DollarSign',
-        roles: ['Ventas', 'Owner/Admin'],
-        summary: 'Estado de cuenta personal del vendedor.',
-        steps: [
-            {
-                title: 'Métricas Principales',
-                body: 'Visualiza rápidamente tu Total generado, cuánto está Pendiente de pago y cuánto ya has Cobrado en distintos Períodos.',
-                actionLabel: 'Ver Mis Comisiones',
-                actionRoute: '/admin/mis-comisiones'
-            },
-            {
-                title: 'Detalle por Venta',
-                body: 'Cada línea muestra la Venta relacionada, la Comisión base y los Extras o Bonos ganados.'
-            },
-            {
-                title: 'Estado y Pagos Parciales',
-                body: 'Revisa el Estado de la comisión. Si la agencia te adelanta dinero, figurará como un Pago Parcial en tu Historial.'
-            },
-            {
-                title: 'Carga Manual',
-                body: 'Si logras un bono fuera de sistema, la administración puede hacer una Carga manual que requiere Autorización previa.'
-            }
-        ],
-        tips: [
-            'Tu comisión no pasará a "Cobrada" hasta que la Venta relacionada tenga todo su expediente y pagos en orden.'
-        ],
-        keywords: ['premios', 'sueldo', 'liquidaciones', 'vendedor', 'bonos'],
-        route: '/admin/mis-comisiones',
-        featureFlag: null,
-        implementationStatus: 'partial',
-        version: '1.0',
-        lastReviewed: '2026-07-02',
-        reviewedBy: 'System'
-    },
-    {
-        id: 'mensajes',
-        category: 'comunicacion',
-        order: 32,
-        title: 'Mensajes',
-        icon: 'MessageSquare',
-        roles: ['Owner/Admin', 'Ventas', 'Administrativo', 'Gestoría', 'Taller', 'Recepción'],
-        summary: 'Chat interno del equipo de AutoSporting para evitar el uso de canales externos informales.',
-        steps: [
-            {
-                title: 'Bandeja y Vistas',
-                body: 'Filtra entre el canal General (toda la agencia), Directos (uno a uno) y Grupos creados para temas específicos.',
-                actionLabel: 'Ir a Mensajes',
-                actionRoute: '/admin/mensajes'
-            },
-            {
-                title: 'Gestión de la Bandeja',
-                body: 'Inicia una conversación nueva, marca hilos como "Leído" o revisa tus "No leídos". Los chats antiguos pueden ser Archivados para limpiar la vista.'
-            },
-            {
-                title: 'Adjuntos',
-                body: 'Comparte imágenes de daños, PDFs de cotizaciones o comprobantes de pago directamente en el chat para que quede en el sistema.'
-            }
-        ],
-        tips: [
-            'No uses tu WhatsApp personal para consultas internas de la agencia. El chat del CRM asegura que la información sea auditable.'
-        ],
-        keywords: ['chat', 'interno', 'equipo', 'comunicacion', 'adjuntos'],
-        route: '/admin/mensajes',
-        featureFlag: null,
-        implementationStatus: 'implemented',
-        version: '1.0',
-        lastReviewed: '2026-07-02',
-        reviewedBy: 'System'
-    },
-    {
-        id: 'whatsapp',
-        category: 'comunicacion',
-        order: 33,
-        title: 'WhatsApp y Conversaciones',
-        icon: 'MessageCircle',
         roles: ['Owner/Admin', 'Ventas', 'Administrativo'],
-        summary: 'Integración nativa para chatear con clientes y leads directamente desde el CRM.',
+        summary: 'Controlá los autos que dueños particulares te dejan para vender.',
         steps: [
-            {
-                title: 'Bandeja y Búsqueda',
-                body: 'La bandeja centraliza todos los chats. Utiliza el buscador para encontrar un número o un nombre rápidamente.',
-                actionLabel: 'Ir a WhatsApp',
-                actionRoute: '/admin/whatsapp'
-            },
-            {
-                title: 'Gestión de la Conversación',
-                body: 'Abre un chat para Responder o enviar un Nuevo Mensaje. Puedes utilizar Plantillas pre-aprobadas para ahorrar tiempo.'
-            },
-            {
-                title: 'Contexto Integrado',
-                body: 'A la derecha del chat verás si el número corresponde a un Lead o a un Cliente CRM formal, y quién es su Vendedor Asignado.'
-            },
-            {
-                title: 'Estados y Reglas Técnicas',
-                body: 'Revisa los íconos para ver si el mensaje tiene estado de "Error" o fue enviado con éxito. Si tu proveedor exige la Regla de 24 horas, no podrás iniciar conversaciones libres tras ese lapso sin una plantilla.'
-            }
+            { title: 'Tablero Kanban', body: 'Mové las tarjetas desde "Ingreso" a "Tasación", "Publicado", "Reservado" o "Vendido".' },
+            { title: 'Datos del propietario', body: 'Registrá al dueño, el precio que pide y tu porcentaje de comisión pactado.' },
+            { title: 'Seguimientos', body: 'Cargá notas cada vez que hablás con el dueño para bajarle el precio o darle novedades.' }
         ],
         tips: [
-            'Los mensajes con plantillas aseguran una imagen corporativa profesional ante los clientes nuevos.'
+            'Configurá una alerta para llamar a los propietarios cada 15 días.'
         ],
-        keywords: ['chat', 'clientes', 'plantillas', 'mensajes', 'whatsapp'],
-        route: '/admin/whatsapp',
-        featureFlag: null,
-        implementationStatus: 'implemented',
-        version: '1.0',
-        lastReviewed: '2026-07-02',
-        reviewedBy: 'System'
+        keywords: ['mandato', 'terceros', 'dueño directo', 'kanban']
     },
     {
-        id: 'nps',
-        category: 'comunicacion',
-        order: 34,
-        title: 'NPS — Satisfacción del cliente',
-        icon: 'StarHalf',
-        roles: ['Owner/Admin', 'Administrativo'],
-        summary: 'Medición del "Net Promoter Score" para entender el grado de satisfacción de tus clientes.',
+        id: 'infracciones-multas',
+        title: 'Infracciones',
+        category: 'operacion',
+        icon: 'Ticket',
+        route: '/admin/infracciones',
+        roles: ['Owner/Admin', 'Administrativo', 'Gestoría'],
+        summary: 'Controlá las multas de los autos para cobrárselas al titular o descontarlas.',
         steps: [
-            {
-                title: 'El Tablero de NPS',
-                body: 'Visualiza el Promedio general y el NPS Score calculado mediante la resta entre tus Promotores y Detractores en distintos Períodos.',
-                actionLabel: 'Ir a NPS',
-                actionRoute: '/admin/nps'
-            },
-            {
-                title: 'Gestión de Encuestas',
-                body: 'Puedes "Enviar por WhatsApp" un link de encuesta automático, o "Cargar llamada" si el cliente respondió telefónicamente.'
-            },
-            {
-                title: 'Seguimiento y Contexto',
-                body: 'Analiza el Ranking de modelos que más quejas traen y el Contexto de los Pasivos para convertirlos en Promotores en su próxima compra.'
-            }
+            { title: 'Alta de multa', body: 'Cargá la patente, la jurisdicción y el motivo (ej. exceso de velocidad).' },
+            { title: 'Montos', body: 'Registrá cuánto pagaste en el registro y cuánto le vas a cobrar al cliente (genera ganancia si hay diferencia).' },
+            { title: 'Liquidación', body: 'Asociala al expediente para que se descuente automáticamente del pago al propietario.' }
         ],
         tips: [
-            'Un detractor es una bomba de tiempo en Google Reviews. Contáctalo de inmediato para ofrecer una solución.'
+            'Antes de tomar una permuta, cargá el informe de infracciones acá para que nadie se olvide de descontarlas.'
         ],
-        keywords: ['encuestas', 'satisfaccion', 'calidad', 'promotores', 'detractores'],
+        keywords: ['multas', 'patentes', 'libre deuda']
+    },
+    {
+        id: 'reclamos-clientes',
+        title: 'Reclamos',
+        category: 'operacion',
+        icon: 'AlertOctagon',
+        route: '/admin/reclamos',
+        roles: ['Owner/Admin', 'Administrativo', 'Recepción', 'Taller'],
+        summary: 'Atendé quejas y problemas post-entrega para cuidar la reputación de la agencia.',
+        steps: [
+            { title: 'Nuevo reclamo', body: 'Asignalo a un cliente y un vehículo. Describí el problema (ej. "falla el aire acondicionado").' },
+            { title: 'Derivación', body: 'Asignale el reclamo al jefe de Taller o al vendedor para que lo gestione.' },
+            { title: 'Resolución', body: 'Una vez solucionado, marcá cómo se resolvió y si tuvo algún costo para la agencia.' }
+        ],
+        tips: [
+            'Tratá de cerrar los reclamos en menos de 48hs para evitar clientes enojados en Google Maps.'
+        ],
+        keywords: ['quejas', 'garantia', 'problemas']
+    },
+    {
+        id: 'taller-mantenimiento',
+        title: 'Taller',
+        category: 'operacion',
+        icon: 'PenTool',
+        route: '/admin/taller',
+        roles: ['Owner/Admin', 'Taller'],
+        summary: 'Controlá los arreglos y lavados que le hacés a los autos antes de entregarlos.',
+        steps: [
+            { title: 'Orden de trabajo', body: 'Generá una orden para un auto del stock indicando qué hay que hacerle (pulido, service, cambio de correa).' },
+            { title: 'Costos', body: 'Cargá lo que gastaste en repuestos y mano de obra. Esto aumenta el costo total del auto en el stock.' },
+            { title: 'Estados', body: 'Mové el auto a "En taller" para que Ventas sepa que no puede mostrarlo ese día.' }
+        ],
+        tips: [
+            'Si tercerizás los lavados, podés usar este módulo para controlar cuántos lavados le debés al lavadero a fin de mes.'
+        ],
+        keywords: ['arreglos', 'service', 'preparacion', 'lavadero']
+    },
+
+    // ---------------------------------------------------------
+    // CATEGORÍA: FINANZAS
+    // ---------------------------------------------------------
+    {
+        id: 'finanzas-cajas',
+        title: 'Finanzas',
+        category: 'finanzas',
+        icon: 'LineChart',
+        route: '/admin/finanzas',
+        roles: ['Owner/Admin', 'Administrativo'],
+        summary: 'Control total de ingresos, egresos y el estado de las cuentas (cajas).',
+        steps: [
+            { title: 'Movimientos', body: 'Registrá pagos de empresas, retiros de socios o pagos disponibles en las pestañas correspondientes.' },
+            { title: 'Cuentas separadas', body: 'Visualizá los saldos en ARS y USD por separado. Cada movimiento debe asignarse a una caja (banco, efectivo, etc).' },
+            { title: 'Comprobantes', body: 'Subí el ticket o transferencia PDF a cada movimiento para respaldarlo.' },
+            { title: 'Reversión', body: 'Si te equivocás, usá la opción de reversión (requiere permisos de Admin) para anular el movimiento.' }
+        ],
+        tips: [
+            'Hacé un arqueo de caja físico y comparalo con el sistema todos los viernes.'
+        ],
+        keywords: ['caja', 'dinero', 'bancos', 'ingresos', 'egresos']
+    },
+    {
+        id: 'tesoreria-pagos',
+        title: 'Tesorería',
+        category: 'finanzas',
+        icon: 'Vault',
+        route: '/admin/tesoreria',
+        roles: ['Owner/Admin', 'Administrativo'],
+        summary: 'Módulo enfocado a grandes pagos, emisión de cheques y arqueos.',
+        steps: [
+            { title: 'Expedientes activos', body: 'Gestioná el "Pago al propietario" o recibí el "Pago del comprador" directamente desde acá.' },
+            { title: 'Transferencias internas', body: 'Mové plata de la caja de Efectivo a la cuenta de Banco Francés registrándolo en el sistema.' },
+            { title: 'Cheques', body: 'Cargá los cheques recibidos y emitidos con su fecha de vencimiento y banco emisor.' }
+        ],
+        tips: [
+            'Mantené al día la pestaña de "Financiación" para saber cuánta plata tenés en la calle.'
+        ],
+        keywords: ['boveda', 'valores', 'transferencias', 'arqueos']
+    },
+    {
+        id: 'liquidaciones-terceros',
+        title: 'Liquidaciones',
+        category: 'finanzas',
+        icon: 'Receipt',
+        route: '/admin/liquidaciones',
+        roles: ['Owner/Admin', 'Administrativo'],
+        summary: 'Rendiciones mensuales o pagos consolidados a gestores y vendedores.',
+        steps: [
+            { title: 'Sincronización', body: 'Traé automáticamente todas las comisiones o trámites pendientes de pago en un solo período.' },
+            { title: 'Cierre', body: 'Confirmá la liquidación mensual para congelar el resumen y marcar todo como "Pagado".' },
+            { title: 'Limpieza de duplicados', body: 'Si un gestor te cargó dos veces el mismo gasto, podés anular uno antes de cerrar la liquidación.' }
+        ],
+        tips: [
+            'Generá el PDF del resumen de agencia y mandáselo al vendedor por WhatsApp el último día del mes.'
+        ],
+        keywords: ['sueldos', 'rendiciones', 'pagos a gestores']
+    },
+    {
+        id: 'cobros-cuotas',
+        title: 'Cobros / Cuotas',
+        category: 'finanzas',
+        icon: 'CreditCard',
+        route: '/admin/cuotas',
+        roles: ['Owner/Admin', 'Administrativo'],
+        summary: 'Gestioná los autos que vendiste financiados por la agencia.',
+        steps: [
+            { title: 'Grilla de cuotas', body: 'Revisá qué cuotas están "Vencidas", "Próximas" o "En fecha".' },
+            { title: 'Cobros parciales', body: 'Si te pagan la mitad de la cuota, registralo (en ARS o USD) y el sistema calcula el saldo restante.' },
+            { title: 'Marcar cobrada', body: 'Al saldarla, marcala como pagada, ingresá la fecha real y subí el comprobante para asociarlo al cliente.' }
+        ],
+        tips: [
+            'Contactá por WhatsApp a los que tienen cuotas vencidas directamente desde la alerta del sistema.'
+        ],
+        keywords: ['financiacion', 'pagares', 'deudores']
+    },
+
+    // ---------------------------------------------------------
+    // CATEGORÍA: COMUNICACIÓN
+    // ---------------------------------------------------------
+    {
+        id: 'mensajes-internos',
+        title: 'Mensajes',
+        category: 'comunicacion',
+        icon: 'MessageSquare',
+        route: '/admin/mensajes',
+        roles: ['Owner/Admin', 'Ventas', 'Administrativo', 'Gestoría', 'Recepción', 'Taller'],
+        summary: 'Chat interno para hablar con el equipo sin depender de tu celular privado.',
+        steps: [
+            { title: 'Bandejas', body: 'Navegá entre el canal "General", mensajes "Directos" o "Grupos".' },
+            { title: 'Iniciar conversación', body: 'Buscá a un usuario de la agencia y escribile. Podés enviar adjuntos.' },
+            { title: 'Organización', body: 'Archivá chats viejos y filtrá por "No leídos" para limpiar tu bandeja.' }
+        ],
+        tips: [
+            'Usá el chat interno para mandarle a Administración los comprobantes de transferencias rápidas.'
+        ],
+        keywords: ['chat', 'comunicacion interna', 'equipo']
+    },
+    {
+        id: 'whatsapp-crm',
+        title: 'WhatsApp',
+        category: 'comunicacion',
+        icon: 'MessageCircle',
+        route: '/admin/whatsapp',
+        roles: ['Owner/Admin', 'Ventas', 'Recepción'],
+        summary: 'Atendé a los clientes por WhatsApp directamente desde la compu.',
+        steps: [
+            { title: 'Bandeja', body: 'Abrí conversaciones con leads o clientes. Vas a ver el nombre del vendedor asignado a la derecha.' },
+            { title: 'Nuevo mensaje', body: 'Iniciá un chat buscando el celular del cliente. Si no escribieron en 24hs, usá las plantillas aprobadas.' },
+            { title: 'Estados de envío', body: 'Revisá si el mensaje tiene doble tilde (leído) o si hubo error de conexión.' }
+        ],
+        tips: [
+            'Todo lo que hables por acá queda guardado en la ficha del cliente, ideal por si te vas de vacaciones y otro sigue la venta.'
+        ],
+        keywords: ['wpp', 'chat cliente', 'mensajeria']
+    },
+    {
+        id: 'correo-integrado',
+        title: 'Correo',
+        category: 'comunicacion',
+        icon: 'Mail',
+        route: '/admin/correos',
+        roles: ['Owner/Admin', 'Ventas', 'Administrativo'],
+        summary: 'Conectá tu cuenta de Google (Gmail) para mandar correos desde el CRM.',
+        steps: [
+            { title: 'Conexión OAuth', body: 'Entrá y vinculá tu Client ID de Google para autorizar los envíos. Si expira la sesión, volvé a loguearte.' },
+            { title: 'Redactar', body: 'Escribí, adjuntá presupuestos y usá las "Plantillas" para ahorrar tiempo.' },
+            { title: 'Bandejas', body: 'Leé, respondé, reenviá o mandá correos a la papelera sin salir del sistema.' }
+        ],
+        tips: [
+            'Armate una plantilla de "Felicidades por tu nuevo auto" para mandarla rápido tras cada entrega.'
+        ],
+        keywords: ['email', 'gmail', 'enviar mail', 'inbox']
+    },
+    {
+        id: 'encuestas-nps',
+        title: 'NPS (Satisfacción)',
+        category: 'comunicacion',
+        icon: 'Star',
         route: '/admin/nps',
-        featureFlag: null,
-        implementationStatus: 'partial',
-        version: '1.0',
-        lastReviewed: '2026-07-02',
-        reviewedBy: 'System'
+        roles: ['Owner/Admin', 'Administrativo'],
+        summary: 'Medí qué tan contentos quedaron los clientes con la agencia.',
+        steps: [
+            { title: 'NPS Score', body: 'Revisá el promedio general y el porcentaje de Promotores, Pasivos y Detractores.' },
+            { title: 'Enviar encuesta', body: 'Mandale por WhatsApp el link al cliente para que califique del 1 al 10.' },
+            { title: 'Cargar llamada', body: 'Si le preguntaste por teléfono, podés cargar la nota (contexto) y el puntaje manualmente.' },
+            { title: 'Ranking', body: 'Filtrá por vendedor para ver quién tiene mejor reputación.' }
+        ],
+        tips: [
+            'Llamá inmediatamente a cualquier Detractor (nota menor a 6) para solucionar su problema.'
+        ],
+        keywords: ['calificaciones', 'estrellas', 'encuestas', 'reviews']
     },
     {
         id: 'sugerencias',
-        category: 'comunicacion',
-        order: 35,
         title: 'Sugerencias',
-        icon: 'Lightbulb',
-        roles: ['Owner/Admin', 'Ventas', 'Administrativo', 'Gestoría', 'Taller', 'Recepción'],
-        summary: 'Buzón interno para que el equipo proponga mejoras en los procesos de la agencia.',
-        steps: [
-            {
-                title: 'Dar de Alta',
-                body: 'Crea una sugerencia, elige su Categoría y añade Adjuntos (fotos o documentos) que expliquen tu idea.',
-                actionLabel: 'Ver Sugerencias',
-                actionRoute: '/admin/sugerencias'
-            },
-            {
-                title: 'Votación y Estados',
-                body: 'Los compañeros pueden dar sus Votos a las mejores ideas. La administración cambiará los Estados (En análisis, Aceptada, Rechazada) y dejará una Respuesta.'
-            },
-            {
-                title: 'Visualización',
-                body: 'Filtra la Lista global o busca Por Usuario. Las reglas de Editar/Borrar están bloqueadas por rol para mantener la transparencia.'
-            }
-        ],
-        tips: [
-            'Usa las sugerencias para pedir mejoras en herramientas, cambios en los horarios o nuevas marcas de café para la recepción.'
-        ],
-        keywords: ['ideas', 'mejoras', 'buzon', 'feedback', 'equipo'],
+        category: 'comunicacion',
+        icon: 'MessageSquarePlus',
         route: '/admin/sugerencias',
-        featureFlag: null,
-        implementationStatus: 'implemented',
-        version: '1.0',
-        lastReviewed: '2026-07-02',
-        reviewedBy: 'System'
-    },
-    {
-        id: 'correo',
-        category: 'comunicacion',
-        order: 36,
-        title: 'Mi Correo',
-        icon: 'Mail',
-        roles: ['Owner/Admin', 'Administrativo'],
-        summary: 'Sincronización de tu cuenta de email para operar directamente desde AutoSporting.',
+        roles: ['Owner/Admin', 'Ventas', 'Administrativo', 'Gestoría', 'Taller'],
+        summary: 'Un buzón para que todo el equipo proponga mejoras en la agencia.',
         steps: [
-            {
-                title: 'Sincronización',
-                body: 'Autoriza mediante Google OAuth. Si ves un error de "Sesión expirada" o falla el Client ID, reconecta la cuenta. Si todo falla, el sistema usa Fallback SMTP para alertas urgentes.',
-                actionLabel: 'Ir a Correo',
-                actionRoute: '/admin/correo'
-            },
-            {
-                title: 'Bandejas y Operaciones',
-                body: 'Puedes Buscar, Leer, Responder, Reenviar o Redactar correos nuevos con Adjuntos desde el CRM.'
-            },
-            {
-                title: 'Productividad',
-                body: 'Usa las Plantillas para no escribir el mismo presupuesto dos veces. Manda los correos resueltos a Archivar o Papelera.'
-            }
+            { title: 'Alta', body: 'Creá una sugerencia, elegí la categoría (ej. Infraestructura, Procesos) y subí fotos o adjuntos si ayuda.' },
+            { title: 'Votos', body: 'Votá las ideas de tus compañeros para que los jefes vean cuáles son más urgentes.' },
+            { title: 'Respuesta', body: 'El Owner puede pasarla a estado "En proceso" o "Aprobada" y dejar un comentario.' }
         ],
         tips: [
-            'Enviar un correo formal con una plantilla pre-diseñada le da un peso institucional a la agencia muy superior al WhatsApp.'
+            'Proponé cosas concretas (ej. "Comprar una cafetera nueva") en lugar de quejas al aire.'
         ],
-        keywords: ['email', 'gmail', 'mensajes', 'bandeja', 'oauth'],
-        route: '/admin/correo',
-        featureFlag: null,
-        implementationStatus: 'partial',
-        version: '1.0',
-        lastReviewed: '2026-07-02',
-        reviewedBy: 'System'
+        keywords: ['ideas', 'mejoras', 'feedback', 'buzon']
     },
+    // ---------------------------------------------------------
+    // CATEGORÍA: ADMINISTRACIÓN
+    // ---------------------------------------------------------
     {
-        id: 'conversaciones',
-        category: 'comunicacion',
-        order: 37,
-        title: 'Conversaciones',
-        icon: 'MessageCircle',
-        roles: ['Owner/Admin', 'Ventas', 'Administrativo'],
-        summary: 'Historial general de comunicaciones y registro de conversaciones con clientes (fuera de WhatsApp).',
+        id: 'reportes-metricas',
+        title: 'Reportes',
+        category: 'administracion',
+        icon: 'BarChart3',
+        route: '/admin/reportes',
+        roles: ['Owner/Admin'],
+        summary: 'Analizá toda la información comercial y financiera de la agencia en detalle.',
         steps: [
-            {
-                title: 'Registro Manual',
-                body: 'Puedes registrar manualmente llamadas telefónicas o reuniones presenciales en el historial del cliente.',
-                actionLabel: 'Ver Clientes',
-                actionRoute: '/admin/clientes'
-            },
-            {
-                title: 'Visualización de Historial',
-                body: 'El muro de actividades de cada cliente o expediente te permite ver toda la línea de tiempo de sus interacciones.'
-            },
-            {
-                title: 'Filtros por Tipo',
-                body: 'Puedes filtrar las interacciones para ver únicamente llamadas, reuniones o notas internas.'
-            }
+            { title: 'Generación', body: 'Seleccioná el tipo de reporte (Ventas, Origen de Leads, Productividad).' },
+            { title: 'Filtros de fecha', body: 'Elegí el rango exacto (ej. último trimestre) para ver la evolución de las barras.' },
+            { title: 'Imprimir', body: 'Podés usar el botón de impresión para llevarte un PDF a la reunión de directorio.' }
         ],
         tips: [
-            'Registra siempre las llamadas telefónicas como "Conversaciones" para que todo el equipo sepa qué se habló con el cliente.'
+            'Si notás que un origen de cliente (ej. Facebook) no rinde, cortá ese presupuesto publicitario.'
         ],
-        keywords: ['historial', 'llamadas', 'reuniones', 'registro', 'actividades'],
-        route: null,
-        featureFlag: null,
-        implementationStatus: 'implemented',
-        version: '1.0',
-        lastReviewed: '2026-07-02',
-        reviewedBy: 'System'
+        keywords: ['estadisticas', 'graficos', 'analytics']
     },
     {
-        id: 'telefonos',
-        category: 'comunicacion',
-        order: 38,
-        title: 'Teléfonos útiles',
-        icon: 'Phone',
-        roles: ['Owner/Admin', 'Ventas', 'Administrativo', 'Gestoría', 'Recepción'],
-        summary: 'Directorio interno con contactos de grúas, registros automotores y proveedores.',
+        id: 'auditoria-sistema',
+        title: 'Auditoría',
+        category: 'administracion',
+        icon: 'Eye',
+        route: '/admin/auditoria',
+        roles: ['Owner/Admin'],
+        summary: 'Mirá absolutamente todo lo que hacen los usuarios dentro del CRM.',
         steps: [
-            {
-                title: 'Directorio',
-                body: 'Utiliza Buscar y filtra por Categorías (Gestores, Mecánicos, Aseguradoras).',
-                actionLabel: 'Ver Teléfonos',
-                actionRoute: '/admin/telefonos-utiles'
-            },
-            {
-                title: 'Nuevo Contacto',
-                body: 'Carga el nombre, Teléfono, link directo a WhatsApp, Email y Notas aclaratorias.'
-            },
-            {
-                title: 'Gestión',
-                body: 'Cualquier usuario puede verlos, pero Editar y Eliminar queda sujeto a Auditoría para evitar vandalismo del directorio.'
-            }
+            { title: 'Registro de eventos', body: 'Acá queda grabado quién borró un auto, quién bajó un precio y a qué hora exacta.' },
+            { title: 'Búsqueda de errores', body: 'Si desapareció una venta, filtrá por la palabra "eliminar" para encontrar quién fue.' },
+            { title: 'Filtro por usuario', body: 'Elegí a un empleado específico para ver su actividad en los últimos días.' }
         ],
         tips: [
-            'Asegúrate de tener siempre actualizados los teléfonos de emergencia para traslados o problemas de cerraduras en el local.'
+            'Nunca pases tu clave de Admin, así podés estar seguro de quién hizo cada cambio.'
         ],
-        keywords: ['directorio', 'agenda', 'contactos', 'proveedores', 'gruas'],
+        keywords: ['log', 'seguridad', 'movimientos', 'historial']
+    },
+    {
+        id: 'telefonos-utiles',
+        title: 'Teléfonos Útiles',
+        category: 'administracion',
+        icon: 'PhoneCall',
         route: '/admin/telefonos-utiles',
-        featureFlag: null,
-        implementationStatus: 'implemented',
-        version: '1.0',
-        lastReviewed: '2026-07-02',
-        reviewedBy: 'System'
+        roles: ['Owner/Admin', 'Ventas', 'Administrativo', 'Gestoría', 'Recepción', 'Taller'],
+        summary: 'Agenda compartida con contactos clave para el funcionamiento de la agencia.',
+        steps: [
+            { title: 'Búsqueda rápida', body: 'Encontrá al instante el número del electricista, el gestor de confianza o la grúa.' },
+            { title: 'Alta de contacto', body: 'Cargá nombre, rubro y número para que todo el equipo lo tenga a mano.' },
+            { title: 'Llamada directa', body: 'Desde el celular, tocás el número y se abre directo el marcador.' }
+        ],
+        tips: [
+            'Mantené limpio este directorio. Si un mecánico ya no trabaja con ustedes, borralo.'
+        ],
+        keywords: ['agenda', 'contactos agencia', 'mecanico', 'grua']
     },
     {
         id: 'configuracion',
-        category: 'administracion',
-        order: 39,
         title: 'Configuración',
-        icon: 'Settings',
-        roles: ['Owner/Admin'],
-        summary: 'Ajustes maestros del CRM, reglas operativas y administración de la empresa.',
-        steps: [
-            {
-                title: 'Usuarios, Roles y Multirol',
-                body: 'Administra al equipo asignando roles fijos. Algunos usuarios pueden tener Multirol. Utiliza el toggle "Ocultar ganancias" para restringir visibilidad financiera a vendedores.',
-                actionLabel: 'Ir a Configuración',
-                actionRoute: '/admin/configuracion/usuarios'
-            },
-            {
-                title: 'Empresa y Comisiones',
-                body: 'Configura los datos fiscales y la estructura base de comisiones para la liquidación mensual.'
-            },
-            {
-                title: 'SLA y Lead Routing',
-                body: 'Establece los tiempos máximos de respuesta (SLA) y cómo se distribuyen automáticamente los Leads entrantes.'
-            },
-            {
-                title: 'Visibilidad y Plantillas',
-                body: 'Define si la visibilidad de clientes es global o restringida al "Vendedor asignado". Redacta las plantillas de WhatsApp por defecto de la agencia.'
-            },
-            {
-                title: 'Sistema y Seguridad',
-                body: 'Activa o desactiva Feature Flags, configura el Resumen Diario automático, ejecuta Backups de la DB y fuerza el uso de 2FA.'
-            }
-        ],
-        tips: ['Los cambios en las reglas de asignación de leads aplican únicamente a los nuevos registros, no reasignan el historial.'],
-        keywords: ['ajustes', 'parametros', 'usuarios', 'roles', 'multirol', 'backups', '2fa', 'plantillas'],
-        route: '/admin/configuracion',
-        featureFlag: null,
-        implementationStatus: 'implemented',
-        version: '1.0',
-        lastReviewed: '2026-07-02',
-        reviewedBy: 'System'
-    },
-    {
-        id: 'papelera',
         category: 'administracion',
-        order: 40,
-        title: 'Papelera',
-        icon: 'Trash2',
+        icon: 'Settings',
+        route: '/admin/configuracion/general',
         roles: ['Owner/Admin'],
-        summary: 'Recuperación de elementos borrados por error y destrucción definitiva de datos.',
+        summary: 'Ajustá los datos públicos de tu empresa y el funcionamiento del sistema.',
         steps: [
-            {
-                title: 'Elementos Eliminados',
-                body: 'Busca Clientes, Cotizaciones, Ventas o Expedientes que hayan sido borrados recientemente.',
-                actionLabel: 'Ir a Papelera',
-                actionRoute: '/admin/papelera'
-            },
-            {
-                title: 'Auditoría de Borrado',
-                body: 'Revisa Quién eliminó el elemento y el Motivo ingresado al momento de borrar.'
-            },
-            {
-                title: 'Restauración',
-                body: 'Utiliza el botón Restaurar para devolver el elemento a su lugar. El sistema ejecutará una "Restauración de entidades vinculadas" si el borrado afectó a otros módulos en cascada.'
-            },
-            {
-                title: 'Destrucción y Expiración',
-                body: 'Los elementos tienen una fecha de Expiración automática. Solo los administradores pueden "Destruir definitivamente" un elemento antes de ese plazo pasando las Confirmaciones de seguridad.'
-            }
+            { title: 'Datos de la agencia', body: 'Modificá la razón social, el logo y la dirección que salen en los boletos.' },
+            { title: 'Notificaciones', body: 'Activá o desactivá los correos de resumen diario.' },
+            { title: 'Variables fijas', body: 'Definí cuánto es el porcentaje estándar de comisión para las consignaciones.' }
         ],
         tips: [
-            'Antes de vaciar la papelera, asegúrate de que no se haya borrado un expediente que contenía liquidaciones financieras importantes.'
+            'Subí el logo en buena resolución y fondo transparente (PNG) para que los contratos queden prolijos.'
         ],
-        keywords: ['borrados', 'eliminados', 'restaurar', 'recuperar', 'basura'],
-        route: '/admin/papelera',
-        featureFlag: null,
-        implementationStatus: 'implemented',
-        version: '1.0',
-        lastReviewed: '2026-07-02',
-        reviewedBy: 'System'
+        keywords: ['ajustes', 'datos empresa', 'preferencias']
     },
+    {
+        id: 'gestion-usuarios',
+        title: 'Usuarios',
+        category: 'administracion',
+        icon: 'UsersCog',
+        route: '/admin/configuracion/usuarios',
+        roles: ['Owner/Admin'],
+        summary: 'Agregá a tus empleados al sistema o dálos de baja.',
+        steps: [
+            { title: 'Nuevo ingreso', body: 'Hacé clic en agregar usuario, ingresá su mail corporativo y asignale una contraseña temporal.' },
+            { title: 'Asignar rol', body: 'Elegí si será Ventas, Gestoría o Administrativo (esto limita qué pantallas puede ver).' },
+            { title: 'Bloqueo', body: 'Si un empleado se va, cambiale el estado a inactivo para cortarle el acceso inmediatamente.' }
+        ],
+        tips: [
+            'Nunca elimines a un vendedor viejo, solo desactivalo. Así no perdés el historial de las ventas que hizo.'
+        ],
+        keywords: ['empleados', 'vendedores', 'accesos']
+    },
+    {
+        id: 'papelera-reciclaje',
+        title: 'Papelera',
+        category: 'administracion',
+        icon: 'Trash2',
+        route: '/admin/papelera',
+        roles: ['Owner/Admin'],
+        summary: 'Recuperá clientes, autos o ventas que se hayan borrado por error.',
+        steps: [
+            { title: 'Buscá el error', body: 'Filtrá por módulo (ej. "Stock") para encontrar ese auto que borraste sin querer.' },
+            { title: 'Restaurar', body: 'Hacé clic en el botón de restaurar y el elemento volverá exactamente al mismo lugar y estado.' },
+            { title: 'Vaciado definitivo', body: 'Si estás seguro, podés vaciar la papelera. ¡Ojo que esto no tiene vuelta atrás!' }
+        ],
+        tips: [
+            'Acostumbrate a revisar la papelera una vez al mes por si algún vendedor borró clientes valiosos.'
+        ],
+        keywords: ['borrados', 'recuperar', 'eliminar']
+    },
+    {
+        id: 'exportaciones',
+        title: 'Exportaciones',
+        category: 'administracion',
+        icon: 'Download',
+        route: '/admin/exportaciones',
+        roles: ['Owner/Admin'],
+        summary: 'Descargá las bases de datos completas de tu CRM a Excel o CSV.',
+        steps: [
+            { title: 'Seleccionar módulo', body: 'Elegí si querés descargar toda la base de clientes, el historial de ventas o el stock.' },
+            { title: 'Rango de fechas', body: 'Podés bajar toda la historia o solo lo generado en el último mes.' },
+            { title: 'Descarga', body: 'Al hacer clic, el sistema genera el archivo. Puede tardar unos segundos si hay miles de registros.' }
+        ],
+        tips: [
+            'Hacé una exportación de clientes cada 3 meses para mandarle la base a tu agencia de marketing.'
+        ],
+        keywords: ['excel', 'csv', 'descargar base', 'backup']
+    },
+    {
+        id: 'autorizaciones',
+        title: 'Autorizaciones',
+        category: 'administracion',
+        icon: 'CheckSquare',
+        route: '/admin/autorizaciones',
+        roles: ['Owner/Admin', 'Administrativo'],
+        summary: 'Aprobá o rechazá solicitudes especiales del equipo (descuentos, señas bajas).',
+        steps: [
+            { title: 'Bandeja de entrada', body: 'Acá caen los pedidos de los vendedores (ej. "Tomar seña por menor valor al permitido").' },
+            { title: 'Detalle', body: 'Entrá para ver qué cliente es y el motivo del pedido.' },
+            { title: 'Aprobar o Rechazar', body: 'Al decidir, el vendedor recibe automáticamente la notificación para continuar.' }
+        ],
+        tips: [
+            'Revisá esta bandeja a diario. Un descuento sin aprobar traba la venta.'
+        ],
+        keywords: ['permisos especiales', 'descuentos', 'señas']
+    }
 ];
