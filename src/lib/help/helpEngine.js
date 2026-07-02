@@ -78,8 +78,9 @@ export const searchChapters = (chapters, searchTerm) => {
         );
         
         const tipsMatch = chapter.tips?.some(tip => normalizeText(tip).includes(normalizedTerm));
+        const rolesMatch = chapter.roles?.some(role => normalizeText(role).includes(normalizedTerm));
         
-        return titleMatch || summaryMatch || keywordsMatch || stepsMatch || tipsMatch;
+        return titleMatch || summaryMatch || keywordsMatch || stepsMatch || tipsMatch || rolesMatch;
     });
 };
 
