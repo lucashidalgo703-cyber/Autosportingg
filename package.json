@@ -10,7 +10,8 @@
     "lint": "eslint src",
     "check": "node --check server.js && npm run lint && node scripts/validate-codebase.js",
     "api": "node server.js",
-    "test:smoke": "playwright test"
+    "test:smoke": "playwright test",
+    "test:help": "node tests/helpRegistry.test.js"
   },
   "dependencies": {
     "@vercel/analytics": "^1.6.1",
