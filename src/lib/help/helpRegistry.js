@@ -2,7 +2,8 @@ import {
     LayoutDashboard, CarFront, Users, UserPlus, CalendarClock, 
     Receipt, Landmark, FileText, Star, Flag, BarChart3, 
     Settings, Download, Activity, FileCheck, ShieldAlert,
-    LogIn, Compass, Smartphone, Calendar, Bell, User
+    LogIn, Compass, Smartphone, Calendar, Bell, User,
+    Target, MessageCircle, Moon
 } from 'lucide-react';
 
 export const helpRegistry = [
@@ -329,7 +330,7 @@ export const helpRegistry = [
         reviewedBy: 'System'
     },
 
-    // --- COMERCIAL (Retained existing) ---
+    // --- COMERCIAL ---
     {
         id: 'stock',
         category: 'comercial',
@@ -337,25 +338,37 @@ export const helpRegistry = [
         title: 'Stock',
         icon: 'CarFront',
         roles: ['Owner/Admin', 'Ventas', 'Administrativo', 'Solo lectura'],
-        summary: 'Gestión de inventario de vehículos, estados y publicación web.',
+        summary: 'Gestión completa del inventario de vehículos propios, de terceros y en consignación.',
         steps: [
             {
-                title: 'Cargar un vehículo',
-                body: 'Ingresa la patente, marca, modelo, versión y fotos de alta calidad.',
+                title: 'Buscar y Filtrar',
+                body: 'Usa la barra superior para buscar por patente, modelo o año. Filtra por estado (Disponible, Reservado, Vendido).'
+            },
+            {
+                title: 'Tipos de Stock',
+                body: 'Agencia Propia (vehículos comprados al 100%), Tercero (solo intermediamos), Consignación (el cliente deja el auto en el local físico), Inversión Compartida (comprado a medias con otro inversor) y Mandatos (poder para vender).'
+            },
+            {
+                title: 'Nuevo Vehículo / Mandato',
+                body: 'Al ingresar un auto 0km o usado, completa todos los detalles físicos, carga fotos de alta resolución y define el origen comercial.',
                 actionLabel: 'Ir a Stock',
                 actionRoute: '/admin/stock'
             },
             {
-                title: 'Actualizar estado',
-                body: 'Cambiar el estado a Reservado o Vendido automáticamente detiene las campañas de venta activa.'
+                title: 'Catálogo Web y Mercado Libre',
+                body: 'Activa el switch de visibilidad para publicar automáticamente el vehículo en tu sitio y en Mercado Libre (si está integrado).'
             },
             {
-                title: 'Visibilidad en Web',
-                body: 'Si el switch está encendido, el vehículo aparece en el catálogo público y plataformas.'
+                title: 'Acciones Operativas',
+                body: 'Desde el perfil del vehículo puedes Señarlo (bloqueo rápido), Editar la información técnica, Imprimir la ficha para el parabrisas, o Exportar/Importar masivamente mediante XLSX.'
             }
         ],
-        tips: ['Regla vital: NUNCA publiques vehículos que ya estén señados, vendidos o en proceso de reserva final para evitar malos entendidos con nuevos prospectos.'],
-        keywords: ['vehiculos', 'inventario', 'autos', 'catalogo', 'publicar'],
+        tips: [
+            'Nunca publiques un auto que no esté físicamente acondicionado para ser mostrado.',
+            'Mantén las patentes limpias y las fotos nítidas. Las publicaciones con más de 10 fotos venden un 40% más rápido.',
+            'Diferencia bien Consignación (está en tu agencia) de Terceros (lo tiene el dueño en su casa) para no prometer exhibiciones inmediatas.'
+        ],
+        keywords: ['vehiculos', 'inventario', 'autos', 'catalogo', 'publicar', 'mandatos', 'consignaciones', '0km', 'excel'],
         route: '/admin/stock',
         featureFlag: null,
         implementationStatus: 'implemented',
@@ -370,28 +383,79 @@ export const helpRegistry = [
         title: 'Clientes',
         icon: 'Users',
         roles: ['Owner/Admin', 'Ventas', 'Administrativo', 'Solo lectura'],
-        summary: 'Gestión de la base de datos de clientes y su historial.',
+        summary: 'Directorio centralizado de compradores, vendedores y prospectos de la agencia.',
         steps: [
             {
-                title: 'Carga de clientes',
-                body: 'Todo cliente nuevo debe tener DNI, teléfono válido y correo.',
+                title: 'Alta y Edición',
+                body: 'Crea un cliente solicitando su nombre completo, DNI y teléfono. Si ya existe, puedes editar sus datos desde su perfil.',
                 actionLabel: 'Ir a Clientes',
                 actionRoute: '/admin/clientes'
             },
             {
-                title: 'Historial',
-                body: 'Utiliza el perfil del cliente para ver todo su recorrido (comunicaciones, ventas pasadas).'
+                title: 'Tipos y Origen',
+                body: 'Clasifica al cliente por tipo (Comprador, Vendedor, Ambos) e indica su Origen (Facebook, Instagram, Walk-in, etc.) para medir el ROI del marketing.'
             },
             {
-                title: 'Prevención de duplicados',
-                body: 'Antes de crear, busca por DNI o teléfono.'
+                title: 'Pipeline y Estados',
+                body: 'Sigue el estado del cliente en el embudo (Nuevo, Contactado, Negociando). Si hay interés, asigna el Vehículo de interés específico.'
+            },
+            {
+                title: 'Vendedor Asignado y Visibilidad',
+                body: 'El dueño del cliente es el único vendedor que puede ver su información financiera. Los administradores ven la cartera completa.'
+            },
+            {
+                title: 'Actividades y WhatsApp',
+                body: 'Registra llamadas, notas y sube archivos adjuntos. Si usas WhatsApp web, haz clic en el número para abrir el chat directamente.'
             }
         ],
-        tips: ['Mantén siempre actualizados los datos de contacto de tus clientes frecuentes.'],
-        keywords: ['compradores', 'contactos', 'agenda', 'personas'],
+        tips: [
+            'Antes de crear un cliente, utiliza el buscador por DNI o Teléfono para evitar Duplicados molestos.',
+            'Anota cada conversación en "Actividades". Si te enfermas, otro vendedor podrá retomar la venta leyendo el historial.'
+        ],
+        keywords: ['compradores', 'contactos', 'personas', 'whatsapp', 'agenda', 'duplicados'],
         route: '/admin/clientes',
         featureFlag: null,
         implementationStatus: 'implemented',
+        version: '1.0',
+        lastReviewed: '2026-07-02',
+        reviewedBy: 'System'
+    },
+    {
+        id: 'cotizaciones',
+        category: 'comercial',
+        order: 3,
+        title: 'Cotizaciones',
+        icon: 'FileText',
+        roles: ['Owner/Admin', 'Ventas', 'Administrativo'],
+        summary: 'Emisión de presupuestos formales para vehículos en venta o permuta.',
+        steps: [
+            {
+                title: 'Nueva Cotización',
+                body: 'Selecciona al cliente, el vehículo de interés y establece el precio final acordado junto con su moneda (ARS o USD).',
+                actionLabel: 'Ir a Cotizaciones',
+                actionRoute: '/admin/cotizaciones'
+            },
+            {
+                title: 'Condiciones y Permuta',
+                body: 'Usa la descripción libre para detallar bonificaciones. Si el cliente entrega un auto en parte de pago, registra la tasación de la permuta.'
+            },
+            {
+                title: 'Estados y Borradores',
+                body: 'Una cotización puede estar en Borrador, Enviada, Aprobada o Rechazada. Migrar borradores sirve para actualizarlos.'
+            },
+            {
+                title: 'Auditoría',
+                body: 'El administrador puede filtrar las cotizaciones y revisar si hubo descuentos excesivos antes de la conversión a venta.'
+            }
+        ],
+        tips: [
+            'Una cotización formal en PDF da mucha más confianza que un mensaje de WhatsApp informal.',
+            'Nunca dejes un estado en "Aprobada" si realmente ya es una venta. Procede a la Conversión a Venta.'
+        ],
+        keywords: ['presupuesto', 'precios', 'permuta', 'borradores', 'tasacion'],
+        route: '/admin/cotizaciones',
+        featureFlag: null,
+        implementationStatus: 'partial',
         version: '1.0',
         lastReviewed: '2026-07-02',
         reviewedBy: 'System'
@@ -403,22 +467,144 @@ export const helpRegistry = [
         title: 'Ventas',
         icon: 'Receipt',
         roles: ['Owner/Admin', 'Ventas', 'Administrativo', 'Solo lectura'],
-        summary: 'Gestión de operaciones cerradas, expedientes y finanzas asociadas.',
+        summary: 'Gestión central de operaciones cerradas, cobros y armado de expedientes.',
         steps: [
             {
-                title: 'Expediente',
-                body: 'Centraliza cliente, vehículo, cuotas, transferencias y firmas.',
+                title: 'Nueva Venta',
+                body: 'Une al Comprador, el Propietario anterior y el Vehículo. Define el Precio total de cierre y la moneda de la operación.',
                 actionLabel: 'Ir a Ventas',
                 actionRoute: '/admin/ventas'
             },
             {
-                title: 'Comunicaciones',
-                body: 'Registra todo contacto relevante al expediente.'
+                title: 'Esquema de Pago',
+                body: 'Registra la Seña inicial, pagos al contado, cantidad de Cuotas directas y si existe Financiación prendaria.'
+            },
+            {
+                title: 'Permutas y Consignaciones',
+                body: 'Agrega los vehículos entregados en permuta y asocia liquidaciones si el auto original era una consignación de un tercero.'
+            },
+            {
+                title: 'Gestor y Comisiones',
+                body: 'Asigna el Gestor responsable del F08 y los vendedores involucrados para el Split de comisiones.'
+            },
+            {
+                title: 'Expediente',
+                body: 'Controla el avance de la venta mediante los Estados (Señado, Cancelado, Entregado) y adjunta documentos físicos firmados.'
             }
         ],
-        tips: ['Importante: El vendedor no debe modificar aspectos financieros de la venta una vez aprobada sin permiso de administración.'],
-        keywords: ['operaciones', 'cierres', 'facturacion', 'entregas'],
+        tips: [
+            'Una venta no es una venta hasta que el cliente paga la seña y firma la reserva. No muevas estados prematuramente.',
+            'Si interviene más de un vendedor, el Split de comisiones debe quedar claro desde el día 1 para evitar roces internos.'
+        ],
+        keywords: ['operaciones', 'cierres', 'facturacion', 'entregas', 'seña', 'permuta', 'expediente'],
         route: '/admin/ventas',
+        featureFlag: null,
+        implementationStatus: 'implemented',
+        version: '1.0',
+        lastReviewed: '2026-07-02',
+        reviewedBy: 'System'
+    },
+    {
+        id: 'mis-ventas',
+        category: 'comercial',
+        order: 5,
+        title: 'Mis Ventas',
+        icon: 'Star',
+        roles: ['Ventas'],
+        summary: 'Panel personal del vendedor con su rendimiento comercial y comisiones.',
+        steps: [
+            {
+                title: 'Rendimiento y Objetivos',
+                body: 'Revisa tu progreso del mes: cantidad de operaciones cerradas vs tu meta asignada.',
+                actionLabel: 'Ver Mis Ventas',
+                actionRoute: '/admin/mis-ventas'
+            },
+            {
+                title: 'Facturación y Comisiones',
+                body: 'Monitorea cuánto has facturado en total y cuál es tu comisión estimada.'
+            },
+            {
+                title: 'Ventas y Consignaciones',
+                body: 'Listado exclusivo de los expedientes donde figuras como vendedor principal, o vehículos que tomaste en consignación.'
+            },
+            {
+                title: 'Ranking y Premios',
+                body: 'Observa tu posición en la agencia. Alcanzar el primer lugar o metas extra desbloquea premios adicionales.'
+            }
+        ],
+        tips: [
+            'Si notas discrepancias en tus comisiones estimadas, revisa el Split de las ventas compartidas.',
+            'No olvides subir los recibos y boletos de tus operaciones para que el área administrativa te libere el pago de comisión.'
+        ],
+        keywords: ['comisiones', 'ranking', 'premios', 'facturacion', 'vendedor'],
+        route: '/admin/mis-ventas',
+        featureFlag: null,
+        implementationStatus: 'implemented',
+        version: '1.0',
+        lastReviewed: '2026-07-02',
+        reviewedBy: 'System'
+    },
+    {
+        id: 'pedidos',
+        category: 'comercial',
+        order: 6,
+        title: 'Pedidos',
+        icon: 'CalendarClock',
+        roles: ['Owner/Admin', 'Ventas', 'Administrativo'],
+        summary: 'Registro de solicitudes de vehículos que los clientes buscan y no tienes en stock.',
+        steps: [
+            {
+                title: 'Nuevo Pedido',
+                body: 'Registra al cliente, la Marca, el Modelo, Año mínimo/máximo y su Presupuesto disponible.',
+                actionLabel: 'Ir a Pedidos',
+                actionRoute: '/admin/pedidos'
+            },
+            {
+                title: 'Match Inteligente',
+                body: 'El sistema cruza diariamente los pedidos contra el Stock nuevo. Si hay coincidencias, el botón "Match" se ilumina.'
+            },
+            {
+                title: 'Filtros y Seguimiento',
+                body: 'Usa el botón "Solo míos" para ver los pedidos de tus clientes. Mantén los estados limpios (Activo, Cumplido o Cancelado).'
+            },
+            {
+                title: 'Contacto',
+                body: 'Al lograr un Match, haz clic en el cliente para llamarlo inmediatamente e informarle que ingresó el vehículo que busca.'
+            }
+        ],
+        tips: [
+            'Los pedidos son oro. Un cliente con pedido está altamente calificado para comprar ya mismo.',
+            'Cancela los pedidos antiguos (más de 90 días) si el cliente compró en otro lado para no ensuciar el Match inteligente.'
+        ],
+        keywords: ['solicitud', 'busqueda', 'match', 'presupuesto', 'encargo'],
+        route: '/admin/pedidos',
+        featureFlag: null,
+        implementationStatus: 'partial',
+        version: '1.0',
+        lastReviewed: '2026-07-02',
+        reviewedBy: 'System'
+    },
+    {
+        id: 'oportunidades',
+        category: 'comercial',
+        order: 7,
+        title: 'Oportunidades',
+        icon: 'Target',
+        roles: ['Owner/Admin', 'Ventas', 'Administrativo'],
+        summary: 'Tablero de seguimiento avanzado para potenciales operaciones B2B o grandes lotes.',
+        steps: [
+            {
+                title: 'Gestión del embudo',
+                body: 'Mueve las oportunidades comerciales de alto nivel por sus distintas etapas hasta el cierre.',
+                actionLabel: 'Ir a Oportunidades',
+                actionRoute: '/admin/oportunidades'
+            }
+        ],
+        tips: [
+            'A diferencia de un Lead estándar, la Oportunidad está enfocada en operaciones más maduras y complejas.'
+        ],
+        keywords: ['embudo', 'b2b', 'negocios'],
+        route: '/admin/oportunidades',
         featureFlag: null,
         implementationStatus: 'implemented',
         version: '1.0',
@@ -430,26 +616,69 @@ export const helpRegistry = [
         category: 'comercial',
         order: 8,
         title: 'Postventa',
-        icon: 'Star',
-        roles: ['Owner/Admin', 'Ventas', 'Administrativo', 'Solo lectura'],
-        summary: 'Fidelización y seguimiento post-entrega.',
+        icon: 'MessageCircle',
+        roles: ['Owner/Admin', 'Ventas', 'Administrativo'],
+        summary: 'Seguimiento de la satisfacción del cliente y manejo de quejas luego de la entrega.',
         steps: [
             {
-                title: 'Seguimiento 24hs',
-                body: 'Consulta cómo sintió el vehículo en su primer día.',
+                title: 'Gestión de Casos',
+                body: 'Revisa el tablero para identificar entregas recientes con llamados Pendientes o Recontactos agendados.',
                 actionLabel: 'Ir a Postventa',
                 actionRoute: '/admin/postventa'
             },
             {
-                title: 'Seguimiento 7 días',
-                body: 'Momento ideal para pedir reseña en Google.'
+                title: 'Categorización',
+                body: 'Clasifica la respuesta del cliente como Conforme (feliz) o si hay Incidencias (problemas mecánicos, quejas).'
+            },
+            {
+                title: 'Resolución y Cierre',
+                body: 'Añade Notas de lo conversado vía WhatsApp o teléfono. Al solucionar una queja, marca el caso como Cerrado.'
             }
         ],
-        tips: ['Un buen proceso de postventa asegura referencias y recompra en el futuro.'],
-        keywords: ['fidelizacion', 'encuestas', 'satisfaccion', 'reseñas'],
+        tips: [
+            'Un cliente Conforme es el mejor momento para pedirle que te deje una reseña de 5 estrellas en Google.',
+            'Trata las Incidencias como máxima prioridad; una reseña pública negativa te hará perder futuras ventas.'
+        ],
+        keywords: ['fidelizacion', 'encuestas', 'satisfaccion', 'quejas', 'incidencias'],
         route: '/admin/postventa',
         featureFlag: null,
         implementationStatus: 'partial',
+        version: '1.0',
+        lastReviewed: '2026-07-02',
+        reviewedBy: 'System'
+    },
+    {
+        id: 'dormidos',
+        category: 'comercial',
+        order: 9,
+        title: 'Dormidos',
+        icon: 'Moon',
+        roles: ['Owner/Admin', 'Ventas'],
+        summary: 'Recuperación de prospectos y clientes inactivos que dejaron de responder.',
+        steps: [
+            {
+                title: 'Criterio Temporal',
+                body: 'El sistema cataloga automáticamente como Dormido a todo cliente o lead sin interacción por más de ciertos días.',
+                actionLabel: 'Ir a Dormidos',
+                actionRoute: '/admin/dormidos'
+            },
+            {
+                title: 'Filtros y KPIs',
+                body: 'Revisa el panel para ver cuántos leads perdiste recientemente. Usa los filtros para identificar Clientes VIP que valgan el esfuerzo de recontactar.'
+            },
+            {
+                title: 'Recuperación',
+                body: 'Contáctalos uno a uno por WhatsApp con una oferta o pregunta clave para reactivar su interés.'
+            }
+        ],
+        tips: [
+            'No escribas un "Hola, ¿seguís interesado?" genérico. Ofrécele una rebaja, un auto similar que ingresó, o un incentivo claro.',
+            'Dedica una hora todos los viernes a despertar leads inactivos. Es una mina de oro ignorada.'
+        ],
+        keywords: ['inactivos', 'perdidos', 'rescate', 'recuperacion', 'kpi'],
+        route: '/admin/dormidos',
+        featureFlag: null,
+        implementationStatus: 'implemented',
         version: '1.0',
         lastReviewed: '2026-07-02',
         reviewedBy: 'System'
