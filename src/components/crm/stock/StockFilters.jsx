@@ -65,7 +65,7 @@ export default function StockFilters({
                             key={tab.id}
                             type="button"
                             onClick={() => setStockTab(tab.id)}
-                            className={`m-0 appearance-none border-0 border-b-2 bg-transparent px-1 pb-3 pt-1 text-sm font-semibold transition-colors ${
+                            className={`m-0 inline-flex items-baseline gap-1.5 appearance-none border-0 border-b-2 bg-transparent px-1 pb-3 pt-1 text-sm font-semibold transition-colors ${
                                 isActive
                                     ? 'border-crm-red text-crm-red'
                                     : 'border-transparent text-crm-fg-muted hover:text-crm-fg'
@@ -73,19 +73,19 @@ export default function StockFilters({
                         >
                             {tab.label}
                             {tab.id === 'stock' && counts.total > 0 && (
-                                <span className="ml-2 text-xs text-current">{counts.total}</span>
+                                <span className="text-xs text-current font-medium">{counts.total}</span>
                             )}
                             {tab.id === 'consignaciones' && counts.consignaciones > 0 && (
-                                <span className="ml-2 text-xs text-current">{counts.consignaciones}</span>
+                                <span className="text-xs text-current font-medium">{counts.consignaciones}</span>
                             )}
                             {tab.id === 'compartidos' && counts.compartidos > 0 && (
-                                <span className="ml-2 text-xs text-current">{counts.compartidos}</span>
+                                <span className="text-xs text-current font-medium">{counts.compartidos}</span>
                             )}
                             {tab.id === 'cero_km' && counts.ceroKm > 0 && (
-                                <span className="ml-2 text-xs text-current">{counts.ceroKm}</span>
+                                <span className="text-xs text-current font-medium">{counts.ceroKm}</span>
                             )}
                             {tab.id === 'mandatos' && counts.mandatos > 0 && (
-                                <span className="ml-2 text-xs text-current">{counts.mandatos}</span>
+                                <span className="text-xs text-current font-medium">{counts.mandatos}</span>
                             )}
                         </button>
                     );
