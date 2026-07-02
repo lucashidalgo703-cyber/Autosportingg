@@ -3,7 +3,7 @@ import {
     Receipt, Landmark, FileText, Star, Flag, BarChart3, 
     Settings, Download, Activity, FileCheck, ShieldAlert,
     LogIn, Compass, Smartphone, Calendar, Bell, User,
-    Target, MessageCircle, Moon
+    Target, MessageCircle, Moon, FolderOpen, FileSignature, Handshake, AlertOctagon, Wrench, MessageSquareWarning
 } from 'lucide-react';
 
 export const helpRegistry = [
@@ -684,34 +684,125 @@ export const helpRegistry = [
         reviewedBy: 'System'
     },
 
-    // --- OPERACIÓN (Retained existing) ---
+    // --- OPERACIÓN ---
     {
-        id: 'reservas',
+        id: 'expedientes',
         category: 'operacion',
-        order: 3,
-        title: 'Reservas',
-        icon: 'CalendarClock',
-        roles: ['Owner/Admin', 'Ventas', 'Administrativo', 'Solo lectura'],
-        summary: 'Señas y reservas de vehículos por parte de los clientes.',
+        order: 1,
+        title: 'Expedientes',
+        icon: 'FolderOpen',
+        roles: ['Owner/Admin', 'Administrativo', 'Gestoría', 'Solo lectura'],
+        summary: 'Centro neurálgico administrativo donde convergen los documentos y finanzas de una venta.',
         steps: [
             {
-                title: 'Creación',
-                body: 'Bloquea el stock de un vehículo al instante. Requiere vincular un Lead/Cliente.',
-                actionLabel: 'Ir a Reservas',
-                actionRoute: '/admin/reservas'
+                title: 'Origen',
+                body: 'Todo expediente nace de una venta cerrada. Puedes buscarlo por número de expediente, patente o cliente.',
+                actionLabel: 'Ir a Expedientes',
+                actionRoute: '/admin/expedientes'
             },
             {
-                title: 'Conversión',
-                body: 'Una vez aprobada, se pasa a Venta y genera el expediente formal.'
+                title: 'Partes Involucradas',
+                body: 'El resumen muestra la Parte Compradora (el nuevo dueño) y la Parte Vendedora (el ex dueño o la agencia). El Gestor asignado es responsable del avance.'
             },
             {
-                title: 'Cancelación',
-                body: 'Libera el stock inmediatamente.'
+                title: 'Documentación y Boletos',
+                body: 'Controla el checklist de papeles entregados e imprime el Boleto de Compra-Venta.'
+            },
+            {
+                title: 'Gastos y Liquidación',
+                body: 'Solo perfiles con permisos financieros pueden asentar gastos de gestoría o reparaciones finales que impactan en la liquidación de la operación.'
+            },
+            {
+                title: 'Estados y WhatsApp',
+                body: 'Actualiza el estado (En proceso, Faltan firmas, Terminado) y notifica al cliente rápidamente vía WhatsApp integrado.'
             }
         ],
-        tips: ['Al recibir una reserva, valida rápidamente el comprobante de pago para oficializarla.'],
-        keywords: ['señas', 'apartado', 'bloqueo'],
-        route: '/admin/reservas',
+        tips: [
+            'No marques un expediente como "Terminado" hasta que el vehículo esté físicamente transferido y la liquidación pagada.',
+            'Usa la pestaña de Observaciones para dejar constancia de cualquier deuda de patente que el cliente prometió pagar luego.'
+        ],
+        keywords: ['carpetas', 'boletos', 'liquidaciones', 'gastos', 'tramites'],
+        route: '/admin/expedientes',
+        featureFlag: null,
+        implementationStatus: 'partial',
+        version: '1.0',
+        lastReviewed: '2026-07-02',
+        reviewedBy: 'System'
+    },
+    {
+        id: 'gestoria',
+        category: 'operacion',
+        order: 2,
+        title: 'Gestoría',
+        icon: 'FileSignature',
+        roles: ['Owner/Admin', 'Gestoría', 'Administrativo'],
+        summary: 'Seguimiento de trámites de transferencia, inscripciones y reportes de dominio.',
+        steps: [
+            {
+                title: 'Tablero de Trámites',
+                body: 'Visualiza en forma de tarjetas o listado todos los trámites activos.',
+                actionLabel: 'Ir a Gestoría',
+                actionRoute: '/admin/gestoria'
+            },
+            {
+                title: 'Nuevo Trámite',
+                body: 'Asigna el trámite a un Gestor, establece el nivel de Prioridad y una fecha de Vencimiento límite.'
+            },
+            {
+                title: 'Hitos y Documentos Faltantes',
+                body: 'A medida que el trámite avanza, marca los hitos cumplidos. Si el registro pide más papeles, anótalos en "Documentos faltantes".'
+            },
+            {
+                title: 'Expediente Relacionado',
+                body: 'Todo trámite debe estar vinculado a su expediente de origen para que el área de finanzas sepa por qué se están pagando aranceles.'
+            }
+        ],
+        tips: [
+            'Revisa diariamente los trámites con "Prioridad Alta" que estén cerca del vencimiento del boleto.',
+            'Avisa al cliente por WhatsApp directamente desde el panel cuando las chapas o la cédula verde estén listas para retirar.'
+        ],
+        keywords: ['transferencias', 'f08', 'cedulas', 'registros', 'tramites'],
+        route: '/admin/gestoria',
+        featureFlag: null,
+        implementationStatus: 'partial',
+        version: '1.0',
+        lastReviewed: '2026-07-02',
+        reviewedBy: 'System'
+    },
+    {
+        id: 'consignaciones',
+        category: 'operacion',
+        order: 3,
+        title: 'Consignaciones',
+        icon: 'Handshake',
+        roles: ['Owner/Admin', 'Ventas', 'Administrativo', 'Solo lectura'],
+        summary: 'Control del ciclo de vida de los vehículos que terceros dejan en la agencia para vender.',
+        steps: [
+            {
+                title: 'El Kanban',
+                body: 'Arrastra las consignaciones por sus etapas: Ingreso, Tasación, Documentación, Publicado, Reservado, Vendido y Cerrado.',
+                actionLabel: 'Ir a Consignaciones',
+                actionRoute: '/admin/consignaciones'
+            },
+            {
+                title: 'Vista Lista y Datos Base',
+                body: 'Alterna a la vista de Lista para ver en detalle el Propietario, el Vendedor a cargo, el Precio pretendido y la Comisión acordada.'
+            },
+            {
+                title: 'Seguimientos',
+                body: 'Anota cada contacto con el dueño. Un campo de "Último contacto" te avisará si llevas meses sin informarle sobre el estado de su auto.'
+            },
+            {
+                title: 'Vehículo Relacionado',
+                body: 'Una vez que la consignación llega a "Publicado", debe existir un vínculo directo al auto en el módulo de Stock.'
+            }
+        ],
+        tips: [
+            'Nunca pases una consignación a "Publicado" si no has completado la fase de "Documentación" (F08 firmado, libre deuda, etc.).',
+            'Si el dueño retira el auto, arrastra la tarjeta a "Cancelado" para limpiar tu inventario y frenar la publicidad.'
+        ],
+        keywords: ['terceros', 'dueños', 'kanban', 'mandatos', 'comision'],
+        route: '/admin/consignaciones',
         featureFlag: null,
         implementationStatus: 'implemented',
         version: '1.0',
@@ -719,24 +810,118 @@ export const helpRegistry = [
         reviewedBy: 'System'
     },
     {
-        id: 'documentacion',
+        id: 'infracciones',
         category: 'operacion',
-        order: 1,
-        title: 'Documentación',
-        icon: 'FileCheck',
-        roles: ['Owner/Admin', 'Administrativo', 'Solo lectura'],
-        summary: 'Seguimiento de trámites y papeles de cada vehículo.',
+        order: 4,
+        title: 'Infracciones',
+        icon: 'AlertOctagon',
+        roles: ['Owner/Admin', 'Administrativo', 'Gestoría'],
+        summary: 'Gestión y cobro de multas de tránsito asociadas a los vehículos en stock.',
         steps: [
             {
-                title: 'Checklist',
-                body: 'Marca el avance de DNI, informes de dominio, Verificación Policial, F08 y más.',
-                actionLabel: 'Ir a Documentación',
-                actionRoute: '/admin/documentacion'
+                title: 'Alta de Infracción',
+                body: 'Carga la patente, la jurisdicción (ej. CABA, PBA) y el motivo detallado de la multa.',
+                actionLabel: 'Ir a Infracciones',
+                actionRoute: '/admin/infracciones'
+            },
+            {
+                title: 'Manejo de Montos',
+                body: 'Registra el "Pago Real" (lo que le pagas al municipio) y el "Cobro al Cliente" (lo que le cobras al dueño o comprador). La diferencia es tu Ganancia.'
+            },
+            {
+                title: 'Estados y Liquidación',
+                body: 'Controla si la multa está Pendiente, Pagada o en proceso de Liquidación en el expediente correspondiente.'
             }
         ],
-        tips: ['Mantén la documentación al día para no retrasar la entrega final del vehículo.'],
-        keywords: ['papeles', 'tramites', 'gestoria', 'f08', 'dominio'],
-        route: '/admin/documentacion',
+        tips: [
+            'Es vital cruzar las infracciones impagas antes de liquidarle el dinero a un cliente que dejó su auto en consignación.'
+        ],
+        keywords: ['multas', 'fotomultas', 'deudas', 'patentes'],
+        route: '/admin/infracciones',
+        featureFlag: null,
+        implementationStatus: 'partial',
+        version: '1.0',
+        lastReviewed: '2026-07-02',
+        reviewedBy: 'System'
+    },
+    {
+        id: 'taller',
+        category: 'operacion',
+        order: 5,
+        title: 'Taller',
+        icon: 'Wrench',
+        roles: ['Owner/Admin', 'Taller', 'Administrativo'],
+        summary: 'Control de órdenes de trabajo, mantenimientos de stock y reparaciones a clientes.',
+        steps: [
+            {
+                title: 'Nueva Orden de Trabajo (OT)',
+                body: 'Indica si es para un Cliente Externo o para un Auto del Stock. Define si es ingreso inmediato o por turno.',
+                actionLabel: 'Ir a Taller',
+                actionRoute: '/admin/taller'
+            },
+            {
+                title: 'Recepción y Fotos',
+                body: 'Documenta el estado de recepción del vehículo (marcas, rayones, combustible) adjuntando fotos para evitar reclamos.'
+            },
+            {
+                title: 'Presupuesto',
+                body: 'Desglosa la Mano de Obra y los Repuestos. Asigna un Mecánico y un Proveedor. El sistema calculará el Costo interno y el Precio final.'
+            },
+            {
+                title: 'Aprobación y Cobro',
+                body: 'Envía el presupuesto por PDF o WhatsApp. Una vez aprobado por el cliente, procede a la reparación y posterior ingreso a la Caja Taller.'
+            },
+            {
+                title: 'Tablero e Historial',
+                body: 'La tabla principal te permite ver qué autos están en rampa. Al finalizar, agenda la fecha del Próximo Service.'
+            }
+        ],
+        tips: [
+            'Si el auto es del stock propio, imputa la OT para que el costo de reparación se sume al costo base del auto y reduzca la ganancia pura de forma realista.',
+            'Un buen chequeo visual con fotos al recibir el auto te ahorrará discusiones sobre "rayones que antes no estaban".'
+        ],
+        keywords: ['mecanica', 'service', 'reparacion', 'ot', 'presupuesto', 'repuestos'],
+        route: '/admin/taller',
+        featureFlag: null,
+        implementationStatus: 'implemented',
+        version: '1.0',
+        lastReviewed: '2026-07-02',
+        reviewedBy: 'System'
+    },
+    {
+        id: 'reclamos',
+        category: 'operacion',
+        order: 6,
+        title: 'Reclamos',
+        icon: 'MessageSquareWarning',
+        roles: ['Owner/Admin', 'Administrativo', 'Recepción'],
+        summary: 'Sistema de tickets para atención de garantías, quejas y consultas de clientes.',
+        steps: [
+            {
+                title: 'Nuevo Reclamo y KPIs',
+                body: 'Carga el ticket indicando el Tipo (Garantía, Documentación, etc.) y su Prioridad. Arriba verás los KPIs generales de la agencia.',
+                actionLabel: 'Ir a Reclamos',
+                actionRoute: '/admin/reclamos'
+            },
+            {
+                title: 'Asignación',
+                body: 'Un reclamo puede entrar sin dueño. Utiliza el botón "Tomar" para hacerte cargo o asígnalo a otro usuario responsable.'
+            },
+            {
+                title: 'Seguimiento',
+                body: 'Agrega comentarios internos, sube fotos/adjuntos y utiliza el botón "Pedir atención" si necesitas que un gerente intervenga.'
+            },
+            {
+                title: 'Cierre y Reapertura',
+                body: 'Cuando el problema se solucione, cambia el estado a Cierre. Si el cliente vuelve con la misma falla, usa la acción "Volver a abierto" (Reapertura).'
+            }
+        ],
+        tips: [
+            'Revisa diariamente si hay reclamos "estancados" (sin respuestas recientes) para evitar que una simple queja se transforme en una demanda.',
+            'El contacto rápido calma las aguas. Usa el acceso directo de WhatsApp para informarle al cliente que ya estás evaluando su caso.'
+        ],
+        keywords: ['quejas', 'garantia', 'tickets', 'soporte', 'problemas'],
+        route: '/admin/reclamos',
         featureFlag: null,
         implementationStatus: 'implemented',
         version: '1.0',
