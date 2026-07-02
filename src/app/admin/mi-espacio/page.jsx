@@ -30,6 +30,7 @@ import { useAdminInstallments } from '../../../hooks/useAdminInstallments';
 import { useAdminSales } from '../../../hooks/useAdminSales';
 import { useAdminTransactions } from '../../../hooks/useAdminTransactions';
 import { useAdminPersonalAssets } from '../../../hooks/useAdminPersonalAssets';
+import LoadingSkeleton from '../../../components/crm/ui/LoadingSkeleton';
 
 const TAB_MI_DIA = 'Mi d\u00eda';
 const TODAY = () => new Date().toISOString().split('T')[0];
@@ -1548,8 +1549,26 @@ export default function MiEspacioPage() {
 
     if (loading) {
         return (
-            <div className="flex h-72 items-center justify-center font-sans text-xs font-bold uppercase tracking-wider text-crm-fg-subtle">
-                Cargando mi espacio...
+            <div className="mx-auto w-full max-w-7xl px-3 py-5 pb-24 font-sans sm:px-4 sm:py-6">
+                <header className="mb-6 border-b border-crm-border pb-4">
+                    <LoadingSkeleton className="h-8 w-64 mb-2" />
+                    <LoadingSkeleton className="h-4 w-96" />
+                </header>
+                
+                <div className="mb-6 flex gap-4 border-b border-crm-border pb-3">
+                    <LoadingSkeleton className="h-8 w-24" />
+                    <LoadingSkeleton className="h-8 w-32" />
+                    <LoadingSkeleton className="h-8 w-28" />
+                </div>
+
+                <LoadingSkeleton className="h-48 w-full mb-6 rounded-2xl" />
+                
+                <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4 mb-6">
+                    <LoadingSkeleton className="h-32 w-full rounded-xl" />
+                    <LoadingSkeleton className="h-32 w-full rounded-xl" />
+                    <LoadingSkeleton className="h-32 w-full rounded-xl" />
+                    <LoadingSkeleton className="h-32 w-full rounded-xl" />
+                </div>
             </div>
         );
     }

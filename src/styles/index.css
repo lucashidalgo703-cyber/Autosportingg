@@ -205,7 +205,7 @@ ul {
   --crm-border-strong: #4A4A52;
   --crm-fg: #FAFAFA;
   --crm-fg-muted: #A1A1AA;
-  --crm-fg-subtle: #71717A;
+  --crm-fg-subtle: #9CA3AF; /* gray-400 to pass AA contrast */
   --crm-red: #EF3329;
   --crm-red-brand: #E63027;
   --crm-red-hover: #C42620;

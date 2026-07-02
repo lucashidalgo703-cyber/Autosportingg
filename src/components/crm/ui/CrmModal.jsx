@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useRef } from 'react';
 import { X } from 'lucide-react';
 
 export default function CrmModal({
@@ -10,6 +10,9 @@ export default function CrmModal({
     hideCloseButton = false,
     footer
 }) {
+    const modalRef = useRef(null);
+    const previousFocusRef = useRef(null);
+
     useEffect(() => {
         const handleEscape = (e) => {
             if (e.key === 'Escape' && isOpen) {
@@ -17,14 +20,55 @@ export default function CrmModal({
             }
         };
 
+        const handleTab = (e) => {
+            if (e.key !== 'Tab' || !isOpen || !modalRef.current) return;
+            
+            const focusableElements = modalRef.current.querySelectorAll(
+                'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
+            );
+            const firstElement = focusableElements[0];
+            const lastElement = focusableElements[focusableElements.length - 1];
+
+            if (e.shiftKey) {
+                if (document.activeElement === firstElement) {
+                    lastElement?.focus();
+                    e.preventDefault();
+                }
+            } else {
+                if (document.activeElement === lastElement) {
+                    firstElement?.focus();
+                    e.preventDefault();
+                }
+            }
+        };
+
         if (isOpen) {
+            previousFocusRef.current = document.activeElement;
             document.body.style.overflow = 'hidden';
             window.addEventListener('keydown', handleEscape);
+            window.addEventListener('keydown', handleTab);
+            
+            // Focus first element on mount
+            setTimeout(() => {
+                if (modalRef.current) {
+                    const focusableElements = modalRef.current.querySelectorAll(
+                        'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
+                    );
+                    if (focusableElements.length > 0) {
+                        focusableElements[0].focus();
+                    } else {
+                        modalRef.current.focus();
+                    }
+                }
+            }, 10);
+        } else if (previousFocusRef.current) {
+            previousFocusRef.current.focus();
         }
 
         return () => {
             document.body.style.overflow = 'unset';
             window.removeEventListener('keydown', handleEscape);
+            window.removeEventListener('keydown', handleTab);
         };
     }, [isOpen, onClose]);
 
@@ -33,12 +77,17 @@ export default function CrmModal({
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 bg-black/80 backdrop-blur-sm animate-fade-in">
             <div
+                ref={modalRef}
+                tabIndex="-1"
+                role="dialog"
+                aria-modal="true"
+                aria-labelledby={title ? "modal-title" : undefined}
                 className={`bg-crm-surface w-full ${maxWidth} rounded-[var(--crm-radius)] border border-crm-border shadow-[var(--crm-shadow-card)] flex flex-col max-h-[90dvh] overflow-hidden`}
                 onClick={(e) => e.stopPropagation()}
             >
                 {/* Header */}
                 <div className="flex justify-between items-center p-4 sm:p-5 border-b border-crm-border bg-crm-bg/50">
-                    <h2 className="m-0 text-lg sm:text-xl font-bold text-crm-fg tracking-tight">{title}</h2>
+                    <h2 id="modal-title" className="m-0 text-lg sm:text-xl font-bold text-crm-fg tracking-tight">{title}</h2>
                     {!hideCloseButton && (
                         <button
                             type="button"
