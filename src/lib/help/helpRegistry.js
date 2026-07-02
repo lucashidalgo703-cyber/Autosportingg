@@ -1,35 +1,210 @@
 import { 
     LayoutDashboard, CarFront, Users, UserPlus, CalendarClock, 
     Receipt, Landmark, FileText, Star, Flag, BarChart3, 
-    Settings, Download, Activity, FileCheck, ShieldAlert 
+    Settings, Download, Activity, FileCheck, ShieldAlert,
+    LogIn, Compass, Smartphone, Calendar, Bell, User
 } from 'lucide-react';
 
-// The centralized registry for all Help Manual chapters
 export const helpRegistry = [
+    // --- PRIMEROS PASOS ---
+    {
+        id: 'acceso',
+        category: 'primeros-pasos',
+        order: 1,
+        title: 'Ingresar al CRM',
+        icon: 'LogIn',
+        roles: ['Owner/Admin', 'Ventas', 'Administrativo', 'Solo lectura', 'Gestoría', 'Recepción', 'Taller'],
+        summary: 'Instrucciones para iniciar sesión, recuperar tu contraseña y proteger tu cuenta.',
+        steps: [
+            {
+                title: 'Acceso a la plataforma',
+                body: 'Ingresa a la URL oficial de AutoSporting provista por tu administrador. Necesitarás tu correo electrónico y contraseña asignada.',
+                actionLabel: 'Ir al Login',
+                actionRoute: '/login'
+            },
+            {
+                title: 'Recuperación de contraseña',
+                body: 'Si olvidaste tu clave, utiliza el botón "Olvidé mi contraseña" en la pantalla inicial para recibir un enlace de reseteo en tu correo.'
+            },
+            {
+                title: 'Autenticación de dos factores (2FA)',
+                body: 'Para mayor seguridad, te recomendamos activar el 2FA. Se te pedirá un código temporal generado en tu celular cada vez que ingreses.',
+                actionLabel: 'Configurar 2FA',
+                actionRoute: '/admin/configuracion/2fa'
+            },
+            {
+                title: 'Cerrar sesión de forma segura',
+                body: 'Siempre cierra tu sesión desde el menú superior derecho si compartes la computadora con otros vendedores para evitar accesos indebidos.'
+            },
+            {
+                title: 'Forzar recarga',
+                body: 'Si notas que la plataforma no carga información reciente, presiona Ctrl+F5 (o Cmd+Shift+R en Mac) para forzar una actualización profunda.'
+            }
+        ],
+        tips: [
+            'Nunca compartas tu contraseña con compañeros. Cada acción en el CRM queda registrada bajo tu nombre.',
+            'Si detectas actividad sospechosa, notifica a un Administrador inmediatamente para revocar accesos.',
+            'Configura el 2FA en tu primer día de trabajo para asegurar tu cuenta.'
+        ],
+        keywords: ['login', 'entrar', 'clave', 'contraseña', '2fa', 'seguridad', 'salir'],
+        route: null,
+        featureFlag: null,
+        implementationStatus: 'implemented',
+        version: '1.0',
+        lastReviewed: '2026-07-02',
+        reviewedBy: 'System'
+    },
+    {
+        id: 'navegacion',
+        category: 'primeros-pasos',
+        order: 2,
+        title: 'Cómo moverse por el sistema',
+        icon: 'Compass',
+        roles: ['Owner/Admin', 'Ventas', 'Administrativo', 'Solo lectura', 'Gestoría', 'Recepción', 'Taller'],
+        summary: 'Aprende a navegar por los menús, buscar información y personalizar tu pantalla.',
+        steps: [
+            {
+                title: 'La barra lateral (Sidebar)',
+                body: 'El menú principal se encuentra a la izquierda. Desde allí puedes acceder a todos los módulos permitidos para tu rol (Stock, Ventas, Clientes, etc.).'
+            },
+            {
+                title: 'Buscador Global',
+                body: 'En la parte superior encontrarás una barra de búsqueda para localizar rápidamente clientes por nombre, DNI o vehículos por patente.'
+            },
+            {
+                title: 'Indicadores Superiores',
+                body: 'El header superior muestra notificaciones urgentes, mensajes sin leer y accesos directos a tu perfil.'
+            },
+            {
+                title: 'Tema Oscuro/Claro',
+                body: 'AutoSporting soporta modo oscuro nativo para cuidar tu vista. Actívalo desde tu menú de perfil arriba a la derecha.'
+            }
+        ],
+        tips: [
+            'Usa el buscador global siempre que necesites encontrar un expediente rápido. Es más ágil que navegar por las listas.',
+            'Mantén tu menú lateral colapsado si necesitas más espacio horizontal para ver tablas complejas.'
+        ],
+        keywords: ['menu', 'sidebar', 'buscar', 'tema', 'oscuro', 'claro', 'cabecera'],
+        route: null,
+        featureFlag: null,
+        implementationStatus: 'implemented',
+        version: '1.0',
+        lastReviewed: '2026-07-02',
+        reviewedBy: 'System'
+    },
+    {
+        id: 'seguridad',
+        category: 'primeros-pasos',
+        order: 3,
+        title: 'Roles y permisos',
+        icon: 'ShieldAlert',
+        roles: ['Owner/Admin', 'Ventas', 'Administrativo', 'Solo lectura', 'Gestoría', 'Recepción', 'Taller'],
+        summary: 'Niveles de acceso y permisos dentro de AutoSporting.',
+        steps: [
+            {
+                title: 'Owner/Administrador',
+                body: 'Control total. Ve la caja, estadísticas de todos los vendedores, configura comisiones y audita todas las acciones.',
+                actionLabel: 'Ver configuración',
+                actionRoute: '/admin/configuracion/usuarios'
+            },
+            {
+                title: 'Ventas',
+                body: 'Gestiona prospectos y ventas. Solo ve las operaciones asignadas a sí mismo o las liberadas. La ganancia real (costos ocultos) no es visible.'
+            },
+            {
+                title: 'Finanzas y Administrativo',
+                body: 'Maneja cobros, cuotas y documentación. No modifica la fuerza comercial pero asiste en la caja y expedientes.'
+            },
+            {
+                title: 'Gestoría y Taller',
+                body: 'Roles especializados que solo ven módulos operativos (Gestoría para trámites F08 y Taller para revisiones de vehículos).'
+            },
+            {
+                title: 'Lectura vs Edición',
+                body: 'Un rol de solo lectura puede consultar expedientes pero no tiene botones de guardar, editar ni borrar.'
+            }
+        ],
+        tips: [
+            'Si crees que te falta un permiso vital para tu trabajo, no intentes forzar el sistema: solicita al administrador una revisión de rol.',
+            'Los vendedores tienen oculta la ganancia y costos de base de los vehículos para proteger los márgenes reales de la agencia.'
+        ],
+        keywords: ['permisos', 'accesos', 'restricciones', 'vendedor', 'admin', 'gestor', 'taller'],
+        route: '/admin/configuracion',
+        featureFlag: null,
+        implementationStatus: 'implemented',
+        version: '1.0',
+        lastReviewed: '2026-07-02',
+        reviewedBy: 'System'
+    },
+    {
+        id: 'mobile',
+        category: 'primeros-pasos',
+        order: 4,
+        title: 'Uso en el celular',
+        icon: 'Smartphone',
+        roles: ['Owner/Admin', 'Ventas', 'Administrativo', 'Solo lectura', 'Gestoría', 'Recepción', 'Taller'],
+        summary: 'Cómo utilizar el CRM eficientemente desde dispositivos móviles.',
+        steps: [
+            {
+                title: 'Acceso desde el navegador',
+                body: 'Abre el navegador de tu celular (Chrome o Safari) e ingresa a la misma URL de siempre. El diseño se adaptará automáticamente.'
+            },
+            {
+                title: 'El Menú Mobile',
+                body: 'En pantallas pequeñas, la barra lateral se oculta. Usa el ícono de las tres líneas (hamburguesa) arriba a la izquierda para navegar.'
+            },
+            {
+                title: 'Tablas de datos',
+                body: 'Para ver tablas anchas (como las de ventas o caja), puedes deslizar el dedo horizontalmente sobre la tabla.'
+            }
+        ],
+        tips: [
+            'Para agilizar la toma de fotos en el patio, puedes usar el CRM desde el celular directamente en el módulo de Stock.',
+            'Cierra las pestañas antiguas del CRM en tu navegador móvil para no consumir recursos innecesarios de tu dispositivo.'
+        ],
+        keywords: ['celular', 'telefono', 'movil', 'responsive', 'iphone', 'android'],
+        route: null,
+        featureFlag: null,
+        implementationStatus: 'implemented',
+        version: '1.0',
+        lastReviewed: '2026-07-02',
+        reviewedBy: 'System'
+    },
+
+    // --- DÍA A DÍA ---
     {
         id: 'dashboard',
         category: 'dia-a-dia',
         order: 1,
         title: 'Dashboard',
-        icon: 'LayoutDashboard', // Using string identifier to be decoupled from React components directly if needed, or import icon directly
+        icon: 'LayoutDashboard',
         roles: ['Owner/Admin', 'Ventas', 'Administrativo', 'Solo lectura'],
         summary: 'El panel principal que resume las estadísticas vitales de la jornada.',
         steps: [
             {
-                title: 'Revisión inicial',
-                body: 'Qué mirar al entrar: El panel principal resume las estadísticas vitales de la jornada.',
+                title: 'Cockpit CEO / Vista General',
+                body: 'Si eres administrador, verás el Cockpit principal con el volumen de ventas, ganancias puras y el estado de la caja general.',
                 actionLabel: 'Ir al Dashboard',
                 actionRoute: '/admin'
             },
             {
-                title: 'Mis Pendientes',
-                body: 'Cómo interpretar pendientes: Revisa siempre "Mis Pendientes" o tareas atrasadas para ponerte al día.',
-                actionLabel: 'Ver pendientes',
-                actionRoute: '/admin/mis-pendientes'
+                title: 'Control de Objetivos',
+                body: 'Revisa tu barra de progreso respecto a las metas del mes para saber cuántas operaciones faltan cerrar.'
+            },
+            {
+                title: 'Pendientes y Vencimientos',
+                body: 'Un resumen inmediato de tareas atrasadas o cuotas que vencen hoy, crucial para priorizar tus primeras horas.'
+            },
+            {
+                title: 'Widgets interactivos',
+                body: 'Cada métrica es navegable. Si haces clic en "5 Ventas", el sistema te llevará a la tabla filtrando esas operaciones exactas.'
             }
         ],
-        tips: ['Inicia tu día siempre revisando el Dashboard para orientar tu estrategia diaria.'],
-        keywords: ['estadisticas', 'inicio', 'panel', 'pendientes'],
+        tips: [
+            'Inicia tu día revisando los pendientes críticos antes de comenzar a enviar mensajes nuevos.',
+            'Recuerda que como vendedor, los widgets de ganancia y caja total no estarán visibles en tu panel.'
+        ],
+        keywords: ['estadisticas', 'inicio', 'panel', 'pendientes', 'caja', 'ganancia', 'metas'],
         route: '/admin',
         featureFlag: null,
         implementationStatus: 'implemented',
@@ -37,6 +212,124 @@ export const helpRegistry = [
         lastReviewed: '2026-07-02',
         reviewedBy: 'System'
     },
+    {
+        id: 'calendario',
+        category: 'dia-a-dia',
+        order: 2,
+        title: 'Calendario (Agenda)',
+        icon: 'Calendar',
+        roles: ['Owner/Admin', 'Ventas', 'Administrativo', 'Solo lectura'],
+        summary: 'Tu organizador diario para el seguimiento de tareas, entregas y citas.',
+        steps: [
+            {
+                title: 'Vistas disponibles',
+                body: 'Puedes alternar entre la visión mensual, semanal o del día para ajustar tu perspectiva de carga de trabajo.',
+                actionLabel: 'Ir a Agenda',
+                actionRoute: '/admin/agenda'
+            },
+            {
+                title: 'Nuevo evento',
+                body: 'Agrega manualmente citas con clientes, recordatorios para llamar o fechas de entrega programadas.'
+            },
+            {
+                title: 'Eventos Automáticos',
+                body: 'El sistema inyecta automáticamente en tu calendario los vencimientos de cuotas, reservas y tareas de seguimiento de leads.'
+            },
+            {
+                title: 'Filtros rápidos',
+                body: 'Filtra el calendario para ver solo eventos urgentes o solo entregas de vehículos.'
+            }
+        ],
+        tips: [
+            'Una agenda sin tareas vencidas refleja un operador altamente productivo y evita la pérdida de clientes.',
+            'No confíes en tu memoria: si prometiste llamar a un cliente el jueves, agéndalo en el acto.'
+        ],
+        keywords: ['agenda', 'eventos', 'citas', 'vencimientos', 'recordatorios'],
+        route: '/admin/agenda',
+        featureFlag: null,
+        implementationStatus: 'implemented',
+        version: '1.0',
+        lastReviewed: '2026-07-02',
+        reviewedBy: 'System'
+    },
+    {
+        id: 'alertas',
+        category: 'dia-a-dia',
+        order: 3,
+        title: 'Alertas y Notificaciones',
+        icon: 'Bell',
+        roles: ['Owner/Admin', 'Ventas', 'Administrativo'],
+        summary: 'El centro de control para avisos urgentes y novedades del sistema.',
+        steps: [
+            {
+                title: 'La Campana',
+                body: 'El ícono de campana en la esquina superior derecha acumula tus notificaciones. El punto rojo indica que hay novedades.',
+                actionLabel: 'Ver Alertas',
+                actionRoute: '/admin/alertas'
+            },
+            {
+                title: 'Prioridades',
+                body: 'Las alertas pueden ser normales (asignación de un lead) o críticas (una reserva a punto de caducar que requiere acción).'
+            },
+            {
+                title: 'Acciones relacionadas',
+                body: 'Hacer clic sobre una notificación te llevará directamente al expediente, lead o vehículo en cuestión.'
+            },
+            {
+                title: 'Gestión de lectura',
+                body: 'Marca las notificaciones como leídas una vez que te hayas dado por enterado para mantener tu bandeja limpia.'
+            }
+        ],
+        tips: [
+            'No dejes que se acumulen docenas de alertas. Procesa tus notificaciones al menos dos veces por día.',
+            'Si recibes una alerta crítica de "Reserva Vencida", actúa de inmediato liberando el stock o contactando al cliente.'
+        ],
+        keywords: ['notificaciones', 'campana', 'avisos', 'urgente'],
+        route: '/admin/alertas',
+        featureFlag: null,
+        implementationStatus: 'partial',
+        version: '1.0',
+        lastReviewed: '2026-07-02',
+        reviewedBy: 'System'
+    },
+    {
+        id: 'mi-espacio',
+        category: 'dia-a-dia',
+        order: 4,
+        title: 'Mi Espacio',
+        icon: 'User',
+        roles: ['Owner/Admin', 'Ventas', 'Administrativo', 'Gestoría'],
+        summary: 'Tu rincón personal con un consolidado de todo lo que te pertenece.',
+        steps: [
+            {
+                title: 'Resumen de Mi Día',
+                body: 'Una vista ultra-enfocada con lo que tienes que hacer exclusivamente hoy, sin ruido visual del resto de la agencia.',
+                actionLabel: 'Ir a Mi Espacio',
+                actionRoute: '/admin/mi-espacio'
+            },
+            {
+                title: 'Mis Ventas y Urgencias',
+                body: 'Acceso directo a las operaciones que tú lideras y a los cuellos de botella urgentes que bloquean tus entregas.'
+            },
+            {
+                title: 'Mis Cuotas y Pendientes',
+                body: 'Listado rápido de los pagos que debes reclamar a tus clientes directos.'
+            }
+        ],
+        tips: [
+            'Mi Espacio está diseñado para que los vendedores puedan operar el 80% de su día sin salir de esta pantalla.',
+            'Revisa la pestaña de Urgencias frecuentemente; ahí se asientan los problemas graves de documentación o cobros.'
+        ],
+        keywords: ['personal', 'mis ventas', 'mi dia', 'urgencias', 'perfil'],
+        route: '/admin/mi-espacio',
+        featureFlag: null,
+        implementationStatus: 'partial',
+        version: '1.0',
+        lastReviewed: '2026-07-02',
+        reviewedBy: 'System'
+    },
+
+    // --- COMERCIAL (Retained existing) ---
     {
         id: 'stock',
         category: 'comercial',
@@ -104,103 +397,6 @@ export const helpRegistry = [
         reviewedBy: 'System'
     },
     {
-        id: 'leads',
-        category: 'comunicacion',
-        order: 1,
-        title: 'Leads',
-        icon: 'UserPlus',
-        roles: ['Owner/Admin', 'Ventas', 'Administrativo', 'Solo lectura'],
-        summary: 'Administración de prospectos y oportunidades de venta.',
-        steps: [
-            {
-                title: 'Atención prioritaria',
-                body: 'Atiende los leads en orden de prioridad. Las respuestas rápidas (menos de 5 min) incrementan la conversión un 300%.',
-                actionLabel: 'Ir a Leads',
-                actionRoute: '/admin/leads'
-            },
-            {
-                title: 'Asignación',
-                body: 'Si un lead entra huérfano, asígnalo rápidamente a ti o a otro vendedor.'
-            },
-            {
-                title: 'Tareas de Seguimiento',
-                body: 'Siempre debes dejar programada la "próxima acción" tras cada contacto.'
-            }
-        ],
-        tips: [
-            'Estados de Leads: Frío (interesa pero a futuro), Caliente (listo para reservar en 72hs), Perdido (dejó de responder), Convertido (venta/reserva confirmada).'
-        ],
-        keywords: ['prospectos', 'interesados', 'embudo', 'oportunidades'],
-        route: '/admin/leads',
-        featureFlag: null,
-        implementationStatus: 'implemented',
-        version: '1.0',
-        lastReviewed: '2026-07-02',
-        reviewedBy: 'System'
-    },
-    {
-        id: 'agenda',
-        category: 'dia-a-dia',
-        order: 2,
-        title: 'Agenda / Pendientes',
-        icon: 'CalendarClock',
-        roles: ['Owner/Admin', 'Ventas', 'Administrativo', 'Solo lectura'],
-        summary: 'Tu organizador diario para el seguimiento de tareas.',
-        steps: [
-            {
-                title: 'Revisión Diaria',
-                body: 'Tu agenda te muestra lo que debes hacer hoy.',
-                actionLabel: 'Ver Agenda',
-                actionRoute: '/admin/agenda'
-            },
-            {
-                title: 'Control de Vencimientos',
-                body: 'Jamás debes tener tareas en rojo (vencidas).'
-            }
-        ],
-        tips: ['Una agenda sin tareas vencidas refleja un vendedor altamente productivo.'],
-        keywords: ['tareas', 'calendario', 'vencimientos', 'recordatorios'],
-        route: '/admin/agenda',
-        featureFlag: null,
-        implementationStatus: 'implemented',
-        version: '1.0',
-        lastReviewed: '2026-07-02',
-        reviewedBy: 'System'
-    },
-    {
-        id: 'reservas',
-        category: 'operacion',
-        order: 3,
-        title: 'Reservas',
-        icon: 'CalendarClock',
-        roles: ['Owner/Admin', 'Ventas', 'Administrativo', 'Solo lectura'],
-        summary: 'Señas y reservas de vehículos por parte de los clientes.',
-        steps: [
-            {
-                title: 'Creación',
-                body: 'Bloquea el stock de un vehículo al instante. Requiere vincular un Lead/Cliente.',
-                actionLabel: 'Ir a Reservas',
-                actionRoute: '/admin/reservas'
-            },
-            {
-                title: 'Conversión',
-                body: 'Una vez aprobada, se pasa a Venta y genera el expediente formal.'
-            },
-            {
-                title: 'Cancelación',
-                body: 'Libera el stock inmediatamente.'
-            }
-        ],
-        tips: ['Al recibir una reserva, valida rápidamente el comprobante de pago para oficializarla.'],
-        keywords: ['señas', 'apartado', 'bloqueo'],
-        route: '/admin/reservas',
-        featureFlag: null,
-        implementationStatus: 'implemented',
-        version: '1.0',
-        lastReviewed: '2026-07-02',
-        reviewedBy: 'System'
-    },
-    {
         id: 'ventas',
         category: 'comercial',
         order: 4,
@@ -223,31 +419,6 @@ export const helpRegistry = [
         tips: ['Importante: El vendedor no debe modificar aspectos financieros de la venta una vez aprobada sin permiso de administración.'],
         keywords: ['operaciones', 'cierres', 'facturacion', 'entregas'],
         route: '/admin/ventas',
-        featureFlag: null,
-        implementationStatus: 'implemented',
-        version: '1.0',
-        lastReviewed: '2026-07-02',
-        reviewedBy: 'System'
-    },
-    {
-        id: 'documentacion',
-        category: 'operacion',
-        order: 1,
-        title: 'Documentación',
-        icon: 'FileCheck',
-        roles: ['Owner/Admin', 'Administrativo', 'Solo lectura'],
-        summary: 'Seguimiento de trámites y papeles de cada vehículo.',
-        steps: [
-            {
-                title: 'Checklist',
-                body: 'Marca el avance de DNI, informes de dominio, Verificación Policial, F08 y más.',
-                actionLabel: 'Ir a Documentación',
-                actionRoute: '/admin/documentacion'
-            }
-        ],
-        tips: ['Mantén la documentación al día para no retrasar la entrega final del vehículo.'],
-        keywords: ['papeles', 'tramites', 'gestoria', 'f08', 'dominio'],
-        route: '/admin/documentacion',
         featureFlag: null,
         implementationStatus: 'implemented',
         version: '1.0',
@@ -283,6 +454,132 @@ export const helpRegistry = [
         lastReviewed: '2026-07-02',
         reviewedBy: 'System'
     },
+
+    // --- OPERACIÓN (Retained existing) ---
+    {
+        id: 'reservas',
+        category: 'operacion',
+        order: 3,
+        title: 'Reservas',
+        icon: 'CalendarClock',
+        roles: ['Owner/Admin', 'Ventas', 'Administrativo', 'Solo lectura'],
+        summary: 'Señas y reservas de vehículos por parte de los clientes.',
+        steps: [
+            {
+                title: 'Creación',
+                body: 'Bloquea el stock de un vehículo al instante. Requiere vincular un Lead/Cliente.',
+                actionLabel: 'Ir a Reservas',
+                actionRoute: '/admin/reservas'
+            },
+            {
+                title: 'Conversión',
+                body: 'Una vez aprobada, se pasa a Venta y genera el expediente formal.'
+            },
+            {
+                title: 'Cancelación',
+                body: 'Libera el stock inmediatamente.'
+            }
+        ],
+        tips: ['Al recibir una reserva, valida rápidamente el comprobante de pago para oficializarla.'],
+        keywords: ['señas', 'apartado', 'bloqueo'],
+        route: '/admin/reservas',
+        featureFlag: null,
+        implementationStatus: 'implemented',
+        version: '1.0',
+        lastReviewed: '2026-07-02',
+        reviewedBy: 'System'
+    },
+    {
+        id: 'documentacion',
+        category: 'operacion',
+        order: 1,
+        title: 'Documentación',
+        icon: 'FileCheck',
+        roles: ['Owner/Admin', 'Administrativo', 'Solo lectura'],
+        summary: 'Seguimiento de trámites y papeles de cada vehículo.',
+        steps: [
+            {
+                title: 'Checklist',
+                body: 'Marca el avance de DNI, informes de dominio, Verificación Policial, F08 y más.',
+                actionLabel: 'Ir a Documentación',
+                actionRoute: '/admin/documentacion'
+            }
+        ],
+        tips: ['Mantén la documentación al día para no retrasar la entrega final del vehículo.'],
+        keywords: ['papeles', 'tramites', 'gestoria', 'f08', 'dominio'],
+        route: '/admin/documentacion',
+        featureFlag: null,
+        implementationStatus: 'implemented',
+        version: '1.0',
+        lastReviewed: '2026-07-02',
+        reviewedBy: 'System'
+    },
+
+    // --- FINANZAS (Retained existing) ---
+    {
+        id: 'cuotas',
+        category: 'finanzas',
+        order: 4,
+        title: 'Cuotas / Cobranzas',
+        icon: 'Landmark',
+        roles: ['Owner/Admin', 'Administrativo'],
+        summary: 'Gestión de cobros pendientes y moras.',
+        steps: [
+            {
+                title: 'Control de mora',
+                body: 'Gestión de fechas de vencimiento, moras e intereses.',
+                actionLabel: 'Ir a Cuotas',
+                actionRoute: '/admin/cuotas'
+            }
+        ],
+        tips: ['Prohibido: Nunca modificar montos sin autorización formal de gerencia.'],
+        keywords: ['pagos', 'cobros', 'vencimientos', 'intereses'],
+        route: '/admin/cuotas',
+        featureFlag: null,
+        implementationStatus: 'implemented',
+        version: '1.0',
+        lastReviewed: '2026-07-02',
+        reviewedBy: 'System'
+    },
+
+    // --- COMUNICACION (Retained existing) ---
+    {
+        id: 'leads',
+        category: 'comunicacion',
+        order: 1,
+        title: 'Leads',
+        icon: 'UserPlus',
+        roles: ['Owner/Admin', 'Ventas', 'Administrativo', 'Solo lectura'],
+        summary: 'Administración de prospectos y oportunidades de venta.',
+        steps: [
+            {
+                title: 'Atención prioritaria',
+                body: 'Atiende los leads en orden de prioridad. Las respuestas rápidas (menos de 5 min) incrementan la conversión un 300%.',
+                actionLabel: 'Ir a Leads',
+                actionRoute: '/admin/leads'
+            },
+            {
+                title: 'Asignación',
+                body: 'Si un lead entra huérfano, asígnalo rápidamente a ti o a otro vendedor.'
+            },
+            {
+                title: 'Tareas de Seguimiento',
+                body: 'Siempre debes dejar programada la "próxima acción" tras cada contacto.'
+            }
+        ],
+        tips: [
+            'Estados de Leads: Frío (interesa pero a futuro), Caliente (listo para reservar en 72hs), Perdido (dejó de responder), Convertido (venta/reserva confirmada).'
+        ],
+        keywords: ['prospectos', 'interesados', 'embudo', 'oportunidades'],
+        route: '/admin/leads',
+        featureFlag: null,
+        implementationStatus: 'implemented',
+        version: '1.0',
+        lastReviewed: '2026-07-02',
+        reviewedBy: 'System'
+    },
+
+    // --- ADMINISTRACION (Retained existing) ---
     {
         id: 'metas',
         category: 'administracion',
@@ -327,31 +624,6 @@ export const helpRegistry = [
         tips: ['Privacidad: Los vendedores no deben ver las estadísticas comparativas de otros vendedores.'],
         keywords: ['rendimiento', 'equipo', 'vendedores', 'metricas'],
         route: '/admin/productividad',
-        featureFlag: null,
-        implementationStatus: 'implemented',
-        version: '1.0',
-        lastReviewed: '2026-07-02',
-        reviewedBy: 'System'
-    },
-    {
-        id: 'cuotas',
-        category: 'finanzas',
-        order: 4,
-        title: 'Cuotas / Cobranzas',
-        icon: 'Landmark',
-        roles: ['Owner/Admin', 'Administrativo'],
-        summary: 'Gestión de cobros pendientes y moras.',
-        steps: [
-            {
-                title: 'Control de mora',
-                body: 'Gestión de fechas de vencimiento, moras e intereses.',
-                actionLabel: 'Ir a Cuotas',
-                actionRoute: '/admin/cuotas'
-            }
-        ],
-        tips: ['Prohibido: Nunca modificar montos sin autorización formal de gerencia.'],
-        keywords: ['pagos', 'cobros', 'vencimientos', 'intereses'],
-        route: '/admin/cuotas',
         featureFlag: null,
         implementationStatus: 'implemented',
         version: '1.0',
@@ -489,43 +761,6 @@ export const helpRegistry = [
         tips: ['Objetivo: Trazabilidad absoluta de la operatoria para detectar posibles fraudes o errores humanos.'],
         keywords: ['logs', 'registros', 'historial', 'trazabilidad', 'seguridad'],
         route: '/admin/auditoria',
-        featureFlag: null,
-        implementationStatus: 'implemented',
-        version: '1.0',
-        lastReviewed: '2026-07-02',
-        reviewedBy: 'System'
-    },
-    {
-        id: 'seguridad',
-        category: 'primeros-pasos',
-        order: 1,
-        title: 'Seguridad y Roles',
-        icon: 'ShieldAlert',
-        roles: ['Owner/Admin', 'Ventas', 'Administrativo', 'Solo lectura'],
-        summary: 'Niveles de acceso y permisos dentro de AutoSporting.',
-        steps: [
-            {
-                title: 'Owner/Admin',
-                body: 'Control total, visión irrestricta de márgenes y auditoría.',
-                actionLabel: 'Ver configuración de usuarios',
-                actionRoute: '/admin/configuracion/usuarios'
-            },
-            {
-                title: 'Administrativo',
-                body: 'Acceso a operatoria y documentación, sin acceso a márgenes (salvo permiso expreso).'
-            },
-            {
-                title: 'Ventas',
-                body: 'Solo ve operaciones asignadas a sí mismo. No ve auditoría, configuración ni finanzas.'
-            },
-            {
-                title: 'Solo lectura',
-                body: 'No puede crear, editar ni borrar absolutamente nada.'
-            }
-        ],
-        tips: ['Comprender los roles es fundamental para evitar filtración de información sensible.'],
-        keywords: ['permisos', 'accesos', 'restricciones', 'vendedor', 'admin'],
-        route: '/admin/configuracion',
         featureFlag: null,
         implementationStatus: 'implemented',
         version: '1.0',
