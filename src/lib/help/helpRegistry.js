@@ -9,7 +9,6 @@ import {
 } from 'lucide-react';
 
 export const helpRegistry = [
-    // --- PRIMEROS PASOS ---
     {
         id: 'acceso',
         category: 'primeros-pasos',
@@ -61,7 +60,7 @@ export const helpRegistry = [
         id: 'navegacion',
         category: 'primeros-pasos',
         order: 2,
-        title: 'Cómo moverse por el sistema',
+        title: 'Cómo moverte por el sistema',
         icon: 'Compass',
         roles: ['Owner/Admin', 'Ventas', 'Administrativo', 'Solo lectura', 'Gestoría', 'Recepción', 'Taller'],
         summary: 'Aprende a navegar por los menús, buscar información y personalizar tu pantalla.',
@@ -143,7 +142,7 @@ export const helpRegistry = [
         id: 'mobile',
         category: 'primeros-pasos',
         order: 4,
-        title: 'Uso en el celular',
+        title: 'Usar el CRM en el celular',
         icon: 'Smartphone',
         roles: ['Owner/Admin', 'Ventas', 'Administrativo', 'Solo lectura', 'Gestoría', 'Recepción', 'Taller'],
         summary: 'Cómo utilizar el CRM eficientemente desde dispositivos móviles.',
@@ -173,12 +172,10 @@ export const helpRegistry = [
         lastReviewed: '2026-07-02',
         reviewedBy: 'System'
     },
-
-    // --- DÍA A DÍA ---
     {
         id: 'dashboard',
         category: 'dia-a-dia',
-        order: 1,
+        order: 5,
         title: 'Dashboard',
         icon: 'LayoutDashboard',
         roles: ['Owner/Admin', 'Ventas', 'Administrativo', 'Solo lectura'],
@@ -218,8 +215,8 @@ export const helpRegistry = [
     {
         id: 'calendario',
         category: 'dia-a-dia',
-        order: 2,
-        title: 'Calendario (Agenda)',
+        order: 6,
+        title: 'Calendario',
         icon: 'Calendar',
         roles: ['Owner/Admin', 'Ventas', 'Administrativo', 'Solo lectura'],
         summary: 'Tu organizador diario para el seguimiento de tareas, entregas y citas.',
@@ -258,8 +255,8 @@ export const helpRegistry = [
     {
         id: 'alertas',
         category: 'dia-a-dia',
-        order: 3,
-        title: 'Alertas y Notificaciones',
+        order: 7,
+        title: 'Alertas — Centro de notificaciones',
         icon: 'Bell',
         roles: ['Owner/Admin', 'Ventas', 'Administrativo'],
         summary: 'El centro de control para avisos urgentes y novedades del sistema.',
@@ -298,7 +295,7 @@ export const helpRegistry = [
     {
         id: 'mi-espacio',
         category: 'dia-a-dia',
-        order: 4,
+        order: 8,
         title: 'Mi Espacio',
         icon: 'User',
         roles: ['Owner/Admin', 'Ventas', 'Administrativo', 'Gestoría'],
@@ -331,13 +328,11 @@ export const helpRegistry = [
         lastReviewed: '2026-07-02',
         reviewedBy: 'System'
     },
-
-    // --- COMERCIAL ---
     {
         id: 'stock',
         category: 'comercial',
-        order: 1,
-        title: 'Stock',
+        order: 9,
+        title: 'Stock — Vehículos',
         icon: 'CarFront',
         roles: ['Owner/Admin', 'Ventas', 'Administrativo', 'Solo lectura'],
         summary: 'Gestión completa del inventario de vehículos propios, de terceros y en consignación.',
@@ -381,7 +376,7 @@ export const helpRegistry = [
     {
         id: 'clientes',
         category: 'comercial',
-        order: 2,
+        order: 10,
         title: 'Clientes',
         icon: 'Users',
         roles: ['Owner/Admin', 'Ventas', 'Administrativo', 'Solo lectura'],
@@ -425,7 +420,7 @@ export const helpRegistry = [
     {
         id: 'cotizaciones',
         category: 'comercial',
-        order: 3,
+        order: 11,
         title: 'Cotizaciones',
         icon: 'FileText',
         roles: ['Owner/Admin', 'Ventas', 'Administrativo'],
@@ -465,7 +460,7 @@ export const helpRegistry = [
     {
         id: 'ventas',
         category: 'comercial',
-        order: 4,
+        order: 12,
         title: 'Ventas',
         icon: 'Receipt',
         roles: ['Owner/Admin', 'Ventas', 'Administrativo', 'Solo lectura'],
@@ -509,8 +504,8 @@ export const helpRegistry = [
     {
         id: 'mis-ventas',
         category: 'comercial',
-        order: 5,
-        title: 'Mis Ventas',
+        order: 13,
+        title: 'Mis ventas',
         icon: 'Star',
         roles: ['Ventas'],
         summary: 'Panel personal del vendedor con su rendimiento comercial y comisiones.',
@@ -547,10 +542,10 @@ export const helpRegistry = [
         reviewedBy: 'System'
     },
     {
-        id: 'pedidos',
+        id: 'pedidos-busqueda',
         category: 'comercial',
-        order: 6,
-        title: 'Pedidos',
+        order: 14,
+        title: 'Pedidos (búsquedas de clientes)',
         icon: 'CalendarClock',
         roles: ['Owner/Admin', 'Ventas', 'Administrativo'],
         summary: 'Registro de solicitudes de vehículos que los clientes buscan y no tienes en stock.',
@@ -589,7 +584,7 @@ export const helpRegistry = [
     {
         id: 'oportunidades',
         category: 'comercial',
-        order: 7,
+        order: 15,
         title: 'Oportunidades',
         icon: 'Target',
         roles: ['Owner/Admin', 'Ventas', 'Administrativo'],
@@ -616,7 +611,7 @@ export const helpRegistry = [
     {
         id: 'postventa',
         category: 'comercial',
-        order: 8,
+        order: 16,
         title: 'Postventa',
         icon: 'MessageCircle',
         roles: ['Owner/Admin', 'Ventas', 'Administrativo'],
@@ -652,8 +647,8 @@ export const helpRegistry = [
     {
         id: 'dormidos',
         category: 'comercial',
-        order: 9,
-        title: 'Dormidos',
+        order: 17,
+        title: 'Clientes Dormidos',
         icon: 'Moon',
         roles: ['Owner/Admin', 'Ventas'],
         summary: 'Recuperación de prospectos y clientes inactivos que dejaron de responder.',
@@ -685,12 +680,50 @@ export const helpRegistry = [
         lastReviewed: '2026-07-02',
         reviewedBy: 'System'
     },
-
-    // --- OPERACIÓN ---
+    {
+        id: 'pedidos',
+        category: 'operacion',
+        order: 18,
+        title: 'Pedidos',
+        icon: 'CalendarClock',
+        roles: ['Owner/Admin', 'Ventas', 'Administrativo'],
+        summary: 'Registro de solicitudes de vehículos que los clientes buscan y no tienes en stock.',
+        steps: [
+            {
+                title: 'Nuevo Pedido',
+                body: 'Registra al cliente, la Marca, el Modelo, Año mínimo/máximo y su Presupuesto disponible.',
+                actionLabel: 'Ir a Pedidos',
+                actionRoute: '/admin/pedidos'
+            },
+            {
+                title: 'Match Inteligente',
+                body: 'El sistema cruza diariamente los pedidos contra el Stock nuevo. Si hay coincidencias, el botón "Match" se ilumina.'
+            },
+            {
+                title: 'Filtros y Seguimiento',
+                body: 'Usa el botón "Solo míos" para ver los pedidos de tus clientes. Mantén los estados limpios (Activo, Cumplido o Cancelado).'
+            },
+            {
+                title: 'Contacto',
+                body: 'Al lograr un Match, haz clic en el cliente para llamarlo inmediatamente e informarle que ingresó el vehículo que busca.'
+            }
+        ],
+        tips: [
+            'Los pedidos son oro. Un cliente con pedido está altamente calificado para comprar ya mismo.',
+            'Cancela los pedidos antiguos (más de 90 días) si el cliente compró en otro lado para no ensuciar el Match inteligente.'
+        ],
+        keywords: ['solicitud', 'busqueda', 'match', 'presupuesto', 'encargo'],
+        route: '/admin/pedidos',
+        featureFlag: null,
+        implementationStatus: 'partial',
+        version: '1.0',
+        lastReviewed: '2026-07-02',
+        reviewedBy: 'System'
+    },
     {
         id: 'expedientes',
         category: 'operacion',
-        order: 1,
+        order: 19,
         title: 'Expedientes',
         icon: 'FolderOpen',
         roles: ['Owner/Admin', 'Administrativo', 'Gestoría', 'Solo lectura'],
@@ -734,8 +767,8 @@ export const helpRegistry = [
     {
         id: 'gestoria',
         category: 'operacion',
-        order: 2,
-        title: 'Gestoría',
+        order: 20,
+        title: 'Gestoría — Trámites de transferencia',
         icon: 'FileSignature',
         roles: ['Owner/Admin', 'Gestoría', 'Administrativo'],
         summary: 'Seguimiento de trámites de transferencia, inscripciones y reportes de dominio.',
@@ -774,7 +807,7 @@ export const helpRegistry = [
     {
         id: 'consignaciones',
         category: 'operacion',
-        order: 3,
+        order: 21,
         title: 'Consignaciones',
         icon: 'Handshake',
         roles: ['Owner/Admin', 'Ventas', 'Administrativo', 'Solo lectura'],
@@ -814,7 +847,7 @@ export const helpRegistry = [
     {
         id: 'infracciones',
         category: 'operacion',
-        order: 4,
+        order: 22,
         title: 'Infracciones',
         icon: 'AlertOctagon',
         roles: ['Owner/Admin', 'Administrativo', 'Gestoría'],
@@ -849,7 +882,7 @@ export const helpRegistry = [
     {
         id: 'taller',
         category: 'operacion',
-        order: 5,
+        order: 23,
         title: 'Taller',
         icon: 'Wrench',
         roles: ['Owner/Admin', 'Taller', 'Administrativo'],
@@ -893,7 +926,7 @@ export const helpRegistry = [
     {
         id: 'reclamos',
         category: 'operacion',
-        order: 6,
+        order: 24,
         title: 'Reclamos',
         icon: 'MessageSquareWarning',
         roles: ['Owner/Admin', 'Administrativo', 'Recepción'],
@@ -930,13 +963,11 @@ export const helpRegistry = [
         lastReviewed: '2026-07-02',
         reviewedBy: 'System'
     },
-
-    // --- FINANZAS ---
     {
         id: 'finanzas',
         category: 'finanzas',
-        order: 1,
-        title: 'Finanzas General',
+        order: 25,
+        title: 'Finanzas — Administración financiera',
         icon: 'Wallet',
         roles: ['Owner/Admin', 'Administrativo'],
         summary: 'Panel de control maestro para todas las cajas, movimientos y rentabilidad de la agencia.',
@@ -975,7 +1006,7 @@ export const helpRegistry = [
     {
         id: 'tesoreria',
         category: 'finanzas',
-        order: 2,
+        order: 26,
         title: 'Tesorería',
         icon: 'Vault',
         roles: ['Owner/Admin', 'Administrativo'],
@@ -1014,7 +1045,7 @@ export const helpRegistry = [
     {
         id: 'liquidaciones',
         category: 'finanzas',
-        order: 3,
+        order: 27,
         title: 'Liquidaciones',
         icon: 'Calculator',
         roles: ['Owner/Admin', 'Administrativo'],
@@ -1049,8 +1080,8 @@ export const helpRegistry = [
     {
         id: 'cuotas',
         category: 'finanzas',
-        order: 4,
-        title: 'Cobros y Cuotas',
+        order: 28,
+        title: 'Cobros',
         icon: 'Landmark',
         roles: ['Owner/Admin', 'Administrativo'],
         summary: 'Gestión de vencimientos y cobranzas directas a clientes financiados.',
@@ -1084,7 +1115,7 @@ export const helpRegistry = [
     {
         id: 'autorizaciones',
         category: 'finanzas',
-        order: 5,
+        order: 29,
         title: 'Autorizaciones',
         icon: 'ShieldCheck',
         roles: ['Owner/Admin'],
@@ -1119,7 +1150,7 @@ export const helpRegistry = [
     {
         id: 'reportes',
         category: 'finanzas',
-        order: 6,
+        order: 30,
         title: 'Reportes',
         icon: 'PieChart',
         roles: ['Owner/Admin', 'Administrativo'],
@@ -1148,9 +1179,9 @@ export const helpRegistry = [
         reviewedBy: 'System'
     },
     {
-        id: 'mis-comisiones',
+        id: 'comisiones',
         category: 'finanzas',
-        order: 7,
+        order: 31,
         title: 'Mis Comisiones',
         icon: 'DollarSign',
         roles: ['Ventas', 'Owner/Admin'],
@@ -1186,48 +1217,11 @@ export const helpRegistry = [
         lastReviewed: '2026-07-02',
         reviewedBy: 'System'
     },
-
-    // --- COMUNICACION (Retained existing) ---
-    {
-        id: 'leads',
-        category: 'comunicacion',
-        order: 1,
-        title: 'Leads',
-        icon: 'UserPlus',
-        roles: ['Owner/Admin', 'Ventas', 'Administrativo', 'Solo lectura'],
-        summary: 'Administración de prospectos y oportunidades de venta.',
-        steps: [
-            {
-                title: 'Atención prioritaria',
-                body: 'Atiende los leads en orden de prioridad. Las respuestas rápidas (menos de 5 min) incrementan la conversión un 300%.',
-                actionLabel: 'Ir a Leads',
-                actionRoute: '/admin/leads'
-            },
-            {
-                title: 'Asignación',
-                body: 'Si un lead entra huérfano, asígnalo rápidamente a ti o a otro vendedor.'
-            },
-            {
-                title: 'Tareas de Seguimiento',
-                body: 'Siempre debes dejar programada la "próxima acción" tras cada contacto.'
-            }
-        ],
-        tips: [
-            'Estados de Leads: Frío (interesa pero a futuro), Caliente (listo para reservar en 72hs), Perdido (dejó de responder), Convertido (venta/reserva confirmada).'
-        ],
-        keywords: ['prospectos', 'interesados', 'embudo', 'oportunidades'],
-        route: '/admin/leads',
-        featureFlag: null,
-        implementationStatus: 'implemented',
-        version: '1.0',
-        lastReviewed: '2026-07-02',
-        reviewedBy: 'System'
-    },
     {
         id: 'mensajes',
         category: 'comunicacion',
-        order: 2,
-        title: 'Mensajes Internos',
+        order: 32,
+        title: 'Mensajes',
         icon: 'MessageSquare',
         roles: ['Owner/Admin', 'Ventas', 'Administrativo', 'Gestoría', 'Taller', 'Recepción'],
         summary: 'Chat interno del equipo de AutoSporting para evitar el uso de canales externos informales.',
@@ -1261,7 +1255,7 @@ export const helpRegistry = [
     {
         id: 'whatsapp',
         category: 'comunicacion',
-        order: 3,
+        order: 33,
         title: 'WhatsApp y Conversaciones',
         icon: 'MessageCircle',
         roles: ['Owner/Admin', 'Ventas', 'Administrativo'],
@@ -1300,8 +1294,8 @@ export const helpRegistry = [
     {
         id: 'nps',
         category: 'comunicacion',
-        order: 4,
-        title: 'Encuestas NPS',
+        order: 34,
+        title: 'NPS — Satisfacción del cliente',
         icon: 'StarHalf',
         roles: ['Owner/Admin', 'Administrativo'],
         summary: 'Medición del "Net Promoter Score" para entender el grado de satisfacción de tus clientes.',
@@ -1335,7 +1329,7 @@ export const helpRegistry = [
     {
         id: 'sugerencias',
         category: 'comunicacion',
-        order: 5,
+        order: 35,
         title: 'Sugerencias',
         icon: 'Lightbulb',
         roles: ['Owner/Admin', 'Ventas', 'Administrativo', 'Gestoría', 'Taller', 'Recepción'],
@@ -1370,8 +1364,8 @@ export const helpRegistry = [
     {
         id: 'correo',
         category: 'comunicacion',
-        order: 6,
-        title: 'Correo Integrado',
+        order: 36,
+        title: 'Mi Correo',
         icon: 'Mail',
         roles: ['Owner/Admin', 'Administrativo'],
         summary: 'Sincronización de tu cuenta de email para operar directamente desde AutoSporting.',
@@ -1403,10 +1397,45 @@ export const helpRegistry = [
         reviewedBy: 'System'
     },
     {
-        id: 'telefonos-utiles',
+        id: 'conversaciones',
         category: 'comunicacion',
-        order: 7,
-        title: 'Teléfonos Útiles',
+        order: 37,
+        title: 'Conversaciones',
+        icon: 'MessageCircle',
+        roles: ['Owner/Admin', 'Ventas', 'Administrativo'],
+        summary: 'Historial general de comunicaciones y registro de conversaciones con clientes (fuera de WhatsApp).',
+        steps: [
+            {
+                title: 'Registro Manual',
+                body: 'Puedes registrar manualmente llamadas telefónicas o reuniones presenciales en el historial del cliente.',
+                actionLabel: 'Ver Clientes',
+                actionRoute: '/admin/clientes'
+            },
+            {
+                title: 'Visualización de Historial',
+                body: 'El muro de actividades de cada cliente o expediente te permite ver toda la línea de tiempo de sus interacciones.'
+            },
+            {
+                title: 'Filtros por Tipo',
+                body: 'Puedes filtrar las interacciones para ver únicamente llamadas, reuniones o notas internas.'
+            }
+        ],
+        tips: [
+            'Registra siempre las llamadas telefónicas como "Conversaciones" para que todo el equipo sepa qué se habló con el cliente.'
+        ],
+        keywords: ['historial', 'llamadas', 'reuniones', 'registro', 'actividades'],
+        route: null,
+        featureFlag: null,
+        implementationStatus: 'implemented',
+        version: '1.0',
+        lastReviewed: '2026-07-02',
+        reviewedBy: 'System'
+    },
+    {
+        id: 'telefonos',
+        category: 'comunicacion',
+        order: 38,
+        title: 'Teléfonos útiles',
         icon: 'Phone',
         roles: ['Owner/Admin', 'Ventas', 'Administrativo', 'Gestoría', 'Recepción'],
         summary: 'Directorio interno con contactos de grúas, registros automotores y proveedores.',
@@ -1437,91 +1466,10 @@ export const helpRegistry = [
         lastReviewed: '2026-07-02',
         reviewedBy: 'System'
     },
-
-    // --- ADMINISTRACION (Retained existing) ---
-    {
-        id: 'metas',
-        category: 'administracion',
-        order: 3,
-        title: 'Metas',
-        icon: 'Flag',
-        roles: ['Owner/Admin', 'Ventas', 'Administrativo'],
-        summary: 'Objetivos comerciales y seguimiento de cumplimiento.',
-        steps: [
-            {
-                title: 'Actualización',
-                body: 'Las metas se actualizan automáticamente según las ventas cerradas.',
-                actionLabel: 'Ver Metas',
-                actionRoute: '/admin/metas'
-            }
-        ],
-        tips: ['Privacidad: Los vendedores solo pueden ver sus propias metas asignadas.'],
-        keywords: ['objetivos', 'kpi', 'resultados'],
-        route: '/admin/metas',
-        featureFlag: null,
-        implementationStatus: 'implemented',
-        version: '1.0',
-        lastReviewed: '2026-07-02',
-        reviewedBy: 'System'
-    },
-    {
-        id: 'productividad',
-        category: 'administracion',
-        order: 4,
-        title: 'Equipo / Productividad',
-        icon: 'BarChart3',
-        roles: ['Owner/Admin'],
-        summary: 'Métricas de rendimiento general del equipo comercial.',
-        steps: [
-            {
-                title: 'KPIs',
-                body: 'Control de tasas de cierre y velocidad de respuesta de todo el equipo.',
-                actionLabel: 'Ver Productividad',
-                actionRoute: '/admin/productividad'
-            }
-        ],
-        tips: ['Privacidad: Los vendedores no deben ver las estadísticas comparativas de otros vendedores.'],
-        keywords: ['rendimiento', 'equipo', 'vendedores', 'metricas'],
-        route: '/admin/productividad',
-        featureFlag: null,
-        implementationStatus: 'implemented',
-        version: '1.0',
-        lastReviewed: '2026-07-02',
-        reviewedBy: 'System'
-    },
-    {
-        id: 'calidad',
-        category: 'administracion',
-        order: 2,
-        title: 'Calidad de Datos',
-        icon: 'ShieldAlert',
-        roles: ['Owner/Admin', 'Administrativo'],
-        summary: 'Auditoría automática para mantener la base de datos limpia.',
-        steps: [
-            {
-                title: 'Detección',
-                body: 'El panel detecta problemas como leads huérfanos o ventas sin cerrar.',
-                actionLabel: 'Ir a Calidad de Datos',
-                actionRoute: '/admin/calidad-datos'
-            },
-            {
-                title: 'Resolución',
-                body: 'La corrección siempre es manual haciendo clic en el enlace, el sistema nunca borra ni fusiona datos por su cuenta para preservar auditoría.'
-            }
-        ],
-        tips: ['Revisa la calidad de datos semanalmente para evitar basura en el sistema.'],
-        keywords: ['inconsistencias', 'errores', 'limpieza', 'huerfanos'],
-        route: '/admin/calidad-datos',
-        featureFlag: null,
-        implementationStatus: 'implemented',
-        version: '1.0',
-        lastReviewed: '2026-07-02',
-        reviewedBy: 'System'
-    },
     {
         id: 'configuracion',
         category: 'administracion',
-        order: 1,
+        order: 39,
         title: 'Configuración',
         icon: 'Settings',
         roles: ['Owner/Admin'],
@@ -1560,85 +1508,10 @@ export const helpRegistry = [
         reviewedBy: 'System'
     },
     {
-        id: 'exportaciones',
-        category: 'administracion',
-        order: 6,
-        title: 'Exportaciones',
-        icon: 'Download',
-        roles: ['Owner/Admin', 'Administrativo'],
-        summary: 'Generación de respaldos CSV y extracción de datos masivos.',
-        steps: [
-            {
-                title: 'Generar CSV',
-                body: 'Generar respaldos CSV de módulos clave para análisis externo o contaduría.',
-                actionLabel: 'Ir a Exportaciones',
-                actionRoute: '/admin/exportaciones'
-            }
-        ],
-        tips: ['Seguridad: No se exportan contraseñas, tokens, caja ni datos financieros ocultos para proteger la información comercial y privada.'],
-        keywords: ['csv', 'excel', 'descargas', 'backups'],
-        route: '/admin/exportaciones',
-        featureFlag: null,
-        implementationStatus: 'implemented',
-        version: '1.0',
-        lastReviewed: '2026-07-02',
-        reviewedBy: 'System'
-    },
-    {
-        id: 'sistema',
-        category: 'administracion',
-        order: 7,
-        title: 'Salud del Sistema',
-        icon: 'Activity',
-        roles: ['Owner/Admin'],
-        summary: 'Monitoreo de estado de servidores y bases de datos.',
-        steps: [
-            {
-                title: 'Monitoreo',
-                body: 'Verifica latencia de base de datos y alertas de desconexión.',
-                actionLabel: 'Ir a Salud del Sistema',
-                actionRoute: '/admin/sistema'
-            }
-        ],
-        tips: ['Alertas críticas: Si MongoDB figura Offline, contactar a soporte técnico inmediatamente.'],
-        keywords: ['servidores', 'online', 'caidas', 'latencia', 'base de datos'],
-        route: '/admin/sistema',
-        featureFlag: null,
-        implementationStatus: 'partial',
-        version: '1.0',
-        lastReviewed: '2026-07-02',
-        reviewedBy: 'System'
-    },
-    {
-        id: 'auditoria',
-        category: 'administracion',
-        order: 5,
-        title: 'Auditoría',
-        icon: 'FileText',
-        roles: ['Owner/Admin'],
-        summary: 'Registro inmutable de todas las acciones del sistema.',
-        steps: [
-            {
-                title: 'Trazabilidad',
-                body: 'Toda creación, edición y borrado queda grabada con fecha y autor.',
-                actionLabel: 'Ir a Auditoría',
-                actionRoute: '/admin/auditoria'
-            }
-        ],
-        tips: ['Objetivo: Trazabilidad absoluta de la operatoria para detectar posibles fraudes o errores humanos.'],
-        keywords: ['logs', 'registros', 'historial', 'trazabilidad', 'seguridad'],
-        route: '/admin/auditoria',
-        featureFlag: null,
-        implementationStatus: 'implemented',
-        version: '1.0',
-        lastReviewed: '2026-07-02',
-        reviewedBy: 'System'
-    },
-    {
         id: 'papelera',
         category: 'administracion',
-        order: 8,
-        title: 'Papelera de Reciclaje',
+        order: 40,
+        title: 'Papelera',
         icon: 'Trash2',
         roles: ['Owner/Admin'],
         summary: 'Recuperación de elementos borrados por error y destrucción definitiva de datos.',
@@ -1672,5 +1545,5 @@ export const helpRegistry = [
         version: '1.0',
         lastReviewed: '2026-07-02',
         reviewedBy: 'System'
-    }
+    },
 ];
