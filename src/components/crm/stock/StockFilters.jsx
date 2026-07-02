@@ -100,7 +100,7 @@ export default function StockFilters({
                         <button
                             key={chip.id}
                             type="button"
-                            onClick={() => setFilterStatus(chip.id)}
+                            onClick={() => setFilterStatus(isActive ? '' : chip.id)}
                             className={`m-0 inline-flex h-[26px] appearance-none items-center gap-1 rounded-full border px-3 text-xs font-semibold leading-none transition-colors ${
                                 isActive ? chip.active : chip.idle
                             }`}
