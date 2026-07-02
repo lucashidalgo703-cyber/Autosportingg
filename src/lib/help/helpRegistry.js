@@ -3,7 +3,8 @@ import {
     Receipt, Landmark, FileText, Star, Flag, BarChart3, 
     Settings, Download, Activity, FileCheck, ShieldAlert,
     LogIn, Compass, Smartphone, Calendar, Bell, User,
-    Target, MessageCircle, Moon, FolderOpen, FileSignature, Handshake, AlertOctagon, Wrench, MessageSquareWarning
+    Target, MessageCircle, Moon, FolderOpen, FileSignature, Handshake, AlertOctagon, Wrench, MessageSquareWarning,
+    Wallet, Vault, Calculator, ShieldCheck, PieChart, BadgeDollar
 } from 'lucide-react';
 
 export const helpRegistry = [
@@ -929,28 +930,257 @@ export const helpRegistry = [
         reviewedBy: 'System'
     },
 
-    // --- FINANZAS (Retained existing) ---
+    // --- FINANZAS ---
+    {
+        id: 'finanzas',
+        category: 'finanzas',
+        order: 1,
+        title: 'Finanzas General',
+        icon: 'Wallet',
+        roles: ['Owner/Admin', 'Administrativo'],
+        summary: 'Panel de control maestro para todas las cajas, movimientos y rentabilidad de la agencia.',
+        steps: [
+            {
+                title: 'Cajas y Cuentas',
+                body: 'Gestiona ingresos y egresos separando siempre ARS de USD. Puedes ver los saldos actuales en la pestaña de Resumen y Cuentas.',
+                actionLabel: 'Ir a Finanzas',
+                actionRoute: '/admin/finanzas'
+            },
+            {
+                title: 'Movimientos y Comprobantes',
+                body: 'Registra cobros parciales de ventas, señas, gastos personales, préstamos o cobros por tarjetas. Cada movimiento permite adjuntar su comprobante.'
+            },
+            {
+                title: 'Reversiones y Autorizaciones',
+                body: 'Si te equivocas en un ingreso, debes solicitar la Reversión. Las alteraciones de caja requieren permisos especiales o Autorizaciones del Owner.'
+            },
+            {
+                title: 'Análisis de Rentabilidad',
+                body: 'Revisa las pestañas de Comisiones, Retiros, Pago empresas y Rentabilidad para entender la salud financiera mensual.'
+            }
+        ],
+        tips: [
+            'No mezcles ingresos en pesos con dólares. El sistema tiene cajas estrictamente separadas para evitar desfasajes cambiarios.',
+            'Un cobro parcial a un cliente debe asentarse inmediatamente para que el saldo de su expediente se actualice en tiempo real.'
+        ],
+        keywords: ['caja', 'ingresos', 'egresos', 'dolares', 'pesos', 'gastos', 'cheques'],
+        route: '/admin/finanzas',
+        featureFlag: null,
+        implementationStatus: 'partial',
+        version: '1.0',
+        lastReviewed: '2026-07-02',
+        reviewedBy: 'System'
+    },
+    {
+        id: 'tesoreria',
+        category: 'finanzas',
+        order: 2,
+        title: 'Tesorería',
+        icon: 'Vault',
+        roles: ['Owner/Admin', 'Administrativo'],
+        summary: 'Gestión exclusiva de los fondos que entran y salen por ventas concretadas (Expedientes).',
+        steps: [
+            {
+                title: 'Expedientes Activos',
+                body: 'Observa en un solo lugar todas las ventas en curso que requieren movimientos de dinero.',
+                actionLabel: 'Ir a Tesorería',
+                actionRoute: '/admin/tesoreria'
+            },
+            {
+                title: 'Flujo de Dinero',
+                body: 'Asienta el "Pago del comprador" (lo que entra) y el "Pago al propietario" (lo que sale si era una consignación).'
+            },
+            {
+                title: 'Caja y Arqueo',
+                body: 'Verifica la Caja de tesorería, haz Transferencias internas hacia la caja general, sube Comprobantes y ejecuta el Arqueo.'
+            },
+            {
+                title: 'Márgenes y Financiación',
+                body: 'Revisa el Margen bruto de la operación, el peso de la financiación y los Cheques asociados, comparándolo siempre con el Boleto.'
+            }
+        ],
+        tips: [
+            'Tesorería es el puente entre una Venta y las Finanzas puras de la agencia. Un descuadre aquí frena la entrega del vehículo.'
+        ],
+        keywords: ['fondos', 'pagos', 'propietario', 'comprador', 'arqueo', 'margen'],
+        route: '/admin/tesoreria',
+        featureFlag: null,
+        implementationStatus: 'implemented',
+        version: '1.0',
+        lastReviewed: '2026-07-02',
+        reviewedBy: 'System'
+    },
+    {
+        id: 'liquidaciones',
+        category: 'finanzas',
+        order: 3,
+        title: 'Liquidaciones',
+        icon: 'Calculator',
+        roles: ['Owner/Admin', 'Administrativo'],
+        summary: 'Armado de pagos formales a socios, inversores o la agencia misma.',
+        steps: [
+            {
+                title: 'Sincronización y Duplicados',
+                body: 'Sincroniza los datos de las operaciones y utiliza la herramienta de "Limpieza de duplicados" para evitar pagar doble.',
+                actionLabel: 'Ir a Liquidaciones',
+                actionRoute: '/admin/liquidaciones'
+            },
+            {
+                title: 'Liquidación Mensual',
+                body: 'Genera el Resumen de agencia para un Período específico determinando el Beneficiario.'
+            },
+            {
+                title: 'Estados y Cierre',
+                body: 'Mueve la liquidación por sus estados (Borrador, Aprobada, Pagada). Al finalizar, asienta las Transferencias y haz el Cierre formal.'
+            }
+        ],
+        tips: [
+            'La limpieza de duplicados es mandatoria antes de generar el reporte final del mes para no comprometer el capital de la agencia.'
+        ],
+        keywords: ['pagos', 'socios', 'inversores', 'cierres', 'mensual'],
+        route: '/admin/liquidaciones',
+        featureFlag: null,
+        implementationStatus: 'implemented',
+        version: '1.0',
+        lastReviewed: '2026-07-02',
+        reviewedBy: 'System'
+    },
     {
         id: 'cuotas',
         category: 'finanzas',
         order: 4,
-        title: 'Cuotas / Cobranzas',
+        title: 'Cobros y Cuotas',
         icon: 'Landmark',
         roles: ['Owner/Admin', 'Administrativo'],
-        summary: 'Gestión de cobros pendientes y moras.',
+        summary: 'Gestión de vencimientos y cobranzas directas a clientes financiados.',
         steps: [
             {
-                title: 'Control de mora',
-                body: 'Gestión de fechas de vencimiento, moras e intereses.',
+                title: 'Seguimiento de Vencimientos',
+                body: 'Filtra las cuotas por su estado: Vencidas, Próximas a vencer o En fecha.',
                 actionLabel: 'Ir a Cuotas',
                 actionRoute: '/admin/cuotas'
+            },
+            {
+                title: 'Cobros e Imputación',
+                body: 'Al recibir el dinero (ARS o USD), usa "Marcar cobrada" especificando la Fecha real del pago.'
+            },
+            {
+                title: 'Cobros Parciales',
+                body: 'Si el cliente entrega la mitad, asienta el cobro parcial; el sistema mantendrá el saldo remanente pendiente en la operación relacionada.'
             }
         ],
-        tips: ['Prohibido: Nunca modificar montos sin autorización formal de gerencia.'],
-        keywords: ['pagos', 'cobros', 'vencimientos', 'intereses'],
+        tips: [
+            'Atacar las cuotas "Vencidas" en la primera hora de la mañana mejora drásticamente el flujo de caja diario.'
+        ],
+        keywords: ['pagos', 'cobranzas', 'morosos', 'deudores', 'vencimientos'],
         route: '/admin/cuotas',
         featureFlag: null,
         implementationStatus: 'implemented',
+        version: '1.0',
+        lastReviewed: '2026-07-02',
+        reviewedBy: 'System'
+    },
+    {
+        id: 'autorizaciones',
+        category: 'finanzas',
+        order: 5,
+        title: 'Autorizaciones',
+        icon: 'ShieldCheck',
+        roles: ['Owner/Admin'],
+        summary: 'Aprobaciones de seguridad para acciones sensibles en la plataforma.',
+        steps: [
+            {
+                title: 'Solicitud y Riesgo',
+                body: 'Cuando un vendedor quiere borrar un pago o hacer un gran descuento, el sistema bloquea la acción y genera una Solicitud con un Nivel de riesgo asignado.',
+                actionLabel: 'Ir a Autorizaciones',
+                actionRoute: '/admin/autorizaciones'
+            },
+            {
+                title: 'Aprobación / Rechazo',
+                body: 'Un perfil con Roles superiores revisa el Historial del cliente y decide Rechazar o Aprobar.'
+            },
+            {
+                title: 'Aplicación Automática',
+                body: 'Si ingresas tu PIN de aprobación, la acción bloqueada se ejecuta inmediatamente sin que el vendedor deba volver a intentar.'
+            }
+        ],
+        tips: [
+            'Las autorizaciones previenen fraudes y errores de tipeo catastróficos. Trata cada solicitud de "Riesgo Alto" con máximo escrutinio.'
+        ],
+        keywords: ['permisos', 'bloqueos', 'seguridad', 'pin', 'aprobacion'],
+        route: '/admin/autorizaciones',
+        featureFlag: null,
+        implementationStatus: 'partial',
+        version: '1.0',
+        lastReviewed: '2026-07-02',
+        reviewedBy: 'System'
+    },
+    {
+        id: 'reportes',
+        category: 'finanzas',
+        order: 6,
+        title: 'Reportes',
+        icon: 'PieChart',
+        roles: ['Owner/Admin', 'Administrativo'],
+        summary: 'Tableros de Business Intelligence e informes detallados.',
+        steps: [
+            {
+                title: 'Uso de Paneles',
+                body: 'Explora todos los paneles disponibles para ver la distribución de ventas, eficiencia por vendedor y proyecciones de caja.',
+                actionLabel: 'Ir a Reportes',
+                actionRoute: '/admin/reportes'
+            },
+            {
+                title: 'Filtros Avanzados',
+                body: 'Utiliza los filtros de fecha, modelo y vendedor para cruzar datos y exportar conclusiones concretas.'
+            }
+        ],
+        tips: [
+            'El reporte de rentabilidad por modelo te indicará qué autos debes seguir comprando y cuáles te están generando pérdidas.'
+        ],
+        keywords: ['bi', 'estadisticas', 'graficos', 'informes', 'kpi'],
+        route: '/admin/reportes',
+        featureFlag: null,
+        implementationStatus: 'implemented',
+        version: '1.0',
+        lastReviewed: '2026-07-02',
+        reviewedBy: 'System'
+    },
+    {
+        id: 'mis-comisiones',
+        category: 'finanzas',
+        order: 7,
+        title: 'Mis Comisiones',
+        icon: 'BadgeDollar',
+        roles: ['Ventas', 'Owner/Admin'],
+        summary: 'Estado de cuenta personal del vendedor.',
+        steps: [
+            {
+                title: 'Métricas Principales',
+                body: 'Visualiza rápidamente tu Total generado, cuánto está Pendiente de pago y cuánto ya has Cobrado en distintos Períodos.',
+                actionLabel: 'Ver Mis Comisiones',
+                actionRoute: '/admin/mis-comisiones'
+            },
+            {
+                title: 'Detalle por Venta',
+                body: 'Cada línea muestra la Venta relacionada, la Comisión base y los Extras o Bonos ganados.'
+            },
+            {
+                title: 'Estado y Pagos Parciales',
+                body: 'Revisa el Estado de la comisión. Si la agencia te adelanta dinero, figurará como un Pago Parcial en tu Historial.'
+            },
+            {
+                title: 'Carga Manual',
+                body: 'Si logras un bono fuera de sistema, la administración puede hacer una Carga manual que requiere Autorización previa.'
+            }
+        ],
+        tips: [
+            'Tu comisión no pasará a "Cobrada" hasta que la Venta relacionada tenga todo su expediente y pagos en orden.'
+        ],
+        keywords: ['premios', 'sueldo', 'liquidaciones', 'vendedor', 'bonos'],
+        route: '/admin/mis-comisiones',
+        featureFlag: null,
+        implementationStatus: 'partial',
         version: '1.0',
         lastReviewed: '2026-07-02',
         reviewedBy: 'System'
