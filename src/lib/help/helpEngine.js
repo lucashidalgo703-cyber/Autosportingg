@@ -96,13 +96,13 @@ const CATEGORY_ORDER = {
 };
 
 const CATEGORY_LABELS = {
-    'primeros-pasos': 'Primeros Pasos',
-    'dia-a-dia': 'Día a Día',
-    'comercial': 'Comercial',
-    'operacion': 'Operación',
-    'finanzas': 'Finanzas',
-    'comunicacion': 'Comunicación',
-    'administracion': 'Administración'
+    'primeros-pasos': '🔑 Primeros Pasos',
+    'dia-a-dia': '📅 Día a Día',
+    'comercial': '🚘 Comercial',
+    'operacion': '🛠️ Operación y Trámites',
+    'finanzas': '💰 Finanzas y Cobros',
+    'comunicacion': '💬 Comunicación',
+    'administracion': '⚙️ Administración'
 };
 
 /**

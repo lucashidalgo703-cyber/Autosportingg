@@ -5,6 +5,7 @@ export const helpRegistry = [
     // ---------------------------------------------------------
     {
         id: 'login-y-acceso',
+        emoji: '🔑',
         title: 'Ingresar al CRM',
         category: 'primeros-pasos',
         icon: 'LogIn',
@@ -24,6 +25,7 @@ export const helpRegistry = [
     },
     {
         id: 'navegacion-basica',
+        emoji: '🧭',
         title: 'Cómo moverte por el sistema',
         category: 'primeros-pasos',
         icon: 'Compass',
@@ -42,6 +44,7 @@ export const helpRegistry = [
     },
     {
         id: 'roles-permisos',
+        emoji: '🛡️',
         title: 'Roles y permisos',
         category: 'primeros-pasos',
         icon: 'Shield',
@@ -60,6 +63,7 @@ export const helpRegistry = [
     },
     {
         id: 'app-celular',
+        emoji: '📱',
         title: 'Usar el CRM en el celular',
         category: 'primeros-pasos',
         icon: 'Smartphone',
@@ -82,6 +86,7 @@ export const helpRegistry = [
     // ---------------------------------------------------------
     {
         id: 'dashboard-principal',
+        emoji: '📊',
         title: 'Dashboard',
         category: 'dia-a-dia',
         icon: 'LayoutDashboard',
@@ -100,6 +105,7 @@ export const helpRegistry = [
     },
     {
         id: 'calendario-tareas',
+        emoji: '📅',
         title: 'Calendario',
         category: 'dia-a-dia',
         icon: 'CalendarDays',
@@ -118,6 +124,7 @@ export const helpRegistry = [
     },
     {
         id: 'centro-alertas',
+        emoji: '🔔',
         title: 'Alertas',
         category: 'dia-a-dia',
         icon: 'BellRing',
@@ -136,6 +143,7 @@ export const helpRegistry = [
     },
     {
         id: 'mi-espacio',
+        emoji: '📁',
         title: 'Mi Espacio',
         category: 'dia-a-dia',
         icon: 'User',
@@ -158,6 +166,7 @@ export const helpRegistry = [
     // ---------------------------------------------------------
     {
         id: 'gestion-stock',
+        emoji: '🚘',
         title: 'Stock',
         category: 'comercial',
         icon: 'Car',
@@ -177,6 +186,7 @@ export const helpRegistry = [
     },
     {
         id: 'gestion-clientes',
+        emoji: '👥',
         title: 'Clientes',
         category: 'comercial',
         icon: 'Users',
@@ -196,6 +206,7 @@ export const helpRegistry = [
     },
     {
         id: 'cotizaciones',
+        emoji: '📝',
         title: 'Cotizaciones',
         category: 'comercial',
         icon: 'FileSpreadsheet',
@@ -215,6 +226,7 @@ export const helpRegistry = [
     },
     {
         id: 'gestion-ventas',
+        emoji: '💼',
         title: 'Ventas',
         category: 'comercial',
         icon: 'BadgeDollarSign',
@@ -233,6 +245,7 @@ export const helpRegistry = [
     },
     {
         id: 'mis-ventas',
+        emoji: '🏆',
         title: 'Mis ventas',
         category: 'comercial',
         icon: 'Wallet',
@@ -251,6 +264,7 @@ export const helpRegistry = [
     },
     {
         id: 'busqueda-pedidos',
+        emoji: '🔍',
         title: 'Pedidos',
         category: 'comercial',
         icon: 'Search',
@@ -269,6 +283,7 @@ export const helpRegistry = [
     },
     {
         id: 'oportunidades',
+        emoji: '🤝',
         title: 'Oportunidades',
         category: 'comercial',
         icon: 'Target',
@@ -287,6 +302,7 @@ export const helpRegistry = [
     },
     {
         id: 'postventa',
+        emoji: '📦',
         title: 'Postventa',
         category: 'comercial',
         icon: 'Wrench',
@@ -305,6 +321,7 @@ export const helpRegistry = [
     },
     {
         id: 'clientes-dormidos',
+        emoji: '😴',
         title: 'Dormidos',
         category: 'comercial',
         icon: 'Moon',
@@ -326,6 +343,7 @@ export const helpRegistry = [
     // ---------------------------------------------------------
     {
         id: 'expedientes-legales',
+        emoji: '📂',
         title: 'Expedientes',
         category: 'operacion',
         icon: 'FolderOpen',
@@ -345,6 +363,7 @@ export const helpRegistry = [
     },
     {
         id: 'gestoria-tramites',
+        emoji: '📋',
         title: 'Gestoría',
         category: 'operacion',
         icon: 'Briefcase',
@@ -363,6 +382,7 @@ export const helpRegistry = [
     },
     {
         id: 'consignaciones',
+        emoji: '🔑',
         title: 'Consignaciones',
         category: 'operacion',
         icon: 'Handshake',
@@ -381,6 +401,7 @@ export const helpRegistry = [
     },
     {
         id: 'infracciones-multas',
+        emoji: '🏛️',
         title: 'Infracciones',
         category: 'operacion',
         icon: 'Ticket',
@@ -399,6 +420,7 @@ export const helpRegistry = [
     },
     {
         id: 'reclamos-clientes',
+        emoji: '📣',
         title: 'Reclamos',
         category: 'operacion',
         icon: 'AlertOctagon',
@@ -417,6 +439,7 @@ export const helpRegistry = [
     },
     {
         id: 'taller-mantenimiento',
+        emoji: '🔧',
         title: 'Taller',
         category: 'operacion',
         icon: 'PenTool',
@@ -439,6 +462,7 @@ export const helpRegistry = [
     // ---------------------------------------------------------
     {
         id: 'finanzas-cajas',
+        emoji: '💰',
         title: 'Finanzas',
         category: 'finanzas',
         icon: 'LineChart',
@@ -458,6 +482,7 @@ export const helpRegistry = [
     },
     {
         id: 'tesoreria-pagos',
+        emoji: '💵',
         title: 'Tesorería',
         category: 'finanzas',
         icon: 'Vault',
@@ -476,6 +501,7 @@ export const helpRegistry = [
     },
     {
         id: 'liquidaciones-terceros',
+        emoji: '💸',
         title: 'Liquidaciones',
         category: 'finanzas',
         icon: 'Receipt',
@@ -494,6 +520,7 @@ export const helpRegistry = [
     },
     {
         id: 'cobros-cuotas',
+        emoji: '🧾',
         title: 'Cobros / Cuotas',
         category: 'finanzas',
         icon: 'CreditCard',
@@ -516,6 +543,7 @@ export const helpRegistry = [
     // ---------------------------------------------------------
     {
         id: 'mensajes-internos',
+        emoji: '💬',
         title: 'Mensajes',
         category: 'comunicacion',
         icon: 'MessageSquare',
@@ -534,6 +562,7 @@ export const helpRegistry = [
     },
     {
         id: 'whatsapp-crm',
+        emoji: '📱',
         title: 'WhatsApp',
         category: 'comunicacion',
         icon: 'MessageCircle',
@@ -552,6 +581,7 @@ export const helpRegistry = [
     },
     {
         id: 'correo-integrado',
+        emoji: '📧',
         title: 'Correo',
         category: 'comunicacion',
         icon: 'Mail',
@@ -570,6 +600,7 @@ export const helpRegistry = [
     },
     {
         id: 'encuestas-nps',
+        emoji: '⭐',
         title: 'NPS (Satisfacción)',
         category: 'comunicacion',
         icon: 'Star',
@@ -589,6 +620,7 @@ export const helpRegistry = [
     },
     {
         id: 'sugerencias',
+        emoji: '💡',
         title: 'Sugerencias',
         category: 'comunicacion',
         icon: 'MessageSquarePlus',
@@ -610,6 +642,7 @@ export const helpRegistry = [
     // ---------------------------------------------------------
     {
         id: 'reportes-metricas',
+        emoji: '📈',
         title: 'Reportes',
         category: 'administracion',
         icon: 'BarChart3',
@@ -628,6 +661,7 @@ export const helpRegistry = [
     },
     {
         id: 'auditoria-sistema',
+        emoji: '👀',
         title: 'Auditoría',
         category: 'administracion',
         icon: 'Eye',
@@ -646,6 +680,7 @@ export const helpRegistry = [
     },
     {
         id: 'telefonos-utiles',
+        emoji: '☎️',
         title: 'Teléfonos Útiles',
         category: 'administracion',
         icon: 'PhoneCall',
@@ -664,6 +699,7 @@ export const helpRegistry = [
     },
     {
         id: 'configuracion',
+        emoji: '⚙️',
         title: 'Configuración',
         category: 'administracion',
         icon: 'Settings',
@@ -682,6 +718,7 @@ export const helpRegistry = [
     },
     {
         id: 'gestion-usuarios',
+        emoji: '👥',
         title: 'Usuarios',
         category: 'administracion',
         icon: 'UsersCog',
@@ -700,6 +737,7 @@ export const helpRegistry = [
     },
     {
         id: 'papelera-reciclaje',
+        emoji: '🗑️',
         title: 'Papelera',
         category: 'administracion',
         icon: 'Trash2',
@@ -718,6 +756,7 @@ export const helpRegistry = [
     },
     {
         id: 'exportaciones',
+        emoji: '💾',
         title: 'Exportaciones',
         category: 'administracion',
         icon: 'Download',
@@ -736,6 +775,7 @@ export const helpRegistry = [
     },
     {
         id: 'autorizaciones',
+        emoji: '🛡️',
         title: 'Autorizaciones',
         category: 'administracion',
         icon: 'CheckSquare',

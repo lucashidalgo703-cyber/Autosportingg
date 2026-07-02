@@ -178,12 +178,17 @@ function HelpContent() {
                                             <button
                                                 key={`chip-${chapter.id}`}
                                                 onClick={() => openAndScrollToModule(chapter.id)}
-                                                className={`text-[13px] px-3 py-1.5 rounded-full border transition-colors focus:outline-none focus-visible:ring-1 focus-visible:ring-crm-red ${
+                                                className={`inline-flex items-center text-[13px] px-3 py-1.5 rounded-full border transition-colors focus:outline-none focus-visible:ring-1 focus-visible:ring-crm-red ${
                                                     expandedModules.has(chapter.id)
                                                     ? 'bg-crm-red/10 border-crm-red/30 text-crm-red'
                                                     : 'bg-[#2a2a32] border-[#33333a] text-[#d4d4d8] hover:border-[#52525b] hover:text-white'
                                                 }`}
                                             >
+                                                {chapter.emoji && (
+                                                    <span aria-hidden="true" className="mr-1.5 flex-shrink-0 text-[13px] sm:text-[14px]">
+                                                        {chapter.emoji}
+                                                    </span>
+                                                )}
                                                 {chapter.title}
                                             </button>
                                         ))}
@@ -234,7 +239,13 @@ function HelpContent() {
                                                 <div className={`flex-shrink-0 transition-colors ${
                                                     isExpanded ? 'text-crm-red' : 'text-[#a1a1aa] group-hover:text-white'
                                                 }`}>
-                                                    <IconComponent size={18} />
+                                                    {chapter.emoji ? (
+                                                        <span aria-hidden="true" className="text-[18px] sm:text-[20px] flex-shrink-0 leading-none">
+                                                            {chapter.emoji}
+                                                        </span>
+                                                    ) : (
+                                                        <IconComponent size={18} />
+                                                    )}
                                                 </div>
                                                 <div className="flex-1 min-w-0 pr-2 flex items-center gap-3">
                                                     <h3 className="font-semibold text-[15px] text-[#f4f4f5] truncate">
