@@ -3,6 +3,7 @@ import React from 'react';
 import { usePathname } from 'next/navigation';
 import ProtectedRoute from '../../ProtectedRoute';
 import CrmShell from './CrmShell';
+import HelpTour from '../help/HelpTour';
 
 export default function AdminLayoutClient({ children }) {
     const pathname = usePathname();
@@ -22,6 +23,7 @@ export default function AdminLayoutClient({ children }) {
             <CrmShell>
                 {children}
             </CrmShell>
+            <HelpTour />
         </ProtectedRoute>
     );
 }

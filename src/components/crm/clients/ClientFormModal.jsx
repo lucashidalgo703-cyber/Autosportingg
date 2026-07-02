@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { X, Save, AlertCircle, Scan, Upload } from 'lucide-react';
+import { X, Save, AlertCircle, Scan, Upload, HelpCircle } from 'lucide-react';
+import Link from 'next/link';
 import toast from 'react-hot-toast';
 
 export default function ClientFormModal({ isOpen, onClose, onSave, client = null }) {
@@ -144,9 +145,14 @@ export default function ClientFormModal({ isOpen, onClose, onSave, client = null
                 
                 {/* Header */}
                 <div className="flex items-center justify-between border-b border-crm-border bg-crm-topbar p-5">
-                    <h2 className="m-0 text-lg font-bold text-crm-fg">
-                        {client ? 'Editar Cliente' : 'Nuevo Cliente'}
-                    </h2>
+                    <div className="flex items-center gap-3">
+                        <h2 className="m-0 text-lg font-bold text-crm-fg">
+                            {client ? 'Editar Cliente' : 'Nuevo Cliente'}
+                        </h2>
+                        <Link href="/admin/ayuda?tema=clientes" className="text-crm-fg-muted hover:text-crm-red transition-colors" title="Ver ayuda sobre clientes y pipeline">
+                            <HelpCircle size={18} />
+                        </Link>
+                    </div>
                     <button
                         type="button"
                         onClick={onClose}

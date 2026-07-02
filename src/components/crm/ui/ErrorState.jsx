@@ -1,11 +1,13 @@
 import React from 'react';
-import { AlertCircle } from 'lucide-react';
+import { AlertCircle, HelpCircle } from 'lucide-react';
+import Link from 'next/link';
 
 export default function ErrorState({
     title = 'Error',
     message = 'Ha ocurrido un error inesperado al cargar la información.',
     onRetry = null,
-    className = ''
+    className = '',
+    helpTopic = null
 }) {
     return (
         <div className={`flex flex-col items-center justify-center p-8 text-center rounded-[var(--crm-radius)] border border-crm-red/20 bg-crm-red/5 ${className}`}>
@@ -21,6 +23,15 @@ export default function ErrorState({
                 >
                     Reintentar
                 </button>
+            )}
+
+            {helpTopic && (
+                <div className="mt-6 border-t border-crm-red/10 pt-4 w-full max-w-xs">
+                    <Link href={`/admin/ayuda?tema=${helpTopic}`} className="inline-flex items-center gap-1.5 text-xs text-crm-fg-muted hover:text-crm-red transition-colors">
+                        <HelpCircle size={14} />
+                        Consultar manual de solución
+                    </Link>
+                </div>
             )}
         </div>
     );

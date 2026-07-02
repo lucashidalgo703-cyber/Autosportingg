@@ -1,6 +1,7 @@
 "use client";
 import { useState, useEffect } from 'react';
-import { X, Save, AlertTriangle } from 'lucide-react';
+import { X, Save, AlertTriangle, HelpCircle } from 'lucide-react';
+import Link from 'next/link';
 import toast from 'react-hot-toast';
 
 export default function VehicleEditModal({ isOpen, onClose, onSave, vehicleData }) {
@@ -115,7 +116,12 @@ export default function VehicleEditModal({ isOpen, onClose, onSave, vehicleData 
             <div className="bg-crm-surface border border-crm-border rounded-xl w-full max-w-4xl my-8 flex flex-col relative">
                 
                 <div className="flex items-center justify-between p-4 border-b border-crm-border sticky top-0 bg-crm-surface z-10 rounded-t-xl">
-                    <h2 className="text-xl font-bold text-white">Editar Vehículo</h2>
+                    <div className="flex items-center gap-3">
+                        <h2 className="text-xl font-bold text-white">Editar Vehículo</h2>
+                        <Link href="/admin/ayuda?tema=stock" className="text-crm-fg-muted hover:text-crm-red transition-colors" title="Ver ayuda sobre catálogo de vehículos">
+                            <HelpCircle size={18} />
+                        </Link>
+                    </div>
                     <button onClick={onClose} className="p-1 text-crm-fg-muted hover:text-crm-fg transition-colors" disabled={isSaving}>
                         <X size={20} />
                     </button>
