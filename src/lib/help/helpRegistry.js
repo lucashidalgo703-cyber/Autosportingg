@@ -4,7 +4,8 @@ import {
     Settings, Download, Activity, FileCheck, ShieldAlert,
     LogIn, Compass, Smartphone, Calendar, Bell, User,
     Target, MessageCircle, Moon, FolderOpen, FileSignature, Handshake, AlertOctagon, Wrench, MessageSquareWarning,
-    Wallet, Vault, Calculator, ShieldCheck, PieChart, BadgeDollar
+    Wallet, Vault, Calculator, ShieldCheck, PieChart, BadgeDollar,
+    MessageSquare, StarHalf, Lightbulb, Mail, Phone, Trash2
 } from 'lucide-react';
 
 export const helpRegistry = [
@@ -1222,6 +1223,220 @@ export const helpRegistry = [
         lastReviewed: '2026-07-02',
         reviewedBy: 'System'
     },
+    {
+        id: 'mensajes',
+        category: 'comunicacion',
+        order: 2,
+        title: 'Mensajes Internos',
+        icon: 'MessageSquare',
+        roles: ['Owner/Admin', 'Ventas', 'Administrativo', 'Gestoría', 'Taller', 'Recepción'],
+        summary: 'Chat interno del equipo de AutoSporting para evitar el uso de canales externos informales.',
+        steps: [
+            {
+                title: 'Bandeja y Vistas',
+                body: 'Filtra entre el canal General (toda la agencia), Directos (uno a uno) y Grupos creados para temas específicos.',
+                actionLabel: 'Ir a Mensajes',
+                actionRoute: '/admin/mensajes'
+            },
+            {
+                title: 'Gestión de la Bandeja',
+                body: 'Inicia una conversación nueva, marca hilos como "Leído" o revisa tus "No leídos". Los chats antiguos pueden ser Archivados para limpiar la vista.'
+            },
+            {
+                title: 'Adjuntos',
+                body: 'Comparte imágenes de daños, PDFs de cotizaciones o comprobantes de pago directamente en el chat para que quede en el sistema.'
+            }
+        ],
+        tips: [
+            'No uses tu WhatsApp personal para consultas internas de la agencia. El chat del CRM asegura que la información sea auditable.'
+        ],
+        keywords: ['chat', 'interno', 'equipo', 'comunicacion', 'adjuntos'],
+        route: '/admin/mensajes',
+        featureFlag: null,
+        implementationStatus: 'implemented',
+        version: '1.0',
+        lastReviewed: '2026-07-02',
+        reviewedBy: 'System'
+    },
+    {
+        id: 'whatsapp',
+        category: 'comunicacion',
+        order: 3,
+        title: 'WhatsApp y Conversaciones',
+        icon: 'MessageCircle',
+        roles: ['Owner/Admin', 'Ventas', 'Administrativo'],
+        summary: 'Integración nativa para chatear con clientes y leads directamente desde el CRM.',
+        steps: [
+            {
+                title: 'Bandeja y Búsqueda',
+                body: 'La bandeja centraliza todos los chats. Utiliza el buscador para encontrar un número o un nombre rápidamente.',
+                actionLabel: 'Ir a WhatsApp',
+                actionRoute: '/admin/whatsapp'
+            },
+            {
+                title: 'Gestión de la Conversación',
+                body: 'Abre un chat para Responder o enviar un Nuevo Mensaje. Puedes utilizar Plantillas pre-aprobadas para ahorrar tiempo.'
+            },
+            {
+                title: 'Contexto Integrado',
+                body: 'A la derecha del chat verás si el número corresponde a un Lead o a un Cliente CRM formal, y quién es su Vendedor Asignado.'
+            },
+            {
+                title: 'Estados y Reglas Técnicas',
+                body: 'Revisa los íconos para ver si el mensaje tiene estado de "Error" o fue enviado con éxito. Si tu proveedor exige la Regla de 24 horas, no podrás iniciar conversaciones libres tras ese lapso sin una plantilla.'
+            }
+        ],
+        tips: [
+            'Los mensajes con plantillas aseguran una imagen corporativa profesional ante los clientes nuevos.'
+        ],
+        keywords: ['chat', 'clientes', 'plantillas', 'mensajes', 'whatsapp'],
+        route: '/admin/whatsapp',
+        featureFlag: null,
+        implementationStatus: 'implemented',
+        version: '1.0',
+        lastReviewed: '2026-07-02',
+        reviewedBy: 'System'
+    },
+    {
+        id: 'nps',
+        category: 'comunicacion',
+        order: 4,
+        title: 'Encuestas NPS',
+        icon: 'StarHalf',
+        roles: ['Owner/Admin', 'Administrativo'],
+        summary: 'Medición del "Net Promoter Score" para entender el grado de satisfacción de tus clientes.',
+        steps: [
+            {
+                title: 'El Tablero de NPS',
+                body: 'Visualiza el Promedio general y el NPS Score calculado mediante la resta entre tus Promotores y Detractores en distintos Períodos.',
+                actionLabel: 'Ir a NPS',
+                actionRoute: '/admin/nps'
+            },
+            {
+                title: 'Gestión de Encuestas',
+                body: 'Puedes "Enviar por WhatsApp" un link de encuesta automático, o "Cargar llamada" si el cliente respondió telefónicamente.'
+            },
+            {
+                title: 'Seguimiento y Contexto',
+                body: 'Analiza el Ranking de modelos que más quejas traen y el Contexto de los Pasivos para convertirlos en Promotores en su próxima compra.'
+            }
+        ],
+        tips: [
+            'Un detractor es una bomba de tiempo en Google Reviews. Contáctalo de inmediato para ofrecer una solución.'
+        ],
+        keywords: ['encuestas', 'satisfaccion', 'calidad', 'promotores', 'detractores'],
+        route: '/admin/nps',
+        featureFlag: null,
+        implementationStatus: 'partial',
+        version: '1.0',
+        lastReviewed: '2026-07-02',
+        reviewedBy: 'System'
+    },
+    {
+        id: 'sugerencias',
+        category: 'comunicacion',
+        order: 5,
+        title: 'Sugerencias',
+        icon: 'Lightbulb',
+        roles: ['Owner/Admin', 'Ventas', 'Administrativo', 'Gestoría', 'Taller', 'Recepción'],
+        summary: 'Buzón interno para que el equipo proponga mejoras en los procesos de la agencia.',
+        steps: [
+            {
+                title: 'Dar de Alta',
+                body: 'Crea una sugerencia, elige su Categoría y añade Adjuntos (fotos o documentos) que expliquen tu idea.',
+                actionLabel: 'Ver Sugerencias',
+                actionRoute: '/admin/sugerencias'
+            },
+            {
+                title: 'Votación y Estados',
+                body: 'Los compañeros pueden dar sus Votos a las mejores ideas. La administración cambiará los Estados (En análisis, Aceptada, Rechazada) y dejará una Respuesta.'
+            },
+            {
+                title: 'Visualización',
+                body: 'Filtra la Lista global o busca Por Usuario. Las reglas de Editar/Borrar están bloqueadas por rol para mantener la transparencia.'
+            }
+        ],
+        tips: [
+            'Usa las sugerencias para pedir mejoras en herramientas, cambios en los horarios o nuevas marcas de café para la recepción.'
+        ],
+        keywords: ['ideas', 'mejoras', 'buzon', 'feedback', 'equipo'],
+        route: '/admin/sugerencias',
+        featureFlag: null,
+        implementationStatus: 'implemented',
+        version: '1.0',
+        lastReviewed: '2026-07-02',
+        reviewedBy: 'System'
+    },
+    {
+        id: 'correo',
+        category: 'comunicacion',
+        order: 6,
+        title: 'Correo Integrado',
+        icon: 'Mail',
+        roles: ['Owner/Admin', 'Administrativo'],
+        summary: 'Sincronización de tu cuenta de email para operar directamente desde AutoSporting.',
+        steps: [
+            {
+                title: 'Sincronización',
+                body: 'Autoriza mediante Google OAuth. Si ves un error de "Sesión expirada" o falla el Client ID, reconecta la cuenta. Si todo falla, el sistema usa Fallback SMTP para alertas urgentes.',
+                actionLabel: 'Ir a Correo',
+                actionRoute: '/admin/correo'
+            },
+            {
+                title: 'Bandejas y Operaciones',
+                body: 'Puedes Buscar, Leer, Responder, Reenviar o Redactar correos nuevos con Adjuntos desde el CRM.'
+            },
+            {
+                title: 'Productividad',
+                body: 'Usa las Plantillas para no escribir el mismo presupuesto dos veces. Manda los correos resueltos a Archivar o Papelera.'
+            }
+        ],
+        tips: [
+            'Enviar un correo formal con una plantilla pre-diseñada le da un peso institucional a la agencia muy superior al WhatsApp.'
+        ],
+        keywords: ['email', 'gmail', 'mensajes', 'bandeja', 'oauth'],
+        route: '/admin/correo',
+        featureFlag: null,
+        implementationStatus: 'partial',
+        version: '1.0',
+        lastReviewed: '2026-07-02',
+        reviewedBy: 'System'
+    },
+    {
+        id: 'telefonos-utiles',
+        category: 'comunicacion',
+        order: 7,
+        title: 'Teléfonos Útiles',
+        icon: 'Phone',
+        roles: ['Owner/Admin', 'Ventas', 'Administrativo', 'Gestoría', 'Recepción'],
+        summary: 'Directorio interno con contactos de grúas, registros automotores y proveedores.',
+        steps: [
+            {
+                title: 'Directorio',
+                body: 'Utiliza Buscar y filtra por Categorías (Gestores, Mecánicos, Aseguradoras).',
+                actionLabel: 'Ver Teléfonos',
+                actionRoute: '/admin/telefonos-utiles'
+            },
+            {
+                title: 'Nuevo Contacto',
+                body: 'Carga el nombre, Teléfono, link directo a WhatsApp, Email y Notas aclaratorias.'
+            },
+            {
+                title: 'Gestión',
+                body: 'Cualquier usuario puede verlos, pero Editar y Eliminar queda sujeto a Auditoría para evitar vandalismo del directorio.'
+            }
+        ],
+        tips: [
+            'Asegúrate de tener siempre actualizados los teléfonos de emergencia para traslados o problemas de cerraduras en el local.'
+        ],
+        keywords: ['directorio', 'agenda', 'contactos', 'proveedores', 'gruas'],
+        route: '/admin/telefonos-utiles',
+        featureFlag: null,
+        implementationStatus: 'implemented',
+        version: '1.0',
+        lastReviewed: '2026-07-02',
+        reviewedBy: 'System'
+    },
 
     // --- ADMINISTRACION (Retained existing) ---
     {
@@ -1310,25 +1525,33 @@ export const helpRegistry = [
         title: 'Configuración',
         icon: 'Settings',
         roles: ['Owner/Admin'],
-        summary: 'Configuraciones generales, roles y plantillas del sistema.',
+        summary: 'Ajustes maestros del CRM, reglas operativas y administración de la empresa.',
         steps: [
             {
-                title: 'Accesos',
-                body: 'Usuarios y Permisos: Gestión estricta de quién accede a qué.',
+                title: 'Usuarios, Roles y Multirol',
+                body: 'Administra al equipo asignando roles fijos. Algunos usuarios pueden tener Multirol. Utiliza el toggle "Ocultar ganancias" para restringir visibilidad financiera a vendedores.',
                 actionLabel: 'Ir a Configuración',
-                actionRoute: '/admin/configuracion'
+                actionRoute: '/admin/configuracion/usuarios'
             },
             {
-                title: 'Plantillas',
-                body: 'Textos predefinidos para uso operativo del equipo (solo admins pueden editarlas globalmente).'
+                title: 'Empresa y Comisiones',
+                body: 'Configura los datos fiscales y la estructura base de comisiones para la liquidación mensual.'
             },
             {
-                title: 'Reglas Operativas',
-                body: 'Config General: Ajustes como la tolerancia en días para "Leads Fríos".'
+                title: 'SLA y Lead Routing',
+                body: 'Establece los tiempos máximos de respuesta (SLA) y cómo se distribuyen automáticamente los Leads entrantes.'
+            },
+            {
+                title: 'Visibilidad y Plantillas',
+                body: 'Define si la visibilidad de clientes es global o restringida al "Vendedor asignado". Redacta las plantillas de WhatsApp por defecto de la agencia.'
+            },
+            {
+                title: 'Sistema y Seguridad',
+                body: 'Activa o desactiva Feature Flags, configura el Resumen Diario automático, ejecuta Backups de la DB y fuerza el uso de 2FA.'
             }
         ],
-        tips: ['Un cambio en la configuración general impacta a toda la agencia al instante.'],
-        keywords: ['ajustes', 'parametros', 'usuarios', 'roles'],
+        tips: ['Los cambios en las reglas de asignación de leads aplican únicamente a los nuevos registros, no reasignan el historial.'],
+        keywords: ['ajustes', 'parametros', 'usuarios', 'roles', 'multirol', 'backups', '2fa', 'plantillas'],
         route: '/admin/configuracion',
         featureFlag: null,
         implementationStatus: 'implemented',
@@ -1405,6 +1628,45 @@ export const helpRegistry = [
         tips: ['Objetivo: Trazabilidad absoluta de la operatoria para detectar posibles fraudes o errores humanos.'],
         keywords: ['logs', 'registros', 'historial', 'trazabilidad', 'seguridad'],
         route: '/admin/auditoria',
+        featureFlag: null,
+        implementationStatus: 'implemented',
+        version: '1.0',
+        lastReviewed: '2026-07-02',
+        reviewedBy: 'System'
+    },
+    {
+        id: 'papelera',
+        category: 'administracion',
+        order: 8,
+        title: 'Papelera de Reciclaje',
+        icon: 'Trash2',
+        roles: ['Owner/Admin'],
+        summary: 'Recuperación de elementos borrados por error y destrucción definitiva de datos.',
+        steps: [
+            {
+                title: 'Elementos Eliminados',
+                body: 'Busca Clientes, Cotizaciones, Ventas o Expedientes que hayan sido borrados recientemente.',
+                actionLabel: 'Ir a Papelera',
+                actionRoute: '/admin/papelera'
+            },
+            {
+                title: 'Auditoría de Borrado',
+                body: 'Revisa Quién eliminó el elemento y el Motivo ingresado al momento de borrar.'
+            },
+            {
+                title: 'Restauración',
+                body: 'Utiliza el botón Restaurar para devolver el elemento a su lugar. El sistema ejecutará una "Restauración de entidades vinculadas" si el borrado afectó a otros módulos en cascada.'
+            },
+            {
+                title: 'Destrucción y Expiración',
+                body: 'Los elementos tienen una fecha de Expiración automática. Solo los administradores pueden "Destruir definitivamente" un elemento antes de ese plazo pasando las Confirmaciones de seguridad.'
+            }
+        ],
+        tips: [
+            'Antes de vaciar la papelera, asegúrate de que no se haya borrado un expediente que contenía liquidaciones financieras importantes.'
+        ],
+        keywords: ['borrados', 'eliminados', 'restaurar', 'recuperar', 'basura'],
+        route: '/admin/papelera',
         featureFlag: null,
         implementationStatus: 'implemented',
         version: '1.0',
