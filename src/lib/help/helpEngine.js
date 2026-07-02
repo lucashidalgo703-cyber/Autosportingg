@@ -48,7 +48,14 @@ export const searchChapters = (chapters, searchTerm) => {
         const summaryMatch = normalizeText(chapter.summary).includes(normalizedTerm);
         const keywordsMatch = chapter.keywords?.some(k => normalizeText(k).includes(normalizedTerm));
         
-        return titleMatch || summaryMatch || keywordsMatch;
+        const stepsMatch = chapter.steps?.some(step => 
+            normalizeText(step.title).includes(normalizedTerm) || 
+            normalizeText(step.body).includes(normalizedTerm)
+        );
+        
+        const tipsMatch = chapter.tips?.some(tip => normalizeText(tip).includes(normalizedTerm));
+        
+        return titleMatch || summaryMatch || keywordsMatch || stepsMatch || tipsMatch;
     });
 };
 
