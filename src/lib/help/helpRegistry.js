@@ -4,7 +4,7 @@ import {
     Settings, Download, Activity, FileCheck, ShieldAlert,
     LogIn, Compass, Smartphone, Calendar, Bell, User,
     Target, MessageCircle, Moon, FolderOpen, FileSignature, Handshake, AlertOctagon, Wrench, MessageSquareWarning,
-    Wallet, Vault, Calculator, ShieldCheck, PieChart, BadgeDollar,
+    Wallet, Vault, Calculator, ShieldCheck, PieChart, DollarSign,
     MessageSquare, StarHalf, Lightbulb, Mail, Phone, Trash2
 } from 'lucide-react';
 
@@ -1152,7 +1152,7 @@ export const helpRegistry = [
         category: 'finanzas',
         order: 7,
         title: 'Mis Comisiones',
-        icon: 'BadgeDollar',
+        icon: 'DollarSign',
         roles: ['Ventas', 'Owner/Admin'],
         summary: 'Estado de cuenta personal del vendedor.',
         steps: [
