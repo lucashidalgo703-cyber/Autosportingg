@@ -42,6 +42,7 @@ const About = () => {
                     <div className="grid lg:grid-cols-2 gap-12 items-center mb-24">
                         <motion.div 
                             className="about-image-wrapper"
+                            style={{ aspectRatio: '3/4' }}
                             initial={{ opacity: 0, x: -30 }}
                             whileInView={{ opacity: 1, x: 0 }}
                             viewport={{ once: true }}
