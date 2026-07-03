@@ -16,9 +16,18 @@ const baseUrl = process.env.NODE_ENV === 'production' ? '' : API_URL;
 
 const formatPrice = (price, currency = 'USD') => {
     if (!price || isNaN(price) || price <= 0) return 'Consultar precio';
+    
+    let validCurrency = 'USD';
+    if (currency) {
+        const upper = String(currency).toUpperCase().trim();
+        if (upper === 'ARS' || upper === 'USD') validCurrency = upper;
+        else if (upper === '$' || upper === 'AR$') validCurrency = 'ARS';
+        else if (upper === 'U$S' || upper === 'US$') validCurrency = 'USD';
+    }
+
     return new Intl.NumberFormat('es-AR', {
         style: 'currency',
-        currency: currency,
+        currency: validCurrency,
         maximumFractionDigits: 0
     }).format(price);
 };
