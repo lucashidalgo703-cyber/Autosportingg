@@ -385,13 +385,6 @@ const CatalogContent = () => {
                 @media (min-width: 900px) {
                     .cars-grid {
                         grid-template-columns: repeat(3, 1fr);
-                        gap: 20px;
-                    }
-                }
-
-                @media (min-width: 1200px) {
-                    .cars-grid {
-                        grid-template-columns: repeat(4, 1fr);
                         gap: 24px;
                     }
                 }
