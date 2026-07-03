@@ -159,7 +159,27 @@ const CatalogContent = () => {
     }
 
     return (
-        <main className="container page-padding">
+        <main id="main-content" className="catalog-container pb-16">
+            <script
+                type="application/ld+json"
+                dangerouslySetInnerHTML={{
+                    __html: JSON.stringify({
+                        "@context": "https://schema.org",
+                        "@type": "BreadcrumbList",
+                        "itemListElement": [{
+                            "@type": "ListItem",
+                            "position": 1,
+                            "name": "Inicio",
+                            "item": "https://autosportingg.com"
+                        },{
+                            "@type": "ListItem",
+                            "position": 2,
+                            "name": "Catálogo",
+                            "item": "https://autosportingg.com/catalogo"
+                        }]
+                    })
+                }}
+            />
             <motion.div
                 className="page-header"
                 initial={{ opacity: 0, y: -20 }}

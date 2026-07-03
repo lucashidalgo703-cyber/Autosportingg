@@ -25,7 +25,31 @@ const Home = () => {
   const featuredCars = cars.filter(car => car.featured || car.year > 2020).slice(0, 8);
 
   return (
-    <div className="home-container">
+    <main id="main-content" className="home-container">
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{
+          __html: JSON.stringify({
+            "@context": "https://schema.org",
+            "@type": "FAQPage",
+            "mainEntity": [{
+              "@type": "Question",
+              "name": "¿Toman autos usados en parte de pago?",
+              "acceptedAnswer": {
+                "@type": "Answer",
+                "text": "Sí, tomamos tu auto usado en parte de pago previa inspección y tasación en nuestro local."
+              }
+            }, {
+              "@type": "Question",
+              "name": "¿Ofrecen financiación?",
+              "acceptedAnswer": {
+                "@type": "Answer",
+                "text": "Sí, contamos con financiación propia y crédito prendario bancario con cuotas fijas."
+              }
+            }]
+          })
+        }}
+      />
       {/* 1. Hero */}
       <Hero />
 
@@ -166,7 +190,7 @@ const Home = () => {
           .section-header h2 { font-size: 2rem; }
         }
       `}</style>
-    </div>
+    </main>
   );
 };
 

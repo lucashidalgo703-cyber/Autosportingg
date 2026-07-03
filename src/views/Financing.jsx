@@ -154,11 +154,12 @@ const Financing = () => {
                         <div className="simulator-grid">
                             <div className="simulator-controls">
                                 <div className="input-group">
-                                    <label>Monto a financiar (Capital)</label>
+                                    <label htmlFor="amountRange">Monto a financiar (Capital)</label>
                                     <div className="range-header">
                                         <span className="current-val">{formatCurrency(amount)}</span>
                                     </div>
                                     <input 
+                                        id="amountRange"
                                         type="range" 
                                         min="1000000" 
                                         max="20000000" 

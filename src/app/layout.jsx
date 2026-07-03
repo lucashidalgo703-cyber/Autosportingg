@@ -34,6 +34,9 @@ export default function RootLayout({ children }) {
     return (
         <html lang="es" suppressHydrationWarning>
             <body suppressHydrationWarning>
+                <a href="#main-content" className="sr-only focus:not-sr-only focus:absolute focus:top-4 focus:left-4 bg-[var(--c-accent-red)] text-white p-4 z-50 rounded font-bold">
+                    Saltar al contenido principal
+                </a>
                 <script
                     dangerouslySetInnerHTML={{
                         __html: `

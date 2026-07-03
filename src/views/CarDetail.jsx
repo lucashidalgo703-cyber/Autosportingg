@@ -224,6 +224,27 @@ const CarDetail = () => {
         }
     };
 
+    const breadcrumbSchema = {
+        "@context": "https://schema.org",
+        "@type": "BreadcrumbList",
+        "itemListElement": [{
+            "@type": "ListItem",
+            "position": 1,
+            "name": "Inicio",
+            "item": "https://autosportingg.com"
+        },{
+            "@type": "ListItem",
+            "position": 2,
+            "name": "Catálogo",
+            "item": "https://autosportingg.com/catalogo"
+        },{
+            "@type": "ListItem",
+            "position": 3,
+            "name": `${car.brand} ${car.name}`,
+            "item": typeof window !== 'undefined' ? window.location.href : `https://autosportingg.com/auto/${car._id || car.id}`
+        }]
+    };
+
     return (
         <>
             <Head>
@@ -232,10 +253,10 @@ const CarDetail = () => {
                 <link rel="canonical" href={typeof window !== 'undefined' ? window.location.href : ''} />
                 <meta property="og:title" content={`${car.brand} ${car.name} ${car.year}`} />
                 <meta property="og:image" content={getOptimizedImageUrl(activeImage, 800)} />
-                <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(schemaData) }} />
+                <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify([schemaData, breadcrumbSchema]) }} />
             </Head>
 
-            <main className="car-detail-page">
+            <main id="main-content" className="car-detail-page">
                 <div className="container">
                     
                     {/* Breadcrumbs */}
@@ -258,6 +279,7 @@ const CarDetail = () => {
                                     fill
                                     className="main-image"
                                     unoptimized
+                                    priority={true}
                                 />
                                 {!isAvailable && (
                                     <div className={`status-badge-large ${isSold ? 'status-vendido' : 'status-reservado'}`}>
