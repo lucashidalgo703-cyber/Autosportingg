@@ -42,26 +42,46 @@ const CarDetail = () => {
     const [submitSuccess, setSubmitSuccess] = useState(false);
 
     useEffect(() => {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 10000); // 10s timeout
+
         const fetchSingleCar = async () => {
             try {
                 setLoading(true);
-                const response = await fetch(`${baseUrl}/api/public/cars/${id}?t=${Date.now()}`);
+                const response = await fetch(`${baseUrl}/api/public/cars/${id}?t=${Date.now()}`, {
+                    signal: controller.signal
+                });
+                clearTimeout(timeoutId);
+                
                 if (response.ok) {
                     const data = await response.json();
-                    setCar(data);
-                    setActiveImage(data.coverImage || (data.images && data.images[0]) || data.image);
-                    trackEvent('view_vehicle', { brand: data.brand, name: data.name }, data._id || data.id);
+                    if (data && (data._id || data.id)) {
+                        setCar(data);
+                        setActiveImage(data.coverImage || (data.images && data.images[0]) || data.image);
+                        trackEvent('view_vehicle', { brand: data.brand, name: data.name }, data._id || data.id);
+                    } else {
+                        setError(true);
+                    }
                 } else {
                     setError(true);
                 }
             } catch (err) {
-                console.error("Error fetching car detail:", err);
+                if (err.name === 'AbortError') {
+                    console.error("Fetch timeout");
+                } else {
+                    console.error("Error fetching car detail:", err);
+                }
                 setError(true);
             } finally {
                 setLoading(false);
             }
         };
         if (id) fetchSingleCar();
+        
+        return () => {
+            clearTimeout(timeoutId);
+            controller.abort();
+        };
     }, [id]);
 
     const isFav = car ? isFavorite(car._id || car.id) : false;
@@ -438,6 +458,28 @@ const CarDetail = () => {
                         </div>
                     )}
                 </div>
+
+                {/* Mobile Sticky CTA */}
+                <div className="mobile-cta-bar lg:hidden">
+                    <div className="mobile-cta-container">
+                        <a 
+                            href={getWhatsAppUrl()} 
+                            target="_blank" 
+                            rel="noopener noreferrer" 
+                            className="btn btn-primary flex-1 flex items-center justify-center gap-2 text-sm"
+                            disabled={!isAvailable}
+                        >
+                            WhatsApp
+                        </a>
+                        <button 
+                            className="btn btn-outline flex-1 text-sm bg-[var(--c-graphite)]"
+                            onClick={() => openForm('Asesoramiento')}
+                            disabled={!isAvailable}
+                        >
+                            Consultar
+                        </button>
+                    </div>
+                </div>
             </main>
 
             {/* Mobile Fixed Bottom Bar */}
@@ -542,6 +584,10 @@ const CarDetail = () => {
                     padding-top: calc(var(--header-height) + 2rem);
                     padding-bottom: 6rem; /* Space for mobile bar */
                 }
+                
+                .car-detail-page .container {
+                    max-width: 1280px;
+                }
 
                 @media (min-width: 1024px) {
                     .car-detail-page {
@@ -593,8 +639,8 @@ const CarDetail = () => {
 
                 @media (min-width: 1024px) {
                     .detail-grid {
-                        grid-template-columns: 1fr 1fr;
-                        gap: var(--space-8);
+                        grid-template-columns: 60% 1fr;
+                        gap: 40px;
                         align-items: flex-start;
                     }
                 }
@@ -603,7 +649,8 @@ const CarDetail = () => {
                 .main-image-container {
                     position: relative;
                     width: 100%;
-                    aspect-ratio: 4/3;
+                    aspect-ratio: 16/10;
+                    max-height: 550px;
                     background-color: var(--c-carbon);
                     border-radius: var(--radius-lg);
                     overflow: hidden;
@@ -725,6 +772,18 @@ const CarDetail = () => {
                 }
 
                 /* Info Section */
+                .info-section {
+                    position: relative;
+                }
+
+                @media (min-width: 1024px) {
+                    .info-section {
+                        position: sticky;
+                        top: calc(var(--header-height, 80px) + 2rem);
+                        height: max-content;
+                    }
+                }
+
                 .info-header {
                     display: flex;
                     justify-content: space-between;
@@ -732,12 +791,45 @@ const CarDetail = () => {
                     margin-bottom: var(--space-2);
                 }
 
-                .brand-year {
+                .info-header .brand-year {
                     color: var(--c-ivory-muted);
-                    font-size: 0.85rem;
+                    font-size: 0.9rem;
                     font-weight: 700;
                     text-transform: uppercase;
                     letter-spacing: 0.1em;
+                }
+
+                /* Mobile CTA Bar */
+                .mobile-cta-bar {
+                    position: fixed;
+                    bottom: 0;
+                    left: 0;
+                    width: 100%;
+                    background: var(--c-carbon);
+                    border-top: var(--border-thin);
+                    padding: var(--space-3) var(--space-4);
+                    padding-bottom: calc(var(--space-3) + env(safe-area-inset-bottom, 16px));
+                    z-index: 50;
+                    box-shadow: 0 -4px 10px rgba(0, 0, 0, 0.2);
+                }
+                
+                .mobile-cta-container {
+                    display: flex;
+                    gap: var(--space-3);
+                    max-width: 100%;
+                }
+
+                @media (max-width: 639px) {
+                    .car-title {
+                        font-size: 26px;
+                    }
+                    .info-section {
+                        padding-inline: 16px;
+                    }
+                    /* Hide global whatsapp float on mobile since we have the CTA bar */
+                    :global(.whatsapp-float), :global(.wa-float) {
+                        display: none !important;
+                    }
                 }
 
                 .icon-btn {

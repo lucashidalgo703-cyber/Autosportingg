@@ -342,23 +342,57 @@ const CatalogContent = () => {
                     font-size: clamp(1rem, 1.5vw, 1.25rem);
                 }
                 
-                .cars-grid {
-                    display: grid;
-                    grid-template-columns: 1fr;
-                    gap: var(--space-4);
+                .catalog-container {
+                    width: 100%;
+                    max-width: 1280px;
+                    margin-inline: auto;
+                    padding-inline: 16px;
                 }
 
-                @media (min-width: 720px) {
-                    .cars-grid {
-                        grid-template-columns: repeat(2, 1fr);
-                        gap: var(--space-5);
+                @media (min-width: 768px) {
+                    .catalog-container {
+                        padding-inline: 24px;
                     }
                 }
 
                 @media (min-width: 1024px) {
+                    .catalog-container {
+                        padding-inline: 32px;
+                    }
+                }
+
+                .cars-grid {
+                    display: grid;
+                    grid-template-columns: 1fr;
+                    gap: 16px;
+                }
+
+                @media (max-width: 639px) {
+                    .cars-grid > * {
+                        max-width: 350px;
+                        margin-inline: auto;
+                        width: 100%;
+                    }
+                }
+
+                @media (min-width: 640px) {
+                    .cars-grid {
+                        grid-template-columns: repeat(2, 1fr);
+                        gap: 20px;
+                    }
+                }
+
+                @media (min-width: 900px) {
                     .cars-grid {
                         grid-template-columns: repeat(3, 1fr);
-                        gap: var(--space-6);
+                        gap: 20px;
+                    }
+                }
+
+                @media (min-width: 1200px) {
+                    .cars-grid {
+                        grid-template-columns: repeat(4, 1fr);
+                        gap: 24px;
                     }
                 }
 
@@ -385,7 +419,7 @@ const CatalogContent = () => {
 
                 .skeleton-img {
                     width: 100%;
-                    aspect-ratio: 4/3;
+                    aspect-ratio: 16/10;
                     background: linear-gradient(90deg, var(--c-carbon) 25%, var(--c-graphite-light) 50%, var(--c-carbon) 75%);
                     background-size: 200% 100%;
                     animation: loading 1.5s infinite;

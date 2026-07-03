@@ -273,7 +273,7 @@ const SmartFilters = ({
             transition: all 0.2s ease;
         }
 
-        @media (min-width: 1024px) {
+        @media (min-width: 768px) {
             .mobile-filter-toggle {
                 display: none;
             }
@@ -293,15 +293,27 @@ const SmartFilters = ({
             display: none;
         }
 
-        @media (min-width: 1024px) {
+        @media (min-width: 768px) {
             .desktop-filters-grid {
                 display: grid;
-                grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+                grid-template-columns: repeat(3, 1fr);
                 gap: var(--space-4);
                 background: var(--c-graphite);
                 border: var(--border-thin);
                 border-radius: var(--radius-lg);
                 padding: var(--space-5);
+            }
+        }
+
+        @media (min-width: 1024px) {
+            .desktop-filters-grid {
+                display: flex;
+                flex-wrap: wrap;
+                align-items: flex-end;
+            }
+            .desktop-filters-grid .filter-item {
+                flex: 1;
+                min-width: 140px;
             }
         }
 
@@ -321,6 +333,7 @@ const SmartFilters = ({
 
         .filter-item select {
             width: 100%;
+            height: 44px;
             padding: var(--space-2) var(--space-3);
             background-color: var(--c-carbon);
             border: 1px solid rgba(255,255,255,0.1);
