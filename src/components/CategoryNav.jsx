@@ -1,13 +1,16 @@
 import React from 'react';
 import Link from 'next/link';
 import { motion } from 'framer-motion';
-import { Car, Truck, Gauge, ShieldCheck, Zap } from 'lucide-react';
+import { Car, Truck, Gauge, ShieldCheck, Zap, Briefcase, Flag, Users } from 'lucide-react';
 
 const categories = [
   { id: 'SUV', label: 'SUVs', icon: <Truck size={32} /> },
   { id: 'Pickup', label: 'Pickups', icon: <ShieldCheck size={32} /> },
   { id: 'Sedan', label: 'Sedanes', icon: <Car size={32} /> },
   { id: 'Hatchback', label: 'Hatchbacks', icon: <Zap size={32} /> },
+  { id: 'Utilitario', label: 'Utilitarios', icon: <Briefcase size={32} /> },
+  { id: 'Deportivo', label: 'Deportivos', icon: <Flag size={32} /> },
+  { id: 'Familiar', label: 'Familiares', icon: <Users size={32} /> },
   { id: '0km', label: '0 KM', icon: <Gauge size={32} /> },
 ];
 
@@ -25,7 +28,7 @@ const CategoryNav = ({ cars = [] }) => {
                (car.category && car.category.toLowerCase() === cat.id.toLowerCase());
       }).length;
       return { ...cat, count };
-    }).filter(cat => cat.count > 0);
+    }); // Eliminamos el filtro de > 0 para que se vean todos los estilos
   }, [cars]);
 
   if (activeCategoriesWithCount.length === 0) return null;
