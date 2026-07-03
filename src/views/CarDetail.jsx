@@ -1,1044 +1,965 @@
 "use client";
-import React from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import Link from 'next/link';
-import { useParams } from 'next/navigation';
-import { ArrowLeft, Calendar, Gauge, Fuel, Maximize2, X, ChevronLeft, ChevronRight, Heart, Share2, Copy } from 'lucide-react';
+import { useParams, useRouter } from 'next/navigation';
+import Head from 'next/head';
+import { ArrowLeft, Calendar, Gauge, Fuel, Maximize2, X, ChevronLeft, ChevronRight, Heart, Share2, ShieldCheck, Banknote, RefreshCw, Smartphone } from 'lucide-react';
 import { useCars } from '../hooks/useCars';
-import { getOptimizedImageUrl, getBlurPlaceholder } from '../lib/cloudinaryUtils';
+import { getOptimizedImageUrl } from '../lib/cloudinaryUtils';
 import { useFavorites } from '../context/FavoritesContext';
 import Image from 'next/image';
 import { motion, AnimatePresence } from 'framer-motion';
+import CarCard from '../components/CarCard'; // For similar cars
+
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+const baseUrl = process.env.NODE_ENV === 'production' ? '' : API_URL;
+
+const formatPrice = (price, currency = 'USD') => {
+    if (!price || isNaN(price) || price <= 0) return 'Consultar precio';
+    return new Intl.NumberFormat('es-AR', {
+        style: 'currency',
+        currency: currency,
+        maximumFractionDigits: 0
+    }).format(price);
+};
 
 const CarDetail = () => {
     const { id } = useParams();
-    const [car, setCar] = React.useState(null);
-    const [loading, setLoading] = React.useState(true);
+    const router = useRouter();
+    const { cars: allCars } = useCars();
+    const [car, setCar] = useState(null);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState(false);
+    
     const { isFavorite, toggleFavorite } = useFavorites();
     
-    // Fast-Capture States
-    const [showCaptureModal, setShowCaptureModal] = React.useState(false);
-    const [captureData, setCaptureData] = React.useState({ name: '', phone: '', email: '' });
-    const [isCapturing, setIsCapturing] = React.useState(false);
+    // Gallery State
+    const [activeImage, setActiveImage] = useState(null);
+    const [showLightbox, setShowLightbox] = useState(false);
+    const [copied, setCopied] = useState(false);
 
-    React.useEffect(() => {
+    // Form State
+    const [showCaptureModal, setShowCaptureModal] = useState(false);
+    const [captureIntent, setCaptureIntent] = useState('Asesoramiento'); // 'Asesoramiento', 'Test Drive', 'Cotizar Usado'
+    const [captureData, setCaptureData] = useState({ name: '', phone: '', email: '', message: '' });
+    const [isCapturing, setIsCapturing] = useState(false);
+    const [submitSuccess, setSubmitSuccess] = useState(false);
+
+    useEffect(() => {
         const fetchSingleCar = async () => {
             try {
                 setLoading(true);
-                const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
-                const baseUrl = process.env.NODE_ENV === 'production' ? '' : API_URL;
                 const response = await fetch(`${baseUrl}/api/public/cars/${id}?t=${Date.now()}`);
                 if (response.ok) {
                     const data = await response.json();
                     setCar(data);
+                    setActiveImage(data.coverImage || (data.images && data.images[0]) || data.image);
                 } else {
-                    setCar(null);
+                    setError(true);
                 }
             } catch (err) {
                 console.error("Error fetching car detail:", err);
-                setCar(null);
+                setError(true);
             } finally {
                 setLoading(false);
             }
         };
-
-        if (id) {
-            fetchSingleCar();
-        }
+        if (id) fetchSingleCar();
     }, [id]);
 
-    const carId = car ? (car._id || car.id) : null;
-    const isFav = carId ? isFavorite(carId) : false;
+    const isFav = car ? isFavorite(car._id || car.id) : false;
+    const images = car ? (car.images || [car.coverImage || car.image].filter(Boolean)) : [];
 
-    const [activeImage, setActiveImage] = React.useState(null);
-    const [showLightbox, setShowLightbox] = React.useState(false);
-    const [copied, setCopied] = React.useState(false);
-
-    const handleShare = () => {
+    const handleShare = async () => {
         const url = window.location.href;
         if (navigator.share) {
-            navigator.share({
-                title: `${car.brand} ${car.name} - AutoSporting`,
-                url: url
-            }).catch(() => {
-                // Fallback to clipboard if sharing fails
-                navigator.clipboard.writeText(url);
-                setCopied(true);
-                setTimeout(() => setCopied(false), 2000);
-            });
+            try {
+                await navigator.share({
+                    title: `${car.brand} ${car.name} - AutoSporting`,
+                    url: url
+                });
+            } catch (err) {
+                copyToClipboard(url);
+            }
         } else {
-            navigator.clipboard.writeText(url);
-            setCopied(true);
-            setTimeout(() => setCopied(false), 2000);
+            copyToClipboard(url);
         }
     };
 
-    React.useEffect(() => {
-        if (car) {
-            setActiveImage(car.coverImage || (car.images && car.images[0]));
-        }
-    }, [car]);
+    const copyToClipboard = (url) => {
+        navigator.clipboard.writeText(url);
+        setCopied(true);
+        setTimeout(() => setCopied(false), 2000);
+    };
 
     const handleNext = (e) => {
-        e.stopPropagation();
-        if (!car.images) return;
-        const currentIndex = car.images.indexOf(activeImage || car.coverImage || (car.images && car.images[0]));
-        const nextIndex = (currentIndex + 1) % car.images.length;
-        setActiveImage(car.images[nextIndex]);
+        e?.stopPropagation();
+        if (images.length === 0) return;
+        const currentIndex = images.indexOf(activeImage);
+        const nextIndex = (currentIndex + 1) % images.length;
+        setActiveImage(images[nextIndex]);
     };
 
     const handlePrev = (e) => {
-        e.stopPropagation();
-        if (!car.images) return;
-        const currentIndex = car.images.indexOf(activeImage || car.coverImage || (car.images && car.images[0]));
-        const prevIndex = (currentIndex - 1 + car.images.length) % car.images.length;
-        setActiveImage(car.images[prevIndex]);
+        e?.stopPropagation();
+        if (images.length === 0) return;
+        const currentIndex = images.indexOf(activeImage);
+        const prevIndex = (currentIndex - 1 + images.length) % images.length;
+        setActiveImage(images[prevIndex]);
     };
-
-    // Preload next and previous images dynamically
-    React.useEffect(() => {
-        if (!car || !car.images || car.images.length < 2) return;
-
-        const currentActive = activeImage || car.coverImage || car.images[0];
-        const currentIndex = car.images.indexOf(currentActive);
-        if (currentIndex === -1) return;
-
-        const nextIndex = (currentIndex + 1) % car.images.length;
-        const prevIndex = (currentIndex - 1 + car.images.length) % car.images.length;
-
-        const imagesToPreload = [
-            car.images[nextIndex],
-            car.images[prevIndex]
-        ];
-
-        // Deduplicate in case there are only 2 images
-        const uniqueToPreload = [...new Set(imagesToPreload)];
-
-        uniqueToPreload.forEach(imgUrl => {
-            const preloader = new window.Image();
-            preloader.src = getOptimizedImageUrl(imgUrl, 1200); // Same resolution as main container
-
-            // If lightbox might be opened, also warm up the 1600px version
-            const lightboxPreloader = new window.Image();
-            lightboxPreloader.src = getOptimizedImageUrl(imgUrl, 1600);
-        });
-
-    }, [activeImage, car]);
 
     const getWhatsAppUrl = () => {
-        return `https://wa.me/5492974045378?text=${encodeURIComponent(`Hola AutoSporting, estoy interesado en el ${car?.brand} ${car?.name} ${car?.year}`)}`;
+        return `https://wa.me/5492974045378?text=${encodeURIComponent(`Hola AutoSporting, estoy interesado en el ${car?.brand} ${car?.name} ${car?.year} (ID: ${car?.internalId || id}). Link: ${window.location.href}`)}`;
     };
 
-    const handleWhatsAppClick = () => {
+    const openForm = (intent) => {
+        setCaptureIntent(intent);
         setShowCaptureModal(true);
-    };
-
-    const handleDirectWhatsApp = () => {
-        setShowCaptureModal(false);
-        window.open(getWhatsAppUrl(), '_blank');
+        setSubmitSuccess(false);
     };
 
     const handleCaptureSubmit = async (e) => {
         e.preventDefault();
+        if (isCapturing) return; // Prevent double submit
         setIsCapturing(true);
 
         try {
-            const API_URL = process.env.NEXT_PUBLIC_API_URL;
-            const baseUrl = process.env.NODE_ENV === 'production' ? '' : (API_URL || 'http://localhost:3001');
-            
+            const urlParams = new URLSearchParams(window.location.search);
+            const utmSource = urlParams.get('utm_source') || 'direct';
+            const utmMedium = urlParams.get('utm_medium') || '';
+            const utmCampaign = urlParams.get('utm_campaign') || '';
+
             await fetch(`${baseUrl}/api/leads/public`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    name: captureData.name,
-                    phone: captureData.phone,
-                    email: captureData.email,
-                    message: `Consulta por vehículo desde ficha web: ${car?.brand} ${car?.name} ${car?.year}`,
-                    vehicleId: car?._id,
-                    sourceDetail: "vehicle_detail_whatsapp"
+                    ...captureData,
+                    vehicleId: car._id || car.id,
+                    vehicleName: `${car.brand} ${car.name}`,
+                    source: `Web - ${captureIntent}`,
+                    pageUrl: window.location.href,
+                    utmSource,
+                    utmMedium,
+                    utmCampaign,
+                    consent: true
                 })
             });
+            setSubmitSuccess(true);
+            setTimeout(() => {
+                setShowCaptureModal(false);
+                setCaptureData({ name: '', phone: '', email: '', message: '' });
+            }, 3000);
         } catch (error) {
-            console.error('Error in fast capture:', error);
-            // Ignoramos el error para no bloquear la conversión
+            console.error("Error submitting lead:", error);
+            alert("Ocurrió un error al enviar tu consulta. Por favor, intentá nuevamente o contactanos por WhatsApp.");
         } finally {
             setIsCapturing(false);
-            setShowCaptureModal(false);
-            window.open(getWhatsAppUrl(), '_blank');
         }
     };
 
-    const jsonLd = React.useMemo(() => {
-        if (!car) return null;
-
-        const cleanEmpty = (obj) => {
-            if (Array.isArray(obj)) {
-                return obj.map(cleanEmpty).filter(v => v !== undefined && v !== null);
-            } else if (obj !== null && typeof obj === 'object') {
-                return Object.fromEntries(
-                    Object.entries(obj)
-                        .map(([k, v]) => [k, cleanEmpty(v)])
-                        .filter(([_, v]) => v !== undefined && v !== null && (typeof v !== 'object' || Object.keys(v).length > 0))
-                );
-            }
-            return obj;
-        };
-
-        const carImage = car.coverImage || (car.images && car.images[0]);
-        const optimizedImage = carImage ? getOptimizedImageUrl(carImage, 1200) : undefined;
-
-        const schema = {
-            "@context": "https://schema.org",
-            "@type": "Car",
-            "name": `${car.brand} ${car.name}`,
-            "brand": {
-                "@type": "Brand",
-                "name": car.brand
-            },
-            "model": car.name,
-            "vehicleModelDate": car.year ? String(car.year) : undefined,
-            "mileageFromOdometer": car.km ? {
-                "@type": "QuantitativeValue",
-                "value": Number(car.km),
-                "unitCode": "KMT"
-            } : undefined,
-            "fuelType": car.fuel,
-            "image": optimizedImage,
-            "description": car.description || `Vehículo ${car.brand} ${car.name} modelo ${car.year} en AutoSporting.`,
-            "offers": {
-                "@type": "Offer",
-                "priceCurrency": "USD",
-                "availability": "https://schema.org/InStock",
-                "url": typeof window !== 'undefined' ? window.location.href : undefined
-            }
-        };
-
-        return cleanEmpty(schema);
-    }, [car]);
+    const similarCars = useMemo(() => {
+        if (!car || !allCars) return [];
+        return allCars
+            .filter(c => c._id !== car._id && c.id !== car.id) // Exclude current
+            .filter(c => c.brand === car.brand || c.type === car.type || c.vehicleType === car.vehicleType)
+            .slice(0, 3);
+    }, [car, allCars]);
 
     if (loading) {
         return (
-            <div className="not-found">
-                <div className="animate-pulse" style={{ color: 'var(--c-ivory-muted)', fontSize: '1.2rem', fontWeight: 'bold' }}>Cargando especificaciones...</div>
+            <div className="container page-padding text-center">
+                <div className="animate-pulse flex flex-col items-center">
+                    <div className="h-8 w-64 bg-[var(--c-carbon)] rounded mb-8"></div>
+                    <div className="w-full h-[50vh] bg-[var(--c-carbon)] rounded-xl mb-8"></div>
+                    <div className="h-4 w-48 bg-[var(--c-carbon)] rounded"></div>
+                </div>
             </div>
         );
     }
 
-    if (!car) {
+    if (error || !car) {
         return (
-            <div className="not-found">
-                <h2>Vehículo no encontrado</h2>
-                <Link href="/catalogo" className="btn btn-primary">
-                    <ArrowLeft size={20} /> Volver al catálogo
-                </Link>
+            <div className="container page-padding text-center py-20">
+                <h1 className="text-4xl font-black text-[var(--c-ivory)] mb-4" style={{ fontFamily: 'var(--font-title)' }}>Vehículo no encontrado</h1>
+                <p className="text-[var(--c-ivory-muted)] mb-8">El vehículo que estás buscando ya no está disponible o el enlace es incorrecto.</p>
+                <Link href="/catalogo" className="btn btn-primary">Volver al catálogo</Link>
             </div>
         );
     }
 
+    const isReserved = car.status === 'Reservado' || car.status === 'Señado';
+    const isSold = car.status === 'Vendido';
+    const isAvailable = !isReserved && !isSold;
+    
+    // Estimated Quota (Mock calculation: 50% down payment, 36 months, 5% monthly rate)
+    const estimatedQuota = car.price ? (car.price * 0.5 * 1.05) / 36 : 0;
 
-
-    const currentImg = activeImage || car.coverImage || (car.images && car.images[0]);
+    // Schema Markup
+    const schemaData = {
+        "@context": "https://schema.org",
+        "@type": "Product",
+        "name": `${car.brand} ${car.name}`,
+        "image": images.map(img => getOptimizedImageUrl(img, 800)),
+        "description": car.description || `Excelente ${car.brand} ${car.name} año ${car.year}`,
+        "brand": {
+            "@type": "Brand",
+            "name": car.brand
+        },
+        "offers": {
+            "@type": "Offer",
+            "url": typeof window !== 'undefined' ? window.location.href : '',
+            "priceCurrency": car.currency || "USD",
+            "price": car.price,
+            "itemCondition": "https://schema.org/UsedCondition",
+            "availability": isAvailable ? "https://schema.org/InStock" : "https://schema.org/OutOfStock"
+        }
+    };
 
     return (
-        <main className="container page-padding">
-            {jsonLd && (
-                <script
-                    type="application/ld+json"
-                    dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
-                />
-            )}
-            <Link href="/catalogo" className="back-link">
-                <ArrowLeft size={20} /> Volver al catálogo
-            </Link>
+        <>
+            <Head>
+                <title>{`${car.brand} ${car.name} ${car.year} | AutoSporting`}</title>
+                <meta name="description" content={car.description || `Comprá tu ${car.brand} ${car.name} en AutoSporting. Inspeccionado, garantizado y listo para transferir.`} />
+                <link rel="canonical" href={typeof window !== 'undefined' ? window.location.href : ''} />
+                <meta property="og:title" content={`${car.brand} ${car.name} ${car.year}`} />
+                <meta property="og:image" content={getOptimizedImageUrl(activeImage, 800)} />
+                <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(schemaData) }} />
+            </Head>
 
-            <div className="detail-grid">
-                {/* Image Section */}
-                <div className="image-section">
-                    <div className="main-image-container overflow-hidden rounded-xl relative shadow-2xl">
-                        <div className="flex">
-                            <div className="relative min-w-full aspect-[4/3]">
-                                <div
-                                    className={`relative w-full h-full overflow-hidden group bg-color-bg-secondary border border-neutral-600 ${currentImg ? 'cursor-zoom-in' : 'cursor-default'}`}
-                                    onClick={() => { if (currentImg) setShowLightbox(true); }}
-                                >
-                                    <div className="w-full h-full flex items-center justify-center">
-                                        {currentImg ? (
-                                            <Image
-                                                alt={car.name}
-                                                fill
-                                                className="object-cover w-full h-full fade-in"
-                                                style={{ objectFit: 'cover', objectPosition: car.imagePosition || '50% 75%' }}
-                                                src={getOptimizedImageUrl(currentImg, 1200)}
-                                                unoptimized
-                                            />
-                                        ) : (
-                                            <div className="text-neutral-600 flex flex-col items-center gap-2">
-                                                <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1" strokeLinecap="round" strokeLinejoin="round"><path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z"></path><circle cx="12" cy="13" r="3"></circle></svg>
-                                                <span>Sin imagen disponible</span>
-                                            </div>
-                                        )}
+            <main className="car-detail-page">
+                <div className="container">
+                    
+                    {/* Breadcrumbs */}
+                    <nav className="breadcrumbs" aria-label="Breadcrumb">
+                        <ol>
+                            <li><Link href="/">Inicio</Link></li>
+                            <li><span className="separator">/</span><Link href="/catalogo">Catálogo</Link></li>
+                            <li><span className="separator">/</span><span className="current">{car.brand} {car.name}</span></li>
+                        </ol>
+                    </nav>
+
+                    <div className="detail-grid">
+                        
+                        {/* LEFT COLUMN: Gallery */}
+                        <div className="gallery-section">
+                            <div className="main-image-container group" onClick={() => setShowLightbox(true)}>
+                                <Image
+                                    src={getOptimizedImageUrl(activeImage, 1200) || '/placeholder.png'}
+                                    alt={`${car.brand} ${car.name}`}
+                                    fill
+                                    className="main-image"
+                                    unoptimized
+                                />
+                                {!isAvailable && (
+                                    <div className={`status-badge-large ${isSold ? 'status-vendido' : 'status-reservado'}`}>
+                                        {isSold ? 'Vendido' : 'Reservado'}
                                     </div>
-                                    <div className="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
-
-                                    {/* Status Badge */}
-                                    {car.status && (
-                                        <div className={`detail-status-badge ${car.status.toLowerCase()}`}>
-                                            {car.status}
-                                        </div>
-                                    )}
+                                )}
+                                <div className="zoom-hint">
+                                    <Maximize2 size={24} />
                                 </div>
+                            </div>
+                            
+                            {images.length > 1 && (
+                                <div className="thumbnail-strip">
+                                    {images.map((img, idx) => (
+                                        <button 
+                                            key={idx}
+                                            className={`thumb-btn ${activeImage === img ? 'active' : ''}`}
+                                            onClick={() => setActiveImage(img)}
+                                        >
+                                            <Image src={getOptimizedImageUrl(img, 200)} alt={`Thumb ${idx}`} fill className="thumb-img" unoptimized />
+                                        </button>
+                                    ))}
+                                </div>
+                            )}
 
-                                {/* In-place Navigation Arrows */}
-                                {car.images && car.images.length > 1 && (
-                                    <>
-                                        <button
-                                            className="absolute top-1/2 left-2 -translate-y-1/2 bg-black/50 text-white p-2 rounded-full hover:bg-black/70 transition-colors z-10"
-                                            onClick={(e) => {
-                                                e.stopPropagation();
-                                                handlePrev(e);
-                                            }}
-                                        >
-                                            <ChevronLeft size={24} />
-                                        </button>
-                                        <button
-                                            className="absolute top-1/2 right-2 -translate-y-1/2 bg-black/50 text-white p-2 rounded-full hover:bg-black/70 transition-colors z-10"
-                                            onClick={(e) => {
-                                                e.stopPropagation();
-                                                handleNext(e);
-                                            }}
-                                        >
-                                            <ChevronRight size={24} />
-                                        </button>
-                                    </>
+                            {/* Trust Modules (Desktop Layout) */}
+                            <div className="trust-modules mt-8 hidden lg:grid">
+                                <div className="trust-card">
+                                    <ShieldCheck size={32} className="text-[var(--c-accent-red)] mb-4" />
+                                    <h4>Inspección Verificada</h4>
+                                    <p>Vehículo revisado mecánicamente y libre de deudas.</p>
+                                </div>
+                                <div className="trust-card">
+                                    <Banknote size={32} className="text-[var(--c-accent-red)] mb-4" />
+                                    <h4>Financiación</h4>
+                                    <p>Opciones a tu medida con cuotas fijas.</p>
+                                </div>
+                                <div className="trust-card">
+                                    <RefreshCw size={32} className="text-[var(--c-accent-red)] mb-4" />
+                                    <h4>Tomamos tu usado</h4>
+                                    <p>Cotización justa y en el acto.</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* RIGHT COLUMN: Info & Actions */}
+                        <div className="info-section">
+                            <div className="info-header">
+                                <div className="brand-year">
+                                    {car.brand} | {car.year}
+                                </div>
+                                <div className="actions">
+                                    <button className="icon-btn" onClick={handleShare} aria-label="Compartir">
+                                        <Share2 size={20} />
+                                    </button>
+                                    <button 
+                                        className="icon-btn" 
+                                        onClick={() => toggleFavorite(carId)}
+                                        aria-pressed={isFav}
+                                        aria-label="Favorito"
+                                    >
+                                        <Heart size={20} fill={isFav ? "var(--c-accent-red)" : "transparent"} color={isFav ? "var(--c-accent-red)" : "var(--c-ivory)"} />
+                                    </button>
+                                </div>
+                            </div>
+
+                            <h1 className="car-title">
+                                {car.name} {car.version && <span className="version">{car.version}</span>}
+                            </h1>
+
+                            <div className="price-container">
+                                <div className="main-price">
+                                    {formatPrice(car.price, car.currency)}
+                                </div>
+                                {estimatedQuota > 0 && isAvailable && (
+                                    <div className="estimated-quota">
+                                        Cuota aprox. desde {formatPrice(estimatedQuota, car.currency)}/mes
+                                    </div>
                                 )}
                             </div>
-                        </div>
 
-                        {/* Mobile Counter (1/N) - Only visible on mobile/tablet */}
-                        {car.images && car.images.length > 0 && (
-                            <div className="absolute bottom-4 right-4 bg-black/80 text-white px-3 py-2 rounded-full text-sm font-medium shadow-lg z-10 md:hidden">
-                                {car.images.indexOf(activeImage || car.images[0]) + 1} / {car.images.length}
+                            {/* Main Specs Grid */}
+                            <div className="specs-grid">
+                                <div className="spec-box">
+                                    <Calendar size={20} className="spec-icon" />
+                                    <span className="spec-value">{car.year}</span>
+                                    <span className="spec-label">Año</span>
+                                </div>
+                                <div className="spec-box">
+                                    <Gauge size={20} className="spec-icon" />
+                                    <span className="spec-value">{car.km === 0 ? '0' : car.km.toLocaleString()}</span>
+                                    <span className="spec-label">Kilómetros</span>
+                                </div>
+                                <div className="spec-box">
+                                    <Fuel size={20} className="spec-icon" />
+                                    <span className="spec-value">{car.fuel || car.fuelType || '-'}</span>
+                                    <span className="spec-label">Combustible</span>
+                                </div>
+                                <div className="spec-box">
+                                    <Smartphone size={20} className="spec-icon" />
+                                    <span className="spec-value">{car.transmission || '-'}</span>
+                                    <span className="spec-label">Transmisión</span>
+                                </div>
                             </div>
-                        )}
-                    </div>
 
-                    {/* Thumbnails Grid (Desktop Only) */}
-                    {car.images && car.images.length > 1 && (
-                        <div className="hidden md:grid grid-cols-3 gap-3 mt-3">
-                            {car.images.slice(1, 4).map((img, index) => {
-                                const isLast = index === 2;
-                                const remainingCount = car.images.length - 4;
-
-                                return (
-                                    <button
-                                        key={index}
-                                        className={`relative aspect-[4/3] rounded-lg overflow-hidden border border-neutral-600 ${activeImage === img ? 'ring-2 ring-primary' : ''}`}
-                                        onClick={() => {
-                                            if (isLast && remainingCount > 0) {
-                                                setShowLightbox(true);
-                                            } else {
-                                                setActiveImage(img);
-                                            }
-                                        }}
+                            {/* Desktop CTAs */}
+                            <div className="cta-group hidden lg:flex flex-col gap-3 mt-8">
+                                <a 
+                                    href={getWhatsAppUrl()} 
+                                    target="_blank" 
+                                    rel="noopener noreferrer" 
+                                    className="btn btn-primary w-full text-center flex items-center justify-center gap-2"
+                                    disabled={!isAvailable}
+                                >
+                                    Consultar por WhatsApp
+                                </a>
+                                <button 
+                                    className="btn btn-hero-outline w-full"
+                                    onClick={() => openForm('Asesoramiento')}
+                                    disabled={!isAvailable}
+                                >
+                                    Solicitar asesoramiento
+                                </button>
+                                <div className="flex gap-3">
+                                    <button 
+                                        className="btn btn-outline flex-1 text-sm"
+                                        onClick={() => openForm('Cotizar Usado')}
                                     >
-                                        <div className="w-full h-full flex items-center justify-center">
-                                            <Image
-                                                src={getOptimizedImageUrl(img, 400)}
-                                                alt={`${car.name} view ${index + 2}`}
-                                                fill
-                                                className={`object-cover w-full h-full transition duration-300 ${isLast && remainingCount > 0 ? 'blur-sm' : ''}`}
-                                                style={{ objectFit: 'cover', objectPosition: car.imagePosition || '50% 75%' }}
-                                                unoptimized
-                                            />
-                                        </div>
-
-                                        {/* +N Overlay */}
-                                        {isLast && remainingCount > 0 && (
-                                            <div className="absolute inset-0 bg-black/40 flex items-center justify-center text-white">
-                                                <div className="text-3xl font-bold">+{remainingCount}</div>
-                                            </div>
-                                        )}
+                                        Cotizar mi usado
                                     </button>
-                                );
-                            })}
+                                    <button 
+                                        className="btn btn-outline flex-1 text-sm"
+                                        onClick={() => openForm('Test Drive')}
+                                        disabled={!isAvailable}
+                                    >
+                                        Agendar Test Drive
+                                    </button>
+                                </div>
+                            </div>
+
+                            {car.description && (
+                                <div className="description-box mt-8">
+                                    <h3>Descripción</h3>
+                                    <p>{car.description}</p>
+                                </div>
+                            )}
+
+                        </div>
+                    </div>
+
+                    {/* Similar Cars */}
+                    {similarCars.length > 0 && (
+                        <div className="similar-cars-section mt-16 pb-16">
+                            <h2 className="text-3xl font-bold mb-6 text-[var(--c-ivory)] border-l-4 border-[var(--c-accent-red)] pl-4" style={{ fontFamily: 'var(--font-title)' }}>
+                                Vehículos Similares
+                            </h2>
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                                {similarCars.map(c => (
+                                    <CarCard key={c._id || c.id} car={c} />
+                                ))}
+                            </div>
                         </div>
                     )}
                 </div>
+            </main>
 
-                {/* Info Section */}
-                <div className="info-section">
-                    <div className="flex items-center justify-between mb-2">
-                        <div className="flex items-center gap-3">
-                            <div className="condition-badge mb-0">
-                                {car.condition}
-                            </div>
-                            <button
-                                className={`share-action-btn ${copied ? 'copied' : ''}`}
-                                onClick={handleShare}
-                                title="Compartir vehículo"
-                            >
-                                <AnimatePresence mode="wait">
-                                    {copied ? (
-                                        <motion.div
-                                            key="copied"
-                                            initial={{ opacity: 0, scale: 0.5 }}
-                                            animate={{ opacity: 1, scale: 1 }}
-                                            exit={{ opacity: 0, scale: 0.5 }}
-                                            className="flex items-center gap-1"
-                                        >
-                                            <Copy size={16} /> <span className="text-[10px] font-bold uppercase">Copiado</span>
-                                        </motion.div>
-                                    ) : (
-                                        <motion.div
-                                            key="share"
-                                            initial={{ opacity: 0, scale: 0.5 }}
-                                            animate={{ opacity: 1, scale: 1 }}
-                                            exit={{ opacity: 0, scale: 0.5 }}
-                                        >
-                                            <Share2 size={18} />
-                                        </motion.div>
-                                    )}
-                                </AnimatePresence>
-                            </button>
-                        </div>
-                        <button
-                            className="detail-favorite-btn flex items-center gap-2"
-                            onClick={() => toggleFavorite(carId)}
-                        >
-                            <Heart size={24} fill={isFav ? "var(--color-primary)" : "none"} color={isFav ? "var(--color-primary)" : "white"} />
-                            <span className="text-sm font-medium">{isFav ? "Guardado" : "Guardar"}</span>
-                        </button>
-                    </div>
-
-                    <h1 className="car-title">{car.brand} {car.name}</h1>
-
-
-                    <div className="specs-grid">
-                        <div className="spec-item">
-                            <div className="spec-label">
-                                <Calendar size={18} /> <span>Año</span>
-                            </div>
-                            <div className="spec-value">{car.year}</div>
-                        </div>
-                        <div className="spec-item">
-                            <div className="spec-label">
-                                <Gauge size={18} /> <span>Kilometraje</span>
-                            </div>
-                            <div className="spec-value">{car.km.toLocaleString()} km</div>
-                        </div>
-                        <div className="spec-item">
-                            <div className="spec-label">
-                                <Fuel size={18} /> <span>Combustible</span>
-                            </div>
-                            <div className="spec-value">{car.fuel}</div>
-                        </div>
-                    </div>
-
-                    {car.description && (
-                        <div className="car-description">
-                            <h3>Sobre este vehículo</h3>
-                            <p>{car.description}</p>
-                        </div>
-                    )}
-
-                    <button
-                        onClick={handleWhatsAppClick}
-                        className="btn btn-primary full-width"
-                    >
-                        Consultar por WhatsApp
-                    </button>
-
-                    <div className="mt-16 space-y-3 p-4 bg-white/5 rounded-lg border border-white/10">
-                        <p className="flex items-center gap-2 text-lg font-light text-white tracking-wide">
-                            <span className="text-primary text-2xl">*</span> Consulte por financiación.
-                        </p>
-                        <p className="flex items-center gap-2 text-lg font-light text-white tracking-wide">
-                            <span className="text-primary text-2xl">*</span> Tomamos su usado en parte de pago.
-                        </p>
-                    </div>
-
-                    {/* Floating WhatsApp Button (Mobile only) */}
-                    <div className="mobile-cta-bar">
-                        <button
-                            onClick={handleWhatsAppClick}
-                            className="btn-floating-whatsapp"
-                        >
-                            <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L0 24l6.335-1.662c1.72.937 3.659 1.432 5.625 1.433h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
-                            Consultar ahora
-                        </button>
+            {/* Mobile Fixed Bottom Bar */}
+            <div className="mobile-bottom-bar lg:hidden">
+                <div className="flex-1">
+                    <div className="text-[0.75rem] text-[var(--c-ivory-muted)] uppercase font-bold tracking-wider mb-0.5">Precio</div>
+                    <div className="text-lg font-black text-[var(--c-ivory)]" style={{ fontFamily: 'var(--font-title)' }}>
+                        {formatPrice(car.price, car.currency)}
                     </div>
                 </div>
+                <a 
+                    href={getWhatsAppUrl()} 
+                    target="_blank" 
+                    rel="noopener noreferrer" 
+                    className="btn btn-primary h-12 flex items-center px-6"
+                    disabled={!isAvailable}
+                >
+                    Consultar
+                </a>
             </div>
 
-            {/* Lightbox Modal */}
-            {showLightbox && (activeImage || car.coverImage || (car.images && car.images.length > 0)) && (
-                <div className="lightbox-overlay" onClick={() => setShowLightbox(false)}>
-                    <button className="lightbox-close">
-                        <X size={32} />
-                    </button>
-
-                    {car.images && car.images.length > 1 && (
-                        <button className="lightbox-nav prev" onClick={handlePrev}>
-                            <ChevronLeft size={48} />
-                        </button>
-                    )}
-
-                    <Image
-                        src={getOptimizedImageUrl(activeImage || car.coverImage || (car.images && car.images[0]), 1600)}
-                        alt={car.name}
-                        width={1600}
-                        height={1200}
-                        className="lightbox-img fade-in"
-                        key={activeImage}
-                        onClick={(e) => e.stopPropagation()}
-                        unoptimized
-                        style={{ objectFit: 'contain', width: 'auto', height: 'auto', maxWidth: '95%', maxHeight: '95%' }}
-                    />
-
-                    {car.images && car.images.length > 1 && (
-                        <button className="lightbox-nav next" onClick={handleNext}>
-                            <ChevronRight size={48} />
-                        </button>
-                    )}
-                </div>
-            )}
-
-            {/* Fast Capture Modal */}
+            {/* Lightbox */}
             <AnimatePresence>
-                {showCaptureModal && (
+                {showLightbox && (
                     <motion.div 
+                        className="lightbox"
                         initial={{ opacity: 0 }}
                         animate={{ opacity: 1 }}
                         exit={{ opacity: 0 }}
-                        className="fixed inset-0 bg-black/80 z-[100] flex items-center justify-center p-4 backdrop-blur-sm"
-                        onClick={() => setShowCaptureModal(false)}
+                    >
+                        <button className="lightbox-close" onClick={() => setShowLightbox(false)}><X size={32} /></button>
+                        <button className="lightbox-nav prev" onClick={handlePrev}><ChevronLeft size={48} /></button>
+                        <div className="lightbox-content">
+                            <Image src={getOptimizedImageUrl(activeImage, 1600)} alt="Zoom" fill className="object-contain" unoptimized />
+                        </div>
+                        <button className="lightbox-nav next" onClick={handleNext}><ChevronRight size={48} /></button>
+                    </motion.div>
+                )}
+            </AnimatePresence>
+
+            {/* Capture Modal */}
+            <AnimatePresence>
+                {showCaptureModal && (
+                    <motion.div 
+                        className="modal-overlay"
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
                     >
                         <motion.div 
+                            className="modal-content"
                             initial={{ scale: 0.95, opacity: 0 }}
                             animate={{ scale: 1, opacity: 1 }}
                             exit={{ scale: 0.95, opacity: 0 }}
-                            onClick={(e) => e.stopPropagation()}
-                            className="bg-[#111] border border-neutral-800 rounded-2xl w-full max-w-md overflow-hidden shadow-2xl relative"
                         >
-                            <button 
-                                onClick={() => setShowCaptureModal(false)}
-                                className="absolute top-4 right-4 text-neutral-500 hover:text-white transition-colors"
-                            >
-                                <X size={20} />
-                            </button>
-
-                            <div className="p-6 sm:p-8">
-                                <h3 className="text-xl font-bold text-white mb-2">¡Hola! Ya casi hablamos</h3>
-                                <p className="text-sm text-neutral-400 mb-6">
-                                    Para brindarte un mejor servicio, por favor dejanos tu nombre y teléfono antes de continuar al chat.
-                                </p>
-
-                                <form onSubmit={handleCaptureSubmit} className="flex flex-col gap-4">
-                                    <div className="flex flex-col gap-1.5">
-                                        <label className="text-xs font-bold text-neutral-500 uppercase tracking-wider">Nombre Completo *</label>
-                                        <input 
-                                            type="text" 
-                                            required
-                                            value={captureData.name}
-                                            onChange={e => setCaptureData({...captureData, name: e.target.value})}
-                                            className="w-full bg-black/50 border border-neutral-800 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-blue-500 transition-colors"
-                                            placeholder="Tu nombre"
-                                        />
-                                    </div>
-
-                                    <div className="flex flex-col gap-1.5">
-                                        <label className="text-xs font-bold text-neutral-500 uppercase tracking-wider">Teléfono *</label>
-                                        <input 
-                                            type="tel" 
-                                            required
-                                            value={captureData.phone}
-                                            onChange={e => setCaptureData({...captureData, phone: e.target.value})}
-                                            className="w-full bg-black/50 border border-neutral-800 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-blue-500 transition-colors"
-                                            placeholder="Tu número"
-                                        />
-                                    </div>
-
-                                    <div className="flex flex-col gap-1.5">
-                                        <label className="text-xs font-bold text-neutral-500 uppercase tracking-wider">Email (Opcional)</label>
-                                        <input 
-                                            type="email" 
-                                            value={captureData.email}
-                                            onChange={e => setCaptureData({...captureData, email: e.target.value})}
-                                            className="w-full bg-black/50 border border-neutral-800 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-blue-500 transition-colors"
-                                            placeholder="Tu email"
-                                        />
-                                    </div>
-
-                                    <button 
-                                        type="submit"
-                                        disabled={isCapturing}
-                                        className="w-full bg-[#25D366] hover:bg-[#128C7E] text-white font-bold py-3.5 rounded-xl transition-colors mt-4 flex justify-center items-center gap-2"
-                                    >
-                                        {isCapturing ? 'Conectando...' : 'Continuar por WhatsApp'}
-                                    </button>
-                                </form>
-
-                                <div className="mt-6 text-center">
-                                    <button 
-                                        onClick={handleDirectWhatsApp}
-                                        className="text-xs text-neutral-500 hover:text-white transition-colors underline underline-offset-2"
-                                    >
-                                        Prefiero ir directo a WhatsApp sin dejar mis datos
-                                    </button>
+                            <button className="modal-close" onClick={() => setShowCaptureModal(false)}><X size={24} /></button>
+                            
+                            {submitSuccess ? (
+                                <div className="text-center py-8">
+                                    <ShieldCheck size={64} className="text-[var(--c-accent-red)] mx-auto mb-4" />
+                                    <h3 className="text-2xl font-bold text-[var(--c-ivory)] mb-2">¡Solicitud enviada!</h3>
+                                    <p className="text-[var(--c-ivory-muted)]">Un asesor se pondrá en contacto con vos a la brevedad.</p>
                                 </div>
-                            </div>
+                            ) : (
+                                <>
+                                    <h3 className="text-2xl font-bold text-[var(--c-ivory)] mb-2" style={{ fontFamily: 'var(--font-title)' }}>
+                                        {captureIntent}
+                                    </h3>
+                                    <p className="text-[var(--c-ivory-muted)] mb-6 text-sm">
+                                        Dejanos tus datos para recibir información sobre el {car.brand} {car.name}.
+                                    </p>
+                                    <form onSubmit={handleCaptureSubmit} className="flex flex-col gap-4">
+                                        <div className="input-group">
+                                            <label>Nombre completo</label>
+                                            <input required type="text" className="input" value={captureData.name} onChange={e => setCaptureData({...captureData, name: e.target.value})} />
+                                        </div>
+                                        <div className="input-group">
+                                            <label>Teléfono (WhatsApp)</label>
+                                            <input required type="tel" className="input" value={captureData.phone} onChange={e => setCaptureData({...captureData, phone: e.target.value})} />
+                                        </div>
+                                        <div className="input-group">
+                                            <label>Email</label>
+                                            <input required type="email" className="input" value={captureData.email} onChange={e => setCaptureData({...captureData, email: e.target.value})} />
+                                        </div>
+                                        <div className="input-group">
+                                            <label>Mensaje (Opcional)</label>
+                                            <textarea className="input" rows="3" value={captureData.message} onChange={e => setCaptureData({...captureData, message: e.target.value})}></textarea>
+                                        </div>
+                                        <button type="submit" className="btn btn-primary mt-2" disabled={isCapturing}>
+                                            {isCapturing ? 'Enviando...' : 'Enviar solicitud'}
+                                        </button>
+                                    </form>
+                                </>
+                            )}
                         </motion.div>
                     </motion.div>
                 )}
             </AnimatePresence>
 
             <style>{`
-                .container {
-                    max-width: 1280px; /* Reverted to 1280px to match reference size exactly */
-                    margin: 0 auto;
-                    width: 100%;
-                    padding-left: 1rem;
-                    padding-right: 1rem;
+                .car-detail-page {
+                    padding-top: calc(var(--header-height) + 2rem);
+                    padding-bottom: 6rem; /* Space for mobile bar */
                 }
 
-                .page-padding {
-                    padding-top: 1.5rem;
-                    padding-bottom: 5rem;
-                }
-                
-                @media (min-width: 768px) {
-                    .page-padding { padding-top: 3rem; }
+                @media (min-width: 1024px) {
+                    .car-detail-page {
+                        padding-bottom: 2rem;
+                    }
                 }
 
-                .not-found {
-                    min-height: 60vh;
+                /* Breadcrumbs */
+                .breadcrumbs {
+                    margin-bottom: var(--space-6);
+                }
+
+                .breadcrumbs ol {
                     display: flex;
-                    flex-direction: column;
                     align-items: center;
-                    justify-content: center;
-                    gap: 1rem;
+                    gap: var(--space-2);
+                    list-style: none;
+                    margin: 0;
+                    padding: 0;
+                    font-size: 0.85rem;
+                    font-weight: 600;
+                    text-transform: uppercase;
+                    letter-spacing: 0.05em;
+                }
+
+                .breadcrumbs a {
+                    color: var(--c-ivory-muted);
+                    transition: color 0.2s ease;
+                }
+
+                .breadcrumbs a:hover {
                     color: var(--c-ivory);
                 }
 
-                .back-link {
-                    display: inline-flex;
-                    align-items: center;
-                    gap: 0.5rem;
-                    color: #999;
-                    text-decoration: none;
-                    margin-bottom: 2rem;
-                    transition: all 0.3s ease;
-                    font-size: 0.95rem;
-                    font-weight: 500;
+                .breadcrumbs .separator {
+                    color: var(--c-graphite-light);
                 }
 
-                .back-link:hover {
-                    color: white;
-                    transform: translateX(-5px);
+                .breadcrumbs .current {
+                    color: var(--c-ivory);
                 }
 
+                /* Layout */
                 .detail-grid {
                     display: grid;
                     grid-template-columns: 1fr;
-                    gap: 2.5rem;
+                    gap: var(--space-6);
                 }
 
                 @media (min-width: 1024px) {
                     .detail-grid {
-                        grid-template-columns: 1.2fr 1fr;
-                        gap: 4rem;
+                        grid-template-columns: 3fr 2fr;
+                        gap: var(--space-10);
+                        align-items: flex-start;
                     }
                 }
 
-                /* Tailwind Utility Replacements / New Components */
-                .rounded-xl { border-radius: 0.75rem; }
-                .rounded-lg { border-radius: 0.5rem; }
-                .overflow-hidden { overflow: hidden; }
-                .relative { position: relative; }
-                .absolute { position: absolute; }
-                
-                /* Double escaped characters for CSS-in-JS */
-                .top-1\\/2 { top: 50%; }
-                .left-2 { left: 0.5rem; }
-                .right-2 { right: 0.5rem; }
-                .-translate-y-1\\/2 { transform: translateY(-50%); }
-                .p-2 { padding: 0.5rem; }
-                
-                .bg-black\\/50 { background-color: rgba(0, 0, 0, 0.5); }
-                .hover\\:bg-black\\/70:hover { background-color: rgba(0, 0, 0, 0.7); }
-                
-                .transition-colors { transition-property: background-color, border-color, color, fill, stroke; transition-duration: 0.2s; }
-                
-                .inset-0 { top: 0; right: 0; bottom: 0; left: 0; }
-                .bottom-4 { bottom: 1rem; }
-                .right-4 { right: 1rem; }
-                .w-full { width: 100%; }
-                .h-full { height: 100%; }
-                .min-w-full { min-width: 100%; }
-                .object-cover { object-fit: cover; }
-                .flex { display: flex; }
-                .items-center { align-items: center; }
-                .justify-center { justify-content: center; }
-                
-                .bg-black\\/20 { background-color: rgba(0, 0, 0, 0.2); }
-                .bg-black\\/40 { background-color: rgba(0, 0, 0, 0.4); }
-                .bg-black\\/80 { background-color: rgba(0, 0, 0, 0.8); }
-                
-                .text-white { color: white; }
-                .text-sm { font-size: 0.875rem; }
-                .text-3xl { font-size: 1.875rem; }
-                .font-bold { font-weight: 700; }
-                .font-medium { font-weight: 500; }
-                
-                .shadow-lg { box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05); }
-                .z-10 { z-index: 10; }
-                .z-20 { z-index: 20; }
-                .z-30 { z-index: 30; }
-                
-                .transition-opacity { transition-property: opacity; }
-                .duration-300 { transition-duration: 300ms; }
-                .opacity-0 { opacity: 0; }
-                .group:hover .group-hover\\:opacity-100 { opacity: 1; }
-                
-                .cursor-zoom-in { cursor: zoom-in; }
-                .blur-sm { filter: blur(4px); }
-                .border-neutral-600 { border-color: #525252; }
-                .bg-color-bg-secondary { background-color: #1a1a1a; }
-                .px-3 { padding-left: 0.75rem; padding-right: 0.75rem; }
-                .py-2 { padding-top: 0.5rem; padding-bottom: 0.5rem; }
-                .rounded-full { border-radius: 9999px; }
-                .mt-3 { margin-top: 0.75rem; }
-                .gap-3 { gap: 0.75rem; }
-
-                /* Grid System Replacements */
-                .hidden { display: none; }
-                @media (min-width: 768px) {
-                    .md\\:grid { display: grid; }
-                    .md\\:hidden { display: none; }
-                    .grid-cols-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+                /* Gallery */
+                .main-image-container {
+                    position: relative;
+                    width: 100%;
+                    aspect-ratio: 16/10;
+                    background-color: var(--c-carbon);
+                    border-radius: var(--radius-lg);
+                    overflow: hidden;
+                    cursor: zoom-in;
+                    border: var(--border-thin);
                 }
 
-                /* Escaped bracket selectors */
-                .aspect-\\[4\\/3\\] { aspect-ratio: 4/3; }
-                
-                /* Cleanup of old classes */
-                .main-image, .thumbnails-grid, .thumbnail-btn, .thumb-wrapper, .more-images-overlay {
-                    /* Disabled/Superseded by utilities above */
+                .main-image {
+                    object-fit: cover;
+                    transition: transform 0.4s ease;
                 }
 
-                /* Lightbox Styles */
-                .lightbox-overlay {
-                    position: fixed;
-                    inset: 0;
-                    background-color: rgba(0, 0, 0, 0.95);
-                    z-index: 2000;
+                .main-image-container:hover .main-image {
+                    transform: scale(1.02);
+                }
+
+                .zoom-hint {
+                    position: absolute;
+                    bottom: var(--space-4);
+                    right: var(--space-4);
+                    background: rgba(0,0,0,0.6);
+                    backdrop-filter: blur(4px);
+                    color: white;
+                    width: 48px;
+                    height: 48px;
+                    border-radius: 50%;
                     display: flex;
                     align-items: center;
                     justify-content: center;
-                    padding: 2rem;
-                    animation: fadeIn 0.3s ease;
+                    opacity: 0;
+                    transition: opacity 0.3s ease;
                 }
 
-                .lightbox-img {
-                    max-width: 95%;
-                    max-height: 95%;
-                    object-fit: contain;
-                    border-radius: 4px;
-                    box-shadow: 0 0 30px rgba(0,0,0,0.5);
-                    /* Animation class added dynamically */
+                .main-image-container:hover .zoom-hint {
+                    opacity: 1;
+                }
+
+                .thumbnail-strip {
+                    display: flex;
+                    gap: var(--space-3);
+                    margin-top: var(--space-3);
+                    overflow-x: auto;
+                    padding-bottom: var(--space-2);
+                    scrollbar-width: none; /* Firefox */
                 }
                 
-                .lightbox-img.fade-in {
-                    animation: zoomInLight 0.2s ease-out;
+                .thumbnail-strip::-webkit-scrollbar {
+                    display: none; /* Chrome */
                 }
 
-                .lightbox-close {
-                    position: absolute;
-                    top: 2rem;
-                    right: 2rem;
-                    background: none;
-                    border: none;
-                    color: white;
+                .thumb-btn {
+                    position: relative;
+                    width: 100px;
+                    flex-shrink: 0;
+                    aspect-ratio: 16/10;
+                    border-radius: var(--radius-sm);
+                    overflow: hidden;
+                    border: 2px solid transparent;
                     cursor: pointer;
-                    padding: 0.5rem;
-                    transition: transform 0.2s;
-                    z-index: 2001;
+                    opacity: 0.6;
+                    transition: all 0.2s ease;
                 }
 
-                .lightbox-close:hover {
-                    transform: scale(1.1);
-                    color: var(--color-primary);
+                .thumb-btn.active, .thumb-btn:hover {
+                    opacity: 1;
+                    border-color: var(--c-accent-red);
                 }
-                
-                .lightbox-nav {
-                    background: none;
-                    border: none;
-                    color: rgba(255,255,255,0.5);
-                    cursor: pointer;
-                    padding: 1rem;
-                    transition: all 0.2s;
-                    z-index: 2001;
+
+                .thumb-img {
+                    object-fit: cover;
+                }
+
+                .status-badge-large {
                     position: absolute;
-                    top: 50%;
-                    transform: translateY(-50%);
-                }
-                
-                .lightbox-nav.prev {
-                    left: 20px;
-                }
-
-                .lightbox-nav.next {
-                    right: 20px;
-                }
-                
-                .lightbox-nav:hover {
-                    color: white;
-                    background-color: rgba(0,0,0,0.3);
-                    border-radius: 50%;
-                }
-
-                @keyframes zoomIn {
-                    from { transform: scale(0.95); opacity: 0; }
-                    to { transform: scale(1); opacity: 1; }
-                }
-                
-                @keyframes zoomInLight {
-                    from { transform: scale(0.98); opacity: 0.8; }
-                    to { transform: scale(1); opacity: 1; }
-                }
-
-                .condition-badge {
-                    display: inline-block;
-                    background: rgba(235, 38, 40, 0.1);
-                    color: var(--color-primary);
+                    top: var(--space-4);
+                    left: var(--space-4);
+                    padding: 8px 16px;
+                    border-radius: var(--radius-md);
+                    font-size: 0.9rem;
                     font-weight: 800;
                     text-transform: uppercase;
-                    font-size: 0.75rem;
-                    letter-spacing: 0.1em;
-                    padding: 4px 12px;
-                    border-radius: 50px;
-                    border: 1px solid rgba(235, 38, 40, 0.2);
+                    letter-spacing: 0.05em;
+                    color: white;
+                    z-index: 10;
+                    font-family: var(--font-title);
+                    box-shadow: var(--shadow-md);
                 }
 
-                .share-action-btn {
-                    background: rgba(255, 255, 255, 0.05);
-                    border: 1px solid rgba(255, 255, 255, 0.08);
-                    color: white;
-                    width: 38px;
-                    height: 38px;
-                    border-radius: 50%;
+                .trust-modules {
+                    display: grid;
+                    grid-template-columns: repeat(3, 1fr);
+                    gap: var(--space-4);
+                }
+
+                .trust-card {
+                    background: var(--c-graphite);
+                    border: var(--border-thin);
+                    border-radius: var(--radius-md);
+                    padding: var(--space-4);
+                    text-align: center;
                     display: flex;
+                    flex-direction: column;
                     align-items: center;
-                    justify-content: center;
-                    cursor: pointer;
-                    transition: all 0.3s ease;
                 }
 
-                .share-action-btn:hover {
-                    background: rgba(255, 255, 255, 0.15);
-                    transform: scale(1.1);
-                    border-color: rgba(255, 255, 255, 0.2);
+                .trust-card h4 {
+                    color: var(--c-ivory);
+                    font-size: 0.9rem;
+                    font-weight: 700;
+                    margin-bottom: 4px;
                 }
-
-                .share-action-btn.copied {
-                    background: #25D366;
-                    color: white;
-                    width: auto;
-                    padding: 0 12px;
-                    border-radius: 20px;
-                    border: none;
-                }
-
-                .detail-status-badge {
-                    position: absolute;
-                    top: 20px;
-                    left: 20px;
-                    padding: 8px 18px;
-                    border-radius: 50px;
+                
+                .trust-card p {
+                    color: var(--c-ivory-muted);
                     font-size: 0.8rem;
-                    font-weight: 800;
-                    letter-spacing: 0.15em;
+                    line-height: 1.4;
+                }
+
+                /* Info Section */
+                .info-header {
+                    display: flex;
+                    justify-content: space-between;
+                    align-items: center;
+                    margin-bottom: var(--space-2);
+                }
+
+                .brand-year {
+                    color: var(--c-ivory-muted);
+                    font-size: 0.85rem;
+                    font-weight: 700;
                     text-transform: uppercase;
-                    z-index: 25;
-                    backdrop-filter: blur(12px);
-                    box-shadow: 0 8px 25px rgba(0,0,0,0.5);
-                    border: 1px solid rgba(255,255,255,0.1);
-                    animation: slideInLeft 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+                    letter-spacing: 0.1em;
                 }
 
-                .detail-status-badge.oferta {
-                    background: rgba(235, 38, 40, 0.9);
-                    color: white;
-                }
-
-                .detail-status-badge.vendido {
-                    background: rgba(0, 0, 0, 0.85);
-                    color: #999;
-                }
-
-                .detail-status-badge.nuevo {
-                    background: rgba(255, 255, 255, 0.95);
-                    color: black;
-                }
-
-                @keyframes slideInLeft {
-                    from { transform: translateX(-20px); opacity: 0; }
-                    to { transform: translateX(0); opacity: 1; }
-                }
-
-                .detail-favorite-btn {
-                    background: rgba(255, 255, 255, 0.05);
-                    border: 1px solid rgba(255, 255, 255, 0.08);
-                    color: white;
-                    padding: 0.5rem 1rem;
-                    border-radius: 50px;
+                .icon-btn {
+                    background: var(--c-graphite);
+                    border: var(--border-thin);
+                    width: 40px;
+                    height: 40px;
+                    border-radius: 50%;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    color: var(--c-ivory);
                     cursor: pointer;
-                    transition: all 0.3s ease;
+                    transition: all 0.2s ease;
                 }
 
-                .detail-favorite-btn:hover {
-                    background: rgba(255, 255, 255, 0.1);
-                    border-color: rgba(255, 255, 255, 0.2);
+                .icon-btn:hover {
+                    background: var(--c-graphite-light);
+                    border-color: var(--c-ivory-muted);
                 }
 
                 .car-title {
-                    font-size: clamp(2rem, 5vw, 3.5rem);
+                    font-family: var(--font-title);
+                    font-size: clamp(2rem, 4vw, 3rem);
                     font-weight: 900;
+                    color: var(--c-ivory);
                     line-height: 1.1;
-                    margin-bottom: 2rem;
-                    letter-spacing: -0.02em;
+                    margin-bottom: var(--space-6);
+                }
+
+                .car-title .version {
+                    display: block;
+                    font-size: 0.5em;
+                    font-weight: 600;
+                    color: var(--c-ivory-muted);
+                    margin-top: 4px;
+                    font-family: var(--font-main);
+                }
+
+                .price-container {
+                    margin-bottom: var(--space-6);
+                    padding-bottom: var(--space-6);
+                    border-bottom: var(--border-thin);
+                }
+
+                .main-price {
+                    font-family: var(--font-title);
+                    font-size: 2.5rem;
+                    font-weight: 900;
+                    color: var(--c-ivory);
+                    margin-bottom: 4px;
+                }
+
+                .estimated-quota {
+                    font-size: 0.95rem;
+                    color: var(--c-accent-red);
+                    font-weight: 600;
                 }
 
                 .specs-grid {
                     display: grid;
-                    grid-template-columns: repeat(1, 1fr);
-                    gap: 1rem;
-                    margin-bottom: 2.5rem;
-                }
-                
-                @media (min-width: 480px) {
-                    .specs-grid { grid-template-columns: repeat(2, 1fr); }
+                    grid-template-columns: repeat(2, 1fr);
+                    gap: var(--space-3);
+                    margin-bottom: var(--space-6);
                 }
 
-                .spec-item {
-                    background: rgba(255, 255, 255, 0.03);
-                    padding: 1.25rem;
-                    border-radius: 12px;
-                    border: 1px solid rgba(255, 255, 255, 0.05);
+                .spec-box {
+                    background: var(--c-graphite);
+                    border: var(--border-thin);
+                    border-radius: var(--radius-md);
+                    padding: var(--space-4);
+                    display: flex;
+                    flex-direction: column;
+                }
+
+                .spec-icon {
+                    color: var(--c-accent-red);
+                    margin-bottom: 8px;
+                }
+
+                .spec-value {
+                    color: var(--c-ivory);
+                    font-weight: 800;
+                    font-size: 1.1rem;
+                    margin-bottom: 2px;
                 }
 
                 .spec-label {
-                    display: flex;
-                    align-items: center;
-                    gap: 0.75rem;
-                    color: #777;
-                    font-size: 0.85rem;
-                    margin-bottom: 0.5rem;
+                    color: var(--c-ivory-muted);
+                    font-size: 0.8rem;
                     text-transform: uppercase;
                     letter-spacing: 0.05em;
                     font-weight: 600;
                 }
 
-                .spec-value {
-                    font-size: 1.15rem;
+                .btn-outline {
+                    background: transparent;
+                    border: 1px solid var(--c-ivory-muted);
+                    color: var(--c-ivory);
+                    padding: var(--space-3) var(--space-4);
+                    border-radius: var(--radius-md);
+                    font-weight: 600;
+                    transition: all 0.2s ease;
+                }
+
+                .btn-outline:hover:not(:disabled) {
+                    border-color: var(--c-ivory);
+                    background: rgba(255,255,255,0.05);
+                }
+
+                .btn:disabled {
+                    opacity: 0.5;
+                    cursor: not-allowed;
+                }
+
+                .description-box {
+                    background: var(--c-graphite);
+                    border: var(--border-thin);
+                    border-radius: var(--radius-md);
+                    padding: var(--space-5);
+                }
+
+                .description-box h3 {
+                    color: var(--c-ivory);
                     font-weight: 700;
-                    color: white;
-                }
-
-                .car-description {
-                    margin-bottom: 2.5rem;
-                }
-
-                .car-description h3 {
-                    font-size: 1.25rem;
-                    font-weight: 800;
-                    margin-bottom: 1rem;
-                    color: white;
-                    letter-spacing: -0.01em;
-                }
-
-                .car-description p {
-                    color: #999;
-                    line-height: 1.7;
-                    font-size: 1rem;
-                }
-
-                .btn.full-width {
-                    width: 100%;
-                    padding: 1.25rem;
-                    font-size: 1.1rem;
-                    font-weight: 800;
-                    border-radius: 12px;
-                    background: #25D366;
-                    color: #000;
-                    border: none;
-                    cursor: pointer;
-                    transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-                    display: flex;
-                    align-items: center;
-                    justify-content: center;
-                    box-shadow: 0 10px 30px rgba(37, 211, 102, 0.2);
-                }
-
-                .btn.full-width:hover {
-                    transform: translateY(-5px);
-                    box-shadow: 0 15px 40px rgba(37, 211, 102, 0.4);
-                    background: #22c55e;
-                }
-
-                .legal-text {
-                    margin-top: 2rem;
-                    color: #666;
+                    margin-bottom: var(--space-3);
+                    text-transform: uppercase;
                     font-size: 0.9rem;
+                    letter-spacing: 0.05em;
                 }
 
-                .mobile-cta-bar {
-                    display: none;
+                .description-box p {
+                    color: var(--c-ivory-muted);
+                    line-height: 1.6;
+                    font-size: 0.95rem;
+                    white-space: pre-wrap;
+                }
+
+                /* Mobile Bottom Bar */
+                .mobile-bottom-bar {
                     position: fixed;
                     bottom: 0;
                     left: 0;
-                    right: 0;
-                    background: rgba(10, 10, 10, 0.8);
-                    backdrop-filter: blur(20px);
-                    padding: 1rem;
-                    z-index: 1000;
-                    border-top: 1px solid rgba(255, 255, 255, 0.1);
-                    box-shadow: 0 -10px 30px rgba(0, 0, 0, 0.5);
+                    width: 100%;
+                    background: var(--c-carbon);
+                    border-top: var(--border-thin);
+                    padding: var(--space-3) var(--space-4);
+                    display: flex;
+                    align-items: center;
+                    justify-content: space-between;
+                    z-index: 50;
+                    box-shadow: 0 -4px 20px rgba(0,0,0,0.5);
                 }
 
-                .btn-floating-whatsapp {
-                    width: 100%;
-                    background: #25D366;
-                    color: black;
-                    border: none;
-                    padding: 1rem;
-                    border-radius: 12px;
-                    font-weight: 800;
-                    font-size: 1.1rem;
+                /* Lightbox */
+                .lightbox {
+                    position: fixed;
+                    inset: 0;
+                    background: rgba(0,0,0,0.95);
+                    z-index: 9999;
                     display: flex;
                     align-items: center;
                     justify-content: center;
-                    gap: 0.75rem;
-                    text-transform: uppercase;
-                    letter-spacing: 0.05em;
-                    box-shadow: 0 5px 15px rgba(37, 211, 102, 0.3);
                 }
 
-                @media (max-width: 1024px) {
-                    .mobile-cta-bar {
-                        display: block;
-                        animation: slideUp 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
-                    }
-                    .page-padding {
-                        padding-bottom: 8rem;
-                    }
+                .lightbox-close {
+                    position: absolute;
+                    top: var(--space-5);
+                    right: var(--space-5);
+                    color: white;
+                    background: none;
+                    border: none;
+                    cursor: pointer;
+                    z-index: 10;
                 }
 
-                @keyframes slideUp {
-                    from { transform: translateY(100%); }
-                    to { transform: translateY(0); }
+                .lightbox-nav {
+                    position: absolute;
+                    top: 50%;
+                    transform: translateY(-50%);
+                    color: white;
+                    background: none;
+                    border: none;
+                    cursor: pointer;
+                    opacity: 0.7;
+                    transition: opacity 0.2s ease;
+                    z-index: 10;
+                }
+
+                .lightbox-nav:hover {
+                    opacity: 1;
+                }
+
+                .lightbox-nav.prev { left: var(--space-4); }
+                .lightbox-nav.next { right: var(--space-4); }
+
+                .lightbox-content {
+                    position: relative;
+                    width: 90vw;
+                    height: 85vh;
+                }
+
+                /* Modal */
+                .modal-overlay {
+                    position: fixed;
+                    inset: 0;
+                    background: rgba(0,0,0,0.8);
+                    backdrop-filter: blur(4px);
+                    z-index: 9999;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    padding: var(--space-4);
+                }
+
+                .modal-content {
+                    background: var(--c-graphite);
+                    border: var(--border-thin);
+                    border-radius: var(--radius-lg);
+                    padding: var(--space-6);
+                    width: 100%;
+                    max-width: 500px;
+                    position: relative;
+                    box-shadow: var(--shadow-lg);
+                }
+
+                .modal-close {
+                    position: absolute;
+                    top: var(--space-4);
+                    right: var(--space-4);
+                    color: var(--c-ivory-muted);
+                    background: none;
+                    border: none;
+                    cursor: pointer;
+                }
+
+                .input-group {
+                    display: flex;
+                    flex-direction: column;
+                    gap: 6px;
+                }
+
+                .input-group label {
+                    color: var(--c-ivory-muted);
+                    font-size: 0.85rem;
+                    font-weight: 600;
                 }
             `}</style>
-        </main>
+        </>
     );
 };
 
