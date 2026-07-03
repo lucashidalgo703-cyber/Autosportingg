@@ -65,77 +65,50 @@ const CarCard = ({ car }) => {
 
       <style>{`
                 .car-card {
-                    background-color: transparent;
-                    border-radius: 12px;
+                    background-color: var(--c-graphite);
+                    border-radius: var(--radius-lg);
                     display: flex;
                     flex-direction: column;
-                    border: none;
+                    border: var(--border-thin);
                     height: 100%;
                     overflow: hidden;
                     position: relative;
-                    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
-                    transition: transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275), box-shadow 0.4s ease;
-                    isolation: isolate; /* keeps ::before inside the rounding */
-                }
-
-                /* Shine effect */
-                .car-card::before {
-                    content: "";
-                    position: absolute;
-                    top: 0;
-                    left: -100%;
-                    width: 50%;
-                    height: 100%;
-                    background: linear-gradient(
-                        to right,
-                        rgba(255, 255, 255, 0) 0%,
-                        rgba(255, 255, 255, 0.15) 50%,
-                        rgba(255, 255, 255, 0) 100%
-                    );
-                    transform: skewX(-25deg);
-                    transition: left 0.6s ease-in-out;
-                    z-index: 10;
-                    pointer-events: none;
-                }
-                
-                .car-card:hover::before {
-                    left: 200%;
+                    box-shadow: var(--shadow-sm);
+                    transition: transform 0.2s ease, box-shadow 0.2s ease;
+                    isolation: isolate;
                 }
                 
                 .car-card:hover {
-                    box-shadow: 0 15px 35px rgba(235, 38, 40, 0.25);
-                    transform: translateY(-6px);
+                    box-shadow: var(--shadow-md);
+                    transform: translateY(-4px);
                 }
 
                 .card-image-wrapper {
                     position: relative;
                     width: 100%;
                     aspect-ratio: 4/3;
-                    background-color: #0a0a0a;
+                    background-color: var(--c-carbon);
                     overflow: hidden;
-                    border-top-left-radius: 12px;
-                    border-top-right-radius: 12px;
                 }
 
                 .card-image {
                     width: 100%;
                     height: 100%;
                     object-fit: cover;
-                    /* object-position handled inline */
-                    transition: transform 0.6s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+                    transition: transform 0.4s ease;
                 }
 
                 .car-card:hover .card-image {
-                    transform: scale(1.08); /* Smooth deep zoom on hover */
+                    transform: scale(1.05);
                 }
 
                 .favorite-btn {
                     position: absolute;
-                    top: 10px;
-                    right: 10px;
-                    background: rgba(255, 255, 255, 0.15);
+                    top: var(--space-3);
+                    right: var(--space-3);
+                    background: rgba(0, 0, 0, 0.4);
                     backdrop-filter: blur(4px);
-                    border: 1px solid rgba(255, 255, 255, 0.2);
+                    border: 1px solid rgba(255, 255, 255, 0.1);
                     border-radius: 50%;
                     width: 36px;
                     height: 36px;
@@ -148,60 +121,52 @@ const CarCard = ({ car }) => {
                 }
 
                 .favorite-btn:hover {
-                    background: rgba(255, 255, 255, 0.3);
-                    transform: scale(1.1);
+                    background: rgba(0, 0, 0, 0.6);
+                    transform: scale(1.05);
                 }
 
                 .status-badge {
                     position: absolute;
-                    top: 10px;
-                    left: 10px;
-                    padding: 4px 10px;
-                    border-radius: 6px;
+                    top: var(--space-3);
+                    left: var(--space-3);
+                    padding: 4px var(--space-3);
+                    border-radius: var(--radius-sm);
                     font-size: 0.75rem;
-                    font-weight: 800;
+                    font-weight: 700;
                     text-transform: uppercase;
                     letter-spacing: 0.05em;
                     color: white;
                     z-index: 20;
-                    box-shadow: 0 4px 10px rgba(0,0,0,0.3);
-                    backdrop-filter: blur(4px);
+                    box-shadow: var(--shadow-sm);
                 }
 
                 .status-vendido {
-                    background-color: rgba(235, 38, 40, 0.9); /* Primary Red */
-                    border: 1px solid rgba(255,255,255,0.2);
+                    background-color: var(--c-accent-red);
                 }
 
                 .status-senado {
-                    background-color: rgba(245, 158, 11, 0.9); /* Amber */
-                    border: 1px solid rgba(255,255,255,0.2);
+                    background-color: #F59E0B;
                 }
 
                 .card-content {
-                    padding: 1.25rem;
+                    padding: var(--space-4);
                     flex: 1;
                     display: flex;
                     flex-direction: column;
-                    border-bottom-left-radius: 12px;
-                    border-bottom-right-radius: 12px;
-                    /* Vertical Gradient: Darker near image (top) -> Redder at bottom */
-                    background: linear-gradient(to bottom, #1a0505 0%, #991b1b 100%);
-                    border: 1px solid rgba(255, 255, 255, 0.1); 
-                    border-top: none;
                 }
                 
                 .card-status {
-                    color: white;
-                    background: rgba(0,0,0,0.2);
+                    color: var(--c-ivory-muted);
+                    background: var(--c-graphite-light);
                     display: inline-block;
-                    padding: 4px 8px;
-                    border-radius: 4px;
+                    padding: 2px 8px;
+                    border-radius: var(--radius-sm);
                     align-self: start;
+                    font-size: 0.75rem;
                 }
                 
                 .text-primary {
-                    color: white !important; /* Override primary text on red background */
+                    color: var(--c-accent-red) !important;
                 }
             `}</style>
     </Link>

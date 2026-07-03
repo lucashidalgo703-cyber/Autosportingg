@@ -287,7 +287,10 @@ const Catalog = () => {
                     grid-column: 1 / -1;
                     text-align: center;
                     padding: 4rem;
-                    color: var(--color-text-muted);
+                    color: var(--c-ivory-muted);
+                    background-color: var(--c-graphite);
+                    border: var(--border-thin);
+                    border-radius: var(--radius-lg);
                 }
 
                 .btn-text {
@@ -301,8 +304,9 @@ const Catalog = () => {
                 }
 
                 .car-skeleton {
-                    background: var(--color-surface);
-                    border-radius: 12px;
+                    background: var(--c-graphite);
+                    border: var(--border-thin);
+                    border-radius: var(--radius-lg);
                     overflow: hidden;
                     height: 100%;
                     min-height: 380px;
@@ -312,13 +316,13 @@ const Catalog = () => {
                 .skeleton-img {
                     width: 100%;
                     aspect-ratio: 4/3;
-                    background: #2a2a2a;
+                    background: var(--c-carbon);
                     animation: pulse 1.5s infinite ease-in-out;
                 }
                 .skeleton-content {
-                    padding: 1.25rem;
+                    padding: var(--space-4);
                     flex: 1;
-                    background: linear-gradient(to bottom, #1a0505 0%, #5a0a0a 100%);
+                    background: var(--c-graphite);
                     display: flex;
                     flex-direction: column;
                     gap: 0.5rem;
@@ -326,29 +330,29 @@ const Catalog = () => {
                 .skeleton-title {
                     height: 24px;
                     width: 80%;
-                    background: rgba(255, 255, 255, 0.15);
-                    border-radius: 4px;
+                    background: var(--c-graphite-light);
+                    border-radius: var(--radius-sm);
                     animation: pulse 1.5s infinite ease-in-out;
                 }
                 .skeleton-subtitle {
                     height: 16px;
                     width: 60%;
-                    background: rgba(255, 255, 255, 0.1);
-                    border-radius: 4px;
+                    background: var(--c-carbon);
+                    border-radius: var(--radius-sm);
                     animation: pulse 1.5s infinite ease-in-out;
                 }
                 .skeleton-status {
                     height: 20px;
                     width: 40%;
-                    background: rgba(0, 0, 0, 0.2);
-                    border-radius: 4px;
+                    background: var(--c-carbon);
+                    border-radius: var(--radius-sm);
                     animation: pulse 1.5s infinite ease-in-out;
-                    margin-top: 0.5rem;
+                    margin-top: var(--space-2);
                 }
                 .skeleton-footer {
                     height: 14px;
                     width: 30%;
-                    background: rgba(255, 255, 255, 0.05);
+                    background: var(--c-graphite-light);
                     border-radius: 4px;
                     margin-top: auto;
                     animation: pulse 1.5s infinite ease-in-out;

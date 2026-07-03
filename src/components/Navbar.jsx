@@ -1,5 +1,5 @@
 "use client";
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import Image from 'next/image';
@@ -11,6 +11,26 @@ const Navbar = () => {
   const [isOpen, setIsOpen] = useState(false);
   const { favorites } = useFavorites();
   const pathname = usePathname();
+
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (e.key === 'Escape' && isOpen) {
+        setIsOpen(false);
+      }
+    };
+
+    if (isOpen) {
+      document.body.style.overflow = 'hidden';
+      document.addEventListener('keydown', handleKeyDown);
+    } else {
+      document.body.style.overflow = 'unset';
+    }
+
+    return () => {
+      document.body.style.overflow = 'unset';
+      document.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [isOpen]);
 
   const isActive = (path) => pathname === path;
 
@@ -63,7 +83,13 @@ const Navbar = () => {
         </nav>
 
         {/* Mobile Menu Toggle */}
-        <button className="mobile-toggle" onClick={() => setIsOpen(!isOpen)} aria-label="Menu">
+        <button 
+          className="mobile-toggle" 
+          onClick={() => setIsOpen(!isOpen)} 
+          aria-label="Menú principal"
+          aria-expanded={isOpen}
+          aria-controls="mobile-menu"
+        >
           {isOpen ? <X size={28} color="white" /> : <Menu size={28} color="white" />}
         </button>
 
@@ -71,6 +97,7 @@ const Navbar = () => {
         <AnimatePresence>
           {isOpen && (
             <motion.div
+              id="mobile-menu"
               className="mobile-nav"
               initial="closed"
               animate="open"
@@ -110,17 +137,14 @@ const Navbar = () => {
 
       <style>{`
         .navbar {
-          background-color: rgba(5, 5, 5, 0.75);
-          backdrop-filter: blur(20px);
-          -webkit-backdrop-filter: blur(20px);
+          background-color: var(--c-carbon);
           position: sticky;
           top: 0;
           z-index: 1000;
           height: var(--header-height);
           display: flex;
           align-items: center;
-          box-shadow: 0 4px 30px rgba(0,0,0,0.5);
-          border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+          border-bottom: var(--border-thin);
         }
 
         .navbar-content {
@@ -196,15 +220,13 @@ const Navbar = () => {
           top: 100%;
           left: 0;
           width: 100%;
-          background-color: rgba(10, 10, 10, 0.98);
-          backdrop-filter: blur(20px);
-          -webkit-backdrop-filter: blur(20px);
+          background-color: var(--c-carbon);
           padding: 1.5rem;
           display: flex;
           flex-direction: column;
           gap: 0.5rem;
-          border-bottom: 1px solid var(--color-primary);
-          box-shadow: 0 20px 40px rgba(0,0,0,0.6);
+          border-bottom: var(--border-thin);
+          box-shadow: var(--shadow-xl);
           max-height: calc(100vh - var(--header-height));
           overflow-y: auto;
         }

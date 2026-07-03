@@ -13,8 +13,9 @@ export default function ClientProviders({ children }) {
                     <Toaster
                         position="bottom-right"
                         toastOptions={{
-                            style: { background: '#111', color: '#fff', border: '1px solid #333', fontSize: '14px' },
-                            success: { iconTheme: { primary: '#EB2628', secondary: '#fff' } }
+                            style: { background: '#1C1C1F', color: '#F8F9FA', border: '1px solid #2A2A2F', fontSize: '14px', borderRadius: '8px' },
+                            success: { iconTheme: { primary: '#E63027', secondary: '#F8F9FA' } },
+                            error: { iconTheme: { primary: '#E63027', secondary: '#F8F9FA' } }
                         }}
                     />
                 </AuthProvider>

@@ -44,21 +44,11 @@ const Footer = () => {
 
       <style>{`
         .footer {
-          background: linear-gradient(to top, rgba(0,0,0,0.95) 0%, transparent 100%);
-          backdrop-filter: blur(10px);
-          -webkit-backdrop-filter: blur(10px);
+          background-color: var(--c-carbon);
           padding: 4rem 0 2rem;
           margin-top: auto;
           position: relative;
-          border-top: 1px solid rgba(255,255,255,0.03);
-        }
-        
-        .footer::before {
-            content: '';
-            position: absolute;
-            top: 0; left: 0; right: 0;
-            height: 1px;
-            background: linear-gradient(90deg, transparent, rgba(235, 38, 40, 0.4), transparent);
+          border-top: var(--border-thin);
         }
 
         .footer-grid {
@@ -85,24 +75,26 @@ const Footer = () => {
         }
 
         .footer-col h3 {
-          color: white;
+          color: var(--c-ivory);
           margin-bottom: 1rem;
           font-size: 1.5rem;
+          font-family: var(--font-title);
           font-weight: 900;
           letter-spacing: -0.02em;
         }
 
         .footer-col h4 {
-          color: white;
+          color: var(--c-ivory);
           margin-bottom: 1.25rem;
           font-size: 1.1rem;
+          font-family: var(--font-title);
           font-weight: 700;
           text-transform: uppercase;
           letter-spacing: 0.05em;
         }
 
         .footer-col p, .footer-col a, .contact-item span {
-          color: #999;
+          color: var(--c-ivory-muted);
           font-size: 0.95rem;
           line-height: 1.6;
           display: block;
@@ -114,7 +106,7 @@ const Footer = () => {
         }
 
         .footer-col a:hover {
-          color: white;
+          color: var(--c-ivory);
           transform: translateX(5px);
         }
         
@@ -147,7 +139,7 @@ const Footer = () => {
         }
 
         .footer-bottom p {
-          color: #666;
+          color: var(--c-ivory-muted);
           font-size: 0.85rem;
         }
       `}</style>
