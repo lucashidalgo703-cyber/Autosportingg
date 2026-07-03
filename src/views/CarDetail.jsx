@@ -167,25 +167,6 @@ const CarDetail = () => {
         }
     };
 
-    if (loading) {
-        return (
-            <div className="not-found">
-                <div className="animate-pulse" style={{ color: 'var(--color-primary)', fontSize: '1.2rem', fontWeight: 'bold' }}>Cargando especificaciones...</div>
-            </div>
-        );
-    }
-
-    if (!car) {
-        return (
-            <div className="not-found">
-                <h2>Vehículo no encontrado</h2>
-                <Link href="/catalogo" className="btn btn-primary">
-                    <ArrowLeft size={20} /> Volver al catálogo
-                </Link>
-            </div>
-        );
-    }
-
     const jsonLd = React.useMemo(() => {
         if (!car) return null;
 
@@ -233,6 +214,27 @@ const CarDetail = () => {
 
         return cleanEmpty(schema);
     }, [car]);
+
+    if (loading) {
+        return (
+            <div className="not-found">
+                <div className="animate-pulse" style={{ color: 'var(--color-primary)', fontSize: '1.2rem', fontWeight: 'bold' }}>Cargando especificaciones...</div>
+            </div>
+        );
+    }
+
+    if (!car) {
+        return (
+            <div className="not-found">
+                <h2>Vehículo no encontrado</h2>
+                <Link href="/catalogo" className="btn btn-primary">
+                    <ArrowLeft size={20} /> Volver al catálogo
+                </Link>
+            </div>
+        );
+    }
+
+
 
     const currentImg = activeImage || car.coverImage || (car.images && car.images[0]);
 

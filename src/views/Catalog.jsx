@@ -51,7 +51,10 @@ const Catalog = () => {
     const brands = useMemo(() => {
         // Normalize brands: trim whitespace and Capitalize first letter
         const normalized = cars.map(car => {
-            const trimmed = car.brand.trim();
+            let trimmed = car.brand.trim();
+            if (trimmed.toLowerCase() === 'volskwagen' || trimmed.toLowerCase() === 'vokswagen') {
+                trimmed = 'Volkswagen';
+            }
             return trimmed.charAt(0).toUpperCase() + trimmed.slice(1).toLowerCase();
         });
         return [...new Set(normalized)].sort();
@@ -68,18 +71,22 @@ const Catalog = () => {
                 car.brand.toLowerCase().includes(filters.search.toLowerCase());
 
             // Normalize car brand for comparison
-            const carBrandNormalized = car.brand.trim().charAt(0).toUpperCase() + car.brand.trim().slice(1).toLowerCase();
+            let carBrandNormalized = car.brand.trim();
+            if (carBrandNormalized.toLowerCase() === 'volskwagen' || carBrandNormalized.toLowerCase() === 'vokswagen') {
+                carBrandNormalized = 'Volkswagen';
+            }
+            carBrandNormalized = carBrandNormalized.charAt(0).toUpperCase() + carBrandNormalized.slice(1).toLowerCase();
             const matchesBrand = filters.brand === '' || carBrandNormalized === filters.brand;
             const matchesYear = filters.year === '' || car.year.toString() === filters.year;
 
             // Type/Category match
             let matchesType = true;
             if (filters.type === '0km') {
-                matchesType = car.condition === '0km' || car.km === 0;
+                matchesType = car.condition === '0km' || car.km === 0 || car.condition === 'Nuevo';
             } else if (filters.type) {
-                // If the car has a 'type' property in DB, match it. 
-                // Otherwise, we might need to infer it or just ignore if data is missing.
-                matchesType = car.type === filters.type || car.category === filters.type;
+                matchesType = (car.vehicleType && car.vehicleType.toLowerCase() === filters.type.toLowerCase()) || 
+                              (car.type && car.type.toLowerCase() === filters.type.toLowerCase()) ||
+                              (car.category && car.category.toLowerCase() === filters.type.toLowerCase());
             }
 
             let matchesCondition = true;

@@ -41,7 +41,7 @@ const Home = () => {
     <div className="home-container">
       <Hero />
 
-      <CategoryNav />
+      <CategoryNav cars={cars} />
 
       <motion.section
         className="featured container section-padding"

@@ -11,7 +11,27 @@ const categories = [
   { id: '0km', label: '0 KM', icon: <Gauge size={32} />, color: '#EB2628' },
 ];
 
-const CategoryNav = () => {
+const CategoryNav = ({ cars = [] }) => {
+  const activeCategories = React.useMemo(() => {
+    // Si no hay autos cargados aún (o es null), mostramos todas las categorías por defecto
+    // o podríamos retornar vacío. Mostraremos todas para evitar flickering si loading es lento,
+    // o mejor solo las activas si cars.length > 0.
+    if (!cars || cars.length === 0) return categories;
+
+    return categories.filter(cat => {
+      return cars.some(car => {
+        if (cat.id === '0km') {
+          return car.condition === '0km' || car.km === 0 || car.condition === 'Nuevo';
+        }
+        return (car.vehicleType && car.vehicleType.toLowerCase() === cat.id.toLowerCase()) || 
+               (car.type && car.type.toLowerCase() === cat.id.toLowerCase()) ||
+               (car.category && car.category.toLowerCase() === cat.id.toLowerCase());
+      });
+    });
+  }, [cars]);
+
+  if (activeCategories.length === 0) return null;
+
   return (
     <section className="category-nav container section-padding">
       <div className="section-header mb-12 text-center md:text-left">
@@ -25,7 +45,7 @@ const CategoryNav = () => {
       </div>
 
       <div className="category-grid">
-        {categories.map((cat, index) => (
+        {activeCategories.map((cat, index) => (
           <motion.div
             key={cat.id}
             initial={{ opacity: 0, y: 20 }}

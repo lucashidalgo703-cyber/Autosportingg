@@ -3,14 +3,12 @@ import { useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import Image from 'next/image';
-import { Menu, X, LogOut, Heart } from 'lucide-react';
-import { useAuth } from '../context/AuthContext';
+import { Menu, X, Heart } from 'lucide-react';
 import { useFavorites } from '../context/FavoritesContext';
 import { motion, AnimatePresence } from 'framer-motion';
 
 const Navbar = () => {
   const [isOpen, setIsOpen] = useState(false);
-  const { isAuthenticated, logout } = useAuth();
   const { favorites } = useFavorites();
   const pathname = usePathname();
 
@@ -62,14 +60,6 @@ const Navbar = () => {
             )}
           </Link>
 
-          {isAuthenticated && (
-            <>
-              <Link href="/admin" className={`nav-link ${isActive('/admin') ? 'text-primary' : ''}`}>Admin</Link>
-              <button onClick={logout} className="nav-link btn-logout">
-                <LogOut size={18} />
-              </button>
-            </>
-          )}
         </nav>
 
         {/* Mobile Menu Toggle */}
@@ -113,15 +103,6 @@ const Navbar = () => {
                   )}
                 </Link>
               </motion.div>
-
-              {isAuthenticated && (
-                <motion.div variants={itemVariants}>
-                  <Link href="/admin" onClick={() => setIsOpen(false)} style={{ color: '#EB2628', fontWeight: '700' }}>Admin</Link>
-                  <button onClick={() => { logout(); setIsOpen(false); }} className="mobile-logout">
-                    Cerrar Sesión
-                  </button>
-                </motion.div>
-              )}
             </motion.div>
           )}
         </AnimatePresence>
