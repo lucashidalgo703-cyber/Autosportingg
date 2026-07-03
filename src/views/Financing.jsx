@@ -19,8 +19,9 @@ const Financing = () => {
     const [amount, setAmount] = useState(5000000);
     const [term, setTerm] = useState(24);
     
-    // Configurable DEMO values
-    const MONTHLY_RATE = 0.045; // 4.5% nominal demo rate
+    // Configuración BNA +Autos (Aprox 38% TNA)
+    const TNA = 0.38; 
+    const MONTHLY_RATE = TNA / 12;
 
     // Basic Amortization Formula (French System approximation)
     const calculateQuota = () => {
@@ -167,22 +168,22 @@ const Financing = () => {
                                         id="amountRange"
                                         type="range" 
                                         min="1000000" 
-                                        max="20000000" 
-                                        step="100000" 
+                                        max="100000000" 
+                                        step="500000" 
                                         value={amount} 
                                         onChange={(e) => setAmount(Number(e.target.value))} 
                                         className="range-slider"
                                     />
                                     <div className="range-limits">
                                         <span>$1.000.000</span>
-                                        <span>$20.000.000</span>
+                                        <span>$100.000.000</span>
                                     </div>
                                 </div>
 
                                 <div className="input-group">
-                                    <label>Plazo (Meses)</label>
+                                    <label>Plazo (Meses) - Banco Nación +Autos</label>
                                     <div className="term-selector">
-                                        {[12, 18, 24, 36, 48].map(t => (
+                                        {[12, 24, 36, 48, 60, 72].map(t => (
                                             <button 
                                                 key={t} 
                                                 className={`term-btn ${term === t ? 'active' : ''}`}
