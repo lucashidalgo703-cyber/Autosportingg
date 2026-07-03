@@ -102,8 +102,8 @@ const CarCard = ({ car }) => {
         </div>
 
         <div className="card-footer">
-            <div className="card-price">
-                {formatPrice(car.price, car.currency)}
+            <div className="card-price" style={{ fontSize: '1.1rem', color: 'var(--c-accent-red)' }}>
+                Consultar Precio
             </div>
             <Link href={`/auto/${carId}`} className="btn-ver-detalle">
                 Ver detalle
