@@ -592,8 +592,8 @@ const CarDetail = () => {
 
                 @media (min-width: 1024px) {
                     .detail-grid {
-                        grid-template-columns: 3fr 2fr;
-                        gap: var(--space-10);
+                        grid-template-columns: 1fr 1fr;
+                        gap: var(--space-8);
                         align-items: flex-start;
                     }
                 }
@@ -602,7 +602,7 @@ const CarDetail = () => {
                 .main-image-container {
                     position: relative;
                     width: 100%;
-                    aspect-ratio: 16/10;
+                    aspect-ratio: 4/3;
                     background-color: var(--c-carbon);
                     border-radius: var(--radius-lg);
                     overflow: hidden;
@@ -902,13 +902,24 @@ const CarDetail = () => {
 
                 .lightbox-close {
                     position: absolute;
-                    top: var(--space-5);
-                    right: var(--space-5);
+                    top: 2rem;
+                    right: 2rem;
                     color: white;
-                    background: none;
+                    background: rgba(0,0,0,0.5);
+                    border-radius: 50%;
+                    width: 48px;
+                    height: 48px;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
                     border: none;
                     cursor: pointer;
-                    z-index: 10;
+                    z-index: 100;
+                    transition: background 0.2s ease;
+                }
+                
+                .lightbox-close:hover {
+                    background: rgba(0,0,0,0.8);
                 }
 
                 .lightbox-nav {
