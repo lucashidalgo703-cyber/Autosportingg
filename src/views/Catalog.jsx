@@ -348,7 +348,7 @@ const CatalogContent = () => {
                     gap: var(--space-4);
                 }
 
-                @media (min-width: 640px) {
+                @media (min-width: 720px) {
                     .cars-grid {
                         grid-template-columns: repeat(2, 1fr);
                         gap: var(--space-5);
@@ -385,7 +385,7 @@ const CatalogContent = () => {
 
                 .skeleton-img {
                     width: 100%;
-                    aspect-ratio: 16/10;
+                    aspect-ratio: 4/3;
                     background: linear-gradient(90deg, var(--c-carbon) 25%, var(--c-graphite-light) 50%, var(--c-carbon) 75%);
                     background-size: 200% 100%;
                     animation: loading 1.5s infinite;

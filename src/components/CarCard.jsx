@@ -47,15 +47,14 @@ const CarCard = ({ car }) => {
   return (
     <div className={`car-card group ${isSold ? 'car-sold' : ''}`}>
       <div className="card-image-wrapper">
-        <Link href={`/auto/${carId}`} tabIndex="-1" className="block relative w-full">
+        <Link href={`/auto/${carId}`} tabIndex="-1" className="vehicle-image-link">
             <Image
             src={getOptimizedImageUrl(car.coverImage || (car.images && car.images[0]) || car.image, 600) || '/placeholder.png'}
             alt={`${car.brand} ${car.name}`}
-            width={800}
-            height={800}
-            sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+            fill
+            sizes="(max-width: 720px) 100vw, (max-width: 1100px) 50vw, 33vw"
             className="card-image"
-            style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: car.imagePosition || 'center bottom' }}
+            style={{ objectFit: 'cover', objectPosition: car.imagePosition || '50% 72%' }}
             unoptimized
             />
         </Link>
@@ -147,11 +146,22 @@ const CarCard = ({ car }) => {
                 position: relative;
                 width: 100%;
                 aspect-ratio: 4/3;
-                background-color: transparent;
+                background-color: var(--c-carbon);
                 overflow: hidden;
             }
 
+            .vehicle-image-link {
+                position: absolute;
+                inset: 0;
+                display: block;
+                width: 100%;
+                height: 100%;
+            }
+
             .card-image {
+                position: absolute;
+                inset: 0;
+                display: block;
                 width: 100%;
                 height: 100%;
                 object-fit: cover;
