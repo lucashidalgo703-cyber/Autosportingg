@@ -8,9 +8,6 @@ const categories = [
   { id: 'Pickup', label: 'Pickups', icon: <ShieldCheck size={32} /> },
   { id: 'Sedan', label: 'Sedanes', icon: <Car size={32} /> },
   { id: 'Hatchback', label: 'Hatchbacks', icon: <Zap size={32} /> },
-  { id: 'Utilitario', label: 'Utilitarios', icon: <Briefcase size={32} /> },
-  { id: 'Deportivo', label: 'Deportivos', icon: <Flag size={32} /> },
-  { id: 'Familiar', label: 'Familiares', icon: <Users size={32} /> },
   { id: '0km', label: '0 KM', icon: <Gauge size={32} /> },
 ];
 
