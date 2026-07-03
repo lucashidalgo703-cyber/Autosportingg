@@ -1,3 +1,4 @@
+import AnalyticsEvent from './src/models/AnalyticsEvent.js';
 import CustomerVehicle from './src/models/CustomerVehicle.js';
 import WorkshopProvider from './src/models/WorkshopProvider.js';
 import WorkshopOrder, { canTransition } from './src/models/WorkshopOrder.js';
@@ -2299,12 +2300,39 @@ app.patch('/api/admin/leads/:id/tasks/:taskId', authenticateToken, requireAnyPer
     }
 });
 
+// --- ANALYTICS ROUTES (PUBLIC) ---
+app.post('/api/public/analytics/events', async (req, res) => {
+    try {
+        const { sessionId, event, path, metadata, utmSource, utmMedium, utmCampaign, vehicleId } = req.body;
+        if (!sessionId || !event) return res.status(400).json({ error: 'Missing required fields' });
+        
+        const parsedVehicleId = vehicleId && /^[0-9a-fA-F]{24}$/.test(String(vehicleId)) ? vehicleId : null;
+
+        const newEvent = new AnalyticsEvent({
+            sessionId,
+            event,
+            path,
+            vehicleId: parsedVehicleId,
+            metadata: metadata || {},
+            utmSource,
+            utmMedium,
+            utmCampaign,
+            timestamp: new Date()
+        });
+        await newEvent.save();
+        res.status(201).json({ success: true });
+    } catch (error) {
+        console.error('Analytics Error:', error.message);
+        res.status(500).json({ error: 'Internal Server Error' });
+    }
+});
+
 // --- LEADS ROUTES (LEGACY) ---
 
 // POST new lead from public website (No Authentication Required)
 app.post('/api/leads/public', async (req, res) => {
     try {
-        const { name, phone, message, vehicleId, email, sourceDetail } = req.body;
+        const { name, phone, message, vehicleId, email, sourceDetail, utmSource, utmMedium, utmCampaign, pageUrl } = req.body;
 
         // Basic validations
         if (!name || !phone) return res.status(400).json({ message: 'Name and phone are required' });
@@ -2316,9 +2344,6 @@ app.post('/api/leads/public', async (req, res) => {
         const sanitizedEmail = email ? String(email).substring(0, 100).trim() : undefined;
         const sanitizedMessage = message ? String(message).substring(0, 1000).trim() : undefined;
 
-        // Note legacy array
-        const notes = sanitizedMessage ? [{ text: `Mensaje web: ${sanitizedMessage}`, date: new Date() }] : [];
-
         // Vehicle Validation
         let parsedVehicleId = undefined;
         if (vehicleId) {
@@ -2327,25 +2352,60 @@ app.post('/api/leads/public', async (req, res) => {
                 parsedVehicleId = vehicleId;
             } else {
                 console.warn('Invalid vehicleId received on public lead endpoint:', vehicleId);
-                // We ignore invalid vehicleId to not lose the lead
             }
         }
 
-        // V2 Fields
+        const allowedSourceDetails = ["contact_form", "vehicle_detail_whatsapp", "financing_whatsapp", "manual_crm", "unknown"];
+        const finalSourceDetail = allowedSourceDetails.includes(sourceDetail) ? sourceDetail : "unknown";
+
+        // Idempotency / Deduplication Logic
+        // Check if a lead with the same phone was created in the last 48 hours
+        const fortyEightHoursAgo = new Date(Date.now() - 48 * 60 * 60 * 1000);
+        const existingLead = await Lead.findOne({
+            phoneNormalized: phoneNormalized,
+            createdAt: { $gte: fortyEightHoursAgo }
+        }).sort({ createdAt: -1 });
+
+        if (existingLead) {
+            // Merge logic: append note, update utms if they were empty, update lastActivityAt
+            const appendText = `[NUEVA CONSULTA - IDEMPOTENCIA]\nOrigen: ${finalSourceDetail}\nVehículo ID: ${parsedVehicleId || 'N/A'}\nMensaje: ${sanitizedMessage || 'Sin mensaje'}\nUTM Source: ${utmSource || 'N/A'}\nURL: ${pageUrl || 'N/A'}`;
+            existingLead.notes.push({ text: appendText, date: new Date() });
+            existingLead.lastActivityAt = new Date();
+            
+            if (!existingLead.utmSource && utmSource) existingLead.utmSource = utmSource;
+            if (!existingLead.utmMedium && utmMedium) existingLead.utmMedium = utmMedium;
+            if (!existingLead.utmCampaign && utmCampaign) existingLead.utmCampaign = utmCampaign;
+            if (!existingLead.pageUrl && pageUrl) existingLead.pageUrl = pageUrl;
+
+            existingLead.leadAuditLog.push({
+                action: 'CONSULTA_DUPLICADA_MERGE',
+                field: 'notes',
+                details: 'Se fusionó una nueva consulta del mismo cliente dentro de las 48hs.',
+                user: 'Web Pública',
+                source: 'CRM_V2'
+            });
+
+            await existingLead.save();
+
+            return res.status(200).json({
+                success: true,
+                message: 'Consulta recibida y agrupada'
+            });
+        }
+
+        // Proceed with creating new Lead
+        const notes = sanitizedMessage ? [{ text: `Mensaje web: ${sanitizedMessage}`, date: new Date() }] : [];
         const crmStatus = 'nuevo';
         const priority = 'media';
         const source = 'web'; // Must match Enum
-
-        const allowedSourceDetails = ["contact_form", "vehicle_detail_whatsapp", "financing_whatsapp", "manual_crm", "unknown"];
-        const finalSourceDetail = allowedSourceDetails.includes(sourceDetail) ? sourceDetail : "unknown";
 
         // Audit log
         const leadAuditLog = [{
             action: 'CREACION_WEB',
             field: 'lead',
-            details: 'Lead creado desde formulario web p├║blico',
+            details: 'Lead creado desde formulario web público',
             date: new Date(),
-            user: 'Web P├║blica',
+            user: 'Web Pública',
             source: 'CRM_V2'
         }];
 
@@ -2374,13 +2434,17 @@ app.post('/api/leads/public', async (req, res) => {
             phoneNormalized: phoneNormalized,
             email: sanitizedEmail,
             emailNormalized: sanitizedEmail ? sanitizedEmail.toLowerCase() : undefined,
-            pipelineStage: 'Nuevo Contacto', // Legacy support
+            pipelineStage: 'Nuevo Contacto',
             vehicleId: parsedVehicleId,
             notes: notes,
             crmStatus: crmStatus,
             priority: priority,
             source: source,
             sourceDetail: finalSourceDetail,
+            pageUrl: pageUrl,
+            utmSource: utmSource,
+            utmMedium: utmMedium,
+            utmCampaign: utmCampaign,
             leadAuditLog: leadAuditLog,
             assignedTo: automaticAssignment?.user?._id || null,
             assignedAt: automaticAssignment?.assignedAt || null,

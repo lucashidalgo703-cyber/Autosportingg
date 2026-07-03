@@ -3,6 +3,7 @@ import React, { useState } from 'react';
 import Head from 'next/head';
 import { MapPin, Phone, Mail, Clock, Send, ShieldCheck, AlertCircle } from 'lucide-react';
 import { motion } from 'framer-motion';
+import { trackEvent } from '../lib/analytics';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
 const baseUrl = process.env.NODE_ENV === 'production' ? '' : API_URL;
@@ -14,15 +15,17 @@ const Contact = () => {
         phone: '',
         subject: 'Consulta General',
         message: '',
-        honeypot: '' // Anti-spam field
+        honeypot: '',
+        consent: false
     });
 
     const [status, setStatus] = useState('idle'); // idle, submitting, success, error
 
     const handleChange = (e) => {
+        const { name, value, type, checked } = e.target;
         setFormData({
             ...formData,
-            [e.target.name]: e.target.value
+            [name]: type === 'checkbox' ? checked : value
         });
     };
 
@@ -32,12 +35,18 @@ const Contact = () => {
         // Spam prevention (Honeypot)
         if (formData.honeypot) {
             console.warn("Spam detected");
-            setStatus('success'); // Fake success for bots
+            setStatus('success');
+            return;
+        }
+
+        if (!formData.consent) {
+            alert('Debes aceptar los términos y condiciones');
             return;
         }
 
         if (status === 'submitting') return;
         setStatus('submitting');
+        trackEvent('submit_lead', { intent: formData.subject });
 
         try {
             const urlParams = new URLSearchParams(window.location.search);
@@ -65,14 +74,17 @@ const Contact = () => {
             });
 
             if (response.ok) {
+                trackEvent('lead_success', { intent: formData.subject });
                 setStatus('success');
-                setFormData({ name: '', email: '', phone: '', subject: 'Consulta General', message: '', honeypot: '' });
+                setFormData({ name: '', email: '', phone: '', subject: 'Consulta General', message: '', honeypot: '', consent: false });
                 setTimeout(() => setStatus('idle'), 5000);
             } else {
+                trackEvent('lead_error', { intent: formData.subject, error: 'HTTP Not OK' });
                 throw new Error('Error en el servidor');
             }
         } catch (error) {
             console.error("Error submitting form:", error);
+            trackEvent('lead_error', { intent: formData.subject, error: error.message });
             setStatus('error');
             setTimeout(() => setStatus('idle'), 5000);
         }

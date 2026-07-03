@@ -6,6 +6,7 @@ import CarCard from '../components/CarCard';
 import { useCars } from '../hooks/useCars';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ChevronLeft, ChevronRight, XCircle } from 'lucide-react';
+import { trackEvent } from '../lib/analytics';
 
 const CatalogContent = () => {
     const { cars, loading, error } = useCars();
@@ -49,6 +50,15 @@ const CatalogContent = () => {
         // Reset page on any filter change
         params.delete('page');
         
+        // Analytics
+        if (name === 'search' && value) {
+            trackEvent('search_inventory', { query: value });
+        } else if (name !== 'reset') {
+            trackEvent('apply_filter', { filterName: name, filterValue: value });
+        } else {
+            trackEvent('apply_filter', { filterName: 'reset_all' });
+        }
+
         router.push(`/catalogo?${params.toString()}`, { scroll: false });
     };
 

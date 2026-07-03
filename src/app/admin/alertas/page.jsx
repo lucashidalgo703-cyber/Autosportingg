@@ -314,6 +314,23 @@ export default function AdminAlertasPage() {
         const pendingTasks = data.tasks.filter((task) => isPending(task.status));
         const activeSales = data.sales.filter((sale) => !['entregada', 'cancelada', 'borrador'].includes(String(sale.status || '').toLowerCase()));
         const activeLeads = data.leads.filter((lead) => !['perdido', 'convertido'].includes(String(lead.crmStatus || '').toLowerCase()));
+        
+        // Missing photos alert for active cars
+        const carsWithoutPhotos = data.cars.filter((car) => isActiveVehicle(car.status) && (!car.images || car.images.length === 0));
+        carsWithoutPhotos.forEach((car) => {
+            items.push({
+                id: `car-no-photos-${car._id || car.id}`,
+                category: 'Alta',
+                title: `📷 Faltan fotos: ${car.brand} ${car.name}`,
+                description: 'El vehículo está publicado o disponible pero no tiene imágenes cargadas.',
+                href: `/admin/stock`, // Can also link to edit modal if route existed
+                action: 'Subir Fotos',
+                badge: 'Crítico',
+                icon: FileWarning,
+                owner: 'Sistema',
+                date: null
+            });
+        });
 
         pendingTasks
             .filter((task) => {

@@ -4,6 +4,7 @@ import Head from 'next/head';
 import { motion } from 'framer-motion';
 import { Calculator, Landmark, ShieldCheck, FileText, CheckCircle2, AlertTriangle } from 'lucide-react';
 import Link from 'next/link';
+import { trackEvent } from '../lib/analytics';
 
 const formatCurrency = (value) => {
     return new Intl.NumberFormat('es-AR', {
@@ -30,6 +31,10 @@ const Financing = () => {
     };
 
     const estimatedQuota = calculateQuota();
+
+    const handleCtaClick = () => {
+        trackEvent('click_financing_consultation', { amount, term });
+    };
 
     return (
         <>

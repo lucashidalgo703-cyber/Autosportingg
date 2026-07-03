@@ -10,6 +10,8 @@ import FAQ from '../components/FAQ';
 import Link from 'next/link';
 import { useCars } from '../hooks/useCars';
 import { motion } from 'framer-motion';
+import { trackEvent } from '../lib/analytics';
+import { useEffect } from 'react';
 
 const sectionVariants = {
   hidden: { opacity: 0, y: 40 },
@@ -21,6 +23,10 @@ const sectionVariants = {
 
 const Home = () => {
   const { cars, loading } = useCars();
+
+  useEffect(() => {
+    trackEvent('view_home');
+  }, []);
 
   const featuredCars = cars.filter(car => car.featured || car.year > 2020).slice(0, 8);
 

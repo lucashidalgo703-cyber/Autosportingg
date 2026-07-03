@@ -3,6 +3,7 @@ import React, { useState } from 'react';
 import Head from 'next/head';
 import { motion } from 'framer-motion';
 import { CarFront, User, FileText, Send, ShieldCheck, AlertCircle, Camera } from 'lucide-react';
+import { trackEvent } from '../lib/analytics';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
 const baseUrl = process.env.NODE_ENV === 'production' ? '' : API_URL;
@@ -44,6 +45,7 @@ const Quote = () => {
 
         if (status === 'submitting') return;
         setStatus('submitting');
+        trackEvent('tradein_submit', { intent: 'Cotizar Usado', vehicle: `${formData.brand} ${formData.model}` });
 
         try {
             const urlParams = new URLSearchParams(window.location.search);
@@ -73,13 +75,16 @@ const Quote = () => {
             });
 
             if (response.ok) {
+                trackEvent('lead_success', { intent: 'Cotizar Usado' });
                 setStatus('success');
                 window.scrollTo({ top: 0, behavior: 'smooth' });
             } else {
+                trackEvent('lead_error', { intent: 'Cotizar Usado', error: 'HTTP Not OK' });
                 throw new Error('Error en el servidor');
             }
         } catch (error) {
             console.error("Error submitting quote:", error);
+            trackEvent('lead_error', { intent: 'Cotizar Usado', error: error.message });
             setStatus('error');
             setTimeout(() => setStatus('idle'), 5000);
         }

@@ -7,6 +7,7 @@ import { ArrowLeft, Calendar, Gauge, Fuel, Maximize2, X, ChevronLeft, ChevronRig
 import { useCars } from '../hooks/useCars';
 import { getOptimizedImageUrl } from '../lib/cloudinaryUtils';
 import { useFavorites } from '../context/FavoritesContext';
+import { trackEvent } from '../lib/analytics';
 import Image from 'next/image';
 import { motion, AnimatePresence } from 'framer-motion';
 import CarCard from '../components/CarCard'; // For similar cars
@@ -63,6 +64,7 @@ const CarDetail = () => {
                     const data = await response.json();
                     setCar(data);
                     setActiveImage(data.coverImage || (data.images && data.images[0]) || data.image);
+                    trackEvent('view_vehicle', { brand: data.brand, name: data.name }, data._id || data.id);
                 } else {
                     setError(true);
                 }
@@ -118,10 +120,12 @@ const CarDetail = () => {
     };
 
     const getWhatsAppUrl = () => {
+        trackEvent('click_whatsapp', { intent: 'Asesoramiento General' }, car?._id || car?.id);
         return `https://wa.me/5492974045378?text=${encodeURIComponent(`Hola AutoSporting, estoy interesado en el ${car?.brand} ${car?.name} ${car?.year} (ID: ${car?.internalId || id}). Link: ${window.location.href}`)}`;
     };
 
     const openForm = (intent) => {
+        trackEvent('start_lead', { intent }, car?._id || car?.id);
         setCaptureIntent(intent);
         setShowCaptureModal(true);
         setSubmitSuccess(false);
@@ -131,6 +135,7 @@ const CarDetail = () => {
         e.preventDefault();
         if (isCapturing) return; // Prevent double submit
         setIsCapturing(true);
+        trackEvent('submit_lead', { intent: captureIntent }, car?._id || car?.id);
 
         try {
             const urlParams = new URLSearchParams(window.location.search);
@@ -153,6 +158,7 @@ const CarDetail = () => {
                     consent: true
                 })
             });
+            trackEvent('lead_success', { intent: captureIntent }, car?._id || car?.id);
             setSubmitSuccess(true);
             setTimeout(() => {
                 setShowCaptureModal(false);
@@ -160,6 +166,7 @@ const CarDetail = () => {
             }, 3000);
         } catch (error) {
             console.error("Error submitting lead:", error);
+            trackEvent('lead_error', { intent: captureIntent, error: error.message }, car?._id || car?.id);
             alert("Ocurrió un error al enviar tu consulta. Por favor, intentá nuevamente o contactanos por WhatsApp.");
         } finally {
             setIsCapturing(false);

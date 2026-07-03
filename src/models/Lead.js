@@ -69,6 +69,10 @@ const leadSchema = new mongoose.Schema({
         enum: ['web', 'whatsapp', 'instagram', 'local', 'referido', 'mercadolibre', 'otro'], 
         default: 'otro' 
     },
+    pageUrl: { type: String },
+    utmSource: { type: String },
+    utmMedium: { type: String },
+    utmCampaign: { type: String },
     sourceDetail: {
         type: String,
         enum: [
