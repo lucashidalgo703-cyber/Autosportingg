@@ -48,7 +48,7 @@ const About = () => {
                             viewport={{ once: true }}
                         >
                             <Image 
-                                src="/agencia-autosporting.jpg" 
+                                src="/agencia-autosporting.png" 
                                 alt="Concesionaria AutoSporting"
                                 fill
                                 className="object-cover rounded-[var(--radius-lg)]"
