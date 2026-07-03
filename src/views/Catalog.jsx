@@ -1,83 +1,104 @@
-import { useState, useMemo, useEffect } from 'react';
-import { useSearchParams } from 'next/navigation';
+"use client";
+import { useState, useMemo, useEffect, Suspense } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import SmartFilters from '../components/SmartFilters';
 import CarCard from '../components/CarCard';
 import { useCars } from '../hooks/useCars';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ChevronLeft, ChevronRight } from 'lucide-react';
+import { ChevronLeft, ChevronRight, XCircle } from 'lucide-react';
 
-const Catalog = () => {
-    const { cars, loading } = useCars();
+const CatalogContent = () => {
+    const { cars, loading, error } = useCars();
+    const router = useRouter();
     const searchParams = useSearchParams();
-    const typeParam = searchParams.get('type');
 
-    const [filters, setFilters] = useState({
-        search: '',
-        brand: '',
-        year: '',
-        condition: '',
-        type: typeParam || '',
-        sortBy: ''
-    });
-    const [currentPage, setCurrentPage] = useState(1);
+    // Read filters from URL
+    const filters = useMemo(() => {
+        return {
+            search: searchParams.get('search') || '',
+            brand: searchParams.get('brand') || '',
+            year: searchParams.get('year') || '',
+            condition: searchParams.get('condition') || '',
+            type: searchParams.get('type') || '',
+            transmission: searchParams.get('transmission') || '',
+            fuel: searchParams.get('fuel') || '',
+            sortBy: searchParams.get('sortBy') || ''
+        };
+    }, [searchParams]);
+
+    const currentPage = parseInt(searchParams.get('page')) || 1;
     const itemsPerPage = 9;
 
-    // Sync type filter if URL param changes
-    useEffect(() => {
-        if (typeParam) {
-            setFilters(prev => ({ ...prev, type: typeParam }));
-        }
-    }, [typeParam]);
-
     const handleFilterChange = (name, value) => {
+        const params = new URLSearchParams(searchParams);
+        
         if (name === 'reset') {
-            setFilters({ search: '', brand: '', year: '', condition: '', type: '', sortBy: '' });
+            const currentType = params.get('type');
+            // Keep type if we came from CategoryNav, or just clear all? Let's clear all.
+            params.forEach((_, key) => {
+                params.delete(key);
+            });
         } else {
-            setFilters(prev => ({
-                ...prev,
-                [name]: value
-            }));
+            if (value) {
+                params.set(name, value);
+            } else {
+                params.delete(name);
+            }
         }
-        setCurrentPage(1); // Reset to first page on filter change
+        
+        // Reset page on any filter change
+        params.delete('page');
+        
+        router.push(`/catalogo?${params.toString()}`, { scroll: false });
     };
 
     const handlePageChange = (page) => {
-        setCurrentPage(page);
-        // Smooth scroll to top of catalog
-        window.scrollTo({ top: 0, behavior: 'smooth' });
+        const params = new URLSearchParams(searchParams);
+        params.set('page', page);
+        router.push(`/catalogo?${params.toString()}`, { scroll: true });
     };
 
-    // Derived lists for filter options
+    // Derived lists for filter options (Dynamic)
     const brands = useMemo(() => {
-        // Normalize brands: trim whitespace and Capitalize first letter
         const normalized = cars.map(car => {
-            let trimmed = car.brand.trim();
+            let trimmed = (car.brand || '').trim();
             if (trimmed.toLowerCase() === 'volskwagen' || trimmed.toLowerCase() === 'vokswagen') {
                 trimmed = 'Volkswagen';
             }
-            return trimmed.charAt(0).toUpperCase() + trimmed.slice(1).toLowerCase();
-        });
+            return trimmed ? trimmed.charAt(0).toUpperCase() + trimmed.slice(1).toLowerCase() : '';
+        }).filter(Boolean);
         return [...new Set(normalized)].sort();
     }, [cars]);
 
     const years = useMemo(() => {
-        return [...new Set(cars.map(car => car.year))].sort((a, b) => b - a);
+        return [...new Set(cars.map(car => car.year).filter(Boolean))].sort((a, b) => b - a);
+    }, [cars]);
+
+    const transmissions = useMemo(() => {
+        return [...new Set(cars.map(car => car.transmission).filter(Boolean))].sort();
+    }, [cars]);
+
+    const fuels = useMemo(() => {
+        return [...new Set(cars.map(car => car.fuel || car.fuelType).filter(Boolean))].sort();
     }, [cars]);
 
     // Filter and Sort logic
     const filteredCars = useMemo(() => {
         let results = cars.filter(car => {
-            const matchesSearch = car.name.toLowerCase().includes(filters.search.toLowerCase()) ||
-                car.brand.toLowerCase().includes(filters.search.toLowerCase());
+            const matchesSearch = filters.search === '' || 
+                (car.name && car.name.toLowerCase().includes(filters.search.toLowerCase())) ||
+                (car.brand && car.brand.toLowerCase().includes(filters.search.toLowerCase()));
 
             // Normalize car brand for comparison
-            let carBrandNormalized = car.brand.trim();
+            let carBrandNormalized = (car.brand || '').trim();
             if (carBrandNormalized.toLowerCase() === 'volskwagen' || carBrandNormalized.toLowerCase() === 'vokswagen') {
                 carBrandNormalized = 'Volkswagen';
             }
-            carBrandNormalized = carBrandNormalized.charAt(0).toUpperCase() + carBrandNormalized.slice(1).toLowerCase();
+            carBrandNormalized = carBrandNormalized ? carBrandNormalized.charAt(0).toUpperCase() + carBrandNormalized.slice(1).toLowerCase() : '';
             const matchesBrand = filters.brand === '' || carBrandNormalized === filters.brand;
-            const matchesYear = filters.year === '' || car.year.toString() === filters.year;
+            const matchesYear = filters.year === '' || (car.year && car.year.toString() === filters.year);
+            const matchesTrans = filters.transmission === '' || (car.transmission === filters.transmission);
+            const matchesFuel = filters.fuel === '' || (car.fuel === filters.fuel || car.fuelType === filters.fuel);
 
             // Type/Category match
             let matchesType = true;
@@ -91,12 +112,14 @@ const Catalog = () => {
 
             let matchesCondition = true;
             if (filters.condition === 'Nuevo') {
-                matchesCondition = car.condition === 'Nuevo' || car.condition === '0km';
+                matchesCondition = car.condition === 'Nuevo' || car.condition === '0km' || car.km === 0;
+            } else if (filters.condition === 'Usado') {
+                matchesCondition = car.condition !== 'Nuevo' && car.condition !== '0km' && car.km > 0;
             } else if (filters.condition !== '') {
                 matchesCondition = car.condition === filters.condition;
             }
 
-            return matchesSearch && matchesBrand && matchesYear && matchesCondition && matchesType;
+            return matchesSearch && matchesBrand && matchesYear && matchesCondition && matchesType && matchesTrans && matchesFuel;
         });
 
         // Apply Sorting
@@ -108,6 +131,10 @@ const Catalog = () => {
             results.sort((a, b) => (a.km || 0) - (b.km || 0));
         } else if (filters.sortBy === 'km-desc') {
             results.sort((a, b) => (b.km || 0) - (a.km || 0));
+        } else if (filters.sortBy === 'price-asc') {
+            results.sort((a, b) => (a.price || 0) - (b.price || 0));
+        } else if (filters.sortBy === 'price-desc') {
+            results.sort((a, b) => (b.price || 0) - (a.price || 0));
         }
 
         return results;
@@ -119,6 +146,18 @@ const Catalog = () => {
         return filteredCars.slice(start, start + itemsPerPage);
     }, [filteredCars, currentPage, itemsPerPage]);
 
+    // Handle Error Boundary gracefully
+    if (error) {
+        return (
+            <div className="error-state text-center py-20 container">
+                <XCircle size={64} className="text-[var(--c-accent-red)] mx-auto mb-4" />
+                <h2 className="text-2xl font-bold text-white mb-2">Error al cargar el catálogo</h2>
+                <p className="text-[var(--c-ivory-muted)] mb-6">Ocurrió un problema al conectar con el servidor.</p>
+                <button onClick={() => window.location.reload()} className="btn btn-primary">Reintentar</button>
+            </div>
+        );
+    }
+
     return (
         <main className="container page-padding">
             <motion.div
@@ -127,8 +166,8 @@ const Catalog = () => {
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.6 }}
             >
-                <h1>Catálogo de Vehículos</h1>
-                <p>Explorá nuestra selección premium</p>
+                <h1>Catálogo Premium</h1>
+                <p>Encontrá el vehículo ideal para vos</p>
             </motion.div>
 
             <motion.div
@@ -141,43 +180,50 @@ const Catalog = () => {
                     onFilterChange={handleFilterChange}
                     brands={brands}
                     years={years}
+                    transmissions={transmissions}
+                    fuels={fuels}
+                    resultsCount={filteredCars.length}
                 />
             </motion.div>
 
             <div className="cars-grid">
                 {loading ? (
-                    Array.from({ length: 6 }).map((_, i) => (
+                    Array.from({ length: 9 }).map((_, i) => (
                         <div key={`skeleton-${i}`} className="car-skeleton">
                             <div className="skeleton-img"></div>
                             <div className="skeleton-content">
                                 <div className="skeleton-title"></div>
                                 <div className="skeleton-subtitle"></div>
-                                <div className="skeleton-status"></div>
+                                <div className="skeleton-specs"></div>
                                 <div className="skeleton-footer"></div>
                             </div>
                         </div>
                     ))
                 ) : paginatedCars.length > 0 ? (
-                    paginatedCars.map((car, index) => (
-                        <motion.div
-                            key={car._id || car.id}
-                            initial={{ opacity: 0, y: 30 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            exit={{ opacity: 0, scale: 0.95 }}
-                            transition={{ duration: 0.5, delay: (index % itemsPerPage) * 0.05, ease: "easeOut" }}
-                            viewport={{ once: true, amount: 0.1 }}
-                        >
-                            <CarCard car={car} />
-                        </motion.div>
-                    ))
+                    <AnimatePresence mode="popLayout">
+                        {paginatedCars.map((car, index) => (
+                            <motion.div
+                                key={car._id || car.id}
+                                layout
+                                initial={{ opacity: 0, y: 30 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                exit={{ opacity: 0, scale: 0.95 }}
+                                transition={{ duration: 0.4, ease: "easeOut" }}
+                            >
+                                <CarCard car={car} />
+                            </motion.div>
+                        ))}
+                    </AnimatePresence>
                 ) : (
                     <div className="no-results">
-                        <p>No se encontraron vehículos con esos criterios.</p>
+                        <XCircle size={48} className="text-[var(--c-ivory-muted)] mx-auto mb-4 opacity-50" />
+                        <h3 className="text-xl font-bold text-[var(--c-ivory)] mb-2">Sin resultados</h3>
+                        <p className="mb-6">No se encontraron vehículos que coincidan con estos filtros.</p>
                         <button
-                            className="btn-text"
+                            className="btn btn-hero-outline"
                             onClick={() => handleFilterChange('reset')}
                         >
-                            Limpiar filtros
+                            Limpiar todos los filtros
                         </button>
                     </div>
                 )}
@@ -190,7 +236,7 @@ const Catalog = () => {
                         className="pagination-btn"
                         onClick={() => handlePageChange(currentPage - 1)}
                         disabled={currentPage === 1}
-                        title="Anterior"
+                        aria-label="Página Anterior"
                     >
                         <ChevronLeft size={20} />
                     </button>
@@ -198,7 +244,6 @@ const Catalog = () => {
                     <div className="pagination-numbers">
                         {Array.from({ length: totalPages }).map((_, i) => {
                             const pageNum = i + 1;
-                            // Show first, last, and pages around current
                             if (
                                 pageNum === 1 ||
                                 pageNum === totalPages ||
@@ -209,6 +254,8 @@ const Catalog = () => {
                                         key={pageNum}
                                         className={`pagination-number ${currentPage === pageNum ? 'active' : ''}`}
                                         onClick={() => handlePageChange(pageNum)}
+                                        aria-label={`Página ${pageNum}`}
+                                        aria-current={currentPage === pageNum ? "page" : undefined}
                                     >
                                         {pageNum}
                                     </button>
@@ -227,7 +274,7 @@ const Catalog = () => {
                         className="pagination-btn"
                         onClick={() => handlePageChange(currentPage + 1)}
                         disabled={currentPage === totalPages}
-                        title="Siguiente"
+                        aria-label="Siguiente Página"
                     >
                         <ChevronRight size={20} />
                     </button>
@@ -248,187 +295,179 @@ const Catalog = () => {
 
                 .page-header {
                     text-align: center;
-                    margin-bottom: 2.5rem;
+                    margin-bottom: 3rem;
                 }
 
                 .page-header h1 {
-                    font-size: clamp(2rem, 5vw, 3.5rem);
+                    font-family: var(--font-title);
+                    font-size: clamp(2.5rem, 5vw, 4rem);
                     margin-bottom: 0.5rem;
                     font-weight: 900;
-                    letter-spacing: -0.02em;
+                    color: var(--c-ivory);
                 }
 
                 .page-header p {
-                    color: var(--color-text-muted);
+                    color: var(--c-ivory-muted);
                     font-size: clamp(1rem, 1.5vw, 1.25rem);
                 }
                 
                 .cars-grid {
                     display: grid;
                     grid-template-columns: 1fr;
-                    gap: 1.5rem; /* Tighter gap on mobile */
+                    gap: var(--space-4);
                 }
 
                 @media (min-width: 640px) {
                     .cars-grid {
                         grid-template-columns: repeat(2, 1fr);
-                        gap: 2rem;
+                        gap: var(--space-5);
                     }
                 }
 
                 @media (min-width: 1024px) {
                     .cars-grid {
                         grid-template-columns: repeat(3, 1fr);
-                        gap: 2.5rem;
+                        gap: var(--space-6);
                     }
                 }
 
                 .no-results {
                     grid-column: 1 / -1;
                     text-align: center;
-                    padding: 4rem;
+                    padding: 4rem 2rem;
                     color: var(--c-ivory-muted);
                     background-color: var(--c-graphite);
                     border: var(--border-thin);
                     border-radius: var(--radius-lg);
                 }
 
-                .btn-text {
-                    background: none;
-                    border: none;
-                    color: var(--color-primary);
-                    text-decoration: underline;
-                    cursor: pointer;
-                    margin-top: 1rem;
-                    font-size: 1rem;
-                }
-
+                /* Skeletons */
                 .car-skeleton {
-                    background: var(--c-graphite);
-                    border: var(--border-thin);
+                    background-color: var(--c-graphite);
                     border-radius: var(--radius-lg);
+                    border: var(--border-thin);
                     overflow: hidden;
                     height: 100%;
-                    min-height: 380px;
                     display: flex;
                     flex-direction: column;
                 }
+
                 .skeleton-img {
                     width: 100%;
-                    aspect-ratio: 4/3;
-                    background: var(--c-carbon);
-                    animation: pulse 1.5s infinite ease-in-out;
+                    aspect-ratio: 16/10;
+                    background: linear-gradient(90deg, var(--c-carbon) 25%, var(--c-graphite-light) 50%, var(--c-carbon) 75%);
+                    background-size: 200% 100%;
+                    animation: loading 1.5s infinite;
                 }
+
                 .skeleton-content {
                     padding: var(--space-4);
                     flex: 1;
-                    background: var(--c-graphite);
                     display: flex;
                     flex-direction: column;
-                    gap: 0.5rem;
                 }
+
                 .skeleton-title {
                     height: 24px;
-                    width: 80%;
-                    background: var(--c-graphite-light);
-                    border-radius: var(--radius-sm);
-                    animation: pulse 1.5s infinite ease-in-out;
-                }
-                .skeleton-subtitle {
-                    height: 16px;
-                    width: 60%;
+                    width: 70%;
                     background: var(--c-carbon);
                     border-radius: var(--radius-sm);
-                    animation: pulse 1.5s infinite ease-in-out;
+                    margin-bottom: 8px;
+                    animation: loading 1.5s infinite;
                 }
-                .skeleton-status {
-                    height: 20px;
+
+                .skeleton-subtitle {
+                    height: 16px;
                     width: 40%;
                     background: var(--c-carbon);
                     border-radius: var(--radius-sm);
-                    animation: pulse 1.5s infinite ease-in-out;
-                    margin-top: var(--space-2);
+                    margin-bottom: 16px;
+                    animation: loading 1.5s infinite;
                 }
+                
+                .skeleton-specs {
+                    height: 20px;
+                    width: 80%;
+                    background: var(--c-carbon);
+                    border-radius: var(--radius-sm);
+                    margin-bottom: 16px;
+                    animation: loading 1.5s infinite;
+                }
+
                 .skeleton-footer {
-                    height: 14px;
-                    width: 30%;
-                    background: var(--c-graphite-light);
-                    border-radius: 4px;
+                    height: 30px;
+                    width: 100%;
+                    background: var(--c-carbon);
+                    border-radius: var(--radius-sm);
                     margin-top: auto;
-                    animation: pulse 1.5s infinite ease-in-out;
+                    animation: loading 1.5s infinite;
                 }
 
-                @keyframes pulse {
-                    0% { opacity: 1; }
-                    50% { opacity: 0.5; }
-                    100% { opacity: 1; }
+                @keyframes loading {
+                    0% { background-position: 200% 0; }
+                    100% { background-position: -200% 0; }
                 }
 
+                /* Pagination */
                 .pagination {
                     display: flex;
                     justify-content: center;
                     align-items: center;
-                    gap: 1rem;
+                    gap: var(--space-4);
                     margin-top: 4rem;
-                    user-select: none;
                 }
 
                 .pagination-numbers {
                     display: flex;
                     align-items: center;
-                    gap: 0.5rem;
+                    gap: var(--space-2);
                 }
 
                 .pagination-btn, .pagination-number {
-                    background: var(--color-surface);
-                    border: 1px solid rgba(255, 255, 255, 0.1);
-                    color: white;
+                    background: var(--c-graphite);
+                    border: var(--border-thin);
+                    color: var(--c-ivory);
                     width: 40px;
                     height: 40px;
+                    border-radius: var(--radius-md);
                     display: flex;
                     align-items: center;
                     justify-content: center;
-                    border-radius: 8px;
-                    cursor: pointer;
-                    transition: all 0.3s ease;
                     font-weight: 600;
+                    cursor: pointer;
+                    transition: all 0.2s ease;
                 }
 
-                .pagination-btn:hover:not(:disabled), .pagination-number:hover {
-                    border-color: var(--color-primary);
-                    background: rgba(235, 38, 40, 0.1);
-                    transform: translateY(-2px);
-                }
-
-                .pagination-number.active {
-                    background: var(--color-primary);
-                    border-color: var(--color-primary);
-                    box-shadow: 0 4px 15px rgba(235, 38, 40, 0.4);
+                .pagination-btn:hover:not(:disabled), .pagination-number:hover:not(.active) {
+                    background: var(--c-graphite-light);
+                    border-color: var(--c-accent-red);
                 }
 
                 .pagination-btn:disabled {
-                    opacity: 0.3;
+                    opacity: 0.5;
                     cursor: not-allowed;
                 }
 
-                .pagination-ellipsis {
-                    color: var(--color-text-muted);
-                    padding: 0 0.25rem;
+                .pagination-number.active {
+                    background: var(--c-accent-red);
+                    border-color: var(--c-accent-red);
+                    color: var(--c-ivory);
                 }
 
-                @media (max-width: 480px) {
-                    .pagination {
-                        gap: 0.5rem;
-                    }
-                    .pagination-btn, .pagination-number {
-                        width: 36px;
-                        height: 36px;
-                        font-size: 0.9rem;
-                    }
+                .pagination-ellipsis {
+                    color: var(--c-ivory-muted);
+                    padding: 0 4px;
                 }
             `}</style>
         </main>
     );
 };
 
-export default Catalog;
+// Wrap in Suspense because of useSearchParams
+export default function Catalog() {
+    return (
+        <Suspense fallback={<div className="text-center py-20 text-white">Cargando catálogo...</div>}>
+            <CatalogContent />
+        </Suspense>
+    );
+}
