@@ -20,7 +20,8 @@ const CategoryNav = ({ cars = [] }) => {
         if (cat.id === '0km') {
           return car.condition === '0km' || car.km === 0 || car.condition === 'Nuevo';
         }
-        return (car.vehicleType && car.vehicleType.toLowerCase() === cat.id.toLowerCase()) || 
+        return (car.computedType && car.computedType.toLowerCase() === cat.id.toLowerCase()) ||
+               (car.vehicleType && car.vehicleType.toLowerCase() === cat.id.toLowerCase()) || 
                (car.type && car.type.toLowerCase() === cat.id.toLowerCase()) ||
                (car.category && car.category.toLowerCase() === cat.id.toLowerCase());
       }).length;

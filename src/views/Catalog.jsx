@@ -115,7 +115,8 @@ const CatalogContent = () => {
             if (filters.type === '0km') {
                 matchesType = car.condition === '0km' || car.km === 0 || car.condition === 'Nuevo';
             } else if (filters.type) {
-                matchesType = (car.vehicleType && car.vehicleType.toLowerCase() === filters.type.toLowerCase()) || 
+                matchesType = (car.computedType && car.computedType.toLowerCase() === filters.type.toLowerCase()) ||
+                              (car.vehicleType && car.vehicleType.toLowerCase() === filters.type.toLowerCase()) || 
                               (car.type && car.type.toLowerCase() === filters.type.toLowerCase()) ||
                               (car.category && car.category.toLowerCase() === filters.type.toLowerCase());
             }
