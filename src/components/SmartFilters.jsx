@@ -216,6 +216,9 @@ const SmartFilters = ({
           display: flex;
           flex-direction: column;
           gap: var(--space-4);
+          max-width: 1100px;
+          margin-left: auto;
+          margin-right: auto;
         }
 
         /* Search Bar */
