@@ -8,6 +8,8 @@ import { hasPermission, PERMISSIONS } from '../../../utils/adminPermissions';
 export default function SaleMobileCards({ sales, onViewDetail, onDeleteSale }) {
     const { user } = useAuth();
     const canCancelSales = hasPermission(user, PERMISSIONS.VENTAS_CANCEL);
+    const canViewStock = hasPermission(user, PERMISSIONS.STOCK_READ);
+
     if (!sales || sales.length === 0) {
         return (
             <div className="flex min-h-[210px] flex-col items-center justify-center rounded-xl border border-dashed border-crm-border bg-crm-surface p-8 text-center md:hidden">
@@ -110,34 +112,42 @@ export default function SaleMobileCards({ sales, onViewDetail, onDeleteSale }) {
                             </div>
                         </div>
 
-                        <div className="flex gap-2 border-t border-crm-border px-3 py-3">
-                            <button
-                                type="button"
-                                onClick={() => onViewDetail(sale)}
-                                className="m-0 flex flex-1 appearance-none items-center justify-center gap-2 rounded-lg border border-crm-border bg-crm-surface-raised px-3 py-2.5 text-sm font-bold text-crm-fg transition-colors hover:bg-crm-border"
-                            >
-                                <Search size={16} className="text-crm-fg-muted" />
-                                Ver detalle
-                            </button>
-
-                            {sale.status === 'cancelada' && onDeleteSale && canCancelSales ? (
+                        <div className="flex flex-col gap-2 border-t border-crm-border px-3 py-3">
+                            <div className="flex gap-2 w-full">
                                 <button
                                     type="button"
-                                    onClick={(e) => {
-                                        e.preventDefault();
-                                        onDeleteSale(sale);
-                                    }}
-                                    className="flex w-12 flex-none items-center justify-center rounded-lg border border-crm-red/20 bg-crm-red/10 text-crm-red transition-colors hover:bg-crm-red/20"
+                                    onClick={() => onViewDetail(sale)}
+                                    className="m-0 flex flex-1 appearance-none items-center justify-center gap-2 rounded-lg border border-crm-border bg-crm-surface-raised px-3 py-2.5 text-sm font-bold text-crm-fg transition-colors hover:bg-crm-border min-h-[44px]"
                                 >
-                                    <Trash2 size={18} />
+                                    <Search size={16} className="text-crm-fg-muted" />
+                                    Ver detalle
                                 </button>
-                            ) : (
-                                <Link
-                                    href={vehicleHref}
-                                    className="flex w-12 flex-none items-center justify-center rounded-lg border border-crm-border bg-crm-surface-raised py-2.5 text-crm-fg-muted no-underline transition-colors hover:bg-crm-border"
-                                >
-                                    <ChevronRight size={18} />
-                                </Link>
+                                {sale.status === 'cancelada' && onDeleteSale && canCancelSales && (
+                                    <button
+                                        type="button"
+                                        onClick={(e) => {
+                                            e.preventDefault();
+                                            onDeleteSale(sale);
+                                        }}
+                                        className="flex w-12 flex-none items-center justify-center rounded-lg border border-crm-red/20 bg-crm-red/10 text-crm-red transition-colors hover:bg-crm-red/20 min-h-[44px]"
+                                    >
+                                        <Trash2 size={18} />
+                                    </button>
+                                )}
+                            </div>
+                            
+                            {canViewStock && (
+                                sale.vehicleId?._id ? (
+                                    <Link href={vehicleHref} className="flex flex-1 items-center justify-center gap-2 rounded-lg border border-crm-border bg-crm-bg px-3 py-2.5 text-sm font-bold text-crm-fg no-underline transition-colors hover:border-blue-500/30 hover:bg-blue-500/10 hover:text-blue-400 min-h-[44px]">
+                                        <CarFront size={16} className="text-crm-fg" />
+                                        Ver en Stock
+                                    </Link>
+                                ) : (
+                                    <div className="flex flex-1 items-center justify-center gap-2 rounded-lg border border-crm-border/50 bg-crm-bg/50 px-3 py-2.5 text-sm font-bold text-crm-fg-muted/50 cursor-not-allowed min-h-[44px]" title="Esta venta no tiene un vehículo vinculado al stock">
+                                        <CarFront size={16} className="opacity-50" />
+                                        Sin vínculo
+                                    </div>
+                                )
                             )}
                         </div>
                     </article>

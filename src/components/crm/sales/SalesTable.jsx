@@ -10,6 +10,7 @@ import { hasPermission, PERMISSIONS } from '../../../utils/adminPermissions';
 export default function SalesTable({ sales, onViewDetail, onDeleteSale }) {
     const { user } = useAuth();
     const canCancelSales = hasPermission(user, PERMISSIONS.VENTAS_CANCEL);
+    const canViewStock = hasPermission(user, PERMISSIONS.STOCK_READ);
 
     const columns = [
         {
@@ -157,29 +158,55 @@ export default function SalesTable({ sales, onViewDetail, onDeleteSale }) {
             key: 'actions',
             align: 'center',
             render: (sale) => (
-                <div className="flex items-center justify-center gap-2">
-                    <CrmButton
-                        variant="secondary"
-                        size="sm"
-                        onClick={() => onViewDetail(sale)}
-                        className="h-8 gap-1 px-3 text-xs"
-                        title="Ver detalle de venta"
-                    >
-                        <Search size={14} />
-                        Detalle
-                        <ArrowRight size={12} />
-                    </CrmButton>
-                    {sale.status === 'cancelada' && onDeleteSale && canCancelSales && (
-                        <button
+                <div className="flex flex-col items-center justify-center gap-2">
+                    <div className="flex items-center gap-2 w-full justify-center">
+                        <CrmButton
+                            variant="secondary"
+                            size="sm"
                             onClick={(e) => {
                                 e.stopPropagation();
-                                onDeleteSale(sale);
+                                onViewDetail(sale);
                             }}
-                            className="flex h-8 w-8 items-center justify-center rounded-lg border border-crm-red/20 bg-crm-red/10 text-crm-red transition-colors hover:bg-crm-red/20"
-                            title="Eliminar venta cancelada"
+                            className="h-8 gap-1 px-3 text-xs flex-1 max-w-[120px]"
+                            title="Ver detalle de venta"
                         >
-                            <Trash2 size={14} />
-                        </button>
+                            <Search size={14} />
+                            Detalle
+                        </CrmButton>
+                        {sale.status === 'cancelada' && onDeleteSale && canCancelSales && (
+                            <button
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    onDeleteSale(sale);
+                                }}
+                                className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-crm-red/20 bg-crm-red/10 text-crm-red transition-colors hover:bg-crm-red/20"
+                                title="Eliminar venta cancelada"
+                            >
+                                <Trash2 size={14} />
+                            </button>
+                        )}
+                    </div>
+                    {canViewStock && (
+                        sale.vehicleId?._id ? (
+                            <Link href={`/admin/stock/${sale.vehicleId._id}`} passHref legacyBehavior>
+                                <a 
+                                    className="flex h-8 w-full max-w-[120px] items-center justify-center gap-1 rounded-md border border-crm-border bg-crm-bg px-2 text-xs font-bold text-crm-fg transition-colors hover:border-blue-500/30 hover:bg-blue-500/10 hover:text-blue-400"
+                                    title="Abrir ficha del vehículo en Stock"
+                                    onClick={(e) => e.stopPropagation()}
+                                >
+                                    <CarFront size={13} />
+                                    Ver en Stock
+                                </a>
+                            </Link>
+                        ) : (
+                            <div 
+                                className="flex h-8 w-full max-w-[120px] items-center justify-center gap-1 rounded-md border border-crm-border/50 bg-crm-bg/50 px-2 text-[11px] font-bold text-crm-fg-muted/50 cursor-not-allowed"
+                                title="Esta venta no tiene un vehículo vinculado al stock"
+                            >
+                                <CarFront size={13} />
+                                Sin vínculo
+                            </div>
+                        )
                     )}
                 </div>
             )
