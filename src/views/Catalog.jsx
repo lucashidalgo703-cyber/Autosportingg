@@ -344,7 +344,7 @@ const CatalogContent = () => {
                 
                 .catalog-container {
                     width: 100%;
-                    max-width: 1280px;
+                    max-width: 1440px;
                     margin-inline: auto;
                     padding-inline: 16px;
                 }
@@ -412,7 +412,7 @@ const CatalogContent = () => {
 
                 .skeleton-img {
                     width: 100%;
-                    aspect-ratio: 16/10;
+                    aspect-ratio: 4/3;
                     background: linear-gradient(90deg, var(--c-carbon) 25%, var(--c-graphite-light) 50%, var(--c-carbon) 75%);
                     background-size: 200% 100%;
                     animation: loading 1.5s infinite;

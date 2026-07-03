@@ -145,7 +145,7 @@ const CarCard = ({ car }) => {
             .card-image-wrapper {
                 position: relative;
                 width: 100%;
-                aspect-ratio: 16/10;
+                aspect-ratio: 4/3;
                 background-color: var(--c-carbon);
                 overflow: hidden;
             }
@@ -228,7 +228,7 @@ const CarCard = ({ car }) => {
             }
 
             .card-content {
-                padding: 14px 16px;
+                padding: 18px 20px;
                 display: flex;
                 flex-direction: column;
                 flex: 1;
@@ -241,7 +241,7 @@ const CarCard = ({ car }) => {
 
             .card-subtitle {
                 color: var(--c-ivory-muted);
-                font-size: 11px;
+                font-size: 0.8rem;
                 font-weight: 700;
                 text-transform: uppercase;
                 letter-spacing: 0.1em;
@@ -250,7 +250,7 @@ const CarCard = ({ car }) => {
 
             .card-title {
                 color: var(--c-ivory);
-                font-size: 17px;
+                font-size: 1.15rem;
                 font-weight: 800;
                 line-height: 1.2;
                 font-family: var(--font-title);
@@ -282,7 +282,7 @@ const CarCard = ({ car }) => {
                 background-color: rgba(255,255,255,0.05);
                 padding: 4px 8px;
                 border-radius: var(--radius-sm);
-                font-size: 11px;
+                font-size: 0.75rem;
                 color: var(--c-ivory-muted);
                 font-weight: 500;
             }
