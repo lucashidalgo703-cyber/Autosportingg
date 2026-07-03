@@ -291,7 +291,7 @@ const CarDetail = () => {
                                     alt={`${car.brand} ${car.name}`}
                                     fill
                                     className="main-image"
-                                    style={{ objectFit: 'cover', objectPosition: 'center bottom' }}
+                                    style={{ objectFit: 'cover', objectPosition: car?.imagePosition || 'center' }}
                                     unoptimized
                                     priority={true}
                                 />
