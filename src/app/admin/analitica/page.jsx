@@ -2,11 +2,11 @@
 import { useState, useEffect } from 'react';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar } from 'recharts';
 import { Filter, Users, Eye, MousePointerClick, MessageCircle, FileText, CheckCircle2, TrendingDown } from 'lucide-react';
-import useStore from '../../../../store';
-import ProtectedRoute from '../../../../components/ProtectedRoute';
+import { useAuth } from '../../../context/AuthContext';
+import ProtectedRoute from '../../../components/ProtectedRoute';
 
 export default function AnaliticaPage() {
-    const { token } = useStore();
+    const { token } = useAuth();
     const [funnelData, setFunnelData] = useState([]);
     const [loading, setLoading] = useState(true);
 
