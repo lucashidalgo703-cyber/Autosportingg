@@ -1,569 +1,484 @@
 "use client";
 import React, { useState } from 'react';
-import { Banknote, Calculator, FileCheck, ArrowRight, Wallet, X } from 'lucide-react';
-import { motion, AnimatePresence } from 'framer-motion';
+import Head from 'next/head';
+import { motion } from 'framer-motion';
+import { Calculator, Landmark, ShieldCheck, FileText, CheckCircle2, AlertTriangle } from 'lucide-react';
+import Link from 'next/link';
 
-const containerVariants = {
-    hidden: { opacity: 0 },
-    visible: { opacity: 1, transition: { staggerChildren: 0.2 } }
-};
-
-const itemVariants = {
-    hidden: { opacity: 0, y: 30 },
-    visible: { opacity: 1, y: 0, transition: { duration: 0.5, ease: "easeOut" } }
+const formatCurrency = (value) => {
+    return new Intl.NumberFormat('es-AR', {
+        style: 'currency',
+        currency: 'ARS',
+        maximumFractionDigits: 0
+    }).format(value);
 };
 
 const Financing = () => {
-    // Fast-Capture States
-    const [showCaptureModal, setShowCaptureModal] = useState(false);
-    const [captureData, setCaptureData] = useState({ name: '', phone: '', email: '' });
-    const [isCapturing, setIsCapturing] = useState(false);
+    // Simulator State
+    const [amount, setAmount] = useState(5000000);
+    const [term, setTerm] = useState(24);
+    
+    // Configurable DEMO values
+    const MONTHLY_RATE = 0.045; // 4.5% nominal demo rate
 
-    const getWhatsAppUrl = () => {
-        return `https://wa.me/5492974045378?text=${encodeURIComponent('Hola AutoSporting, quiero consultar por financiación')}`;
+    // Basic Amortization Formula (French System approximation)
+    const calculateQuota = () => {
+        if (!amount || amount <= 0) return 0;
+        const r = MONTHLY_RATE;
+        const n = term;
+        return (amount * r * Math.pow(1 + r, n)) / (Math.pow(1 + r, n) - 1);
     };
 
-    const handleWhatsAppClick = (e) => {
-        e.preventDefault();
-        setShowCaptureModal(true);
-    };
-
-    const handleDirectWhatsApp = () => {
-        setShowCaptureModal(false);
-        window.open(getWhatsAppUrl(), '_blank');
-    };
-
-    const handleCaptureSubmit = async (e) => {
-        e.preventDefault();
-        setIsCapturing(true);
-
-        try {
-            const API_URL = process.env.NEXT_PUBLIC_API_URL;
-            const baseUrl = process.env.NODE_ENV === 'production' ? '' : (API_URL || 'http://localhost:3001');
-            
-            await fetch(`${baseUrl}/api/leads/public`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    name: captureData.name,
-                    phone: captureData.phone,
-                    email: captureData.email,
-                    message: `Consulta por financiación desde la web`,
-                    sourceDetail: "financing_whatsapp"
-                })
-            });
-        } catch (error) {
-            console.error('Error in fast capture:', error);
-            // Ignoramos el error para no bloquear la conversión
-        } finally {
-            setIsCapturing(false);
-            setShowCaptureModal(false);
-            window.open(getWhatsAppUrl(), '_blank');
-        }
-    };
+    const estimatedQuota = calculateQuota();
 
     return (
-        <main className="financing-page">
-            {/* Header Section */}
-            <section className="financing-header">
-                <div className="header-overlay"></div>
-                <motion.div
-                    className="container header-content"
-                    initial={{ opacity: 0, y: 30 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ duration: 0.6 }}
-                >
-                    <span className="badge">FINANCIACIÓN</span>
-                    <h1 className="header-title">
-                        Financiá tu próximo <br />
-                        vehículo con nosotros
-                    </h1>
-                    <p className="header-subtitle">
-                        Planes a medida, aprobación inmediata y las mejores tasas del mercado.
-                        Subite a tu auto nuevo hoy mismo.
-                    </p>
-                </motion.div>
-            </section>
+        <>
+            <Head>
+                <title>Financiación | AutoSporting</title>
+                <meta name="description" content="Opciones de financiación para tu próximo vehículo en AutoSporting. Financiación propia y crédito prendario bancario sujeto a aprobación crediticia." />
+            </Head>
 
-            {/* Main Content */}
-            <section className="container financing-body">
-
-                {/* Intro / Highlight Card */}
-                <motion.div
-                    className="highlight-card"
-                    initial="hidden"
-                    whileInView="visible"
-                    viewport={{ once: true, amount: 0.2 }}
-                    variants={itemVariants}
-                >
-                    <div className="highlight-text">
-                        <h2>¿Cómo funciona?</h2>
-                        <p>
-                            En AutoSporting simplificamos el proceso para que obtener tu auto sea rápido y transparente.
-                            Ofrecemos financiación propia y bancaria para unidades seleccionadas.
-                        </p>
-                    </div>
-                    <div className="highlight-stats">
-                        <div className="stat">
-                            <span className="stat-number">50%</span>
-                            <span className="stat-label">Entrega mínima</span>
-                        </div>
-                        <div className="stat">
-                            <span className="stat-number">12/72</span>
-                            <span className="stat-label">Cuotas fijas</span>
-                        </div>
-                    </div>
-                </motion.div>
-
-                {/* Steps Grid */}
-                <motion.div
-                    className="steps-grid"
-                    initial="hidden"
-                    whileInView="visible"
-                    viewport={{ once: true, amount: 0.2 }}
-                    variants={containerVariants}
-                >
-                    <motion.div className="step-card" variants={itemVariants}>
-                        <div className="icon-box">
-                            <Calculator size={32} color="white" />
-                        </div>
-                        <h3>1. Elegí tu vehículo</h3>
-                        <p>Explorá nuestro catálogo y seleccioná la unidad que mejor se adapte a tus necesidades.</p>
-                    </motion.div>
-                    <motion.div className="step-card" variants={itemVariants}>
-                        <div className="icon-box">
-                            <FileCheck size={32} color="white" />
-                        </div>
-                        <h3>2. Pre-aprobación</h3>
-                        <p>Presenta tu DNI y comprobante de ingresos. Evaluamos tu perfil crediticio en el acto.</p>
-                    </motion.div>
-                    <motion.div className="step-card" variants={itemVariants}>
-                        <div className="icon-box">
-                            <Wallet size={32} color="white" />
-                        </div>
-                        <h3>3. Entrega y Cuotas</h3>
-                        <p>Aboná el anticipo y financia el saldo en cuotas fijas en pesos. ¡Te llevás el auto!</p>
-                    </motion.div>
-                </motion.div>
-
-                {/* Requirements Section */}
-                <motion.div
-                    className="requirements-section"
-                    initial={{ opacity: 0, scale: 0.95 }}
-                    whileInView={{ opacity: 1, scale: 1 }}
-                    transition={{ duration: 0.5 }}
-                    viewport={{ once: true, amount: 0.2 }}
-                >
-                    <div className="req-content">
-                        <div className="icon-box-large">
-                            <Banknote size={40} color="var(--color-primary)" />
-                        </div>
-                        <div className="req-text">
-                            <h3>Requisitos Mínimos</h3>
-                            <ul className="req-list">
-                                <li><ArrowRight size={16} color="var(--color-primary)" /> DNI vigente</li>
-                                <li><ArrowRight size={16} color="var(--color-primary)" /> Servicio a nombre del solicitante</li>
-                                <li><ArrowRight size={16} color="var(--color-primary)" /> Comprobante de ingresos (Recibo de sueldo / Monotributo)</li>
-                                <li><ArrowRight size={16} color="var(--color-primary)" /> No estar en Veraz (sujeto a evaluación)</li>
-                            </ul>
-                        </div>
-                    </div>
-                    <div className="req-cta">
-                        <button onClick={handleWhatsAppClick} className="btn-whatsapp-financing">
-                            Consultar por WhatsApp
-                        </button>
-                    </div>
-                </motion.div>
-
-            </section>
-
-            {/* Fast Capture Modal */}
-            <AnimatePresence>
-                {showCaptureModal && (
-                    <motion.div 
-                        initial={{ opacity: 0 }}
-                        animate={{ opacity: 1 }}
-                        exit={{ opacity: 0 }}
-                        className="fixed inset-0 bg-black/80 z-[100] flex items-center justify-center p-4 backdrop-blur-sm"
-                        onClick={() => setShowCaptureModal(false)}
-                    >
-                        <motion.div 
-                            initial={{ scale: 0.95, opacity: 0 }}
-                            animate={{ scale: 1, opacity: 1 }}
-                            exit={{ scale: 0.95, opacity: 0 }}
-                            onClick={(e) => e.stopPropagation()}
-                            className="bg-[#111] border border-neutral-800 rounded-2xl w-full max-w-md overflow-hidden shadow-2xl relative"
+            <main className="financing-page">
+                {/* Hero Section */}
+                <section className="hero-section text-center py-20 px-4">
+                    <div className="container max-w-4xl mx-auto">
+                        <motion.h1 
+                            className="text-4xl md:text-5xl font-black text-[var(--c-ivory)] mb-6"
+                            style={{ fontFamily: 'var(--font-title)' }}
+                            initial={{ opacity: 0, y: -20 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            transition={{ duration: 0.6 }}
                         >
-                            <button 
-                                onClick={() => setShowCaptureModal(false)}
-                                className="absolute top-4 right-4 text-neutral-500 hover:text-white transition-colors"
-                            >
-                                <X size={20} />
-                            </button>
+                            Financiá tu próximo vehículo
+                        </motion.h1>
+                        <motion.p 
+                            className="text-[var(--c-ivory-muted)] text-lg md:text-xl mb-10 leading-relaxed"
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            transition={{ duration: 0.6, delay: 0.2 }}
+                        >
+                            Trabajamos para ofrecerte condiciones claras y opciones adaptadas a tu perfil. Evaluamos tu caso para encontrar la mejor alternativa crediticia.
+                        </motion.p>
+                    </div>
+                </section>
 
-                            <div className="p-6 sm:p-8">
-                                <h3 className="text-xl font-bold text-white mb-2">¡Hola! Ya casi hablamos</h3>
-                                <p className="text-sm text-neutral-400 mb-6">
-                                    Para brindarte el mejor asesoramiento financiero, por favor dejanos tu nombre y teléfono antes de continuar al chat.
-                                </p>
+                <div className="container max-w-6xl mx-auto px-4 pb-20">
+                    {/* Financing Types */}
+                    <div className="grid md:grid-cols-2 gap-8 mb-20">
+                        
+                        {/* Crédito Prendario Bancario */}
+                        <motion.div 
+                            className="finance-card"
+                            initial={{ opacity: 0, x: -30 }}
+                            whileInView={{ opacity: 1, x: 0 }}
+                            viewport={{ once: true }}
+                        >
+                            <div className="finance-icon bg-blue-900/30 text-blue-400">
+                                <Landmark size={32} />
+                            </div>
+                            <h2 className="text-2xl font-bold text-[var(--c-ivory)] mb-4">Crédito Prendario Bancario</h2>
+                            <p className="text-[var(--c-ivory-muted)] mb-6 line-clamp-3">
+                                Operamos con las principales entidades bancarias para ofrecerte plazos de hasta 60 meses. El vehículo queda prendado como garantía del préstamo.
+                            </p>
+                            <ul className="finance-features">
+                                <li><CheckCircle2 size={18} className="text-[var(--c-accent-red)]" /> Financiación sujeta a aprobación crediticia.</li>
+                                <li><CheckCircle2 size={18} className="text-[var(--c-accent-red)]" /> Plazos desde 12 hasta 60 meses.</li>
+                                <li><CheckCircle2 size={18} className="text-[var(--c-accent-red)]" /> Anticipo mínimo sugerido del 40% al 50%.</li>
+                                <li><CheckCircle2 size={18} className="text-[var(--c-accent-red)]" /> Cuotas fijas o indexadas según la línea bancaria elegida.</li>
+                            </ul>
+                        </motion.div>
 
-                                <form onSubmit={handleCaptureSubmit} className="flex flex-col gap-4">
-                                    <div className="flex flex-col gap-1.5">
-                                        <label className="text-xs font-bold text-neutral-500 uppercase tracking-wider">Nombre Completo *</label>
-                                        <input 
-                                            type="text" 
-                                            required
-                                            value={captureData.name}
-                                            onChange={e => setCaptureData({...captureData, name: e.target.value})}
-                                            className="w-full bg-black/50 border border-neutral-800 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-blue-500 transition-colors"
-                                            placeholder="Tu nombre"
-                                        />
+                        {/* Financiación Propia */}
+                        <motion.div 
+                            className="finance-card"
+                            initial={{ opacity: 0, x: 30 }}
+                            whileInView={{ opacity: 1, x: 0 }}
+                            viewport={{ once: true }}
+                        >
+                            <div className="finance-icon bg-[var(--c-accent-red)]/20 text-[var(--c-accent-red)]">
+                                <ShieldCheck size={32} />
+                            </div>
+                            <h2 className="text-2xl font-bold text-[var(--c-ivory)] mb-4">Financiación Propia</h2>
+                            <p className="text-[var(--c-ivory-muted)] mb-6 line-clamp-3">
+                                Una alternativa directa con la concesionaria para saldos menores, con evaluación rápida y requisitos simplificados.
+                            </p>
+                            <ul className="finance-features">
+                                <li><CheckCircle2 size={18} className="text-[var(--c-accent-red)]" /> Sujeto a análisis interno de AutoSporting.</li>
+                                <li><CheckCircle2 size={18} className="text-[var(--c-accent-red)]" /> Plazos cortos y medianos (hasta 24 meses).</li>
+                                <li><CheckCircle2 size={18} className="text-[var(--c-accent-red)]" /> Ideal para cubrir pequeñas diferencias de capital.</li>
+                                <li><CheckCircle2 size={18} className="text-[var(--c-accent-red)]" /> Flexibilidad en la entrega de tu usado como parte de pago.</li>
+                            </ul>
+                        </motion.div>
+                    </div>
+
+                    {/* Requirements Section */}
+                    <div className="requirements-section mb-20 bg-[var(--c-graphite)] p-8 md:p-12 rounded-[var(--radius-lg)] border border-[rgba(255,255,255,0.05)]">
+                        <div className="flex items-center gap-4 mb-8">
+                            <FileText size={32} className="text-[var(--c-accent-red)]" />
+                            <h2 className="text-3xl font-bold text-[var(--c-ivory)]" style={{ fontFamily: 'var(--font-title)' }}>Requisitos Básicos</h2>
+                        </div>
+                        <p className="text-[var(--c-ivory-muted)] mb-8 max-w-3xl">
+                            Para iniciar una solicitud de crédito, independientemente de la línea elegida, deberás presentar la siguiente documentación para su evaluación:
+                        </p>
+                        <div className="grid md:grid-cols-3 gap-6">
+                            <div className="req-item">
+                                <span className="req-number">1</span>
+                                <h4>Identidad</h4>
+                                <p>DNI argentino (Original y fotocopia).</p>
+                            </div>
+                            <div className="req-item">
+                                <span className="req-number">2</span>
+                                <h4>Domicilio</h4>
+                                <p>Servicio reciente a tu nombre (luz, gas, teléfono) para constatar domicilio.</p>
+                            </div>
+                            <div className="req-item">
+                                <span className="req-number">3</span>
+                                <h4>Ingresos</h4>
+                                <p>Últimos 3 recibos de sueldo (Relación de dependencia) o Constancia de Monotributo/Inscripción AFIP.</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Simulator Section */}
+                    <motion.div 
+                        className="simulator-section"
+                        initial={{ opacity: 0, y: 30 }}
+                        whileInView={{ opacity: 1, y: 0 }}
+                        viewport={{ once: true }}
+                    >
+                        <div className="text-center mb-10">
+                            <h2 className="text-3xl font-bold text-[var(--c-ivory)] mb-4" style={{ fontFamily: 'var(--font-title)' }}>Simulador Orientativo</h2>
+                            <p className="text-[var(--c-ivory-muted)]">Calculá un estimado de tus cuotas ingresando el monto a financiar.</p>
+                        </div>
+
+                        <div className="simulator-grid">
+                            <div className="simulator-controls">
+                                <div className="input-group">
+                                    <label>Monto a financiar (Capital)</label>
+                                    <div className="range-header">
+                                        <span className="current-val">{formatCurrency(amount)}</span>
                                     </div>
-
-                                    <div className="flex flex-col gap-1.5">
-                                        <label className="text-xs font-bold text-neutral-500 uppercase tracking-wider">Teléfono *</label>
-                                        <input 
-                                            type="tel" 
-                                            required
-                                            value={captureData.phone}
-                                            onChange={e => setCaptureData({...captureData, phone: e.target.value})}
-                                            className="w-full bg-black/50 border border-neutral-800 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-blue-500 transition-colors"
-                                            placeholder="Tu número"
-                                        />
+                                    <input 
+                                        type="range" 
+                                        min="1000000" 
+                                        max="20000000" 
+                                        step="100000" 
+                                        value={amount} 
+                                        onChange={(e) => setAmount(Number(e.target.value))} 
+                                        className="range-slider"
+                                    />
+                                    <div className="range-limits">
+                                        <span>$1.000.000</span>
+                                        <span>$20.000.000</span>
                                     </div>
+                                </div>
 
-                                    <div className="flex flex-col gap-1.5">
-                                        <label className="text-xs font-bold text-neutral-500 uppercase tracking-wider">Email (Opcional)</label>
-                                        <input 
-                                            type="email" 
-                                            value={captureData.email}
-                                            onChange={e => setCaptureData({...captureData, email: e.target.value})}
-                                            className="w-full bg-black/50 border border-neutral-800 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-blue-500 transition-colors"
-                                            placeholder="Tu email"
-                                        />
+                                <div className="input-group">
+                                    <label>Plazo (Meses)</label>
+                                    <div className="term-selector">
+                                        {[12, 18, 24, 36, 48].map(t => (
+                                            <button 
+                                                key={t} 
+                                                className={`term-btn ${term === t ? 'active' : ''}`}
+                                                onClick={() => setTerm(t)}
+                                            >
+                                                {t}
+                                            </button>
+                                        ))}
                                     </div>
-
-                                    <button 
-                                        type="submit"
-                                        disabled={isCapturing}
-                                        className="w-full bg-[#25D366] hover:bg-[#128C7E] text-white font-bold py-3.5 rounded-xl transition-colors mt-4 flex justify-center items-center gap-2"
-                                    >
-                                        {isCapturing ? 'Conectando...' : 'Continuar por WhatsApp'}
-                                    </button>
-                                </form>
-
-                                <div className="mt-6 text-center">
-                                    <button 
-                                        onClick={handleDirectWhatsApp}
-                                        className="text-xs text-neutral-500 hover:text-white transition-colors underline underline-offset-2"
-                                    >
-                                        Prefiero ir directo a WhatsApp sin dejar mis datos
-                                    </button>
                                 </div>
                             </div>
-                        </motion.div>
+
+                            <div className="simulator-result">
+                                <div className="result-header">
+                                    <Calculator size={24} className="text-[var(--c-accent-red)]" />
+                                    <h3>Cuota Estimada</h3>
+                                </div>
+                                <div className="result-value">
+                                    {formatCurrency(estimatedQuota)} <span className="result-suffix">/mes</span>
+                                </div>
+                                <div className="result-details">
+                                    <p>Capital: {formatCurrency(amount)}</p>
+                                    <p>Plazo: {term} cuotas</p>
+                                </div>
+                                <div className="legal-disclaimer">
+                                    <AlertTriangle size={16} />
+                                    <p>
+                                        <strong>Aviso Legal:</strong> Este simulador es estrictamente orientativo y con fines demostrativos. El cálculo no constituye una oferta formal. El otorgamiento del crédito, la Tasa Nominal Anual (TNA), el Costo Financiero Total (CFT) y el valor real de la cuota están sujetos a evaluación crediticia y condiciones comerciales vigentes al momento de la solicitud.
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className="text-center mt-12">
+                            <Link href="/contacto" className="btn btn-primary px-10 py-4 text-lg">
+                                Solicitar Asesoramiento Financiero
+                            </Link>
+                        </div>
                     </motion.div>
-                )}
-            </AnimatePresence>
+                </div>
+            </main>
 
             <style>{`
-        .financing-page {
-            padding-bottom: 4rem;
-            position: relative;
-        }
+                .hero-section {
+                    background: radial-gradient(circle at center, var(--c-graphite) 0%, var(--c-carbon) 100%);
+                    border-bottom: var(--border-thin);
+                }
 
-        .financing-header {
-            position: relative;
-            padding: 6rem 0 3rem;
-            display: flex;
-            align-items: center;
-            border-bottom: 1px solid rgba(255,255,255,0.03);
-            background: radial-gradient(circle at 50% 30%, rgba(235, 38, 40, 0.1) 0%, transparent 70%);
-            text-align: center;
-        }
+                .finance-card {
+                    background: var(--c-graphite);
+                    border: var(--border-thin);
+                    border-radius: var(--radius-lg);
+                    padding: var(--space-6);
+                    transition: transform 0.3s ease;
+                }
 
-        @media (min-width: 1024px) {
-            .financing-header {
-                padding: 10rem 0 6rem;
-                text-align: left;
-            }
-        }
+                .finance-card:hover {
+                    transform: translateY(-5px);
+                    border-color: var(--c-graphite-light);
+                }
 
-        .header-content {
-            position: relative;
-            z-index: 10;
-        }
+                .finance-icon {
+                    width: 64px;
+                    height: 64px;
+                    border-radius: var(--radius-md);
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    margin-bottom: var(--space-5);
+                }
 
-        .badge {
-            display: inline-block;
-            background: rgba(235, 38, 40, 0.1);
-            color: var(--color-primary);
-            padding: 6px 16px;
-            border-radius: 50px;
-            font-size: 0.75rem;
-            font-weight: 800;
-            margin-bottom: 1.5rem;
-            border: 1px solid rgba(235, 38, 40, 0.2);
-            letter-spacing: 0.1em;
-            text-transform: uppercase;
-        }
+                .finance-features {
+                    list-style: none;
+                    padding: 0;
+                    margin: 0;
+                    display: flex;
+                    flex-direction: column;
+                    gap: var(--space-3);
+                }
 
-        .header-title {
-            font-size: clamp(2.25rem, 6vw, 4rem);
-            font-weight: 900;
-            line-height: 1;
-            color: #ffffff;
-            margin-bottom: 1.5rem;
-            letter-spacing: -0.03em;
-        }
+                .finance-features li {
+                    display: flex;
+                    align-items: flex-start;
+                    gap: var(--space-3);
+                    color: var(--c-ivory);
+                    font-size: 0.95rem;
+                    line-height: 1.4;
+                }
 
-        .header-subtitle {
-            font-size: clamp(1rem, 1.5vw, 1.25rem);
-            color: #999;
-            max-width: 600px;
-            line-height: 1.6;
-            margin: 0 auto;
-        }
-        
-        @media (min-width: 1024px) {
-            .header-subtitle { margin: 0; }
-        }
+                .finance-features li svg {
+                    flex-shrink: 0;
+                    margin-top: 2px;
+                }
 
-        .financing-body {
-            position: relative;
-            z-index: 20;
-            margin-top: -2rem;
-            display: flex;
-            flex-direction: column;
-            gap: 2.5rem;
-        }
-        
-        @media (min-width: 1024px) {
-            .financing-body { margin-top: -4rem; gap: 4rem; }
-        }
+                .req-item {
+                    display: flex;
+                    flex-direction: column;
+                    gap: var(--space-2);
+                    padding: var(--space-4);
+                    background: var(--c-carbon);
+                    border-radius: var(--radius-md);
+                    border: var(--border-thin);
+                }
 
-        .highlight-card {
-            background: rgba(20, 20, 20, 0.45);
-            backdrop-filter: blur(16px);
-            -webkit-backdrop-filter: blur(16px);
-            border: 1px solid rgba(255, 255, 255, 0.08);
-            border-radius: 24px;
-            padding: 2rem;
-            display: grid;
-            grid-template-columns: 1fr;
-            gap: 2.5rem;
-            align-items: center;
-            box-shadow: 0 20px 50px rgba(0,0,0,0.3);
-        }
-        
-        @media (min-width: 1024px) {
-            .highlight-card {
-                grid-template-columns: 1.5fr 1fr;
-                padding: 4rem;
-                gap: 4rem;
-            }
-        }
+                .req-number {
+                    width: 32px;
+                    height: 32px;
+                    background: rgba(230, 48, 39, 0.1);
+                    color: var(--c-accent-red);
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    border-radius: 50%;
+                    font-weight: 800;
+                    font-size: 1.1rem;
+                }
 
-        .highlight-text h2 {
-            font-size: clamp(1.5rem, 3vw, 2.25rem);
-            margin-bottom: 1rem;
-            font-weight: 800;
-            letter-spacing: -0.01em;
-        }
+                .req-item h4 {
+                    color: var(--c-ivory);
+                    font-weight: 700;
+                    font-size: 1.1rem;
+                }
 
-        .highlight-text p {
-            color: #999;
-            font-size: 1.05rem;
-            line-height: 1.7;
-        }
+                .req-item p {
+                    color: var(--c-ivory-muted);
+                    font-size: 0.9rem;
+                    line-height: 1.5;
+                }
 
-        .highlight-stats {
-            display: flex;
-            flex-direction: column;
-            gap: 2rem;
-            border-top: 1px solid rgba(255,255,255,0.05);
-            padding-top: 2.5rem;
-        }
-        
-        @media (min-width: 640px) {
-            .highlight-stats {
-                flex-direction: row;
-                justify-content: space-around;
-            }
-        }
-        
-        @media (min-width: 1024px) {
-            .highlight-stats {
-                flex-direction: column;
-                border-top: none;
-                border-left: 1px solid rgba(255,255,255,0.08);
-                padding-top: 0;
-                padding-left: 4rem;
-                gap: 3rem;
-            }
-        }
+                /* Simulator */
+                .simulator-section {
+                    background: var(--c-graphite);
+                    border: var(--border-thin);
+                    border-radius: var(--radius-lg);
+                    padding: var(--space-8);
+                }
 
-        .stat-number {
-            display: block;
-            font-size: clamp(3rem, 5vw, 4rem);
-            font-weight: 900;
-            color: var(--color-primary);
-            line-height: 1;
-            margin-bottom: 0.5rem;
-            letter-spacing: -0.02em;
-        }
+                .simulator-grid {
+                    display: grid;
+                    md:grid-cols-2;
+                    gap: var(--space-8);
+                }
 
-        .stat-label {
-            color: white;
-            font-size: 0.85rem;
-            text-transform: uppercase;
-            letter-spacing: 0.1em;
-            font-weight: 700;
-        }
+                @media (min-width: 768px) {
+                    .simulator-grid {
+                        grid-template-columns: 1fr 1fr;
+                    }
+                }
 
-        .steps-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-            gap: 1.5rem;
-        }
+                .simulator-controls {
+                    display: flex;
+                    flex-direction: column;
+                    gap: var(--space-6);
+                }
 
-        .step-card {
-            background: rgba(15, 15, 15, 0.45);
-            backdrop-filter: blur(12px);
-            border: 1px solid rgba(255, 255, 255, 0.05);
-            border-radius: 20px;
-            padding: 2.5rem;
-            transition: all 0.3s ease;
-        }
+                .input-group label {
+                    display: block;
+                    color: var(--c-ivory-muted);
+                    font-size: 0.9rem;
+                    font-weight: 600;
+                    text-transform: uppercase;
+                    letter-spacing: 0.05em;
+                    margin-bottom: var(--space-3);
+                }
 
-        .step-card:hover {
-            transform: translateY(-8px);
-            border-color: var(--color-primary);
-            background: rgba(20, 20, 20, 0.6);
-        }
+                .range-header {
+                    display: flex;
+                    justify-content: flex-start;
+                    margin-bottom: var(--space-4);
+                }
 
-        .step-card .icon-box {
-            background: rgba(255, 255, 255, 0.03);
-            width: 64px;
-            height: 64px;
-            border-radius: 16px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            margin-bottom: 1.5rem;
-            border: 1px solid rgba(255, 255, 255, 0.08);
-            color: var(--color-primary);
-        }
+                .current-val {
+                    font-size: 2rem;
+                    font-weight: 900;
+                    color: var(--c-ivory);
+                    font-family: var(--font-title);
+                }
 
-        .step-card h3 {
-            font-size: 1.35rem;
-            font-weight: 800;
-            margin-bottom: 1rem;
-            letter-spacing: -0.01em;
-        }
+                .range-slider {
+                    width: 100%;
+                    -webkit-appearance: none;
+                    height: 8px;
+                    border-radius: 4px;
+                    background: var(--c-carbon);
+                    outline: none;
+                    margin-bottom: 8px;
+                }
 
-        .step-card p {
-            color: #888;
-            line-height: 1.6;
-            font-size: 0.95rem;
-        }
+                .range-slider::-webkit-slider-thumb {
+                    -webkit-appearance: none;
+                    appearance: none;
+                    width: 24px;
+                    height: 24px;
+                    border-radius: 50%;
+                    background: var(--c-accent-red);
+                    cursor: pointer;
+                    border: 2px solid var(--c-ivory);
+                }
 
-        .requirements-section {
-            background: rgba(15, 15, 15, 0.45);
-            border: 1px solid rgba(255, 255, 255, 0.08);
-            border-radius: 24px;
-            padding: 2rem;
-            display: flex;
-            flex-direction: column;
-            gap: 2.5rem;
-        }
-        
-        @media (min-width: 1024px) {
-            .requirements-section {
-                flex-direction: row;
-                justify-content: space-between;
-                align-items: center;
-                padding: 4rem;
-                gap: 4rem;
-            }
-        }
+                .range-limits {
+                    display: flex;
+                    justify-content: space-between;
+                    color: var(--c-ivory-muted);
+                    font-size: 0.8rem;
+                }
 
-        .req-content {
-            display: flex;
-            flex-direction: column;
-            gap: 2rem;
-        }
-        
-        @media (min-width: 768px) {
-            .req-content { flex-direction: row; align-items: flex-start; }
-        }
+                .term-selector {
+                    display: flex;
+                    gap: var(--space-2);
+                    flex-wrap: wrap;
+                }
 
-        .icon-box-large {
-            background: rgba(235, 38, 40, 0.1);
-            width: 80px;
-            height: 80px;
-            border-radius: 20px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            flex-shrink: 0;
-            border: 1px solid rgba(235, 38, 40, 0.2);
-        }
+                .term-btn {
+                    flex: 1;
+                    min-width: 60px;
+                    padding: 12px 0;
+                    background: var(--c-carbon);
+                    border: 1px solid rgba(255,255,255,0.1);
+                    color: var(--c-ivory);
+                    font-weight: 700;
+                    border-radius: var(--radius-sm);
+                    cursor: pointer;
+                    transition: all 0.2s ease;
+                }
 
-        .req-text h3 {
-            font-size: 1.75rem;
-            margin-bottom: 1.5rem;
-            font-weight: 800;
-            letter-spacing: -0.01em;
-        }
+                .term-btn:hover {
+                    background: var(--c-graphite-light);
+                }
 
-        .req-list {
-            list-style: none;
-            padding: 0;
-            display: grid;
-            grid-template-columns: 1fr;
-            gap: 1.25rem;
-        }
-        
-        @media (min-width: 640px) {
-            .req-list { grid-template-columns: 1fr 1fr; }
-        }
+                .term-btn.active {
+                    background: var(--c-accent-red);
+                    border-color: var(--c-accent-red);
+                }
 
-        .req-list li {
-            display: flex;
-            align-items: center;
-            gap: 1rem;
-            color: #ccc;
-            font-size: 1rem;
-        }
+                .simulator-result {
+                    background: var(--c-carbon);
+                    border-radius: var(--radius-md);
+                    padding: var(--space-6);
+                    border: var(--border-thin);
+                }
 
-        .btn-whatsapp-financing {
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            background: #25D366;
-            color: #000;
-            font-weight: 800;
-            padding: 1.25rem 2.5rem;
-            border-radius: 50px;
-            text-decoration: none;
-            font-size: 1.1rem;
-            transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-            box-shadow: 0 10px 30px rgba(37, 211, 102, 0.2);
-            text-align: center;
-        }
+                .result-header {
+                    display: flex;
+                    align-items: center;
+                    gap: var(--space-2);
+                    margin-bottom: var(--space-4);
+                }
 
-        .btn-whatsapp-financing:hover {
-            transform: translateY(-5px);
-            box-shadow: 0 15px 40px rgba(37, 211, 102, 0.4);
-            background: #22c55e;
-        }
-        
-        @media (max-width: 1024px) {
-            .btn-whatsapp-financing { width: 100%; }
-        }
-      `}</style>
-        </main>
+                .result-header h3 {
+                    color: var(--c-ivory);
+                    font-size: 1.2rem;
+                    font-weight: 700;
+                }
+
+                .result-value {
+                    font-size: 3rem;
+                    font-weight: 900;
+                    color: var(--c-accent-red);
+                    font-family: var(--font-title);
+                    margin-bottom: var(--space-4);
+                    line-height: 1;
+                }
+
+                .result-suffix {
+                    font-size: 1.2rem;
+                    color: var(--c-ivory-muted);
+                    font-family: var(--font-main);
+                    font-weight: 600;
+                }
+
+                .result-details {
+                    display: flex;
+                    flex-direction: column;
+                    gap: 4px;
+                    color: var(--c-ivory);
+                    font-size: 1rem;
+                    margin-bottom: var(--space-6);
+                    font-weight: 500;
+                }
+
+                .legal-disclaimer {
+                    display: flex;
+                    align-items: flex-start;
+                    gap: var(--space-3);
+                    background: rgba(255,255,255,0.03);
+                    padding: var(--space-4);
+                    border-radius: var(--radius-sm);
+                }
+
+                .legal-disclaimer svg {
+                    color: #F59E0B;
+                    flex-shrink: 0;
+                    margin-top: 2px;
+                }
+
+                .legal-disclaimer p {
+                    color: var(--c-ivory-muted);
+                    font-size: 0.75rem;
+                    line-height: 1.5;
+                }
+            `}</style>
+        </>
     );
 };
 
