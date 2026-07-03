@@ -266,22 +266,13 @@ const CarDetail = () => {
                         {/* LEFT COLUMN: Gallery */}
                         <div className="gallery-section">
                             <div className="main-image-container group" onClick={() => setShowLightbox(true)}>
-                                {/* Blurred Background */}
-                                <Image
-                                    src={getOptimizedImageUrl(activeImage, 200) || '/placeholder.png'}
-                                    alt=""
-                                    fill
-                                    className="main-image-blur absolute inset-0 w-full h-full"
-                                    style={{ objectFit: 'cover', filter: 'blur(20px) brightness(0.5)', transform: 'scale(1.1)' }}
-                                    unoptimized
-                                />
-                                {/* Main Image */}
                                 <Image
                                     src={getOptimizedImageUrl(activeImage, 1200) || '/placeholder.png'}
                                     alt={`${car.brand} ${car.name}`}
-                                    fill
+                                    width={1200}
+                                    height={1200}
                                     className="main-image"
-                                    style={{ objectFit: 'contain', zIndex: 1, position: 'relative' }}
+                                    style={{ width: '100%', height: 'auto', objectFit: 'contain' }}
                                     unoptimized
                                     priority={true}
                                 />
@@ -613,18 +604,18 @@ const CarDetail = () => {
                 .main-image-container {
                     position: relative;
                     width: 100%;
-                    aspect-ratio: 4/3;
-                    background-color: var(--c-carbon);
+                    display: flex;
+                    justify-content: center;
+                    align-items: center;
+                    background-color: transparent;
                     border-radius: var(--radius-lg);
-                    overflow: hidden;
                     cursor: zoom-in;
-                    border: var(--border-thin);
                 }
 
                 .main-image {
-                    width: 100%;
-                    height: 100%;
-                    object-fit: contain;
+                    max-width: 100%;
+                    max-height: 600px;
+                    border-radius: var(--radius-lg);
                     transition: transform 0.4s ease;
                 }
 

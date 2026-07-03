@@ -47,24 +47,15 @@ const CarCard = ({ car }) => {
   return (
     <div className={`car-card group ${isSold ? 'car-sold' : ''}`}>
       <div className="card-image-wrapper">
-        <Link href={`/auto/${carId}`} tabIndex="-1" className="block relative w-full h-full">
-            {/* Blurred Background to fill empty spaces */}
-            <Image
-                src={getOptimizedImageUrl(car.coverImage || (car.images && car.images[0]) || car.image, 200) || '/placeholder.png'}
-                alt=""
-                fill
-                className="card-image-blur absolute inset-0 w-full h-full"
-                style={{ objectFit: 'cover', filter: 'blur(15px) brightness(0.6)', transform: 'scale(1.1)' }}
-                unoptimized
-            />
-            {/* Main Image */}
+        <Link href={`/auto/${carId}`} tabIndex="-1" className="block relative w-full">
             <Image
             src={getOptimizedImageUrl(car.coverImage || (car.images && car.images[0]) || car.image, 600) || '/placeholder.png'}
             alt={`${car.brand} ${car.name}`}
-            fill
+            width={800}
+            height={800}
             sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
             className="card-image"
-            style={{ objectFit: 'contain', objectPosition: car.imagePosition || '50% 50%', zIndex: 1 }}
+            style={{ width: '100%', height: 'auto', objectFit: 'contain' }}
             unoptimized
             />
         </Link>
@@ -155,7 +146,6 @@ const CarCard = ({ car }) => {
             .card-image-wrapper {
                 position: relative;
                 width: 100%;
-                aspect-ratio: 16/10;
                 background-color: transparent;
                 overflow: hidden;
             }
