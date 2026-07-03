@@ -269,7 +269,8 @@ const CarDetail = () => {
                                 <Image
                                     src={getOptimizedImageUrl(activeImage, 1200) || '/placeholder.png'}
                                     alt={`${car.brand} ${car.name}`}
-                                    fill
+                                    width={1200}
+                                    height={1200}
                                     className="main-image"
                                     unoptimized
                                     priority={true}
@@ -602,15 +603,20 @@ const CarDetail = () => {
                 .main-image-container {
                     position: relative;
                     width: 100%;
-                    aspect-ratio: 4/3;
-                    background-color: var(--c-carbon);
+                    display: flex;
+                    justify-content: center;
+                    align-items: center;
+                    background-color: transparent;
                     border-radius: var(--radius-lg);
-                    overflow: hidden;
                     cursor: zoom-in;
-                    border: var(--border-thin);
                 }
 
                 .main-image {
+                    max-width: 100%;
+                    max-height: 600px;
+                    width: auto;
+                    height: auto;
+                    border-radius: var(--radius-lg);
                     object-fit: contain;
                     transition: transform 0.4s ease;
                 }

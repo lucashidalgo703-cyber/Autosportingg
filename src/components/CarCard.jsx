@@ -146,7 +146,7 @@ const CarCard = ({ car }) => {
                 position: relative;
                 width: 100%;
                 aspect-ratio: 16/10;
-                background-color: var(--c-carbon);
+                background-color: transparent;
                 overflow: hidden;
             }
 
