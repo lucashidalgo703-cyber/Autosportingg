@@ -54,7 +54,7 @@ const CarCard = ({ car }) => {
             fill
             sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
             className="card-image"
-            style={{ objectFit: 'cover', objectPosition: car.imagePosition || '50% 50%' }}
+            style={{ objectFit: 'contain', objectPosition: car.imagePosition || '50% 50%' }}
             unoptimized
             />
         </Link>

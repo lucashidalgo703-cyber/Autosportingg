@@ -611,7 +611,7 @@ const CarDetail = () => {
                 }
 
                 .main-image {
-                    object-fit: cover;
+                    object-fit: contain;
                     transition: transform 0.4s ease;
                 }
 
