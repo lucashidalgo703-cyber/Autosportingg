@@ -39,13 +39,13 @@ const Hero = () => {
       <div className="hero-bg">
         <motion.div style={{ y: yBg, position: 'absolute', inset: 0, width: '100%', height: '100%' }}>
           <Image
-            src="/autosporting-hero-v2.jpg"
+            src="/hero-autosporting.jpg"
             alt="Vehículo premium en AutoSporting"
             fill
             className="hero-bg-image object-cover"
             style={{
               objectFit: 'cover',
-              objectPosition: '50% 30%'
+              objectPosition: 'center'
             }}
             priority
           />
