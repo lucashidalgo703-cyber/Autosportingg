@@ -1,174 +1,100 @@
+"use client";
 import React from 'react';
 import { motion } from 'framer-motion';
-import { Star, Quote } from 'lucide-react';
-
-const reviews = [
-  {
-    id: 1,
-    name: "Carlos Méndez",
-    text: "Excelente atención de principio a fin. Compré mi primera pickup aquí y la financiación fue súper rápida. 100% recomendados.",
-    car: "Toyota Hilux 2022",
-    rating: 5
-  },
-  {
-    id: 2,
-    name: "Mariana Rojas",
-    text: "Transparencia total. Me tomaron el usado a un precio justo y me llevé un 0km en menos de una semana. Muy profesionales.",
-    car: "Volkswagen Taos",
-    rating: 5
-  },
-  {
-    id: 3,
-    name: "Jorge Schmidt",
-    text: "Buscaba un auto confiable para mi familia y me asesoraron perfectamente. El servicio post-venta también es impecable.",
-    car: "Ford Territory",
-    rating: 5
-  }
-];
+import { Star, MessageCircle, ExternalLink } from 'lucide-react';
+import Link from 'next/link';
 
 const Testimonials = () => {
   return (
     <section className="testimonials section-padding">
       <div className="container">
-        <div className="section-header mb-16 text-center md:text-left">
-          <h2 className="text-5xl font-black uppercase tracking-tighter italic mb-4">Experiencias AutoSporting</h2>
+        <div className="section-header mb-12 text-center md:text-left">
+          <h2 className="text-4xl md:text-5xl font-black uppercase tracking-tighter mb-4 text-[var(--c-ivory)]" style={{ fontFamily: 'var(--font-title)' }}>Experiencias AutoSporting</h2>
           <div className="flex items-center gap-4 justify-center md:justify-start">
-            <div className="h-[2px] w-12 bg-[var(--color-primary)]"></div>
-            <p className="testimonial-subtitle">La confianza de nuestros clientes es nuestro mayor motor</p>
+            <div className="h-[2px] w-12 bg-[var(--c-accent-red)]"></div>
+            <p className="testimonial-subtitle text-[var(--c-ivory-muted)]">La confianza de nuestros clientes es nuestro mayor motor</p>
           </div>
         </div>
 
-        <div className="testimonials-grid">
-          {reviews.map((review, index) => (
-            <motion.div
-              key={review.id}
-              className="testimonial-card"
-              initial={{ opacity: 0, scale: 0.9 }}
-              whileInView={{ opacity: 1, scale: 1 }}
-              transition={{ duration: 0.5, delay: index * 0.1 }}
-              viewport={{ once: true }}
-            >
-              <div className="quote-icon">
-                <Quote size={40} fill="var(--color-primary)" opacity={0.15} />
-              </div>
-              
-              <div className="stars">
-                {[...Array(review.rating)].map((_, i) => (
-                  <Star key={i} size={16} fill="var(--color-primary)" color="var(--color-primary)" />
-                ))}
-              </div>
-
-              <p className="testimonial-text">"{review.text}"</p>
-
-              <div className="testimonial-footer">
-                <div className="user-info">
-                  <span className="user-name">{review.name}</span>
-                  <span className="user-car">{review.car}</span>
+        <motion.div
+            className="reviews-container"
+            initial={{ opacity: 0, y: 30 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6 }}
+            viewport={{ once: true }}
+        >
+            <div className="google-reviews-card">
+                <div className="google-header">
+                    <MessageCircle size={48} className="text-[var(--c-accent-red)] mb-4" />
+                    <h3 className="text-2xl font-bold text-[var(--c-ivory)] mb-2">Reseñas en Google</h3>
+                    <div className="flex items-center gap-2 mb-2">
+                        <span className="text-3xl font-black text-white">4.8</span>
+                        <div className="stars flex gap-1">
+                            {[1,2,3,4,5].map((i) => (
+                                <Star key={i} size={24} fill="var(--c-accent-red)" color="var(--c-accent-red)" />
+                            ))}
+                        </div>
+                    </div>
+                    <p className="text-[var(--c-ivory-muted)] mb-8">Basado en opiniones reales de clientes que ya encontraron su vehículo con nosotros.</p>
                 </div>
-              </div>
-            </motion.div>
-          ))}
-        </div>
+
+                <a 
+                    href="https://maps.google.com" 
+                    target="_blank" 
+                    rel="noopener noreferrer" 
+                    className="btn btn-primary inline-flex gap-2"
+                >
+                    Leer reseñas en Google <ExternalLink size={18} />
+                </a>
+            </div>
+        </motion.div>
       </div>
 
       <style>{`
         .testimonials {
-          background: linear-gradient(to bottom, transparent, rgba(235, 38, 40, 0.02), transparent);
+          background-color: var(--c-carbon);
           position: relative;
-        }
-
-        .testimonials-grid {
-          display: grid;
-          grid-template-columns: 1fr;
-          gap: 2rem;
-        }
-
-        @media (min-width: 1024px) {
-          .testimonials-grid {
-            grid-template-columns: repeat(3, 1fr);
-          }
-        }
-
-        .testimonial-card {
-          font-family: 'Archivo', sans-serif;
-          background: rgba(15, 15, 15, 0.85);
-          backdrop-filter: blur(10px);
-          border: 1px solid rgba(255, 255, 255, 0.1);
-          padding: 2.5rem;
-          border-radius: 24px;
-          position: relative;
-          display: flex;
-          flex-direction: column;
-          gap: 1.5rem;
-          transition: all 0.3s ease;
-          box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
         }
 
         .testimonial-subtitle {
-          font-family: 'Archivo', sans-serif;
-          color: white;
+          font-family: var(--font-title);
           font-size: 1.25rem;
           font-weight: 800;
           text-transform: uppercase;
           letter-spacing: 0.05em;
-          opacity: 1;
+        }
+
+        .reviews-container {
+            display: flex;
+            justify-content: center;
+            width: 100%;
+        }
+
+        .google-reviews-card {
+          background: var(--c-graphite);
+          border: var(--border-thin);
+          padding: 3rem 2rem;
+          border-radius: var(--radius-xl);
+          width: 100%;
+          max-width: 600px;
+          text-align: center;
+          transition: all 0.3s ease;
+          box-shadow: var(--shadow-sm);
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+        }
+
+        .google-reviews-card:hover {
+          transform: translateY(-5px);
+          border-color: var(--c-graphite-light);
+          box-shadow: var(--shadow-md);
         }
 
         @media (max-width: 768px) {
           .testimonial-subtitle {
             font-size: 1.1rem;
           }
-        }
-
-        .testimonial-card:hover {
-          transform: translateY(-5px);
-          border-color: rgba(235, 38, 40, 0.2);
-          background: rgba(255, 255, 255, 0.05);
-        }
-
-        .quote-icon {
-          position: absolute;
-          top: 2rem;
-          right: 2rem;
-        }
-
-        .stars {
-          display: flex;
-          gap: 4px;
-        }
-
-        .testimonial-text {
-          font-size: 1.1rem;
-          line-height: 1.6;
-          color: #eee;
-          font-style: italic;
-          flex: 1;
-        }
-
-        .testimonial-footer {
-          display: flex;
-          align-items: center;
-          gap: 1rem;
-          margin-top: 1rem;
-        }
-
-        .user-info {
-          display: flex;
-          flex-direction: column;
-        }
-
-        .user-name {
-          font-weight: 700;
-          color: white;
-          font-size: 1.1rem;
-        }
-
-        .user-car {
-          font-size: 0.85rem;
-          color: var(--color-primary);
-          text-transform: uppercase;
-          font-weight: 600;
-          letter-spacing: 0.05em;
         }
       `}</style>
     </section>

@@ -4,53 +4,51 @@ import { motion } from 'framer-motion';
 import { Car, Truck, Gauge, ShieldCheck, Zap } from 'lucide-react';
 
 const categories = [
-  { id: 'SUV', label: 'SUVs', icon: <Truck size={32} />, color: '#EB2628' },
-  { id: 'Pickup', label: 'Pickups', icon: <ShieldCheck size={32} />, color: '#EB2628' },
-  { id: 'Sedan', label: 'Sedanes', icon: <Car size={32} />, color: '#EB2628' },
-  { id: 'Hatchback', label: 'Hatchbacks', icon: <Zap size={32} />, color: '#EB2628' },
-  { id: '0km', label: '0 KM', icon: <Gauge size={32} />, color: '#EB2628' },
+  { id: 'SUV', label: 'SUVs', icon: <Truck size={32} /> },
+  { id: 'Pickup', label: 'Pickups', icon: <ShieldCheck size={32} /> },
+  { id: 'Sedan', label: 'Sedanes', icon: <Car size={32} /> },
+  { id: 'Hatchback', label: 'Hatchbacks', icon: <Zap size={32} /> },
+  { id: '0km', label: '0 KM', icon: <Gauge size={32} /> },
 ];
 
 const CategoryNav = ({ cars = [] }) => {
-  const activeCategories = React.useMemo(() => {
-    // Si no hay autos cargados aún (o es null), mostramos todas las categorías por defecto
-    // o podríamos retornar vacío. Mostraremos todas para evitar flickering si loading es lento,
-    // o mejor solo las activas si cars.length > 0.
-    if (!cars || cars.length === 0) return categories;
+  const activeCategoriesWithCount = React.useMemo(() => {
+    if (!cars || cars.length === 0) return categories.map(cat => ({ ...cat, count: 0 }));
 
-    return categories.filter(cat => {
-      return cars.some(car => {
+    return categories.map(cat => {
+      const count = cars.filter(car => {
         if (cat.id === '0km') {
           return car.condition === '0km' || car.km === 0 || car.condition === 'Nuevo';
         }
         return (car.vehicleType && car.vehicleType.toLowerCase() === cat.id.toLowerCase()) || 
                (car.type && car.type.toLowerCase() === cat.id.toLowerCase()) ||
                (car.category && car.category.toLowerCase() === cat.id.toLowerCase());
-      });
-    });
+      }).length;
+      return { ...cat, count };
+    }).filter(cat => cat.count > 0);
   }, [cars]);
 
-  if (activeCategories.length === 0) return null;
+  if (activeCategoriesWithCount.length === 0) return null;
 
   return (
     <section className="category-nav container section-padding">
       <div className="section-header mb-12 text-center md:text-left">
-        <h2 className="text-5xl font-black uppercase tracking-tighter italic" style={{ fontFamily: 'Archivo, sans-serif' }}>Explora por Estilo</h2>
+        <h2 className="text-4xl font-black uppercase tracking-tighter" style={{ fontFamily: 'var(--font-title)' }}>Explora por Estilo</h2>
         <div className="flex items-center gap-4 mt-2 justify-center md:justify-start">
-          <div className="h-[2px] w-12 bg-[var(--color-primary)]"></div>
-          <p className="text-white text-lg font-bold uppercase tracking-wider" style={{ fontFamily: 'Archivo, sans-serif' }}>
-            Encuentra el vehículo que mejor se adapte a tu vida
+          <div className="h-[2px] w-12 bg-[var(--c-accent-red)]"></div>
+          <p className="text-[var(--c-ivory-muted)] text-lg font-bold uppercase tracking-wider" style={{ fontFamily: 'var(--font-title)' }}>
+            El vehículo que mejor se adapte a tu vida
           </p>
         </div>
       </div>
 
       <div className="category-grid">
-        {activeCategories.map((cat, index) => (
+        {activeCategoriesWithCount.map((cat, index) => (
           <motion.div
             key={cat.id}
             initial={{ opacity: 0, y: 20 }}
             whileInView={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5, delay: index * 0.1 }}
+            transition={{ duration: 0.4, delay: index * 0.1 }}
             viewport={{ once: true }}
           >
             <Link href={`/catalogo?type=${cat.id}`} className="category-card group">
@@ -58,6 +56,7 @@ const CategoryNav = ({ cars = [] }) => {
                 {cat.icon}
               </div>
               <span className="category-label">{cat.label}</span>
+              <span className="category-count">{cat.count} {cat.count === 1 ? 'vehículo' : 'vehículos'}</span>
               <div className="category-hover-effect"></div>
             </Link>
           </motion.div>
@@ -73,55 +72,61 @@ const CategoryNav = ({ cars = [] }) => {
 
         @media (min-width: 768px) {
           .category-grid {
-            grid-template-columns: repeat(5, 1fr);
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
             gap: 2rem;
           }
         }
 
         .category-card {
           position: relative;
-          background: rgba(15, 15, 15, 0.8);
-          backdrop-filter: blur(10px);
-          border: 1px solid rgba(255, 255, 255, 0.1);
-          border-radius: 20px;
+          background: var(--c-graphite);
+          border: var(--border-thin);
+          border-radius: var(--radius-lg);
           padding: 2.5rem 1.5rem;
           display: flex;
           flex-direction: column;
           align-items: center;
           justify-content: center;
-          gap: 1.25rem;
-          transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+          gap: 1rem;
+          transition: all 0.3s ease;
           overflow: hidden;
           text-decoration: none;
-          box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4);
+          box-shadow: var(--shadow-sm);
         }
 
         .category-card:hover {
-          background: rgba(20, 20, 20, 0.9);
-          border-color: var(--color-primary);
-          transform: translateY(-8px);
-          box-shadow: 0 20px 40px rgba(235, 38, 40, 0.2);
+          background: var(--c-graphite-light);
+          border-color: var(--c-accent-red);
+          transform: translateY(-4px);
+          box-shadow: var(--shadow-md);
         }
 
         .icon-wrapper {
-          color: white;
+          color: var(--c-ivory-muted);
           transition: all 0.3s ease;
           z-index: 2;
         }
 
         .category-card:hover .icon-wrapper {
-          color: var(--color-primary);
-          transform: scale(1.15);
+          color: var(--c-accent-red);
+          transform: scale(1.1);
         }
 
         .category-label {
-          color: white;
+          color: var(--c-ivory);
           font-weight: 800;
           text-transform: uppercase;
           letter-spacing: 0.1em;
-          font-size: 1rem; /* Increased size */
+          font-size: 1rem;
           z-index: 2;
-          font-family: 'Archivo', sans-serif;
+          font-family: var(--font-title);
+        }
+        
+        .category-count {
+            color: var(--c-ivory-muted);
+            font-size: 0.85rem;
+            z-index: 2;
+            font-weight: 500;
         }
 
         .category-hover-effect {
@@ -130,7 +135,7 @@ const CategoryNav = ({ cars = [] }) => {
           left: 0;
           width: 100%;
           height: 0;
-          background: linear-gradient(to top, rgba(235, 38, 40, 0.15), transparent);
+          background: linear-gradient(to top, rgba(230, 48, 39, 0.1), transparent);
           transition: height 0.4s ease;
           z-index: 1;
         }

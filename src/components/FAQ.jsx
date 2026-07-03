@@ -42,8 +42,10 @@ const FAQ = () => {
   };
 
   return (
-    <section className="faq-section container">
-      <h2 className="section-title text-center">Preguntas Frecuentes</h2>
+    <section className="faq-section container section-padding">
+      <div className="section-header text-center mb-12">
+        <h2 className="text-4xl font-black uppercase tracking-tighter mb-4 text-[var(--c-ivory)]" style={{ fontFamily: 'var(--font-title)' }}>Preguntas Frecuentes</h2>
+      </div>
       <motion.div
         className="faq-grid"
         variants={containerVariants}
@@ -71,22 +73,28 @@ const FAQ = () => {
 
       <style>{`
         .faq-section {
-          padding-bottom: 5rem;
+          position: relative;
         }
-        .text-center { text-align: center; margin-bottom: 3rem; }
+        
         .faq-grid { max-width: 800px; margin: 0 auto; display: flex; flex-direction: column; gap: 1rem; }
         
         .faq-item {
-          background-color: var(--color-surface);
-          border: 1px solid #333;
-          border-radius: 8px;
+          background-color: var(--c-graphite);
+          border: var(--border-thin);
+          border-radius: var(--radius-md);
           cursor: pointer;
           transition: all 0.3s ease;
           overflow: hidden;
+          box-shadow: var(--shadow-sm);
         }
 
         .faq-item:hover {
-          border-color: var(--color-primary);
+          border-color: var(--c-graphite-light);
+          box-shadow: var(--shadow-md);
+        }
+        
+        .faq-item.open {
+            border-color: var(--c-accent-red);
         }
 
         .faq-header {
@@ -94,12 +102,13 @@ const FAQ = () => {
           display: flex;
           justify-content: space-between;
           align-items: center;
+          color: var(--c-ivory);
         }
 
         .faq-header h3 {
+          font-family: var(--font-main);
           font-size: 1.1rem;
-          font-weight: 600;
-          color: white;
+          font-weight: 700;
         }
 
         .faq-content {
@@ -111,11 +120,11 @@ const FAQ = () => {
 
         .faq-item.open .faq-content {
           padding-bottom: 1.5rem;
-          max-height: 200px;
+          max-height: 300px;
         }
 
         .faq-content p {
-          color: var(--color-text-muted);
+          color: var(--c-ivory-muted);
           line-height: 1.6;
         }
       `}</style>

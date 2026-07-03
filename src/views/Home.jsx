@@ -3,26 +3,13 @@ import Hero from '../components/Hero';
 import CarCarousel from '../components/CarCarousel';
 import CategoryNav from '../components/CategoryNav';
 import Features from '../components/Features';
+import PurchaseProcess from '../components/PurchaseProcess';
+import FinancingTradeIn from '../components/FinancingTradeIn';
 import Testimonials from '../components/Testimonials';
 import FAQ from '../components/FAQ';
+import Link from 'next/link';
 import { useCars } from '../hooks/useCars';
 import { motion } from 'framer-motion';
-
-const containerVariants = {
-  hidden: { opacity: 0 },
-  visible: {
-    opacity: 1,
-    transition: { staggerChildren: 0.15 }
-  }
-};
-
-const itemVariants = {
-  hidden: { opacity: 0, y: 30 },
-  visible: {
-    opacity: 1, y: 0,
-    transition: { duration: 0.5, ease: "easeOut" }
-  }
-};
 
 const sectionVariants = {
   hidden: { opacity: 0, y: 40 },
@@ -39,10 +26,13 @@ const Home = () => {
 
   return (
     <div className="home-container">
+      {/* 1. Hero */}
       <Hero />
 
+      {/* 2. Categorías */}
       <CategoryNav cars={cars} />
 
+      {/* 3. Vehículos Destacados */}
       <motion.section
         className="featured container section-padding"
         initial="hidden"
@@ -51,8 +41,8 @@ const Home = () => {
         variants={sectionVariants}
       >
         <div className="section-header mb-8">
-          <h2 className="text-3xl font-bold border-l-4 border-[var(--color-primary)] pl-4">Nuestros Vehículos</h2>
-          <a href="/catalogo" className="view-all-link text-[var(--color-primary)] font-semibold hover:underline">Ver todo el catálogo →</a>
+          <h2 className="text-3xl font-bold border-l-4 border-[var(--c-accent-red)] pl-4 text-[var(--c-ivory)]">Vehículos Destacados</h2>
+          <Link href="/catalogo" className="view-all-link">Ver todo el catálogo →</Link>
         </div>
 
         <motion.div
@@ -66,33 +56,38 @@ const Home = () => {
         </motion.div>
       </motion.section>
 
+      {/* 4. Razones para confiar (Features) */}
       <Features />
 
+      {/* 5. Proceso de compra */}
+      <PurchaseProcess />
+
+      {/* 6. Financiación y Toma de Usados */}
+      <FinancingTradeIn />
+
+      {/* 7. Reseñas Reales */}
       <Testimonials />
 
-      <motion.section
-        className="trust-banner"
+      {/* 8. FAQ */}
+      <FAQ />
+
+      {/* 9. CTA Final */}
+      <motion.section 
+        className="final-cta section-padding"
         initial="hidden"
         whileInView="visible"
-        viewport={{ once: true, amount: 0.3 }}
+        viewport={{ once: true }}
         variants={sectionVariants}
       >
-        <div className="container trust-content">
-          <h2>Confianza y Experiencia</h2>
-          <motion.div className="trust-stats" variants={containerVariants}>
-            <motion.div className="stat-item" variants={itemVariants}>
-              <span className="stat-number">+20</span>
-              <span className="stat-label">Años de trayectoria</span>
-            </motion.div>
-            <motion.div className="stat-item" variants={itemVariants}>
-              <span className="stat-number">100%</span>
-              <span className="stat-label">Garantía asegurada</span>
-            </motion.div>
-          </motion.div>
+        <div className="container text-center">
+            <h2 className="text-4xl md:text-5xl font-black mb-6 text-[var(--c-ivory)]" style={{ fontFamily: 'var(--font-title)' }}>¿Listo para dar el salto?</h2>
+            <p className="text-[var(--c-ivory-muted)] text-lg mb-8 max-w-2xl mx-auto">Vení a conocer tu próximo vehículo o contactanos para recibir asesoramiento personalizado. Estamos para ayudarte.</p>
+            <div className="flex flex-col sm:flex-row gap-4 justify-center">
+                <Link href="/catalogo" className="btn btn-primary btn-lg">Ver catálogo de autos</Link>
+                <Link href="/contacto" className="btn btn-hero-outline btn-lg">Escribir por WhatsApp</Link>
+            </div>
         </div>
       </motion.section>
-
-      <FAQ />
 
       <style>{`
         .section-padding {
@@ -108,14 +103,14 @@ const Home = () => {
         }
 
         .section-header h2 {
+          font-family: var(--font-title);
           font-size: 2.5rem;
           font-weight: 700;
-          color: white;
         }
 
         .view-all-link {
-          background-color: var(--color-primary);
-          color: white;
+          background-color: var(--c-graphite);
+          color: var(--c-ivory);
           font-weight: 700;
           font-size: 0.9rem;
           text-transform: uppercase;
@@ -123,92 +118,52 @@ const Home = () => {
           padding: 0.75rem 1.5rem;
           border-radius: 50px;
           transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-          box-shadow: 0 4px 15px rgba(235, 38, 40, 0.4);
+          box-shadow: var(--shadow-sm);
           display: inline-flex;
           align-items: center;
-          border: 1px solid transparent;
+          border: var(--border-thin);
         }
 
         .view-all-link:hover {
-          background-color: transparent;
-          color: white;
-          border-color: var(--color-primary);
+          background-color: var(--c-graphite-light);
+          border-color: var(--c-accent-red);
           transform: translateY(-3px) scale(1.05);
-          box-shadow: 0 8px 25px rgba(235, 38, 40, 0.6);
+          box-shadow: var(--shadow-md);
         }
 
-        .cars-grid {
-          display: grid;
-          grid-template-columns: 1fr;
-          gap: 2rem;
+        .final-cta {
+            background-color: var(--c-carbon);
+            border-top: var(--border-thin);
+            margin-top: 2rem;
         }
 
-        @media (min-width: 640px) {
-          .cars-grid {
-            grid-template-columns: repeat(2, 1fr);
-          }
-        }
-
-        @media (min-width: 1024px) {
-          .cars-grid {
-            grid-template-columns: repeat(4, 1fr);
-          }
+        .btn-lg {
+            padding: 1rem 2rem;
+            font-size: 1.1rem;
         }
         
-        /* Trust Banner Styles */
-        .trust-banner {
-            position: relative;
-            padding: 8rem 0;
-            margin-bottom: 5rem;
-            text-align: center;
-            /* Glassmorphism for banner */
-            background: rgba(10, 10, 10, 0.3);
-            backdrop-filter: blur(8px);
-            border-top: 1px solid rgba(255,255,255,0.05);
-            border-bottom: 1px solid rgba(255,255,255,0.05);
-        }
-
-        .trust-content {
-            position: relative;
-            z-index: 10;
-        }
-
-        .trust-content h2 {
-            font-size: 3rem;
-            margin-bottom: 4rem;
-            font-weight: 800;
-        }
-
-        .trust-stats {
-            display: flex;
+        .btn-hero-outline {
+            display: inline-flex;
+            align-items: center;
             justify-content: center;
-            gap: 5rem;
+            padding: var(--space-2) var(--space-4);
+            background-color: transparent;
+            border: 1px solid rgba(255,255,255,0.3);
+            color: var(--c-ivory);
+            font-weight: 500;
+            border-radius: var(--radius-md); 
+            transition: all 0.2s ease;
         }
 
-        .stat-item {
-            display: flex;
-            flex-direction: column;
-            gap: 0.5rem;
-        }
-
-        .stat-number {
-             font-size: 4rem;
-             font-weight: 900;
-             color: var(--color-primary);
-             line-height: 1;
-        }
-
-        .stat-label {
-             font-size: 1.2rem;
-             color: white;
-             text-transform: uppercase;
-             letter-spacing: 0.1em;
+        .btn-hero-outline:hover {
+            background-color: var(--c-ivory);
+            color: var(--c-carbon);
+            border-color: var(--c-ivory);
         }
 
         @media (max-width: 768px) {
           .section-header { flex-direction: column; align-items: start; gap: 1rem; }
           .section-header h2 { font-size: 2rem; }
-          .trust-stats { flex-direction: column; gap: 3rem; }
         }
       `}</style>
     </div>

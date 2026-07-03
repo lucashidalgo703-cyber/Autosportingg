@@ -1,6 +1,24 @@
 "use client";
-import { ShieldCheck, FileCheck, Banknote } from 'lucide-react';
+import { Wrench, FileCheck, MapPin } from 'lucide-react';
 import { motion } from 'framer-motion';
+
+const trustFeatures = [
+  {
+    icon: <Wrench size={32} />,
+    title: "Inspección Mecánica",
+    desc: "Cada vehículo usado de nuestro catálogo pasa por una revisión técnica minuciosa antes de ser publicado."
+  },
+  {
+    icon: <FileCheck size={32} />,
+    title: "Documentación al día",
+    desc: "Garantizamos que todos nuestros autos están libres de deudas y listos para transferir con gestoría propia."
+  },
+  {
+    icon: <MapPin size={32} />,
+    title: "Agencia Física",
+    desc: "Vení a conocernos a nuestro salón en Comodoro Rivadavia. Trato directo, transparente y seguro."
+  }
+];
 
 const containerVariants = {
   hidden: { opacity: 0 },
@@ -22,6 +40,15 @@ const Features = () => {
   return (
     <section className="features-section section-padding">
       <div className="container">
+        <div className="section-header text-center mb-16">
+          <h2 className="text-4xl font-black uppercase tracking-tighter mb-4 text-[var(--c-ivory)]" style={{ fontFamily: 'var(--font-title)' }}>
+            Nuestra Garantía de Confianza
+          </h2>
+          <p className="text-[var(--c-ivory-muted)] max-w-2xl mx-auto">
+            No inventamos números. Construimos relaciones basadas en hechos reales y vehículos en excelentes condiciones.
+          </p>
+        </div>
+
         <motion.div
           className="features-grid"
           variants={containerVariants}
@@ -29,13 +56,23 @@ const Features = () => {
           whileInView="visible"
           viewport={{ once: true, amount: 0.2 }}
         >
-          {/* ... cards ... */}
+          {trustFeatures.map((feature, index) => (
+            <motion.div key={index} className="feature-card" variants={itemVariants}>
+              <div className="icon-wrapper">
+                {feature.icon}
+              </div>
+              <h3>{feature.title}</h3>
+              <p>{feature.desc}</p>
+            </motion.div>
+          ))}
         </motion.div>
       </div>
 
       <style>{`
         .features-section {
-          background: transparent;
+          background-color: var(--c-graphite);
+          border-top: var(--border-thin);
+          border-bottom: var(--border-thin);
           position: relative;
         }
         
@@ -54,90 +91,59 @@ const Features = () => {
         }
 
         .feature-card {
-          background: rgba(15, 15, 15, 0.45);
-          backdrop-filter: blur(12px);
-          -webkit-backdrop-filter: blur(12px);
-          padding: 2rem;
-          border-radius: 16px;
-          border: 1px solid rgba(255, 255, 255, 0.08);
-          box-shadow: 0 4px 30px rgba(0, 0, 0, 0.1);
+          background: var(--c-carbon);
+          padding: 2.5rem;
+          border-radius: var(--radius-lg);
+          border: var(--border-thin);
+          box-shadow: var(--shadow-sm);
           text-align: center;
-          transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+          transition: transform 0.3s ease, box-shadow 0.3s ease, border-color 0.3s ease;
           display: flex;
           flex-direction: column;
           align-items: center;
         }
 
-        @media (min-width: 768px) {
-            .feature-card {
-                padding: 2.5rem;
-            }
-        }
-        
-        /* ... hover etc ... */
         .feature-card:hover {
           transform: translateY(-8px);
-          background: rgba(25, 25, 25, 0.7);
-          border-color: var(--color-primary);
-          box-shadow: 0 20px 40px -10px rgba(235, 38, 40, 0.2);
+          border-color: var(--c-graphite-light);
+          box-shadow: var(--shadow-md);
         }
 
         .icon-wrapper {
-          width: 60px;
-          height: 60px;
-          background: rgba(255,255,255,0.03);
+          width: 70px;
+          height: 70px;
+          background: var(--c-graphite);
           border-radius: 50%;
           display: flex;
           align-items: center;
           justify-content: center;
-          margin-bottom: 1.25rem;
-          color: var(--color-primary);
-          border: 1px solid rgba(255, 255, 255, 0.1);
+          margin-bottom: 1.5rem;
+          color: var(--c-accent-red);
+          border: var(--border-thin);
           transition: all 0.3s ease;
         }
         
-        @media (min-width: 768px) {
-            .icon-wrapper {
-                width: 70px;
-                height: 70px;
-                margin-bottom: 1.5rem;
-            }
-        }
-        
-        /* ... the rest of the styles ... */
         .feature-card:hover .icon-wrapper {
-            transform: scale(1.1) rotate(5deg);
-            color: white;
-            background: var(--color-primary);
-            border-color: var(--color-primary);
+            transform: scale(1.1);
+            color: var(--c-ivory);
+            background: var(--c-accent-red);
+            border-color: var(--c-accent-red);
         }
 
         .feature-card h3 {
-          font-size: 1.15rem;
-          font-weight: 700;
-          color: white;
-          margin-bottom: 0.75rem;
+          font-family: var(--font-title);
+          font-size: 1.25rem;
+          font-weight: 800;
+          color: var(--c-ivory);
+          margin-bottom: 1rem;
           text-transform: uppercase;
           letter-spacing: 0.05em;
         }
-        
-        @media (min-width: 768px) {
-            .feature-card h3 {
-                font-size: 1.25rem;
-                margin-bottom: 1rem;
-            }
-        }
 
         .feature-card p {
-          color: #999;
+          color: var(--c-ivory-muted);
           line-height: 1.6;
-          font-size: 0.9rem;
-        }
-        
-        @media (min-width: 768px) {
-            .feature-card p {
-                font-size: 0.95rem;
-            }
+          font-size: 0.95rem;
         }
       `}</style>
     </section>
