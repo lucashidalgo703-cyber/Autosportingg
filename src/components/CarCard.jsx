@@ -55,7 +55,7 @@ const CarCard = ({ car }) => {
             height={800}
             sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
             className="card-image"
-            style={{ width: '100%', height: 'auto', objectFit: 'contain' }}
+            style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: car.imagePosition || 'center center' }}
             unoptimized
             />
         </Link>
@@ -146,6 +146,7 @@ const CarCard = ({ car }) => {
             .card-image-wrapper {
                 position: relative;
                 width: 100%;
+                aspect-ratio: 4/3;
                 background-color: transparent;
                 overflow: hidden;
             }
