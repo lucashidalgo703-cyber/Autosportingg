@@ -26,6 +26,10 @@ export const POST = withAdminAuth(PERMISSIONS.GESTORIA_WRITE, async (request) =>
         await connectDB();
         const body = await request.json();
         
+        ['vehicleId', 'clientId', 'sellerId', 'saleId', 'createdBy'].forEach(field => {
+            if (body[field] === '') body[field] = null;
+        });
+        
         const newTramite = new Gestoria(body);
         await newTramite.save();
         

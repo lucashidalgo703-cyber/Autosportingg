@@ -11,6 +11,11 @@ export const PUT = withAdminAuth(PERMISSIONS.GESTORIA_WRITE, async (request, { p
         const resolvedParams = await Promise.resolve(params);
         const id = resolvedParams.id;
         const body = await request.json();
+        
+        ['vehicleId', 'clientId', 'sellerId', 'saleId', 'createdBy'].forEach(field => {
+            if (body[field] === '') body[field] = null;
+        });
+        
         const existingTramite = await Gestoria.findById(id);
         if (!existingTramite) {
             return NextResponse.json({ error: 'Trámite no encontrado' }, { status: 404 });
