@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server';
 import connectDB from '../../config/db';
 import Gestoria from '../../models/Gestoria';
+import '../../models/Car';
+import '../../models/Client';
 import { withAdminAuth } from '../../utils/nextAdminAuth';
 import { PERMISSIONS } from '../../utils/adminPermissions';
 
