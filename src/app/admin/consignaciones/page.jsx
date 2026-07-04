@@ -1,6 +1,6 @@
 "use client";
 import React, { useEffect, useState } from 'react';
-import { Search, Car, User, Phone, MapPin, DollarSign, Calendar, Info, Link as LinkIcon } from 'lucide-react';
+import { Search, Car, User, Phone, MapPin, DollarSign, Calendar, Info, Link as LinkIcon, Plus } from 'lucide-react';
 import { useAdminCars } from '../../../hooks/useAdminCars';
 import Link from 'next/link';
 import ConsignationKanban from '../../../components/crm/consignaciones/ConsignationKanban';
