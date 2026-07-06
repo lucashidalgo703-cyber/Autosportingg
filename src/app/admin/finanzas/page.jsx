@@ -44,6 +44,7 @@ import CierreCajaTab from '../../../components/crm/finance/tabs/CierreCajaTab';
 import ConciliacionTab from '../../../components/crm/finance/tabs/ConciliacionTab';
 import AfipIvaTab from '../../../components/crm/finance/tabs/AfipIvaTab';
 import PagoEmpresasTab from '../../../components/crm/finance/tabs/PagoEmpresasTab';
+import SueldosTab from '../../../components/crm/finance/tabs/SueldosTab';
 
 
 const FINANCE_TABS = [
@@ -67,7 +68,8 @@ const FINANCE_TABS = [
     { id: 'arqueos', icon: '🔍', label: 'Arqueos' },
     { id: 'cierre', icon: '🧮', label: 'Cierre Caja' },
     { id: 'conciliacion', icon: '✅', label: 'Conciliación' },
-    { id: 'afip', icon: '🏛️', label: 'AFIP/IVA' }
+    { id: 'afip', icon: '🏛️', label: 'AFIP/IVA' },
+    { id: 'sueldos', icon: '🧑‍💼', label: 'Sueldos' }
 ];
 
 const BASE_FILTERS = {
@@ -582,6 +584,14 @@ function FinanzasPage() {
                         {activeTab === 'cierre' && <CierreCajaTab />}
                         {activeTab === 'conciliacion' && <ConciliacionTab accounts={accounts} />}
                         {activeTab === 'afip' && <AfipIvaTab />}
+                        {activeTab === 'sueldos' && (
+                            <SueldosTab
+                                allTransactions={allTransactions}
+                                onNew={() => openTransactionModal({ type: 'egreso', category: 'Sueldos', concept: 'Sueldo' })}
+                                onEdit={handleEditTransaction}
+                                onDelete={handleDeleteTransaction}
+                            />
+                        )}
                         {activeTab === 'pago-empresas' && (
                             <PagoEmpresasTab 
                                 allTransactions={allTransactions} 
