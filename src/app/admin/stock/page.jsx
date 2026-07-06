@@ -430,44 +430,39 @@ export default function AdminStockPage() {
                     </div>
                     <div className="flex flex-wrap items-center gap-2">
                         <span className="text-[11px] font-bold uppercase tracking-[0.08em] text-crm-fg-subtle">
-                            Valor Activo Agencia:
+                            Autos Propios:
                         </span>
                         <span className="font-semibold text-crm-fg flex items-center gap-2">
-                            {stockSummary.valorActivoUSD > 0 || (stockSummary.valorActivoARS > 0 && dolarBlue) ? (
-                                <span>
-                                    USD {Math.round(
-                                        stockSummary.valorActivoUSD + 
-                                        (dolarBlue ? stockSummary.valorActivoARS / dolarBlue : 0)
-                                    ).toLocaleString('es-AR')}
-                                </span>
-                            ) : '--'}
+                            <span>
+                                USD {Math.round(
+                                    (stockSummary.valorActivoUSD || 0) + 
+                                    (dolarBlue && stockSummary.valorActivoARS ? stockSummary.valorActivoARS / dolarBlue : 0)
+                                ).toLocaleString('es-AR')}
+                            </span>
                         </span>
                     </div>
                     
-                    {/* Investor stock value section */}
-                    {(stockSummary.valorActivoInversionistasUSD > 0 || stockSummary.valorActivoInversionistasARS > 0 || stockSummary.capitalInvertidoInversionistasUSD > 0) && (
-                        <div className="flex flex-wrap items-center gap-2 border-l border-crm-border pl-6">
-                            <span className="text-[11px] font-bold uppercase tracking-[0.08em] text-blue-400">
-                                Inversionistas:
+                    <div className="flex flex-wrap items-center gap-2 border-l border-crm-border pl-6">
+                        <span className="text-[11px] font-bold uppercase tracking-[0.08em] text-blue-400">
+                            Inversionistas:
+                        </span>
+                        <div className="flex flex-col">
+                            <span className="font-semibold text-blue-400 flex items-center gap-2 text-sm leading-tight" title="Expectativa de Venta (Valor Activo)">
+                                USD {Math.round(
+                                    (stockSummary.valorActivoInversionistasUSD || 0) + 
+                                    (dolarBlue && stockSummary.valorActivoInversionistasARS ? stockSummary.valorActivoInversionistasARS / dolarBlue : 0)
+                                ).toLocaleString('es-AR')}
                             </span>
-                            <div className="flex flex-col">
-                                <span className="font-semibold text-blue-400 flex items-center gap-2 text-sm leading-tight" title="Expectativa de Venta (Valor Activo)">
-                                    USD {Math.round(
-                                        stockSummary.valorActivoInversionistasUSD + 
-                                        (dolarBlue ? stockSummary.valorActivoInversionistasARS / dolarBlue : 0)
+                            {(stockSummary.capitalInvertidoInversionistasUSD > 0 || stockSummary.capitalInvertidoInversionistasARS > 0) && (
+                                <span className="text-[10px] text-blue-400/60 leading-tight" title="Capital Inicial Invertido (Costo de Compra)">
+                                    Invertido: USD {Math.round(
+                                        stockSummary.capitalInvertidoInversionistasUSD + 
+                                        (dolarBlue ? stockSummary.capitalInvertidoInversionistasARS / dolarBlue : 0)
                                     ).toLocaleString('es-AR')}
                                 </span>
-                                {(stockSummary.capitalInvertidoInversionistasUSD > 0 || stockSummary.capitalInvertidoInversionistasARS > 0) && (
-                                    <span className="text-[10px] text-blue-400/60 leading-tight" title="Capital Inicial Invertido (Costo de Compra)">
-                                        Invertido: USD {Math.round(
-                                            stockSummary.capitalInvertidoInversionistasUSD + 
-                                            (dolarBlue ? stockSummary.capitalInvertidoInversionistasARS / dolarBlue : 0)
-                                        ).toLocaleString('es-AR')}
-                                    </span>
-                                )}
-                            </div>
+                            )}
                         </div>
-                    )}
+                    </div>
                 </div>
 
                 <div className="flex flex-col">
