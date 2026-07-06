@@ -1,5 +1,6 @@
 "use client";
 import { Heart, Info, Fuel, Settings, Calendar, Gauge } from 'lucide-react';
+import { normalizeBrand, normalizeModel, normalizeFuel, formatKm, formatPrice } from '../lib/formatters';
 import Link from 'next/link';
 import { getOptimizedImageUrl } from '../lib/cloudinaryUtils';
 import Image from 'next/image';
@@ -38,9 +39,14 @@ const CarCard = ({ car }) => {
   // Render specs dynamically if available
   const specs = [];
   if (car.year) specs.push({ icon: <Calendar size={14} />, text: car.year });
-  if (car.km !== undefined) specs.push({ icon: <Gauge size={14} />, text: car.km === 0 || car.condition === '0km' ? '0 KM' : `${car.km.toLocaleString()} km` });
-  if (car.transmission) specs.push({ icon: <Settings size={14} />, text: car.transmission });
-  if (car.fuel || car.fuelType) specs.push({ icon: <Fuel size={14} />, text: car.fuel || car.fuelType });
+  
+  const formattedKm = formatKm(car.km);
+  if (formattedKm) specs.push({ icon: <Gauge size={14} />, text: formattedKm });
+  
+  if (car.transmission && car.transmission !== '-') specs.push({ icon: <Settings size={14} />, text: car.transmission });
+  
+  const formattedFuel = normalizeFuel(car.fuel || car.fuelType);
+  if (formattedFuel && formattedFuel !== '-') specs.push({ icon: <Fuel size={14} />, text: formattedFuel });
 
   const displaySpecs = specs.slice(0, 3); // Up to 3 specs
 
@@ -84,10 +90,10 @@ const CarCard = ({ car }) => {
       <div className="card-content">
         <Link href={`/auto/${carId}`} className="card-header-link">
             <div className="card-subtitle">
-            {car.brand}
+            {normalizeBrand(car.brand)}
             </div>
             <h3 className="card-title">
-            {car.name} {car.version && <span className="card-version">{car.version}</span>}
+            {normalizeModel(car.name)} {car.version && car.version !== '-' && <span className="card-version">{car.version}</span>}
             </h3>
         </Link>
 
@@ -102,8 +108,13 @@ const CarCard = ({ car }) => {
         </div>
 
         <div className="card-footer">
-            <div className="card-price" style={{ fontSize: '1.1rem', color: 'var(--c-accent-red)' }}>
-                Consultar Precio
+            <div className="flex flex-col">
+                <div className="card-price" style={{ fontSize: '1.1rem', color: 'var(--c-accent-red)' }}>
+                    {formatPrice(car.price, car.currency)}
+                </div>
+                {car.price > 0 && (
+                    <div className="text-[11px] text-[#a1a1aa] mt-0.5 font-medium">Financiación disponible</div>
+                )}
             </div>
             <Link href={`/auto/${carId}`} className="btn-ver-detalle">
                 Ver detalle

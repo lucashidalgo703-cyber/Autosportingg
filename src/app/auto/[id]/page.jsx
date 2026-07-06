@@ -1,5 +1,6 @@
 import connectDB from '../../../config/db.js';
 import Car from '../../../models/Car.js';
+import { normalizeBrand, normalizeModel, formatKm } from '../../../lib/formatters.js';
 import CarDetail from '../../../views/CarDetail';
 
 export async function generateMetadata({ params }) {
@@ -14,9 +15,13 @@ export async function generateMetadata({ params }) {
                 ? imageUrl.replace('/upload/', '/upload/w_1200,h_630,c_fill,g_auto,q_auto,f_jpg/')
                 : imageUrl;
 
+            const brand = normalizeBrand(car.brand);
+            const model = normalizeModel(car.name);
+            const km = formatKm(car.km);
+
             return {
-                title: `${car.brand} ${car.name} | AutoSporting`,
-                description: `Conocé este ${car.brand} ${car.name} ${car.year}. Kilometraje: ${car.km}km. Concesionaria en Comodoro Rivadavia.`,
+                title: `${brand} ${model}`,
+                description: `Conocé este ${brand} ${model} ${car.year}. Kilometraje: ${km}. Concesionaria en Comodoro Rivadavia.`,
                 openGraph: {
                     type: 'website',
                     url: `https://autosportingg.com/auto/${id}`,

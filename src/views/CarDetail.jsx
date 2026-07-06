@@ -11,13 +11,10 @@ import { trackEvent } from '../lib/analytics';
 import Image from 'next/image';
 import { motion, AnimatePresence } from 'framer-motion';
 import CarCard from '../components/CarCard'; // For similar cars
+import { normalizeBrand, normalizeModel, normalizeFuel, formatKm, formatPrice } from '../lib/formatters';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
 const baseUrl = process.env.NODE_ENV === 'production' ? '' : API_URL;
-
-const formatPrice = (price, currency = 'USD') => {
-    return 'Consultar precio';
-};
 
 const CarDetail = () => {
     const { id } = useParams();
@@ -343,7 +340,7 @@ const CarDetail = () => {
                         <div className="info-section">
                             <div className="info-header">
                                 <div className="brand-year">
-                                    {car.brand} | {car.year}
+                                    {normalizeBrand(car.brand)} | {car.year}
                                 </div>
                                 <div className="actions">
                                     <button className="icon-btn" onClick={handleShare} aria-label="Compartir">
@@ -361,42 +358,50 @@ const CarDetail = () => {
                             </div>
 
                             <h1 className="car-title">
-                                {car.name} {car.version && <span className="version">{car.version}</span>}
+                                {normalizeModel(car.name)} {car.version && car.version !== '-' && <span className="version">{car.version}</span>}
                             </h1>
 
                             <div className="price-container">
-                                <div className="main-price">
-                                    {formatPrice(car.price, car.currency)}
-                                </div>
-                                {estimatedQuota > 0 && isAvailable && (
-                                    <div className="estimated-quota">
-                                        Cuota aprox. desde {formatPrice(estimatedQuota, car.currency)}/mes
+                                <div className="flex flex-col">
+                                    <div className="main-price">
+                                        {formatPrice(car.price, car.currency)}
                                     </div>
-                                )}
+                                    {car.price > 0 && isAvailable && (
+                                        <div className="text-[13px] text-[#a1a1aa] mt-1 font-medium">Financiación disponible</div>
+                                    )}
+                                </div>
                             </div>
 
                             {/* Main Specs Grid */}
                             <div className="specs-grid">
-                                <div className="spec-box">
-                                    <Calendar size={20} className="spec-icon" />
-                                    <span className="spec-value">{car.year}</span>
-                                    <span className="spec-label">Año</span>
-                                </div>
-                                <div className="spec-box">
-                                    <Gauge size={20} className="spec-icon" />
-                                    <span className="spec-value">{car.km === 0 ? '0' : car.km.toLocaleString()}</span>
-                                    <span className="spec-label">Kilómetros</span>
-                                </div>
-                                <div className="spec-box">
-                                    <Fuel size={20} className="spec-icon" />
-                                    <span className="spec-value">{car.fuel || car.fuelType || '-'}</span>
-                                    <span className="spec-label">Combustible</span>
-                                </div>
-                                <div className="spec-box">
-                                    <Smartphone size={20} className="spec-icon" />
-                                    <span className="spec-value">{car.transmission || '-'}</span>
-                                    <span className="spec-label">Transmisión</span>
-                                </div>
+                                {car.year && (
+                                    <div className="spec-box">
+                                        <Calendar size={20} className="spec-icon" />
+                                        <span className="spec-value">{car.year}</span>
+                                        <span className="spec-label">Año</span>
+                                    </div>
+                                )}
+                                {formatKm(car.km) && (
+                                    <div className="spec-box">
+                                        <Gauge size={20} className="spec-icon" />
+                                        <span className="spec-value">{formatKm(car.km).replace(' km', '')}</span>
+                                        <span className="spec-label">Kilómetros</span>
+                                    </div>
+                                )}
+                                {normalizeFuel(car.fuel || car.fuelType) && normalizeFuel(car.fuel || car.fuelType) !== '-' && (
+                                    <div className="spec-box">
+                                        <Fuel size={20} className="spec-icon" />
+                                        <span className="spec-value">{normalizeFuel(car.fuel || car.fuelType)}</span>
+                                        <span className="spec-label">Combustible</span>
+                                    </div>
+                                )}
+                                {car.transmission && car.transmission !== '-' && (
+                                    <div className="spec-box">
+                                        <Smartphone size={20} className="spec-icon" />
+                                        <span className="spec-value">{car.transmission}</span>
+                                        <span className="spec-label">Transmisión</span>
+                                    </div>
+                                )}
                             </div>
 
                             {/* Desktop CTAs */}

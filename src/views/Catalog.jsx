@@ -7,6 +7,7 @@ import { useCars } from '../hooks/useCars';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ChevronLeft, ChevronRight, XCircle } from 'lucide-react';
 import { trackEvent } from '../lib/analytics';
+import { normalizeBrand, normalizeFuel } from '../lib/formatters';
 
 const CatalogContent = () => {
     const { cars, loading, error } = useCars();
@@ -70,13 +71,7 @@ const CatalogContent = () => {
 
     // Derived lists for filter options (Dynamic)
     const brands = useMemo(() => {
-        const normalized = cars.map(car => {
-            let trimmed = (car.brand || '').trim();
-            if (trimmed.toLowerCase() === 'volskwagen' || trimmed.toLowerCase() === 'vokswagen') {
-                trimmed = 'Volkswagen';
-            }
-            return trimmed ? trimmed.charAt(0).toUpperCase() + trimmed.slice(1).toLowerCase() : '';
-        }).filter(Boolean);
+        const normalized = cars.map(car => normalizeBrand(car.brand)).filter(Boolean);
         return [...new Set(normalized)].sort();
     }, [cars]);
 
@@ -89,7 +84,7 @@ const CatalogContent = () => {
     }, [cars]);
 
     const fuels = useMemo(() => {
-        return [...new Set(cars.map(car => car.fuel || car.fuelType).filter(Boolean))].sort();
+        return [...new Set(cars.map(car => normalizeFuel(car.fuel || car.fuelType)).filter(Boolean))].sort();
     }, [cars]);
 
     // Filter and Sort logic
