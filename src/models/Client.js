@@ -79,9 +79,6 @@ const clientSchema = new mongoose.Schema({
 // Índices no destructivos (sin unique)
 clientSchema.index({ fullName: 1 });
 clientSchema.index({ createdAt: -1 });
-clientSchema.index({ phoneNormalized: 1 });
-clientSchema.index({ emailNormalized: 1 });
-
 // Middleware para asegurar fullName y fields normalizados antes de guardar
 clientSchema.pre('validate', function() {
     if (this.firstName && !this.fullName) {

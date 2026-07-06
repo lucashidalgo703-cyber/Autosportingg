@@ -107,6 +107,6 @@ carSchema.pre('save', function (next) {
     if (typeof next === 'function') next();
 });
 
-const Car = mongoose.model('Car', carSchema);
+const Car = mongoose.models.Car || mongoose.model('Car', carSchema);
 
 export default Car;
