@@ -428,34 +428,6 @@ const verifyPassword = (password, hash) => {
     }
 };
 
-// TEMPORARY ROUTE TO CREATE ADMIN USER
-app.get('/api/admin/setup-private-user', async (req, res) => {
-    try {
-        await connectDB();
-        const existing = await AdminUser.findOne({ email: 'tomasbrazao@icloud.com' });
-        if (existing) {
-            return res.send('El usuario tomasbrazao@icloud.com ya existe en esta base de datos.');
-        }
-        
-        const salt = crypto.randomBytes(16).toString('hex');
-        const hash = crypto.scryptSync('polo2018', salt, 64).toString('hex');
-        const passwordHash = `${salt}:${hash}`;
-        
-        const user = new AdminUser({
-            email: 'tomasbrazao@icloud.com',
-            passwordHash,
-            role: 'owner',
-            name: 'Tomas',
-            active: true,
-            permissions: ['*']
-        });
-        await user.save();
-        res.send('Usuario creado exitosamente. Ya podés ir a /login e iniciar sesión con tomasbrazao@icloud.com y la clave polo2018');
-    } catch (e) {
-        res.status(500).send(e.message);
-    }
-});
-
 // Login Endpoint
 app.post('/api/login', requireJwtConfiguration, enforceLoginRateLimit, async (req, res) => {
     try {
