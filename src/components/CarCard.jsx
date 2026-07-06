@@ -1,6 +1,5 @@
 "use client";
-import { Heart, Info, Fuel, Settings, Calendar, Gauge } from 'lucide-react';
-import { normalizeBrand, normalizeModel, normalizeFuel, formatKm, formatPrice } from '../lib/formatters';
+import { ArrowRight, Heart } from 'lucide-react';
 import Link from 'next/link';
 import { getOptimizedImageUrl } from '../lib/cloudinaryUtils';
 import Image from 'next/image';
@@ -14,65 +13,23 @@ const CarCard = ({ car }) => {
   const carId = car._id || car.id;
   const isFav = isFavorite ? isFavorite(carId) : false;
 
-  const formatPrice = (price, currency = 'USD') => {
-      if (!price || isNaN(price) || price <= 0) return 'Consultar precio';
-      
-      let validCurrency = 'USD';
-      if (currency) {
-          const upper = String(currency).toUpperCase().trim();
-          if (upper === 'ARS' || upper === 'USD') validCurrency = upper;
-          else if (upper === '$' || upper === 'AR$') validCurrency = 'ARS';
-          else if (upper === 'U$S' || upper === 'US$') validCurrency = 'USD';
-      }
-
-      return new Intl.NumberFormat('es-AR', {
-          style: 'currency',
-          currency: validCurrency,
-          maximumFractionDigits: 0
-      }).format(price);
-  };
-
-  const isReserved = car.status === 'Reservado' || car.status === 'Señado';
-  const isSold = car.status === 'Vendido';
-  const isAvailable = !isReserved && !isSold;
-
-  // Render specs dynamically if available
-  const specs = [];
-  if (car.year) specs.push({ icon: <Calendar size={14} />, text: car.year });
-  
-  const formattedKm = formatKm(car.km);
-  if (formattedKm) specs.push({ icon: <Gauge size={14} />, text: formattedKm });
-  
-  if (car.transmission && car.transmission !== '-') specs.push({ icon: <Settings size={14} />, text: car.transmission });
-  
-  const formattedFuel = normalizeFuel(car.fuel || car.fuelType);
-  if (formattedFuel && formattedFuel !== '-') specs.push({ icon: <Fuel size={14} />, text: formattedFuel });
-
-  const displaySpecs = specs.slice(0, 3); // Up to 3 specs
-
   return (
-    <div className={`car-card group ${isSold ? 'car-sold' : ''}`}>
+    <Link href={`/auto/${car._id || car.id}`} className="car-card group">
       <div className="card-image-wrapper">
-        <Link href={`/auto/${carId}`} tabIndex="-1" className="vehicle-image-link">
-            <Image
-            src={getOptimizedImageUrl(car.coverImage || (car.images && car.images[0]) || car.image, 600) || '/placeholder.png'}
-            alt={`${car.brand} ${car.name}`}
-            fill
-            sizes="(max-width: 720px) 100vw, (max-width: 1100px) 50vw, 33vw"
-            className="card-image"
-            style={{ objectFit: 'cover', objectPosition: car.imagePosition || 'center' }}
-            unoptimized
-            />
-        </Link>
-        
-        {/* Status Badges */}
-        {!isAvailable && (
-          <div className={`status-badge ${isSold ? 'status-vendido' : 'status-reservado'}`}>
-            {isSold ? 'Vendido' : 'Reservado'}
+        <Image
+          src={getOptimizedImageUrl(car.coverImage || (car.images && car.images[0]) || car.image, 600) || '/placeholder.png'}
+          alt={car.name || 'Auto'}
+          fill
+          sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+          className="card-image"
+          style={{ objectFit: 'cover', objectPosition: car.imagePosition || '50% 75%' }}
+          unoptimized
+        />
+        {car.status && car.status !== 'Disponible' && (
+          <div className={`status-badge ${car.status === 'Vendido' ? 'status-vendido' : 'status-senado'}`}>
+            {car.status}
           </div>
         )}
-        
-        {/* Favorite Button Accessible */}
         <button
           className="favorite-btn"
           onClick={(e) => {
@@ -80,256 +37,188 @@ const CarCard = ({ car }) => {
             e.stopPropagation();
             toggleFavorite(carId);
           }}
-          aria-pressed={isFav}
           aria-label={isFav ? "Quitar de favoritos" : "Agregar a favoritos"}
         >
-          <Heart size={20} fill={isFav ? "var(--c-accent-red)" : "rgba(0,0,0,0.5)"} color={isFav ? "var(--c-accent-red)" : "white"} />
+          <Heart size={20} fill={isFav ? "var(--color-primary)" : "rgba(0,0,0,0.5)"} color={isFav ? "var(--color-primary)" : "white"} />
         </button>
       </div>
 
       <div className="card-content">
-        <Link href={`/auto/${carId}`} className="card-header-link">
-            <div className="card-subtitle">
-            {normalizeBrand(car.brand)}
-            </div>
-            <h3 className="card-title">
-            {normalizeModel(car.name)} {car.version && car.version !== '-' && <span className="card-version">{car.version}</span>}
-            </h3>
-        </Link>
+        <h3 className="card-title text-xl font-bold text-white mb-0.5">
+          {car.name}
+        </h3>
 
-        {/* Specs Row */}
-        <div className="card-specs">
-            {displaySpecs.map((spec, index) => (
-                <div key={index} className="spec-item">
-                    {spec.icon}
-                    <span>{spec.text}</span>
-                </div>
-            ))}
+        <div className="card-subtitle text-white/80 text-xs mb-2 font-medium uppercase tracking-wide">
+          {car.brand} | {car.year}
         </div>
 
-        <div className="card-footer">
-            <div className="flex flex-col">
-                <div className="card-price" style={{ fontSize: '1.1rem', color: 'var(--c-accent-red)' }}>
-                    {formatPrice(car.price, car.currency)}
-                </div>
-                {car.price > 0 && (
-                    <div className="text-[11px] text-[#a1a1aa] mt-0.5 font-medium">Financiación disponible</div>
-                )}
-            </div>
-            <Link href={`/auto/${carId}`} className="btn-ver-detalle">
-                Ver detalle
-            </Link>
+        <div className="card-status text-white font-bold text-xs mb-3 uppercase tracking-wider">
+          {(car.condition === 'Nuevo' || car.km === 0) ? 'NUEVO • 0 KM' : `USADO • ${(car.km || 0).toLocaleString()} KM`}
+        </div>
+
+        <div className="card-price">
+          Consultar precio
+        </div>
+
+        <div className="card-footer mt-auto">
+          <span className="view-more flex items-center gap-2 text-white text-xs font-medium transition-all group-hover:text-[var(--color-primary)]">
+            Ver más <ArrowRight size={14} className="transition-transform group-hover:translate-x-1" />
+          </span>
         </div>
       </div>
 
       <style>{`
-            .car-card {
-                background-color: var(--c-graphite);
-                border-radius: var(--radius-lg);
-                display: flex;
-                flex-direction: column;
-                border: var(--border-thin);
-                height: 100%;
-                overflow: hidden;
-                position: relative;
-                box-shadow: var(--shadow-sm);
-                transition: transform 0.2s ease, box-shadow 0.2s ease;
-                isolation: isolate;
-            }
-            
-            .car-card:hover {
-                box-shadow: var(--shadow-md);
-                transform: translateY(-4px);
-                border-color: var(--c-graphite-light);
-            }
+                .car-card {
+                    background-color: transparent;
+                    border-radius: 12px;
+                    display: flex;
+                    flex-direction: column;
+                    border: none;
+                    height: 100%;
+                    overflow: hidden;
+                    position: relative;
+                    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+                    transition: transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275), box-shadow 0.4s ease;
+                    isolation: isolate; /* keeps ::before inside the rounding */
+                }
 
-            .car-sold {
-                opacity: 0.8;
-                filter: grayscale(0.5);
-            }
+                /* Shine effect */
+                .car-card::before {
+                    content: "";
+                    position: absolute;
+                    top: 0;
+                    left: -100%;
+                    width: 50%;
+                    height: 100%;
+                    background: linear-gradient(
+                        to right,
+                        rgba(255, 255, 255, 0) 0%,
+                        rgba(255, 255, 255, 0.15) 50%,
+                        rgba(255, 255, 255, 0) 100%
+                    );
+                    transform: skewX(-25deg);
+                    transition: left 0.6s ease-in-out;
+                    z-index: 10;
+                    pointer-events: none;
+                }
+                
+                .car-card:hover::before {
+                    left: 200%;
+                }
+                
+                .car-card:hover {
+                    box-shadow: 0 15px 35px rgba(235, 38, 40, 0.25);
+                    transform: translateY(-6px);
+                }
 
-            .car-sold:hover {
-                transform: none;
-                box-shadow: var(--shadow-sm);
-            }
+                .card-image-wrapper {
+                    position: relative;
+                    width: 100%;
+                    aspect-ratio: 4/3;
+                    background-color: #0a0a0a;
+                    overflow: hidden;
+                    border-top-left-radius: 12px;
+                    border-top-right-radius: 12px;
+                }
 
-            .card-image-wrapper {
-                position: relative;
-                width: 100%;
-                aspect-ratio: 4/3;
-                background-color: var(--c-carbon);
-                overflow: hidden;
-            }
+                .card-image {
+                    width: 100%;
+                    height: 100%;
+                    object-fit: cover;
+                    /* object-position handled inline */
+                    transition: transform 0.6s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+                }
 
-            .vehicle-image-link {
-                position: absolute;
-                inset: 0;
-                display: block;
-                width: 100%;
-                height: 100%;
-            }
+                .car-card:hover .card-image {
+                    transform: scale(1.08); /* Smooth deep zoom on hover */
+                }
 
-            .card-image {
-                position: absolute;
-                inset: 0;
-                display: block;
-                width: 100%;
-                height: 100%;
-                object-fit: cover;
-                transition: transform 0.4s ease;
-            }
+                .favorite-btn {
+                    position: absolute;
+                    top: 10px;
+                    right: 10px;
+                    background: rgba(255, 255, 255, 0.15);
+                    backdrop-filter: blur(4px);
+                    border: 1px solid rgba(255, 255, 255, 0.2);
+                    border-radius: 50%;
+                    width: 36px;
+                    height: 36px;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    cursor: pointer;
+                    z-index: 20;
+                    transition: all 0.2s ease;
+                }
 
-            .car-card:hover .card-image {
-                transform: scale(1.03);
-            }
+                .favorite-btn:hover {
+                    background: rgba(255, 255, 255, 0.3);
+                    transform: scale(1.1);
+                }
 
-            .favorite-btn {
-                position: absolute;
-                top: var(--space-3);
-                right: var(--space-3);
-                background: rgba(0, 0, 0, 0.4);
-                backdrop-filter: blur(4px);
-                border: 1px solid rgba(255, 255, 255, 0.1);
-                border-radius: 50%;
-                width: 44px;
-                height: 44px;
-                display: flex;
-                align-items: center;
-                justify-content: center;
-                cursor: pointer;
-                z-index: 20;
-                transition: all 0.2s ease;
-            }
+                .status-badge {
+                    position: absolute;
+                    top: 10px;
+                    left: 10px;
+                    padding: 4px 10px;
+                    border-radius: 6px;
+                    font-size: 0.75rem;
+                    font-weight: 800;
+                    text-transform: uppercase;
+                    letter-spacing: 0.05em;
+                    color: white;
+                    z-index: 20;
+                    box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+                    backdrop-filter: blur(4px);
+                }
 
-            .favorite-btn svg {
-                width: 20px;
-                height: 20px;
-            }
+                .status-vendido {
+                    background-color: rgba(235, 38, 40, 0.9); /* Primary Red */
+                    border: 1px solid rgba(255,255,255,0.2);
+                }
 
-            .favorite-btn:hover, .favorite-btn:focus-visible {
-                background: rgba(0, 0, 0, 0.8);
-                transform: scale(1.1);
-                outline: 2px solid var(--c-ivory);
-                outline-offset: 2px;
-            }
+                .status-senado {
+                    background-color: rgba(245, 158, 11, 0.9); /* Amber */
+                    border: 1px solid rgba(255,255,255,0.2);
+                }
 
-            .status-badge {
-                position: absolute;
-                top: var(--space-3);
-                left: var(--space-3);
-                padding: 4px 10px;
-                border-radius: var(--radius-sm);
-                font-size: 0.75rem;
-                font-weight: 800;
-                text-transform: uppercase;
-                letter-spacing: 0.05em;
-                color: white;
-                z-index: 20;
-                box-shadow: var(--shadow-sm);
-                font-family: var(--font-title);
-            }
+                .card-content {
+                    padding: 1.25rem;
+                    flex: 1;
+                    display: flex;
+                    flex-direction: column;
+                    border-bottom-left-radius: 12px;
+                    border-bottom-right-radius: 12px;
+                    /* Vertical Gradient: Darker near image (top) -> Redder at bottom */
+                    background: linear-gradient(to bottom, #1a0505 0%, #991b1b 100%);
+                    border: 1px solid rgba(255, 255, 255, 0.1); 
+                    border-top: none;
+                }
+                
+                .card-status {
+                    color: white;
+                    background: rgba(0,0,0,0.2);
+                    display: inline-block;
+                    padding: 4px 8px;
+                    border-radius: 4px;
+                    align-self: start;
+                }
 
-            .status-vendido {
-                background-color: var(--c-accent-red);
-            }
-
-            .status-reservado {
-                background-color: #F59E0B; /* Amber */
-                color: #000;
-            }
-
-            .card-content {
-                padding: 18px 20px;
-                display: flex;
-                flex-direction: column;
-                flex: 1;
-            }
-
-            .card-header-link {
-                text-decoration: none;
-                margin-bottom: var(--space-3);
-            }
-
-            .card-subtitle {
-                color: var(--c-ivory-muted);
-                font-size: 0.8rem;
-                font-weight: 700;
-                text-transform: uppercase;
-                letter-spacing: 0.1em;
-                margin-bottom: 0.25rem;
-            }
-
-            .card-title {
-                color: var(--c-ivory);
-                font-size: 1.15rem;
-                font-weight: 800;
-                line-height: 1.2;
-                font-family: var(--font-title);
-                display: -webkit-box;
-                -webkit-line-clamp: 2;
-                -webkit-box-orient: vertical;
-                overflow: hidden;
-            }
-
-            .card-version {
-                color: var(--c-ivory-muted);
-                font-size: 0.9rem;
-                font-weight: 500;
-                display: block;
-                margin-top: 0.2rem;
-            }
-
-            .card-specs {
-                display: flex;
-                flex-wrap: wrap;
-                gap: 0.5rem;
-                margin-bottom: var(--space-4);
-            }
-
-            .spec-item {
-                display: flex;
-                align-items: center;
-                gap: 4px;
-                background-color: rgba(255,255,255,0.05);
-                padding: 4px 8px;
-                border-radius: var(--radius-sm);
-                font-size: 0.75rem;
-                color: var(--c-ivory-muted);
-                font-weight: 500;
-            }
-
-            .card-footer {
-                margin-top: auto;
-                display: flex;
-                align-items: center;
-                justify-content: space-between;
-                border-top: var(--border-thin);
-                padding-top: var(--space-3);
-            }
-
-            .card-price {
-                color: var(--c-ivory);
-                font-size: 1.15rem;
-                font-weight: 800;
-                font-family: var(--font-title);
-            }
-
-            .btn-ver-detalle {
-                display: inline-flex;
-                align-items: center;
-                font-size: 0.85rem;
-                font-weight: 700;
-                color: var(--c-accent-red);
-                text-transform: uppercase;
-                letter-spacing: 0.05em;
-                transition: color 0.2s ease;
-            }
-
-            .btn-ver-detalle:hover {
-                color: var(--c-ivory);
-            }
-      `}</style>
-    </div>
+                .card-price {
+                    color: var(--color-primary);
+                    font-size: 1.15rem;
+                    font-weight: 800;
+                    margin-top: 0.5rem;
+                    margin-bottom: 0.5rem;
+                    text-transform: uppercase;
+                    letter-spacing: 0.05em;
+                }
+                
+                .text-primary {
+                    color: white !important; /* Override primary text on red background */
+                }
+            `}</style>
+    </Link>
   );
 };
 
