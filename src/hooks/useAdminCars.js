@@ -1,6 +1,6 @@
 "use client";
 import { parseResponseSafe } from '../utils/apiHelper';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../context/AuthContext';
 import toast from 'react-hot-toast';
 
@@ -15,7 +15,7 @@ export const useAdminCars = () => {
     const [brands, setBrands] = useState([]);
     const { logout } = useAuth();
 
-    const fetchCars = async (filters = {}) => {
+    const fetchCars = useCallback(async (filters = {}) => {
         try {
             setLoading(true);
             setError(null);
@@ -91,7 +91,7 @@ export const useAdminCars = () => {
         } finally {
             setLoading(false);
         }
-    };
+    }, [logout]);
 
     useEffect(() => {
         fetchCars();
