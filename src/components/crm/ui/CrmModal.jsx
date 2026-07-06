@@ -12,11 +12,16 @@ export default function CrmModal({
 }) {
     const modalRef = useRef(null);
     const previousFocusRef = useRef(null);
+    const onCloseRef = useRef(onClose);
+
+    useEffect(() => {
+        onCloseRef.current = onClose;
+    }, [onClose]);
 
     useEffect(() => {
         const handleEscape = (e) => {
             if (e.key === 'Escape' && isOpen) {
-                onClose();
+                onCloseRef.current?.();
             }
         };
 
@@ -70,7 +75,7 @@ export default function CrmModal({
             window.removeEventListener('keydown', handleEscape);
             window.removeEventListener('keydown', handleTab);
         };
-    }, [isOpen, onClose]);
+    }, [isOpen]);
 
     if (!isOpen) return null;
 
