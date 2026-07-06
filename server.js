@@ -2778,6 +2778,27 @@ app.patch('/api/admin/accounts/:id', authenticateToken, requirePermission(PERMIS
         if (type) account.type = type;
         if (isActive !== undefined) account.isActive = isActive;
 
+        if (req.body.openingBalance !== undefined) {
+            const newBalance = Number(req.body.openingBalance);
+            if (newBalance !== account.balance) {
+                const diff = newBalance - account.balance;
+                const adjustmentTx = new Transaction({
+                    accountId: account._id,
+                    type: diff > 0 ? 'Ingreso' : 'Egreso',
+                    amount: Math.abs(diff),
+                    currency: account.currency,
+                    description: 'Ajuste manual de saldo desde edición',
+                    category: 'Ajuste',
+                    concept: 'Ajuste manual',
+                    source: 'manual',
+                    status: 'activo',
+                    createdBy: req.user ? (req.user.email || req.user.role) : 'System'
+                });
+                await adjustmentTx.save();
+                account.balance = newBalance;
+            }
+        }
+
         const updatedAccount = await account.save();
         res.json(updatedAccount);
     } catch (error) {

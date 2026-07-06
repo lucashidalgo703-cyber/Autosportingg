@@ -195,18 +195,16 @@ function AccountFormModal({ isOpen, onClose, account, onSubmit, isSubmitting }) 
                         </select>
                     </div>
                 </div>
-                {!account && (
-                    <div>
-                        <label className="mb-1 block text-[11px] font-black uppercase tracking-wider text-crm-fg-subtle">Saldo Inicial</label>
-                        <input
-                            type="number"
-                            value={formData.openingBalance}
-                            onChange={e => setFormData({ ...formData, openingBalance: e.target.value })}
-                            className="h-10 w-full rounded-xl border border-crm-border bg-crm-bg px-3 text-sm font-medium text-crm-fg outline-none transition focus:border-crm-red"
-                            placeholder="0"
-                        />
-                    </div>
-                )}
+                <div>
+                    <label className="mb-1 block text-[11px] font-black uppercase tracking-wider text-crm-fg-subtle">{account ? 'Saldo Actual (Ajuste)' : 'Saldo Inicial'}</label>
+                    <input
+                        type="number"
+                        value={formData.openingBalance}
+                        onChange={e => setFormData({ ...formData, openingBalance: Number(e.target.value) })}
+                        className="h-10 w-full rounded-xl border border-crm-border bg-crm-bg px-3 text-sm font-medium text-crm-fg outline-none transition focus:border-crm-red"
+                        placeholder="Ej. 100000"
+                    />
+                </div>
                 {account && (
                     <label className="flex items-center gap-2 mt-4 cursor-pointer">
                         <input
