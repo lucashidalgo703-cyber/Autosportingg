@@ -8108,6 +8108,78 @@ app.post('/api/admin/personal-transactions', authenticateToken, async (req, res)
     }
 });
 
+app.post('/api/admin/personal-transactions/copy-fixed', authenticateToken, async (req, res) => {
+    try {
+        await connectDB();
+        const userId = req.user.userId || req.user.id;
+        const userLabel = req.user ? (req.user.email || req.user.role) : 'System';
+
+        const { fromMonth, toMonth } = req.body;
+        if (!fromMonth || !toMonth) {
+            return res.status(400).json({ message: 'Se requieren fromMonth y toMonth (YYYY-MM)' });
+        }
+
+        const [fromYear, fromM] = fromMonth.split('-');
+        const [toYear, toM] = toMonth.split('-');
+        
+        const fromDateStart = new Date(fromYear, fromM - 1, 1);
+        const fromDateEnd = new Date(fromYear, fromM, 0, 23, 59, 59);
+
+        const toDateStart = new Date(toYear, toM - 1, 1);
+        const toDateEnd = new Date(toYear, toM, 0, 23, 59, 59);
+
+        const queryBase = hasPermission(req.user, PERMISSIONS.FINANZAS_READ) ? {} : { userId };
+        
+        // Buscar egresos fijos del mes anterior
+        const fixedExpensesFrom = await PersonalTransaction.find({
+            ...queryBase,
+            type: 'egreso',
+            $or: [{ expenseType: 'fijo' }, { frequency: 'mensual' }],
+            transactionDate: { $gte: fromDateStart, $lte: fromDateEnd }
+        }).lean();
+
+        if (fixedExpensesFrom.length === 0) {
+            return res.json({ message: 'No hay gastos fijos en el mes de origen para copiar.', count: 0 });
+        }
+
+        // Buscar egresos del mes actual para no duplicar
+        const expensesTo = await PersonalTransaction.find({
+            ...queryBase,
+            type: 'egreso',
+            transactionDate: { $gte: toDateStart, $lte: toDateEnd }
+        }).lean();
+
+        let count = 0;
+        for (const exp of fixedExpensesFrom) {
+            // Verificar si ya existe (mismo concepto, y aproxima monto)
+            const exists = expensesTo.some(t => 
+                t.concept === exp.concept && t.currency === exp.currency
+            );
+
+            if (!exists) {
+                const newData = {
+                    ...exp,
+                    _id: undefined,
+                    createdAt: undefined,
+                    updatedAt: undefined,
+                    transactionDate: new Date(toYear, toM - 1, new Date(exp.transactionDate).getDate()),
+                    status: 'pendiente',
+                    createdBy: userLabel
+                };
+                delete newData._id;
+                delete newData.__v;
+                await new PersonalTransaction(newData).save();
+                count++;
+            }
+        }
+
+        res.json({ message: `Se copiaron ${count} gastos fijos exitosamente.`, count });
+    } catch (error) {
+        console.error('POST /api/admin/personal-transactions/copy-fixed error:', error);
+        res.status(500).json({ message: 'Error interno al copiar gastos fijos', error: error.message });
+    }
+});
+
 app.patch('/api/admin/personal-transactions/:id', authenticateToken, async (req, res) => {
     try {
         await connectDB();

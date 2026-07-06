@@ -97,11 +97,34 @@ export function useAdminPersonalFinance() {
         }
     };
 
+    const copyFixedExpenses = async (fromMonth, toMonth) => {
+        setLoading(true);
+        setError(null);
+        try {
+            const response = await fetch('/api/admin/personal-transactions/copy-fixed', {
+                method: 'POST',
+                headers: getAuthHeaders(),
+                body: JSON.stringify({ fromMonth, toMonth })
+            });
+            const resData = await response.json();
+            if (!response.ok) {
+                throw new Error(resData.message || 'Error al renovar gastos fijos');
+            }
+            return resData;
+        } catch (err) {
+            setError(err.message);
+            throw err;
+        } finally {
+            setLoading(false);
+        }
+    };
+
     return {
         fetchTransactions,
         createTransaction,
         updateTransaction,
         deleteTransaction,
+        copyFixedExpenses,
         loading,
         error
     };

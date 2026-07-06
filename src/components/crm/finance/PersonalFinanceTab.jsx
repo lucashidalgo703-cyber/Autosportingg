@@ -1,6 +1,6 @@
 import toast from 'react-hot-toast';
 import React, { useState, useEffect, useMemo } from 'react';
-import { Plus, Wallet, FileText, Trash2, Edit } from 'lucide-react';
+import { Plus, Wallet, FileText, Trash2, Edit, RefreshCw } from 'lucide-react';
 import { useAdminPersonalFinance } from '../../../hooks/useAdminPersonalFinance';
 import PersonalTransactionModal from './PersonalTransactionModal';
 import ConfirmModal from '../ui/ConfirmModal';
@@ -95,12 +95,27 @@ const FinanceChart = ({ chartData }) => {
 };
 
 export default function PersonalFinanceTab() {
-    const { fetchTransactions, createTransaction, updateTransaction, deleteTransaction, loading } = useAdminPersonalFinance();
+    const { fetchTransactions, createTransaction, updateTransaction, deleteTransaction, copyFixedExpenses, loading } = useAdminPersonalFinance();
     const [transactions, setTransactions] = useState([]);
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [selectedTx, setSelectedTx] = useState(null);
     const [confirmDeleteModal, setConfirmDeleteModal] = useState({ isOpen: false, id: null });
     const [chartCurrency, setChartCurrency] = useState('ARS');
+    const [monthFilter, setMonthFilter] = useState(() => {
+        const d = new Date();
+        return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+    });
+
+    const filteredTransactions = useMemo(() => {
+        if (!monthFilter) return transactions;
+        return transactions.filter(tx => {
+            if (!tx.transactionDate) return false;
+            const txDate = new Date(tx.transactionDate);
+            const txMonth = `${txDate.getFullYear()}-${String(txDate.getMonth() + 1).padStart(2, '0')}`;
+            return txMonth === monthFilter;
+        });
+    }, [transactions, monthFilter]);
+
 
     const chartData = useMemo(() => {
         const groups = {};
@@ -195,6 +210,34 @@ export default function PersonalFinanceTab() {
         setIsModalOpen(true);
     };
 
+    const handleRenewFixed = async () => {
+        if (!monthFilter) {
+            toast.error('Seleccioná un mes específico para renovar gastos');
+            return;
+        }
+        try {
+            const [year, month] = monthFilter.split('-');
+            let prevM = parseInt(month) - 1;
+            let prevY = parseInt(year);
+            if (prevM === 0) {
+                prevM = 12;
+                prevY -= 1;
+            }
+            const prevMonthStr = `${prevY}-${String(prevM).padStart(2, '0')}`;
+
+            const result = await copyFixedExpenses(prevMonthStr, monthFilter);
+            if (result.count > 0) {
+                toast.success(result.message);
+                await loadData();
+            } else {
+                toast.success('No había gastos fijos nuevos para copiar.');
+            }
+        } catch (error) {
+            toast.error(error.message);
+        }
+    };
+
+
     return (
         <div className="space-y-6">
             {/* Header / KPIs */}
@@ -270,22 +313,39 @@ export default function PersonalFinanceTab() {
             </div>
 
             {/* List Header */}
-            <div className="flex items-center justify-between">
-                <h3 className="text-lg font-bold text-white">Movimientos</h3>
-                <button
-                    onClick={openNewModal}
-                    className="inline-flex h-10 items-center gap-2 rounded-xl bg-blue-600 px-4 text-sm font-bold text-white transition hover:bg-blue-500"
-                >
-                    <Plus size={16} />
-                    Nuevo Movimiento
-                </button>
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div className="flex items-center gap-4">
+                    <h3 className="text-lg font-bold text-white">Movimientos</h3>
+                    <input 
+                        type="month"
+                        value={monthFilter}
+                        onChange={(e) => setMonthFilter(e.target.value)}
+                        className="bg-black border border-neutral-800 rounded-lg px-3 py-1.5 text-sm text-white focus:outline-none focus:border-neutral-600"
+                    />
+                </div>
+                <div className="flex flex-wrap gap-2">
+                    <button
+                        onClick={handleRenewFixed}
+                        className="inline-flex h-10 items-center gap-2 rounded-xl border border-neutral-700 bg-neutral-900 px-4 text-sm font-bold text-white transition hover:bg-neutral-800"
+                    >
+                        <RefreshCw size={16} />
+                        Renovar Fijos
+                    </button>
+                    <button
+                        onClick={openNewModal}
+                        className="inline-flex h-10 items-center gap-2 rounded-xl bg-blue-600 px-4 text-sm font-bold text-white transition hover:bg-blue-500"
+                    >
+                        <Plus size={16} />
+                        Nuevo Movimiento
+                    </button>
+                </div>
             </div>
 
             {/* Table */}
             <div className="rounded-2xl border border-neutral-800 bg-crm-surface overflow-hidden">
-                {loading && transactions.length === 0 ? (
+                {loading && filteredTransactions.length === 0 ? (
                     <div className="p-8 text-center text-neutral-500">Cargando movimientos...</div>
-                ) : transactions.length === 0 ? (
+                ) : filteredTransactions.length === 0 ? (
                     <div className="p-12 text-center flex flex-col items-center">
                         <FileText size={40} className="text-neutral-700 mb-4" />
                         <h4 className="text-white font-bold mb-1">Sin movimientos</h4>
@@ -306,7 +366,7 @@ export default function PersonalFinanceTab() {
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-neutral-800">
-                                {transactions.map((tx) => (
+                                {filteredTransactions.map((tx) => (
                                     <tr key={tx._id} className="hover:bg-crm-surface-raised/30 transition-colors">
                                         <td className="px-4 py-3 text-neutral-300">{formatDate(tx.transactionDate)}</td>
                                         <td className="px-4 py-3">
@@ -317,7 +377,14 @@ export default function PersonalFinanceTab() {
                                             </span>
                                         </td>
                                         <td className="px-4 py-3">
-                                            <p className="text-white font-medium">{tx.concept}</p>
+                                            <div className="flex items-center gap-2">
+                                                <p className="text-white font-medium">{tx.concept}</p>
+                                                {(tx.expenseType === 'fijo' || tx.frequency === 'mensual') && (
+                                                    <span className="inline-flex px-1.5 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider bg-blue-500/10 text-blue-400 border border-blue-500/20">
+                                                        Fijo
+                                                    </span>
+                                                )}
+                                            </div>
                                             <p className="text-xs text-neutral-500 mt-0.5">{tx.category} • {tx.paymentMethod}</p>
                                         </td>
                                         <td className={`px-4 py-3 font-black ${tx.type === 'ingreso' ? 'text-green-500' : 'text-white'}`}>
