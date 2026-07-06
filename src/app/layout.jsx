@@ -16,7 +16,12 @@ export const metadata = {
     description: '¿Buscás agencia de autos en Comodoro Rivadavia? Encontrá tu próximo vehículo usado o 0km en AutoSporting. Excelente financiación y toma de usados.',
     keywords: ['agencia de autos comodoro rivadavia', 'concesionaria de autos comodoro rivadavia', 'autos usados comodoro', 'venta de autos chubut', 'autos 0km comodoro'],
     icons: {
-        icon: '/favicon.svg',
+        icon: [
+            { url: '/favicon.svg', type: 'image/svg+xml' }
+        ],
+        apple: [
+            { url: '/favicon.svg' }
+        ]
     },
     openGraph: {
         type: 'website',
@@ -71,6 +76,7 @@ export default function RootLayout({ children }) {
                             },
                             "description": "Tu agencia de autos de confianza en Comodoro Rivadavia. Amplio catálogo de vehículos usados seleccionados y 0km. Ofrecemos financiación y tomamos usados.",
                             "image": "https://autosportingg.com/autosporting-hero-v2.jpg",
+                            "logo": "https://autosportingg.com/logo-header-final.png",
                             "geo": {
                                 "@type": "GeoCoordinates",
                                 "latitude": "-45.864130",
