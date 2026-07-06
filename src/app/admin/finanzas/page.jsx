@@ -52,6 +52,7 @@ const FINANCE_TABS = [
     { id: 'movimientos', icon: '🧾', label: 'Movimientos' },
     { id: 'senas', icon: '🤝', label: 'Señas' },
     { id: 'gastos-personales', icon: '👤', label: 'Gastos Personales' },
+    { id: 'sueldos', icon: '🧑‍💼', label: 'Sueldos' },
     { id: 'cuotas', icon: '📆', label: 'Cuotas' },
     { id: 'pagos', icon: '💸', label: 'Pagos Disp.' },
     { id: 'pago-empresas', icon: '🏢', label: 'Pago Empresas' },
@@ -68,8 +69,7 @@ const FINANCE_TABS = [
     { id: 'arqueos', icon: '🔍', label: 'Arqueos' },
     { id: 'cierre', icon: '🧮', label: 'Cierre Caja' },
     { id: 'conciliacion', icon: '✅', label: 'Conciliación' },
-    { id: 'afip', icon: '🏛️', label: 'AFIP/IVA' },
-    { id: 'sueldos', icon: '🧑‍💼', label: 'Sueldos' }
+    { id: 'afip', icon: '🏛️', label: 'AFIP/IVA' }
 ];
 
 const BASE_FILTERS = {
