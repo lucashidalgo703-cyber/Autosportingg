@@ -138,7 +138,7 @@ export default function SaleCommercialPanel({ sale, onSave }) {
                     )}
                 </div>
 
-                <div className="grid grid-cols-2 lg:grid-cols-3 gap-3">
+                <div className="grid grid-cols-2 gap-3">
                     {/* METODO DE PAGO */}
                     <div className="rounded-xl border border-crm-border bg-crm-bg p-3">
                         <span className="mb-2 block text-[10px] font-bold uppercase tracking-[0.08em] text-crm-fg-muted">Metodo de Pago</span>
@@ -197,8 +197,8 @@ export default function SaleCommercialPanel({ sale, onSave }) {
                     </div>
 
                     {/* COMISION VENDEDOR */}
-                    <div className="rounded-xl border border-crm-border bg-crm-bg p-3 col-span-2 lg:col-span-1">
-                        <span className="mb-2 block text-[10px] font-bold uppercase tracking-[0.08em] text-crm-fg-muted lg:text-right">Comisión Vendedor</span>
+                    <div className="rounded-xl border border-crm-border bg-crm-bg p-3 col-span-2">
+                        <span className="mb-2 block text-[10px] font-bold uppercase tracking-[0.08em] text-crm-fg-muted text-right">Comisión Vendedor</span>
                         {isEditing ? (
                             <div className="flex gap-2">
                                 <div className="w-16 shrink-0">
@@ -217,12 +217,12 @@ export default function SaleCommercialPanel({ sale, onSave }) {
                                         min="0" 
                                         value={editForm.commissionSettings.extraAmount} 
                                         onChange={(e) => setEditForm({...editForm, commissionSettings: {...editForm.commissionSettings, extraAmount: e.target.value}})} 
-                                        className="h-8 bg-crm-surface px-2 text-xs font-bold lg:text-right" 
+                                        className="h-8 bg-crm-surface px-2 text-xs font-bold text-right" 
                                     />
                                 </div>
                             </div>
                         ) : (
-                            <div className="lg:text-right mt-1">
+                            <div className="text-right mt-1">
                                 <span className="text-sm font-bold text-crm-fg">
                                     {sale.commissionSettings?.extraAmount > 0
                                         ? `${sale.commissionSettings.extraCurrency} ${sale.commissionSettings.extraAmount.toLocaleString('es-AR')}`
