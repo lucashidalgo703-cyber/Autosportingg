@@ -4629,7 +4629,8 @@ app.patch('/api/admin/sales/:id', authenticateToken, requirePermission(PERMISSIO
             postSaleStatus,
             postSaleChecklist,
             postSaleNotes,
-            satisfactionRating
+            satisfactionRating,
+            commissionSettings
         } = req.body;
 
         const sale = await Sale.findById(req.params.id);
@@ -4710,6 +4711,20 @@ app.patch('/api/admin/sales/:id', authenticateToken, requirePermission(PERMISSIO
         if (depositAppliedCurrency !== undefined && depositAppliedCurrency !== sale.depositAppliedCurrency) {
             sale.depositAppliedCurrency = depositAppliedCurrency;
             hasChanges = true;
+        }
+
+        if (commissionSettings !== undefined) {
+            sale.commissionSettings = commissionSettings;
+            hasChanges = true;
+            sale.saleAuditLog.push({
+                action: 'COMISION_ACTUALIZADA',
+                field: 'commissionSettings',
+                oldValue: null,
+                newValue: commissionSettings,
+                details: 'Comisión del vendedor actualizada manualmente',
+                user: user,
+                source: 'CRM_V2'
+            });
         }
 
         if (notes !== undefined && notes !== sale.notes) {

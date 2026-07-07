@@ -92,6 +92,12 @@ const saleSchema = new mongoose.Schema({
     balanceAfterTradeIn: { type: Number, default: 0 },
     paymentBreakdown: { type: String }, // Detalles opcionales de cómo se paga la diferencia
     
+    commissionSettings: {
+        extraAmount: { type: Number, default: 0 },
+        extraCurrency: { type: String, enum: ['ARS', 'USD'], default: 'USD' },
+        isManual: { type: Boolean, default: false }
+    },
+
     notes: { type: String },
 
     documentationStatus: { 
