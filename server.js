@@ -1250,6 +1250,33 @@ app.post('/api/admin/cars/:id/notes', authenticateToken, requirePermission(PERMI
     }
 });
 
+// Generic upload endpoint for images and documents
+app.post('/api/admin/upload', authenticateToken, upload.array('files', 20), async (req, res) => {
+    try {
+        const missingCloudinaryVars = ['CLOUDINARY_CLOUD_NAME', 'CLOUDINARY_API_KEY', 'CLOUDINARY_API_SECRET']
+            .filter((key) => !process.env[key]);
+
+        if (missingCloudinaryVars.length > 0) {
+            return res.status(500).json({
+                message: 'Cloudinary no esta configurado para subir imagenes.',
+                detail: `Faltan variables de entorno: ${missingCloudinaryVars.join(', ')}`
+            });
+        }
+
+        const uploadedFiles = req.files ? req.files.map(file => ({
+            name: file.originalname,
+            url: file.path,
+            type: file.mimetype,
+            size: file.size
+        })) : [];
+
+        return res.status(200).json({ uploadedFiles });
+    } catch (error) {
+        console.error('Error in /api/admin/upload:', error);
+        return res.status(500).json({ error: error.message });
+    }
+});
+
 // Dedicated PUT endpoint for images
 app.put('/api/admin/cars/:id/images', authenticateToken, requirePermission(PERMISSIONS.STOCK_WRITE), upload.array('images', 20), async (req, res) => {
     try {
