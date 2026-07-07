@@ -601,6 +601,8 @@ function FinanzasPage() {
                                     toast.success('Pago a empresa registrado con éxito');
                                     await loadData();
                                 }} 
+                                onEdit={handleEditTransaction}
+                                onDelete={handleDeleteTransaction}
                             />
                         )}
                     </>
