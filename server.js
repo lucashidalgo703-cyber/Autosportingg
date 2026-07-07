@@ -4657,7 +4657,8 @@ app.patch('/api/admin/sales/:id', authenticateToken, requirePermission(PERMISSIO
             postSaleChecklist,
             postSaleNotes,
             satisfactionRating,
-            commissionSettings
+            commissionSettings,
+            saleExpenses
         } = req.body;
 
         const sale = await Sale.findById(req.params.id);
@@ -4749,6 +4750,20 @@ app.patch('/api/admin/sales/:id', authenticateToken, requirePermission(PERMISSIO
                 oldValue: null,
                 newValue: commissionSettings,
                 details: 'Comisión del vendedor actualizada manualmente',
+                user: user,
+                source: 'CRM_V2'
+            });
+        }
+
+        if (saleExpenses !== undefined) {
+            sale.saleExpenses = saleExpenses;
+            hasChanges = true;
+            sale.saleAuditLog.push({
+                action: 'GASTOS_ACTUALIZADOS',
+                field: 'saleExpenses',
+                oldValue: null,
+                newValue: saleExpenses,
+                details: 'Gastos de venta actualizados',
                 user: user,
                 source: 'CRM_V2'
             });

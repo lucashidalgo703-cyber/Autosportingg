@@ -1,5 +1,13 @@
 import mongoose from 'mongoose';
 
+const saleExpenseSchema = new mongoose.Schema({
+    description: { type: String, required: true },
+    amount: { type: Number, required: true },
+    currency: { type: String, enum: ['ARS', 'USD'], default: 'ARS' },
+    status: { type: String, enum: ['Pendiente', 'En Proceso', 'Pagado'], default: 'Pendiente' },
+    date: { type: Date, default: Date.now }
+});
+
 const saleAuditSchema = new mongoose.Schema({
     action: { type: String, required: true },
     field: { type: String },
@@ -97,6 +105,8 @@ const saleSchema = new mongoose.Schema({
         extraCurrency: { type: String, enum: ['ARS', 'USD'], default: 'USD' },
         isManual: { type: Boolean, default: false }
     },
+
+    saleExpenses: { type: [saleExpenseSchema], default: [] },
 
     notes: { type: String },
 

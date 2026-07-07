@@ -1,6 +1,6 @@
 import toast from 'react-hot-toast';
 import React, { useState } from 'react';
-import { DollarSign, Info, Landmark, Edit2, X, Check } from 'lucide-react';
+import { DollarSign, Info, Landmark, Edit2, X, Check, Plus, Trash2 } from 'lucide-react';
 import CrmInput from '../../ui/CrmInput';
 import CrmSelect from '../../ui/CrmSelect';
 
@@ -16,7 +16,8 @@ export default function SaleCommercialPanel({ sale, onSave }) {
         commissionSettings: {
             extraAmount: 0,
             extraCurrency: 'USD'
-        }
+        },
+        saleExpenses: []
     });
 
     if (!sale) return null;
@@ -31,7 +32,8 @@ export default function SaleCommercialPanel({ sale, onSave }) {
             commissionSettings: {
                 extraAmount: sale.commissionSettings?.extraAmount || 0,
                 extraCurrency: sale.commissionSettings?.extraCurrency || 'USD'
-            }
+            },
+            saleExpenses: sale.saleExpenses || []
         });
         setIsEditing(true);
     };
@@ -55,7 +57,11 @@ export default function SaleCommercialPanel({ sale, onSave }) {
                     extraAmount: Number(editForm.commissionSettings.extraAmount),
                     extraCurrency: editForm.commissionSettings.extraCurrency,
                     isManual: true
-                }
+                },
+                saleExpenses: editForm.saleExpenses.map(exp => ({
+                    ...exp,
+                    amount: Number(exp.amount)
+                }))
             });
             setIsEditing(false);
         } catch (error) {
@@ -234,6 +240,115 @@ export default function SaleCommercialPanel({ sale, onSave }) {
                     </div>
                 </div>
 
+                {/* GASTOS DE LA VENTA */}
+                <div className="rounded-xl border border-crm-border bg-crm-bg p-3">
+                    <div className="mb-2 flex items-center justify-between">
+                        <span className="text-[10px] font-bold uppercase tracking-[0.08em] text-crm-fg-muted">Gastos de Venta</span>
+                        {isEditing && (
+                            <button
+                                onClick={() => setEditForm({
+                                    ...editForm,
+                                    saleExpenses: [...editForm.saleExpenses, { description: '', amount: 0, currency: editForm.saleCurrency, status: 'Pendiente' }]
+                                })}
+                                className="flex items-center gap-1 text-[10px] font-bold text-crm-fg-muted hover:text-white"
+                            >
+                                <Plus size={12} /> Agregar Gasto
+                            </button>
+                        )}
+                    </div>
+                    
+                    {!isEditing ? (
+                        <div className="flex flex-col gap-2">
+                            {sale.saleExpenses?.length > 0 ? (
+                                sale.saleExpenses.map((exp, i) => (
+                                    <div key={i} className="flex items-center justify-between border-t border-crm-border/50 pt-2 first:border-0 first:pt-0">
+                                        <div className="flex flex-col">
+                                            <span className="text-sm font-bold text-crm-fg">{exp.description}</span>
+                                            <span className={`text-[10px] font-bold uppercase ${exp.status === 'Pagado' ? 'text-emerald-400' : exp.status === 'En Proceso' ? 'text-blue-400' : 'text-crm-red'}`}>
+                                                {exp.status}
+                                            </span>
+                                        </div>
+                                        <span className="text-sm font-bold text-crm-fg-muted">
+                                            {exp.currency} {exp.amount?.toLocaleString('es-AR')}
+                                        </span>
+                                    </div>
+                                ))
+                            ) : (
+                                <span className="text-xs text-crm-fg-muted">No hay gastos registrados</span>
+                            )}
+                        </div>
+                    ) : (
+                        <div className="flex flex-col gap-2">
+                            {editForm.saleExpenses.map((exp, i) => (
+                                <div key={i} className="flex flex-col gap-2 rounded-lg border border-crm-border bg-crm-surface p-2">
+                                    <div className="flex items-center gap-2">
+                                        <CrmInput 
+                                            value={exp.description}
+                                            onChange={(e) => {
+                                                const newExpenses = [...editForm.saleExpenses];
+                                                newExpenses[i].description = e.target.value;
+                                                setEditForm({...editForm, saleExpenses: newExpenses});
+                                            }}
+                                            placeholder="Descripción (ej. Patentes)"
+                                            className="h-8 flex-1 bg-crm-bg px-2 text-xs font-bold"
+                                        />
+                                        <button 
+                                            onClick={() => {
+                                                const newExpenses = editForm.saleExpenses.filter((_, idx) => idx !== i);
+                                                setEditForm({...editForm, saleExpenses: newExpenses});
+                                            }}
+                                            className="text-crm-fg-muted hover:text-crm-red"
+                                        >
+                                            <Trash2 size={14} />
+                                        </button>
+                                    </div>
+                                    <div className="flex items-center gap-2">
+                                        <CrmSelect
+                                            value={exp.currency}
+                                            onChange={(e) => {
+                                                const newExpenses = [...editForm.saleExpenses];
+                                                newExpenses[i].currency = e.target.value;
+                                                setEditForm({...editForm, saleExpenses: newExpenses});
+                                            }}
+                                            className="h-8 w-16 bg-crm-bg px-1 text-xs font-bold"
+                                        >
+                                            <option value="USD">USD</option>
+                                            <option value="ARS">ARS</option>
+                                        </CrmSelect>
+                                        <CrmInput 
+                                            type="number"
+                                            min="0"
+                                            value={exp.amount}
+                                            onChange={(e) => {
+                                                const newExpenses = [...editForm.saleExpenses];
+                                                newExpenses[i].amount = e.target.value;
+                                                setEditForm({...editForm, saleExpenses: newExpenses});
+                                            }}
+                                            className="h-8 flex-1 bg-crm-bg px-2 text-xs font-bold text-right"
+                                        />
+                                        <CrmSelect
+                                            value={exp.status}
+                                            onChange={(e) => {
+                                                const newExpenses = [...editForm.saleExpenses];
+                                                newExpenses[i].status = e.target.value;
+                                                setEditForm({...editForm, saleExpenses: newExpenses});
+                                            }}
+                                            className="h-8 w-24 bg-crm-bg px-1 text-[10px] font-bold"
+                                        >
+                                            <option value="Pendiente">Pendiente</option>
+                                            <option value="En Proceso">En Proceso</option>
+                                            <option value="Pagado">Pagado</option>
+                                        </CrmSelect>
+                                    </div>
+                                </div>
+                            ))}
+                            {editForm.saleExpenses.length === 0 && (
+                                <span className="text-xs text-crm-fg-muted text-center py-2">Sin gastos añadidos</span>
+                            )}
+                        </div>
+                    )}
+                </div>
+
                 {sale.tradeInTotalAmount > 0 && (
                     <div className="flex items-center justify-between rounded-xl border border-purple-500/20 bg-purple-500/10 p-3">
                         <span className="text-xs font-bold uppercase tracking-[0.08em] text-purple-300">Vehiculo Tomado</span>
@@ -275,8 +390,13 @@ export default function SaleCommercialPanel({ sale, onSave }) {
                             const currentCurrency = isEditing ? editForm.saleCurrency : sale.saleCurrency;
                             const currentCommission = isEditing ? Number(editForm.commissionSettings?.extraAmount || 0) : (sale.commissionSettings?.extraAmount || 0);
                             const purchasePrice = sale.vehicleId?.purchasePrice || 0;
+                            const expensesList = isEditing ? editForm.saleExpenses : (sale.saleExpenses || []);
                             
-                            let profit = currentPrice - purchasePrice - currentCommission;
+                            const totalExpenses = expensesList
+                                .filter(exp => exp.currency === currentCurrency)
+                                .reduce((acc, curr) => acc + Number(curr.amount || 0), 0);
+                            
+                            let profit = currentPrice - purchasePrice - currentCommission - totalExpenses;
                             return `${currentCurrency} ${profit.toLocaleString('es-AR')}`;
                         })()}
                     </span>
