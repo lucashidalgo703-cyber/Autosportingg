@@ -199,7 +199,8 @@ export default function TransactionModal({ isOpen, onClose, transaction, onSave,
                                         <button
                                             type="button"
                                             onClick={() => setFormData({ ...formData, type: 'ingreso' })}
-                                            className={`flex-1 py-2.5 rounded-xl text-sm font-bold transition-colors border ${formData.type === 'ingreso' ? 'bg-green-500/20 text-green-400 border-green-500/30' : 'bg-black/40 text-neutral-400 border-neutral-800 hover:border-neutral-700'}`}
+                                            disabled={initialData?.isCommission}
+                                            className={`flex-1 py-2.5 rounded-xl text-sm font-bold transition-colors border ${formData.type === 'ingreso' ? 'bg-green-500/20 text-green-400 border-green-500/30' : 'bg-black/40 text-neutral-400 border-neutral-800 hover:border-neutral-700'} ${initialData?.isCommission ? 'opacity-30 cursor-not-allowed' : ''}`}
                                         >
                                             Ingreso
                                         </button>

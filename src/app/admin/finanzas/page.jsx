@@ -463,11 +463,11 @@ function FinanzasPage() {
                             </button>
                             <button
                                 type="button"
-                                onClick={() => openTransactionModal({ type: 'ingreso', concept: 'Nuevo boleto', category: 'Boleto', paymentMethod: 'transferencia' })}
+                                onClick={() => openTransactionModal({ type: 'egreso', concept: 'Comisión', category: 'Comisiones', paymentMethod: 'transferencia', isCommission: true })}
                                 className="inline-flex h-10 items-center gap-2 rounded-xl bg-crm-red-gradient px-4 text-sm font-black text-white shadow-crm-shadow-red transition hover:opacity-95"
                             >
                                 <Plus size={16} />
-                                Nuevo Boleto
+                                Nueva Comisión
                             </button>
                         </>
                     }
