@@ -3,8 +3,9 @@ import toast from 'react-hot-toast';
 import { parseResponseSafe } from '../../../../utils/apiHelper';
 import CrmBadge from '../../ui/CrmBadge';
 import ConfirmModal from '../../ui/ConfirmModal';
+import { Check, Pencil } from 'lucide-react';
 
-export default function ComisionesTab({ allTransactions = [] }) {
+export default function ComisionesTab({ allTransactions = [], openTransactionModal }) {
     const [period, setPeriod] = useState('');
     const [statusFilter, setStatusFilter] = useState('pendiente');
     const [settlements, setSettlements] = useState([]);
@@ -198,6 +199,14 @@ export default function ComisionesTab({ allTransactions = [] }) {
                                                     className="inline-flex items-center gap-1 rounded bg-crm-success/20 px-2 py-1 text-xs font-bold text-crm-success hover:bg-crm-success/30 transition"
                                                 >
                                                     <Check size={12}/> Pagar
+                                                </button>
+                                            )}
+                                            {s.isManualTransaction && (
+                                                <button
+                                                    onClick={() => openTransactionModal(s.originalTx)}
+                                                    className={`inline-flex items-center gap-1 rounded bg-crm-blue/20 px-2 py-1 text-xs font-bold text-crm-blue hover:bg-crm-blue/30 transition ${s.status !== 'pagada' && s.status !== 'anulada' ? 'ml-2' : ''}`}
+                                                >
+                                                    <Pencil size={12}/> Editar
                                                 </button>
                                             )}
                                         </td>

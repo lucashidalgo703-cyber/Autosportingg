@@ -572,7 +572,7 @@ function FinanzasPage() {
                         {activeTab === 'pagos' && <PagosDisponiblesTab accounts={accounts} />}
                         {activeTab === 'tarjeta' && <TarjetaTab accounts={accounts} />}
                         {activeTab === 'retiros' && <RetirosTab accounts={accounts} />}
-                        {activeTab === 'comisiones' && <ComisionesTab allTransactions={allTransactions} />}
+                        {activeTab === 'comisiones' && <ComisionesTab allTransactions={allTransactions} openTransactionModal={openTransactionModal} />}
                         {activeTab === 'rentabilidad' && <RentabilidadTab metrics={metrics} />}
                         {activeTab === 'cuentas' && <CuentasTab balances={balances} accounts={accounts} fetchAccounts={fetchAccounts} createAccount={createAccount} updateAccount={updateAccount} deleteAccount={deleteAccount} recalculateBalances={recalculateBalances} />}
                         {activeTab === 'cobrar-pagar' && <XCobrarPagarTab installments={installments} />}
