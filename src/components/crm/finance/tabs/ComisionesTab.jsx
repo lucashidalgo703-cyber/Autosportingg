@@ -4,7 +4,7 @@ import { parseResponseSafe } from '../../../../utils/apiHelper';
 import CrmBadge from '../../ui/CrmBadge';
 import ConfirmModal from '../../ui/ConfirmModal';
 
-export default function ComisionesTab() {
+export default function ComisionesTab({ allTransactions = [] }) {
     const [period, setPeriod] = useState('');
     const [statusFilter, setStatusFilter] = useState('pendiente');
     const [settlements, setSettlements] = useState([]);
@@ -24,7 +24,30 @@ export default function ComisionesTab() {
             if (statusFilter !== 'todas') url.searchParams.append('status', statusFilter);
 
             const res = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
-            setSettlements(await parseResponseSafe(res));
+            const fetchedSettlements = await parseResponseSafe(res);
+
+            // Integrar comisiones manuales cargadas desde Finanzas (Movimientos)
+            const manualCommissions = allTransactions
+                .filter(tx => tx.category?.toLowerCase() === 'comisiones' && tx.status !== 'anulado')
+                .map(tx => ({
+                    _id: tx._id,
+                    period: new Date(tx.date || tx.createdAt).toISOString().slice(0, 7), // YYYY-MM
+                    username: tx.createdBy || 'Manual (Finanzas)',
+                    includedSales: tx.saleId ? [tx.saleId] : [],
+                    totalAmount: tx.amount,
+                    currency: tx.currency,
+                    status: 'pagada', // Al ser un Movimiento de Finanzas, ya afectó la caja (se considera pagada)
+                    isManualTransaction: true
+                }));
+
+            // Filtrar las manuales según los filtros activos de la tabla
+            const filteredManual = manualCommissions.filter(mc => {
+                if (period && mc.period !== period) return false;
+                if (statusFilter !== 'todas' && mc.status !== statusFilter) return false;
+                return true;
+            });
+
+            setSettlements([...fetchedSettlements, ...filteredManual].sort((a, b) => b.period.localeCompare(a.period)));
 
             // Also fetch accounts for payment
             const accRes = await fetch('/api/admin/accounts', { headers: { Authorization: `Bearer ${token}` } });
@@ -39,7 +62,7 @@ export default function ComisionesTab() {
 
     useEffect(() => {
         fetchData();
-    }, [period, statusFilter]);
+    }, [period, statusFilter, allTransactions]);
 
     const [paying, setPaying] = useState(false);
 
