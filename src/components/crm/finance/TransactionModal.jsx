@@ -30,6 +30,7 @@ export default function TransactionModal({ isOpen, onClose, transaction, onSave,
     const [resOptions, setResOptions] = useState([]);
     const [clientOptions, setClientOptions] = useState([]);
     const [carOptions, setCarOptions] = useState([]);
+    const [userOptions, setUserOptions] = useState([]);
 
     const getAuthHeaders = () => {
         const token = localStorage.getItem('token');
@@ -44,11 +45,12 @@ export default function TransactionModal({ isOpen, onClose, transaction, onSave,
             try {
                 const headers = getAuthHeaders();
                 // We fetch the basics to populate dropdowns
-                const [salesRes, resRes, clientsRes, carsRes] = await Promise.all([
+                const [salesRes, resRes, clientsRes, carsRes, usersRes] = await Promise.all([
                     fetch('/api/admin/sales?limit=100', { headers }),
                     fetch('/api/admin/reservations?limit=100', { headers }),
                     fetch('/api/admin/clients?limit=100', { headers }),
-                    fetch('/api/cars', { headers }) // Or /api/admin/stock depending on what exists, we use public /api/cars for now since it returns all visible
+                    fetch('/api/cars', { headers }), // Or /api/admin/stock depending on what exists, we use public /api/cars for now since it returns all visible
+                    fetch('/api/admin/users', { headers })
                 ]);
                 
                 if (salesRes.ok) {
@@ -66,6 +68,10 @@ export default function TransactionModal({ isOpen, onClose, transaction, onSave,
                 if (carsRes.ok) {
                     const data = await carsRes.json();
                     setCarOptions(Array.isArray(data) ? data : (data.cars || []));
+                }
+                if (usersRes.ok) {
+                    const data = await usersRes.json();
+                    setUserOptions(Array.isArray(data) ? data : (data.users || []));
                 }
             } catch (err) {
                 console.error("Error fetching options for transaction modal", err);
@@ -92,7 +98,8 @@ export default function TransactionModal({ isOpen, onClose, transaction, onSave,
                 reservationId: transaction.reservationId || '',
                 clientId: transaction.clientId || '',
                 vehicleId: transaction.vehicleId || '',
-                installmentId: transaction.installmentId || ''
+                installmentId: transaction.installmentId || '',
+                targetUser: transaction.targetUser || transaction.createdBy || ''
             });
         } else if (isOpen) {
             // Default initial state or props if provided from SaleFinancePanel
@@ -110,6 +117,7 @@ export default function TransactionModal({ isOpen, onClose, transaction, onSave,
                 clientId: '',
                 vehicleId: '',
                 installmentId: '',
+                targetUser: '',
                 ...(initialData || {})
             });
         }
@@ -141,6 +149,7 @@ export default function TransactionModal({ isOpen, onClose, transaction, onSave,
             if (!dataToSave.clientId) delete dataToSave.clientId;
             if (!dataToSave.vehicleId) delete dataToSave.vehicleId;
             if (!dataToSave.installmentId) delete dataToSave.installmentId;
+            if (!dataToSave.targetUser) delete dataToSave.targetUser;
             
             onSave(dataToSave);
         }
@@ -246,6 +255,25 @@ export default function TransactionModal({ isOpen, onClose, transaction, onSave,
                                     <span className="text-[10px] font-bold text-neutral-500 uppercase block mb-1">Moneda Original</span>
                                     <span className="text-sm font-bold text-white">{transaction.currency}</span>
                                 </div>
+                            </div>
+                        )}
+
+                        {initialData?.isCommission && !isEdit && (
+                            <div className="col-span-1 md:col-span-2">
+                                <label className="block text-xs font-bold text-neutral-500 uppercase tracking-wider mb-2">Vendedor / Usuario</label>
+                                <select
+                                    className="w-full bg-black/40 border border-neutral-800 rounded-xl py-2.5 px-4 text-sm text-neutral-300 focus:outline-none focus:border-neutral-600 transition-colors"
+                                    value={formData.targetUser}
+                                    onChange={(e) => setFormData({ ...formData, targetUser: e.target.value })}
+                                    disabled={isAnnulled}
+                                >
+                                    <option value="">-- Seleccionar Vendedor --</option>
+                                    {userOptions.map(u => (
+                                        <option key={u._id || u.username} value={u.username}>
+                                            {u.name || u.username}
+                                        </option>
+                                    ))}
+                                </select>
                             </div>
                         )}
 

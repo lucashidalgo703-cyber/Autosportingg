@@ -5362,7 +5362,7 @@ app.post('/api/admin/transactions', authenticateToken, requirePermission(PERMISS
     try {
         await connectDB();
         if (req.user && req.user.role === 'ventas') return res.status(403).json({ message: 'Sin permisos financieros' });
-        const { type, category, concept, amount, currency, paymentMethod, date, notes, saleId, reservationId, clientId, vehicleId, installmentId, payeeCompany, payeeVehicle } = req.body;
+        const { type, category, concept, amount, currency, paymentMethod, date, notes, saleId, reservationId, clientId, vehicleId, installmentId, payeeCompany, payeeVehicle, targetUser } = req.body;
 
         // Validations
         if (!type || !['ingreso', 'egreso'].includes(type)) return res.status(400).json({ message: 'Type is required and must be ingreso/egreso' });
@@ -5417,7 +5417,7 @@ app.post('/api/admin/transactions', authenticateToken, requirePermission(PERMISS
             installmentId: installmentId || undefined,
             payeeCompany: payeeCompany || undefined,
             payeeVehicle: payeeVehicle || undefined,
-            createdBy: req.user?.username || 'Admin',
+            createdBy: targetUser || req.user?.username || 'Admin',
             transactionAuditLog: [{
                 action: 'CREACION_MANUAL',
                 details: `Movimiento manual creado: ${concept}`,
