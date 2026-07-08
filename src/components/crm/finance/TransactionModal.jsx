@@ -269,8 +269,8 @@ export default function TransactionModal({ isOpen, onClose, transaction, onSave,
                                 >
                                     <option value="">-- Seleccionar Vendedor --</option>
                                     {userOptions.map(u => (
-                                        <option key={u._id || u.username} value={u.username}>
-                                            {u.name || u.username}
+                                        <option key={u._id || u.email} value={u.name}>
+                                            {u.name} ({u.role})
                                         </option>
                                     ))}
                                 </select>
