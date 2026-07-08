@@ -1,3 +1,4 @@
+import React, { useState } from 'react';
 import Link from 'next/link';
 import {
     AlertTriangle,
@@ -40,7 +41,7 @@ function formatCurrency(value) {
     return formatNumber(Math.round(value || 0));
 }
 
-function KpiCard({ label, value, detail, icon: Icon, tone = 'green', href, compact = false }) {
+function KpiCard({ label, value, detail, icon: Icon, tone = 'green', href, onClick, compact = false }) {
     const content = (
         <>
             <div className="flex items-start justify-between gap-4">
@@ -65,9 +66,9 @@ function KpiCard({ label, value, detail, icon: Icon, tone = 'green', href, compa
     );
 
     const className = [
-        'group relative block overflow-hidden rounded-xl border border-crm-border bg-crm-surface p-4 text-left transition-colors',
+        'group relative block w-full overflow-hidden rounded-xl border border-crm-border bg-crm-surface p-4 text-left transition-colors',
         compact ? 'min-h-[155px]' : 'min-h-[132px]',
-        href ? 'hover:border-crm-red/35 hover:bg-crm-surface-raised' : ''
+        (href || onClick) ? 'hover:border-crm-red/35 hover:bg-crm-surface-raised cursor-pointer' : ''
     ].join(' ');
 
     if (href) {
@@ -75,6 +76,14 @@ function KpiCard({ label, value, detail, icon: Icon, tone = 'green', href, compa
             <Link href={href} className={className}>
                 {content}
             </Link>
+        );
+    }
+    
+    if (onClick) {
+        return (
+            <button type="button" onClick={onClick} className={className}>
+                {content}
+            </button>
         );
     }
 
@@ -455,6 +464,7 @@ function LastOperationsPanel() {
 }
 
 export default function GeneralDashboardSote({ metrics, canSeeFinancials = false, user, hideAmounts = false }) {
+    const [showSalesModal, setShowSalesModal] = useState(false);
     const counts = metrics.counts || {};
     const alertCount = (metrics.alertas?.alerta60?.length || 0) + (metrics.alertas?.alerta90?.length || 0);
     const activeStock = (counts.disponibles || 0) + (counts.reservados || 0) + (counts.pausados || 0);
@@ -513,7 +523,7 @@ export default function GeneralDashboardSote({ metrics, canSeeFinancials = false
             detail: `ARS ${formatCurrency(estimatedMarginArs)}`,
             icon: ShoppingCart,
             tone: 'green',
-            href: '/admin/ventas'
+            onClick: () => setShowSalesModal(true)
         },
         {
             label: 'Cuotas a pagar (mes)',
@@ -655,6 +665,41 @@ export default function GeneralDashboardSote({ metrics, canSeeFinancials = false
             <p className="px-2 pb-4 text-center text-xs text-crm-fg-muted">
                 Estas en la app nueva. Las secciones completas van migrando de a una.
             </p>
+
+            {showSalesModal && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm">
+                    <div className="w-full max-w-3xl rounded-2xl border border-crm-border bg-crm-surface p-6 shadow-2xl">
+                        <div className="mb-6 flex items-center justify-between">
+                            <h2 className="text-xl font-bold text-white">Ventas del Mes</h2>
+                            <button onClick={() => setShowSalesModal(false)} className="text-crm-fg-muted hover:text-white">✕</button>
+                        </div>
+                        <div className="max-h-[60vh] overflow-y-auto">
+                            <table className="w-full text-left text-sm">
+                                <thead className="border-b border-crm-border text-xs text-crm-fg-muted">
+                                    <tr>
+                                        <th className="pb-3 font-semibold">Vehículo</th>
+                                        <th className="pb-3 text-right font-semibold">Fecha</th>
+                                        <th className="pb-3 text-right font-semibold">Precio Venta</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y divide-crm-border">
+                                    {(metrics.salesDetails || []).length === 0 ? (
+                                        <tr><td colSpan="3" className="py-4 text-center text-crm-fg-muted">No hay ventas registradas este mes.</td></tr>
+                                    ) : (
+                                        (metrics.salesDetails || []).map((detail, idx) => (
+                                            <tr key={idx} className="hover:bg-crm-surface-raised transition-colors">
+                                                <td className="py-3 font-medium text-white">{detail.carName}</td>
+                                                <td className="py-3 text-right text-crm-fg-muted">{new Date(detail.date).toLocaleDateString('es-AR')}</td>
+                                                <td className="py-3 text-right text-emerald-400 font-bold">{detail.saleCurrency} {hideAmounts ? '***' : formatCurrency(detail.salePrice)}</td>
+                                            </tr>
+                                        ))
+                                    )}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }
