@@ -1,6 +1,6 @@
 import toast from 'react-hot-toast';
 import React, { useState, useEffect, useMemo } from 'react';
-import { Plus, Wallet, FileText, Trash2, Edit, RefreshCw } from 'lucide-react';
+import { Plus, Wallet, FileText, Trash2, Edit, RefreshCw, Calendar } from 'lucide-react';
 import { useAdminPersonalFinance } from '../../../hooks/useAdminPersonalFinance';
 import PersonalTransactionModal from './PersonalTransactionModal';
 import ConfirmModal from '../ui/ConfirmModal';
@@ -334,12 +334,15 @@ export default function PersonalFinanceTab() {
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                 <div className="flex items-center gap-4">
                     <h3 className="text-lg font-bold text-white">Movimientos</h3>
-                    <input 
-                        type="month"
-                        value={monthFilter}
-                        onChange={(e) => setMonthFilter(e.target.value)}
-                        className="bg-black border border-neutral-800 rounded-lg px-3 py-1.5 text-sm text-white focus:outline-none focus:border-neutral-600"
-                    />
+                    <div className="relative group">
+                        <Calendar size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-400 group-hover:text-white transition-colors pointer-events-none" />
+                        <input 
+                            type="month"
+                            value={monthFilter}
+                            onChange={(e) => setMonthFilter(e.target.value)}
+                            className="bg-black border border-neutral-800 rounded-lg pl-9 pr-3 py-1.5 text-sm text-white focus:outline-none focus:border-neutral-600 cursor-pointer [&::-webkit-calendar-picker-indicator]:invert [&::-webkit-calendar-picker-indicator]:opacity-50 hover:[&::-webkit-calendar-picker-indicator]:opacity-100 [&::-webkit-calendar-picker-indicator]:cursor-pointer transition-all"
+                        />
+                    </div>
                 </div>
                 <div className="flex flex-wrap gap-2">
                     <button
