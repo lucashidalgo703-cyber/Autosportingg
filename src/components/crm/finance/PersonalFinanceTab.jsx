@@ -147,7 +147,25 @@ export default function PersonalFinanceTab() {
         loadData();
     }, []);
 
-    const metrics = useMemo(() => {
+    const monthMetrics = useMemo(() => {
+        return filteredTransactions.reduce((acc, tx) => {
+            const currency = tx.currency;
+            const amount = Number(tx.amount || 0);
+
+            if (tx.type === 'ingreso') {
+                acc[currency].income += amount;
+            } else if (tx.type === 'egreso') {
+                acc[currency].expense += amount;
+            }
+
+            return acc;
+        }, {
+            ARS: { income: 0, expense: 0 },
+            USD: { income: 0, expense: 0 }
+        });
+    }, [filteredTransactions]);
+
+    const historicalMetrics = useMemo(() => {
         return transactions.reduce((acc, tx) => {
             const currency = tx.currency;
             const amount = Number(tx.amount || 0);
@@ -166,9 +184,9 @@ export default function PersonalFinanceTab() {
     }, [transactions]);
 
     const balances = useMemo(() => ({
-        ARS: metrics.ARS.income - metrics.ARS.expense,
-        USD: metrics.USD.income - metrics.USD.expense
-    }), [metrics]);
+        ARS: monthMetrics.ARS.income - monthMetrics.ARS.expense,
+        USD: monthMetrics.USD.income - monthMetrics.USD.expense
+    }), [monthMetrics]);
 
     const handleSave = async (data) => {
         try {
@@ -246,7 +264,7 @@ export default function PersonalFinanceTab() {
                     <div className="mb-5 flex items-start justify-between gap-3">
                         <div>
                             <h2 className="text-base font-black text-white">💰 Gastos Personales</h2>
-                            <p className="mt-1 text-xs text-neutral-400">Total acumulado en tu caja independiente.</p>
+                            <p className="mt-1 text-xs text-neutral-400">Balance del mes seleccionado.</p>
                         </div>
                         <Wallet className="text-blue-500" size={20} />
                     </div>
@@ -294,13 +312,13 @@ export default function PersonalFinanceTab() {
                             <div className="rounded-xl bg-black border border-neutral-800 p-3">
                                 <p className="text-[10px] font-bold text-neutral-500 uppercase tracking-wider mb-0.5">Ingresos {chartCurrency}</p>
                                 <p className="text-base font-black text-green-500">
-                                    {formatMoney(metrics[chartCurrency].income, chartCurrency)}
+                                    {formatMoney(historicalMetrics[chartCurrency].income, chartCurrency)}
                                 </p>
                             </div>
                             <div className="rounded-xl bg-black border border-neutral-800 p-3">
                                 <p className="text-[10px] font-bold text-neutral-500 uppercase tracking-wider mb-0.5">Egresos {chartCurrency}</p>
                                 <p className="text-base font-black text-crm-red">
-                                    {formatMoney(metrics[chartCurrency].expense, chartCurrency)}
+                                    {formatMoney(historicalMetrics[chartCurrency].expense, chartCurrency)}
                                 </p>
                             </div>
                         </div>
