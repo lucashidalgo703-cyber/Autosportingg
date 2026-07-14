@@ -1016,6 +1016,8 @@ app.get('/api/admin/cars', authenticateToken, requirePermission(PERMISSIONS.STOC
         let valorActivoInversionistasARS = 0;
         let capitalInvertidoInversionistasUSD = 0;
         let capitalInvertidoInversionistasARS = 0;
+        let valorTotalUSD = 0;
+        let valorTotalARS = 0;
 
         disponibles.forEach(c => {
             const isShared = c.investor && c.investor.percentage > 0;
@@ -1028,6 +1030,13 @@ app.get('/api/admin/cars', authenticateToken, requirePermission(PERMISSIONS.STOC
 
             // monedaCompra logic from mapper
             const purchaseCurrency = ((c.purchaseCurrency || c.currency) === 'USD' || (c.purchaseCurrency || c.currency) === 'U$S') && c.purchasePrice > 200000 ? 'ARS' : (c.purchaseCurrency || (c.currency === 'U$S' || c.currency === 'USD' ? 'USD' : 'ARS'));
+
+            const priceValTotal = c.price || 0;
+            if (currency === 'USD') {
+                valorTotalUSD += priceValTotal;
+            } else {
+                valorTotalARS += priceValTotal;
+            }
 
             if (origen === 'propio' || origen === 'compartido') {
                 const investorPercentage = (origen === 'compartido' && c.investor) ? c.investor.percentage : 0;
@@ -1074,7 +1083,9 @@ app.get('/api/admin/cars', authenticateToken, requirePermission(PERMISSIONS.STOC
             valorActivoInversionistasUSD,
             valorActivoInversionistasARS,
             capitalInvertidoInversionistasUSD,
-            capitalInvertidoInversionistasARS
+            capitalInvertidoInversionistasARS,
+            valorTotalUSD,
+            valorTotalARS
         };
 
         // Now build query for the current page

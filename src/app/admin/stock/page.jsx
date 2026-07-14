@@ -175,6 +175,14 @@ export default function AdminStockPage() {
                 return sum + ((v.precioPublicado || 0) * (agencyPercentage / 100));
             }, 0);
             
+        const valorTotalUSD = disponibles
+            .filter(v => v.moneda === 'USD')
+            .reduce((sum, v) => sum + (v.precioPublicado || 0), 0);
+
+        const valorTotalARS = disponibles
+            .filter(v => v.moneda !== 'USD')
+            .reduce((sum, v) => sum + (v.precioPublicado || 0), 0);
+            
         const valorActivoInversionistasUSD = disponibles
             .filter(v => v.moneda === 'USD' && v.origen === 'compartido')
             .reduce((sum, v) => sum + ((v.precioPublicado || 0) * ((v.investor?.percentage || 0) / 100)), 0);
@@ -206,7 +214,9 @@ export default function AdminStockPage() {
             valorActivoInversionistasUSD,
             valorActivoInversionistasARS,
             capitalInvertidoInversionistasUSD,
-            capitalInvertidoInversionistasARS
+            capitalInvertidoInversionistasARS,
+            valorTotalUSD,
+            valorTotalARS
         };
     }, [vehicles, backendSummary, mandates.length]);
 
@@ -430,13 +440,13 @@ export default function AdminStockPage() {
                     </div>
                     <div className="flex flex-wrap items-center gap-2">
                         <span className="text-[11px] font-bold uppercase tracking-[0.08em] text-crm-fg-subtle">
-                            Autos Propios:
+                            Valor Total Stock:
                         </span>
                         <span className="font-semibold text-crm-fg flex items-center gap-2">
                             <span>
-                                USD {Math.round(
-                                    (stockSummary.valorActivoUSD || 0) + 
-                                    (dolarBlue && stockSummary.valorActivoARS ? stockSummary.valorActivoARS / dolarBlue : 0)
+                                ARS {Math.round(
+                                    (stockSummary.valorTotalARS || 0) + 
+                                    (dolarBlue && stockSummary.valorTotalUSD ? stockSummary.valorTotalUSD * dolarBlue : 0)
                                 ).toLocaleString('es-AR')}
                             </span>
                         </span>
