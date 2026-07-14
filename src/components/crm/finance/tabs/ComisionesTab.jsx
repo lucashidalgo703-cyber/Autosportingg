@@ -5,7 +5,7 @@ import CrmBadge from '../../ui/CrmBadge';
 import ConfirmModal from '../../ui/ConfirmModal';
 import { Check, Pencil } from 'lucide-react';
 
-export default function ComisionesTab({ allTransactions = [], openTransactionModal }) {
+export default function ComisionesTab({ allTransactions = [], openTransactionModal, handleEditTransaction }) {
     const [period, setPeriod] = useState('');
     const [statusFilter, setStatusFilter] = useState('pendiente');
     const [settlements, setSettlements] = useState([]);
@@ -203,7 +203,7 @@ export default function ComisionesTab({ allTransactions = [], openTransactionMod
                                             )}
                                             {s.isManualTransaction && (
                                                 <button
-                                                    onClick={() => openTransactionModal(s.originalTx)}
+                                                    onClick={() => handleEditTransaction(s.originalTx)}
                                                     className={`inline-flex items-center gap-1 rounded bg-crm-blue/20 px-2 py-1 text-xs font-bold text-crm-blue hover:bg-crm-blue/30 transition ${s.status !== 'pagada' && s.status !== 'anulada' ? 'ml-2' : ''}`}
                                                 >
                                                     <Pencil size={12}/> Editar

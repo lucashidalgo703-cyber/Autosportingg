@@ -42,7 +42,7 @@ export default function AdminStockPage() {
         }, 150);
     };
 
-    const { cars, loading, error, refresh, total, pages, summary: backendSummary, brands: backendBrands, swapCars, setCars } = useAdminCars();
+    const { cars, loading, error, refresh, total, pages, summary: backendSummary, brands: backendBrands, swapCars, setCars, filteredTotalUSD, filteredTotalARS } = useAdminCars();
     const [isFormOpen, setIsFormOpen] = useState(false);
     const [isImportModalOpen, setIsImportModalOpen] = useState(false);
     const [isMandateModalOpen, setIsMandateModalOpen] = useState(false);
@@ -523,6 +523,8 @@ export default function AdminStockPage() {
                                     totalPages={pages} 
                                     onReserve={setReservingCar}
                                     totalItems={total}
+                                    filteredTotalUSD={filteredTotalUSD}
+                                    filteredTotalARS={filteredTotalARS}
                                 />
                             </div>
                             <div className="block lg:hidden">
@@ -532,6 +534,8 @@ export default function AdminStockPage() {
                                     onDelete={setDeletingCar} 
                                     onPrint={handlePrint} 
                                     totalItems={total}
+                                    filteredTotalUSD={filteredTotalUSD}
+                                    filteredTotalARS={filteredTotalARS}
                                 />
                             </div>
                             <CrmPagination

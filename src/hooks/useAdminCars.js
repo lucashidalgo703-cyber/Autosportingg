@@ -13,6 +13,8 @@ export const useAdminCars = () => {
     const [page, setPage] = useState(1);
     const [summary, setSummary] = useState(null);
     const [brands, setBrands] = useState([]);
+    const [filteredTotalUSD, setFilteredTotalUSD] = useState(0);
+    const [filteredTotalARS, setFilteredTotalARS] = useState(0);
     const { logout } = useAuth();
 
     const fetchCars = useCallback(async (filters = {}) => {
@@ -79,9 +81,13 @@ export const useAdminCars = () => {
                 setPage(data.page || 1);
                 setSummary(data.summary || null);
                 setBrands(data.brands || []);
+                setFilteredTotalUSD(data.filteredTotalUSD || 0);
+                setFilteredTotalARS(data.filteredTotalARS || 0);
                 return data;
             } else {
                 setCars(data || []);
+                setFilteredTotalUSD(0);
+                setFilteredTotalARS(0);
                 return { cars: data || [] };
             }
         } catch (err) {
@@ -160,5 +166,5 @@ export const useAdminCars = () => {
         }
     };
 
-    return { cars, loading, error, refresh: fetchCars, deleteCar, setCars, total, pages, page, summary, brands, swapCars };
+    return { cars, loading, error, refresh: fetchCars, deleteCar, setCars, total, pages, page, summary, brands, swapCars, filteredTotalUSD, filteredTotalARS };
 };

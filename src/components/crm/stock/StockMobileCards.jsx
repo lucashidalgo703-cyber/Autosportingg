@@ -49,7 +49,14 @@ const getProgress = (days) => {
     const safeDays = Number(days || 0);
     return Math.min(100, Math.max(0, Math.round((safeDays / 60) * 100)));
 };
-const getListValue = (data) => {
+const getListValue = (data, filteredTotalUSD, filteredTotalARS) => {
+    if (filteredTotalUSD !== undefined && filteredTotalARS !== undefined) {
+        const parts = [];
+        if (filteredTotalUSD > 0) parts.push(`USD ${formatNumber(filteredTotalUSD)}`);
+        if (filteredTotalARS > 0) parts.push(`ARS ${formatNumber(filteredTotalARS)}`);
+        return parts.length > 0 ? parts.join(' + ') : '--';
+    }
+
     const totals = data.reduce((acc, vehicle) => {
         const currency = vehicle.moneda || 'ARS';
         acc[currency] = (acc[currency] || 0) + Number(vehicle.precioPublicado || 0);
@@ -63,7 +70,7 @@ const getListValue = (data) => {
     return parts.length > 0 ? parts.join(' + ') : '--';
 };
 
-export default function StockMobileCards({ data, onEditML, onDelete, onPrint, totalItems }) {
+export default function StockMobileCards({ data, onEditML, onDelete, onPrint, totalItems, filteredTotalUSD, filteredTotalARS }) {
     const [expandedId, setExpandedId] = useState(data[0]?.id || null);
 
     if (data.length === 0) {
@@ -85,7 +92,7 @@ export default function StockMobileCards({ data, onEditML, onDelete, onPrint, to
             <div className="rounded-xl border border-crm-border bg-crm-surface p-3 text-sm font-semibold text-crm-fg">
                 {totalItems || data.length} {(totalItems || data.length) === 1 ? 'vehículo' : 'vehículos'} en lista
                 <span className="mx-1 text-crm-fg-muted">·</span>
-                <span>{getListValue(data)}</span>
+                <span>{getListValue(data, filteredTotalUSD, filteredTotalARS)}</span>
             </div>
 
             <div className="flex flex-col gap-3">

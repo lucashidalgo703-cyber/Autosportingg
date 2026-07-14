@@ -1157,6 +1157,26 @@ app.get('/api/admin/cars', authenticateToken, requirePermission(PERMISSIONS.STOC
             .skip(skip)
             .limit(parsedLimit)
             .lean();
+            
+        // Calculate the sum of prices for the filtered vehicles
+        const filteredTotals = await Car.aggregate([
+            { $match: query },
+            { 
+                $group: { 
+                    _id: "$currency", 
+                    total: { $sum: "$price" } 
+                } 
+            }
+        ]);
+        
+        let filteredTotalUSD = 0;
+        let filteredTotalARS = 0;
+        filteredTotals.forEach(item => {
+            const curr = (item._id === 'U$S' || item._id === 'USD') ? 'USD' : 'ARS';
+            if (curr === 'USD') filteredTotalUSD += item.total || 0;
+            else filteredTotalARS += item.total || 0;
+        });
+
         const brands = await Car.distinct('brand');
         res.json({
             cars,
@@ -1165,7 +1185,9 @@ app.get('/api/admin/cars', authenticateToken, requirePermission(PERMISSIONS.STOC
             page: parsedPage,
             limit: parsedLimit,
             summary,
-            brands
+            brands,
+            filteredTotalUSD,
+            filteredTotalARS
         });
     } catch (error) {
         res.status(500).json({ message: error.message });

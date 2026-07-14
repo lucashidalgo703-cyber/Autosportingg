@@ -258,7 +258,7 @@ export default function TransactionModal({ isOpen, onClose, transaction, onSave,
                             </div>
                         )}
 
-                        {initialData?.isCommission && !isEdit && (
+                        {(initialData?.isCommission || (isEdit && transaction.category === 'Comisiones')) && (
                             <div className="col-span-1 md:col-span-2">
                                 <label className="block text-xs font-bold text-neutral-500 uppercase tracking-wider mb-2">Vendedor / Usuario</label>
                                 <select
