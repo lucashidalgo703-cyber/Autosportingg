@@ -19,8 +19,8 @@ const Financing = () => {
     const [amount, setAmount] = useState(5000000);
     const [term, setTerm] = useState(24);
     
-    // Configuración BNA +Autos (Aprox 38% TNA)
-    const TNA = 0.38; 
+    // Configuración BNA +Autos (Aprox 46% TNA)
+    const TNA = 0.46; 
     const MONTHLY_RATE = TNA / 12;
 
     // Basic Amortization Formula (French System approximation)
