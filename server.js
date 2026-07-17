@@ -5450,7 +5450,8 @@ app.post('/api/admin/transactions', authenticateToken, requirePermission(PERMISS
             installmentId: installmentId || undefined,
             payeeCompany: payeeCompany || undefined,
             payeeVehicle: payeeVehicle || undefined,
-            createdBy: targetUser || req.user?.username || 'Admin',
+            targetUser: targetUser || undefined,
+            createdBy: req.user?.username || 'Admin',
             transactionAuditLog: [{
                 action: 'CREACION_MANUAL',
                 details: `Movimiento manual creado: ${concept}`,
@@ -5495,7 +5496,7 @@ app.patch('/api/admin/transactions/:id', authenticateToken, requirePermission(PE
     try {
         await connectDB();
         if (req.user && req.user.role === 'ventas') return res.status(403).json({ message: 'Sin permisos financieros' });
-        const { category, concept, paymentMethod, date, notes, status, saleId, reservationId, clientId, vehicleId, installmentId, payeeCompany, payeeVehicle } = req.body;
+        const { category, concept, paymentMethod, date, notes, status, saleId, reservationId, clientId, vehicleId, installmentId, payeeCompany, payeeVehicle, targetUser } = req.body;
 
         const tx = await Transaction.findOne({ _id: req.params.id, module: 'crm_v2' });
         if (!tx) return res.status(404).json({ message: 'Transaction not found' });
@@ -5505,6 +5506,11 @@ app.patch('/api/admin/transactions/:id', authenticateToken, requirePermission(PE
 
         if (category !== undefined && category !== tx.category) {
             tx.category = category;
+            hasChanges = true;
+        }
+
+        if (targetUser !== undefined && targetUser !== tx.targetUser) {
+            tx.targetUser = targetUser;
             hasChanges = true;
         }
 

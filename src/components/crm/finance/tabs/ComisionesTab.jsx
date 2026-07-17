@@ -7,7 +7,7 @@ import { Check, Pencil } from 'lucide-react';
 
 export default function ComisionesTab({ allTransactions = [], openTransactionModal, handleEditTransaction }) {
     const [period, setPeriod] = useState('');
-    const [statusFilter, setStatusFilter] = useState('pendiente');
+    const [statusFilter, setStatusFilter] = useState('todas');
     const [settlements, setSettlements] = useState([]);
     const [loading, setLoading] = useState(false);
 
@@ -33,7 +33,7 @@ export default function ComisionesTab({ allTransactions = [], openTransactionMod
                 .map(tx => ({
                     _id: tx._id,
                     period: new Date(tx.date || tx.createdAt).toISOString().slice(0, 7), // YYYY-MM
-                    username: tx.createdBy || 'Manual (Finanzas)',
+                    username: tx.targetUser || tx.createdBy || 'Manual (Finanzas)',
                     includedSales: tx.saleId ? [tx.saleId] : [],
                     totalAmount: tx.amount,
                     currency: tx.currency,
@@ -99,20 +99,30 @@ export default function ComisionesTab({ allTransactions = [], openTransactionMod
     const totalPagadoUSD = settlements.filter(s => s.status === 'pagada' && s.currency === 'USD').reduce((a, b) => a + b.totalAmount, 0);
     const totalUSD = totalPendienteUSD + totalPagadoUSD;
 
+    const totalPendienteARS = settlements.filter(s => s.status !== 'pagada' && s.status !== 'anulada' && s.currency === 'ARS').reduce((a, b) => a + b.totalAmount, 0);
+    const totalPagadoARS = settlements.filter(s => s.status === 'pagada' && s.currency === 'ARS').reduce((a, b) => a + b.totalAmount, 0);
+    const totalARS = totalPendienteARS + totalPagadoARS;
+
     return (
         <div className="space-y-4">
             <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
                 <div className="rounded-xl border border-crm-border bg-crm-bg p-4">
                     <h3 className="text-[11px] font-black uppercase tracking-wider text-crm-fg-subtle">TOTAL COMISIONES (VISIBLES)</h3>
-                    <p className="mt-2 text-xl font-black text-crm-fg">{formatMoney(totalUSD, 'USD')}</p>
+                    <p className="mt-2 text-xl font-black text-crm-fg">
+                        {formatMoney(totalUSD, 'USD')} <span className="text-sm font-medium text-crm-fg-muted ml-2">| {formatMoney(totalARS, 'ARS')}</span>
+                    </p>
                 </div>
                 <div className="rounded-xl border border-crm-border bg-crm-bg p-4">
                     <h3 className="text-[11px] font-black uppercase tracking-wider text-crm-fg-subtle">YA PAGADAS ✅</h3>
-                    <p className="mt-2 text-xl font-black text-crm-success">{formatMoney(totalPagadoUSD, 'USD')}</p>
+                    <p className="mt-2 text-xl font-black text-crm-success">
+                        {formatMoney(totalPagadoUSD, 'USD')} <span className="text-sm font-medium opacity-60 ml-2">| {formatMoney(totalPagadoARS, 'ARS')}</span>
+                    </p>
                 </div>
                 <div className="rounded-xl border border-crm-border bg-crm-bg p-4">
                     <h3 className="text-[11px] font-black uppercase tracking-wider text-crm-fg-subtle">PENDIENTES ⏳</h3>
-                    <p className="mt-2 text-xl font-black text-crm-fg">{formatMoney(totalPendienteUSD, 'USD')}</p>
+                    <p className="mt-2 text-xl font-black text-crm-fg">
+                        {formatMoney(totalPendienteUSD, 'USD')} <span className="text-sm font-medium text-crm-fg-muted ml-2">| {formatMoney(totalPendienteARS, 'ARS')}</span>
+                    </p>
                 </div>
             </div>
 

@@ -26,6 +26,7 @@ const transactionSchema = new mongoose.Schema({
     payeeVehicle: { type: String },
     createdBy: { type: String },
     updatedBy: { type: String },
+    targetUser: { type: String },
     transactionAuditLog: [{
         action: String,
         field: String,
