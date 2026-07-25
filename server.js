@@ -1362,10 +1362,7 @@ app.put('/api/admin/cars/:id/docs', authenticateToken, requirePermission(PERMISS
 
         if (updated) {
             car.markModified('documentationFiles');
-            await car.save();
-            
-            await logAudit({
-                req,
+            car.auditLog.push({
                 action: 'EDICION',
                 field: 'documentationFiles',
                 oldValue: {},
@@ -1374,6 +1371,7 @@ app.put('/api/admin/cars/:id/docs', authenticateToken, requirePermission(PERMISS
                 user: req.user ? (req.user.email || req.user.role) : 'System',
                 source: 'CRM_V2'
             });
+            await car.save();
         }
 
         return res.status(200).json({ 

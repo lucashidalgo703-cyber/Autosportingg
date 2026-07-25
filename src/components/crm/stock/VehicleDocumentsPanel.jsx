@@ -2,7 +2,7 @@
 import { useEffect, useState } from 'react';
 import CrmCard from '../ui/CrmCard';
 import CrmBadge from '../ui/CrmBadge';
-import { FileCheck, FileX, FileMinus, Edit2, X } from 'lucide-react';
+import { FileCheck, FileX, FileMinus, Edit2, X, Eye } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 export default function VehicleDocumentsPanel({ vehicle, onSaveComplete }) {
@@ -129,7 +129,20 @@ export default function VehicleDocumentsPanel({ vehicle, onSaveComplete }) {
                                 <option value="no aplica">No Aplica</option>
                             </select>
                         ) : (
-                            getStatusBadge(currentDocs[key])
+                            <div className="flex items-center gap-2">
+                                {getStatusBadge(currentDocs[key])}
+                                {vehicle?.documentationFiles?.[key] && (
+                                    <a 
+                                        href={vehicle.documentationFiles[key]} 
+                                        target="_blank" 
+                                        rel="noreferrer" 
+                                        className="p-1.5 bg-crm-surface hover:bg-crm-surface-raised border border-crm-border rounded text-crm-fg-muted hover:text-white transition-colors" 
+                                        title="Ver archivo adjunto"
+                                    >
+                                        <Eye size={14} />
+                                    </a>
+                                )}
+                            </div>
                         )}
                     </div>
                 ))}
