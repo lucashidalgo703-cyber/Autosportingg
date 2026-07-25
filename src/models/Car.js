@@ -60,6 +60,15 @@ const carSchema = new mongoose.Schema({
         libreDeudaPatentes: { type: String, enum: ['recibido', 'pendiente', 'no aplica'], default: 'pendiente' }
     },
 
+    documentationFiles: {
+        tituloAutomotor: { type: String },
+        cedulaVerde: { type: String },
+        verificacionPolicial: { type: String },
+        informeDominio: { type: String },
+        formulario08: { type: String },
+        libreDeudaPatentes: { type: String }
+    },
+
     featured: { type: Boolean, default: false },
     sold: { type: Boolean, default: false },
     soldAt: { type: Date },

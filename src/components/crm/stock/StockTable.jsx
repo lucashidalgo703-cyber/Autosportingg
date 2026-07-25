@@ -49,28 +49,25 @@ const getProgress = (days) => {
     const safeDays = Number(days || 0);
     return Math.min(100, Math.max(0, Math.round((safeDays / 60) * 100)));
 };
-const getListValue = (data, filteredTotalUSD, filteredTotalARS) => {
+const getListValue = (data, filteredTotalUSD, filteredTotalARS, dolarBlue) => {
+    let totalARS = 0;
+    
     if (filteredTotalUSD !== undefined && filteredTotalARS !== undefined) {
-        const parts = [];
-        if (filteredTotalUSD > 0) parts.push(`USD ${formatNumber(filteredTotalUSD)}`);
-        if (filteredTotalARS > 0) parts.push(`ARS ${formatNumber(filteredTotalARS)}`);
-        return parts.length > 0 ? parts.join(' + ') : '--';
+        totalARS = filteredTotalARS + (filteredTotalUSD * (dolarBlue || 1));
+    } else {
+        const totals = data.reduce((acc, vehicle) => {
+            const currency = vehicle.moneda || 'ARS';
+            acc[currency] = (acc[currency] || 0) + Number(vehicle.precioPublicado || 0);
+            return acc;
+        }, {});
+        totalARS = (totals.ARS || 0) + ((totals.USD || 0) * (dolarBlue || 1));
     }
 
-    const totals = data.reduce((acc, vehicle) => {
-        const currency = vehicle.moneda || 'ARS';
-        acc[currency] = (acc[currency] || 0) + Number(vehicle.precioPublicado || 0);
-        return acc;
-    }, {});
-
-    const parts = [];
-    if (totals.USD > 0) parts.push(`USD ${formatNumber(totals.USD)}`);
-    if (totals.ARS > 0) parts.push(`ARS ${formatNumber(totals.ARS)}`);
-    
-    return parts.length > 0 ? parts.join(' + ') : '--';
+    if (totalARS === 0) return '--';
+    return `ARS ${formatNumber(Math.round(totalARS))}`;
 };
 
-export default function StockTable({ data, onEditML, onDelete, onPrint, onSwap, isSwapping, currentPage = 1, totalPages = 1, onReserve, totalItems, filteredTotalUSD, filteredTotalARS }) {
+export default function StockTable({ data, onEditML, onDelete, onPrint, onSwap, isSwapping, currentPage = 1, totalPages = 1, onReserve, totalItems, filteredTotalUSD, filteredTotalARS, dolarBlue }) {
     const columns = [
         {
             label: 'Orden',
@@ -241,7 +238,7 @@ export default function StockTable({ data, onEditML, onDelete, onPrint, onSwap, 
                 <div className="rounded-xl border border-crm-border bg-crm-surface p-3 text-sm font-semibold text-crm-fg">
                     {totalItems || data.length} {(totalItems || data.length) === 1 ? 'vehículo' : 'vehículos'} en lista
                     <span className="mx-1 text-crm-fg-muted">·</span>
-                    <span>{getListValue(data, filteredTotalUSD, filteredTotalARS)}</span>
+                    <span>{getListValue(data, filteredTotalUSD, filteredTotalARS, dolarBlue)}</span>
                 </div>
             )}
             

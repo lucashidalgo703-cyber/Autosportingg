@@ -535,6 +535,7 @@ export default function AdminStockPage() {
                                     totalItems={total}
                                     filteredTotalUSD={filteredTotalUSD}
                                     filteredTotalARS={filteredTotalARS}
+                                    dolarBlue={dolarBlue}
                                 />
                             </div>
                             <div className="block lg:hidden">
@@ -546,6 +547,7 @@ export default function AdminStockPage() {
                                     totalItems={total}
                                     filteredTotalUSD={filteredTotalUSD}
                                     filteredTotalARS={filteredTotalARS}
+                                    dolarBlue={dolarBlue}
                                 />
                             </div>
                             <CrmPagination

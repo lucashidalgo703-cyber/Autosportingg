@@ -205,6 +205,32 @@ const uploadSuggestions = multer({
     }
 });
 
+// Configure Multer for Docs
+const docsStorage = new CloudinaryStorage({
+    cloudinary: cloudinary,
+    params: {
+        folder: 'autosporting-docs',
+        allowedFormats: ['jpg', 'png', 'jpeg', 'webp', 'pdf'],
+        resource_type: 'auto'
+    },
+});
+
+const uploadDocs = multer({
+    storage: docsStorage,
+    limits: {
+        fileSize: 5 * 1024 * 1024,
+        files: 6
+    },
+    fileFilter: (req, file, cb) => {
+        const allowedMimes = ['image/png', 'image/jpeg', 'image/webp', 'application/pdf'];
+        if (allowedMimes.includes(file.mimetype)) {
+            cb(null, true);
+        } else {
+            cb(new Error(`Tipo de archivo no permitido: ${file.mimetype}. Solo PNG, JPG, WEBP y PDF.`));
+        }
+    }
+});
+
 const getClientIp = (req) => {
     const forwardedFor = req.headers['x-forwarded-for'];
     if (typeof forwardedFor === 'string' && forwardedFor.trim()) {
@@ -1310,6 +1336,55 @@ app.post('/api/admin/upload', authenticateToken, upload.array('files', 20), asyn
     }
 });
 
+// Dedicated PUT endpoint for docs
+app.put('/api/admin/cars/:id/docs', authenticateToken, requirePermission(PERMISSIONS.STOCK_WRITE), uploadDocs.any(), async (req, res) => {
+    try {
+        await connectDB();
+        const car = await Car.findById(req.params.id);
+        if (!car) return res.status(404).json({ error: 'Car not found' });
+
+        if (!car.documentationFiles) {
+            car.documentationFiles = {};
+        }
+
+        let updated = false;
+
+        if (req.files && req.files.length > 0) {
+            for (const file of req.files) {
+                // file.fieldname should be like 'tituloAutomotor', 'cedulaVerde', etc.
+                const validFields = ['tituloAutomotor', 'cedulaVerde', 'verificacionPolicial', 'informeDominio', 'formulario08', 'libreDeudaPatentes'];
+                if (validFields.includes(file.fieldname)) {
+                    car.documentationFiles[file.fieldname] = file.path;
+                    updated = true;
+                }
+            }
+        }
+
+        if (updated) {
+            car.markModified('documentationFiles');
+            await car.save();
+            
+            await logAudit({
+                req,
+                action: 'EDICION',
+                field: 'documentationFiles',
+                oldValue: {},
+                newValue: car.documentationFiles,
+                details: `Archivos de documentación actualizados`,
+                user: req.user ? (req.user.email || req.user.role) : 'System',
+                source: 'CRM_V2'
+            });
+        }
+
+        return res.status(200).json({ 
+            message: 'Archivos actualizados',
+            documentationFiles: car.documentationFiles
+        });
+    } catch (error) {
+        console.error('Error in PUT /api/admin/cars/:id/docs:', error);
+        return res.status(500).json({ error: error.message });
+    }
+});
 // Dedicated PUT endpoint for images
 app.put('/api/admin/cars/:id/images', authenticateToken, requirePermission(PERMISSIONS.STOCK_WRITE), upload.array('images', 20), async (req, res) => {
     try {
