@@ -129,10 +129,13 @@ export default function VehicleEditModal({ isOpen, onClose, onSave, vehicleData 
             if (deletedDocs.length > 0) {
                 toast.loading('Eliminando documentos...', { id: 'deleteDocs' });
                 for (const docKey of deletedDocs) {
-                    await fetch(`${baseUrl}/api/admin/cars/${vehicleData._original?._id || vehicleData.id}/docs/${docKey}`, {
+                    const deleteRes = await fetch(`${baseUrl}/api/admin/cars/${vehicleData._original?._id || vehicleData.id}/docs/${docKey}`, {
                         method: 'DELETE',
                         headers: { 'Authorization': `Bearer ${token}` }
                     });
+                    if (!deleteRes.ok) {
+                        throw new Error(`Error al eliminar el documento ${docKey}`);
+                    }
                 }
                 toast.success('Documentos eliminados', { id: 'deleteDocs' });
                 docsUpdated = true;

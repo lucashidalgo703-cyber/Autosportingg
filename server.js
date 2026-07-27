@@ -1396,7 +1396,7 @@ app.delete('/api/admin/cars/:id/docs/:docKey', authenticateToken, requirePermiss
         }
 
         const deletedUrl = car.documentationFiles[docKey];
-        delete car.documentationFiles[docKey];
+        car.documentationFiles[docKey] = undefined;
         car.markModified('documentationFiles');
 
         car.auditLog.push({
