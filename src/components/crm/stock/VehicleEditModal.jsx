@@ -1,12 +1,13 @@
 "use client";
 import { useState, useEffect } from 'react';
-import { X, Save, AlertTriangle, HelpCircle, FileText, Upload, Eye } from 'lucide-react';
+import { X, Save, AlertTriangle, HelpCircle, FileText, Upload, Eye, Trash2 } from 'lucide-react';
 import Link from 'next/link';
 import toast from 'react-hot-toast';
 
 export default function VehicleEditModal({ isOpen, onClose, onSave, vehicleData }) {
     const [formData, setFormData] = useState({});
     const [docFiles, setDocFiles] = useState({});
+    const [deletedDocs, setDeletedDocs] = useState([]);
     const [isSaving, setIsSaving] = useState(false);
 
     const docFieldsConfig = [
@@ -20,6 +21,7 @@ export default function VehicleEditModal({ isOpen, onClose, onSave, vehicleData 
 
     useEffect(() => {
         if (isOpen && vehicleData) {
+            setDeletedDocs([]);
             // Flatten the nested structure for the form.
             setFormData({
                 brand: vehicleData.marca || '',
@@ -116,15 +118,28 @@ export default function VehicleEditModal({ isOpen, onClose, onSave, vehicleData 
                 } : { name: '', percentage: 0 }
             };
 
-            await onSave(payload);
-
             const docsToUpload = Object.keys(docFiles).filter(key => docFiles[key] instanceof File);
+            const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
+            const API_URL = process.env.NEXT_PUBLIC_API_URL;
+            const baseUrl = process.env.NODE_ENV === 'production' ? '' : (API_URL || 'http://localhost:3001');
+
+            let docsUpdated = false;
+
+            // Handle deletions
+            if (deletedDocs.length > 0) {
+                toast.loading('Eliminando documentos...', { id: 'deleteDocs' });
+                for (const docKey of deletedDocs) {
+                    await fetch(`${baseUrl}/api/admin/cars/${vehicleData._original?._id || vehicleData.id}/docs/${docKey}`, {
+                        method: 'DELETE',
+                        headers: { 'Authorization': `Bearer ${token}` }
+                    });
+                }
+                toast.success('Documentos eliminados', { id: 'deleteDocs' });
+                docsUpdated = true;
+            }
+
             if (docsToUpload.length > 0) {
                 toast.loading('Guardando documentos...', { id: 'saveDocs' });
-                const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
-                const API_URL = process.env.NEXT_PUBLIC_API_URL;
-                const baseUrl = process.env.NODE_ENV === 'production' ? '' : (API_URL || 'http://localhost:3001');
-                
                 const docsFormData = new FormData();
                 docsToUpload.forEach(key => {
                     docsFormData.append(key, docFiles[key]);
@@ -139,10 +154,19 @@ export default function VehicleEditModal({ isOpen, onClose, onSave, vehicleData 
                 if (!docsRes.ok) {
                     toast.error('Error al guardar los documentos', { id: 'saveDocs' });
                 } else {
-                    toast.success('Vehículo y documentos actualizados', { id: 'saveDocs' });
+                    toast.success('Documentos subidos', { id: 'saveDocs' });
+                    docsUpdated = true;
                 }
+            }
+            
+            
+            // Save main vehicle data which will also trigger a refetch in the parent
+            await onSave(payload);
+            
+            if (docsUpdated) {
+                toast.success('Vehículo y documentos actualizados', { id: 'saveVehicle' });
             } else {
-                toast.success('Vehículo actualizado');
+                toast.success('Vehículo actualizado', { id: 'saveVehicle' });
             }
             
             onClose();
@@ -395,10 +419,20 @@ export default function VehicleEditModal({ isOpen, onClose, onSave, vehicleData 
                                                     onChange={(e) => handleDocChange(e, field.key)} 
                                                 />
                                             </label>
-                                            {existingUrl && !hasNewFile && (
-                                                <a href={existingUrl} target="_blank" rel="noreferrer" className="p-2 bg-crm-surface-raised hover:bg-crm-surface-raised-hover border border-crm-border rounded text-crm-fg-muted hover:text-white transition-colors" title="Ver archivo actual">
-                                                    <Eye size={16} />
-                                                </a>
+                                            {existingUrl && !hasNewFile && !deletedDocs.includes(field.key) && (
+                                                <div className="flex items-center gap-1">
+                                                    <a href={existingUrl} target="_blank" rel="noreferrer" className="p-2 bg-crm-surface-raised hover:bg-crm-surface-raised-hover border border-crm-border rounded text-crm-fg-muted hover:text-white transition-colors" title="Ver archivo actual">
+                                                        <Eye size={16} />
+                                                    </a>
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => setDeletedDocs(prev => [...prev, field.key])}
+                                                        className="p-2 bg-crm-surface-raised hover:bg-crm-surface-raised-hover border border-crm-border rounded text-crm-fg-muted hover:text-crm-red transition-colors"
+                                                        title="Eliminar archivo"
+                                                    >
+                                                        <Trash2 size={16} />
+                                                    </button>
+                                                </div>
                                             )}
                                         </div>
                                     </div>

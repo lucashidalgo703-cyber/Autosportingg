@@ -1383,6 +1383,39 @@ app.put('/api/admin/cars/:id/docs', authenticateToken, requirePermission(PERMISS
         return res.status(500).json({ error: error.message });
     }
 });
+
+app.delete('/api/admin/cars/:id/docs/:docKey', authenticateToken, requirePermission(PERMISSIONS.STOCK_WRITE), async (req, res) => {
+    try {
+        await connectDB();
+        const car = await Car.findById(req.params.id);
+        if (!car) return res.status(404).json({ error: 'Car not found' });
+
+        const docKey = req.params.docKey;
+        if (!car.documentationFiles || !car.documentationFiles[docKey]) {
+            return res.status(404).json({ error: 'Document not found' });
+        }
+
+        const deletedUrl = car.documentationFiles[docKey];
+        delete car.documentationFiles[docKey];
+        car.markModified('documentationFiles');
+
+        car.auditLog.push({
+            action: 'EDICION',
+            field: 'documentationFiles',
+            oldValue: { [docKey]: deletedUrl },
+            newValue: car.documentationFiles,
+            details: `Archivo de documentación eliminado: ${docKey}`,
+            user: req.user ? (req.user.email || req.user.role) : 'System',
+            source: 'CRM_V2'
+        });
+
+        await car.save();
+        return res.status(200).json({ message: 'Documento eliminado', documentationFiles: car.documentationFiles });
+    } catch (error) {
+        console.error('Error in DELETE /api/admin/cars/:id/docs/:docKey:', error);
+        return res.status(500).json({ error: error.message });
+    }
+});
 // Dedicated PUT endpoint for images
 app.put('/api/admin/cars/:id/images', authenticateToken, requirePermission(PERMISSIONS.STOCK_WRITE), upload.array('images', 20), async (req, res) => {
     try {
