@@ -440,13 +440,13 @@ export default function AdminStockPage() {
                     </div>
                     <div className="flex flex-wrap items-center gap-2">
                         <span className="text-[11px] font-bold uppercase tracking-[0.08em] text-crm-fg-subtle">
-                            Valor Total Stock:
+                            Capital Total Agencia:
                         </span>
                         <span className="font-semibold text-crm-fg flex items-center gap-2">
                             <span>
-                                ARS {Math.round(
-                                    (stockSummary.valorTotalARS || 0) + 
-                                    (dolarBlue && stockSummary.valorTotalUSD ? stockSummary.valorTotalUSD * dolarBlue : 0)
+                                USD {Math.round(
+                                    (stockSummary.valorActivoUSD || 0) + 
+                                    (dolarBlue && stockSummary.valorActivoARS ? stockSummary.valorActivoARS / dolarBlue : 0)
                                 ).toLocaleString('es-AR')}
                             </span>
                         </span>

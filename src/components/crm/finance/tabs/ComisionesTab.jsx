@@ -3,7 +3,7 @@ import toast from 'react-hot-toast';
 import { parseResponseSafe } from '../../../../utils/apiHelper';
 import CrmBadge from '../../ui/CrmBadge';
 import ConfirmModal from '../../ui/ConfirmModal';
-import { Check, Pencil } from 'lucide-react';
+import { Check, Pencil, Trash2 } from 'lucide-react';
 
 export default function ComisionesTab({ allTransactions = [], openTransactionModal, handleEditTransaction }) {
     const [period, setPeriod] = useState('');
@@ -15,6 +15,9 @@ export default function ComisionesTab({ allTransactions = [], openTransactionMod
     const [confirmingPayment, setConfirmingPayment] = useState(null);
     const [paymentAccount, setPaymentAccount] = useState('');
     const [accounts, setAccounts] = useState([]);
+
+    const [confirmingDelete, setConfirmingDelete] = useState(null);
+    const [deleting, setDeleting] = useState(false);
 
     const fetchData = async () => {
         setLoading(true);
@@ -38,7 +41,8 @@ export default function ComisionesTab({ allTransactions = [], openTransactionMod
                     totalAmount: tx.amount,
                     currency: tx.currency,
                     status: 'pagada', // Al ser un Movimiento de Finanzas, ya afectó la caja (se considera pagada)
-                    isManualTransaction: true
+                    isManualTransaction: true,
+                    originalTx: tx
                 }));
 
             // Filtrar las manuales según los filtros activos de la tabla
@@ -66,6 +70,34 @@ export default function ComisionesTab({ allTransactions = [], openTransactionMod
     }, [period, statusFilter, allTransactions]);
 
     const [paying, setPaying] = useState(false);
+
+    const handleDeleteCommission = async () => {
+        if (!confirmingDelete) return;
+        if (deleting) return;
+        setDeleting(true);
+        try {
+            const token = localStorage.getItem('token');
+            const endpoint = confirmingDelete.isManualTransaction 
+                ? `/api/admin/transactions/${confirmingDelete._id}`
+                : `/api/admin/settlements/${confirmingDelete._id}`;
+                
+            const res = await fetch(endpoint, {
+                method: 'DELETE',
+                headers: { Authorization: `Bearer ${token}` }
+            });
+            await parseResponseSafe(res);
+            toast.success('Comisión eliminada exitosamente');
+            setConfirmingDelete(null);
+            fetchData();
+            if (confirmingDelete.isManualTransaction) {
+                setTimeout(() => window.location.reload(), 500);
+            }
+        } catch (error) {
+            toast.error('Error al eliminar: ' + error.message);
+        } finally {
+            setDeleting(false);
+        }
+    };
 
     const handleMarkPaid = async () => {
         if (!paymentAccount) return toast.error('Debe seleccionar una cuenta origen');
@@ -219,6 +251,14 @@ export default function ComisionesTab({ allTransactions = [], openTransactionMod
                                                     <Pencil size={12}/> Editar
                                                 </button>
                                             )}
+                                            {(s.isManualTransaction || (s.status !== 'pagada' && s.status !== 'anulada')) && (
+                                                <button
+                                                    onClick={() => setConfirmingDelete(s)}
+                                                    className="inline-flex items-center gap-1 rounded bg-crm-red/10 px-2 py-1 text-xs font-bold text-crm-red hover:bg-crm-red/20 transition ml-2"
+                                                >
+                                                    <Trash2 size={12}/> Eliminar
+                                                </button>
+                                            )}
                                         </td>
                                     </tr>
                                 ))
@@ -264,6 +304,19 @@ export default function ComisionesTab({ allTransactions = [], openTransactionMod
                     </ConfirmModal>
                 );
             })()}
+
+            <ConfirmModal
+                isOpen={!!confirmingDelete}
+                onClose={() => {
+                    if (!deleting) setConfirmingDelete(null);
+                }}
+                onConfirm={handleDeleteCommission}
+                title="Eliminar Comisión"
+                message={`¿Estás seguro de que deseas eliminar la comisión de ${formatMoney(confirmingDelete?.totalAmount, confirmingDelete?.currency)} para @${confirmingDelete?.username}? Esta acción no se puede deshacer.`}
+                confirmText={deleting ? "Eliminando..." : "Eliminar"}
+                isDestructive={true}
+                isConfirmDisabled={deleting}
+            />
         </div>
     );
 }

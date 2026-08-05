@@ -1033,8 +1033,10 @@ app.get('/api/admin/cars', authenticateToken, requirePermission(PERMISSIONS.STOC
             .lean();
 
         // Calculate summary using same logic as frontend mapping
-        const totalCarsCount = allCarsForSummary.length;
-        const disponibles = allCarsForSummary.filter(c => (c.status || '').toLowerCase() === 'disponible');
+        // Exclude sold and cancelled cars from stock metrics
+        const stockCars = allCarsForSummary.filter(c => c.status !== 'Vendido' && c.status !== 'Cancelado');
+        const totalCarsCount = stockCars.length;
+        const disponibles = stockCars.filter(c => (c.status || '').toLowerCase() === 'disponible');
 
         let valorActivoUSD = 0;
         let valorActivoARS = 0;
@@ -1098,9 +1100,9 @@ app.get('/api/admin/cars', authenticateToken, requirePermission(PERMISSIONS.STOC
         const summary = {
             total: totalCarsCount,
             disponibles: disponibles.length,
-            consignaciones: allCarsForSummary.filter(c => c.consignedBy && c.consignedBy !== '').length,
-            compartidos: allCarsForSummary.filter(c => c.investor && c.investor.percentage > 0).length,
-            ceroKm: allCarsForSummary.filter(c => {
+            consignaciones: stockCars.filter(c => c.consignedBy && c.consignedBy !== '').length,
+            compartidos: stockCars.filter(c => c.investor && c.investor.percentage > 0).length,
+            ceroKm: stockCars.filter(c => {
                 const cond = (c.condition || '').toLowerCase().replace(/\s+/g, '');
                 return cond === '0km' || cond === 'nuevo' || c.km === 0;
             }).length,
@@ -1157,6 +1159,9 @@ app.get('/api/admin/cars', authenticateToken, requirePermission(PERMISSIONS.STOC
                 vendido: 'Vendido'
             };
             query.status = statusMap[status] || status;
+        } else {
+            // Default: do not show sold or cancelled vehicles in the stock view unless explicitly requested
+            query.status = { $nin: ['Vendido', 'Cancelado'] };
         }
 
         if (brand && brand !== 'todas') {
@@ -10958,6 +10963,33 @@ app.patch('/api/admin/settlements/:id', authenticateToken, requirePermission(PER
         res.json(updated);
     } catch (error) {
         console.error('PATCH /api/admin/settlements/:id error:', error);
+        res.status(500).json({ message: error.message });
+    }
+});
+
+app.delete('/api/admin/settlements/:id', authenticateToken, requirePermission(PERMISSIONS.LIQUIDACIONES_WRITE), async (req, res) => {
+    try {
+        const settlement = await Settlement.findById(req.params.id);
+        if (!settlement) return res.status(404).json({ message: 'Liquidación no encontrada' });
+        
+        if (settlement.status === 'pagada') {
+            return res.status(400).json({ message: 'No se puede eliminar una liquidación que ya fue pagada. Debe anularse o eliminarse el pago asociado primero.' });
+        }
+        
+        await Settlement.deleteOne({ _id: req.params.id });
+        
+        try {
+            await logAudit({
+                req, action: 'ELIMINACION', module: 'finanzas', entityId: req.params.id, entityType: 'Settlement',
+                description: `Liquidación ${settlement.period} de ${settlement.username} fue eliminada`
+            });
+        } catch (auditErr) {
+            console.error('Audit fail on settlement delete:', auditErr);
+        }
+        
+        res.json({ message: 'Liquidación eliminada' });
+    } catch (error) {
+        console.error('DELETE /api/admin/settlements/:id error:', error);
         res.status(500).json({ message: error.message });
     }
 });

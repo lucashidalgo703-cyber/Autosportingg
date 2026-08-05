@@ -45,6 +45,7 @@ import ConciliacionTab from '../../../components/crm/finance/tabs/ConciliacionTa
 import AfipIvaTab from '../../../components/crm/finance/tabs/AfipIvaTab';
 import PagoEmpresasTab from '../../../components/crm/finance/tabs/PagoEmpresasTab';
 import SueldosTab from '../../../components/crm/finance/tabs/SueldosTab';
+import TallerTab from '../../../components/crm/finance/tabs/TallerTab';
 
 
 const FINANCE_TABS = [
@@ -53,6 +54,7 @@ const FINANCE_TABS = [
     { id: 'senas', icon: '🤝', label: 'Señas' },
     { id: 'gastos-personales', icon: '👤', label: 'Gastos Personales' },
     { id: 'sueldos', icon: '🧑‍💼', label: 'Sueldos' },
+    { id: 'taller', icon: '🔧', label: 'Taller / Mecánico' },
     { id: 'cuotas', icon: '📆', label: 'Cuotas' },
     { id: 'pagos', icon: '💸', label: 'Pagos Disp.' },
     { id: 'pago-empresas', icon: '🏢', label: 'Pago Empresas' },
@@ -588,6 +590,14 @@ function FinanzasPage() {
                             <SueldosTab
                                 allTransactions={allTransactions}
                                 onNew={() => openTransactionModal({ type: 'egreso', category: 'Sueldos', concept: 'Sueldo' })}
+                                onEdit={handleEditTransaction}
+                                onDelete={handleDeleteTransaction}
+                            />
+                        )}
+                        {activeTab === 'taller' && (
+                            <TallerTab
+                                allTransactions={allTransactions}
+                                onNew={() => openTransactionModal({ type: 'egreso', category: 'Taller', concept: 'Gasto de Taller / Mecánico' })}
                                 onEdit={handleEditTransaction}
                                 onDelete={handleDeleteTransaction}
                             />
