@@ -50,7 +50,7 @@ export default function TransactionModal({ isOpen, onClose, transaction, onSave,
                     fetch('/api/admin/reservations?limit=100', { headers }),
                     fetch('/api/admin/clients?limit=100', { headers }),
                     fetch('/api/cars', { headers }), // Or /api/admin/stock depending on what exists, we use public /api/cars for now since it returns all visible
-                    fetch('/api/admin/users', { headers })
+                    fetch('/api/admin/users/active', { headers })
                 ]);
                 
                 if (salesRes.ok) {
