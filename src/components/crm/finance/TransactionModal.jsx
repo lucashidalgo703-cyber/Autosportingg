@@ -323,14 +323,46 @@ export default function TransactionModal({ isOpen, onClose, transaction, onSave,
 
                         <div>
                             <label className="block text-xs font-bold text-neutral-500 uppercase tracking-wider mb-2">Categoría</label>
-                            <input
-                                type="text"
-                                placeholder="Ej: Mantenimiento, Gastos Varios"
-                                className={`w-full bg-black/40 border ${errors.category ? 'border-red-500/50 focus:border-red-500' : 'border-neutral-800 focus:border-neutral-600'} rounded-xl py-2.5 px-4 text-sm text-white focus:outline-none transition-colors`}
-                                value={formData.category}
-                                onChange={(e) => setFormData({ ...formData, category: e.target.value })}
+                            <select
+                                className={`w-full bg-black/40 border ${errors.category && !formData.category ? 'border-red-500/50 focus:border-red-500' : 'border-neutral-800 focus:border-neutral-600'} rounded-xl py-2.5 px-4 text-sm text-neutral-300 focus:outline-none focus:border-neutral-600 transition-colors appearance-none cursor-pointer`}
+                                value={(formData.category !== '' && !['Sueldos', 'Taller', 'Gastos Personales', 'Comisiones', 'Pago Empresas', 'Retiros', 'AFIP/IVA', 'Mantenimiento', 'Gastos Varios', 'Seña', 'Cuotas', 'Tarjeta'].includes(formData.category)) ? 'Otro' : formData.category}
+                                onChange={(e) => {
+                                    if (e.target.value === 'Otro') {
+                                        setFormData({ ...formData, category: 'Otra Categoría' });
+                                    } else {
+                                        setFormData({ ...formData, category: e.target.value });
+                                    }
+                                }}
                                 disabled={isAnnulled}
-                            />
+                            >
+                                <option value="">-- Seleccionar Categoría --</option>
+                                <option value="Sueldos">Sueldos</option>
+                                <option value="Taller">Taller / Mecánico</option>
+                                <option value="Gastos Personales">Gastos Personales</option>
+                                <option value="Comisiones">Comisiones</option>
+                                <option value="Pago Empresas">Pago Empresas</option>
+                                <option value="Retiros">Retiros</option>
+                                <option value="AFIP/IVA">AFIP / IVA</option>
+                                <option value="Mantenimiento">Mantenimiento</option>
+                                <option value="Gastos Varios">Gastos Varios</option>
+                                <option value="Seña">Seña</option>
+                                <option value="Cuotas">Cuotas</option>
+                                <option value="Tarjeta">Tarjeta</option>
+                                <option value="Otro">Otra (Especificar)...</option>
+                            </select>
+                            
+                            {(formData.category !== '' && !['Sueldos', 'Taller', 'Gastos Personales', 'Comisiones', 'Pago Empresas', 'Retiros', 'AFIP/IVA', 'Mantenimiento', 'Gastos Varios', 'Seña', 'Cuotas', 'Tarjeta'].includes(formData.category)) && (
+                                <input
+                                    type="text"
+                                    placeholder="Especifique la categoría..."
+                                    className={`w-full bg-black/40 border ${errors.category ? 'border-red-500/50 focus:border-red-500' : 'border-neutral-800 focus:border-neutral-600'} rounded-xl py-2.5 px-4 text-sm text-white focus:outline-none transition-colors mt-2`}
+                                    value={formData.category === 'Otra Categoría' ? '' : formData.category}
+                                    onChange={(e) => setFormData({ ...formData, category: e.target.value })}
+                                    disabled={isAnnulled}
+                                    autoFocus
+                                />
+                            )}
+                            {errors.category && <span className="text-xs text-crm-red mt-1 block">{errors.category}</span>}
                         </div>
 
                         <div>
