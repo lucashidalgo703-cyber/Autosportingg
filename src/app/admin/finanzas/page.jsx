@@ -429,13 +429,16 @@ function FinanzasPage() {
         try {
             if (selectedTx) {
                 await updateTransaction(selectedTx._id, data);
+                toast.success('Movimiento actualizado correctamente');
             } else {
                 await createTransaction(data);
+                toast.success('Movimiento registrado correctamente');
             }
             await loadData();
             closeModal();
         } catch (err) {
             console.error(err.message);
+            toast.error(err.message || 'Error al registrar el movimiento');
         }
     };
 
