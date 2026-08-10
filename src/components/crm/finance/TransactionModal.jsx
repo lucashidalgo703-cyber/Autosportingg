@@ -112,7 +112,7 @@ export default function TransactionModal({ isOpen, onClose, transaction, onSave,
                 concept: '',
                 category: '',
                 paymentMethod: 'efectivo',
-                status: 'pagada',
+                status: 'activo',
                 date: new Date().toISOString().split('T')[0],
                 notes: '',
                 saleId: '',
@@ -388,11 +388,11 @@ export default function TransactionModal({ isOpen, onClose, transaction, onSave,
                             <label className="block text-xs font-bold text-neutral-500 uppercase tracking-wider mb-2">Estado del Movimiento</label>
                             <select
                                 className="w-full bg-black/40 border border-neutral-800 rounded-xl py-2.5 px-4 text-sm text-neutral-300 focus:outline-none focus:border-neutral-600 transition-colors appearance-none cursor-pointer"
-                                value={formData.status}
+                                value={formData.status === 'pagada' ? 'activo' : formData.status}
                                 onChange={(e) => setFormData({ ...formData, status: e.target.value })}
                                 disabled={isAnnulled}
                             >
-                                <option value="pagada">Pagada / Completada</option>
+                                <option value="activo">Pagada / Completada</option>
                                 <option value="pendiente">Pendiente</option>
                             </select>
                         </div>
