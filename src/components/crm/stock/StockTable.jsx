@@ -79,25 +79,30 @@ export default function StockTable({ data, onEditML, onDelete, onPrint, onSwap, 
                 const isLastRowOnLastPage = currentPage === totalPages && rowIndex === data.length - 1;
 
                 return (
-                    <div className="flex items-center justify-center gap-1">
-                        <button
-                            type="button"
-                            disabled={isFirstRowOnFirstPage || isSwapping}
-                            onClick={() => onSwap && onSwap(rowIndex, 'up')}
-                            className="flex h-7 w-7 items-center justify-center rounded-lg border border-crm-border bg-transparent text-crm-fg hover:bg-crm-surface-raised cursor-pointer transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
-                            title="Subir posición"
-                        >
-                            ▲
-                        </button>
-                        <button
-                            type="button"
-                            disabled={isLastRowOnLastPage || isSwapping}
-                            onClick={() => onSwap && onSwap(rowIndex, 'down')}
-                            className="flex h-7 w-7 items-center justify-center rounded-lg border border-crm-border bg-transparent text-crm-fg hover:bg-crm-surface-raised cursor-pointer transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
-                            title="Bajar posición"
-                        >
-                            ▼
-                        </button>
+                    <div className="flex items-center justify-center gap-2">
+                        <span className="text-xs font-bold text-crm-fg-muted min-w-[20px] text-right">
+                            {(currentPage - 1) * 20 + rowIndex + 1}
+                        </span>
+                        <div className="flex items-center justify-center gap-1">
+                            <button
+                                type="button"
+                                disabled={isFirstRowOnFirstPage || isSwapping}
+                                onClick={() => onSwap && onSwap(rowIndex, 'up')}
+                                className="flex h-7 w-7 items-center justify-center rounded-lg border border-crm-border bg-transparent text-crm-fg hover:bg-crm-surface-raised cursor-pointer transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+                                title="Subir posición"
+                            >
+                                ▲
+                            </button>
+                            <button
+                                type="button"
+                                disabled={isLastRowOnLastPage || isSwapping}
+                                onClick={() => onSwap && onSwap(rowIndex, 'down')}
+                                className="flex h-7 w-7 items-center justify-center rounded-lg border border-crm-border bg-transparent text-crm-fg hover:bg-crm-surface-raised cursor-pointer transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+                                title="Bajar posición"
+                            >
+                                ▼
+                            </button>
+                        </div>
                     </div>
                 );
             }
