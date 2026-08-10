@@ -13,6 +13,7 @@ export default function TransactionModal({ isOpen, onClose, transaction, onSave,
         concept: '',
         category: '',
         paymentMethod: 'efectivo',
+        status: 'pagada',
         date: new Date().toISOString().split('T')[0],
         notes: '',
         saleId: '',
@@ -92,6 +93,7 @@ export default function TransactionModal({ isOpen, onClose, transaction, onSave,
                 concept: transaction.concept || transaction.description || '',
                 category: transaction.category || '',
                 paymentMethod: transaction.paymentMethod || 'efectivo',
+                status: transaction.status || 'pagada',
                 date: transaction.date ? new Date(transaction.date).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
                 notes: transaction.notes || '',
                 saleId: transaction.saleId || '',
@@ -110,6 +112,7 @@ export default function TransactionModal({ isOpen, onClose, transaction, onSave,
                 concept: '',
                 category: '',
                 paymentMethod: 'efectivo',
+                status: 'pagada',
                 date: new Date().toISOString().split('T')[0],
                 notes: '',
                 saleId: '',
@@ -346,6 +349,19 @@ export default function TransactionModal({ isOpen, onClose, transaction, onSave,
                                 <option value="tarjeta">Tarjeta</option>
                                 <option value="cheque">Cheque</option>
                                 <option value="otro">Otro</option>
+                            </select>
+                        </div>
+
+                        <div>
+                            <label className="block text-xs font-bold text-neutral-500 uppercase tracking-wider mb-2">Estado del Movimiento</label>
+                            <select
+                                className="w-full bg-black/40 border border-neutral-800 rounded-xl py-2.5 px-4 text-sm text-neutral-300 focus:outline-none focus:border-neutral-600 transition-colors appearance-none cursor-pointer"
+                                value={formData.status}
+                                onChange={(e) => setFormData({ ...formData, status: e.target.value })}
+                                disabled={isAnnulled}
+                            >
+                                <option value="pagada">Pagada / Completada</option>
+                                <option value="pendiente">Pendiente</option>
                             </select>
                         </div>
 

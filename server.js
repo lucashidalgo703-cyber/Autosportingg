@@ -5506,7 +5506,7 @@ app.post('/api/admin/transactions', authenticateToken, requirePermission(PERMISS
     try {
         await connectDB();
         if (req.user && req.user.role === 'ventas') return res.status(403).json({ message: 'Sin permisos financieros' });
-        const { type, category, concept, amount, currency, paymentMethod, date, notes, saleId, reservationId, clientId, vehicleId, installmentId, payeeCompany, payeeVehicle, targetUser } = req.body;
+        const { type, category, concept, amount, currency, paymentMethod, date, notes, status, saleId, reservationId, clientId, vehicleId, installmentId, payeeCompany, payeeVehicle, targetUser } = req.body;
 
         // Validations
         if (!type || !['ingreso', 'egreso'].includes(type)) return res.status(400).json({ message: 'Type is required and must be ingreso/egreso' });
@@ -5553,7 +5553,7 @@ app.post('/api/admin/transactions', authenticateToken, requirePermission(PERMISS
             date: date || new Date(),
             notes,
             accountId: account._id, // map to legacy required field
-            status: 'activo',
+            status: status || 'activo',
             saleId: saleId || undefined,
             reservationId: reservationId || undefined,
             clientId: clientId || undefined,
@@ -5573,13 +5573,15 @@ app.post('/api/admin/transactions', authenticateToken, requirePermission(PERMISS
 
         const savedTx = await newTx.save();
 
-        // Update account balance
-        if (savedTx.type === 'Ingreso') {
-            account.balance += savedTx.amount;
-        } else {
-            account.balance -= savedTx.amount;
+        // Update account balance only if 'activo'
+        if (savedTx.status === 'activo') {
+            if (savedTx.type === 'Ingreso') {
+                account.balance += savedTx.amount;
+            } else {
+                account.balance -= savedTx.amount;
+            }
+            await account.save();
         }
-        await account.save();
 
         await logAudit({
             req,
@@ -5671,25 +5673,33 @@ app.patch('/api/admin/transactions/:id', authenticateToken, requirePermission(PE
         await updateLink('vehicleId', vehicleId, Car, 'Veh├¡culo');
         await updateLink('installmentId', installmentId, Installment, 'Cuota');
 
-        // Handle Annulment
-        if (status === 'anulado' && tx.status !== 'anulado') {
-            tx.status = 'anulado';
+        // Handle Status Transitions
+        if (status && status !== tx.status) {
+            const oldStatus = tx.status;
+            tx.status = status;
             tx.transactionAuditLog.push({
-                action: 'ANULACION',
+                action: status === 'anulado' ? 'ANULACION' : 'CAMBIO_ESTADO',
                 field: 'status',
-                oldValue: 'activo',
-                newValue: 'anulado',
-                details: 'Movimiento anulado manualmente',
+                oldValue: oldStatus,
+                newValue: status,
+                details: `Estado cambiado a ${status}`,
                 user: user,
                 source: 'CRM_V2'
             });
             hasChanges = true;
 
-            // Revert account balance
             const account = await Account.findById(tx.accountId);
             if (account) {
-                if (tx.type === 'Ingreso') account.balance -= tx.amount;
-                if (tx.type === 'Egreso') account.balance += tx.amount;
+                // If it was 'activo' and now is not, revert balance
+                if (oldStatus === 'activo') {
+                    if (tx.type === 'Ingreso') account.balance -= tx.amount;
+                    if (tx.type === 'Egreso') account.balance += tx.amount;
+                }
+                // If it is now 'activo', apply balance
+                if (status === 'activo') {
+                    if (tx.type === 'Ingreso') account.balance += tx.amount;
+                    if (tx.type === 'Egreso') account.balance -= tx.amount;
+                }
                 await account.save();
             }
         }

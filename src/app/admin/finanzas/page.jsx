@@ -46,11 +46,13 @@ import AfipIvaTab from '../../../components/crm/finance/tabs/AfipIvaTab';
 import PagoEmpresasTab from '../../../components/crm/finance/tabs/PagoEmpresasTab';
 import SueldosTab from '../../../components/crm/finance/tabs/SueldosTab';
 import TallerTab from '../../../components/crm/finance/tabs/TallerTab';
+import ResumenGastosTab from '../../../components/crm/finance/tabs/ResumenGastosTab';
 
 
 const FINANCE_TABS = [
     { id: 'resumen', icon: '📊', label: 'Resumen' },
     { id: 'movimientos', icon: '🧾', label: 'Movimientos' },
+    { id: 'resumen-gastos', icon: '📉', label: 'Resumen Gastos' },
     { id: 'senas', icon: '🤝', label: 'Señas' },
     { id: 'gastos-personales', icon: '👤', label: 'Gastos Personales' },
     { id: 'sueldos', icon: '🧑‍💼', label: 'Sueldos' },
@@ -257,7 +259,7 @@ function FinanzasPage() {
 
     const metrics = useMemo(() => {
         return allTransactions.reduce((acc, tx) => {
-            if (tx.status === 'anulado') return acc;
+            if (tx.status === 'anulado' || tx.status === 'pendiente') return acc;
             const currency = tx.currency === 'USD' ? 'USD' : 'ARS';
             const amount = getAmount(tx);
 
@@ -598,6 +600,14 @@ function FinanzasPage() {
                             <TallerTab
                                 allTransactions={allTransactions}
                                 onNew={() => openTransactionModal({ type: 'egreso', category: 'Taller', concept: 'Gasto de Taller / Mecánico' })}
+                                onEdit={handleEditTransaction}
+                                onDelete={handleDeleteTransaction}
+                            />
+                        )}
+                        {activeTab === 'resumen-gastos' && (
+                            <ResumenGastosTab
+                                allTransactions={allTransactions}
+                                onNew={() => openTransactionModal({ type: 'egreso', concept: '', category: '', paymentMethod: 'efectivo' })}
                                 onEdit={handleEditTransaction}
                                 onDelete={handleDeleteTransaction}
                             />

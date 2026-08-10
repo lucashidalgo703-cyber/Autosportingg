@@ -40,7 +40,7 @@ export default function ComisionesTab({ allTransactions = [], openTransactionMod
                     includedSales: tx.saleId ? [tx.saleId] : [],
                     totalAmount: tx.amount,
                     currency: tx.currency,
-                    status: 'pagada', // Al ser un Movimiento de Finanzas, ya afectó la caja (se considera pagada)
+                    status: tx.status === 'pendiente' ? 'pendiente' : 'pagada', // Solo está pagada si ya afectó la caja (activo)
                     isManualTransaction: true,
                     originalTx: tx
                 }));
@@ -105,12 +105,22 @@ export default function ComisionesTab({ allTransactions = [], openTransactionMod
         setPaying(true);
         try {
             const token = localStorage.getItem('token');
-            const res = await fetch(`/api/admin/settlements/${confirmingPayment._id}`, {
-                method: 'PATCH',
-                headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-                body: JSON.stringify({ status: 'pagada', accountId: paymentAccount })
-            });
-            await parseResponseSafe(res);
+            if (confirmingPayment.isManualTransaction) {
+                // If it's a manual transaction, mark it as activo
+                const res = await fetch(`/api/admin/transactions/${confirmingPayment._id}`, {
+                    method: 'PATCH',
+                    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+                    body: JSON.stringify({ status: 'activo', accountId: paymentAccount })
+                });
+                await parseResponseSafe(res);
+            } else {
+                const res = await fetch(`/api/admin/settlements/${confirmingPayment._id}`, {
+                    method: 'PATCH',
+                    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+                    body: JSON.stringify({ status: 'pagada', accountId: paymentAccount })
+                });
+                await parseResponseSafe(res);
+            }
             toast.success('Comisión marcada como pagada');
             setConfirmingPayment(null);
             setPaymentAccount('');
