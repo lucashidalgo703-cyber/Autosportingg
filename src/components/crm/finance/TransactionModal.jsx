@@ -13,6 +13,7 @@ export default function TransactionModal({ isOpen, onClose, transaction, onSave,
         concept: '',
         category: '',
         paymentMethod: 'efectivo',
+        status: 'pagada',
         date: new Date().toISOString().split('T')[0],
         notes: '',
         saleId: '',
@@ -30,6 +31,7 @@ export default function TransactionModal({ isOpen, onClose, transaction, onSave,
     const [resOptions, setResOptions] = useState([]);
     const [clientOptions, setClientOptions] = useState([]);
     const [carOptions, setCarOptions] = useState([]);
+    const [userOptions, setUserOptions] = useState([]);
 
     const getAuthHeaders = () => {
         const token = localStorage.getItem('token');
@@ -44,11 +46,12 @@ export default function TransactionModal({ isOpen, onClose, transaction, onSave,
             try {
                 const headers = getAuthHeaders();
                 // We fetch the basics to populate dropdowns
-                const [salesRes, resRes, clientsRes, carsRes] = await Promise.all([
+                const [salesRes, resRes, clientsRes, carsRes, usersRes] = await Promise.all([
                     fetch('/api/admin/sales?limit=100', { headers }),
                     fetch('/api/admin/reservations?limit=100', { headers }),
                     fetch('/api/admin/clients?limit=100', { headers }),
-                    fetch('/api/cars', { headers }) // Or /api/admin/stock depending on what exists, we use public /api/cars for now since it returns all visible
+                    fetch('/api/cars', { headers }), // Or /api/admin/stock depending on what exists, we use public /api/cars for now since it returns all visible
+                    fetch('/api/admin/users/active', { headers })
                 ]);
                 
                 if (salesRes.ok) {
@@ -66,6 +69,10 @@ export default function TransactionModal({ isOpen, onClose, transaction, onSave,
                 if (carsRes.ok) {
                     const data = await carsRes.json();
                     setCarOptions(Array.isArray(data) ? data : (data.cars || []));
+                }
+                if (usersRes.ok) {
+                    const data = await usersRes.json();
+                    setUserOptions(Array.isArray(data) ? data : (data.users || []));
                 }
             } catch (err) {
                 console.error("Error fetching options for transaction modal", err);
@@ -86,13 +93,15 @@ export default function TransactionModal({ isOpen, onClose, transaction, onSave,
                 concept: transaction.concept || transaction.description || '',
                 category: transaction.category || '',
                 paymentMethod: transaction.paymentMethod || 'efectivo',
+                status: transaction.status || 'pagada',
                 date: transaction.date ? new Date(transaction.date).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
                 notes: transaction.notes || '',
                 saleId: transaction.saleId || '',
                 reservationId: transaction.reservationId || '',
                 clientId: transaction.clientId || '',
                 vehicleId: transaction.vehicleId || '',
-                installmentId: transaction.installmentId || ''
+                installmentId: transaction.installmentId || '',
+                targetUser: transaction.targetUser || transaction.createdBy || ''
             });
         } else if (isOpen) {
             // Default initial state or props if provided from SaleFinancePanel
@@ -103,6 +112,7 @@ export default function TransactionModal({ isOpen, onClose, transaction, onSave,
                 concept: '',
                 category: '',
                 paymentMethod: 'efectivo',
+                status: 'activo',
                 date: new Date().toISOString().split('T')[0],
                 notes: '',
                 saleId: '',
@@ -110,6 +120,7 @@ export default function TransactionModal({ isOpen, onClose, transaction, onSave,
                 clientId: '',
                 vehicleId: '',
                 installmentId: '',
+                targetUser: '',
                 ...(initialData || {})
             });
         }
@@ -141,6 +152,7 @@ export default function TransactionModal({ isOpen, onClose, transaction, onSave,
             if (!dataToSave.clientId) delete dataToSave.clientId;
             if (!dataToSave.vehicleId) delete dataToSave.vehicleId;
             if (!dataToSave.installmentId) delete dataToSave.installmentId;
+            if (!dataToSave.targetUser) delete dataToSave.targetUser;
             
             onSave(dataToSave);
         }
@@ -199,7 +211,8 @@ export default function TransactionModal({ isOpen, onClose, transaction, onSave,
                                         <button
                                             type="button"
                                             onClick={() => setFormData({ ...formData, type: 'ingreso' })}
-                                            className={`flex-1 py-2.5 rounded-xl text-sm font-bold transition-colors border ${formData.type === 'ingreso' ? 'bg-green-500/20 text-green-400 border-green-500/30' : 'bg-black/40 text-neutral-400 border-neutral-800 hover:border-neutral-700'}`}
+                                            disabled={initialData?.isCommission}
+                                            className={`flex-1 py-2.5 rounded-xl text-sm font-bold transition-colors border ${formData.type === 'ingreso' ? 'bg-green-500/20 text-green-400 border-green-500/30' : 'bg-black/40 text-neutral-400 border-neutral-800 hover:border-neutral-700'} ${initialData?.isCommission ? 'opacity-30 cursor-not-allowed' : ''}`}
                                         >
                                             Ingreso
                                         </button>
@@ -248,6 +261,25 @@ export default function TransactionModal({ isOpen, onClose, transaction, onSave,
                             </div>
                         )}
 
+                        {(initialData?.isCommission || (isEdit && transaction.category === 'Comisiones')) && (
+                            <div className="col-span-1 md:col-span-2">
+                                <label className="block text-xs font-bold text-neutral-500 uppercase tracking-wider mb-2">Vendedor / Usuario</label>
+                                <select
+                                    className="w-full bg-black/40 border border-neutral-800 rounded-xl py-2.5 px-4 text-sm text-neutral-300 focus:outline-none focus:border-neutral-600 transition-colors"
+                                    value={formData.targetUser}
+                                    onChange={(e) => setFormData({ ...formData, targetUser: e.target.value })}
+                                    disabled={isAnnulled}
+                                >
+                                    <option value="">-- Seleccionar Vendedor --</option>
+                                    {userOptions.map(u => (
+                                        <option key={u._id || u.email} value={u.name}>
+                                            {u.name} ({u.role})
+                                        </option>
+                                    ))}
+                                </select>
+                            </div>
+                        )}
+
                         <div>
                             <label className="block text-xs font-bold text-neutral-500 uppercase tracking-wider mb-2">Monto {formData.currency}</label>
                             <div className="relative">
@@ -291,14 +323,46 @@ export default function TransactionModal({ isOpen, onClose, transaction, onSave,
 
                         <div>
                             <label className="block text-xs font-bold text-neutral-500 uppercase tracking-wider mb-2">Categoría</label>
-                            <input
-                                type="text"
-                                placeholder="Ej: Mantenimiento, Gastos Varios"
-                                className={`w-full bg-black/40 border ${errors.category ? 'border-red-500/50 focus:border-red-500' : 'border-neutral-800 focus:border-neutral-600'} rounded-xl py-2.5 px-4 text-sm text-white focus:outline-none transition-colors`}
-                                value={formData.category}
-                                onChange={(e) => setFormData({ ...formData, category: e.target.value })}
+                            <select
+                                className={`w-full bg-black/40 border ${errors.category && !formData.category ? 'border-red-500/50 focus:border-red-500' : 'border-neutral-800 focus:border-neutral-600'} rounded-xl py-2.5 px-4 text-sm text-neutral-300 focus:outline-none focus:border-neutral-600 transition-colors appearance-none cursor-pointer`}
+                                value={(formData.category !== '' && !['Sueldos', 'Taller', 'Gastos Personales', 'Comisiones', 'Pago Empresas', 'Retiros', 'AFIP/IVA', 'Mantenimiento', 'Gastos Varios', 'Seña', 'Cuotas', 'Tarjeta'].includes(formData.category)) ? 'Otro' : formData.category}
+                                onChange={(e) => {
+                                    if (e.target.value === 'Otro') {
+                                        setFormData({ ...formData, category: 'Otra Categoría' });
+                                    } else {
+                                        setFormData({ ...formData, category: e.target.value });
+                                    }
+                                }}
                                 disabled={isAnnulled}
-                            />
+                            >
+                                <option value="">-- Seleccionar Categoría --</option>
+                                <option value="Sueldos">Sueldos</option>
+                                <option value="Taller">Taller / Mecánico</option>
+                                <option value="Gastos Personales">Gastos Personales</option>
+                                <option value="Comisiones">Comisiones</option>
+                                <option value="Pago Empresas">Pago Empresas</option>
+                                <option value="Retiros">Retiros</option>
+                                <option value="AFIP/IVA">AFIP / IVA</option>
+                                <option value="Mantenimiento">Mantenimiento</option>
+                                <option value="Gastos Varios">Gastos Varios</option>
+                                <option value="Seña">Seña</option>
+                                <option value="Cuotas">Cuotas</option>
+                                <option value="Tarjeta">Tarjeta</option>
+                                <option value="Otro">Otra (Especificar)...</option>
+                            </select>
+                            
+                            {(formData.category !== '' && !['Sueldos', 'Taller', 'Gastos Personales', 'Comisiones', 'Pago Empresas', 'Retiros', 'AFIP/IVA', 'Mantenimiento', 'Gastos Varios', 'Seña', 'Cuotas', 'Tarjeta'].includes(formData.category)) && (
+                                <input
+                                    type="text"
+                                    placeholder="Especifique la categoría..."
+                                    className={`w-full bg-black/40 border ${errors.category ? 'border-red-500/50 focus:border-red-500' : 'border-neutral-800 focus:border-neutral-600'} rounded-xl py-2.5 px-4 text-sm text-white focus:outline-none transition-colors mt-2`}
+                                    value={formData.category === 'Otra Categoría' ? '' : formData.category}
+                                    onChange={(e) => setFormData({ ...formData, category: e.target.value })}
+                                    disabled={isAnnulled}
+                                    autoFocus
+                                />
+                            )}
+                            {errors.category && <span className="text-xs text-crm-red mt-1 block">{errors.category}</span>}
                         </div>
 
                         <div>
@@ -317,6 +381,19 @@ export default function TransactionModal({ isOpen, onClose, transaction, onSave,
                                 <option value="tarjeta">Tarjeta</option>
                                 <option value="cheque">Cheque</option>
                                 <option value="otro">Otro</option>
+                            </select>
+                        </div>
+
+                        <div>
+                            <label className="block text-xs font-bold text-neutral-500 uppercase tracking-wider mb-2">Estado del Movimiento</label>
+                            <select
+                                className="w-full bg-black/40 border border-neutral-800 rounded-xl py-2.5 px-4 text-sm text-neutral-300 focus:outline-none focus:border-neutral-600 transition-colors appearance-none cursor-pointer"
+                                value={formData.status === 'pagada' ? 'activo' : formData.status}
+                                onChange={(e) => setFormData({ ...formData, status: e.target.value })}
+                                disabled={isAnnulled}
+                            >
+                                <option value="activo">Pagada / Completada</option>
+                                <option value="pendiente">Pendiente</option>
                             </select>
                         </div>
 

@@ -3,10 +3,11 @@ import toast from 'react-hot-toast';
 import { parseResponseSafe } from '../../../../utils/apiHelper';
 import CrmBadge from '../../ui/CrmBadge';
 import ConfirmModal from '../../ui/ConfirmModal';
+import { Check, Pencil, Trash2 } from 'lucide-react';
 
-export default function ComisionesTab() {
+export default function ComisionesTab({ allTransactions = [], openTransactionModal, handleEditTransaction }) {
     const [period, setPeriod] = useState('');
-    const [statusFilter, setStatusFilter] = useState('pendiente');
+    const [statusFilter, setStatusFilter] = useState('todas');
     const [settlements, setSettlements] = useState([]);
     const [loading, setLoading] = useState(false);
 
@@ -14,6 +15,9 @@ export default function ComisionesTab() {
     const [confirmingPayment, setConfirmingPayment] = useState(null);
     const [paymentAccount, setPaymentAccount] = useState('');
     const [accounts, setAccounts] = useState([]);
+
+    const [confirmingDelete, setConfirmingDelete] = useState(null);
+    const [deleting, setDeleting] = useState(false);
 
     const fetchData = async () => {
         setLoading(true);
@@ -24,7 +28,31 @@ export default function ComisionesTab() {
             if (statusFilter !== 'todas') url.searchParams.append('status', statusFilter);
 
             const res = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
-            setSettlements(await parseResponseSafe(res));
+            const fetchedSettlements = await parseResponseSafe(res);
+
+            // Integrar comisiones manuales cargadas desde Finanzas (Movimientos)
+            const manualCommissions = allTransactions
+                .filter(tx => tx.category?.toLowerCase() === 'comisiones' && tx.status !== 'anulado')
+                .map(tx => ({
+                    _id: tx._id,
+                    period: new Date(tx.date || tx.createdAt).toISOString().slice(0, 7), // YYYY-MM
+                    username: tx.targetUser || tx.createdBy || 'Manual (Finanzas)',
+                    includedSales: tx.saleId ? [tx.saleId] : [],
+                    totalAmount: tx.amount,
+                    currency: tx.currency,
+                    status: tx.status === 'pendiente' ? 'pendiente' : 'pagada', // Solo está pagada si ya afectó la caja (activo)
+                    isManualTransaction: true,
+                    originalTx: tx
+                }));
+
+            // Filtrar las manuales según los filtros activos de la tabla
+            const filteredManual = manualCommissions.filter(mc => {
+                if (period && mc.period !== period) return false;
+                if (statusFilter !== 'todas' && mc.status !== statusFilter) return false;
+                return true;
+            });
+
+            setSettlements([...fetchedSettlements, ...filteredManual].sort((a, b) => b.period.localeCompare(a.period)));
 
             // Also fetch accounts for payment
             const accRes = await fetch('/api/admin/accounts', { headers: { Authorization: `Bearer ${token}` } });
@@ -39,9 +67,37 @@ export default function ComisionesTab() {
 
     useEffect(() => {
         fetchData();
-    }, [period, statusFilter]);
+    }, [period, statusFilter, allTransactions]);
 
     const [paying, setPaying] = useState(false);
+
+    const handleDeleteCommission = async () => {
+        if (!confirmingDelete) return;
+        if (deleting) return;
+        setDeleting(true);
+        try {
+            const token = localStorage.getItem('token');
+            const endpoint = confirmingDelete.isManualTransaction 
+                ? `/api/admin/transactions/${confirmingDelete._id}`
+                : `/api/admin/settlements/${confirmingDelete._id}`;
+                
+            const res = await fetch(endpoint, {
+                method: 'DELETE',
+                headers: { Authorization: `Bearer ${token}` }
+            });
+            await parseResponseSafe(res);
+            toast.success('Comisión eliminada exitosamente');
+            setConfirmingDelete(null);
+            fetchData();
+            if (confirmingDelete.isManualTransaction) {
+                setTimeout(() => window.location.reload(), 500);
+            }
+        } catch (error) {
+            toast.error('Error al eliminar: ' + error.message);
+        } finally {
+            setDeleting(false);
+        }
+    };
 
     const handleMarkPaid = async () => {
         if (!paymentAccount) return toast.error('Debe seleccionar una cuenta origen');
@@ -49,12 +105,22 @@ export default function ComisionesTab() {
         setPaying(true);
         try {
             const token = localStorage.getItem('token');
-            const res = await fetch(`/api/admin/settlements/${confirmingPayment._id}`, {
-                method: 'PATCH',
-                headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-                body: JSON.stringify({ status: 'pagada', accountId: paymentAccount })
-            });
-            await parseResponseSafe(res);
+            if (confirmingPayment.isManualTransaction) {
+                // If it's a manual transaction, mark it as activo
+                const res = await fetch(`/api/admin/transactions/${confirmingPayment._id}`, {
+                    method: 'PATCH',
+                    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+                    body: JSON.stringify({ status: 'activo', accountId: paymentAccount })
+                });
+                await parseResponseSafe(res);
+            } else {
+                const res = await fetch(`/api/admin/settlements/${confirmingPayment._id}`, {
+                    method: 'PATCH',
+                    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+                    body: JSON.stringify({ status: 'pagada', accountId: paymentAccount })
+                });
+                await parseResponseSafe(res);
+            }
             toast.success('Comisión marcada como pagada');
             setConfirmingPayment(null);
             setPaymentAccount('');
@@ -75,20 +141,30 @@ export default function ComisionesTab() {
     const totalPagadoUSD = settlements.filter(s => s.status === 'pagada' && s.currency === 'USD').reduce((a, b) => a + b.totalAmount, 0);
     const totalUSD = totalPendienteUSD + totalPagadoUSD;
 
+    const totalPendienteARS = settlements.filter(s => s.status !== 'pagada' && s.status !== 'anulada' && s.currency === 'ARS').reduce((a, b) => a + b.totalAmount, 0);
+    const totalPagadoARS = settlements.filter(s => s.status === 'pagada' && s.currency === 'ARS').reduce((a, b) => a + b.totalAmount, 0);
+    const totalARS = totalPendienteARS + totalPagadoARS;
+
     return (
         <div className="space-y-4">
             <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
                 <div className="rounded-xl border border-crm-border bg-crm-bg p-4">
                     <h3 className="text-[11px] font-black uppercase tracking-wider text-crm-fg-subtle">TOTAL COMISIONES (VISIBLES)</h3>
-                    <p className="mt-2 text-xl font-black text-crm-fg">{formatMoney(totalUSD, 'USD')}</p>
+                    <p className="mt-2 text-xl font-black text-crm-fg">
+                        {formatMoney(totalUSD, 'USD')} <span className="text-sm font-medium text-crm-fg-muted ml-2">| {formatMoney(totalARS, 'ARS')}</span>
+                    </p>
                 </div>
                 <div className="rounded-xl border border-crm-border bg-crm-bg p-4">
                     <h3 className="text-[11px] font-black uppercase tracking-wider text-crm-fg-subtle">YA PAGADAS ✅</h3>
-                    <p className="mt-2 text-xl font-black text-crm-success">{formatMoney(totalPagadoUSD, 'USD')}</p>
+                    <p className="mt-2 text-xl font-black text-crm-success">
+                        {formatMoney(totalPagadoUSD, 'USD')} <span className="text-sm font-medium opacity-60 ml-2">| {formatMoney(totalPagadoARS, 'ARS')}</span>
+                    </p>
                 </div>
                 <div className="rounded-xl border border-crm-border bg-crm-bg p-4">
                     <h3 className="text-[11px] font-black uppercase tracking-wider text-crm-fg-subtle">PENDIENTES ⏳</h3>
-                    <p className="mt-2 text-xl font-black text-crm-fg">{formatMoney(totalPendienteUSD, 'USD')}</p>
+                    <p className="mt-2 text-xl font-black text-crm-fg">
+                        {formatMoney(totalPendienteUSD, 'USD')} <span className="text-sm font-medium text-crm-fg-muted ml-2">| {formatMoney(totalPendienteARS, 'ARS')}</span>
+                    </p>
                 </div>
             </div>
 
@@ -177,6 +253,22 @@ export default function ComisionesTab() {
                                                     <Check size={12}/> Pagar
                                                 </button>
                                             )}
+                                            {s.isManualTransaction && (
+                                                <button
+                                                    onClick={() => handleEditTransaction(s.originalTx)}
+                                                    className={`inline-flex items-center gap-1 rounded bg-crm-blue/20 px-2 py-1 text-xs font-bold text-crm-blue hover:bg-crm-blue/30 transition ${s.status !== 'pagada' && s.status !== 'anulada' ? 'ml-2' : ''}`}
+                                                >
+                                                    <Pencil size={12}/> Editar
+                                                </button>
+                                            )}
+                                            {(s.isManualTransaction || (s.status !== 'pagada' && s.status !== 'anulada')) && (
+                                                <button
+                                                    onClick={() => setConfirmingDelete(s)}
+                                                    className="inline-flex items-center gap-1 rounded bg-crm-red/10 px-2 py-1 text-xs font-bold text-crm-red hover:bg-crm-red/20 transition ml-2"
+                                                >
+                                                    <Trash2 size={12}/> Eliminar
+                                                </button>
+                                            )}
                                         </td>
                                     </tr>
                                 ))
@@ -222,6 +314,19 @@ export default function ComisionesTab() {
                     </ConfirmModal>
                 );
             })()}
+
+            <ConfirmModal
+                isOpen={!!confirmingDelete}
+                onClose={() => {
+                    if (!deleting) setConfirmingDelete(null);
+                }}
+                onConfirm={handleDeleteCommission}
+                title="Eliminar Comisión"
+                message={`¿Estás seguro de que deseas eliminar la comisión de ${formatMoney(confirmingDelete?.totalAmount, confirmingDelete?.currency)} para @${confirmingDelete?.username}? Esta acción no se puede deshacer.`}
+                confirmText={deleting ? "Eliminando..." : "Eliminar"}
+                isDestructive={true}
+                isConfirmDisabled={deleting}
+            />
         </div>
     );
 }

@@ -1,15 +1,27 @@
 "use client";
 import { useState, useEffect } from 'react';
-import { X, Save, AlertTriangle, HelpCircle } from 'lucide-react';
+import { X, Save, AlertTriangle, HelpCircle, FileText, Upload, Eye, Trash2 } from 'lucide-react';
 import Link from 'next/link';
 import toast from 'react-hot-toast';
 
 export default function VehicleEditModal({ isOpen, onClose, onSave, vehicleData }) {
     const [formData, setFormData] = useState({});
+    const [docFiles, setDocFiles] = useState({});
+    const [deletedDocs, setDeletedDocs] = useState([]);
     const [isSaving, setIsSaving] = useState(false);
+
+    const docFieldsConfig = [
+        { key: 'tituloAutomotor', label: 'Título Automotor' },
+        { key: 'cedulaVerde', label: 'Cédula Verde/Azul' },
+        { key: 'verificacionPolicial', label: 'Verificación Policial (12)' },
+        { key: 'informeDominio', label: 'Informe de Dominio' },
+        { key: 'formulario08', label: 'Formulario 08' },
+        { key: 'libreDeudaPatentes', label: 'Libre Deuda Patentes' }
+    ];
 
     useEffect(() => {
         if (isOpen && vehicleData) {
+            setDeletedDocs([]);
             // Flatten the nested structure for the form.
             setFormData({
                 brand: vehicleData.marca || '',
@@ -49,6 +61,13 @@ export default function VehicleEditModal({ isOpen, onClose, onSave, vehicleData 
             ...prev,
             [name]: type === 'checkbox' ? checked : value
         }));
+    };
+
+    const handleDocChange = (e, fieldName) => {
+        const file = e.target.files[0];
+        if (file) {
+            setDocFiles(prev => ({ ...prev, [fieldName]: file }));
+        }
     };
 
     const handleOrigenChange = (e) => {
@@ -99,8 +118,60 @@ export default function VehicleEditModal({ isOpen, onClose, onSave, vehicleData 
                 } : { name: '', percentage: 0 }
             };
 
+            const docsToUpload = Object.keys(docFiles).filter(key => docFiles[key] instanceof File);
+            const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
+            const API_URL = process.env.NEXT_PUBLIC_API_URL;
+            const baseUrl = process.env.NODE_ENV === 'production' ? '' : (API_URL || 'http://localhost:3001');
+
+            let docsUpdated = false;
+
+            // Handle deletions
+            if (deletedDocs.length > 0) {
+                toast.loading('Eliminando documentos...', { id: 'deleteDocs' });
+                for (const docKey of deletedDocs) {
+                    const deleteRes = await fetch(`${baseUrl}/api/admin/cars/${vehicleData._original?._id || vehicleData.id}/docs/${docKey}`, {
+                        method: 'DELETE',
+                        headers: { 'Authorization': `Bearer ${token}` }
+                    });
+                    if (!deleteRes.ok) {
+                        throw new Error(`Error al eliminar el documento ${docKey}`);
+                    }
+                }
+                toast.success('Documentos eliminados', { id: 'deleteDocs' });
+                docsUpdated = true;
+            }
+
+            if (docsToUpload.length > 0) {
+                toast.loading('Guardando documentos...', { id: 'saveDocs' });
+                const docsFormData = new FormData();
+                docsToUpload.forEach(key => {
+                    docsFormData.append(key, docFiles[key]);
+                });
+
+                const docsRes = await fetch(`${baseUrl}/api/admin/cars/${vehicleData._original?._id || vehicleData.id}/docs`, {
+                    method: 'PUT',
+                    headers: { 'Authorization': `Bearer ${token}` },
+                    body: docsFormData
+                });
+
+                if (!docsRes.ok) {
+                    toast.error('Error al guardar los documentos', { id: 'saveDocs' });
+                } else {
+                    toast.success('Documentos subidos', { id: 'saveDocs' });
+                    docsUpdated = true;
+                }
+            }
+            
+            
+            // Save main vehicle data which will also trigger a refetch in the parent
             await onSave(payload);
-            toast.success('Vehículo actualizado');
+            
+            if (docsUpdated) {
+                toast.success('Vehículo y documentos actualizados', { id: 'saveVehicle' });
+            } else {
+                toast.success('Vehículo actualizado', { id: 'saveVehicle' });
+            }
+            
             onClose();
         } catch (error) {
             toast.error(error.message || 'Error al guardar');
@@ -324,6 +395,52 @@ export default function VehicleEditModal({ isOpen, onClose, onSave, vehicleData 
                                 />
                             </div>
 
+                        </div>
+                    </div>
+
+                    {/* DOCUMENTACIÓN REGISTRAL */}
+                    <div className="p-6 pt-0 mt-2">
+                        <h3 className="text-crm-fg-muted font-semibold flex items-center gap-2 border-b border-crm-border pb-2 mb-4">
+                            <FileText size={16} /> Documentación Registral (Archivos)
+                        </h3>
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                            {docFieldsConfig.map(field => {
+                                const existingUrl = vehicleData?._original?.documentationFiles?.[field.key] || vehicleData?.documentationFiles?.[field.key];
+                                const hasNewFile = docFiles[field.key] instanceof File;
+                                
+                                return (
+                                    <div key={field.key} className="flex flex-col gap-2 p-3 bg-crm-bg border border-crm-border rounded-lg">
+                                        <span className="text-xs font-medium text-white">{field.label}</span>
+                                        <div className="flex items-center gap-2">
+                                            <label className="flex-1 flex items-center justify-center gap-2 px-3 py-2 bg-crm-surface-raised hover:bg-crm-surface-raised-hover cursor-pointer border border-crm-border border-dashed rounded text-xs text-crm-fg-muted transition-colors text-center">
+                                                <Upload size={14} />
+                                                <span className="truncate">{hasNewFile ? docFiles[field.key].name : 'Subir archivo'}</span>
+                                                <input 
+                                                    type="file" 
+                                                    className="hidden" 
+                                                    accept="image/png, image/jpeg, image/webp, application/pdf"
+                                                    onChange={(e) => handleDocChange(e, field.key)} 
+                                                />
+                                            </label>
+                                            {existingUrl && !hasNewFile && !deletedDocs.includes(field.key) && (
+                                                <div className="flex items-center gap-1">
+                                                    <a href={existingUrl} target="_blank" rel="noreferrer" className="p-2 bg-crm-surface-raised hover:bg-crm-surface-raised-hover border border-crm-border rounded text-crm-fg-muted hover:text-white transition-colors" title="Ver archivo actual">
+                                                        <Eye size={16} />
+                                                    </a>
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => setDeletedDocs(prev => [...prev, field.key])}
+                                                        className="p-2 bg-crm-surface-raised hover:bg-crm-surface-raised-hover border border-crm-border rounded text-crm-fg-muted hover:text-crm-red transition-colors"
+                                                        title="Eliminar archivo"
+                                                    >
+                                                        <Trash2 size={16} />
+                                                    </button>
+                                                </div>
+                                            )}
+                                        </div>
+                                    </div>
+                                );
+                            })}
                         </div>
                     </div>
 

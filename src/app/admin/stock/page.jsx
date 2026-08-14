@@ -42,7 +42,7 @@ export default function AdminStockPage() {
         }, 150);
     };
 
-    const { cars, loading, error, refresh, total, pages, summary: backendSummary, brands: backendBrands, swapCars, setCars } = useAdminCars();
+    const { cars, loading, error, refresh, total, pages, summary: backendSummary, brands: backendBrands, swapCars, setCars, filteredTotalUSD, filteredTotalARS } = useAdminCars();
     const [isFormOpen, setIsFormOpen] = useState(false);
     const [isImportModalOpen, setIsImportModalOpen] = useState(false);
     const [isMandateModalOpen, setIsMandateModalOpen] = useState(false);
@@ -175,6 +175,14 @@ export default function AdminStockPage() {
                 return sum + ((v.precioPublicado || 0) * (agencyPercentage / 100));
             }, 0);
             
+        const valorTotalUSD = disponibles
+            .filter(v => v.moneda === 'USD')
+            .reduce((sum, v) => sum + (v.precioPublicado || 0), 0);
+
+        const valorTotalARS = disponibles
+            .filter(v => v.moneda !== 'USD')
+            .reduce((sum, v) => sum + (v.precioPublicado || 0), 0);
+            
         const valorActivoInversionistasUSD = disponibles
             .filter(v => v.moneda === 'USD' && v.origen === 'compartido')
             .reduce((sum, v) => sum + ((v.precioPublicado || 0) * ((v.investor?.percentage || 0) / 100)), 0);
@@ -206,7 +214,9 @@ export default function AdminStockPage() {
             valorActivoInversionistasUSD,
             valorActivoInversionistasARS,
             capitalInvertidoInversionistasUSD,
-            capitalInvertidoInversionistasARS
+            capitalInvertidoInversionistasARS,
+            valorTotalUSD,
+            valorTotalARS
         };
     }, [vehicles, backendSummary, mandates.length]);
 
@@ -430,7 +440,7 @@ export default function AdminStockPage() {
                     </div>
                     <div className="flex flex-wrap items-center gap-2">
                         <span className="text-[11px] font-bold uppercase tracking-[0.08em] text-crm-fg-subtle">
-                            Autos Propios:
+                            Capital Total Agencia:
                         </span>
                         <span className="font-semibold text-crm-fg flex items-center gap-2">
                             <span>
@@ -523,6 +533,9 @@ export default function AdminStockPage() {
                                     totalPages={pages} 
                                     onReserve={setReservingCar}
                                     totalItems={total}
+                                    filteredTotalUSD={filteredTotalUSD}
+                                    filteredTotalARS={filteredTotalARS}
+                                    dolarBlue={dolarBlue}
                                 />
                             </div>
                             <div className="block lg:hidden">
@@ -532,6 +545,9 @@ export default function AdminStockPage() {
                                     onDelete={setDeletingCar} 
                                     onPrint={handlePrint} 
                                     totalItems={total}
+                                    filteredTotalUSD={filteredTotalUSD}
+                                    filteredTotalARS={filteredTotalARS}
+                                    dolarBlue={dolarBlue}
                                 />
                             </div>
                             <CrmPagination

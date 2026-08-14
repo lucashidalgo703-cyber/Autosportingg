@@ -1,7 +1,7 @@
 "use client";
 import toast from 'react-hot-toast';
 import React, { useEffect, useState } from 'react';
-import { Plus, Search, Edit2, Trash2, FileSignature, DollarSign, Calendar, CarFront, User } from 'lucide-react';
+import { Plus, Search, Edit2, Trash2, FileSignature, DollarSign, Calendar, CarFront, User, Upload, X, Image as ImageIcon } from 'lucide-react';
 import { useGestoria } from '../../../hooks/useGestoria';
 import { useAdminSales } from '../../../hooks/useAdminSales';
 import CrmButton from '../../../components/crm/ui/CrmButton';
@@ -21,6 +21,63 @@ export default function GestoriaPage() {
     });
     const [confirmDeleteModal, setConfirmDeleteModal] = useState({ isOpen: false, id: null });
     const [clients, setClients] = useState([]);
+    const [isUploading, setIsUploading] = useState(false);
+
+    const handleFileUpload = async (e) => {
+        const files = Array.from(e.target.files);
+        if (files.length === 0) return;
+
+        setIsUploading(true);
+        const uploadToastId = toast.loading('Subiendo imágenes...');
+
+        try {
+            const formData = new FormData();
+            files.forEach(file => {
+                formData.append('files', file);
+            });
+
+            const token = localStorage.getItem('token');
+            const res = await fetch('/api/admin/upload', {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${token}`
+                },
+                body: formData
+            });
+
+            if (!res.ok) {
+                const errData = await res.json();
+                throw new Error(errData.message || 'Error al subir los archivos');
+            }
+
+            const data = await res.json();
+            const newDocuments = data.uploadedFiles.map(file => ({
+                name: file.name,
+                url: file.url,
+                type: 'imagen'
+            }));
+
+            setFormData(prev => ({
+                ...prev,
+                documents: [...(prev.documents || []), ...newDocuments]
+            }));
+
+            toast.success('Imágenes subidas correctamente', { id: uploadToastId });
+        } catch (error) {
+            console.error('Upload error:', error);
+            toast.error(error.message || 'Ocurrió un error al subir las imágenes', { id: uploadToastId });
+        } finally {
+            setIsUploading(false);
+            e.target.value = ''; // Reset input
+        }
+    };
+
+    const removeDocument = (indexToRemove) => {
+        setFormData(prev => ({
+            ...prev,
+            documents: prev.documents.filter((_, index) => index !== indexToRemove)
+        }));
+    };
 
     useEffect(() => {
         fetchTramites();
@@ -366,6 +423,54 @@ export default function GestoriaPage() {
                                         <label className="mb-1.5 block text-xs font-bold uppercase tracking-wider text-crm-fg-muted">Observaciones</label>
                                         <textarea rows="2" placeholder="Firma pendiente de la esposa, falta libre deuda..." value={formData.notes} onChange={e => setFormData({...formData, notes: e.target.value})} className="w-full rounded-lg border border-crm-border bg-crm-bg px-4 py-2.5 text-sm text-crm-fg focus:border-crm-red focus:outline-none focus:ring-1 focus:ring-crm-red resize-none"></textarea>
                                     </div>
+                                </div>
+                            </div>
+
+                            <div className="space-y-4">
+                                <h3 className="text-sm font-bold text-crm-red border-b border-crm-border/50 pb-2 uppercase tracking-wider">Documentos Adjuntos</h3>
+                                <div className="flex flex-col gap-4">
+                                    <div className="flex items-center gap-4">
+                                        <label className="flex cursor-pointer items-center gap-2 rounded-lg border border-crm-border bg-crm-surface px-4 py-2 text-sm font-bold text-crm-fg transition-colors hover:bg-crm-surface-raised">
+                                            <Upload size={16} className="text-crm-fg-muted" />
+                                            {isUploading ? 'Subiendo...' : 'Subir Imágenes'}
+                                            <input 
+                                                type="file" 
+                                                multiple 
+                                                accept="image/*" 
+                                                className="hidden" 
+                                                onChange={handleFileUpload} 
+                                                disabled={isUploading}
+                                            />
+                                        </label>
+                                        <span className="text-xs text-crm-fg-muted">Fotos del 08, comprobantes, etc.</span>
+                                    </div>
+                                    
+                                    {formData.documents && formData.documents.length > 0 && (
+                                        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 mt-2">
+                                            {formData.documents.map((doc, idx) => (
+                                                <div key={idx} className="group relative aspect-video overflow-hidden rounded-lg border border-crm-border bg-crm-surface">
+                                                    <a href={doc.url} target="_blank" rel="noopener noreferrer" className="block h-full w-full">
+                                                        <img 
+                                                            src={doc.url} 
+                                                            alt={doc.name} 
+                                                            className="h-full w-full object-cover opacity-80 transition-opacity group-hover:opacity-100" 
+                                                        />
+                                                    </a>
+                                                    <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/60 to-transparent opacity-0 transition-opacity group-hover:opacity-100" />
+                                                    <button 
+                                                        type="button"
+                                                        onClick={(e) => { e.preventDefault(); removeDocument(idx); }}
+                                                        className="absolute right-1.5 top-1.5 rounded-full bg-red-500/80 p-1 text-white opacity-0 transition-opacity hover:bg-red-500 group-hover:opacity-100 z-10"
+                                                    >
+                                                        <X size={12} />
+                                                    </button>
+                                                    <div className="pointer-events-none absolute bottom-1.5 left-1.5 right-1.5 truncate text-[10px] text-white/80 opacity-0 transition-opacity group-hover:opacity-100">
+                                                        {doc.name}
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    )}
                                 </div>
                             </div>
 

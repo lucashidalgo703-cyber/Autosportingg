@@ -1,7 +1,6 @@
 import React, { useCallback, useEffect } from 'react';
 import useEmblaCarousel from 'embla-carousel-react';
 import AutoScroll from 'embla-carousel-auto-scroll';
-import { ChevronLeft, ChevronRight } from 'lucide-react';
 import CarCard from './CarCard';
 
 const CarCarousel = ({ cars }) => {
@@ -24,14 +23,6 @@ const CarCarousel = ({ cars }) => {
     // even with larger cards, avoiding any "pre-loading" or gap sensation.
     const displayCars = cars.length > 0 ? [...cars, ...cars] : cars;
 
-    const scrollPrev = useCallback(() => {
-        if (emblaApi) emblaApi.scrollPrev();
-    }, [emblaApi]);
-
-    const scrollNext = useCallback(() => {
-        if (emblaApi) emblaApi.scrollNext();
-    }, [emblaApi]);
-
     return (
         <div className="relative group">
             {/* Carousel Container */}
@@ -45,23 +36,6 @@ const CarCarousel = ({ cars }) => {
                 </div>
             </div>
 
-            {/* Navigation Buttons (Visible on hover or mobile) */}
-            <button
-                className="nav-btn prev"
-                onClick={scrollPrev}
-                aria-label="Previous slide"
-            >
-                <ChevronLeft size={24} />
-            </button>
-
-            <button
-                className="nav-btn next"
-                onClick={scrollNext}
-                aria-label="Next slide"
-            >
-                <ChevronRight size={24} />
-            </button>
-
             {/* Removed mobile controls as requested */}
 
             <style>{`
@@ -70,45 +44,7 @@ const CarCarousel = ({ cars }) => {
                     padding-left: 1rem;
                 }
 
-                .nav-btn {
-                    display: none;
-                    position: absolute;
-                    top: 50%;
-                    transform: translateY(-50%);
-                    background: rgba(255, 255, 255, 0.1);
-                    backdrop-filter: blur(12px);
-                    border: 1px solid rgba(255, 255, 255, 0.1);
-                    color: white;
-                    padding: 0.75rem;
-                    border-radius: 50%;
-                    cursor: pointer;
-                    transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-                    z-index: 10;
-                    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.3);
-                    opacity: 0;
-                }
 
-                .nav-btn.prev { left: 0; transform: translateY(-50%) translateX(-50%); }
-                .nav-btn.next { right: 0; transform: translateY(-50%) translateX(50%); }
-
-                .nav-btn:hover {
-                    background: rgba(255, 255, 255, 0.2);
-                }
-                
-                /* Simplify hover transforms */
-                .nav-btn.prev:hover { transform: translateY(-50%) translateX(-50%) scale(1.1); }
-                .nav-btn.next:hover { transform: translateY(-50%) translateX(50%) scale(1.1); }
-
-                @media (min-width: 768px) {
-                    .nav-btn {
-                        display: flex;
-                        align-items: center;
-                        justify-content: center;
-                    }
-                    .group:hover .nav-btn {
-                        opacity: 1;
-                    }
-                }
 
                 @media (min-width: 480px) {
                     .carousel-item {

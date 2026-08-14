@@ -55,6 +55,52 @@ export default function VehicleInfoPanel({ vehicle, onEdit }) {
                     </p>
                 </div>
             )}
+
+            {vehicle.documentationFiles && Object.keys(vehicle.documentationFiles).length > 0 && (
+                <div className="mt-6 pt-4 border-t border-crm-border">
+                    <span className="block text-xs text-crm-fg-muted mb-3 uppercase tracking-wider">Imágenes de Documentación</span>
+                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
+                        {Object.entries(vehicle.documentationFiles).map(([key, url]) => {
+                            const isPdf = url.toLowerCase().endsWith('.pdf');
+                            const labels = {
+                                tituloAutomotor: 'Título Automotor',
+                                cedulaVerde: 'Cédula Verde',
+                                verificacionPolicial: 'Verificación Policial',
+                                informeDominio: 'Informe de Dominio',
+                                formulario08: 'Formulario 08',
+                                libreDeudaPatentes: 'Libre Deuda Patentes'
+                            };
+                            return (
+                                <a 
+                                    key={key} 
+                                    href={url} 
+                                    target="_blank" 
+                                    rel="noreferrer"
+                                    className="flex flex-col gap-2 group cursor-pointer"
+                                    title={`Ver ${labels[key] || key}`}
+                                >
+                                    <div className="w-full h-24 bg-crm-bg border border-crm-border rounded-lg overflow-hidden relative flex items-center justify-center group-hover:border-crm-red transition-colors">
+                                        {isPdf ? (
+                                            <div className="flex flex-col items-center text-crm-fg-muted group-hover:text-crm-red transition-colors">
+                                                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/></svg>
+                                                <span className="text-xs mt-1 font-medium">PDF</span>
+                                            </div>
+                                        ) : (
+                                            <img src={url} alt={key} className="w-full h-full object-cover opacity-80 group-hover:opacity-100 transition-opacity" />
+                                        )}
+                                        <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                                            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                                        </div>
+                                    </div>
+                                    <span className="text-xs text-center text-crm-fg-muted group-hover:text-white transition-colors truncate px-1">
+                                        {labels[key] || key}
+                                    </span>
+                                </a>
+                            );
+                        })}
+                    </div>
+                </div>
+            )}
         </CrmCard>
     );
 }

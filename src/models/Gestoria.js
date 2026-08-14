@@ -76,9 +76,9 @@ const GestoriaSchema = new mongoose.Schema({
         trim: true
     },
     documents: [{
-        name: String,
-        url: String,
-        type: String
+        name: { type: String },
+        url: { type: String },
+        type: { type: String }
     }],
     createdBy: {
         type: mongoose.Schema.Types.ObjectId,
@@ -94,5 +94,8 @@ const GestoriaSchema = new mongoose.Schema({
     timestamps: true
 });
 
-const Gestoria = mongoose.models.Gestoria || mongoose.model('Gestoria', GestoriaSchema);
+if (mongoose.models.Gestoria) {
+    delete mongoose.models.Gestoria;
+}
+const Gestoria = mongoose.model('Gestoria', GestoriaSchema);
 export default Gestoria;

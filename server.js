@@ -205,6 +205,32 @@ const uploadSuggestions = multer({
     }
 });
 
+// Configure Multer for Docs
+const docsStorage = new CloudinaryStorage({
+    cloudinary: cloudinary,
+    params: {
+        folder: 'autosporting-docs',
+        allowedFormats: ['jpg', 'png', 'jpeg', 'webp', 'pdf'],
+        resource_type: 'auto'
+    },
+});
+
+const uploadDocs = multer({
+    storage: docsStorage,
+    limits: {
+        fileSize: 5 * 1024 * 1024,
+        files: 6
+    },
+    fileFilter: (req, file, cb) => {
+        const allowedMimes = ['image/png', 'image/jpeg', 'image/webp', 'application/pdf'];
+        if (allowedMimes.includes(file.mimetype)) {
+            cb(null, true);
+        } else {
+            cb(new Error(`Tipo de archivo no permitido: ${file.mimetype}. Solo PNG, JPG, WEBP y PDF.`));
+        }
+    }
+});
+
 const getClientIp = (req) => {
     const forwardedFor = req.headers['x-forwarded-for'];
     if (typeof forwardedFor === 'string' && forwardedFor.trim()) {
@@ -1007,8 +1033,10 @@ app.get('/api/admin/cars', authenticateToken, requirePermission(PERMISSIONS.STOC
             .lean();
 
         // Calculate summary using same logic as frontend mapping
-        const totalCarsCount = allCarsForSummary.length;
-        const disponibles = allCarsForSummary.filter(c => (c.status || '').toLowerCase() === 'disponible');
+        // Exclude sold and cancelled cars from stock metrics
+        const stockCars = allCarsForSummary.filter(c => c.status !== 'Vendido' && c.status !== 'Cancelado');
+        const totalCarsCount = stockCars.length;
+        const disponibles = stockCars.filter(c => (c.status || '').toLowerCase() === 'disponible');
 
         let valorActivoUSD = 0;
         let valorActivoARS = 0;
@@ -1016,6 +1044,8 @@ app.get('/api/admin/cars', authenticateToken, requirePermission(PERMISSIONS.STOC
         let valorActivoInversionistasARS = 0;
         let capitalInvertidoInversionistasUSD = 0;
         let capitalInvertidoInversionistasARS = 0;
+        let valorTotalUSD = 0;
+        let valorTotalARS = 0;
 
         disponibles.forEach(c => {
             const isShared = c.investor && c.investor.percentage > 0;
@@ -1028,6 +1058,13 @@ app.get('/api/admin/cars', authenticateToken, requirePermission(PERMISSIONS.STOC
 
             // monedaCompra logic from mapper
             const purchaseCurrency = ((c.purchaseCurrency || c.currency) === 'USD' || (c.purchaseCurrency || c.currency) === 'U$S') && c.purchasePrice > 200000 ? 'ARS' : (c.purchaseCurrency || (c.currency === 'U$S' || c.currency === 'USD' ? 'USD' : 'ARS'));
+
+            const priceValTotal = c.price || 0;
+            if (currency === 'USD') {
+                valorTotalUSD += priceValTotal;
+            } else {
+                valorTotalARS += priceValTotal;
+            }
 
             if (origen === 'propio' || origen === 'compartido') {
                 const investorPercentage = (origen === 'compartido' && c.investor) ? c.investor.percentage : 0;
@@ -1063,9 +1100,9 @@ app.get('/api/admin/cars', authenticateToken, requirePermission(PERMISSIONS.STOC
         const summary = {
             total: totalCarsCount,
             disponibles: disponibles.length,
-            consignaciones: allCarsForSummary.filter(c => c.consignedBy && c.consignedBy !== '').length,
-            compartidos: allCarsForSummary.filter(c => c.investor && c.investor.percentage > 0).length,
-            ceroKm: allCarsForSummary.filter(c => {
+            consignaciones: stockCars.filter(c => c.consignedBy && c.consignedBy !== '').length,
+            compartidos: stockCars.filter(c => c.investor && c.investor.percentage > 0).length,
+            ceroKm: stockCars.filter(c => {
                 const cond = (c.condition || '').toLowerCase().replace(/\s+/g, '');
                 return cond === '0km' || cond === 'nuevo' || c.km === 0;
             }).length,
@@ -1074,7 +1111,9 @@ app.get('/api/admin/cars', authenticateToken, requirePermission(PERMISSIONS.STOC
             valorActivoInversionistasUSD,
             valorActivoInversionistasARS,
             capitalInvertidoInversionistasUSD,
-            capitalInvertidoInversionistasARS
+            capitalInvertidoInversionistasARS,
+            valorTotalUSD,
+            valorTotalARS
         };
 
         // Now build query for the current page
@@ -1120,6 +1159,9 @@ app.get('/api/admin/cars', authenticateToken, requirePermission(PERMISSIONS.STOC
                 vendido: 'Vendido'
             };
             query.status = statusMap[status] || status;
+        } else {
+            // Default: do not show sold or cancelled vehicles in the stock view unless explicitly requested
+            query.status = { $nin: ['Vendido', 'Cancelado'] };
         }
 
         if (brand && brand !== 'todas') {
@@ -1157,6 +1199,26 @@ app.get('/api/admin/cars', authenticateToken, requirePermission(PERMISSIONS.STOC
             .skip(skip)
             .limit(parsedLimit)
             .lean();
+            
+        // Calculate the sum of prices for the filtered vehicles
+        const filteredTotals = await Car.aggregate([
+            { $match: query },
+            { 
+                $group: { 
+                    _id: "$currency", 
+                    total: { $sum: "$price" } 
+                } 
+            }
+        ]);
+        
+        let filteredTotalUSD = 0;
+        let filteredTotalARS = 0;
+        filteredTotals.forEach(item => {
+            const curr = (item._id === 'U$S' || item._id === 'USD') ? 'USD' : 'ARS';
+            if (curr === 'USD') filteredTotalUSD += item.total || 0;
+            else filteredTotalARS += item.total || 0;
+        });
+
         const brands = await Car.distinct('brand');
         res.json({
             cars,
@@ -1165,7 +1227,9 @@ app.get('/api/admin/cars', authenticateToken, requirePermission(PERMISSIONS.STOC
             page: parsedPage,
             limit: parsedLimit,
             summary,
-            brands
+            brands,
+            filteredTotalUSD,
+            filteredTotalARS
         });
     } catch (error) {
         res.status(500).json({ message: error.message });
@@ -1250,6 +1314,113 @@ app.post('/api/admin/cars/:id/notes', authenticateToken, requirePermission(PERMI
     }
 });
 
+// Generic upload endpoint for images and documents
+app.post('/api/admin/upload', authenticateToken, upload.array('files', 20), async (req, res) => {
+    try {
+        const missingCloudinaryVars = ['CLOUDINARY_CLOUD_NAME', 'CLOUDINARY_API_KEY', 'CLOUDINARY_API_SECRET']
+            .filter((key) => !process.env[key]);
+
+        if (missingCloudinaryVars.length > 0) {
+            return res.status(500).json({
+                message: 'Cloudinary no esta configurado para subir imagenes.',
+                detail: `Faltan variables de entorno: ${missingCloudinaryVars.join(', ')}`
+            });
+        }
+
+        const uploadedFiles = req.files ? req.files.map(file => ({
+            name: file.originalname,
+            url: file.path,
+            type: file.mimetype,
+            size: file.size
+        })) : [];
+
+        return res.status(200).json({ uploadedFiles });
+    } catch (error) {
+        console.error('Error in /api/admin/upload:', error);
+        return res.status(500).json({ error: error.message });
+    }
+});
+
+// Dedicated PUT endpoint for docs
+app.put('/api/admin/cars/:id/docs', authenticateToken, requirePermission(PERMISSIONS.STOCK_WRITE), uploadDocs.any(), async (req, res) => {
+    try {
+        await connectDB();
+        const car = await Car.findById(req.params.id);
+        if (!car) return res.status(404).json({ error: 'Car not found' });
+
+        if (!car.documentationFiles) {
+            car.documentationFiles = {};
+        }
+
+        let updated = false;
+
+        if (req.files && req.files.length > 0) {
+            for (const file of req.files) {
+                // file.fieldname should be like 'tituloAutomotor', 'cedulaVerde', etc.
+                const validFields = ['tituloAutomotor', 'cedulaVerde', 'verificacionPolicial', 'informeDominio', 'formulario08', 'libreDeudaPatentes'];
+                if (validFields.includes(file.fieldname)) {
+                    car.documentationFiles[file.fieldname] = file.path;
+                    updated = true;
+                }
+            }
+        }
+
+        if (updated) {
+            car.markModified('documentationFiles');
+            car.auditLog.push({
+                action: 'EDICION',
+                field: 'documentationFiles',
+                oldValue: {},
+                newValue: car.documentationFiles,
+                details: `Archivos de documentación actualizados`,
+                user: req.user ? (req.user.email || req.user.role) : 'System',
+                source: 'CRM_V2'
+            });
+            await car.save();
+        }
+
+        return res.status(200).json({ 
+            message: 'Archivos actualizados',
+            documentationFiles: car.documentationFiles
+        });
+    } catch (error) {
+        console.error('Error in PUT /api/admin/cars/:id/docs:', error);
+        return res.status(500).json({ error: error.message });
+    }
+});
+
+app.delete('/api/admin/cars/:id/docs/:docKey', authenticateToken, requirePermission(PERMISSIONS.STOCK_WRITE), async (req, res) => {
+    try {
+        await connectDB();
+        const car = await Car.findById(req.params.id);
+        if (!car) return res.status(404).json({ error: 'Car not found' });
+
+        const docKey = req.params.docKey;
+        if (!car.documentationFiles || !car.documentationFiles[docKey]) {
+            return res.status(404).json({ error: 'Document not found' });
+        }
+
+        const deletedUrl = car.documentationFiles[docKey];
+        car.documentationFiles[docKey] = undefined;
+        car.markModified('documentationFiles');
+
+        car.auditLog.push({
+            action: 'EDICION',
+            field: 'documentationFiles',
+            oldValue: { [docKey]: deletedUrl },
+            newValue: car.documentationFiles,
+            details: `Archivo de documentación eliminado: ${docKey}`,
+            user: req.user ? (req.user.email || req.user.role) : 'System',
+            source: 'CRM_V2'
+        });
+
+        await car.save();
+        return res.status(200).json({ message: 'Documento eliminado', documentationFiles: car.documentationFiles });
+    } catch (error) {
+        console.error('Error in DELETE /api/admin/cars/:id/docs/:docKey:', error);
+        return res.status(500).json({ error: error.message });
+    }
+});
 // Dedicated PUT endpoint for images
 app.put('/api/admin/cars/:id/images', authenticateToken, requirePermission(PERMISSIONS.STOCK_WRITE), upload.array('images', 20), async (req, res) => {
     try {
@@ -4629,7 +4800,9 @@ app.patch('/api/admin/sales/:id', authenticateToken, requirePermission(PERMISSIO
             postSaleStatus,
             postSaleChecklist,
             postSaleNotes,
-            satisfactionRating
+            satisfactionRating,
+            commissionSettings,
+            saleExpenses
         } = req.body;
 
         const sale = await Sale.findById(req.params.id);
@@ -4710,6 +4883,34 @@ app.patch('/api/admin/sales/:id', authenticateToken, requirePermission(PERMISSIO
         if (depositAppliedCurrency !== undefined && depositAppliedCurrency !== sale.depositAppliedCurrency) {
             sale.depositAppliedCurrency = depositAppliedCurrency;
             hasChanges = true;
+        }
+
+        if (commissionSettings !== undefined) {
+            sale.commissionSettings = commissionSettings;
+            hasChanges = true;
+            sale.saleAuditLog.push({
+                action: 'COMISION_ACTUALIZADA',
+                field: 'commissionSettings',
+                oldValue: null,
+                newValue: commissionSettings,
+                details: 'Comisión del vendedor actualizada manualmente',
+                user: user,
+                source: 'CRM_V2'
+            });
+        }
+
+        if (saleExpenses !== undefined) {
+            sale.saleExpenses = saleExpenses;
+            hasChanges = true;
+            sale.saleAuditLog.push({
+                action: 'GASTOS_ACTUALIZADOS',
+                field: 'saleExpenses',
+                oldValue: null,
+                newValue: saleExpenses,
+                details: 'Gastos de venta actualizados',
+                user: user,
+                source: 'CRM_V2'
+            });
         }
 
         if (notes !== undefined && notes !== sale.notes) {
@@ -5305,7 +5506,7 @@ app.post('/api/admin/transactions', authenticateToken, requirePermission(PERMISS
     try {
         await connectDB();
         if (req.user && req.user.role === 'ventas') return res.status(403).json({ message: 'Sin permisos financieros' });
-        const { type, category, concept, amount, currency, paymentMethod, date, notes, saleId, reservationId, clientId, vehicleId, installmentId, payeeCompany, payeeVehicle } = req.body;
+        const { type, category, concept, amount, currency, paymentMethod, date, notes, status, saleId, reservationId, clientId, vehicleId, installmentId, payeeCompany, payeeVehicle, targetUser } = req.body;
 
         // Validations
         if (!type || !['ingreso', 'egreso'].includes(type)) return res.status(400).json({ message: 'Type is required and must be ingreso/egreso' });
@@ -5352,7 +5553,7 @@ app.post('/api/admin/transactions', authenticateToken, requirePermission(PERMISS
             date: date || new Date(),
             notes,
             accountId: account._id, // map to legacy required field
-            status: 'activo',
+            status: status || 'activo',
             saleId: saleId || undefined,
             reservationId: reservationId || undefined,
             clientId: clientId || undefined,
@@ -5360,6 +5561,7 @@ app.post('/api/admin/transactions', authenticateToken, requirePermission(PERMISS
             installmentId: installmentId || undefined,
             payeeCompany: payeeCompany || undefined,
             payeeVehicle: payeeVehicle || undefined,
+            targetUser: targetUser || undefined,
             createdBy: req.user?.username || 'Admin',
             transactionAuditLog: [{
                 action: 'CREACION_MANUAL',
@@ -5371,13 +5573,15 @@ app.post('/api/admin/transactions', authenticateToken, requirePermission(PERMISS
 
         const savedTx = await newTx.save();
 
-        // Update account balance
-        if (savedTx.type === 'Ingreso') {
-            account.balance += savedTx.amount;
-        } else {
-            account.balance -= savedTx.amount;
+        // Update account balance only if 'activo'
+        if (savedTx.status === 'activo') {
+            if (savedTx.type === 'Ingreso') {
+                account.balance += savedTx.amount;
+            } else {
+                account.balance -= savedTx.amount;
+            }
+            await account.save();
         }
-        await account.save();
 
         await logAudit({
             req,
@@ -5405,7 +5609,7 @@ app.patch('/api/admin/transactions/:id', authenticateToken, requirePermission(PE
     try {
         await connectDB();
         if (req.user && req.user.role === 'ventas') return res.status(403).json({ message: 'Sin permisos financieros' });
-        const { category, concept, paymentMethod, date, notes, status, saleId, reservationId, clientId, vehicleId, installmentId, payeeCompany, payeeVehicle } = req.body;
+        const { category, concept, paymentMethod, date, notes, status, saleId, reservationId, clientId, vehicleId, installmentId, payeeCompany, payeeVehicle, targetUser } = req.body;
 
         const tx = await Transaction.findOne({ _id: req.params.id, module: 'crm_v2' });
         if (!tx) return res.status(404).json({ message: 'Transaction not found' });
@@ -5415,6 +5619,11 @@ app.patch('/api/admin/transactions/:id', authenticateToken, requirePermission(PE
 
         if (category !== undefined && category !== tx.category) {
             tx.category = category;
+            hasChanges = true;
+        }
+
+        if (targetUser !== undefined && targetUser !== tx.targetUser) {
+            tx.targetUser = targetUser;
             hasChanges = true;
         }
 
@@ -5464,25 +5673,33 @@ app.patch('/api/admin/transactions/:id', authenticateToken, requirePermission(PE
         await updateLink('vehicleId', vehicleId, Car, 'Veh├¡culo');
         await updateLink('installmentId', installmentId, Installment, 'Cuota');
 
-        // Handle Annulment
-        if (status === 'anulado' && tx.status !== 'anulado') {
-            tx.status = 'anulado';
+        // Handle Status Transitions
+        if (status && status !== tx.status) {
+            const oldStatus = tx.status;
+            tx.status = status;
             tx.transactionAuditLog.push({
-                action: 'ANULACION',
+                action: status === 'anulado' ? 'ANULACION' : 'CAMBIO_ESTADO',
                 field: 'status',
-                oldValue: 'activo',
-                newValue: 'anulado',
-                details: 'Movimiento anulado manualmente',
+                oldValue: oldStatus,
+                newValue: status,
+                details: `Estado cambiado a ${status}`,
                 user: user,
                 source: 'CRM_V2'
             });
             hasChanges = true;
 
-            // Revert account balance
             const account = await Account.findById(tx.accountId);
             if (account) {
-                if (tx.type === 'Ingreso') account.balance -= tx.amount;
-                if (tx.type === 'Egreso') account.balance += tx.amount;
+                // If it was 'activo' and now is not, revert balance
+                if (oldStatus === 'activo') {
+                    if (tx.type === 'Ingreso') account.balance -= tx.amount;
+                    if (tx.type === 'Egreso') account.balance += tx.amount;
+                }
+                // If it is now 'activo', apply balance
+                if (status === 'activo') {
+                    if (tx.type === 'Ingreso') account.balance += tx.amount;
+                    if (tx.type === 'Egreso') account.balance -= tx.amount;
+                }
                 await account.save();
             }
         }
@@ -10756,6 +10973,33 @@ app.patch('/api/admin/settlements/:id', authenticateToken, requirePermission(PER
         res.json(updated);
     } catch (error) {
         console.error('PATCH /api/admin/settlements/:id error:', error);
+        res.status(500).json({ message: error.message });
+    }
+});
+
+app.delete('/api/admin/settlements/:id', authenticateToken, requirePermission(PERMISSIONS.LIQUIDACIONES_WRITE), async (req, res) => {
+    try {
+        const settlement = await Settlement.findById(req.params.id);
+        if (!settlement) return res.status(404).json({ message: 'Liquidación no encontrada' });
+        
+        if (settlement.status === 'pagada') {
+            return res.status(400).json({ message: 'No se puede eliminar una liquidación que ya fue pagada. Debe anularse o eliminarse el pago asociado primero.' });
+        }
+        
+        await Settlement.deleteOne({ _id: req.params.id });
+        
+        try {
+            await logAudit({
+                req, action: 'ELIMINACION', module: 'finanzas', entityId: req.params.id, entityType: 'Settlement',
+                description: `Liquidación ${settlement.period} de ${settlement.username} fue eliminada`
+            });
+        } catch (auditErr) {
+            console.error('Audit fail on settlement delete:', auditErr);
+        }
+        
+        res.json({ message: 'Liquidación eliminada' });
+    } catch (error) {
+        console.error('DELETE /api/admin/settlements/:id error:', error);
         res.status(500).json({ message: error.message });
     }
 });

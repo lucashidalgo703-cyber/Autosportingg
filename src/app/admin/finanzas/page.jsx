@@ -45,14 +45,18 @@ import ConciliacionTab from '../../../components/crm/finance/tabs/ConciliacionTa
 import AfipIvaTab from '../../../components/crm/finance/tabs/AfipIvaTab';
 import PagoEmpresasTab from '../../../components/crm/finance/tabs/PagoEmpresasTab';
 import SueldosTab from '../../../components/crm/finance/tabs/SueldosTab';
+import TallerTab from '../../../components/crm/finance/tabs/TallerTab';
+import ResumenGastosTab from '../../../components/crm/finance/tabs/ResumenGastosTab';
 
 
 const FINANCE_TABS = [
     { id: 'resumen', icon: '📊', label: 'Resumen' },
     { id: 'movimientos', icon: '🧾', label: 'Movimientos' },
+    { id: 'resumen-gastos', icon: '📉', label: 'Resumen Gastos' },
     { id: 'senas', icon: '🤝', label: 'Señas' },
     { id: 'gastos-personales', icon: '👤', label: 'Gastos Personales' },
     { id: 'sueldos', icon: '🧑‍💼', label: 'Sueldos' },
+    { id: 'taller', icon: '🔧', label: 'Taller / Mecánico' },
     { id: 'cuotas', icon: '📆', label: 'Cuotas' },
     { id: 'pagos', icon: '💸', label: 'Pagos Disp.' },
     { id: 'pago-empresas', icon: '🏢', label: 'Pago Empresas' },
@@ -255,7 +259,7 @@ function FinanzasPage() {
 
     const metrics = useMemo(() => {
         return allTransactions.reduce((acc, tx) => {
-            if (tx.status === 'anulado') return acc;
+            if (tx.status === 'anulado' || tx.status === 'pendiente') return acc;
             const currency = tx.currency === 'USD' ? 'USD' : 'ARS';
             const amount = getAmount(tx);
 
@@ -425,13 +429,16 @@ function FinanzasPage() {
         try {
             if (selectedTx) {
                 await updateTransaction(selectedTx._id, data);
+                toast.success('Movimiento actualizado correctamente');
             } else {
                 await createTransaction(data);
+                toast.success('Movimiento registrado correctamente');
             }
             await loadData();
             closeModal();
         } catch (err) {
             console.error(err.message);
+            toast.error(err.message || 'Error al registrar el movimiento');
         }
     };
 
@@ -463,11 +470,11 @@ function FinanzasPage() {
                             </button>
                             <button
                                 type="button"
-                                onClick={() => openTransactionModal({ type: 'ingreso', concept: 'Nuevo boleto', category: 'Boleto', paymentMethod: 'transferencia' })}
+                                onClick={() => openTransactionModal({ type: 'egreso', concept: 'Comisión', category: 'Comisiones', paymentMethod: 'transferencia', isCommission: true })}
                                 className="inline-flex h-10 items-center gap-2 rounded-xl bg-crm-red-gradient px-4 text-sm font-black text-white shadow-crm-shadow-red transition hover:opacity-95"
                             >
                                 <Plus size={16} />
-                                Nuevo Boleto
+                                Nueva Comisión
                             </button>
                         </>
                     }
@@ -572,7 +579,7 @@ function FinanzasPage() {
                         {activeTab === 'pagos' && <PagosDisponiblesTab accounts={accounts} />}
                         {activeTab === 'tarjeta' && <TarjetaTab accounts={accounts} />}
                         {activeTab === 'retiros' && <RetirosTab accounts={accounts} />}
-                        {activeTab === 'comisiones' && <ComisionesTab />}
+                        {activeTab === 'comisiones' && <ComisionesTab allTransactions={allTransactions} openTransactionModal={openTransactionModal} handleEditTransaction={handleEditTransaction} />}
                         {activeTab === 'rentabilidad' && <RentabilidadTab metrics={metrics} />}
                         {activeTab === 'cuentas' && <CuentasTab balances={balances} accounts={accounts} fetchAccounts={fetchAccounts} createAccount={createAccount} updateAccount={updateAccount} deleteAccount={deleteAccount} recalculateBalances={recalculateBalances} />}
                         {activeTab === 'cobrar-pagar' && <XCobrarPagarTab installments={installments} />}
@@ -592,6 +599,22 @@ function FinanzasPage() {
                                 onDelete={handleDeleteTransaction}
                             />
                         )}
+                        {activeTab === 'taller' && (
+                            <TallerTab
+                                allTransactions={allTransactions}
+                                onNew={() => openTransactionModal({ type: 'egreso', category: 'Taller', concept: 'Gasto de Taller / Mecánico' })}
+                                onEdit={handleEditTransaction}
+                                onDelete={handleDeleteTransaction}
+                            />
+                        )}
+                        {activeTab === 'resumen-gastos' && (
+                            <ResumenGastosTab
+                                allTransactions={allTransactions}
+                                onNew={() => openTransactionModal({ type: 'egreso', concept: '', category: '', paymentMethod: 'efectivo' })}
+                                onEdit={handleEditTransaction}
+                                onDelete={handleDeleteTransaction}
+                            />
+                        )}
                         {activeTab === 'pago-empresas' && (
                             <PagoEmpresasTab 
                                 allTransactions={allTransactions} 
@@ -601,6 +624,8 @@ function FinanzasPage() {
                                     toast.success('Pago a empresa registrado con éxito');
                                     await loadData();
                                 }} 
+                                onEdit={handleEditTransaction}
+                                onDelete={handleDeleteTransaction}
                             />
                         )}
                     </>

@@ -49,21 +49,25 @@ const getProgress = (days) => {
     const safeDays = Number(days || 0);
     return Math.min(100, Math.max(0, Math.round((safeDays / 60) * 100)));
 };
-const getListValue = (data) => {
-    const totals = data.reduce((acc, vehicle) => {
-        const currency = vehicle.moneda || 'ARS';
-        acc[currency] = (acc[currency] || 0) + Number(vehicle.precioPublicado || 0);
-        return acc;
-    }, {});
-
-    const parts = [];
-    if (totals.USD > 0) parts.push(`USD ${formatNumber(totals.USD)}`);
-    if (totals.ARS > 0) parts.push(`ARS ${formatNumber(totals.ARS)}`);
+const getListValue = (data, filteredTotalUSD, filteredTotalARS, dolarBlue) => {
+    let totalARS = 0;
     
-    return parts.length > 0 ? parts.join(' + ') : '--';
+    if (filteredTotalUSD !== undefined && filteredTotalARS !== undefined) {
+        totalARS = filteredTotalARS + (filteredTotalUSD * (dolarBlue || 1));
+    } else {
+        const totals = data.reduce((acc, vehicle) => {
+            const currency = vehicle.moneda || 'ARS';
+            acc[currency] = (acc[currency] || 0) + Number(vehicle.precioPublicado || 0);
+            return acc;
+        }, {});
+        totalARS = (totals.ARS || 0) + ((totals.USD || 0) * (dolarBlue || 1));
+    }
+
+    if (totalARS === 0) return '--';
+    return `ARS ${formatNumber(Math.round(totalARS))}`;
 };
 
-export default function StockTable({ data, onEditML, onDelete, onPrint, onSwap, isSwapping, currentPage = 1, totalPages = 1, onReserve, totalItems }) {
+export default function StockTable({ data, onEditML, onDelete, onPrint, onSwap, isSwapping, currentPage = 1, totalPages = 1, onReserve, totalItems, filteredTotalUSD, filteredTotalARS, dolarBlue }) {
     const columns = [
         {
             label: 'Orden',
@@ -75,25 +79,30 @@ export default function StockTable({ data, onEditML, onDelete, onPrint, onSwap, 
                 const isLastRowOnLastPage = currentPage === totalPages && rowIndex === data.length - 1;
 
                 return (
-                    <div className="flex items-center justify-center gap-1">
-                        <button
-                            type="button"
-                            disabled={isFirstRowOnFirstPage || isSwapping}
-                            onClick={() => onSwap && onSwap(rowIndex, 'up')}
-                            className="flex h-7 w-7 items-center justify-center rounded-lg border border-crm-border bg-transparent text-crm-fg hover:bg-crm-surface-raised cursor-pointer transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
-                            title="Subir posición"
-                        >
-                            ▲
-                        </button>
-                        <button
-                            type="button"
-                            disabled={isLastRowOnLastPage || isSwapping}
-                            onClick={() => onSwap && onSwap(rowIndex, 'down')}
-                            className="flex h-7 w-7 items-center justify-center rounded-lg border border-crm-border bg-transparent text-crm-fg hover:bg-crm-surface-raised cursor-pointer transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
-                            title="Bajar posición"
-                        >
-                            ▼
-                        </button>
+                    <div className="flex items-center justify-center gap-2">
+                        <span className="text-xs font-bold text-crm-fg-muted min-w-[20px] text-right">
+                            {(currentPage - 1) * 20 + rowIndex + 1}
+                        </span>
+                        <div className="flex items-center justify-center gap-1">
+                            <button
+                                type="button"
+                                disabled={isFirstRowOnFirstPage || isSwapping}
+                                onClick={() => onSwap && onSwap(rowIndex, 'up')}
+                                className="flex h-7 w-7 items-center justify-center rounded-lg border border-crm-border bg-transparent text-crm-fg hover:bg-crm-surface-raised cursor-pointer transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+                                title="Subir posición"
+                            >
+                                ▲
+                            </button>
+                            <button
+                                type="button"
+                                disabled={isLastRowOnLastPage || isSwapping}
+                                onClick={() => onSwap && onSwap(rowIndex, 'down')}
+                                className="flex h-7 w-7 items-center justify-center rounded-lg border border-crm-border bg-transparent text-crm-fg hover:bg-crm-surface-raised cursor-pointer transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+                                title="Bajar posición"
+                            >
+                                ▼
+                            </button>
+                        </div>
                     </div>
                 );
             }
@@ -234,7 +243,7 @@ export default function StockTable({ data, onEditML, onDelete, onPrint, onSwap, 
                 <div className="rounded-xl border border-crm-border bg-crm-surface p-3 text-sm font-semibold text-crm-fg">
                     {totalItems || data.length} {(totalItems || data.length) === 1 ? 'vehículo' : 'vehículos'} en lista
                     <span className="mx-1 text-crm-fg-muted">·</span>
-                    <span>{getListValue(data)}</span>
+                    <span>{getListValue(data, filteredTotalUSD, filteredTotalARS, dolarBlue)}</span>
                 </div>
             )}
             

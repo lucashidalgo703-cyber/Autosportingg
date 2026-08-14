@@ -3,7 +3,7 @@ import { Plus, Building2 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import CompanyPaymentModal from '../CompanyPaymentModal';
 
-export default function PagoEmpresasTab({ allTransactions = [], accounts = [], onCreatePayment }) {
+export default function PagoEmpresasTab({ allTransactions = [], accounts = [], onCreatePayment, onEdit, onDelete }) {
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -75,12 +75,13 @@ export default function PagoEmpresasTab({ allTransactions = [], accounts = [], o
                                 <th className="px-4 py-3 text-[10px] font-black uppercase tracking-wider text-crm-fg-muted">Empresa Receptora</th>
                                 <th className="px-4 py-3 text-[10px] font-black uppercase tracking-wider text-crm-fg-muted">Vehículo Vinculado</th>
                                 <th className="px-4 py-3 text-[10px] font-black uppercase tracking-wider text-crm-fg-muted">Monto</th>
+                                <th className="px-4 py-3 text-[10px] font-black uppercase tracking-wider text-crm-fg-muted text-center">Acciones</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-crm-border">
                             {companyPayments.length === 0 ? (
                                 <tr>
-                                    <td colSpan={4} className="p-8 text-center">
+                                    <td colSpan={5} className="p-8 text-center">
                                         <div className="flex flex-col items-center justify-center gap-3">
                                             <div className="h-12 w-12 rounded-full bg-crm-bg flex items-center justify-center mb-2">
                                                 <Building2 className="text-crm-fg-muted" size={24} />
@@ -99,6 +100,12 @@ export default function PagoEmpresasTab({ allTransactions = [], accounts = [], o
                                             {tx.payeeVehicle || '—'}
                                         </td>
                                         <td className="px-4 py-3 text-sm font-bold text-crm-fg">{formatMoney(tx.amount, tx.currency)}</td>
+                                        <td className="px-4 py-3 text-center">
+                                            <div className="flex items-center justify-center gap-3">
+                                                <button onClick={() => onEdit && onEdit(tx)} className="text-[11px] font-bold text-crm-fg-muted hover:text-crm-red transition">Editar</button>
+                                                <button onClick={() => onDelete && onDelete(tx)} className="text-[11px] font-bold text-crm-fg-muted hover:text-crm-red transition">Anular</button>
+                                            </div>
+                                        </td>
                                     </tr>
                                 ))
                             )}

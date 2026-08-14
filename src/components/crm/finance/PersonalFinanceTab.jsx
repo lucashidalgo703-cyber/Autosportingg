@@ -1,6 +1,6 @@
 import toast from 'react-hot-toast';
 import React, { useState, useEffect, useMemo } from 'react';
-import { Plus, Wallet, FileText, Trash2, Edit, RefreshCw } from 'lucide-react';
+import { Plus, Wallet, FileText, Trash2, Edit, RefreshCw, Calendar } from 'lucide-react';
 import { useAdminPersonalFinance } from '../../../hooks/useAdminPersonalFinance';
 import PersonalTransactionModal from './PersonalTransactionModal';
 import ConfirmModal from '../ui/ConfirmModal';
@@ -147,7 +147,25 @@ export default function PersonalFinanceTab() {
         loadData();
     }, []);
 
-    const metrics = useMemo(() => {
+    const monthMetrics = useMemo(() => {
+        return filteredTransactions.reduce((acc, tx) => {
+            const currency = tx.currency;
+            const amount = Number(tx.amount || 0);
+
+            if (tx.type === 'ingreso') {
+                acc[currency].income += amount;
+            } else if (tx.type === 'egreso') {
+                acc[currency].expense += amount;
+            }
+
+            return acc;
+        }, {
+            ARS: { income: 0, expense: 0 },
+            USD: { income: 0, expense: 0 }
+        });
+    }, [filteredTransactions]);
+
+    const historicalMetrics = useMemo(() => {
         return transactions.reduce((acc, tx) => {
             const currency = tx.currency;
             const amount = Number(tx.amount || 0);
@@ -166,9 +184,9 @@ export default function PersonalFinanceTab() {
     }, [transactions]);
 
     const balances = useMemo(() => ({
-        ARS: metrics.ARS.income - metrics.ARS.expense,
-        USD: metrics.USD.income - metrics.USD.expense
-    }), [metrics]);
+        ARS: monthMetrics.ARS.income - monthMetrics.ARS.expense,
+        USD: monthMetrics.USD.income - monthMetrics.USD.expense
+    }), [monthMetrics]);
 
     const handleSave = async (data) => {
         try {
@@ -246,7 +264,7 @@ export default function PersonalFinanceTab() {
                     <div className="mb-5 flex items-start justify-between gap-3">
                         <div>
                             <h2 className="text-base font-black text-white">💰 Gastos Personales</h2>
-                            <p className="mt-1 text-xs text-neutral-400">Total acumulado en tu caja independiente.</p>
+                            <p className="mt-1 text-xs text-neutral-400">Balance del mes seleccionado.</p>
                         </div>
                         <Wallet className="text-blue-500" size={20} />
                     </div>
@@ -294,13 +312,13 @@ export default function PersonalFinanceTab() {
                             <div className="rounded-xl bg-black border border-neutral-800 p-3">
                                 <p className="text-[10px] font-bold text-neutral-500 uppercase tracking-wider mb-0.5">Ingresos {chartCurrency}</p>
                                 <p className="text-base font-black text-green-500">
-                                    {formatMoney(metrics[chartCurrency].income, chartCurrency)}
+                                    {formatMoney(historicalMetrics[chartCurrency].income, chartCurrency)}
                                 </p>
                             </div>
                             <div className="rounded-xl bg-black border border-neutral-800 p-3">
                                 <p className="text-[10px] font-bold text-neutral-500 uppercase tracking-wider mb-0.5">Egresos {chartCurrency}</p>
                                 <p className="text-base font-black text-crm-red">
-                                    {formatMoney(metrics[chartCurrency].expense, chartCurrency)}
+                                    {formatMoney(historicalMetrics[chartCurrency].expense, chartCurrency)}
                                 </p>
                             </div>
                         </div>
@@ -316,12 +334,15 @@ export default function PersonalFinanceTab() {
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                 <div className="flex items-center gap-4">
                     <h3 className="text-lg font-bold text-white">Movimientos</h3>
-                    <input 
-                        type="month"
-                        value={monthFilter}
-                        onChange={(e) => setMonthFilter(e.target.value)}
-                        className="bg-black border border-neutral-800 rounded-lg px-3 py-1.5 text-sm text-white focus:outline-none focus:border-neutral-600"
-                    />
+                    <div className="relative group">
+                        <Calendar size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-400 group-hover:text-white transition-colors pointer-events-none" />
+                        <input 
+                            type="month"
+                            value={monthFilter}
+                            onChange={(e) => setMonthFilter(e.target.value)}
+                            className="bg-black border border-neutral-800 rounded-lg pl-9 pr-3 py-1.5 text-sm text-white focus:outline-none focus:border-neutral-600 cursor-pointer [&::-webkit-calendar-picker-indicator]:invert [&::-webkit-calendar-picker-indicator]:opacity-50 hover:[&::-webkit-calendar-picker-indicator]:opacity-100 [&::-webkit-calendar-picker-indicator]:cursor-pointer transition-all"
+                        />
+                    </div>
                 </div>
                 <div className="flex flex-wrap gap-2">
                     <button
