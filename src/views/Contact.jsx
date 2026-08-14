@@ -169,13 +169,13 @@ const Contact = () => {
 
                             <div className="map-container mt-4 rounded-[var(--radius-lg)] overflow-hidden border border-[rgba(255,255,255,0.05)]">
                                 <iframe 
-                                    src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d2938.8315053229864!2d-67.502931!3d-45.864392!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x0%3A0x0!2zNDXCsDUxJzUxLjgiUyA2N8KwMzAnMTAuNiJX!5e0!3m2!1ses-419!2sar!4v1620000000000!5m2!1ses-419!2sar" 
+                                    src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d2777.3546194496853!2d-67.52193162293354!3d-45.88422023685264!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0xbde454b78eb5ec87%3A0x6645ddc8d2a68ec0!2sAutoSporting!5e0!3m2!1ses-419!2sar!4v1786744154484!5m2!1ses-419!2sar" 
                                     width="100%" 
                                     height="300" 
                                     style={{ border: 0 }} 
                                     allowFullScreen="" 
                                     loading="lazy" 
-                                    referrerPolicy="no-referrer-when-downgrade"
+                                    referrerPolicy="strict-origin-when-cross-origin"
                                     title="Ubicación AutoSporting"
                                 ></iframe>
                             </div>
