@@ -57,7 +57,6 @@ const CategoryNav = ({ cars = [] }) => {
                 {cat.icon}
               </div>
               <span className="category-label">{cat.label}</span>
-              <span className="category-count">{cat.count} {cat.count === 1 ? 'vehículo' : 'vehículos'}</span>
               <div className="category-hover-effect"></div>
             </Link>
           </motion.div>
@@ -123,12 +122,6 @@ const CategoryNav = ({ cars = [] }) => {
           font-family: var(--font-title);
         }
         
-        .category-count {
-            color: var(--c-ivory-muted);
-            font-size: 0.85rem;
-            z-index: 2;
-            font-weight: 500;
-        }
 
         .category-hover-effect {
           position: absolute;
