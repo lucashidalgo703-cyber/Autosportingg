@@ -71,6 +71,12 @@ const Contact = () => {
 
             if (response.ok) {
                 trackEvent('lead_success', { intent: formData.subject });
+                
+                const agencyPhone = "5492974045378";
+                const whatsappMessage = `Hola AutoSporting! Mi nombre es ${formData.name}.\n\nAsunto: ${formData.subject}\n\nMensaje: ${formData.message}\n\nMi teléfono: ${formData.phone}\nMi email: ${formData.email}`;
+                const whatsappUrl = `https://wa.me/${agencyPhone}?text=${encodeURIComponent(whatsappMessage)}`;
+                window.open(whatsappUrl, '_blank');
+
                 setStatus('success');
                 setFormData({ name: '', email: '', phone: '', subject: 'Consulta General', message: '', honeypot: '', consent: false });
                 setTimeout(() => setStatus('idle'), 5000);
