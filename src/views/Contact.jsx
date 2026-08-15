@@ -39,10 +39,6 @@ const Contact = () => {
             return;
         }
 
-        if (!formData.consent) {
-            alert('Debes aceptar los términos y condiciones');
-            return;
-        }
 
         if (status === 'submitting') return;
         setStatus('submitting');
