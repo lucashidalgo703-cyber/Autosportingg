@@ -39,7 +39,7 @@ const Testimonials = () => {
                 </div>
 
                 <a 
-                    href="https://maps.google.com" 
+                    href="https://www.google.com/maps/search/?api=1&query=AutoSporting+Comodoro+Rivadavia" 
                     target="_blank" 
                     rel="noopener noreferrer" 
                     className="btn btn-primary inline-flex gap-2"
