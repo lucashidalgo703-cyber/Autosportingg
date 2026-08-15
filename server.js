@@ -2503,6 +2503,7 @@ app.post('/api/public/analytics/events', async (req, res) => {
 // POST new lead from public website (No Authentication Required)
 app.post('/api/leads/public', async (req, res) => {
     try {
+        await connectDB();
         const { name, phone, message, vehicleId, email, sourceDetail, utmSource, utmMedium, utmCampaign, pageUrl } = req.body;
 
         // Basic validations
