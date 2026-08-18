@@ -53,9 +53,11 @@ export default function AdminStockPage() {
     const [confirmDeleteMandate, setConfirmDeleteMandate] = useState({ isOpen: false, mandate: null });
     const { mandates, fetchMandates, deleteMandate } = useAdminMandates();
     const [dolarBlue, setDolarBlue] = useState(null);
+    const [isDolarLoading, setIsDolarLoading] = useState(true);
     const [isSwapping, setIsSwapping] = useState(false);
 
     useEffect(() => {
+        setIsDolarLoading(true);
         fetch('https://dolarapi.com/v1/dolares/blue')
             .then(res => res.json())
             .then(data => {
@@ -63,7 +65,8 @@ export default function AdminStockPage() {
                     setDolarBlue(data.venta);
                 }
             })
-            .catch(err => console.error('Error fetching dolar blue:', err));
+            .catch(err => console.error('Error fetching dolar blue:', err))
+            .finally(() => setIsDolarLoading(false));
             
         fetchMandates();
     }, [fetchMandates]);
@@ -443,12 +446,16 @@ export default function AdminStockPage() {
                             Capital Total Agencia:
                         </span>
                         <span className="font-semibold text-crm-fg flex items-center gap-2">
-                            <span>
-                                USD {Math.round(
-                                    (stockSummary.valorActivoUSD || 0) + 
-                                    (dolarBlue && stockSummary.valorActivoARS ? stockSummary.valorActivoARS / dolarBlue : 0)
-                                ).toLocaleString('es-AR')}
-                            </span>
+                            {isDolarLoading ? (
+                                <span className="h-4 w-4 animate-spin rounded-full border-2 border-crm-border border-b-crm-red" />
+                            ) : stockSummary.valorActivoUSD > 0 || (stockSummary.valorActivoARS > 0 && dolarBlue) ? (
+                                <span>
+                                    USD {Math.round(
+                                        (stockSummary.valorActivoUSD || 0) + 
+                                        (dolarBlue && stockSummary.valorActivoARS ? stockSummary.valorActivoARS / dolarBlue : 0)
+                                    ).toLocaleString('es-AR')}
+                                </span>
+                            ) : '--'}
                         </span>
                     </div>
                     
@@ -458,17 +465,25 @@ export default function AdminStockPage() {
                         </span>
                         <div className="flex flex-col">
                             <span className="font-semibold text-blue-400 flex items-center gap-2 text-sm leading-tight" title="Expectativa de Venta (Valor Activo)">
-                                USD {Math.round(
-                                    (stockSummary.valorActivoInversionistasUSD || 0) + 
-                                    (dolarBlue && stockSummary.valorActivoInversionistasARS ? stockSummary.valorActivoInversionistasARS / dolarBlue : 0)
-                                ).toLocaleString('es-AR')}
+                                {isDolarLoading ? (
+                                    <span className="h-4 w-4 animate-spin rounded-full border-2 border-blue-400/30 border-b-blue-400" />
+                                ) : (
+                                    `USD ${Math.round(
+                                        (stockSummary.valorActivoInversionistasUSD || 0) + 
+                                        (dolarBlue && stockSummary.valorActivoInversionistasARS ? stockSummary.valorActivoInversionistasARS / dolarBlue : 0)
+                                    ).toLocaleString('es-AR')}`
+                                )}
                             </span>
                             {(stockSummary.capitalInvertidoInversionistasUSD > 0 || stockSummary.capitalInvertidoInversionistasARS > 0) && (
                                 <span className="text-[10px] text-blue-400/60 leading-tight" title="Capital Inicial Invertido (Costo de Compra)">
-                                    Invertido: USD {Math.round(
-                                        stockSummary.capitalInvertidoInversionistasUSD + 
-                                        (dolarBlue ? stockSummary.capitalInvertidoInversionistasARS / dolarBlue : 0)
-                                    ).toLocaleString('es-AR')}
+                                    {isDolarLoading ? (
+                                        'Calculando...'
+                                    ) : (
+                                        `Invertido: USD ${Math.round(
+                                            (stockSummary.capitalInvertidoInversionistasUSD || 0) + 
+                                            (dolarBlue && stockSummary.capitalInvertidoInversionistasARS ? stockSummary.capitalInvertidoInversionistasARS / dolarBlue : 0)
+                                        ).toLocaleString('es-AR')}`
+                                    )}
                                 </span>
                             )}
                         </div>
