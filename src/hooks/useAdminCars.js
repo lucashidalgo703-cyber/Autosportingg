@@ -99,9 +99,7 @@ export const useAdminCars = () => {
         }
     }, [logout]);
 
-    useEffect(() => {
-        fetchCars();
-    }, []);
+
 
     const deleteCar = async (id) => {
         try {
