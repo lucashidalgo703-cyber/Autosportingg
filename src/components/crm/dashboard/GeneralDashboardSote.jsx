@@ -267,7 +267,8 @@ function StockOverviewPanel({ counts }) {
 
 function MonthlyGainPanel({ selectedDate = new Date(), historicalProfits = [] }) {
     const defaultProfits = Array(12).fill(0);
-    const profits = historicalProfits.length === 12 ? historicalProfits : defaultProfits;
+    // Ensure all profits are valid numbers to prevent NaN cascading and crashing React
+    const profits = (historicalProfits.length === 12 ? historicalProfits : defaultProfits).map(p => isNaN(p) ? 0 : Number(p));
     
     // Generate dynamic months (last 11 months + current month)
     const months = Array.from({ length: 12 }).map((_, i) => {
@@ -275,11 +276,11 @@ function MonthlyGainPanel({ selectedDate = new Date(), historicalProfits = [] })
         d.setMonth(d.getMonth() - (11 - i));
         return {
             name: d.toLocaleDateString('es-AR', { month: 'short', year: '2-digit' }).toUpperCase(),
-            profit: profits[i] || 0
+            profit: Math.max(0, profits[i] || 0) // Ensure no negative or NaN values reach the UI
         };
     });
 
-    const maxProfit = Math.max(...profits, 1000);
+    const maxProfit = Math.max(...months.map(m => m.profit), 1000);
 
     return (
         <Panel title="ÚLTIMOS 12 MESES · GANANCIA USD" icon={TrendingUp} className="min-h-[329px]">
@@ -291,7 +292,8 @@ function MonthlyGainPanel({ selectedDate = new Date(), historicalProfits = [] })
             <p className="mb-5 text-xs text-crm-fg-muted">Max 12m: USD {formatCurrency(maxProfit)}</p>
             <div className="flex h-32 items-end gap-2 border-b border-crm-border pb-3">
                 {months.map((month, index) => {
-                    const heightPercent = Math.max(10, Math.min(100, (month.profit / maxProfit) * 100));
+                    const ratio = maxProfit > 0 ? (month.profit / maxProfit) : 0;
+                    const heightPercent = Math.max(10, Math.min(100, ratio * 100)) || 10;
                     const isCurrent = index === 11;
                     const hasProfit = month.profit > 0;
 

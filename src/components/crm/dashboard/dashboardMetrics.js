@@ -52,6 +52,7 @@ export function calculateDashboardMetrics(cars = []) {
         // --- 2. Active Capital ---
         // Match stock section logic: only 'disponible' and discount investor percentage
         const isDisponible = status === 'disponible';
+        const isActive = activeStatuses.includes(status);
         const isAgencyOwned = car.agencyOwned !== false;
         
         if (isDisponible && isAgencyOwned) {
