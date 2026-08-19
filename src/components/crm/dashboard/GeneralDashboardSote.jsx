@@ -476,16 +476,16 @@ export default function GeneralDashboardSote({ metrics, canSeeFinancials = false
     const primaryCards = [
         {
             label: 'Revenue del mes',
-            value: `ARS ${formatCurrency(estimatedMarginArs)}`,
-            detail: `${counts.vendidos || 0} operaciones`,
+            value: `USD ${formatCurrency(estimatedMarginUsd)}`,
+            detail: `+ ARS ${formatCurrency(estimatedMarginArs)}`,
             icon: DollarSign,
             tone: 'green',
             href: '/admin/ventas'
         },
         {
             label: 'Stock activo',
-            value: `ARS ${formatCurrency(activeCapitalArs)}`,
-            detail: `${activeStock} vehiculos · ${counts.disponibles || 0} disp.`,
+            value: `USD ${formatCurrency(activeCapitalUsd)}`,
+            detail: `+ ARS ${formatCurrency(activeCapitalArs)} · ${activeStock} veh.`,
             icon: Warehouse,
             tone: 'blue',
             href: '/admin/stock'
