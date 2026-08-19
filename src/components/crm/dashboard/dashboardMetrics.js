@@ -50,17 +50,25 @@ export function calculateDashboardMetrics(cars = []) {
         else metrics.counts.ocultos++;
 
         // --- 2. Active Capital ---
-        const isActive = activeStatuses.includes(status);
+        // Match stock section logic: only 'disponible' and discount investor percentage
+        const isDisponible = status === 'disponible';
         const isAgencyOwned = car.agencyOwned !== false;
-        if (isActive && isAgencyOwned) {
+        
+        if (isDisponible && isAgencyOwned) {
+            let agencyPercentage = 100;
+            if (car.isSharedInvestment && car.investor && car.investor.percentage) {
+                agencyPercentage = 100 - Number(car.investor.percentage);
+            }
+
             // Price
             if (car.price !== undefined && car.price !== null && car.price > 0) {
                 const currency = (car.currency === 'U$S' || car.currency === 'USD') ? 'USD' : (car.currency === '$' || car.currency === 'ARS') ? 'ARS' : car.currency;
+                const valueToAdd = Number(car.price) * (agencyPercentage / 100);
 
-                if (currency === 'USD') metrics.capitalPublicado.USD += Number(car.price);
-                else if (currency === 'ARS') metrics.capitalPublicado.ARS += Number(car.price);
+                if (currency === 'USD') metrics.capitalPublicado.USD += valueToAdd;
+                else if (currency === 'ARS') metrics.capitalPublicado.ARS += valueToAdd;
                 else {
-                    metrics.capitalPublicado.NONE += Number(car.price);
+                    metrics.capitalPublicado.NONE += valueToAdd;
                     metrics.unidadesSinMoneda++;
                 }
             }
@@ -68,10 +76,11 @@ export function calculateDashboardMetrics(cars = []) {
             // Purchase Price
             if (car.purchasePrice !== undefined && car.purchasePrice !== null && car.purchasePrice > 0) {
                 const purchaseCurrency = (car.purchaseCurrency === 'U$S' || car.purchaseCurrency === 'USD') ? 'USD' : (car.purchaseCurrency === '$' || car.purchaseCurrency === 'ARS') ? 'ARS' : car.purchaseCurrency;
+                const costToAdd = Number(car.purchasePrice) * (agencyPercentage / 100);
 
-                if (purchaseCurrency === 'USD') metrics.capitalCosto.USD += Number(car.purchasePrice);
-                else if (purchaseCurrency === 'ARS') metrics.capitalCosto.ARS += Number(car.purchasePrice);
-                else metrics.capitalCosto.NONE += Number(car.purchasePrice);
+                if (purchaseCurrency === 'USD') metrics.capitalCosto.USD += costToAdd;
+                else if (purchaseCurrency === 'ARS') metrics.capitalCosto.ARS += costToAdd;
+                else metrics.capitalCosto.NONE += costToAdd;
             }
         }
 
