@@ -283,13 +283,13 @@ function MonthlySalesPanel({ selectedDate = new Date(), historicalSales = [] }) 
     const maxSales = Math.max(...months.map(m => m.amount), 1000);
 
     return (
-        <Panel title="ÚLTIMOS 12 MESES · VENTAS USD" icon={TrendingUp} className="min-h-[329px]">
+        <Panel title="ÚLTIMOS 12 MESES · VENTAS ARS" icon={TrendingUp} className="min-h-[329px]">
             <div className="mb-4 flex flex-wrap gap-2">
                 <span className="rounded-md bg-crm-surface-raised px-2 py-1 text-[10px] font-bold uppercase text-crm-fg-muted">Mes actual</span>
                 <span className="rounded-md bg-emerald-500/10 px-2 py-1 text-[10px] font-bold uppercase text-emerald-300">Con ventas</span>
                 <span className="rounded-md bg-crm-bg px-2 py-1 text-[10px] font-bold uppercase text-crm-fg-muted">Sin operaciones</span>
             </div>
-            <p className="mb-5 text-xs text-crm-fg-muted">Max 12m: USD {formatCurrency(maxSales)}</p>
+            <p className="mb-5 text-xs text-crm-fg-muted">Max 12m: ARS {formatCurrency(maxSales)}</p>
             <div className="flex h-32 items-end gap-2 border-b border-crm-border pb-3">
                 {months.map((month, index) => {
                     const ratio = maxSales > 0 ? (month.amount / maxSales) : 0;
@@ -654,7 +654,7 @@ export default function GeneralDashboardSote({ metrics, canSeeFinancials = false
             {canSeeFinancials && <CashProjectionPanel metrics={metrics} hideAmounts={hideAmounts} />}
             <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
                 <StockOverviewPanel counts={counts} />
-                <MonthlySalesPanel selectedDate={selectedDate} historicalSales={metrics.historicalSalesUSD} />
+                <MonthlySalesPanel selectedDate={selectedDate} historicalSales={metrics.historicalSalesARS} />
             </div>
             <AnnualSummaryPanel soldCount={counts.vendidos || 0} hideAmounts={hideAmounts} />
             <LeadResponsePanel />
