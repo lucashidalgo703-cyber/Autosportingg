@@ -119,6 +119,7 @@ export default function AdminDashboardPage() {
                             canSeeFinancials={hasPermission(user, PERMISSIONS.FINANZAS_READ) && !hideAmounts}
                             user={user}
                             hideAmounts={hideAmounts}
+                            selectedDate={selectedDate}
                         />
                     )
             ) : (

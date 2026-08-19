@@ -265,29 +265,43 @@ function StockOverviewPanel({ counts }) {
     );
 }
 
-function MonthlyGainPanel({ selectedDate = new Date() }) {
+function MonthlyGainPanel({ selectedDate = new Date(), historicalProfits = [] }) {
+    const defaultProfits = Array(12).fill(0);
+    const profits = historicalProfits.length === 12 ? historicalProfits : defaultProfits;
+    
     // Generate dynamic months (last 11 months + current month)
     const months = Array.from({ length: 12 }).map((_, i) => {
         const d = new Date(selectedDate);
         d.setMonth(d.getMonth() - (11 - i));
-        return d.toLocaleDateString('es-AR', { month: 'short', year: '2-digit' }).toUpperCase();
+        return {
+            name: d.toLocaleDateString('es-AR', { month: 'short', year: '2-digit' }).toUpperCase(),
+            profit: profits[i] || 0
+        };
     });
+
+    const maxProfit = Math.max(...profits, 1000);
 
     return (
         <Panel title="ÚLTIMOS 12 MESES · GANANCIA USD" icon={TrendingUp} className="min-h-[329px]">
             <div className="mb-4 flex flex-wrap gap-2">
                 <span className="rounded-md bg-crm-surface-raised px-2 py-1 text-[10px] font-bold uppercase text-crm-fg-muted">Mes actual</span>
-                <span className="rounded-md bg-emerald-500/10 px-2 py-1 text-[10px] font-bold uppercase text-emerald-300">Superó obj</span>
-                <span className="rounded-md bg-crm-bg px-2 py-1 text-[10px] font-bold uppercase text-crm-fg-muted">Mes normal</span>
+                <span className="rounded-md bg-emerald-500/10 px-2 py-1 text-[10px] font-bold uppercase text-emerald-300">Con ganancia</span>
+                <span className="rounded-md bg-crm-bg px-2 py-1 text-[10px] font-bold uppercase text-crm-fg-muted">Sin operaciones</span>
             </div>
-            <p className="mb-5 text-xs text-crm-fg-muted">Objetivo USD 110k no visible - max 12m: USD 0k</p>
+            <p className="mb-5 text-xs text-crm-fg-muted">Max 12m: USD {formatCurrency(maxProfit)}</p>
             <div className="flex h-32 items-end gap-2 border-b border-crm-border pb-3">
-                {months.map((month, index) => (
-                    <div key={month} className="flex flex-1 flex-col items-center gap-2">
-                        <div className={`w-full rounded-t-md ${index === months.length - 1 ? 'h-6 bg-crm-red/70' : 'h-3 bg-crm-surface-raised'}`} />
-                        <span className="text-center text-[9px] font-semibold leading-tight text-crm-fg-muted">{month}</span>
-                    </div>
-                ))}
+                {months.map((month, index) => {
+                    const heightPercent = Math.max(10, Math.min(100, (month.profit / maxProfit) * 100));
+                    const isCurrent = index === 11;
+                    const hasProfit = month.profit > 0;
+
+                    return (
+                        <div key={month.name + index} className="flex flex-1 flex-col items-center gap-2">
+                            <div className={`w-full rounded-t-md ${isCurrent ? 'bg-crm-red/70' : hasProfit ? 'bg-emerald-500/50' : 'bg-crm-surface-raised'}`} style={{ height: `${hasProfit || isCurrent ? heightPercent : 10}%` }} />
+                            <span className="text-center text-[9px] font-semibold leading-tight text-crm-fg-muted">{month.name}</span>
+                        </div>
+                    );
+                })}
             </div>
         </Panel>
     );
@@ -463,7 +477,7 @@ function LastOperationsPanel() {
     );
 }
 
-export default function GeneralDashboardSote({ metrics, canSeeFinancials = false, user, hideAmounts = false }) {
+export default function GeneralDashboardSote({ metrics, canSeeFinancials = false, user, hideAmounts = false, selectedDate }) {
     const [showSalesModal, setShowSalesModal] = useState(false);
     const counts = metrics.counts || {};
     const alertCount = (metrics.alertas?.alerta60?.length || 0) + (metrics.alertas?.alerta90?.length || 0);
@@ -638,7 +652,7 @@ export default function GeneralDashboardSote({ metrics, canSeeFinancials = false
             {canSeeFinancials && <CashProjectionPanel metrics={metrics} hideAmounts={hideAmounts} />}
             <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
                 <StockOverviewPanel counts={counts} />
-                <MonthlyGainPanel />
+                <MonthlyGainPanel selectedDate={selectedDate} historicalProfits={metrics.historicalProfitsUSD} />
             </div>
             <AnnualSummaryPanel soldCount={counts.vendidos || 0} hideAmounts={hideAmounts} />
             <LeadResponsePanel />

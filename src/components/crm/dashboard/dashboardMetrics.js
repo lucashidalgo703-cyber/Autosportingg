@@ -181,6 +181,7 @@ export function calculateDashboardMetrics(cars = []) {
         metrics.counts.vendidos = 0;
         let realMarginARS = 0;
         let realMarginUSD = 0;
+        metrics.historicalProfitsUSD = Array(12).fill(0);
 
         const salesDetails = [];
 
@@ -191,37 +192,37 @@ export function calculateDashboardMetrics(cars = []) {
             const status = (sale.status || '').toLowerCase();
             const isValidStatus = status !== 'cancelada' && status !== 'borrador';
 
-            if (saleDate.getMonth() === targetMonth && saleDate.getFullYear() === targetYear) {
-                if (isValidStatus) {
-                    metrics.counts.vendidos++;
-                    
-                    // Si vehicleId es un objeto (populate), usar sus datos directo
-                    const isPopulated = sale.vehicleId && typeof sale.vehicleId === 'object';
-                    const carIdStr = isPopulated ? sale.vehicleId._id : sale.vehicleId;
-                    // Buscar en stock por si necesitamos datos que no vinieron populados
-                    const carFromStock = carIdStr ? cars.find(c => String(c._id) === String(carIdStr)) : null;
-                    
-                    const carData = isPopulated ? sale.vehicleId : carFromStock;
-                    
-                    let profitUSD = 0;
-                    let profitARS = 0;
+            if (isValidStatus) {
+                // Si vehicleId es un objeto (populate), usar sus datos directo
+                const isPopulated = sale.vehicleId && typeof sale.vehicleId === 'object';
+                const carIdStr = isPopulated ? sale.vehicleId._id : sale.vehicleId;
+                // Buscar en stock por si necesitamos datos que no vinieron populados
+                const carFromStock = carIdStr ? cars.find(c => String(c._id) === String(carIdStr)) : null;
+                
+                const carData = isPopulated ? sale.vehicleId : carFromStock;
+                
+                let profitUSD = 0;
+                let profitARS = 0;
 
-                    if (carData && carData.purchasePrice) {
-                        const cost = Number(carData.purchasePrice);
-                        const price = Number(sale.salePrice);
-                        
-                        // Simple exact currency margin
-                        const normalizedSaleCurrency = (sale.saleCurrency === 'U$S' || sale.saleCurrency === 'USD') ? 'USD' : (sale.saleCurrency === '$' || sale.saleCurrency === 'ARS') ? 'ARS' : sale.saleCurrency;
-                        const normalizedPurchaseCurrency = (carData.purchaseCurrency === 'U$S' || carData.purchaseCurrency === 'USD') ? 'USD' : (carData.purchaseCurrency === '$' || carData.purchaseCurrency === 'ARS') ? 'ARS' : carData.purchaseCurrency;
+                if (carData && carData.purchasePrice) {
+                    const cost = Number(carData.purchasePrice);
+                    const price = Number(sale.salePrice);
+                    
+                    // Simple exact currency margin
+                    const normalizedSaleCurrency = (sale.saleCurrency === 'U$S' || sale.saleCurrency === 'USD') ? 'USD' : (sale.saleCurrency === '$' || sale.saleCurrency === 'ARS') ? 'ARS' : sale.saleCurrency;
+                    const normalizedPurchaseCurrency = (carData.purchaseCurrency === 'U$S' || carData.purchaseCurrency === 'USD') ? 'USD' : (carData.purchaseCurrency === '$' || carData.purchaseCurrency === 'ARS') ? 'ARS' : carData.purchaseCurrency;
 
-                        if (normalizedSaleCurrency === 'USD' && normalizedPurchaseCurrency === 'USD') {
-                            profitUSD = price - cost;
-                            realMarginUSD += profitUSD;
-                        } else if (normalizedSaleCurrency === 'ARS' && normalizedPurchaseCurrency === 'ARS') {
-                            profitARS = price - cost;
-                            realMarginARS += profitARS;
-                        }
+                    if (normalizedSaleCurrency === 'USD' && normalizedPurchaseCurrency === 'USD') {
+                        profitUSD = price - cost;
+                    } else if (normalizedSaleCurrency === 'ARS' && normalizedPurchaseCurrency === 'ARS') {
+                        profitARS = price - cost;
                     }
+                }
+
+                if (saleDate.getMonth() === targetMonth && saleDate.getFullYear() === targetYear) {
+                    metrics.counts.vendidos++;
+                    realMarginUSD += profitUSD;
+                    realMarginARS += profitARS;
 
                     // Determinar el nombre a mostrar
                     let displayCarName = 'Vehículo sin especificar';
@@ -248,6 +249,13 @@ export function calculateDashboardMetrics(cars = []) {
                         profitARS,
                         date: saleDate
                     });
+                }
+                
+                // Historical calculation for 12 months array
+                const monthDiff = (targetYear - saleDate.getFullYear()) * 12 + (targetMonth - saleDate.getMonth());
+                if (monthDiff >= 0 && monthDiff < 12) {
+                    const arrayIndex = 11 - monthDiff;
+                    metrics.historicalProfitsUSD[arrayIndex] += profitUSD;
                 }
             }
         });
