@@ -182,7 +182,7 @@ export function calculateDashboardMetrics(cars = []) {
         metrics.counts.vendidos = 0;
         let realMarginARS = 0;
         let realMarginUSD = 0;
-        metrics.historicalProfitsUSD = Array(12).fill(0);
+        metrics.historicalSalesUSD = Array(12).fill(0);
 
         const salesDetails = [];
 
@@ -252,11 +252,14 @@ export function calculateDashboardMetrics(cars = []) {
                     });
                 }
                 
-                // Historical calculation for 12 months array
+                // Historical calculation for 12 months array (Sales Volume in USD)
                 const monthDiff = (targetYear - saleDate.getFullYear()) * 12 + (targetMonth - saleDate.getMonth());
                 if (monthDiff >= 0 && monthDiff < 12) {
                     const arrayIndex = 11 - monthDiff;
-                    metrics.historicalProfitsUSD[arrayIndex] += profitUSD;
+                    const saleCurrency = (sale.saleCurrency === 'U$S' || sale.saleCurrency === 'USD') ? 'USD' : 'ARS';
+                    if (saleCurrency === 'USD') {
+                        metrics.historicalSalesUSD[arrayIndex] += Number(sale.salePrice) || 0;
+                    }
                 }
             }
         });
