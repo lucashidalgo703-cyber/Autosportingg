@@ -256,10 +256,15 @@ export function calculateDashboardMetrics(cars = []) {
                 const monthDiff = (targetYear - saleDate.getFullYear()) * 12 + (targetMonth - saleDate.getMonth());
                 if (monthDiff >= 0 && monthDiff < 12) {
                     const arrayIndex = 11 - monthDiff;
-                    const saleCurrency = (sale.saleCurrency === 'U$S' || sale.saleCurrency === 'USD') ? 'USD' : (sale.saleCurrency === '$' || sale.saleCurrency === 'ARS') ? 'ARS' : sale.saleCurrency;
-                    if (saleCurrency === 'ARS') {
-                        metrics.historicalSalesARS[arrayIndex] += Number(sale.salePrice) || 0;
+                    const saleCurrency = (sale.saleCurrency === 'U$S' || sale.saleCurrency === 'USD') ? 'USD' : 'ARS';
+                    let priceInARS = Number(sale.salePrice) || 0;
+                    
+                    // Convert USD sales to ARS (using an approximate rate if exact historical rate isn't available)
+                    if (saleCurrency === 'USD') {
+                        priceInARS = priceInARS * 1200; // Approximate current ARS/USD rate for charting
                     }
+                    
+                    metrics.historicalSalesARS[arrayIndex] += priceInARS;
                 }
             }
         });
