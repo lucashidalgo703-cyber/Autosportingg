@@ -219,7 +219,8 @@ export default function SaleCommercialPanel({ sale, onSave }) {
                                 </div>
                                 <div className="flex-1">
                                     <CrmInput 
-                                        type="number" 
+                                        type="number"
+                                        step="any"
                                         min="0" 
                                         value={editForm.commissionSettings.extraAmount} 
                                         onChange={(e) => setEditForm({...editForm, commissionSettings: {...editForm.commissionSettings, extraAmount: e.target.value}})} 

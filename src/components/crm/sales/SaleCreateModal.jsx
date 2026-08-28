@@ -563,12 +563,12 @@ export default function SaleCreateModal({ isOpen, onClose, onSuccess }) {
                                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
                                     <div>
                                         <FieldLabel>% vendedor</FieldLabel>
-                                        <CrmInput type="number" step="0.1" value={formData.sellerPct} onChange={(e) => updateField('sellerPct', e.target.value)} disabled={!formData.manualCommission || formData.splitCommission} className="h-10 bg-crm-bg disabled:opacity-50" />
+                                        <CrmInput type="number" step="any" value={formData.sellerPct} onChange={(e) => updateField('sellerPct', e.target.value)} disabled={!formData.manualCommission || formData.splitCommission} className="h-10 bg-crm-bg disabled:opacity-50" />
                                         <p className="m-0 mt-1 text-[10px] text-crm-fg-muted">Fijo 1% — sin selección manual</p>
                                     </div>
                                     <div>
                                         <FieldLabel>% consignación</FieldLabel>
-                                        <CrmInput type="number" step="0.1" value={formData.consignationPct} onChange={(e) => updateField('consignationPct', e.target.value)} disabled={!formData.manualCommission || formData.splitCommission} className="h-10 bg-crm-bg disabled:opacity-50" />
+                                        <CrmInput type="number" step="any" value={formData.consignationPct} onChange={(e) => updateField('consignationPct', e.target.value)} disabled={!formData.manualCommission || formData.splitCommission} className="h-10 bg-crm-bg disabled:opacity-50" />
                                         <p className="m-0 mt-1 text-[10px] text-crm-fg-muted">Fijo — se calcula automático en el panel verde.</p>
                                     </div>
                                     <div>
@@ -581,7 +581,7 @@ export default function SaleCreateModal({ isOpen, onClose, onSuccess }) {
                                                 </CrmSelect>
                                             </div>
                                             <div className="flex-1">
-                                                <CrmInput type="number" value={formData.extraAmount} onChange={(e) => updateField('extraAmount', e.target.value)} disabled={!formData.manualCommission} placeholder="Monto fijo" className="h-10 bg-crm-bg disabled:opacity-50" />
+                                                <CrmInput type="number" step="any" value={formData.extraAmount} onChange={(e) => updateField('extraAmount', e.target.value)} disabled={!formData.manualCommission} placeholder="Monto fijo" className="h-10 bg-crm-bg disabled:opacity-50" />
                                             </div>
                                         </div>
                                         <p className="m-0 mt-1 text-[10px] text-crm-fg-muted leading-tight">Recargo a favor de la agencia (ej. gestión de transferencia). De acá se liquida la parte del vendedor según el % de abajo.</p>

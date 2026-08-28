@@ -321,7 +321,7 @@ export default function ConsignacionesPage() {
                                     </div>
                                     <div>
                                         <label className="mb-1.5 block text-xs font-bold uppercase tracking-wider text-crm-fg-muted">Comisión %</label>
-                                        <input type="number" value={formData.consignmentCommission} onChange={e => setFormData({...formData, consignmentCommission: e.target.value})} className="w-full rounded-lg border border-crm-border bg-crm-bg px-4 py-2.5 text-sm text-crm-fg focus:border-crm-red focus:outline-none focus:ring-1 focus:ring-crm-red" />
+                                        <input type="number" step="any" value={formData.consignmentCommission} onChange={e => setFormData({...formData, consignmentCommission: e.target.value})} className="w-full rounded-lg border border-crm-border bg-crm-bg px-4 py-2.5 text-sm text-crm-fg focus:border-crm-red focus:outline-none focus:ring-1 focus:ring-crm-red" />
                                     </div>
                                 </div>
                             </div>

@@ -506,7 +506,7 @@ function ManualCommissionModal({ users, onClose, onSuccess }) {
                                 type="number"
                                 required
                                 min="0.01"
-                                step="0.01"
+                                step="any"
                                 value={formData.amount}
                                 onChange={e => setFormData({...formData, amount: e.target.value})}
                                 className="w-full rounded-xl border border-crm-border bg-crm-bg px-3 py-2 text-crm-fg outline-none focus:border-crm-red"
