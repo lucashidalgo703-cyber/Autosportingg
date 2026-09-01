@@ -51,7 +51,7 @@ export default function ResumenGastosTab({ allTransactions = [], onEdit, onDelet
 
             <section className="rounded-2xl border border-crm-border bg-crm-surface overflow-hidden">
                 <div className="overflow-x-auto custom-scrollbar">
-                    <table className="w-full text-left border-collapse whitespace-nowrap">
+                    <table className="w-full text-left border-collapse">
                         <thead className="bg-crm-surface-raised border-b border-crm-border">
                             <tr>
                                 <th className="px-4 py-3 text-[10px] font-black uppercase tracking-wider text-crm-fg-muted">Fecha</th>
@@ -78,12 +78,12 @@ export default function ResumenGastosTab({ allTransactions = [], onEdit, onDelet
                             ) : (
                                 egresosTransactions.map(tx => (
                                     <tr key={tx._id} className="hover:bg-crm-surface-raised transition-colors">
-                                        <td className="px-4 py-3 text-sm text-crm-fg">{new Date(tx.date || tx.createdAt).toLocaleDateString('es-AR')}</td>
+                                        <td className="px-4 py-3 text-sm text-crm-fg whitespace-nowrap">{new Date(tx.date || tx.createdAt).toLocaleDateString('es-AR')}</td>
                                         <td className="px-4 py-3 text-sm font-bold text-crm-fg">{tx.concept || tx.description || '-'}</td>
-                                        <td className="px-4 py-3 text-sm text-crm-fg-subtle">{tx.category || '-'}</td>
-                                        <td className="px-4 py-3 text-sm text-crm-fg-subtle capitalize">{tx.paymentMethod || '-'}</td>
-                                        <td className="px-4 py-3 text-sm font-black text-crm-red text-right">{formatMoney(tx.amount, tx.currency)}</td>
-                                        <td className="px-4 py-3 text-center">
+                                        <td className="px-4 py-3 text-sm text-crm-fg-subtle whitespace-nowrap">{tx.category || '-'}</td>
+                                        <td className="px-4 py-3 text-sm text-crm-fg-subtle capitalize whitespace-nowrap">{tx.paymentMethod || '-'}</td>
+                                        <td className="px-4 py-3 text-sm font-black text-crm-red text-right whitespace-nowrap">{formatMoney(tx.amount, tx.currency)}</td>
+                                        <td className="px-4 py-3 text-center whitespace-nowrap">
                                             <div className="flex items-center justify-center gap-2">
                                                 <button onClick={() => onEdit(tx)} className="p-1.5 text-neutral-400 hover:text-white hover:bg-crm-bg rounded-lg transition-colors" title="Editar">
                                                     <Edit size={16} />

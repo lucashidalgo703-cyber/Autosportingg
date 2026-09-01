@@ -203,23 +203,22 @@ export default function TransactionModal({ isOpen, onClose, transaction, onSave,
                 <div className="p-6 overflow-y-auto flex-1">
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                         
-                        {!isEdit && (
-                            <>
                                 <div>
                                     <label className="block text-xs font-bold text-neutral-500 uppercase tracking-wider mb-2">Tipo de Movimiento</label>
                                     <div className="flex gap-2">
                                         <button
                                             type="button"
                                             onClick={() => setFormData({ ...formData, type: 'ingreso' })}
-                                            disabled={initialData?.isCommission}
-                                            className={`flex-1 py-2.5 rounded-xl text-sm font-bold transition-colors border ${formData.type === 'ingreso' ? 'bg-green-500/20 text-green-400 border-green-500/30' : 'bg-black/40 text-neutral-400 border-neutral-800 hover:border-neutral-700'} ${initialData?.isCommission ? 'opacity-30 cursor-not-allowed' : ''}`}
+                                            disabled={initialData?.isCommission || isAnnulled}
+                                            className={`flex-1 py-2.5 rounded-xl text-sm font-bold transition-colors border ${formData.type === 'ingreso' ? 'bg-green-500/20 text-green-400 border-green-500/30' : 'bg-black/40 text-neutral-400 border-neutral-800 hover:border-neutral-700'} ${(initialData?.isCommission || isAnnulled) ? 'opacity-30 cursor-not-allowed' : ''}`}
                                         >
                                             Ingreso
                                         </button>
                                         <button
                                             type="button"
                                             onClick={() => setFormData({ ...formData, type: 'egreso' })}
-                                            className={`flex-1 py-2.5 rounded-xl text-sm font-bold transition-colors border ${formData.type === 'egreso' ? 'bg-crm-red/20 text-red-400 border-red-500/30' : 'bg-black/40 text-neutral-400 border-neutral-800 hover:border-neutral-700'}`}
+                                            disabled={isAnnulled}
+                                            className={`flex-1 py-2.5 rounded-xl text-sm font-bold transition-colors border ${formData.type === 'egreso' ? 'bg-crm-red/20 text-red-400 border-red-500/30' : 'bg-black/40 text-neutral-400 border-neutral-800 hover:border-neutral-700'} ${isAnnulled ? 'opacity-30 cursor-not-allowed' : ''}`}
                                         >
                                             Egreso
                                         </button>
@@ -232,34 +231,21 @@ export default function TransactionModal({ isOpen, onClose, transaction, onSave,
                                         <button
                                             type="button"
                                             onClick={() => setFormData({ ...formData, currency: 'ARS' })}
-                                            className={`flex-1 py-2.5 rounded-xl text-sm font-bold transition-colors border ${formData.currency === 'ARS' ? 'bg-blue-500/20 text-blue-400 border-blue-500/30' : 'bg-black/40 text-neutral-400 border-neutral-800 hover:border-neutral-700'}`}
+                                            disabled={isAnnulled}
+                                            className={`flex-1 py-2.5 rounded-xl text-sm font-bold transition-colors border ${formData.currency === 'ARS' ? 'bg-blue-500/20 text-blue-400 border-blue-500/30' : 'bg-black/40 text-neutral-400 border-neutral-800 hover:border-neutral-700'} ${isAnnulled ? 'opacity-30 cursor-not-allowed' : ''}`}
                                         >
                                             ARS
                                         </button>
                                         <button
                                             type="button"
                                             onClick={() => setFormData({ ...formData, currency: 'USD' })}
-                                            className={`flex-1 py-2.5 rounded-xl text-sm font-bold transition-colors border ${formData.currency === 'USD' ? 'bg-green-500/20 text-green-400 border-green-500/30' : 'bg-black/40 text-neutral-400 border-neutral-800 hover:border-neutral-700'}`}
+                                            disabled={isAnnulled}
+                                            className={`flex-1 py-2.5 rounded-xl text-sm font-bold transition-colors border ${formData.currency === 'USD' ? 'bg-green-500/20 text-green-400 border-green-500/30' : 'bg-black/40 text-neutral-400 border-neutral-800 hover:border-neutral-700'} ${isAnnulled ? 'opacity-30 cursor-not-allowed' : ''}`}
                                         >
                                             USD
                                         </button>
                                     </div>
                                 </div>
-                            </>
-                        )}
-
-                        {isEdit && (
-                            <div className="col-span-2 flex gap-4">
-                                <div className="flex-1 bg-black/40 border border-neutral-800 rounded-xl p-3">
-                                    <span className="text-[10px] font-bold text-neutral-500 uppercase block mb-1">Tipo Original</span>
-                                    <span className={`text-sm font-bold ${transaction.type === 'Ingreso' ? 'text-green-400' : 'text-red-400'}`}>{transaction.type}</span>
-                                </div>
-                                <div className="flex-1 bg-black/40 border border-neutral-800 rounded-xl p-3">
-                                    <span className="text-[10px] font-bold text-neutral-500 uppercase block mb-1">Moneda Original</span>
-                                    <span className="text-sm font-bold text-white">{transaction.currency}</span>
-                                </div>
-                            </div>
-                        )}
 
                         {(initialData?.isCommission || (isEdit && transaction.category === 'Comisiones')) && (
                             <div className="col-span-1 md:col-span-2">
@@ -287,7 +273,7 @@ export default function TransactionModal({ isOpen, onClose, transaction, onSave,
                                 <input
                                     type="number"
                                     min="0"
-                                    step="0.01"
+                                    step="any"
                                     className={`w-full bg-black/40 border ${errors.amount ? 'border-red-500/50 focus:border-red-500' : 'border-neutral-800 focus:border-neutral-600'} rounded-xl py-2.5 pl-8 pr-4 text-sm text-white focus:outline-none transition-colors`}
                                     value={formData.amount}
                                     onChange={(e) => setFormData({ ...formData, amount: e.target.value })}
