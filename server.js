@@ -5610,7 +5610,7 @@ app.patch('/api/admin/transactions/:id', authenticateToken, requirePermission(PE
     try {
         await connectDB();
         if (req.user && req.user.role === 'ventas') return res.status(403).json({ message: 'Sin permisos financieros' });
-        const { category, concept, paymentMethod, date, notes, status, saleId, reservationId, clientId, vehicleId, installmentId, payeeCompany, payeeVehicle, targetUser } = req.body;
+        const { category, concept, paymentMethod, date, notes, status, saleId, reservationId, clientId, vehicleId, installmentId, payeeCompany, payeeVehicle, targetUser, amount, type, currency } = req.body;
 
         const tx = await Transaction.findOne({ _id: req.params.id, module: 'crm_v2' });
         if (!tx) return res.status(404).json({ message: 'Transaction not found' });
@@ -5674,34 +5674,75 @@ app.patch('/api/admin/transactions/:id', authenticateToken, requirePermission(PE
         await updateLink('vehicleId', vehicleId, Car, 'Veh├¡culo');
         await updateLink('installmentId', installmentId, Installment, 'Cuota');
 
-        // Handle Status Transitions
-        if (status && status !== tx.status) {
-            const oldStatus = tx.status;
-            tx.status = status;
-            tx.transactionAuditLog.push({
-                action: status === 'anulado' ? 'ANULACION' : 'CAMBIO_ESTADO',
-                field: 'status',
-                oldValue: oldStatus,
-                newValue: status,
-                details: `Estado cambiado a ${status}`,
-                user: user,
-                source: 'CRM_V2'
-            });
-            hasChanges = true;
+        // Handle Financial and Status Transitions
+        const oldStatus = tx.status;
+        const oldType = tx.type;
+        const oldAmount = tx.amount;
+        const oldCurrency = tx.currency;
+        const oldAccountId = tx.accountId;
+        
+        const incomingStatus = status !== undefined ? status : tx.status;
+        const incomingType = type !== undefined ? (type === 'ingreso' ? 'Ingreso' : (type === 'egreso' ? 'Egreso' : type)) : tx.type;
+        const incomingAmount = amount !== undefined ? Number(amount) : tx.amount;
+        const incomingCurrency = currency !== undefined ? currency : tx.currency;
+        
+        const financialChanged = 
+            oldStatus !== incomingStatus ||
+            oldType !== incomingType ||
+            oldAmount !== incomingAmount ||
+            oldCurrency !== incomingCurrency;
 
-            const account = await Account.findById(tx.accountId);
-            if (account) {
-                // If it was 'activo' and now is not, revert balance
-                if (oldStatus === 'activo') {
-                    if (tx.type === 'Ingreso') account.balance -= tx.amount;
-                    if (tx.type === 'Egreso') account.balance += tx.amount;
+        if (financialChanged) {
+            // 1. Revert old effect if it was activo
+            if (oldStatus === 'activo') {
+                const oldAccount = await Account.findById(oldAccountId);
+                if (oldAccount) {
+                    if (oldType === 'Ingreso') oldAccount.balance -= oldAmount;
+                    if (oldType === 'Egreso') oldAccount.balance += oldAmount;
+                    await oldAccount.save();
                 }
-                // If it is now 'activo', apply balance
-                if (status === 'activo') {
-                    if (tx.type === 'Ingreso') account.balance += tx.amount;
-                    if (tx.type === 'Egreso') account.balance -= tx.amount;
+            }
+            
+            // 2. Apply changes to tx
+            if (status !== undefined && status !== oldStatus) {
+                tx.status = status;
+                tx.transactionAuditLog.push({
+                    action: status === 'anulado' ? 'ANULACION' : 'CAMBIO_ESTADO',
+                    field: 'status',
+                    oldValue: oldStatus,
+                    newValue: status,
+                    details: `Estado cambiado a ${status}`,
+                    user: user,
+                    source: 'CRM_V2'
+                });
+                hasChanges = true;
+            }
+            
+            if (type !== undefined && incomingType !== oldType) {
+                tx.type = incomingType;
+                hasChanges = true;
+            }
+            
+            if (amount !== undefined && incomingAmount !== oldAmount) {
+                tx.amount = incomingAmount;
+                hasChanges = true;
+            }
+            
+            if (currency !== undefined && incomingCurrency !== oldCurrency) {
+                tx.currency = incomingCurrency;
+                const newAccount = await getOrCreateCrmV2Account(incomingCurrency);
+                tx.accountId = newAccount._id;
+                hasChanges = true;
+            }
+            
+            // 3. Apply new effect if it is now activo
+            if (tx.status === 'activo') {
+                const currentAccount = await Account.findById(tx.accountId);
+                if (currentAccount) {
+                    if (tx.type === 'Ingreso') currentAccount.balance += tx.amount;
+                    if (tx.type === 'Egreso') currentAccount.balance -= tx.amount;
+                    await currentAccount.save();
                 }
-                await account.save();
             }
         }
 
