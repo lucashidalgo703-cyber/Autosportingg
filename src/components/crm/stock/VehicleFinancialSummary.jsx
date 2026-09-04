@@ -51,14 +51,20 @@ export default function VehicleFinancialSummary({ vehicle, onEdit }) {
                 </div>
             </div>
 
-            <div className="mt-6 flex items-center justify-between p-4 bg-crm-surface-raised rounded-lg border border-crm-border">
+            <div className="mt-6 flex flex-col md:flex-row md:items-center justify-between p-4 bg-crm-surface-raised rounded-lg border border-crm-border gap-4 md:gap-0">
                 <div>
                     <span className="block text-sm text-crm-fg-muted">Precio Publicado</span>
                     <span className="block text-2xl font-bold text-white mt-1">
                         {vehicle.moneda} {vehicle.precioPublicado.toLocaleString('es-AR')}
                     </span>
                 </div>
-                <div className="text-right">
+                <div className="md:text-center">
+                    <span className="block text-sm text-crm-fg-muted">Comisión Estimada (1.3%)</span>
+                    <span className="block text-lg font-medium text-[#22C55E] mt-1 opacity-90">
+                        {vehicle.moneda} {(vehicle.precioPublicado * 0.013).toLocaleString('es-AR', { maximumFractionDigits: 2 })}
+                    </span>
+                </div>
+                <div className="md:text-right">
                     <span className="block text-sm text-crm-fg-muted">Precio Mínimo (Reserva)</span>
                     <span className="block text-lg font-medium text-white mt-1 opacity-80">
                         {vehicle.precioMinimo > 0 ? `${vehicle.moneda} ${vehicle.precioMinimo.toLocaleString('es-AR')}` : 'No definido'}
