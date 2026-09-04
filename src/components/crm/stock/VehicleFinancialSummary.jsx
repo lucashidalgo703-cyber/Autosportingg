@@ -3,6 +3,12 @@ import CrmCard from '../ui/CrmCard';
 import { Edit } from 'lucide-react';
 
 export default function VehicleFinancialSummary({ vehicle, onEdit }) {
+    const comisionEstimada = (vehicle.precioPublicado || 0) * 0.013;
+    const margenNeto = (vehicle.margenEstimado || 0) - comisionEstimada;
+    const margenNetoPorcentual = vehicle.costoTotal > 0 
+        ? ((margenNeto / vehicle.costoTotal) * 100).toFixed(1)
+        : 0;
+
     return (
         <CrmCard>
             <div className="flex items-center justify-between mb-4">
@@ -42,10 +48,10 @@ export default function VehicleFinancialSummary({ vehicle, onEdit }) {
                     <span className="text-xs text-crm-fg-muted">Margen Estimado</span>
                     <div className="flex items-baseline gap-2">
                         <span className="text-[#22C55E] font-bold">
-                            {vehicle.margenEstimado > 0 ? `${vehicle.moneda} ${vehicle.margenEstimado.toLocaleString('es-AR')}` : 'N/A'}
+                            {margenNeto > 0 ? `${vehicle.moneda} ${margenNeto.toLocaleString('es-AR', { maximumFractionDigits: 2 })}` : 'N/A'}
                         </span>
-                        {vehicle.margenPorcentual > 0 && (
-                            <span className="text-xs text-crm-fg-muted">({vehicle.margenPorcentual}%)</span>
+                        {margenNetoPorcentual > 0 && (
+                            <span className="text-xs text-crm-fg-muted">({margenNetoPorcentual}%)</span>
                         )}
                     </div>
                 </div>
@@ -61,7 +67,7 @@ export default function VehicleFinancialSummary({ vehicle, onEdit }) {
                 <div className="md:text-center">
                     <span className="block text-sm text-crm-fg-muted">Comisión Estimada (1.3%)</span>
                     <span className="block text-lg font-medium text-[#22C55E] mt-1 opacity-90">
-                        {vehicle.moneda} {(vehicle.precioPublicado * 0.013).toLocaleString('es-AR', { maximumFractionDigits: 2 })}
+                        {vehicle.moneda} {comisionEstimada.toLocaleString('es-AR', { maximumFractionDigits: 2 })}
                     </span>
                 </div>
                 <div className="md:text-right">
