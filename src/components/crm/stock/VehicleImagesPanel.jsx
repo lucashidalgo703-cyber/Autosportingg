@@ -197,28 +197,27 @@ export default function VehicleImagesPanel({ vehicle, onSaveComplete }) {
                 onDragLeave={(e) => { e.preventDefault(); setIsDragging(false); }}
                 onDrop={onDropFiles}
                 className={`
-                    relative cursor-pointer transition-all duration-300
-                    border border-dashed rounded-xl flex flex-col items-center justify-center mb-4
-                    ${files.length > 0 ? 'h-32 border-crm-border bg-crm-bg' : 'h-48 bg-crm-bg'}
+                    relative transition-all duration-300
+                    border border-dashed rounded-xl flex flex-col justify-center mb-4 p-3
+                    ${files.length > 0 ? 'min-h-[120px] border-crm-border bg-crm-bg' : 'h-48 bg-crm-bg items-center'}
                     ${isDragging ? 'border-crm-red bg-crm-red/5' : 'border-crm-border hover:border-crm-red/50'}
                 `}
             >
-                <input
-                    type="file" multiple accept="image/png, image/jpeg, image/jpg, image/webp"
-                    className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-20"
-                    onChange={(e) => { if (e.target.files) addFiles(e.target.files); }}
-                />
-
                 {files.length === 0 ? (
-                    <div className="text-center pointer-events-none z-10">
+                    <label className="relative w-full h-full flex flex-col items-center justify-center cursor-pointer py-8">
+                        <input
+                            type="file" multiple accept="image/png, image/jpeg, image/jpg, image/webp"
+                            className="hidden"
+                            onChange={(e) => { if (e.target.files) addFiles(e.target.files); }}
+                        />
                         <div className={`w-10 h-10 rounded-full flex items-center justify-center mx-auto mb-3 transition-colors ${isDragging ? 'bg-crm-red text-white' : 'bg-crm-surface-raised text-crm-fg-muted'}`}>
                             <Upload size={18} />
                         </div>
                         <p className="text-crm-fg-muted text-xs font-medium">Arrastra imágenes aquí</p>
                         <p className="text-crm-fg-muted text-[10px] mt-1">o haz clic para buscar</p>
-                    </div>
+                    </label>
                 ) : (
-                    <div className="flex gap-4 px-4 overflow-x-auto w-full items-center justify-start h-full z-10 custom-scrollbar py-2">
+                    <div className="flex gap-3 overflow-x-auto w-full items-center justify-start custom-scrollbar py-1">
                         {files.map((file, i) => (
                             <div
                                 key={i} draggable
@@ -226,21 +225,42 @@ export default function VehicleImagesPanel({ vehicle, onSaveComplete }) {
                                 onDragOver={handleDragOver}
                                 onDrop={() => handleDropSort(i)}
                                 className={`
-                                    flex-shrink-0 relative w-28 h-20 rounded-lg overflow-hidden border shadow-sm group cursor-grab active:cursor-grabbing
+                                    flex-shrink-0 relative w-28 h-20 rounded-lg overflow-hidden border shadow-sm group cursor-grab active:cursor-grabbing select-none
                                     ${i === 0 ? 'border-crm-red ring-1 ring-crm-red/50' : 'border-crm-border'}
                                 `}
                             >
-                                <img src={file.preview} className="w-full h-full object-cover" />
-                                {i === 0 && <div className="absolute top-0 left-0 w-full bg-crm-red/90 text-white text-[8px] font-bold text-center py-0.5 tracking-wider uppercase z-20">Principal</div>}
+                                <img src={file.preview} alt={`Foto ${i + 1}`} className="w-full h-full object-cover pointer-events-none" />
+                                {i === 0 && (
+                                    <div className="absolute top-0 left-0 w-full bg-crm-red/90 text-white text-[8px] font-bold text-center py-0.5 tracking-wider uppercase z-10 pointer-events-none">
+                                        Principal
+                                    </div>
+                                )}
                                 <button
                                     type="button"
-                                    onClick={(e) => { e.stopPropagation(); setFiles(files.filter((_, idx) => idx !== i)); }}
-                                    className="absolute top-1 right-1 bg-crm-red hover:bg-red-600 text-white p-1 rounded-full z-20 opacity-0 group-hover:opacity-100 transition-opacity"
+                                    title="Eliminar imagen"
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        e.preventDefault();
+                                        setFiles(prev => prev.filter((_, idx) => idx !== i));
+                                    }}
+                                    className="absolute top-1 right-1 bg-red-600 hover:bg-red-700 text-white p-1 rounded-full z-30 shadow-md transition-all opacity-90 group-hover:opacity-100 hover:scale-110 flex items-center justify-center cursor-pointer"
                                 >
-                                    <X size={10} />
+                                    <X size={12} />
                                 </button>
                             </div>
                         ))}
+
+                        {files.length < 20 && (
+                            <label className="flex-shrink-0 w-28 h-20 rounded-lg border-2 border-dashed border-crm-border hover:border-crm-red flex flex-col items-center justify-center cursor-pointer transition-colors bg-crm-surface-raised/30 hover:bg-crm-surface-raised/60 group">
+                                <input
+                                    type="file" multiple accept="image/png, image/jpeg, image/jpg, image/webp"
+                                    className="hidden"
+                                    onChange={(e) => { if (e.target.files) addFiles(e.target.files); }}
+                                />
+                                <Upload size={16} className="text-crm-fg-muted group-hover:text-crm-red transition-colors mb-1" />
+                                <span className="text-[10px] text-crm-fg-muted group-hover:text-white font-medium">Agregar foto</span>
+                            </label>
+                        )}
                     </div>
                 )}
             </div>
