@@ -4936,17 +4936,16 @@ app.patch('/api/admin/sales/:id', authenticateToken, requirePermission(PERMISSIO
             if (financingDetails && financingDetails.hasFinancing) {
                 const cashPrice = Number(financingDetails.cashPrice);
                 const downPayment = Number(financingDetails.downPayment || 0);
-                const interestRate = Number(financingDetails.interestRate || 0);
                 const installmentsCount = Number(financingDetails.installmentsCount || 0);
+                const calculationMode = financingDetails.calculationMode === 'by_installment' ? 'by_installment' : 'by_rate';
+                const customInstallmentAmount = Number(financingDetails.customInstallmentAmount || financingDetails.installmentAmount || 0);
+                let interestRate = Number(financingDetails.interestRate || 0);
 
                 if (isNaN(cashPrice) || cashPrice <= 0) {
                     return res.status(400).json({ message: 'El precio al contado debe ser mayor que cero.' });
                 }
                 if (isNaN(downPayment) || downPayment < 0 || downPayment > cashPrice) {
                     return res.status(400).json({ message: 'La entrega inicial debe estar entre cero y el precio al contado.' });
-                }
-                if (isNaN(interestRate) || interestRate < 0) {
-                    return res.status(400).json({ message: 'El interés total del plan no puede ser negativo.' });
                 }
 
                 const financedBalance = Math.max(0, cashPrice - downPayment);
@@ -4955,6 +4954,39 @@ app.patch('/api/admin/sales/:id', authenticateToken, requirePermission(PERMISSIO
                         return res.status(400).json({ message: 'La cantidad de cuotas debe ser 6, 12, 18 o 24 cuando exista saldo financiado.' });
                     }
                 }
+
+                // Cálculos según modo: por cuota pactada o por porcentaje
+                let interestAmount = 0;
+                let totalFinancedWithInterest = 0;
+                let installmentAmount = 0;
+                let lastInstallmentAmount = 0;
+                let roundingAdjustment = 0;
+
+                if (calculationMode === 'by_installment' && customInstallmentAmount > 0) {
+                    installmentAmount = customInstallmentAmount;
+                    lastInstallmentAmount = customInstallmentAmount;
+                    totalFinancedWithInterest = customInstallmentAmount * installmentsCount;
+                    if (totalFinancedWithInterest < financedBalance) {
+                        return res.status(400).json({ message: 'El total de las cuotas no puede ser menor al saldo financiado.' });
+                    }
+                    interestAmount = Math.max(0, totalFinancedWithInterest - financedBalance);
+                    interestRate = financedBalance > 0 ? Number(((interestAmount / financedBalance) * 100).toFixed(2)) : 0;
+                    roundingAdjustment = 0;
+                } else {
+                    if (isNaN(interestRate) || interestRate < 0) {
+                        return res.status(400).json({ message: 'El interés total del plan no puede ser negativo.' });
+                    }
+                    interestAmount = (financedBalance * interestRate) / 100;
+                    totalFinancedWithInterest = financedBalance + interestAmount;
+                    if (installmentsCount > 0 && totalFinancedWithInterest > 0) {
+                        const baseInst = Math.floor(totalFinancedWithInterest / installmentsCount);
+                        roundingAdjustment = totalFinancedWithInterest - (baseInst * installmentsCount);
+                        installmentAmount = baseInst;
+                        lastInstallmentAmount = baseInst + roundingAdjustment;
+                    }
+                }
+
+                const totalOperationPrice = downPayment + totalFinancedWithInterest;
 
                 // Verificar si ya existen pagos registrados para impedir modificaciones silenciosas
                 const existingInstallments = await Installment.find({ 
@@ -4971,7 +5003,7 @@ app.patch('/api/admin/sales/:id', authenticateToken, requirePermission(PERMISSIO
                     const termsChanged = 
                         Number(prevFin.cashPrice) !== cashPrice ||
                         Number(prevFin.downPayment) !== downPayment ||
-                        Number(prevFin.interestRate) !== interestRate ||
+                        Number(prevFin.installmentAmount) !== installmentAmount ||
                         Number(prevFin.installmentsCount) !== installmentsCount;
 
                     if (termsChanged) {
@@ -4980,22 +5012,6 @@ app.patch('/api/admin/sales/:id', authenticateToken, requirePermission(PERMISSIO
                         });
                     }
                 }
-
-                // Cálculos automáticos precisos con ajuste de redondeo en la última cuota
-                const interestAmount = (financedBalance * interestRate) / 100;
-                const totalFinancedWithInterest = financedBalance + interestAmount;
-                let installmentAmount = 0;
-                let lastInstallmentAmount = 0;
-                let roundingAdjustment = 0;
-
-                if (installmentsCount > 0 && totalFinancedWithInterest > 0) {
-                    const baseInst = Math.floor(totalFinancedWithInterest / installmentsCount);
-                    roundingAdjustment = totalFinancedWithInterest - (baseInst * installmentsCount);
-                    installmentAmount = baseInst;
-                    lastInstallmentAmount = baseInst + roundingAdjustment;
-                }
-
-                const totalOperationPrice = downPayment + totalFinancedWithInterest;
 
                 sale.financingDetails = {
                     hasFinancing: true,
@@ -5010,7 +5026,9 @@ app.patch('/api/admin/sales/:id', authenticateToken, requirePermission(PERMISSIO
                     lastInstallmentAmount,
                     totalOperationPrice,
                     roundingAdjustment,
-                    includesDeposit: Boolean(financingDetails.includesDeposit)
+                    includesDeposit: Boolean(financingDetails.includesDeposit),
+                    calculationMode,
+                    customInstallmentAmount: calculationMode === 'by_installment' ? installmentAmount : undefined
                 };
 
                 // Actualizar precio de venta al total de la operación y plazo

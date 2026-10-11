@@ -80,7 +80,9 @@ const financingDetailsSchema = new mongoose.Schema({
     lastInstallmentAmount: { type: Number, min: 0, default: 0 },
     totalOperationPrice: { type: Number, min: 0, default: 0 },
     roundingAdjustment: { type: Number, default: 0 },
-    includesDeposit: { type: Boolean, default: false }
+    includesDeposit: { type: Boolean, default: false },
+    calculationMode: { type: String, enum: ['by_rate', 'by_installment'], default: 'by_installment' },
+    customInstallmentAmount: { type: Number, min: 0 }
 }, { _id: false });
 
 const saleSchema = new mongoose.Schema({

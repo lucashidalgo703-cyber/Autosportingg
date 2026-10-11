@@ -31,24 +31,45 @@ const formatMoney = (amount, currency = 'ARS') => {
 };
 
 // Función auxiliar para calcular valores de financiación y ajuste de redondeo
-export const computeFinancingValues = (cashPrice, downPayment, interestRate, installmentsCount, includesDeposit = false) => {
+export const computeFinancingValues = (
+    cashPrice, 
+    downPayment, 
+    interestRate, 
+    installmentsCount, 
+    includesDeposit = false,
+    calculationMode = 'by_installment',
+    customInstallmentAmount = 0
+) => {
     const cPrice = Math.max(0, Number(cashPrice) || 0);
     const dPayment = Math.max(0, Number(downPayment) || 0);
     const financedBalance = Math.max(0, cPrice - dPayment);
-    const rate = Math.max(0, Number(interestRate) || 0);
-    const interestAmount = (financedBalance * rate) / 100;
-    const totalFinancedWithInterest = financedBalance + interestAmount;
     const count = Number(installmentsCount) || 1;
 
+    let rate = Math.max(0, Number(interestRate) || 0);
+    let interestAmount = 0;
+    let totalFinancedWithInterest = 0;
     let installmentAmount = 0;
     let lastInstallmentAmount = 0;
     let roundingAdjustment = 0;
 
-    if (count > 0 && totalFinancedWithInterest > 0) {
-        const base = Math.floor(totalFinancedWithInterest / count);
-        roundingAdjustment = totalFinancedWithInterest - (base * count);
-        installmentAmount = base;
-        lastInstallmentAmount = base + roundingAdjustment;
+    const cuotaInput = Number(customInstallmentAmount || 0);
+
+    if (calculationMode === 'by_installment' && cuotaInput > 0) {
+        installmentAmount = cuotaInput;
+        lastInstallmentAmount = cuotaInput;
+        roundingAdjustment = 0;
+        totalFinancedWithInterest = cuotaInput * count;
+        interestAmount = Math.max(0, totalFinancedWithInterest - financedBalance);
+        rate = financedBalance > 0 ? Number(((interestAmount / financedBalance) * 100).toFixed(2)) : 0;
+    } else {
+        interestAmount = (financedBalance * rate) / 100;
+        totalFinancedWithInterest = financedBalance + interestAmount;
+        if (count > 0 && totalFinancedWithInterest > 0) {
+            const base = Math.floor(totalFinancedWithInterest / count);
+            roundingAdjustment = totalFinancedWithInterest - (base * count);
+            installmentAmount = base;
+            lastInstallmentAmount = base + roundingAdjustment;
+        }
     }
 
     const totalOperationPrice = dPayment + totalFinancedWithInterest;
@@ -66,7 +87,9 @@ export const computeFinancingValues = (cashPrice, downPayment, interestRate, ins
         lastInstallmentAmount,
         totalOperationPrice,
         roundingAdjustment,
-        includesDeposit: Boolean(includesDeposit)
+        includesDeposit: Boolean(includesDeposit),
+        calculationMode,
+        customInstallmentAmount: calculationMode === 'by_installment' ? installmentAmount : undefined
     };
 };
 
@@ -91,7 +114,9 @@ export default function SaleCommercialPanel({ sale, onSave }) {
         installmentsCount: 18,
         interestRate: 0,
         includesDeposit: true,
-        syncInstallmentPlan: true
+        syncInstallmentPlan: true,
+        calculationMode: 'by_installment',
+        customInstallmentAmount: ''
     });
 
     if (!sale) return null;
@@ -102,6 +127,9 @@ export default function SaleCommercialPanel({ sale, onSave }) {
         const initialCashPrice = prevFin.cashPrice !== undefined && prevFin.cashPrice !== null 
             ? prevFin.cashPrice 
             : (sale.salePrice || 0);
+
+        const initialMode = prevFin.calculationMode || 'by_installment';
+        const initialCuota = prevFin.installmentAmount !== undefined ? prevFin.installmentAmount : '';
 
         setEditForm({
             salePrice: sale.salePrice || 0,
@@ -120,7 +148,9 @@ export default function SaleCommercialPanel({ sale, onSave }) {
             installmentsCount: prevFin.installmentsCount || 18,
             interestRate: prevFin.interestRate !== undefined ? prevFin.interestRate : 0,
             includesDeposit: prevFin.includesDeposit !== undefined ? prevFin.includesDeposit : (sale.depositAppliedAmount > 0),
-            syncInstallmentPlan: true
+            syncInstallmentPlan: true,
+            calculationMode: initialMode,
+            customInstallmentAmount: initialCuota
         });
         setIsEditing(true);
     };
@@ -136,9 +166,19 @@ export default function SaleCommercialPanel({ sale, onSave }) {
             editForm.downPayment,
             editForm.interestRate,
             editForm.installmentsCount,
-            editForm.includesDeposit
+            editForm.includesDeposit,
+            editForm.calculationMode,
+            editForm.customInstallmentAmount
         );
-    }, [editForm.cashPrice, editForm.downPayment, editForm.interestRate, editForm.installmentsCount, editForm.includesDeposit]);
+    }, [
+        editForm.cashPrice, 
+        editForm.downPayment, 
+        editForm.interestRate, 
+        editForm.installmentsCount, 
+        editForm.includesDeposit,
+        editForm.calculationMode,
+        editForm.customInstallmentAmount
+    ]);
 
     const handleSaveClick = async () => {
         if (!onSave) return;
@@ -148,8 +188,8 @@ export default function SaleCommercialPanel({ sale, onSave }) {
         if (isFinanced) {
             const cashPrice = Number(editForm.cashPrice);
             const downPayment = Number(editForm.downPayment || 0);
-            const interestRate = Number(editForm.interestRate || 0);
             const installmentsCount = Number(editForm.installmentsCount);
+            const mode = editForm.calculationMode || 'by_installment';
 
             if (isNaN(cashPrice) || cashPrice <= 0) {
                 toast.error('El precio al contado debe ser mayor que cero.');
@@ -159,15 +199,29 @@ export default function SaleCommercialPanel({ sale, onSave }) {
                 toast.error('La entrega inicial debe estar entre cero y el precio al contado.');
                 return;
             }
-            if (isNaN(interestRate) || interestRate < 0) {
-                toast.error('El interés total del plan no puede ser negativo.');
-                return;
-            }
 
             const financedBalance = Math.max(0, cashPrice - downPayment);
             if (financedBalance > 0 && ![6, 12, 18, 24].includes(installmentsCount)) {
                 toast.error('Seleccioná una cantidad de cuotas válida (6, 12, 18 o 24).');
                 return;
+            }
+
+            if (mode === 'by_installment') {
+                const cuotaVal = Number(editForm.customInstallmentAmount || 0);
+                if (financedBalance > 0 && (isNaN(cuotaVal) || cuotaVal <= 0)) {
+                    toast.error('Ingresá un valor de cuota válido mayor que cero.');
+                    return;
+                }
+                if (financedBalance > 0 && (cuotaVal * installmentsCount < financedBalance)) {
+                    toast.error('El total en cuotas no puede ser inferior al saldo a financiar.');
+                    return;
+                }
+            } else {
+                const interestRate = Number(editForm.interestRate || 0);
+                if (isNaN(interestRate) || interestRate < 0) {
+                    toast.error('El interés total del plan no puede ser negativo.');
+                    return;
+                }
             }
         }
 
@@ -406,7 +460,48 @@ export default function SaleCommercialPanel({ sale, onSave }) {
                             </span>
                         </div>
 
-                        {/* Cantidad de Cuotas e Interés Total */}
+                        {/* Selector de Modalidad: Por Valor de Cuota o Por % de Interés */}
+                        <div className="flex items-center justify-between border-t border-neutral-800/80 pt-2">
+                            <span className="text-xs font-bold text-crm-fg-muted">Cargar plan según:</span>
+                            <div className="flex rounded-lg border border-neutral-800 bg-crm-bg p-0.5">
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        setEditForm(prev => ({
+                                            ...prev,
+                                            calculationMode: 'by_installment',
+                                            customInstallmentAmount: prev.customInstallmentAmount || (liveFinancing.installmentAmount > 0 ? liveFinancing.installmentAmount : '')
+                                        }));
+                                    }}
+                                    className={`px-2.5 py-1 text-[11px] font-bold rounded-md transition-colors ${
+                                        editForm.calculationMode === 'by_installment'
+                                            ? 'bg-purple-500/20 text-purple-300 border border-purple-500/30'
+                                            : 'text-crm-fg-muted hover:text-white'
+                                    }`}
+                                >
+                                    Valor de cuota ($)
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        setEditForm(prev => ({
+                                            ...prev,
+                                            calculationMode: 'by_rate',
+                                            interestRate: prev.interestRate !== undefined ? prev.interestRate : liveFinancing.interestRate
+                                        }));
+                                    }}
+                                    className={`px-2.5 py-1 text-[11px] font-bold rounded-md transition-colors ${
+                                        editForm.calculationMode === 'by_rate'
+                                            ? 'bg-purple-500/20 text-purple-300 border border-purple-500/30'
+                                            : 'text-crm-fg-muted hover:text-white'
+                                    }`}
+                                >
+                                    % de interés
+                                </button>
+                            </div>
+                        </div>
+
+                        {/* Cantidad de Cuotas y Cuota / Interés */}
                         <div className="grid grid-cols-2 gap-3">
                             <div>
                                 <label className="mb-1 block text-xs font-bold text-crm-fg-muted">
@@ -425,24 +520,50 @@ export default function SaleCommercialPanel({ sale, onSave }) {
                                 </CrmSelect>
                             </div>
 
-                            <div>
-                                <label className="mb-1 block text-xs font-bold text-crm-fg-muted">
-                                    Interés total del plan (%) *
-                                </label>
-                                <div className="relative">
-                                    <CrmInput 
-                                        type="number"
-                                        step="any"
-                                        min="0"
-                                        value={editForm.interestRate}
-                                        onChange={(e) => setEditForm({...editForm, interestRate: e.target.value})}
-                                        disabled={liveFinancing.financedBalance <= 0}
-                                        placeholder="0"
-                                        className="h-9 bg-crm-surface font-bold text-white text-right pr-7"
-                                    />
-                                    <span className="absolute right-2.5 top-2 text-xs font-bold text-crm-fg-muted">%</span>
+                            {editForm.calculationMode === 'by_installment' ? (
+                                <div>
+                                    <div className="flex items-center justify-between mb-1">
+                                        <label className="block text-xs font-bold text-crm-fg-muted">
+                                            Valor de cada cuota *
+                                        </label>
+                                        <span className="text-[10px] text-purple-300 font-semibold">
+                                            Saca el % solo
+                                        </span>
+                                    </div>
+                                    <div className="relative">
+                                        <span className="absolute left-2.5 top-2 text-xs font-bold text-crm-fg-muted">$</span>
+                                        <CrmInput 
+                                            type="number"
+                                            step="any"
+                                            min="0"
+                                            value={editForm.customInstallmentAmount}
+                                            onChange={(e) => setEditForm({...editForm, customInstallmentAmount: e.target.value})}
+                                            disabled={liveFinancing.financedBalance <= 0}
+                                            placeholder="Ej: 800000"
+                                            className="h-9 bg-crm-surface font-bold text-white pl-6"
+                                        />
+                                    </div>
                                 </div>
-                            </div>
+                            ) : (
+                                <div>
+                                    <label className="mb-1 block text-xs font-bold text-crm-fg-muted">
+                                        Interés total del plan (%) *
+                                    </label>
+                                    <div className="relative">
+                                        <CrmInput 
+                                            type="number"
+                                            step="any"
+                                            min="0"
+                                            value={editForm.interestRate}
+                                            onChange={(e) => setEditForm({...editForm, interestRate: e.target.value})}
+                                            disabled={liveFinancing.financedBalance <= 0}
+                                            placeholder="0"
+                                            className="h-9 bg-crm-surface font-bold text-white text-right pr-7"
+                                        />
+                                        <span className="absolute right-2.5 top-2 text-xs font-bold text-crm-fg-muted">%</span>
+                                    </div>
+                                </div>
+                            )}
                         </div>
 
                         {/* Aclaración obligatoria según requerimiento */}
@@ -452,9 +573,16 @@ export default function SaleCommercialPanel({ sale, onSave }) {
 
                         {/* RESULTADOS EN VIVO DE LA FINANCIACIÓN */}
                         <div className="rounded-xl border border-neutral-700 bg-crm-bg p-3 flex flex-col gap-2">
-                            <span className="text-[10px] font-bold uppercase tracking-[0.08em] text-neutral-400">
-                                Previsualización de Cálculos
-                            </span>
+                            <div className="flex items-center justify-between">
+                                <span className="text-[10px] font-bold uppercase tracking-[0.08em] text-neutral-400">
+                                    Previsualización de Cálculos
+                                </span>
+                                {editForm.calculationMode === 'by_installment' && (
+                                    <span className="text-[10px] text-emerald-400 font-bold">
+                                        Tasa calculada: {liveFinancing.interestRate}%
+                                    </span>
+                                )}
+                            </div>
                             <div className="flex justify-between text-xs">
                                 <span className="text-crm-fg-muted">Interés en pesos ({liveFinancing.interestRate}%):</span>
                                 <span className="font-bold text-white">{formatMoney(liveFinancing.interestAmount, editForm.saleCurrency)}</span>
