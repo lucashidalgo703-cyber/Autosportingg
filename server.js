@@ -3873,7 +3873,8 @@ app.post('/api/admin/sales', authenticateToken, requirePermission(PERMISSIONS.VE
             vehicleId, clientId, leadId, salePrice, saleCurrency, paymentMethod, notes, salesperson, saleDate, status,
             isManualImport, vehicleOwnerName, vehicleOwnerPhone,
             consignationOwnerId, consignationManagerId,
-            commissionSettings, deliveryItems, installmentsCount, depositAppliedAmount, depositAppliedCurrency
+            commissionSettings, deliveryItems, installmentsCount, depositAppliedAmount, depositAppliedCurrency,
+            financingDetails
         } = req.body;
         const finalSalePrice = Number(salePrice);
         const finalSaleCurrency = saleCurrency;
@@ -3894,7 +3895,7 @@ app.post('/api/admin/sales', authenticateToken, requirePermission(PERMISSIONS.VE
             if (existingSale) throw new Error('There is already an active sale for this vehicle');
         }
 
-        // 2. Creaci├│n
+        // 2. Creación
         const newSale = new Sale({
             vehicleId: vehicleId || undefined,
             clientId: clientId || undefined,
@@ -3919,6 +3920,7 @@ app.post('/api/admin/sales', authenticateToken, requirePermission(PERMISSIONS.VE
             installmentsCount: installmentsCount || 0,
             depositAppliedAmount: depositAppliedAmount || 0,
             depositAppliedCurrency,
+            financingDetails: financingDetails || undefined,
 
             saleAuditLog: [{
                 action: 'VENTA_CREADA_MANUAL',
@@ -4803,7 +4805,9 @@ app.patch('/api/admin/sales/:id', authenticateToken, requirePermission(PERMISSIO
             postSaleNotes,
             satisfactionRating,
             commissionSettings,
-            saleExpenses
+            saleExpenses,
+            financingDetails,
+            syncInstallmentPlan
         } = req.body;
 
         const sale = await Sale.findById(req.params.id);
@@ -4926,6 +4930,172 @@ app.patch('/api/admin/sales/:id', authenticateToken, requirePermission(PERMISSIO
             });
             sale.notes = notes;
             hasChanges = true;
+        }
+
+        if (financingDetails !== undefined) {
+            if (financingDetails && financingDetails.hasFinancing) {
+                const cashPrice = Number(financingDetails.cashPrice);
+                const downPayment = Number(financingDetails.downPayment || 0);
+                const interestRate = Number(financingDetails.interestRate || 0);
+                const installmentsCount = Number(financingDetails.installmentsCount || 0);
+
+                if (isNaN(cashPrice) || cashPrice <= 0) {
+                    return res.status(400).json({ message: 'El precio al contado debe ser mayor que cero.' });
+                }
+                if (isNaN(downPayment) || downPayment < 0 || downPayment > cashPrice) {
+                    return res.status(400).json({ message: 'La entrega inicial debe estar entre cero y el precio al contado.' });
+                }
+                if (isNaN(interestRate) || interestRate < 0) {
+                    return res.status(400).json({ message: 'El interés total del plan no puede ser negativo.' });
+                }
+
+                const financedBalance = Math.max(0, cashPrice - downPayment);
+                if (financedBalance > 0) {
+                    if (![6, 12, 18, 24].includes(installmentsCount)) {
+                        return res.status(400).json({ message: 'La cantidad de cuotas debe ser 6, 12, 18 o 24 cuando exista saldo financiado.' });
+                    }
+                }
+
+                // Verificar si ya existen pagos registrados para impedir modificaciones silenciosas
+                const existingInstallments = await Installment.find({ 
+                    saleId: sale._id, 
+                    status: { $ne: 'anulada' } 
+                });
+                const hasPaidInstallments = existingInstallments.some(inst => 
+                    (inst.paidAmount && inst.paidAmount > 0) || 
+                    ['pagada', 'parcial', 'pagada_manual'].includes(inst.status)
+                );
+
+                if (hasPaidInstallments) {
+                    const prevFin = sale.financingDetails || {};
+                    const termsChanged = 
+                        Number(prevFin.cashPrice) !== cashPrice ||
+                        Number(prevFin.downPayment) !== downPayment ||
+                        Number(prevFin.interestRate) !== interestRate ||
+                        Number(prevFin.installmentsCount) !== installmentsCount;
+
+                    if (termsChanged) {
+                        return res.status(400).json({ 
+                            message: 'No se pueden modificar las condiciones de financiación porque ya existen cuotas con pagos registrados. Anulá o regularizá los cobros antes de alterar el plan.' 
+                        });
+                    }
+                }
+
+                // Cálculos automáticos precisos con ajuste de redondeo en la última cuota
+                const interestAmount = (financedBalance * interestRate) / 100;
+                const totalFinancedWithInterest = financedBalance + interestAmount;
+                let installmentAmount = 0;
+                let lastInstallmentAmount = 0;
+                let roundingAdjustment = 0;
+
+                if (installmentsCount > 0 && totalFinancedWithInterest > 0) {
+                    const baseInst = Math.floor(totalFinancedWithInterest / installmentsCount);
+                    roundingAdjustment = totalFinancedWithInterest - (baseInst * installmentsCount);
+                    installmentAmount = baseInst;
+                    lastInstallmentAmount = baseInst + roundingAdjustment;
+                }
+
+                const totalOperationPrice = downPayment + totalFinancedWithInterest;
+
+                sale.financingDetails = {
+                    hasFinancing: true,
+                    cashPrice,
+                    downPayment,
+                    installmentsCount: installmentsCount || 0,
+                    interestRate,
+                    financedBalance,
+                    interestAmount,
+                    totalFinancedWithInterest,
+                    installmentAmount,
+                    lastInstallmentAmount,
+                    totalOperationPrice,
+                    roundingAdjustment,
+                    includesDeposit: Boolean(financingDetails.includesDeposit)
+                };
+
+                // Actualizar precio de venta al total de la operación y plazo
+                sale.salePrice = totalOperationPrice;
+                sale.installmentsCount = installmentsCount || 0;
+
+                sale.saleAuditLog.push({
+                    action: 'FINANCIACION_ACTUALIZADA',
+                    field: 'financingDetails',
+                    newValue: sale.financingDetails,
+                    details: `Financiación actualizada: ${installmentsCount} cuotas de ${installmentAmount} (última: ${lastInstallmentAmount}). Total financiado: ${totalFinancedWithInterest}. Operación: ${totalOperationPrice}.`,
+                    user: user,
+                    source: 'CRM_V2'
+                });
+                hasChanges = true;
+
+                // Sincronizar cuotas en el módulo operativo si fue solicitado y no hay pagos registrados
+                if (syncInstallmentPlan && !hasPaidInstallments && installmentsCount > 0 && totalFinancedWithInterest > 0) {
+                    await Installment.deleteMany({
+                        saleId: sale._id,
+                        status: { $in: ['pendiente', 'vencida'] },
+                        paidAmount: { $lte: 0 }
+                    });
+
+                    const newInsts = [];
+                    const startDate = new Date();
+                    startDate.setMonth(startDate.getMonth() + 1);
+
+                    const cleanClientId = sale.clientId?._id || sale.clientId;
+                    const cleanVehicleId = sale.vehicleId?._id || sale.vehicleId;
+
+                    for (let i = 0; i < installmentsCount; i++) {
+                        const dueDate = new Date(startDate);
+                        dueDate.setMonth(dueDate.getMonth() + i);
+                        const isLast = i === installmentsCount - 1;
+                        const amount = isLast ? lastInstallmentAmount : installmentAmount;
+
+                        newInsts.push(new Installment({
+                            saleId: sale._id,
+                            ...(cleanClientId && { clientId: cleanClientId }),
+                            ...(cleanVehicleId && { vehicleId: cleanVehicleId }),
+                            installmentNumber: i + 1,
+                            dueDate,
+                            amount,
+                            currency: sale.saleCurrency || 'ARS',
+                            status: 'pendiente',
+                            notes: `Cuota ${i + 1} de ${installmentsCount} pactada en condiciones comerciales. Total operación: ${totalOperationPrice}`,
+                            createdBy: user,
+                            installmentAuditLog: [{
+                                action: 'PLAN_GENERADO',
+                                details: `Cuota ${i + 1} sincronizada desde Condiciones Comerciales.`,
+                                user: user
+                            }]
+                        }));
+                    }
+                    if (newInsts.length > 0) {
+                        await Installment.insertMany(newInsts);
+                    }
+                }
+            } else if (financingDetails === null || financingDetails.hasFinancing === false) {
+                sale.financingDetails = {
+                    hasFinancing: false,
+                    cashPrice: 0,
+                    downPayment: 0,
+                    installmentsCount: 0,
+                    interestRate: 0,
+                    financedBalance: 0,
+                    interestAmount: 0,
+                    totalFinancedWithInterest: 0,
+                    installmentAmount: 0,
+                    lastInstallmentAmount: 0,
+                    totalOperationPrice: 0,
+                    roundingAdjustment: 0,
+                    includesDeposit: false
+                };
+                sale.installmentsCount = 0;
+                sale.saleAuditLog.push({
+                    action: 'FINANCIACION_DESACTIVADA',
+                    field: 'financingDetails',
+                    details: 'Financiación desactivada en condiciones comerciales.',
+                    user: user,
+                    source: 'CRM_V2'
+                });
+                hasChanges = true;
+            }
         }
 
         if (documentationStatus !== undefined && documentationStatus !== sale.documentationStatus) {

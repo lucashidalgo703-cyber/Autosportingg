@@ -112,6 +112,11 @@ export default function SaleInstallmentsPanel({ sale, saleFinanceData }) {
     };
 
     const handleDeletePlan = () => {
+        const hasPaid = installments.some(i => (i.paidAmount && i.paidAmount > 0) || ['pagada', 'parcial', 'pagada_manual'].includes(i.status));
+        if (hasPaid) {
+            toast.error('No se puede eliminar el plan de cuotas porque existen cobros o pagos registrados.');
+            return;
+        }
         setConfirmDeletePlanModal(true);
     };
 
@@ -217,6 +222,11 @@ export default function SaleInstallmentsPanel({ sale, saleFinanceData }) {
                     <div>
                         <h2 className="text-lg font-bold text-white flex items-center gap-3">
                             Plan de Cuotas
+                            {sale?.financingDetails?.hasFinancing && (
+                                <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-purple-500/20 text-purple-300 border border-purple-500/30">
+                                    Financiación: {sale.financingDetails.installmentsCount} cuotas de {formatCurrency(sale.financingDetails.installmentAmount, sale.saleCurrency)}
+                                </span>
+                            )}
                         </h2>
                         <p className="text-xs text-neutral-500 mt-0.5">
                             Este plan es operativo. No registra cobros reales ni movimientos de caja automáticamente.

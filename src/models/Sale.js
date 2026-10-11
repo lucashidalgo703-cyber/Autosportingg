@@ -67,6 +67,22 @@ const tradeInVehicleSchema = new mongoose.Schema({
     enteredStockAt: { type: Date }
 });
 
+const financingDetailsSchema = new mongoose.Schema({
+    hasFinancing: { type: Boolean, default: false },
+    cashPrice: { type: Number, min: 0 },
+    downPayment: { type: Number, min: 0, default: 0 },
+    installmentsCount: { type: Number, enum: [6, 12, 18, 24] },
+    interestRate: { type: Number, min: 0, default: 0 },
+    financedBalance: { type: Number, min: 0, default: 0 },
+    interestAmount: { type: Number, min: 0, default: 0 },
+    totalFinancedWithInterest: { type: Number, min: 0, default: 0 },
+    installmentAmount: { type: Number, min: 0, default: 0 },
+    lastInstallmentAmount: { type: Number, min: 0, default: 0 },
+    totalOperationPrice: { type: Number, min: 0, default: 0 },
+    roundingAdjustment: { type: Number, default: 0 },
+    includesDeposit: { type: Boolean, default: false }
+}, { _id: false });
+
 const saleSchema = new mongoose.Schema({
     reservationId: { type: mongoose.Schema.Types.ObjectId, ref: 'Reservation' },
     leadId: { type: mongoose.Schema.Types.ObjectId, ref: 'Lead' },
@@ -93,6 +109,9 @@ const saleSchema = new mongoose.Schema({
         enum: ['contado', 'financiado', 'mixto', 'leasing', 'permuta', 'criptomonedas', 'otro'], 
         default: 'contado' 
     },
+    
+    // Financiación / Condiciones Comerciales
+    financingDetails: { type: financingDetailsSchema, default: null },
     
     // Trade-ins / Permutas
     tradeIns: { type: [tradeInVehicleSchema], default: [] },
@@ -206,6 +225,6 @@ const saleSchema = new mongoose.Schema({
 // Preventive Index: Find active sales for a vehicle quickly
 saleSchema.index({ vehicleId: 1, status: 1 });
 
-const Sale = mongoose.model('Sale', saleSchema);
+const Sale = mongoose.models.Sale || mongoose.model('Sale', saleSchema);
 
 export default Sale;
