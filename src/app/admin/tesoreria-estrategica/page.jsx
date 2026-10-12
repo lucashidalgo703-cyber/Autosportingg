@@ -23,7 +23,8 @@ import {
     SlidersHorizontal,
     Plus,
     History,
-    Sparkles
+    Sparkles,
+    Edit3
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useAuth } from '../../../context/AuthContext';
@@ -32,6 +33,7 @@ import TreasuryChangePinModal from '../../../components/crm/treasury/TreasuryCha
 import TreasuryReconciliationModal from '../../../components/crm/treasury/TreasuryReconciliationModal';
 import TreasuryBoxTransferModal from '../../../components/crm/treasury/TreasuryBoxTransferModal';
 import TreasuryInstallmentRegularizeModal from '../../../components/crm/treasury/TreasuryInstallmentRegularizeModal';
+import TreasuryEditBoxModal from '../../../components/crm/treasury/TreasuryEditBoxModal';
 
 function formatNumber(val) {
     return new Intl.NumberFormat('es-AR').format(val || 0);
@@ -117,6 +119,7 @@ export default function TesoreriaEstrategicaPage() {
     const [isReconcileOpen, setIsReconcileOpen] = useState(false);
     const [isTransferOpen, setIsTransferOpen] = useState(false);
     const [isRegularizeOpen, setIsRegularizeOpen] = useState(false);
+    const [editingBox, setEditingBox] = useState(null);
 
     // 1. Cargar estado de seguridad y cotización blue
     const fetchSecurityStatus = useCallback(async () => {
@@ -505,6 +508,14 @@ export default function TesoreriaEstrategicaPage() {
                                                     </span>
                                                 </div>
                                             </div>
+                                            <button
+                                                type="button"
+                                                onClick={() => setEditingBox(box)}
+                                                title={`Editar monto de ${box.name}`}
+                                                className="rounded-lg p-1.5 text-crm-fg-muted hover:bg-crm-surface-raised hover:text-white transition-colors"
+                                            >
+                                                <Edit3 size={15} />
+                                            </button>
                                         </div>
 
                                         <p className="mt-3 text-xs leading-relaxed text-crm-fg-muted min-h-[36px]">
@@ -528,13 +539,17 @@ export default function TesoreriaEstrategicaPage() {
                                     </div>
 
                                     <div className="mt-4 pt-3 border-t border-crm-border/40 flex items-center justify-between">
-                                        <span className="text-[10px] text-crm-fg-muted">
-                                            {box.history?.length || 0} movimientos
-                                        </span>
+                                        <button
+                                            type="button"
+                                            onClick={() => setEditingBox(box)}
+                                            className="inline-flex items-center gap-1.5 rounded-lg border border-purple-500/30 bg-purple-500/10 px-2.5 py-1 text-xs font-bold text-purple-300 hover:bg-purple-500/20 hover:text-white transition-colors"
+                                        >
+                                            <Edit3 size={13} /> Editar monto
+                                        </button>
                                         <button
                                             type="button"
                                             onClick={() => setIsTransferOpen(true)}
-                                            className="text-xs font-bold text-purple-300 hover:text-white transition-colors"
+                                            className="text-xs font-bold text-purple-300/80 hover:text-white transition-colors"
                                         >
                                             Traspasar →
                                         </button>
@@ -758,6 +773,16 @@ export default function TesoreriaEstrategicaPage() {
                 isOpen={isRegularizeOpen}
                 onClose={() => setIsRegularizeOpen(false)}
                 installments={pendingInstallments}
+                treasuryToken={treasuryToken}
+                onSuccess={loadDashboardData}
+            />
+
+            <TreasuryEditBoxModal
+                isOpen={Boolean(editingBox)}
+                onClose={() => setEditingBox(null)}
+                box={editingBox}
+                unallocatedUSD={summary.unallocatedUSD}
+                unallocatedARS={summary.unallocatedARS}
                 treasuryToken={treasuryToken}
                 onSuccess={loadDashboardData}
             />
