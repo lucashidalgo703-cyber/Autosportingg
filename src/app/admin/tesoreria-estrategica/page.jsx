@@ -38,6 +38,10 @@ import TreasuryChangePinModal from '../../../components/crm/treasury/TreasuryCha
 import TreasuryReconciliationModal from '../../../components/crm/treasury/TreasuryReconciliationModal';
 import TreasuryBoxTransferModal from '../../../components/crm/treasury/TreasuryBoxTransferModal';
 import TreasuryInstallmentRegularizeModal from '../../../components/crm/treasury/TreasuryInstallmentRegularizeModal';
+import TreasuryBatchRegularizeModal from '../../../components/crm/treasury/TreasuryBatchRegularizeModal';
+import TreasuryOrganizeInitialModal from '../../../components/crm/treasury/TreasuryOrganizeInitialModal';
+import TreasuryCollectAndDistributeModal from '../../../components/crm/treasury/TreasuryCollectAndDistributeModal';
+import TreasurySetupWizardModal from '../../../components/crm/treasury/TreasurySetupWizardModal';
 import TreasuryEditBoxModal from '../../../components/crm/treasury/TreasuryEditBoxModal';
 import TreasuryDistributeIncomeModal from '../../../components/crm/treasury/TreasuryDistributeIncomeModal';
 import TreasuryCategoryRulesTab from '../../../components/crm/treasury/TreasuryCategoryRulesTab';
@@ -153,6 +157,11 @@ export default function TesoreriaEstrategicaPage() {
     const [isReconcileOpen, setIsReconcileOpen] = useState(false);
     const [isTransferOpen, setIsTransferOpen] = useState(false);
     const [isRegularizeOpen, setIsRegularizeOpen] = useState(false);
+    const [isBatchRegularizeOpen, setIsBatchRegularizeOpen] = useState(false);
+    const [isOrganizeInitialOpen, setIsOrganizeInitialOpen] = useState(false);
+    const [isCollectAndDistributeOpen, setIsCollectAndDistributeOpen] = useState(false);
+    const [isSetupWizardOpen, setIsSetupWizardOpen] = useState(false);
+    const [isConfirmingCutoff, setIsConfirmingCutoff] = useState(false);
     const [editingBox, setEditingBox] = useState(null);
     const [distributingIncome, setDistributingIncome] = useState(null);
 
@@ -276,6 +285,35 @@ export default function TesoreriaEstrategicaPage() {
         return `${m}:${s < 10 ? '0' : ''}${s}`;
     };
 
+    const handleConfirmInitialCutoff = async () => {
+        if (!token || !treasuryToken) return;
+        try {
+            setIsConfirmingCutoff(true);
+            const res = await fetch('/api/admin/tesoreria-estrategica/confirm-initial-cutoff', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`,
+                    'x-treasury-token': treasuryToken
+                },
+                body: JSON.stringify({
+                    reason: 'Confirmación de corte inicial sobre saldo real actual'
+                })
+            });
+            const data = await res.json();
+            if (data.ok) {
+                toast.success(data.message || 'Corte inicial confirmado exitosamente.');
+                loadDashboardData();
+            } else {
+                toast.error(data.message || 'Error al confirmar corte.');
+            }
+        } catch {
+            toast.error('Error de red al confirmar corte inicial.');
+        } finally {
+            setIsConfirmingCutoff(false);
+        }
+    };
+
     // Renderizar puerta de acceso por PIN si no está autenticado
     if (!treasuryToken) {
         return (
@@ -292,7 +330,13 @@ export default function TesoreriaEstrategicaPage() {
     const summary = dashboardData?.summary || {};
     const boxes = dashboardData?.boxes || [];
     const accounts = dashboardData?.accounts || [];
-    const verification = dashboardData?.verification || {};
+    const auditInfo = dashboardData?.auditInfo || {};
+    const config = dashboardData?.config || {};
+    const batchLogs = dashboardData?.batchLogs || [];
+    const verification = dashboardData?.verification || {
+        status: auditInfo.isReconciliationConfirmed ? 'confirmado' : 'pendiente_verificar',
+        hasPhysicalCashInconsistency: auditInfo.hasPhysicalCashInconsistency
+    };
     const trackerAudit = dashboardData?.trackerAudit || {};
     const unassignedIncomeCards = dashboardData?.unassignedIncomeCards || [];
     const planning = dashboardData?.planning || {};
@@ -393,40 +437,86 @@ export default function TesoreriaEstrategicaPage() {
                 </div>
             )}
 
-            {/* Banner de Referencia Informativa (USD 5.000 y Tracker 2014) */}
+            {/* Barra de Estado de Conciliación, Saldos y Acciones Rápidas */}
             <div className="rounded-2xl border border-purple-500/30 bg-gradient-to-r from-purple-950/40 via-crm-surface to-emerald-950/30 p-4 sm:p-5">
-                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
                     <div className="space-y-1.5 text-xs">
                         <div className="flex items-center gap-2">
-                            <span className="flex h-6 w-6 items-center justify-center rounded-lg bg-purple-500/20 text-purple-300 text-xs">
-                                💡
+                            <span className="flex h-6 w-6 items-center justify-center rounded-lg bg-purple-500/20 text-purple-300 text-xs font-bold">
+                                🛡️
                             </span>
                             <h3 className="text-sm font-bold text-white">
-                                Parámetros Base Declarados: USD 5.000 de Liquidez y Tracker 2014
+                                {auditInfo.statusLabel || (auditInfo.isReconciliationConfirmed ? 'Corte Inicial Confirmado' : 'Pendiente de Corte Inicial')}
                             </h3>
+                            {auditInfo.isReconciliationConfirmed ? (
+                                <span className="rounded bg-emerald-500/20 border border-emerald-500/30 px-2 py-0.5 text-[10px] font-bold text-emerald-300 uppercase">
+                                    Corte Confirmado
+                                </span>
+                            ) : (
+                                <span className="rounded bg-amber-500/20 border border-amber-500/30 px-2 py-0.5 text-[10px] font-bold text-amber-300 uppercase">
+                                    Pendiente de Corte
+                                </span>
+                            )}
                         </div>
                         <p className="text-crm-fg-muted max-w-3xl leading-relaxed">
-                            • <strong>Liquidez de referencia:</strong> USD 5.000 (sin registrar automáticamente en cuentas hasta confirmar su distribución real entre efectivo y bancos).
+                            Total en cuentas: <strong className="text-white font-mono">{formatMoney(summary.totalCuentasARS, 'ARS')}</strong>
+                            {summary.totalCuentasUSD > 0 && <span> / <strong className="text-emerald-400 font-mono">{formatMoney(summary.totalCuentasUSD, 'USD')}</strong></span>}
+                            {' '}= Asignado a cajas: <strong className="text-purple-300 font-mono">{formatMoney(summary.totalCajasARS, 'ARS')}</strong> + Sin asignar: <strong className="text-crm-fg font-mono">{formatMoney(summary.unallocatedARS, 'ARS')}</strong>.
                         </p>
-                        <p className="text-crm-fg-muted max-w-3xl leading-relaxed">
-                            • <strong>Operación comercial pendiente:</strong> Chevrolet Tracker 2014 vendida por $15.500.000. Los importes pendientes de cobro no forman parte de la liquidez de caja hasta su acreditación efectiva.
-                        </p>
+                        {!auditInfo.isReconciliationConfirmed && (
+                            <div className="pt-1 flex flex-wrap items-center gap-2">
+                                <button
+                                    type="button"
+                                    disabled={isConfirmingCutoff}
+                                    onClick={handleConfirmInitialCutoff}
+                                    className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-600/90 hover:bg-emerald-500 px-3 py-1.5 text-xs font-bold text-white transition-colors shadow-sm"
+                                >
+                                    <CheckCircle2 size={13} />
+                                    {isConfirmingCutoff ? 'Confirmando...' : 'Confirmar corte inicial sobre este saldo'}
+                                </button>
+                                <span className="text-[11px] text-crm-fg-muted">
+                                    (Fija el saldo actual de tus cuentas sin generar ingresos duplicados)
+                                </span>
+                            </div>
+                        )}
                     </div>
 
-                    <div className="flex flex-wrap gap-2 shrink-0">
+                    {/* 4 Botones de Acción Clave */}
+                    <div className="flex flex-wrap items-center gap-2 shrink-0">
                         <button
                             type="button"
-                            onClick={() => setIsReconcileOpen(true)}
-                            className="inline-flex items-center gap-2 rounded-xl bg-purple-600 px-3.5 py-2 text-xs font-black text-white hover:bg-purple-500 transition-colors shadow-lg shadow-purple-600/20"
+                            onClick={() => setIsOrganizeInitialOpen(true)}
+                            className="inline-flex items-center gap-1.5 rounded-xl border border-purple-500/40 bg-purple-500/15 px-3.5 py-2 text-xs font-bold text-purple-200 hover:bg-purple-500/25 transition-colors"
+                            title="Repartir saldo confirmado entre las 8 cajas"
                         >
-                            <Scale size={15} /> Conciliar Cuentas
+                            <SlidersHorizontal size={14} /> Organizar Saldo Inicial
                         </button>
+
                         <button
                             type="button"
-                            onClick={() => setIsTransferOpen(true)}
-                            className="inline-flex items-center gap-2 rounded-xl border border-crm-border bg-crm-surface px-3.5 py-2 text-xs font-bold text-crm-fg hover:bg-crm-surface-raised transition-colors"
+                            onClick={() => setIsCollectAndDistributeOpen(true)}
+                            className="inline-flex items-center gap-1.5 rounded-xl bg-purple-600 px-3.5 py-2 text-xs font-black text-white hover:bg-purple-500 transition-colors shadow-lg shadow-purple-600/20"
+                            title="Cobrar en cuenta y distribuir a cajas en un solo paso"
                         >
-                            <ArrowRightLeft size={15} /> Traspasar Cajas
+                            <ArrowDownRight size={14} /> Cobrar y Distribuir
+                        </button>
+
+                        <button
+                            type="button"
+                            onClick={() => setIsBatchRegularizeOpen(true)}
+                            className="inline-flex items-center gap-1.5 rounded-xl border border-crm-border bg-crm-surface px-3.5 py-2 text-xs font-bold text-crm-fg hover:bg-crm-surface-raised transition-colors"
+                            title="Regularizar cuotas cobradas antes del corte"
+                        >
+                            <FileCheck size={14} /> Regularizar Cuotas en Lote
+                        </button>
+
+                        <button
+                            type="button"
+                            onClick={() => setIsSetupWizardOpen(true)}
+                            className="inline-flex items-center gap-1.5 rounded-xl border border-crm-border bg-crm-surface px-3.5 py-2 text-xs font-bold text-crm-fg hover:bg-crm-surface-raised transition-colors"
+                            title="Asistente de configuración guiada"
+                        >
+                            <Sparkles size={14} className="text-purple-300" /> Configuración Guiada
                         </button>
                     </div>
                 </div>
@@ -651,9 +741,15 @@ export default function TesoreriaEstrategicaPage() {
                                             <div className="flex items-baseline justify-between pt-1 border-t border-crm-border/40 text-white">
                                                 <span className="text-[10px] font-bold uppercase tracking-wider text-crm-fg-muted">Disponible Neto</span>
                                                 <span className="font-mono font-black text-xs text-emerald-400">
-                                                    {box.availableUSD !== undefined && box.availableUSD !== 0 ? formatMoney(box.availableUSD, 'USD') : formatMoney(box.availableARS, 'ARS')}
+                                                    {box.availableUSD > 0 ? formatMoney(box.availableUSD, 'USD') : formatMoney(box.availableARS || 0, 'ARS')}
                                                 </span>
                                             </div>
+                                            {box.uncoveredCommitmentsARS > 0 && (
+                                                <div className="flex items-baseline justify-between text-[10px] text-amber-300">
+                                                    <span>Compromisos por fondear:</span>
+                                                    <span className="font-mono font-bold">ARS {formatNumber(box.uncoveredCommitmentsARS)}</span>
+                                                </div>
+                                            )}
 
                                             {/* Meta y Cobertura */}
                                             {(box.targetMoneyARS > 0 || box.targetMoneyUSD > 0) && (
@@ -688,7 +784,7 @@ export default function TesoreriaEstrategicaPage() {
                                             onClick={() => setEditingBox(box)}
                                             className="inline-flex items-center gap-1.5 rounded-lg border border-purple-500/30 bg-purple-500/10 px-2.5 py-1 text-xs font-bold text-purple-300 hover:bg-purple-500/20 hover:text-white transition-colors"
                                         >
-                                            <Edit3 size={13} /> Asignar / Meta
+                                            <Edit3 size={13} /> Editar saldo / monto
                                         </button>
                                         <button
                                             type="button"
@@ -712,9 +808,16 @@ export default function TesoreriaEstrategicaPage() {
                         <div>
                             <h2 className="text-base font-black text-white">Bandeja de Cobros Reales Sin Distribuir</h2>
                             <p className="text-xs text-crm-fg-muted">
-                                Cobros reales ingresados en cuentas. Distribuí los fondos propios a cada caja según sus prioridades y faltantes.
+                                Cobros reales ingresados en cuentas posteriores al corte. Distribuí los fondos propios a cada caja según sus prioridades y faltantes.
                             </p>
                         </div>
+                        <button
+                            type="button"
+                            onClick={() => setIsCollectAndDistributeOpen(true)}
+                            className="inline-flex items-center gap-1.5 rounded-xl bg-purple-600 px-3.5 py-2 text-xs font-black text-white hover:bg-purple-500 transition-colors shadow-lg shadow-purple-600/20 shrink-0"
+                        >
+                            <ArrowDownRight size={14} /> Registrar Nuevo Cobro y Distribuir
+                        </button>
                     </div>
 
                     <div className="rounded-2xl border border-crm-border bg-crm-surface overflow-hidden">
@@ -860,15 +963,15 @@ export default function TesoreriaEstrategicaPage() {
                         <div>
                             <h2 className="text-base font-black text-white">Saneamiento y Regularización de Cuotas Históricas</h2>
                             <p className="text-xs text-crm-fg-muted">
-                                Marcá como pagadas las cuotas que tus clientes abonaron en el pasado sin que el sistema duplique el saldo en caja.
+                                Marcá como pagadas las cuotas que tus clientes abonaron en el pasado agrupadas por venta sin duplicar saldo en caja.
                             </p>
                         </div>
                         <button
                             type="button"
-                            onClick={() => setIsRegularizeOpen(true)}
+                            onClick={() => setIsBatchRegularizeOpen(true)}
                             className="inline-flex items-center gap-1.5 rounded-xl bg-purple-600 px-3.5 py-2 text-xs font-black text-white hover:bg-purple-500 transition-colors shadow-lg shadow-purple-600/20"
                         >
-                            <FileCheck size={14} /> Regularizar Selección
+                            <FileCheck size={14} /> Regularizar Cuotas en Lote
                         </button>
                     </div>
 
@@ -1019,6 +1122,45 @@ export default function TesoreriaEstrategicaPage() {
                 isOpen={isRegularizeOpen}
                 onClose={() => setIsRegularizeOpen(false)}
                 installments={pendingInstallments}
+                treasuryToken={treasuryToken}
+                onSuccess={loadDashboardData}
+            />
+
+            <TreasuryBatchRegularizeModal
+                isOpen={isBatchRegularizeOpen}
+                onClose={() => setIsBatchRegularizeOpen(false)}
+                treasuryToken={treasuryToken}
+                batchLogs={batchLogs}
+                onSuccess={loadDashboardData}
+            />
+
+            <TreasuryOrganizeInitialModal
+                isOpen={isOrganizeInitialOpen}
+                onClose={() => setIsOrganizeInitialOpen(false)}
+                boxes={boxes}
+                summary={summary}
+                config={config}
+                treasuryToken={treasuryToken}
+                onSuccess={loadDashboardData}
+            />
+
+            <TreasuryCollectAndDistributeModal
+                isOpen={isCollectAndDistributeOpen}
+                onClose={() => setIsCollectAndDistributeOpen(false)}
+                accounts={accounts}
+                boxes={boxes}
+                pendingInstallments={pendingInstallments}
+                treasuryToken={treasuryToken}
+                onSuccess={loadDashboardData}
+            />
+
+            <TreasurySetupWizardModal
+                isOpen={isSetupWizardOpen}
+                onClose={() => setIsSetupWizardOpen(false)}
+                summary={summary}
+                accounts={accounts}
+                config={config}
+                categoryRules={categoryRules}
                 treasuryToken={treasuryToken}
                 onSuccess={loadDashboardData}
             />

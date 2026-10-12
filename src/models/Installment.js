@@ -4,7 +4,7 @@ const installmentAuditSchema = new mongoose.Schema({
     action: {
         type: String,
         required: true,
-        enum: ['CUOTA_CREADA', 'CUOTA_EDITADA', 'CUOTA_ANULADA', 'CUOTA_MARCADA_PAGADA_MANUAL', 'PLAN_GENERADO', 'COBRO_REGISTRADO', 'REGULARIZACION_CONCILIADA']
+        enum: ['CUOTA_CREADA', 'CUOTA_EDITADA', 'CUOTA_ANULADA', 'CUOTA_MARCADA_PAGADA_MANUAL', 'PLAN_GENERADO', 'COBRO_REGISTRADO', 'REGULARIZACION_CONCILIADA', 'REGULARIZACION_REVERTIDA']
     },
     user: { type: String, required: true },
     date: { type: Date, default: Date.now },
@@ -80,6 +80,20 @@ const installmentSchema = new mongoose.Schema({
         type: String
     },
     updatedBy: {
+        type: String
+    },
+    // Regularización histórica en lote
+    isHistoricallyRegularized: {
+        type: Boolean,
+        default: false
+    },
+    regularizationBatchId: {
+        type: String
+    },
+    regularizedAt: {
+        type: Date
+    },
+    regularizedBy: {
         type: String
     },
     installmentAuditLog: [installmentAuditSchema]

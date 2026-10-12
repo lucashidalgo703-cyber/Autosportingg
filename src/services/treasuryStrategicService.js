@@ -1,9 +1,12 @@
 import crypto from 'crypto';
 import jwt from 'jsonwebtoken';
+import mongoose from 'mongoose';
 import TreasurySecurity from '../models/TreasurySecurity.js';
 import TreasuryBox from '../models/TreasuryBox.js';
 import TreasuryReconciliation from '../models/TreasuryReconciliation.js';
 import TreasuryCategoryRule from '../models/TreasuryCategoryRule.js';
+import TreasuryConfig from '../models/TreasuryConfig.js';
+import TreasuryBatchLog from '../models/TreasuryBatchLog.js';
 import Account from '../models/Account.js';
 import Transaction from '../models/Transaction.js';
 import Installment from '../models/Installment.js';
@@ -11,10 +14,9 @@ import AdminUser from '../models/AdminUser.js';
 import Sale from '../models/Sale.js';
 import Car from '../models/Car.js';
 import FinanceRecurringRule from '../models/FinanceRecurringRule.js';
-import FinanceBudget from '../models/FinanceBudget.js';
 
 const JWT_SECRET = process.env.JWT_SECRET?.trim() || 'autosporting_secret_jwt_key_crm_2026';
-const LOCK_TIME_MS = 15 * 60 * 1000; // 15 minutos de bloqueo por fuerza bruta
+const LOCK_TIME_MS = 15 * 60 * 1000;
 const MAX_FAILED_ATTEMPTS = 5;
 
 // Hashing seguro con scrypt nativo
@@ -55,12 +57,12 @@ async function getOrCreateSecurityRecord() {
     return sec;
 }
 
-// 8 Cajas Estratégicas Completas según especificación
+// 8 Cajas Estratégicas Completas
 const DEFAULT_BOXES = [
     {
         key: 'operativa',
         name: 'Caja Operativa',
-        description: 'Gastos operativos corrientes y compromisos inmediatos de los próximos 30 días',
+        description: 'Gastos operativos corrientes y compromisos inmediatos del horizonte elegido',
         color: 'emerald',
         icon: 'Briefcase',
         targetPercent: 0,
@@ -69,7 +71,7 @@ const DEFAULT_BOXES = [
     {
         key: 'impuestos',
         name: 'Impuestos y Obligaciones',
-        description: 'Reserva para AFIP, Ingresos Brutos, patentes vehiculares y obligaciones fiscales registradas',
+        description: 'Reserva para AFIP, Ingresos Brutos, patentes vehiculares y obligaciones fiscales',
         color: 'amber',
         icon: 'Landmark',
         targetPercent: 0,
@@ -105,11 +107,11 @@ const DEFAULT_BOXES = [
     {
         key: 'reserva',
         name: 'Reserva de Liquidez',
-        description: 'Respaldo financiero para cubrir gastos fijos en meses lentos (separado del fondo de inversiones)',
+        description: 'Respaldo financiero para cubrir gastos fijos en meses lentos (separado de inversiones)',
         color: 'blue',
         icon: 'ShieldCheck',
         targetPercent: 0,
-        reserveMonths: 1,
+        reserveMonths: 2,
         priority: 6
     },
     {
@@ -132,7 +134,7 @@ const DEFAULT_BOXES = [
     }
 ];
 
-// Reglas por defecto de categorías a cajas
+// Reglas por defecto de categorías
 const DEFAULT_CATEGORY_RULES = [
     { category: 'Sueldos', boxKey: 'operativa', notes: 'Gastos de personal operativo' },
     { category: 'Servicios', boxKey: 'operativa', notes: 'Luz, agua, internet, telefonía' },
@@ -166,14 +168,14 @@ async function ensureDefaultBoxes() {
                 icon: def.icon,
                 targetPercent: 0,
                 priority: def.priority,
-                reserveMonths: def.reserveMonths || 1,
+                reserveMonths: def.reserveMonths || 2,
                 balanceARS: 0,
                 balanceUSD: 0,
                 history: [{
                     date: new Date(),
                     type: 'asignacion_inicial',
                     amount: 0,
-                    currency: 'USD',
+                    currency: 'ARS',
                     reason: 'Inicialización de caja estratégica',
                     user: 'Sistema'
                 }]
@@ -197,7 +199,24 @@ async function ensureDefaultCategoryRules() {
     }
 }
 
-// Generar autorización temporal de 15 minutos
+async function getOrCreateTreasuryConfig() {
+    let cfg = await TreasuryConfig.findOne();
+    if (!cfg) {
+        cfg = new TreasuryConfig({
+            operationalHorizonDays: 30,
+            reserveMonths: 2,
+            personalMonthlyBudgetARS: 0,
+            personalMonthlyBudgetUSD: 0,
+            postventaProvisionARS: 0,
+            postventaProvisionUSD: 0,
+            priorityOrder: ['operativa', 'impuestos', 'deudas', 'personal', 'postventa', 'reserva', 'stock', 'crecimiento'],
+            isSetupCompleted: false
+        });
+        await cfg.save();
+    }
+    return cfg;
+}
+
 function generateTreasuryToken(userId, role) {
     return jwt.sign(
         {
@@ -211,7 +230,7 @@ function generateTreasuryToken(userId, role) {
     );
 }
 
-// 1. Estado de seguridad (sin exponer secretos)
+// 1. Estado de seguridad
 export async function getSecurityStatus() {
     const sec = await getOrCreateSecurityRecord();
     const now = new Date();
@@ -229,18 +248,15 @@ export async function getSecurityStatus() {
     };
 }
 
-// 2. Configuración inicial de PIN (Primer acceso)
+// 2. Setup PIN
 export async function setupInitialPin(pin, confirmPin, user) {
     const sec = await getOrCreateSecurityRecord();
-
     if (sec.pinConfigured && sec.pinHash) {
-        throw new Error('El PIN ya fue configurado previamente. Utilizá la opción de cambio de PIN.');
+        throw new Error('El PIN ya fue configurado previamente.');
     }
-
     if (!pin || typeof pin !== 'string' || !/^\d{4}$/.test(pin)) {
         throw new Error('El PIN debe contener exactamente 4 dígitos numéricos.');
     }
-
     if (pin !== confirmPin) {
         throw new Error('La confirmación del PIN no coincide.');
     }
@@ -255,23 +271,17 @@ export async function setupInitialPin(pin, confirmPin, user) {
     await sec.save();
 
     const treasuryToken = generateTreasuryToken(user.id || user.userId, user.role);
-
-    return {
-        ok: true,
-        message: 'PIN de Tesorería Estratégica configurado correctamente.',
-        treasuryToken,
-        expiresInSeconds: 900
-    };
+    return { ok: true, message: 'PIN configurado correctamente.', treasuryToken, expiresInSeconds: 900 };
 }
 
-// 3. Verificación de PIN
+// 3. Verify PIN
 export async function verifyPin(pin, user) {
     const sec = await getOrCreateSecurityRecord();
     const now = new Date();
 
     if (sec.lockedUntil && sec.lockedUntil > now) {
         const remainingMinutes = Math.ceil((sec.lockedUntil - now) / 60000);
-        const err = new Error(`Acceso temporalmente bloqueado por seguridad (${MAX_FAILED_ATTEMPTS} intentos fallidos). Intentá nuevamente en ${remainingMinutes} minutos o reestablecé el PIN con tu contraseña de propietario.`);
+        const err = new Error(`Acceso temporalmente bloqueado. Intentá en ${remainingMinutes} min.`);
         err.statusCode = 423;
         err.isLocked = true;
         err.lockRemainingMinutes = remainingMinutes;
@@ -298,7 +308,7 @@ export async function verifyPin(pin, user) {
         if (sec.failedAttempts >= MAX_FAILED_ATTEMPTS) {
             sec.lockedUntil = new Date(Date.now() + LOCK_TIME_MS);
             await sec.save();
-            const err = new Error(`Has alcanzado el límite de 5 intentos fallidos. Acceso bloqueado temporalmente por 15 minutos.`);
+            const err = new Error(`5 intentos fallidos alcanzados. Bloqueado por 15 minutos.`);
             err.statusCode = 423;
             err.isLocked = true;
             err.lockRemainingMinutes = 15;
@@ -306,7 +316,7 @@ export async function verifyPin(pin, user) {
         } else {
             await sec.save();
             const remaining = MAX_FAILED_ATTEMPTS - sec.failedAttempts;
-            const err = new Error(`PIN incorrecto. Te quedan ${remaining} intento${remaining === 1 ? '' : 's'} antes del bloqueo temporal.`);
+            const err = new Error(`PIN incorrecto. Te quedan ${remaining} intento${remaining === 1 ? '' : 's'}.`);
             err.statusCode = 401;
             err.remainingAttempts = remaining;
             throw err;
@@ -319,37 +329,26 @@ export async function verifyPin(pin, user) {
     await sec.save();
 
     const treasuryToken = generateTreasuryToken(user.id || user.userId, user.role);
-
-    return {
-        ok: true,
-        message: 'Acceso autorizado a Tesorería Estratégica.',
-        treasuryToken,
-        expiresInSeconds: 900
-    };
+    return { ok: true, message: 'Acceso autorizado.', treasuryToken, expiresInSeconds: 900 };
 }
 
-// 4. Cambio de PIN
+// 4. Change PIN
 export async function changePin(currentPin, newPin, confirmNewPin, user) {
     const sec = await getOrCreateSecurityRecord();
-
     if (!sec.pinConfigured || !sec.pinHash) {
         throw new Error('Primero debés configurar un PIN inicial.');
     }
-
     if (!verifyHashedValue(currentPin, sec.pinHash)) {
-        const err = new Error('El PIN actual ingresado no es correcto.');
+        const err = new Error('El PIN actual no es correcto.');
         err.statusCode = 401;
         throw err;
     }
-
     if (!newPin || typeof newPin !== 'string' || !/^\d{4}$/.test(newPin)) {
         throw new Error('El nuevo PIN debe tener exactamente 4 dígitos numéricos.');
     }
-
     if (newPin !== confirmNewPin) {
         throw new Error('La confirmación del nuevo PIN no coincide.');
     }
-
     if (newPin === currentPin) {
         throw new Error('El nuevo PIN no puede ser idéntico al actual.');
     }
@@ -362,42 +361,27 @@ export async function changePin(currentPin, newPin, confirmNewPin, user) {
     await sec.save();
 
     const treasuryToken = generateTreasuryToken(user.id || user.userId, user.role);
-
-    return {
-        ok: true,
-        message: 'PIN modificado exitosamente.',
-        treasuryToken,
-        expiresInSeconds: 900
-    };
+    return { ok: true, message: 'PIN modificado exitosamente.', treasuryToken, expiresInSeconds: 900 };
 }
 
-// 5. Recuperación de PIN con contraseña del propietario
+// 5. Recover PIN with owner password
 export async function recoverPinWithPassword(password, newPin, confirmNewPin, user) {
     const sec = await getOrCreateSecurityRecord();
-
     const ownerUser = await AdminUser.findById(user.id || user.userId);
-    if (!ownerUser) {
-        throw new Error('Usuario propietario no encontrado.');
-    }
-
-    if (!password) {
-        throw new Error('Debés ingresar tu contraseña del CRM para reautenticarte.');
-    }
+    if (!ownerUser) throw new Error('Usuario propietario no encontrado.');
+    if (!password) throw new Error('Ingresá tu contraseña de CRM.');
 
     const isPasswordValid = verifyHashedValue(password, ownerUser.passwordHash);
     if (!isPasswordValid) {
-        const err = new Error('Contraseña del CRM incorrecta. No se pudo reautenticar al propietario.');
+        const err = new Error('Contraseña incorrecta.');
         err.statusCode = 401;
         throw err;
     }
 
     if (!newPin || typeof newPin !== 'string' || !/^\d{4}$/.test(newPin)) {
-        throw new Error('El nuevo PIN debe tener exactamente 4 dígitos numéricos.');
+        throw new Error('El nuevo PIN debe tener 4 dígitos.');
     }
-
-    if (newPin !== confirmNewPin) {
-        throw new Error('La confirmación del nuevo PIN no coincide.');
-    }
+    if (newPin !== confirmNewPin) throw new Error('La confirmación del PIN no coincide.');
 
     sec.pinHash = hashValue(newPin);
     sec.pinConfigured = true;
@@ -409,31 +393,26 @@ export async function recoverPinWithPassword(password, newPin, confirmNewPin, us
     await sec.save();
 
     const treasuryToken = generateTreasuryToken(user.id || user.userId, user.role);
-
-    return {
-        ok: true,
-        message: 'Identidad verificada. PIN de Tesorería Estratégica restablecido exitosamente.',
-        treasuryToken,
-        expiresInSeconds: 900
-    };
+    return { ok: true, message: 'PIN restablecido exitosamente.', treasuryToken, expiresInSeconds: 900 };
 }
 
-// 6. Obtener Datos Completos de Tesorería Estratégica
+// 6. Obtener Datos Completos de Tesorería Estratégica (Sin datos ficticios de la conversación)
 export async function getTreasuryDashboardData() {
     await ensureDefaultBoxes();
     await ensureDefaultCategoryRules();
+    const config = await getOrCreateTreasuryConfig();
 
     const accounts = await Account.find({ isActive: { $ne: false } }).sort({ currency: 1, name: 1 }).lean();
     const boxes = await TreasuryBox.find({ isActive: true }).sort({ priority: 1, key: 1 }).lean();
     const categoryRules = await TreasuryCategoryRule.find().lean();
 
-    // Mapeo rápido de categoría -> boxKey
+    // Mapeo categoría -> boxKey
     const catToBoxMap = {};
     categoryRules.forEach(r => {
         catToBoxMap[r.category.trim().toLowerCase()] = r.boxKey;
     });
 
-    // Totales en Cuentas y Detección de Inconsistencias (Efectivo físico negativo vs descubierto bancario)
+    // Totales en Cuentas
     let totalCuentasARS = 0;
     let totalCuentasUSD = 0;
     let totalEfectivoARS = 0;
@@ -465,7 +444,7 @@ export async function getTreasuryDashboardData() {
                 type: 'inconsistencia_fisica',
                 label: 'Inconsistencia de Efectivo Físico',
                 severity: 'error',
-                description: `El saldo de efectivo físico en mano no puede ser negativo (${bal.toLocaleString('es-AR')}). Requiere arqueo y conciliación formal.`
+                description: `El saldo de efectivo físico no puede ser negativo (${bal.toLocaleString('es-AR')}). Requiere arqueo o conciliación.`
             };
             accountIssues.push({ accountName: acc.name, ...issue });
         } else if (!isPhysical && isNegative) {
@@ -473,22 +452,17 @@ export async function getTreasuryDashboardData() {
                 type: 'descubierto_bancario',
                 label: 'Descubierto Bancario / Saldo Deudor',
                 severity: 'warning',
-                description: `Cuenta bancaria o billetera con saldo negativo (${bal.toLocaleString('es-AR')}) girado en descubierto.`
+                description: `Cuenta bancaria con saldo en descubierto (${bal.toLocaleString('es-AR')}).`
             };
             accountIssues.push({ accountName: acc.name, ...issue });
         }
 
-        return {
-            ...acc,
-            isNegative,
-            issue
-        };
+        return { ...acc, isNegative, issue };
     });
 
     // Totales en Cajas
     let totalCajasARS = 0;
     let totalCajasUSD = 0;
-
     boxes.forEach(box => {
         totalCajasARS += Number(box.balanceARS || 0);
         totalCajasUSD += Number(box.balanceUSD || 0);
@@ -497,103 +471,18 @@ export async function getTreasuryDashboardData() {
     const unallocatedARS = totalCuentasARS - totalCajasARS;
     const unallocatedUSD = totalCuentasUSD - totalCajasUSD;
 
-    // Cuotas pendientes para saneamiento/regularización
-    const pendingInstallments = await Installment.find({ status: { $in: ['pendiente', 'vencida'] } })
-        .populate('vehicleId', 'brand name year plateOrVin')
-        .populate('clientId', 'firstName lastName fullName phone')
-        .sort({ dueDate: 1 })
-        .lean();
-
-    // Historial de conciliaciones
+    // Historial de conciliaciones y fecha de último corte
     const recentReconciliations = await TreasuryReconciliation.find()
-        .sort({ createdAt: -1 })
+        .sort({ cutoffDate: -1, createdAt: -1 })
         .limit(10)
         .lean();
 
-    const hasConfirmedReconciliation = recentReconciliations.some(r => r.status === 'confirmado');
-    const verificationStatus = (hasConfirmedReconciliation && !hasPhysicalCashInconsistency)
-        ? 'verificado'
-        : 'pendiente_verificar';
+    const lastConfirmedReconciliation = recentReconciliations.find(r => r.status === 'confirmado');
+    const lastCutoffDate = lastConfirmedReconciliation ? lastConfirmedReconciliation.cutoffDate : null;
+    const isReconciliationConfirmed = Boolean(lastConfirmedReconciliation);
 
     // -------------------------------------------------------------
-    // INVESTIGACIÓN RIGUROSA DE TRACKER (Referencia: Tracker 2014 por $15.500.000)
-    // -------------------------------------------------------------
-    const trackerCars = await Car.find({
-        $or: [
-            { name: { $regex: /tracker/i } },
-            { brand: { $regex: /tracker/i } },
-            { description: { $regex: /tracker/i } }
-        ]
-    }).lean();
-
-    const trackerCarIds = trackerCars.map(c => c._id);
-
-    const trackerSales = await Sale.find({
-        $or: [
-            { vehicleId: { $in: trackerCarIds } },
-            { notes: { $regex: /tracker/i } },
-            { salePrice: 15500000 }
-        ]
-    })
-    .populate('vehicleId')
-    .populate('clientId')
-    .sort({ createdAt: -1 })
-    .lean();
-
-    let trackerAudit = {
-        found: false,
-        identifiedVehicle: null,
-        note: 'La referencia declarada es una Chevrolet Tracker 2014 vendida por $15.500.000. Los importes pendientes de cobro no deben computarse como liquidez de caja hasta su cobro efectivo.',
-        matchingSales: []
-    };
-
-    if (trackerSales.length > 0) {
-        trackerAudit.matchingSales = trackerSales.map(s => ({
-            id: s._id,
-            vehicle: s.vehicleId ? `${s.vehicleId.brand} ${s.vehicleId.name} ${s.vehicleId.year || ''}`.trim() : 'Tracker (identificada por notas/monto)',
-            year: s.vehicleId?.year,
-            salePrice: s.salePrice,
-            saleCurrency: s.saleCurrency,
-            status: s.status,
-            client: s.clientId?.fullName || `${s.clientId?.firstName || ''} ${s.clientId?.lastName || ''}`.trim() || 'Cliente',
-            notes: s.notes
-        }));
-
-        // Buscar si existe coincidencia de 2014 o $15.500.000
-        const specificTracker = trackerSales.find(s =>
-            (s.vehicleId?.year === 2014) ||
-            (s.salePrice === 15500000) ||
-            (s.vehicleId?.name && /2014/i.test(s.vehicleId.name))
-        ) || trackerSales[0];
-
-        trackerAudit.found = true;
-        trackerAudit.identifiedVehicle = {
-            saleId: specificTracker._id,
-            vehicle: specificTracker.vehicleId
-                ? `${specificTracker.vehicleId.brand} ${specificTracker.vehicleId.name} ${specificTracker.vehicleId.year ? `(${specificTracker.vehicleId.year})` : ''}`.trim()
-                : 'Chevrolet Tracker 2014',
-            year: specificTracker.vehicleId?.year || 2014,
-            price: specificTracker.salePrice || 15500000,
-            currency: specificTracker.saleCurrency || 'ARS',
-            status: specificTracker.status,
-            client: specificTracker.clientId?.fullName || `${specificTracker.clientId?.firstName || ''} ${specificTracker.clientId?.lastName || ''}`.trim() || 'Cliente',
-            isCollected: specificTracker.status === 'entregada',
-            note: 'Operación verificada: Chevrolet Tracker 2014 por $15.500.000. Pendiente de cobro; no computada en liquidez de cuentas.'
-        };
-    } else {
-        trackerAudit.identifiedVehicle = {
-            vehicle: 'Chevrolet Tracker 2014',
-            year: 2014,
-            price: 15500000,
-            currency: 'ARS',
-            status: 'pendiente_cobro',
-            isCollected: false,
-            note: 'Referencia declarada: Chevrolet Tracker 2014 vendida por $15.500.000 (Pendiente de cobro total; no computada en cuentas).'
-        };
-    }
-
-    // -------------------------------------------------------------
-    // GASTOS, COMPROMISOS Y METAS CALCULADAS POR CAJA
+    // GASTOS, COMPROMISOS Y CONEXIÓN CON FINANZAS
     // -------------------------------------------------------------
     const pendingTransactions = await Transaction.find({
         type: 'Egreso',
@@ -605,7 +494,19 @@ export async function getTreasuryDashboardData() {
         isActive: true
     }).lean();
 
-    // Comprobar transacciones ya generadas este mes para evitar duplicar gastos recurrentes
+    // Detección de gastos existentes incompletos o sin categoría
+    const incompleteExpenses = await Transaction.find({
+        type: 'Egreso',
+        $or: [
+            { category: { $in: ['', null, 'Otra Categoría', 'Sin clasificar', 'Otro'] } },
+            { treasuryBoxKey: null }
+        ]
+    })
+    .sort({ date: -1 })
+    .limit(20)
+    .lean();
+
+    // Gastos pagados en el mes para evitar duplicar reglas recurrentes
     const now = new Date();
     const startOfCurrentMonth = new Date(now.getFullYear(), now.getMonth(), 1);
     const existingCurrentMonthTransactions = await Transaction.find({
@@ -619,7 +520,7 @@ export async function getTreasuryDashboardData() {
         existingCategoryTotalsThisMonth[cat] = (existingCategoryTotalsThisMonth[cat] || 0) + Number(tx.amount || 0);
     });
 
-    // Calcular compromisos pendientes de los próximos 30 días agrupados por caja
+    // Compromisos por caja
     const commitmentsByBox = {
         operativa: { ARS: 0, USD: 0, items: [] },
         impuestos: { ARS: 0, USD: 0, items: [] },
@@ -632,7 +533,6 @@ export async function getTreasuryDashboardData() {
         sin_asignar: { ARS: 0, USD: 0, items: [] }
     };
 
-    // 1. Egresos pendientes registrados
     pendingTransactions.forEach(tx => {
         const cat = (tx.category || '').trim().toLowerCase();
         const targetBoxKey = tx.treasuryBoxKey || catToBoxMap[cat] || 'sin_asignar';
@@ -643,7 +543,7 @@ export async function getTreasuryDashboardData() {
             commitmentsByBox[targetBoxKey][curr] += amt;
             commitmentsByBox[targetBoxKey].items.push({
                 type: 'gasto_pendiente',
-                description: tx.description,
+                description: tx.description || tx.concept || 'Gasto pendiente',
                 category: tx.category,
                 amount: amt,
                 currency: curr,
@@ -652,7 +552,6 @@ export async function getTreasuryDashboardData() {
         }
     });
 
-    // 2. Reglas recurrentes para los próximos 30 días sin duplicar lo ya emitido
     let monthlyOperationalBurnRateARS = 0;
     let monthlyOperationalBurnRateUSD = 0;
 
@@ -662,20 +561,18 @@ export async function getTreasuryDashboardData() {
         const ruleAmt = Number(rule.amount || 0);
         const curr = rule.currency === 'USD' ? 'USD' : 'ARS';
 
-        // Acumular gasto operativo mensual de referencia
         if (targetBoxKey === 'operativa') {
             if (curr === 'USD') monthlyOperationalBurnRateUSD += ruleAmt;
             else monthlyOperationalBurnRateARS += ruleAmt;
         }
 
-        // Si ya se registró un gasto en el mes para esta categoría de importe similar, evitar duplicar
         const alreadyGenerated = existingCategoryTotalsThisMonth[cat] && existingCategoryTotalsThisMonth[cat] >= ruleAmt * 0.8;
         if (!alreadyGenerated) {
             if (commitmentsByBox[targetBoxKey]) {
                 commitmentsByBox[targetBoxKey][curr] += ruleAmt;
                 commitmentsByBox[targetBoxKey].items.push({
                     type: 'regla_recurrente',
-                    description: `${rule.name} (Recurrente día ${rule.dayOfMonth})`,
+                    description: `${rule.name} (Día ${rule.dayOfMonth})`,
                     category: rule.category,
                     amount: ruleAmt,
                     currency: curr,
@@ -685,13 +582,14 @@ export async function getTreasuryDashboardData() {
         }
     });
 
-    // Enriquecer cada caja con compromisos, disponible neto, meta y cobertura
+    // Enriquecer cajas
     const enrichedBoxes = boxes.map(box => {
         const comms = commitmentsByBox[box.key] || { ARS: 0, USD: 0, items: [] };
-        const availableARS = (box.balanceARS || 0) - comms.ARS;
-        const availableUSD = (box.balanceUSD || 0) - comms.USD;
+        const availableARS = Math.max(0, (box.balanceARS || 0) - comms.ARS);
+        const availableUSD = Math.max(0, (box.balanceUSD || 0) - comms.USD);
+        const uncoveredCommitmentsARS = Math.max(0, comms.ARS - (box.balanceARS || 0));
+        const uncoveredCommitmentsUSD = Math.max(0, comms.USD - (box.balanceUSD || 0));
 
-        // Meta en dinero calculada según naturaleza de la caja
         let targetARS = 0;
         let targetUSD = 0;
         let missingDataNote = null;
@@ -700,52 +598,49 @@ export async function getTreasuryDashboardData() {
             targetARS = comms.ARS;
             targetUSD = comms.USD;
             if (targetARS === 0 && targetUSD === 0) {
-                missingDataNote = 'No se registran gastos operativos pendientes ni reglas recurrentes para los próximos 30 días en Finanzas.';
+                missingDataNote = 'Sin gastos operativos pendientes ni reglas recurrentes cargadas.';
             }
         } else if (box.key === 'impuestos') {
             targetARS = comms.ARS;
             targetUSD = comms.USD;
             if (targetARS === 0 && targetUSD === 0) {
-                missingDataNote = 'Sin vencimientos tributarios registrados. Cargá las obligaciones en Finanzas para proyectar la meta.';
+                missingDataNote = 'Sin vencimientos tributarios registrados.';
             }
         } else if (box.key === 'deudas') {
             targetARS = comms.ARS;
             targetUSD = comms.USD;
             if (targetARS === 0 && targetUSD === 0) {
-                missingDataNote = 'Sin deudas comerciales ni mutuos pendientes de pago en el registro actual.';
+                missingDataNote = 'Sin pasivos comerciales ni mutuos pendientes.';
             }
         } else if (box.key === 'personal') {
-            targetARS = box.monthlyBudgetARS || 0;
-            targetUSD = box.monthlyBudgetUSD || 0;
+            targetARS = box.monthlyBudgetARS || config.personalMonthlyBudgetARS || 0;
+            targetUSD = box.monthlyBudgetUSD || config.personalMonthlyBudgetUSD || 0;
             if (targetARS === 0 && targetUSD === 0) {
-                missingDataNote = 'Presupuesto mensual personal no configurado. Podés definir el retiro objetivo mensual.';
+                missingDataNote = 'Presupuesto personal no configurado.';
             }
         } else if (box.key === 'reserva') {
-            const months = box.reserveMonths || 1;
+            const months = box.reserveMonths || config.reserveMonths || 2;
             targetARS = monthlyOperationalBurnRateARS * months;
             targetUSD = monthlyOperationalBurnRateUSD * months;
             if (targetARS === 0 && targetUSD === 0) {
-                missingDataNote = 'Calcula meses adicionales de gastos fijos; faltan registrar reglas de gastos operativos en Finanzas.';
+                missingDataNote = 'Faltan reglas de gastos fijos para proyectar reserva de meses lentos.';
             }
         } else if (box.key === 'postventa') {
-            targetARS = box.monthlyBudgetARS || 0;
-            targetUSD = box.monthlyBudgetUSD || 0;
+            targetARS = box.monthlyBudgetARS || config.postventaProvisionARS || 0;
+            targetUSD = box.monthlyBudgetUSD || config.postventaProvisionUSD || 0;
             if (targetARS === 0 && targetUSD === 0) {
-                missingDataNote = 'Provisión postventa configurable. Definí un fondo de contingencia mecánica por unidad o mensual.';
+                missingDataNote = 'Provisión de postventa configurable.';
             }
         } else if (box.key === 'stock') {
             targetARS = box.monthlyBudgetARS || 0;
             targetUSD = box.monthlyBudgetUSD || 0;
-            missingDataNote = 'Se alimenta del excedente de liquidez tras cubrir prioridades operativas, reserva e impuestos.';
         } else if (box.key === 'crecimiento') {
             targetARS = box.monthlyBudgetARS || 0;
             targetUSD = box.monthlyBudgetUSD || 0;
-            missingDataNote = 'Destinado a reinversión patrimonial y nuevos activos con fondos excedentes.';
         }
 
         const shortfallARS = Math.max(0, targetARS - availableARS);
         const shortfallUSD = Math.max(0, targetUSD - availableUSD);
-
         let coveragePercentARS = targetARS > 0 ? Math.min(100, Math.round((availableARS / targetARS) * 100)) : 100;
         let coveragePercentUSD = targetUSD > 0 ? Math.min(100, Math.round((availableUSD / targetUSD) * 100)) : 100;
 
@@ -754,6 +649,8 @@ export async function getTreasuryDashboardData() {
             commitmentsARS: comms.ARS,
             commitmentsUSD: comms.USD,
             commitmentsCount: comms.items.length,
+            uncoveredCommitmentsARS,
+            uncoveredCommitmentsUSD,
             availableARS,
             availableUSD,
             targetMoneyARS: targetARS,
@@ -767,100 +664,73 @@ export async function getTreasuryDashboardData() {
     });
 
     // -------------------------------------------------------------
-    // BANDEJA DE COBROS REALES SIN ASIGNAR ("Distribuir Cobro")
+    // BANDEJA DE COBROS POSTERIORES AL CORTE (EXCLUYENDO HISTÓRICOS Y AJUSTES)
     // -------------------------------------------------------------
-    // Ingresos reales posteriores a la fecha de última conciliación (o no distribuidos)
-    const unallocatedIncomes = await Transaction.find({
-        type: 'Ingreso',
-        status: 'activo',
-        isTreasuryDistributed: { $ne: true },
-        category: { $nin: ['Ajuste de Conciliación Inicial', 'Conciliación Tesorería', 'Ajuste de Saldo'] }
-    })
-    .populate('vehicleId', 'brand name year investor consignedBy consignmentCommission')
-    .populate('accountId', 'name currency type')
-    .sort({ date: -1 })
-    .limit(30)
-    .lean();
+    let unassignedIncomeCards = [];
+    if (lastCutoffDate) {
+        const postCutoffIncomes = await Transaction.find({
+            type: 'Ingreso',
+            status: 'activo',
+            date: { $gt: lastCutoffDate },
+            isTreasuryDistributed: { $ne: true },
+            category: { $nin: ['Ajuste de Conciliación Inicial', 'Conciliación Tesorería', 'Ajuste de Saldo', 'Transferencia Interna', 'Traspaso'] }
+        })
+        .populate('vehicleId', 'brand name year investor consignedBy consignmentCommission')
+        .populate('accountId', 'name currency type')
+        .sort({ date: -1 })
+        .lean();
 
-    // Procesar cada ingreso y separar montos propios de terceros (inversores / consignaciones)
-    const unassignedIncomeCards = unallocatedIncomes.map(inc => {
-        const totalAmount = Number(inc.amount || 0);
-        let tercerosAmount = 0;
-        let propioAmount = totalAmount;
-        let thirdPartyNote = null;
+        unassignedIncomeCards = postCutoffIncomes.map(inc => {
+            const totalAmount = Number(inc.amount || 0);
+            let tercerosAmount = 0;
+            let propioAmount = totalAmount;
+            let thirdPartyNote = null;
 
-        if (inc.vehicleId) {
-            const v = inc.vehicleId;
-            if (v.investor && v.investor.percentage > 0) {
-                tercerosAmount = (totalAmount * v.investor.percentage) / 100;
-                propioAmount = totalAmount - tercerosAmount;
-                thirdPartyNote = `Operación compartida: Inversor ${v.investor.name || ''} (${v.investor.percentage}% = ${inc.currency} ${tercerosAmount.toLocaleString('es-AR')}).`;
-            } else if (v.consignedBy) {
-                const commission = v.consignmentCommission || 0;
-                tercerosAmount = Math.max(0, totalAmount - commission);
-                propioAmount = commission > 0 ? commission : totalAmount;
-                thirdPartyNote = `Vehículo en consignación de ${v.consignedBy}. Importe propio neto por comisión: ${inc.currency} ${propioAmount.toLocaleString('es-AR')}.`;
+            if (inc.vehicleId) {
+                const v = inc.vehicleId;
+                if (v.investor && v.investor.percentage > 0) {
+                    tercerosAmount = (totalAmount * v.investor.percentage) / 100;
+                    propioAmount = totalAmount - tercerosAmount;
+                    thirdPartyNote = `Inversor: ${v.investor.name || ''} (${v.investor.percentage}% = ${inc.currency} ${tercerosAmount.toLocaleString('es-AR')}).`;
+                } else if (v.consignedBy) {
+                    const commission = v.consignmentCommission || 0;
+                    tercerosAmount = Math.max(0, totalAmount - commission);
+                    propioAmount = commission > 0 ? commission : totalAmount;
+                    thirdPartyNote = `Consignación de ${v.consignedBy}. Comisión propia: ${inc.currency} ${propioAmount.toLocaleString('es-AR')}.`;
+                }
             }
-        }
 
-        // Generar propuesta sugerida cubriendo prioridades de cajas
-        const suggestedDistribution = [];
-        let remaining = propioAmount;
-
-        const priorityOrder = ['operativa', 'impuestos', 'deudas', 'personal', 'postventa', 'reserva', 'stock', 'crecimiento'];
-        for (const key of priorityOrder) {
-            if (remaining <= 0) break;
-            const targetBox = enrichedBoxes.find(b => b.key === key);
-            if (!targetBox) continue;
-
-            const shortfall = inc.currency === 'USD' ? targetBox.shortfallUSD : targetBox.shortfallARS;
-            if (shortfall > 0) {
-                const assign = Math.min(remaining, shortfall);
-                suggestedDistribution.push({
-                    boxKey: key,
-                    boxName: targetBox.name,
-                    amount: assign,
-                    percent: Math.round((assign / propioAmount) * 100)
-                });
-                remaining -= assign;
-            }
-        }
-
-        // Si queda excedente, asignar a Stock o Crecimiento
-        if (remaining > 0) {
-            suggestedDistribution.push({
-                boxKey: 'stock',
-                boxName: 'Caja Stock / Vehículos',
-                amount: remaining,
-                percent: Math.round((remaining / propioAmount) * 100)
-            });
-        }
-
-        return {
-            id: inc._id,
-            description: inc.description,
-            category: inc.category,
-            totalAmount,
-            tercerosAmount,
-            propioAmount,
-            currency: inc.currency,
-            date: inc.date,
-            accountName: inc.accountId?.name || 'Cuenta no asociada',
-            thirdPartyNote,
-            suggestedDistribution
-        };
-    });
+            return {
+                id: inc._id,
+                description: inc.description || inc.concept || 'Cobro registrado',
+                category: inc.category,
+                totalAmount,
+                tercerosAmount,
+                propioAmount,
+                currency: inc.currency,
+                date: inc.date,
+                accountName: inc.accountId?.name || 'Cuenta',
+                thirdPartyNote
+            };
+        });
+    }
 
     // -------------------------------------------------------------
-    // PLANIFICACIÓN Y COMPRAS: PROYECCIÓN Y DISPONIBLE PARA COMPRAR
+    // FONDOS PROTEGIDOS Y DISPONIBLE PARA COMPRAR STOCK
     // -------------------------------------------------------------
-    // Indicador "Disponible para Comprar Stock":
-    // Descuenta compromisos y fondos protegidos (reserva de meses lentos + impuestos + deudas + operativa básica) UNA SOLA VEZ.
+    // Fondos protegidos: Reserva de liquidez + Impuestos comprometidos + Deudas comprometidas
+    const reservaBox = enrichedBoxes.find(b => b.key === 'reserva') || { balanceARS: 0, balanceUSD: 0 };
+    const impuestosBox = enrichedBoxes.find(b => b.key === 'impuestos') || { balanceARS: 0, balanceUSD: 0, commitmentsARS: 0, commitmentsUSD: 0 };
+    const deudasBox = enrichedBoxes.find(b => b.key === 'deudas') || { balanceARS: 0, balanceUSD: 0, commitmentsARS: 0, commitmentsUSD: 0 };
     const stockBox = enrichedBoxes.find(b => b.key === 'stock') || { availableARS: 0, availableUSD: 0 };
+
+    const fondosProtegidosARS = (reservaBox.balanceARS || 0) + (impuestosBox.commitmentsARS || 0) + (deudasBox.commitmentsARS || 0);
+    const fondosProtegidosUSD = (reservaBox.balanceUSD || 0) + (impuestosBox.commitmentsUSD || 0) + (deudasBox.commitmentsUSD || 0);
+
     const availableToBuyARS = Math.max(0, (stockBox.availableARS || 0) + Math.max(0, unallocatedARS));
     const availableToBuyUSD = Math.max(0, (stockBox.availableUSD || 0) + Math.max(0, unallocatedUSD));
 
-    // Calendario de pagos (próximos compromisos ciertos)
+    // Calendario de pagos (próximos compromisos)
     const paymentCalendar = [];
     Object.keys(commitmentsByBox).forEach(boxKey => {
         commitmentsByBox[boxKey].items.forEach(item => {
@@ -873,9 +743,9 @@ export async function getTreasuryDashboardData() {
     });
     paymentCalendar.sort((a, b) => new Date(a.date || 0) - new Date(b.date || 0));
 
-    // Proyección de caja a 30, 60 y 90 días (Escenario estrictamente conservador)
-    const conservativeBurnRateARS = monthlyOperationalBurnRateARS || 500000;
-    const conservativeBurnRateUSD = monthlyOperationalBurnRateUSD || 500;
+    // Proyección de caja conservadora
+    const conservativeBurnRateARS = monthlyOperationalBurnRateARS || 0;
+    const conservativeBurnRateUSD = monthlyOperationalBurnRateUSD || 0;
 
     const cashProjection = [
         {
@@ -883,45 +753,48 @@ export async function getTreasuryDashboardData() {
             days: 30,
             projectedARS: totalCuentasARS - (commitmentsByBox.operativa.ARS + commitmentsByBox.impuestos.ARS + commitmentsByBox.deudas.ARS),
             projectedUSD: totalCuentasUSD - (commitmentsByBox.operativa.USD + commitmentsByBox.impuestos.USD + commitmentsByBox.deudas.USD),
-            notes: 'Descuenta compromisos corrientes y vencimientos ciertos registrados.'
+            notes: 'Descuenta egresos pendientes y gastos operativos calendarizados.'
         },
         {
             period: 'Próximos 60 días',
             days: 60,
             projectedARS: totalCuentasARS - (commitmentsByBox.operativa.ARS + commitmentsByBox.impuestos.ARS + commitmentsByBox.deudas.ARS) - conservativeBurnRateARS,
             projectedUSD: totalCuentasUSD - (commitmentsByBox.operativa.USD + commitmentsByBox.impuestos.USD + commitmentsByBox.deudas.USD) - conservativeBurnRateUSD,
-            notes: 'Escenario conservador sin considerar ventas futuras ni cobros inciertos.'
+            notes: 'Escenario conservador sin sumar ventas futuras.'
         },
         {
             period: 'Próximos 90 días',
             days: 90,
             projectedARS: totalCuentasARS - (commitmentsByBox.operativa.ARS + commitmentsByBox.impuestos.ARS + commitmentsByBox.deudas.ARS) - (conservativeBurnRateARS * 2),
             projectedUSD: totalCuentasUSD - (commitmentsByBox.operativa.USD + commitmentsByBox.impuestos.USD + commitmentsByBox.deudas.USD) - (conservativeBurnRateUSD * 2),
-            notes: 'Mide solvencia neta para sostener la estructura en meses lentos.'
+            notes: 'Solvencia neta para sostener estructura en meses lentos.'
         }
     ];
 
-    // Ajustes recientes en Transaction
+    // Ajustes recientes
     const recentAdjustments = await Transaction.find({
         category: { $in: ['Ajuste de Conciliación Inicial', 'Conciliación Tesorería', 'Ajuste de Saldo'] }
     })
     .sort({ date: -1 })
-    .limit(15)
+    .limit(10)
     .populate('accountId', 'name currency type')
     .lean();
+
+    // Lotes de regularización histórica
+    const batchLogs = await TreasuryBatchLog.find().sort({ appliedAt: -1 }).limit(10).lean();
 
     return {
         accounts: accountsWithAudit,
         boxes: enrichedBoxes,
         categoryRules,
-        verification: {
-            status: verificationStatus,
-            hasConfirmedReconciliation,
+        config,
+        auditInfo: {
+            isReconciliationConfirmed,
+            lastCutoffDate,
             hasPhysicalCashInconsistency,
-            accountIssues,
-            alertMessage: verificationStatus === 'pendiente_verificar'
-                ? 'Saldos pendientes de verificar: Realizá el asistente de conciliación con fecha de corte antes de considerar definitivas las recomendaciones de compra.'
-                : 'Saldos de cuentas conciliados y verificados formalmente.'
+            statusLabel: isReconciliationConfirmed
+                ? `Corte confirmado: ${new Date(lastCutoffDate).toLocaleDateString('es-AR')} ${new Date(lastCutoffDate).toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' })}`
+                : 'Pendiente de corte inicial'
         },
         summary: {
             totalCuentasARS,
@@ -934,248 +807,441 @@ export async function getTreasuryDashboardData() {
             totalCajasUSD,
             unallocatedARS,
             unallocatedUSD,
-            referenceLiquidityUSD: 5000,
-            referenceNote: 'USD 5.000 de liquidez informada como parámetro base (excluyendo la Tracker pendiente de cobro).'
+            fondosProtegidosARS,
+            fondosProtegidosUSD
         },
-        trackerAudit,
+        incompleteExpenses,
         unassignedIncomeCards,
         planning: {
             availableToBuyARS,
             availableToBuyUSD,
             paymentCalendar,
-            cashProjection,
-            kangooSimulationPreset: {
-                vehicle: 'Renault Kangoo',
-                totalPrice: 21200000,
-                ownSharePercent: 50,
-                ownContributionARS: 10600000,
-                estimatedExpensesARS: 800000,
-                totalNeededARS: 11400000,
-                currency: 'ARS',
-                note: 'Simulación analítica: Compra compartida 50% de Kangoo por $10.600.000. No genera asientos contables en cuentas ni en stock.'
-            }
+            cashProjection
         },
-        pendingInstallments: pendingInstallments.map(inst => ({
-            id: inst._id,
-            installmentNumber: inst.installmentNumber,
-            concept: inst.concept || `Cuota #${inst.installmentNumber}`,
-            amount: inst.amount,
-            currency: inst.currency,
-            dueDate: inst.dueDate,
-            customerName: inst.customerName || inst.clientId?.fullName || `${inst.clientId?.firstName || ''} ${inst.clientId?.lastName || ''}`.trim() || 'Cliente sin nombre',
-            vehicleName: inst.vehicleId ? `${inst.vehicleId.brand} ${inst.vehicleId.name}` : 'Vehículo no asociado',
-            status: inst.status
-        })),
+        batchLogs,
         recentReconciliations,
         recentAdjustments
     };
 }
 
-// 7. Ejecutar Asistente de Conciliación y Saldo Inicial
-export async function executeReconciliation(payload, user) {
-    const {
-        cutoffDate = new Date(),
-        accountsData = [],
-        reason = 'Conciliación formal de saldos reales',
-        notes = '',
-        regularizeInstallmentIds = []
-    } = payload;
-
-    const safeCutoffDate = new Date(cutoffDate);
+// 7. Confirmar Corte Inicial sobre Saldo Actual
+export async function confirmInitialCutoff(payload, user) {
+    const { cutoffDate = new Date(), reason = 'Confirmación de corte inicial sobre saldo real' } = payload;
     const userName = user?.name || user?.email || 'Administrador';
 
-    let totalPrevARS = 0;
+    const accounts = await Account.find({ isActive: { $ne: false } });
     let totalRealARS = 0;
-    let totalDiffARS = 0;
-    let totalPrevUSD = 0;
     let totalRealUSD = 0;
-    let totalDiffUSD = 0;
 
-    const accountsSnapshot = [];
-    const createdAdjustments = [];
+    const accountsSnapshot = accounts.map(acc => {
+        const bal = Number(acc.balance || 0);
+        if (acc.currency === 'USD') totalRealUSD += bal;
+        else totalRealARS += bal;
 
-    for (const item of accountsData) {
-        let account = null;
+        return {
+            accountId: acc._id,
+            accountName: acc.name,
+            accountType: acc.type,
+            currency: acc.currency,
+            previousBalance: bal,
+            realBalance: bal,
+            difference: 0
+        };
+    });
 
-        if (item.accountId) {
-            account = await Account.findById(item.accountId);
-        }
+    const rec = new TreasuryReconciliation({
+        cutoffDate: new Date(cutoffDate),
+        status: 'confirmado',
+        accountsSnapshot,
+        totalPreviousARS: totalRealARS,
+        totalRealARS,
+        totalDiffARS: 0,
+        totalPreviousUSD: totalRealUSD,
+        totalRealUSD,
+        totalDiffUSD: 0,
+        reason,
+        notes: 'Corte inicial confirmado sobre los saldos existentes en cuentas. Sin generación de asientos duplicados.',
+        confirmedBy: userName,
+        confirmedByUserId: user.id || user.userId
+    });
 
-        if (!account && item.name && item.currency) {
-            account = new Account({
-                name: item.name.trim(),
-                type: item.type || 'Efectivo',
-                currency: item.currency,
-                balance: 0,
-                isActive: true
+    await rec.save();
+
+    return {
+        ok: true,
+        message: `Corte inicial confirmado sobre los saldos actuales (${totalRealARS.toLocaleString('es-AR')} ARS / ${totalRealUSD.toLocaleString('es-AR')} USD).`,
+        cutoffDate: rec.cutoffDate
+    };
+}
+
+// 8. Organizar Saldo Inicial en Cajas (Sin tocar cuentas bancarias)
+export async function organizeInitialBalance(payload, user) {
+    const { distributions = [], reason = 'Organización de saldo inicial en cajas' } = payload;
+    const userName = user?.name || user?.email || 'Admin';
+
+    for (const dist of distributions) {
+        if (!dist.boxKey) continue;
+        const box = await TreasuryBox.findOne({ key: dist.boxKey });
+        if (box) {
+            const addARS = Number(dist.amountARS || 0);
+            const addUSD = Number(dist.amountUSD || 0);
+
+            box.balanceARS = (box.balanceARS || 0) + addARS;
+            box.balanceUSD = (box.balanceUSD || 0) + addUSD;
+
+            box.history.push({
+                date: new Date(),
+                type: 'asignacion_inicial',
+                amount: addARS > 0 ? addARS : addUSD,
+                currency: addARS > 0 ? 'ARS' : 'USD',
+                reason,
+                user: userName
             });
-            await account.save();
-        }
 
-        if (!account) continue;
-
-        const previousBalance = Number(account.balance || 0);
-        const realBalance = Number(item.realBalance ?? previousBalance);
-        const diff = realBalance - previousBalance;
-
-        accountsSnapshot.push({
-            accountId: account._id,
-            accountName: account.name,
-            accountType: account.type,
-            currency: account.currency,
-            previousBalance,
-            realBalance,
-            difference: diff
-        });
-
-        if (account.currency === 'USD') {
-            totalPrevUSD += previousBalance;
-            totalRealUSD += realBalance;
-            totalDiffUSD += diff;
-        } else {
-            totalPrevARS += previousBalance;
-            totalRealARS += realBalance;
-            totalDiffARS += diff;
-        }
-
-        if (Math.abs(diff) > 0.001) {
-            const isIncrease = diff > 0;
-            const adjustmentTx = new Transaction({
-                type: isIncrease ? 'Ingreso' : 'Egreso',
-                amount: Math.abs(diff),
-                currency: account.currency,
-                description: `Ajuste conciliación: ${account.name} (Saldo real ${account.currency} ${realBalance.toLocaleString('es-AR')})`,
-                category: 'Ajuste de Conciliación Inicial',
-                date: safeCutoffDate,
-                accountId: account._id,
-                notes: `Conciliación al ${safeCutoffDate.toLocaleDateString('es-AR')}. Motivo: ${reason}. ${notes ? `Obs: ${notes}` : ''}. Asiento de ajuste patrimonial auditable; no computar como venta ni cobro corriente.`,
-                source: 'manual',
-                createdBy: userName,
-                transactionAuditLog: [{
-                    action: 'AJUSTE_CONCILIACION_INICIAL',
-                    oldValue: previousBalance,
-                    newValue: realBalance,
-                    date: new Date(),
-                    user: userName,
-                    details: `Diferencia conciliada: ${diff > 0 ? '+' : ''}${diff}. Motivo: ${reason}`
-                }]
-            });
-            await adjustmentTx.save();
-            createdAdjustments.push(adjustmentTx);
-
-            account.balance = realBalance;
-            await account.save();
+            await box.save();
         }
     }
 
-    // Regularizar cuotas históricas sin duplicar saldo en caja
+    return {
+        ok: true,
+        message: 'Saldo inicial organizado en cajas exitosamente.'
+    };
+}
+
+// 9. Regularización Histórica de Cuotas en Lote
+export async function getGroupedPendingInstallments() {
+    const installments = await Installment.find({
+        status: { $in: ['pendiente', 'vencida'] },
+        isHistoricallyRegularized: { $ne: true }
+    })
+    .populate('vehicleId', 'brand name year plateOrVin')
+    .populate('clientId', 'firstName lastName fullName phone')
+    .populate('saleId', 'salePrice saleCurrency saleDate')
+    .sort({ dueDate: 1 })
+    .lean();
+
+    const groups = {};
+    installments.forEach(inst => {
+        const saleKey = inst.saleId?._id ? String(inst.saleId._id) : (inst.clientId?._id ? String(inst.clientId._id) : 'sin_venta');
+        if (!groups[saleKey]) {
+            const clientName = inst.clientId?.fullName || `${inst.clientId?.firstName || ''} ${inst.clientId?.lastName || ''}`.trim() || inst.customerName || 'Cliente sin identificar';
+            const vehicleName = inst.vehicleId ? `${inst.vehicleId.brand} ${inst.vehicleId.name} ${inst.vehicleId.year || ''}`.trim() : 'Vehículo no asociado';
+
+            groups[saleKey] = {
+                saleId: inst.saleId?._id || null,
+                clientId: inst.clientId?._id || null,
+                customerName: clientName,
+                vehicleName,
+                currency: inst.currency,
+                totalPendingAmount: 0,
+                installments: []
+            };
+        }
+
+        groups[saleKey].totalPendingAmount += Number(inst.amount || 0);
+        groups[saleKey].installments.push({
+            id: inst._id,
+            installmentNumber: inst.installmentNumber,
+            amount: inst.amount,
+            currency: inst.currency,
+            dueDate: inst.dueDate,
+            status: inst.status,
+            paidAmount: inst.paidAmount || 0
+        });
+    });
+
+    return Object.values(groups);
+}
+
+export async function batchRegularizeInstallments(payload, user) {
+    const { installmentIds = [], reason = 'Pagos históricos incluidos en saldo inicial' } = payload;
+    const userName = user?.name || user?.email || 'Administrador';
+
+    if (!Array.isArray(installmentIds) || installmentIds.length === 0) {
+        throw new Error('Seleccioná al menos una cuota para regularizar.');
+    }
+
+    const batchId = `BATCH-REG-${Date.now().toString().slice(-6)}`;
+    let totalARS = 0;
+    let totalUSD = 0;
+    const salesSet = new Set();
     let regularizedCount = 0;
-    if (Array.isArray(regularizeInstallmentIds) && regularizeInstallmentIds.length > 0) {
-        for (const instId of regularizeInstallmentIds) {
-            const inst = await Installment.findById(instId);
-            if (inst && (inst.status === 'pendiente' || inst.status === 'vencida')) {
-                inst.status = 'pagada';
-                inst.paidAmount = inst.amount;
-                inst.paymentDate = safeCutoffDate;
-                inst.notes = (inst.notes ? `${inst.notes} | ` : '') + 'Regularizada en Tesorería Estratégica (fondos incluidos en saldo inicial conciliado; sin duplicación de caja).';
-                inst.installmentAuditLog.push({
-                    action: 'REGULARIZACION_CONCILIADA',
-                    user: userName,
+
+    for (const id of installmentIds) {
+        const inst = await Installment.findById(id);
+        if (inst && (inst.status === 'pendiente' || inst.status === 'vencida')) {
+            inst.status = 'pagada';
+            inst.isHistoricallyRegularized = true;
+            inst.regularizationBatchId = batchId;
+            inst.regularizedAt = new Date();
+            inst.regularizedBy = userName;
+            inst.paidAmount = inst.amount;
+            inst.paymentDate = inst.dueDate; // conserva vencimiento referencial
+            inst.notes = (inst.notes ? `${inst.notes} | ` : '') + `Regularizada en lote ${batchId}: ${reason}`;
+
+            inst.installmentAuditLog.push({
+                action: 'REGULARIZACION_CONCILIADA',
+                user: userName,
+                date: new Date(),
+                details: `Lote ${batchId}. Pago histórico incluido en saldo inicial. Sin impacto en caja ni cobro nuevo.`
+            });
+
+            await inst.save();
+
+            if (inst.currency === 'USD') totalUSD += Number(inst.amount || 0);
+            else totalARS += Number(inst.amount || 0);
+
+            if (inst.saleId) salesSet.add(String(inst.saleId));
+            regularizedCount++;
+        }
+    }
+
+    // Registrar el lote en TreasuryBatchLog
+    const batchRecord = new TreasuryBatchLog({
+        batchId,
+        actionType: 'regularizacion_cuotas',
+        title: `Regularización de ${regularizedCount} cuotas`,
+        reason,
+        count: regularizedCount,
+        totalARS,
+        totalUSD,
+        affectedSalesCount: salesSet.size,
+        status: 'aplicado',
+        appliedBy: userName,
+        appliedAt: new Date()
+    });
+    await batchRecord.save();
+
+    return {
+        ok: true,
+        batchId,
+        count: regularizedCount,
+        totalARS,
+        totalUSD,
+        affectedSalesCount: salesSet.size,
+        message: `${regularizedCount} cuotas regularizadas en lote ${batchId}. No aumentaron la caja ni los fondos disponibles.`
+    };
+}
+
+export async function revertBatchRegularization(payload, user) {
+    const { batchId, reason = 'Reversión de lote' } = payload;
+    const userName = user?.name || user?.email || 'Administrador';
+
+    const batchRecord = await TreasuryBatchLog.findOne({ batchId, actionType: 'regularizacion_cuotas' });
+    if (!batchRecord) throw new Error('Lote no encontrado.');
+    if (batchRecord.status === 'revertido') throw new Error('Este lote ya fue revertido previamente.');
+
+    const installments = await Installment.find({ regularizationBatchId: batchId });
+    let revertedCount = 0;
+
+    for (const inst of installments) {
+        inst.status = new Date(inst.dueDate) < new Date() ? 'vencida' : 'pendiente';
+        inst.isHistoricallyRegularized = false;
+        inst.regularizationBatchId = null;
+        inst.regularizedAt = null;
+        inst.regularizedBy = null;
+        inst.paidAmount = 0;
+        inst.paymentDate = null;
+
+        inst.installmentAuditLog.push({
+            action: 'REGULARIZACION_REVERTIDA',
+            user: userName,
+            date: new Date(),
+            details: `Reversión de lote ${batchId}. Motivo: ${reason}`
+        });
+
+        await inst.save();
+        revertedCount++;
+    }
+
+    batchRecord.status = 'revertido';
+    batchRecord.revertedBy = userName;
+    batchRecord.revertedAt = new Date();
+    batchRecord.revertReason = reason;
+    await batchRecord.save();
+
+    return {
+        ok: true,
+        revertedCount,
+        message: `Lote ${batchId} revertido con éxito. ${revertedCount} cuotas retornadas a pendientes.`
+    };
+}
+
+// 10. Flujo "Cobrar y Distribuir" (Una Sola Carga)
+export async function collectAndDistribute(payload, user) {
+    const {
+        installmentId,
+        saleId,
+        amount,
+        currency = 'ARS',
+        accountId,
+        paymentMethod = 'transferencia',
+        date = new Date(),
+        notes = '',
+        distributeNow = true,
+        distributions = [] // [{ boxKey, amount }]
+    } = payload;
+
+    const userName = user?.name || user?.email || 'Admin';
+
+    if (!accountId) throw new Error('Seleccioná la cuenta receptora del dinero.');
+    const account = await Account.findById(accountId);
+    if (!account) throw new Error('Cuenta receptora no encontrada.');
+
+    const payAmount = Number(amount);
+    if (isNaN(payAmount) || payAmount <= 0) throw new Error('Importe inválido.');
+
+    let linkedInstallment = null;
+    let concept = 'Cobro comercial';
+
+    if (installmentId) {
+        linkedInstallment = await Installment.findById(installmentId);
+        if (linkedInstallment) {
+            if (linkedInstallment.status === 'pagada') {
+                throw new Error('Esta cuota ya figura como pagada.');
+            }
+            concept = `Cobro Cuota #${linkedInstallment.installmentNumber || ''}`;
+        }
+    }
+
+    // 1. Registrar el movimiento de ingreso UNA SOLA VEZ
+    const tx = new Transaction({
+        type: 'Ingreso',
+        amount: payAmount,
+        currency,
+        description: concept,
+        concept,
+        category: 'Cobranzas',
+        paymentMethod,
+        date: new Date(date),
+        accountId: account._id,
+        saleId: saleId || linkedInstallment?.saleId || undefined,
+        installmentId: linkedInstallment?._id || undefined,
+        clientId: linkedInstallment?.clientId || undefined,
+        vehicleId: linkedInstallment?.vehicleId || undefined,
+        notes: notes || '',
+        module: 'crm_v2',
+        source: linkedInstallment ? 'cuota' : 'venta',
+        status: 'activo',
+        isTreasuryDistributed: distributeNow && distributions.length > 0,
+        distributedAt: distributeNow && distributions.length > 0 ? new Date() : null,
+        distributedBy: distributeNow && distributions.length > 0 ? userName : null,
+        createdBy: userName,
+        transactionAuditLog: [{
+            action: 'COBRO_TESORERIA',
+            details: `Cobro registrado y ${distributeNow ? 'distribuido' : 'dejado pendiente de distribuir'}.`,
+            user: userName
+        }]
+    });
+    await tx.save();
+
+    // 2. Acreditar saldo en la cuenta
+    account.balance = Number(account.balance || 0) + payAmount;
+    await account.save();
+
+    // 3. Marcar cuota como pagada si corresponde
+    if (linkedInstallment) {
+        linkedInstallment.status = 'pagada';
+        linkedInstallment.paidAmount = payAmount;
+        linkedInstallment.paymentDate = new Date(date);
+        linkedInstallment.notes = (linkedInstallment.notes ? `${linkedInstallment.notes} | ` : '') + 'Cobrado vía Tesorería';
+        linkedInstallment.installmentAuditLog.push({
+            action: 'COBRO_REGISTRADO',
+            user: userName,
+            date: new Date(),
+            details: `Cobro registrado en ${account.name} por ${currency} ${payAmount}`
+        });
+        await linkedInstallment.save();
+    }
+
+    // 4. Si se seleccionó distribuir ahora, asignar a las cajas
+    let distributedTotal = 0;
+    if (distributeNow && Array.isArray(distributions) && distributions.length > 0) {
+        for (const dist of distributions) {
+            const distAmt = Number(dist.amount || 0);
+            if (distAmt <= 0) continue;
+
+            const box = await TreasuryBox.findOne({ key: dist.boxKey });
+            if (box) {
+                const field = currency === 'USD' ? 'balanceUSD' : 'balanceARS';
+                box[field] = Number(box[field] || 0) + distAmt;
+
+                box.history.push({
                     date: new Date(),
-                    details: `Cuota regularizada con fecha de corte ${safeCutoffDate.toLocaleDateString('es-AR')}. No genera asiento duplicado en caja.`
+                    type: 'distribucion_cobro',
+                    amount: distAmt,
+                    currency,
+                    reason: `Cobro: ${concept}. Asignación directa.`,
+                    user: userName,
+                    sourceIncomeId: tx._id
                 });
-                await inst.save();
-                regularizedCount++;
+                await box.save();
+                distributedTotal += distAmt;
             }
         }
     }
 
-    const reconciliationRecord = new TreasuryReconciliation({
-        cutoffDate: safeCutoffDate,
-        status: 'confirmado',
-        accountsSnapshot,
-        totalPreviousARS: totalPrevARS,
-        totalRealARS: totalRealARS,
-        totalDiffARS: totalDiffARS,
-        totalPreviousUSD: totalPrevUSD,
-        totalRealUSD: totalRealUSD,
-        totalDiffUSD: totalDiffUSD,
-        referenceLiquidityUSD: 5000,
-        reason,
-        notes,
-        regularizedInstallmentsCount: regularizedCount,
-        confirmedBy: userName,
-        confirmedByUserId: user.id || user.userId
-    });
-    await reconciliationRecord.save();
-
     return {
         ok: true,
-        message: 'Conciliación aplicada exitosamente con registro inmutable de corte.',
-        reconciliation: reconciliationRecord,
-        adjustmentsCount: createdAdjustments.length,
-        regularizedInstallmentsCount: regularizedCount
+        transactionId: tx._id,
+        message: `Cobro de ${currency} ${payAmount.toLocaleString('es-AR')} acreditado en ${account.name} exitosamente ${distributeNow ? `(${currency} ${distributedTotal.toLocaleString('es-AR')} distribuido en cajas)` : '(enviado a bandeja para distribuir después)'}.`
     };
 }
 
-// 8. Traspaso entre Cajas Estratégicas
+// 11. Guardar Configuración Guiada
+export async function updateTreasuryConfig(payload, user) {
+    const userName = user?.name || user?.email || 'Admin';
+    const cfg = await getOrCreateTreasuryConfig();
+
+    if (payload.operationalHorizonDays !== undefined) cfg.operationalHorizonDays = Number(payload.operationalHorizonDays);
+    if (payload.reserveMonths !== undefined) cfg.reserveMonths = Number(payload.reserveMonths);
+    if (payload.personalMonthlyBudgetARS !== undefined) cfg.personalMonthlyBudgetARS = Number(payload.personalMonthlyBudgetARS);
+    if (payload.personalMonthlyBudgetUSD !== undefined) cfg.personalMonthlyBudgetUSD = Number(payload.personalMonthlyBudgetUSD);
+    if (payload.postventaProvisionARS !== undefined) cfg.postventaProvisionARS = Number(payload.postventaProvisionARS);
+    if (payload.postventaProvisionUSD !== undefined) cfg.postventaProvisionUSD = Number(payload.postventaProvisionUSD);
+    if (Array.isArray(payload.priorityOrder)) cfg.priorityOrder = payload.priorityOrder;
+
+    cfg.isSetupCompleted = true;
+    cfg.lastSetupAt = new Date();
+    cfg.updatedBy = userName;
+    await cfg.save();
+
+    return {
+        ok: true,
+        config: cfg,
+        message: 'Configuración de Tesorería guardada con éxito.'
+    };
+}
+
+// 12. Traspaso entre Cajas
 export async function transferBetweenBoxes(payload, user) {
-    const { fromBoxKey, toBoxKey, amount, currency = 'USD', reason = 'Reasignación de fondos' } = payload;
+    const { fromBoxKey, toBoxKey, amount, currency = 'ARS', reason = 'Reasignación de fondos' } = payload;
     const numAmount = Math.abs(Number(amount) || 0);
 
-    if (numAmount <= 0) {
-        throw new Error('El importe debe ser mayor a cero.');
-    }
-
-    if (!fromBoxKey || !toBoxKey || fromBoxKey === toBoxKey) {
-        throw new Error('Debés seleccionar cajas de origen y destino distintas.');
-    }
+    if (numAmount <= 0) throw new Error('El importe debe ser mayor a cero.');
+    if (!fromBoxKey || !toBoxKey || fromBoxKey === toBoxKey) throw new Error('Elegí cajas distintas.');
 
     const fromBox = await TreasuryBox.findOne({ key: fromBoxKey });
     const toBox = await TreasuryBox.findOne({ key: toBoxKey });
-
-    if (!fromBox || !toBox) {
-        throw new Error('Una de las cajas estratégicas seleccionadas no existe.');
-    }
+    if (!fromBox || !toBox) throw new Error('Caja inexistente.');
 
     const field = currency === 'USD' ? 'balanceUSD' : 'balanceARS';
-
     fromBox[field] = (Number(fromBox[field]) || 0) - numAmount;
     toBox[field] = (Number(toBox[field]) || 0) + numAmount;
 
     const userName = user?.name || user?.email || 'Admin';
-
-    fromBox.history.push({
-        date: new Date(),
-        type: 'transferencia_entre_cajas',
-        amount: -numAmount,
-        currency,
-        fromBox: fromBox.name,
-        toBox: toBox.name,
-        reason,
-        user: userName
-    });
-
-    toBox.history.push({
-        date: new Date(),
-        type: 'transferencia_entre_cajas',
-        amount: numAmount,
-        currency,
-        fromBox: fromBox.name,
-        toBox: toBox.name,
-        reason,
-        user: userName
-    });
+    fromBox.history.push({ date: new Date(), type: 'transferencia_entre_cajas', amount: -numAmount, currency, fromBox: fromBox.name, toBox: toBox.name, reason, user: userName });
+    toBox.history.push({ date: new Date(), type: 'transferencia_entre_cajas', amount: numAmount, currency, fromBox: fromBox.name, toBox: toBox.name, reason, user: userName });
 
     await Promise.all([fromBox.save(), toBox.save()]);
 
     return {
         ok: true,
-        message: `Traspaso de ${currency} ${numAmount.toLocaleString('es-AR')} desde ${fromBox.name} hacia ${toBox.name} realizado con éxito.`
+        message: `Traspaso de ${currency} ${numAmount.toLocaleString('es-AR')} desde ${fromBox.name} a ${toBox.name} realizado con éxito.`
     };
 }
 
-// 9. Asignar / Distribuir Saldos a Cajas desde Fondos no Asignados
+// 13. Distribuir / Asignar Fondos a Cajas
 export async function distributeToBoxes(payload, user) {
     const { distributions = [], reason = 'Asignación estratégica de capital' } = payload;
     const userName = user?.name || user?.email || 'Admin';
@@ -1187,107 +1253,28 @@ export async function distributeToBoxes(payload, user) {
                 const diffARS = Number(dist.amountARS) - (box.balanceARS || 0);
                 box.balanceARS = Number(dist.amountARS);
                 if (Math.abs(diffARS) > 0) {
-                    box.history.push({
-                        date: new Date(),
-                        type: 'ajuste',
-                        amount: diffARS,
-                        currency: 'ARS',
-                        reason,
-                        user: userName
-                    });
+                    box.history.push({ date: new Date(), type: 'ajuste', amount: diffARS, currency: 'ARS', reason, user: userName });
                 }
             }
             if (dist.amountUSD !== undefined) {
                 const diffUSD = Number(dist.amountUSD) - (box.balanceUSD || 0);
                 box.balanceUSD = Number(dist.amountUSD);
                 if (Math.abs(diffUSD) > 0) {
-                    box.history.push({
-                        date: new Date(),
-                        type: 'ajuste',
-                        amount: diffUSD,
-                        currency: 'USD',
-                        reason,
-                        user: userName
-                    });
+                    box.history.push({ date: new Date(), type: 'ajuste', amount: diffUSD, currency: 'USD', reason, user: userName });
                 }
             }
-            if (dist.targetPercent !== undefined) {
-                box.targetPercent = Number(dist.targetPercent);
-            }
-            if (dist.monthlyBudgetARS !== undefined) {
-                box.monthlyBudgetARS = Number(dist.monthlyBudgetARS);
-            }
-            if (dist.monthlyBudgetUSD !== undefined) {
-                box.monthlyBudgetUSD = Number(dist.monthlyBudgetUSD);
-            }
-            if (dist.reserveMonths !== undefined) {
-                box.reserveMonths = Number(dist.reserveMonths);
-            }
+            if (dist.targetPercent !== undefined) box.targetPercent = Number(dist.targetPercent);
+            if (dist.monthlyBudgetARS !== undefined) box.monthlyBudgetARS = Number(dist.monthlyBudgetARS);
+            if (dist.monthlyBudgetUSD !== undefined) box.monthlyBudgetUSD = Number(dist.monthlyBudgetUSD);
+            if (dist.reserveMonths !== undefined) box.reserveMonths = Number(dist.reserveMonths);
             await box.save();
         }
     }
 
-    return {
-        ok: true,
-        message: 'Distribución de cajas actualizada con éxito.'
-    };
+    return { ok: true, message: 'Cajas actualizadas con éxito.' };
 }
 
-// 10. Distribuir un Cobro Específico a Cajas (Bandeja de Cobros)
-export async function distributeSingleIncome(payload, user) {
-    const { incomeId, distributions = [], notes = '' } = payload;
-    const userName = user?.name || user?.email || 'Admin';
-
-    if (!incomeId) {
-        throw new Error('ID de cobro / transacción requerido.');
-    }
-
-    const tx = await Transaction.findById(incomeId);
-    if (!tx || tx.type !== 'Ingreso') {
-        throw new Error('El cobro indicado no existe o no es un ingreso válido.');
-    }
-
-    if (tx.isTreasuryDistributed) {
-        throw new Error('Este cobro ya fue distribuido a cajas previamente. Evitando duplicación.');
-    }
-
-    let totalDistributed = 0;
-    for (const dist of distributions) {
-        const amt = Number(dist.amount || 0);
-        if (amt <= 0) continue;
-
-        const box = await TreasuryBox.findOne({ key: dist.boxKey });
-        if (!box) continue;
-
-        const field = tx.currency === 'USD' ? 'balanceUSD' : 'balanceARS';
-        box[field] = (Number(box[field]) || 0) + amt;
-
-        box.history.push({
-            date: new Date(),
-            type: 'distribucion_cobro',
-            amount: amt,
-            currency: tx.currency,
-            reason: `Distribución de cobro: ${tx.description}. ${notes ? `Obs: ${notes}` : ''}`,
-            user: userName,
-            sourceIncomeId: tx._id
-        });
-
-        await box.save();
-        totalDistributed += amt;
-    }
-
-    tx.isTreasuryDistributed = true;
-    tx.distributedAt = new Date();
-    tx.distributedBy = userName;
-    await tx.save();
-
-    return {
-        ok: true,
-        message: `Cobro de ${tx.currency} ${tx.amount.toLocaleString('es-AR')} distribuido a cajas exitosamente (${tx.currency} ${totalDistributed.toLocaleString('es-AR')} asignado).`
-    };
-}
-
-// 11. Gestión de Reglas de Asignación Automática de Categorías
+// 14. Reglas de Categorías
 export async function getCategoryRules() {
     await ensureDefaultCategoryRules();
     return await TreasuryCategoryRule.find().sort({ category: 1 }).lean();
@@ -1295,30 +1282,149 @@ export async function getCategoryRules() {
 
 export async function updateCategoryRules(rules = [], user) {
     const userName = user?.name || user?.email || 'Admin';
-
     for (const r of rules) {
         if (!r.category || !r.boxKey) continue;
         await TreasuryCategoryRule.findOneAndUpdate(
             { category: r.category.trim() },
-            {
-                category: r.category.trim(),
-                boxKey: r.boxKey,
-                notes: r.notes || '',
-                updatedBy: userName
-            },
+            { category: r.category.trim(), boxKey: r.boxKey, notes: r.notes || '', updatedBy: userName },
             { upsert: true, new: true }
         );
     }
-
-    return {
-        ok: true,
-        message: 'Reglas de vinculación de gastos y cajas actualizadas correctamente.'
-    };
+    return { ok: true, message: 'Reglas actualizadas.' };
 }
 
-// 12. Reclasificar un gasto histórico sin alterar saldos ni duplicar movimientos
+// 15. Categorizar Gastos en Lote
+export async function bulkCategorizeExpenses(payload, user) {
+    const { updates = [] } = payload; // [{ transactionId, category, boxKey }]
+    const userName = user?.name || user?.email || 'Admin';
+    let count = 0;
+
+    for (const item of updates) {
+        if (!item.transactionId) continue;
+        const tx = await Transaction.findById(item.transactionId);
+        if (tx && tx.type === 'Egreso') {
+            if (item.category) tx.category = item.category;
+            if (item.boxKey) tx.treasuryBoxKey = item.boxKey;
+            tx.transactionAuditLog.push({
+                action: 'CATEGORIZACION_LOTE',
+                user: userName,
+                date: new Date(),
+                details: `Categorizado a ${tx.category} / Caja ${tx.treasuryBoxKey || 'automática'}`
+            });
+            await tx.save();
+            count++;
+        }
+    }
+
+    return { ok: true, count, message: `${count} gastos categorizados con éxito.` };
+}
+
+// 16. Compatibilidad y Asistente de Conciliación
+export async function executeReconciliation(payload, user) {
+    const { accounts = [], cutoffDate = new Date(), reason = 'Conciliación y ajuste de cuentas' } = payload;
+    const userName = user?.name || user?.email || 'Admin';
+
+    if (Array.isArray(accounts) && accounts.length > 0) {
+        for (const item of accounts) {
+            if (!item.accountId) continue;
+            const acc = await Account.findById(item.accountId);
+            if (!acc) continue;
+            const realBal = Number(item.realBalance);
+            if (isNaN(realBal)) continue;
+            const currentBal = Number(acc.balance || 0);
+            const diff = realBal - currentBal;
+            if (Math.abs(diff) > 0.01) {
+                acc.balance = realBal;
+                acc.lastReconciliationDate = cutoffDate;
+                await acc.save();
+
+                const adjTx = new Transaction({
+                    type: diff > 0 ? 'Ingreso' : 'Egreso',
+                    category: 'Ajuste de Conciliación Inicial',
+                    amount: Math.abs(diff),
+                    currency: acc.currency,
+                    accountId: acc._id,
+                    date: cutoffDate,
+                    notes: `Ajuste por conciliación de saldo real: ${reason} (Diferencia: ${diff >= 0 ? '+' : ''}${diff})`,
+                    treasuryBoxKey: null,
+                    isTreasuryDistributed: true,
+                    status: 'Completado',
+                    createdBy: userName
+                });
+                await adjTx.save();
+            }
+        }
+    }
+
+    return await confirmInitialCutoff({ cutoffDate, reason }, user);
+}
+
+// 17. Distribuir Cobro Específico
+export async function distributeSingleIncome(payload, user) {
+    const { transactionId, boxKey, distribution = [] } = payload;
+    const userName = user?.name || user?.email || 'Admin';
+
+    const tx = await Transaction.findById(transactionId);
+    if (!tx) {
+        throw new Error('Transacción de cobro no encontrada.');
+    }
+
+    const curr = tx.currency || 'ARS';
+    const totalAmount = Number(tx.amount || 0);
+
+    if (Array.isArray(distribution) && distribution.length > 0) {
+        for (const dist of distribution) {
+            const amt = Number(dist.amount || 0);
+            if (amt <= 0) continue;
+            const box = await TreasuryBox.findOne({ key: dist.boxKey });
+            if (box) {
+                if (curr === 'USD') box.balanceUSD = (box.balanceUSD || 0) + amt;
+                else box.balanceARS = (box.balanceARS || 0) + amt;
+                box.history.push({
+                    date: new Date(),
+                    type: 'distribucion_cobro',
+                    amount: amt,
+                    currency: curr,
+                    reason: `Distribución de cobro #${tx._id}: ${tx.notes || ''}`,
+                    user: userName
+                });
+                await box.save();
+            }
+        }
+        tx.isTreasuryDistributed = true;
+        tx.treasuryBoxKey = distribution[0]?.boxKey || null;
+    } else if (boxKey) {
+        const box = await TreasuryBox.findOne({ key: boxKey });
+        if (!box) throw new Error(`Caja ${boxKey} no encontrada.`);
+        if (curr === 'USD') box.balanceUSD = (box.balanceUSD || 0) + totalAmount;
+        else box.balanceARS = (box.balanceARS || 0) + totalAmount;
+        box.history.push({
+            date: new Date(),
+            type: 'distribucion_cobro',
+            amount: totalAmount,
+            currency: curr,
+            reason: `Distribución de cobro #${tx._id}: ${tx.notes || ''}`,
+            user: userName
+        });
+        await box.save();
+        tx.isTreasuryDistributed = true;
+        tx.treasuryBoxKey = boxKey;
+    }
+
+    tx.transactionAuditLog.push({
+        action: 'DISTRIBUCION_TESORERIA',
+        user: userName,
+        date: new Date(),
+        details: `Cobro distribuido a cajas estratégicas`
+    });
+    await tx.save();
+
+    return { ok: true, message: 'Cobro distribuido exitosamente a las cajas.' };
+}
+
+// 18. Reclasificar Gasto
 export async function reclassifyExpense(payload, user) {
-    const { transactionId, newBoxKey, reason = 'Reclasificación analítica' } = payload;
+    const { transactionId, boxKey, category, reason } = payload;
     const userName = user?.name || user?.email || 'Admin';
 
     const tx = await Transaction.findById(transactionId);
@@ -1326,57 +1432,98 @@ export async function reclassifyExpense(payload, user) {
         throw new Error('Gasto no encontrado.');
     }
 
-    const oldKey = tx.treasuryBoxKey || 'sin_asignar';
-    tx.treasuryBoxKey = newBoxKey;
+    const oldBox = tx.treasuryBoxKey;
+    if (category) tx.category = category;
+    if (boxKey) tx.treasuryBoxKey = boxKey;
+
     tx.transactionAuditLog.push({
         action: 'RECLASIFICACION_TESORERIA',
-        field: 'treasuryBoxKey',
-        oldValue: oldKey,
-        newValue: newBoxKey,
-        date: new Date(),
         user: userName,
-        details: `Reclasificación de caja analítica sin afectar cuentas reales. Motivo: ${reason}`
+        date: new Date(),
+        details: `Reclasificado a categoría '${tx.category}', Caja '${tx.treasuryBoxKey}' (Antes: '${oldBox}'). Motivo: ${reason || 'Ajuste operativo'}`
     });
-
     await tx.save();
 
-    return {
-        ok: true,
-        message: `Gasto reclasificado exitosamente a la caja seleccionada.`
-    };
+    return { ok: true, message: 'Gasto reclasificado exitosamente.', transaction: tx };
 }
 
-// 13. Regularizar Cuotas Históricas
-export async function regularizeHistoricalInstallments(installmentIds, reason, cutoffDate, user) {
-    if (!Array.isArray(installmentIds) || installmentIds.length === 0) {
-        throw new Error('Seleccioná al menos una cuota para regularizar.');
-    }
+// 19. Wrapper de regularización histórica
+export async function regularizeHistoricalInstallments(installmentIds = [], reason, cutoffDate, user) {
+    return await batchRegularizeInstallments({
+        installments: (installmentIds || []).map(id => ({ installmentId: id })),
+        reason,
+        cutoffDate
+    }, user);
+}
 
-    const safeDate = cutoffDate ? new Date(cutoffDate) : new Date();
-    const userName = user?.name || user?.email || 'Administrador';
-    let count = 0;
+// 20. Sincronización Automática de Gastos de Finanzas con Cajas Estratégicas
+export async function syncExpenseWithTreasury(tx, options = {}) {
+    if (!tx || tx.type !== 'Egreso') return;
 
-    for (const id of installmentIds) {
-        const inst = await Installment.findById(id);
-        if (inst && (inst.status === 'pendiente' || inst.status === 'vencida')) {
-            inst.status = 'pagada';
-            inst.paidAmount = inst.amount;
-            inst.paymentDate = safeDate;
-            inst.notes = (inst.notes ? `${inst.notes} | ` : '') + `Regularizada en Tesorería Estratégica: ${reason || 'Cobrada previamente, contemplada en saldo real'}.`;
-            inst.installmentAuditLog.push({
-                action: 'REGULARIZACION_CONCILIADA',
-                user: userName,
-                date: new Date(),
-                details: `Regularización pre-conciliación al ${safeDate.toLocaleDateString('es-AR')}. Motivo: ${reason || 'Sin duplicación de caja'}`
-            });
-            await inst.save();
-            count++;
+    // 1. Si no tiene treasuryBoxKey asignada, buscar en reglas de categorías
+    if (!tx.treasuryBoxKey && tx.category) {
+        const rule = await TreasuryCategoryRule.findOne({ category: tx.category.trim() });
+        if (rule && rule.boxKey) {
+            tx.treasuryBoxKey = rule.boxKey;
+            await tx.save();
         }
     }
 
-    return {
-        ok: true,
-        message: `${count} cuota${count === 1 ? '' : 's'} regularizada${count === 1 ? '' : 's'} históricamente sin duplicar dinero en caja.`,
-        count
-    };
+    const boxKey = tx.treasuryBoxKey;
+    if (!boxKey) return;
+
+    const box = await TreasuryBox.findOne({ key: boxKey });
+    if (!box) return;
+
+    const amt = Number(tx.amount || 0);
+    const curr = tx.currency || 'ARS';
+    const isActivo = tx.status === 'activo' || tx.status === 'Completado';
+
+    // Si es un nuevo egreso ya pagado/activo
+    if (options.isNew && isActivo) {
+        if (curr === 'USD') box.balanceUSD = Math.max(0, (box.balanceUSD || 0) - amt);
+        else box.balanceARS = Math.max(0, (box.balanceARS || 0) - amt);
+
+        box.history.push({
+            date: new Date(),
+            type: 'egreso_finanzas',
+            amount: -amt,
+            currency: curr,
+            reason: `Gasto Finanzas #${tx._id}: ${tx.concept || tx.description || tx.category}`,
+            user: options.user || 'Sistema'
+        });
+        await box.save();
+    } else if (options.statusChanged) {
+        // Transición de estado: si pasó de pendiente a activo
+        if (options.oldStatus !== 'activo' && isActivo) {
+            if (curr === 'USD') box.balanceUSD = Math.max(0, (box.balanceUSD || 0) - amt);
+            else box.balanceARS = Math.max(0, (box.balanceARS || 0) - amt);
+
+            box.history.push({
+                date: new Date(),
+                type: 'egreso_finanzas',
+                amount: -amt,
+                currency: curr,
+                reason: `Pago de Gasto Finanzas #${tx._id}: ${tx.concept || tx.description || tx.category}`,
+                user: options.user || 'Sistema'
+            });
+            await box.save();
+        } else if (options.oldStatus === 'activo' && !isActivo) {
+            // Revertir efecto en caja si se anuló o volvió a pendiente
+            if (curr === 'USD') box.balanceUSD = (box.balanceUSD || 0) + amt;
+            else box.balanceARS = (box.balanceARS || 0) + amt;
+
+            box.history.push({
+                date: new Date(),
+                type: 'reversion_egreso',
+                amount: amt,
+                currency: curr,
+                reason: `Reversión de Gasto Finanzas #${tx._id} (Estado: ${tx.status})`,
+                user: options.user || 'Sistema'
+            });
+            await box.save();
+        }
+    }
 }
+
+

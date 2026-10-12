@@ -5802,6 +5802,11 @@ app.post('/api/admin/transactions', authenticateToken, requirePermission(PERMISS
             await account.save();
         }
 
+        // Sincronización automática con cajas estratégicas de Tesorería
+        if (savedTx.type === 'Egreso') {
+            await treasuryStrategicService.syncExpenseWithTreasury(savedTx, { isNew: true, user: req.user?.username });
+        }
+
         await logAudit({
             req,
             action: 'MOVIMIENTO_CREADO',
@@ -5961,6 +5966,15 @@ app.patch('/api/admin/transactions/:id', authenticateToken, requirePermission(PE
                     if (tx.type === 'Egreso') currentAccount.balance -= tx.amount;
                     await currentAccount.save();
                 }
+            }
+
+            // Sincronización automática con cajas estratégicas de Tesorería
+            if (tx.type === 'Egreso' || oldType === 'Egreso') {
+                await treasuryStrategicService.syncExpenseWithTreasury(tx, {
+                    statusChanged: oldStatus !== tx.status,
+                    oldStatus,
+                    user
+                });
             }
         }
 
@@ -9426,6 +9440,94 @@ app.post('/api/admin/tesoreria-estrategica/expenses/reclassify', authenticateTok
         res.json(result);
     } catch (error) {
         console.error('POST /api/admin/tesoreria-estrategica/expenses/reclassify error:', error);
+        res.status(400).json({ ok: false, message: error.message });
+    }
+});
+
+// 15. Confirmar corte inicial sobre saldo actual
+app.post('/api/admin/tesoreria-estrategica/confirm-initial-cutoff', authenticateToken, requireTreasuryPrivilegedRole, verifyTreasuryStrategicAuth, async (req, res) => {
+    try {
+        const result = await treasuryStrategicService.confirmInitialCutoff(req.body, req.user);
+        res.json(result);
+    } catch (error) {
+        console.error('POST /api/admin/tesoreria-estrategica/confirm-initial-cutoff error:', error);
+        res.status(400).json({ ok: false, message: error.message });
+    }
+});
+
+// 16. Organizar saldo inicial entre cajas sin tocar cuentas
+app.post('/api/admin/tesoreria-estrategica/organize-initial-balance', authenticateToken, requireTreasuryPrivilegedRole, verifyTreasuryStrategicAuth, async (req, res) => {
+    try {
+        const result = await treasuryStrategicService.organizeInitialBalance(req.body, req.user);
+        res.json(result);
+    } catch (error) {
+        console.error('POST /api/admin/tesoreria-estrategica/organize-initial-balance error:', error);
+        res.status(400).json({ ok: false, message: error.message });
+    }
+});
+
+// 17. Obtener cuotas pendientes agrupadas por cliente y venta
+app.get('/api/admin/tesoreria-estrategica/installments/grouped', authenticateToken, requireTreasuryPrivilegedRole, verifyTreasuryStrategicAuth, async (req, res) => {
+    try {
+        const result = await treasuryStrategicService.getGroupedPendingInstallments();
+        res.json(result);
+    } catch (error) {
+        console.error('GET /api/admin/tesoreria-estrategica/installments/grouped error:', error);
+        res.status(500).json({ ok: false, message: error.message });
+    }
+});
+
+// 18. Regularizar cuotas en lote sin duplicar caja ni saldo
+app.post('/api/admin/tesoreria-estrategica/installments/batch-regularize', authenticateToken, requireTreasuryPrivilegedRole, verifyTreasuryStrategicAuth, async (req, res) => {
+    try {
+        const result = await treasuryStrategicService.batchRegularizeInstallments(req.body, req.user);
+        res.json(result);
+    } catch (error) {
+        console.error('POST /api/admin/tesoreria-estrategica/installments/batch-regularize error:', error);
+        res.status(400).json({ ok: false, message: error.message });
+    }
+});
+
+// 19. Revertir lote de regularización histórica
+app.post('/api/admin/tesoreria-estrategica/installments/batch-revert', authenticateToken, requireTreasuryPrivilegedRole, verifyTreasuryStrategicAuth, async (req, res) => {
+    try {
+        const result = await treasuryStrategicService.revertBatchRegularization(req.body, req.user);
+        res.json(result);
+    } catch (error) {
+        console.error('POST /api/admin/tesoreria-estrategica/installments/batch-revert error:', error);
+        res.status(400).json({ ok: false, message: error.message });
+    }
+});
+
+// 20. Cobro único con distribución inmediata o posterior (Cobrar y Distribuir)
+app.post('/api/admin/tesoreria-estrategica/incomes/collect-and-distribute', authenticateToken, requireTreasuryPrivilegedRole, verifyTreasuryStrategicAuth, async (req, res) => {
+    try {
+        const result = await treasuryStrategicService.collectAndDistribute(req.body, req.user);
+        res.json(result);
+    } catch (error) {
+        console.error('POST /api/admin/tesoreria-estrategica/incomes/collect-and-distribute error:', error);
+        res.status(400).json({ ok: false, message: error.message });
+    }
+});
+
+// 21. Configuración de parámetros de tesorería (Horizonte, reservas, presupuestos)
+app.post('/api/admin/tesoreria-estrategica/config', authenticateToken, requireTreasuryPrivilegedRole, verifyTreasuryStrategicAuth, async (req, res) => {
+    try {
+        const result = await treasuryStrategicService.updateTreasuryConfig(req.body, req.user);
+        res.json(result);
+    } catch (error) {
+        console.error('POST /api/admin/tesoreria-estrategica/config error:', error);
+        res.status(400).json({ ok: false, message: error.message });
+    }
+});
+
+// 22. Categorizar gastos en lote
+app.post('/api/admin/tesoreria-estrategica/expenses/bulk-categorize', authenticateToken, requireTreasuryPrivilegedRole, verifyTreasuryStrategicAuth, async (req, res) => {
+    try {
+        const result = await treasuryStrategicService.bulkCategorizeExpenses(req.body, req.user);
+        res.json(result);
+    } catch (error) {
+        console.error('POST /api/admin/tesoreria-estrategica/expenses/bulk-categorize error:', error);
         res.status(400).json({ ok: false, message: error.message });
     }
 });
