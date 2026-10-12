@@ -30,9 +30,16 @@ export function calculateDashboardMetrics(cars = []) {
             alerta90: []
         },
 
+        patentesPendientes: [],
         topInmovilizado: [],
         topAntiguos: [],
-        auditGlobal: []
+        auditGlobal: [],
+        annualSummary: {
+            [targetYear - 2]: { year: targetYear - 2, carsCount: 0, totalARS: 0, totalUSD: 0, profitARS: 0, profitUSD: 0, sales: [] },
+            [targetYear - 1]: { year: targetYear - 1, carsCount: 0, totalARS: 0, totalUSD: 0, profitARS: 0, profitUSD: 0, sales: [] },
+            [targetYear]: { year: targetYear, carsCount: 0, totalARS: 0, totalUSD: 0, profitARS: 0, profitUSD: 0, sales: [] }
+        },
+        historicalTotal: { carsCount: 0, totalARS: 0, totalUSD: 0, startYear: targetYear, sales: [] }
     };
 
     const activeStatuses = ['disponible', 'reservado', 'pausado'];
@@ -139,6 +146,19 @@ export function calculateDashboardMetrics(cars = []) {
             metrics.topInmovilizado.push(carData);
         }
 
+        // --- Patentes pendientes (Libre deuda) en stock ---
+        const doc = car.documentation || {};
+        if (isActive && (doc.libreDeudaPatentes === 'pendiente' || doc.patentes === 'pendiente')) {
+            metrics.patentesPendientes.push({
+                id: car._id,
+                brand: car.brand,
+                name: car.name || car.model,
+                plate: car.plateOrVin || car.plate || 'S/D',
+                year: car.year,
+                status: car.status
+            });
+        }
+
         // --- 5. Audit Log Global ---
         if (car.auditLog && Array.isArray(car.auditLog)) {
             car.auditLog.forEach(log => {
@@ -184,6 +204,17 @@ export function calculateDashboardMetrics(cars = []) {
         let realMarginUSD = 0;
         metrics.historicalSalesARS = Array(12).fill(0);
 
+        const currentYear = new Date().getFullYear();
+        const annualSummary = {};
+        const historicalTotal = {
+            carsCount: 0,
+            totalARS: 0,
+            totalUSD: 0,
+            startYear: currentYear,
+            earliestSaleDate: null,
+            sales: []
+        };
+
         const salesDetails = [];
 
         sales.forEach(sale => {
@@ -220,36 +251,78 @@ export function calculateDashboardMetrics(cars = []) {
                     }
                 }
 
+                // Registro en resumen anual e histórico
+                const sYear = saleDate.getFullYear();
+                const sPrice = Number(sale.salePrice) || 0;
+                const sCurrency = (sale.saleCurrency === 'U$S' || sale.saleCurrency === 'USD') ? 'USD' : 'ARS';
+
+                if (!annualSummary[sYear]) {
+                    annualSummary[sYear] = {
+                        year: sYear,
+                        carsCount: 0,
+                        totalARS: 0,
+                        totalUSD: 0,
+                        profitARS: 0,
+                        profitUSD: 0,
+                        sales: []
+                    };
+                }
+
+                annualSummary[sYear].carsCount++;
+                if (sCurrency === 'USD') annualSummary[sYear].totalUSD += sPrice;
+                else annualSummary[sYear].totalARS += sPrice;
+                annualSummary[sYear].profitARS += profitARS;
+                annualSummary[sYear].profitUSD += profitUSD;
+
+                // Determinar el nombre a mostrar
+                let displayCarName = 'Vehículo sin especificar';
+                if (carData) {
+                    const brand = carData.brand || '';
+                    const name = carData.name || '';
+                    const year = carData.year ? `(${carData.year})` : '';
+                    const fullName = `${brand} ${name} ${year}`.trim();
+                    if (fullName) displayCarName = fullName;
+                } else if (sale.vehicleOwnerName) {
+                    displayCarName = `Manual: ${sale.vehicleOwnerName}`;
+                } else if (sale.notes) {
+                    displayCarName = `Venta s/ Vehículo`;
+                }
+
+                const fullSaleDetail = {
+                    id: sale._id,
+                    carName: displayCarName,
+                    plate: carData?.plateOrVin || '',
+                    salePrice: sPrice,
+                    saleCurrency: sCurrency,
+                    purchasePrice: carData ? Number(carData.purchasePrice) || 0 : 0,
+                    purchaseCurrency: carData ? carData.purchaseCurrency : null,
+                    profitUSD,
+                    profitARS,
+                    paymentMethod: sale.paymentMethod || 'Contado',
+                    clientName: sale.clientId?.fullName || sale.clientId?.name || sale.buyerName || 'Cliente',
+                    salesperson: sale.salesperson || 'Ventas',
+                    date: saleDate,
+                    financingDetails: sale.financingDetails
+                };
+
+                annualSummary[sYear].sales.push(fullSaleDetail);
+
+                historicalTotal.carsCount++;
+                if (sCurrency === 'USD') historicalTotal.totalUSD += sPrice;
+                else historicalTotal.totalARS += sPrice;
+                historicalTotal.sales.push(fullSaleDetail);
+
+                if (!historicalTotal.earliestSaleDate || saleDate < historicalTotal.earliestSaleDate) {
+                    historicalTotal.earliestSaleDate = saleDate;
+                    historicalTotal.startYear = sYear;
+                }
+
                 if (saleDate.getMonth() === targetMonth && saleDate.getFullYear() === targetYear) {
                     metrics.counts.vendidos++;
                     realMarginUSD += profitUSD;
                     realMarginARS += profitARS;
 
-                    // Determinar el nombre a mostrar
-                    let displayCarName = 'Vehículo sin especificar';
-                    if (carData) {
-                        const brand = carData.brand || '';
-                        const name = carData.name || '';
-                        const year = carData.year ? `(${carData.year})` : '';
-                        const fullName = `${brand} ${name} ${year}`.trim();
-                        if (fullName) displayCarName = fullName;
-                    } else if (sale.vehicleOwnerName) {
-                        displayCarName = `Manual: ${sale.vehicleOwnerName}`;
-                    } else if (sale.notes) {
-                        displayCarName = `Venta s/ Vehículo`;
-                    }
-
-                    salesDetails.push({
-                        id: sale._id,
-                        carName: displayCarName,
-                        salePrice: Number(sale.salePrice) || 0,
-                        saleCurrency: sale.saleCurrency,
-                        purchasePrice: carData ? Number(carData.purchasePrice) || 0 : 0,
-                        purchaseCurrency: carData ? carData.purchaseCurrency : null,
-                        profitUSD,
-                        profitARS,
-                        date: saleDate
-                    });
+                    salesDetails.push(fullSaleDetail);
                 }
                 
                 // Historical calculation for 12 months array (Sales Volume in ARS)
@@ -268,6 +341,30 @@ export function calculateDashboardMetrics(cars = []) {
                 }
             }
         });
+
+        // Asegurar años recientes en resumen anual
+        const baseYears = [currentYear - 2, currentYear - 1, currentYear];
+        baseYears.forEach(by => {
+            if (!annualSummary[by]) {
+                annualSummary[by] = {
+                    year: by,
+                    carsCount: 0,
+                    totalARS: 0,
+                    totalUSD: 0,
+                    profitARS: 0,
+                    profitUSD: 0,
+                    sales: []
+                };
+            }
+        });
+
+        Object.values(annualSummary).forEach(y => {
+            y.sales.sort((a, b) => new Date(b.date) - new Date(a.date));
+        });
+        historicalTotal.sales.sort((a, b) => new Date(b.date) - new Date(a.date));
+
+        metrics.annualSummary = annualSummary;
+        metrics.historicalTotal = historicalTotal;
         
         metrics.margenEstimado.ARS = realMarginARS;
         metrics.margenEstimado.USD = realMarginUSD;

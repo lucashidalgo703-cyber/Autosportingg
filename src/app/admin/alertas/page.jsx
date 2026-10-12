@@ -235,7 +235,8 @@ export default function AdminAlertasPage() {
         leads: [],
         sales: [],
         reservations: [],
-        cars: []
+        cars: [],
+        tramites: []
     });
     
     const [filterType, setFilterType] = useState('Todas');
@@ -269,16 +270,17 @@ export default function AdminAlertasPage() {
         const loadAlerts = async () => {
             setLoading(true);
 
-            const [tasks, leads, sales, reservations, cars] = await Promise.all([
+            const [tasks, leads, sales, reservations, cars, tramites] = await Promise.all([
                 safeFetchJson('/api/admin/crm-tasks', ['tasks']),
                 safeFetchJson('/api/leads', ['leads']),
                 safeFetchJson('/api/admin/sales', ['sales']),
                 safeFetchJson('/api/admin/reservations', ['reservations']),
-                safeFetchJson('/api/admin/cars', ['cars'])
+                safeFetchJson('/api/admin/cars', ['cars']),
+                safeFetchJson('/api-gestoria')
             ]);
 
             if (!mounted) return;
-            setData({ tasks, leads, sales, reservations, cars });
+            setData({ tasks, leads, sales, reservations, cars, tramites });
             setLoading(false);
         };
 
@@ -329,6 +331,60 @@ export default function AdminAlertasPage() {
                 icon: FileWarning,
                 owner: 'Sistema',
                 date: null
+            });
+        });
+
+        // Alertas automáticas de Patentes / Libre Deuda en Stock
+        const carsWithPendingPatentes = data.cars.filter((car) => 
+            isActiveVehicle(car.status) && 
+            car.documentation?.libreDeudaPatentes === 'pendiente'
+        );
+        carsWithPendingPatentes.forEach((car) => {
+            const carName = `${car.brand || ''} ${car.name || car.model || ''} ${car.year || ''}`.replace(/\s+/g, ' ').trim() || 'Vehículo en stock';
+            const plate = car.plateOrVin ? `(${car.plateOrVin})` : '';
+            items.push({
+                id: `car-patente-${car._id || car.id}`,
+                category: 'Alta',
+                title: `💳 Patente pendiente — ${carName} ${plate}`.trim(),
+                description: `Vehículo en stock con Libre Deuda de Patentes pendiente de regularizar o pagar.`,
+                href: `/admin/stock`,
+                action: 'Ver en Stock',
+                badge: 'Patente Pendiente',
+                icon: FileWarning,
+                owner: 'Gestoría / Stock',
+                date: normalizeDate(car.createdAt)
+            });
+        });
+
+        // Alertas automáticas de Trámites de Gestoría y Patentes
+        const pendingTramites = (data.tramites || []).filter((t) => 
+            !['Finalizado', 'Cancelado', 'finalizado', 'cancelado'].includes(String(t.status || '').trim())
+        );
+        pendingTramites.forEach((t) => {
+            const dueDate = normalizeDate(t.estimatedEndDate);
+            const isOverdue = dueDate && dueDate < today;
+            const daysLeft = dueDate ? Math.ceil((dueDate.getTime() - today.getTime()) / 86400000) : null;
+
+            // Prioridad Alta si está vencido o vence en los próximos 3 días; Media si vence en la semana
+            const category = (isOverdue || (daysLeft !== null && daysLeft <= 3)) ? 'Alta' : 'Media';
+            let badgeText = 'Gestoría';
+            if (isOverdue) badgeText = 'Trámite Vencido';
+            else if (daysLeft !== null) badgeText = `Vence en ${daysLeft}d`;
+
+            const plate = t.vehiclePlate ? `(${t.vehiclePlate})` : '';
+            const costStr = t.cost ? ` · Costo: ${t.currency || 'ARS'} $${t.cost}` : '';
+
+            items.push({
+                id: `tramite-${t._id || t.id}`,
+                category,
+                title: `📋 Vencimiento Gestoría — ${t.title || t.type} ${plate}`.trim(),
+                description: `Gestor: ${t.gestorName || 'No asignado'} · Estado: ${t.status || 'Pendiente'}${costStr}`,
+                href: '/admin/gestoria',
+                action: 'Ir a Gestoría',
+                badge: badgeText,
+                icon: CalendarDays,
+                owner: t.gestorName || 'Gestoría',
+                date: dueDate
             });
         });
 

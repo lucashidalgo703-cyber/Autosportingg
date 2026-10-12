@@ -1008,7 +1008,7 @@ app.get('/api/admin/dashboard', authenticateToken, async (req, res) => {
         // Ejecutar las 4 queries en paralelo usando 1 sola invocación
         const [cars, sales, transactions, installments] = await Promise.all([
             Car.find({}).lean(),
-            Sale.find({}).populate('vehicleId', 'brand name year purchasePrice purchaseCurrency').lean(),
+            Sale.find({}).populate('vehicleId', 'brand name year purchasePrice purchaseCurrency plateOrVin plate').lean(),
             Transaction.find({}).lean(),
             Installment.find({}).lean()
         ]);

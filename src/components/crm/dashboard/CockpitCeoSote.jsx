@@ -17,6 +17,7 @@ import {
     TrendingUp,
 } from 'lucide-react';
 import UpcomingDuesPanel from './UpcomingDuesPanel';
+import AnnualBillingPanel from './AnnualBillingPanel';
 
 const monthLabel = new Intl.DateTimeFormat('es-AR', { month: 'long', year: 'numeric' }).format(new Date());
 
@@ -152,31 +153,6 @@ function MonthlyGainPanel({ selectedDate }) {
     );
 }
 
-function AnnualSummaryPanel({ soldCount, hideAmounts }) {
-    const currentYear = new Date().getFullYear();
-    const years = [
-        { year: currentYear - 2, cars: 0, current: false },
-        { year: currentYear - 1, cars: 0, current: false },
-        { year: `${currentYear} · EN CURSO`, cars: soldCount || 0, current: true }
-    ];
-
-    return (
-        <section className="rounded-xl border border-crm-border bg-crm-surface p-4 sm:p-5">
-            <h3 className="mb-4 text-xs font-bold uppercase tracking-[0.14em] text-crm-fg-muted">Resumen anual</h3>
-            <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
-                {years.map((item) => (
-                    <div key={item.year} className={`rounded-xl border p-3 ${item.current ? 'border-indigo-400/40 bg-indigo-500/10' : 'border-crm-border bg-crm-surface-raised'}`}>
-                        <p className="text-xs font-bold text-crm-fg">{item.year}</p>
-                        <p className="mt-3 text-[10px] font-bold uppercase tracking-[0.14em] text-crm-fg-muted">
-                            {formatNumber(item.cars)} {item.cars === 1 ? 'auto' : 'autos'}
-                        </p>
-                        <p className="mt-2 text-lg font-bold text-crm-fg">{hideAmounts ? '***' : 'USD 0'}</p>
-                    </div>
-                ))}
-            </div>
-        </section>
-    );
-}
 
 export default function CockpitCeoSote({ metrics, canSeeFinancials = false, user, selectedDate = new Date(), onPrevMonth, onNextMonth, hideAmounts = false }) {
     const [showDetailsModal, setShowDetailsModal] = useState(false);
@@ -202,18 +178,42 @@ export default function CockpitCeoSote({ metrics, canSeeFinancials = false, user
 
     return (
         <div className="space-y-4">
-            <section className="rounded-2xl border border-crm-border bg-crm-surface p-4">
-                <div className="mb-3 flex items-center gap-2">
-                    <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-500/15 text-emerald-300">
-                        <AlertTriangle size={16} />
-                    </span>
-                    <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-crm-fg-muted">Pendientes</p>
-                </div>
-                <p className="flex items-center gap-2 text-sm font-semibold text-emerald-300">
-                    <Check size={16} />
-                    Estás al día - no hay nada pendiente de tu parte.
-                </p>
-            </section>
+            {metrics.patentesPendientes && metrics.patentesPendientes.length > 0 ? (
+                <section className="rounded-2xl border border-amber-500/30 bg-amber-500/10 p-4">
+                    <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                        <div className="flex items-start gap-3">
+                            <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-amber-500/20 text-amber-300">
+                                <AlertTriangle size={16} />
+                            </span>
+                            <div>
+                                <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-amber-200">Alertas de Stock y Gestoría</p>
+                                <p className="mt-1 text-sm font-semibold text-crm-fg">
+                                    Hay <strong className="text-amber-300">{metrics.patentesPendientes.length}</strong> {metrics.patentesPendientes.length === 1 ? 'vehículo en stock con patente / libre deuda pendiente' : 'vehículos en stock con patentes / libre deuda pendientes'}.
+                                </p>
+                            </div>
+                        </div>
+                        <Link
+                            href="/admin/alertas"
+                            className="inline-flex shrink-0 items-center gap-1.5 rounded-lg border border-amber-500/30 bg-amber-500/20 px-3 py-1.5 text-xs font-bold text-amber-200 transition hover:bg-amber-500/30 hover:text-white"
+                        >
+                            Ver Alertas de Patentes →
+                        </Link>
+                    </div>
+                </section>
+            ) : (
+                <section className="rounded-2xl border border-crm-border bg-crm-surface p-4">
+                    <div className="mb-3 flex items-center gap-2">
+                        <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-500/15 text-emerald-300">
+                            <AlertTriangle size={16} />
+                        </span>
+                        <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-crm-fg-muted">Pendientes</p>
+                    </div>
+                    <p className="flex items-center gap-2 text-sm font-semibold text-emerald-300">
+                        <Check size={16} />
+                        Estás al día - no hay nada pendiente de tu parte.
+                    </p>
+                </section>
+            )}
 
             <UpcomingDuesPanel user={user} hideAmounts={hideAmounts} />
 
@@ -428,7 +428,12 @@ export default function CockpitCeoSote({ metrics, canSeeFinancials = false, user
 
             {canSeeFinancials && <CashProjectionPanel metrics={metrics} hideAmounts={hideAmounts} />}
             <MonthlyGainPanel selectedDate={selectedDate} />
-            <AnnualSummaryPanel soldCount={soldCount} hideAmounts={hideAmounts} />
+            <AnnualBillingPanel
+                annualSummary={metrics.annualSummary}
+                historicalTotal={metrics.historicalTotal}
+                hideAmounts={hideAmounts}
+                canSeeFinancials={canSeeFinancials}
+            />
 
             {showDetailsModal && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm">

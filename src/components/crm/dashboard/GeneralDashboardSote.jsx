@@ -23,6 +23,7 @@ import {
     Wallet
 } from 'lucide-react';
 import UpcomingDuesPanel from './UpcomingDuesPanel';
+import AnnualBillingPanel from './AnnualBillingPanel';
 
 const toneClasses = {
     green: 'bg-emerald-500/15 text-emerald-400',
@@ -309,56 +310,52 @@ function MonthlySalesPanel({ selectedDate = new Date(), historicalSales = [] }) 
     );
 }
 
-function AnnualSummaryPanel({ soldCount, hideAmounts }) {
-    const currentYear = new Date().getFullYear();
-    const years = [
-        { year: currentYear - 2, cars: 0, current: false },
-        { year: currentYear - 1, cars: 0, current: false },
-        { year: `${currentYear} · EN CURSO`, cars: soldCount || 0, current: true }
-    ];
+function DeadlinesPanel({ patentesPendientes = [] }) {
+    const hasPatentes = patentesPendientes.length > 0;
 
     return (
-        <section className="rounded-xl border border-crm-border bg-crm-surface p-5">
-            <h3 className="mb-4 text-xs font-bold uppercase tracking-[0.14em] text-crm-fg-muted">Resumen anual</h3>
-            <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
-                {years.map((item) => (
-                    <div key={item.year} className={`rounded-xl border p-3 ${item.current ? 'border-indigo-400/40 bg-indigo-500/10' : 'border-crm-border bg-crm-surface-raised'}`}>
-                        <p className="text-xs font-bold text-crm-fg">{item.year}</p>
-                        <p className="mt-3 text-[10px] font-bold uppercase tracking-[0.14em] text-crm-fg-muted">
-                            {formatNumber(item.cars)} {item.cars === 1 ? 'auto' : 'autos'}
-                        </p>
-                        <p className="mt-2 text-lg font-bold text-crm-fg">{hideAmounts ? '***' : 'USD 0'}</p>
-                    </div>
-                ))}
-            </div>
-        </section>
-    );
-}
-
-function LeadResponsePanel() {
-    return (
-        <div className="space-y-3">
-            <div className="rounded-xl border border-emerald-500/25 bg-emerald-500/10 p-4 text-sm font-semibold text-emerald-300">
-                Todos los leads estan contactados y asignados.
-            </div>
-            <section className="rounded-xl border border-crm-border bg-crm-surface p-4">
-                <h3 className="text-base font-semibold text-crm-fg">Tiempo de respuesta</h3>
-                <p className="mt-2 text-xs text-crm-fg-muted">Sin leads asignados en el mes para medir todavia.</p>
-            </section>
-        </div>
-    );
-}
-
-function DeadlinesPanel() {
-    return (
-        <Panel title="Proximas entregas y vencimientos" subtitle="Entregas, expedientes y cuotas - proximos 7 dias" href="/admin/agenda" icon={Timer} className="min-h-[399px]">
+        <Panel
+            title="Próximas entregas y vencimientos"
+            subtitle="Entregas, expedientes, patentes y cuotas - próximos 7 días"
+            href="/admin/alertas"
+            icon={Timer}
+            className="min-h-[399px]"
+        >
             <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
-                <SmallMetric label="Vencidos" value="0" tone="red" />
+                <SmallMetric label="Patentes Pend." value={patentesPendientes.length} tone={hasPatentes ? 'red' : 'green'} />
                 <SmallMetric label="Hoy" value="0" tone="amber" />
-                <SmallMetric label="Prox. 7d" value="0" tone="green" />
+                <SmallMetric label="Próx. 7d" value="0" tone="green" />
             </div>
             <div className="mt-4">
-                <EmptyState title="Todo al dia" text="No hay entregas, expedientes ni cuotas vencidos o por vencer en los proximos 7 dias." icon={Sparkles} />
+                {hasPatentes ? (
+                    <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-4">
+                        <div className="flex items-start gap-3">
+                            <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-amber-500/20 text-amber-300">
+                                <AlertTriangle size={16} />
+                            </span>
+                            <div className="min-w-0 flex-1">
+                                <p className="text-xs font-bold text-amber-200">
+                                    {patentesPendientes.length} {patentesPendientes.length === 1 ? 'vehículo en stock con patente pendiente' : 'vehículos en stock con patentes pendientes'}
+                                </p>
+                                <p className="mt-1 text-[11px] text-crm-fg-muted">
+                                    Libre Deuda de Patentes pendiente de regularizar o pagar para evitar multas.
+                                </p>
+                                <Link
+                                    href="/admin/alertas"
+                                    className="mt-3 inline-flex text-xs font-bold text-amber-300 hover:text-white"
+                                >
+                                    Ver en Alertas de Patentes →
+                                </Link>
+                            </div>
+                        </div>
+                    </div>
+                ) : (
+                    <EmptyState
+                        title="Todo al día"
+                        text="No hay entregas, expedientes ni cuotas vencidos o por vencer en los próximos 7 días."
+                        icon={Sparkles}
+                    />
+                )}
             </div>
         </Panel>
     );
@@ -482,7 +479,8 @@ function LastOperationsPanel() {
 export default function GeneralDashboardSote({ metrics, canSeeFinancials = false, user, hideAmounts = false, selectedDate }) {
     const [showSalesModal, setShowSalesModal] = useState(false);
     const counts = metrics.counts || {};
-    const alertCount = (metrics.alertas?.alerta60?.length || 0) + (metrics.alertas?.alerta90?.length || 0);
+    const patentesPendientes = metrics.patentesPendientes || [];
+    const alertCount = (metrics.alertas?.alerta60?.length || 0) + (metrics.alertas?.alerta90?.length || 0) + patentesPendientes.length;
     const activeStock = (counts.disponibles || 0) + (counts.reservados || 0) + (counts.pausados || 0);
     const activeCapitalUsd = metrics.capitalPublicado?.USD || 0;
     const activeCapitalArs = metrics.capitalPublicado?.ARS || 0;
@@ -571,7 +569,7 @@ export default function GeneralDashboardSote({ metrics, canSeeFinancials = false
         {
             label: 'Alertas pendientes',
             value: formatNumber(alertCount),
-            detail: '',
+            detail: patentesPendientes.length > 0 ? `${patentesPendientes.length} patentes pend.` : '',
             icon: Bell,
             tone: alertCount > 0 ? 'red' : 'slate',
             href: '/admin/alertas'
@@ -656,13 +654,18 @@ export default function GeneralDashboardSote({ metrics, canSeeFinancials = false
                 <StockOverviewPanel counts={counts} />
                 <MonthlySalesPanel selectedDate={selectedDate} historicalSales={metrics.historicalSalesARS} />
             </div>
-            <AnnualSummaryPanel soldCount={counts.vendidos || 0} hideAmounts={hideAmounts} />
+            <AnnualBillingPanel
+                annualSummary={metrics.annualSummary}
+                historicalTotal={metrics.historicalTotal}
+                hideAmounts={hideAmounts}
+                canSeeFinancials={canSeeFinancials}
+            />
             <LeadResponsePanel />
             <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
                 <Panel title="Agenda - proximos 7 dias" subtitle="Todo lo que viene esta semana" href="/admin/agenda" icon={CalendarClock} className="min-h-[399px]">
                     <EmptyState title="Sin eventos proximos" text="No hay nada agendado para los proximos 7 dias." icon={CalendarClock} />
                 </Panel>
-                <DeadlinesPanel />
+                <DeadlinesPanel patentesPendientes={patentesPendientes} />
             </div>
             <UpcomingDuesPanel user={user} hideAmounts={hideAmounts} />
             <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
