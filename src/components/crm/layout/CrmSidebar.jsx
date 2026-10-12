@@ -217,6 +217,7 @@ export default function CrmSidebar({ isOpen, onClose }) {
                                 const isSalesArea = item.path === '/admin/ventas' && (pathname.startsWith('/admin/ventas') || pathname.startsWith('/admin/reservas'));
                                 const isActive = item.path === '/admin' ? pathname === '/admin' : isSalesArea || pathname.startsWith(item.path);
                                 const isPrivate = item.isPrivate;
+                                const baseItemClasses = "relative group flex min-h-11 items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors";
                                 const activeClasses = isPrivate
                                     ? "bg-purple-500/15 text-purple-300 border-l-2 border-purple-500 pl-[10px]"
                                     : "bg-crm-red/10 text-crm-red border-l-2 border-crm-red pl-[10px]";
