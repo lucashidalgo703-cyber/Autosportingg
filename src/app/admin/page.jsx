@@ -29,7 +29,7 @@ export default function AdminDashboardPage() {
 
     const metrics = useMemo(() => {
         if (!data || !data.cars || data.cars.length === 0) return null;
-        return calculateDashboardMetrics(data.cars, data.sales || [], selectedDate, data.transactions || [], data.installments || [], user);
+        return calculateDashboardMetrics(data.cars, data.sales || [], selectedDate, data.transactions || [], data.installments || [], user, data.dolarBlue);
     }, [data, selectedDate, user]);
 
     const handlePrevMonth = () => {

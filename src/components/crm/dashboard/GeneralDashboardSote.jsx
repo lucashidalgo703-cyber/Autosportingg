@@ -657,6 +657,7 @@ export default function GeneralDashboardSote({ metrics, canSeeFinancials = false
             <AnnualBillingPanel
                 annualSummary={metrics.annualSummary}
                 historicalTotal={metrics.historicalTotal}
+                dolarBlueInitial={metrics.dolarBlue}
                 hideAmounts={hideAmounts}
                 canSeeFinancials={canSeeFinancials}
             />

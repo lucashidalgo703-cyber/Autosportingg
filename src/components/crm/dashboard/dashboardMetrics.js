@@ -34,12 +34,19 @@ export function calculateDashboardMetrics(cars = []) {
         topInmovilizado: [],
         topAntiguos: [],
         auditGlobal: [],
-        annualSummary: {
-            [targetYear - 2]: { year: targetYear - 2, carsCount: 0, totalARS: 0, totalUSD: 0, profitARS: 0, profitUSD: 0, sales: [] },
-            [targetYear - 1]: { year: targetYear - 1, carsCount: 0, totalARS: 0, totalUSD: 0, profitARS: 0, profitUSD: 0, sales: [] },
-            [targetYear]: { year: targetYear, carsCount: 0, totalARS: 0, totalUSD: 0, profitARS: 0, profitUSD: 0, sales: [] }
-        },
-        historicalTotal: { carsCount: 0, totalARS: 0, totalUSD: 0, startYear: targetYear, sales: [] }
+        dolarBlue: null,
+        sales2025Audit: null,
+        annualSummary: {},
+        historicalTotal: { 
+            carsCount: 0, 
+            totalARS: 0, 
+            totalUSD: 0, 
+            equivalentUSD: null,
+            avgTicketARS: 0,
+            avgTicketUSD: null,
+            startYear: targetYear, 
+            sales: [] 
+        }
     };
 
     const activeStatuses = ['disponible', 'reservado', 'pausado'];
@@ -217,10 +224,17 @@ export function calculateDashboardMetrics(cars = []) {
 
         const salesDetails = [];
 
+        // Parámetro de cotización del Dólar Blue (Ámbito Financiero)
+        const dolarBlue = arguments.length > 6 && arguments[6] ? arguments[6] : null;
+        const blueRate = (dolarBlue && dolarBlue.rate && Number(dolarBlue.rate) > 0) ? Number(dolarBlue.rate) : null;
+        metrics.dolarBlue = dolarBlue;
+
         sales.forEach(sale => {
-            const saleDate = new Date(sale.saleDate || sale.createdAt || new Date());
+            // Priorizar siempre la fecha comercial de la venta sobre createdAt
+            const saleDateRaw = sale.saleDate || sale.createdAt;
+            const saleDate = saleDateRaw ? new Date(saleDateRaw) : new Date();
             
-            // Allow all valid sales (ignore only purely cancelled ones for the count)
+            // Permitir todas las ventas válidas (excluir canceladas y borradores)
             const status = (sale.status || '').toLowerCase();
             const isValidStatus = status !== 'cancelada' && status !== 'borrador';
 
@@ -302,10 +316,20 @@ export function calculateDashboardMetrics(cars = []) {
                     clientName: sale.clientId?.fullName || sale.clientId?.name || sale.buyerName || 'Cliente',
                     salesperson: sale.salesperson || 'Ventas',
                     date: saleDate,
+                    saleDateRaw: sale.saleDate,
+                    createdAtRaw: sale.createdAt,
                     financingDetails: sale.financingDetails
                 };
 
                 annualSummary[sYear].sales.push(fullSaleDetail);
+
+                // Auditoría de la venta de 2025 solicitada por el usuario
+                if (sYear === 2025 && !metrics.sales2025Audit) {
+                    metrics.sales2025Audit = {
+                        ...fullSaleDetail,
+                        hasExplicitSaleDate: Boolean(sale.saleDate)
+                    };
+                }
 
                 historicalTotal.carsCount++;
                 if (sCurrency === 'USD') historicalTotal.totalUSD += sPrice;
@@ -325,16 +349,15 @@ export function calculateDashboardMetrics(cars = []) {
                     salesDetails.push(fullSaleDetail);
                 }
                 
-                // Historical calculation for 12 months array (Sales Volume in ARS)
+                // Cálculo para el array histórico de 12 meses
                 const monthDiff = (targetYear - saleDate.getFullYear()) * 12 + (targetMonth - saleDate.getMonth());
                 if (monthDiff >= 0 && monthDiff < 12) {
                     const arrayIndex = 11 - monthDiff;
                     const saleCurrency = (sale.saleCurrency === 'U$S' || sale.saleCurrency === 'USD') ? 'USD' : 'ARS';
                     let priceInARS = Number(sale.salePrice) || 0;
                     
-                    // Convert USD sales to ARS (using an approximate rate if exact historical rate isn't available)
                     if (saleCurrency === 'USD') {
-                        priceInARS = priceInARS * 1200; // Approximate current ARS/USD rate for charting
+                        priceInARS = priceInARS * (blueRate || 1540);
                     }
                     
                     metrics.historicalSalesARS[arrayIndex] += priceInARS;
@@ -342,25 +365,56 @@ export function calculateDashboardMetrics(cars = []) {
             }
         });
 
-        // Asegurar años recientes en resumen anual
-        const baseYears = [currentYear - 2, currentYear - 1, currentYear];
-        baseYears.forEach(by => {
-            if (!annualSummary[by]) {
-                annualSummary[by] = {
-                    year: by,
-                    carsCount: 0,
-                    totalARS: 0,
-                    totalUSD: 0,
-                    profitARS: 0,
-                    profitUSD: 0,
-                    sales: []
-                };
-            }
-        });
+        // Si no hay ventas en ningún año, mostrar solo el año en curso (nunca inventar 2024 ni años vacíos)
+        if (Object.keys(annualSummary).length === 0) {
+            annualSummary[currentYear] = {
+                year: currentYear,
+                carsCount: 0,
+                totalARS: 0,
+                totalUSD: 0,
+                profitARS: 0,
+                profitUSD: 0,
+                sales: []
+            };
+        }
+
+        // Calcular equivalentes USD al Blue del día e indicadores para cada año
+        const MONTH_NAMES_SHORT = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
+        const MONTH_NAMES_FULL = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
 
         Object.values(annualSummary).forEach(y => {
+            y.equivalentUSD = (blueRate && y.totalARS > 0) ? (y.totalARS / blueRate) : null;
+            y.avgTicketARS = y.carsCount > 0 ? Math.round(y.totalARS / y.carsCount) : 0;
+            y.avgTicketUSD = (blueRate && y.avgTicketARS > 0) ? (y.avgTicketARS / blueRate) : null;
+
+            // Desglose mensual para gráficos
+            y.monthlyBreakdown = Array.from({ length: 12 }, (_, monthIdx) => {
+                const mSales = y.sales.filter(s => new Date(s.date).getMonth() === monthIdx);
+                const mARS = mSales.filter(s => s.saleCurrency === 'ARS').reduce((acc, s) => acc + (Number(s.salePrice) || 0), 0);
+                const mUSD_orig = mSales.filter(s => s.saleCurrency === 'USD').reduce((acc, s) => acc + (Number(s.salePrice) || 0), 0);
+                const mUSD_equiv = (blueRate && mARS > 0) ? (mARS / blueRate) : 0;
+
+                return {
+                    monthIndex: monthIdx,
+                    name: MONTH_NAMES_SHORT[monthIdx],
+                    fullName: MONTH_NAMES_FULL[monthIdx],
+                    year: y.year,
+                    carsCount: mSales.length,
+                    amountARS: mARS,
+                    amountUSD_orig: mUSD_orig,
+                    amountUSD_equiv: mUSD_equiv,
+                    hasSales: mSales.length > 0,
+                    sales: mSales
+                };
+            });
+
             y.sales.sort((a, b) => new Date(b.date) - new Date(a.date));
         });
+
+        // Indicadores acumulados históricos
+        historicalTotal.equivalentUSD = (blueRate && historicalTotal.totalARS > 0) ? (historicalTotal.totalARS / blueRate) : null;
+        historicalTotal.avgTicketARS = historicalTotal.carsCount > 0 ? Math.round(historicalTotal.totalARS / historicalTotal.carsCount) : 0;
+        historicalTotal.avgTicketUSD = (blueRate && historicalTotal.avgTicketARS > 0) ? (historicalTotal.avgTicketARS / blueRate) : null;
         historicalTotal.sales.sort((a, b) => new Date(b.date) - new Date(a.date));
 
         metrics.annualSummary = annualSummary;

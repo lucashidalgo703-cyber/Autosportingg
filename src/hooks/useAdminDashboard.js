@@ -5,7 +5,7 @@ import { parseResponseSafe } from '../utils/apiHelper';
 import toast from 'react-hot-toast';
 
 export const useAdminDashboard = () => {
-    const [data, setData] = useState({ cars: [], sales: [], transactions: [], installments: [] });
+    const [data, setData] = useState({ cars: [], sales: [], transactions: [], installments: [], dolarBlue: null });
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
     const { logout } = useAuth();
@@ -41,7 +41,8 @@ export const useAdminDashboard = () => {
                     cars: json.cars || [],
                     sales: json.sales || [],
                     transactions: json.transactions || [],
-                    installments: json.installments || []
+                    installments: json.installments || [],
+                    dolarBlue: json.dolarBlue || null
                 });
             }
         } catch (err) {

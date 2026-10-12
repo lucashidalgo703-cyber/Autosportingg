@@ -57,6 +57,7 @@ import Complaint from './src/models/Complaint.js';
 import { DailySummaryService } from './src/services/DailySummaryService.js';
 import { getNextLeadAssignee, checkLeadSLA } from './src/services/leadRoutingService.js';
 import { logAudit, logSystemAudit } from './src/utils/auditLogger.js';
+import { getDolarBlueRate, setManualDolarBlueRate } from './src/services/dolarService.js';
 import { hasPermission, PERMISSIONS, ROLES } from './src/utils/adminPermissions.js';
 import { CloudinaryStorage } from 'multer-storage-cloudinary';
 import jwt from 'jsonwebtoken';
@@ -1005,18 +1006,46 @@ app.get('/api/admin/dashboard', authenticateToken, async (req, res) => {
         await connectDB();
         res.setHeader('Cache-Control', 'no-store, max-age=0');
         
-        // Ejecutar las 4 queries en paralelo usando 1 sola invocación
-        const [cars, sales, transactions, installments] = await Promise.all([
+        // Ejecutar las consultas en paralelo con tolerancia a fallos
+        const [cars, sales, transactions, installments, dolarBlue] = await Promise.all([
             Car.find({}).lean(),
             Sale.find({}).populate('vehicleId', 'brand name year purchasePrice purchaseCurrency plateOrVin plate').lean(),
             Transaction.find({}).lean(),
-            Installment.find({}).lean()
+            Installment.find({}).lean(),
+            getDolarBlueRate(false).catch(() => null)
         ]);
         
-        res.json({ cars, sales, transactions, installments, user: req.user });
+        res.json({ cars, sales, transactions, installments, dolarBlue, user: req.user });
     } catch (error) {
         console.error('Error fetching dashboard data:', error);
         res.status(500).json({ message: 'Error fetching dashboard data' });
+    }
+});
+
+// GET Cotización Dólar Blue (Ámbito Financiero con caché)
+app.get('/api/dolar-blue', async (req, res) => {
+    try {
+        const forceRefresh = req.query.refresh === 'true';
+        const data = await getDolarBlueRate(forceRefresh);
+        res.json({ ok: true, data });
+    } catch (error) {
+        console.error('Error en GET /api/dolar-blue:', error);
+        res.status(500).json({ ok: false, message: error.message || 'Error obteniendo cotización' });
+    }
+});
+
+// POST Actualizar Cotización Manual de Dólar Blue (Admin)
+app.post('/api/admin/dolar-blue/manual', authenticateToken, requirePermission(PERMISSIONS.FINANZAS_WRITE), async (req, res) => {
+    try {
+        const { rate } = req.body;
+        if (!rate || isNaN(Number(rate)) || Number(rate) <= 0) {
+            return res.status(400).json({ ok: false, message: 'La cotización debe ser un número positivo válido.' });
+        }
+        const data = await setManualDolarBlueRate(rate);
+        res.json({ ok: true, data });
+    } catch (error) {
+        console.error('Error en POST /api/admin/dolar-blue/manual:', error);
+        res.status(400).json({ ok: false, message: error.message || 'Error configurando cotización manual' });
     }
 });
 

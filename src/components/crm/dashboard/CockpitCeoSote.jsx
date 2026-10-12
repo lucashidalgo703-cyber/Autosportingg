@@ -431,6 +431,7 @@ export default function CockpitCeoSote({ metrics, canSeeFinancials = false, user
             <AnnualBillingPanel
                 annualSummary={metrics.annualSummary}
                 historicalTotal={metrics.historicalTotal}
+                dolarBlueInitial={metrics.dolarBlue}
                 hideAmounts={hideAmounts}
                 canSeeFinancials={canSeeFinancials}
             />
