@@ -268,12 +268,17 @@ function StockOverviewPanel({ counts }) {
 
 function MonthlySalesPanel({ selectedDate = new Date(), historicalSales = [] }) {
     const defaultSales = Array(12).fill(0);
-    // Ensure all values are valid numbers
-    const sales = (historicalSales.length === 12 ? historicalSales : defaultSales).map(p => isNaN(p) ? 0 : Number(p));
+    const validSales = (historicalSales && Array.isArray(historicalSales) && historicalSales.length === 12)
+        ? historicalSales
+        : defaultSales;
+    const sales = validSales.map(p => isNaN(p) ? 0 : Number(p));
     
+    const baseDate = selectedDate ? new Date(selectedDate) : new Date();
+    const safeBaseDate = isNaN(baseDate.getTime()) ? new Date() : baseDate;
+
     // Generate dynamic months (last 11 months + current month)
     const months = Array.from({ length: 12 }).map((_, i) => {
-        const d = new Date(selectedDate);
+        const d = new Date(safeBaseDate);
         d.setMonth(d.getMonth() - (11 - i));
         return {
             name: d.toLocaleDateString('es-AR', { month: 'short', year: '2-digit' }).toUpperCase(),
@@ -307,6 +312,20 @@ function MonthlySalesPanel({ selectedDate = new Date(), historicalSales = [] }) 
                 })}
             </div>
         </Panel>
+    );
+}
+
+function LeadResponsePanel() {
+    return (
+        <div className="space-y-3">
+            <div className="rounded-xl border border-emerald-500/25 bg-emerald-500/10 p-4 text-sm font-semibold text-emerald-300">
+                Todos los leads estan contactados y asignados.
+            </div>
+            <section className="rounded-xl border border-crm-border bg-crm-surface p-4">
+                <h3 className="text-base font-semibold text-crm-fg">Tiempo de respuesta</h3>
+                <p className="mt-2 text-xs text-crm-fg-muted">Sin leads asignados en el mes para medir todavia.</p>
+            </section>
+        </div>
     );
 }
 
@@ -476,7 +495,7 @@ function LastOperationsPanel() {
     );
 }
 
-export default function GeneralDashboardSote({ metrics, canSeeFinancials = false, user, hideAmounts = false, selectedDate }) {
+export default function GeneralDashboardSote({ metrics, canSeeFinancials = false, user, hideAmounts = false, selectedDate = new Date() }) {
     const [showSalesModal, setShowSalesModal] = useState(false);
     const counts = metrics.counts || {};
     const patentesPendientes = metrics.patentesPendientes || [];
@@ -709,7 +728,7 @@ export default function GeneralDashboardSote({ metrics, canSeeFinancials = false
                                         (metrics.salesDetails || []).map((detail, idx) => (
                                             <tr key={idx} className="hover:bg-crm-surface-raised transition-colors">
                                                 <td className="py-3 font-medium text-white">{detail.carName}</td>
-                                                <td className="py-3 text-right text-crm-fg-muted">{new Date(detail.date).toLocaleDateString('es-AR')}</td>
+                                                <td className="py-3 text-right text-crm-fg-muted">{detail.date && !isNaN(new Date(detail.date).getTime()) ? new Date(detail.date).toLocaleDateString('es-AR') : '—'}</td>
                                                 <td className="py-3 text-right text-emerald-400 font-bold">{detail.saleCurrency} {hideAmounts ? '***' : formatCurrency(detail.salePrice)}</td>
                                             </tr>
                                         ))
