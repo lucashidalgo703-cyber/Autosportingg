@@ -45,6 +45,11 @@ const transactionSchema = new mongoose.Schema({
     // --- Conversión ---
     exchangeRate: { type: Number },
     conversionDate: { type: Date },
+    // --- Tesorería Estratégica ---
+    treasuryBoxKey: { type: String, default: null },
+    isTreasuryDistributed: { type: Boolean, default: false },
+    distributedAt: { type: Date },
+    distributedBy: { type: String },
     // --------------------------------------------------------
 
     createdAt: { type: Date, default: Date.now },

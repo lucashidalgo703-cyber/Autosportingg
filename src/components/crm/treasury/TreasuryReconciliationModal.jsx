@@ -218,7 +218,7 @@ export default function TreasuryReconciliationModal({
                                 Este monto no se registra de forma automática ni se asume en efectivo físico. Por favor confirmá cómo se distribuye esta liquidez entre tus cuentas reales (efectivo, bancos o billeteras) y la fecha de corte.
                             </p>
                             <p className="text-amber-200/90 font-medium pt-1 border-t border-amber-500/20">
-                                🚗 <strong>Chevrolet Tracker Premier:</strong> Los fondos pendientes de cobro no forman parte de la liquidez de caja hasta que se acrediten efectivamente.
+                                🚗 <strong>Operación pendiente declarada (Chevrolet Tracker 2014 por $15.500.000):</strong> Los fondos pendientes de cobro no forman parte de la liquidez de caja hasta que se acrediten efectivamente.
                             </p>
                         </div>
                     </div>

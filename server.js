@@ -9384,6 +9384,52 @@ app.post('/api/admin/tesoreria-estrategica/installments/regularize', authenticat
         res.status(400).json({ ok: false, message: error.message });
     }
 });
+
+// 11. Distribuir Cobro Específico a Cajas (Bandeja de Cobros)
+app.post('/api/admin/tesoreria-estrategica/incomes/distribute', authenticateToken, requireTreasuryPrivilegedRole, verifyTreasuryStrategicAuth, async (req, res) => {
+    try {
+        const result = await treasuryStrategicService.distributeSingleIncome(req.body, req.user);
+        res.json(result);
+    } catch (error) {
+        console.error('POST /api/admin/tesoreria-estrategica/incomes/distribute error:', error);
+        res.status(400).json({ ok: false, message: error.message });
+    }
+});
+
+// 12. Obtener Reglas de Vinculación Categoría -> Caja
+app.get('/api/admin/tesoreria-estrategica/rules', authenticateToken, requireTreasuryPrivilegedRole, verifyTreasuryStrategicAuth, async (req, res) => {
+    try {
+        const rules = await treasuryStrategicService.getCategoryRules();
+        res.json({ ok: true, rules });
+    } catch (error) {
+        console.error('GET /api/admin/tesoreria-estrategica/rules error:', error);
+        res.status(500).json({ ok: false, message: error.message });
+    }
+});
+
+// 13. Guardar / Actualizar Reglas de Categorías
+app.post('/api/admin/tesoreria-estrategica/rules', authenticateToken, requireTreasuryPrivilegedRole, verifyTreasuryStrategicAuth, async (req, res) => {
+    try {
+        const { rules } = req.body;
+        const result = await treasuryStrategicService.updateCategoryRules(rules, req.user);
+        res.json(result);
+    } catch (error) {
+        console.error('POST /api/admin/tesoreria-estrategica/rules error:', error);
+        res.status(400).json({ ok: false, message: error.message });
+    }
+});
+
+// 14. Reclasificar Gasto Histórico sin Alterar Cuentas Conciliadas
+app.post('/api/admin/tesoreria-estrategica/expenses/reclassify', authenticateToken, requireTreasuryPrivilegedRole, verifyTreasuryStrategicAuth, async (req, res) => {
+    try {
+        const result = await treasuryStrategicService.reclassifyExpense(req.body, req.user);
+        res.json(result);
+    } catch (error) {
+        console.error('POST /api/admin/tesoreria-estrategica/expenses/reclassify error:', error);
+        res.status(400).json({ ok: false, message: error.message });
+    }
+});
+
 app.get('/api/admin/checks', authenticateToken, requirePermission(PERMISSIONS.FINANZAS_READ), async (req, res) => {
     try {
         const { status, month, direction, search } = req.query;

@@ -5,7 +5,7 @@ const treasuryBoxSchema = new mongoose.Schema({
         type: String,
         required: true,
         unique: true,
-        enum: ['operativa', 'personal', 'impuestos', 'deudas', 'reserva']
+        enum: ['operativa', 'personal', 'impuestos', 'deudas', 'postventa', 'reserva', 'stock', 'crecimiento']
     },
     name: {
         type: String,
@@ -27,6 +27,22 @@ const treasuryBoxSchema = new mongoose.Schema({
         type: Number,
         default: 0
     },
+    monthlyBudgetARS: {
+        type: Number,
+        default: 0
+    },
+    monthlyBudgetUSD: {
+        type: Number,
+        default: 0
+    },
+    reserveMonths: {
+        type: Number,
+        default: 1
+    },
+    priority: {
+        type: Number,
+        default: 1
+    },
     color: {
         type: String,
         default: 'emerald'
@@ -43,14 +59,15 @@ const treasuryBoxSchema = new mongoose.Schema({
         date: { type: Date, default: Date.now },
         type: {
             type: String,
-            enum: ['asignacion_inicial', 'ajuste', 'transferencia_entre_cajas', 'retiro', 'ingreso']
+            enum: ['asignacion_inicial', 'ajuste', 'transferencia_entre_cajas', 'retiro', 'ingreso', 'distribucion_cobro', 'asignacion']
         },
         amount: Number,
         currency: { type: String, enum: ['ARS', 'USD'] },
         fromBox: String,
         toBox: String,
         reason: String,
-        user: String
+        user: String,
+        sourceIncomeId: { type: mongoose.Schema.Types.ObjectId, ref: 'Transaction' }
     }]
 }, { timestamps: true });
 

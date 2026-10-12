@@ -24,7 +24,12 @@ import {
     Plus,
     History,
     Sparkles,
-    Edit3
+    Edit3,
+    ArrowDownRight,
+    Wrench,
+    Car,
+    TrendingUp,
+    AlertCircle
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useAuth } from '../../../context/AuthContext';
@@ -34,58 +39,87 @@ import TreasuryReconciliationModal from '../../../components/crm/treasury/Treasu
 import TreasuryBoxTransferModal from '../../../components/crm/treasury/TreasuryBoxTransferModal';
 import TreasuryInstallmentRegularizeModal from '../../../components/crm/treasury/TreasuryInstallmentRegularizeModal';
 import TreasuryEditBoxModal from '../../../components/crm/treasury/TreasuryEditBoxModal';
+import TreasuryDistributeIncomeModal from '../../../components/crm/treasury/TreasuryDistributeIncomeModal';
+import TreasuryCategoryRulesTab from '../../../components/crm/treasury/TreasuryCategoryRulesTab';
+import TreasuryPlanningTab from '../../../components/crm/treasury/TreasuryPlanningTab';
 
 function formatNumber(val) {
     return new Intl.NumberFormat('es-AR').format(val || 0);
 }
 
 function formatMoney(amount, currency = 'ARS') {
-    return `${currency === 'USD' ? 'USD' : 'ARS'} ${formatNumber(Math.round(amount || 0))}`;
+    const isNegative = (amount || 0) < 0;
+    const formatted = new Intl.NumberFormat('es-AR').format(Math.abs(Math.round(amount || 0)));
+    return `${isNegative ? '-' : ''}${currency === 'USD' ? 'USD' : 'ARS'} ${formatted}`;
 }
 
 const BOX_ICONS = {
     operativa: Briefcase,
-    personal: User,
     impuestos: Landmark,
     deudas: CreditCard,
-    reserva: ShieldCheck
+    personal: User,
+    postventa: Wrench,
+    reserva: ShieldCheck,
+    stock: Car,
+    crecimiento: TrendingUp
 };
 
 const BOX_COLORS = {
-    emerald: {
+    operativa: {
         border: 'border-emerald-500/30',
         bg: 'bg-emerald-500/10',
         badge: 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30',
         iconBg: 'bg-emerald-500/20 text-emerald-300',
         accent: 'text-emerald-400'
     },
-    purple: {
-        border: 'border-purple-500/30',
-        bg: 'bg-purple-500/10',
-        badge: 'bg-purple-500/20 text-purple-300 border-purple-500/30',
-        iconBg: 'bg-purple-500/20 text-purple-300',
-        accent: 'text-purple-400'
-    },
-    amber: {
+    impuestos: {
         border: 'border-amber-500/30',
         bg: 'bg-amber-500/10',
         badge: 'bg-amber-500/20 text-amber-300 border-amber-500/30',
         iconBg: 'bg-amber-500/20 text-amber-300',
         accent: 'text-amber-400'
     },
-    red: {
+    deudas: {
         border: 'border-red-500/30',
         bg: 'bg-red-500/10',
         badge: 'bg-red-500/20 text-red-300 border-red-500/30',
         iconBg: 'bg-red-500/20 text-red-300',
         accent: 'text-red-400'
     },
-    blue: {
+    personal: {
+        border: 'border-purple-500/30',
+        bg: 'bg-purple-500/10',
+        badge: 'bg-purple-500/20 text-purple-300 border-purple-500/30',
+        iconBg: 'bg-purple-500/20 text-purple-300',
+        accent: 'text-purple-400'
+    },
+    postventa: {
+        border: 'border-orange-500/30',
+        bg: 'bg-orange-500/10',
+        badge: 'bg-orange-500/20 text-orange-300 border-orange-500/30',
+        iconBg: 'bg-orange-500/20 text-orange-300',
+        accent: 'text-orange-400'
+    },
+    reserva: {
         border: 'border-blue-500/30',
         bg: 'bg-blue-500/10',
         badge: 'bg-blue-500/20 text-blue-300 border-blue-500/30',
         iconBg: 'bg-blue-500/20 text-blue-300',
         accent: 'text-blue-400'
+    },
+    stock: {
+        border: 'border-cyan-500/30',
+        bg: 'bg-cyan-500/10',
+        badge: 'bg-cyan-500/20 text-cyan-300 border-cyan-500/30',
+        iconBg: 'bg-cyan-500/20 text-cyan-300',
+        accent: 'text-cyan-400'
+    },
+    crecimiento: {
+        border: 'border-emerald-500/30',
+        bg: 'bg-emerald-500/10',
+        badge: 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30',
+        iconBg: 'bg-emerald-500/20 text-emerald-300',
+        accent: 'text-emerald-400'
     }
 };
 
@@ -112,7 +146,7 @@ export default function TesoreriaEstrategicaPage() {
     const [dolarBlueRate, setDolarBlueRate] = useState(null);
 
     // Navegación por pestañas
-    const [activeTab, setActiveTab] = useState('cajas'); // 'cajas' | 'cuentas' | 'auditoria'
+    const [activeTab, setActiveTab] = useState('cajas'); // 'cajas' | 'cobros' | 'planificacion' | 'reglas' | 'cuentas' | 'cuotas' | 'auditoria'
 
     // Modales
     const [isChangePinOpen, setIsChangePinOpen] = useState(false);
@@ -120,6 +154,7 @@ export default function TesoreriaEstrategicaPage() {
     const [isTransferOpen, setIsTransferOpen] = useState(false);
     const [isRegularizeOpen, setIsRegularizeOpen] = useState(false);
     const [editingBox, setEditingBox] = useState(null);
+    const [distributingIncome, setDistributingIncome] = useState(null);
 
     // 1. Cargar estado de seguridad y cotización blue
     const fetchSecurityStatus = useCallback(async () => {
@@ -186,7 +221,7 @@ export default function TesoreriaEstrategicaPage() {
             if (json.ok) {
                 setDashboardData(json.data);
             }
-        } catch (err) {
+        } catch {
             toast.error('Error al cargar datos de tesorería');
         } finally {
             setLoadingData(false);
@@ -203,7 +238,7 @@ export default function TesoreriaEstrategicaPage() {
     useEffect(() => {
         if (!treasuryToken) return;
 
-        setSessionSecondsLeft(900); // 15 minutos
+        setSessionSecondsLeft(900);
         const timer = setInterval(() => {
             setSessionSecondsLeft(prev => {
                 if (prev <= 1) {
@@ -257,17 +292,21 @@ export default function TesoreriaEstrategicaPage() {
     const summary = dashboardData?.summary || {};
     const boxes = dashboardData?.boxes || [];
     const accounts = dashboardData?.accounts || [];
+    const verification = dashboardData?.verification || {};
+    const trackerAudit = dashboardData?.trackerAudit || {};
+    const unassignedIncomeCards = dashboardData?.unassignedIncomeCards || [];
+    const planning = dashboardData?.planning || {};
+    const categoryRules = dashboardData?.categoryRules || [];
     const pendingInstallments = dashboardData?.pendingInstallments || [];
-    const pendingCollections = dashboardData?.pendingCollections || {};
     const recentAdjustments = dashboardData?.recentAdjustments || [];
     const recentReconciliations = dashboardData?.recentReconciliations || [];
 
-    // Equivalente USD Blue del total en pesos
-    const totalArsInUsdBlue = dolarBlueRate && summary.totalCuentasARS > 0
-        ? Math.round((summary.totalCuentasARS / dolarBlueRate) * 100) / 100
-        : null;
+    // Cálculo riguroso de Liquidez Neta Equivalente (incluye saldos negativos)
+    const totalArsInUsdBlue = dolarBlueRate && summary.totalCuentasARS !== undefined
+        ? (summary.totalCuentasARS / dolarBlueRate)
+        : 0;
 
-    const totalPatrimonioEquivUSD = (summary.totalCuentasUSD || 0) + (totalArsInUsdBlue || 0);
+    const liquidezNetaEquivalenteUSD = (summary.totalCuentasUSD || 0) + totalArsInUsdBlue;
 
     return (
         <div className="mx-auto w-full max-w-7xl p-4 md:p-6 pb-24 space-y-6">
@@ -320,23 +359,57 @@ export default function TesoreriaEstrategicaPage() {
                 </div>
             </div>
 
-            {/* Banner de Referencia Informativa (USD 5.000 y Tracker) */}
+            {/* Alerta de Verificación de Saldos (si hay inconsistencias o falta conciliación) */}
+            {verification.status === 'pendiente_verificar' && (
+                <div className="rounded-2xl border border-amber-500/40 bg-amber-500/10 p-4 sm:p-5">
+                    <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                        <div className="flex items-start gap-3">
+                            <AlertTriangle size={20} className="text-amber-400 shrink-0 mt-0.5" />
+                            <div>
+                                <div className="flex items-center gap-2">
+                                    <h3 className="text-sm font-black text-amber-200">
+                                        Saldos pendientes de verificar
+                                    </h3>
+                                    <span className="rounded bg-amber-500/20 px-2 py-0.5 text-[10px] font-black text-amber-300 uppercase">
+                                        Requiere Conciliación
+                                    </span>
+                                </div>
+                                <p className="mt-1 text-xs text-amber-100/90 leading-relaxed">
+                                    {verification.hasPhysicalCashInconsistency
+                                        ? 'Se detectó saldo negativo en efectivo físico en mano. En la realidad física no es posible tener billetes negativos; requiere arqueo y conciliación formal con fecha de corte.'
+                                        : 'Aún no se ha completado una conciliación formal de saldos reales con fecha de corte. Las proyecciones y recomendaciones de compra son preliminares.'}
+                                </p>
+                            </div>
+                        </div>
+
+                        <button
+                            type="button"
+                            onClick={() => setIsReconcileOpen(true)}
+                            className="inline-flex items-center gap-2 rounded-xl bg-amber-600 px-4 py-2 text-xs font-black text-white hover:bg-amber-500 transition-colors shrink-0 shadow-lg shadow-amber-600/20"
+                        >
+                            <Scale size={15} /> Iniciar Conciliación Formal
+                        </button>
+                    </div>
+                </div>
+            )}
+
+            {/* Banner de Referencia Informativa (USD 5.000 y Tracker 2014) */}
             <div className="rounded-2xl border border-purple-500/30 bg-gradient-to-r from-purple-950/40 via-crm-surface to-emerald-950/30 p-4 sm:p-5">
                 <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-                    <div className="space-y-1">
+                    <div className="space-y-1.5 text-xs">
                         <div className="flex items-center gap-2">
-                            <span className="flex h-6 w-6 items-center justify-center rounded-lg bg-amber-500/20 text-amber-300 text-xs">
+                            <span className="flex h-6 w-6 items-center justify-center rounded-lg bg-purple-500/20 text-purple-300 text-xs">
                                 💡
                             </span>
                             <h3 className="text-sm font-bold text-white">
-                                Parámetro de Referencia: USD 5.000 de Liquidez
+                                Parámetros Base Declarados: USD 5.000 de Liquidez y Tracker 2014
                             </h3>
-                            <span className="rounded bg-purple-500/20 px-2 py-0.5 text-[10px] font-bold text-purple-300 uppercase">
-                                Auditoría Inicial
-                            </span>
                         </div>
-                        <p className="text-xs text-crm-fg-muted max-w-2xl leading-relaxed">
-                            Monto base para la configuración inicial. Confirmá su distribución exacta entre tus cuentas reales mediante el <strong>Asistente de Conciliación</strong> con fecha de corte. Las operaciones pendientes como la <strong>Chevrolet Tracker Premier</strong> no forman parte de la liquidez de caja hasta su cobro efectivo.
+                        <p className="text-crm-fg-muted max-w-3xl leading-relaxed">
+                            • <strong>Liquidez de referencia:</strong> USD 5.000 (sin registrar automáticamente en cuentas hasta confirmar su distribución real entre efectivo y bancos).
+                        </p>
+                        <p className="text-crm-fg-muted max-w-3xl leading-relaxed">
+                            • <strong>Operación comercial pendiente:</strong> Chevrolet Tracker 2014 vendida por $15.500.000. Los importes pendientes de cobro no forman parte de la liquidez de caja hasta su acreditación efectiva.
                         </p>
                     </div>
 
@@ -344,16 +417,16 @@ export default function TesoreriaEstrategicaPage() {
                         <button
                             type="button"
                             onClick={() => setIsReconcileOpen(true)}
-                            className="inline-flex items-center gap-2 rounded-xl bg-purple-600 px-4 py-2.5 text-xs font-black text-white hover:bg-purple-500 transition-colors shadow-lg shadow-purple-600/20"
+                            className="inline-flex items-center gap-2 rounded-xl bg-purple-600 px-3.5 py-2 text-xs font-black text-white hover:bg-purple-500 transition-colors shadow-lg shadow-purple-600/20"
                         >
-                            <Scale size={16} /> Conciliar Saldos Reales
+                            <Scale size={15} /> Conciliar Cuentas
                         </button>
                         <button
                             type="button"
                             onClick={() => setIsTransferOpen(true)}
-                            className="inline-flex items-center gap-2 rounded-xl border border-crm-border bg-crm-surface px-4 py-2.5 text-xs font-bold text-crm-fg hover:bg-crm-surface-raised transition-colors"
+                            className="inline-flex items-center gap-2 rounded-xl border border-crm-border bg-crm-surface px-3.5 py-2 text-xs font-bold text-crm-fg hover:bg-crm-surface-raised transition-colors"
                         >
-                            <ArrowRightLeft size={16} /> Traspaso entre Cajas
+                            <ArrowRightLeft size={15} /> Traspasar Cajas
                         </button>
                     </div>
                 </div>
@@ -365,7 +438,7 @@ export default function TesoreriaEstrategicaPage() {
                 <div className="rounded-2xl border border-crm-border bg-crm-surface p-5">
                     <div className="flex items-start justify-between">
                         <p className="text-[11px] font-bold uppercase tracking-wider text-crm-fg-muted">
-                            Liquidez Real en Cuentas (USD)
+                            Liquidez en Cuentas (USD)
                         </p>
                         <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-500/15 text-emerald-400">
                             <DollarSign size={18} />
@@ -383,13 +456,13 @@ export default function TesoreriaEstrategicaPage() {
                 <div className="rounded-2xl border border-crm-border bg-crm-surface p-5">
                     <div className="flex items-start justify-between">
                         <p className="text-[11px] font-bold uppercase tracking-wider text-crm-fg-muted">
-                            Liquidez Real en Cuentas (ARS)
+                            Liquidez en Cuentas (ARS)
                         </p>
                         <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-500/15 text-blue-400">
                             <Wallet size={18} />
                         </span>
                     </div>
-                    <p className="mt-3 font-mono text-2xl font-black text-white">
+                    <p className={`mt-3 font-mono text-2xl font-black ${(summary.totalCuentasARS || 0) < 0 ? 'text-red-400' : 'text-white'}`}>
                         {formatMoney(summary.totalCuentasARS, 'ARS')}
                     </p>
                     <p className="mt-2 text-xs text-crm-fg-muted">
@@ -397,103 +470,129 @@ export default function TesoreriaEstrategicaPage() {
                     </p>
                 </div>
 
-                {/* Equivalente Blue Total */}
+                {/* Liquidez Neta Equivalente (Renombrado según especificación) */}
                 <div className="rounded-2xl border border-purple-500/30 bg-purple-500/10 p-5">
                     <div className="flex items-start justify-between">
-                        <p className="text-[11px] font-bold uppercase tracking-wider text-purple-300">
-                            Patrimonio Total Estimado (USD Blue)
-                        </p>
+                        <div>
+                            <p className="text-[11px] font-bold uppercase tracking-wider text-purple-300">
+                                Liquidez Neta Equivalente
+                            </p>
+                            <span className="text-[9px] text-purple-300/70 block">
+                                Solo dinero en cuentas · No incluye stock
+                            </span>
+                        </div>
                         <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-purple-500/20 text-purple-300">
                             <Sparkles size={18} />
                         </span>
                     </div>
-                    <p className="mt-3 font-mono text-2xl font-black text-purple-200">
-                        USD {formatNumber(Math.round(totalPatrimonioEquivUSD))}
+                    <p className={`mt-3 font-mono text-2xl font-black ${liquidezNetaEquivalenteUSD < 0 ? 'text-red-400' : 'text-purple-200'}`}>
+                        {formatMoney(liquidezNetaEquivalenteUSD, 'USD')}
                     </p>
-                    <p className="mt-2 text-[11px] text-purple-300/80">
-                        {dolarBlueRate ? `Blue Ámbito: ARS ${formatNumber(dolarBlueRate)}` : 'Dólar Blue hoy'}
+                    <p className="mt-2 text-xs text-purple-300/80">
+                        {dolarBlueRate ? `Blue: ARS ${formatNumber(dolarBlueRate)} · ARS: ${formatMoney(totalArsInUsdBlue, 'USD')}` : 'Cotización no disponible'}
                     </p>
                 </div>
 
-                {/* Estado de Asignación en Cajas */}
+                {/* Asignación en Cajas */}
                 <div className="rounded-2xl border border-crm-border bg-crm-surface p-5">
                     <div className="flex items-start justify-between">
                         <p className="text-[11px] font-bold uppercase tracking-wider text-crm-fg-muted">
-                            Asignación en Cajas
+                            Asignación en Cajas (8 Cajas)
                         </p>
                         <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-amber-500/15 text-amber-400">
                             <SlidersHorizontal size={18} />
                         </span>
                     </div>
-                    <div className="mt-3 flex items-baseline gap-2">
-                        <p className="font-mono text-xl font-black text-white">
-                            USD {formatNumber(summary.totalCajasUSD)}
-                        </p>
-                        <span className="text-xs text-crm-fg-muted">asignados</span>
-                    </div>
+                    <p className="mt-3 font-mono text-lg font-black text-white">
+                        {formatMoney(summary.totalCajasUSD, 'USD')} <span className="text-xs text-crm-fg-muted font-normal">/ {formatMoney(summary.totalCajasARS, 'ARS')}</span>
+                    </p>
                     <p className="mt-2 text-xs text-crm-fg-muted">
-                        Sin asignar: USD {formatNumber(summary.unallocatedUSD)} · ARS {formatNumber(summary.unallocatedARS)}
+                        No asignado: <span className="font-mono font-bold text-purple-300">USD {formatNumber(summary.unallocatedUSD || 0)}</span> / <span className="font-mono font-bold text-crm-fg">ARS {formatNumber(summary.unallocatedARS || 0)}</span>
                     </p>
                 </div>
             </div>
 
-            {/* Pestañas de Vista */}
-            <div className="flex items-center gap-2 border-b border-crm-border pb-2">
-                {[
-                    { id: 'cajas', label: 'Cajas Estratégicas de Capital', icon: Briefcase },
-                    { id: 'cuentas', label: 'Cuentas Reales (Dónde está)', icon: Landmark },
-                    { id: 'cuotas', label: 'Regularización de Cuotas', icon: FileCheck },
-                    { id: 'auditoria', label: 'Historial y Conciliaciones', icon: History }
-                ].map(tab => {
-                    const Icon = tab.icon;
-                    const isActive = activeTab === tab.id;
-                    return (
-                        <button
-                            key={tab.id}
-                            type="button"
-                            onClick={() => setActiveTab(tab.id)}
-                            className={`flex items-center gap-2 px-4 py-2.5 text-xs font-black transition-colors rounded-xl ${
-                                isActive
-                                    ? 'bg-purple-600 text-white shadow-md'
-                                    : 'text-crm-fg-muted hover:bg-crm-surface hover:text-crm-fg'
-                            }`}
-                        >
-                            <Icon size={16} />
-                            {tab.label}
-                        </button>
-                    );
-                })}
+            {/* Pestañas de Navegación del Módulo */}
+            <div className="flex items-center gap-2 overflow-x-auto border-b border-crm-border pb-2 text-xs font-bold">
+                <button
+                    type="button"
+                    onClick={() => setActiveTab('cajas')}
+                    className={`rounded-xl px-4 py-2 transition-colors whitespace-nowrap ${activeTab === 'cajas' ? 'bg-purple-600 text-white' : 'text-crm-fg-muted hover:bg-crm-surface hover:text-white'}`}
+                >
+                    1. Cajas y Metas (8)
+                </button>
+                <button
+                    type="button"
+                    onClick={() => setActiveTab('cobros')}
+                    className={`rounded-xl px-4 py-2 transition-colors whitespace-nowrap flex items-center gap-1.5 ${activeTab === 'cobros' ? 'bg-purple-600 text-white' : 'text-crm-fg-muted hover:bg-crm-surface hover:text-white'}`}
+                >
+                    <ArrowDownRight size={13} /> 2. Distribuir Cobro {unassignedIncomeCards.length > 0 && <span className="rounded-full bg-purple-400/30 px-1.5 py-0.2 text-[10px] text-purple-200">{unassignedIncomeCards.length}</span>}
+                </button>
+                <button
+                    type="button"
+                    onClick={() => setActiveTab('planificacion')}
+                    className={`rounded-xl px-4 py-2 transition-colors whitespace-nowrap flex items-center gap-1.5 ${activeTab === 'planificacion' ? 'bg-purple-600 text-white' : 'text-crm-fg-muted hover:bg-crm-surface hover:text-white'}`}
+                >
+                    <TrendingUp size={13} /> 3. Planificación y Compras
+                </button>
+                <button
+                    type="button"
+                    onClick={() => setActiveTab('reglas')}
+                    className={`rounded-xl px-4 py-2 transition-colors whitespace-nowrap flex items-center gap-1.5 ${activeTab === 'reglas' ? 'bg-purple-600 text-white' : 'text-crm-fg-muted hover:bg-crm-surface hover:text-white'}`}
+                >
+                    <SlidersHorizontal size={13} /> 4. Reglas y Presupuesto
+                </button>
+                <button
+                    type="button"
+                    onClick={() => setActiveTab('cuentas')}
+                    className={`rounded-xl px-4 py-2 transition-colors whitespace-nowrap ${activeTab === 'cuentas' ? 'bg-purple-600 text-white' : 'text-crm-fg-muted hover:bg-crm-surface hover:text-white'}`}
+                >
+                    5. Cuentas y Fondos Reales
+                </button>
+                <button
+                    type="button"
+                    onClick={() => setActiveTab('cuotas')}
+                    className={`rounded-xl px-4 py-2 transition-colors whitespace-nowrap ${activeTab === 'cuotas' ? 'bg-purple-600 text-white' : 'text-crm-fg-muted hover:bg-crm-surface hover:text-white'}`}
+                >
+                    6. Cuotas Históricas
+                </button>
+                <button
+                    type="button"
+                    onClick={() => setActiveTab('auditoria')}
+                    className={`rounded-xl px-4 py-2 transition-colors whitespace-nowrap ${activeTab === 'auditoria' ? 'bg-purple-600 text-white' : 'text-crm-fg-muted hover:bg-crm-surface hover:text-white'}`}
+                >
+                    7. Historial y Auditoría
+                </button>
             </div>
 
-            {/* PESTAÑA 1: CAJAS ESTRATÉGICAS */}
+            {/* PESTAÑA 1: CAJAS Y METAS (8 CAJAS COMPLETAS) */}
             {activeTab === 'cajas' && (
                 <div className="space-y-6">
                     <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                         <div>
-                            <h2 className="text-base font-black text-white">Cajas de Reserva y Destino de Fondos</h2>
+                            <h2 className="text-base font-black text-white">Cajas Estratégicas y Metas por Gasto</h2>
                             <p className="text-xs text-crm-fg-muted">
-                                Las cajas representan <strong>para qué está reservado</strong> el dinero, sin importar en qué cuenta física o bancaria se encuentre.
+                                Las cajas determinan para qué está reservado cada fondo. Las metas se basan en compromisos reales y previsiones configurables.
                             </p>
                         </div>
                         <button
                             type="button"
                             onClick={() => setIsTransferOpen(true)}
-                            className="inline-flex items-center gap-1.5 rounded-xl border border-purple-500/30 bg-purple-500/10 px-3.5 py-2 text-xs font-bold text-purple-300 hover:bg-purple-500/20 transition-colors"
+                            className="inline-flex items-center gap-1.5 rounded-xl border border-crm-border bg-crm-surface px-3.5 py-2 text-xs font-bold text-crm-fg hover:bg-crm-surface-raised transition-colors"
                         >
-                            <ArrowRightLeft size={14} /> Mover entre Cajas
+                            <ArrowRightLeft size={14} /> Traspaso entre Cajas
                         </button>
                     </div>
 
-                    {/* Grid de Cajas */}
-                    <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
+                    <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
                         {boxes.map((box) => {
                             const Icon = BOX_ICONS[box.key] || Briefcase;
-                            const colors = BOX_COLORS[box.color] || BOX_COLORS.emerald;
+                            const colors = BOX_COLORS[box.key] || BOX_COLORS.operativa;
 
                             return (
                                 <div
-                                    key={box.key}
-                                    className={`relative overflow-hidden rounded-2xl border ${colors.border} bg-crm-surface p-5 flex flex-col justify-between`}
+                                    key={box._id || box.key}
+                                    className={`flex flex-col justify-between rounded-2xl border ${colors.border} bg-crm-surface p-5 transition-all hover:border-purple-500/50`}
                                 >
                                     <div>
                                         <div className="flex items-start justify-between">
@@ -503,15 +602,17 @@ export default function TesoreriaEstrategicaPage() {
                                                 </span>
                                                 <div>
                                                     <h3 className="text-sm font-black text-white">{box.name}</h3>
-                                                    <span className={`inline-block mt-0.5 rounded border px-1.5 py-0.2 text-[9px] font-black uppercase tracking-wider ${colors.badge}`}>
-                                                        Meta: {box.targetPercent || 0}%
-                                                    </span>
+                                                    {box.targetPercent > 0 && (
+                                                        <span className={`inline-block mt-0.5 rounded border px-1.5 py-0.2 text-[9px] font-black uppercase tracking-wider ${colors.badge}`}>
+                                                            Meta: {box.targetPercent}%
+                                                        </span>
+                                                    )}
                                                 </div>
                                             </div>
                                             <button
                                                 type="button"
                                                 onClick={() => setEditingBox(box)}
-                                                title={`Editar monto de ${box.name}`}
+                                                title={`Asignar fondos o configurar meta de ${box.name}`}
                                                 className="rounded-lg p-1.5 text-crm-fg-muted hover:bg-crm-surface-raised hover:text-white transition-colors"
                                             >
                                                 <Edit3 size={15} />
@@ -522,19 +623,62 @@ export default function TesoreriaEstrategicaPage() {
                                             {box.description}
                                         </p>
 
-                                        <div className="mt-4 pt-4 border-t border-crm-border/60 space-y-2">
+                                        {/* Detalle Financiero de la Caja */}
+                                        <div className="mt-4 pt-3 border-t border-crm-border/60 space-y-2 text-xs">
                                             <div className="flex items-baseline justify-between">
-                                                <span className="text-[11px] font-bold uppercase tracking-wider text-crm-fg-muted">Reserva USD</span>
-                                                <span className={`font-mono text-lg font-black ${colors.accent}`}>
-                                                    {formatMoney(box.balanceUSD, 'USD')}
+                                                <span className="text-[10px] font-bold uppercase tracking-wider text-crm-fg-muted">Saldo Asignado</span>
+                                                <div className="text-right">
+                                                    <span className={`font-mono font-black ${colors.accent}`}>
+                                                        {formatMoney(box.balanceUSD, 'USD')}
+                                                    </span>
+                                                    <span className="font-mono font-bold text-white block text-[11px]">
+                                                        {formatMoney(box.balanceARS, 'ARS')}
+                                                    </span>
+                                                </div>
+                                            </div>
+
+                                            {/* Compromisos Pendientes */}
+                                            {(box.commitmentsARS > 0 || box.commitmentsUSD > 0) && (
+                                                <div className="flex items-baseline justify-between pt-1 border-t border-crm-border/40 text-red-400">
+                                                    <span className="text-[10px] font-bold uppercase tracking-wider">Compromisos</span>
+                                                    <span className="font-mono font-bold text-[11px]">
+                                                        -{box.commitmentsUSD > 0 ? formatMoney(box.commitmentsUSD, 'USD') : formatMoney(box.commitmentsARS, 'ARS')}
+                                                    </span>
+                                                </div>
+                                            )}
+
+                                            {/* Disponible Neto */}
+                                            <div className="flex items-baseline justify-between pt-1 border-t border-crm-border/40 text-white">
+                                                <span className="text-[10px] font-bold uppercase tracking-wider text-crm-fg-muted">Disponible Neto</span>
+                                                <span className="font-mono font-black text-xs text-emerald-400">
+                                                    {box.availableUSD !== undefined && box.availableUSD !== 0 ? formatMoney(box.availableUSD, 'USD') : formatMoney(box.availableARS, 'ARS')}
                                                 </span>
                                             </div>
-                                            <div className="flex items-baseline justify-between">
-                                                <span className="text-[11px] font-bold uppercase tracking-wider text-crm-fg-muted">Reserva ARS</span>
-                                                <span className="font-mono text-sm font-bold text-white">
-                                                    {formatMoney(box.balanceARS, 'ARS')}
-                                                </span>
-                                            </div>
+
+                                            {/* Meta y Cobertura */}
+                                            {(box.targetMoneyARS > 0 || box.targetMoneyUSD > 0) && (
+                                                <div className="pt-2 border-t border-crm-border/40">
+                                                    <div className="flex items-baseline justify-between text-[10px]">
+                                                        <span className="text-crm-fg-muted">Meta Requerida:</span>
+                                                        <span className="font-mono font-bold text-purple-300">
+                                                            {box.targetMoneyUSD > 0 ? formatMoney(box.targetMoneyUSD, 'USD') : formatMoney(box.targetMoneyARS, 'ARS')}
+                                                        </span>
+                                                    </div>
+                                                    <div className="flex items-baseline justify-between text-[10px] mt-0.5">
+                                                        <span className="text-crm-fg-muted">Cobertura:</span>
+                                                        <span className="font-bold text-white">
+                                                            {box.targetMoneyUSD > 0 ? `${box.coveragePercentUSD}%` : `${box.coveragePercentARS}%`}
+                                                        </span>
+                                                    </div>
+                                                </div>
+                                            )}
+
+                                            {/* Nota de información faltante si corresponde */}
+                                            {box.missingDataNote && (
+                                                <p className="text-[10px] text-amber-300/80 italic pt-1 border-t border-crm-border/30">
+                                                    ℹ️ {box.missingDataNote}
+                                                </p>
+                                            )}
                                         </div>
                                     </div>
 
@@ -544,7 +688,7 @@ export default function TesoreriaEstrategicaPage() {
                                             onClick={() => setEditingBox(box)}
                                             className="inline-flex items-center gap-1.5 rounded-lg border border-purple-500/30 bg-purple-500/10 px-2.5 py-1 text-xs font-bold text-purple-300 hover:bg-purple-500/20 hover:text-white transition-colors"
                                         >
-                                            <Edit3 size={13} /> Editar monto
+                                            <Edit3 size={13} /> Asignar / Meta
                                         </button>
                                         <button
                                             type="button"
@@ -561,22 +705,115 @@ export default function TesoreriaEstrategicaPage() {
                 </div>
             )}
 
-            {/* PESTAÑA 2: CUENTAS REALES */}
+            {/* PESTAÑA 2: BANDEJA DE COBROS ("DISTRIBUIR COBRO") */}
+            {activeTab === 'cobros' && (
+                <div className="space-y-6">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                        <div>
+                            <h2 className="text-base font-black text-white">Bandeja de Cobros Reales Sin Distribuir</h2>
+                            <p className="text-xs text-crm-fg-muted">
+                                Cobros reales ingresados en cuentas. Distribuí los fondos propios a cada caja según sus prioridades y faltantes.
+                            </p>
+                        </div>
+                    </div>
+
+                    <div className="rounded-2xl border border-crm-border bg-crm-surface overflow-hidden">
+                        <div className="p-4 border-b border-crm-border bg-crm-bg flex items-center justify-between">
+                            <h3 className="text-xs font-bold uppercase tracking-wider text-crm-fg">Cobros Pendientes de Asignar</h3>
+                            <span className="text-xs font-bold text-purple-300">
+                                {unassignedIncomeCards.length} cobros disponibles
+                            </span>
+                        </div>
+
+                        <div className="divide-y divide-crm-border">
+                            {unassignedIncomeCards.length === 0 ? (
+                                <p className="p-8 text-center text-xs text-crm-fg-muted italic">
+                                    Todos los cobros e ingresos reales posteriores a la conciliación han sido distribuidos a cajas.
+                                </p>
+                            ) : (
+                                unassignedIncomeCards.map((inc) => (
+                                    <div key={inc.id} className="p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4 text-xs hover:bg-crm-surface-raised transition-colors">
+                                        <div className="space-y-1">
+                                            <div className="flex items-center gap-2">
+                                                <span className="font-black text-white text-sm">{inc.description}</span>
+                                                <span className="rounded bg-emerald-500/20 px-2 py-0.5 text-[10px] font-bold text-emerald-300 uppercase">
+                                                    {inc.category}
+                                                </span>
+                                            </div>
+                                            <p className="text-crm-fg-muted">
+                                                Fecha: {new Date(inc.date).toLocaleDateString('es-AR')} · Cuenta: {inc.accountName}
+                                            </p>
+                                            {inc.thirdPartyNote && (
+                                                <p className="text-[11px] text-amber-300 font-medium">
+                                                    ⚠️ {inc.thirdPartyNote}
+                                                </p>
+                                            )}
+                                        </div>
+
+                                        <div className="flex items-center gap-4 shrink-0">
+                                            <div className="text-right">
+                                                <span className="text-[10px] uppercase font-bold text-crm-fg-muted block">Capital Propio</span>
+                                                <span className="font-mono text-base font-black text-emerald-400">
+                                                    {formatMoney(inc.propioAmount, inc.currency)}
+                                                </span>
+                                                {inc.tercerosAmount > 0 && (
+                                                    <span className="text-[10px] text-crm-fg-muted block">
+                                                        (Terceros: {formatMoney(inc.tercerosAmount, inc.currency)})
+                                                    </span>
+                                                )}
+                                            </div>
+
+                                            <button
+                                                type="button"
+                                                onClick={() => setDistributingIncome(inc)}
+                                                className="inline-flex items-center gap-1.5 rounded-xl bg-purple-600 px-3.5 py-2 text-xs font-black text-white hover:bg-purple-500 transition-colors shadow-lg shadow-purple-600/20"
+                                            >
+                                                <ArrowDownRight size={14} /> Distribuir a Cajas
+                                            </button>
+                                        </div>
+                                    </div>
+                                ))
+                            )}
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* PESTAÑA 3: PLANIFICACIÓN Y COMPRAS */}
+            {activeTab === 'planificacion' && (
+                <TreasuryPlanningTab
+                    planning={planning}
+                    summary={summary}
+                    boxes={boxes}
+                    verificationStatus={verification.status}
+                />
+            )}
+
+            {/* PESTAÑA 4: REGLAS Y PRESUPUESTO */}
+            {activeTab === 'reglas' && (
+                <TreasuryCategoryRulesTab
+                    categoryRules={categoryRules}
+                    treasuryToken={treasuryToken}
+                    onSuccess={loadDashboardData}
+                />
+            )}
+
+            {/* PESTAÑA 5: CUENTAS Y FONDOS REALES */}
             {activeTab === 'cuentas' && (
                 <div className="space-y-6">
                     <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                         <div>
-                            <h2 className="text-base font-black text-white">Cuentas y Fondos Reales</h2>
+                            <h2 className="text-base font-black text-white">Cuentas y Fondos Reales (Dónde está el Dinero)</h2>
                             <p className="text-xs text-crm-fg-muted">
-                                Las cuentas representan <strong>dónde está el dinero físicamente o electrónicamente</strong> (efectivo, bancos o billeteras).
+                                Las cuentas representan dónde está el dinero físicamente o electrónicamente (efectivo, bancos o billeteras).
                             </p>
                         </div>
                         <button
                             type="button"
                             onClick={() => setIsReconcileOpen(true)}
-                            className="inline-flex items-center gap-1.5 rounded-xl bg-purple-600 px-3.5 py-2 text-xs font-black text-white hover:bg-purple-500 transition-colors"
+                            className="inline-flex items-center gap-1.5 rounded-xl bg-purple-600 px-3.5 py-2 text-xs font-black text-white hover:bg-purple-500 transition-colors shadow-lg shadow-purple-600/20"
                         >
-                            <Scale size={14} /> Asistente de Conciliación
+                            <Scale size={14} /> Asistente de Conciliación Formal
                         </button>
                     </div>
 
@@ -594,9 +831,19 @@ export default function TesoreriaEstrategicaPage() {
                                         {acc.currency}
                                     </span>
                                 </div>
+
+                                {acc.issue && (
+                                    <div className={`mt-3 rounded-xl border p-2.5 text-xs ${acc.issue.severity === 'error' ? 'border-red-500/40 bg-red-500/10 text-red-300' : 'border-amber-500/40 bg-amber-500/10 text-amber-300'}`}>
+                                        <p className="font-bold flex items-center gap-1.5">
+                                            <AlertTriangle size={13} /> {acc.issue.label}
+                                        </p>
+                                        <p className="text-[10px] mt-0.5 leading-relaxed">{acc.issue.description}</p>
+                                    </div>
+                                )}
+
                                 <div className="mt-4 pt-3 border-t border-crm-border">
-                                    <span className="text-[10px] uppercase font-bold text-crm-fg-muted block">Saldo Real Conciliado</span>
-                                    <p className="mt-1 font-mono text-xl font-black text-emerald-400">
+                                    <span className="text-[10px] uppercase font-bold text-crm-fg-muted block">Saldo en Cuenta</span>
+                                    <p className={`mt-1 font-mono text-xl font-black ${acc.balance < 0 ? 'text-red-400' : 'text-emerald-400'}`}>
                                         {formatMoney(acc.balance, acc.currency)}
                                     </p>
                                 </div>
@@ -606,7 +853,7 @@ export default function TesoreriaEstrategicaPage() {
                 </div>
             )}
 
-            {/* PESTAÑA 3: REGULARIZACIÓN DE CUOTAS */}
+            {/* PESTAÑA 6: SANEAMIENTO DE CUOTAS HISTÓRICAS */}
             {activeTab === 'cuotas' && (
                 <div className="space-y-6">
                     <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
@@ -619,7 +866,7 @@ export default function TesoreriaEstrategicaPage() {
                         <button
                             type="button"
                             onClick={() => setIsRegularizeOpen(true)}
-                            className="inline-flex items-center gap-1.5 rounded-xl bg-purple-600 px-3.5 py-2 text-xs font-black text-white hover:bg-purple-500 transition-colors"
+                            className="inline-flex items-center gap-1.5 rounded-xl bg-purple-600 px-3.5 py-2 text-xs font-black text-white hover:bg-purple-500 transition-colors shadow-lg shadow-purple-600/20"
                         >
                             <FileCheck size={14} /> Regularizar Selección
                         </button>
@@ -670,7 +917,7 @@ export default function TesoreriaEstrategicaPage() {
                 </div>
             )}
 
-            {/* PESTAÑA 4: AUDITORÍA Y CONCILIACIONES */}
+            {/* PESTAÑA 7: AUDITORÍA Y CONCILIACIONES */}
             {activeTab === 'auditoria' && (
                 <div className="space-y-6">
                     <div>
@@ -717,7 +964,6 @@ export default function TesoreriaEstrategicaPage() {
                         </div>
                     </div>
 
-                    {/* Ajustes patrimoniales */}
                     <div className="rounded-2xl border border-crm-border bg-crm-surface overflow-hidden">
                         <div className="p-4 border-b border-crm-border bg-crm-bg">
                             <h3 className="text-xs font-bold uppercase tracking-wider text-crm-fg">Últimos Asientos de Ajuste Patrimonial</h3>
@@ -756,7 +1002,7 @@ export default function TesoreriaEstrategicaPage() {
                 onClose={() => setIsReconcileOpen(false)}
                 accounts={accounts}
                 pendingInstallments={pendingInstallments}
-                pendingCollections={pendingCollections}
+                pendingCollections={trackerAudit}
                 treasuryToken={treasuryToken}
                 onReconciliationSuccess={loadDashboardData}
             />
@@ -783,6 +1029,15 @@ export default function TesoreriaEstrategicaPage() {
                 box={editingBox}
                 unallocatedUSD={summary.unallocatedUSD}
                 unallocatedARS={summary.unallocatedARS}
+                treasuryToken={treasuryToken}
+                onSuccess={loadDashboardData}
+            />
+
+            <TreasuryDistributeIncomeModal
+                isOpen={Boolean(distributingIncome)}
+                onClose={() => setDistributingIncome(null)}
+                income={distributingIncome}
+                boxes={boxes}
                 treasuryToken={treasuryToken}
                 onSuccess={loadDashboardData}
             />
