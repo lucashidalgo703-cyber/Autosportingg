@@ -52,6 +52,20 @@ const menuGroups = [
         ]
     },
     {
+        name: 'DIRECCIÓN ESTRATÉGICA',
+        isStrategic: true,
+        items: [
+            {
+                name: 'Tesorería Estratégica',
+                path: '/admin/tesoreria-estrategica',
+                icon: '🔒',
+                badge: 'PIN',
+                prefetch: false,
+                isPrivate: true
+            }
+        ]
+    },
+    {
         name: 'COLABORACIÓN',
         items: [
             { name: 'Mensajes', path: '/admin/mensajes', icon: '📩', prefetch: false },
@@ -109,6 +123,7 @@ export default function CrmSidebar({ isOpen, onClose }) {
         if (itemName === 'Configuración') return hasPermission(user, PERMISSIONS.USUARIOS_READ) || hasPermission(user, PERMISSIONS.MESSAGETEMPLATES_READ);
         if (itemName === 'Finanzas') return hasPermission(user, PERMISSIONS.FINANZAS_READ);
         if (itemName === 'Tesorería') return hasPermission(user, PERMISSIONS.CAJA_READ) || hasPermission(user, PERMISSIONS.FINANZAS_READ);
+        if (itemName === 'Tesorería Estratégica') return user?.role === 'owner' || user?.role === 'admin';
         if (itemName === 'Liquidaciones') return hasPermission(user, PERMISSIONS.LIQUIDACIONES_READ);
         if (itemName === 'Mis comisiones') return hasPermission(user, PERMISSIONS.COMISIONES_READ);
         if (itemName === 'Mensajes') return hasPermission(user, PERMISSIONS.MENSAJES_READ);
@@ -201,9 +216,13 @@ export default function CrmSidebar({ isOpen, onClose }) {
                             {visibleItems.map((item) => {
                                 const isSalesArea = item.path === '/admin/ventas' && (pathname.startsWith('/admin/ventas') || pathname.startsWith('/admin/reservas'));
                                 const isActive = item.path === '/admin' ? pathname === '/admin' : isSalesArea || pathname.startsWith(item.path);
-                                const baseItemClasses = "relative group flex min-h-11 items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors";
-                                const activeClasses = "bg-crm-red/10 text-crm-red border-l-2 border-crm-red pl-[10px]";
-                                const inactiveClasses = "text-crm-fg-muted hover:bg-crm-surface hover:text-crm-fg border-l-2 border-transparent";
+                                const isPrivate = item.isPrivate;
+                                const activeClasses = isPrivate
+                                    ? "bg-purple-500/15 text-purple-300 border-l-2 border-purple-500 pl-[10px]"
+                                    : "bg-crm-red/10 text-crm-red border-l-2 border-crm-red pl-[10px]";
+                                const inactiveClasses = isPrivate
+                                    ? "text-purple-300/80 hover:bg-purple-500/10 hover:text-purple-200 border-l-2 border-transparent"
+                                    : "text-crm-fg-muted hover:bg-crm-surface hover:text-crm-fg border-l-2 border-transparent";
 
                                 return (
                                     <Link
@@ -218,7 +237,16 @@ export default function CrmSidebar({ isOpen, onClose }) {
                                         <span className="flex h-5 w-5 shrink-0 items-center justify-center text-base leading-none" role="img" aria-label={item.name}>
                                             {item.icon}
                                         </span>
-                                        {!isDesktopCollapsed && <span className="truncate">{item.name}</span>}
+                                        {!isDesktopCollapsed && (
+                                            <div className="flex flex-1 items-center justify-between min-w-0">
+                                                <span className="truncate">{item.name}</span>
+                                                {item.badge && (
+                                                    <span className="ml-2 rounded border border-purple-500/30 bg-purple-500/20 px-1.5 py-0.5 text-[9px] font-black uppercase tracking-wider text-purple-300">
+                                                        {item.badge}
+                                                    </span>
+                                                )}
+                                            </div>
+                                        )}
                                         {isDesktopCollapsed && (
                                             <div className="pointer-events-none absolute left-[3.2rem] z-[100] hidden animate-in fade-in zoom-in-95 whitespace-nowrap rounded-lg border border-crm-border bg-crm-surface px-3 py-2 text-xs font-bold text-crm-fg shadow-xl group-hover:block">
                                                 {item.name}

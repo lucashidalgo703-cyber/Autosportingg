@@ -4,7 +4,7 @@ const installmentAuditSchema = new mongoose.Schema({
     action: {
         type: String,
         required: true,
-        enum: ['CUOTA_CREADA', 'CUOTA_EDITADA', 'CUOTA_ANULADA', 'CUOTA_MARCADA_PAGADA_MANUAL', 'PLAN_GENERADO', 'COBRO_REGISTRADO']
+        enum: ['CUOTA_CREADA', 'CUOTA_EDITADA', 'CUOTA_ANULADA', 'CUOTA_MARCADA_PAGADA_MANUAL', 'PLAN_GENERADO', 'COBRO_REGISTRADO', 'REGULARIZACION_CONCILIADA']
     },
     user: { type: String, required: true },
     date: { type: Date, default: Date.now },

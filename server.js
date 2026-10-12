@@ -58,6 +58,7 @@ import { DailySummaryService } from './src/services/DailySummaryService.js';
 import { getNextLeadAssignee, checkLeadSLA } from './src/services/leadRoutingService.js';
 import { logAudit, logSystemAudit } from './src/utils/auditLogger.js';
 import { getDolarBlueRate, setManualDolarBlueRate } from './src/services/dolarService.js';
+import * as treasuryStrategicService from './src/services/treasuryStrategicService.js';
 import { hasPermission, PERMISSIONS, ROLES } from './src/utils/adminPermissions.js';
 import { CloudinaryStorage } from 'multer-storage-cloudinary';
 import jwt from 'jsonwebtoken';
@@ -9220,7 +9221,169 @@ app.post('/api/admin/tesoreria/arqueo', authenticateToken, requirePermission(PER
     }
 });
 
-// --- CHECKS ROUTES ---
+// --- TESORERÍA ESTRATÉGICA (ACCESO PRIVADO CON PIN, CONCILIACIÓN Y CAJAS) ---
+
+const verifyTreasuryStrategicAuth = (req, res, next) => {
+    const treasuryToken = req.headers['x-treasury-token'] || req.headers['x-treasury-auth'];
+    if (!treasuryToken) {
+        return res.status(403).json({
+            ok: false,
+            requirePin: true,
+            message: 'Se requiere validación de PIN para acceder a Tesorería Estratégica.'
+        });
+    }
+
+    try {
+        const decoded = jwt.verify(treasuryToken, JWT_SECRET);
+        if (decoded.purpose !== 'strategic_treasury' || decoded.userId !== (req.user.id || req.user.userId)) {
+            return res.status(403).json({
+                ok: false,
+                requirePin: true,
+                message: 'Autorización de Tesorería no válida para este usuario.'
+            });
+        }
+        req.treasuryAuth = decoded;
+        next();
+    } catch (err) {
+        return res.status(403).json({
+            ok: false,
+            requirePin: true,
+            isExpired: err.name === 'TokenExpiredError',
+            message: 'La sesión temporal de 15 minutos ha expirado. Por favor ingresá tu PIN nuevamente.'
+        });
+    }
+};
+
+const requireTreasuryPrivilegedRole = (req, res, next) => {
+    if (req.user?.role === ROLES.OWNER || req.user?.role === ROLES.ADMIN) {
+        return next();
+    }
+    return res.status(403).json({
+        ok: false,
+        message: 'Acceso restringido únicamente al propietario o administrador general.'
+    });
+};
+
+// 1. Estado de seguridad (sin exponer PIN)
+app.get('/api/admin/tesoreria-estrategica/status', authenticateToken, requireTreasuryPrivilegedRole, async (req, res) => {
+    try {
+        const status = await treasuryStrategicService.getSecurityStatus();
+        res.json({ ok: true, status });
+    } catch (error) {
+        console.error('GET /api/admin/tesoreria-estrategica/status error:', error);
+        res.status(500).json({ ok: false, message: error.message });
+    }
+});
+
+// 2. Configurar PIN inicial (primer acceso)
+app.post('/api/admin/tesoreria-estrategica/pin/setup', authenticateToken, requireTreasuryPrivilegedRole, async (req, res) => {
+    try {
+        const { pin, confirmPin } = req.body;
+        const result = await treasuryStrategicService.setupInitialPin(pin, confirmPin, req.user);
+        res.json(result);
+    } catch (error) {
+        console.error('POST /api/admin/tesoreria-estrategica/pin/setup error:', error);
+        res.status(error.statusCode || 400).json({ ok: false, message: error.message });
+    }
+});
+
+// 3. Verificar PIN (emite autorización de 15 min o bloquea tras 5 intentos)
+app.post('/api/admin/tesoreria-estrategica/pin/verify', authenticateToken, requireTreasuryPrivilegedRole, async (req, res) => {
+    try {
+        const { pin } = req.body;
+        const result = await treasuryStrategicService.verifyPin(pin, req.user);
+        res.json(result);
+    } catch (error) {
+        console.error('POST /api/admin/tesoreria-estrategica/pin/verify error:', error);
+        res.status(error.statusCode || 400).json({
+            ok: false,
+            message: error.message,
+            isLocked: Boolean(error.isLocked),
+            lockRemainingMinutes: error.lockRemainingMinutes || 0,
+            remainingAttempts: error.remainingAttempts
+        });
+    }
+});
+
+// 4. Cambiar PIN (verificando el actual)
+app.post('/api/admin/tesoreria-estrategica/pin/change', authenticateToken, requireTreasuryPrivilegedRole, async (req, res) => {
+    try {
+        const { currentPin, newPin, confirmNewPin } = req.body;
+        const result = await treasuryStrategicService.changePin(currentPin, newPin, confirmNewPin, req.user);
+        res.json(result);
+    } catch (error) {
+        console.error('POST /api/admin/tesoreria-estrategica/pin/change error:', error);
+        res.status(error.statusCode || 400).json({ ok: false, message: error.message });
+    }
+});
+
+// 5. Recuperar PIN con reautenticación de contraseña del propietario
+app.post('/api/admin/tesoreria-estrategica/pin/recover', authenticateToken, requireTreasuryPrivilegedRole, async (req, res) => {
+    try {
+        const { password, newPin, confirmNewPin } = req.body;
+        const result = await treasuryStrategicService.recoverPinWithPassword(password, newPin, confirmNewPin, req.user);
+        res.json(result);
+    } catch (error) {
+        console.error('POST /api/admin/tesoreria-estrategica/pin/recover error:', error);
+        res.status(error.statusCode || 400).json({ ok: false, message: error.message });
+    }
+});
+
+// 6. Obtener Datos completos de Tesorería Estratégica (Protegido por PIN)
+app.get('/api/admin/tesoreria-estrategica/data', authenticateToken, requireTreasuryPrivilegedRole, verifyTreasuryStrategicAuth, async (req, res) => {
+    try {
+        const data = await treasuryStrategicService.getTreasuryDashboardData();
+        res.json({ ok: true, data });
+    } catch (error) {
+        console.error('GET /api/admin/tesoreria-estrategica/data error:', error);
+        res.status(500).json({ ok: false, message: error.message });
+    }
+});
+
+// 7. Ejecutar Asistente de Conciliación y Saldo Inicial
+app.post('/api/admin/tesoreria-estrategica/reconcile', authenticateToken, requireTreasuryPrivilegedRole, verifyTreasuryStrategicAuth, async (req, res) => {
+    try {
+        const result = await treasuryStrategicService.executeReconciliation(req.body, req.user);
+        res.json(result);
+    } catch (error) {
+        console.error('POST /api/admin/tesoreria-estrategica/reconcile error:', error);
+        res.status(500).json({ ok: false, message: error.message });
+    }
+});
+
+// 8. Traspaso entre Cajas Estratégicas
+app.post('/api/admin/tesoreria-estrategica/boxes/transfer', authenticateToken, requireTreasuryPrivilegedRole, verifyTreasuryStrategicAuth, async (req, res) => {
+    try {
+        const result = await treasuryStrategicService.transferBetweenBoxes(req.body, req.user);
+        res.json(result);
+    } catch (error) {
+        console.error('POST /api/admin/tesoreria-estrategica/boxes/transfer error:', error);
+        res.status(400).json({ ok: false, message: error.message });
+    }
+});
+
+// 9. Asignar / Distribuir Saldos a Cajas
+app.post('/api/admin/tesoreria-estrategica/boxes/distribute', authenticateToken, requireTreasuryPrivilegedRole, verifyTreasuryStrategicAuth, async (req, res) => {
+    try {
+        const result = await treasuryStrategicService.distributeToBoxes(req.body, req.user);
+        res.json(result);
+    } catch (error) {
+        console.error('POST /api/admin/tesoreria-estrategica/boxes/distribute error:', error);
+        res.status(400).json({ ok: false, message: error.message });
+    }
+});
+
+// 10. Regularización de cuotas históricas sin duplicar caja
+app.post('/api/admin/tesoreria-estrategica/installments/regularize', authenticateToken, requireTreasuryPrivilegedRole, verifyTreasuryStrategicAuth, async (req, res) => {
+    try {
+        const { installmentIds, reason, cutoffDate } = req.body;
+        const result = await treasuryStrategicService.regularizeHistoricalInstallments(installmentIds, reason, cutoffDate, req.user);
+        res.json(result);
+    } catch (error) {
+        console.error('POST /api/admin/tesoreria-estrategica/installments/regularize error:', error);
+        res.status(400).json({ ok: false, message: error.message });
+    }
+});
 app.get('/api/admin/checks', authenticateToken, requirePermission(PERMISSIONS.FINANZAS_READ), async (req, res) => {
     try {
         const { status, month, direction, search } = req.query;

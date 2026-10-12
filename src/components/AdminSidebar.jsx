@@ -50,6 +50,12 @@ const MENU_GROUPS = [
         ]
     },
     {
+        title: "Dirección Estratégica",
+        items: [
+            { id: 'tesoreria-estrategica', label: 'Tesorería Estratégica', icon: ShieldCheck, path: '/admin/tesoreria-estrategica' }
+        ]
+    },
+    {
         title: "Colaboraciones",
         items: [
             { id: 'mensajes', label: 'Mensajes', icon: MessageSquare },
