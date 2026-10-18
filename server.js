@@ -6056,14 +6056,24 @@ app.post('/api/admin/transactions/bulk-annul', authenticateToken, requirePermiss
         for (const id of ids) {
             const tx = await Transaction.findOne({ _id: id, module: 'crm_v2' });
             if (tx && tx.status !== 'anulado') {
-                const account = await Account.findById(tx.accountId);
-                if (account) {
-                    const revertChange = (tx.type === 'Ingreso' || tx.type === 'ingreso') ? -Number(tx.amount) : Number(tx.amount);
-                    account.balance += revertChange;
-                    await account.save();
+                const oldStatus = tx.status;
+                if (oldStatus === 'activo' || oldStatus === 'Completado') {
+                    const account = await Account.findById(tx.accountId);
+                    if (account) {
+                        const revertChange = (tx.type === 'Ingreso' || tx.type === 'ingreso') ? -Number(tx.amount) : Number(tx.amount);
+                        account.balance += revertChange;
+                        await account.save();
+                    }
                 }
                 tx.status = 'anulado';
                 await tx.save();
+                if (tx.type === 'Egreso') {
+                    await treasuryStrategicService.syncExpenseWithTreasury(tx, {
+                        statusChanged: true,
+                        oldStatus,
+                        user: req.user?.username || 'Admin'
+                    });
+                }
                 annulledCount++;
             }
         }
@@ -6082,15 +6092,26 @@ app.delete('/api/admin/transactions/:id', authenticateToken, requirePermission(P
         if (!tx) return res.status(404).json({ message: 'Transacción no encontrada' });
         if (tx.status === 'anulado') return res.status(400).json({ message: 'La transacción ya está anulada' });
 
-        const account = await Account.findById(tx.accountId);
-        if (account) {
-            const revertChange = (tx.type === 'Ingreso' || tx.type === 'ingreso') ? -Number(tx.amount) : Number(tx.amount);
-            account.balance += revertChange;
-            await account.save();
+        const oldStatus = tx.status;
+        if (oldStatus === 'activo' || oldStatus === 'Completado') {
+            const account = await Account.findById(tx.accountId);
+            if (account) {
+                const revertChange = (tx.type === 'Ingreso' || tx.type === 'ingreso') ? -Number(tx.amount) : Number(tx.amount);
+                account.balance += revertChange;
+                await account.save();
+            }
         }
 
         tx.status = 'anulado';
         await tx.save();
+
+        if (tx.type === 'Egreso') {
+            await treasuryStrategicService.syncExpenseWithTreasury(tx, {
+                statusChanged: true,
+                oldStatus,
+                user: req.user?.username || 'Admin'
+            });
+        }
 
         try {
             if (typeof logAudit === 'function') {
@@ -6136,16 +6157,26 @@ app.post('/api/admin/transactions', authenticateToken, requirePermission(PERMISS
     try {
         await connectDB();
         if (req.user && req.user.role === 'ventas') return res.status(403).json({ message: 'Sin permisos financieros' });
-        const { type, category, concept, amount, currency, paymentMethod, date, notes, status, saleId, reservationId, clientId, vehicleId, installmentId, payeeCompany, payeeVehicle, targetUser } = req.body;
+        const { type, category, concept, amount, currency, paymentMethod, date, notes, status, saleId, reservationId, clientId, vehicleId, installmentId, payeeCompany, payeeVehicle, targetUser, accountId: explicitAccountId, treasuryBoxKey, idempotencyKey } = req.body;
 
+        // Idempotencia para evitar cobros o movimientos duplicados
+        const cleanIdempotencyKey = idempotencyKey || req.headers['x-idempotency-key'];
+        if (cleanIdempotencyKey) {
+            const existingTx = await Transaction.findOne({ idempotencyKey: String(cleanIdempotencyKey).trim() });
+            if (existingTx) {
+                return res.status(200).json(existingTx);
+            }
+        }
+
+        const normalizedTypeLower = String(type || '').toLowerCase();
         // Validations
-        if (!type || !['ingreso', 'egreso'].includes(type)) return res.status(400).json({ message: 'Type is required and must be ingreso/egreso' });
+        if (!normalizedTypeLower || !['ingreso', 'egreso'].includes(normalizedTypeLower)) return res.status(400).json({ message: 'Type is required and must be ingreso/egreso' });
         if (!currency || !['ARS', 'USD'].includes(currency)) return res.status(400).json({ message: 'Currency is required and must be ARS/USD' });
         if (amount === undefined || amount < 0) return res.status(400).json({ message: 'Amount is required and must be >= 0' });
         if (!concept) return res.status(400).json({ message: 'Concept is required' });
         if (!category) return res.status(400).json({ message: 'Category is required' });
 
-        // V├¡nculos opcionales (Verificaci├│n de existencia)
+        // Vínculos opcionales (Verificación de existencia)
         if (saleId) {
             const sale = await Sale.findById(saleId);
             if (!sale) return res.status(400).json({ message: 'La Venta vinculada no existe' });
@@ -6160,7 +6191,7 @@ app.post('/api/admin/transactions', authenticateToken, requirePermission(PERMISS
         }
         if (vehicleId) {
             const vehicle = await Car.findById(vehicleId);
-            if (!vehicle) return res.status(400).json({ message: 'El Veh├¡culo vinculado no existe' });
+            if (!vehicle) return res.status(400).json({ message: 'El Vehículo vinculado no existe' });
         }
         if (installmentId) {
             const installment = await Installment.findById(installmentId);
@@ -6168,21 +6199,29 @@ app.post('/api/admin/transactions', authenticateToken, requirePermission(PERMISS
         }
 
         // Resolve accountId safely
-        const account = await getOrCreateCrmV2Account(currency);
+        let account = null;
+        if (explicitAccountId && mongoose.isValidObjectId(explicitAccountId)) {
+            account = await Account.findById(explicitAccountId);
+        }
+        if (!account) {
+            account = await getOrCreateCrmV2Account(currency);
+        }
 
         const newTx = new Transaction({
             module: 'crm_v2',
-            source: 'manual',
-            type: type === 'ingreso' ? 'Ingreso' : 'Egreso', // map to legacy enum
+            source: req.body.source || (saleId ? 'venta' : (reservationId ? 'reserva' : 'manual')),
+            type: normalizedTypeLower === 'ingreso' ? 'Ingreso' : 'Egreso', // map to legacy enum
             category,
             concept,
             description: concept, // map to legacy required field
-            amount,
+            amount: Number(amount),
             currency,
             paymentMethod,
             date: date || new Date(),
             notes,
             accountId: account._id, // map to legacy required field
+            treasuryBoxKey: treasuryBoxKey || null,
+            idempotencyKey: cleanIdempotencyKey ? String(cleanIdempotencyKey).trim() : undefined,
             status: status || 'activo',
             saleId: saleId || undefined,
             reservationId: reservationId || undefined,
@@ -6214,8 +6253,22 @@ app.post('/api/admin/transactions', authenticateToken, requirePermission(PERMISS
         }
 
         // Sincronización automática con cajas estratégicas de Tesorería
+        let treasuryIntegration = null;
         if (savedTx.type === 'Egreso') {
             await treasuryStrategicService.syncExpenseWithTreasury(savedTx, { isNew: true, user: req.user?.username });
+        } else if (savedTx.type === 'Ingreso' && savedTx.status === 'activo') {
+            let isTreasuryUnlocked = false;
+            const tTok = req.headers['x-treasury-token'] || req.headers['x-treasury-auth'];
+            if (tTok) {
+                try {
+                    const dec = jwt.verify(tTok, JWT_SECRET);
+                    isTreasuryUnlocked = dec.purpose === 'strategic_treasury';
+                } catch (_) { /* ignore expired token */ }
+            }
+            treasuryIntegration = await treasuryStrategicService.registerCollectionForTreasury(savedTx, {
+                isTreasuryUnlocked,
+                user: req.user
+            });
         }
 
         await logAudit({
@@ -6225,11 +6278,15 @@ app.post('/api/admin/transactions', authenticateToken, requirePermission(PERMISS
             entityType: 'Transaction',
             entityId: savedTx._id,
             entityLabel: `${savedTx.type} - ${savedTx.concept}`,
-            description: `Se cre├│ un movimiento financiero por ${savedTx.currency} ${savedTx.amount}.`,
+            description: `Se creó un movimiento financiero por ${savedTx.currency} ${savedTx.amount}.`,
             metadata: { type: savedTx.type, amount: savedTx.amount, currency: savedTx.currency }
         });
 
-        res.status(201).json(savedTx);
+        const responseObj = savedTx.toObject();
+        if (treasuryIntegration) {
+            responseObj.treasuryIntegration = treasuryIntegration;
+        }
+        res.status(201).json(responseObj);
     } catch (error) {
         console.error('POST /api/admin/transactions error:', error);
         return res.status(500).json({
@@ -6738,6 +6795,25 @@ app.post('/api/admin/installments/:id/pay', authenticateToken, requirePermission
             throw new Error(`Error en persistencia, cobro revertido: ${saveError.message}`);
         }
 
+        // 4. Vincular automáticamente el cobro confirmado con Tesorería Estratégica (sin duplicar ingreso)
+        let treasuryIntegration = null;
+        try {
+            let isTreasuryUnlocked = false;
+            const tTok = req.headers['x-treasury-token'] || req.headers['x-treasury-auth'];
+            if (tTok) {
+                try {
+                    const dec = jwt.verify(tTok, JWT_SECRET);
+                    isTreasuryUnlocked = dec.purpose === 'strategic_treasury';
+                } catch (_) { /* ignore expired token */ }
+            }
+            treasuryIntegration = await treasuryStrategicService.registerCollectionForTreasury(newTx, {
+                isTreasuryUnlocked,
+                user: req.user
+            });
+        } catch (treasuryErr) {
+            console.error('Treasury integration warning on pay installment:', treasuryErr);
+        }
+
         try {
             if (typeof logAudit === 'function') {
                 await logAudit({
@@ -6754,7 +6830,7 @@ app.post('/api/admin/installments/:id/pay', authenticateToken, requirePermission
             console.error('Audit log error on pay installment:', auditErr);
         }
 
-        res.json({ message: 'Cobro registrado correctamente', installment, transaction: newTx });
+        res.json({ message: 'Cobro registrado correctamente', installment, transaction: newTx, treasuryIntegration });
     } catch (error) {
         console.error('Error paying installment:', error);
         res.status(500).json({ message: error.message });
@@ -9960,6 +10036,49 @@ app.post('/api/admin/tesoreria-estrategica/suggested-allocation', authenticateTo
         res.json(result);
     } catch (error) {
         console.error('POST /api/admin/tesoreria-estrategica/suggested-allocation error:', error);
+        res.status(400).json({ ok: false, message: error.message });
+    }
+});
+
+// 24. Vista previa de regularización histórica de cuotas
+app.post('/api/admin/tesoreria-estrategica/installments/batch-regularize/preview', authenticateToken, requireTreasuryPrivilegedRole, verifyTreasuryStrategicAuth, async (req, res) => {
+    try {
+        const result = await treasuryStrategicService.previewBatchRegularization(req.body);
+        res.json(result);
+    } catch (error) {
+        console.error('POST /api/admin/tesoreria-estrategica/installments/batch-regularize/preview error:', error);
+        res.status(400).json({ ok: false, message: error.message });
+    }
+});
+
+// 25. Vista previa y ejecución de recuperación segura de cobros posteriores al corte hacia la bandeja
+app.get('/api/admin/tesoreria-estrategica/recover-pending-incomes/preview', authenticateToken, requireTreasuryPrivilegedRole, verifyTreasuryStrategicAuth, async (req, res) => {
+    try {
+        const result = await treasuryStrategicService.previewRecoverableIncomes();
+        res.json(result);
+    } catch (error) {
+        console.error('GET /api/admin/tesoreria-estrategica/recover-pending-incomes/preview error:', error);
+        res.status(500).json({ ok: false, message: error.message });
+    }
+});
+
+app.post('/api/admin/tesoreria-estrategica/recover-pending-incomes', authenticateToken, requireTreasuryPrivilegedRole, verifyTreasuryStrategicAuth, async (req, res) => {
+    try {
+        const result = await treasuryStrategicService.recoverPendingIncomes(req.body, req.user);
+        res.json(result);
+    } catch (error) {
+        console.error('POST /api/admin/tesoreria-estrategica/recover-pending-incomes error:', error);
+        res.status(400).json({ ok: false, message: error.message });
+    }
+});
+
+// 26. Simulador de capacidad de compra de vehículos (solo lectura, sin tocar saldos)
+app.post('/api/admin/tesoreria-estrategica/simulate-purchase', authenticateToken, requireTreasuryPrivilegedRole, verifyTreasuryStrategicAuth, async (req, res) => {
+    try {
+        const result = await treasuryStrategicService.simulateVehiclePurchase(req.body);
+        res.json(result);
+    } catch (error) {
+        console.error('POST /api/admin/tesoreria-estrategica/simulate-purchase error:', error);
         res.status(400).json({ ok: false, message: error.message });
     }
 });

@@ -27,39 +27,81 @@ export default function TreasuryPlanningTab({
     planning = {},
     summary = {},
     boxes = [],
-    verificationStatus = 'pendiente_verificar'
+    verificationStatus = 'pendiente_verificar',
+    treasuryToken = '',
+    dolarBlueRate = 0
 }) {
     const {
         availableToBuyARS = 0,
         availableToBuyUSD = 0,
         paymentCalendar = [],
         cashProjection = [],
-        kangooSimulationPreset = {}
+        monthlyBurnRateARS = 0
     } = planning;
 
-    // Estado del simulador de compra
-    const [simVehicle, setSimVehicle] = useState('Renault Kangoo');
+    // Estado del simulador de compra (sin valores de ejemplo codificados)
+    const [simVehicle, setSimVehicle] = useState('');
     const [simCurrency, setSimCurrency] = useState('ARS');
-    const [simTotalPrice, setSimTotalPrice] = useState(21200000);
-    const [simSharePercent, setSimSharePercent] = useState(50);
-    const [simExpenses, setSimExpenses] = useState(800000);
+    const [simExchangeRate, setSimExchangeRate] = useState(dolarBlueRate || '');
+    const [simTotalPrice, setSimTotalPrice] = useState('');
+    const [simSharePercent, setSimSharePercent] = useState(100);
+    const [simExpenses, setSimExpenses] = useState('');
+    const [simExpensesPaidBy, setSimExpensesPaidBy] = useState('agency'); // 'agency' | 'shared' | 'partner'
+    const [serverSimResult, setServerSimResult] = useState(null);
+    const [isSimulatingServer, setIsSimulatingServer] = useState(false);
 
-    // Cargar preset Kangoo 50% ($10.600.000)
-    const handleLoadKangooPreset = () => {
-        setSimVehicle('Renault Kangoo');
-        setSimCurrency('ARS');
-        setSimTotalPrice(21200000);
-        setSimSharePercent(50);
-        setSimExpenses(800000);
-    };
+    // Cálculos locales inmediatos de la simulación (respetando moneda, participación y quién paga gastos)
+    const numericTotalPrice = Math.max(0, Number(simTotalPrice) || 0);
+    const numericSharePercent = Math.min(100, Math.max(0, Number(simSharePercent) || 0));
+    const numericExpenses = Math.max(0, Number(simExpenses) || 0);
 
-    // Cálculos de la simulación
-    const simOwnContribution = Math.round((simTotalPrice * (simSharePercent / 100)));
-    const simTotalRequired = simOwnContribution + (Number(simExpenses) || 0);
+    const simOwnContribution = Math.round((numericTotalPrice * (numericSharePercent / 100)) * 100) / 100;
+    const simPartnerContribution = Math.max(0, Math.round((numericTotalPrice - simOwnContribution) * 100) / 100);
 
+    let agencyExpensesShare = numericExpenses;
+    if (simExpensesPaidBy === 'shared') {
+        agencyExpensesShare = Math.round((numericExpenses * (numericSharePercent / 100)) * 100) / 100;
+    } else if (simExpensesPaidBy === 'partner') {
+        agencyExpensesShare = 0;
+    }
+
+    const simTotalRequired = Math.round((simOwnContribution + agencyExpensesShare) * 100) / 100;
     const availablePool = simCurrency === 'USD' ? availableToBuyUSD : availableToBuyARS;
     const isAffordable = availablePool >= simTotalRequired;
     const difference = availablePool - simTotalRequired;
+
+    const handleRunServerSimulation = async () => {
+        if (!treasuryToken) return;
+        setIsSimulatingServer(true);
+        try {
+            const token = localStorage.getItem('token');
+            const res = await fetch('/api/admin/tesoreria-estrategica/simulate-purchase', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`,
+                    'x-treasury-token': treasuryToken
+                },
+                body: JSON.stringify({
+                    vehicleName: simVehicle,
+                    totalPrice: numericTotalPrice,
+                    currency: simCurrency,
+                    exchangeRate: Number(simExchangeRate) || undefined,
+                    agencySharePct: numericSharePercent,
+                    additionalExpenses: numericExpenses,
+                    expensesPaidBy: simExpensesPaidBy
+                })
+            });
+            const data = await res.json();
+            if (res.ok && data.ok) {
+                setServerSimResult(data);
+            }
+        } catch {
+            // Fall back to local calculation silently
+        } finally {
+            setIsSimulatingServer(false);
+        }
+    };
 
     return (
         <div className="space-y-6">
@@ -167,31 +209,77 @@ export default function TreasuryPlanningTab({
                         <div>
                             <h3 className="text-base font-black text-white">Simulador de Compra de Vehículo</h3>
                             <span className="text-[10px] text-crm-fg-muted block">
-                                Análisis previo de viabilidad sin crear movimientos ni alterar saldos reales
+                                Análisis previo de viabilidad (100% propio o compartido con socio) sin crear movimientos ni alterar saldos reales
                             </span>
                         </div>
                     </div>
 
-                    <button
-                        type="button"
-                        onClick={handleLoadKangooPreset}
-                        className="inline-flex items-center gap-1.5 rounded-xl border border-purple-500/30 bg-purple-500/10 px-3 py-1.5 text-xs font-bold text-purple-300 hover:bg-purple-500/20 hover:text-white transition-colors"
-                    >
-                        ⚡ Simular 50% de Kangoo ($10.600.000)
-                    </button>
+                    <div className="flex items-center gap-2">
+                        <button
+                            type="button"
+                            onClick={() => setSimSharePercent(100)}
+                            className={`rounded-xl border px-3 py-1.5 text-xs font-bold transition-colors ${Number(simSharePercent) === 100 ? 'border-purple-500 bg-purple-600/20 text-purple-200' : 'border-crm-border bg-crm-bg text-crm-fg-muted hover:text-white'}`}
+                        >
+                            100% Agencia
+                        </button>
+                        <button
+                            type="button"
+                            onClick={() => setSimSharePercent(50)}
+                            className={`rounded-xl border px-3 py-1.5 text-xs font-bold transition-colors ${Number(simSharePercent) === 50 ? 'border-purple-500 bg-purple-600/20 text-purple-200' : 'border-crm-border bg-crm-bg text-crm-fg-muted hover:text-white'}`}
+                        >
+                            50% Compartido con Socio
+                        </button>
+                        {treasuryToken && (
+                            <button
+                                type="button"
+                                disabled={isSimulatingServer}
+                                onClick={handleRunServerSimulation}
+                                className="rounded-xl bg-purple-600 px-3 py-1.5 text-xs font-black text-white hover:bg-purple-500 transition-colors"
+                            >
+                                {isSimulatingServer ? 'Calculando...' : 'Verificar contra Cajas'}
+                            </button>
+                        )}
+                    </div>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-6 gap-3">
                     <div>
                         <label className="block text-[10px] font-bold uppercase tracking-wider text-crm-fg-muted mb-1">
-                            Vehículo / Modelo
+                            Vehículo / Referencia
                         </label>
                         <input
                             type="text"
+                            placeholder="Ej: Unidad a evaluar"
                             value={simVehicle}
                             onChange={(e) => setSimVehicle(e.target.value)}
                             className="w-full rounded-xl border border-crm-border bg-crm-bg px-3 py-2 text-xs font-bold text-white focus:border-purple-500 focus:outline-none"
                         />
+                    </div>
+
+                    <div>
+                        <label className="block text-[10px] font-bold uppercase tracking-wider text-crm-fg-muted mb-1">
+                            Moneda y Cotización
+                        </label>
+                        <div className="flex items-center gap-1.5">
+                            <select
+                                value={simCurrency}
+                                onChange={(e) => setSimCurrency(e.target.value)}
+                                className="rounded-xl border border-crm-border bg-crm-bg px-2.5 py-2 text-xs font-bold text-white focus:border-purple-500 focus:outline-none"
+                            >
+                                <option value="ARS">ARS</option>
+                                <option value="USD">USD</option>
+                            </select>
+                            <input
+                                type="number"
+                                min="0"
+                                step="any"
+                                placeholder="TC ARS/USD"
+                                value={simExchangeRate}
+                                onChange={(e) => setSimExchangeRate(e.target.value)}
+                                className="w-full rounded-xl border border-crm-border bg-crm-bg px-2.5 py-2 font-mono text-xs text-white focus:border-purple-500 focus:outline-none"
+                                title="Cotización de referencia ARS/USD"
+                            />
+                        </div>
                     </div>
 
                     <div>
@@ -202,8 +290,9 @@ export default function TreasuryPlanningTab({
                             type="number"
                             min="0"
                             step="any"
+                            placeholder="0"
                             value={simTotalPrice}
-                            onChange={(e) => setSimTotalPrice(Number(e.target.value) || 0)}
+                            onChange={(e) => setSimTotalPrice(e.target.value)}
                             className="w-full rounded-xl border border-crm-border bg-crm-bg px-3 py-2 font-mono text-xs font-bold text-white focus:border-purple-500 focus:outline-none"
                         />
                     </div>
@@ -215,10 +304,10 @@ export default function TreasuryPlanningTab({
                         <div className="flex items-center gap-2">
                             <input
                                 type="number"
-                                min="1"
+                                min="0"
                                 max="100"
                                 value={simSharePercent}
-                                onChange={(e) => setSimSharePercent(Number(e.target.value) || 0)}
+                                onChange={(e) => setSimSharePercent(e.target.value)}
                                 className="w-full rounded-xl border border-crm-border bg-crm-bg px-3 py-2 font-mono text-xs font-bold text-white focus:border-purple-500 focus:outline-none"
                             />
                             <span className="text-xs font-bold text-purple-300">%</span>
@@ -227,16 +316,32 @@ export default function TreasuryPlanningTab({
 
                     <div>
                         <label className="block text-[10px] font-bold uppercase tracking-wider text-crm-fg-muted mb-1">
-                            Gastos de Alistamiento / Transf.
+                            Gastos Adicionales ({simCurrency})
                         </label>
                         <input
                             type="number"
                             min="0"
                             step="any"
+                            placeholder="0"
                             value={simExpenses}
-                            onChange={(e) => setSimExpenses(Number(e.target.value) || 0)}
+                            onChange={(e) => setSimExpenses(e.target.value)}
                             className="w-full rounded-xl border border-crm-border bg-crm-bg px-3 py-2 font-mono text-xs font-bold text-white focus:border-purple-500 focus:outline-none"
                         />
+                    </div>
+
+                    <div>
+                        <label className="block text-[10px] font-bold uppercase tracking-wider text-crm-fg-muted mb-1">
+                            ¿Quién Afronta Gastos?
+                        </label>
+                        <select
+                            value={simExpensesPaidBy}
+                            onChange={(e) => setSimExpensesPaidBy(e.target.value)}
+                            className="w-full rounded-xl border border-crm-border bg-crm-bg px-2.5 py-2 text-xs font-bold text-white focus:border-purple-500 focus:outline-none"
+                        >
+                            <option value="agency">100% Agencia</option>
+                            <option value="shared">Proporcional con Socio</option>
+                            <option value="partner">100% Socio</option>
+                        </select>
                     </div>
                 </div>
 
@@ -246,15 +351,19 @@ export default function TreasuryPlanningTab({
                     const protectedAmountAffected = affectsProtected ? (simTotalRequired - availablePool) : 0;
                     const remainingToBuy = Math.max(0, availablePool - simTotalRequired);
 
-                    // Gasto mensual estimado (Operativa + Personal) o base de 4.5M
                     const opBox = boxes.find(b => b.key === 'operativa');
                     const persBox = boxes.find(b => b.key === 'personal');
-                    const monthlyBurn = ((opBox?.monthlyBudgetARS || 2000000) + (persBox?.monthlyBudgetARS || 4500000));
-                    const dailyBurn = monthlyBurn > 0 ? (monthlyBurn / 30) : 200000;
-
                     const resBox = boxes.find(b => b.key === 'reserva');
-                    const reserveAfter = Math.max(0, (resBox?.balanceARS || 0) - (affectsProtected ? protectedAmountAffected : 0));
-                    const daysRemaining = Math.max(0, Math.round(reserveAfter / dailyBurn));
+                    const configuredMonthlyBurn = Number(monthlyBurnRateARS || 0) || ((Number(opBox?.monthlyTargetARS || 0)) + (Number(persBox?.monthlyTargetARS || 0)));
+                    const dailyBurn = configuredMonthlyBurn > 0 ? (configuredMonthlyBurn / 30) : 0;
+
+                    const currentCoverageLiquidARS = Math.max(0, (Number(opBox?.balanceARS || 0)) + (Number(resBox?.balanceARS || 0)));
+                    const coverageLiquidAfterARS = simCurrency === 'ARS'
+                        ? Math.max(0, currentCoverageLiquidARS - (affectsProtected ? protectedAmountAffected : 0))
+                        : currentCoverageLiquidARS;
+                    const daysRemaining = serverSimResult?.operatingCoverageDaysAfter !== undefined && serverSimResult?.operatingCoverageDaysAfter !== null
+                        ? serverSimResult.operatingCoverageDaysAfter
+                        : (dailyBurn > 0 ? Math.max(0, Math.round(coverageLiquidAfterARS / dailyBurn)) : null);
 
                     return (
                         <div className="space-y-4">
@@ -275,7 +384,9 @@ export default function TreasuryPlanningTab({
                                             </h4>
                                         </div>
                                         <p className="text-xs text-crm-fg-muted">
-                                            Aporte propio ({simSharePercent}%): <strong>{formatMoney(simOwnContribution, simCurrency)}</strong> · Gastos: <strong>{formatMoney(simExpenses, simCurrency)}</strong> · Total requerido: <strong className="text-white">{formatMoney(simTotalRequired, simCurrency)}</strong>.
+                                            Aporte propio ({numericSharePercent}%): <strong>{formatMoney(simOwnContribution, simCurrency)}</strong>
+                                            {simPartnerContribution > 0 && <> · Aporte socio: <strong>{formatMoney(simPartnerContribution, simCurrency)}</strong></>}
+                                            {' '}· Gastos agencia: <strong>{formatMoney(agencyExpensesShare, simCurrency)}</strong> · Total requerido agencia: <strong className="text-white">{formatMoney(simTotalRequired, simCurrency)}</strong>.
                                         </p>
                                     </div>
 
@@ -300,6 +411,11 @@ export default function TreasuryPlanningTab({
                                     <p className={`font-black text-sm mt-1 ${affectsProtected ? 'text-red-300' : 'text-emerald-300'}`}>
                                         {affectsProtected ? `SÍ (compromete ${formatMoney(protectedAmountAffected, simCurrency)})` : 'NO (Fondos 100% blindados)'}
                                     </p>
+                                    {serverSimResult?.affectedProtectedBoxes?.length > 0 && (
+                                        <p className="text-[10px] text-red-200 mt-1">
+                                            Cajas afectadas: {serverSimResult.affectedProtectedBoxes.map(b => `${b.boxName} (${formatMoney(b.amountTaken, simCurrency)})`).join(', ')}
+                                        </p>
+                                    )}
                                 </div>
 
                                 {/* 2. ¿Cuánto queda disponible para compras? */}
@@ -315,10 +431,10 @@ export default function TreasuryPlanningTab({
                                 {/* 3. Días de cobertura operativa */}
                                 <div className="rounded-xl border border-crm-border bg-crm-bg/80 p-3">
                                     <span className="text-[10px] font-bold uppercase tracking-wider text-crm-fg-muted block">
-                                        Días de Cobertura Operativa
+                                        Días de Cobertura Operativa Restantes
                                     </span>
                                     <p className="font-mono font-black text-sm text-purple-300 mt-1">
-                                        {daysRemaining} días restantes
+                                        {daysRemaining !== null ? `${daysRemaining} días restantes` : 'Configurar presupuesto operativo'}
                                     </p>
                                 </div>
                             </div>
@@ -332,12 +448,12 @@ export default function TreasuryPlanningTab({
                                     <div className="space-y-1">
                                         <p className="font-bold text-crm-fg-muted">Sin Compra (Actual):</p>
                                         <p className="text-[11px]">Disponible: <strong className="font-mono text-cyan-300">{formatMoney(availablePool, simCurrency)}</strong></p>
-                                        <p className="text-[11px]">Protegidos: <strong className="font-mono text-purple-300">{formatMoney(summary.fondosProtegidosARS || 0, 'ARS')}</strong></p>
+                                        <p className="text-[11px]">Protegidos: <strong className="font-mono text-purple-300">{formatMoney(simCurrency === 'USD' ? (summary.fondosProtegidosUSD || 0) : (summary.fondosProtegidosARS || 0), simCurrency)}</strong></p>
                                     </div>
                                     <div className="space-y-1">
                                         <p className="font-bold text-white">Con Compra Simulada:</p>
                                         <p className="text-[11px]">Disponible: <strong className="font-mono text-cyan-300">{formatMoney(remainingToBuy, simCurrency)}</strong></p>
-                                        <p className="text-[11px]">Protegidos: <strong className={`font-mono ${affectsProtected ? 'text-red-400' : 'text-purple-300'}`}>{formatMoney(Math.max(0, (summary.fondosProtegidosARS || 0) - protectedAmountAffected), 'ARS')}</strong></p>
+                                        <p className="text-[11px]">Protegidos: <strong className={`font-mono ${affectsProtected ? 'text-red-400' : 'text-purple-300'}`}>{formatMoney(Math.max(0, (simCurrency === 'USD' ? (summary.fondosProtegidosUSD || 0) : (summary.fondosProtegidosARS || 0)) - protectedAmountAffected), simCurrency)}</strong></p>
                                     </div>
                                 </div>
                             </div>

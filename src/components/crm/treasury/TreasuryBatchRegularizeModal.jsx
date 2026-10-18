@@ -47,8 +47,11 @@ export default function TreasuryBatchRegularizeModal({
 
     // Parámetros de auditoría
     const [cutoffDate, setCutoffDate] = useState(todayStr);
+    const [knownPaymentDate, setKnownPaymentDate] = useState('');
     const [reason, setReason] = useState('Regularización histórica de cuotas cobradas antes del corte (incluidas en saldo inicial)');
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const [previewData, setPreviewData] = useState(null);
+    const [loadingPreview, setLoadingPreview] = useState(false);
 
     // Reversión de lote
     const [revertingBatchId, setRevertingBatchId] = useState(null);
@@ -68,11 +71,11 @@ export default function TreasuryBatchRegularizeModal({
                 }
             });
             const data = await res.json();
-            if (data.ok) {
-                setSalesGroups(data.groups || []);
-                // Expandir la primera venta por comodidad
-                if (data.groups && data.groups.length > 0) {
-                    setExpandedSales({ [data.groups[0].saleId]: true });
+            const groups = Array.isArray(data) ? data : (data.groups || []);
+            if (res.ok && (Array.isArray(data) || data.ok)) {
+                setSalesGroups(groups);
+                if (groups.length > 0) {
+                    setExpandedSales({ [groups[0].saleId]: true });
                 }
             } else {
                 toast.error(data.message || 'Error al cargar cuotas');
@@ -87,6 +90,7 @@ export default function TreasuryBatchRegularizeModal({
     useEffect(() => {
         if (isOpen) {
             fetchGroupedInstallments();
+            setPreviewData(null);
         }
     }, [isOpen, fetchGroupedInstallments]);
 
@@ -99,6 +103,7 @@ export default function TreasuryBatchRegularizeModal({
 
     // Toggle individual de cuota
     const handleToggleInstallment = (inst) => {
+        setPreviewData(null);
         setSelectedInstallments(prev => {
             const next = { ...prev };
             if (next[inst._id]) {
@@ -112,6 +117,7 @@ export default function TreasuryBatchRegularizeModal({
 
     // Seleccionar todas las cuotas de una venta
     const handleSelectAllInSale = (group) => {
+        setPreviewData(null);
         const allSelected = group.installments.every(i => selectedInstallments[i._id]);
         setSelectedInstallments(prev => {
             const next = { ...prev };
@@ -133,7 +139,7 @@ export default function TreasuryBatchRegularizeModal({
             toast.error('Ingresá un número de cuota válido');
             return;
         }
-
+        setPreviewData(null);
         setSelectedInstallments(prev => {
             const next = { ...prev };
             group.installments.forEach(inst => {
@@ -165,6 +171,45 @@ export default function TreasuryBatchRegularizeModal({
 
     const affectedSalesCount = affectedSalesSet.size;
 
+    const handlePreviewBatch = async () => {
+        if (totalSelectedCount === 0) {
+            toast.error('Seleccioná al menos una cuota para previsualizar el impacto');
+            return;
+        }
+        setLoadingPreview(true);
+        try {
+            const token = localStorage.getItem('token');
+            const res = await fetch('/api/admin/tesoreria-estrategica/installments/batch-regularize/preview', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`,
+                    'x-treasury-token': treasuryToken
+                },
+                body: JSON.stringify({
+                    installments: selectedList.map(inst => ({
+                        installmentId: inst._id,
+                        saleId: inst.saleId,
+                        paymentDate: knownPaymentDate || null
+                    })),
+                    knownPaymentDate: knownPaymentDate || null,
+                    reason,
+                    cutoffDate
+                })
+            });
+            const data = await res.json();
+            if (!res.ok) {
+                toast.error(data.message || 'Error al previsualizar el lote');
+                return;
+            }
+            setPreviewData(data);
+        } catch {
+            toast.error('Error de red al previsualizar impacto');
+        } finally {
+            setLoadingPreview(false);
+        }
+    };
+
     // Confirmar regularización en lote
     const handleSubmitBatch = async (e) => {
         e.preventDefault();
@@ -186,8 +231,10 @@ export default function TreasuryBatchRegularizeModal({
                 body: JSON.stringify({
                     installments: selectedList.map(inst => ({
                         installmentId: inst._id,
-                        saleId: inst.saleId
+                        saleId: inst.saleId,
+                        paymentDate: knownPaymentDate || null
                     })),
+                    knownPaymentDate: knownPaymentDate || null,
                     reason,
                     cutoffDate
                 })
@@ -199,8 +246,9 @@ export default function TreasuryBatchRegularizeModal({
                 return;
             }
 
-            toast.success(`Lote regularizado: ${data.regularizedCount} cuotas procesadas sin alterar caja.`);
+            toast.success(`Lote regularizado: ${data.regularizedCount || data.count} cuotas procesadas sin alterar caja.`);
             setSelectedInstallments({});
+            setPreviewData(null);
             if (onSuccess) onSuccess();
             onClose();
         } catch {
@@ -325,7 +373,7 @@ export default function TreasuryBatchRegularizeModal({
                         </div>
 
                         {/* Parámetros de Regularización y Buscador */}
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                        <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
                             <div>
                                 <label className="block text-[11px] font-bold uppercase tracking-wider text-crm-fg-muted mb-1">
                                     Fecha de Corte / Regularización
@@ -335,6 +383,22 @@ export default function TreasuryBatchRegularizeModal({
                                     value={cutoffDate}
                                     onChange={(e) => setCutoffDate(e.target.value)}
                                     className="w-full rounded-xl border border-crm-border bg-crm-bg p-2 text-xs text-white focus:border-purple-500 focus:outline-none"
+                                />
+                            </div>
+
+                            <div>
+                                <label className="block text-[11px] font-bold uppercase tracking-wider text-crm-fg-muted mb-1">
+                                    Fecha Real de Cobro (Opcional)
+                                </label>
+                                <input
+                                    type="date"
+                                    value={knownPaymentDate}
+                                    onChange={(e) => {
+                                        setKnownPaymentDate(e.target.value);
+                                        setPreviewData(null);
+                                    }}
+                                    className="w-full rounded-xl border border-crm-border bg-crm-bg p-2 text-xs text-white focus:border-purple-500 focus:outline-none"
+                                    title="Dejar vacío si se desconoce la fecha exacta; no se fabricará usando el vencimiento"
                                 />
                             </div>
 
@@ -367,6 +431,19 @@ export default function TreasuryBatchRegularizeModal({
                                 </div>
                             </div>
                         </div>
+
+                        {previewData && (
+                            <div className="rounded-2xl border border-emerald-500/30 bg-emerald-500/10 p-3.5 text-xs space-y-1">
+                                <div className="font-black text-emerald-300 flex items-center justify-between">
+                                    <span>Vista Previa de Impacto Contable</span>
+                                    <span>Impacto en Cuentas/Cajas: ARS 0 / USD 0</span>
+                                </div>
+                                <p className="text-crm-fg-muted">
+                                    Cuotas a regularizar: <strong className="text-white">{previewData.installmentsCount}</strong> en <strong className="text-white">{previewData.affectedSalesCount}</strong> ventas · Total histórico: <strong className="text-emerald-300">{formatMoney(previewData.totalARS, 'ARS')}</strong> {previewData.totalUSD > 0 ? `+ ${formatMoney(previewData.totalUSD, 'USD')}` : ''}.
+                                    {' '}Fecha de cobro a registrar: <strong className="text-white">{knownPaymentDate ? knownPaymentDate : 'Sin fecha fabricada (regularización histórica)'}</strong>.
+                                </p>
+                            </div>
+                        )}
 
                         {/* Lista de Ventas y Cuotas */}
                         {loadingGrouped ? (
@@ -415,7 +492,7 @@ export default function TreasuryBatchRegularizeModal({
                                                         </div>
                                                         <p className="text-[11px] text-crm-fg-muted flex items-center gap-1.5 mt-0.5">
                                                             <Car size={13} className="text-purple-300" />
-                                                            {group.vehicleInfo || 'Vehículo no especificado'} · Pendientes: <strong>{totalInst}</strong> ({formatMoney(group.totalPendingAmount, group.currency)})
+                                                            {group.vehicleInfo || group.vehicleName || 'Vehículo no especificado'} · Pendientes: <strong>{totalInst}</strong> ({formatMoney(group.totalPendingAmount, group.currency)})
                                                         </p>
                                                     </div>
                                                 </div>
@@ -522,7 +599,11 @@ export default function TreasuryBatchRegularizeModal({
                         ) : (
                             <div className="space-y-3">
                                 {batchLogs.map((log) => {
-                                    const isBeingReverted = log.isReverted;
+                                    const isBeingReverted = log.isReverted || log.status === 'revertido';
+                                    const instCount = log.installmentsCount ?? log.count ?? 0;
+                                    const salesCount = log.salesCount ?? log.affectedSalesCount ?? 0;
+                                    const totalARS = log.totalAmountARS ?? log.totalARS ?? 0;
+                                    const totalUSD = log.totalAmountUSD ?? log.totalUSD ?? 0;
 
                                     return (
                                         <div
@@ -546,10 +627,10 @@ export default function TreasuryBatchRegularizeModal({
                                                         )}
                                                     </div>
                                                     <p className="text-xs text-white mt-1">
-                                                        {log.installmentsCount} cuotas · {log.salesCount} ventas afectadas · Total: {formatMoney(log.totalAmountARS, 'ARS')} {log.totalAmountUSD > 0 && `/ ${formatMoney(log.totalAmountUSD, 'USD')}`}
+                                                        {instCount} cuotas · {salesCount} ventas afectadas · Total: {formatMoney(totalARS, 'ARS')} {totalUSD > 0 && `/ ${formatMoney(totalUSD, 'USD')}`}
                                                     </p>
                                                     <p className="text-[11px] text-crm-fg-muted mt-0.5">
-                                                        Fecha: {new Date(log.appliedAt).toLocaleString('es-AR')} · Aplicado por: {log.appliedBy}
+                                                        Fecha: {new Date(log.appliedAt || log.createdAt).toLocaleString('es-AR')} · Aplicado por: {log.appliedBy}
                                                     </p>
                                                     <p className="text-[11px] text-crm-fg-muted italic mt-0.5">
                                                         Motivo: {log.reason}
@@ -627,6 +708,14 @@ export default function TreasuryBatchRegularizeModal({
                                 className="rounded-xl border border-crm-border px-4 py-2 text-xs font-bold text-crm-fg hover:bg-crm-surface-raised transition-colors"
                             >
                                 Cancelar
+                            </button>
+                            <button
+                                type="button"
+                                onClick={handlePreviewBatch}
+                                disabled={loadingPreview || totalSelectedCount === 0}
+                                className="rounded-xl border border-purple-500/40 bg-purple-500/15 px-4 py-2 text-xs font-bold text-purple-200 hover:bg-purple-500/25 disabled:opacity-50 transition-colors"
+                            >
+                                {loadingPreview ? 'Previsualizando...' : 'Vista previa de impacto'}
                             </button>
                             <button
                                 type="button"

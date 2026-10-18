@@ -45,34 +45,39 @@ export default function TreasurySetupWizardModal({
     const [cutoffDate, setCutoffDate] = useState(todayStr);
     const [cutoffReason, setCutoffReason] = useState('Confirmación de corte inicial sobre saldo real');
 
-    // Paso 2: Presupuestos y Metas
+    // Paso 2: Presupuestos y Metas (sin montos de ejemplo fijos en producción)
     const [personalMonthlyBudgetARS, setPersonalMonthlyBudgetARS] = useState(
-        config.personalMonthlyBudgetARS || config.monthlyPersonalBudgetARS || 4500000
+        config.personalMonthlyBudgetARS ?? config.monthlyPersonalBudgetARS ?? 0
     );
     const [reserveMonths, setReserveMonths] = useState(
-        config.reserveMonths || config.reserveMonthsTarget || 3
+        config.reserveMonths ?? config.reserveMonthsTarget ?? 2
     );
     const [postventaProvisionPerVehicleARS, setPostventaProvisionPerVehicleARS] = useState(
-        config.postventaProvisionPerVehicleARS || config.postventaPerVehicleARS || 250000
+        config.postventaProvisionPerVehicleARS ?? config.postventaPerVehicleARS ?? 0
     );
     const [operationalHorizonDays, setOperationalHorizonDays] = useState(
-        config.operationalHorizonDays || 30
+        config.operationalHorizonDays ?? 30
     );
 
-    // Regla de Excedente (Surplus Rule)
+    // Regla de Excedente (Surplus Rule) y Automatización
     const [surplusConfigured, setSurplusConfigured] = useState(
         Boolean(config.surplusRule?.configured)
     );
     const [surplusStockPercent, setSurplusStockPercent] = useState(
-        config.surplusRule?.stockPercent ?? 80
+        config.surplusRule?.stockPercent ?? 0
     );
     const [surplusCrecimientoPercent, setSurplusCrecimientoPercent] = useState(
-        config.surplusRule?.crecimientoPercent ?? 20
+        config.surplusRule?.crecimientoPercent ?? 0
+    );
+    const [autoDistributeIncomes, setAutoDistributeIncomes] = useState(
+        Boolean(config.autoDistributeIncomes)
     );
 
     // Paso 3: Prioridades de distribución
     const [priorityOrder, setPriorityOrder] = useState(
-        config.priorityOrder || ['operativa', 'impuestos', 'deudas', 'personal', 'postventa', 'reserva', 'stock', 'crecimiento']
+        Array.isArray(config.priorityOrder) && config.priorityOrder.length > 0
+            ? config.priorityOrder
+            : ['operativa', 'personal', 'impuestos', 'deudas', 'postventa', 'reserva', 'stock', 'crecimiento']
     );
 
     // Paso 4: Reglas de gastos (Sueldos y comisiones van a OPERATIVA; retiros a PERSONAL)
@@ -142,6 +147,7 @@ export default function TreasurySetupWizardModal({
                     monthlyPersonalBudgetARS: Number(personalMonthlyBudgetARS),
                     postventaProvisionPerVehicleARS: Number(postventaProvisionPerVehicleARS),
                     postventaPerVehicleARS: Number(postventaProvisionPerVehicleARS),
+                    autoDistributeIncomes: Boolean(autoDistributeIncomes),
                     surplusRule: {
                         configured: Boolean(surplusConfigured),
                         stockPercent: Number(surplusStockPercent),
@@ -221,13 +227,13 @@ export default function TreasurySetupWizardModal({
                 {/* Stepper Superior */}
                 <div className="grid grid-cols-4 gap-2 px-5 py-3 border-b border-crm-border bg-crm-bg/50 shrink-0 text-xs font-bold text-center">
                     <div className={`pb-1 border-b-2 ${currentStep === 1 ? 'border-purple-500 text-purple-300' : 'border-transparent text-crm-fg-muted'}`}>
-                        1. Corte Inicial
+                        1. Corte Inicial y Saldos
                     </div>
                     <div className={`pb-1 border-b-2 ${currentStep === 2 ? 'border-purple-500 text-purple-300' : 'border-transparent text-crm-fg-muted'}`}>
-                        2. Metas y Excedente
+                        2. Presupuestos y Reserva
                     </div>
                     <div className={`pb-1 border-b-2 ${currentStep === 3 ? 'border-purple-500 text-purple-300' : 'border-transparent text-crm-fg-muted'}`}>
-                        3. Prioridades
+                        3. Prioridades y Excedente
                     </div>
                     <div className={`pb-1 border-b-2 ${currentStep === 4 ? 'border-purple-500 text-purple-300' : 'border-transparent text-crm-fg-muted'}`}>
                         4. Gastos a Cajas
@@ -283,11 +289,11 @@ export default function TreasurySetupWizardModal({
                         </div>
                     )}
 
-                    {/* PASO 2: PRESUPUESTOS, METAS Y REGLA DE EXCEDENTE */}
+                    {/* PASO 2: PRESUPUESTOS, RESERVA Y PROVISIÓN DE POSTVENTA */}
                     {currentStep === 2 && (
                         <div className="space-y-4">
                             <div className="rounded-2xl border border-crm-border bg-crm-bg/60 p-3.5 text-xs text-crm-fg-muted">
-                                Define tus previsiones y metas mensuales para que el sistema calcule los importes sugeridos sin recurrir a porcentajes inventados.
+                                Define tus previsiones y metas mensuales para que el sistema calcule los importes sugeridos sin recurrir a valores fijos ni porcentajes inventados.
                             </div>
 
                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -357,6 +363,36 @@ export default function TreasurySetupWizardModal({
                                     </span>
                                 </div>
                             </div>
+                        </div>
+                    )}
+
+                    {/* PASO 3: PRIORIDADES DE DISTRIBUCIÓN Y REGLA DE EXCEDENTE */}
+                    {currentStep === 3 && (
+                        <div className="space-y-4">
+                            <div className="rounded-2xl border border-crm-border bg-crm-bg/60 p-3.5 text-xs text-crm-fg-muted">
+                                Ante fondos limitados, el reparto cubre primero los faltantes de las cajas con mayor prioridad antes de pasar a la siguiente.
+                            </div>
+
+                            <div className="space-y-2">
+                                {priorityOrder.map((key, idx) => (
+                                    <div
+                                        key={key}
+                                        className="flex items-center justify-between rounded-xl border border-crm-border bg-crm-bg/80 px-3.5 py-2 text-xs"
+                                    >
+                                        <div className="flex items-center gap-3">
+                                            <span className="flex h-6 w-6 items-center justify-center rounded-lg bg-purple-500/20 font-bold text-purple-300 text-[11px]">
+                                                {idx + 1}
+                                            </span>
+                                            <span className="font-bold text-white uppercase tracking-wider text-[11px]">
+                                                Caja {key}
+                                            </span>
+                                        </div>
+                                        <span className="text-[10px] text-crm-fg-muted">
+                                            {idx < 2 ? 'Prioridad Crítica' : idx < 4 ? 'Obligaciones y Personal' : idx < 6 ? 'Provisión y Reserva' : 'Excedente'}
+                                        </span>
+                                    </div>
+                                ))}
+                            </div>
 
                             {/* Configuración de Regla de Excedente (Surplus Rule) */}
                             <div className="rounded-2xl border border-crm-border bg-crm-bg/80 p-4 space-y-3">
@@ -412,35 +448,24 @@ export default function TreasurySetupWizardModal({
                                     </div>
                                 )}
                             </div>
-                        </div>
-                    )}
 
-                    {/* PASO 3: PRIORIDADES DE DISTRIBUCIÓN */}
-                    {currentStep === 3 && (
-                        <div className="space-y-4">
-                            <div className="rounded-2xl border border-crm-border bg-crm-bg/60 p-3.5 text-xs text-crm-fg-muted">
-                                Ante fondos limitados, el reparto cubre primero los faltantes de las cajas con mayor prioridad antes de pasar a la siguiente.
-                            </div>
-
-                            <div className="space-y-2">
-                                {priorityOrder.map((key, idx) => (
-                                    <div
-                                        key={key}
-                                        className="flex items-center justify-between rounded-xl border border-crm-border bg-crm-bg/80 px-3.5 py-2 text-xs"
-                                    >
-                                        <div className="flex items-center gap-3">
-                                            <span className="flex h-6 w-6 items-center justify-center rounded-lg bg-purple-500/20 font-bold text-purple-300 text-[11px]">
-                                                {idx + 1}
-                                            </span>
-                                            <span className="font-bold text-white uppercase tracking-wider text-[11px]">
-                                                Caja {key}
-                                            </span>
-                                        </div>
-                                        <span className="text-[10px] text-crm-fg-muted">
-                                            {idx < 2 ? 'Prioridad Crítica' : idx < 4 ? 'Obligaciones y Personal' : idx < 6 ? 'Provisión y Reserva' : 'Excedente'}
-                                        </span>
-                                    </div>
-                                ))}
+                            {/* Opción de Distribución Automática */}
+                            <div className="rounded-2xl border border-crm-border bg-crm-bg/80 p-4 flex items-center justify-between">
+                                <div>
+                                    <h4 className="text-xs font-bold text-white">Distribución Automática de Cobros</h4>
+                                    <p className="text-[11px] text-crm-fg-muted">
+                                        Si se activa, cada nuevo cobro confirmado se distribuirá automáticamente según estas prioridades.
+                                    </p>
+                                </div>
+                                <label className="relative inline-flex items-center cursor-pointer">
+                                    <input
+                                        type="checkbox"
+                                        checked={autoDistributeIncomes}
+                                        onChange={(e) => setAutoDistributeIncomes(e.target.checked)}
+                                        className="sr-only peer"
+                                    />
+                                    <div className="w-11 h-6 bg-crm-border peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-purple-600"></div>
+                                </label>
                             </div>
                         </div>
                     )}

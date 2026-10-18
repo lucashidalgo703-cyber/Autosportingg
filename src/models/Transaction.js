@@ -50,6 +50,14 @@ const transactionSchema = new mongoose.Schema({
     isTreasuryDistributed: { type: Boolean, default: false },
     distributedAt: { type: Date },
     distributedBy: { type: String },
+    thirdPartyAmount: { type: Number, default: 0 },
+    thirdPartyOwner: { type: String, default: null },
+    thirdPartySettled: { type: Boolean, default: false },
+    treasuryControl: {
+        isBeforeCutoff: { type: Boolean, default: false },
+        inboxStatus: { type: String, enum: ['pendiente', 'distribuido', 'excluido_corte', 'ignorado'], default: 'pendiente' }
+    },
+    idempotencyKey: { type: String, index: true, sparse: true },
     // --------------------------------------------------------
 
     createdAt: { type: Date, default: Date.now },

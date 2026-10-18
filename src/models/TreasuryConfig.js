@@ -15,8 +15,10 @@ const treasuryConfigSchema = new mongoose.Schema({
     },
     priorityOrder: {
         type: [String],
-        default: ['operativa', 'impuestos', 'deudas', 'personal', 'postventa', 'reserva', 'stock', 'crecimiento']
+        default: ['operativa', 'personal', 'impuestos', 'deudas', 'postventa', 'reserva', 'stock', 'crecimiento']
     },
+    autoDistributeIncomes: { type: Boolean, default: false },
+    requirePinForAutoDistribution: { type: Boolean, default: true },
     isSetupCompleted: { type: Boolean, default: false },
     lastSetupAt: { type: Date },
     updatedBy: { type: String }

@@ -6,6 +6,8 @@ import toast from 'react-hot-toast';
 
 export default function TreasuryPinGate({
     securityStatus,
+    isLoadingStatus = false,
+    statusError = null,
     onAuthorized,
     onRefreshStatus
 }) {
@@ -55,12 +57,16 @@ export default function TreasuryPinGate({
         return `${m}:${s < 10 ? '0' : ''}${s}`;
     };
 
-    const isFirstTimeSetup = !securityStatus?.pinConfigured;
-    const isLocked = securityStatus?.isLocked || lockCountdown > 0;
+    const isCheckingStatus = Boolean(isLoadingStatus) || (!securityStatus && !statusError);
+    const hasStatusFetchError = Boolean(statusError) || (!isCheckingStatus && typeof securityStatus?.pinConfigured !== 'boolean');
+    // Mostrar el formulario de creación de PIN únicamente cuando el servidor confirme pinConfigured === false
+    const isFirstTimeSetup = !isCheckingStatus && !hasStatusFetchError && securityStatus?.pinConfigured === false;
+    const isPinConfigured = !isCheckingStatus && !hasStatusFetchError && securityStatus?.pinConfigured === true;
+    const isLocked = Boolean(securityStatus?.isLocked) || lockCountdown > 0;
 
     // Manejar ingreso numérico desde teclado en pantalla
     const handleKeypadPress = (val) => {
-        if (isLocked || isSubmitting) return;
+        if (isLocked || isSubmitting || !isPinConfigured) return;
         setErrorMessage(null);
         if (val === 'backspace') {
             setPin(prev => prev.slice(0, -1));
@@ -71,12 +77,12 @@ export default function TreasuryPinGate({
         }
     };
 
-    // Envío automático al completar 4 dígitos (si no es configuración inicial)
+    // Envío automático al completar 4 dígitos (solo cuando el servidor confirmó que el PIN está configurado)
     useEffect(() => {
-        if (!isFirstTimeSetup && pin.length === 4 && !isLocked && !isSubmitting) {
+        if (isPinConfigured && pin.length === 4 && !isLocked && !isSubmitting) {
             handleVerifyPin(pin);
         }
-    }, [pin, isFirstTimeSetup, isLocked]);
+    }, [pin, isPinConfigured, isLocked]);
 
     const handleVerifyPin = async (pinToVerify = pin) => {
         if (!/^\d{4}$/.test(pinToVerify)) {
@@ -233,7 +239,11 @@ export default function TreasuryPinGate({
                         Tesorería Estratégica
                     </h2>
                     <p className="mt-2 text-xs leading-relaxed text-crm-fg-muted max-w-xs">
-                        {isFirstTimeSetup
+                        {isCheckingStatus
+                            ? 'Verificando acceso…'
+                            : hasStatusFetchError
+                            ? 'No se pudo verificar el estado de seguridad con el servidor.'
+                            : isFirstTimeSetup
                             ? 'Configurá tu PIN privado de 4 dígitos para proteger los saldos reales, cajas y conciliación de capital.'
                             : isLocked
                             ? 'Acceso bloqueado por intentos fallidos. Aguardá al vencimiento del temporizador o reautenticate con tu contraseña.'
@@ -249,8 +259,27 @@ export default function TreasuryPinGate({
                     </div>
                 )}
 
-                {/* Temporizador de Bloqueo */}
-                {isLocked ? (
+                {/* Estado de Carga ("Verificando acceso…") o Error de Conexión ("Reintentar") */}
+                {isCheckingStatus ? (
+                    <div className="mt-6 flex flex-col items-center justify-center rounded-2xl border border-crm-border bg-crm-bg/60 p-8 text-center">
+                        <div className="h-8 w-8 animate-spin rounded-full border-3 border-purple-500 border-t-transparent mb-3" />
+                        <span className="text-xs font-bold text-crm-fg-muted">Verificando acceso…</span>
+                    </div>
+                ) : hasStatusFetchError ? (
+                    <div className="mt-6 flex flex-col items-center rounded-2xl border border-red-500/30 bg-red-500/10 p-6 text-center">
+                        <AlertTriangle size={28} className="text-red-400 mb-2" />
+                        <span className="text-xs font-bold text-red-200">
+                            {statusError || 'Error de conexión al consultar el estado de acceso.'}
+                        </span>
+                        <button
+                            type="button"
+                            onClick={() => onRefreshStatus && onRefreshStatus()}
+                            className="mt-4 inline-flex items-center gap-2 rounded-xl bg-purple-600 px-5 py-2.5 text-xs font-black text-white hover:bg-purple-500 transition-colors"
+                        >
+                            <RotateCcw size={14} /> Reintentar
+                        </button>
+                    </div>
+                ) : isLocked ? (
                     <div className="mt-6 flex flex-col items-center rounded-2xl border border-amber-500/30 bg-amber-500/10 p-6 text-center">
                         <Timer size={28} className="text-amber-300 animate-pulse mb-2" />
                         <span className="text-[11px] font-bold uppercase tracking-wider text-amber-300">

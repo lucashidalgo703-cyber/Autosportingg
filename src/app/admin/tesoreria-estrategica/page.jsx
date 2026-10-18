@@ -140,8 +140,14 @@ export default function TesoreriaEstrategicaPage() {
 
     const [securityStatus, setSecurityStatus] = useState(null);
     const [loadingSecurity, setLoadingSecurity] = useState(true);
+    const [securityError, setSecurityError] = useState(null);
     const [dashboardData, setDashboardData] = useState(null);
     const [loadingData, setLoadingData] = useState(false);
+
+    // Recuperación segura de cobros posteriores al corte
+    const [recoveryPreview, setRecoveryPreview] = useState(null);
+    const [loadingRecovery, setLoadingRecovery] = useState(false);
+    const [applyingSuggestedId, setApplyingSuggestedId] = useState(null);
 
     // Temporizador de Sesión de 15 minutos
     const [sessionSecondsLeft, setSessionSecondsLeft] = useState(900);
@@ -170,15 +176,18 @@ export default function TesoreriaEstrategicaPage() {
         if (!token) return;
         try {
             setLoadingSecurity(true);
+            setSecurityError(null);
             const res = await fetch('/api/admin/tesoreria-estrategica/status', {
                 headers: { 'Authorization': `Bearer ${token}` }
             });
-            const json = await res.json();
-            if (json.ok) {
+            const json = await res.json().catch(() => ({}));
+            if (res.ok && json.ok && json.status) {
                 setSecurityStatus(json.status);
+            } else {
+                setSecurityError(json.message || 'No se pudo verificar el estado de acceso con el servidor.');
             }
         } catch {
-            // Silencioso
+            setSecurityError('Error de conexión al consultar el estado de seguridad.');
         } finally {
             setLoadingSecurity(false);
         }
@@ -243,7 +252,7 @@ export default function TesoreriaEstrategicaPage() {
         }
     }, [treasuryToken, loadDashboardData]);
 
-    // 3. Temporizador de 15 minutos en el cliente
+    // 3. Temporizador de 15 minutos e inactividad en el cliente
     useEffect(() => {
         if (!treasuryToken) return;
 
@@ -314,12 +323,95 @@ export default function TesoreriaEstrategicaPage() {
         }
     };
 
+    const handleApplySuggestedForIncome = async (inc) => {
+        if (!token || !treasuryToken || !inc?.id) return;
+        try {
+            setApplyingSuggestedId(inc.id);
+            const res = await fetch('/api/admin/tesoreria-estrategica/incomes/distribute', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`,
+                    'x-treasury-token': treasuryToken
+                },
+                body: JSON.stringify({
+                    transactionId: inc.id,
+                    useSuggested: true
+                })
+            });
+            const data = await res.json();
+            if (!res.ok || !data.ok) {
+                toast.error(data.message || 'No se pudo aplicar la distribución sugerida.');
+                return;
+            }
+            toast.success(data.message || 'Distribución sugerida aplicada al cobro.');
+            loadDashboardData();
+        } catch {
+            toast.error('Error de conexión al distribuir cobro.');
+        } finally {
+            setApplyingSuggestedId(null);
+        }
+    };
+
+    const handlePreviewRecoverableIncomes = async () => {
+        if (!token || !treasuryToken) return;
+        try {
+            setLoadingRecovery(true);
+            const res = await fetch('/api/admin/tesoreria-estrategica/recover-pending-incomes/preview', {
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'x-treasury-token': treasuryToken
+                }
+            });
+            const data = await res.json();
+            if (res.ok && data.ok) {
+                setRecoveryPreview(data);
+            } else {
+                toast.error(data.message || 'No se pudo consultar cobros recuperables.');
+            }
+        } catch {
+            toast.error('Error de conexión al revisar cobros.');
+        } finally {
+            setLoadingRecovery(false);
+        }
+    };
+
+    const handleExecuteRecoverIncomes = async () => {
+        if (!token || !treasuryToken) return;
+        try {
+            setLoadingRecovery(true);
+            const res = await fetch('/api/admin/tesoreria-estrategica/recover-pending-incomes', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`,
+                    'x-treasury-token': treasuryToken
+                },
+                body: JSON.stringify({})
+            });
+            const data = await res.json();
+            if (res.ok && data.ok) {
+                toast.success(data.message || 'Cobros recuperados en la bandeja.');
+                setRecoveryPreview(null);
+                loadDashboardData();
+            } else {
+                toast.error(data.message || 'Error al recuperar cobros.');
+            }
+        } catch {
+            toast.error('Error de red al recuperar cobros.');
+        } finally {
+            setLoadingRecovery(false);
+        }
+    };
+
     // Renderizar puerta de acceso por PIN si no está autenticado
     if (!treasuryToken) {
         return (
             <div className="mx-auto w-full max-w-7xl p-4 md:p-6 pb-24">
                 <TreasuryPinGate
                     securityStatus={securityStatus}
+                    isLoadingStatus={loadingSecurity}
+                    statusError={securityError}
                     onAuthorized={handleAuthorized}
                     onRefreshStatus={fetchSecurityStatus}
                 />
@@ -459,10 +551,23 @@ export default function TesoreriaEstrategicaPage() {
                             )}
                         </div>
                         <p className="text-crm-fg-muted max-w-3xl leading-relaxed">
-                            Total en cuentas: <strong className="text-white font-mono">{formatMoney(summary.totalCuentasARS, 'ARS')}</strong>
-                            {summary.totalCuentasUSD > 0 && <span> / <strong className="text-emerald-400 font-mono">{formatMoney(summary.totalCuentasUSD, 'USD')}</strong></span>}
-                            {' '}= Asignado a cajas: <strong className="text-purple-300 font-mono">{formatMoney(summary.totalCajasARS, 'ARS')}</strong> + Sin asignar: <strong className="text-crm-fg font-mono">{formatMoney(summary.unallocatedARS, 'ARS')}</strong>.
+                            Saldo en cuentas (ARS): <strong className="text-white font-mono">{formatMoney(summary.totalCuentasARS, 'ARS')}</strong>
+                            {' '}= Propios asignados: <strong className="text-purple-300 font-mono">{formatMoney(summary.propiosAsignadosARS ?? summary.totalCajasARS, 'ARS')}</strong>
+                            {' '}+ Propios sin asignar: <strong className="text-crm-fg font-mono">{formatMoney(summary.propiosSinAsignarARS ?? summary.unallocatedARS, 'ARS')}</strong>
+                            {(summary.retenidosTercerosARS || 0) > 0 && (
+                                <span>{' '}+ Retenidos para terceros: <strong className="text-amber-300 font-mono">{formatMoney(summary.retenidosTercerosARS, 'ARS')}</strong></span>
+                            )}.
                         </p>
+                        {(summary.totalCuentasUSD > 0 || summary.totalCajasUSD > 0 || (summary.retenidosTercerosUSD || 0) > 0) && (
+                            <p className="text-crm-fg-muted max-w-3xl leading-relaxed">
+                                Saldo en cuentas (USD): <strong className="text-emerald-400 font-mono">{formatMoney(summary.totalCuentasUSD, 'USD')}</strong>
+                                {' '}= Propios asignados: <strong className="text-purple-300 font-mono">{formatMoney(summary.propiosAsignadosUSD ?? summary.totalCajasUSD, 'USD')}</strong>
+                                {' '}+ Propios sin asignar: <strong className="text-crm-fg font-mono">{formatMoney(summary.propiosSinAsignarUSD ?? summary.unallocatedUSD, 'USD')}</strong>
+                                {(summary.retenidosTercerosUSD || 0) > 0 && (
+                                    <span>{' '}+ Retenidos para terceros: <strong className="text-amber-300 font-mono">{formatMoney(summary.retenidosTercerosUSD, 'USD')}</strong></span>
+                                )}.
+                            </p>
+                        )}
                         {!auditInfo.isReconciliationConfirmed && (
                             <div className="pt-1 flex flex-wrap items-center gap-2">
                                 <button
@@ -513,10 +618,10 @@ export default function TesoreriaEstrategicaPage() {
                         <button
                             type="button"
                             onClick={() => setIsSetupWizardOpen(true)}
-                            className="inline-flex items-center gap-1.5 rounded-xl border border-crm-border bg-crm-surface px-3.5 py-2 text-xs font-bold text-crm-fg hover:bg-crm-surface-raised transition-colors"
-                            title="Asistente de configuración guiada"
+                            className="inline-flex items-center gap-1.5 rounded-xl border border-purple-500/40 bg-crm-surface px-3.5 py-2 text-xs font-bold text-crm-fg hover:bg-crm-surface-raised transition-colors"
+                            title="Asistente de configuración de Tesorería"
                         >
-                            <Sparkles size={14} className="text-purple-300" /> Configuración Guiada
+                            <Sparkles size={14} className="text-purple-300" /> Configurar Tesorería
                         </button>
                     </div>
                 </div>
@@ -808,17 +913,72 @@ export default function TesoreriaEstrategicaPage() {
                         <div>
                             <h2 className="text-base font-black text-white">Bandeja de Cobros Reales Sin Distribuir</h2>
                             <p className="text-xs text-crm-fg-muted">
-                                Cobros reales ingresados en cuentas posteriores al corte. Distribuí los fondos propios a cada caja según sus prioridades y faltantes.
+                                Cobros reales ingresados en cuentas posteriores al corte. Distribuí los fondos propios a cada caja según sus prioridades y faltantes, sin crear un segundo ingreso.
                             </p>
                         </div>
-                        <button
-                            type="button"
-                            onClick={() => setIsCollectAndDistributeOpen(true)}
-                            className="inline-flex items-center gap-1.5 rounded-xl bg-purple-600 px-3.5 py-2 text-xs font-black text-white hover:bg-purple-500 transition-colors shadow-lg shadow-purple-600/20 shrink-0"
-                        >
-                            <ArrowDownRight size={14} /> Registrar Nuevo Cobro y Distribuir
-                        </button>
+                        <div className="flex flex-wrap items-center gap-2 shrink-0">
+                            <button
+                                type="button"
+                                disabled={loadingRecovery}
+                                onClick={handlePreviewRecoverableIncomes}
+                                className="inline-flex items-center gap-1.5 rounded-xl border border-crm-border bg-crm-surface px-3.5 py-2 text-xs font-bold text-crm-fg hover:bg-crm-surface-raised transition-colors"
+                            >
+                                <RefreshCw size={14} className={loadingRecovery ? 'animate-spin' : ''} />
+                                {loadingRecovery ? 'Revisando...' : 'Recuperar cobros posteriores al corte'}
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => setIsCollectAndDistributeOpen(true)}
+                                className="inline-flex items-center gap-1.5 rounded-xl bg-purple-600 px-3.5 py-2 text-xs font-black text-white hover:bg-purple-500 transition-colors shadow-lg shadow-purple-600/20"
+                            >
+                                <ArrowDownRight size={14} /> Registrar Nuevo Cobro y Distribuir
+                            </button>
+                        </div>
                     </div>
+
+                    {recoveryPreview && (
+                        <div className="rounded-2xl border border-purple-500/30 bg-purple-500/10 p-4 text-xs space-y-3">
+                            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                                <div>
+                                    <h4 className="font-black text-purple-200 text-sm">
+                                        Vista Previa de Recuperación Segura
+                                    </h4>
+                                    <p className="text-crm-fg-muted mt-0.5">
+                                        En bandeja actualmente: <strong className="text-white">{recoveryPreview.alreadyInInboxCount}</strong> · Cobros posteriores al corte recuperables: <strong className="text-emerald-400">{recoveryPreview.recoverableCount}</strong>.
+                                    </p>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                    {recoveryPreview.recoverableCount > 0 && (
+                                        <button
+                                            type="button"
+                                            disabled={loadingRecovery}
+                                            onClick={handleExecuteRecoverIncomes}
+                                            className="rounded-xl bg-emerald-600 px-3.5 py-2 text-xs font-black text-white hover:bg-emerald-500 transition-colors"
+                                        >
+                                            Confirmar recuperación ({recoveryPreview.recoverableCount})
+                                        </button>
+                                    )}
+                                    <button
+                                        type="button"
+                                        onClick={() => setRecoveryPreview(null)}
+                                        className="rounded-xl border border-crm-border bg-crm-surface px-3 py-2 text-xs font-bold text-crm-fg-muted hover:text-white"
+                                    >
+                                        Cerrar
+                                    </button>
+                                </div>
+                            </div>
+                            {recoveryPreview.recoverableItems?.length > 0 && (
+                                <div className="divide-y divide-crm-border/40 border-t border-crm-border/40 pt-2">
+                                    {recoveryPreview.recoverableItems.map(item => (
+                                        <div key={item._id} className="py-2 flex items-center justify-between">
+                                            <span>{item.description} ({new Date(item.date).toLocaleDateString('es-AR')})</span>
+                                            <span className="font-mono font-bold text-emerald-400">{formatMoney(item.propioAmount, item.currency)}</span>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
+                    )}
 
                     <div className="rounded-2xl border border-crm-border bg-crm-surface overflow-hidden">
                         <div className="p-4 border-b border-crm-border bg-crm-bg flex items-center justify-between">
@@ -853,7 +1013,7 @@ export default function TesoreriaEstrategicaPage() {
                                             )}
                                         </div>
 
-                                        <div className="flex items-center gap-4 shrink-0">
+                                        <div className="flex flex-wrap items-center gap-3 shrink-0">
                                             <div className="text-right">
                                                 <span className="text-[10px] uppercase font-bold text-crm-fg-muted block">Capital Propio</span>
                                                 <span className="font-mono text-base font-black text-emerald-400">
@@ -861,10 +1021,20 @@ export default function TesoreriaEstrategicaPage() {
                                                 </span>
                                                 {inc.tercerosAmount > 0 && (
                                                     <span className="text-[10px] text-crm-fg-muted block">
-                                                        (Terceros: {formatMoney(inc.tercerosAmount, inc.currency)})
+                                                        (Terceros retenidos: {formatMoney(inc.tercerosAmount, inc.currency)})
                                                     </span>
                                                 )}
                                             </div>
+
+                                            <button
+                                                type="button"
+                                                disabled={applyingSuggestedId === inc.id || inc.propioAmount <= 0}
+                                                onClick={() => handleApplySuggestedForIncome(inc)}
+                                                className="inline-flex items-center gap-1.5 rounded-xl border border-emerald-500/40 bg-emerald-500/15 px-3 py-2 text-xs font-bold text-emerald-300 hover:bg-emerald-500/25 transition-colors disabled:opacity-50"
+                                            >
+                                                <Sparkles size={13} />
+                                                {applyingSuggestedId === inc.id ? 'Aplicando...' : 'Aplicar distribución sugerida'}
+                                            </button>
 
                                             <button
                                                 type="button"
@@ -889,6 +1059,8 @@ export default function TesoreriaEstrategicaPage() {
                     summary={summary}
                     boxes={boxes}
                     verificationStatus={verification.status}
+                    treasuryToken={treasuryToken}
+                    dolarBlueRate={dolarBlueRate}
                 />
             )}
 

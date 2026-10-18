@@ -16,13 +16,14 @@ export async function boot() {
 
     const server = app.listen(0);
     const base = `http://127.0.0.1:${server.address().port}`;
-    const makeToken = (role = 'owner') => jwt.sign({ id: new mongoose.Types.ObjectId().toString(), username: `test_${role}`, role }, process.env.JWT_SECRET);
-    const token = makeToken('owner');
+    const ownerId = new mongoose.Types.ObjectId().toString();
+    const makeToken = (role = 'owner', customId = null) => jwt.sign({ id: customId || (role === 'owner' ? ownerId : new mongoose.Types.ObjectId().toString()), username: `test_${role}`, role }, process.env.JWT_SECRET);
+    const token = makeToken('owner', ownerId);
 
-    const call = async (method, path, body, tk = token) => {
+    const call = async (method, path, body, tk = token, extraHeaders = {}) => {
         const res = await fetch(base + path, {
             method,
-            headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${tk}` },
+            headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${tk}`, ...extraHeaders },
             body: body ? JSON.stringify(body) : undefined
         });
         const json = await res.json().catch(() => ({}));
@@ -41,5 +42,5 @@ export async function boot() {
         await mongod.stop();
         process.exit(process.exitCode || 0);
     };
-    return { call, test, finish, mongoose, makeToken };
+    return { call, test, finish, mongoose, makeToken, token, ownerId, base };
 }

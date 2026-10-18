@@ -23,6 +23,14 @@ const treasuryBoxSchema = new mongoose.Schema({
         type: Number,
         default: 0
     },
+    pendingCommitmentsARS: {
+        type: Number,
+        default: 0
+    },
+    pendingCommitmentsUSD: {
+        type: Number,
+        default: 0
+    },
     targetPercent: {
         type: Number,
         default: 0
@@ -32,6 +40,14 @@ const treasuryBoxSchema = new mongoose.Schema({
         default: 0
     },
     monthlyBudgetUSD: {
+        type: Number,
+        default: 0
+    },
+    monthlyTargetARS: {
+        type: Number,
+        default: 0
+    },
+    monthlyTargetUSD: {
         type: Number,
         default: 0
     },
@@ -59,7 +75,7 @@ const treasuryBoxSchema = new mongoose.Schema({
         date: { type: Date, default: Date.now },
         type: {
             type: String,
-            enum: ['asignacion_inicial', 'ajuste', 'transferencia_entre_cajas', 'retiro', 'ingreso', 'distribucion_cobro', 'asignacion']
+            enum: ['asignacion_inicial', 'ajuste', 'transferencia_entre_cajas', 'retiro', 'ingreso', 'distribucion_cobro', 'asignacion', 'egreso_finanzas', 'reversion_egreso']
         },
         amount: Number,
         currency: { type: String, enum: ['ARS', 'USD'] },
