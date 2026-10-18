@@ -1,4 +1,5 @@
 import { computeCommissionAmount, validateCommissionPercent, parseDecimal, roundMoney } from './src/utils/saleCommercial.js';
+import { buildTradeInChain, validateTradeInLink } from './src/services/tradeInChainService.js';
 import AnalyticsEvent from './src/models/AnalyticsEvent.js';
 import CustomerVehicle from './src/models/CustomerVehicle.js';
 import WorkshopProvider from './src/models/WorkshopProvider.js';
@@ -921,28 +922,147 @@ app.get('/api/public/cars/:id', async (req, res) => {
 app.post('/api/cars', authenticateToken, requirePermission(PERMISSIONS.STOCK_WRITE), upload.array('images', 20), async (req, res) => {
     try {
         await connectDB();
-        const carData = req.body;
+        const carData = { ...req.body };
         const user = req.user ? (req.user.username || req.user.email || req.user.role) : 'System';
 
         if (req.files && req.files.length > 0) {
             carData.images = req.files.map(file => file.path);
         }
 
-        // Convert scalar string values that should be boolean or number if needed
-        // Mongoose will cast them based on the schema, but just in case
+        const isTradeIn = carData.receivedAsTradeIn === true || carData.receivedAsTradeIn === 'true' || Boolean(carData.tradeInOriginSaleId);
+        let originSale = null;
+        let tradeInIndex = -1;
+        let takenValue = null;
+        let takenCurrency = null;
+
+        if (isTradeIn && carData.tradeInOriginSaleId) {
+            if (!mongoose.isValidObjectId(carData.tradeInOriginSaleId)) {
+                return res.status(400).json({ message: 'Seleccioná una venta de origen válida para el vehículo recibido en parte de pago.' });
+            }
+            originSale = await Sale.findById(carData.tradeInOriginSaleId).select('vehicleId status tradeIns saleCurrency').lean();
+            if (!originSale) {
+                return res.status(404).json({ message: 'La venta de origen seleccionada no existe.' });
+            }
+            if (originSale.status === 'cancelada') {
+                return res.status(409).json({ message: 'La venta de origen está anulada y no puede vincularse.' });
+            }
+            if (!originSale.vehicleId) {
+                return res.status(409).json({ message: 'La venta de origen no tiene un vehículo principal vinculado.' });
+            }
+            takenValue = parseDecimal(carData.tradeInOriginValue ?? carData.purchasePrice);
+            if (!Number.isFinite(takenValue) || takenValue < 0) {
+                return res.status(400).json({ message: 'Ingresá un valor de toma válido para el vehículo recibido en parte de pago.' });
+            }
+            takenCurrency = ['ARS', 'USD'].includes(carData.tradeInOriginCurrency)
+                ? carData.tradeInOriginCurrency
+                : (carData.purchaseCurrency === 'ARS' ? 'ARS' : 'USD');
+
+            if (carData.tradeInOriginItemId) {
+                tradeInIndex = (originSale.tradeIns || []).findIndex((t) => String(t._id) === String(carData.tradeInOriginItemId));
+                if (tradeInIndex < 0) {
+                    return res.status(404).json({ message: 'El ítem de permuta seleccionado no existe en la venta de origen.' });
+                }
+                if (originSale.tradeIns[tradeInIndex].linkedStockCarId) {
+                    return res.status(409).json({ message: 'Ese vehículo recibido ya está vinculado a otra unidad de stock.' });
+                }
+            }
+
+            carData.purchasePrice = roundMoney(takenValue);
+            carData.purchaseCurrency = takenCurrency;
+            carData.tradeInOrigin = {
+                saleId: originSale._id,
+                ...(carData.tradeInOriginItemId ? { tradeInId: carData.tradeInOriginItemId } : {}),
+                value: roundMoney(takenValue),
+                currency: takenCurrency,
+                linkedAt: new Date(),
+                linkedBy: user,
+                source: 'manual_link'
+            };
+        }
+
+        delete carData.receivedAsTradeIn;
+        delete carData.tradeInOriginSaleId;
+        delete carData.tradeInOriginItemId;
+        delete carData.tradeInOriginValue;
+        delete carData.tradeInOriginCurrency;
+
+        if (typeof carData.investor === 'string') {
+            try { carData.investor = JSON.parse(carData.investor); } catch (_) { delete carData.investor; }
+        }
 
         const newCar = new Car({
             ...carData,
             auditLog: [{
                 action: 'ALTA',
                 field: 'all',
-                details: `Vehículo creado manualmente desde CRM`,
+                details: originSale
+                    ? `Vehículo creado y vinculado como recibido en parte de pago de la venta ${originSale._id} (valor de toma ${roundMoney(takenValue)} ${takenCurrency})`
+                    : `Vehículo creado manualmente desde CRM`,
                 user,
                 source: 'CRM_V2'
             }]
         });
 
         const savedCar = await newCar.save();
+
+        if (originSale) {
+            const now = new Date();
+            if (tradeInIndex >= 0) {
+                await Sale.updateOne(
+                    { _id: originSale._id },
+                    {
+                        $set: {
+                            [`tradeIns.${tradeInIndex}.linkedStockCarId`]: savedCar._id,
+                            [`tradeIns.${tradeInIndex}.shouldEnterStock`]: true,
+                            [`tradeIns.${tradeInIndex}.enteredStockAt`]: now
+                        },
+                        $push: {
+                            saleAuditLog: {
+                                action: 'VEHICULO_RECIBIDO_VINCULADO',
+                                field: 'tradeIns',
+                                details: `Se dio de alta y vinculó el vehículo ${savedCar.brand} ${savedCar.name} (${savedCar._id}) como parte de pago (${roundMoney(takenValue)} ${takenCurrency}).`,
+                                user,
+                                source: 'CRM_V2',
+                                date: now
+                            }
+                        }
+                    },
+                    { runValidators: false }
+                );
+            } else {
+                const newTradeInEntry = {
+                    brand: savedCar.brand || 'S/D',
+                    model: savedCar.name || 'S/D',
+                    year: savedCar.year || new Date().getFullYear(),
+                    plate: savedCar.plateOrVin || '',
+                    mileage: savedCar.km || 0,
+                    estimatedValue: roundMoney(takenValue),
+                    currency: takenCurrency,
+                    shouldEnterStock: true,
+                    linkedStockCarId: savedCar._id,
+                    enteredStockAt: now,
+                    receivedAt: now,
+                    receivedBy: user
+                };
+                await Sale.updateOne(
+                    { _id: originSale._id },
+                    {
+                        $push: {
+                            tradeIns: newTradeInEntry,
+                            saleAuditLog: {
+                                action: 'VEHICULO_RECIBIDO_VINCULADO',
+                                field: 'tradeIns',
+                                details: `Se dio de alta y vinculó el vehículo ${savedCar.brand} ${savedCar.name} (${savedCar._id}) como parte de pago (${roundMoney(takenValue)} ${takenCurrency}).`,
+                                user,
+                                source: 'CRM_V2',
+                                date: now
+                            }
+                        }
+                    },
+                    { runValidators: false }
+                );
+            }
+        }
 
         await logAudit({
             req,
@@ -951,7 +1071,9 @@ app.post('/api/cars', authenticateToken, requirePermission(PERMISSIONS.STOCK_WRI
             entityType: 'Car',
             entityId: savedCar._id,
             entityLabel: `${savedCar.brand} ${savedCar.name}`,
-            description: `Se dio de alta un nuevo vehículo en stock.`
+            description: originSale
+                ? `Se dio de alta un vehículo recibido en parte de pago (venta ${originSale._id}).`
+                : `Se dio de alta un nuevo vehículo en stock.`
         });
 
         res.status(201).json(savedCar);
@@ -4751,6 +4873,15 @@ app.post('/api/admin/sales/:id/trade-ins/:tradeInIndex/create-stock-car', authen
 
         // Crear nuevo Car en stock usando mapper seguro
         carPayload = buildCarFromTradeIn({ sale, tradeIn, tradeInIndex: index });
+        carPayload.tradeInOrigin = {
+            saleId: sale._id,
+            tradeInId: tradeIn._id,
+            value: Number(tradeIn.estimatedValue) || 0,
+            currency: tradeIn.currency === 'USD' ? 'USD' : 'ARS',
+            linkedAt: new Date(),
+            linkedBy: user,
+            source: 'sale_flow'
+        };
         const newCar = new Car(carPayload);
         const savedCar = await newCar.save();
 
@@ -5502,6 +5633,120 @@ app.post('/api/admin/sales/:id/installment-plan/cancel', authenticateToken, requ
     } catch (error) {
         console.error('cancel installment plan error:', error);
         res.status(500).json({ message: 'No se pudo cancelar el plan de cuotas.' });
+    }
+});
+
+// --- CADENAS DE PERMUTAS (vehículos recibidos en parte de pago) ---
+app.post('/api/admin/cars/:id/link-trade-in', authenticateToken, requirePermission(PERMISSIONS.VENTAS_WRITE), async (req, res) => {
+    try {
+        await connectDB();
+        const { saleId, tradeInId, value, currency, confirm } = req.body || {};
+        if (confirm !== true) return res.status(400).json({ message: 'Confirmá el vínculo para continuar.' });
+        const takenValue = parseDecimal(value);
+        if (!Number.isFinite(takenValue) || takenValue < 0) {
+            return res.status(400).json({ message: 'Ingresá el valor de toma acordado del vehículo.' });
+        }
+        if (!['ARS', 'USD'].includes(currency)) return res.status(400).json({ message: 'Indicá la moneda del valor de toma.' });
+        if (!mongoose.isValidObjectId(saleId)) return res.status(400).json({ message: 'Seleccioná la venta de origen.' });
+
+        const check = await validateTradeInLink({ carId: req.params.id, saleId });
+        if (!check.ok) return res.status(409).json({ message: check.message, code: check.code });
+
+        const sale = await Sale.findById(saleId).select('tradeIns').lean();
+        let tradeInIndex = -1;
+        if (tradeInId) {
+            tradeInIndex = (sale.tradeIns || []).findIndex((t) => String(t._id) === String(tradeInId));
+            if (tradeInIndex < 0) return res.status(404).json({ message: 'El vehículo recibido indicado no existe en esa venta.' });
+            const linked = sale.tradeIns[tradeInIndex].linkedStockCarId;
+            if (linked && String(linked) !== String(req.params.id)) {
+                return res.status(409).json({ message: 'Ese vehículo recibido ya está vinculado a otro vehículo de stock.', code: 'TRADE_IN_ALREADY_LINKED' });
+            }
+        }
+
+        const user = req.user?.username || 'Admin';
+        const now = new Date();
+        // Atómico: solo vincula si el vehículo todavía no tiene origen (evita duplicados por carrera)
+        const upd = await Car.updateOne(
+            { _id: req.params.id, 'tradeInOrigin.saleId': { $exists: false } },
+            {
+                $set: {
+                    tradeInOrigin: {
+                        saleId, ...(tradeInId ? { tradeInId } : {}), value: roundMoney(takenValue), currency,
+                        linkedAt: now, linkedBy: user, source: 'manual_link'
+                    }
+                },
+                $push: { auditLog: { action: 'EDICION', field: 'tradeInOrigin', details: `Vinculado como recibido en parte de pago de la venta ${saleId} (valor de toma ${roundMoney(takenValue)} ${currency}).`, user, source: 'CRM_V2' } }
+            }
+        );
+        if (upd.modifiedCount !== 1) return res.status(409).json({ message: 'El vehículo ya está vinculado.', code: 'ALREADY_LINKED' });
+
+        const saleUpdate = {
+            $push: { saleAuditLog: { action: 'VEHICULO_RECIBIDO_VINCULADO', field: 'tradeIns', details: `Se vinculó el vehículo ${req.params.id} como recibido en parte de pago (valor de toma ${roundMoney(takenValue)} ${currency}).`, user, source: 'CRM_V2', date: now } }
+        };
+        if (tradeInIndex >= 0) {
+            saleUpdate.$set = { [`tradeIns.${tradeInIndex}.linkedStockCarId`]: req.params.id, [`tradeIns.${tradeInIndex}.enteredStockAt`]: now };
+        }
+        await Sale.updateOne({ _id: saleId }, saleUpdate, { runValidators: false });
+        res.json(await buildTradeInChain({ carId: req.params.id }));
+    } catch (error) {
+        console.error('link-trade-in error:', error);
+        res.status(500).json({ message: 'No se pudo vincular el vehículo.' });
+    }
+});
+
+app.post('/api/admin/cars/:id/unlink-trade-in', authenticateToken, requirePermission(PERMISSIONS.VENTAS_WRITE), async (req, res) => {
+    try {
+        await connectDB();
+        const { confirm, reason } = req.body || {};
+        if (confirm !== true || typeof reason !== 'string' || reason.trim().length < 5) {
+            return res.status(400).json({ message: 'Confirmá y explicá el motivo (mínimo 5 caracteres) para desvincular.' });
+        }
+        const car = await Car.findById(req.params.id).select('tradeInOrigin').lean();
+        if (!car?.tradeInOrigin?.saleId) return res.status(409).json({ message: 'El vehículo no está vinculado a una venta de origen.' });
+        const user = req.user?.username || 'Admin';
+        const originSaleId = car.tradeInOrigin.saleId;
+        await Car.updateOne({ _id: req.params.id }, {
+            $unset: { tradeInOrigin: '' },
+            $push: { auditLog: { action: 'EDICION', field: 'tradeInOrigin', details: `Vínculo de permuta quitado. Motivo: ${reason.trim()}`, user, source: 'CRM_V2' } }
+        });
+        await Sale.updateOne(
+            { _id: originSaleId, 'tradeIns.linkedStockCarId': req.params.id },
+            {
+                $unset: { 'tradeIns.$.linkedStockCarId': '' },
+                $push: { saleAuditLog: { action: 'VEHICULO_RECIBIDO_DESVINCULADO', field: 'tradeIns', details: `Se quitó el vínculo con el vehículo ${req.params.id}. Motivo: ${reason.trim()}`, user, source: 'CRM_V2', date: new Date() } }
+            },
+            { runValidators: false }
+        );
+        res.json({ ok: true });
+    } catch (error) {
+        console.error('unlink-trade-in error:', error);
+        res.status(500).json({ message: 'No se pudo desvincular el vehículo.' });
+    }
+});
+
+app.get('/api/admin/cars/:id/trade-in-chain', authenticateToken, requirePermission(PERMISSIONS.VENTAS_READ), async (req, res) => {
+    try {
+        await connectDB();
+        if (!mongoose.isValidObjectId(req.params.id)) return res.status(400).json({ message: 'Id inválido.' });
+        const exchangeRate = req.query.exchangeRate ? parseDecimal(req.query.exchangeRate) : null;
+        res.json(await buildTradeInChain({ carId: req.params.id, exchangeRate }));
+    } catch (error) {
+        console.error('trade-in-chain error:', error);
+        res.status(500).json({ message: 'No se pudo calcular el historial de permutas.' });
+    }
+});
+
+app.get('/api/admin/sales/:id/trade-in-chain', authenticateToken, requirePermission(PERMISSIONS.VENTAS_READ), async (req, res) => {
+    try {
+        await connectDB();
+        const sale = await Sale.findById(req.params.id).select('vehicleId').lean();
+        if (!sale) return res.status(404).json({ message: 'Venta no encontrada' });
+        if (!sale.vehicleId) return res.json({ nodes: [], totals: {}, notes: {} });
+        const exchangeRate = req.query.exchangeRate ? parseDecimal(req.query.exchangeRate) : null;
+        res.json(await buildTradeInChain({ carId: sale.vehicleId, exchangeRate }));
+    } catch (error) {
+        console.error('sale trade-in-chain error:', error);
+        res.status(500).json({ message: 'No se pudo calcular el historial de permutas.' });
     }
 });
 

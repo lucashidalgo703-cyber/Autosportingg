@@ -51,6 +51,17 @@ const carSchema = new mongoose.Schema({
     mlLink: { type: String },
     notes: { type: String },
 
+    // Recibido en parte de pago: venta de origen y valor de toma acordado (opcional; ausente = compra normal)
+    tradeInOrigin: {
+        saleId: { type: mongoose.Schema.Types.ObjectId, ref: 'Sale' },
+        tradeInId: { type: mongoose.Schema.Types.ObjectId },
+        value: { type: Number, min: 0 },
+        currency: { type: String, enum: ['ARS', 'USD'] },
+        linkedAt: { type: Date },
+        linkedBy: { type: String },
+        source: { type: String, enum: ['sale_flow', 'manual_link'] }
+    },
+
     documentation: {
         tituloAutomotor: { type: String, enum: ['recibido', 'pendiente', 'no aplica'], default: 'pendiente' },
         cedulaVerde: { type: String, enum: ['recibido', 'pendiente', 'no aplica'], default: 'pendiente' },

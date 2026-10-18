@@ -22,6 +22,7 @@ import ReservationCancelModal from '../../../../components/crm/reservations/Rese
 import InputModal from '../../../../components/crm/ui/InputModal';
 import { useAdminReservations } from '../../../../hooks/useAdminReservations';
 import VehicleFlyerPdf from '../../../../components/crm/stock/VehicleFlyerPdf';
+import TradeInChainPanel from '../../../../components/crm/stock/TradeInChainPanel';
 
 export default function VehicleDetailPage() {
     const params = useParams();
@@ -202,6 +203,7 @@ export default function VehicleDetailPage() {
                         {/* Columna Principal (2/3) */}
                         <div className="lg:col-span-2 flex flex-col gap-6">
                             <VehicleFinancialSummary vehicle={vehicle} onEdit={() => setIsEditOpen(true)} />
+                            <TradeInChainPanel carId={vehicle.id} onUpdated={fetchCar} />
                             <VehicleImagesPanel vehicle={vehicle} onSaveComplete={fetchCar} />
                             <VehicleInfoPanel vehicle={vehicle} onEdit={() => setIsEditOpen(true)} />
                             <VehicleHistoryTimeline vehicle={vehicle} />

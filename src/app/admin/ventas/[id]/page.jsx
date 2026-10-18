@@ -15,6 +15,7 @@ import SaleFinancePanel from '../../../../components/crm/sales/detail/SaleFinanc
 import SaleInstallmentsPanel from '../../../../components/crm/sales/detail/SaleInstallmentsPanel';
 
 import SalePostventaPanel from '../../../../components/crm/sales/detail/SalePostventaPanel';
+import TradeInChainPanel from '../../../../components/crm/stock/TradeInChainPanel';
 import CommunicationLogPanel from '../../../../components/crm/communications/CommunicationLogPanel';
 import MessageTemplatePicker from '../../../../components/crm/templates/MessageTemplatePicker';
 import CrmTaskModal from '../../../../components/crm/agenda/CrmTaskModal';
@@ -259,6 +260,15 @@ export default function SaleDetailPage() {
                     </div>
                 </div>
 
+            </div>
+
+            {/* Historial de permutas y rentabilidad acumulada (Ancho completo) */}
+            <div className="mt-6">
+                <TradeInChainPanel
+                    saleId={sale._id}
+                    carId={sale.vehicleId?._id || sale.vehicleId || null}
+                    onUpdated={loadSale}
+                />
             </div>
 
             {/* Panel de Comunicaciones (Ancho completo) */}

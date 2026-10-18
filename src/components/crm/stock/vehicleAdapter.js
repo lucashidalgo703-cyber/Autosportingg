@@ -48,6 +48,7 @@ export const mapRealCarToCRM = (car) => {
         fotos: car.images || [],
         documentation: car.documentation || {},
         documentationFiles: car.documentationFiles || {},
+        tradeInOrigin: car.tradeInOrigin || null,
         auditLog: car.auditLog || [], // Nuevo campo de auditoría
         _original: car // Mantenemos el original para enviar al PATCH sin perder campos
     };

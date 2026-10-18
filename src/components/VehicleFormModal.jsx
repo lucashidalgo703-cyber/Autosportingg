@@ -32,6 +32,9 @@ export default function VehicleFormModal({ isOpen, onClose, onSave, editingCar }
     const [files, setFiles] = useState([]);
     const [draggedIndex, setDraggedIndex] = useState(null);
 
+    const [availableSales, setAvailableSales] = useState([]);
+    const [loadingSales, setLoadingSales] = useState(false);
+
     const [formData, setFormData] = useState({
         brand: '', name: '', year: '', km: '', fuel: 'Nafta', condition: 'Muy bueno',
         description: '', price: '', currency: 'USD', featured: false, sold: false, status: 'Disponible',
@@ -40,7 +43,9 @@ export default function VehicleFormModal({ isOpen, onClose, onSave, editingCar }
         ownerPhone: '', ownerEmail: '', consignedBy: '', engineNumber: '', chassisNumber: '',
         hasManuals: 'No', hasDuplicateKeys: 'No', hasOfficialServices: 'No', publishedOnML: 'No',
         publishedBy: '', mlLink: '', notes: '', visibleEnWeb: true,
-        isSharedInvestment: false, investorName: '', investorPercentage: 50
+        isSharedInvestment: false, investorName: '', investorPercentage: 50,
+        receivedAsTradeIn: false, tradeInOriginSaleId: '', tradeInOriginItemId: '',
+        tradeInOriginValue: '', tradeInOriginCurrency: 'ARS'
     });
 
     useEffect(() => {
@@ -62,7 +67,12 @@ export default function VehicleFormModal({ isOpen, onClose, onSave, editingCar }
                     visibleEnWeb: editingCar.visibleEnWeb !== undefined ? editingCar.visibleEnWeb : true,
                     isSharedInvestment: !!(editingCar.investor && editingCar.investor.percentage > 0),
                     investorName: editingCar.investor?.name || '',
-                    investorPercentage: editingCar.investor?.percentage || 50
+                    investorPercentage: editingCar.investor?.percentage || 50,
+                    receivedAsTradeIn: Boolean(editingCar.tradeInOrigin?.saleId),
+                    tradeInOriginSaleId: editingCar.tradeInOrigin?.saleId || '',
+                    tradeInOriginItemId: editingCar.tradeInOrigin?.tradeInId || '',
+                    tradeInOriginValue: editingCar.tradeInOrigin?.value ?? '',
+                    tradeInOriginCurrency: editingCar.tradeInOrigin?.currency || editingCar.purchaseCurrency || 'ARS'
                 });
                 
                 // Load existing images if editing
@@ -85,21 +95,89 @@ export default function VehicleFormModal({ isOpen, onClose, onSave, editingCar }
                     ownerPhone: '', ownerEmail: '', consignedBy: '', engineNumber: '', chassisNumber: '',
                     hasManuals: 'No', hasDuplicateKeys: 'No', hasOfficialServices: 'No', publishedOnML: 'No',
                     publishedBy: '', mlLink: '', notes: '', visibleEnWeb: true,
-                    isSharedInvestment: false, investorName: '', investorPercentage: 50
+                    isSharedInvestment: false, investorName: '', investorPercentage: 50,
+                    receivedAsTradeIn: false, tradeInOriginSaleId: '', tradeInOriginItemId: '',
+                    tradeInOriginValue: '', tradeInOriginCurrency: 'ARS'
                 });
                 setFiles([]);
             }
         }
     }, [isOpen, editingCar]);
 
+    useEffect(() => {
+        if (isOpen && formData.receivedAsTradeIn && availableSales.length === 0 && !loadingSales) {
+            setLoadingSales(true);
+            const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
+            const API_URL = process.env.NEXT_PUBLIC_API_URL;
+            const baseUrl = process.env.NODE_ENV === 'production' ? '' : (API_URL || 'http://localhost:3001');
+            fetch(`${baseUrl}/api/admin/sales`, {
+                headers: token ? { Authorization: `Bearer ${token}` } : {}
+            })
+                .then(res => res.ok ? res.json() : [])
+                .then(data => {
+                    const list = Array.isArray(data) ? data : (data.sales || []);
+                    setAvailableSales(list.filter(s => s.status !== 'cancelada' && s.vehicleId));
+                })
+                .catch(() => setAvailableSales([]))
+                .finally(() => setLoadingSales(false));
+        }
+    }, [isOpen, formData.receivedAsTradeIn, availableSales.length, loadingSales]);
+
     if (!isOpen) return null;
 
     const handleChange = (e) => {
         const { name, value, type, checked } = e.target;
-        setFormData(prev => ({
-            ...prev,
-            [name]: type === 'checkbox' ? checked : value
-        }));
+        setFormData(prev => {
+            const next = {
+                ...prev,
+                [name]: type === 'checkbox' ? checked : value
+            };
+            if (name === 'receivedAsTradeIn' && checked) {
+                next.agencyOwned = true;
+            }
+            if (name === 'tradeInOriginSaleId') {
+                next.tradeInOriginItemId = '';
+                const sale = availableSales.find(s => String(s._id) === String(value));
+                if (sale) {
+                    const unlinked = (sale.tradeIns || []).filter(t => !t.linkedStockCarId);
+                    if (unlinked.length === 1) {
+                        const t = unlinked[0];
+                        next.tradeInOriginItemId = t._id || '';
+                        next.tradeInOriginValue = t.estimatedValue ?? next.tradeInOriginValue;
+                        next.tradeInOriginCurrency = t.currency === 'USD' ? 'USD' : 'ARS';
+                        next.purchasePrice = t.estimatedValue ?? next.purchasePrice;
+                        next.purchaseCurrency = next.tradeInOriginCurrency;
+                        if (!next.brand && t.brand) next.brand = t.brand;
+                        if (!next.name && t.model) next.name = `${t.model}${t.version ? ' ' + t.version : ''}`;
+                        if (!next.year && t.year) next.year = t.year;
+                        if (!next.plateOrVin && t.plate) next.plateOrVin = t.plate;
+                        if (!next.km && t.mileage) next.km = t.mileage;
+                    }
+                }
+            }
+            if (name === 'tradeInOriginItemId' && value) {
+                const sale = availableSales.find(s => String(s._id) === String(prev.tradeInOriginSaleId));
+                const t = (sale?.tradeIns || []).find(item => String(item._id) === String(value));
+                if (t) {
+                    next.tradeInOriginValue = t.estimatedValue ?? next.tradeInOriginValue;
+                    next.tradeInOriginCurrency = t.currency === 'USD' ? 'USD' : 'ARS';
+                    next.purchasePrice = t.estimatedValue ?? next.purchasePrice;
+                    next.purchaseCurrency = next.tradeInOriginCurrency;
+                    if (!next.brand && t.brand) next.brand = t.brand;
+                    if (!next.name && t.model) next.name = `${t.model}${t.version ? ' ' + t.version : ''}`;
+                    if (!next.year && t.year) next.year = t.year;
+                    if (!next.plateOrVin && t.plate) next.plateOrVin = t.plate;
+                    if (!next.km && t.mileage) next.km = t.mileage;
+                }
+            }
+            if (name === 'tradeInOriginValue' && prev.receivedAsTradeIn) {
+                next.purchasePrice = value;
+            }
+            if (name === 'tradeInOriginCurrency' && prev.receivedAsTradeIn) {
+                next.purchaseCurrency = value;
+            }
+            return next;
+        });
     };
 
     const handleDragStart = (index) => setDraggedIndex(index);
@@ -154,19 +232,37 @@ export default function VehicleFormModal({ isOpen, onClose, onSave, editingCar }
     const handleSubmit = (e) => {
         e.preventDefault();
         
+        if (formData.receivedAsTradeIn) {
+            if (!formData.tradeInOriginSaleId) {
+                toast.error('Seleccioná la venta de origen para el vehículo recibido en parte de pago.');
+                return;
+            }
+            if (formData.tradeInOriginValue === '' || Number(formData.tradeInOriginValue) < 0) {
+                toast.error('Ingresá el valor de toma acordado del vehículo.');
+                return;
+            }
+        }
+
         const dataToSave = { ...formData };
         if (dataToSave.isSharedInvestment) {
-            dataToSave.investor = {
+            dataToSave.investor = JSON.stringify({
                 name: dataToSave.investorName,
                 percentage: Number(dataToSave.investorPercentage)
-            };
+            });
         } else {
-            // Eliminar si no está compartido
-            dataToSave.investor = { name: '', percentage: 0 };
+            dataToSave.investor = JSON.stringify({ name: '', percentage: 0 });
         }
         delete dataToSave.isSharedInvestment;
         delete dataToSave.investorName;
         delete dataToSave.investorPercentage;
+
+        if (!dataToSave.receivedAsTradeIn) {
+            delete dataToSave.receivedAsTradeIn;
+            delete dataToSave.tradeInOriginSaleId;
+            delete dataToSave.tradeInOriginItemId;
+            delete dataToSave.tradeInOriginValue;
+            delete dataToSave.tradeInOriginCurrency;
+        }
 
         onSave(dataToSave, files);
     };
@@ -244,7 +340,7 @@ export default function VehicleFormModal({ isOpen, onClose, onSave, editingCar }
                         {/* 3. PROPIETARIO */}
                         <section>
                             <div className="flex items-center gap-2 mb-4 border-b border-crm-border pb-2 mt-6">
-                                <span className="text-xs font-bold text-white uppercase tracking-widest">3. Propietario</span>
+                                <span className="text-xs font-bold text-white uppercase tracking-widest">3. Propietario y Origen</span>
                             </div>
                             
                             <div className="bg-crm-surface border border-crm-border rounded-xl p-4 mb-4 flex flex-col gap-4">
@@ -255,6 +351,92 @@ export default function VehicleFormModal({ isOpen, onClose, onSave, editingCar }
                                         <span className="text-[10px] text-gray-500">El auto es de la agencia, no consignado por un tercero.</span>
                                     </div>
                                 </label>
+
+                                {!editingCar && (
+                                    <div className="border-t border-crm-border pt-3">
+                                        <label className="flex items-center gap-3 cursor-pointer">
+                                            <input type="checkbox" name="receivedAsTradeIn" checked={formData.receivedAsTradeIn} onChange={handleChange} className="w-4 h-4 rounded border-gray-600 text-purple-500 focus:ring-purple-500 bg-crm-surface-raised" />
+                                            <div>
+                                                <span className="text-xs font-bold text-white block">Recibido en parte de pago</span>
+                                                <span className="text-[10px] text-gray-500">Vincular esta unidad a la venta de origen y registrar su valor de toma acordado.</span>
+                                            </div>
+                                        </label>
+
+                                        {formData.receivedAsTradeIn && (
+                                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-3 p-3 bg-purple-500/10 border border-purple-500/20 rounded-lg">
+                                                <div className="md:col-span-2">
+                                                    <InputLabel required>Venta de origen</InputLabel>
+                                                    <select
+                                                        name="tradeInOriginSaleId"
+                                                        value={formData.tradeInOriginSaleId}
+                                                        onChange={handleChange}
+                                                        required={formData.receivedAsTradeIn}
+                                                        className="w-full bg-crm-surface border border-crm-border rounded-md px-3 py-2 text-xs text-white focus:border-purple-500 focus:outline-none"
+                                                    >
+                                                        <option value="">{loadingSales ? 'Cargando ventas...' : '— Seleccionar venta de origen —'}</option>
+                                                        {availableSales.map(s => {
+                                                            const veh = s.vehicleId ? `${s.vehicleId.brand || ''} ${s.vehicleId.name || ''}`.trim() : 'Sin vehículo';
+                                                            const cli = s.clientId?.fullName || s.buyerName || 'Sin cliente';
+                                                            const dt = s.saleDate ? new Date(s.saleDate).toLocaleDateString('es-AR') : '';
+                                                            return (
+                                                                <option key={s._id} value={s._id}>
+                                                                    {veh} — {cli} ({dt}) [{s.saleCurrency} {(Number(s.salePrice) || 0).toLocaleString('es-AR')}]
+                                                                </option>
+                                                            );
+                                                        })}
+                                                    </select>
+                                                </div>
+
+                                                {(() => {
+                                                    const selSale = availableSales.find(s => String(s._id) === String(formData.tradeInOriginSaleId));
+                                                    const unlinkedItems = (selSale?.tradeIns || []).filter(t => !t.linkedStockCarId);
+                                                    if (unlinkedItems.length === 0) return null;
+                                                    return (
+                                                        <div className="md:col-span-2">
+                                                            <InputLabel>Permuta declarada en la venta (opcional)</InputLabel>
+                                                            <select
+                                                                name="tradeInOriginItemId"
+                                                                value={formData.tradeInOriginItemId}
+                                                                onChange={handleChange}
+                                                                className="w-full bg-crm-surface border border-crm-border rounded-md px-3 py-2 text-xs text-white focus:border-purple-500 focus:outline-none"
+                                                            >
+                                                                <option value="">— Nueva permuta o vincular manualmente —</option>
+                                                                {unlinkedItems.map(item => (
+                                                                    <option key={item._id} value={item._id}>
+                                                                        {item.brand} {item.model} ({item.year}) — Toma: {item.currency || 'ARS'} {(Number(item.estimatedValue) || 0).toLocaleString('es-AR')}
+                                                                    </option>
+                                                                ))}
+                                                            </select>
+                                                        </div>
+                                                    );
+                                                })()}
+
+                                                <div>
+                                                    <InputLabel required>Valor de toma acordado</InputLabel>
+                                                    <TextInput
+                                                        name="tradeInOriginValue"
+                                                        type="number"
+                                                        value={formData.tradeInOriginValue}
+                                                        onChange={handleChange}
+                                                        placeholder="Ej: 10000000"
+                                                        required={formData.receivedAsTradeIn}
+                                                    />
+                                                    <p className="text-[10px] text-purple-300 mt-1">Se usará como costo inicial del vehículo recibido.</p>
+                                                </div>
+                                                <div>
+                                                    <InputLabel required>Moneda del valor de toma</InputLabel>
+                                                    <SelectInput
+                                                        name="tradeInOriginCurrency"
+                                                        value={formData.tradeInOriginCurrency}
+                                                        onChange={handleChange}
+                                                        options={['ARS', 'USD']}
+                                                    />
+                                                </div>
+                                            </div>
+                                        )}
+                                    </div>
+                                )}
+
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                     <div><InputLabel>Nombre / Razón Social</InputLabel><TextInput name="ownerName" value={formData.ownerName} onChange={handleChange} /></div>
                                     <div><InputLabel>Teléfono</InputLabel><TextInput name="ownerPhone" value={formData.ownerPhone} onChange={handleChange} /></div>
