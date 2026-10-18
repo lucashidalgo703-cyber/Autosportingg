@@ -35,6 +35,70 @@ function writeNamespaceBundle(userId, bundle, customStorage) {
     return true;
 }
 
+async function convertImageToDataUrl(imageUrl, fetcher) {
+    if (!imageUrl || typeof imageUrl !== 'string') return imageUrl;
+    if (imageUrl.startsWith('data:image/')) return imageUrl;
+    if (typeof window === 'undefined' || typeof FileReader === 'undefined') return imageUrl;
+
+    try {
+        const res = await fetcher(imageUrl, { method: 'GET' });
+        if (!res || !res.ok) return imageUrl;
+        const blob = await res.blob();
+        if (!blob || blob.size === 0 || blob.size > 2 * 1024 * 1024) return imageUrl;
+        return await new Promise((resolve) => {
+            const reader = new FileReader();
+            reader.onloadend = () => resolve(typeof reader.result === 'string' ? reader.result : imageUrl);
+            reader.onerror = () => resolve(imageUrl);
+            reader.readAsDataURL(blob);
+        });
+    } catch {
+        return imageUrl;
+    }
+}
+
+async function warmOfflineShellCache(token) {
+    if (typeof window === 'undefined') return;
+    try {
+        if ('serviceWorker' in navigator) {
+            await navigator.serviceWorker.register('/sw.js', { scope: '/' }).catch(() => {});
+        }
+        if ('caches' in window) {
+            const cache = await window.caches.open('autosporting-offline-shell-v1');
+            const origin = window.location.origin;
+            const urlsToCache = new Set([
+                window.location.href,
+                origin + window.location.pathname,
+                origin + '/admin/stock',
+                origin + '/admin/dashboard',
+                origin + '/admin/clientes',
+                origin + '/admin/ventas'
+            ]);
+
+            if (typeof document !== 'undefined') {
+                document.querySelectorAll('script[src], link[rel="stylesheet"][href]').forEach((el) => {
+                    const src = el.src || el.href;
+                    if (src && src.startsWith(origin)) {
+                        urlsToCache.add(src);
+                    }
+                });
+            }
+
+            await Promise.all(
+                Array.from(urlsToCache).map(async (u) => {
+                    try {
+                        const resp = await fetch(u, {
+                            headers: token ? { Authorization: `Bearer ${token}` } : {}
+                        });
+                        if (resp && resp.status === 200) {
+                            await cache.put(u, resp.clone());
+                        }
+                    } catch (_) {}
+                })
+            );
+        }
+    } catch (_) {}
+}
+
 /**
  * Descarga y guarda en almacenamiento local aislado por usuario los datos autorizados para uso sin conexión.
  * Opcionalmente descarga miniaturas/fotos principales comprimidas.
@@ -67,8 +131,28 @@ export async function prepareDeviceForOffline({
         throw new Error(payload?.message || 'Error al preparar los datos para uso sin conexión.');
     }
 
+    let vehicles = Array.isArray(payload.data?.vehicles) ? payload.data.vehicles : [];
+
+    if (includePhotos && typeof window !== 'undefined' && vehicles.length > 0) {
+        if (typeof onProgress === 'function') {
+            onProgress({ step: 'caching_photos', percent: 50, label: 'Guardando fotos principales para visualización sin conexión…' });
+        }
+        vehicles = await Promise.all(
+            vehicles.map(async (v) => {
+                const rawImg = v.coverImage || (Array.isArray(v.images) && v.images[0]) || null;
+                if (!rawImg) return v;
+                const dataUrl = await convertImageToDataUrl(rawImg, fetcher);
+                return {
+                    ...v,
+                    coverImage: dataUrl,
+                    images: [dataUrl]
+                };
+            })
+        );
+    }
+
     if (typeof onProgress === 'function') {
-        onProgress({ step: 'saving_records', percent: 70, label: 'Guardando fichas y resúmenes en el dispositivo…' });
+        onProgress({ step: 'saving_records', percent: 75, label: 'Guardando fichas y resúmenes en el dispositivo…' });
     }
 
     const existing = readNamespaceBundle(userId, customStorage) || {};
@@ -85,7 +169,7 @@ export async function prepareDeviceForOffline({
         treasuryStrategicExcluded: true,
         summary: payload.summary || {},
         data: {
-            vehicles: Array.isArray(payload.data?.vehicles) ? payload.data.vehicles : [],
+            vehicles,
             clients: Array.isArray(payload.data?.clients) ? payload.data.clients : [],
             sales: Array.isArray(payload.data?.sales) ? payload.data.sales : [],
             installments: Array.isArray(payload.data?.installments) ? payload.data.installments : [],
@@ -97,6 +181,8 @@ export async function prepareDeviceForOffline({
     };
 
     writeNamespaceBundle(userId, bundle, customStorage);
+
+    await warmOfflineShellCache(token);
 
     if (typeof onProgress === 'function') {
         onProgress({ step: 'completed', percent: 100, label: 'Dispositivo listo para trabajar sin conexión.' });
@@ -111,6 +197,37 @@ export async function prepareDeviceForOffline({
 export function getOfflineSnapshot(userId, customStorage) {
     if (!userId) return null;
     return readNamespaceBundle(userId, customStorage);
+}
+
+/**
+ * Obtiene el snapshot offline del usuario autenticado actual leyendo el JWT de localStorage.
+ */
+export function getActiveOfflineSnapshot(customStorage) {
+    const storage = getStorage(customStorage);
+    if (!storage) return null;
+    try {
+        const token = storage.getItem('token');
+        if (token) {
+            const parts = token.split('.');
+            if (parts.length === 3) {
+                const base64 = parts[1].replace(/-/g, '+').replace(/_/g, '/');
+                const decoded = JSON.parse(atob(base64));
+                const uid = decoded?.id || decoded?._id || decoded?.username;
+                if (uid) {
+                    const snap = readNamespaceBundle(uid, storage);
+                    if (snap) return snap;
+                }
+            }
+        }
+        for (let i = 0; i < storage.length; i++) {
+            const k = storage.key(i);
+            if (k && k.startsWith(STORAGE_PREFIX)) {
+                const raw = storage.getItem(k);
+                if (raw) return JSON.parse(raw);
+            }
+        }
+    } catch {}
+    return null;
 }
 
 /**

@@ -1654,7 +1654,125 @@ app.patch('/api/admin/cars/:id', authenticateToken, requirePermission(PERMISSION
         }
 
         const newAuditLogs = [];
-        const { _id, auditLog, createdAt, soldAt, expenses, documentation, images, ...otherUpdates } = updates;
+        const {
+            _id,
+            auditLog,
+            createdAt,
+            soldAt,
+            expenses,
+            documentation,
+            images,
+            purchasePriceChangeType,
+            purchasePriceJustification,
+            purchasePriceExpenseConcept,
+            ...otherUpdates
+        } = updates;
+
+        const oldPurchasePrice = car.purchasePrice !== undefined && car.purchasePrice !== null ? Number(car.purchasePrice) : 0;
+        const oldPurchaseCurrency = car.purchaseCurrency || (car.currency === 'U$S' || car.currency === 'USD' ? 'USD' : 'ARS');
+        const oldPrice = car.price !== undefined && car.price !== null ? Number(car.price) : 0;
+        const oldStatus = car.status;
+
+        const incomingPurchasePriceProvided = otherUpdates.purchasePrice !== undefined && otherUpdates.purchasePrice !== null && otherUpdates.purchasePrice !== '';
+        const nextPurchasePrice = incomingPurchasePriceProvided ? Number(otherUpdates.purchasePrice) : oldPurchasePrice;
+        const nextPurchaseCurrency = otherUpdates.purchaseCurrency || oldPurchaseCurrency;
+
+        const purchasePriceChanged = incomingPurchasePriceProvided && Math.abs(nextPurchasePrice - oldPurchasePrice) > 0.001;
+
+        if (purchasePriceChanged) {
+            const cleanJustification = String(purchasePriceJustification || '').trim();
+            const cleanChangeType = String(purchasePriceChangeType || '').trim();
+
+            if (!cleanJustification) {
+                return res.status(400).json({
+                    message: 'Debe ingresar una justificación obligatoria para modificar el precio de compra o valor de toma.'
+                });
+            }
+            if (!['correccion_precio', 'gasto_adicional'].includes(cleanChangeType)) {
+                return res.status(400).json({
+                    message: 'Debe indicar si el cambio corresponde a una corrección del precio de compra/toma (correccion_precio) o a un gasto adicional del vehículo (gasto_adicional).'
+                });
+            }
+
+            if (cleanChangeType === 'gasto_adicional') {
+                const diffAmount = nextPurchasePrice - oldPurchasePrice;
+                if (diffAmount <= 0) {
+                    return res.status(400).json({
+                        message: 'Para registrar la diferencia como gasto adicional del vehículo, el nuevo monto debe ser mayor al costo base actual. Si desea reducir o corregir el valor base, elija "Corrección del precio de compra/toma".'
+                    });
+                }
+
+                // No duplicar costos: conservar purchasePrice original y agregar únicamente el gasto adicional a car.expenses
+                delete otherUpdates.purchasePrice;
+                const expenseConcept = String(purchasePriceExpenseConcept || '').trim() || `Gasto adicional: ${cleanJustification}`;
+                if (!Array.isArray(car.expenses)) car.expenses = [];
+                car.expenses.push({
+                    concept: expenseConcept,
+                    amount: diffAmount,
+                    currency: nextPurchaseCurrency === 'USD' || nextPurchaseCurrency === 'U$S' ? 'USD' : 'ARS',
+                    date: new Date(),
+                    note: cleanJustification
+                });
+
+                const prevTotalCost = oldPurchasePrice + (car.expenses.slice(0, -1).reduce((s, e) => s + Number(e.amount || 0), 0));
+                const newTotalCost = prevTotalCost + diffAmount;
+
+                newAuditLogs.push({
+                    action: 'GASTO',
+                    field: 'expenses',
+                    oldValue: `${oldPurchaseCurrency} ${prevTotalCost.toLocaleString('es-AR')} (Base: ${oldPurchasePrice.toLocaleString('es-AR')})`,
+                    newValue: `${nextPurchaseCurrency} ${newTotalCost.toLocaleString('es-AR')} (+ Gasto: ${diffAmount.toLocaleString('es-AR')})`,
+                    changeType: 'gasto_adicional',
+                    justification: cleanJustification,
+                    details: `[Gasto adicional del vehículo] Se sumó gasto "${expenseConcept}" por ${nextPurchaseCurrency} ${diffAmount.toLocaleString('es-AR')} sin alterar el valor de compra/toma base (${oldPurchaseCurrency} ${oldPurchasePrice.toLocaleString('es-AR')}). Motivo: ${cleanJustification}`,
+                    user,
+                    source: 'CRM_V2'
+                });
+            } else {
+                // correccion_precio: actualiza el precio de compra/toma base sin crear gasto adicional ni egreso duplicado
+                otherUpdates.purchasePrice = nextPurchasePrice;
+                if (car.tradeInOrigin && (car.tradeInOrigin.saleId || car.tradeInOrigin.value !== undefined)) {
+                    car.tradeInOrigin.value = nextPurchasePrice;
+                    car.markModified('tradeInOrigin');
+                }
+
+                newAuditLogs.push({
+                    action: 'COSTO_COMPRA',
+                    field: 'purchasePrice',
+                    oldValue: `${oldPurchaseCurrency} ${oldPurchasePrice.toLocaleString('es-AR')}`,
+                    newValue: `${nextPurchaseCurrency} ${nextPurchasePrice.toLocaleString('es-AR')}`,
+                    changeType: 'correccion_precio',
+                    justification: cleanJustification,
+                    details: `[Corrección de compra/toma] Costo base actualizado de ${oldPurchaseCurrency} ${oldPurchasePrice.toLocaleString('es-AR')} a ${nextPurchaseCurrency} ${nextPurchasePrice.toLocaleString('es-AR')}. Motivo: ${cleanJustification}`,
+                    user,
+                    source: 'CRM_V2'
+                });
+            }
+        }
+
+        if (otherUpdates.price !== undefined && Math.abs(Number(otherUpdates.price) - oldPrice) > 0.001) {
+            newAuditLogs.push({
+                action: 'PRECIO',
+                field: 'price',
+                oldValue: `${car.currency || 'USD'} ${oldPrice.toLocaleString('es-AR')}`,
+                newValue: `${otherUpdates.currency || car.currency || 'USD'} ${Number(otherUpdates.price).toLocaleString('es-AR')}`,
+                details: `Precio publicado modificado de ${oldPrice.toLocaleString('es-AR')} a ${Number(otherUpdates.price).toLocaleString('es-AR')}`,
+                user,
+                source: 'CRM_V2'
+            });
+        }
+
+        if (otherUpdates.status !== undefined && otherUpdates.status !== oldStatus) {
+            newAuditLogs.push({
+                action: 'ESTADO',
+                field: 'status',
+                oldValue: oldStatus,
+                newValue: otherUpdates.status,
+                details: `Estado operativo cambiado de ${oldStatus} a ${otherUpdates.status}`,
+                user,
+                source: 'CRM_V2'
+            });
+        }
 
         Object.keys(otherUpdates).forEach(key => {
             car[key] = otherUpdates[key];

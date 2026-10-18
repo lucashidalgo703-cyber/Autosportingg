@@ -2,6 +2,7 @@
 import { parseResponseSafe } from '../utils/apiHelper';
 import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../context/AuthContext';
+import { getActiveOfflineSnapshot } from '../services/offlineSyncService';
 import toast from 'react-hot-toast';
 
 export const useAdminCars = () => {
@@ -17,10 +18,46 @@ export const useAdminCars = () => {
     const [filteredTotalARS, setFilteredTotalARS] = useState(0);
     const { logout } = useAuth();
 
+    const applyOfflineFallback = useCallback((filters = {}) => {
+        const snap = getActiveOfflineSnapshot();
+        const cachedVehicles = snap?.data?.vehicles;
+        if (!Array.isArray(cachedVehicles)) return null;
+
+        let filtered = [...cachedVehicles];
+        if (filters.status && filters.status !== 'todos') {
+            const st = String(filters.status).toLowerCase();
+            filtered = filtered.filter(v => String(v.status || 'disponible').toLowerCase() === st);
+        }
+        if (filters.brand && filters.brand !== 'todas') {
+            filtered = filtered.filter(v => String(v.brand || '').toLowerCase() === String(filters.brand).toLowerCase());
+        }
+        if (filters.search) {
+            const q = String(filters.search).toLowerCase().trim();
+            filtered = filtered.filter(v =>
+                String(v.brand || '').toLowerCase().includes(q) ||
+                String(v.name || '').toLowerCase().includes(q) ||
+                String(v.plateOrVin || '').toLowerCase().includes(q)
+            );
+        }
+
+        const uniqueBrands = Array.from(new Set(cachedVehicles.map(v => v.brand).filter(Boolean))).sort();
+        setCars(filtered);
+        setTotal(filtered.length);
+        setPages(Math.max(1, Math.ceil(filtered.length / (Number(filters.limit) || 20))));
+        setPage(Number(filters.page) || 1);
+        setBrands(uniqueBrands);
+        setError(null);
+        return { cars: filtered, total: filtered.length, pages: 1, page: 1, brands: uniqueBrands, offline: true };
+    }, []);
+
     const fetchCars = useCallback(async (filters = {}) => {
         try {
             setLoading(true);
             setError(null);
+            if (typeof window !== 'undefined' && navigator.onLine === false) {
+                const offlineResult = applyOfflineFallback(filters);
+                if (offlineResult) return offlineResult;
+            }
             const API_URL = process.env.NEXT_PUBLIC_API_URL;
             const baseUrl = process.env.NODE_ENV === 'production' ? '' : (API_URL || 'http://localhost:3001');
             
@@ -48,6 +85,10 @@ export const useAdminCars = () => {
             const response = await fetch(endpoint, { headers });
             
             if (!response.ok) {
+                if (response.status === 503) {
+                    const offlineResult = applyOfflineFallback(filters);
+                    if (offlineResult) return offlineResult;
+                }
                 if (response.status === 401 || response.status === 403) {
                     localStorage.removeItem('token');
                     logout();
@@ -91,13 +132,15 @@ export const useAdminCars = () => {
                 return { cars: data || [] };
             }
         } catch (err) {
+            const offlineResult = applyOfflineFallback(filters);
+            if (offlineResult) return offlineResult;
             console.error("Error fetching admin cars:", err);
             setError(err.message);
             return { cars: [] };
         } finally {
             setLoading(false);
         }
-    }, [logout]);
+    }, [logout, applyOfflineFallback]);
 
 
 

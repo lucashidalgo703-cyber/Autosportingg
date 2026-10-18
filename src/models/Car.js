@@ -96,10 +96,12 @@ const carSchema = new mongoose.Schema({
     }],
     auditLog: {
         type: [{
-            action: { type: String, required: true }, // PRECIO, ESTADO, VISIBILIDAD, GASTO, OBSERVACION, EDICION
+            action: { type: String, required: true }, // PRECIO, COSTO_COMPRA, ESTADO, VISIBILIDAD, GASTO, OBSERVACION, EDICION
             field: { type: String },
             oldValue: mongoose.Schema.Types.Mixed,
             newValue: mongoose.Schema.Types.Mixed,
+            changeType: { type: String, enum: ['correccion_precio', 'gasto_adicional', null], default: null },
+            justification: { type: String },
             details: { type: String },
             date: { type: Date, default: Date.now },
             user: { type: String, default: 'Admin' },

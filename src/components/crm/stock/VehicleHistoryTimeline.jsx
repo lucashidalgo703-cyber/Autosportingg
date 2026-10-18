@@ -14,6 +14,8 @@ export default function VehicleHistoryTimeline({ vehicle }) {
         switch (action) {
             case 'PRECIO':
                 return { icon: Tag, color: 'bg-[#22C55E]' };
+            case 'COSTO_COMPRA':
+                return { icon: Tag, color: 'bg-amber-600' };
             case 'ESTADO':
                 return { icon: Flag, color: 'bg-[#EAB308]' };
             case 'VISIBILIDAD':
@@ -53,10 +55,19 @@ export default function VehicleHistoryTimeline({ vehicle }) {
                                 </div>
                                 <div className="w-[calc(100%-4rem)] md:w-[calc(50%-2.5rem)] bg-crm-bg p-4 rounded-xl border border-crm-border">
                                     <div className="flex justify-between items-center mb-2">
-                                        <div className="flex items-center gap-2">
+                                        <div className="flex items-center gap-2 flex-wrap">
                                             <span className="px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider rounded bg-crm-surface-raised text-white">
                                                 {item.action}
                                             </span>
+                                            {item.changeType && (
+                                                <span className={`px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider rounded ${
+                                                    item.changeType === 'correccion_precio'
+                                                        ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30'
+                                                        : 'bg-blue-500/20 text-blue-300 border border-blue-500/30'
+                                                }`}>
+                                                    {item.changeType === 'correccion_precio' ? 'Corrección Compra/Toma' : 'Gasto Adicional'}
+                                                </span>
+                                            )}
                                             <span className="text-[10px] text-crm-fg-muted font-medium">
                                                 {item.user}
                                             </span>
@@ -67,8 +78,13 @@ export default function VehicleHistoryTimeline({ vehicle }) {
                                         </span>
                                     </div>
                                     <p className="text-sm text-white leading-snug m-0">{item.details}</p>
+                                    {item.justification && (
+                                        <div className="mt-2 rounded-lg border border-amber-500/20 bg-amber-500/5 px-2.5 py-1.5 text-xs text-amber-200">
+                                            <span className="font-semibold">Justificación:</span> {item.justification}
+                                        </div>
+                                    )}
                                     
-                                    {(item.oldValue !== undefined && item.newValue !== undefined && item.action !== 'GASTO') && (
+                                    {(item.oldValue !== undefined && item.newValue !== undefined) && (
                                         <div className="mt-3 p-2 bg-crm-bg rounded border border-crm-border grid grid-cols-2 gap-2 text-xs">
                                             <div className="flex flex-col gap-0.5 overflow-hidden">
                                                 <span className="text-[10px] text-crm-fg-muted uppercase tracking-wide">Anterior</span>

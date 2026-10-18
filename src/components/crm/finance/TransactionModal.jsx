@@ -101,6 +101,7 @@ export default function TransactionModal({ isOpen, onClose, transaction, onSave,
                 clientId: transaction.clientId || '',
                 vehicleId: transaction.vehicleId || '',
                 installmentId: transaction.installmentId || '',
+                payeeCompany: transaction.payeeCompany || '',
                 targetUser: transaction.targetUser || transaction.createdBy || ''
             });
         } else if (isOpen) {
@@ -120,6 +121,7 @@ export default function TransactionModal({ isOpen, onClose, transaction, onSave,
                 clientId: '',
                 vehicleId: '',
                 installmentId: '',
+                payeeCompany: '',
                 targetUser: '',
                 ...(initialData || {})
             });
@@ -152,6 +154,7 @@ export default function TransactionModal({ isOpen, onClose, transaction, onSave,
             if (!dataToSave.clientId) delete dataToSave.clientId;
             if (!dataToSave.vehicleId) delete dataToSave.vehicleId;
             if (!dataToSave.installmentId) delete dataToSave.installmentId;
+            if (!dataToSave.payeeCompany) delete dataToSave.payeeCompany;
             if (!dataToSave.targetUser) delete dataToSave.targetUser;
             
             onSave(dataToSave);
@@ -311,7 +314,7 @@ export default function TransactionModal({ isOpen, onClose, transaction, onSave,
                             <label className="block text-xs font-bold text-neutral-500 uppercase tracking-wider mb-2">Categoría</label>
                             <select
                                 className={`w-full bg-black/40 border ${errors.category && !formData.category ? 'border-red-500/50 focus:border-red-500' : 'border-neutral-800 focus:border-neutral-600'} rounded-xl py-2.5 px-4 text-sm text-neutral-300 focus:outline-none focus:border-neutral-600 transition-colors appearance-none cursor-pointer`}
-                                value={(formData.category !== '' && !['Sueldos', 'Taller', 'Gastos Personales', 'Comisiones', 'Pago Empresas', 'Retiros', 'AFIP/IVA', 'Mantenimiento', 'Gastos Varios', 'Seña', 'Cuotas', 'Tarjeta'].includes(formData.category)) ? 'Otro' : formData.category}
+                                value={(formData.category !== '' && !['Sueldos', 'Taller', 'Gastos Personales', 'Comisiones', 'Pago Empresas', 'Pago a Proveedor', 'Retiros', 'AFIP/IVA', 'Mantenimiento', 'Gastos Varios', 'Seña', 'Cuotas', 'Tarjeta'].includes(formData.category)) ? 'Otro' : formData.category}
                                 onChange={(e) => {
                                     if (e.target.value === 'Otro') {
                                         setFormData({ ...formData, category: 'Otra Categoría' });
@@ -327,6 +330,7 @@ export default function TransactionModal({ isOpen, onClose, transaction, onSave,
                                 <option value="Gastos Personales">Gastos Personales</option>
                                 <option value="Comisiones">Comisiones</option>
                                 <option value="Pago Empresas">Pago Empresas</option>
+                                <option value="Pago a Proveedor">Pago a Proveedor</option>
                                 <option value="Retiros">Retiros</option>
                                 <option value="AFIP/IVA">AFIP / IVA</option>
                                 <option value="Mantenimiento">Mantenimiento</option>
@@ -337,7 +341,7 @@ export default function TransactionModal({ isOpen, onClose, transaction, onSave,
                                 <option value="Otro">Otra (Especificar)...</option>
                             </select>
                             
-                            {(formData.category !== '' && !['Sueldos', 'Taller', 'Gastos Personales', 'Comisiones', 'Pago Empresas', 'Retiros', 'AFIP/IVA', 'Mantenimiento', 'Gastos Varios', 'Seña', 'Cuotas', 'Tarjeta'].includes(formData.category)) && (
+                            {(formData.category !== '' && !['Sueldos', 'Taller', 'Gastos Personales', 'Comisiones', 'Pago Empresas', 'Pago a Proveedor', 'Retiros', 'AFIP/IVA', 'Mantenimiento', 'Gastos Varios', 'Seña', 'Cuotas', 'Tarjeta'].includes(formData.category)) && (
                                 <input
                                     type="text"
                                     placeholder="Especifique la categoría..."
@@ -350,6 +354,24 @@ export default function TransactionModal({ isOpen, onClose, transaction, onSave,
                             )}
                             {errors.category && <span className="text-xs text-crm-red mt-1 block">{errors.category}</span>}
                         </div>
+
+                        {(formData.category === 'Pago Empresas' || formData.category === 'Pago a Proveedor' || formData.payeeCompany) && (
+                            <div>
+                                <label className="block text-xs font-bold text-neutral-500 uppercase tracking-wider mb-2">Empresa Receptora</label>
+                                <select
+                                    className="w-full bg-black/40 border border-neutral-800 rounded-xl py-2.5 px-4 text-sm text-neutral-300 focus:outline-none focus:border-neutral-600 transition-colors appearance-none cursor-pointer"
+                                    value={formData.payeeCompany || ''}
+                                    onChange={(e) => setFormData({ ...formData, payeeCompany: e.target.value })}
+                                    disabled={isAnnulled}
+                                >
+                                    <option value="">Seleccionar empresa...</option>
+                                    <option value="LHIVER">LHIVER</option>
+                                    <option value="AUTOTERRA">AUTOTERRA</option>
+                                    <option value="AKAR">AKAR</option>
+                                    <option value="ALWAYS SAS">ALWAYS SAS</option>
+                                </select>
+                            </div>
+                        )}
 
                         <div>
                             <label className="block text-xs font-bold text-neutral-500 uppercase tracking-wider mb-2">Método de Pago</label>

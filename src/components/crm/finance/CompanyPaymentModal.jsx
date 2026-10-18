@@ -75,6 +75,7 @@ export default function CompanyPaymentModal({ isOpen, onClose, onSubmit, account
                             <option value="LHIVER">LHIVER</option>
                             <option value="AUTOTERRA">AUTOTERRA</option>
                             <option value="AKAR">AKAR</option>
+                            <option value="ALWAYS SAS">ALWAYS SAS</option>
                         </select>
                     </div>
 

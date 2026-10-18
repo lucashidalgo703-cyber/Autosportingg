@@ -63,6 +63,10 @@ export default function OfflineSyncControl() {
         if (typeof window === 'undefined') return;
         setIsOnline(navigator.onLine);
 
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.register('/sw.js', { scope: '/' }).catch(() => {});
+        }
+
         const handleOnline = () => {
             setIsOnline(true);
             toast.success('Conexión restablecida. Podés sincronizar los cambios pendientes.');
@@ -428,18 +432,35 @@ export default function OfflineSyncControl() {
                                                 <h4 className="mb-2 flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-crm-fg-muted">
                                                     <Car size={14} /> Stock en caché ({snapshot.data?.vehicles?.length || 0})
                                                 </h4>
-                                                <div className="max-h-48 space-y-1.5 overflow-y-auto pr-1">
-                                                    {(snapshot.data?.vehicles || []).slice(0, 30).map(v => (
-                                                        <div key={v._id} className="flex items-center justify-between rounded-lg border border-crm-border bg-crm-bg px-3 py-2 text-xs">
-                                                            <div>
-                                                                <span className="font-bold text-white">{v.brand} {v.name}</span>
-                                                                <span className="ml-2 text-crm-fg-muted">{v.year} · {v.plateOrVin || 'S/D'} · {v.status}</span>
+                                                <div className="max-h-56 space-y-1.5 overflow-y-auto pr-1">
+                                                    {(snapshot.data?.vehicles || []).slice(0, 30).map(v => {
+                                                        const photoSrc = v.coverImage || (Array.isArray(v.images) && v.images[0]) || null;
+                                                        return (
+                                                            <div key={v._id} className="flex items-center justify-between gap-3 rounded-lg border border-crm-border bg-crm-bg px-3 py-2 text-xs">
+                                                                <div className="flex items-center gap-3 min-w-0">
+                                                                    {photoSrc ? (
+                                                                        <img
+                                                                            src={photoSrc}
+                                                                            alt={`${v.brand} ${v.name}`}
+                                                                            className="h-10 w-14 shrink-0 rounded border border-crm-border object-cover"
+                                                                            data-offline-photo="true"
+                                                                        />
+                                                                    ) : (
+                                                                        <div className="flex h-10 w-14 shrink-0 items-center justify-center rounded border border-crm-border bg-crm-surface text-[10px] text-crm-fg-muted">
+                                                                            Sin foto
+                                                                        </div>
+                                                                    )}
+                                                                    <div className="truncate">
+                                                                        <div className="font-bold text-white truncate">{v.brand} {v.name}</div>
+                                                                        <div className="text-crm-fg-muted">{v.year} · {v.plateOrVin || 'S/D'} · {v.status}</div>
+                                                                    </div>
+                                                                </div>
+                                                                <div className="shrink-0 font-bold text-emerald-400">
+                                                                    {v.currency} {Number(v.price || 0).toLocaleString('es-AR')}
+                                                                </div>
                                                             </div>
-                                                            <div className="font-bold text-emerald-400">
-                                                                {v.currency} {Number(v.price || 0).toLocaleString('es-AR')}
-                                                            </div>
-                                                        </div>
-                                                    ))}
+                                                        );
+                                                    })}
                                                 </div>
                                             </div>
 
@@ -447,13 +468,55 @@ export default function OfflineSyncControl() {
                                                 <h4 className="mb-2 flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-crm-fg-muted">
                                                     <Users size={14} /> Clientes en caché ({snapshot.data?.clients?.length || 0})
                                                 </h4>
-                                                <div className="max-h-40 space-y-1.5 overflow-y-auto pr-1">
+                                                <div className="max-h-36 space-y-1.5 overflow-y-auto pr-1">
                                                     {(snapshot.data?.clients || []).slice(0, 25).map(c => (
                                                         <div key={c._id} className="flex items-center justify-between rounded-lg border border-crm-border bg-crm-bg px-3 py-2 text-xs">
                                                             <span className="font-bold text-white">{c.fullName}</span>
                                                             <span className="text-crm-fg-muted">{c.phone || c.email || 'Sin teléfono'}</span>
                                                         </div>
                                                     ))}
+                                                </div>
+                                            </div>
+
+                                            <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
+                                                <div>
+                                                    <h4 className="mb-2 flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-crm-fg-muted">
+                                                        <FileText size={14} /> Ventas ({snapshot.data?.sales?.length || 0})
+                                                    </h4>
+                                                    <div className="max-h-32 space-y-1.5 overflow-y-auto pr-1">
+                                                        {(snapshot.data?.sales || []).slice(0, 15).map(s => (
+                                                            <div key={s._id} className="rounded-lg border border-crm-border bg-crm-bg px-2.5 py-1.5 text-[11px]">
+                                                                <div className="font-bold text-white">{s.saleCurrency} {Number(s.salePrice || 0).toLocaleString('es-AR')}</div>
+                                                                <div className="text-crm-fg-muted">{s.paymentMethod} · {s.status}</div>
+                                                            </div>
+                                                        ))}
+                                                    </div>
+                                                </div>
+                                                <div>
+                                                    <h4 className="mb-2 flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-crm-fg-muted">
+                                                        <Clock size={14} /> Cuotas ({snapshot.data?.installments?.length || 0})
+                                                    </h4>
+                                                    <div className="max-h-32 space-y-1.5 overflow-y-auto pr-1">
+                                                        {(snapshot.data?.installments || []).slice(0, 15).map(inst => (
+                                                            <div key={inst._id} className="rounded-lg border border-crm-border bg-crm-bg px-2.5 py-1.5 text-[11px]">
+                                                                <div className="font-bold text-amber-400">Cuota #{inst.installmentNumber} · {inst.currency} {Number(inst.amount || 0).toLocaleString('es-AR')}</div>
+                                                                <div className="text-crm-fg-muted">{inst.status}</div>
+                                                            </div>
+                                                        ))}
+                                                    </div>
+                                                </div>
+                                                <div>
+                                                    <h4 className="mb-2 flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-crm-fg-muted">
+                                                        <DollarSign size={14} /> Gastos ({snapshot.data?.expenses?.length || 0})
+                                                    </h4>
+                                                    <div className="max-h-32 space-y-1.5 overflow-y-auto pr-1">
+                                                        {(snapshot.data?.expenses || []).slice(0, 15).map(exp => (
+                                                            <div key={exp._id} className="rounded-lg border border-crm-border bg-crm-bg px-2.5 py-1.5 text-[11px]">
+                                                                <div className="font-bold text-white truncate">{exp.concept || exp.description || exp.category}</div>
+                                                                <div className="text-crm-fg-muted">{exp.currency} {Number(exp.amount || 0).toLocaleString('es-AR')}</div>
+                                                            </div>
+                                                        ))}
+                                                    </div>
                                                 </div>
                                             </div>
                                         </>

@@ -87,7 +87,7 @@ export default function PagoEmpresasTab({ allTransactions = [], accounts = [], o
                                                 <Building2 className="text-crm-fg-muted" size={24} />
                                             </div>
                                             <h4 className="font-bold text-crm-fg">Sin pagos registrados</h4>
-                                            <p className="text-sm text-crm-fg-muted max-w-sm">No se encontraron pagos vinculados a empresas (LHIVER, AUTOTERRA, AKAR).</p>
+                                            <p className="text-sm text-crm-fg-muted max-w-sm">No se encontraron pagos vinculados a empresas (LHIVER, AUTOTERRA, AKAR, ALWAYS SAS).</p>
                                         </div>
                                     </td>
                                 </tr>

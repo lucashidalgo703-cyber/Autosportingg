@@ -39,6 +39,9 @@ export default function VehicleEditModal({ isOpen, onClose, onSave, vehicleData 
                 // Internal fields
                 purchasePrice: vehicleData.precioCompra || 0,
                 purchaseCurrency: vehicleData.monedaCompra || 'USD',
+                purchasePriceChangeType: 'correccion_precio',
+                purchasePriceJustification: '',
+                purchasePriceExpenseConcept: '',
                 agencyOwned: vehicleData._original?.agencyOwned || vehicleData.origen === 'propio' || false,
                 consignedBy: vehicleData._original?.consignedBy || (vehicleData.origen === 'consignación' ? 'Consignador' : ''),
                 plateOrVin: vehicleData.dominio || '',
@@ -54,6 +57,10 @@ export default function VehicleEditModal({ isOpen, onClose, onSave, vehicleData 
     }, [isOpen, vehicleData]);
 
     if (!isOpen) return null;
+
+    const initialPurchasePrice = Number(vehicleData?.precioCompra || 0);
+    const currentPurchasePrice = Number(formData.purchasePrice || 0);
+    const hasPurchasePriceChanged = Math.abs(currentPurchasePrice - initialPurchasePrice) > 0.001;
 
     const handleChange = (e) => {
         const { name, value, type, checked } = e.target;
@@ -87,6 +94,21 @@ export default function VehicleEditModal({ isOpen, onClose, onSave, vehicleData 
             return;
         }
 
+        if (hasPurchasePriceChanged) {
+            if (!String(formData.purchasePriceJustification || '').trim()) {
+                toast.error('Debés ingresar una justificación obligatoria para modificar el costo de compra/toma.');
+                return;
+            }
+            if (!['correccion_precio', 'gasto_adicional'].includes(formData.purchasePriceChangeType)) {
+                toast.error('Seleccioná si el cambio es una corrección del precio de compra/toma o un gasto adicional.');
+                return;
+            }
+            if (formData.purchasePriceChangeType === 'gasto_adicional' && currentPurchasePrice <= initialPurchasePrice) {
+                toast.error('Para registrar un gasto adicional, el nuevo importe debe ser superior al costo base actual.');
+                return;
+            }
+        }
+
         try {
             setIsSaving(true);
             
@@ -105,6 +127,11 @@ export default function VehicleEditModal({ isOpen, onClose, onSave, vehicleData 
                 
                 purchasePrice: Number(formData.purchasePrice),
                 purchaseCurrency: formData.purchaseCurrency,
+                ...(hasPurchasePriceChanged ? {
+                    purchasePriceChangeType: formData.purchasePriceChangeType,
+                    purchasePriceJustification: String(formData.purchasePriceJustification).trim(),
+                    purchasePriceExpenseConcept: String(formData.purchasePriceExpenseConcept || '').trim()
+                } : {}),
                 agencyOwned: formData.agencyOwned,
                 consignedBy: formData.consignedBy,
                 plateOrVin: formData.plateOrVin,
@@ -297,7 +324,7 @@ export default function VehicleEditModal({ isOpen, onClose, onSave, vehicleData 
                             
                             <div className="grid grid-cols-[1fr_80px] gap-4">
                                 <div className="flex flex-col gap-1.5">
-                                    <label className="text-xs font-medium text-crm-fg-muted uppercase tracking-wider">Costo de Compra</label>
+                                    <label className="text-xs font-medium text-crm-fg-muted uppercase tracking-wider">Costo de Compra / Toma</label>
                                     <input type="number" min="0" name="purchasePrice" value={formData.purchasePrice} onChange={handleChange} className="bg-crm-bg border border-crm-border text-crm-fg rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-crm-red focus:ring-1 focus:ring-crm-red" />
                                 </div>
                                 <div className="flex flex-col gap-1.5">
@@ -308,6 +335,62 @@ export default function VehicleEditModal({ isOpen, onClose, onSave, vehicleData 
                                     </select>
                                 </div>
                             </div>
+
+                            {hasPurchasePriceChanged && (
+                                <div className="flex flex-col gap-3 rounded-xl border border-amber-500/40 bg-amber-500/10 p-3.5">
+                                    <div className="flex items-center justify-between text-xs">
+                                        <span className="font-bold text-amber-300">Justificación obligatoria por cambio de costo</span>
+                                        <span className="text-crm-fg-muted">
+                                            Anterior: {formData.purchaseCurrency} {initialPurchasePrice.toLocaleString('es-AR')} → Nuevo: {formData.purchaseCurrency} {currentPurchasePrice.toLocaleString('es-AR')}
+                                        </span>
+                                    </div>
+
+                                    <div className="flex flex-col gap-1.5">
+                                        <label className="text-[11px] font-semibold uppercase tracking-wider text-crm-fg-muted">Tipo de modificación *</label>
+                                        <select
+                                            name="purchasePriceChangeType"
+                                            value={formData.purchasePriceChangeType || 'correccion_precio'}
+                                            onChange={handleChange}
+                                            className="rounded-lg border border-crm-border bg-crm-bg px-3 py-2 text-xs text-white focus:border-crm-red focus:outline-none"
+                                        >
+                                            <option value="correccion_precio">Corrección del precio de compra / valor de toma acordado</option>
+                                            <option value="gasto_adicional">Gasto adicional del vehículo (taller, gestoría, traslado, alistamiento)</option>
+                                        </select>
+                                        <p className="m-0 text-[11px] text-crm-fg-muted">
+                                            {formData.purchasePriceChangeType === 'gasto_adicional'
+                                                ? `Se mantendrá el costo base original (${formData.purchaseCurrency} ${initialPurchasePrice.toLocaleString('es-AR')}) y se sumará únicamente la diferencia (${formData.purchaseCurrency} ${Math.max(0, currentPurchasePrice - initialPurchasePrice).toLocaleString('es-AR')}) como gasto del vehículo, sin duplicar costos.`
+                                                : 'Se corregirá el valor base de compra/toma sin generar un gasto adicional ni un egreso duplicado.'}
+                                        </p>
+                                    </div>
+
+                                    {formData.purchasePriceChangeType === 'gasto_adicional' && (
+                                        <div className="flex flex-col gap-1.5">
+                                            <label className="text-[11px] font-semibold uppercase tracking-wider text-crm-fg-muted">Concepto del gasto adicional</label>
+                                            <input
+                                                type="text"
+                                                name="purchasePriceExpenseConcept"
+                                                value={formData.purchasePriceExpenseConcept || ''}
+                                                onChange={handleChange}
+                                                placeholder="Ej: Reparación tren delantero / Gestoría / Chapista"
+                                                className="rounded-lg border border-crm-border bg-crm-bg px-3 py-2 text-xs text-white focus:border-crm-red focus:outline-none"
+                                            />
+                                        </div>
+                                    )}
+
+                                    <div className="flex flex-col gap-1.5">
+                                        <label className="text-[11px] font-semibold uppercase tracking-wider text-crm-fg-muted">Motivo / Justificación para el Historial Interno *</label>
+                                        <input
+                                            type="text"
+                                            required
+                                            name="purchasePriceJustification"
+                                            value={formData.purchasePriceJustification || ''}
+                                            onChange={handleChange}
+                                            placeholder="Explicá por qué se modifica el valor de compra/toma..."
+                                            className="rounded-lg border border-crm-border bg-crm-bg px-3 py-2 text-xs text-white focus:border-crm-red focus:outline-none"
+                                        />
+                                    </div>
+                                </div>
+                            )}
 
                             <div className="grid grid-cols-2 gap-4">
                                 <div className="flex flex-col gap-1.5">

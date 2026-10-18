@@ -22,7 +22,7 @@ const transactionSchema = new mongoose.Schema({
     clientId: { type: mongoose.Schema.Types.ObjectId, ref: 'Client' },
     vehicleId: { type: mongoose.Schema.Types.ObjectId, ref: 'Car' },
     installmentId: { type: mongoose.Schema.Types.ObjectId, ref: 'Installment' },
-    payeeCompany: { type: String, enum: ['LHIVER', 'AUTOTERRA', 'AKAR'] },
+    payeeCompany: { type: String, enum: ['LHIVER', 'AUTOTERRA', 'AKAR', 'ALWAYS SAS'] },
     payeeVehicle: { type: String },
     createdBy: { type: String },
     updatedBy: { type: String },

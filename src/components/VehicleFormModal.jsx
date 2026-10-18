@@ -243,7 +243,35 @@ export default function VehicleFormModal({ isOpen, onClose, onSave, editingCar }
             }
         }
 
+        const initialPurchase = editingCar ? Number(editingCar.purchasePrice ?? editingCar.precioCompra ?? 0) : null;
+        const nextPurchase = formData.purchasePrice !== '' && formData.purchasePrice !== undefined ? Number(formData.purchasePrice) : 0;
+        const purchaseChangedInEdit = Boolean(editingCar && Math.abs(nextPurchase - initialPurchase) > 0.001);
+
+        if (purchaseChangedInEdit) {
+            if (!String(formData.purchasePriceJustification || '').trim()) {
+                toast.error('Debés ingresar una justificación obligatoria para modificar el precio de compra o valor de toma.');
+                return;
+            }
+            if (!['correccion_precio', 'gasto_adicional'].includes(formData.purchasePriceChangeType || 'correccion_precio')) {
+                toast.error('Indicá si el cambio corresponde a una corrección de precio o a un gasto adicional.');
+                return;
+            }
+            if (formData.purchasePriceChangeType === 'gasto_adicional' && nextPurchase <= initialPurchase) {
+                toast.error('Para registrar un gasto adicional, el nuevo importe debe ser superior al costo base actual.');
+                return;
+            }
+        }
+
         const dataToSave = { ...formData };
+        if (purchaseChangedInEdit) {
+            dataToSave.purchasePriceChangeType = formData.purchasePriceChangeType || 'correccion_precio';
+            dataToSave.purchasePriceJustification = String(formData.purchasePriceJustification).trim();
+            dataToSave.purchasePriceExpenseConcept = String(formData.purchasePriceExpenseConcept || '').trim();
+        } else {
+            delete dataToSave.purchasePriceChangeType;
+            delete dataToSave.purchasePriceJustification;
+            delete dataToSave.purchasePriceExpenseConcept;
+        }
         if (dataToSave.isSharedInvestment) {
             dataToSave.investor = JSON.stringify({
                 name: dataToSave.investorName,
@@ -335,6 +363,41 @@ export default function VehicleFormModal({ isOpen, onClose, onSave, editingCar }
 
                                 <div><InputLabel required>Ubicación</InputLabel><SelectInput name="location" value={formData.location} onChange={handleChange} options={['Salón Principal', 'Depósito', 'Con cliente', 'Taller Mecánico', 'Taller Chapa y Pintura', 'Otra']} /></div>
                             </div>
+
+                            {editingCar && Math.abs(Number(formData.purchasePrice || 0) - Number(editingCar.purchasePrice ?? editingCar.precioCompra ?? 0)) > 0.001 && (
+                                <div className="mt-4 flex flex-col gap-3 rounded-xl border border-amber-500/40 bg-amber-500/10 p-3.5">
+                                    <div className="flex items-center justify-between text-xs">
+                                        <span className="font-bold text-amber-300">Justificación obligatoria por cambio de costo</span>
+                                        <span className="text-gray-400">
+                                            Anterior: {Number(editingCar.purchasePrice ?? editingCar.precioCompra ?? 0).toLocaleString('es-AR')} → Nuevo: {Number(formData.purchasePrice || 0).toLocaleString('es-AR')}
+                                        </span>
+                                    </div>
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                        <div>
+                                            <InputLabel required>Tipo de modificación</InputLabel>
+                                            <select
+                                                name="purchasePriceChangeType"
+                                                value={formData.purchasePriceChangeType || 'correccion_precio'}
+                                                onChange={handleChange}
+                                                className="w-full bg-crm-surface border border-crm-border rounded-md px-3 py-2 text-xs text-white focus:border-red-500 focus:outline-none"
+                                            >
+                                                <option value="correccion_precio">Corrección del precio de compra / valor de toma</option>
+                                                <option value="gasto_adicional">Gasto adicional del vehículo</option>
+                                            </select>
+                                        </div>
+                                        <div>
+                                            <InputLabel required>Motivo / Justificación (Historial Interno)</InputLabel>
+                                            <TextInput
+                                                name="purchasePriceJustification"
+                                                value={formData.purchasePriceJustification || ''}
+                                                onChange={handleChange}
+                                                placeholder="Motivo del cambio..."
+                                                required
+                                            />
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
                         </section>
 
                         {/* 3. PROPIETARIO */}

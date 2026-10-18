@@ -23,6 +23,7 @@ import InputModal from '../../../../components/crm/ui/InputModal';
 import { useAdminReservations } from '../../../../hooks/useAdminReservations';
 import VehicleFlyerPdf from '../../../../components/crm/stock/VehicleFlyerPdf';
 import TradeInChainPanel from '../../../../components/crm/stock/TradeInChainPanel';
+import { getActiveOfflineSnapshot } from '../../../../services/offlineSyncService';
 
 export default function VehicleDetailPage() {
     const params = useParams();
@@ -48,10 +49,24 @@ export default function VehicleDetailPage() {
         }, 150);
     };
 
+    const loadFromOfflineSnapshot = () => {
+        const snap = getActiveOfflineSnapshot();
+        const found = snap?.data?.vehicles?.find(v => String(v._id || v.id) === String(params?.id));
+        if (found) {
+            setVehicle(mapRealCarToCRM(found));
+            setError(null);
+            return true;
+        }
+        return false;
+    };
+
     const fetchCar = async () => {
         if (!params?.id) return;
         try {
             setLoading(true);
+            if (typeof window !== 'undefined' && navigator.onLine === false) {
+                if (loadFromOfflineSnapshot()) return;
+            }
             const API_URL = process.env.NEXT_PUBLIC_API_URL;
             const baseUrl = process.env.NODE_ENV === 'production' ? '' : (API_URL || 'http://localhost:3001');
             const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
@@ -65,6 +80,8 @@ export default function VehicleDetailPage() {
             if (!response.ok) {
                 if (response.status === 404) {
                     setVehicle(null);
+                } else if (loadFromOfflineSnapshot()) {
+                    return;
                 } else {
                     throw new Error('Error al obtener datos');
                 }
@@ -84,7 +101,9 @@ export default function VehicleDetailPage() {
                 }
             }
         } catch (err) {
-            setError(err.message);
+            if (!loadFromOfflineSnapshot()) {
+                setError(err.message);
+            }
         } finally {
             setLoading(false);
         }

@@ -45,7 +45,7 @@ export const mapRealCarToCRM = (car) => {
         diasEnStock,
         alertaRotacion,
         visibleEnWeb: car.visibleEnWeb !== false, // Default true
-        fotos: car.images || [],
+        fotos: (Array.isArray(car.images) && car.images.length > 0) ? car.images : (car.coverImage ? [car.coverImage] : []),
         documentation: car.documentation || {},
         documentationFiles: car.documentationFiles || {},
         tradeInOrigin: car.tradeInOrigin || null,
