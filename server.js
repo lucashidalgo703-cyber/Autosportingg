@@ -4285,7 +4285,7 @@ const normalizeTradeInVehicle = (tradeIn) => {
         return isNaN(num) ? 0 : num;
     };
 
-    return {
+    const normalized = {
         brand: tradeIn.brand || 'S/D',
         model: tradeIn.model || 'S/D',
         version: tradeIn.version || '',
@@ -4303,6 +4303,12 @@ const normalizeTradeInVehicle = (tradeIn) => {
         transferStatus: tradeIn.transferStatus || 'pendiente',
         shouldEnterStock: Boolean(tradeIn.shouldEnterStock)
     };
+    if (tradeIn._id && mongoose.Types.ObjectId.isValid(tradeIn._id)) normalized._id = tradeIn._id;
+    if (tradeIn.linkedStockCarId && mongoose.Types.ObjectId.isValid(tradeIn.linkedStockCarId)) {
+        normalized.linkedStockCarId = tradeIn.linkedStockCarId;
+    }
+    if (tradeIn.enteredStockAt) normalized.enteredStockAt = tradeIn.enteredStockAt;
+    return normalized;
 };
 
 // POST convert reservation to sale

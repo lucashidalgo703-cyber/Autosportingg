@@ -50,7 +50,7 @@ const tradeInVehicleSchema = new mongoose.Schema({
     vin: { type: String },
     engineNumber: { type: String },
     ownerName: { type: String },
-    ownerDocument: { type: String },
+    ownerDni: { type: String },
     estimatedValue: { type: Number, required: true, min: 0, set: safeNumberSetter },
     currency: { type: String, enum: ['ARS', 'USD'], default: 'ARS' },
     conditionNotes: { type: String },
@@ -130,12 +130,6 @@ const saleSchema = new mongoose.Schema({
     tradeInTotalAmount: { type: Number, default: 0 },
     balanceAfterTradeIn: { type: Number, default: 0 },
     paymentBreakdown: { type: String }, // Detalles opcionales de cómo se paga la diferencia
-    
-    commissionSettings: {
-        extraAmount: { type: Number, default: 0 },
-        extraCurrency: { type: String, enum: ['ARS', 'USD'], default: 'USD' },
-        isManual: { type: Boolean, default: false }
-    },
 
     saleExpenses: { type: [saleExpenseSchema], default: [] },
 

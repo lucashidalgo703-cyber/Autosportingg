@@ -20,27 +20,56 @@ const addTo = (bag, currency, amount) => {
     bag[currency] = roundMoney((bag[currency] || 0) + (Number(amount) || 0));
 };
 
+// Resuelve el origen de toma de un vehículo: prioriza car.tradeInOrigin y, para datos históricos previos,
+// consulta si alguna venta activa lo tiene referenciado en tradeIns.linkedStockCarId.
+async function resolveOriginForCar(car) {
+    if (!car) return null;
+    if (car.tradeInOrigin?.saleId) {
+        return {
+            saleId: car.tradeInOrigin.saleId,
+            value: car.tradeInOrigin.value,
+            currency: car.tradeInOrigin.currency
+        };
+    }
+    const legacySale = await Sale.findOne({
+        'tradeIns.linkedStockCarId': car._id,
+        status: { $ne: 'cancelada' }
+    }).select('_id saleCurrency tradeIns').lean();
+    if (!legacySale) return null;
+    const matchedTradeIn = (legacySale.tradeIns || []).find(
+        (t) => t.linkedStockCarId && String(t.linkedStockCarId) === String(car._id)
+    );
+    return {
+        saleId: legacySale._id,
+        value: matchedTradeIn?.estimatedValue ?? car.purchasePrice,
+        currency: matchedTradeIn?.currency || legacySale.saleCurrency || carCurrency(car.purchaseCurrency)
+    };
+}
+
 // Sube por la cadena: vehículo -> venta de origen -> vehículo vendido en esa venta -> ...
 export async function getAncestorCarIds(carId) {
     const ancestors = [];
     const seen = new Set([String(carId)]);
-    let current = await Car.findById(carId).select('tradeInOrigin').lean();
-    for (let depth = 0; current?.tradeInOrigin?.saleId && depth < MAX_DEPTH; depth++) {
-        const originSale = await Sale.findById(current.tradeInOrigin.saleId).select('vehicleId').lean();
+    let current = await Car.findById(carId).select('tradeInOrigin purchasePrice purchaseCurrency').lean();
+    let origin = await resolveOriginForCar(current);
+    for (let depth = 0; origin?.saleId && depth < MAX_DEPTH; depth++) {
+        const originSale = await Sale.findById(origin.saleId).select('vehicleId').lean();
         const parentId = originSale?.vehicleId ? String(originSale.vehicleId) : null;
         if (!parentId || seen.has(parentId)) break;
         seen.add(parentId);
         ancestors.push(parentId);
-        current = await Car.findById(parentId).select('tradeInOrigin').lean();
+        current = await Car.findById(parentId).select('tradeInOrigin purchasePrice purchaseCurrency').lean();
+        origin = await resolveOriginForCar(current);
     }
     return ancestors;
 }
 
 // Valida un vínculo vehículo <- venta de origen. Devuelve { ok, code, message }.
 export async function validateTradeInLink({ carId, saleId }) {
-    const car = await Car.findById(carId).select('tradeInOrigin').lean();
+    const car = await Car.findById(carId).select('tradeInOrigin purchasePrice purchaseCurrency').lean();
     if (!car) return { ok: false, code: 'CAR_NOT_FOUND', message: 'Vehículo no encontrado.' };
-    if (car.tradeInOrigin?.saleId) {
+    const existingOrigin = await resolveOriginForCar(car);
+    if (existingOrigin?.saleId) {
         return { ok: false, code: 'ALREADY_LINKED', message: 'Este vehículo ya está vinculado a una venta de origen. Desvinculalo antes de cambiarlo.' };
     }
     const sale = await Sale.findById(saleId).select('vehicleId status').lean();
@@ -73,8 +102,8 @@ async function loadSaleFinancials(sale) {
     return { cashCollected, receivable };
 }
 
-function costBasis(car) {
-    const origin = car.tradeInOrigin;
+function costBasis(car, resolvedOrigin = null) {
+    const origin = resolvedOrigin || car.tradeInOrigin;
     if (origin?.saleId && Number.isFinite(Number(origin.value))) {
         const mismatch = car.purchasePrice != null && Number(car.purchasePrice) !== Number(origin.value);
         return { amount: Number(origin.value), currency: origin.currency || carCurrency(car.purchaseCurrency), source: 'valor_de_toma', mismatch };
@@ -84,7 +113,8 @@ function costBasis(car) {
 
 // Calcula un nodo (vehículo + su venta, si la hay)
 async function buildNode(car, role, rate = null) {
-    const cost = costBasis(car);
+    const resolvedOrigin = await resolveOriginForCar(car);
+    const cost = costBasis(car, resolvedOrigin);
     const carExpenses = {};
     for (const e of car.expenses || []) addTo(carExpenses, e.currency, e.amount);
 
@@ -98,7 +128,7 @@ async function buildNode(car, role, rate = null) {
         label: car.name,
         plate: car.plateOrVin || null,
         role,
-        originSaleId: car.tradeInOrigin?.saleId ? String(car.tradeInOrigin.saleId) : null,
+        originSaleId: resolvedOrigin?.saleId ? String(resolvedOrigin.saleId) : null,
         cost,
         carExpenses,
         investorPercentage: investorPct,
