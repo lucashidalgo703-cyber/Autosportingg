@@ -17,6 +17,7 @@ import {
 } from 'lucide-react';
 import CrmInput from '../../ui/CrmInput';
 import CrmSelect from '../../ui/CrmSelect';
+import { computeCommissionAmount, computeSaleProfit, parseDecimal, validateCommissionPercent } from '../../../../utils/saleCommercial';
 
 // Formateador estándar con formato argentino (ARS / USD)
 const formatMoney = (amount, currency = 'ARS') => {
@@ -104,6 +105,8 @@ export default function SaleCommercialPanel({ sale, onSave }) {
         depositAppliedAmount: 0,
         depositAppliedCurrency: 'ARS',
         commissionSettings: {
+            mode: 'fixed',
+            percent: '',
             extraAmount: 0,
             extraCurrency: 'ARS'
         },
@@ -138,6 +141,8 @@ export default function SaleCommercialPanel({ sale, onSave }) {
             depositAppliedAmount: sale.depositAppliedAmount || 0,
             depositAppliedCurrency: sale.depositAppliedCurrency || sale.saleCurrency || 'ARS',
             commissionSettings: {
+                mode: sale.commissionSettings?.mode === 'percent' ? 'percent' : 'fixed',
+                percent: sale.commissionSettings?.percent ?? '',
                 extraAmount: sale.commissionSettings?.extraAmount || 0,
                 extraCurrency: sale.commissionSettings?.extraCurrency || sale.saleCurrency || 'ARS'
             },
@@ -180,9 +185,42 @@ export default function SaleCommercialPanel({ sale, onSave }) {
         editForm.customInstallmentAmount
     ]);
 
+    // Comisión y ganancia en vivo (el servidor recalcula y valida al guardar)
+    const isPercentEdit = editForm.commissionSettings.mode === 'percent';
+    const livePrice = isEditing
+        ? ((editForm.paymentMethod?.toLowerCase() === 'financiado') ? liveFinancing.totalOperationPrice : (Number(editForm.salePrice) || 0))
+        : (sale.salePrice || 0);
+    const liveCurrency = isEditing ? editForm.saleCurrency : (sale.saleCurrency || 'ARS');
+    const liveCommission = (() => {
+        if (isEditing) {
+            if (isPercentEdit) {
+                return { amount: computeCommissionAmount(livePrice, editForm.commissionSettings.percent), currency: liveCurrency };
+            }
+            return { amount: Number(editForm.commissionSettings.extraAmount) || 0, currency: editForm.commissionSettings.extraCurrency || liveCurrency };
+        }
+        return { amount: Number(sale.commissionSettings?.extraAmount) || 0, currency: sale.commissionSettings?.extraCurrency || liveCurrency };
+    })();
+    const liveProfit = computeSaleProfit({
+        salePrice: livePrice,
+        saleCurrency: liveCurrency,
+        purchaseCost: sale.vehicleId?.purchasePrice || 0,
+        purchaseCurrency: sale.vehicleId?.purchaseCurrency,
+        expenses: isEditing ? editForm.saleExpenses : (sale.saleExpenses || []),
+        commissionAmount: liveCommission.amount,
+        commissionCurrency: liveCommission.currency
+    });
+
     const handleSaveClick = async () => {
         if (!onSave) return;
         const isFinanced = editForm.paymentMethod?.toLowerCase() === 'financiado';
+
+        if (editForm.commissionSettings.mode === 'percent') {
+            const check = validateCommissionPercent(editForm.commissionSettings.percent);
+            if (!check.ok) {
+                toast.error(check.message);
+                return;
+            }
+        }
 
         // Validaciones en cliente
         if (isFinanced) {
@@ -232,12 +270,16 @@ export default function SaleCommercialPanel({ sale, onSave }) {
                 paymentMethod: editForm.paymentMethod,
                 depositAppliedAmount: Number(editForm.depositAppliedAmount),
                 depositAppliedCurrency: editForm.depositAppliedCurrency,
-                commissionSettings: {
-                    ...sale.commissionSettings,
-                    extraAmount: Number(editForm.commissionSettings.extraAmount),
-                    extraCurrency: editForm.commissionSettings.extraCurrency,
-                    isManual: true
-                },
+                commissionSettings: editForm.commissionSettings.mode === 'percent'
+                    ? {
+                        mode: 'percent',
+                        percent: parseDecimal(editForm.commissionSettings.percent)
+                    }
+                    : {
+                        mode: 'fixed',
+                        extraAmount: Number(editForm.commissionSettings.extraAmount) || 0,
+                        extraCurrency: editForm.commissionSettings.extraCurrency
+                    },
                 saleExpenses: editForm.saleExpenses.map(exp => ({
                     ...exp,
                     amount: Number(exp.amount)
@@ -750,7 +792,7 @@ export default function SaleCommercialPanel({ sale, onSave }) {
                 )}
 
                 {/* SEÑA APLICADA (INFORMACIÓN INDEPENDIENTE) */}
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 gap-3">
                     <div className="rounded-xl border border-crm-border bg-crm-bg p-3">
                         <span className="mb-2 block text-[10px] font-bold uppercase tracking-[0.08em] text-crm-fg-muted">Seña Registrada</span>
                         {isEditing ? (
@@ -786,31 +828,103 @@ export default function SaleCommercialPanel({ sale, onSave }) {
                             </div>
                         )}
                     </div>
+                </div>
 
-                    {/* COMISIÓN VENDEDOR */}
-                    <div className="rounded-xl border border-crm-border bg-crm-bg p-3">
-                        <span className="mb-2 block text-[10px] font-bold uppercase tracking-[0.08em] text-crm-fg-muted text-right">Comisión Vendedor</span>
-                        {isEditing ? (
-                            <div className="flex gap-2">
-                                <div className="w-16 shrink-0">
-                                    <CrmSelect 
-                                        value={editForm.commissionSettings.extraCurrency} 
-                                        onChange={(e) => setEditForm({...editForm, commissionSettings: {...editForm.commissionSettings, extraCurrency: e.target.value}})} 
-                                        className="h-8 bg-crm-surface px-1 text-xs font-bold"
+                {/* COMISIÓN */}
+                <div className="rounded-xl border border-crm-border bg-crm-bg p-3">
+                    <div className="mb-2 flex items-center justify-between gap-2">
+                        <span className="block text-[10px] font-bold uppercase tracking-[0.08em] text-crm-fg-muted">Comisión</span>
+                        {isEditing && (
+                            <div className="flex rounded-lg border border-neutral-800 bg-crm-surface p-0.5">
+                                {[['fixed', 'Importe fijo'], ['percent', 'Porcentaje']].map(([mode, label]) => (
+                                    <button
+                                        key={mode}
+                                        type="button"
+                                        onClick={() => setEditForm(prev => ({ ...prev, commissionSettings: { ...prev.commissionSettings, mode } }))}
+                                        className={`px-2.5 py-1 text-[11px] font-bold rounded-md transition-colors ${
+                                            editForm.commissionSettings.mode === mode
+                                                ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
+                                                : 'text-crm-fg-muted hover:text-white'
+                                        }`}
                                     >
-                                        <option value="ARS">ARS</option>
-                                        <option value="USD">USD</option>
-                                    </CrmSelect>
-                                </div>
-                                <div className="flex-1">
-                                    <CrmInput 
-                                        type="number" 
+                                        {label}
+                                    </button>
+                                ))}
+                            </div>
+                        )}
+                    </div>
+
+                    {isEditing && isPercentEdit && (
+                        <div className="flex flex-col gap-2">
+                            <div>
+                                <label className="mb-1 block text-xs font-bold text-crm-fg-muted">Porcentaje de comisión (%)</label>
+                                <div className="relative">
+                                    <CrmInput
+                                        type="number"
                                         step="any"
-                                        min="0" 
-                                        value={editForm.commissionSettings.extraAmount} 
-                                        onChange={(e) => setEditForm({...editForm, commissionSettings: {...editForm.commissionSettings, extraAmount: e.target.value}})} 
-                                        className="h-8 bg-crm-surface px-2 text-xs font-bold text-right" 
+                                        min="0"
+                                        max="100"
+                                        value={editForm.commissionSettings.percent}
+                                        onChange={(e) => setEditForm(prev => ({ ...prev, commissionSettings: { ...prev.commissionSettings, percent: e.target.value } }))}
+                                        placeholder="Ej: 1,3"
+                                        className="h-8 bg-crm-surface px-2 pr-7 text-xs font-bold text-right"
                                     />
+                                    <span className="absolute right-2.5 top-1.5 text-xs font-bold text-crm-fg-muted">%</span>
+                                </div>
+                            </div>
+                            <div className="flex justify-between text-xs">
+                                <span className="text-crm-fg-muted">Base de cálculo (precio total pactado de la venta)</span>
+                                <span className="font-bold text-white">{formatMoney(livePrice, editForm.saleCurrency)}</span>
+                            </div>
+                            <div className="flex justify-between text-xs border-t border-crm-border pt-1.5">
+                                <span className="text-crm-fg-muted">Importe de comisión</span>
+                                <span className="font-black text-emerald-300">{formatMoney(liveCommission.amount, liveCommission.currency)}</span>
+                            </div>
+                            <span className="text-[10px] text-crm-fg-muted leading-snug">
+                                Comisión = precio total × % / 100. En ventas financiadas la base es el total de la operación (entrega + cuotas), sin sumar entrega, cuotas o permutas por separado. Guardarla no la marca como pagada ni genera un egreso.
+                            </span>
+                        </div>
+                    )}
+
+                    {isEditing && !isPercentEdit && (
+                        <div className="flex gap-2">
+                            <div className="w-16 shrink-0">
+                                <CrmSelect
+                                    value={editForm.commissionSettings.extraCurrency}
+                                    onChange={(e) => setEditForm({...editForm, commissionSettings: {...editForm.commissionSettings, extraCurrency: e.target.value}})}
+                                    className="h-8 bg-crm-surface px-1 text-xs font-bold"
+                                >
+                                    <option value="ARS">ARS</option>
+                                    <option value="USD">USD</option>
+                                </CrmSelect>
+                            </div>
+                            <div className="flex-1">
+                                <CrmInput
+                                    type="number"
+                                    step="any"
+                                    min="0"
+                                    value={editForm.commissionSettings.extraAmount}
+                                    onChange={(e) => setEditForm({...editForm, commissionSettings: {...editForm.commissionSettings, extraAmount: e.target.value}})}
+                                    className="h-8 bg-crm-surface px-2 text-xs font-bold text-right"
+                                />
+                            </div>
+                        </div>
+                    )}
+
+                    {!isEditing && (
+                        sale.commissionSettings?.mode === 'percent' ? (
+                            <div className="flex flex-col gap-1 text-xs">
+                                <div className="flex justify-between">
+                                    <span className="text-crm-fg-muted">Porcentaje</span>
+                                    <span className="font-bold text-crm-fg">{String(sale.commissionSettings.percent ?? 0).replace('.', ',')}%</span>
+                                </div>
+                                <div className="flex justify-between">
+                                    <span className="text-crm-fg-muted">Base (precio total pactado)</span>
+                                    <span className="font-bold text-crm-fg">{formatMoney(sale.salePrice || 0, sale.saleCurrency || 'ARS')}</span>
+                                </div>
+                                <div className="flex justify-between border-t border-crm-border pt-1">
+                                    <span className="text-crm-fg-muted">Importe de comisión</span>
+                                    <span className="text-sm font-bold text-crm-fg">{formatMoney(sale.commissionSettings.extraAmount, sale.commissionSettings.extraCurrency || sale.saleCurrency)}</span>
                                 </div>
                             </div>
                         ) : (
@@ -821,9 +935,12 @@ export default function SaleCommercialPanel({ sale, onSave }) {
                                         : 'Sin comisión'
                                     }
                                 </span>
+                                {sale.commissionSettings?.extraAmount > 0 && (
+                                    <span className="block text-[10px] text-crm-fg-muted">Importe fijo</span>
+                                )}
                             </div>
-                        )}
-                    </div>
+                        )
+                    )}
                 </div>
 
                 {/* GASTOS DE LA VENTA */}
@@ -953,27 +1070,43 @@ export default function SaleCommercialPanel({ sale, onSave }) {
                                 Ganancia Nominal Proyectada
                             </span>
                             <span className="text-[10px] text-emerald-300/70 mt-0.5">
-                                (Total Operación − Costo Compra − Comisión − Gastos)
+                                (Total Operación − Costo Compra − Gastos − Comisión)
                             </span>
                         </div>
                         <span className="text-xl font-black text-emerald-400">
-                            {(() => {
-                                const currentPrice = isEditing 
-                                    ? (isEditFinanced ? liveFinancing.totalOperationPrice : Number(editForm.salePrice))
-                                    : (sale.financingDetails?.hasFinancing ? sale.financingDetails.totalOperationPrice : (sale.salePrice || 0));
-                                
-                                const currentCurrency = isEditing ? editForm.saleCurrency : (sale.saleCurrency || 'ARS');
-                                const currentCommission = isEditing ? Number(editForm.commissionSettings?.extraAmount || 0) : (sale.commissionSettings?.extraAmount || 0);
-                                const purchasePrice = sale.vehicleId?.purchasePrice || 0;
-                                const expensesList = isEditing ? editForm.saleExpenses : (sale.saleExpenses || []);
-                                
-                                const totalExpenses = expensesList
-                                    .filter(exp => exp.currency === currentCurrency)
-                                    .reduce((acc, curr) => acc + Number(curr.amount || 0), 0);
-                                
-                                const profit = currentPrice - purchasePrice - currentCommission - totalExpenses;
-                                return formatMoney(profit, currentCurrency);
-                            })()}
+                            {formatMoney(liveProfit.netProfit, liveProfit.currency)}
+                        </span>
+                    </div>
+                    <div className="mt-1 flex flex-col gap-1 border-t border-emerald-500/20 pt-2 text-[11px] text-emerald-100/80">
+                        <div className="flex justify-between">
+                            <span>Ganancia antes de comisión</span>
+                            <span className="font-bold text-white">{formatMoney(liveProfit.profitBeforeCommission, liveProfit.currency)}</span>
+                        </div>
+                        <div className="flex justify-between">
+                            <span>Comisión (se descuenta una sola vez)</span>
+                            <span className="font-bold text-white">− {formatMoney(liveProfit.commissionAmount, liveProfit.currency)}</span>
+                        </div>
+                        <div className="flex justify-between border-t border-emerald-500/20 pt-1">
+                            <span className="font-bold">Ganancia neta</span>
+                            <span className="font-black text-emerald-300">{formatMoney(liveProfit.netProfit, liveProfit.currency)}</span>
+                        </div>
+                        {!liveProfit.costComparable && (
+                            <span className="text-amber-300">
+                                El costo de compra está en otra moneda que la venta: no se resta para no mezclar ARS y USD. Registrá la cotización para ver la ganancia completa.
+                            </span>
+                        )}
+                        {!liveProfit.commissionComparable && (
+                            <span className="text-amber-300">
+                                La comisión está en otra moneda que la venta: no se descontó para no mezclar ARS y USD.
+                            </span>
+                        )}
+                        {liveProfit.excludedExpensesCount > 0 && (
+                            <span className="text-amber-300">
+                                {liveProfit.excludedExpensesCount} gasto(s) en otra moneda no están incluidos en la ganancia.
+                            </span>
+                        )}
+                        <span className="text-emerald-200/70">
+                            Es la ganancia de la operación, no dinero cobrado: lo efectivamente cobrado se ve en Cuotas y Finanzas.
                         </span>
                     </div>
 

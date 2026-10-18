@@ -13,7 +13,10 @@ import {
     User,
     X,
     Scale,
-    Layers
+    Layers,
+    DollarSign,
+    Car,
+    TrendingUp
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 
@@ -43,28 +46,60 @@ export default function TreasurySetupWizardModal({
     const [cutoffReason, setCutoffReason] = useState('Confirmación de corte inicial sobre saldo real');
 
     // Paso 2: Presupuestos y Metas
-    const [monthlyPersonalBudgetARS, setMonthlyPersonalBudgetARS] = useState(config.monthlyPersonalBudgetARS || 4500000);
-    const [reserveMonthsTarget, setReserveMonthsTarget] = useState(config.reserveMonthsTarget || 3);
-    const [postventaPerVehicleARS, setPostventaPerVehicleARS] = useState(config.postventaPerVehicleARS || 250000);
-    const [operationalHorizonDays, setOperationalHorizonDays] = useState(config.operationalHorizonDays || 30);
+    const [personalMonthlyBudgetARS, setPersonalMonthlyBudgetARS] = useState(
+        config.personalMonthlyBudgetARS || config.monthlyPersonalBudgetARS || 4500000
+    );
+    const [reserveMonths, setReserveMonths] = useState(
+        config.reserveMonths || config.reserveMonthsTarget || 3
+    );
+    const [postventaProvisionPerVehicleARS, setPostventaProvisionPerVehicleARS] = useState(
+        config.postventaProvisionPerVehicleARS || config.postventaPerVehicleARS || 250000
+    );
+    const [operationalHorizonDays, setOperationalHorizonDays] = useState(
+        config.operationalHorizonDays || 30
+    );
+
+    // Regla de Excedente (Surplus Rule)
+    const [surplusConfigured, setSurplusConfigured] = useState(
+        Boolean(config.surplusRule?.configured)
+    );
+    const [surplusStockPercent, setSurplusStockPercent] = useState(
+        config.surplusRule?.stockPercent ?? 80
+    );
+    const [surplusCrecimientoPercent, setSurplusCrecimientoPercent] = useState(
+        config.surplusRule?.crecimientoPercent ?? 20
+    );
 
     // Paso 3: Prioridades de distribución
     const [priorityOrder, setPriorityOrder] = useState(
-        config.priorityOrder || ['operativa', 'impuestos', 'personal', 'deudas', 'postventa', 'reserva', 'stock', 'crecimiento']
+        config.priorityOrder || ['operativa', 'impuestos', 'deudas', 'personal', 'postventa', 'reserva', 'stock', 'crecimiento']
     );
 
-    // Paso 4: Reglas de gastos
+    // Paso 4: Reglas de gastos (Sueldos y comisiones van a OPERATIVA; retiros a PERSONAL)
     const [rules, setRules] = useState(() => {
-        if (categoryRules && categoryRules.length > 0) return categoryRules;
+        if (categoryRules && categoryRules.length > 0) {
+            // Asegurar que si Sueldos o Comisiones estaban en personal, se corrijan a operativa
+            return categoryRules.map(r => {
+                const catLower = (r.category || '').toLowerCase();
+                if ((catLower === 'sueldos' || catLower === 'comisiones' || catLower === 'comisiones ventas') && r.boxKey === 'personal') {
+                    return { ...r, boxKey: 'operativa' };
+                }
+                return r;
+            });
+        }
         return [
             { category: 'Alquiler', boxKey: 'operativa' },
             { category: 'Servicios', boxKey: 'operativa' },
             { category: 'Mantenimiento', boxKey: 'operativa' },
-            { category: 'Sueldos', boxKey: 'personal' },
-            { category: 'Comisiones Ventas', boxKey: 'personal' },
+            { category: 'Sueldos', boxKey: 'operativa' },
+            { category: 'Comisiones Ventas', boxKey: 'operativa' },
+            { category: 'Publicidad', boxKey: 'operativa' },
             { category: 'Impuestos', boxKey: 'impuestos' },
+            { category: 'AFIP/IVA', boxKey: 'impuestos' },
             { category: 'Préstamos y Deudas', boxKey: 'deudas' },
-            { category: 'Mecánica Postventa', boxKey: 'postventa' }
+            { category: 'Mecánica Postventa', boxKey: 'postventa' },
+            { category: 'Gastos Personales', boxKey: 'personal' },
+            { category: 'Retiros', boxKey: 'personal' }
         ];
     });
 
@@ -80,12 +115,18 @@ export default function TreasurySetupWizardModal({
         });
     };
 
+    const handleStockPercentChange = (val) => {
+        const stockVal = Math.min(100, Math.max(0, Number(val) || 0));
+        setSurplusStockPercent(stockVal);
+        setSurplusCrecimientoPercent(100 - stockVal);
+    };
+
     const handleSaveAll = async () => {
         setIsSaving(true);
         try {
             const token = localStorage.getItem('token');
 
-            // 1. Guardar Configuración de Parámetros
+            // 1. Guardar Configuración de Parámetros sincronizada
             const configRes = await fetch('/api/admin/tesoreria-estrategica/config', {
                 method: 'POST',
                 headers: {
@@ -95,9 +136,17 @@ export default function TreasurySetupWizardModal({
                 },
                 body: JSON.stringify({
                     operationalHorizonDays: Number(operationalHorizonDays),
-                    reserveMonthsTarget: Number(reserveMonthsTarget),
-                    monthlyPersonalBudgetARS: Number(monthlyPersonalBudgetARS),
-                    postventaPerVehicleARS: Number(postventaPerVehicleARS),
+                    reserveMonths: Number(reserveMonths),
+                    reserveMonthsTarget: Number(reserveMonths),
+                    personalMonthlyBudgetARS: Number(personalMonthlyBudgetARS),
+                    monthlyPersonalBudgetARS: Number(personalMonthlyBudgetARS),
+                    postventaProvisionPerVehicleARS: Number(postventaProvisionPerVehicleARS),
+                    postventaPerVehicleARS: Number(postventaProvisionPerVehicleARS),
+                    surplusRule: {
+                        configured: Boolean(surplusConfigured),
+                        stockPercent: Number(surplusStockPercent),
+                        crecimientoPercent: Number(surplusCrecimientoPercent)
+                    },
                     priorityOrder
                 })
             });
@@ -128,7 +177,7 @@ export default function TreasurySetupWizardModal({
             });
 
             if (configRes.ok && cutoffRes.ok) {
-                toast.success('Configuración inicial guardada con éxito.');
+                toast.success('Configuración de tesorería y reglas guardadas con éxito.');
                 if (onSuccess) onSuccess();
                 onClose();
             } else {
@@ -154,13 +203,13 @@ export default function TreasurySetupWizardModal({
                         </span>
                         <div>
                             <div className="flex items-center gap-2">
-                                <h3 className="text-base font-black text-white">Asistente de Configuración Inicial</h3>
+                                <h3 className="text-base font-black text-white">Asistente de Configuración de Tesorería</h3>
                                 <span className="rounded-full bg-purple-500/15 border border-purple-500/30 px-2 py-0.5 text-[10px] font-bold text-purple-300 uppercase">
                                     Paso {currentStep} de 4
                                 </span>
                             </div>
                             <p className="text-xs text-crm-fg-muted">
-                                Configura una sola vez las reglas, presupuestos y prioridades para operar automáticamente.
+                                Configura las reglas, presupuestos y destinos para que el sistema sugiera repartos basados en datos reales.
                             </p>
                         </div>
                     </div>
@@ -175,7 +224,7 @@ export default function TreasurySetupWizardModal({
                         1. Corte Inicial
                     </div>
                     <div className={`pb-1 border-b-2 ${currentStep === 2 ? 'border-purple-500 text-purple-300' : 'border-transparent text-crm-fg-muted'}`}>
-                        2. Presupuestos
+                        2. Metas y Excedente
                     </div>
                     <div className={`pb-1 border-b-2 ${currentStep === 3 ? 'border-purple-500 text-purple-300' : 'border-transparent text-crm-fg-muted'}`}>
                         3. Prioridades
@@ -234,41 +283,45 @@ export default function TreasurySetupWizardModal({
                         </div>
                     )}
 
-                    {/* PASO 2: PRESUPUESTOS Y METAS */}
+                    {/* PASO 2: PRESUPUESTOS, METAS Y REGLA DE EXCEDENTE */}
                     {currentStep === 2 && (
                         <div className="space-y-4">
                             <div className="rounded-2xl border border-crm-border bg-crm-bg/60 p-3.5 text-xs text-crm-fg-muted">
-                                Define tus previsiones mensuales para que el sistema calcule automáticamente las metas requeridas de cada caja.
+                                Define tus previsiones y metas mensuales para que el sistema calcule los importes sugeridos sin recurrir a porcentajes inventados.
                             </div>
 
                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                 <div>
                                     <label className="block text-[11px] font-bold uppercase text-crm-fg-muted mb-1">
-                                        Presupuesto Mensual de Personal (ARS)
+                                        Retiros Mensuales del Propietario (ARS)
                                     </label>
                                     <input
                                         type="number"
                                         min="0"
-                                        value={monthlyPersonalBudgetARS}
-                                        onChange={(e) => setMonthlyPersonalBudgetARS(e.target.value)}
+                                        value={personalMonthlyBudgetARS}
+                                        onChange={(e) => setPersonalMonthlyBudgetARS(e.target.value)}
                                         className="w-full rounded-xl border border-crm-border bg-crm-bg p-2.5 font-mono text-xs font-bold text-white focus:outline-none"
                                     />
-                                    <span className="text-[10px] text-crm-fg-muted mt-0.5 block">Sueldos, cargas fijas y adelantos mensuales.</span>
+                                    <span className="text-[10px] text-purple-300 mt-0.5 block">
+                                        Exclusivamente retiros del titular. Los sueldos y comisiones del personal van a Operativa.
+                                    </span>
                                 </div>
 
                                 <div>
                                     <label className="block text-[11px] font-bold uppercase text-crm-fg-muted mb-1">
-                                        Meses de Reserva (Meses Lentos)
+                                        Meses de Reserva de Liquidez
                                     </label>
                                     <input
                                         type="number"
                                         min="1"
                                         max="12"
-                                        value={reserveMonthsTarget}
-                                        onChange={(e) => setReserveMonthsTarget(e.target.value)}
+                                        value={reserveMonths}
+                                        onChange={(e) => setReserveMonths(e.target.value)}
                                         className="w-full rounded-xl border border-crm-border bg-crm-bg p-2.5 font-mono text-xs font-bold text-white focus:outline-none"
                                     />
-                                    <span className="text-[10px] text-crm-fg-muted mt-0.5 block">Meses de gastos fijos a proteger en la caja Reserva.</span>
+                                    <span className="text-[10px] text-crm-fg-muted mt-0.5 block">
+                                        Meses de estructura operativa fija a proteger en la caja Reserva para meses lentos.
+                                    </span>
                                 </div>
 
                                 <div>
@@ -278,11 +331,13 @@ export default function TreasurySetupWizardModal({
                                     <input
                                         type="number"
                                         min="0"
-                                        value={postventaPerVehicleARS}
-                                        onChange={(e) => setPostventaPerVehicleARS(e.target.value)}
+                                        value={postventaProvisionPerVehicleARS}
+                                        onChange={(e) => setPostventaProvisionPerVehicleARS(e.target.value)}
                                         className="w-full rounded-xl border border-crm-border bg-crm-bg p-2.5 font-mono text-xs font-bold text-white focus:outline-none"
                                     />
-                                    <span className="text-[10px] text-crm-fg-muted mt-0.5 block">Fondo preventivo para atender garantías de entregas.</span>
+                                    <span className="text-[10px] text-crm-fg-muted mt-0.5 block">
+                                        Garantía por unidad entregada (últimos 90 días). No se multiplica por cuotas.
+                                    </span>
                                 </div>
 
                                 <div>
@@ -297,8 +352,65 @@ export default function TreasurySetupWizardModal({
                                         onChange={(e) => setOperationalHorizonDays(e.target.value)}
                                         className="w-full rounded-xl border border-crm-border bg-crm-bg p-2.5 font-mono text-xs font-bold text-white focus:outline-none"
                                     />
-                                    <span className="text-[10px] text-crm-fg-muted mt-0.5 block">Días de anticipación para gastos operativos próximos.</span>
+                                    <span className="text-[10px] text-crm-fg-muted mt-0.5 block">
+                                        Días de anticipación para gastos operativos y compromisos a cubrir en Operativa.
+                                    </span>
                                 </div>
+                            </div>
+
+                            {/* Configuración de Regla de Excedente (Surplus Rule) */}
+                            <div className="rounded-2xl border border-crm-border bg-crm-bg/80 p-4 space-y-3">
+                                <div className="flex items-center justify-between">
+                                    <div>
+                                        <h4 className="text-xs font-bold text-white">Regla de Distribución de Excedente</h4>
+                                        <p className="text-[11px] text-crm-fg-muted">
+                                            ¿Qué hacer con la liquidez que sobra después de cubrir el 100% de las cajas prioritarias?
+                                        </p>
+                                    </div>
+                                    <label className="relative inline-flex items-center cursor-pointer">
+                                        <input
+                                            type="checkbox"
+                                            checked={surplusConfigured}
+                                            onChange={(e) => setSurplusConfigured(e.target.checked)}
+                                            className="sr-only peer"
+                                        />
+                                        <div className="w-11 h-6 bg-crm-border peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-purple-600"></div>
+                                    </label>
+                                </div>
+
+                                {surplusConfigured ? (
+                                    <div className="grid grid-cols-2 gap-3 pt-2 border-t border-crm-border/40 text-xs">
+                                        <div>
+                                            <label className="block text-[10px] font-bold uppercase text-cyan-400 mb-1">
+                                                % Excedente a Stock / Compras
+                                            </label>
+                                            <input
+                                                type="number"
+                                                min="0"
+                                                max="100"
+                                                value={surplusStockPercent}
+                                                onChange={(e) => handleStockPercentChange(e.target.value)}
+                                                className="w-full rounded-xl border border-crm-border bg-crm-bg p-2 font-mono text-xs font-bold text-white focus:outline-none"
+                                            />
+                                        </div>
+
+                                        <div>
+                                            <label className="block text-[10px] font-bold uppercase text-emerald-400 mb-1">
+                                                % Excedente a Fondo de Crecimiento
+                                            </label>
+                                            <input
+                                                type="number"
+                                                disabled
+                                                value={surplusCrecimientoPercent}
+                                                className="w-full rounded-xl border border-crm-border bg-crm-bg/50 p-2 font-mono text-xs font-bold text-emerald-400 focus:outline-none opacity-80"
+                                            />
+                                        </div>
+                                    </div>
+                                ) : (
+                                    <div className="text-[11px] text-crm-fg-muted rounded-xl bg-crm-surface p-2.5 border border-crm-border/40">
+                                        ℹ️ Al no configurar una regla, todo excedente permanecerá <strong>sin asignar en cuentas</strong>, sin inflar artificialmente las cajas de Stock ni Crecimiento.
+                                    </div>
+                                )}
                             </div>
                         </div>
                     )}
@@ -307,7 +419,7 @@ export default function TreasurySetupWizardModal({
                     {currentStep === 3 && (
                         <div className="space-y-4">
                             <div className="rounded-2xl border border-crm-border bg-crm-bg/60 p-3.5 text-xs text-crm-fg-muted">
-                                Cuando ingresa un cobro neto, el sistema lo reparte cubriendo primero los faltantes de las cajas con mayor prioridad.
+                                Ante fondos limitados, el reparto cubre primero los faltantes de las cajas con mayor prioridad antes de pasar a la siguiente.
                             </div>
 
                             <div className="space-y-2">
@@ -325,7 +437,7 @@ export default function TreasurySetupWizardModal({
                                             </span>
                                         </div>
                                         <span className="text-[10px] text-crm-fg-muted">
-                                            {idx < 2 ? 'Prioridad Crítica' : idx < 5 ? 'Obligaciones' : 'Reserva y Stock'}
+                                            {idx < 2 ? 'Prioridad Crítica' : idx < 4 ? 'Obligaciones y Personal' : idx < 6 ? 'Provisión y Reserva' : 'Excedente'}
                                         </span>
                                     </div>
                                 ))}
@@ -337,7 +449,7 @@ export default function TreasurySetupWizardModal({
                     {currentStep === 4 && (
                         <div className="space-y-4">
                             <div className="rounded-2xl border border-crm-border bg-crm-bg/60 p-3.5 text-xs text-crm-fg-muted">
-                                Al registrar un gasto en Finanzas, se descontará automáticamente de la caja vinculada aquí, comprometiendo fondos mientras esté pendiente y debitando al pagarse.
+                                Al registrar un gasto en Finanzas, se descontará automáticamente de la caja vinculada aquí. Sueldos y comisiones corresponden a Operativa; gastos personales y retiros a Personal.
                             </div>
 
                             <div className="space-y-2 max-h-60 overflow-y-auto pr-1">
@@ -358,8 +470,8 @@ export default function TreasurySetupWizardModal({
                                             onChange={(e) => handleRuleChange(idx, 'boxKey', e.target.value)}
                                             className="rounded-lg border border-crm-border bg-crm-surface px-2.5 py-1 text-white text-xs focus:outline-none"
                                         >
-                                            <option value="operativa">Caja Operativa</option>
-                                            <option value="personal">Caja Personal</option>
+                                            <option value="operativa">Caja Operativa (incluye sueldos/comisiones)</option>
+                                            <option value="personal">Caja Personal (retiros titular)</option>
                                             <option value="impuestos">Impuestos</option>
                                             <option value="deudas">Deudas</option>
                                             <option value="postventa">Postventa</option>

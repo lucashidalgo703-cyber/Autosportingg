@@ -71,7 +71,17 @@ const financingDetailsSchema = new mongoose.Schema({
     hasFinancing: { type: Boolean, default: false },
     cashPrice: { type: Number, min: 0 },
     downPayment: { type: Number, min: 0, default: 0 },
-    installmentsCount: { type: Number, enum: [6, 12, 18, 24] },
+    // Sin financiación (contado o entrega que cubre el total): el campo no existe (undefined).
+    // Con saldo financiado debe ser 6, 12, 18 o 24.
+    installmentsCount: {
+        type: Number,
+        enum: [6, 12, 18, 24],
+        set: (val) => (val === '' || val === null || val === undefined || Number(val) === 0 ? undefined : Number(val)),
+        required: [
+            function () { return Boolean(this.hasFinancing) && Number(this.financedBalance) > 0; },
+            'Indicá la cantidad de cuotas (6, 12, 18 o 24) para el saldo financiado.'
+        ]
+    },
     interestRate: { type: Number, min: 0, default: 0 },
     financedBalance: { type: Number, min: 0, default: 0 },
     interestAmount: { type: Number, min: 0, default: 0 },
@@ -181,7 +191,13 @@ const saleSchema = new mongoose.Schema({
         consignationPct: { type: Number, default: 0.5 },
         extraAmount: { type: Number, default: 0 },
         extraCurrency: { type: String, enum: ['ARS', 'USD'], default: 'USD' },
-        isSplit: { type: Boolean, default: false }
+        isSplit: { type: Boolean, default: false },
+        // Comisión adicional: 'fixed' (importe fijo, también para todo lo histórico sin este campo)
+        // o 'percent' (extraAmount = base × percent / 100, recalculado en el servidor).
+        mode: { type: String, enum: ['fixed', 'percent'] },
+        percent: { type: Number, min: 0, max: 100 },
+        base: { type: Number, min: 0 },
+        baseCurrency: { type: String, enum: ['ARS', 'USD'] }
     },
     
     // ITEMS FÍSICOS DE ENTREGA
@@ -226,6 +242,14 @@ const saleSchema = new mongoose.Schema({
 
 // Preventive Index: Find active sales for a vehicle quickly
 saleSchema.index({ vehicleId: 1, status: 1 });
+
+// Datos anteriores guardaban installmentsCount = 0 para "sin financiación": se normaliza a "sin valor".
+saleSchema.pre('validate', function () {
+    const fin = this.financingDetails;
+    if (fin && fin.installmentsCount === 0) {
+        fin.installmentsCount = undefined;
+    }
+});
 
 const Sale = mongoose.models.Sale || mongoose.model('Sale', saleSchema);
 

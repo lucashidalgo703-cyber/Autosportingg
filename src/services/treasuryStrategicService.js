@@ -876,27 +876,77 @@ export async function confirmInitialCutoff(payload, user) {
 
 // 8. Organizar Saldo Inicial en Cajas (Sin tocar cuentas bancarias)
 export async function organizeInitialBalance(payload, user) {
-    const { distributions = [], reason = 'Organización de saldo inicial en cajas' } = payload;
+    const { distributions = [], allocations = [], reason = 'Organización de saldo inicial en cajas' } = payload;
     const userName = user?.name || user?.email || 'Admin';
+    const items = Array.isArray(allocations) && allocations.length > 0 ? allocations : (distributions || []);
 
-    for (const dist of distributions) {
+    for (const dist of items) {
         if (!dist.boxKey) continue;
         const box = await TreasuryBox.findOne({ key: dist.boxKey });
         if (box) {
-            const addARS = Number(dist.amountARS || 0);
-            const addUSD = Number(dist.amountUSD || 0);
+            // Manejo de ARS: si dist tiene balanceARS explícito o mode === 'set', se establece el balance y se audita la diferencia
+            if (dist.mode === 'set' || dist.balanceARS !== undefined) {
+                const prevARS = Number(box.balanceARS || 0);
+                const newARS = Number(dist.balanceARS !== undefined ? dist.balanceARS : dist.amountARS || 0);
+                const diffARS = newARS - prevARS;
+                box.balanceARS = newARS;
 
-            box.balanceARS = (box.balanceARS || 0) + addARS;
-            box.balanceUSD = (box.balanceUSD || 0) + addUSD;
+                if (Math.abs(diffARS) > 0) {
+                    box.history.push({
+                        date: new Date(),
+                        type: 'asignacion_inicial',
+                        amount: diffARS,
+                        currency: 'ARS',
+                        reason,
+                        user: userName
+                    });
+                }
+            } else {
+                const addARS = Number(dist.amountARS || 0);
+                if (addARS > 0) {
+                    box.balanceARS = (box.balanceARS || 0) + addARS;
+                    box.history.push({
+                        date: new Date(),
+                        type: 'asignacion_inicial',
+                        amount: addARS,
+                        currency: 'ARS',
+                        reason,
+                        user: userName
+                    });
+                }
+            }
 
-            box.history.push({
-                date: new Date(),
-                type: 'asignacion_inicial',
-                amount: addARS > 0 ? addARS : addUSD,
-                currency: addARS > 0 ? 'ARS' : 'USD',
-                reason,
-                user: userName
-            });
+            // Manejo de USD
+            if (dist.mode === 'set' || dist.balanceUSD !== undefined) {
+                const prevUSD = Number(box.balanceUSD || 0);
+                const newUSD = Number(dist.balanceUSD !== undefined ? dist.balanceUSD : dist.amountUSD || 0);
+                const diffUSD = newUSD - prevUSD;
+                box.balanceUSD = newUSD;
+
+                if (Math.abs(diffUSD) > 0) {
+                    box.history.push({
+                        date: new Date(),
+                        type: 'asignacion_inicial',
+                        amount: diffUSD,
+                        currency: 'USD',
+                        reason,
+                        user: userName
+                    });
+                }
+            } else {
+                const addUSD = Number(dist.amountUSD || 0);
+                if (addUSD > 0) {
+                    box.balanceUSD = (box.balanceUSD || 0) + addUSD;
+                    box.history.push({
+                        date: new Date(),
+                        type: 'asignacion_inicial',
+                        amount: addUSD,
+                        currency: 'USD',
+                        reason,
+                        user: userName
+                    });
+                }
+            }
 
             await box.save();
         }
@@ -907,6 +957,7 @@ export async function organizeInitialBalance(payload, user) {
         message: 'Saldo inicial organizado en cajas exitosamente.'
     };
 }
+
 
 // 9. Regularización Histórica de Cuotas en Lote
 export async function getGroupedPendingInstallments() {
@@ -1195,16 +1246,39 @@ export async function updateTreasuryConfig(payload, user) {
 
     if (payload.operationalHorizonDays !== undefined) cfg.operationalHorizonDays = Number(payload.operationalHorizonDays);
     if (payload.reserveMonths !== undefined) cfg.reserveMonths = Number(payload.reserveMonths);
+    if (payload.reserveMonthsTarget !== undefined) cfg.reserveMonths = Number(payload.reserveMonthsTarget);
+    
     if (payload.personalMonthlyBudgetARS !== undefined) cfg.personalMonthlyBudgetARS = Number(payload.personalMonthlyBudgetARS);
+    if (payload.monthlyPersonalBudgetARS !== undefined) cfg.personalMonthlyBudgetARS = Number(payload.monthlyPersonalBudgetARS);
     if (payload.personalMonthlyBudgetUSD !== undefined) cfg.personalMonthlyBudgetUSD = Number(payload.personalMonthlyBudgetUSD);
+
     if (payload.postventaProvisionARS !== undefined) cfg.postventaProvisionARS = Number(payload.postventaProvisionARS);
     if (payload.postventaProvisionUSD !== undefined) cfg.postventaProvisionUSD = Number(payload.postventaProvisionUSD);
+    if (payload.postventaProvisionPerVehicleARS !== undefined) cfg.postventaProvisionPerVehicleARS = Number(payload.postventaProvisionPerVehicleARS);
+    if (payload.postventaPerVehicleARS !== undefined) cfg.postventaProvisionPerVehicleARS = Number(payload.postventaPerVehicleARS);
+
+    if (payload.surplusRule !== undefined) {
+        cfg.surplusRule = {
+            configured: Boolean(payload.surplusRule.configured),
+            stockPercent: Number(payload.surplusRule.stockPercent || 0),
+            crecimientoPercent: Number(payload.surplusRule.crecimientoPercent || 0)
+        };
+    }
+
     if (Array.isArray(payload.priorityOrder)) cfg.priorityOrder = payload.priorityOrder;
 
     cfg.isSetupCompleted = true;
     cfg.lastSetupAt = new Date();
     cfg.updatedBy = userName;
     await cfg.save();
+
+    // Sincronizar parámetros en TreasuryBox si corresponde
+    if (cfg.reserveMonths) {
+        await TreasuryBox.findOneAndUpdate({ key: 'reserva' }, { reserveMonths: cfg.reserveMonths });
+    }
+    if (cfg.personalMonthlyBudgetARS) {
+        await TreasuryBox.findOneAndUpdate({ key: 'personal' }, { monthlyBudgetARS: cfg.personalMonthlyBudgetARS });
+    }
 
     return {
         ok: true,
@@ -1525,5 +1599,426 @@ export async function syncExpenseWithTreasury(tx, options = {}) {
         }
     }
 }
+
+// 21. Calcular Reparto Sugerido Determinístico (Sin porcentajes de respaldo silenciosos)
+export async function calculateSuggestedAllocation(query = {}, user) {
+    await ensureDefaultBoxes();
+    const config = await getOrCreateTreasuryConfig();
+    const boxes = await TreasuryBox.find().lean();
+    const accounts = await Account.find({ isActive: { $ne: false } }).lean();
+
+    let totalCuentasARS = 0;
+    let totalCuentasUSD = 0;
+    accounts.forEach(acc => {
+        const bal = Number(acc.balance || 0);
+        if (acc.currency === 'USD') totalCuentasUSD += bal;
+        else totalCuentasARS += bal;
+    });
+
+    let totalCajasARS = 0;
+    let totalCajasUSD = 0;
+    boxes.forEach(b => {
+        totalCajasARS += Number(b.balanceARS || 0);
+        totalCajasUSD += Number(b.balanceUSD || 0);
+    });
+
+    // Fondos disponibles: si se pasa liquidityARS (simulación o preview), usar ese valor
+    const liquidityOverrideARS = query.liquidityARS !== undefined ? Number(query.liquidityARS) : null;
+    const effectiveTotalARS = liquidityOverrideARS !== null ? liquidityOverrideARS : totalCuentasARS;
+
+    // Reglas de categorías guardadas en la base de datos
+    const categoryRules = await TreasuryCategoryRule.find().lean();
+    const catToBoxMap = {};
+    categoryRules.forEach(r => {
+        if (r.category && r.boxKey) {
+            catToBoxMap[r.category.trim().toLowerCase()] = r.boxKey;
+        }
+    });
+
+    // Mapeos canónicos estrictos: los sueldos del personal y comisiones van a OPERATIVA
+    const defaultMappings = {
+        'sueldos': 'operativa',
+        'sueldo': 'operativa',
+        'comisiones': 'operativa',
+        'comisiones ventas': 'operativa',
+        'comision': 'operativa',
+        'servicios': 'operativa',
+        'alquiler': 'operativa',
+        'alquileres': 'operativa',
+        'mantenimiento': 'operativa',
+        'publicidad': 'operativa',
+        'gastos varios': 'operativa',
+        'afip/iva': 'impuestos',
+        'afip': 'impuestos',
+        'iva': 'impuestos',
+        'impuestos': 'impuestos',
+        'patentes': 'impuestos',
+        'tasas': 'impuestos',
+        'pago empresas': 'deudas',
+        'préstamos': 'deudas',
+        'prestamos': 'deudas',
+        'préstamos y deudas': 'deudas',
+        'deudas': 'deudas',
+        'gastos personales': 'personal',
+        'retiros': 'personal',
+        'retiro': 'personal',
+        'taller': 'postventa',
+        'mecánica': 'postventa',
+        'mecánica postventa': 'postventa',
+        'compra vehículo': 'stock',
+        'stock': 'stock',
+        'inversión': 'crecimiento',
+        'inversion': 'crecimiento'
+    };
+    Object.entries(defaultMappings).forEach(([k, v]) => {
+        if (!catToBoxMap[k]) catToBoxMap[k] = v;
+    });
+
+    const now = new Date();
+    const horizonDays = Number(config.operationalHorizonDays || 30);
+    const horizonCutoff = new Date(now.getTime() + horizonDays * 24 * 60 * 60 * 1000);
+
+    // Egresos pendientes
+    const pendingTransactions = await Transaction.find({
+        type: 'Egreso',
+        status: 'pendiente'
+    }).sort({ date: 1 }).lean();
+
+    // Reglas recurrentes de egresos activas
+    const recurringRules = await FinanceRecurringRule.find({
+        type: 'Egreso',
+        isActive: true
+    }).lean();
+
+    // Pagos ya emitidos este mes para no duplicar reglas recurrentes
+    const startOfCurrentMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+    const paidThisMonthTransactions = await Transaction.find({
+        type: 'Egreso',
+        date: { $gte: startOfCurrentMonth }
+    }).lean();
+
+    const paidCategoryTotalsThisMonth = {};
+    paidThisMonthTransactions.forEach(tx => {
+        const cat = (tx.category || '').trim().toLowerCase();
+        paidCategoryTotalsThisMonth[cat] = (paidCategoryTotalsThisMonth[cat] || 0) + Number(tx.amount || 0);
+    });
+
+    // Agrupación de compromisos reales
+    const commitmentsByBox = {
+        operativa: { items: [], totalARS: 0 },
+        impuestos: { items: [], totalARS: 0 },
+        deudas: { items: [], totalARS: 0 }
+    };
+
+    pendingTransactions.forEach(tx => {
+        const cat = (tx.category || '').trim().toLowerCase();
+        const targetBoxKey = tx.treasuryBoxKey || catToBoxMap[cat] || 'operativa';
+        const amt = Number(tx.amount || 0);
+        const txDate = tx.date ? new Date(tx.date) : now;
+
+        // Gastos pendientes pasados (vencidos) o dentro del horizonte
+        const isWithinHorizon = txDate <= horizonCutoff;
+
+        if (isWithinHorizon && commitmentsByBox[targetBoxKey]) {
+            commitmentsByBox[targetBoxKey].totalARS += amt;
+            commitmentsByBox[targetBoxKey].items.push({
+                type: 'gasto_pendiente',
+                description: tx.description || tx.concept || tx.category || 'Gasto pendiente',
+                category: tx.category || 'Sin categoría',
+                amount: amt,
+                date: tx.date
+            });
+        }
+    });
+
+    // Burn rate operativo mensual basado en reglas recurrentes activas
+    let monthlyOperationalBurnRateARS = 0;
+
+    recurringRules.forEach(rule => {
+        const cat = (rule.category || '').trim().toLowerCase();
+        const targetBoxKey = catToBoxMap[cat] || 'operativa';
+        const ruleAmt = Number(rule.amount || 0);
+
+        if (targetBoxKey === 'operativa') {
+            monthlyOperationalBurnRateARS += ruleAmt;
+        }
+
+        const alreadyPaid = paidCategoryTotalsThisMonth[cat] && paidCategoryTotalsThisMonth[cat] >= ruleAmt * 0.8;
+        if (!alreadyPaid && commitmentsByBox[targetBoxKey]) {
+            commitmentsByBox[targetBoxKey].totalARS += ruleAmt;
+            commitmentsByBox[targetBoxKey].items.push({
+                type: 'regla_recurrente',
+                description: `${rule.name || rule.category} (Día ${rule.dayOfMonth || 1})`,
+                category: rule.category,
+                amount: ruleAmt,
+                dayOfMonth: rule.dayOfMonth
+            });
+        }
+    });
+
+    // Si no hay reglas recurrentes pero sí egresos operativos registrados en el mes actual, estimar burn rate base
+    if (monthlyOperationalBurnRateARS === 0 && commitmentsByBox.operativa.totalARS > 0) {
+        monthlyOperationalBurnRateARS = commitmentsByBox.operativa.totalARS;
+    }
+
+    // Postventa: Operaciones elegibles en ventana de garantía (últimos 90 días)
+    // Se cuenta exactamente 1 por vehículo/operación, NUNCA por cuota financiada
+    const warrantyCutoff = new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000);
+    const eligibleSales = await Sale.find({
+        status: { $in: ['confirmada', 'pendiente_entrega', 'entregada'] },
+        saleDate: { $gte: warrantyCutoff }
+    }).populate('vehicleId', 'brand name year').lean();
+
+    const eligibleSalesCount = eligibleSales.length;
+
+    // Metas determinísticas por caja (sin porcentajes inventados)
+    const targetMap = {};
+
+    // 1. Operativa
+    const opTotal = commitmentsByBox.operativa.totalARS;
+    targetMap.operativa = {
+        targetARS: opTotal,
+        originDescription: `Gastos pendientes y reglas recurrentes en el horizonte de ${horizonDays} días`,
+        originDetails: commitmentsByBox.operativa.items,
+        isConfigIncomplete: commitmentsByBox.operativa.items.length === 0,
+        missingDataNote: commitmentsByBox.operativa.items.length === 0 ? 'Sin gastos operativos pendientes ni reglas recurrentes cargadas.' : null
+    };
+
+    // 2. Impuestos
+    const impTotal = commitmentsByBox.impuestos.totalARS;
+    targetMap.impuestos = {
+        targetARS: impTotal,
+        originDescription: 'Obligaciones tributarias e impositivas registradas con vencimiento',
+        originDetails: commitmentsByBox.impuestos.items,
+        isConfigIncomplete: commitmentsByBox.impuestos.items.length === 0,
+        missingDataNote: commitmentsByBox.impuestos.items.length === 0 ? 'Sin impuestos pendientes ni vencimientos tributarios cargados.' : null
+    };
+
+    // 3. Deudas
+    const deudasTotal = commitmentsByBox.deudas.totalARS;
+    targetMap.deudas = {
+        targetARS: deudasTotal,
+        originDescription: 'Pasivos comerciales, préstamos y cuotas comprometidas',
+        originDetails: commitmentsByBox.deudas.items,
+        isConfigIncomplete: false,
+        missingDataNote: null
+    };
+
+    // 4. Personal (Presupuesto exclusivo de retiros del propietario)
+    const personalBudget = Number(config.personalMonthlyBudgetARS || 0);
+    targetMap.personal = {
+        targetARS: personalBudget,
+        originDescription: 'Presupuesto mensual confirmado de retiros del propietario (sueldos de empleados van a Operativa)',
+        originDetails: personalBudget > 0 ? [{ description: 'Presupuesto mensual de retiros del propietario', amount: personalBudget }] : [],
+        isConfigIncomplete: personalBudget <= 0,
+        missingDataNote: personalBudget <= 0 ? 'Presupuesto mensual de retiros del propietario no configurado.' : null
+    };
+
+    // 5. Reserva de liquidez (Base mensual operativa × meses configurados)
+    const reserveMonths = Number(config.reserveMonths || 2);
+    const reserveTarget = monthlyOperationalBurnRateARS * reserveMonths;
+    targetMap.reserva = {
+        targetARS: reserveTarget,
+        originDescription: `Respaldo financiero para ${reserveMonths} meses lentos (Base operativa mensual: ARS ${Math.round(monthlyOperationalBurnRateARS).toLocaleString('es-AR')})`,
+        originDetails: reserveTarget > 0 ? [{ description: `Base operativa × ${reserveMonths} meses`, amount: reserveTarget }] : [],
+        isConfigIncomplete: monthlyOperationalBurnRateARS <= 0,
+        missingDataNote: monthlyOperationalBurnRateARS <= 0 ? 'Faltan reglas de gastos fijos operativos para proyectar la reserva de meses lentos.' : null
+    };
+
+    // 6. Postventa (Provisión confirmada × autos elegibles)
+    const provPerVehicle = Number(config.postventaProvisionPerVehicleARS || 0);
+    const provFixed = Number(config.postventaProvisionARS || 0);
+    let postventaTarget = 0;
+    let postventaDesc = '';
+    let postventaDetails = [];
+    let postventaIncomplete = false;
+    let postventaMissingNote = null;
+
+    if (provPerVehicle > 0) {
+        postventaTarget = provPerVehicle * eligibleSalesCount;
+        postventaDesc = `Provisión de ARS ${provPerVehicle.toLocaleString('es-AR')} por vehículo × ${eligibleSalesCount} vehículos entregados en garantía (últimos 90 días)`;
+        postventaDetails = eligibleSales.map(s => ({
+            description: `Garantía unidad ${s.vehicleId?.brand || ''} ${s.vehicleId?.name || ''} (${s.vehicleId?.year || ''})`,
+            amount: provPerVehicle,
+            date: s.saleDate
+        }));
+    } else if (provFixed > 0) {
+        postventaTarget = provFixed;
+        postventaDesc = `Provisión fija de postventa confirmada: ARS ${provFixed.toLocaleString('es-AR')}`;
+        postventaDetails = [{ description: 'Provisión global fija de postventa', amount: provFixed }];
+    } else {
+        postventaTarget = 0;
+        postventaDesc = 'Provisión de postventa no configurada';
+        postventaIncomplete = true;
+        postventaMissingNote = 'Provisión de postventa por vehículo o global no configurada.';
+    }
+
+    targetMap.postventa = {
+        targetARS: postventaTarget,
+        originDescription: postventaDesc,
+        originDetails: postventaDetails,
+        isConfigIncomplete: postventaIncomplete,
+        missingDataNote: postventaMissingNote
+    };
+
+    // 7 y 8. Stock y Crecimiento (Reciben EXCLUSIVAMENTE excedente si hay regla expresamente configurada)
+    const surplusRuleConfigured = Boolean(config.surplusRule && config.surplusRule.configured);
+    const stockPercent = Number(config.surplusRule?.stockPercent || 0);
+    const crecimientoPercent = Number(config.surplusRule?.crecimientoPercent || 0);
+
+    targetMap.stock = {
+        targetARS: 0,
+        originDescription: surplusRuleConfigured ? `Asignación de excedente (${stockPercent}%)` : 'Sin regla de excedente configurada. El remanente permanece sin asignar en cuentas.',
+        originDetails: [],
+        isConfigIncomplete: !surplusRuleConfigured,
+        missingDataNote: !surplusRuleConfigured ? 'Regla de excedente no configurada.' : null
+    };
+
+    targetMap.crecimiento = {
+        targetARS: 0,
+        originDescription: surplusRuleConfigured ? `Asignación de excedente (${crecimientoPercent}%)` : 'Sin regla de excedente configurada. El remanente permanece sin asignar en cuentas.',
+        originDetails: [],
+        isConfigIncomplete: !surplusRuleConfigured,
+        missingDataNote: !surplusRuleConfigured ? 'Regla de excedente no configurada.' : null
+    };
+
+    // Cascada de prioridades determinística
+    const priorityOrder = Array.isArray(config.priorityOrder) && config.priorityOrder.length > 0
+        ? config.priorityOrder
+        : ['operativa', 'impuestos', 'deudas', 'personal', 'postventa', 'reserva', 'stock', 'crecimiento'];
+
+    // Determinar pool a repartir: si totalCajasARS === 0 (primera asignación), se reparte effectiveTotalARS.
+    // Si ya hay dinero en cajas, se reparte el dinero sin asignar en cuentas.
+    const unallocatedPoolARS = Math.max(0, effectiveTotalARS - (liquidityOverrideARS !== null ? 0 : totalCajasARS));
+    let remainingFunds = unallocatedPoolARS;
+    const boxResultsMap = {};
+
+    // FASE 1: Cubrir cajas prioritarias con compromisos/metas (Operativa, Impuestos, Deudas, Personal, Postventa, Reserva)
+    for (const key of priorityOrder) {
+        if (key === 'stock' || key === 'crecimiento') continue;
+
+        const boxDoc = boxes.find(b => b.key === key);
+        const currentBal = Number(boxDoc?.balanceARS || 0);
+        const meta = targetMap[key] || { targetARS: 0, originDescription: '', originDetails: [], isConfigIncomplete: false, missingDataNote: null };
+        const target = meta.targetARS;
+        const shortfall = Math.max(0, target - currentBal);
+
+        const suggested = Math.min(remainingFunds, shortfall);
+        const uncovered = shortfall - suggested;
+        remainingFunds -= suggested;
+
+        boxResultsMap[key] = {
+            key,
+            name: boxDoc?.name || `Caja ${key}`,
+            color: boxDoc?.color || 'purple',
+            icon: boxDoc?.icon || 'Briefcase',
+            targetARS: target,
+            originDescription: meta.originDescription,
+            originDetails: meta.originDetails,
+            currentBalanceARS: currentBal,
+            shortfallARS: shortfall,
+            suggestedAmountARS: suggested,
+            uncoveredShortfallARS: uncovered,
+            isConfigIncomplete: meta.isConfigIncomplete,
+            missingDataNote: meta.missingDataNote
+        };
+    }
+
+    // FASE 2: Asignación de Excedente a Stock y Crecimiento
+    const surplusPoolARS = Math.max(0, remainingFunds);
+    let stockSuggested = 0;
+    let crecimientoSuggested = 0;
+
+    if (surplusRuleConfigured && surplusPoolARS > 0) {
+        stockSuggested = Math.round(surplusPoolARS * (stockPercent / 100));
+        crecimientoSuggested = Math.round(surplusPoolARS * (crecimientoPercent / 100));
+        remainingFunds -= (stockSuggested + crecimientoSuggested);
+    }
+
+    const stockDoc = boxes.find(b => b.key === 'stock');
+    const stockCurrentBal = Number(stockDoc?.balanceARS || 0);
+    boxResultsMap.stock = {
+        key: 'stock',
+        name: stockDoc?.name || 'Caja Stock / Vehículos',
+        color: stockDoc?.color || 'cyan',
+        icon: stockDoc?.icon || 'Car',
+        targetARS: stockCurrentBal + stockSuggested,
+        originDescription: surplusRuleConfigured
+            ? `Excedente asignado por regla configurada (${stockPercent}% de ARS ${surplusPoolARS.toLocaleString('es-AR')})`
+            : 'Regla de excedente no configurada. El remanente permanece en cuentas sin asignar.',
+        originDetails: stockSuggested > 0 ? [{ description: `Excedente a Stock (${stockPercent}%)`, amount: stockSuggested }] : [],
+        currentBalanceARS: stockCurrentBal,
+        shortfallARS: stockSuggested,
+        suggestedAmountARS: stockSuggested,
+        uncoveredShortfallARS: 0,
+        isConfigIncomplete: !surplusRuleConfigured,
+        missingDataNote: !surplusRuleConfigured ? 'Regla de excedente no configurada.' : null
+    };
+
+    const crecimientoDoc = boxes.find(b => b.key === 'crecimiento');
+    const crecimientoCurrentBal = Number(crecimientoDoc?.balanceARS || 0);
+    boxResultsMap.crecimiento = {
+        key: 'crecimiento',
+        name: crecimientoDoc?.name || 'Fondo de Crecimiento',
+        color: crecimientoDoc?.color || 'emerald',
+        icon: crecimientoDoc?.icon || 'TrendingUp',
+        targetARS: crecimientoCurrentBal + crecimientoSuggested,
+        originDescription: surplusRuleConfigured
+            ? `Excedente asignado por regla configurada (${crecimientoPercent}% de ARS ${surplusPoolARS.toLocaleString('es-AR')})`
+            : 'Regla de excedente no configurada. El remanente permanece en cuentas sin asignar.',
+        originDetails: crecimientoSuggested > 0 ? [{ description: `Excedente a Crecimiento (${crecimientoPercent}%)`, amount: crecimientoSuggested }] : [],
+        currentBalanceARS: crecimientoCurrentBal,
+        shortfallARS: crecimientoSuggested,
+        suggestedAmountARS: crecimientoSuggested,
+        uncoveredShortfallARS: 0,
+        isConfigIncomplete: !surplusRuleConfigured,
+        missingDataNote: !surplusRuleConfigured ? 'Regla de excedente no configurada.' : null
+    };
+
+    // Ordenar resultados respetando el orden canónico
+    const boxKeysOrder = ['operativa', 'impuestos', 'deudas', 'personal', 'postventa', 'reserva', 'stock', 'crecimiento'];
+    const boxResults = boxKeysOrder.map(k => boxResultsMap[k]).filter(Boolean);
+
+    // Resumen global y detección de déficits
+    let totalSuggestedARS = 0;
+    let totalDeficitARS = 0;
+    boxResults.forEach(b => {
+        totalSuggestedARS += b.suggestedAmountARS;
+        totalDeficitARS += b.uncoveredShortfallARS;
+    });
+
+    const unassignedRemainderARS = Math.max(0, remainingFunds);
+    const hasDeficit = totalDeficitARS > 0;
+    const hasIncompleteConfig = boxResults.some(b => b.isConfigIncomplete);
+
+    return {
+        ok: true,
+        boxes: boxResults,
+        summary: {
+            effectiveTotalARS,
+            totalCuentasARS,
+            totalCuentasUSD,
+            totalCajasARS,
+            unallocatedPoolARS,
+            totalSuggestedARS,
+            unassignedRemainderARS,
+            totalDeficitARS,
+            hasDeficit,
+            hasIncompleteConfig,
+            surplusPoolARS,
+            surplusRuleConfigured
+        },
+        config: {
+            operationalHorizonDays: horizonDays,
+            reserveMonths,
+            personalMonthlyBudgetARS: personalBudget,
+            postventaProvisionPerVehicleARS: provPerVehicle,
+            postventaProvisionARS: provFixed,
+            surplusRule: config.surplusRule,
+            priorityOrder
+        }
+    };
+}
+
 
 

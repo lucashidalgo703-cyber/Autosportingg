@@ -1,3 +1,4 @@
+import { computeCommissionAmount, validateCommissionPercent, parseDecimal, roundMoney } from './src/utils/saleCommercial.js';
 import AnalyticsEvent from './src/models/AnalyticsEvent.js';
 import CustomerVehicle from './src/models/CustomerVehicle.js';
 import WorkshopProvider from './src/models/WorkshopProvider.js';
@@ -4920,18 +4921,24 @@ app.patch('/api/admin/sales/:id', authenticateToken, requirePermission(PERMISSIO
             hasChanges = true;
         }
 
-        if (commissionSettings !== undefined) {
-            sale.commissionSettings = commissionSettings;
-            hasChanges = true;
-            sale.saleAuditLog.push({
-                action: 'COMISION_ACTUALIZADA',
-                field: 'commissionSettings',
-                oldValue: null,
-                newValue: commissionSettings,
-                details: 'Comisión del vendedor actualizada manualmente',
-                user: user,
-                source: 'CRM_V2'
-            });
+        // Comisión: se valida acá y se aplica/recalcula después de resolver el precio final (ver más abajo).
+        let commissionInput = null;
+        if (commissionSettings !== undefined && commissionSettings !== null) {
+            const requestedMode = commissionSettings.mode === 'percent' ? 'percent' : 'fixed';
+            if (requestedMode === 'percent') {
+                const check = validateCommissionPercent(commissionSettings.percent);
+                if (!check.ok) return res.status(400).json({ message: check.message, code: 'COMMISSION_INVALID' });
+                commissionInput = { mode: 'percent', percent: check.value };
+            } else {
+                const fixedAmount = parseDecimal(commissionSettings.extraAmount ?? 0);
+                if (!Number.isFinite(fixedAmount) || fixedAmount < 0) {
+                    return res.status(400).json({ message: 'El importe de la comisión no puede ser negativo.', code: 'COMMISSION_INVALID' });
+                }
+                commissionInput = { mode: 'fixed', extraAmount: roundMoney(fixedAmount) };
+            }
+            if (['ARS', 'USD'].includes(commissionSettings.extraCurrency)) {
+                commissionInput.extraCurrency = commissionSettings.extraCurrency;
+            }
         }
 
         if (saleExpenses !== undefined) {
@@ -4979,7 +4986,8 @@ app.patch('/api/admin/sales/:id', authenticateToken, requirePermission(PERMISSIO
                 }
 
                 const financedBalance = Math.max(0, cashPrice - downPayment);
-                if (financedBalance > 0) {
+                const planActive = financedBalance > 0;
+                if (planActive) {
                     if (![6, 12, 18, 24].includes(installmentsCount)) {
                         return res.status(400).json({ message: 'La cantidad de cuotas debe ser 6, 12, 18 o 24 cuando exista saldo financiado.' });
                     }
@@ -4992,7 +5000,7 @@ app.patch('/api/admin/sales/:id', authenticateToken, requirePermission(PERMISSIO
                 let lastInstallmentAmount = 0;
                 let roundingAdjustment = 0;
 
-                if (calculationMode === 'by_installment' && customInstallmentAmount > 0) {
+                if (planActive && calculationMode === 'by_installment' && customInstallmentAmount > 0) {
                     installmentAmount = customInstallmentAmount;
                     lastInstallmentAmount = customInstallmentAmount;
                     totalFinancedWithInterest = customInstallmentAmount * installmentsCount;
@@ -5033,8 +5041,8 @@ app.patch('/api/admin/sales/:id', authenticateToken, requirePermission(PERMISSIO
                     const termsChanged = 
                         Number(prevFin.cashPrice) !== cashPrice ||
                         Number(prevFin.downPayment) !== downPayment ||
-                        Number(prevFin.installmentAmount) !== installmentAmount ||
-                        Number(prevFin.installmentsCount) !== installmentsCount;
+                        Number(prevFin.installmentAmount || 0) !== installmentAmount ||
+                        Number(prevFin.installmentsCount || 0) !== (planActive ? installmentsCount : 0);
 
                     if (termsChanged) {
                         return res.status(400).json({ 
@@ -5047,7 +5055,7 @@ app.patch('/api/admin/sales/:id', authenticateToken, requirePermission(PERMISSIO
                     hasFinancing: true,
                     cashPrice,
                     downPayment,
-                    installmentsCount: installmentsCount || 0,
+                    installmentsCount: planActive ? installmentsCount : undefined,
                     interestRate,
                     financedBalance,
                     interestAmount,
@@ -5063,7 +5071,7 @@ app.patch('/api/admin/sales/:id', authenticateToken, requirePermission(PERMISSIO
 
                 // Actualizar precio de venta al total de la operación y plazo
                 sale.salePrice = totalOperationPrice;
-                sale.installmentsCount = installmentsCount || 0;
+                sale.installmentsCount = planActive ? installmentsCount : 0;
 
                 sale.saleAuditLog.push({
                     action: 'FINANCIACION_ACTUALIZADA',
@@ -5119,21 +5127,23 @@ app.patch('/api/admin/sales/:id', authenticateToken, requirePermission(PERMISSIO
                     }
                 }
             } else if (financingDetails === null || financingDetails.hasFinancing === false) {
-                sale.financingDetails = {
-                    hasFinancing: false,
-                    cashPrice: 0,
-                    downPayment: 0,
-                    installmentsCount: 0,
-                    interestRate: 0,
-                    financedBalance: 0,
-                    interestAmount: 0,
-                    totalFinancedWithInterest: 0,
-                    installmentAmount: 0,
-                    lastInstallmentAmount: 0,
-                    totalOperationPrice: 0,
-                    roundingAdjustment: 0,
-                    includesDeposit: false
-                };
+                // Venta sin financiación: no se exigen ni se guardan datos de cuotas.
+                // Las cuotas existentes nunca se borran automáticamente.
+                const existingInstallments = await Installment.find({
+                    saleId: sale._id,
+                    status: { $ne: 'anulada' }
+                }).lean();
+                const hasPaidInstallments = existingInstallments.some(inst =>
+                    (inst.paidAmount && inst.paidAmount > 0) ||
+                    ['pagada', 'parcial', 'pagada_manual'].includes(inst.status)
+                );
+                if (hasPaidInstallments && sale.financingDetails?.hasFinancing) {
+                    return res.status(400).json({
+                        message: 'No se puede pasar la venta a contado porque ya tiene cuotas con cobros registrados. Anulá o regularizá esos cobros primero; no se borró ningún dato.',
+                        code: 'SALE_HAS_PAID_INSTALLMENTS'
+                    });
+                }
+                sale.financingDetails = { hasFinancing: false };
                 sale.installmentsCount = 0;
                 sale.saleAuditLog.push({
                     action: 'FINANCIACION_DESACTIVADA',
@@ -5143,6 +5153,50 @@ app.patch('/api/admin/sales/:id', authenticateToken, requirePermission(PERMISSIO
                     source: 'CRM_V2'
                 });
                 hasChanges = true;
+            }
+        }
+
+        // ===== COMISIÓN (después de resolver precio y financiación) =====
+        {
+            const currentCs = sale.toObject().commissionSettings || {};
+            const targetMode = commissionInput ? commissionInput.mode : (currentCs.mode === 'percent' ? 'percent' : null);
+            if (targetMode) {
+                const nextCs = { ...currentCs };
+                if (commissionInput?.extraCurrency) nextCs.extraCurrency = commissionInput.extraCurrency;
+                nextCs.isManual = true;
+                if (targetMode === 'percent') {
+                    const percent = commissionInput ? commissionInput.percent : currentCs.percent;
+                    const base = Number(sale.salePrice) || 0; // precio total pactado (en financiadas: entrega + cuotas con interés)
+                    nextCs.mode = 'percent';
+                    nextCs.percent = percent;
+                    nextCs.base = base;
+                    nextCs.baseCurrency = sale.saleCurrency;
+                    nextCs.extraCurrency = sale.saleCurrency;
+                    nextCs.extraAmount = computeCommissionAmount(base, percent);
+                } else {
+                    nextCs.mode = 'fixed';
+                    nextCs.percent = undefined;
+                    nextCs.base = undefined;
+                    nextCs.baseCurrency = undefined;
+                    nextCs.extraAmount = commissionInput.extraAmount;
+                }
+                const changed = ['mode', 'percent', 'base', 'baseCurrency', 'extraAmount', 'extraCurrency']
+                    .some((k) => (nextCs[k] ?? null) !== (currentCs[k] ?? null));
+                if (changed) {
+                    sale.commissionSettings = nextCs;
+                    sale.saleAuditLog.push({
+                        action: 'COMISION_ACTUALIZADA',
+                        field: 'commissionSettings',
+                        oldValue: { mode: currentCs.mode || 'fixed', percent: currentCs.percent, base: currentCs.base, extraAmount: currentCs.extraAmount, extraCurrency: currentCs.extraCurrency },
+                        newValue: { mode: nextCs.mode, percent: nextCs.percent, base: nextCs.base, extraAmount: nextCs.extraAmount, extraCurrency: nextCs.extraCurrency },
+                        details: nextCs.mode === 'percent'
+                            ? `Comisión ${nextCs.percent}% sobre ${nextCs.base} ${nextCs.baseCurrency} = ${nextCs.extraAmount} (calculada por el servidor). Pendiente de pago: no genera egreso.`
+                            : `Comisión fija actualizada a ${nextCs.extraAmount} ${nextCs.extraCurrency}. Pendiente de pago: no genera egreso.`,
+                        user: user,
+                        source: 'CRM_V2'
+                    });
+                    hasChanges = true;
+                }
             }
         }
 
@@ -5335,6 +5389,13 @@ app.patch('/api/admin/sales/:id', authenticateToken, requirePermission(PERMISSIO
         }
     } catch (error) {
         console.error('Error updating sale:', error);
+        if (error?.name === 'ValidationError') {
+            const details = Object.values(error.errors || {}).map((e) => e.message).filter(Boolean);
+            return res.status(400).json({
+                message: `No se pudo guardar la venta: ${details.join(' ') || 'hay datos inválidos.'} Revisá los datos ingresados; no se perdió nada de lo cargado.`,
+                code: 'SALE_VALIDATION_FAILED'
+            });
+        }
         res.status(400).json({ message: error.message });
     }
 });
@@ -9528,6 +9589,27 @@ app.post('/api/admin/tesoreria-estrategica/expenses/bulk-categorize', authentica
         res.json(result);
     } catch (error) {
         console.error('POST /api/admin/tesoreria-estrategica/expenses/bulk-categorize error:', error);
+        res.status(400).json({ ok: false, message: error.message });
+    }
+});
+
+// 23. Obtener o Simular Reparto Sugerido Determinístico de Tesorería
+app.get('/api/admin/tesoreria-estrategica/suggested-allocation', authenticateToken, requireTreasuryPrivilegedRole, verifyTreasuryStrategicAuth, async (req, res) => {
+    try {
+        const result = await treasuryStrategicService.calculateSuggestedAllocation(req.query, req.user);
+        res.json(result);
+    } catch (error) {
+        console.error('GET /api/admin/tesoreria-estrategica/suggested-allocation error:', error);
+        res.status(500).json({ ok: false, message: error.message });
+    }
+});
+
+app.post('/api/admin/tesoreria-estrategica/suggested-allocation', authenticateToken, requireTreasuryPrivilegedRole, verifyTreasuryStrategicAuth, async (req, res) => {
+    try {
+        const result = await treasuryStrategicService.calculateSuggestedAllocation(req.body, req.user);
+        res.json(result);
+    } catch (error) {
+        console.error('POST /api/admin/tesoreria-estrategica/suggested-allocation error:', error);
         res.status(400).json({ ok: false, message: error.message });
     }
 });
