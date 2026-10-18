@@ -1,4 +1,5 @@
 import { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import { clearOfflineData } from '../services/offlineSyncService';
 
 const AuthContext = createContext(null);
 
@@ -29,6 +30,12 @@ export const AuthProvider = ({ children }) => {
     };
 
     const clearSession = useCallback(() => {
+        try {
+            const stored = localStorage.getItem('token');
+            const decoded = stored ? decodeToken(stored) : null;
+            const currentUserId = decoded?.id || decoded?._id || decoded?.username;
+            if (currentUserId) clearOfflineData(currentUserId);
+        } catch {}
         localStorage.removeItem('token');
         setToken(null);
         setIsAuthenticated(false);

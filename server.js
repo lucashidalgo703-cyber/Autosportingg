@@ -61,6 +61,7 @@ import { getNextLeadAssignee, checkLeadSLA } from './src/services/leadRoutingSer
 import { logAudit, logSystemAudit } from './src/utils/auditLogger.js';
 import { getDolarBlueRate, setManualDolarBlueRate } from './src/services/dolarService.js';
 import * as treasuryStrategicService from './src/services/treasuryStrategicService.js';
+import OfflineSyncOperation from './src/models/OfflineSyncOperation.js';
 import { hasPermission, PERMISSIONS, ROLES } from './src/utils/adminPermissions.js';
 import { CloudinaryStorage } from 'multer-storage-cloudinary';
 import jwt from 'jsonwebtoken';
@@ -10082,6 +10083,626 @@ app.post('/api/admin/tesoreria-estrategica/simulate-purchase', authenticateToken
         res.status(400).json({ ok: false, message: error.message });
     }
 });
+
+// ==========================================
+// MODO OFFLINE CRM v1 (Etapa 4)
+// ==========================================
+
+// 1. Preparar dispositivo: descargar datos autorizados según el rol del usuario (NUNCA expone Tesorería Estratégica privada)
+app.get('/api/admin/offline/bootstrap', authenticateToken, async (req, res) => {
+    try {
+        const user = req.user;
+        const userId = String(user.id || user._id || user.username);
+        const includePhotos = req.query.includePhotos !== 'false';
+
+        const canReadStock = hasPermission(user, PERMISSIONS.STOCK_READ);
+        const canReadClients = hasPermission(user, PERMISSIONS.CLIENTES_READ);
+        const canReadSales = hasPermission(user, PERMISSIONS.VENTAS_READ);
+        const canReadInstallments = hasPermission(user, PERMISSIONS.CUOTAS_READ) || hasPermission(user, PERMISSIONS.COBRANZAS_READ) || canReadSales;
+        const canReadFinances = hasPermission(user, PERMISSIONS.FINANZAS_READ) || hasPermission(user, PERMISSIONS.CAJA_READ);
+
+        const [vehiclesRaw, clientsRaw, salesRaw, installmentsRaw, expensesRaw] = await Promise.all([
+            canReadStock
+                ? Car.find({}).sort({ updatedAt: -1 }).limit(500).lean()
+                : Promise.resolve([]),
+            canReadClients
+                ? Client.find({}).sort({ updatedAt: -1 }).limit(500).lean()
+                : Promise.resolve([]),
+            canReadSales
+                ? Sale.find({})
+                    .populate('vehicleId', 'brand name year plateOrVin price currency purchasePrice status')
+                    .populate('clientId', 'fullName phone email dniCuit')
+                    .sort({ saleDate: -1 })
+                    .limit(300)
+                    .lean()
+                : Promise.resolve([]),
+            canReadInstallments
+                ? Installment.find({})
+                    .populate('vehicleId', 'brand name year plateOrVin')
+                    .populate('clientId', 'fullName phone')
+                    .sort({ dueDate: 1 })
+                    .limit(600)
+                    .lean()
+                : Promise.resolve([]),
+            canReadFinances
+                ? Transaction.find({ type: 'Egreso', status: { $ne: 'anulado' } })
+                    .populate('vehicleId', 'brand name year plateOrVin')
+                    .sort({ date: -1 })
+                    .limit(300)
+                    .lean()
+                : Promise.resolve([])
+        ]);
+
+        const vehicles = vehiclesRaw.map(v => ({
+            ...v,
+            coverImage: includePhotos ? (v.coverImage || (Array.isArray(v.images) && v.images[0]) || null) : null,
+            images: includePhotos ? (Array.isArray(v.images) ? v.images.slice(0, 3) : []) : []
+        }));
+
+        const availableStockCount = vehicles.filter(v => v.status === 'Disponible').length;
+        const reservedStockCount = vehicles.filter(v => v.status === 'Reservado').length;
+        const soldStockCount = vehicles.filter(v => v.status === 'Vendido').length;
+        const pendingInstallmentsCount = installmentsRaw.filter(i => i.status === 'pendiente' || i.status === 'vencida').length;
+
+        res.json({
+            ok: true,
+            syncedAt: new Date().toISOString(),
+            storageNamespace: `autosporting_offline_v1_${userId}`,
+            userScope: {
+                userId,
+                username: user.username,
+                role: user.role
+            },
+            includePhotos,
+            treasuryStrategicExcluded: true,
+            summary: {
+                vehiclesCount: vehicles.length,
+                availableStockCount,
+                reservedStockCount,
+                soldStockCount,
+                clientsCount: clientsRaw.length,
+                salesCount: salesRaw.length,
+                installmentsCount: installmentsRaw.length,
+                pendingInstallmentsCount,
+                expensesCount: expensesRaw.length
+            },
+            data: {
+                vehicles,
+                clients: clientsRaw,
+                sales: salesRaw,
+                installments: installmentsRaw,
+                expenses: expensesRaw
+            }
+        });
+    } catch (error) {
+        console.error('GET /api/admin/offline/bootstrap error:', error);
+        res.status(500).json({ ok: false, message: error.message });
+    }
+});
+
+// 2. Sincronizar cola offline con idempotencia, detección de conflictos y borradores financieros pendientes de confirmación
+app.post('/api/admin/offline/sync', authenticateToken, async (req, res) => {
+    try {
+        const user = req.user;
+        const userId = String(user.id || user._id || user.username);
+        const username = user.username || user.name || 'CRM_V2';
+        const operations = Array.isArray(req.body?.operations) ? req.body.operations : [];
+
+        if (operations.length === 0) {
+            return res.status(400).json({ ok: false, message: 'No se recibieron operaciones para sincronizar.' });
+        }
+
+        const results = [];
+        let appliedCount = 0;
+        let pendingConfirmationCount = 0;
+        let conflictCount = 0;
+        let rejectedCount = 0;
+        let duplicateCount = 0;
+
+        for (const op of operations) {
+            const idempotencyKey = String(op.idempotencyKey || '').trim();
+            const operationType = String(op.operationType || '').trim();
+            const entityType = op.entityType ? String(op.entityType).trim() : null;
+            const entityId = op.entityId ? String(op.entityId).trim() : null;
+            const payload = op.payload && typeof op.payload === 'object' ? op.payload : {};
+            const expectedUpdatedAt = op.expectedUpdatedAt ? new Date(op.expectedUpdatedAt) : null;
+
+            if (!idempotencyKey || !operationType) {
+                rejectedCount++;
+                results.push({
+                    idempotencyKey: idempotencyKey || null,
+                    operationType: operationType || null,
+                    status: 'rejected',
+                    errorMessage: 'Cada operación offline requiere idempotencyKey y operationType.'
+                });
+                continue;
+            }
+
+            // Verificar idempotencia: si ya se procesó esta clave, devolver el resultado guardado sin duplicar registros
+            const existingOp = await OfflineSyncOperation.findOne({ idempotencyKey }).lean();
+            if (existingOp) {
+                duplicateCount++;
+                results.push({
+                    idempotencyKey,
+                    operationType: existingOp.operationType,
+                    status: existingOp.status,
+                    deduplicated: true,
+                    requiresServerConfirmation: existingOp.requiresServerConfirmation,
+                    confirmationStatus: existingOp.confirmationStatus,
+                    entityId: existingOp.entityId,
+                    resultData: existingOp.resultData,
+                    conflictDetails: existingOp.conflictDetails,
+                    errorMessage: existingOp.errorMessage
+                });
+                continue;
+            }
+
+            // 1. OBSERVACIONES / NOTAS (sobre vehículo o cliente)
+            if (operationType === 'observation') {
+                const targetType = entityType || (payload.vehicleId ? 'Car' : 'Client');
+                const targetId = entityId || payload.vehicleId || payload.clientId;
+                const noteText = String(payload.note || payload.notes || '').trim();
+
+                if (!targetId || !mongoose.Types.ObjectId.isValid(targetId) || !noteText) {
+                    const savedRej = await OfflineSyncOperation.create({
+                        idempotencyKey, userId, username, operationType, entityType: targetType, entityId: targetId,
+                        payload, status: 'rejected', errorMessage: 'ID de entidad o texto de observación inválido.'
+                    });
+                    rejectedCount++;
+                    results.push({ idempotencyKey, operationType, status: 'rejected', errorMessage: savedRej.errorMessage });
+                    continue;
+                }
+
+                if (targetType === 'Car' || targetType === 'vehicle') {
+                    const car = await Car.findById(targetId);
+                    if (!car) {
+                        await OfflineSyncOperation.create({
+                            idempotencyKey, userId, username, operationType, entityType: 'Car', entityId: targetId,
+                            payload, status: 'conflict',
+                            conflictDetails: { reason: 'DELETED_ON_SERVER', message: 'El vehículo ya no existe en el servidor.' }
+                        });
+                        conflictCount++;
+                        results.push({
+                            idempotencyKey, operationType, status: 'conflict',
+                            conflictDetails: { reason: 'DELETED_ON_SERVER', message: 'El vehículo ya no existe en el servidor.' }
+                        });
+                        continue;
+                    }
+
+                    if (expectedUpdatedAt && car.updatedAt && new Date(car.updatedAt).getTime() > expectedUpdatedAt.getTime() + 1000) {
+                        const conflictDetails = {
+                            reason: 'MODIFIED_ON_SERVER',
+                            message: 'El vehículo fue modificado en el servidor después de la descarga offline.',
+                            serverUpdatedAt: car.updatedAt,
+                            expectedUpdatedAt
+                        };
+                        await OfflineSyncOperation.create({
+                            idempotencyKey, userId, username, operationType, entityType: 'Car', entityId: targetId,
+                            payload, expectedUpdatedAt, status: 'conflict', conflictDetails
+                        });
+                        conflictCount++;
+                        results.push({ idempotencyKey, operationType, status: 'conflict', conflictDetails });
+                        continue;
+                    }
+
+                    car.notes = car.notes ? `${car.notes}\n[Offline ${username}]: ${noteText}` : `[Offline ${username}]: ${noteText}`;
+                    car.auditLog.push({
+                        action: 'OBSERVACION',
+                        field: 'notes',
+                        newValue: noteText,
+                        details: `Observación sincronizada desde modo offline (${idempotencyKey})`,
+                        user: username,
+                        date: new Date()
+                    });
+                    await car.save();
+
+                    await OfflineSyncOperation.create({
+                        idempotencyKey, userId, username, operationType, entityType: 'Car', entityId: String(car._id),
+                        payload, expectedUpdatedAt, status: 'applied',
+                        resultData: { vehicleId: String(car._id), updatedAt: car.updatedAt }
+                    });
+                    appliedCount++;
+                    results.push({
+                        idempotencyKey, operationType, status: 'applied',
+                        entityId: String(car._id), resultData: { vehicleId: String(car._id), updatedAt: car.updatedAt }
+                    });
+                    continue;
+                } else {
+                    const client = await Client.findById(targetId);
+                    if (!client) {
+                        await OfflineSyncOperation.create({
+                            idempotencyKey, userId, username, operationType, entityType: 'Client', entityId: targetId,
+                            payload, status: 'conflict',
+                            conflictDetails: { reason: 'DELETED_ON_SERVER', message: 'El cliente ya no existe en el servidor.' }
+                        });
+                        conflictCount++;
+                        results.push({
+                            idempotencyKey, operationType, status: 'conflict',
+                            conflictDetails: { reason: 'DELETED_ON_SERVER', message: 'El cliente ya no existe en el servidor.' }
+                        });
+                        continue;
+                    }
+
+                    if (expectedUpdatedAt && client.updatedAt && new Date(client.updatedAt).getTime() > expectedUpdatedAt.getTime() + 1000) {
+                        const conflictDetails = {
+                            reason: 'MODIFIED_ON_SERVER',
+                            message: 'La ficha del cliente fue modificada en el servidor después de la descarga offline.',
+                            serverUpdatedAt: client.updatedAt,
+                            expectedUpdatedAt
+                        };
+                        await OfflineSyncOperation.create({
+                            idempotencyKey, userId, username, operationType, entityType: 'Client', entityId: targetId,
+                            payload, expectedUpdatedAt, status: 'conflict', conflictDetails
+                        });
+                        conflictCount++;
+                        results.push({ idempotencyKey, operationType, status: 'conflict', conflictDetails });
+                        continue;
+                    }
+
+                    client.interactions.push({
+                        type: 'nota',
+                        date: new Date(),
+                        note: noteText,
+                        user: username
+                    });
+                    client.notes = client.notes ? `${client.notes}\n[Offline]: ${noteText}` : noteText;
+                    client.lastActivityAt = new Date();
+                    await client.save();
+
+                    await OfflineSyncOperation.create({
+                        idempotencyKey, userId, username, operationType, entityType: 'Client', entityId: String(client._id),
+                        payload, expectedUpdatedAt, status: 'applied',
+                        resultData: { clientId: String(client._id), updatedAt: client.updatedAt }
+                    });
+                    appliedCount++;
+                    results.push({
+                        idempotencyKey, operationType, status: 'applied',
+                        entityId: String(client._id), resultData: { clientId: String(client._id), updatedAt: client.updatedAt }
+                    });
+                    continue;
+                }
+            }
+
+            // 2. PERITAJES / TASACIONES DE CAMPO (appraisal)
+            if (operationType === 'appraisal') {
+                const targetId = entityId || payload.vehicleId;
+                if (targetId && mongoose.Types.ObjectId.isValid(targetId)) {
+                    const car = await Car.findById(targetId);
+                    if (!car) {
+                        const conflictDetails = { reason: 'DELETED_ON_SERVER', message: 'El vehículo a peritar no existe en el servidor.' };
+                        await OfflineSyncOperation.create({
+                            idempotencyKey, userId, username, operationType, entityType: 'Car', entityId: targetId,
+                            payload, status: 'conflict', conflictDetails
+                        });
+                        conflictCount++;
+                        results.push({ idempotencyKey, operationType, status: 'conflict', conflictDetails });
+                        continue;
+                    }
+
+                    if (expectedUpdatedAt && car.updatedAt && new Date(car.updatedAt).getTime() > expectedUpdatedAt.getTime() + 1000) {
+                        const conflictDetails = {
+                            reason: 'MODIFIED_ON_SERVER',
+                            message: 'El vehículo fue modificado en el servidor mientras estaba sin conexión.',
+                            serverUpdatedAt: car.updatedAt,
+                            expectedUpdatedAt
+                        };
+                        await OfflineSyncOperation.create({
+                            idempotencyKey, userId, username, operationType, entityType: 'Car', entityId: targetId,
+                            payload, expectedUpdatedAt, status: 'conflict', conflictDetails
+                        });
+                        conflictCount++;
+                        results.push({ idempotencyKey, operationType, status: 'conflict', conflictDetails });
+                        continue;
+                    }
+
+                    const summaryNote = `[Peritaje Offline - ${username}]: Valuación ${payload.currency || 'ARS'} ${payload.valuation || 0}. Estado general: ${payload.conditionNotes || 'S/D'}`;
+                    if (payload.valuation !== undefined && Number(payload.valuation) > 0) {
+                        car.consignmentValuation = Number(payload.valuation);
+                    }
+                    car.notes = car.notes ? `${car.notes}\n${summaryNote}` : summaryNote;
+                    car.auditLog.push({
+                        action: 'OBSERVACION',
+                        field: 'consignmentValuation',
+                        newValue: payload.valuation,
+                        details: summaryNote,
+                        user: username,
+                        date: new Date()
+                    });
+                    await car.save();
+
+                    await OfflineSyncOperation.create({
+                        idempotencyKey, userId, username, operationType, entityType: 'Car', entityId: String(car._id),
+                        payload, expectedUpdatedAt, status: 'applied',
+                        resultData: { vehicleId: String(car._id), consignmentValuation: car.consignmentValuation }
+                    });
+                    appliedCount++;
+                    results.push({
+                        idempotencyKey, operationType, status: 'applied',
+                        entityId: String(car._id), resultData: { vehicleId: String(car._id), consignmentValuation: car.consignmentValuation }
+                    });
+                    continue;
+                } else {
+                    // Peritaje de vehículo aún no ingresado a stock -> queda guardado como registro operativo sincronizado
+                    await OfflineSyncOperation.create({
+                        idempotencyKey, userId, username, operationType, entityType: 'AppraisalRecord', entityId: null,
+                        payload, status: 'applied',
+                        resultData: { savedAppraisal: payload }
+                    });
+                    appliedCount++;
+                    results.push({ idempotencyKey, operationType, status: 'applied', resultData: { savedAppraisal: payload } });
+                    continue;
+                }
+            }
+
+            // 3. BORRADOR DE CLIENTE (client_draft)
+            if (operationType === 'client_draft') {
+                const fullName = String(payload.fullName || `${payload.firstName || ''} ${payload.lastName || ''}`).trim();
+                if (!fullName) {
+                    await OfflineSyncOperation.create({
+                        idempotencyKey, userId, username, operationType, entityType: 'Client',
+                        payload, status: 'rejected', errorMessage: 'El nombre del cliente es obligatorio.'
+                    });
+                    rejectedCount++;
+                    results.push({ idempotencyKey, operationType, status: 'rejected', errorMessage: 'El nombre del cliente es obligatorio.' });
+                    continue;
+                }
+
+                const newClient = new Client({
+                    firstName: payload.firstName || fullName.split(' ')[0],
+                    lastName: payload.lastName || fullName.split(' ').slice(1).join(' '),
+                    fullName,
+                    phone: payload.phone || '',
+                    email: payload.email || '',
+                    dniCuit: payload.dniCuit || '',
+                    locality: payload.locality || '',
+                    province: payload.province || '',
+                    notes: payload.notes ? `[Creado Offline]: ${payload.notes}` : '[Creado Offline]',
+                    createdBy: username,
+                    clientAuditLog: [{
+                        action: 'CREACION_OFFLINE',
+                        details: `Ficha de cliente creada sin conexión y sincronizada (${idempotencyKey})`,
+                        user: username,
+                        date: new Date()
+                    }]
+                });
+                await newClient.save();
+
+                await OfflineSyncOperation.create({
+                    idempotencyKey, userId, username, operationType, entityType: 'Client', entityId: String(newClient._id),
+                    payload, status: 'applied',
+                    resultData: { clientId: String(newClient._id), fullName: newClient.fullName }
+                });
+                appliedCount++;
+                results.push({
+                    idempotencyKey, operationType, status: 'applied',
+                    entityId: String(newClient._id), resultData: { clientId: String(newClient._id), fullName: newClient.fullName }
+                });
+                continue;
+            }
+
+            // 4. GASTO REGISTRADO OFFLINE (expense) -> Si afecta vehículo sin cuenta bancaria, o gasto pendiente de confirmación contable
+            if (operationType === 'expense') {
+                const amount = Number(payload.amount || 0);
+                const concept = String(payload.concept || payload.description || '').trim();
+                const currency = payload.currency === 'USD' ? 'USD' : 'ARS';
+
+                if (!concept || isNaN(amount) || amount <= 0) {
+                    await OfflineSyncOperation.create({
+                        idempotencyKey, userId, username, operationType,
+                        payload, status: 'rejected', errorMessage: 'Concepto y monto positivo son obligatorios para registrar un gasto.'
+                    });
+                    rejectedCount++;
+                    results.push({ idempotencyKey, operationType, status: 'rejected', errorMessage: 'Concepto y monto positivo son obligatorios.' });
+                    continue;
+                }
+
+                if (payload.vehicleId && mongoose.Types.ObjectId.isValid(payload.vehicleId) && !payload.accountId) {
+                    const car = await Car.findById(payload.vehicleId);
+                    if (!car) {
+                        const conflictDetails = { reason: 'DELETED_ON_SERVER', message: 'El vehículo asociado al gasto ya no existe.' };
+                        await OfflineSyncOperation.create({
+                            idempotencyKey, userId, username, operationType, entityType: 'Car', entityId: String(payload.vehicleId),
+                            payload, status: 'conflict', conflictDetails
+                        });
+                        conflictCount++;
+                        results.push({ idempotencyKey, operationType, status: 'conflict', conflictDetails });
+                        continue;
+                    }
+
+                    car.expenses.push({
+                        concept,
+                        amount,
+                        currency,
+                        date: payload.date ? new Date(payload.date) : new Date(),
+                        note: payload.notes || 'Sincronizado desde modo offline'
+                    });
+                    car.auditLog.push({
+                        action: 'GASTO',
+                        field: 'expenses',
+                        newValue: `${concept} (${currency} ${amount})`,
+                        details: `Gasto de unidad cargado en modo offline (${idempotencyKey})`,
+                        user: username,
+                        date: new Date()
+                    });
+                    await car.save();
+
+                    await OfflineSyncOperation.create({
+                        idempotencyKey, userId, username, operationType, entityType: 'Car', entityId: String(car._id),
+                        payload, status: 'applied',
+                        resultData: { vehicleId: String(car._id), expenseAdded: { concept, amount, currency } }
+                    });
+                    appliedCount++;
+                    results.push({
+                        idempotencyKey, operationType, status: 'applied',
+                        entityId: String(car._id), resultData: { vehicleId: String(car._id), expenseAdded: { concept, amount, currency } }
+                    });
+                    continue;
+                }
+
+                // Si incluye cuenta o impacto financiero -> queda como borrador pendiente de confirmación en el servidor sin descontar saldos todavía
+                const draftOp = await OfflineSyncOperation.create({
+                    idempotencyKey,
+                    userId,
+                    username,
+                    operationType,
+                    entityType: 'Transaction',
+                    entityId: payload.accountId ? String(payload.accountId) : null,
+                    payload: { ...payload, concept, amount, currency, type: 'Egreso' },
+                    status: 'pending_confirmation',
+                    requiresServerConfirmation: true,
+                    confirmationStatus: 'pending',
+                    resultData: {
+                        message: 'El gasto con impacto contable quedó registrado como borrador pendiente de confirmación en el servidor.'
+                    }
+                });
+                pendingConfirmationCount++;
+                results.push({
+                    idempotencyKey,
+                    operationType,
+                    status: 'pending_confirmation',
+                    requiresServerConfirmation: true,
+                    confirmationStatus: 'pending',
+                    draftId: String(draftOp._id),
+                    resultData: draftOp.resultData
+                });
+                continue;
+            }
+
+            // 5. OPERACIONES CON IMPACTO CONTABLE O FINANCIERO (financial_draft: ventas, cobros, pagos de cuotas, movimientos de cuentas o distribuciones)
+            // Regla estricta Etapa 4: NUNCA impactan saldos contables ni cajas automáticamente desde el navegador; quedan pendientes de confirmación en servidor
+            if (operationType === 'financial_draft') {
+                // Verificar si la entidad referenciada sigue vigente o tuvo conflicto
+                if (payload.saleId && mongoose.Types.ObjectId.isValid(payload.saleId)) {
+                    const sale = await Sale.findById(payload.saleId).lean();
+                    if (!sale) {
+                        const conflictDetails = { reason: 'DELETED_ON_SERVER', message: 'La venta asociada ya no existe en el servidor.' };
+                        await OfflineSyncOperation.create({
+                            idempotencyKey, userId, username, operationType, entityType: 'Sale', entityId: String(payload.saleId),
+                            payload, status: 'conflict', conflictDetails
+                        });
+                        conflictCount++;
+                        results.push({ idempotencyKey, operationType, status: 'conflict', conflictDetails });
+                        continue;
+                    }
+                    if (sale.status === 'cancelada' || sale.status === 'anulada') {
+                        const conflictDetails = { reason: 'SALE_CANCELLED_ON_SERVER', message: 'La venta asociada fue anulada o cancelada en el servidor.' };
+                        await OfflineSyncOperation.create({
+                            idempotencyKey, userId, username, operationType, entityType: 'Sale', entityId: String(payload.saleId),
+                            payload, status: 'conflict', conflictDetails
+                        });
+                        conflictCount++;
+                        results.push({ idempotencyKey, operationType, status: 'conflict', conflictDetails });
+                        continue;
+                    }
+                }
+
+                if (payload.installmentId && mongoose.Types.ObjectId.isValid(payload.installmentId)) {
+                    const inst = await Installment.findById(payload.installmentId).lean();
+                    if (!inst) {
+                        const conflictDetails = { reason: 'DELETED_ON_SERVER', message: 'La cuota asociada ya no existe en el servidor.' };
+                        await OfflineSyncOperation.create({
+                            idempotencyKey, userId, username, operationType, entityType: 'Installment', entityId: String(payload.installmentId),
+                            payload, status: 'conflict', conflictDetails
+                        });
+                        conflictCount++;
+                        results.push({ idempotencyKey, operationType, status: 'conflict', conflictDetails });
+                        continue;
+                    }
+                    if (inst.status === 'pagada' || inst.status === 'cancelada_por_cambio_condicion') {
+                        const conflictDetails = {
+                            reason: 'INSTALLMENT_ALREADY_CLOSED',
+                            message: `La cuota #${inst.installmentNumber} ya figura como ${inst.status} en el servidor.`
+                        };
+                        await OfflineSyncOperation.create({
+                            idempotencyKey, userId, username, operationType, entityType: 'Installment', entityId: String(payload.installmentId),
+                            payload, status: 'conflict', conflictDetails
+                        });
+                        conflictCount++;
+                        results.push({ idempotencyKey, operationType, status: 'conflict', conflictDetails });
+                        continue;
+                    }
+                }
+
+                const draftOp = await OfflineSyncOperation.create({
+                    idempotencyKey,
+                    userId,
+                    username,
+                    operationType: 'financial_draft',
+                    entityType: entityType || payload.draftKind || 'FinancialOperation',
+                    entityId: entityId || payload.installmentId || payload.saleId || payload.vehicleId || null,
+                    payload,
+                    expectedUpdatedAt,
+                    status: 'pending_confirmation',
+                    requiresServerConfirmation: true,
+                    confirmationStatus: 'pending',
+                    resultData: {
+                        message: 'Borrador financiero recibido. Requiere confirmación explícita en el servidor antes de impactar saldos de cuentas, cuotas o cajas.'
+                    }
+                });
+
+                pendingConfirmationCount++;
+                results.push({
+                    idempotencyKey,
+                    operationType: 'financial_draft',
+                    status: 'pending_confirmation',
+                    requiresServerConfirmation: true,
+                    confirmationStatus: 'pending',
+                    draftId: String(draftOp._id),
+                    resultData: draftOp.resultData
+                });
+                continue;
+            }
+
+            // Tipo desconocido
+            await OfflineSyncOperation.create({
+                idempotencyKey, userId, username, operationType: 'observation',
+                payload, status: 'rejected', errorMessage: `Tipo de operación offline no soportado: ${operationType}`
+            });
+            rejectedCount++;
+            results.push({
+                idempotencyKey,
+                operationType,
+                status: 'rejected',
+                errorMessage: `Tipo de operación offline no soportado: ${operationType}`
+            });
+        }
+
+        res.json({
+            ok: true,
+            syncedAt: new Date().toISOString(),
+            summary: {
+                totalReceived: operations.length,
+                appliedCount,
+                pendingConfirmationCount,
+                conflictCount,
+                rejectedCount,
+                duplicateCount
+            },
+            results
+        });
+    } catch (error) {
+        console.error('POST /api/admin/offline/sync error:', error);
+        res.status(500).json({ ok: false, message: error.message });
+    }
+});
+
+// 3. Listar borradores financieros y conflictos offline pendientes de revisión
+app.get('/api/admin/offline/pending-confirmations', authenticateToken, async (req, res) => {
+    try {
+        const items = await OfflineSyncOperation.find({
+            $or: [
+                { requiresServerConfirmation: true, confirmationStatus: 'pending' },
+                { status: 'conflict' }
+            ]
+        }).sort({ createdAt: -1 }).limit(100).lean();
+
+        res.json({ ok: true, items });
+    } catch (error) {
+        console.error('GET /api/admin/offline/pending-confirmations error:', error);
+        res.status(500).json({ ok: false, message: error.message });
+    }
+});
+
 
 app.get('/api/admin/checks', authenticateToken, requirePermission(PERMISSIONS.FINANZAS_READ), async (req, res) => {
     try {

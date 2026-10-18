@@ -8,6 +8,7 @@ import { useTheme } from '../../../context/ThemeContext';
 import { hasPermission, PERMISSIONS } from '../../../utils/adminPermissions';
 import toast from 'react-hot-toast';
 import UserProfileMenu from './UserProfileMenu';
+import OfflineSyncControl from '../offline/OfflineSyncControl';
 
 const formatCurrency = (val) => new Intl.NumberFormat('es-AR').format(Math.round(val || 0));
 
@@ -317,7 +318,7 @@ export default function CrmHeader({ onMenuClick }) {
                 </div>
 
                 <div className="relative flex shrink-0 items-center gap-1 md:gap-2" ref={dropdownRef}>
-                    {/* Removed independent theme toggle button, it is now inside UserProfileMenu */}
+                    <OfflineSyncControl />
 
                     <button
                         type="button"
