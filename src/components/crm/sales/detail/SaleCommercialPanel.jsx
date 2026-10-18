@@ -94,9 +94,10 @@ export const computeFinancingValues = (
     };
 };
 
-export default function SaleCommercialPanel({ sale, onSave }) {
+export default function SaleCommercialPanel({ sale, onSave, planActions }) {
     const [isEditing, setIsEditing] = useState(false);
     const [isSaving, setIsSaving] = useState(false);
+    const [planCancel, setPlanCancel] = useState(null); // { preview, reason, busy }
 
     const [editForm, setEditForm] = useState({
         salePrice: 0,
@@ -300,9 +301,37 @@ export default function SaleCommercialPanel({ sale, onSave }) {
             setIsEditing(false);
         } catch (error) {
             console.error("Error saving commercial conditions:", error);
-            toast.error("Error al guardar: " + (error.message || 'Error desconocido'));
+            if (error.code === 'SALE_HAS_ACTIVE_INSTALLMENT_PLAN' && planActions) {
+                try {
+                    const preview = await planActions.preview();
+                    setPlanCancel({ preview, reason: '', busy: false });
+                } catch (previewError) {
+                    toast.error(previewError.message);
+                }
+            }
+            toast.error(error.message || 'Error desconocido al guardar');
         } finally {
             setIsSaving(false);
+        }
+    };
+
+    const handleConfirmPlanCancel = async () => {
+        if (!planActions || !planCancel) return;
+        if ((planCancel.reason || '').trim().length < 5) {
+            toast.error('Indicá el motivo de la cancelación (mínimo 5 caracteres).');
+            return;
+        }
+        setPlanCancel(prev => ({ ...prev, busy: true }));
+        try {
+            await planActions.cancel({
+                reason: planCancel.reason.trim(),
+                installmentIds: planCancel.preview.cancellable.map(i => i._id)
+            });
+            toast.success('Plan de cuotas cancelado. Las cuotas quedaron anuladas (no se borraron). Ya podés guardar la venta como contado.');
+            setPlanCancel(null);
+        } catch (err) {
+            toast.error(err.message);
+            setPlanCancel(prev => ({ ...prev, busy: false }));
         }
     };
 
@@ -351,6 +380,50 @@ export default function SaleCommercialPanel({ sale, onSave }) {
             </div>
 
             <div className="flex flex-1 flex-col gap-5 p-5">
+                {planCancel && (
+                    <div className="flex flex-col gap-3 rounded-xl border border-amber-500/40 bg-amber-500/10 p-4 text-xs">
+                        <div className="flex items-center gap-2 font-bold text-amber-300">
+                            <AlertCircle size={16} />
+                            <span>Esta venta tiene un plan de cuotas activo</span>
+                        </div>
+                        {planCancel.preview.blocked ? (
+                            <p className="m-0 text-amber-100">{planCancel.preview.blockedReason}</p>
+                        ) : (
+                            <>
+                                <p className="m-0 text-amber-100/90">
+                                    Para pasar la venta a contado hay que cancelar el plan. Se anularán (no se borran) estas {planCancel.preview.cancellable.length} cuota(s):
+                                </p>
+                                <ul className="m-0 max-h-32 list-none overflow-auto p-0 text-amber-100">
+                                    {planCancel.preview.cancellable.map(i => (
+                                        <li key={i._id} className="flex justify-between border-b border-amber-500/10 py-0.5">
+                                            <span>Cuota {i.installmentNumber} · vence {new Date(i.dueDate).toLocaleDateString('es-AR')} · {i.status}</span>
+                                            <span className="font-bold">{formatMoney(i.amount, i.currency)}</span>
+                                        </li>
+                                    ))}
+                                </ul>
+                                <div className="font-bold text-amber-200">
+                                    Total que dejará de ser exigible: {Object.entries(planCancel.preview.totalsByCurrency).map(([cur, total]) => formatMoney(total, cur)).join(' + ')}
+                                </div>
+                                <textarea
+                                    value={planCancel.reason}
+                                    onChange={(e) => setPlanCancel(prev => ({ ...prev, reason: e.target.value }))}
+                                    placeholder="Motivo de la cancelación del plan (obligatorio)"
+                                    className="min-h-[56px] rounded-lg border border-amber-500/30 bg-crm-bg p-2 text-xs text-crm-fg"
+                                />
+                            </>
+                        )}
+                        <div className="flex justify-end gap-2">
+                            <button type="button" onClick={() => setPlanCancel(null)} disabled={planCancel.busy} className="rounded-lg border border-neutral-700 bg-crm-bg px-3 py-1.5 font-bold text-crm-fg-muted">
+                                Cerrar
+                            </button>
+                            {!planCancel.preview.blocked && (
+                                <button type="button" onClick={handleConfirmPlanCancel} disabled={planCancel.busy} className="rounded-lg border border-amber-500/40 bg-amber-500/20 px-3 py-1.5 font-bold text-amber-200 disabled:opacity-50">
+                                    {planCancel.busy ? 'Cancelando...' : 'Confirmar cancelación del plan'}
+                                </button>
+                            )}
+                        </div>
+                    </div>
+                )}
                 {/* SELECTOR DE MÉTODO DE PAGO */}
                 <div className="rounded-xl border border-crm-border bg-crm-bg p-3">
                     <span className="mb-2 block text-[10px] font-bold uppercase tracking-[0.08em] text-crm-fg-muted">Método de Pago</span>

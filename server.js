@@ -4846,6 +4846,7 @@ app.patch('/api/admin/sales/:id', authenticateToken, requirePermission(PERMISSIO
 
         const user = req.user?.username || 'Admin';
         const oldStatus = sale.status;
+        const wasFinanced = Boolean(sale.financingDetails?.hasFinancing) || String(sale.paymentMethod || '').toLowerCase() === 'financiado';
         let hasChanges = false;
 
         if (req.body.assignedTo !== undefined) {
@@ -5137,10 +5138,14 @@ app.patch('/api/admin/sales/:id', authenticateToken, requirePermission(PERMISSIO
                     (inst.paidAmount && inst.paidAmount > 0) ||
                     ['pagada', 'parcial', 'pagada_manual'].includes(inst.status)
                 );
-                if (hasPaidInstallments && sale.financingDetails?.hasFinancing) {
-                    return res.status(400).json({
-                        message: 'No se puede pasar la venta a contado porque ya tiene cuotas con cobros registrados. Anulá o regularizá esos cobros primero; no se borró ningún dato.',
-                        code: 'SALE_HAS_PAID_INSTALLMENTS'
+                if (wasFinanced && existingInstallments.length > 0) {
+                    const hasPayments = hasPaidInstallments;
+                    return res.status(409).json({
+                        message: hasPayments
+                            ? 'No se puede pasar la venta a contado: tiene cuotas con cobros registrados. Anulá o regularizá esos cobros primero; no se borró ningún dato.'
+                            : `No se puede pasar la venta a contado: tiene ${existingInstallments.length} cuota(s) activa(s) todavía exigibles. Cancelá el plan de cuotas desde Condiciones Comerciales (con vista previa) y después cambiá a contado; no se borró ningún dato.`,
+                        code: hasPayments ? 'SALE_HAS_PAID_INSTALLMENTS' : 'SALE_HAS_ACTIVE_INSTALLMENT_PLAN',
+                        activeInstallments: existingInstallments.length
                     });
                 }
                 sale.financingDetails = { hasFinancing: false };
@@ -5397,6 +5402,106 @@ app.patch('/api/admin/sales/:id', authenticateToken, requirePermission(PERMISSIO
             });
         }
         res.status(400).json({ message: error.message });
+    }
+});
+
+// --- CANCELACIÓN EXPLÍCITA DEL PLAN DE CUOTAS (previo a pasar una venta a contado) ---
+const summarizeInstallmentPlan = async (saleId) => {
+    const active = await Installment.find({ saleId, status: { $ne: 'anulada' } }).sort({ installmentNumber: 1 }).lean();
+    const isPaid = (i) => (i.paidAmount && i.paidAmount > 0) || ['pagada', 'parcial', 'pagada_manual'].includes(i.status);
+    const withPayments = active.filter(isPaid);
+    const cancellable = active.filter((i) => !isPaid(i));
+    const totalsByCurrency = {};
+    for (const i of cancellable) {
+        totalsByCurrency[i.currency] = roundMoney((totalsByCurrency[i.currency] || 0) + (Number(i.amount) || 0));
+    }
+    return {
+        activeCount: active.length,
+        withPaymentsCount: withPayments.length,
+        blocked: withPayments.length > 0,
+        blockedReason: withPayments.length > 0
+            ? 'El plan tiene cuotas con cobros o regularizadas. Anulá o revertí esos cobros antes de cancelar el plan.'
+            : null,
+        cancellable: cancellable.map((i) => ({
+            _id: i._id, installmentNumber: i.installmentNumber, dueDate: i.dueDate,
+            amount: i.amount, currency: i.currency, status: i.status
+        })),
+        totalsByCurrency
+    };
+};
+
+app.get('/api/admin/sales/:id/installment-plan/cancel-preview', authenticateToken, requirePermission(PERMISSIONS.VENTAS_WRITE), async (req, res) => {
+    try {
+        await connectDB();
+        const sale = await Sale.findById(req.params.id).select('_id').lean();
+        if (!sale) return res.status(404).json({ message: 'Venta no encontrada' });
+        res.json(await summarizeInstallmentPlan(sale._id));
+    } catch (error) {
+        console.error('cancel-preview error:', error);
+        res.status(500).json({ message: 'No se pudo generar la vista previa de la cancelación del plan.' });
+    }
+});
+
+app.post('/api/admin/sales/:id/installment-plan/cancel', authenticateToken, requirePermission(PERMISSIONS.VENTAS_WRITE), async (req, res) => {
+    try {
+        await connectDB();
+        const { reason, installmentIds, confirm } = req.body || {};
+        if (confirm !== true) return res.status(400).json({ message: 'Falta la confirmación explícita de la cancelación.' });
+        if (typeof reason !== 'string' || reason.trim().length < 5) {
+            return res.status(400).json({ message: 'Indicá el motivo de la cancelación del plan (mínimo 5 caracteres).' });
+        }
+        const sale = await Sale.findById(req.params.id);
+        if (!sale) return res.status(404).json({ message: 'Venta no encontrada' });
+
+        const plan = await summarizeInstallmentPlan(sale._id);
+        if (plan.blocked) return res.status(409).json({ message: plan.blockedReason, code: 'PLAN_HAS_PAYMENTS' });
+        if (plan.cancellable.length === 0) return res.status(409).json({ message: 'La venta no tiene cuotas activas para cancelar.', code: 'PLAN_NOT_ACTIVE' });
+
+        const current = plan.cancellable.map((i) => String(i._id)).sort();
+        const expected = Array.isArray(installmentIds) ? installmentIds.map(String).sort() : [];
+        if (current.length !== expected.length || current.some((id, idx) => id !== expected[idx])) {
+            return res.status(409).json({ message: 'El plan cambió desde la vista previa. Volvé a revisarlo antes de confirmar.', code: 'PLAN_CHANGED' });
+        }
+
+        const user = req.user?.username || 'Admin';
+        const note = reason.trim();
+        const cancelledAt = new Date();
+        for (const id of current) {
+            const inst = await Installment.findById(id);
+            if (!inst || inst.status === 'anulada' || (inst.paidAmount || 0) > 0) continue;
+            inst.status = 'anulada';
+            inst.updatedBy = user;
+            inst.installmentAuditLog.push({ action: 'CUOTA_ANULADA', user, date: cancelledAt, details: `Plan de cuotas cancelado: ${note}` });
+            await inst.save();
+        }
+
+        sale.saleAuditLog.push({
+            action: 'PLAN_CUOTAS_CANCELADO',
+            field: 'installments',
+            oldValue: plan.cancellable.map((i) => ({ n: i.installmentNumber, amount: i.amount, currency: i.currency, status: i.status })),
+            newValue: 'anulada',
+            details: `Plan de cuotas cancelado (${plan.cancellable.length} cuota/s anuladas, no borradas). Motivo: ${note}`,
+            user,
+            source: 'CRM_V2'
+        });
+        sale.updatedBy = user;
+        await sale.save();
+
+        await logAudit({
+            req,
+            action: 'PLAN_CUOTAS_CANCELADO',
+            module: 'ventas',
+            entityType: 'Sale',
+            entityId: sale._id,
+            entityLabel: `Venta ID: ${sale._id}`,
+            description: `Se canceló el plan de cuotas (${plan.cancellable.length} cuotas). Motivo: ${note}`,
+            metadata: { installmentIds: current, totalsByCurrency: plan.totalsByCurrency }
+        });
+
+        res.json({ ok: true, cancelled: plan.cancellable.length, totalsByCurrency: plan.totalsByCurrency });
+    } catch (error) {
+        console.error('cancel installment plan error:', error);
+        res.status(500).json({ message: 'No se pudo cancelar el plan de cuotas.' });
     }
 });
 

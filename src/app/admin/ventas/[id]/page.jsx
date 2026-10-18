@@ -27,7 +27,7 @@ import ConfirmModal from '../../../../components/crm/ui/ConfirmModal';
 export default function SaleDetailPage() {
     const { id } = useParams();
     const router = useRouter();
-    const { fetchSaleById, updateSale, loading, error } = useAdminSales();
+    const { fetchSaleById, updateSale, previewInstallmentPlanCancel, cancelInstallmentPlan, loading, error } = useAdminSales();
     const { createTask } = useAdminCrmTasks();
     const { user, token } = useAuth();
     const [sale, setSale] = useState(null);
@@ -214,7 +214,14 @@ export default function SaleDetailPage() {
                         <SaleLinkedEntitiesPanel sale={sale} onUpdate={loadSale} />
                     </div>
                     <div className="h-auto">
-                        <SaleCommercialPanel sale={sale} onSave={handleSave} />
+                        <SaleCommercialPanel
+                            sale={sale}
+                            onSave={handleSave}
+                            planActions={{
+                                preview: () => previewInstallmentPlanCancel(id),
+                                cancel: async (args) => { const r = await cancelInstallmentPlan(id, args); await loadSale(); return r; }
+                            }}
+                        />
                     </div>
                     <div className="h-auto">
                         <SaleTradeInPanel sale={sale} onUpdate={loadSale} />

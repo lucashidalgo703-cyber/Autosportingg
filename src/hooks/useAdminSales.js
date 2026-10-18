@@ -86,7 +86,9 @@ export function useAdminSales() {
 
             if (!res.ok) {
                 const errData = await res.json().catch(() => ({}));
-                throw new Error(errData.message || 'Error al actualizar la venta');
+                const apiError = new Error(errData.message || 'Error al actualizar la venta');
+                apiError.code = errData.code;
+                throw apiError;
             }
 
             const updatedSale = await parseResponseSafe(res);
@@ -151,6 +153,24 @@ export function useAdminSales() {
         }
     };
 
+    const previewInstallmentPlanCancel = async (id) => {
+        const res = await fetch(`${getBaseUrl()}/api/admin/sales/${id}/installment-plan/cancel-preview`, { headers: getAuthHeader() });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(data.message || 'No se pudo obtener la vista previa del plan.');
+        return data;
+    };
+
+    const cancelInstallmentPlan = async (id, { reason, installmentIds }) => {
+        const res = await fetch(`${getBaseUrl()}/api/admin/sales/${id}/installment-plan/cancel`, {
+            method: 'POST',
+            headers: getAuthHeader(),
+            body: JSON.stringify({ reason, installmentIds, confirm: true })
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(data.message || 'No se pudo cancelar el plan de cuotas.');
+        return data;
+    };
+
     return {
         sales,
         loading,
@@ -159,6 +179,8 @@ export function useAdminSales() {
         fetchSaleById,
         updateSale,
         createSale,
-        deleteSale
+        deleteSale,
+        previewInstallmentPlanCancel,
+        cancelInstallmentPlan
     };
 }
