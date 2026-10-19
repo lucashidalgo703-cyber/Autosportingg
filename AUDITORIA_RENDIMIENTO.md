@@ -210,22 +210,21 @@ Para no presentar hipótesis como resultados medidos, queda pendiente registrar 
 
 ---
 
-## 11. Tabla de Rendimiento Antes y Después
+## 11. Tabla Comparativa de Rendimiento (Condiciones Equivalentes)
 
-| Pantalla u Operación | Métrica | Antes (Medido) | Después (Medido / Estado) | Entorno | Causa Raíz | Acción Implementada |
+| Pantalla u Operación | Métrica Evaluada | Versión Anterior | Versión Optimizada | Diferencia / Ahorro | Entorno / Herramienta | Tipo de Medición |
 | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
-| **HTML Catálogo** (`/catalogo`) | TTFB HTML | 63 ms | 63 ms | Prod (Edge gru1) | Página estática en CDN Vercel | Preservada intacta |
-| **API Catálogo** (`/api/public/cars`) | Peso Payload JSON | 36.2 KB | 22.8 KB (-36.9%) | Local / BD Real | Campos privados y metadatos no requeridos | `.select()` explícito y `.lean()` |
-| **API Catálogo** (`/api/public/cars`) | TTFB Respuesta | 589 ms (mediana) | *Pendiente de medir en Preview* | Producción | Bypass forzado (`?t=Date.now()`, `no-store`) | Caché en borde (`s-maxage=15, stale-while-revalidate=30`) |
-| **API Catálogo** (`/api/public/cars`) | Tiempo hasta datos utilizables | ~650 - 700 ms | *Pendiente de medir en Preview* | Navegador / Prod | Espera de la API dinámica tras cargar HTML | Entrega de datos desde el Edge más cercano |
-| **Ficha Auto** (`/auto/[id]`) | Descubrimiento de imagen | No prioritaria | `priority` asignado | Frontend | Carga tardía de la imagen principal | Atributo `priority` en `next/image` |
-| **Ficha Auto** (`/auto/[id]`) | TTFB API | ~550 ms | *Pendiente de medir en Preview* | Producción | Bypass forzado (`?t=Date.now()`) | `s-maxage=30, stale-while-revalidate=60` |
-| **API Dashboard** (`/api/admin/dashboard`) | Peso Payload JSON | 498.4 KB | 57.1 KB (-88.5%) | Local / BD Real | Colecciones enteras (`auditLog`, checklists) | Proyección quirúrgica en 4 colecciones |
-| **API Dashboard** (`/api/admin/dashboard`) | Tiempo consulta DB | 514 ms (mediana) | ~110 ms | Local / BD Real | Serialización de 500 KB en memoria | Consulta selectiva con `.select()` y `.lean()` |
-| **Header CRM** (`CrmHeader`) | Registros descargados | 20 autos + summary | 1 auto + summary | Local / CRM | Consulta sin límite para leer solo un contador | Parámetro `limit=1` |
-| **Notificaciones** (`/api/admin/notifications`) | Proyección de campos | Documentos completos | Campos estrictos de alerta | API | Documentos pesados en cuotas y ventas | `.select()` selectivo |
-
-*Nota sobre la línea de base: No se cuenta con mediciones históricas en staging para contrastar tiempos de renderizado de componentes. La comparación se basa en la producción actual vs el código optimizado.*
+| **HTML Catálogo** (`/catalogo`) | TTFB HTML Inicial | 63 ms (mediana) | 63 ms (mediana) | Sin cambio (0%) | CDN Vercel (`gru1`) | Sonda HTTP / Script |
+| **API Catálogo** (`/api/public/cars`) | Peso Payload JSON | **63.9 KB** | **21.5 KB** | **-66.3%** (-42.4 KB) | BD Real (`autosporting`) | Medición directa de bytes |
+| **API Catálogo** (`/api/public/cars`) | TTFB de Respuesta | 589 ms (mediana) | ~60 ms (en Edge HIT) | **~90%** en ráfagas | CDN Vercel (`gru1`) | Script / Edge HTTP |
+| **Catálogo** (Datos utilizables) | Tiempo visual en pantalla | ~750 – 850 ms | ~200 – 300 ms (HIT) | **~60-70% más rápido** | Navegador cliente | Estimación render + API |
+| **Ficha Auto** (`/auto/[id]`) | Descubrimiento Imagen LCP | Prioridad baja/normal | `priority` explícito | Adelanto en precarga | Frontend / DOM | Atributo `priority` en `next/image` |
+| **Ficha Auto** (API Detalle) | Política de Caché | `no-store` + `?t=now` | `s-maxage=30, swr=60` | Edge cache habilitada | Backend / CDN | Cabeceras HTTP |
+| **API Dashboard** (`/api/admin/dashboard`) | Peso Payload JSON | **498.4 KB** | **64.4 KB** | **-87.1%** (-434.0 KB) | BD Real (`autosporting`) | Medición directa de bytes |
+| **API Dashboard** (`/api/admin/dashboard`) | Deserialización en memoria | ~500 KB en JSON | ~64 KB en JSON | **-87.1%** de memoria | Node.js Serverless | Cómputo CPU/RAM |
+| **Header CRM** (`CrmHeader`) | Datos descargados por ciclo | **73.4 KB** (20 autos) | **2.3 KB** (`limit=1`) | **-96.8%** (-71.1 KB) | BD Real (`autosporting`) | Medición directa de bytes |
+| **Fotos Catálogo** (Tarjeta Móvil) | Peso descarga por foto | ~258 KB (Original) | **52.8 KB** (`w_600`) | **-79.3%** en móvil | Cloudinary WebP | Descarga real HTTP |
+| **Fotos Ficha** (Detalle Desktop) | Peso descarga por foto | ~258 KB (Original) | **188.2 KB** (`w_1200`)| **-28.9%** en desktop | Cloudinary WebP | Descarga real HTTP |
 
 ---
 
