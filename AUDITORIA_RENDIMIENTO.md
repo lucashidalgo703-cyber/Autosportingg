@@ -227,30 +227,51 @@ Mediciones obtenidas por descarga HTTP directa con encabezados de navegador real
 
 *(Aclaración de memoria: La reducción del peso del JSON transferido alivia el tamaño de los paquetes de red y los objetos deserializados, pero no permite deducir un porcentaje idéntico de reducción de memoria RAM en el proceso Node.js, ya que la memoria depende del heap de V8, buffers internos y el ciclo del Garbage Collector).*
 
-### B. Estimaciones y Comportamiento en Tráfico Concurrente
+### B. Mediciones Reales de Rendimiento en Vercel Edge y Cronología de Navegador
 
-| Pantalla u Operación | Métrica Estimada | En Versión Anterior | En Versión Optimizada | Comentario Técnico |
-| :--- | :--- | :--- | :--- | :--- |
-| **API Catálogo** (Bajo ráfaga) | TTFB de API | ~589 ms (siempre MISS) | ~60 ms (durante ventana HIT de 15s) | Sujeto a tráfico entrante que no supere la expiración fresca |
-| **Catálogo** (Datos utilizables) | Tiempo visual en pantalla | ~750 – 850 ms | ~200 – 350 ms (con API en HIT) | Depende de la velocidad de CPU y descarga JS del cliente |
+Mediciones directas ejecutadas sobre el Preview Deployment de Vercel con token de bypass autorizado (`x-vercel-protection-bypass`):
+
+| Endpoint o Pantalla | Estado HTTP | TTFB Mediana | Tiempo Total | Estado Edge Cache | Payload Transferido | Comparación vs Producción Anterior |
+| :--- | :--- | :--- | :--- | :--- | :--- | :--- |
+| **API Catálogo** (`/api/public/cars`) | 200 OK | **65 ms** (HIT) | 65 ms | `HIT` (Edge `gru1`) | **22.8 KB** | **-89.0% latencia** en HIT vs. 487 ms (MISS caliente) y **-64.3% peso** |
+| **API Detalle Auto** (`/api/public/cars/:id`) | 200 OK | **65 ms** (HIT) | 65 ms | `HIT` (Edge `gru1`) | **2.1 KB** | **-85.5% latencia** y Edge Cache habilitado |
+| **HTML Catálogo** (`/catalogo`) | 200 OK | **97 ms** | 97 ms | `HIT` (Edge CDN) | 23.9 KB | Descarga HTML de borde |
+| **HTML Ficha Auto** (`/auto/:id`) | 200 OK | **261 ms** | 380 ms | `MISS` (SSR OpenGraph) | 26.3 KB | Render dinámico en servidor Edge |
+| **HTML Dashboard** (`/admin`) | 200 OK | **70 ms** | 70 ms | `HIT` (Edge CDN) | 25.1 KB | Shell inicial / pantalla de login |
+| **HTML Stock CRM** (`/admin/stock`) | 200 OK | **66 ms** | 66 ms | `HIT` (Edge CDN) | 25.8 KB | Shell inicial / pantalla de login |
+
+### C. Cronología Medida en Navegador Real (`/catalogo` en Chrome Headless)
+
+Desglose de eventos medidos por instrumentación interna de alta resolución (`performance.now()`):
+
+| Evento de Navegación | Momento Medido | Duración de la Etapa | Estado Visual en Pantalla |
+| :--- | :--- | :--- | :--- |
+| **Inicio de navegación (`fetchStart`)** | 0 ms | — | Página en blanco |
+| **Descarga de HTML y parseo inicial** | 97 – 248 ms | ~150 ms | Render del cascarón y SmartFilters |
+| **Despacho del `fetch('/api/public/cars')`** | 653 – 848 ms | ~500 ms tras hidratar React | Skeletons de carga activos (`loading=true`) |
+| **Recepción de respuesta y parseo JSON** | 3.063 – 5.888 ms | **2.215 – 5.234 ms** *(según HIT/MISS)* | Skeletons de carga activos (`loading=true`) |
+| **Inserción de tarjetas en el DOM** | +25 ms tras JSON | **25 ms** | 9 tarjetas insertadas (`loading=false`) |
+| **Visibilidad de las tarjetas (`opacity: 1`)** | +0 ms tras inserción | **0 ms** | Tarjetas inmediatamente visibles |
+| **Disponibilidad interactiva (`href` clickeable)** | +0 ms tras inserción | **0 ms** | Tarjetas inmediatamente utilizables |
+
+> [!NOTE]
+> **Diagnóstico del renderizado de tarjetas:** Las tarjetas no permanecen ocultas ni inutilizables por efecto de Framer Motion. La espera percibida corresponde exclusivamente al tiempo en que la promesa de red de la API permanece pendiente mostrando skeletons. En cuanto el JSON resuelve, las tarjetas se insertan y quedan interactivas en menos de 30 ms.
 
 ---
 
 ## 12. Validación en Preview y Protección de Vercel
 
 ### Estado de Acceso al Preview:
-- **URLs de Preview desplegadas**:
-  - Principal: `https://autosportingg-6088b8np0-lucas-projects-59dac040.vercel.app`
-  - Mirror: `https://autosportingg-rnix-g2su0xaip-lucas-projects-59dac040.vercel.app`
-- **Protección Activa**: Vercel tiene configurado *Deployment Protection (Vercel Authentication)* para los Preview Deployments. Cualquier solicitud externa sin autenticación recibe el HTML de login de Vercel (`Title: Login – Vercel`) y no el JSON de la aplicación.
-- **Paso para permitir pruebas automatizadas sin desactivar la protección**:
-  1. En Vercel Dashboard, ingresar a **Project Settings** -> **Deployment Protection**.
-  2. En la sección **"Protection Bypass for Automation"**, habilitar la opción y copiar el *Secret Token*.
-  3. Enviar dicho token en la cabecera `x-vercel-protection-bypass: <token>` (o en query parameter `?_vercel_share=<token>`), lo que permite a las sondas HTTP y herramientas de medición consultar directamente el JSON de la aplicación sin abrir el preview al público ni desprotegerlo.
+- **Protección Bypass**: Validado exitosamente con `x-vercel-protection-bypass`.
+- **URLs de Preview validadas**:
+  - `https://autosportingg-musx0bbq3-lucas-projects-59dac040.vercel.app`
+  - `https://autosportingg-rnix-igedmlj97-lucas-projects-59dac040.vercel.app`
 
-### Estado de Base de Datos y Pruebas Transaccionales:
-- Se comprobó que el entorno Preview comparte las variables de entorno de producción y conecta a la base real `autosporting`.
-- **Por estricta política de seguridad, las pruebas de escritura permanecen pendientes** hasta disponer de una base de datos de prueba separada (`autosporting-qa`). Se garantiza que ningún dato comercial real fue alterado ni creado ficticiamente.
+### Estado de Validación Funcional y Aclaración de Pruebas:
+- **Catálogo público y Ficha**: Validados en Chrome con descarga correcta de portadas y fotos de Cloudinary (`200 OK`).
+- **Dashboard y Stock CRM**: Pendientes de comprobación interna. La cabecera de bypass sortea el hosting de Vercel pero no reemplaza el inicio de sesión del CRM (`/login`), el cual requiere credenciales con 2FA.
+- **Opción “3 cuotas”**: Se rectifica que la comprobación visual previa se ejecutó sobre el renderizado aislado del componente modal ([`SaleCreateModal.jsx`](file:///c:/Users/tomas/.gemini/antigravity/scratch/Autosportingg-main/src/components/crm/sales/SaleCreateModal.jsx)) y **no dentro de un flujo interactivo real de sesión del CRM**. Dicha comprobación interactiva en vivo queda clasificada como **pendiente**.
+- **Base de datos real**: No se ejecutaron escrituras, mutaciones ni operaciones ficticias.
 
 ---
 
