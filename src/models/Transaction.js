@@ -48,14 +48,43 @@ const transactionSchema = new mongoose.Schema({
     // --- Tesorería Estratégica ---
     treasuryBoxKey: { type: String, default: null },
     isTreasuryDistributed: { type: Boolean, default: false },
+    isTreasuryDistributionReversed: { type: Boolean, default: false },
+    isTreasuryExpenseSynced: { type: Boolean, default: false },
     distributedAt: { type: Date },
     distributedBy: { type: String },
     thirdPartyAmount: { type: Number, default: 0 },
+    thirdPartyCapitalReturn: { type: Number, default: 0 },
+    thirdPartyProfitShare: { type: Number, default: 0 },
     thirdPartyOwner: { type: String, default: null },
     thirdPartySettled: { type: Boolean, default: false },
+    treasuryBreakdown: {
+        totalCollected: { type: Number, default: 0 },
+        ownGrossAmount: { type: Number, default: 0 },
+        thirdPartyAmount: { type: Number, default: 0 },
+        thirdPartyCapitalReturn: { type: Number, default: 0 },
+        thirdPartyProfitShare: { type: Number, default: 0 },
+        operationPendingCostsReserved: { type: Number, default: 0 },
+        capitalRecoveredToStock: { type: Number, default: 0 },
+        marginCollected: { type: Number, default: 0 },
+        essentialShortfallsCovered: { type: Number, default: 0 },
+        reserveCovered: { type: Number, default: 0 },
+        extraReinvestmentToStock: { type: Number, default: 0 },
+        remainderDistributed: { type: Number, default: 0 },
+        unassignedRemainder: { type: Number, default: 0 },
+        reinvestmentExtraPctApplied: { type: Number, default: null },
+        unassignedReason: { type: String, default: null },
+        appliedAllocations: [{
+            boxKey: String,
+            boxName: String,
+            amount: Number,
+            step: String,
+            historyType: String,
+            reason: String
+        }]
+    },
     treasuryControl: {
         isBeforeCutoff: { type: Boolean, default: false },
-        inboxStatus: { type: String, enum: ['pendiente', 'distribuido', 'excluido_corte', 'ignorado'], default: 'pendiente' }
+        inboxStatus: { type: String, enum: ['pendiente', 'distribuido', 'excluido_corte', 'ignorado', 'revertido'], default: 'pendiente' }
     },
     idempotencyKey: { type: String, index: true, sparse: true },
     // --------------------------------------------------------

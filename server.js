@@ -3409,6 +3409,12 @@ app.post('/api/transactions', authenticateToken, requirePermission(PERMISSIONS.F
         account.balance += balanceChange;
         await account.save();
 
+        if (savedTx.type === 'Egreso') {
+            await treasuryStrategicService.syncExpenseWithTreasury(savedTx, { isNew: true, user: req.user?.username || 'Admin' });
+        } else if (savedTx.type === 'Ingreso' && savedTx.status === 'activo') {
+            await treasuryStrategicService.registerCollectionForTreasury(savedTx, { user: req.user });
+        }
+
         const populatedTx = await Transaction.findById(savedTx._id)
             .populate('accountId')
             .populate('carId');
@@ -3422,10 +3428,11 @@ app.post('/api/transactions', authenticateToken, requirePermission(PERMISSIONS.F
 app.delete('/api/transactions/:id', authenticateToken, requirePermission(PERMISSIONS.FINANZAS_WRITE), async (req, res) => {
     try {
         const tx = await Transaction.findById(req.params.id);
-        if (!tx) return res.status(404).json({ message: 'Transacci├│n no encontrada' });
+        if (!tx) return res.status(404).json({ message: 'Transacción no encontrada' });
+        const oldStatus = tx.status;
 
         const account = await Account.findById(tx.accountId);
-        if (account) {
+        if (account && (oldStatus === 'activo' || oldStatus === 'Completado')) {
             const revertChange = tx.type === 'Ingreso' ? -tx.amount : tx.amount;
             account.balance += revertChange;
             await account.save();
@@ -3433,6 +3440,20 @@ app.delete('/api/transactions/:id', authenticateToken, requirePermission(PERMISS
 
         tx.status = 'anulado';
         await tx.save();
+
+        if (tx.type === 'Egreso') {
+            await treasuryStrategicService.syncExpenseWithTreasury(tx, {
+                statusChanged: true,
+                oldStatus,
+                user: req.user?.username || 'Admin'
+            });
+        } else if (tx.type === 'Ingreso') {
+            await treasuryStrategicService.reverseIncomeDistribution(tx, {
+                user: req.user?.username || 'Admin',
+                reason: 'Anulación de cobro'
+            });
+        }
+
         res.json({ message: 'Transacción anulada y balance de caja revertido' });
     } catch (error) {
         res.status(500).json({ message: error.message });
@@ -6314,6 +6335,11 @@ app.post('/api/admin/transactions/bulk-annul', authenticateToken, requirePermiss
                         oldStatus,
                         user: req.user?.username || 'Admin'
                     });
+                } else if (tx.type === 'Ingreso' || tx.type === 'ingreso') {
+                    await treasuryStrategicService.reverseIncomeDistribution(tx, {
+                        user: req.user?.username || 'Admin',
+                        reason: 'Anulación masiva de transacciones'
+                    });
                 }
                 annulledCount++;
             }
@@ -6351,6 +6377,11 @@ app.delete('/api/admin/transactions/:id', authenticateToken, requirePermission(P
                 statusChanged: true,
                 oldStatus,
                 user: req.user?.username || 'Admin'
+            });
+        } else if (tx.type === 'Ingreso' || tx.type === 'ingreso') {
+            await treasuryStrategicService.reverseIncomeDistribution(tx, {
+                user: req.user?.username || 'Admin',
+                reason: 'Anulación de cobro desde Finanzas'
             });
         }
 
@@ -6684,6 +6715,15 @@ app.patch('/api/admin/transactions/:id', authenticateToken, requirePermission(PE
                     oldStatus,
                     user
                 });
+            } else if (tx.type === 'Ingreso' || oldType === 'Ingreso') {
+                if ((oldStatus === 'activo' || oldStatus === 'Completado') && tx.status !== 'activo' && tx.status !== 'Completado') {
+                    await treasuryStrategicService.reverseIncomeDistribution(tx, {
+                        user,
+                        reason: `Cambio de estado a ${tx.status}`
+                    });
+                } else if (oldStatus !== 'activo' && tx.status === 'activo') {
+                    await treasuryStrategicService.registerCollectionForTreasury(tx, { user: req.user });
+                }
             }
         }
 
@@ -10324,6 +10364,60 @@ app.post('/api/admin/tesoreria-estrategica/simulate-purchase', authenticateToken
     }
 });
 
+// 27. Vista previa de transferencia entre cajas y edición de cajas (sin modificar saldos bancarios)
+app.post('/api/admin/tesoreria-estrategica/boxes/transfer/preview', authenticateToken, requireTreasuryPrivilegedRole, verifyTreasuryStrategicAuth, async (req, res) => {
+    try {
+        const result = await treasuryStrategicService.transferBetweenBoxes({ ...(req.body || {}), previewOnly: true }, req.user);
+        res.json(result);
+    } catch (error) {
+        console.error('POST /api/admin/tesoreria-estrategica/boxes/transfer/preview error:', error);
+        res.status(400).json({ ok: false, message: error.message });
+    }
+});
+
+app.post('/api/admin/tesoreria-estrategica/boxes/distribute/preview', authenticateToken, requireTreasuryPrivilegedRole, verifyTreasuryStrategicAuth, async (req, res) => {
+    try {
+        const result = await treasuryStrategicService.distributeToBoxes({ ...(req.body || {}), previewOnly: true }, req.user);
+        res.json(result);
+    } catch (error) {
+        console.error('POST /api/admin/tesoreria-estrategica/boxes/distribute/preview error:', error);
+        res.status(400).json({ ok: false, message: error.message });
+    }
+});
+
+// 28. Vista previa de conciliación inicial y activación de reglas (sin reiniciar cajas ni cuentas)
+app.post('/api/admin/tesoreria-estrategica/reconcile/preview', authenticateToken, requireTreasuryPrivilegedRole, verifyTreasuryStrategicAuth, async (req, res) => {
+    try {
+        const result = await treasuryStrategicService.previewInitialReconciliationAndActivation(req.body || {});
+        res.json(result);
+    } catch (error) {
+        console.error('POST /api/admin/tesoreria-estrategica/reconcile/preview error:', error);
+        res.status(400).json({ ok: false, message: error.message });
+    }
+});
+
+// 29. Vista previa y ejecución explícita de redistribución de fondos existentes
+app.post('/api/admin/tesoreria-estrategica/redistribute/preview', authenticateToken, requireTreasuryPrivilegedRole, verifyTreasuryStrategicAuth, async (req, res) => {
+    try {
+        const result = await treasuryStrategicService.previewRedistributeExistingFunds(req.body || {});
+        res.json(result);
+    } catch (error) {
+        console.error('POST /api/admin/tesoreria-estrategica/redistribute/preview error:', error);
+        res.status(400).json({ ok: false, message: error.message });
+    }
+});
+
+app.post('/api/admin/tesoreria-estrategica/redistribute/execute', authenticateToken, requireTreasuryPrivilegedRole, verifyTreasuryStrategicAuth, async (req, res) => {
+    try {
+        const result = await treasuryStrategicService.executeRedistributeExistingFunds(req.body || {}, req.user);
+        res.json(result);
+    } catch (error) {
+        console.error('POST /api/admin/tesoreria-estrategica/redistribute/execute error:', error);
+        res.status(400).json({ ok: false, message: error.message });
+    }
+});
+
+
 // ==========================================
 // MODO OFFLINE CRM v1 (Etapa 4)
 // ==========================================
@@ -11076,6 +11170,16 @@ app.patch('/api/admin/checks/:id', authenticateToken, requirePermission(PERMISSI
                 await Transaction.findByIdAndDelete(newTx._id);
                 throw new Error(`Error al actualizar saldo de cuenta: ${err.message}`);
             }
+
+            try {
+                if (direction === 'emitido') {
+                    await treasuryStrategicService.syncExpenseWithTreasury(newTx, { isNew: true, user });
+                } else {
+                    await treasuryStrategicService.registerCollectionForTreasury(newTx, { user: req.user });
+                }
+            } catch (trErr) {
+                console.error('Error sincronizando cheque en tesorería:', trErr);
+            }
         }
 
         let updated;
@@ -11402,6 +11506,12 @@ app.post('/api/admin/finance/card-expenses', authenticateToken, requirePermissio
             throw new Error(`Error al actualizar saldo de cuenta: ${err.message}`);
         }
 
+        try {
+            await treasuryStrategicService.syncExpenseWithTreasury(newTx, { isNew: true, user });
+        } catch (trErr) {
+            console.error('Error sincronizando gasto tarjeta en tesorería:', trErr);
+        }
+
         res.status(201).json(newTx);
     } catch (error) {
         console.error('POST /api/admin/finance/card-expenses error:', error);
@@ -11459,6 +11569,12 @@ app.post('/api/admin/finance/withdrawals', authenticateToken, requirePermission(
         } catch (err) {
             await Transaction.findByIdAndDelete(newTx._id);
             throw new Error(`Error al actualizar saldo de cuenta: ${err.message}`);
+        }
+
+        try {
+            await treasuryStrategicService.syncExpenseWithTreasury(newTx, { isNew: true, user });
+        } catch (trErr) {
+            console.error('Error sincronizando retiro en tesorería:', trErr);
         }
 
         res.status(201).json(newTx);
@@ -11539,6 +11655,12 @@ app.post('/api/admin/finance/loans', authenticateToken, requirePermission(PERMIS
             await Transaction.findByIdAndDelete(newTx._id);
             await Loan.findByIdAndDelete(newLoan._id);
             throw new Error(`Error al actualizar saldo de cuenta: ${err.message}`);
+        }
+
+        try {
+            await treasuryStrategicService.syncExpenseWithTreasury(newTx, { isNew: true, user });
+        } catch (trErr) {
+            console.error('Error sincronizando préstamo en tesorería:', trErr);
         }
 
         res.status(201).json(newLoan);
@@ -11890,6 +12012,16 @@ app.post('/api/admin/finance/recurrences/generate-month', authenticateToken, req
                 } catch (err) {
                     await Transaction.findByIdAndDelete(newTx._id);
                     throw err;
+                }
+
+                try {
+                    if (rule.type === 'Egreso') {
+                        await treasuryStrategicService.syncExpenseWithTreasury(newTx, { isNew: true, user });
+                    } else if (rule.type === 'Ingreso') {
+                        await treasuryStrategicService.registerCollectionForTreasury(newTx, { user: req.user });
+                    }
+                } catch (trErr) {
+                    console.error('Error sincronizando recurrencia en tesorería:', trErr);
                 }
 
                 transactions.push(newTx);
@@ -12911,6 +13043,12 @@ app.patch('/api/admin/settlements/:id', authenticateToken, requirePermission(PER
                     });
 
                     await settlement.save();
+
+                    try {
+                        await treasuryStrategicService.syncExpenseWithTreasury(savedTx, { isNew: true, user: req.user.username });
+                    } catch (trErr) {
+                        console.error('Error sincronizando liquidación de comisión en tesorería:', trErr);
+                    }
 
                 } catch (err) {
                     if (txIdCreated) await Transaction.deleteOne({ _id: txIdCreated });

@@ -351,20 +351,102 @@ async function startIsolatedPreview() {
     await treasuryStrategicService.updateTreasuryConfig({
         operationalHorizonDays: 30,
         reserveMonths: 3,
-        personalMonthlyBudgetARS: 1500000,
-        postventaProvisionPerVehicleARS: 300000,
-        autoDistributeIncomes: false,
+        personalMonthlyBudgetARS: 1530000,
+        postventaProvisionPerVehicleARS: 0,
+        reinvestmentExtraConfigured: true,
+        reinvestmentExtraPct: 10,
+        autoDistributeIncomes: true,
+        requirePinForAutoDistribution: false,
         surplusRule: {
             configured: true,
-            stockPercent: 70,
-            crecimientoPercent: 30
+            stockPercent: 0,
+            crecimientoPercent: 100
         },
-        priorityOrder: ['operativa', 'impuestos', 'deudas', 'personal', 'postventa', 'reserva', 'stock', 'crecimiento']
+        priorityOrder: ['operativa', 'impuestos', 'deudas', 'postventa', 'reserva', 'personal', 'stock', 'crecimiento']
     }, adminActor);
     await treasuryStrategicService.confirmInitialCutoff({
         cutoffDate: new Date(Date.now() - 86400000).toISOString(),
         reason: 'Corte inicial vista previa aislada'
     }, adminActor);
+
+    // Vehículo E: Caso de prueba exacto de la Sección 3 ($12.700.000 inversión -> $15.500.000 venta -> $2.800.000 ganancia -> 10% extra = $1.270.000)
+    const carCorolla = await Car.create({
+        brand: 'Toyota',
+        name: 'Corolla XEI 2.0 CVT (Caso Prueba Sección 3)',
+        year: 2022,
+        km: 28000,
+        fuel: 'Nafta',
+        condition: 'Usado',
+        color: 'Gris Plata',
+        plateOrVin: 'AF789XY',
+        currency: 'ARS',
+        purchaseCurrency: 'ARS',
+        purchasePrice: 12700000,
+        price: 15500000,
+        status: 'Vendido',
+        sold: true,
+        soldAt: new Date(),
+        agencyOwned: true,
+        coverImage: '/demo-car-photo/corolla-xei.svg',
+        images: ['/demo-car-photo/corolla-xei.svg']
+    });
+
+    const saleCorolla = await Sale.create({
+        vehicleId: carCorolla._id,
+        clientId: client1._id,
+        customerName: client1.fullName,
+        saleDate: new Date(),
+        salePrice: 15500000,
+        saleCurrency: 'ARS',
+        paymentMethod: 'contado',
+        cashAmount: 15500000,
+        cashAccountId: accBankArs._id,
+        commissionSettings: { mode: 'fixed', extraAmount: 0, extraCurrency: 'ARS' },
+        commissionAmount: 0,
+        commissionCurrency: 'ARS',
+        sellerUserId: sellerUser._id,
+        sellerName: sellerUser.name,
+        status: 'confirmada',
+        notes: 'Caso de prueba Sección 3: Inversión $12.7M, Venta $15.5M, Ganancia $2.8M, Extra 10% ($1.27M)',
+        createdBy: ownerUser.name
+    });
+
+    const txCorolla = await Transaction.create({
+        date: new Date(),
+        type: 'Ingreso',
+        category: 'Venta de Vehículo',
+        concept: 'Cobro contado Toyota Corolla XEI (Prueba Sección 3)',
+        description: 'Cobro contado Toyota Corolla XEI (Prueba Sección 3)',
+        amount: 15500000,
+        currency: 'ARS',
+        paymentMethod: 'transferencia',
+        accountId: accBankArs._id,
+        saleId: saleCorolla._id,
+        vehicleId: carCorolla._id,
+        status: 'activo',
+        module: 'crm_v2',
+        createdBy: ownerUser.name
+    });
+    await treasuryStrategicService.registerCollectionForTreasury(txCorolla, { user: adminActor });
+
+    // También registrar un cobro pendiente en bandeja (anticipo de Peugeot 208) para probar vista previa de cascada interactiva
+    const txPeugeotAnticipo = await Transaction.create({
+        date: new Date(),
+        type: 'Ingreso',
+        category: 'Entregas',
+        concept: 'Anticipo entrega Peugeot 208 Feline',
+        description: 'Anticipo entrega Peugeot 208 Feline',
+        amount: 13500000,
+        currency: 'ARS',
+        paymentMethod: 'efectivo',
+        accountId: accArs._id,
+        saleId: salePeugeot._id,
+        vehicleId: carPeugeot._id,
+        status: 'activo',
+        module: 'crm_v2',
+        isTreasuryDistributed: false,
+        createdBy: ownerUser.name
+    });
 
     // Levantar API en API_PORT (3001) para peticiones directas a localhost:3001
     await new Promise((resolve) => {

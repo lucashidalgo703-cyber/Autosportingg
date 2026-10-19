@@ -2,18 +2,13 @@
 
 import React, { useState, useEffect } from 'react';
 import {
-    SlidersHorizontal,
     X,
     DollarSign,
     Wallet,
-    Percent,
-    ShieldCheck,
-    Briefcase,
-    Calendar,
     CheckCircle2,
-    ArrowRight,
     Edit3,
-    RotateCcw
+    RotateCcw,
+    Eye
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 
@@ -36,24 +31,22 @@ export default function TreasuryEditBoxModal({
     treasuryToken,
     onSuccess
 }) {
-    // Por defecto abre en 'editar' para permitir cambiar o corregir el saldo directamente
     const [actionType, setActionType] = useState('editar'); // 'editar' | 'asignar' | 'meta'
-    
-    // Edición directa de saldo
+
     const [directBalanceUSD, setDirectBalanceUSD] = useState('');
     const [directBalanceARS, setDirectBalanceARS] = useState('');
-    
-    // Asignación de fondos
+
     const [addAmountUSD, setAddAmountUSD] = useState('');
     const [addAmountARS, setAddAmountARS] = useState('');
-    
-    // Configuración de Meta
+
     const [targetPercent, setTargetPercent] = useState('');
     const [monthlyBudgetARS, setMonthlyBudgetARS] = useState('');
     const [monthlyBudgetUSD, setMonthlyBudgetUSD] = useState('');
     const [reserveMonths, setReserveMonths] = useState(1);
-    
-    const [reason, setReason] = useState('Corrección y ajuste de saldo de caja');
+
+    const [reason, setReason] = useState('');
+    const [previewData, setPreviewData] = useState(null);
+    const [isLoadingPreview, setIsLoadingPreview] = useState(false);
     const [isSubmitting, setIsSubmitting] = useState(false);
 
     useEffect(() => {
@@ -67,82 +60,113 @@ export default function TreasuryEditBoxModal({
             setReserveMonths(box.reserveMonths || 1);
             setAddAmountUSD('');
             setAddAmountARS('');
-            setReason('Corrección y ajuste de saldo de caja');
+            setReason('');
+            setPreviewData(null);
         }
     }, [box]);
 
     if (!isOpen || !box) return null;
 
-    const handleSetZeroUSD = () => {
-        setDirectBalanceUSD('0');
+    const buildPayload = () => {
+        if (!reason || !reason.trim()) {
+            toast.error('El motivo del ajuste o edición es obligatorio.');
+            return null;
+        }
+
+        if (actionType === 'editar') {
+            const numUSD = parseFloat(String(directBalanceUSD).replace(/\./g, '').replace(',', '.'));
+            const numARS = parseFloat(String(directBalanceARS).replace(/\./g, '').replace(',', '.'));
+
+            if (isNaN(numUSD) || isNaN(numARS)) {
+                toast.error('Los montos deben ser números válidos.');
+                return null;
+            }
+
+            return {
+                distributions: [{
+                    boxKey: box.key,
+                    amountUSD: numUSD,
+                    amountARS: numARS
+                }],
+                reason: reason.trim()
+            };
+        } else if (actionType === 'asignar') {
+            const addUSD = parseFloat(String(addAmountUSD).replace(/\./g, '').replace(',', '.')) || 0;
+            const addARS = parseFloat(String(addAmountARS).replace(/\./g, '').replace(',', '.')) || 0;
+
+            if (addUSD <= 0 && addARS <= 0) {
+                toast.error('Ingresá un importe en USD o ARS para asignar.');
+                return null;
+            }
+
+            return {
+                distributions: [{
+                    boxKey: box.key,
+                    amountUSD: (box.balanceUSD || 0) + addUSD,
+                    amountARS: (box.balanceARS || 0) + addARS
+                }],
+                reason: `${reason.trim()} (Asignación desde disponible: +USD ${addUSD} / +ARS ${addARS})`
+            };
+        } else {
+            const numPercent = parseFloat(String(targetPercent).replace(/\./g, '').replace(',', '.')) || 0;
+            const budgetARS = parseFloat(String(monthlyBudgetARS).replace(/\./g, '').replace(',', '.')) || 0;
+            const budgetUSD = parseFloat(String(monthlyBudgetUSD).replace(/\./g, '').replace(',', '.')) || 0;
+
+            return {
+                distributions: [{
+                    boxKey: box.key,
+                    targetPercent: numPercent,
+                    monthlyBudgetARS: budgetARS,
+                    monthlyBudgetUSD: budgetUSD,
+                    reserveMonths: Number(reserveMonths) || 1
+                }],
+                reason: reason.trim()
+            };
+        }
     };
 
-    const handleSetZeroARS = () => {
-        setDirectBalanceARS('0');
+    const handlePreview = async () => {
+        const payload = buildPayload();
+        if (!payload) return;
+
+        setIsLoadingPreview(true);
+        try {
+            const token = localStorage.getItem('token');
+            const res = await fetch('/api/admin/tesoreria-estrategica/boxes/distribute/preview', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`,
+                    'x-treasury-token': treasuryToken
+                },
+                body: JSON.stringify(payload)
+            });
+            const data = await res.json();
+            if (!res.ok || !data.ok) {
+                toast.error(data.message || 'No se pudo generar la vista previa');
+                return;
+            }
+            setPreviewData(data);
+        } catch {
+            toast.error('Error de conexión al generar vista previa');
+        } finally {
+            setIsLoadingPreview(false);
+        }
     };
 
     const handleSubmit = async (e) => {
         e.preventDefault();
-        setIsSubmitting(true);
+        const payload = buildPayload();
+        if (!payload) return;
 
+        if (!previewData) {
+            await handlePreview();
+            return;
+        }
+
+        setIsSubmitting(true);
         try {
             const token = localStorage.getItem('token');
-            let payload = {};
-
-            if (actionType === 'editar') {
-                // Edición directa de saldo
-                const numUSD = parseFloat(String(directBalanceUSD).replace(/\./g, '').replace(',', '.'));
-                const numARS = parseFloat(String(directBalanceARS).replace(/\./g, '').replace(',', '.'));
-
-                if (isNaN(numUSD) || isNaN(numARS)) {
-                    toast.error('Los montos deben ser números válidos.');
-                    setIsSubmitting(false);
-                    return;
-                }
-
-                payload = {
-                    distributions: [{
-                        boxKey: box.key,
-                        amountUSD: numUSD,
-                        amountARS: numARS
-                    }],
-                    reason: reason.trim() || 'Corrección manual de saldo de caja'
-                };
-            } else if (actionType === 'asignar') {
-                const addUSD = parseFloat(String(addAmountUSD).replace(/\./g, '').replace(',', '.')) || 0;
-                const addARS = parseFloat(String(addAmountARS).replace(/\./g, '').replace(',', '.')) || 0;
-
-                if (addUSD <= 0 && addARS <= 0) {
-                    toast.error('Ingresá un importe en USD o ARS para asignar.');
-                    setIsSubmitting(false);
-                    return;
-                }
-
-                payload = {
-                    distributions: [{
-                        boxKey: box.key,
-                        amountUSD: (box.balanceUSD || 0) + addUSD,
-                        amountARS: (box.balanceARS || 0) + addARS
-                    }],
-                    reason: `Asignación desde fondos no asignados: +USD ${addUSD} / +ARS ${addARS}. Motivo: ${reason}`
-                };
-            } else if (actionType === 'meta') {
-                const numPercent = parseFloat(String(targetPercent).replace(/\./g, '').replace(',', '.')) || 0;
-                const budgetARS = parseFloat(String(monthlyBudgetARS).replace(/\./g, '').replace(',', '.')) || 0;
-                const budgetUSD = parseFloat(String(monthlyBudgetUSD).replace(/\./g, '').replace(',', '.')) || 0;
-
-                payload = {
-                    distributions: [{
-                        boxKey: box.key,
-                        targetPercent: numPercent,
-                        monthlyBudgetARS: budgetARS,
-                        monthlyBudgetUSD: budgetUSD,
-                        reserveMonths: Number(reserveMonths) || 1
-                    }],
-                    reason: `Configuración de metas presupuestarias de ${box.name}`
-                };
-            }
-
             const res = await fetch('/api/admin/tesoreria-estrategica/boxes/distribute', {
                 method: 'POST',
                 headers: {
@@ -159,7 +183,8 @@ export default function TreasuryEditBoxModal({
                 return;
             }
 
-            toast.success(`Saldo de ${box.name} actualizado exitosamente`);
+            toast.success(`Asignación de ${box.name} actualizada con éxito`);
+            setPreviewData(null);
             if (onSuccess) onSuccess();
             onClose();
         } catch {
@@ -180,9 +205,10 @@ export default function TreasuryEditBoxModal({
                         </span>
                         <div>
                             <span className="text-[10px] font-black uppercase tracking-wider text-purple-300">
-                                Dirección de Finanzas · Cajas de Capital
+                                Edición Auditada con Vista Previa
                             </span>
-                            <h3 className="text-base font-black text-white">Editar Saldo de {box.name}</h3>
+                            <h3 className="text-base font-black text-white">Editar {box.name}</h3>
+                            <p className="text-[11px] text-crm-fg-muted">Conservado ante nuevas actualizaciones automáticas · No altera bancos</p>
                         </div>
                     </div>
                     <button
@@ -196,7 +222,7 @@ export default function TreasuryEditBoxModal({
                 {/* Saldo Actual de la Caja y Liquidez no asignada */}
                 <div className="mt-4 grid grid-cols-2 gap-3 rounded-2xl border border-crm-border bg-crm-bg p-3.5">
                     <div>
-                        <span className="text-[10px] uppercase font-bold text-crm-fg-muted block">Saldo Actual Registrado</span>
+                        <span className="text-[10px] uppercase font-bold text-crm-fg-muted block">Saldo Actual Asignado</span>
                         <p className="font-mono text-sm font-black text-emerald-400 mt-0.5">
                             {formatMoney(box.balanceUSD, 'USD')}
                         </p>
@@ -206,7 +232,7 @@ export default function TreasuryEditBoxModal({
                     </div>
 
                     <div>
-                        <span className="text-[10px] uppercase font-bold text-purple-300 block">Disponible No Asignado en Cuentas</span>
+                        <span className="text-[10px] uppercase font-bold text-purple-300 block">Fondos Propios Sin Asignar</span>
                         <p className="font-mono text-sm font-black text-purple-200 mt-0.5">
                             {formatMoney(unallocatedUSD, 'USD')}
                         </p>
@@ -220,21 +246,21 @@ export default function TreasuryEditBoxModal({
                 <div className="mt-4 flex rounded-xl border border-crm-border bg-crm-surface-raised p-1 text-xs font-bold">
                     <button
                         type="button"
-                        onClick={() => setActionType('editar')}
+                        onClick={() => { setActionType('editar'); setPreviewData(null); }}
                         className={`flex-1 py-1.5 rounded-lg transition-colors ${actionType === 'editar' ? 'bg-purple-600 text-white shadow' : 'text-crm-fg-muted hover:text-white'}`}
                     >
                         Editar Saldo Directo
                     </button>
                     <button
                         type="button"
-                        onClick={() => setActionType('asignar')}
+                        onClick={() => { setActionType('asignar'); setPreviewData(null); }}
                         className={`flex-1 py-1.5 rounded-lg transition-colors ${actionType === 'asignar' ? 'bg-purple-600 text-white shadow' : 'text-crm-fg-muted hover:text-white'}`}
                     >
                         Asignar Disponible
                     </button>
                     <button
                         type="button"
-                        onClick={() => setActionType('meta')}
+                        onClick={() => { setActionType('meta'); setPreviewData(null); }}
                         className={`flex-1 py-1.5 rounded-lg transition-colors ${actionType === 'meta' ? 'bg-purple-600 text-white shadow' : 'text-crm-fg-muted hover:text-white'}`}
                     >
                         Configurar Metas
@@ -242,7 +268,6 @@ export default function TreasuryEditBoxModal({
                 </div>
 
                 <form onSubmit={handleSubmit} className="mt-5 space-y-4">
-                    {/* MODO 1: EDITAR SALDO DIRECTO (MODO PRINCIPAL) */}
                     {actionType === 'editar' && (
                         <div className="space-y-4">
                             <div>
@@ -253,7 +278,7 @@ export default function TreasuryEditBoxModal({
                                     </label>
                                     <button
                                         type="button"
-                                        onClick={handleSetZeroUSD}
+                                        onClick={() => { setDirectBalanceUSD('0'); setPreviewData(null); }}
                                         className="text-[10px] font-bold text-crm-fg-muted hover:text-white underline flex items-center gap-1"
                                     >
                                         <RotateCcw size={10} /> Poner en USD 0
@@ -267,7 +292,7 @@ export default function TreasuryEditBoxModal({
                                         type="number"
                                         step="any"
                                         value={directBalanceUSD}
-                                        onChange={(e) => setDirectBalanceUSD(e.target.value)}
+                                        onChange={(e) => { setDirectBalanceUSD(e.target.value); setPreviewData(null); }}
                                         className="w-full rounded-xl border border-crm-border bg-crm-bg pl-12 pr-4 py-2.5 font-mono text-base font-bold text-white focus:border-purple-500 focus:outline-none"
                                         required
                                     />
@@ -282,7 +307,7 @@ export default function TreasuryEditBoxModal({
                                     </label>
                                     <button
                                         type="button"
-                                        onClick={handleSetZeroARS}
+                                        onClick={() => { setDirectBalanceARS('0'); setPreviewData(null); }}
                                         className="text-[10px] font-bold text-crm-fg-muted hover:text-white underline flex items-center gap-1"
                                     >
                                         <RotateCcw size={10} /> Poner en ARS 0
@@ -296,19 +321,15 @@ export default function TreasuryEditBoxModal({
                                         type="number"
                                         step="any"
                                         value={directBalanceARS}
-                                        onChange={(e) => setDirectBalanceARS(e.target.value)}
+                                        onChange={(e) => { setDirectBalanceARS(e.target.value); setPreviewData(null); }}
                                         className="w-full rounded-xl border border-crm-border bg-crm-bg pl-12 pr-4 py-2.5 font-mono text-base font-bold text-white focus:border-purple-500 focus:outline-none"
                                         required
                                     />
                                 </div>
-                                <span className="text-[11px] text-crm-fg-muted mt-1 block">
-                                    Podés escribir el monto exacto que debe tener la caja o presionar "Poner en ARS 0" para limpiarlo.
-                                </span>
                             </div>
                         </div>
                     )}
 
-                    {/* MODO 2: ASIGNAR DESDE DISPONIBLE EN CUENTAS */}
                     {actionType === 'asignar' && (
                         <div className="space-y-4">
                             <div>
@@ -317,7 +338,7 @@ export default function TreasuryEditBoxModal({
                                     {unallocatedUSD > 0 && (
                                         <button
                                             type="button"
-                                            onClick={() => setAddAmountUSD(String(Math.max(0, unallocatedUSD)))}
+                                            onClick={() => { setAddAmountUSD(String(Math.max(0, unallocatedUSD))); setPreviewData(null); }}
                                             className="text-[10px] font-bold text-emerald-400 hover:underline"
                                         >
                                             + Asignar todo el disponible (USD {formatNumber(unallocatedUSD)})
@@ -328,7 +349,7 @@ export default function TreasuryEditBoxModal({
                                     type="number"
                                     step="any"
                                     value={addAmountUSD}
-                                    onChange={(e) => setAddAmountUSD(e.target.value)}
+                                    onChange={(e) => { setAddAmountUSD(e.target.value); setPreviewData(null); }}
                                     placeholder="0.00"
                                     className="w-full rounded-xl border border-crm-border bg-crm-bg px-4 py-2 font-mono text-sm font-bold text-white focus:border-purple-500 focus:outline-none"
                                 />
@@ -340,7 +361,7 @@ export default function TreasuryEditBoxModal({
                                     {unallocatedARS > 0 && (
                                         <button
                                             type="button"
-                                            onClick={() => setAddAmountARS(String(Math.max(0, unallocatedARS)))}
+                                            onClick={() => { setAddAmountARS(String(Math.max(0, unallocatedARS))); setPreviewData(null); }}
                                             className="text-[10px] font-bold text-blue-400 hover:underline"
                                         >
                                             + Asignar todo el disponible (ARS {formatNumber(unallocatedARS)})
@@ -351,7 +372,7 @@ export default function TreasuryEditBoxModal({
                                     type="number"
                                     step="any"
                                     value={addAmountARS}
-                                    onChange={(e) => setAddAmountARS(e.target.value)}
+                                    onChange={(e) => { setAddAmountARS(e.target.value); setPreviewData(null); }}
                                     placeholder="0.00"
                                     className="w-full rounded-xl border border-crm-border bg-crm-bg px-4 py-2 font-mono text-sm font-bold text-white focus:border-purple-500 focus:outline-none"
                                 />
@@ -359,7 +380,6 @@ export default function TreasuryEditBoxModal({
                         </div>
                     )}
 
-                    {/* MODO 3: CONFIGURAR METAS Y PRESUPUESTO */}
                     {actionType === 'meta' && (
                         <div className="space-y-4">
                             <div>
@@ -371,7 +391,7 @@ export default function TreasuryEditBoxModal({
                                     min="0"
                                     step="any"
                                     value={monthlyBudgetARS}
-                                    onChange={(e) => setMonthlyBudgetARS(e.target.value)}
+                                    onChange={(e) => { setMonthlyBudgetARS(e.target.value); setPreviewData(null); }}
                                     placeholder="0"
                                     className="w-full rounded-xl border border-crm-border bg-crm-bg px-4 py-2 font-mono text-sm font-bold text-white focus:border-purple-500 focus:outline-none"
                                 />
@@ -386,7 +406,7 @@ export default function TreasuryEditBoxModal({
                                     min="0"
                                     step="any"
                                     value={monthlyBudgetUSD}
-                                    onChange={(e) => setMonthlyBudgetUSD(e.target.value)}
+                                    onChange={(e) => { setMonthlyBudgetUSD(e.target.value); setPreviewData(null); }}
                                     placeholder="0"
                                     className="w-full rounded-xl border border-crm-border bg-crm-bg px-4 py-2 font-mono text-sm font-bold text-white focus:border-purple-500 focus:outline-none"
                                 />
@@ -402,7 +422,7 @@ export default function TreasuryEditBoxModal({
                                         min="1"
                                         max="12"
                                         value={reserveMonths}
-                                        onChange={(e) => setReserveMonths(e.target.value)}
+                                        onChange={(e) => { setReserveMonths(e.target.value); setPreviewData(null); }}
                                         className="w-full rounded-xl border border-crm-border bg-crm-bg px-4 py-2 font-mono text-sm font-bold text-white focus:border-purple-500 focus:outline-none"
                                     />
                                 </div>
@@ -417,27 +437,63 @@ export default function TreasuryEditBoxModal({
                                     min="0"
                                     max="100"
                                     value={targetPercent}
-                                    onChange={(e) => setTargetPercent(e.target.value)}
+                                    onChange={(e) => { setTargetPercent(e.target.value); setPreviewData(null); }}
                                     className="w-full rounded-xl border border-crm-border bg-crm-bg px-4 py-2 font-mono text-sm font-bold text-white focus:border-purple-500 focus:outline-none"
                                 />
                             </div>
                         </div>
                     )}
 
-                    {/* Motivo de Auditoría */}
+                    {/* Motivo Obligatorio de Auditoría */}
                     <div>
                         <label className="block text-[11px] font-bold uppercase tracking-wider text-crm-fg-muted mb-1">
-                            Motivo / Observación del Ajuste
+                            Motivo Obligatorio del Ajuste / Edición *
                         </label>
                         <input
                             type="text"
                             value={reason}
-                            onChange={(e) => setReason(e.target.value)}
-                            placeholder="Motivo del ajuste..."
+                            onChange={(e) => { setReason(e.target.value); setPreviewData(null); }}
+                            placeholder="Ej: Ajuste manual de asignación inicial de caja"
                             className="w-full rounded-xl border border-crm-border bg-crm-bg px-3 py-2 text-xs text-white focus:border-purple-500 focus:outline-none"
                             required
                         />
                     </div>
+
+                    {/* Vista Previa del Ajuste */}
+                    {previewData && previewData.changes?.length > 0 && (
+                        <div className="rounded-2xl border border-purple-500/40 bg-purple-500/10 p-4 text-xs space-y-2">
+                            <div className="flex items-center justify-between">
+                                <span className="font-black text-purple-200 uppercase text-[10px] tracking-wider flex items-center gap-1.5">
+                                    <Eye size={13} /> Vista Previa antes de Guardar
+                                </span>
+                                <span className="rounded bg-emerald-500/20 px-2 py-0.5 text-[10px] font-bold text-emerald-300">
+                                    Saldo bancario sin cambios
+                                </span>
+                            </div>
+                            {previewData.changes.map((c) => (
+                                <div key={c.boxKey} className="grid grid-cols-2 gap-3 pt-1">
+                                    <div className="rounded-xl border border-crm-border bg-crm-bg p-2.5">
+                                        <span className="text-[10px] text-crm-fg-muted block">Saldo ARS</span>
+                                        <p className="font-mono text-xs text-crm-fg-muted line-through">
+                                            Antes: {formatMoney(c.beforeARS, 'ARS')}
+                                        </p>
+                                        <p className="font-mono text-sm font-black text-white">
+                                            Después: {formatMoney(c.afterARS, 'ARS')}
+                                        </p>
+                                    </div>
+                                    <div className="rounded-xl border border-crm-border bg-crm-bg p-2.5">
+                                        <span className="text-[10px] text-crm-fg-muted block">Saldo USD</span>
+                                        <p className="font-mono text-xs text-crm-fg-muted line-through">
+                                            Antes: {formatMoney(c.beforeUSD, 'USD')}
+                                        </p>
+                                        <p className="font-mono text-sm font-black text-emerald-400">
+                                            Después: {formatMoney(c.afterUSD, 'USD')}
+                                        </p>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    )}
 
                     {/* Botones de acción */}
                     <div className="flex gap-3 pt-3 border-t border-crm-border">
@@ -448,13 +504,24 @@ export default function TreasuryEditBoxModal({
                         >
                             Cancelar
                         </button>
-                        <button
-                            type="submit"
-                            disabled={isSubmitting}
-                            className="flex-1 rounded-xl bg-purple-600 p-2.5 text-xs font-black text-white hover:bg-purple-500 transition-colors disabled:opacity-50"
-                        >
-                            {isSubmitting ? 'Guardando...' : 'Guardar Saldo'}
-                        </button>
+                        {!previewData ? (
+                            <button
+                                type="button"
+                                disabled={isLoadingPreview || !reason.trim()}
+                                onClick={handlePreview}
+                                className="flex-1 rounded-xl border border-purple-500/40 bg-purple-600/20 p-2.5 text-xs font-black text-purple-200 hover:bg-purple-600/30 transition-colors disabled:opacity-50 inline-flex items-center justify-center gap-1.5"
+                            >
+                                <Eye size={14} /> {isLoadingPreview ? 'Calculando...' : 'Ver Vista Previa'}
+                            </button>
+                        ) : (
+                            <button
+                                type="submit"
+                                disabled={isSubmitting}
+                                className="flex-1 rounded-xl bg-emerald-600 p-2.5 text-xs font-black text-white hover:bg-emerald-500 transition-colors disabled:opacity-50 inline-flex items-center justify-center gap-1.5"
+                            >
+                                <CheckCircle2 size={14} /> {isSubmitting ? 'Guardando...' : 'Confirmar y Guardar'}
+                            </button>
+                        )}
                     </div>
                 </form>
             </div>

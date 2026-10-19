@@ -75,15 +75,33 @@ const treasuryBoxSchema = new mongoose.Schema({
         date: { type: Date, default: Date.now },
         type: {
             type: String,
-            enum: ['asignacion_inicial', 'ajuste', 'transferencia_entre_cajas', 'retiro', 'ingreso', 'distribucion_cobro', 'asignacion', 'egreso_finanzas', 'reversion_egreso']
+            enum: [
+                'asignacion_inicial',
+                'ajuste',
+                'transferencia_entre_cajas',
+                'retiro',
+                'ingreso',
+                'distribucion_cobro',
+                'recuperacion_capital',
+                'extra_reinversion',
+                'reserva_costos_operacion',
+                'reversion_cobro',
+                'asignacion',
+                'egreso_finanzas',
+                'reversion_egreso',
+                'redistribucion_explicita'
+            ]
         },
+        step: String,
         amount: Number,
         currency: { type: String, enum: ['ARS', 'USD'] },
         fromBox: String,
         toBox: String,
         reason: String,
         user: String,
-        sourceIncomeId: { type: mongoose.Schema.Types.ObjectId, ref: 'Transaction' }
+        saleId: { type: mongoose.Schema.Types.ObjectId, ref: 'Sale' },
+        sourceIncomeId: { type: mongoose.Schema.Types.ObjectId, ref: 'Transaction' },
+        sourceExpenseId: { type: mongoose.Schema.Types.ObjectId, ref: 'Transaction' }
     }]
 }, { timestamps: true });
 
