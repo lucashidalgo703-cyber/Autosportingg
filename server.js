@@ -4819,7 +4819,8 @@ app.patch('/api/admin/sales/:id', authenticateToken, requirePermission(PERMISSIO
             postSaleNotes,
             satisfactionRating,
             commissionSettings,
-            saleExpenses
+            saleExpenses,
+            installmentsCount
         } = req.body;
 
         const sale = await Sale.findById(req.params.id);
@@ -4856,11 +4857,16 @@ app.patch('/api/admin/sales/:id', authenticateToken, requirePermission(PERMISSIO
                 field: 'paymentMethod',
                 oldValue: sale.paymentMethod,
                 newValue: paymentMethod,
-                details: `M├®todo de pago actualizado a ${paymentMethod}`,
+                details: `Método de pago actualizado a ${paymentMethod}`,
                 user: user,
                 source: 'CRM_V2'
             });
             sale.paymentMethod = paymentMethod;
+            hasChanges = true;
+        }
+
+        if (installmentsCount !== undefined && Number(installmentsCount) !== Number(sale.installmentsCount || 0)) {
+            sale.installmentsCount = Number(installmentsCount);
             hasChanges = true;
         }
 
