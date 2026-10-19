@@ -193,62 +193,64 @@ Quedan pendientes de validación en un entorno aislado con datos de prueba (sin 
 
 ---
 
-## 10. Evaluación de Fotografías e Imágenes
+## 10. Evaluación de Fotografías e Imágenes (Atribución y Estado)
 
-### Estado Técnico Comprobado en Código:
-- Las imágenes utilizan el helper `getOptimizedImageUrl()`, que inserta transformaciones en Cloudinary (`/upload/f_auto,q_auto,w_{width},c_limit`).
-- Se mantiene `unoptimized` en `next/image` de forma consciente:
-  - Evita el costo de cómputo serverless y las cuotas de transformación de Next.js Image Optimization en Vercel.
-  - Cloudinary ya entrega formato WebP/AVIF optimizado según el navegador del usuario (`f_auto,q_auto`).
-- En la ficha de vehículo (`CarDetail.jsx`), se incorporó el atributo `priority` a la imagen principal para adelantar su etiqueta al parser de precarga del navegador.
+### Atribución Rigurosa de Optimizaciones:
+- **Optimización preexistente (Arquitectura base)**: La transformación dinámica vía Cloudinary (`/upload/f_auto,q_auto,w_{width},c_limit`) y la directiva `unoptimized` en `next/image` **ya existían en la versión anterior** del proyecto. No debe atribuirse dicha reducción a las tareas de esta auditoría.
+- **Cambios introducidos en esta optimización**:
+  1. Adición del atributo `priority` a la imagen principal de la ficha (`CarDetail.jsx`) para que el preload scanner del navegador inicie su descarga tempranamente en el parseo del HTML.
+  2. Ajuste fino de los atributos `sizes` en [CarCard.jsx](file:///c:/Users/tomas/.gemini/antigravity/scratch/Autosportingg-main/src/components/CarCard.jsx).
 
-### Estado Pendiente de Medición Objetiva en Navegador:
-Para no presentar hipótesis como resultados medidos, queda pendiente registrar en el entorno de Preview:
-1. Peso real descargado en bytes por imagen en tarjeta vs ficha.
-2. Resolución efectiva descargada en pantallas móviles (390px viewport) vs escritorio (1440px viewport).
-3. Impacto medido en la métrica LCP (Largest Contentful Paint) mediante DevTools o Lighthouse en condiciones de red simuladas.
-
----
-
-## 11. Tabla Comparativa de Rendimiento (Condiciones Equivalentes)
-
-| Pantalla u Operación | Métrica Evaluada | Versión Anterior | Versión Optimizada | Diferencia / Ahorro | Entorno / Herramienta | Tipo de Medición |
-| :--- | :--- | :--- | :--- | :--- | :--- | :--- |
-| **HTML Catálogo** (`/catalogo`) | TTFB HTML Inicial | 63 ms (mediana) | 63 ms (mediana) | Sin cambio (0%) | CDN Vercel (`gru1`) | Sonda HTTP / Script |
-| **API Catálogo** (`/api/public/cars`) | Peso Payload JSON | **63.9 KB** | **21.5 KB** | **-66.3%** (-42.4 KB) | BD Real (`autosporting`) | Medición directa de bytes |
-| **API Catálogo** (`/api/public/cars`) | TTFB de Respuesta | 589 ms (mediana) | ~60 ms (en Edge HIT) | **~90%** en ráfagas | CDN Vercel (`gru1`) | Script / Edge HTTP |
-| **Catálogo** (Datos utilizables) | Tiempo visual en pantalla | ~750 – 850 ms | ~200 – 300 ms (HIT) | **~60-70% más rápido** | Navegador cliente | Estimación render + API |
-| **Ficha Auto** (`/auto/[id]`) | Descubrimiento Imagen LCP | Prioridad baja/normal | `priority` explícito | Adelanto en precarga | Frontend / DOM | Atributo `priority` en `next/image` |
-| **Ficha Auto** (API Detalle) | Política de Caché | `no-store` + `?t=now` | `s-maxage=30, swr=60` | Edge cache habilitada | Backend / CDN | Cabeceras HTTP |
-| **API Dashboard** (`/api/admin/dashboard`) | Peso Payload JSON | **498.4 KB** | **64.4 KB** | **-87.1%** (-434.0 KB) | BD Real (`autosporting`) | Medición directa de bytes |
-| **API Dashboard** (`/api/admin/dashboard`) | Deserialización en memoria | ~500 KB en JSON | ~64 KB en JSON | **-87.1%** de memoria | Node.js Serverless | Cómputo CPU/RAM |
-| **Header CRM** (`CrmHeader`) | Datos descargados por ciclo | **73.4 KB** (20 autos) | **2.3 KB** (`limit=1`) | **-96.8%** (-71.1 KB) | BD Real (`autosporting`) | Medición directa de bytes |
-| **Fotos Catálogo** (Tarjeta Móvil) | Peso descarga por foto | ~258 KB (Original) | **52.8 KB** (`w_600`) | **-79.3%** en móvil | Cloudinary WebP | Descarga real HTTP |
-| **Fotos Ficha** (Detalle Desktop) | Peso descarga por foto | ~258 KB (Original) | **188.2 KB** (`w_1200`)| **-28.9%** en desktop | Cloudinary WebP | Descarga real HTTP |
+### Mediciones Reales de Transferencia de Imágenes (Cloudinary CDN):
+Mediciones obtenidas por descarga HTTP directa con encabezados de navegador real:
+- **Archivo original sin transformación en Cloudinary**: ~211 a 325 KB (promedio **258.0 KB** en formato JPEG).
+- **Tarjeta Catálogo Móvil (`f_auto,q_auto,w_600`)**: Promedio **52.8 KB** en formato WebP (reducción del 79.3% en red móvil respecto al JPG crudo). TTFB Cloudinary: 298–538 ms.
+- **Ficha Detalle Desktop (`f_auto,q_auto,w_1200`)**: Promedio **188.2 KB** en formato WebP (reducción del 28.9% respecto al JPG crudo). TTFB Cloudinary: 292–426 ms.
+- **Pendiente en navegador**: Medición de LCP con Lighthouse en emulación 4G sobre la sesión autenticada.
 
 ---
 
-## 12. Plan de Validación en Preview Deployment
+## 11. Tabla Comparativa: Mediciones Reales Comprobadas vs Estimaciones
 
-Para validar el comportamiento del CDN de Vercel y medir tiempos HTTP reales sin tocar producción:
+### A. Mediciones Reales Comprobadas (Mismos datos y condiciones)
 
-1. **Rama propuesta**: `perf/auditoria-rendimiento`.
-2. **Archivos exactos a incluir**:
-   - `server.js`
-   - `src/components/CarCard.jsx`
-   - `src/components/crm/layout/CrmHeader.jsx`
-   - `src/hooks/useCars.js`
-   - `src/views/CarDetail.jsx`
-   - `AUDITORIA_RENDIMIENTO.md`
-   *(Los archivos preexistentes del usuario `src/app/admin/ventas/[id]/page.jsx` y `src/components/crm/sales/detail/SaleFinancePanel.jsx` no se incluyen).*
-3. **Garantía de Aislamiento de Producción**:
-   - El proyecto en Vercel tiene como rama de producción a `main`. Cualquier push a `main` actualiza `autosportingg.com`.
-   - Al realizar un push a la rama `perf/auditoria-rendimiento`, Vercel genera automáticamente un **Preview Deployment** con una URL aislada (ej. `autosportingg-git-perf-auditoria-rendimiento-*.vercel.app`).
-   - El sitio de producción, los clientes reales y el dominio principal permanecen 100% inalterados.
-4. **Protocolo de Prueba en Preview (tras autorización)**:
-   - Crear un vehículo de prueba aislado (ej. "Vehículo Test Rendimiento") o marcar uno existente de prueba.
-   - Medir encabezados `age`, `x-vercel-cache` (`MISS`, `HIT`, `STALE`), TTFB y tiempo hasta datos utilizables.
-   - Cambiar precio u ocultar el vehículo de prueba y verificar el ciclo de revalidación sin alterar datos de clientes ni stock comercial real.
+| Pantalla u Operación | Métrica Comprobada | Versión Anterior | Versión Optimizada | Diferencia Comprobada | Entorno / Herramienta |
+| :--- | :--- | :--- | :--- | :--- | :--- |
+| **HTML Catálogo** (`/catalogo`) | TTFB HTML Inicial | 63 ms (mediana) | 63 ms (mediana) | 0% (invariable) | CDN Vercel Edge (`gru1`) |
+| **API Catálogo** (`/api/public/cars`) | Peso Payload JSON | **63.9 KB** | **21.5 KB** | **-66.3%** (-42.4 KB) | Medición directa BD real (`autosporting`) |
+| **API Catálogo** (`/api/public/cars`) | Cabeceras de Caché | `no-store, max-age=0` | `s-maxage=15, swr=30` | Habilita Edge Cache | Servidor Express / Vercel |
+| **Ficha Auto** (`/auto/[id]`) | Marcador LCP en HTML | Normal (lazy) | `priority` asignado | Priorizado en DOM | Componente `CarDetail.jsx` |
+| **Ficha Auto** (API Detalle) | Cabeceras de Caché | `no-store` + `?t=now` | `s-maxage=30, swr=60` | Habilita Edge Cache | Servidor Express / Vercel |
+| **API Dashboard** (`/api/admin/dashboard`) | Peso Payload JSON | **498.4 KB** | **64.4 KB** | **-87.1%** (-434.0 KB) | Medición directa BD real (`autosporting`) |
+| **Header CRM** (`CrmHeader`) | Datos transferidos por ciclo | **73.4 KB** (20 autos) | **2.3 KB** (`limit=1`) | **-96.8%** (-71.1 KB) | Medición directa BD real (`autosporting`) |
+| **Condiciones Comerciales** | Opciones Cuotas | 6 a 48 cuotas | **3 a 48 cuotas** | Incorporada opción 3 | `SaleCommercialPanel.jsx` |
+
+*(Aclaración de memoria: La reducción del peso del JSON transferido alivia el tamaño de los paquetes de red y los objetos deserializados, pero no permite deducir un porcentaje idéntico de reducción de memoria RAM en el proceso Node.js, ya que la memoria depende del heap de V8, buffers internos y el ciclo del Garbage Collector).*
+
+### B. Estimaciones y Comportamiento en Tráfico Concurrente
+
+| Pantalla u Operación | Métrica Estimada | En Versión Anterior | En Versión Optimizada | Comentario Técnico |
+| :--- | :--- | :--- | :--- | :--- |
+| **API Catálogo** (Bajo ráfaga) | TTFB de API | ~589 ms (siempre MISS) | ~60 ms (durante ventana HIT de 15s) | Sujeto a tráfico entrante que no supere la expiración fresca |
+| **Catálogo** (Datos utilizables) | Tiempo visual en pantalla | ~750 – 850 ms | ~200 – 350 ms (con API en HIT) | Depende de la velocidad de CPU y descarga JS del cliente |
+
+---
+
+## 12. Validación en Preview y Protección de Vercel
+
+### Estado de Acceso al Preview:
+- **URLs de Preview desplegadas**:
+  - Principal: `https://autosportingg-6088b8np0-lucas-projects-59dac040.vercel.app`
+  - Mirror: `https://autosportingg-rnix-g2su0xaip-lucas-projects-59dac040.vercel.app`
+- **Protección Activa**: Vercel tiene configurado *Deployment Protection (Vercel Authentication)* para los Preview Deployments. Cualquier solicitud externa sin autenticación recibe el HTML de login de Vercel (`Title: Login – Vercel`) y no el JSON de la aplicación.
+- **Paso para permitir pruebas automatizadas sin desactivar la protección**:
+  1. En Vercel Dashboard, ingresar a **Project Settings** -> **Deployment Protection**.
+  2. En la sección **"Protection Bypass for Automation"**, habilitar la opción y copiar el *Secret Token*.
+  3. Enviar dicho token en la cabecera `x-vercel-protection-bypass: <token>` (o en query parameter `?_vercel_share=<token>`), lo que permite a las sondas HTTP y herramientas de medición consultar directamente el JSON de la aplicación sin abrir el preview al público ni desprotegerlo.
+
+### Estado de Base de Datos y Pruebas Transaccionales:
+- Se comprobó que el entorno Preview comparte las variables de entorno de producción y conecta a la base real `autosporting`.
+- **Por estricta política de seguridad, las pruebas de escritura permanecen pendientes** hasta disponer de una base de datos de prueba separada (`autosporting-qa`). Se garantiza que ningún dato comercial real fue alterado ni creado ficticiamente.
 
 ---
 
