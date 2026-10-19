@@ -92,6 +92,7 @@ export function useAdminSales() {
             }
 
             const updatedSale = await parseResponseSafe(res);
+            let finalSale = updatedSale;
             setSales(prev => prev.map(s => {
                 if (s._id !== id) return s;
                 const merged = { ...s, ...updatedSale };
@@ -108,9 +109,10 @@ export function useAdminSales() {
                 if (updatedSale.reservationId && typeof updatedSale.reservationId === 'string' && s.reservationId && typeof s.reservationId === 'object') {
                     merged.reservationId = s.reservationId;
                 }
+                finalSale = merged;
                 return merged;
             }));
-            return updatedSale;
+            return finalSale;
         } catch (err) {
             throw err;
         }

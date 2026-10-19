@@ -18,6 +18,8 @@ import {
 import CrmInput from '../../ui/CrmInput';
 import CrmSelect from '../../ui/CrmSelect';
 import { computeCommissionAmount, computeSaleProfit, parseDecimal, validateCommissionPercent } from '../../../../utils/saleCommercial';
+import { useAuth } from '../../../../context/AuthContext';
+import { hasPermission, PERMISSIONS } from '../../../../utils/adminPermissions';
 
 // Formateador estándar con formato argentino (ARS / USD)
 const formatMoney = (amount, currency = 'ARS') => {
@@ -95,13 +97,16 @@ export const computeFinancingValues = (
 };
 
 export default function SaleCommercialPanel({ sale, onSave, planActions }) {
+    const { user } = useAuth();
     const [isEditing, setIsEditing] = useState(false);
     const [isSaving, setIsSaving] = useState(false);
     const [planCancel, setPlanCancel] = useState(null); // { preview, reason, busy }
+    const [previewExchangeRate, setPreviewExchangeRate] = useState('');
 
     const [editForm, setEditForm] = useState({
         salePrice: 0,
         saleCurrency: 'ARS',
+        exchangeRate: '',
         paymentMethod: 'contado',
         depositAppliedAmount: 0,
         depositAppliedCurrency: 'ARS',
@@ -125,9 +130,12 @@ export default function SaleCommercialPanel({ sale, onSave, planActions }) {
 
     if (!sale) return null;
 
+    const canViewCostAndProfit = sale.canViewCostAndProfit !== undefined
+        ? Boolean(sale.canViewCostAndProfit)
+        : (['owner', 'admin'].includes(user?.role) || hasPermission(user, PERMISSIONS.FINANZAS_READ));
+
     const handleEditClick = () => {
         const prevFin = sale.financingDetails || {};
-        const isFin = (sale.paymentMethod || 'contado').toLowerCase() === 'financiado';
         const initialCashPrice = prevFin.cashPrice !== undefined && prevFin.cashPrice !== null 
             ? prevFin.cashPrice 
             : (sale.salePrice || 0);
@@ -138,6 +146,7 @@ export default function SaleCommercialPanel({ sale, onSave, planActions }) {
         setEditForm({
             salePrice: sale.salePrice || 0,
             saleCurrency: sale.saleCurrency || 'ARS',
+            exchangeRate: sale.exchangeRate !== undefined && sale.exchangeRate !== null ? String(sale.exchangeRate) : '',
             paymentMethod: (sale.paymentMethod || 'contado').toLowerCase(),
             depositAppliedAmount: sale.depositAppliedAmount || 0,
             depositAppliedCurrency: sale.depositAppliedCurrency || sale.saleCurrency || 'ARS',
@@ -197,18 +206,44 @@ export default function SaleCommercialPanel({ sale, onSave, planActions }) {
             if (isPercentEdit) {
                 return { amount: computeCommissionAmount(livePrice, editForm.commissionSettings.percent), currency: liveCurrency };
             }
-            return { amount: Number(editForm.commissionSettings.extraAmount) || 0, currency: editForm.commissionSettings.extraCurrency || liveCurrency };
+            const fixedAmt = Number(editForm.commissionSettings.extraAmount) || 0;
+            return { amount: fixedAmt, currency: fixedAmt > 0 ? (editForm.commissionSettings.extraCurrency || liveCurrency) : liveCurrency };
         }
-        return { amount: Number(sale.commissionSettings?.extraAmount) || 0, currency: sale.commissionSettings?.extraCurrency || liveCurrency };
+        const savedPercent = sale.commissionSettings?.mode === 'percent' &&
+            sale.commissionSettings?.percent !== undefined &&
+            sale.commissionSettings?.percent !== null &&
+            String(sale.commissionSettings.percent).trim() !== '';
+        if (savedPercent) {
+            return { amount: computeCommissionAmount(livePrice, sale.commissionSettings.percent), currency: liveCurrency };
+        }
+        const savedAmt = Number(sale.commissionSettings?.extraAmount) || 0;
+        return { amount: savedAmt, currency: savedAmt > 0 ? (sale.commissionSettings?.extraCurrency || liveCurrency) : liveCurrency };
     })();
+
+    const activeExchangeRate = (() => {
+        if (isEditing) {
+            const parsed = parseDecimal(editForm.exchangeRate);
+            return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
+        }
+        if (previewExchangeRate !== '') {
+            const parsed = parseDecimal(previewExchangeRate);
+            if (Number.isFinite(parsed) && parsed > 0) return parsed;
+        }
+        return Number(sale.exchangeRate) > 0 ? Number(sale.exchangeRate) : null;
+    })();
+
+    const vehicleObj = sale.vehicleId && typeof sale.vehicleId === 'object' ? sale.vehicleId : null;
     const liveProfit = computeSaleProfit({
         salePrice: livePrice,
         saleCurrency: liveCurrency,
-        purchaseCost: sale.vehicleId?.purchasePrice || 0,
-        purchaseCurrency: sale.vehicleId?.purchaseCurrency,
-        expenses: isEditing ? editForm.saleExpenses : (sale.saleExpenses || []),
+        vehicle: vehicleObj,
+        legacyTradeInOrigin: vehicleObj?.resolvedTradeInOrigin || null,
+        vehicleExpenses: vehicleObj?.expenses || [],
+        saleExpenses: isEditing ? editForm.saleExpenses : (sale.saleExpenses || []),
+        commissionSettings: isEditing ? editForm.commissionSettings : sale.commissionSettings,
         commissionAmount: liveCommission.amount,
-        commissionCurrency: liveCommission.currency
+        commissionCurrency: liveCommission.currency,
+        exchangeRate: activeExchangeRate
     });
 
     const handleSaveClick = async () => {
@@ -219,6 +254,14 @@ export default function SaleCommercialPanel({ sale, onSave, planActions }) {
             const check = validateCommissionPercent(editForm.commissionSettings.percent);
             if (!check.ok) {
                 toast.error(check.message);
+                return;
+            }
+        }
+
+        if (editForm.exchangeRate !== '' && editForm.exchangeRate !== null && editForm.exchangeRate !== undefined) {
+            const parsedRate = parseDecimal(editForm.exchangeRate);
+            if (!Number.isFinite(parsedRate) || parsedRate <= 0) {
+                toast.error('La cotización USD/ARS debe ser un número mayor a cero.');
                 return;
             }
         }
@@ -268,6 +311,7 @@ export default function SaleCommercialPanel({ sale, onSave, planActions }) {
         try {
             const payload = {
                 saleCurrency: editForm.saleCurrency,
+                exchangeRate: editForm.exchangeRate === '' ? null : parseDecimal(editForm.exchangeRate),
                 paymentMethod: editForm.paymentMethod,
                 depositAppliedAmount: Number(editForm.depositAppliedAmount),
                 depositAppliedCurrency: editForm.depositAppliedCurrency,
@@ -1136,62 +1180,190 @@ export default function SaleCommercialPanel({ sale, onSave, planActions }) {
                 )}
 
                 {/* GANANCIA Y FLUJO DE EFECTIVO */}
-                <div className="flex flex-col gap-2 rounded-xl border border-emerald-500/20 bg-emerald-500/10 p-4 mt-2">
-                    <div className="flex items-center justify-between">
-                        <div className="flex flex-col">
-                            <span className="text-xs font-bold uppercase tracking-[0.08em] text-emerald-300">
-                                Ganancia Nominal Proyectada
-                            </span>
-                            <span className="text-[10px] text-emerald-300/70 mt-0.5">
-                                (Total Operación − Costo Compra − Gastos − Comisión)
+                {canViewCostAndProfit ? (
+                    <div className={`flex flex-col gap-2 rounded-xl border p-4 mt-2 ${liveProfit.calculable ? 'border-emerald-500/20 bg-emerald-500/10' : 'border-amber-500/30 bg-amber-500/10'}`}>
+                        <div className="flex items-center justify-between gap-2">
+                            <div className="flex flex-col">
+                                <span className={`text-xs font-bold uppercase tracking-[0.08em] ${liveProfit.calculable ? 'text-emerald-300' : 'text-amber-300'}`}>
+                                    Ganancia de la Operación
+                                </span>
+                                <span className="text-[10px] text-crm-fg-muted mt-0.5">
+                                    (Precio total pactado − Compra/toma − Gastos del vehículo − Gastos comerciales − Comisión)
+                                </span>
+                            </div>
+                            <span className={`text-lg font-black text-right ${liveProfit.calculable ? (liveProfit.netProfit >= 0 ? 'text-emerald-400' : 'text-rose-400') : 'text-amber-300'}`}>
+                                {liveProfit.calculable
+                                    ? formatMoney(liveProfit.netProfit, liveProfit.currency)
+                                    : 'Ganancia no calculable'}
                             </span>
                         </div>
-                        <span className="text-xl font-black text-emerald-400">
-                            {formatMoney(liveProfit.netProfit, liveProfit.currency)}
-                        </span>
-                    </div>
-                    <div className="mt-1 flex flex-col gap-1 border-t border-emerald-500/20 pt-2 text-[11px] text-emerald-100/80">
-                        <div className="flex justify-between">
-                            <span>Ganancia antes de comisión</span>
-                            <span className="font-bold text-white">{formatMoney(liveProfit.profitBeforeCommission, liveProfit.currency)}</span>
-                        </div>
-                        <div className="flex justify-between">
-                            <span>Comisión (se descuenta una sola vez)</span>
-                            <span className="font-bold text-white">− {formatMoney(liveProfit.commissionAmount, liveProfit.currency)}</span>
-                        </div>
-                        <div className="flex justify-between border-t border-emerald-500/20 pt-1">
-                            <span className="font-bold">Ganancia neta</span>
-                            <span className="font-black text-emerald-300">{formatMoney(liveProfit.netProfit, liveProfit.currency)}</span>
-                        </div>
-                        {!liveProfit.costComparable && (
-                            <span className="text-amber-300">
-                                El costo de compra está en otra moneda que la venta: no se resta para no mezclar ARS y USD. Registrá la cotización para ver la ganancia completa.
-                            </span>
-                        )}
-                        {!liveProfit.commissionComparable && (
-                            <span className="text-amber-300">
-                                La comisión está en otra moneda que la venta: no se descontó para no mezclar ARS y USD.
-                            </span>
-                        )}
-                        {liveProfit.excludedExpensesCount > 0 && (
-                            <span className="text-amber-300">
-                                {liveProfit.excludedExpensesCount} gasto(s) en otra moneda no están incluidos en la ganancia.
-                            </span>
-                        )}
-                        <span className="text-emerald-200/70">
-                            Es la ganancia de la operación, no dinero cobrado: lo efectivamente cobrado se ve en Cuotas y Finanzas.
-                        </span>
-                    </div>
 
-                    {/* DIFERENCIACIÓN OBLIGATORIA: GANANCIA PROYECTADA VS EFECTIVO DISPONIBLE */}
-                    {isSaleFinanced && hasExistingFinancing && (
-                        <div className="mt-2 border-t border-emerald-500/20 pt-2 text-[11px] text-emerald-200/80 leading-relaxed">
-                            <p className="m-0">
-                                <strong>Flujo de caja:</strong> Las cuotas pendientes ({formatMoney(sale.financingDetails.totalFinancedWithInterest, sale.saleCurrency)}) y el interés pactado ({formatMoney(sale.financingDetails.interestAmount, sale.saleCurrency)}) corresponden a ganancia proyectada en el tiempo y <strong>no constituyen efectivo disponible en caja</strong> hasta su cobro efectivo.
-                            </p>
+                        {!liveProfit.calculable && liveProfit.missingReasons?.length > 0 && (
+                            <div className="mt-1 rounded-lg border border-amber-500/30 bg-amber-500/15 px-3 py-2 text-[11px] text-amber-200">
+                                <div className="font-bold text-amber-300 mb-1">Ganancia no calculable — Dato(s) faltante(s):</div>
+                                <ul className="m-0 pl-4 space-y-0.5">
+                                    {liveProfit.missingReasons.map((reason, idx) => (
+                                        <li key={idx}>{reason}</li>
+                                    ))}
+                                </ul>
+                            </div>
+                        )}
+
+                        <div className="mt-1 flex flex-col gap-1.5 border-t border-white/10 pt-2.5 text-[11px] text-crm-fg-secondary">
+                            <div className="flex justify-between">
+                                <span>Precio total pactado</span>
+                                <span className="font-bold text-white">
+                                    {liveProfit.agreedPrice !== null ? formatMoney(liveProfit.agreedPrice, liveProfit.currency) : 'Dato faltante'}
+                                </span>
+                            </div>
+                            <div className="flex justify-between">
+                                <span>
+                                    − Compra/toma
+                                    {liveProfit.acquisitionSource === 'valor_de_toma' ? ' (valor de toma)' : ''}
+                                </span>
+                                <span className="font-bold text-white">
+                                    {liveProfit.acquisitionCost !== null
+                                        ? `− ${formatMoney(liveProfit.acquisitionCost, liveProfit.currency)}`
+                                        : (liveProfit.rawAcquisitionCost !== null
+                                            ? `${formatMoney(liveProfit.rawAcquisitionCost, liveProfit.rawAcquisitionCurrency)} (falta conversión)`
+                                            : 'Dato faltante')}
+                                </span>
+                            </div>
+                            <div className="flex justify-between">
+                                <span>− Gastos del vehículo</span>
+                                <span className="font-bold text-white">
+                                    {liveProfit.excludedVehicleExpensesCount > 0 && !liveProfit.exchangeRateUsed
+                                        ? `− ${formatMoney(liveProfit.vehicleExpensesTotal, liveProfit.currency)} (+${liveProfit.excludedVehicleExpensesCount} sin conversión)`
+                                        : `− ${formatMoney(liveProfit.vehicleExpensesTotal, liveProfit.currency)}`}
+                                </span>
+                            </div>
+                            <div className="flex justify-between">
+                                <span>− Gastos comerciales</span>
+                                <span className="font-bold text-white">
+                                    {liveProfit.excludedSaleExpensesCount > 0 && !liveProfit.exchangeRateUsed
+                                        ? `− ${formatMoney(liveProfit.saleExpensesTotal, liveProfit.currency)} (+${liveProfit.excludedSaleExpensesCount} sin conversión)`
+                                        : `− ${formatMoney(liveProfit.saleExpensesTotal, liveProfit.currency)}`}
+                                </span>
+                            </div>
+                            <div className="flex justify-between border-t border-white/10 pt-1">
+                                <span>Ganancia antes de comisión</span>
+                                <span className="font-bold text-white">
+                                    {liveProfit.calculable
+                                        ? formatMoney(liveProfit.profitBeforeCommission, liveProfit.currency)
+                                        : 'Ganancia no calculable'}
+                                </span>
+                            </div>
+                            <div className="flex justify-between">
+                                <span>
+                                    − Comisión
+                                    {liveProfit.commissionMode === 'percent' && liveProfit.commissionPercent !== null
+                                        ? ` (${liveProfit.commissionPercent}%)`
+                                        : ''}
+                                </span>
+                                <span className="font-bold text-white">
+                                    {liveProfit.commissionComparable
+                                        ? `− ${formatMoney(liveProfit.commissionAmount, liveProfit.currency)}`
+                                        : `${formatMoney(liveProfit.rawCommissionAmount, liveProfit.rawCommissionCurrency)} (falta conversión)`}
+                                </span>
+                            </div>
+                            <div className="flex justify-between border-t border-white/15 pt-1.5 text-xs">
+                                <span className="font-bold text-white">= Ganancia neta de la operación</span>
+                                <span className={`font-black ${liveProfit.calculable ? 'text-emerald-300' : 'text-amber-300'}`}>
+                                    {liveProfit.calculable
+                                        ? formatMoney(liveProfit.netProfit, liveProfit.currency)
+                                        : 'Ganancia no calculable'}
+                                </span>
+                            </div>
+                            {liveProfit.calculable && liveProfit.investorPercentage > 0 && (
+                                <div className="mt-1 flex flex-col gap-0.5 rounded-lg border border-white/10 bg-black/20 px-2.5 py-1.5 text-[11px]">
+                                    <div className="flex justify-between">
+                                        <span>Participación socio ({liveProfit.investorPercentage}%)</span>
+                                        <span className="font-bold text-amber-200">{formatMoney(liveProfit.partnerNetProfit, liveProfit.currency)}</span>
+                                    </div>
+                                    <div className="flex justify-between">
+                                        <span className="font-bold text-emerald-200">Ganancia neta agencia ({liveProfit.agencySharePercentage}%)</span>
+                                        <span className="font-bold text-emerald-300">{formatMoney(liveProfit.agencyNetProfit, liveProfit.currency)}</span>
+                                    </div>
+                                </div>
+                            )}
+                            {liveProfit.exchangeRateUsed && (
+                                <div className="text-[10px] text-emerald-200/80">
+                                    Conversión aplicada y registrada: 1 USD = {formatMoney(liveProfit.exchangeRateUsed, 'ARS')}.
+                                </div>
+                            )}
                         </div>
-                    )}
-                </div>
+
+                        {/* Cotización USD/ARS para operaciones multimoneda */}
+                        {(isEditing || !liveProfit.costComparable || !liveProfit.commissionComparable || liveProfit.excludedExpensesCount > 0 || sale.exchangeRate > 0) && (
+                            <div className="mt-1 flex flex-wrap items-center justify-between gap-2 border-t border-white/10 pt-2 text-[11px]">
+                                <span className="text-crm-fg-muted">
+                                    Cotización registrada (ARS por 1 USD):
+                                </span>
+                                {isEditing ? (
+                                    <CrmInput
+                                        type="number"
+                                        min="0"
+                                        step="any"
+                                        placeholder="Ej: 1200"
+                                        value={editForm.exchangeRate}
+                                        onChange={(e) => setEditForm({ ...editForm, exchangeRate: e.target.value })}
+                                        className="h-7 w-32 bg-crm-bg px-2 text-xs text-right font-bold"
+                                    />
+                                ) : (
+                                    <div className="flex items-center gap-2">
+                                        <CrmInput
+                                            type="number"
+                                            min="0"
+                                            step="any"
+                                            placeholder={sale.exchangeRate ? String(sale.exchangeRate) : 'Cotización USD/ARS'}
+                                            value={previewExchangeRate}
+                                            onChange={(e) => setPreviewExchangeRate(e.target.value)}
+                                            className="h-7 w-36 bg-crm-bg px-2 text-xs text-right font-bold"
+                                        />
+                                    </div>
+                                )}
+                            </div>
+                        )}
+
+                        {/* DISTINCIÓN EXPLÍCITA ENTRE GANANCIA DE LA OPERACIÓN Y DINERO EFECTIVAMENTE COBRADO */}
+                        <div className="mt-1 flex flex-col gap-1 rounded-lg border border-sky-500/25 bg-sky-500/10 p-2.5 text-[11px] text-sky-100">
+                            <div className="flex justify-between">
+                                <span className="font-bold text-sky-300">Dinero efectivamente cobrado</span>
+                                <span className="font-black text-white">
+                                    {formatMoney(sale.finance?.netoCobrado || 0, sale.saleCurrency || 'ARS')}
+                                </span>
+                            </div>
+                            {Number(sale.tradeInTotalAmount) > 0 && (
+                                <div className="flex justify-between text-purple-200">
+                                    <span>Capital recibido en permuta (vehículo tomado, no es efectivo)</span>
+                                    <span className="font-bold">{formatMoney(sale.tradeInTotalAmount, sale.saleCurrency || 'ARS')}</span>
+                                </div>
+                            )}
+                            <div className="flex justify-between text-sky-200/80">
+                                <span>Saldo pendiente de cobro</span>
+                                <span className="font-bold">
+                                    {formatMoney(Math.max(0, sale.finance?.pendingBalance ?? ((sale.salePrice || 0) - (sale.tradeInTotalAmount || 0) - (sale.finance?.netoCobrado || 0))), sale.saleCurrency || 'ARS')}
+                                </span>
+                            </div>
+                            <span className="text-[10px] text-sky-200/75 mt-0.5">
+                                La ganancia de la operación mide el resultado económico total pactado y no equivale al dinero disponible hoy en caja.
+                            </span>
+                        </div>
+
+                        {isSaleFinanced && hasExistingFinancing && (
+                            <div className="mt-1 border-t border-white/10 pt-2 text-[11px] text-emerald-200/80 leading-relaxed">
+                                <p className="m-0">
+                                    <strong>Flujo de caja:</strong> Las cuotas pendientes ({formatMoney(sale.financingDetails.totalFinancedWithInterest, sale.saleCurrency)}) y el interés pactado ({formatMoney(sale.financingDetails.interestAmount, sale.saleCurrency)}) corresponden a ganancia proyectada en el tiempo y <strong>no constituyen efectivo disponible en caja</strong> hasta su cobro efectivo.
+                                </p>
+                            </div>
+                        )}
+                    </div>
+                ) : (
+                    <div className="flex flex-col gap-1 rounded-xl border border-crm-border bg-crm-bg/60 p-3 mt-2 text-xs text-crm-fg-muted">
+                        <span className="font-bold text-crm-fg-secondary">Costos y ganancia restringidos</span>
+                        <span>Tu perfil no cuenta con permisos financieros para visualizar costos de adquisición ni márgenes de ganancia.</span>
+                    </div>
+                )}
 
                 <div className="mt-auto flex items-start gap-3 rounded-xl border border-blue-500/20 bg-blue-500/10 p-3 mt-4">
                     <Info size={16} className="mt-0.5 shrink-0 text-blue-300" />

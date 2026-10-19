@@ -112,7 +112,8 @@ const saleSchema = new mongoose.Schema({
     
     salePrice: { type: Number, required: true, min: 0 },
     saleCurrency: { type: String, enum: ['ARS', 'USD'], required: true },
-    
+    exchangeRate: { type: Number, min: 0, set: safeNumberSetter },
+
     depositAppliedAmount: { type: Number, default: 0, min: 0 },
     depositAppliedCurrency: { type: String, enum: ['ARS', 'USD'] },
     

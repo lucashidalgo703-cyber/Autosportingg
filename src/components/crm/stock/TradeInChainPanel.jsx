@@ -452,9 +452,17 @@ export default function TradeInChainPanel({ carId, saleId, onUpdated }) {
                                                 <span className="text-[10px] text-neutral-400 uppercase block">
                                                     {node.cost.source === 'valor_de_toma' ? 'Valor de toma acordado' : 'Valor de compra'}
                                                 </span>
-                                                <span className="font-bold text-white">
-                                                    {formatCurrency(node.cost.amount, node.cost.currency)}
-                                                </span>
+                                                {node.cost.restricted ? (
+                                                    <span className="font-bold text-neutral-500">Restringido</span>
+                                                ) : node.cost.hasCost !== false && node.cost.amount !== null && node.cost.amount > 0 ? (
+                                                    <span className="font-bold text-white">
+                                                        {formatCurrency(node.cost.amount, node.cost.currency)}
+                                                    </span>
+                                                ) : (
+                                                    <span className="font-bold text-amber-300">
+                                                        Falta costo de compra/toma
+                                                    </span>
+                                                )}
                                                 {node.cost.mismatch && (
                                                     <span className="text-[10px] text-amber-400 block">
                                                         (Difiere de precio compra cargado)
@@ -509,7 +517,9 @@ export default function TradeInChainPanel({ carId, saleId, onUpdated }) {
 
                                                     <div>
                                                         <span className="text-[10px] text-neutral-400 uppercase block">Ganancia neta individual</span>
-                                                        {node.netProfit !== null ? (
+                                                        {node.cost.restricted ? (
+                                                            <span className="text-[11px] text-neutral-500">Restringido</span>
+                                                        ) : node.netProfit !== null ? (
                                                             <div>
                                                                 <span className={`font-bold ${node.netProfit >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
                                                                     {formatCurrency(node.netProfit, node.sale.currency)}
@@ -530,11 +540,16 @@ export default function TradeInChainPanel({ carId, saleId, onUpdated }) {
                                                                 </span>
                                                             </div>
                                                         ) : (
-                                                            <span className="text-[11px] text-amber-300">
-                                                                {node.concretized
-                                                                    ? 'Monedas distintas (ingresá cotización arriba)'
-                                                                    : 'Venta en borrador'}
-                                                            </span>
+                                                            <div className="flex flex-col">
+                                                                <span className="text-[11px] font-bold text-amber-300">
+                                                                    {node.concretized ? 'Ganancia no calculable' : 'Venta en borrador'}
+                                                                </span>
+                                                                {node.concretized && Array.isArray(node.missingReasons) && node.missingReasons.length > 0 && (
+                                                                    <span className="text-[10px] text-amber-200/80 leading-tight mt-0.5">
+                                                                        {node.missingReasons.join(' ')}
+                                                                    </span>
+                                                                )}
+                                                            </div>
                                                         )}
                                                     </div>
                                                 </>
@@ -549,9 +564,13 @@ export default function TradeInChainPanel({ carId, saleId, onUpdated }) {
                                                     <div className="lg:col-span-3">
                                                         <span className="text-[10px] text-neutral-400 uppercase block">Margen estimado (no concretado)</span>
                                                         <span className="font-bold text-amber-300">
-                                                            {node.inStock?.estimatedMargin !== null
-                                                                ? formatCurrency(node.inStock.estimatedMargin, node.inStock.costCurrency)
-                                                                : 'Moneda de costo y publicación distintas'}
+                                                            {node.inStock?.restricted
+                                                                ? 'Restringido'
+                                                                : node.inStock?.costMissing
+                                                                    ? 'Ganancia no calculable (falta costo de compra/toma)'
+                                                                    : node.inStock?.estimatedMargin !== null
+                                                                        ? formatCurrency(node.inStock.estimatedMargin, node.inStock.costCurrency)
+                                                                        : 'Moneda de costo y publicación distintas'}
                                                         </span>
                                                         <span className="block text-[10px] text-neutral-500">
                                                             No se suma a la ganancia acumulada hasta concretar su venta.

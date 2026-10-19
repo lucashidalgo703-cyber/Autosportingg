@@ -1,5 +1,5 @@
-import { computeCommissionAmount, validateCommissionPercent, parseDecimal, roundMoney } from './src/utils/saleCommercial.js';
-import { buildTradeInChain, validateTradeInLink } from './src/services/tradeInChainService.js';
+import { computeCommissionAmount, computeSaleProfit, validateCommissionPercent, parseDecimal, roundMoney } from './src/utils/saleCommercial.js';
+import { buildTradeInChain, validateTradeInLink, resolveOriginForCar } from './src/services/tradeInChainService.js';
 import AnalyticsEvent from './src/models/AnalyticsEvent.js';
 import CustomerVehicle from './src/models/CustomerVehicle.js';
 import WorkshopProvider from './src/models/WorkshopProvider.js';
@@ -3956,6 +3956,119 @@ app.delete('/api/admin/opportunities/:id', authenticateToken, requireAnyPermissi
 
 // --- SALES ROUTES ---
 
+const canViewSaleCostAndProfit = (user) => Boolean(
+    user && (['owner', 'admin'].includes(user.role) || hasPermission(user, PERMISSIONS.FINANZAS_READ))
+);
+
+const stripVehicleCostFields = (vehicleObj) => {
+    if (!vehicleObj || typeof vehicleObj !== 'object') return vehicleObj;
+    const copy = { ...vehicleObj };
+    delete copy.purchasePrice;
+    delete copy.purchaseCurrency;
+    delete copy.expenses;
+    delete copy.tradeInOrigin;
+    delete copy.resolvedTradeInOrigin;
+    delete copy.investor;
+    delete copy.jointOwnership;
+    return copy;
+};
+
+async function buildPopulatedSaleResponse(saleId, reqUser) {
+    const sale = await Sale.findById(saleId)
+        .populate({
+            path: 'clientId',
+            select: 'firstName lastName fullName phone email documentNumber'
+        })
+        .populate('leadId')
+        .populate('vehicleId')
+        .populate('reservationId')
+        .populate('postSaleResponsible')
+        .populate('expedienteResponsible')
+        .populate('assignedTo');
+
+    if (!sale) return null;
+
+    const transactions = await Transaction.find({
+        saleId: sale._id,
+        status: 'activo',
+        module: 'crm_v2'
+    }).lean();
+
+    let netoCobrado = 0;
+    let depositApplied = 0;
+    if (sale.depositAppliedCurrency === sale.saleCurrency && sale.depositAppliedAmount) {
+        depositApplied = sale.depositAppliedAmount;
+        netoCobrado += depositApplied;
+    }
+
+    transactions.forEach(tx => {
+        if (tx.currency === sale.saleCurrency) {
+            if (tx.type === 'Ingreso') netoCobrado += tx.amount;
+            else if (tx.type === 'Egreso') netoCobrado -= tx.amount;
+        }
+    });
+
+    const tradeInValue = sale.tradeInTotalAmount || 0;
+    const totalToCollect = Math.max(0, sale.salePrice - tradeInValue);
+    const pendingBalance = totalToCollect - netoCobrado;
+
+    let collectionStatus = 'sin_cobro';
+    if (netoCobrado >= totalToCollect) {
+        collectionStatus = netoCobrado > totalToCollect && totalToCollect > 0 ? 'sobrecobrada' : 'cobrada';
+    } else if (netoCobrado > 0) {
+        collectionStatus = 'parcial';
+    }
+
+    if (totalToCollect === 0 && netoCobrado === 0) {
+        collectionStatus = 'cobrada';
+    }
+
+    const saleObj = sale.toObject();
+    saleObj.finance = {
+        netoCobrado,
+        pendingBalance,
+        collectionStatus,
+        depositApplied,
+        tradeInValue,
+        totalToCollect
+    };
+
+    const allowCostAndProfit = canViewSaleCostAndProfit(reqUser);
+    saleObj.canViewCostAndProfit = allowCostAndProfit;
+
+    if (allowCostAndProfit) {
+        let legacyOrigin = null;
+        if (saleObj.vehicleId && typeof saleObj.vehicleId === 'object' && !saleObj.vehicleId.tradeInOrigin?.saleId) {
+            legacyOrigin = await resolveOriginForCar(saleObj.vehicleId);
+            if (legacyOrigin) {
+                saleObj.vehicleId.resolvedTradeInOrigin = legacyOrigin;
+            }
+        }
+        saleObj.profitability = computeSaleProfit({
+            salePrice: saleObj.salePrice,
+            saleCurrency: saleObj.saleCurrency,
+            vehicle: saleObj.vehicleId || null,
+            legacyTradeInOrigin: legacyOrigin,
+            vehicleExpenses: saleObj.vehicleId?.expenses || [],
+            saleExpenses: saleObj.saleExpenses || [],
+            commissionSettings: saleObj.commissionSettings,
+            exchangeRate: saleObj.exchangeRate || null
+        });
+    } else {
+        if (saleObj.vehicleId && typeof saleObj.vehicleId === 'object') {
+            saleObj.vehicleId = stripVehicleCostFields(saleObj.vehicleId);
+        }
+        saleObj.profitability = {
+            restricted: true,
+            calculable: false,
+            statusLabel: 'Restringido por permisos',
+            missingReasons: []
+        };
+    }
+
+    return saleObj;
+}
+
 // GET all sales
 app.get('/api/admin/sales', authenticateToken, requirePermission(PERMISSIONS.VENTAS_READ), async (req, res) => {
     try {
@@ -3979,7 +4092,7 @@ app.get('/api/admin/sales', authenticateToken, requirePermission(PERMISSIONS.VEN
             })
             .populate({
                 path: 'vehicleId',
-                select: 'brand name year plateOrVin price currency status purchasePrice purchaseCurrency'
+                select: 'brand name model year plateOrVin price currency status purchasePrice purchaseCurrency expenses tradeInOrigin investor jointOwnership agencyOwned consignedBy ownerName'
             })
             .populate({
                 path: 'reservationId',
@@ -4001,15 +4114,13 @@ app.get('/api/admin/sales', authenticateToken, requirePermission(PERMISSIONS.VEN
             .select('-saleAuditLog -postSaleChecklist -documentationChecklist -deliveryChecklist')
             .lean();
 
-        // Calculate collection status for each sale
         const saleIds = sales.map(s => s._id);
         const transactions = await Transaction.find({
             saleId: { $in: saleIds },
             status: 'activo',
             module: 'crm_v2'
-        });
+        }).lean();
 
-        // Optimizaci├│n O(N) para agrupar transacciones por saleId
         const txsBySale = {};
         transactions.forEach(tx => {
             const sid = String(tx.saleId);
@@ -4017,12 +4128,38 @@ app.get('/api/admin/sales', authenticateToken, requirePermission(PERMISSIONS.VEN
             txsBySale[sid].push(tx);
         });
 
+        const allowCostAndProfit = canViewSaleCostAndProfit(req.user);
+
+        // Resolver orígenes de toma históricos en batch para vehículos sin tradeInOrigin.saleId
+        const legacyOriginByCarId = {};
+        if (allowCostAndProfit) {
+            const carIdsNeedingLegacyCheck = sales
+                .map(s => s.vehicleId)
+                .filter(v => v && typeof v === 'object' && !v.tradeInOrigin?.saleId)
+                .map(v => v._id);
+            if (carIdsNeedingLegacyCheck.length > 0) {
+                const legacyOriginSales = await Sale.find({
+                    'tradeIns.linkedStockCarId': { $in: carIdsNeedingLegacyCheck },
+                    status: { $ne: 'cancelada' }
+                }).select('_id saleCurrency tradeIns').lean();
+                for (const ls of legacyOriginSales) {
+                    for (const t of ls.tradeIns || []) {
+                        if (t.linkedStockCarId) {
+                            legacyOriginByCarId[String(t.linkedStockCarId)] = {
+                                saleId: ls._id,
+                                value: t.estimatedValue,
+                                currency: t.currency || ls.saleCurrency
+                            };
+                        }
+                    }
+                }
+            }
+        }
+
         const salesWithFinance = sales.map(sale => {
             const saleTxs = txsBySale[String(sale._id)] || [];
             let netoCobrado = 0;
 
-            // Also consider the applied deposit from the reservation if the currency matches the sale currency
-            // Assuming depositAppliedAmount is stored in the Sale model
             let depositApplied = 0;
             if (sale.depositAppliedCurrency === sale.saleCurrency && sale.depositAppliedAmount) {
                 depositApplied = sale.depositAppliedAmount;
@@ -4055,8 +4192,38 @@ app.get('/api/admin/sales', authenticateToken, requirePermission(PERMISSIONS.VEN
                 netoCobrado,
                 pendingBalance,
                 collectionStatus,
-                depositApplied
+                depositApplied,
+                tradeInValue,
+                totalToCollect
             };
+            sale.canViewCostAndProfit = allowCostAndProfit;
+
+            if (allowCostAndProfit) {
+                const legacyOrigin = sale.vehicleId?._id ? (legacyOriginByCarId[String(sale.vehicleId._id)] || null) : null;
+                if (legacyOrigin && sale.vehicleId && typeof sale.vehicleId === 'object') {
+                    sale.vehicleId.resolvedTradeInOrigin = legacyOrigin;
+                }
+                sale.profitability = computeSaleProfit({
+                    salePrice: sale.salePrice,
+                    saleCurrency: sale.saleCurrency,
+                    vehicle: sale.vehicleId || null,
+                    legacyTradeInOrigin: legacyOrigin,
+                    vehicleExpenses: sale.vehicleId?.expenses || [],
+                    saleExpenses: sale.saleExpenses || [],
+                    commissionSettings: sale.commissionSettings,
+                    exchangeRate: sale.exchangeRate || null
+                });
+            } else {
+                if (sale.vehicleId && typeof sale.vehicleId === 'object') {
+                    sale.vehicleId = stripVehicleCostFields(sale.vehicleId);
+                }
+                sale.profitability = {
+                    restricted: true,
+                    calculable: false,
+                    statusLabel: 'Restringido por permisos',
+                    missingReasons: []
+                };
+            }
             return sale;
         });
 
@@ -4072,70 +4239,17 @@ app.get('/api/admin/sales/:id', authenticateToken, requirePermission(PERMISSIONS
     try {
         await connectDB();
         if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
-            return res.status(400).json({ message: 'Sale ID inv├ílido' });
+            return res.status(400).json({ message: 'Sale ID inválido' });
         }
-        const sale = await Sale.findById(req.params.id)
-            .populate({
-                path: 'clientId',
-                select: 'firstName lastName fullName phone email documentNumber'
-            })
-            .populate('leadId')
-            .populate('vehicleId')
-            .populate('reservationId')
-            .populate('postSaleResponsible')
-            .populate('expedienteResponsible')
-            .populate('assignedTo');
-
-        if (!sale) return res.status(404).json({ message: 'Sale not found' });
-
-        const transactions = await Transaction.find({
-            saleId: sale._id,
-            status: 'activo',
-            module: 'crm_v2'
-        });
-
-        let netoCobrado = 0;
-        let depositApplied = 0;
-        if (sale.depositAppliedCurrency === sale.saleCurrency && sale.depositAppliedAmount) {
-            depositApplied = sale.depositAppliedAmount;
-            netoCobrado += depositApplied;
-        }
-
-        transactions.forEach(tx => {
-            if (tx.currency === sale.saleCurrency) {
-                if (tx.type === 'Ingreso') netoCobrado += tx.amount;
-                else if (tx.type === 'Egreso') netoCobrado -= tx.amount;
-            }
-        });
-
-        const tradeInValue = sale.tradeInTotalAmount || 0;
-        const totalToCollect = Math.max(0, sale.salePrice - tradeInValue);
-        const pendingBalance = totalToCollect - netoCobrado;
-
-        let collectionStatus = 'sin_cobro';
-        if (netoCobrado >= totalToCollect) {
-            collectionStatus = netoCobrado > totalToCollect && totalToCollect > 0 ? 'sobrecobrada' : 'cobrada';
-        } else if (netoCobrado > 0) {
-            collectionStatus = 'parcial';
-        }
-
-        if (totalToCollect === 0 && netoCobrado === 0) {
-            collectionStatus = 'cobrada';
-        }
-
-        const saleObj = sale.toObject();
-        saleObj.finance = {
-            netoCobrado,
-            pendingBalance,
-            collectionStatus,
-            depositApplied
-        };
+        const saleObj = await buildPopulatedSaleResponse(req.params.id, req.user);
+        if (!saleObj) return res.status(404).json({ message: 'Sale not found' });
 
         res.json(saleObj);
     } catch (error) {
         res.status(500).json({ message: error.message });
     }
 });
+
 
 // POST create manual sale
 app.post('/api/admin/sales', authenticateToken, requirePermission(PERMISSIONS.VENTAS_WRITE), async (req, res) => {
@@ -4524,10 +4638,7 @@ app.patch('/api/admin/sales/:id/link-client', authenticateToken, requirePermissi
 
         await sale.save();
 
-        const populatedSale = await Sale.findById(sale._id)
-            .populate('clientId', 'firstName lastName fullName phone email')
-            .lean();
-
+        const populatedSale = await buildPopulatedSaleResponse(sale._id, req.user);
         res.json(populatedSale);
     } catch (error) {
         console.error('Error linking client to sale:', error);
@@ -4594,7 +4705,8 @@ app.post('/api/admin/sales/:id/create-link-client', authenticateToken, requirePe
             metadata: { clientId: newClient._id }
         });
 
-        res.json({ ok: true, sale, client: newClient });
+        const populatedSale = await buildPopulatedSaleResponse(sale._id, req.user);
+        res.json({ ok: true, sale: populatedSale, client: newClient });
     } catch (err) {
         console.error("Error creating and linking client:", err);
         res.status(500).json({ error: 'Error interno del servidor al crear y vincular cliente' });
@@ -4643,10 +4755,7 @@ app.patch('/api/admin/sales/:id/link-vehicle', authenticateToken, requirePermiss
 
         await sale.save();
 
-        const populatedSale = await Sale.findById(sale._id)
-            .populate('vehicleId', 'brand name year plateOrVin price currency status')
-            .lean();
-
+        const populatedSale = await buildPopulatedSaleResponse(sale._id, req.user);
         res.json(populatedSale);
     } catch (error) {
         console.error('Error linking vehicle to sale:', error);
@@ -4716,10 +4825,7 @@ app.post('/api/admin/sales/:id/create-link-vehicle', authenticateToken, requireP
 
         await sale.save();
 
-        const populatedSale = await Sale.findById(sale._id)
-            .populate('vehicleId', 'brand name year plateOrVin price currency status')
-            .lean();
-
+        const populatedSale = await buildPopulatedSaleResponse(sale._id, req.user);
         res.json(populatedSale);
     } catch (error) {
         console.error('Error creating/linking vehicle to sale:', error);
@@ -4769,10 +4875,7 @@ app.post('/api/admin/sales/:id/backfill-client-from-reservation', authenticateTo
 
         await sale.save();
 
-        const populatedSale = await Sale.findById(sale._id)
-            .populate('clientId', 'firstName lastName fullName phone email')
-            .lean();
-
+        const populatedSale = await buildPopulatedSaleResponse(sale._id, req.user);
         res.json(populatedSale);
     } catch (error) {
         console.error('Error backfilling client from reservation:', error);
@@ -4840,8 +4943,6 @@ app.patch('/api/admin/sales/:id/cancel', authenticateToken, requirePermission(PE
                 return res.status(403).json({ error: 'La venta tiene movimientos o cuotas. Solo un administrador puede anularla.' });
             }
         } else {
-            // Vendors might be allowed? The prompt says "Vendedor: no puede anular ventas salvo permiso expl├¡cito ya existente."
-            // We'll enforce owner/admin or ventascancel permission. Since "ventascancel" might not exist, we just restrict to owner/admin.
             const perms = req.user?.permissions || [];
             if (!['owner', 'admin'].includes(userRole) && !perms.includes('ventas.cancel')) {
                 return res.status(403).json({ error: 'No tienes permisos para anular ventas.' });
@@ -4857,7 +4958,7 @@ app.patch('/api/admin/sales/:id/cancel', authenticateToken, requirePermission(PE
         sale.saleAuditLog.push({
             action: 'VENTA_ANULADA',
             field: 'status',
-            oldValue: sale.status, // will be 'confirmada' or whatever it was
+            oldValue: sale.status,
             newValue: 'cancelada',
             details: `Motivo: ${reason}`,
             user: user,
@@ -4878,10 +4979,7 @@ app.patch('/api/admin/sales/:id/cancel', authenticateToken, requirePermission(PE
         await sale.save();
 
         // Return updated sale
-        const populatedSale = await Sale.findById(sale._id)
-            .populate('clientId', 'firstName lastName fullName phone email')
-            .lean();
-
+        const populatedSale = await buildPopulatedSaleResponse(sale._id, req.user);
         res.json(populatedSale);
     } catch (error) {
         console.error('Error cancelling sale:', error);
@@ -4932,10 +5030,7 @@ app.patch('/api/admin/sales/:id/trade-ins', authenticateToken, requirePermission
 
         await sale.save();
 
-        const populatedSale = await Sale.findById(sale._id)
-            .populate('clientId', 'firstName lastName fullName phone email')
-            .lean();
-
+        const populatedSale = await buildPopulatedSaleResponse(sale._id, req.user);
         res.json(populatedSale);
     } catch (error) {
         console.error('Error updating trade-ins:', error);
@@ -5049,9 +5144,7 @@ app.post('/api/admin/sales/:id/trade-ins/:tradeInIndex/create-stock-car', authen
             console.error("Error logging audit for create-stock-car:", auditErr);
         }
 
-        const populatedSale = await Sale.findById(sale._id)
-            .populate('clientId', 'firstName lastName fullName phone email')
-            .lean();
+        const populatedSale = await buildPopulatedSaleResponse(sale._id, req.user);
 
         res.json({ sale: populatedSale, car: savedCar });
     } catch (error) {
@@ -5094,7 +5187,8 @@ app.patch('/api/admin/sales/:id', authenticateToken, requirePermission(PERMISSIO
             commissionSettings,
             saleExpenses,
             financingDetails,
-            syncInstallmentPlan
+            syncInstallmentPlan,
+            exchangeRate
         } = req.body;
 
         const sale = await Sale.findById(req.params.id);
@@ -5104,6 +5198,29 @@ app.patch('/api/admin/sales/:id', authenticateToken, requirePermission(PERMISSIO
         const oldStatus = sale.status;
         const wasFinanced = Boolean(sale.financingDetails?.hasFinancing) || String(sale.paymentMethod || '').toLowerCase() === 'financiado';
         let hasChanges = false;
+
+        if (exchangeRate !== undefined) {
+            const parsedRate = exchangeRate === '' || exchangeRate === null ? undefined : parseDecimal(exchangeRate);
+            if (parsedRate !== undefined && (!Number.isFinite(parsedRate) || parsedRate <= 0)) {
+                return res.status(400).json({ message: 'La cotización USD/ARS debe ser mayor a cero.', code: 'EXCHANGE_RATE_INVALID' });
+            }
+            const nextRate = parsedRate !== undefined ? roundMoney(parsedRate) : undefined;
+            if ((sale.exchangeRate ?? undefined) !== nextRate) {
+                sale.saleAuditLog.push({
+                    action: 'COTIZACION_ACTUALIZADA',
+                    field: 'exchangeRate',
+                    oldValue: sale.exchangeRate ?? null,
+                    newValue: nextRate ?? null,
+                    details: nextRate
+                        ? `Cotización USD/ARS registrada en la venta: ${nextRate}`
+                        : 'Cotización USD/ARS quitada de la venta',
+                    user,
+                    source: 'CRM_V2'
+                });
+                sale.exchangeRate = nextRate;
+                hasChanges = true;
+            }
+        }
 
         if (req.body.assignedTo !== undefined) {
             let oldAssigned = sale.assignedTo ? sale.assignedTo.toString() : null;
@@ -5643,11 +5760,10 @@ app.patch('/api/admin/sales/:id', authenticateToken, requirePermission(PERMISSIO
                 description: `Se actualiz├│ la venta (estado: ${updatedSale.status}, documentacion: ${updatedSale.documentationStatus}, entrega: ${updatedSale.deliveryStatus}, postventa: ${updatedSale.postSaleStatus}).`,
                 metadata: { status: updatedSale.status }
             });
-
-            res.json(updatedSale);
-        } else {
-            res.json(sale);
         }
+
+        const populatedSale = await buildPopulatedSaleResponse(sale._id, req.user);
+        res.json(populatedSale);
     } catch (error) {
         console.error('Error updating sale:', error);
         if (error?.name === 'ValidationError') {
@@ -5812,7 +5928,7 @@ app.post('/api/admin/cars/:id/link-trade-in', authenticateToken, requirePermissi
             saleUpdate.$set = { [`tradeIns.${tradeInIndex}.linkedStockCarId`]: req.params.id, [`tradeIns.${tradeInIndex}.enteredStockAt`]: now };
         }
         await Sale.updateOne({ _id: saleId }, saleUpdate, { runValidators: false });
-        res.json(await buildTradeInChain({ carId: req.params.id }));
+        res.json(await buildTradeInChain({ carId: req.params.id, canViewCostAndProfit: canViewSaleCostAndProfit(req.user) }));
     } catch (error) {
         console.error('link-trade-in error:', error);
         res.status(500).json({ message: 'No se pudo vincular el vehículo.' });
@@ -5854,7 +5970,7 @@ app.get('/api/admin/cars/:id/trade-in-chain', authenticateToken, requirePermissi
         await connectDB();
         if (!mongoose.isValidObjectId(req.params.id)) return res.status(400).json({ message: 'Id inválido.' });
         const exchangeRate = req.query.exchangeRate ? parseDecimal(req.query.exchangeRate) : null;
-        res.json(await buildTradeInChain({ carId: req.params.id, exchangeRate }));
+        res.json(await buildTradeInChain({ carId: req.params.id, exchangeRate, canViewCostAndProfit: canViewSaleCostAndProfit(req.user) }));
     } catch (error) {
         console.error('trade-in-chain error:', error);
         res.status(500).json({ message: 'No se pudo calcular el historial de permutas.' });
@@ -5868,7 +5984,7 @@ app.get('/api/admin/sales/:id/trade-in-chain', authenticateToken, requirePermiss
         if (!sale) return res.status(404).json({ message: 'Venta no encontrada' });
         if (!sale.vehicleId) return res.json({ nodes: [], totals: {}, notes: {} });
         const exchangeRate = req.query.exchangeRate ? parseDecimal(req.query.exchangeRate) : null;
-        res.json(await buildTradeInChain({ carId: sale.vehicleId, exchangeRate }));
+        res.json(await buildTradeInChain({ carId: sale.vehicleId, exchangeRate, canViewCostAndProfit: canViewSaleCostAndProfit(req.user) }));
     } catch (error) {
         console.error('sale trade-in-chain error:', error);
         res.status(500).json({ message: 'No se pudo calcular el historial de permutas.' });
