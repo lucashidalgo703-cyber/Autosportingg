@@ -128,22 +128,24 @@ export default function CrmHeader({ onMenuClick }) {
                 let sales = 0, stock = 0;
                 try {
                     const headers = { 'Authorization': `Bearer ${token}` };
+                    const today = new Date();
+                    const currentMonth = today.getMonth();
+                    const currentYear = today.getFullYear();
+
+                    // Consultamos cars con limit=1 ya que summary.disponibles se calcula sobre todo el stock
+                    // Para sales, filtramos solo las ventas requeridas
                     const [carsRes, salesRes] = await Promise.all([
-                        fetch('/api/admin/cars', { headers }),
+                        fetch('/api/admin/cars?limit=1', { headers }),
                         fetch('/api/admin/sales', { headers })
                     ]);
 
-                    if (carsRes.ok && salesRes.ok && carsRes.headers.get('content-type')?.includes('application/json') && salesRes.headers.get('content-type')?.includes('application/json')) {
-                        const [carsData, salesData] = await Promise.all([
-                            carsRes.json(),
-                            salesRes.json()
-                        ]);
-                        const today = new Date();
-
-                        // `/api/admin/cars` returns { cars, summary } because it is paginated
+                    if (carsRes.ok && carsRes.headers.get('content-type')?.includes('application/json')) {
+                        const carsData = await carsRes.json();
                         stock = carsData.summary?.disponibles || 0;
-                        
-                        // `/api/admin/sales` currently returns an array, but we check to be safe
+                    }
+
+                    if (salesRes.ok && salesRes.headers.get('content-type')?.includes('application/json')) {
+                        const salesData = await salesRes.json();
                         const salesArray = Array.isArray(salesData) ? salesData : (salesData.sales || []);
                         sales = salesArray.filter((sale) => {
                             const saleDate = new Date(sale.saleDate || sale.createdAt);
@@ -151,8 +153,8 @@ export default function CrmHeader({ onMenuClick }) {
 
                             return status !== 'cancelada'
                                 && status !== 'borrador'
-                                && saleDate.getMonth() === today.getMonth()
-                                && saleDate.getFullYear() === today.getFullYear();
+                                && saleDate.getMonth() === currentMonth
+                                && saleDate.getFullYear() === currentYear;
                         }).length;
                     }
                 } catch (e) {}
