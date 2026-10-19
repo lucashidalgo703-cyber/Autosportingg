@@ -223,7 +223,7 @@ Mediciones obtenidas por descarga HTTP directa con encabezados de navegador real
 | **Ficha Auto** (API Detalle) | Cabeceras de Caché | `no-store` + `?t=now` | `s-maxage=30, swr=60` | Habilita Edge Cache | Servidor Express / Vercel |
 | **API Dashboard** (`/api/admin/dashboard`) | Peso Payload JSON | **498.4 KB** | **64.4 KB** | **-87.1%** (-434.0 KB) | Medición directa BD real (`autosporting`) |
 | **Header CRM** (`CrmHeader`) | Datos transferidos por ciclo | **73.4 KB** (20 autos) | **2.3 KB** (`limit=1`) | **-96.8%** (-71.1 KB) | Medición directa BD real (`autosporting`) |
-| **Condiciones Comerciales** | Opciones Cuotas | 6 a 48 cuotas | **3 a 48 cuotas** | Incorporada opción 3 | `SaleCommercialPanel.jsx` |
+| **Condiciones Comerciales / Cuotas** | Opciones Cuotas | 6 a 48 cuotas | **3 a 48 cuotas** | Incorporada opción 3 en selectores de alta y generación | `SaleCreateModal.jsx`, `GenerateInstallmentsModal.jsx` |
 
 *(Aclaración de memoria: La reducción del peso del JSON transferido alivia el tamaño de los paquetes de red y los objetos deserializados, pero no permite deducir un porcentaje idéntico de reducción de memoria RAM en el proceso Node.js, ya que la memoria depende del heap de V8, buffers internos y el ciclo del Garbage Collector).*
 

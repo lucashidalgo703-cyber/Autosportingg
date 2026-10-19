@@ -11,7 +11,6 @@ export default function SaleCommercialPanel({ sale, onSave }) {
         salePrice: 0,
         saleCurrency: 'USD',
         paymentMethod: 'contado',
-        installmentsCount: 6,
         depositAppliedAmount: 0,
         depositAppliedCurrency: 'USD',
         commissionSettings: {
@@ -28,7 +27,6 @@ export default function SaleCommercialPanel({ sale, onSave }) {
             salePrice: sale.salePrice || 0,
             saleCurrency: sale.saleCurrency || 'USD',
             paymentMethod: sale.paymentMethod || 'contado',
-            installmentsCount: sale.installmentsCount || 6,
             depositAppliedAmount: sale.depositAppliedAmount || 0,
             depositAppliedCurrency: sale.depositAppliedCurrency || sale.saleCurrency || 'USD',
             commissionSettings: {
@@ -52,7 +50,6 @@ export default function SaleCommercialPanel({ sale, onSave }) {
                 salePrice: Number(editForm.salePrice),
                 saleCurrency: editForm.saleCurrency,
                 paymentMethod: editForm.paymentMethod,
-                installmentsCount: editForm.paymentMethod === 'financiado' ? (Number(editForm.installmentsCount) || 6) : 0,
                 depositAppliedAmount: Number(editForm.depositAppliedAmount),
                 depositAppliedCurrency: editForm.depositAppliedCurrency,
                 commissionSettings: {
@@ -147,7 +144,7 @@ export default function SaleCommercialPanel({ sale, onSave }) {
                     )}
                 </div>
 
-                <div className={`grid ${(isEditing ? editForm.paymentMethod === 'financiado' : sale.paymentMethod === 'financiado') ? 'grid-cols-3' : 'grid-cols-2'} gap-3`}>
+                <div className="grid grid-cols-2 gap-3">
                     {/* METODO DE PAGO */}
                     <div className="rounded-xl border border-crm-border bg-crm-bg p-3">
                         <span className="mb-2 block text-[10px] font-bold uppercase tracking-[0.08em] text-crm-fg-muted">Metodo de Pago</span>
@@ -167,34 +164,6 @@ export default function SaleCommercialPanel({ sale, onSave }) {
                             </div>
                         )}
                     </div>
-
-                    {/* CANTIDAD DE CUOTAS */}
-                    {(isEditing ? editForm.paymentMethod === 'financiado' : sale.paymentMethod === 'financiado') && (
-                        <div className="rounded-xl border border-crm-border bg-crm-bg p-3">
-                            <span className="mb-2 block text-[10px] font-bold uppercase tracking-[0.08em] text-crm-fg-muted">Cantidad de cuotas</span>
-                            {isEditing ? (
-                                <CrmSelect 
-                                    value={editForm.installmentsCount || 6} 
-                                    onChange={(e) => setEditForm({...editForm, installmentsCount: Number(e.target.value)})} 
-                                    className="h-8 bg-crm-surface text-xs font-bold"
-                                >
-                                    <option value="3">3 cuotas</option>
-                                    <option value="6">6 cuotas</option>
-                                    <option value="12">12 cuotas</option>
-                                    <option value="18">18 cuotas</option>
-                                    <option value="24">24 cuotas</option>
-                                    <option value="36">36 cuotas</option>
-                                    <option value="48">48 cuotas</option>
-                                </CrmSelect>
-                            ) : (
-                                <div className="flex items-center gap-2 mt-1">
-                                    <span className="text-sm font-bold text-crm-fg">
-                                        {sale.installmentsCount ? `${sale.installmentsCount} cuotas` : '6 cuotas'}
-                                    </span>
-                                </div>
-                            )}
-                        </div>
-                    )}
 
                     {/* SEÑA APLICADA */}
                     <div className="rounded-xl border border-crm-border bg-crm-bg p-3">
