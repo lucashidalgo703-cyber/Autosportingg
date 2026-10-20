@@ -1,6 +1,6 @@
 "use client";
 import { useState, useMemo, useEffect } from 'react';
-import { Download, Eye, FileText, Plus, ExternalLink } from 'lucide-react';
+import { Download, Eye, FileText, Plus, ExternalLink, HelpCircle, AlertCircle, CheckCircle2, Info } from 'lucide-react';
 
 import CrmButton from '../../../components/crm/ui/CrmButton';
 import CrmPageHeader from '../../../components/crm/ui/CrmPageHeader';
@@ -23,6 +23,18 @@ import Link from 'next/link';
 import CrmPagination from '../../../components/crm/ui/CrmPagination';
 import VehicleFlyerPdf from '../../../components/crm/stock/VehicleFlyerPdf';
 
+
+function formatARS(amount) {
+    return new Intl.NumberFormat('es-AR', {
+        style: 'currency',
+        currency: 'ARS',
+        maximumFractionDigits: 0
+    }).format(Math.round(amount || 0));
+}
+
+function formatUSD(amount) {
+    return `USD ${new Intl.NumberFormat('es-AR', { maximumFractionDigits: 0 }).format(Math.round(amount || 0))}`;
+}
 
 export default function AdminStockPage() {
     const [pageNumber, setPageNumber] = useState(1);
@@ -402,66 +414,203 @@ export default function AdminStockPage() {
                     }
                 />
 
-                <div className="flex flex-col gap-3 rounded-2xl border border-crm-border bg-crm-surface p-4 text-xs text-crm-fg-muted lg:flex-row lg:items-center lg:justify-between">
-                    <div className="flex flex-wrap items-center gap-4">
-                        <div className="flex items-center gap-2.5">
-                            <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-blue-500/15 text-blue-400 font-bold">🚗</span>
+                {/* BLOQUE PATRIMONIAL Y CONCILIACIÓN DE STOCK */}
+                <div className="space-y-4">
+                    {/* Tarjetas Principales: 1. Valor total | 2. Valor propio | 3. Valor de inversionistas */}
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        {/* 1. VALOR TOTAL */}
+                        <div className="rounded-2xl border border-crm-border bg-gradient-to-b from-crm-surface to-crm-surface/80 p-5 shadow-sm flex flex-col justify-between">
                             <div>
-                                <span className="text-[10px] uppercase font-bold text-crm-fg-subtle block">Stock Disponible</span>
-                                <div className="flex items-baseline gap-1">
-                                    <span className="font-bold text-base text-white">{stockSummary.disponibles}</span>
-                                    <span className="text-[11px] text-crm-fg-muted">de {stockSummary.total} en stock</span>
+                                <div className="flex items-center justify-between gap-2 mb-1.5">
+                                    <span className="text-[11px] font-bold uppercase tracking-wider text-crm-fg-subtle">
+                                        1. Valor total
+                                    </span>
+                                    <span className="rounded-full bg-blue-500/10 px-2 py-0.5 text-[10px] font-semibold text-blue-400 border border-blue-500/20">
+                                        Propio + Compartido
+                                    </span>
                                 </div>
-                            </div>
-                        </div>
-
-                        <div className="border-l border-crm-border/60 pl-4">
-                            <span className="text-[10px] uppercase font-bold text-crm-fg-subtle block">
-                                Capital Agencia (Venta)
-                            </span>
-                            <div className="font-mono font-bold text-sm text-white">
-                                USD {Number(stockSummary.valorActivoUSD || 0).toLocaleString('es-AR')}
-                                {stockSummary.valorActivoARS > 0 && (
-                                    <span className="text-xs text-crm-fg-muted font-normal"> · ARS {Number(stockSummary.valorActivoARS || 0).toLocaleString('es-AR')}</span>
-                                )}
-                            </div>
-                            {dolarBlue && stockSummary.valorActivoARS > 0 && (
-                                <span className="text-[10px] text-crm-fg-subtle block">
-                                    (~ USD {Math.round((stockSummary.valorActivoUSD || 0) + (stockSummary.valorActivoARS / dolarBlue)).toLocaleString('es-AR')} equiv. Blue)
-                                </span>
-                            )}
-                        </div>
-
-                        {(stockSummary.capitalInvertidoUSD > 0 || stockSummary.capitalInvertidoARS > 0) && (
-                            <div className="border-l border-crm-border/60 pl-4">
-                                <span className="text-[10px] uppercase font-bold text-crm-fg-subtle block">
-                                    Costo Invertido (Compra)
-                                </span>
-                                <div className="font-mono font-bold text-xs text-crm-fg">
-                                    USD {Number(stockSummary.capitalInvertidoUSD || 0).toLocaleString('es-AR')}
-                                    {stockSummary.capitalInvertidoARS > 0 && (
-                                        <span className="text-[11px] text-crm-fg-muted font-normal"> · ARS {Number(stockSummary.capitalInvertidoARS || 0).toLocaleString('es-AR')}</span>
+                                <p className="text-xs text-crm-fg-muted mb-3 leading-relaxed">
+                                    Valor publicado completo del inventario activo propio y compartido.
+                                </p>
+                                <div className="space-y-1">
+                                    <div className="text-2xl md:text-3xl font-extrabold tracking-tight text-white">
+                                        {formatARS(stockSummary.valorTotalARS)}
+                                    </div>
+                                    {stockSummary.valorTotalUSD > 0 && (
+                                        <div className="text-lg font-bold text-blue-300">
+                                            {formatUSD(stockSummary.valorTotalUSD)}
+                                        </div>
                                     )}
                                 </div>
                             </div>
-                        )}
-                    </div>
+                            <div className="mt-4 pt-3 border-t border-crm-border/60 flex items-center justify-between text-[11px] text-crm-fg-muted">
+                                <span>Base homogénea</span>
+                                <span className="font-semibold text-crm-fg">Precio de venta</span>
+                            </div>
+                        </div>
 
-                    <div className="flex flex-wrap items-center gap-4 border-t border-crm-border/60 pt-3 lg:border-t-0 lg:border-l lg:pl-6 lg:pt-0">
-                        <div>
-                            <span className="text-[10px] uppercase font-bold text-blue-400 block">
-                                Inversionistas (Compartidos)
-                            </span>
-                            <div className="font-mono text-xs text-blue-300">
-                                <span>Venta: USD {Number(stockSummary.valorActivoInversionistasUSD || 0).toLocaleString('es-AR')}</span>
-                                {(stockSummary.capitalInvertidoInversionistasUSD > 0 || stockSummary.capitalInvertidoInversionistasARS > 0) && (
-                                    <span className="text-blue-300/70 text-[10px] block">
-                                        Costo: USD {Number(stockSummary.capitalInvertidoInversionistasUSD || 0).toLocaleString('es-AR')}
+                        {/* 2. VALOR PROPIO */}
+                        <div className="rounded-2xl border border-crm-border bg-gradient-to-b from-crm-surface to-crm-surface/80 p-5 shadow-sm flex flex-col justify-between">
+                            <div>
+                                <div className="flex items-center justify-between gap-2 mb-1.5">
+                                    <span className="text-[11px] font-bold uppercase tracking-wider text-crm-fg-subtle">
+                                        2. Valor propio
                                     </span>
-                                )}
+                                    <span className="rounded-full bg-emerald-500/10 px-2 py-0.5 text-[10px] font-semibold text-emerald-400 border border-emerald-500/20">
+                                        AutoSporting
+                                    </span>
+                                </div>
+                                <p className="text-xs text-crm-fg-muted mb-3 leading-relaxed">
+                                    Participación de AutoSporting (100% de propios + cuota en compartidos).
+                                </p>
+                                <div className="space-y-1">
+                                    <div className="text-2xl md:text-3xl font-extrabold tracking-tight text-white">
+                                        {formatARS(stockSummary.valorActivoARS)}
+                                    </div>
+                                    {stockSummary.valorActivoUSD > 0 && (
+                                        <div className="text-lg font-bold text-emerald-300">
+                                            {formatUSD(stockSummary.valorActivoUSD)}
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+                            <div className="mt-4 pt-3 border-t border-crm-border/60 flex items-center justify-between text-[11px] text-crm-fg-muted">
+                                <span>Participación sobre total</span>
+                                <span className="font-semibold text-emerald-400">
+                                    {stockSummary.valorTotalARS > 0 ? `${((stockSummary.valorActivoARS / stockSummary.valorTotalARS) * 100).toFixed(1)}%` : '0%'}
+                                </span>
+                            </div>
+                        </div>
+
+                        {/* 3. VALOR DE INVERSIONISTAS */}
+                        <div className="rounded-2xl border border-crm-border bg-gradient-to-b from-crm-surface to-crm-surface/80 p-5 shadow-sm flex flex-col justify-between">
+                            <div>
+                                <div className="flex items-center justify-between gap-2 mb-1.5">
+                                    <span className="text-[11px] font-bold uppercase tracking-wider text-crm-fg-subtle">
+                                        3. Valor de inversionistas
+                                    </span>
+                                    <span className="rounded-full bg-purple-500/10 px-2 py-0.5 text-[10px] font-semibold text-purple-400 border border-purple-500/20">
+                                        Socios Inversores
+                                    </span>
+                                </div>
+                                <p className="text-xs text-crm-fg-muted mb-3 leading-relaxed">
+                                    Participación de inversionistas según porcentajes reales registrados.
+                                </p>
+                                <div className="space-y-1">
+                                    <div className="text-2xl md:text-3xl font-extrabold tracking-tight text-white">
+                                        {formatARS(stockSummary.valorActivoInversionistasARS)}
+                                    </div>
+                                    {stockSummary.valorActivoInversionistasUSD > 0 && (
+                                        <div className="text-lg font-bold text-purple-300">
+                                            {formatUSD(stockSummary.valorActivoInversionistasUSD)}
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+                            <div className="mt-4 pt-3 border-t border-crm-border/60 flex items-center justify-between text-[11px] text-crm-fg-muted">
+                                <span>Participación sobre total</span>
+                                <span className="font-semibold text-purple-400">
+                                    {stockSummary.valorTotalARS > 0 ? `${((stockSummary.valorActivoInversionistasARS / stockSummary.valorTotalARS) * 100).toFixed(1)}%` : '0%'}
+                                </span>
                             </div>
                         </div>
                     </div>
+
+                    {/* Barra de Coherencia Matemática y Desglose de Unidades */}
+                    <div className="rounded-xl border border-crm-border bg-crm-surface p-4 flex flex-col lg:flex-row lg:items-center justify-between gap-3 text-xs">
+                        <div className="flex flex-wrap items-center gap-3">
+                            {/* Desglose de Unidades */}
+                            <div className="flex items-center gap-2">
+                                <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-blue-500/15 text-blue-400 font-bold">
+                                    🚗
+                                </span>
+                                <div>
+                                    <div className="flex items-baseline gap-1.5">
+                                        <span className="font-bold text-sm text-white">
+                                            {stockSummary.total} en stock activo
+                                        </span>
+                                        <span className="text-[11px] text-crm-fg-muted">
+                                            ({stockSummary.disponibles} disponibles · {stockSummary.reservados} reservados · {stockSummary.pausados} pausados{stockSummary.sinEstado > 0 ? ` · ${stockSummary.sinEstado} sin estado` : ''})
+                                        </span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Categorías particulares */}
+                            <div className="flex items-center gap-1.5 border-l border-crm-border/60 pl-3">
+                                <span className="rounded-md bg-crm-bg px-2 py-0.5 text-[11px] font-medium text-crm-fg border border-crm-border">
+                                    {stockSummary.compartidos} compartidos
+                                </span>
+                                <span className="rounded-md bg-crm-bg px-2 py-0.5 text-[11px] font-medium text-crm-fg border border-crm-border">
+                                    {stockSummary.ceroKm} 0 km
+                                </span>
+                            </div>
+                        </div>
+
+                        {/* Coherencia Matemática */}
+                        <div className="flex items-center gap-2 text-[11px] text-emerald-400 bg-emerald-500/10 px-3 py-1.5 rounded-lg border border-emerald-500/20">
+                            <CheckCircle2 size={14} className="shrink-0" />
+                            <span>
+                                <strong>Coherencia verificada:</strong> Valor Total = Valor Propio + Inversionistas
+                            </span>
+                        </div>
+                    </div>
+
+                    {/* Información Secundaria: Consignaciones y Costo Invertido */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
+                        {/* Consignaciones (Aparte) */}
+                        <div className="rounded-xl border border-crm-border bg-crm-surface/60 p-3.5 flex items-start gap-3">
+                            <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-amber-500/15 text-amber-400 font-bold">
+                                📋
+                            </div>
+                            <div className="space-y-0.5 flex-1">
+                                <div className="flex items-center justify-between">
+                                    <span className="font-bold text-crm-fg uppercase tracking-wider text-[11px]">
+                                        Consignaciones (Información aparte)
+                                    </span>
+                                    <span className="font-bold text-amber-300">
+                                        {stockSummary.consignaciones} {stockSummary.consignaciones === 1 ? 'vehículo' : 'vehículos'}
+                                    </span>
+                                </div>
+                                <p className="text-[11px] text-crm-fg-muted leading-relaxed">
+                                    Valor publicado: {formatARS(stockSummary.consignacionesValorARS || 0)}{stockSummary.consignacionesValorUSD > 0 ? ` · ${formatUSD(stockSummary.consignacionesValorUSD)}` : ''}.
+                                    {' '}Excluidas del bloque patrimonial principal: no constituyen capital propio de la agencia ni inversión de socios.
+                                </p>
+                            </div>
+                        </div>
+
+                        {/* Costo Invertido de Compra */}
+                        <div className="rounded-xl border border-crm-border bg-crm-surface/60 p-3.5 flex items-start gap-3">
+                            <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-slate-500/15 text-slate-300 font-bold">
+                                💼
+                            </div>
+                            <div className="space-y-0.5 flex-1">
+                                <div className="flex items-center justify-between">
+                                    <span className="font-bold text-crm-fg uppercase tracking-wider text-[11px]">
+                                        Costo Invertido de Adquisición
+                                    </span>
+                                    <span className="font-bold text-white">
+                                        {formatARS(stockSummary.capitalInvertidoARS || 0)}{stockSummary.capitalInvertidoUSD > 0 ? ` · ${formatUSD(stockSummary.capitalInvertidoUSD)}` : ''}
+                                    </span>
+                                </div>
+                                <p className="text-[11px] text-crm-fg-muted leading-relaxed">
+                                    Costo real de compra de la cuota de AutoSporting. Información secundaria de costo; no representa ganancia ni dinero disponible en caja.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Alerta de Datos Incompletos / Pendientes de Revisar */}
+                    {(stockSummary.inconsistencias?.missingPriceCount > 0 || stockSummary.inconsistencias?.missingCostCount > 0 || stockSummary.sinEstado > 0) && (
+                        <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-3 flex items-center justify-between text-xs text-amber-200">
+                            <div className="flex items-center gap-2">
+                                <AlertCircle size={15} className="text-amber-400 shrink-0" />
+                                <span>
+                                    <strong>Atención de datos:</strong> Se detectaron {stockSummary.inconsistencias?.missingPriceCount || 0} unidades con precio pendiente de revisión, {stockSummary.inconsistencias?.missingCostCount || 0} sin costo registrado{stockSummary.sinEstado > 0 ? ` y ${stockSummary.sinEstado} sin estado asignado` : ''}. Los importes no inventan valores ni asumen datos faltantes como definitivos.
+                                </span>
+                            </div>
+                        </div>
+                    )}
                 </div>
 
                 <div className="flex flex-col">

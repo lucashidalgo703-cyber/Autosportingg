@@ -1212,27 +1212,32 @@ app.get('/api/admin/cars', authenticateToken, requirePermission(PERMISSIONS.STOC
         const disponibles = stockCars.filter(c => (c.status || '').toLowerCase().trim() === 'disponible');
         const reservados = stockCars.filter(c => (c.status || '').toLowerCase().trim() === 'reservado');
         const pausados = stockCars.filter(c => (c.status || '').toLowerCase().trim() === 'pausado');
+        const sinEstado = stockCars.filter(c => !['disponible', 'reservado', 'pausado'].includes((c.status || '').toLowerCase().trim()));
 
-        let valorActivoUSD = 0;
-        let valorActivoARS = 0;
-        let capitalInvertidoUSD = 0;
-        let capitalInvertidoARS = 0;
-        let valorActivoInversionistasUSD = 0;
-        let valorActivoInversionistasARS = 0;
-        let capitalInvertidoInversionistasUSD = 0;
-        let capitalInvertidoInversionistasARS = 0;
+        // Bloque Patrimonial Homogéneo: Todos los vehículos activos PROPIOS y COMPARTIDOS
+        // Las consignaciones quedan estrictamente excluidas de este bloque y se informan por separado
         let valorTotalUSD = 0;
         let valorTotalARS = 0;
-        let costoTotalUSD = 0;
-        let costoTotalARS = 0;
+        let valorPropioUSD = 0;
+        let valorPropioARS = 0;
+        let valorInversionistasUSD = 0;
+        let valorInversionistasARS = 0;
 
-        disponibles.forEach(c => {
-            const isShared = c.investor && Number(c.investor.percentage) > 0;
+        let costoPropioUSD = 0;
+        let costoPropioARS = 0;
+        let costoInversionistasUSD = 0;
+        let costoInversionistasARS = 0;
+
+        let consignacionesCount = 0;
+        let consignacionesValorUSD = 0;
+        let consignacionesValorARS = 0;
+
+        let missingPriceCount = 0;
+        let missingCostCount = 0;
+
+        stockCars.forEach(c => {
             const isConsignment = Boolean(c.consignedBy && String(c.consignedBy).trim() !== '');
-            const isPropio = c.agencyOwned !== false && !isConsignment;
-
-            // Map origen
-            const origen = isShared ? 'compartido' : (isPropio ? 'propio' : (isConsignment ? 'consignación' : 'tercero'));
+            const isShared = !isConsignment && c.investor && Number(c.investor.percentage) > 0;
             const currency = (c.currency === 'U$S' || c.currency === 'USD') ? 'USD' : 'ARS';
 
             const rawPurchaseCurr = c.purchaseCurrency || c.currency;
@@ -1240,51 +1245,48 @@ app.get('/api/admin/cars', authenticateToken, requirePermission(PERMISSIONS.STOC
                 ? 'ARS'
                 : ((rawPurchaseCurr === 'U$S' || rawPurchaseCurr === 'USD') ? 'USD' : 'ARS');
 
-            const priceValTotal = Number(c.price) || 0;
-            const purchasePriceValTotal = Number(c.purchasePrice) || 0;
+            const price = Number(c.price) || 0;
+            const purchasePrice = Number(c.purchasePrice) || 0;
 
-            if (currency === 'USD') {
-                valorTotalUSD += priceValTotal;
-            } else {
-                valorTotalARS += priceValTotal;
+            if (!price || price <= 100) {
+                missingPriceCount++;
             }
 
-            if (purchaseCurrency === 'USD') {
-                costoTotalUSD += purchasePriceValTotal;
+            if (isConsignment) {
+                consignacionesCount++;
+                if (currency === 'USD') consignacionesValorUSD += price;
+                else consignacionesValorARS += price;
             } else {
-                costoTotalARS += purchasePriceValTotal;
-            }
+                if (!purchasePrice || purchasePrice <= 0) {
+                    missingCostCount++;
+                }
 
-            if (origen === 'propio' || origen === 'compartido') {
-                const investorPercentage = (origen === 'compartido' && c.investor) ? Math.min(100, Math.max(0, Number(c.investor.percentage) || 0)) : 0;
-                const agencyPercentage = Math.max(0, 100 - investorPercentage);
+                const invPct = isShared ? Math.min(100, Math.max(0, Number(c.investor?.percentage) || 0)) : 0;
+                const agencyPct = Math.max(0, 100 - invPct);
+
+                // Cuota exacta para asegurar que valorTotal === valorPropio + valorInversionistas
+                const contribPropio = Math.round(price * (agencyPct / 100));
+                const contribInv = price - contribPropio;
+
+                const costoContribPropio = Math.round(purchasePrice * (agencyPct / 100));
+                const costoContribInv = purchasePrice - costoContribPropio;
 
                 if (currency === 'USD') {
-                    valorActivoUSD += priceValTotal * (agencyPercentage / 100);
+                    valorTotalUSD += price;
+                    valorPropioUSD += contribPropio;
+                    valorInversionistasUSD += contribInv;
                 } else {
-                    valorActivoARS += priceValTotal * (agencyPercentage / 100);
+                    valorTotalARS += price;
+                    valorPropioARS += contribPropio;
+                    valorInversionistasARS += contribInv;
                 }
 
                 if (purchaseCurrency === 'USD') {
-                    capitalInvertidoUSD += purchasePriceValTotal * (agencyPercentage / 100);
+                    costoPropioUSD += costoContribPropio;
+                    costoInversionistasUSD += costoContribInv;
                 } else {
-                    capitalInvertidoARS += purchasePriceValTotal * (agencyPercentage / 100);
-                }
-            }
-
-            if (origen === 'compartido') {
-                const investorPercentage = Math.min(100, Math.max(0, Number(c.investor?.percentage) || 0));
-
-                if (currency === 'USD') {
-                    valorActivoInversionistasUSD += priceValTotal * (investorPercentage / 100);
-                } else {
-                    valorActivoInversionistasARS += priceValTotal * (investorPercentage / 100);
-                }
-
-                if (purchaseCurrency === 'USD') {
-                    capitalInvertidoInversionistasUSD += purchasePriceValTotal * (investorPercentage / 100);
-                } else {
-                    capitalInvertidoInversionistasARS += purchasePriceValTotal * (investorPercentage / 100);
+                    costoPropioARS += costoContribPropio;
+                    costoInversionistasARS += costoContribInv;
                 }
             }
         });
@@ -1295,25 +1297,36 @@ app.get('/api/admin/cars', authenticateToken, requirePermission(PERMISSIONS.STOC
             disponibles: disponibles.length,
             reservados: reservados.length,
             pausados: pausados.length,
+            sinEstado: sinEstado.length,
             publicadosWeb: disponibles.filter(c => c.visibleEnWeb !== false).length,
-            consignaciones: stockCars.filter(c => c.consignedBy && String(c.consignedBy).trim() !== '').length,
+            consignaciones: consignacionesCount,
+            consignacionesValorUSD: Math.round(consignacionesValorUSD),
+            consignacionesValorARS: Math.round(consignacionesValorARS),
             compartidos: stockCars.filter(c => c.investor && Number(c.investor.percentage) > 0).length,
             ceroKm: stockCars.filter(c => {
                 const cond = (c.condition || '').toLowerCase().replace(/\s+/g, '');
                 return cond === '0km' || cond === 'nuevo' || c.km === 0;
             }).length,
-            valorActivoUSD: Math.round(valorActivoUSD),
-            valorActivoARS: Math.round(valorActivoARS),
-            capitalInvertidoUSD: Math.round(capitalInvertidoUSD),
-            capitalInvertidoARS: Math.round(capitalInvertidoARS),
-            valorActivoInversionistasUSD: Math.round(valorActivoInversionistasUSD),
-            valorActivoInversionistasARS: Math.round(valorActivoInversionistasARS),
-            capitalInvertidoInversionistasUSD: Math.round(capitalInvertidoInversionistasUSD),
-            capitalInvertidoInversionistasARS: Math.round(capitalInvertidoInversionistasARS),
+            // 3 Valores Principales a precio de venta (Valor Total = Valor Propio + Valor Inversionistas):
             valorTotalUSD: Math.round(valorTotalUSD),
             valorTotalARS: Math.round(valorTotalARS),
-            costoTotalUSD: Math.round(costoTotalUSD),
-            costoTotalARS: Math.round(costoTotalARS)
+            valorActivoUSD: Math.round(valorPropioUSD),
+            valorActivoARS: Math.round(valorPropioARS),
+            valorActivoInversionistasUSD: Math.round(valorInversionistasUSD),
+            valorActivoInversionistasARS: Math.round(valorInversionistasARS),
+            // Costo Invertido de Adquisición (información secundaria de compra):
+            capitalInvertidoUSD: Math.round(costoPropioUSD),
+            capitalInvertidoARS: Math.round(costoPropioARS),
+            capitalInvertidoInversionistasUSD: Math.round(costoInversionistasUSD),
+            capitalInvertidoInversionistasARS: Math.round(costoInversionistasARS),
+            costoTotalUSD: Math.round(costoPropioUSD + costoInversionistasUSD),
+            costoTotalARS: Math.round(costoPropioARS + costoInversionistasARS),
+            // Inconsistencias y datos incompletos detectados
+            inconsistencias: {
+                missingPriceCount,
+                missingCostCount,
+                sinEstadoCount: sinEstado.length
+            }
         };
 
         // Now build query for the current page

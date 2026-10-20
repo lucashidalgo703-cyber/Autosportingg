@@ -132,19 +132,27 @@ await test('1. El resumen global calcula correctamente cantidades y valores por 
     assert.equal(summary.reservados, 1, 'Reservados deben ser exactamente 1');
     assert.equal(summary.pausados, 1, 'Pausados deben ser exactamente 1');
 
-    // Valores de venta de disponibles:
-    // Toyota (20k USD) + Ranger (40k USD) = 60.000 USD
-    // Amarok (30M ARS) = 30.000.000 ARS
-    assert.equal(summary.valorTotalUSD, 60000, 'Valor de venta total USD de disponibles debe ser 60.000');
-    assert.equal(summary.valorTotalARS, 30000000, 'Valor de venta total ARS de disponibles debe ser 30.000.000');
+    // 3 Valores Principales a precio de venta sobre base homogénea del inventario activo (propio + compartido):
+    // USD: Toyota (20k) + Ranger (40k) + Cruze (25k) = 85.000 USD
+    // ARS: Amarok (30M) + 208 (15M) = 45.000.000 ARS
+    assert.equal(summary.valorTotalUSD, 85000, 'Valor Total USD debe ser 85.000');
+    assert.equal(summary.valorTotalARS, 45000000, 'Valor Total ARS debe ser 45.000.000');
 
-    // Capital agencia vs inversionista:
+    // Participación AutoSporting (Valor Propio):
     // Toyota: 100% * 20.000 = 20.000 USD
-    // Ranger: 60% * 40.000 = 24.000 USD -> Total Activo USD = 44.000 USD
-    assert.equal(summary.valorActivoUSD, 44000, 'Capital agencia en venta USD debe ser 44.000');
-    assert.equal(summary.valorActivoInversionistasUSD, 16000, 'Capital inversionistas en venta USD debe ser 16.000');
-    assert.equal(summary.valorActivoARS, 30000000, 'Capital agencia en venta ARS debe ser 30.000.000');
-    assert.equal(summary.valorActivoInversionistasARS, 0, 'Capital inversionistas en venta ARS debe ser 0');
+    // Ranger: 60% * 40.000 = 24.000 USD
+    // Cruze: 100% * 25.000 = 25.000 USD -> Total Propio USD = 69.000 USD
+    assert.equal(summary.valorActivoUSD, 69000, 'Valor Propio USD debe ser 69.000');
+    assert.equal(summary.valorActivoInversionistasUSD, 16000, 'Valor Inversionistas USD debe ser 16.000');
+    // Coherencia matemática exacta:
+    assert.equal(summary.valorTotalUSD, summary.valorActivoUSD + summary.valorActivoInversionistasUSD, 'Valor Total USD = Valor Propio USD + Valor Inversionistas USD');
+
+    // En ARS:
+    // Amarok: 100% * 30M = 30M ARS
+    // 208: 100% * 15M = 15M ARS -> Total Propio ARS = 45M ARS
+    assert.equal(summary.valorActivoARS, 45000000, 'Valor Propio ARS debe ser 45.000.000');
+    assert.equal(summary.valorActivoInversionistasARS, 0, 'Valor Inversionistas ARS debe ser 0');
+    assert.equal(summary.valorTotalARS, summary.valorActivoARS + summary.valorActivoInversionistasARS, 'Valor Total ARS = Valor Propio ARS + Valor Inversionistas ARS');
 });
 
 await test('2. El parámetro limit=1 devuelve 1 vehículo pero conserva el resumen global completo', async () => {
@@ -155,10 +163,10 @@ await test('2. El parámetro limit=1 devuelve 1 vehículo pero conserva el resum
     assert.equal(cars.length, 1, 'Debe devolver un único vehículo en la lista paginada');
     assert.equal(total, 5, 'El total filtrado debe seguir siendo 5 vehículos en inventario activo');
 
-    // El summary global sigue reflejando los 5 autos totales y 3 disponibles, nunca se colapsa a 1
+    // El summary global sigue reflejando los 5 autos totales y los 85.000 USD, nunca se colapsa a 1
     assert.equal(summary.totalStock, 5, 'El totalStock global sigue siendo 5');
     assert.equal(summary.disponibles, 3, 'Los disponibles globales siguen siendo 3');
-    assert.equal(summary.valorTotalUSD, 60000, 'El valor total USD sigue siendo 60.000');
+    assert.equal(summary.valorTotalUSD, 85000, 'El valor total USD sigue siendo 85.000');
 });
 
 await test('3. Cambiar un filtro altera el resultado filtrado pero NO los indicadores globales', async () => {
@@ -176,7 +184,7 @@ await test('3. Cambiar un filtro altera el resultado filtrado pero NO los indica
     // Los indicadores globales se mantienen idénticos:
     assert.equal(summary.disponibles, 3, 'Los disponibles globales siguen siendo 3');
     assert.equal(summary.totalStock, 5, 'El total stock global sigue siendo 5');
-    assert.equal(summary.valorTotalUSD, 60000, 'El valor total global en USD sigue siendo 60.000');
+    assert.equal(summary.valorTotalUSD, 85000, 'El valor total global en USD sigue siendo 85.000');
 });
 
 await test('4. Paginación: navegar entre páginas no altera el conteo total ni los valores globales', async () => {
@@ -205,7 +213,8 @@ await test('5. Altas, modificaciones de precio y cambios de estado actualizan co
     await toyota.save();
 
     const resAfterPrice = await call('GET', '/api/admin/cars', null, token);
-    assert.equal(resAfterPrice.json.summary.valorTotalUSD, 62000, 'El valor publicado global subió a 62.000 USD');
+    // Subió de 85.000 a 87.000 USD
+    assert.equal(resAfterPrice.json.summary.valorTotalUSD, 87000, 'El valor publicado global subió a 87.000 USD');
 
     // 5.2 Cambiar estado de Amarok a Vendido
     const amarok = await Car.findOne({ name: 'Amarok Highline' });
@@ -216,7 +225,8 @@ await test('5. Altas, modificaciones de precio y cambios de estado actualizan co
     const resAfterSale = await call('GET', '/api/admin/cars', null, token);
     assert.equal(resAfterSale.json.summary.totalStock, 4, 'El stock total activo bajó a 4');
     assert.equal(resAfterSale.json.summary.disponibles, 2, 'Los disponibles bajaron a 2');
-    assert.equal(resAfterSale.json.summary.valorTotalARS, 0, 'No quedan disponibles en ARS, valorTotalARS = 0');
+    // En ARS queda el 208 Feline (15.000.000 ARS en estado Pausado)
+    assert.equal(resAfterSale.json.summary.valorTotalARS, 15000000, 'Queda el Peugeot 208 en stock pausado: 15.000.000 ARS');
 });
 
 await test('6. Asignaciones de dinero a la caja estratégica "Stock" no aumentan la cantidad de vehículos ni el inventario', async () => {
@@ -232,7 +242,7 @@ await test('6. Asignaciones de dinero a la caja estratégica "Stock" no aumentan
 
     const res = await call('GET', '/api/admin/cars', null, token);
     assert.equal(res.json.summary.totalStock, 4, 'La cantidad de vehículos sigue siendo 4');
-    assert.equal(res.json.summary.valorTotalUSD, 62000, 'El valor del inventario sigue siendo 62.000 USD sin sumar dinero de caja');
+    assert.equal(res.json.summary.valorTotalUSD, 87000, 'El valor del inventario sigue siendo 87.000 USD sin sumar dinero de caja');
 });
 
 await finish();
