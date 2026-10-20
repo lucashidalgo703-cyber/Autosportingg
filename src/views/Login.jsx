@@ -342,10 +342,6 @@ const Login = () => {
                     className="h-10 sm:h-12 w-auto max-w-[220px] object-contain drop-shadow-[0_0_15px_rgba(239,51,41,0.4)]"
                   />
                 </div>
-                {/* Nombre centrado sin la palabra terminal */}
-                <h1 className="text-xl sm:text-2xl font-black tracking-[0.2em] uppercase text-white font-mono text-center">
-                  AUTOSPORTING
-                </h1>
                 <p className="text-xs text-zinc-400 mt-1 font-mono tracking-wide text-center">
                   SISTEMA DE GESTIÓN CENTRAL
                 </p>
