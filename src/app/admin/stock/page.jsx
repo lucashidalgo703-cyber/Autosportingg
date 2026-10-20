@@ -78,6 +78,12 @@ export default function AdminStockPage() {
         return () => clearTimeout(handler);
     }, [searchTerm]);
 
+    // Cuando cambian los filtros de búsqueda o estado, reiniciamos a la página 1
+    useEffect(() => {
+        setPageNumber(1);
+    }, [debouncedSearch, filterStatus, brandFilter, stockTab, mlFilter]);
+
+    // Ejecuta la consulta únicamente cuando cambie la página o los filtros debounced
     useEffect(() => {
         refresh({
             page: pageNumber,
@@ -89,10 +95,6 @@ export default function AdminStockPage() {
             ml: mlFilter
         });
     }, [pageNumber, debouncedSearch, filterStatus, brandFilter, stockTab, mlFilter, refresh]);
-
-    useEffect(() => {
-        setPageNumber(1);
-    }, [searchTerm, filterStatus, brandFilter, stockTab, mlFilter]);
 
     const handleSwap = async (index, direction) => {
         if (isSwapping) return;
@@ -154,6 +156,8 @@ export default function AdminStockPage() {
         return cars.map(mapRealCarToCRM);
     }, [cars]);
 
+    // Los indicadores globales provienen exclusivamente del backendSummary calculado sobre la colección completa
+    // Nunca deben recalcularse sobre los 20 vehículos de la página actual ni sobre el subconjunto filtrado
     const stockSummary = useMemo(() => {
         if (backendSummary) {
             return {
@@ -162,66 +166,29 @@ export default function AdminStockPage() {
             };
         }
 
-        const disponibles = vehicles.filter(v => v.estado === 'disponible');
-        const valorActivoUSD = disponibles
-            .filter(v => v.moneda === 'USD' && (v.origen === 'propio' || v.origen === 'compartido'))
-            .reduce((sum, v) => {
-                const investorPercentage = (v.origen === 'compartido' && v.investor) ? v.investor.percentage : 0;
-                const agencyPercentage = 100 - investorPercentage;
-                return sum + ((v.precioPublicado || 0) * (agencyPercentage / 100));
-            }, 0);
-        const valorActivoARS = disponibles
-            .filter(v => v.moneda !== 'USD' && (v.origen === 'propio' || v.origen === 'compartido'))
-            .reduce((sum, v) => {
-                const investorPercentage = (v.origen === 'compartido' && v.investor) ? v.investor.percentage : 0;
-                const agencyPercentage = 100 - investorPercentage;
-                return sum + ((v.precioPublicado || 0) * (agencyPercentage / 100));
-            }, 0);
-            
-        const valorTotalUSD = disponibles
-            .filter(v => v.moneda === 'USD')
-            .reduce((sum, v) => sum + (v.precioPublicado || 0), 0);
-
-        const valorTotalARS = disponibles
-            .filter(v => v.moneda !== 'USD')
-            .reduce((sum, v) => sum + (v.precioPublicado || 0), 0);
-            
-        const valorActivoInversionistasUSD = disponibles
-            .filter(v => v.moneda === 'USD' && v.origen === 'compartido')
-            .reduce((sum, v) => sum + ((v.precioPublicado || 0) * ((v.investor?.percentage || 0) / 100)), 0);
-
-        const valorActivoInversionistasARS = disponibles
-            .filter(v => v.moneda !== 'USD' && v.origen === 'compartido')
-            .reduce((sum, v) => sum + ((v.precioPublicado || 0) * ((v.investor?.percentage || 0) / 100)), 0);
-
-        const capitalInvertidoInversionistasUSD = disponibles
-            .filter(v => v.monedaCompra === 'USD' && v.origen === 'compartido')
-            .reduce((sum, v) => sum + ((v.precioCompra || 0) * ((v.investor?.percentage || 0) / 100)), 0);
-
-        const capitalInvertidoInversionistasARS = disponibles
-            .filter(v => v.monedaCompra !== 'USD' && v.origen === 'compartido')
-            .reduce((sum, v) => sum + ((v.precioCompra || 0) * ((v.investor?.percentage || 0) / 100)), 0);
-
         return {
-            total: vehicles.length,
-            disponibles: disponibles.length,
-            consignaciones: vehicles.filter(v => (v.origen || '').toLowerCase().includes('consign')).length,
-            compartidos: vehicles.filter(v => (v.origen || '').toLowerCase().includes('compartido')).length,
-            ceroKm: vehicles.filter(v => {
-                const cond = (v.condicion || '').toLowerCase().replace(/\s+/g, '');
-                return cond === '0km' || cond === 'nuevo' || v.kilometraje === 0;
-            }).length,
-            mandatos: vehicles.filter(v => (v.origen || '').toLowerCase().includes('mandato')).length,
-            valorActivoUSD,
-            valorActivoARS,
-            valorActivoInversionistasUSD,
-            valorActivoInversionistasARS,
-            capitalInvertidoInversionistasUSD,
-            capitalInvertidoInversionistasARS,
-            valorTotalUSD,
-            valorTotalARS
+            total: 0,
+            disponibles: 0,
+            reservados: 0,
+            pausados: 0,
+            consignaciones: 0,
+            compartidos: 0,
+            ceroKm: 0,
+            mandatos: mandates.length,
+            valorActivoUSD: 0,
+            valorActivoARS: 0,
+            capitalInvertidoUSD: 0,
+            capitalInvertidoARS: 0,
+            valorActivoInversionistasUSD: 0,
+            valorActivoInversionistasARS: 0,
+            capitalInvertidoInversionistasUSD: 0,
+            capitalInvertidoInversionistasARS: 0,
+            valorTotalUSD: 0,
+            valorTotalARS: 0,
+            costoTotalUSD: 0,
+            costoTotalARS: 0
         };
-    }, [vehicles, backendSummary, mandates.length]);
+    }, [backendSummary, mandates.length]);
 
     const brandOptions = useMemo(() => {
         return backendBrands || [];
@@ -435,57 +402,64 @@ export default function AdminStockPage() {
                     }
                 />
 
-                <div className="flex flex-col gap-2 rounded-xl border border-crm-border bg-crm-surface px-4 py-3 text-sm text-crm-fg-muted sm:flex-row sm:items-center sm:gap-6">
-                    <div className="flex items-center gap-2">
-                        <span className="text-base">🚗</span>
-                        <span className="font-semibold text-crm-fg">{stockSummary.disponibles}</span>
-                        <span>disponibles</span>
-                    </div>
-                    <div className="flex flex-wrap items-center gap-2">
-                        <span className="text-[11px] font-bold uppercase tracking-[0.08em] text-crm-fg-subtle">
-                            Capital Total Agencia:
-                        </span>
-                        <span className="font-semibold text-crm-fg flex items-center gap-2">
-                            {isDolarLoading ? (
-                                <span className="h-4 w-4 animate-spin rounded-full border-2 border-crm-border border-b-crm-red" />
-                            ) : stockSummary.valorActivoUSD > 0 || (stockSummary.valorActivoARS > 0 && dolarBlue) ? (
-                                <span>
-                                    USD {Math.round(
-                                        (stockSummary.valorActivoUSD || 0) + 
-                                        (dolarBlue && stockSummary.valorActivoARS ? stockSummary.valorActivoARS / dolarBlue : 0)
-                                    ).toLocaleString('es-AR')}
-                                </span>
-                            ) : '--'}
-                        </span>
-                    </div>
-                    
-                    <div className="flex flex-wrap items-center gap-2 border-l border-crm-border pl-6">
-                        <span className="text-[11px] font-bold uppercase tracking-[0.08em] text-blue-400">
-                            Inversionistas:
-                        </span>
-                        <div className="flex flex-col">
-                            <span className="font-semibold text-blue-400 flex items-center gap-2 text-sm leading-tight" title="Expectativa de Venta (Valor Activo)">
-                                {isDolarLoading ? (
-                                    <span className="h-4 w-4 animate-spin rounded-full border-2 border-blue-400/30 border-b-blue-400" />
-                                ) : (
-                                    `USD ${Math.round(
-                                        (stockSummary.valorActivoInversionistasUSD || 0) + 
-                                        (dolarBlue && stockSummary.valorActivoInversionistasARS ? stockSummary.valorActivoInversionistasARS / dolarBlue : 0)
-                                    ).toLocaleString('es-AR')}`
-                                )}
+                <div className="flex flex-col gap-3 rounded-2xl border border-crm-border bg-crm-surface p-4 text-xs text-crm-fg-muted lg:flex-row lg:items-center lg:justify-between">
+                    <div className="flex flex-wrap items-center gap-4">
+                        <div className="flex items-center gap-2.5">
+                            <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-blue-500/15 text-blue-400 font-bold">🚗</span>
+                            <div>
+                                <span className="text-[10px] uppercase font-bold text-crm-fg-subtle block">Stock Disponible</span>
+                                <div className="flex items-baseline gap-1">
+                                    <span className="font-bold text-base text-white">{stockSummary.disponibles}</span>
+                                    <span className="text-[11px] text-crm-fg-muted">de {stockSummary.total} en stock</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className="border-l border-crm-border/60 pl-4">
+                            <span className="text-[10px] uppercase font-bold text-crm-fg-subtle block">
+                                Capital Agencia (Venta)
                             </span>
-                            {(stockSummary.capitalInvertidoInversionistasUSD > 0 || stockSummary.capitalInvertidoInversionistasARS > 0) && (
-                                <span className="text-[10px] text-blue-400/60 leading-tight" title="Capital Inicial Invertido (Costo de Compra)">
-                                    {isDolarLoading ? (
-                                        'Calculando...'
-                                    ) : (
-                                        `Invertido: USD ${Math.round(
-                                            (stockSummary.capitalInvertidoInversionistasUSD || 0) + 
-                                            (dolarBlue && stockSummary.capitalInvertidoInversionistasARS ? stockSummary.capitalInvertidoInversionistasARS / dolarBlue : 0)
-                                        ).toLocaleString('es-AR')}`
-                                    )}
+                            <div className="font-mono font-bold text-sm text-white">
+                                USD {Number(stockSummary.valorActivoUSD || 0).toLocaleString('es-AR')}
+                                {stockSummary.valorActivoARS > 0 && (
+                                    <span className="text-xs text-crm-fg-muted font-normal"> · ARS {Number(stockSummary.valorActivoARS || 0).toLocaleString('es-AR')}</span>
+                                )}
+                            </div>
+                            {dolarBlue && stockSummary.valorActivoARS > 0 && (
+                                <span className="text-[10px] text-crm-fg-subtle block">
+                                    (~ USD {Math.round((stockSummary.valorActivoUSD || 0) + (stockSummary.valorActivoARS / dolarBlue)).toLocaleString('es-AR')} equiv. Blue)
                                 </span>
                             )}
+                        </div>
+
+                        {(stockSummary.capitalInvertidoUSD > 0 || stockSummary.capitalInvertidoARS > 0) && (
+                            <div className="border-l border-crm-border/60 pl-4">
+                                <span className="text-[10px] uppercase font-bold text-crm-fg-subtle block">
+                                    Costo Invertido (Compra)
+                                </span>
+                                <div className="font-mono font-bold text-xs text-crm-fg">
+                                    USD {Number(stockSummary.capitalInvertidoUSD || 0).toLocaleString('es-AR')}
+                                    {stockSummary.capitalInvertidoARS > 0 && (
+                                        <span className="text-[11px] text-crm-fg-muted font-normal"> · ARS {Number(stockSummary.capitalInvertidoARS || 0).toLocaleString('es-AR')}</span>
+                                    )}
+                                </div>
+                            </div>
+                        )}
+                    </div>
+
+                    <div className="flex flex-wrap items-center gap-4 border-t border-crm-border/60 pt-3 lg:border-t-0 lg:border-l lg:pl-6 lg:pt-0">
+                        <div>
+                            <span className="text-[10px] uppercase font-bold text-blue-400 block">
+                                Inversionistas (Compartidos)
+                            </span>
+                            <div className="font-mono text-xs text-blue-300">
+                                <span>Venta: USD {Number(stockSummary.valorActivoInversionistasUSD || 0).toLocaleString('es-AR')}</span>
+                                {(stockSummary.capitalInvertidoInversionistasUSD > 0 || stockSummary.capitalInvertidoInversionistasARS > 0) && (
+                                    <span className="text-blue-300/70 text-[10px] block">
+                                        Costo: USD {Number(stockSummary.capitalInvertidoInversionistasUSD || 0).toLocaleString('es-AR')}
+                                    </span>
+                                )}
+                            </div>
                         </div>
                     </div>
                 </div>

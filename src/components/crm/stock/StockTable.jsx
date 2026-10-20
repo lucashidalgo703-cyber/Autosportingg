@@ -49,22 +49,24 @@ const getProgress = (days) => {
     const safeDays = Number(days || 0);
     return Math.min(100, Math.max(0, Math.round((safeDays / 60) * 100)));
 };
-const getListValue = (data, filteredTotalUSD, filteredTotalARS, dolarBlue) => {
-    let totalARS = 0;
-    
-    if (filteredTotalUSD !== undefined && filteredTotalARS !== undefined) {
-        totalARS = filteredTotalARS + (filteredTotalUSD * (dolarBlue || 1));
-    } else {
-        const totals = data.reduce((acc, vehicle) => {
-            const currency = vehicle.moneda || 'ARS';
-            acc[currency] = (acc[currency] || 0) + Number(vehicle.precioPublicado || 0);
-            return acc;
-        }, {});
-        totalARS = (totals.ARS || 0) + ((totals.USD || 0) * (dolarBlue || 1));
+const getFormattedListTotals = (filteredTotalUSD = 0, filteredTotalARS = 0, dolarBlue = null) => {
+    const usd = Math.round(Number(filteredTotalUSD) || 0);
+    const ars = Math.round(Number(filteredTotalARS) || 0);
+
+    if (usd === 0 && ars === 0) return 'Sin importes registrados';
+
+    const parts = [];
+    if (usd > 0) parts.push(`USD ${formatNumber(usd)}`);
+    if (ars > 0) parts.push(`ARS ${formatNumber(ars)}`);
+
+    let result = parts.join(' + ');
+
+    if (dolarBlue && usd > 0 && ars > 0) {
+        const approxUSD = Math.round(usd + (ars / dolarBlue));
+        result += ` (~ USD ${formatNumber(approxUSD)} equiv. Blue)`;
     }
 
-    if (totalARS === 0) return '--';
-    return `ARS ${formatNumber(Math.round(totalARS))}`;
+    return result;
 };
 
 export default function StockTable({ data, onEditML, onDelete, onPrint, onSwap, isSwapping, currentPage = 1, totalPages = 1, onReserve, totalItems, filteredTotalUSD, filteredTotalARS, dolarBlue }) {
@@ -239,13 +241,21 @@ export default function StockTable({ data, onEditML, onDelete, onPrint, onSwap, 
 
     return (
         <div className="flex flex-col gap-4">
-            {data.length > 0 && (
-                <div className="rounded-xl border border-crm-border bg-crm-surface p-3 text-sm font-semibold text-crm-fg">
-                    {totalItems || data.length} {(totalItems || data.length) === 1 ? 'vehículo' : 'vehículos'} en lista
-                    <span className="mx-1 text-crm-fg-muted">·</span>
-                    <span>{getListValue(data, filteredTotalUSD, filteredTotalARS, dolarBlue)}</span>
+            <div className="rounded-xl border border-crm-border bg-crm-surface p-3 text-xs font-semibold text-crm-fg flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                <div className="flex items-center gap-2">
+                    <span className="text-crm-fg-muted">Resultado filtrado:</span>
+                    <strong className="text-white font-bold">{totalItems !== undefined ? totalItems : data.length} {(totalItems !== undefined ? totalItems : data.length) === 1 ? 'vehículo' : 'vehículos'}</strong>
+                    {totalPages > 1 && (
+                        <span className="text-[11px] text-crm-fg-muted">(Página {currentPage} de {totalPages})</span>
+                    )}
                 </div>
-            )}
+                <div className="flex items-center gap-1.5">
+                    <span className="text-crm-fg-muted">Valor de venta filtrado:</span>
+                    <strong className="font-mono text-emerald-400">
+                        {getFormattedListTotals(filteredTotalUSD, filteredTotalARS, dolarBlue)}
+                    </strong>
+                </div>
+            </div>
             
             <CrmTable 
                 data={data}

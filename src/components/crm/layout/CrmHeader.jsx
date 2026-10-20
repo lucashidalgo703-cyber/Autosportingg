@@ -136,7 +136,7 @@ export default function CrmHeader({ onMenuClick }) {
                     // Consultamos cars con limit=1 ya que summary.disponibles se calcula sobre todo el stock
                     // Para sales, filtramos solo las ventas requeridas
                     const [carsRes, salesRes] = await Promise.all([
-                        fetch('/api/admin/cars?limit=1', { headers }),
+                        fetch(`/api/admin/cars?limit=1&t=${Date.now()}`, { headers, cache: 'no-store' }),
                         fetch('/api/admin/sales', { headers })
                     ]);
 

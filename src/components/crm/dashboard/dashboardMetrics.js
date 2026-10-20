@@ -11,13 +11,16 @@ export function calculateDashboardMetrics(cars = []) {
         unidadesSinMoneda: 0,
         
         counts: {
-            total: cars.length,
+            total: 0,
+            stockTotal: 0,
             disponibles: 0,
             reservados: 0,
             vendidos: 0,
+            vendidosHistoricos: 0,
             pausados: 0,
             visibles: 0,
-            ocultos: 0
+            ocultos: 0,
+            totalCatalogo: cars.length
         },
 
         consignaciones: {
@@ -54,19 +57,27 @@ export function calculateDashboardMetrics(cars = []) {
 
     cars.forEach(car => {
         // --- 1. Counts ---
-        const status = (car.status || 'disponible').toLowerCase();
-        if (status === 'disponible') metrics.counts.disponibles++;
-        if (status === 'reservado') metrics.counts.reservados++;
-        if (status === 'vendido') metrics.counts.vendidos++;
-        if (status === 'pausado') metrics.counts.pausados++;
+        const status = (car.status || 'disponible').toLowerCase().trim();
+        const isSold = car.sold === true || status === 'vendido';
+        const isCancelled = status === 'cancelado' || status === 'anulado';
+
+        if (status === 'disponible' && !isSold && !isCancelled) metrics.counts.disponibles++;
+        else if (status === 'reservado' && !isSold && !isCancelled) metrics.counts.reservados++;
+        else if (status === 'pausado' && !isSold && !isCancelled) metrics.counts.pausados++;
+
+        if (isSold) metrics.counts.vendidosHistoricos++;
+
+        if (!isSold && !isCancelled) {
+            metrics.counts.stockTotal++;
+        }
 
         if (car.visibleEnWeb !== false) metrics.counts.visibles++;
         else metrics.counts.ocultos++;
 
         // --- 2. Active Capital ---
         // Match stock section logic: only 'disponible' and discount investor percentage
-        const isDisponible = status === 'disponible';
-        const isActive = activeStatuses.includes(status);
+        const isDisponible = status === 'disponible' && !isSold && !isCancelled;
+        const isActive = activeStatuses.includes(status) && !isSold && !isCancelled;
         const isAgencyOwned = car.agencyOwned !== false;
         
         if (isDisponible && isAgencyOwned) {
@@ -187,6 +198,7 @@ export function calculateDashboardMetrics(cars = []) {
     metrics.alertas.alerta60.sort((a, b) => b.daysInStock - a.daysInStock);
     
     metrics.topAntiguos.sort((a, b) => b.daysInStock - a.daysInStock);
+    metrics.counts.total = metrics.counts.stockTotal;
     metrics.topAntiguos = metrics.topAntiguos.slice(0, 5);
 
     metrics.topInmovilizado.sort((a, b) => {

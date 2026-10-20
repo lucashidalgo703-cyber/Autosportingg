@@ -1199,91 +1199,121 @@ app.get('/api/admin/cars', authenticateToken, requirePermission(PERMISSIONS.STOC
 
         // Fetch minimal info for ALL cars to calculate summary stats
         const allCarsForSummary = await Car.find({})
-            .select('status currency purchaseCurrency price purchasePrice investor.percentage agencyOwned consignedBy km condition')
+            .select('status currency purchaseCurrency price purchasePrice investor.percentage agencyOwned consignedBy km condition sold visibleEnWeb')
             .lean();
 
-        // Calculate summary using same logic as frontend mapping
+        // Calculate summary using robust normalization
         // Exclude sold and cancelled cars from stock metrics
-        const stockCars = allCarsForSummary.filter(c => c.status !== 'Vendido' && c.status !== 'Cancelado');
+        const stockCars = allCarsForSummary.filter(c => {
+            const st = (c.status || '').toLowerCase().trim();
+            return st !== 'vendido' && st !== 'cancelado' && st !== 'anulado' && !c.sold;
+        });
         const totalCarsCount = stockCars.length;
-        const disponibles = stockCars.filter(c => (c.status || '').toLowerCase() === 'disponible');
+        const disponibles = stockCars.filter(c => (c.status || '').toLowerCase().trim() === 'disponible');
+        const reservados = stockCars.filter(c => (c.status || '').toLowerCase().trim() === 'reservado');
+        const pausados = stockCars.filter(c => (c.status || '').toLowerCase().trim() === 'pausado');
 
         let valorActivoUSD = 0;
         let valorActivoARS = 0;
+        let capitalInvertidoUSD = 0;
+        let capitalInvertidoARS = 0;
         let valorActivoInversionistasUSD = 0;
         let valorActivoInversionistasARS = 0;
         let capitalInvertidoInversionistasUSD = 0;
         let capitalInvertidoInversionistasARS = 0;
         let valorTotalUSD = 0;
         let valorTotalARS = 0;
+        let costoTotalUSD = 0;
+        let costoTotalARS = 0;
 
         disponibles.forEach(c => {
-            const isShared = c.investor && c.investor.percentage > 0;
-            const isConsignment = c.consignedBy && c.consignedBy !== '';
-            const isPropio = c.agencyOwned;
+            const isShared = c.investor && Number(c.investor.percentage) > 0;
+            const isConsignment = Boolean(c.consignedBy && String(c.consignedBy).trim() !== '');
+            const isPropio = c.agencyOwned !== false && !isConsignment;
 
             // Map origen
             const origen = isShared ? 'compartido' : (isPropio ? 'propio' : (isConsignment ? 'consignación' : 'tercero'));
-            const currency = c.currency === 'U$S' || c.currency === 'USD' ? 'USD' : 'ARS';
+            const currency = (c.currency === 'U$S' || c.currency === 'USD') ? 'USD' : 'ARS';
 
-            // monedaCompra logic from mapper
-            const purchaseCurrency = ((c.purchaseCurrency || c.currency) === 'USD' || (c.purchaseCurrency || c.currency) === 'U$S') && c.purchasePrice > 200000 ? 'ARS' : (c.purchaseCurrency || (c.currency === 'U$S' || c.currency === 'USD' ? 'USD' : 'ARS'));
+            const rawPurchaseCurr = c.purchaseCurrency || c.currency;
+            const purchaseCurrency = ((rawPurchaseCurr === 'USD' || rawPurchaseCurr === 'U$S') && c.purchasePrice > 200000)
+                ? 'ARS'
+                : ((rawPurchaseCurr === 'U$S' || rawPurchaseCurr === 'USD') ? 'USD' : 'ARS');
 
-            const priceValTotal = c.price || 0;
+            const priceValTotal = Number(c.price) || 0;
+            const purchasePriceValTotal = Number(c.purchasePrice) || 0;
+
             if (currency === 'USD') {
                 valorTotalUSD += priceValTotal;
             } else {
                 valorTotalARS += priceValTotal;
             }
 
+            if (purchaseCurrency === 'USD') {
+                costoTotalUSD += purchasePriceValTotal;
+            } else {
+                costoTotalARS += purchasePriceValTotal;
+            }
+
             if (origen === 'propio' || origen === 'compartido') {
-                const investorPercentage = (origen === 'compartido' && c.investor) ? c.investor.percentage : 0;
-                const agencyPercentage = 100 - investorPercentage;
-                const priceVal = c.price || 0;
+                const investorPercentage = (origen === 'compartido' && c.investor) ? Math.min(100, Math.max(0, Number(c.investor.percentage) || 0)) : 0;
+                const agencyPercentage = Math.max(0, 100 - investorPercentage);
 
                 if (currency === 'USD') {
-                    valorActivoUSD += priceVal * (agencyPercentage / 100);
+                    valorActivoUSD += priceValTotal * (agencyPercentage / 100);
                 } else {
-                    valorActivoARS += priceVal * (agencyPercentage / 100);
+                    valorActivoARS += priceValTotal * (agencyPercentage / 100);
+                }
+
+                if (purchaseCurrency === 'USD') {
+                    capitalInvertidoUSD += purchasePriceValTotal * (agencyPercentage / 100);
+                } else {
+                    capitalInvertidoARS += purchasePriceValTotal * (agencyPercentage / 100);
                 }
             }
 
             if (origen === 'compartido') {
-                const priceVal = c.price || 0;
-                const purchasePriceVal = c.purchasePrice || 0;
-                const investorPercentage = c.investor?.percentage || 0;
+                const investorPercentage = Math.min(100, Math.max(0, Number(c.investor?.percentage) || 0));
 
                 if (currency === 'USD') {
-                    valorActivoInversionistasUSD += priceVal * (investorPercentage / 100);
+                    valorActivoInversionistasUSD += priceValTotal * (investorPercentage / 100);
                 } else {
-                    valorActivoInversionistasARS += priceVal * (investorPercentage / 100);
+                    valorActivoInversionistasARS += priceValTotal * (investorPercentage / 100);
                 }
 
                 if (purchaseCurrency === 'USD') {
-                    capitalInvertidoInversionistasUSD += purchasePriceVal * (investorPercentage / 100);
+                    capitalInvertidoInversionistasUSD += purchasePriceValTotal * (investorPercentage / 100);
                 } else {
-                    capitalInvertidoInversionistasARS += purchasePriceVal * (investorPercentage / 100);
+                    capitalInvertidoInversionistasARS += purchasePriceValTotal * (investorPercentage / 100);
                 }
             }
         });
 
         const summary = {
             total: totalCarsCount,
+            totalStock: totalCarsCount,
             disponibles: disponibles.length,
-            consignaciones: stockCars.filter(c => c.consignedBy && c.consignedBy !== '').length,
-            compartidos: stockCars.filter(c => c.investor && c.investor.percentage > 0).length,
+            reservados: reservados.length,
+            pausados: pausados.length,
+            publicadosWeb: disponibles.filter(c => c.visibleEnWeb !== false).length,
+            consignaciones: stockCars.filter(c => c.consignedBy && String(c.consignedBy).trim() !== '').length,
+            compartidos: stockCars.filter(c => c.investor && Number(c.investor.percentage) > 0).length,
             ceroKm: stockCars.filter(c => {
                 const cond = (c.condition || '').toLowerCase().replace(/\s+/g, '');
                 return cond === '0km' || cond === 'nuevo' || c.km === 0;
             }).length,
-            valorActivoUSD,
-            valorActivoARS,
-            valorActivoInversionistasUSD,
-            valorActivoInversionistasARS,
-            capitalInvertidoInversionistasUSD,
-            capitalInvertidoInversionistasARS,
-            valorTotalUSD,
-            valorTotalARS
+            valorActivoUSD: Math.round(valorActivoUSD),
+            valorActivoARS: Math.round(valorActivoARS),
+            capitalInvertidoUSD: Math.round(capitalInvertidoUSD),
+            capitalInvertidoARS: Math.round(capitalInvertidoARS),
+            valorActivoInversionistasUSD: Math.round(valorActivoInversionistasUSD),
+            valorActivoInversionistasARS: Math.round(valorActivoInversionistasARS),
+            capitalInvertidoInversionistasUSD: Math.round(capitalInvertidoInversionistasUSD),
+            capitalInvertidoInversionistasARS: Math.round(capitalInvertidoInversionistasARS),
+            valorTotalUSD: Math.round(valorTotalUSD),
+            valorTotalARS: Math.round(valorTotalARS),
+            costoTotalUSD: Math.round(costoTotalUSD),
+            costoTotalARS: Math.round(costoTotalARS)
         };
 
         // Now build query for the current page
@@ -1370,23 +1400,31 @@ app.get('/api/admin/cars', authenticateToken, requirePermission(PERMISSIONS.STOC
             .limit(parsedLimit)
             .lean();
             
-        // Calculate the sum of prices for the filtered vehicles
+        // Calculate the sum of prices and purchase costs for the filtered vehicles
         const filteredTotals = await Car.aggregate([
             { $match: query },
             { 
                 $group: { 
                     _id: "$currency", 
-                    total: { $sum: "$price" } 
+                    totalPrice: { $sum: "$price" },
+                    totalPurchase: { $sum: "$purchasePrice" }
                 } 
             }
         ]);
         
         let filteredTotalUSD = 0;
         let filteredTotalARS = 0;
+        let filteredCostUSD = 0;
+        let filteredCostARS = 0;
         filteredTotals.forEach(item => {
             const curr = (item._id === 'U$S' || item._id === 'USD') ? 'USD' : 'ARS';
-            if (curr === 'USD') filteredTotalUSD += item.total || 0;
-            else filteredTotalARS += item.total || 0;
+            if (curr === 'USD') {
+                filteredTotalUSD += item.totalPrice || 0;
+                filteredCostUSD += item.totalPurchase || 0;
+            } else {
+                filteredTotalARS += item.totalPrice || 0;
+                filteredCostARS += item.totalPurchase || 0;
+            }
         });
 
         const brands = await Car.distinct('brand');
@@ -1399,7 +1437,9 @@ app.get('/api/admin/cars', authenticateToken, requirePermission(PERMISSIONS.STOC
             summary,
             brands,
             filteredTotalUSD,
-            filteredTotalARS
+            filteredTotalARS,
+            filteredCostUSD,
+            filteredCostARS
         });
     } catch (error) {
         res.status(500).json({ message: error.message });
