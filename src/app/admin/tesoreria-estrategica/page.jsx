@@ -854,6 +854,59 @@ export default function TesoreriaEstrategicaPage() {
                 </div>
             </div>
 
+            {/* Selector de Esquema Activo de Tesorería */}
+            <div className="rounded-2xl border border-crm-border bg-crm-surface p-4 flex flex-col md:flex-row md:items-center justify-between gap-3">
+                <div className="space-y-0.5">
+                    <div className="flex items-center gap-2">
+                        <span className="flex h-6 w-6 items-center justify-center rounded-lg bg-purple-500/20 text-purple-300 text-xs font-bold">
+                            ⚖️
+                        </span>
+                        <h4 className="text-xs font-black uppercase tracking-wider text-white">
+                            Esquema de Reparto Activo para Nuevos Cobros
+                        </h4>
+                        <span className="rounded bg-purple-500/20 px-2 py-0.5 text-[10px] font-bold text-purple-300 uppercase">
+                            {activeDistributionScheme ? activeDistributionScheme.replace('_', ' ') : 'Elegir en cada cobro'}
+                        </span>
+                    </div>
+                    <p className="text-[11px] text-crm-fg-muted">
+                        Aplica exclusivamente sobre el margen positivo disponible (después de recuperar capital y separar obligaciones).
+                    </p>
+                </div>
+                <div className="flex flex-wrap items-center gap-1.5">
+                    <button
+                        type="button"
+                        onClick={() => handleUpdateActiveScheme('caja_ajustada')}
+                        className={`rounded-xl px-3 py-1.5 text-xs font-bold transition-all ${activeDistributionScheme === 'caja_ajustada' ? 'bg-purple-600 text-white shadow-md' : 'border border-crm-border bg-crm-bg text-crm-fg hover:text-white'}`}
+                    >
+                        Caja ajustada (70/20/10)
+                    </button>
+                    <button
+                        type="button"
+                        onClick={() => handleUpdateActiveScheme('estabilizacion')}
+                        className={`rounded-xl px-3 py-1.5 text-xs font-bold transition-all ${activeDistributionScheme === 'estabilizacion' ? 'bg-purple-600 text-white shadow-md' : 'border border-crm-border bg-crm-bg text-crm-fg hover:text-white'}`}
+                    >
+                        Estabilización (60/20/10/10)
+                    </button>
+                    <button
+                        type="button"
+                        onClick={() => handleUpdateActiveScheme('caja_solida')}
+                        className={`rounded-xl px-3 py-1.5 text-xs font-bold transition-all ${activeDistributionScheme === 'caja_solida' ? 'bg-purple-600 text-white shadow-md' : 'border border-crm-border bg-crm-bg text-crm-fg hover:text-white'}`}
+                    >
+                        Caja sólida (50/15/10/20/5)
+                    </button>
+                    {activeDistributionScheme && (
+                        <button
+                            type="button"
+                            onClick={() => handleUpdateActiveScheme(null)}
+                            className="rounded-xl border border-crm-border px-2.5 py-1.5 text-xs text-crm-fg-muted hover:text-red-400"
+                            title="Quitar predeterminado para elegir manualmente en cada cobro"
+                        >
+                            Limpiar
+                        </button>
+                    )}
+                </div>
+            </div>
+
             {/* Pestañas de Navegación del Módulo */}
             <div className="flex items-center gap-2 overflow-x-auto border-b border-crm-border pb-2 text-xs font-bold">
                 <button

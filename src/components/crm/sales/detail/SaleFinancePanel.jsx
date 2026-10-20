@@ -1,7 +1,8 @@
 "use client";
 import React, { useState, useEffect, useMemo } from 'react';
-import { Wallet, Plus, ShieldAlert } from 'lucide-react';
+import { Wallet, Plus, ShieldAlert, ArrowDownRight, CheckCircle2, Lock } from 'lucide-react';
 import TransactionModal from '../../finance/TransactionModal';
+import TreasuryCollectAndDistributeModal from '../../treasury/TreasuryCollectAndDistributeModal';
 import { useAdminTransactions } from '../../../../hooks/useAdminTransactions';
 
 export default function SaleFinancePanel({ sale }) {
@@ -12,6 +13,15 @@ export default function SaleFinancePanel({ sale }) {
     // Modal state
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [selectedTx, setSelectedTx] = useState(null);
+    const [isTreasuryModalOpen, setIsTreasuryModalOpen] = useState(false);
+    const [accounts, setAccounts] = useState([]);
+    const [treasurySummary, setTreasurySummary] = useState(null);
+    const [treasuryToken, setTreasuryToken] = useState(() => {
+        if (typeof window !== 'undefined') {
+            return sessionStorage.getItem('as_treasury_token') || null;
+        }
+        return null;
+    });
 
     const loadData = async () => {
         // Fetch only transactions linked to this sale
@@ -175,19 +185,27 @@ export default function SaleFinancePanel({ sale }) {
                         <p className="text-xs text-neutral-500 mt-0.5">Estos movimientos son registros manuales vinculados. No representan un plan de cuotas ni una conciliación automática.</p>
                     </div>
                 </div>
-                <div className="flex gap-2">
+                <div className="flex flex-wrap items-center gap-2">
                     <button
                         onClick={() => handleNewTransaction('egreso', 'Gasto venta')}
-                        className="h-9 px-4 rounded-xl bg-crm-surface-raised hover:bg-neutral-700 text-white font-bold text-sm transition-colors flex items-center gap-2"
+                        className="h-9 px-3 rounded-xl bg-crm-surface-raised hover:bg-neutral-700 text-white font-bold text-xs transition-colors flex items-center gap-1.5"
                     >
-                        <span>Registrar egreso vinculado</span>
+                        <span>Egreso vinculado</span>
                     </button>
                     <button
                         onClick={() => handleNewTransaction('ingreso', 'Cobro venta')}
-                        className="h-9 px-4 rounded-xl bg-crm-red hover:bg-crm-red text-white font-bold text-sm transition-colors flex items-center gap-2"
+                        className="h-9 px-3 rounded-xl border border-neutral-700 bg-crm-surface text-neutral-300 hover:text-white font-bold text-xs transition-colors flex items-center gap-1.5"
                     >
-                        <Plus size={16} />
-                        <span>Registrar cobro manual</span>
+                        <Plus size={14} />
+                        <span>Cobro manual simple</span>
+                    </button>
+                    <button
+                        onClick={() => setIsTreasuryModalOpen(true)}
+                        className="h-9 px-4 rounded-xl bg-purple-600 hover:bg-purple-500 text-white font-bold text-xs transition-colors flex items-center gap-1.5 shadow-lg shadow-purple-600/30"
+                        title="Registrar cobro y distribuir automáticamente por tesorería"
+                    >
+                        <ArrowDownRight size={15} />
+                        <span>Registrar cobro y distribuir</span>
                     </button>
                 </div>
             </div>
@@ -213,6 +231,41 @@ export default function SaleFinancePanel({ sale }) {
             )}
 
             <div className="p-6">
+                {/* Métricas de Tesorería Estratégica para la Venta (Sección 3 y 9) */}
+                {treasurySummary && (
+                    <div className="mb-6 bg-purple-950/20 border border-purple-500/30 rounded-xl p-4">
+                        <div className="flex items-center justify-between mb-3 border-b border-purple-500/20 pb-2">
+                            <span className="text-xs font-black uppercase tracking-wider text-purple-300 flex items-center gap-1.5">
+                                <ArrowDownRight size={14} /> Tesorería Estratégica: Estado de Recupero y Margen
+                            </span>
+                            <span className="text-[10px] text-purple-300/80 font-bold">
+                                {treasurySummary.reinvestmentExtraConfigured ? `Extra Reinversión: ${treasurySummary.reinvestmentExtraPct}%` : 'Sin extra reinv.'}
+                            </span>
+                        </div>
+                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
+                            <div>
+                                <span className="text-[10px] text-neutral-400 block uppercase">Efectivo Cobrado</span>
+                                <strong className="font-mono text-emerald-400">{formatCurrency(treasurySummary.effectivelyCollectedCash || 0, sale.saleCurrency)}</strong>
+                            </div>
+                            <div>
+                                <span className="text-[10px] text-neutral-400 block uppercase">Capital Recuperado (Stock)</span>
+                                <strong className="font-mono text-cyan-300">{formatCurrency(treasurySummary.alreadyRecoveredCapital || 0, sale.saleCurrency)}</strong>
+                                {treasurySummary.remainingCapitalToRecover > 0 && (
+                                    <span className="text-[9px] text-neutral-500 block">Pend: {formatCurrency(treasurySummary.remainingCapitalToRecover, sale.saleCurrency)}</span>
+                                )}
+                            </div>
+                            <div>
+                                <span className="text-[10px] text-neutral-400 block uppercase">Margen ya Distribuido</span>
+                                <strong className="font-mono text-purple-300">{formatCurrency(treasurySummary.alreadyDistributedMargin || 0, sale.saleCurrency)}</strong>
+                            </div>
+                            <div>
+                                <span className="text-[10px] text-neutral-400 block uppercase">Margen Cobrado Disponible</span>
+                                <strong className="font-mono text-emerald-300">{formatCurrency(treasurySummary.availableMarginCollectedTotal || 0, sale.saleCurrency)}</strong>
+                            </div>
+                        </div>
+                    </div>
+                )}
+
                 <div className="mb-6 bg-crm-surface-raised/30 rounded-xl p-5 border border-neutral-800">
                     <h3 className="text-sm font-bold text-neutral-400 mb-4 uppercase tracking-wider">Estado de cobranza</h3>
                     <div className="grid grid-cols-2 lg:grid-cols-6 gap-4">
@@ -291,7 +344,29 @@ export default function SaleFinancePanel({ sale }) {
                                         </td>
                                         <td className="py-3 px-4">
                                             <div className="text-sm font-bold text-white">{tx.concept}</div>
-                                            <div className="text-xs text-neutral-500 capitalize">{tx.paymentMethod}</div>
+                                            <div className="text-xs text-neutral-500 capitalize">
+                                                {tx.paymentMethod} {tx.account?.name ? `· ${tx.account.name}` : ''}
+                                                {tx.recordedBy?.name && ` · Registró: ${tx.recordedBy.name}`}
+                                            </div>
+                                            {tx.treasuryBreakdown && (
+                                                <div className="mt-1 flex flex-wrap gap-1 text-[9px] font-mono">
+                                                    {tx.treasuryBreakdown.capitalRecoveredToStock > 0 && (
+                                                        <span className="rounded bg-cyan-500/20 text-cyan-300 px-1 py-0.2">
+                                                            Stock: {formatCurrency(tx.treasuryBreakdown.capitalRecoveredToStock, tx.currency)}
+                                                        </span>
+                                                    )}
+                                                    {tx.treasuryBreakdown.marginDistributed > 0 && (
+                                                        <span className="rounded bg-purple-500/20 text-purple-300 px-1 py-0.2">
+                                                            Margen: {formatCurrency(tx.treasuryBreakdown.marginDistributed, tx.currency)}
+                                                        </span>
+                                                    )}
+                                                    {tx.treasuryBreakdown.schemeUsed && (
+                                                        <span className="rounded bg-neutral-800 text-neutral-400 px-1 py-0.2 uppercase">
+                                                            {tx.treasuryBreakdown.schemeUsed.replace('_', ' ')}
+                                                        </span>
+                                                    )}
+                                                </div>
+                                            )}
                                         </td>
                                         <td className="py-3 px-4 text-right">
                                             <div className={`text-sm font-bold ${tx.type === 'Ingreso' ? 'text-green-400' : 'text-red-400'} ${tx.status === 'anulado' ? 'line-through opacity-50' : ''}`}>

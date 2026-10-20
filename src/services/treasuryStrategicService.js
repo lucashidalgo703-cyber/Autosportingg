@@ -13,14 +13,19 @@ import Installment from '../models/Installment.js';
 import AdminUser from '../models/AdminUser.js';
 import Sale from '../models/Sale.js';
 import Car from '../models/Car.js';
+import Client from '../models/Client.js';
 import FinanceRecurringRule from '../models/FinanceRecurringRule.js';
 import Settlement from '../models/Settlement.js';
 import { resolveOriginForCar } from './tradeInChainService.js';
 import { roundMoney } from '../utils/saleCommercial.js';
 import {
     computeOperationRecoveryState,
-    computeSixStepWaterfallForCollection
+    computeSixStepWaterfallForCollection,
+    computeSchemeDistributionForCollection,
+    DISTRIBUTION_SCHEMES
 } from './treasuryWaterfallHelpers.js';
+
+export { DISTRIBUTION_SCHEMES };
 
 const JWT_SECRET = process.env.JWT_SECRET?.trim() || 'autosporting_secret_jwt_key_crm_2026';
 const LOCK_TIME_MS = 15 * 60 * 1000;
@@ -1223,6 +1228,81 @@ export async function getTreasuryDashboardData() {
     // Lotes de regularización histórica
     const batchLogs = await TreasuryBatchLog.find().sort({ appliedAt: -1 }).limit(10).lean();
 
+    // Historial reciente de cobros y distribuciones en Tesorería Estratégica
+    const recentCollectionsDocs = await Transaction.find({
+        type: { $in: ['Ingreso', 'ingreso'] },
+        category: { $nin: EXCLUDED_INBOX_CATEGORIES }
+    })
+        .populate('accountId', 'name type currency')
+        .populate('saleId', 'salePrice saleCurrency customerName buyerName vehicleId')
+        .populate('vehicleId', 'brand name year plate plateOrVin')
+        .sort({ date: -1, createdAt: -1 })
+        .limit(40)
+        .lean();
+
+    const recentCollectionsHistory = recentCollectionsDocs.map(t => {
+        const bd = t.treasuryBreakdown || {};
+        const splits = Array.isArray(t.paymentSplits) && t.paymentSplits.length > 0
+            ? t.paymentSplits
+            : (t.accountId ? [{
+                accountId: t.accountId._id || t.accountId,
+                accountName: t.accountId.name || 'Cuenta',
+                accountType: t.accountId.type || '',
+                paymentMethod: t.paymentMethod,
+                amount: t.amount,
+                currency: t.currency
+            }] : []);
+
+        const veh = t.vehicleId || t.saleId?.vehicleId;
+        const vehLabel = veh ? `${veh.brand || ''} ${veh.name || ''} ${veh.year ? '(' + veh.year + ')' : ''}`.trim() : 'Vehículo s/v';
+        const plate = veh?.plateOrVin || veh?.plate || '';
+        const client = t.clientId?.fullName || t.saleId?.customerName || t.saleId?.buyerName || 'Cliente';
+
+        return {
+            id: t._id,
+            _id: t._id,
+            date: t.date,
+            createdAt: t.createdAt,
+            amount: t.amount,
+            currency: t.currency,
+            concept: t.concept || t.description || 'Cobro registrado',
+            description: t.description || t.concept || '',
+            paymentMethod: t.paymentMethod,
+            paymentSplits: splits,
+            receiptReference: t.receiptReference || '',
+            notes: t.notes || '',
+            status: t.status,
+            saleId: t.saleId?._id || t.saleId || null,
+            clientName: client,
+            vehicleLabel: vehLabel,
+            plate,
+            createdBy: t.createdBy || 'Sistema',
+            distributedBy: t.distributedBy || null,
+            distributedAt: t.distributedAt || null,
+            isTreasuryDistributed: Boolean(t.isTreasuryDistributed && !t.isTreasuryDistributionReversed),
+            isTreasuryDistributionReversed: Boolean(t.isTreasuryDistributionReversed),
+            inboxStatus: t.treasuryControl?.inboxStatus || (t.isTreasuryDistributed ? 'distribuido' : 'pendiente'),
+            installmentId: t.installmentId || null,
+            breakdown: {
+                totalCollected: Number(bd.totalCollected ?? t.amount ?? 0),
+                ownGrossAmount: Number(bd.ownGrossAmount ?? t.amount ?? 0),
+                thirdPartyAmount: Number(bd.thirdPartyAmount ?? t.thirdPartyAmount ?? 0),
+                capitalRecoveredToStock: Number(bd.capitalRecoveredToStock || 0),
+                obligationsSeparated: Number(bd.obligationsSeparated ?? bd.operationPendingCostsReserved ?? 0),
+                taxObligationsSeparated: Number(bd.taxObligationsSeparated || 0),
+                distributableMargin: Number(bd.distributableMargin ?? bd.marginCollected ?? 0),
+                marginDistributed: Number(bd.marginDistributed ?? ((bd.essentialShortfallsCovered || 0) + (bd.reserveCovered || 0) + (bd.extraReinvestmentToStock || 0) + (bd.remainderDistributed || 0))),
+                pendingDistributionAmount: Number(bd.pendingDistributionAmount ?? (!t.isTreasuryDistributed ? (t.amount - (t.thirdPartyAmount || 0)) : 0)),
+                pendingReason: bd.pendingReason || bd.unassignedReason || null,
+                schemeKey: bd.schemeKey || null,
+                schemeName: bd.schemeName || null,
+                schemePercentages: bd.schemePercentages || null,
+                destinationBreakdown: bd.destinationBreakdown || [],
+                appliedAllocations: bd.appliedAllocations || []
+            }
+        };
+    });
+
     const updatedAtIso = new Date().toISOString();
     const isBalancedARS = Math.abs(totalCuentasARS - (propiosAsignadosARS + propiosSinAsignarARS + retenidosTercerosARS)) < 0.01;
     const isBalancedUSD = Math.abs(totalCuentasUSD - (propiosAsignadosUSD + propiosSinAsignarUSD + retenidosTercerosUSD)) < 0.01;
@@ -1326,6 +1406,9 @@ export async function getTreasuryDashboardData() {
                 }
             }
         },
+        distributionSchemes: DISTRIBUTION_SCHEMES,
+        activeDistributionScheme: config.activeDistributionScheme || null,
+        recentCollectionsHistory,
         incompleteExpenses,
         unassignedIncomeCards,
         pendingIncomes: unassignedIncomeCards,
@@ -1755,135 +1838,577 @@ export async function revertBatchRegularization(payload, user) {
     };
 }
 
-// 10. Flujo "Cobrar y Distribuir" (Una Sola Carga)
-export async function collectAndDistribute(payload, user) {
-    const {
-        installmentId,
-        saleId,
-        vehicleId: explicitVehicleId,
-        clientId: explicitClientId,
-        amount,
-        currency = 'ARS',
-        accountId,
-        paymentMethod = 'transferencia',
-        date = new Date(),
-        notes = '',
-        distributeNow = true,
-        useSuggested = false,
-        distributions = [] // [{ boxKey, amount }]
-    } = payload;
 
-    const userName = user?.name || user?.email || 'Admin';
+/**
+ * Busca ventas activas para "Registrar cobro y distribuir" por:
+ *  - Nombre del cliente
+ *  - Patente
+ *  - Marca y modelo
+ *  - Número de operación / ID
+ */
+export async function searchSalesForCollection(query = {}) {
+    const { q = '', limit = 25, saleId = null } = query;
+    const cfg = await getOrCreateTreasuryConfig();
 
-    if (!accountId) throw new Error('Seleccioná la cuenta receptora del dinero.');
-    const account = await Account.findById(accountId);
-    if (!account) throw new Error('Cuenta receptora no encontrada.');
+    if (saleId && mongoose.Types.ObjectId.isValid(saleId)) {
+        const saleDoc = await Sale.findById(saleId)
+            .populate('vehicleId')
+            .populate('clientId')
+            .lean();
+        if (!saleDoc) return [];
+        const state = await loadSaleOperationRecoveryState(saleDoc, cfg);
+        return state ? [state] : [];
+    }
 
-    const payAmount = Number(amount);
-    if (isNaN(payAmount) || payAmount <= 0) throw new Error('Importe inválido.');
+    const trimmed = String(q || '').trim();
+    const filter = {
+        status: { $nin: ['cancelada', 'borrador'] }
+    };
 
-    let linkedInstallment = null;
-    let concept = payload.concept || payload.description || 'Cobro comercial';
+    let sales = [];
+    if (trimmed) {
+        const regex = new RegExp(trimmed.replace(/[.*+?^${}()|[\]\\]/g, '\\// 10. Flujo "Cobrar y Distribuir" (Una Sola Carga)'), 'i');
+        
+        // Buscar clientes coincidentes
+        const matchingClients = await Client.find({
+            $or: [
+                { firstName: regex },
+                { lastName: regex },
+                { fullName: regex },
+                { dni: regex }
+            ]
+        }).select('_id').lean();
+        const clientIds = matchingClients.map(c => c._id);
 
-    if (installmentId) {
-        linkedInstallment = await Installment.findById(installmentId);
-        if (linkedInstallment) {
-            if (linkedInstallment.status === 'pagada') {
-                throw new Error('Esta cuota ya figura como pagada.');
-            }
-            concept = `Cobro Cuota #${linkedInstallment.installmentNumber || ''}`;
+        // Buscar vehículos coincidentes
+        const matchingCars = await Car.find({
+            $or: [
+                { brand: regex },
+                { name: regex },
+                { model: regex },
+                { plateOrVin: regex },
+                { plate: regex }
+            ]
+        }).select('_id').lean();
+        const carIds = matchingCars.map(c => c._id);
+
+        const idMatches = [];
+        if (mongoose.Types.ObjectId.isValid(trimmed)) {
+            idMatches.push({ _id: new mongoose.Types.ObjectId(trimmed) });
+        }
+
+        filter.$or = [
+            ...idMatches,
+            { customerName: regex },
+            { buyerName: regex },
+            { operationNumber: regex },
+            ...(clientIds.length > 0 ? [{ clientId: { $in: clientIds } }] : []),
+            ...(carIds.length > 0 ? [{ vehicleId: { $in: carIds } }] : [])
+        ];
+    }
+
+    sales = await Sale.find(filter)
+        .populate('vehicleId')
+        .populate('clientId')
+        .sort({ saleDate: -1, createdAt: -1 })
+        .limit(Math.min(50, Math.max(1, Number(limit) || 25)))
+        .lean();
+
+    const results = [];
+    for (const s of sales) {
+        const state = await loadSaleOperationRecoveryState(s, cfg);
+        if (state) {
+            results.push(state);
         }
     }
 
-    const resolvedVehicleId = explicitVehicleId || linkedInstallment?.vehicleId || undefined;
-    let vehicleDoc = null;
-    if (resolvedVehicleId) {
-        vehicleDoc = await Car.findById(resolvedVehicleId).select('brand name year investor consignedBy consignmentCommission').lean();
+    return results;
+}
+
+/**
+ * Resumen integral de Tesorería para una venta específica (utilizado por el modal y el panel de detalle)
+ */
+export async function getSaleTreasurySummary(saleId) {
+    await ensureDefaultBoxes();
+    if (!saleId || !mongoose.Types.ObjectId.isValid(saleId)) {
+        throw new Error('ID de venta inválido.');
     }
-    const ownership = computeIncomeOwnership({
-        amount: payAmount,
-        currency,
-        vehicleId: vehicleDoc
-    });
+    const cfg = await getOrCreateTreasuryConfig();
+    const [accounts, boxes] = await Promise.all([
+        Account.find({ isActive: { $ne: false } }).sort({ name: 1 }).lean(),
+        TreasuryBox.find().lean()
+    ]);
 
-    // 1. Registrar el movimiento de ingreso UNA SOLA VEZ
-    const tx = new Transaction({
-        type: 'Ingreso',
-        amount: payAmount,
-        currency,
-        description: concept,
-        concept,
-        category: payload.category || 'Cobranzas',
-        paymentMethod,
-        date: new Date(date),
-        accountId: account._id,
-        saleId: saleId || linkedInstallment?.saleId || undefined,
-        installmentId: linkedInstallment?._id || undefined,
-        clientId: explicitClientId || linkedInstallment?.clientId || undefined,
-        vehicleId: resolvedVehicleId,
-        thirdPartyAmount: ownership.tercerosAmount,
-        thirdPartyOwner: ownership.thirdPartyOwner,
-        notes: notes || '',
-        module: 'crm_v2',
-        source: linkedInstallment ? 'cuota' : 'venta',
-        status: 'activo',
-        isTreasuryDistributed: false,
-        createdBy: userName,
-        transactionAuditLog: [{
-            action: 'COBRO_TESORERIA',
-            details: `Cobro registrado en cuenta ${account.name}.`,
-            user: userName
-        }]
-    });
-    await tx.save();
-
-    // 2. Acreditar saldo en la cuenta UNA SOLA VEZ
-    account.balance = Number(account.balance || 0) + payAmount;
-    await account.save();
-
-    // 3. Marcar cuota como pagada si corresponde
-    if (linkedInstallment) {
-        linkedInstallment.status = 'pagada';
-        linkedInstallment.paidAmount = payAmount;
-        linkedInstallment.paymentDate = new Date(date);
-        linkedInstallment.notes = (linkedInstallment.notes ? `${linkedInstallment.notes} | ` : '') + 'Cobrado vía Tesorería';
-        linkedInstallment.installmentAuditLog.push({
-            action: 'COBRO_REGISTRADO',
-            user: userName,
-            date: new Date(),
-            details: `Cobro registrado en ${account.name} por ${currency} ${payAmount}`
-        });
-        await linkedInstallment.save();
-    }
-
-    // 4. Si se seleccionó distribuir ahora o aplicar distribución sugerida, usar este mismo cobro sin crear segundo ingreso
-    let distributedTotal = 0;
-    let appliedDistributions = Array.isArray(distributions) ? distributions : [];
-
-    if (distributeNow && (useSuggested || appliedDistributions.length > 0)) {
-        const distRes = await distributeSingleIncome({
-            transactionId: tx._id,
-            useSuggested: Boolean(useSuggested && appliedDistributions.length === 0),
-            distribution: appliedDistributions
-        }, user);
-        distributedTotal = distRes.distributedTotal || 0;
+    const state = await loadSaleOperationRecoveryState(saleId, cfg);
+    if (!state) {
+        throw new Error('Venta no encontrada.');
     }
 
     return {
         ok: true,
-        transactionId: tx._id,
-        distributedTotal,
-        thirdPartyRetained: ownership.tercerosAmount,
-        ownDistributableAmount: ownership.propioAmount,
-        message: `Cobro de ${currency} ${payAmount.toLocaleString('es-AR')} acreditado en ${account.name} exitosamente ${distributedTotal > 0 ? `(${currency} ${distributedTotal.toLocaleString('es-AR')} distribuido en cajas)` : '(enviado a bandeja para distribuir después)'}.`
+        saleState: state,
+        accounts: accounts.map(a => ({
+            id: a._id,
+            _id: a._id,
+            name: a.name,
+            type: a.type,
+            currency: a.currency,
+            balance: a.balance
+        })),
+        activeDistributionScheme: cfg.activeDistributionScheme || null,
+        schemes: DISTRIBUTION_SCHEMES
     };
 }
 
-// 11. Guardar Configuración Guiada (Incluye Extra de Reinversión sobre Inversión Real %)
+/**
+ * Previsualización server-side de la propuesta de cobro y distribución antes de confirmar
+ */
+export async function previewSaleCollectionDistribution(payload = {}) {
+    await ensureDefaultBoxes();
+    const {
+        saleId,
+        installmentId = null,
+        transactionId = null,
+        amount,
+        currency = 'ARS',
+        schemeKey = null,
+        registeredTaxAmount = 0,
+        forcePendingDistribution = false
+    } = payload;
+
+    const numAmount = roundMoney(Number(amount || 0));
+    if (numAmount <= 0) {
+        throw new Error('El importe debe ser mayor a cero.');
+    }
+
+    const cfg = await getOrCreateTreasuryConfig();
+    const boxes = await TreasuryBox.find().lean();
+
+    let resolvedSaleId = saleId;
+    let linkedInstallment = null;
+
+    if (installmentId && mongoose.Types.ObjectId.isValid(installmentId)) {
+        linkedInstallment = await Installment.findById(installmentId).lean();
+        if (linkedInstallment?.saleId) {
+            resolvedSaleId = linkedInstallment.saleId;
+        }
+    }
+
+    if (!resolvedSaleId || !mongoose.Types.ObjectId.isValid(resolvedSaleId)) {
+        throw new Error('Debés seleccionar una venta válida.');
+    }
+
+    const saleDoc = await Sale.findById(resolvedSaleId).populate('vehicleId').populate('clientId').lean();
+    if (!saleDoc) {
+        throw new Error('Venta no encontrada.');
+    }
+
+    const saleCurrency = saleDoc.saleCurrency === 'USD' ? 'USD' : 'ARS';
+    const cleanCurrency = currency === 'USD' ? 'USD' : 'ARS';
+    if (saleCurrency !== cleanCurrency) {
+        throw new Error(`El cobro (${cleanCurrency}) no coincide con la moneda pactada de la venta (${saleCurrency}). Respetá la moneda de la operación sin conversiones silenciosas.`);
+    }
+
+    if (linkedInstallment) {
+        if (['pagada', 'anulada'].includes(linkedInstallment.status)) {
+            throw new Error(`La cuota #${linkedInstallment.installmentNumber} ya figura como ${linkedInstallment.status}.`);
+        }
+        const pendingInst = roundMoney(Math.max(0, Number(linkedInstallment.amount || 0) - Number(linkedInstallment.paidAmount || 0)));
+        if (numAmount > pendingInst + 0.01) {
+            throw new Error(`El importe (${cleanCurrency} ${numAmount.toLocaleString('es-AR')}) supera el saldo pendiente de la cuota #${linkedInstallment.installmentNumber} (${cleanCurrency} ${pendingInst.toLocaleString('es-AR')}).`);
+        }
+    }
+
+    const opState = await loadSaleOperationRecoveryState(saleDoc, cfg, transactionId);
+    const vehicleDoc = saleDoc.vehicleId && typeof saleDoc.vehicleId === 'object' ? saleDoc.vehicleId : null;
+    const ownership = computeIncomeOwnership({
+        amount: numAmount,
+        currency: cleanCurrency,
+        vehicleId: vehicleDoc
+    });
+
+    const proposal = computeSchemeDistributionForCollection({
+        amount: numAmount,
+        currency: cleanCurrency,
+        ownership,
+        operationState: opState,
+        schemeKey,
+        enrichedBoxes: boxes,
+        config: cfg,
+        registeredTaxAmount,
+        forcePendingDistribution
+    });
+
+    // Proyección de acumuladores de la venta post-cobro
+    const projectedSaleState = {
+        agreedPrice: opState.agreedPrice,
+        effectivelyCollectedCash: roundMoney(Number(opState.effectivelyCollectedCash || 0) + numAmount),
+        pendingSaleBalance: roundMoney(Math.max(0, Number(opState.pendingSaleBalance || 0) - numAmount)),
+        alreadyRecoveredCapital: roundMoney(Number(opState.alreadyRecoveredCapital || 0) + Number(proposal.capitalRecoveredToStock || 0)),
+        remainingCapitalToRecover: roundMoney(Math.max(0, Number(opState.remainingCapitalToRecover || 0) - Number(proposal.capitalRecoveredToStock || 0))),
+        alreadyReservedPendingCosts: roundMoney(Number(opState.alreadyReservedPendingCosts || 0) + Number(proposal.obligationsSeparated || 0)),
+        remainingPendingCostsToReserve: roundMoney(Math.max(0, Number(opState.remainingPendingCostsToReserve || 0) - Number(proposal.obligationsSeparated || 0))),
+        alreadyDistributedMargin: roundMoney(Number(opState.alreadyDistributedMargin || 0) + Number(proposal.marginDistributed || 0)),
+        pendingDistributionAmount: roundMoney(Number(opState.pendingDistributionAmount || 0) + Number(proposal.pendingDistributionAmount || 0))
+    };
+
+    return {
+        ok: true,
+        proposal,
+        saleState: opState,
+        projectedSaleState,
+        schemes: DISTRIBUTION_SCHEMES,
+        activeDistributionScheme: cfg.activeDistributionScheme || null
+    };
+}
+
+// 10. Flujo "Cobrar y Distribuir" (Una Sola Carga)
+
+// 10. Flujo "Cobrar y Distribuir" (Una Sola Carga, Idempotencia y Destinos Múltiples)
+export async function collectAndDistribute(payload, user) {
+    await ensureDefaultBoxes();
+    const {
+        idempotencyKey = null,
+        installmentId = null,
+        saleId = null,
+        vehicleId: explicitVehicleId = null,
+        clientId: explicitClientId = null,
+        amount,
+        currency = 'ARS',
+        accountId = null,
+        paymentMethod = 'transferencia',
+        paymentSplits = null, // [{ accountId, paymentMethod, amount }]
+        conceptType = 'otro', // 'entrega_inicial' | 'saldo' | 'cuota' | 'otro'
+        concept: customConcept = null,
+        date = new Date(),
+        notes = '',
+        receiptReference = '',
+        comprobante = '',
+        schemeKey = null,
+        saveAsActiveScheme = false,
+        distributeNow = true,
+        forcePendingDistribution = false,
+        registeredTaxAmount = 0,
+        // Legacy fallback
+        useSuggested = false,
+        distributions = []
+    } = payload || {};
+
+    const userName = user?.name || user?.email || user?.username || 'Admin';
+
+    // 0. Protección estricta contra doble envío / reintentos (Idempotencia)
+    if (idempotencyKey && String(idempotencyKey).trim()) {
+        const cleanIdemp = String(idempotencyKey).trim();
+        const existingTx = await Transaction.findOne({ idempotencyKey: cleanIdemp })
+            .populate('accountId', 'name type currency')
+            .lean();
+        if (existingTx) {
+            return {
+                ok: true,
+                idempotentReplay: true,
+                transactionId: existingTx._id,
+                amount: existingTx.amount,
+                currency: existingTx.currency,
+                isTreasuryDistributed: existingTx.isTreasuryDistributed,
+                message: 'Cobro procesado previamente (idempotencia confirmada). No se duplicaron movimientos ni saldos.'
+            };
+        }
+    }
+
+    const payAmount = roundMoney(Number(amount || 0));
+    if (isNaN(payAmount) || payAmount <= 0) {
+        throw new Error('El importe a cobrar debe ser mayor a cero.');
+    }
+
+    const cleanCurrency = currency === 'USD' ? 'USD' : 'ARS';
+
+    // 1. Resolver y validar la Venta y la Cuota
+    let linkedInstallment = null;
+    let resolvedSaleId = saleId;
+
+    if (installmentId && mongoose.Types.ObjectId.isValid(installmentId)) {
+        linkedInstallment = await Installment.findById(installmentId);
+        if (!linkedInstallment) {
+            throw new Error('Cuota no encontrada.');
+        }
+        if (linkedInstallment.status === 'pagada') {
+            throw new Error(`La cuota #${linkedInstallment.installmentNumber} ya figura como pagada.`);
+        }
+        if (linkedInstallment.status === 'anulada') {
+            throw new Error(`La cuota #${linkedInstallment.installmentNumber} está anulada.`);
+        }
+        if (linkedInstallment.currency !== cleanCurrency) {
+            throw new Error(`La moneda del cobro (${cleanCurrency}) no coincide con la moneda de la cuota (${linkedInstallment.currency}).`);
+        }
+        const pendingInst = roundMoney(Math.max(0, Number(linkedInstallment.amount || 0) - Number(linkedInstallment.paidAmount || 0)));
+        if (payAmount > pendingInst + 0.01) {
+            throw new Error(`El importe (${cleanCurrency} ${payAmount.toLocaleString('es-AR')}) supera el saldo pendiente de la cuota #${linkedInstallment.installmentNumber} (${cleanCurrency} ${pendingInst.toLocaleString('es-AR')}).`);
+        }
+        if (!resolvedSaleId && linkedInstallment.saleId) {
+            resolvedSaleId = linkedInstallment.saleId;
+        }
+    }
+
+    if (!resolvedSaleId || !mongoose.Types.ObjectId.isValid(resolvedSaleId)) {
+        throw new Error('Debés seleccionar una operación de venta vinculada.');
+    }
+
+    const saleDoc = await Sale.findById(resolvedSaleId)
+        .populate('vehicleId')
+        .populate('clientId');
+    if (!saleDoc) {
+        throw new Error('Venta vinculada no encontrada.');
+    }
+
+    const saleCurrency = saleDoc.saleCurrency === 'USD' ? 'USD' : 'ARS';
+    if (saleCurrency !== cleanCurrency) {
+        throw new Error(`El cobro (${cleanCurrency}) no coincide con la moneda pactada de la venta (${saleCurrency}). No se permiten conversiones silenciosas.`);
+    }
+
+    // 2. Resolver destinos del cobro (cuenta única o pago dividido)
+    const resolvedSplits = [];
+    if (Array.isArray(paymentSplits) && paymentSplits.length > 0) {
+        let sumSplits = 0;
+        for (const sp of paymentSplits) {
+            const spAmount = roundMoney(Number(sp.amount || 0));
+            if (spAmount <= 0) continue;
+            if (!sp.accountId) {
+                throw new Error('Cada división de cobro debe tener una cuenta o caja de destino seleccionada.');
+            }
+            const acc = await Account.findById(sp.accountId);
+            if (!acc) throw new Error('Cuenta de destino no encontrada.');
+            if (acc.currency !== cleanCurrency) {
+                throw new Error(`La cuenta "${acc.name}" (${acc.currency}) no coincide con la moneda del cobro (${cleanCurrency}).`);
+            }
+            resolvedSplits.push({
+                accountId: acc._id,
+                accountName: acc.name,
+                accountType: acc.type,
+                paymentMethod: sp.paymentMethod || paymentMethod || 'transferencia',
+                amount: spAmount,
+                currency: cleanCurrency
+            });
+            sumSplits = roundMoney(sumSplits + spAmount);
+        }
+
+        if (Math.abs(sumSplits - payAmount) > 0.01) {
+            throw new Error(`La suma de los destinos (${cleanCurrency} ${sumSplits.toLocaleString('es-AR')}) debe coincidir exactamente con el total cobrado (${cleanCurrency} ${payAmount.toLocaleString('es-AR')}).`);
+        }
+    } else {
+        if (!accountId) {
+            throw new Error('Seleccioná la caja física o cuenta bancaria de destino.');
+        }
+        const acc = await Account.findById(accountId);
+        if (!acc) throw new Error('Cuenta receptora no encontrada.');
+        if (acc.currency !== cleanCurrency) {
+            throw new Error(`La cuenta "${acc.name}" (${acc.currency}) no coincide con la moneda del cobro (${cleanCurrency}).`);
+        }
+        resolvedSplits.push({
+            accountId: acc._id,
+            accountName: acc.name,
+            accountType: acc.type,
+            paymentMethod: paymentMethod || 'transferencia',
+            amount: payAmount,
+            currency: cleanCurrency
+        });
+    }
+
+    // 3. Construir concepto claro y legible
+    let conceptLabel = customConcept || payload.description || '';
+    if (!conceptLabel) {
+        if (linkedInstallment) {
+            conceptLabel = `Cobro Cuota #${linkedInstallment.installmentNumber}`;
+        } else if (conceptType === 'entrega_inicial') {
+            conceptLabel = 'Entrega inicial';
+        } else if (conceptType === 'saldo') {
+            conceptLabel = 'Saldo de venta';
+        } else {
+            conceptLabel = 'Cobro vinculado a venta';
+        }
+    }
+
+    const receiptRef = receiptReference || comprobante || '';
+
+    // 4. Calcular propuesta de distribución con el esquema acordado
+    const cfg = await getOrCreateTreasuryConfig();
+    const boxes = await TreasuryBox.find().lean();
+    const opState = await loadSaleOperationRecoveryState(saleDoc, cfg);
+    const vehicleDoc = saleDoc.vehicleId && typeof saleDoc.vehicleId === 'object' ? saleDoc.vehicleId : null;
+    const ownership = computeIncomeOwnership({
+        amount: payAmount,
+        currency: cleanCurrency,
+        vehicleId: vehicleDoc
+    });
+
+    const proposal = computeSchemeDistributionForCollection({
+        amount: payAmount,
+        currency: cleanCurrency,
+        ownership,
+        operationState: opState,
+        schemeKey,
+        enrichedBoxes: boxes,
+        config: cfg,
+        registeredTaxAmount,
+        forcePendingDistribution: (!distributeNow || forcePendingDistribution)
+    });
+
+    // 5. Registrar el cobro UNA SOLA VEZ
+    const tx = new Transaction({
+        type: 'Ingreso',
+        amount: payAmount,
+        currency: cleanCurrency,
+        description: conceptLabel,
+        concept: conceptLabel,
+        category: payload.category || (linkedInstallment ? 'Cobro cuota' : 'Cobro venta'),
+        paymentMethod: resolvedSplits[0]?.paymentMethod || paymentMethod || 'transferencia',
+        accountId: resolvedSplits[0]?.accountId,
+        paymentSplits: resolvedSplits,
+        receiptReference: receiptRef,
+        date: new Date(date),
+        saleId: saleDoc._id,
+        installmentId: linkedInstallment?._id || undefined,
+        installmentPaidAmountApplied: linkedInstallment ? payAmount : 0,
+        clientId: saleDoc.clientId?._id || saleDoc.clientId || explicitClientId || undefined,
+        vehicleId: vehicleDoc?._id || explicitVehicleId || undefined,
+        thirdPartyAmount: ownership.tercerosAmount,
+        thirdPartyOwner: ownership.thirdPartyOwner,
+        thirdPartyCapitalReturn: proposal.thirdPartyCapitalReturn || 0,
+        thirdPartyProfitShare: proposal.thirdPartyProfitShare || 0,
+        notes: notes || '',
+        module: 'crm_v2',
+        source: linkedInstallment ? 'cuota' : 'venta',
+        status: 'activo',
+        isTreasuryDistributed: !proposal.isPendingDistribution,
+        isTreasuryDistributionReversed: false,
+        distributedAt: !proposal.isPendingDistribution ? new Date() : null,
+        distributedBy: !proposal.isPendingDistribution ? userName : null,
+        treasuryBreakdown: proposal,
+        treasuryControl: {
+            inboxStatus: proposal.isPendingDistribution ? 'pendiente' : 'distribuido',
+            isBeforeCutoff: false
+        },
+        idempotencyKey: idempotencyKey ? String(idempotencyKey).trim() : undefined,
+        createdBy: userName,
+        transactionAuditLog: [{
+            action: 'COBRO_TESORERIA_DISTRIBUIDO',
+            details: `Cobro de ${cleanCurrency} ${payAmount.toLocaleString('es-AR')} acreditado en ${resolvedSplits.map(s => `${s.accountName} (${cleanCurrency} ${s.amount.toLocaleString('es-AR')})`).join(' + ')}. ${proposal.isPendingDistribution ? 'Queda pendiente de distribución.' : `Distribuido con esquema ${proposal.schemeName || 'Directo'}.`}`,
+            user: userName,
+            date: new Date()
+        }]
+    });
+    await tx.save();
+
+    // 6. Acreditar saldo en las cuentas de destino
+    for (const split of resolvedSplits) {
+        const acc = await Account.findById(split.accountId);
+        if (acc) {
+            acc.balance = roundMoney(Number(acc.balance || 0) + split.amount);
+            await acc.save();
+        }
+    }
+
+    // 7. Imputar pago a la cuota si corresponde
+    if (linkedInstallment) {
+        const prevPaid = Number(linkedInstallment.paidAmount || 0);
+        const nextPaid = roundMoney(prevPaid + payAmount);
+        const instTotal = Number(linkedInstallment.amount || 0);
+
+        linkedInstallment.paidAmount = nextPaid;
+        linkedInstallment.status = nextPaid >= roundMoney(instTotal - 0.01) ? 'pagada' : 'parcial';
+        linkedInstallment.paymentDate = new Date(date);
+        linkedInstallment.installmentAuditLog.push({
+            action: 'COBRO_REGISTRADO',
+            user: userName,
+            date: new Date(),
+            details: `Cobro registrado vía Tesorería Estratégica por ${cleanCurrency} ${payAmount.toLocaleString('es-AR')} (Total pagado: ${cleanCurrency} ${nextPaid.toLocaleString('es-AR')} de ${cleanCurrency} ${instTotal.toLocaleString('es-AR')})`
+        });
+        await linkedInstallment.save();
+    }
+
+    // 8. Aplicar distribución interna a Cajas si no quedó pendiente
+    let distributedTotal = 0;
+    if (!proposal.isPendingDistribution && Array.isArray(proposal.appliedAllocations)) {
+        for (const alloc of proposal.appliedAllocations) {
+            const amt = roundMoney(Number(alloc.amount || 0));
+            if (amt <= 0) continue;
+            const box = await TreasuryBox.findOne({ key: alloc.boxKey });
+            if (box) {
+                if (cleanCurrency === 'USD') {
+                    box.balanceUSD = roundMoney((box.balanceUSD || 0) + amt);
+                } else {
+                    box.balanceARS = roundMoney((box.balanceARS || 0) + amt);
+                }
+                box.history.push({
+                    date: new Date(),
+                    type: alloc.historyType || 'distribucion_cobro',
+                    step: alloc.step || 'paso_3_margen_esquema',
+                    amount: amt,
+                    currency: cleanCurrency,
+                    reason: alloc.reason || `Cobro #${tx._id} (${conceptLabel})`,
+                    user: userName,
+                    sourceIncomeId: tx._id,
+                    saleId: saleDoc._id
+                });
+                await box.save();
+                distributedTotal = roundMoney(distributedTotal + amt);
+            }
+        }
+    }
+
+    // 9. Actualizar esquema activo en configuración si se solicitó o si estaba vacío
+    if (schemeKey && DISTRIBUTION_SCHEMES[schemeKey] && (saveAsActiveScheme || !cfg.activeDistributionScheme)) {
+        cfg.activeDistributionScheme = schemeKey;
+        cfg.updatedBy = userName;
+        await cfg.save();
+    }
+
+    // 10. Cargar estado actualizado de la venta post-cobro
+    const updatedSaleState = await loadSaleOperationRecoveryState(saleDoc._id, cfg);
+
+    return {
+        ok: true,
+        transactionId: tx._id,
+        amount: payAmount,
+        currency: cleanCurrency,
+        concept: conceptLabel,
+        isTreasuryDistributed: !proposal.isPendingDistribution,
+        distributedTotal,
+        proposal,
+        paymentSplits: resolvedSplits,
+        saleState: updatedSaleState,
+        summary: {
+            totalCollected: payAmount,
+            capitalRecovered: proposal.capitalRecoveredToStock || 0,
+            obligationsSeparated: proposal.obligationsSeparated || 0,
+            distributableMargin: proposal.distributableMargin || 0,
+            marginDistributed: proposal.marginDistributed || 0,
+            totalDistributedToBoxes: distributedTotal,
+            pendingDistribution: proposal.pendingDistributionAmount || 0,
+            pendingReason: proposal.pendingReason || null,
+            schemeUsed: proposal.schemeName || 'Sin esquema (Pendiente)',
+            destinations: proposal.destinationBreakdown || [],
+            accountsCredited: resolvedSplits
+        },
+        message: proposal.isPendingDistribution
+            ? `Cobro de ${cleanCurrency} ${payAmount.toLocaleString('es-AR')} acreditado en cuenta y registrado como Pendiente de distribución (${proposal.pendingReason || 'Faltan datos'}).`
+            : `Cobro y distribución de ${cleanCurrency} ${payAmount.toLocaleString('es-AR')} completados con éxito bajo el esquema ${proposal.schemeName || 'acordado'}.`
+    };
+}
+
+
 export async function updateTreasuryConfig(payload, user) {
     const userName = user?.name || user?.email || 'Admin';
     const cfg = await getOrCreateTreasuryConfig();
 
+    if (payload.activeDistributionScheme !== undefined) {
+        if (payload.activeDistributionScheme === null || payload.activeDistributionScheme === '') {
+            cfg.activeDistributionScheme = null;
+        } else if (DISTRIBUTION_SCHEMES[payload.activeDistributionScheme]) {
+            cfg.activeDistributionScheme = payload.activeDistributionScheme;
+        } else {
+            throw new Error('Esquema de distribución inválido. Elegí Caja ajustada, Estabilización o Caja sólida.');
+        }
+    }
     if (payload.operationalHorizonDays !== undefined) cfg.operationalHorizonDays = Number(payload.operationalHorizonDays);
     if (payload.reserveMonths !== undefined) cfg.reserveMonths = Number(payload.reserveMonths);
     if (payload.reserveMonthsTarget !== undefined) cfg.reserveMonths = Number(payload.reserveMonthsTarget);
@@ -2277,14 +2802,27 @@ export async function distributeSingleIncome(payload, user) {
 
     if (useSuggested && effectiveDistribution.length === 0) {
         const dashboard = await getTreasuryDashboardData();
-        waterfallResult = computeSixStepWaterfallForCollection({
+        const activeScheme = payload.schemeKey || tx.treasuryBreakdown?.schemeKey || config.activeDistributionScheme || null;
+        if (payload.schemeKey || payload.useSchemeDistribution || (activeScheme && DISTRIBUTION_SCHEMES[activeScheme])) {
+            waterfallResult = computeSchemeDistributionForCollection({
+                amount: tx.amount,
+                currency: curr,
+                ownership,
+                operationState,
+                schemeKey: activeScheme,
+                enrichedBoxes: dashboard.boxes,
+                config
+            });
+        } else {
+            waterfallResult = computeSixStepWaterfallForCollection({
             amount: tx.amount,
             currency: curr,
             ownership,
             operationState,
             enrichedBoxes: dashboard.boxes,
             config
-        });
+            });
+        }
 
         // Si falta información de costos de la operación, no asumir costo cero ni bloquear el CRM:
         // dejar el importe afectado sin asignar en la bandeja explicando qué falta.
@@ -2520,6 +3058,101 @@ export async function reverseIncomeDistribution(txOrId, options = {}) {
         reversed: true,
         totalReversed,
         currency: curr
+    };
+}
+
+
+/**
+ * Anula un cobro de forma integral y consistente:
+ *  1. Reversa los saldos acreditados en cuentas/cajas (incluyendo divisiones en paymentSplits)
+ *  2. Reversa la imputación a la cuota vinculada (restaura paidAmount y recalcula status a pendiente o parcial)
+ *  3. Reversa las asignaciones de fondos realizadas en TreasuryBox
+ *  4. Marca la transacción como "anulado" conservando el historial y auditoría
+ */
+export async function annulCollectionAndReverse(txOrId, options = {}) {
+    const tx = (typeof txOrId === 'object' && txOrId !== null && typeof txOrId.save === 'function')
+        ? txOrId
+        : await Transaction.findById(txOrId);
+
+    if (!tx) {
+        throw new Error('Transacción de cobro no encontrada.');
+    }
+    if (tx.status === 'anulado') {
+        return { ok: true, alreadyAnnulled: true, message: 'El cobro ya se encontraba anulado.' };
+    }
+
+    const userName = options.user || 'Sistema';
+    const oldStatus = tx.status;
+
+    // 1. Revertir saldo de cuentas físicas / bancarias si el cobro estaba activo
+    if (oldStatus === 'activo' || oldStatus === 'Completado') {
+        if (Array.isArray(tx.paymentSplits) && tx.paymentSplits.length > 0) {
+            for (const sp of tx.paymentSplits) {
+                if (sp.accountId && Number(sp.amount || 0) > 0) {
+                    const acc = await Account.findById(sp.accountId);
+                    if (acc) {
+                        acc.balance = roundMoney(Number(acc.balance || 0) - Number(sp.amount));
+                        await acc.save();
+                    }
+                }
+            }
+        } else if (tx.accountId) {
+            const acc = await Account.findById(tx.accountId);
+            if (acc) {
+                acc.balance = roundMoney(Number(acc.balance || 0) - Number(tx.amount || 0));
+                await acc.save();
+            }
+        }
+    }
+
+    // 2. Revertir imputación a cuota si corresponde
+    if (tx.installmentId) {
+        const inst = await Installment.findById(tx.installmentId);
+        if (inst) {
+            const appliedAmt = Number(tx.installmentPaidAmountApplied ?? tx.amount ?? 0);
+            const currentPaid = Number(inst.paidAmount || 0);
+            const nextPaid = roundMoney(Math.max(0, currentPaid - appliedAmt));
+            inst.paidAmount = nextPaid;
+            inst.status = nextPaid <= 0 ? 'pendiente' : (nextPaid < roundMoney(inst.amount - 0.01) ? 'parcial' : 'pagada');
+            inst.installmentAuditLog.push({
+                action: 'COBRO_REGISTRADO',
+                user: userName,
+                date: new Date(),
+                details: `Reversión por anulación de cobro #${tx._id} (Descontados ${tx.currency} ${appliedAmt.toLocaleString('es-AR')}. Nuevo saldo pagado: ${tx.currency} ${nextPaid.toLocaleString('es-AR')})`
+            });
+            await inst.save();
+        }
+    }
+
+    // 3. Revertir asignaciones en Tesorería si estaba distribuido
+    let revTreasuryRes = null;
+    if (tx.isTreasuryDistributed || tx.treasuryBreakdown) {
+        revTreasuryRes = await reverseIncomeDistribution(tx, {
+            user: userName,
+            reason: options.reason || 'Anulación integral de cobro'
+        });
+    }
+
+    // 4. Marcar transacción como anulada
+    tx.status = 'anulado';
+    tx.isTreasuryDistributed = false;
+    tx.isTreasuryDistributionReversed = true;
+    if (!tx.treasuryControl) tx.treasuryControl = {};
+    tx.treasuryControl.inboxStatus = 'revertido';
+    tx.transactionAuditLog.push({
+        action: 'ANULACION_COBRO_INTEGRAL',
+        user: userName,
+        date: new Date(),
+        details: `Cobro anulado integralmente. Saldos de cuentas y cuota revertidos. ${revTreasuryRes?.reversed ? 'Asignaciones de cajas revertidas.' : ''}`
+    });
+    await tx.save();
+
+    return {
+        ok: true,
+        transactionId: tx._id,
+        status: 'anulado',
+        treasuryReversed: revTreasuryRes?.reversed || false,
+        message: 'Cobro anulado y movimientos relacionados revertidos con éxito.'
     };
 }
 

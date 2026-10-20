@@ -8,6 +8,7 @@ const treasuryConfigSchema = new mongoose.Schema({
     postventaProvisionARS: { type: Number, default: 0 },
     postventaProvisionUSD: { type: Number, default: 0 },
     postventaProvisionPerVehicleARS: { type: Number, default: 0 }, // Provisión fija por vehículo vendido/entregado
+    activeDistributionScheme: { type: String, enum: ['caja_ajustada', 'estabilizacion', 'caja_solida', null], default: null },
     reinvestmentExtraConfigured: { type: Boolean, default: false },
     reinvestmentExtraPct: { type: Number, default: null, min: 0, max: 100 }, // Extra de reinversión sobre inversión real (%), destino de ganancia hacia Stock
     surplusRule: {

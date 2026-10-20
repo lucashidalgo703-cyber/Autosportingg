@@ -5399,8 +5399,8 @@ app.patch('/api/admin/sales/:id', authenticateToken, requirePermission(PERMISSIO
                 const financedBalance = Math.max(0, cashPrice - downPayment);
                 const planActive = financedBalance > 0;
                 if (planActive) {
-                    if (![6, 12, 18, 24].includes(installmentsCount)) {
-                        return res.status(400).json({ message: 'La cantidad de cuotas debe ser 6, 12, 18 o 24 cuando exista saldo financiado.' });
+                    if (![3, 6, 12, 18, 24].includes(installmentsCount)) {
+                        return res.status(400).json({ message: 'La cantidad de cuotas debe ser 3, 6, 12, 18 o 24 cuando exista saldo financiado.' });
                     }
                 }
 
@@ -10284,6 +10284,80 @@ app.post('/api/admin/tesoreria-estrategica/installments/batch-revert', authentic
         res.json(result);
     } catch (error) {
         console.error('POST /api/admin/tesoreria-estrategica/installments/batch-revert error:', error);
+        res.status(400).json({ ok: false, message: error.message });
+    }
+});
+
+
+// 19b. Búsqueda de ventas para "Registrar cobro y distribuir"
+app.get('/api/admin/tesoreria-estrategica/sales-search', authenticateToken, requireTreasuryPrivilegedRole, verifyTreasuryStrategicAuth, async (req, res) => {
+    try {
+        const results = await treasuryStrategicService.searchSalesForCollection({
+            q: req.query.q,
+            saleId: req.query.saleId,
+            limit: req.query.limit
+        });
+        res.json(results);
+    } catch (error) {
+        console.error('GET /api/admin/tesoreria-estrategica/sales-search error:', error);
+        res.status(400).json({ ok: false, message: error.message });
+    }
+});
+
+// 19c. Resumen de venta para modal de cobro y distribución
+app.get('/api/admin/tesoreria-estrategica/sales/:saleId/summary', authenticateToken, requireTreasuryPrivilegedRole, verifyTreasuryStrategicAuth, async (req, res) => {
+    try {
+        const summary = await treasuryStrategicService.getSaleTreasurySummary(req.params.saleId);
+        res.json(summary);
+    } catch (error) {
+        console.error('GET /api/admin/tesoreria-estrategica/sales/:saleId/summary error:', error);
+        res.status(400).json({ ok: false, message: error.message });
+    }
+});
+
+// 19d. Resumen de venta para panel de detalle de venta (acceso desde Ventas)
+app.get('/api/admin/sales/:saleId/treasury-summary', authenticateToken, async (req, res) => {
+    try {
+        const summary = await treasuryStrategicService.getSaleTreasurySummary(req.params.saleId);
+        res.json(summary);
+    } catch (error) {
+        console.error('GET /api/admin/sales/:saleId/treasury-summary error:', error);
+        res.status(400).json({ ok: false, message: error.message });
+    }
+});
+
+// 19e. Previsualización server-side de propuesta de cobro y distribución
+app.post('/api/admin/tesoreria-estrategica/incomes/preview-distribution', authenticateToken, requireTreasuryPrivilegedRole, verifyTreasuryStrategicAuth, async (req, res) => {
+    try {
+        const preview = await treasuryStrategicService.previewSaleCollectionDistribution(req.body);
+        res.json(preview);
+    } catch (error) {
+        console.error('POST /api/admin/tesoreria-estrategica/incomes/preview-distribution error:', error);
+        res.status(400).json({ ok: false, message: error.message });
+    }
+});
+
+// 19f. Reversión / Anulación de un cobro o de su distribución
+app.post('/api/admin/tesoreria-estrategica/incomes/:id/revert', authenticateToken, requireTreasuryPrivilegedRole, verifyTreasuryStrategicAuth, async (req, res) => {
+    try {
+        const { revertDistributionOnly = false, reason = 'Reversión desde Tesorería Estratégica' } = req.body || {};
+        const userName = req.user?.username || req.user?.name || 'Admin';
+        
+        let result = null;
+        if (revertDistributionOnly) {
+            result = await treasuryStrategicService.reverseIncomeDistribution(req.params.id, {
+                user: userName,
+                reason
+            });
+        } else {
+            result = await treasuryStrategicService.annulCollectionAndReverse(req.params.id, {
+                user: userName,
+                reason
+            });
+        }
+        res.json(result);
+    } catch (error) {
+        console.error('POST /api/admin/tesoreria-estrategica/incomes/:id/revert error:', error);
         res.status(400).json({ ok: false, message: error.message });
     }
 });

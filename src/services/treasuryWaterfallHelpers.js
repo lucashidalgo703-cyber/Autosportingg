@@ -109,21 +109,46 @@ export function computeOperationRecoveryState({
     let alreadyReturnedThirdPartyCapital = 0;
     let alreadyReturnedThirdPartyProfit = 0;
     let alreadyDistributedOwnTotal = 0;
+    let alreadyDistributedMargin = 0;
+    let pendingDistributionAmount = 0;
 
     for (const t of incomeTxs) {
         if (excludeTransactionId && String(t._id) === String(excludeTransactionId)) continue;
-        if (!t.isTreasuryDistributed || t.isTreasuryDistributionReversed) continue;
+        const txOwnAmt = roundMoney(Math.max(0, Number(t.amount || 0) - Number(t.thirdPartyAmount || 0)));
+        if (!t.isTreasuryDistributed || t.isTreasuryDistributionReversed) {
+            pendingDistributionAmount = roundMoney(pendingDistributionAmount + txOwnAmt);
+            continue;
+        }
 
         const bd = t.treasuryBreakdown;
-        if (bd && (bd.capitalRecoveredToStock !== undefined || bd.appliedAllocations?.length > 0)) {
-            alreadyReservedPendingCosts = roundMoney(alreadyReservedPendingCosts + Number(bd.operationPendingCostsReserved || 0));
+        if (bd && (bd.capitalRecoveredToStock !== undefined || bd.appliedAllocations?.length > 0 || bd.schemeKey)) {
+            const txObligations = Number(bd.obligationsSeparated ?? bd.operationPendingCostsReserved ?? 0);
+            alreadyReservedPendingCosts = roundMoney(alreadyReservedPendingCosts + txObligations);
             alreadyRecoveredCapital = roundMoney(alreadyRecoveredCapital + Number(bd.capitalRecoveredToStock || 0));
             alreadyAllocatedExtraReinvestment = roundMoney(alreadyAllocatedExtraReinvestment + Number(bd.extraReinvestmentToStock || 0));
             alreadyReturnedThirdPartyCapital = roundMoney(alreadyReturnedThirdPartyCapital + Number(bd.thirdPartyCapitalReturn || 0));
             alreadyReturnedThirdPartyProfit = roundMoney(alreadyReturnedThirdPartyProfit + Number(bd.thirdPartyProfitShare || 0));
             alreadyDistributedOwnTotal = roundMoney(alreadyDistributedOwnTotal + Number(bd.ownGrossAmount || 0));
+
+            const txMarginDist = bd.marginDistributed !== undefined && Number(bd.marginDistributed) > 0
+                ? Number(bd.marginDistributed)
+                : roundMoney(
+                    Number(bd.essentialShortfallsCovered || 0) +
+                    Number(bd.reserveCovered || 0) +
+                    Number(bd.extraReinvestmentToStock || 0) +
+                    Number(bd.remainderDistributed || 0)
+                );
+            alreadyDistributedMargin = roundMoney(alreadyDistributedMargin + txMarginDist);
+
+            const txPending = Number(bd.pendingDistributionAmount ?? bd.unassignedRemainder ?? 0);
+            if (txPending > 0) {
+                pendingDistributionAmount = roundMoney(pendingDistributionAmount + txPending);
+            }
         }
     }
+
+    const expectedCashTotal = roundMoney(Math.max(0, agreedPrice - tradeInCapitalInVehicles));
+    const pendingSaleBalance = roundMoney(Math.max(0, expectedCashTotal - effectivelyCollectedCash));
 
     // Si la ganancia no es calculable (falta vehículo, falta compra/toma o falta tipo de cambio)
     if (!profitability.calculable) {
@@ -134,8 +159,14 @@ export function computeOperationRecoveryState({
             missingReasons: profitability.missingReasons || ['Faltan datos de costo para calcular la inversión y ganancia.'],
             saleCurrency,
             agreedPrice,
+            expectedCashTotal,
+            pendingSaleBalance,
             effectivelyCollectedCash,
             tradeInCapitalInVehicles,
+            alreadyReservedPendingCosts,
+            alreadyDistributedMargin,
+            marginReleased: alreadyDistributedMargin,
+            pendingDistributionAmount,
             agencyPct,
             partnerPct,
             isConsignment,
@@ -301,7 +332,12 @@ export function computeOperationRecoveryState({
         alreadyRecoveredCapital,
         totalCapitalRecoveredSoFar,
         remainingCapitalToRecover,
+        expectedCashTotal,
+        pendingSaleBalance,
         availableMarginCollectedTotal,
+        marginReleased: roundMoney(Math.max(alreadyDistributedMargin, availableMarginCollectedTotal)),
+        alreadyDistributedMargin,
+        pendingDistributionAmount,
         ownReinvestmentBase,
         reinvestmentExtraConfigured,
         reinvestmentExtraPct,
@@ -591,6 +627,437 @@ export function computeSixStepWaterfallForCollection({
         unassignedRemainder: remMargin,
         reinvestmentExtraPctApplied: extraPct,
         unassignedReason: remMargin > 0 ? (missingNotes.join(' ') || 'Remanente disponible sin regla de destino.') : null,
+        appliedAllocations
+    };
+}
+
+/**
+ * Esquemas acordados de reparto de margen disponible en Tesorería Estratégica.
+ * Se aplican exclusivamente sobre el margen distribuible positivo después de:
+ *   1) Recuperar capital (costo de adquisición + gastos directos pagados -> Stock)
+ *   2) Separar obligaciones e impuestos registrados (-> Operativa / Impuestos)
+ */
+export const DISTRIBUTION_SCHEMES = {
+    caja_ajustada: {
+        key: 'caja_ajustada',
+        name: 'Caja ajustada',
+        description: 'Gastos mensuales / operación (70%), Reserva de liquidez (20%) y Fondo interno de postventa (10%).',
+        percentages: {
+            operativa: 70,
+            reserva: 20,
+            postventa: 10,
+            crecimiento: 0,
+            personal: 0
+        },
+        destinations: [
+            { destinationKey: 'operativa', destinationLabel: 'Gastos mensuales / operación', boxKey: 'operativa', boxName: 'Caja Operativa', percentage: 70 },
+            { destinationKey: 'reserva', destinationLabel: 'Reserva de liquidez', boxKey: 'reserva', boxName: 'Reserva de Liquidez', percentage: 20 },
+            { destinationKey: 'postventa', destinationLabel: 'Fondo interno de postventa', boxKey: 'postventa', boxName: 'Provisión Postventa / Garantía', percentage: 10 },
+            { destinationKey: 'crecimiento', destinationLabel: 'Crecimiento / reposición adicional', boxKey: 'crecimiento', boxName: 'Crecimiento / Expansión', percentage: 0 },
+            { destinationKey: 'personal', destinationLabel: 'Utilidad del titular', boxKey: 'personal', boxName: 'Caja Personal', percentage: 0 }
+        ]
+    },
+    estabilizacion: {
+        key: 'estabilizacion',
+        name: 'Estabilización',
+        description: 'Gastos mensuales / operación (60%), Reserva de liquidez (20%), Fondo interno de postventa (10%) y Crecimiento / reposición adicional (10%).',
+        percentages: {
+            operativa: 60,
+            reserva: 20,
+            postventa: 10,
+            crecimiento: 10,
+            personal: 0
+        },
+        destinations: [
+            { destinationKey: 'operativa', destinationLabel: 'Gastos mensuales / operación', boxKey: 'operativa', boxName: 'Caja Operativa', percentage: 60 },
+            { destinationKey: 'reserva', destinationLabel: 'Reserva de liquidez', boxKey: 'reserva', boxName: 'Reserva de Liquidez', percentage: 20 },
+            { destinationKey: 'postventa', destinationLabel: 'Fondo interno de postventa', boxKey: 'postventa', boxName: 'Provisión Postventa / Garantía', percentage: 10 },
+            { destinationKey: 'crecimiento', destinationLabel: 'Crecimiento / reposición adicional', boxKey: 'crecimiento', boxName: 'Crecimiento / Expansión', percentage: 10 },
+            { destinationKey: 'personal', destinationLabel: 'Utilidad del titular', boxKey: 'personal', boxName: 'Caja Personal', percentage: 0 }
+        ]
+    },
+    caja_solida: {
+        key: 'caja_solida',
+        name: 'Caja sólida',
+        description: 'Gastos mensuales / operación (50%), Reserva de liquidez (15%), Fondo interno de postventa (10%), Crecimiento / reposición adicional (20%) y Utilidad del titular (5%).',
+        percentages: {
+            operativa: 50,
+            reserva: 15,
+            postventa: 10,
+            crecimiento: 20,
+            personal: 5
+        },
+        destinations: [
+            { destinationKey: 'operativa', destinationLabel: 'Gastos mensuales / operación', boxKey: 'operativa', boxName: 'Caja Operativa', percentage: 50 },
+            { destinationKey: 'reserva', destinationLabel: 'Reserva de liquidez', boxKey: 'reserva', boxName: 'Reserva de Liquidez', percentage: 15 },
+            { destinationKey: 'postventa', destinationLabel: 'Fondo interno de postventa', boxKey: 'postventa', boxName: 'Provisión Postventa / Garantía', percentage: 10 },
+            { destinationKey: 'crecimiento', destinationLabel: 'Crecimiento / reposición adicional', boxKey: 'crecimiento', boxName: 'Crecimiento / Expansión', percentage: 20 },
+            { destinationKey: 'personal', destinationLabel: 'Utilidad del titular', boxKey: 'personal', boxName: 'Caja Personal', percentage: 5 }
+        ]
+    }
+};
+
+/**
+ * Calcula la propuesta de distribución para "Registrar cobro y distribuir" siguiendo el orden:
+ *   1. Recuperar capital (costo de adquisición y gastos directos ya pagados, descontando lo recuperado antes -> Stock).
+ *   2. Separar obligaciones e impuestos (únicamente los que correspondan y estén registrados -> Operativa / Impuestos).
+ *   3. Distribuir el margen disponible positivo según el esquema elegido (Caja ajustada / Estabilización / Caja sólida),
+ *      conservando el total exacto tras redondeos.
+ */
+export function computeSchemeDistributionForCollection({
+    amount,
+    currency = 'ARS',
+    ownership = null,
+    operationState = null,
+    schemeKey = null,
+    enrichedBoxes = [],
+    config = {},
+    registeredTaxAmount = 0,
+    forcePendingDistribution = false
+}) {
+    const curr = currency === 'USD' ? 'USD' : 'ARS';
+    const totalCollected = roundMoney(Number(amount || 0));
+    const thirdPartyAmount = roundMoney(Number(ownership?.tercerosAmount || 0));
+    const ownGrossAmount = roundMoney(Math.max(0, totalCollected - thirdPartyAmount));
+
+    let thirdPartyCapitalReturn = 0;
+    let thirdPartyProfitShare = 0;
+    if (thirdPartyAmount > 0) {
+        if (operationState && operationState.calculable && operationState.partnerPct > 0) {
+            thirdPartyCapitalReturn = roundMoney(Math.min(thirdPartyAmount, operationState.remainingThirdPartyCapitalToReturn || 0));
+            thirdPartyProfitShare = roundMoney(Math.max(0, thirdPartyAmount - thirdPartyCapitalReturn));
+        } else {
+            thirdPartyCapitalReturn = thirdPartyAmount;
+        }
+    }
+
+    const candidateSchemeKey = schemeKey || config?.activeDistributionScheme || null;
+    const scheme = candidateSchemeKey && DISTRIBUTION_SCHEMES[candidateSchemeKey]
+        ? DISTRIBUTION_SCHEMES[candidateSchemeKey]
+        : null;
+
+    const boxMap = new Map((enrichedBoxes || []).map((b) => [b.key, b]));
+    const getBoxName = (key) => boxMap.get(key)?.name || {
+        stock: 'Reposición de Stock',
+        operativa: 'Caja Operativa',
+        impuestos: 'Impuestos y Tasas',
+        reserva: 'Reserva de Liquidez',
+        postventa: 'Provisión Postventa / Garantía',
+        crecimiento: 'Crecimiento / Expansión',
+        personal: 'Caja Personal',
+        deudas: 'Deudas y Compromisos'
+    }[key] || `Caja ${key}`;
+
+    const baseDestinations = (scheme?.destinations || DISTRIBUTION_SCHEMES.estabilizacion.destinations).map((d) => ({
+        destinationKey: d.destinationKey,
+        destinationLabel: d.destinationLabel,
+        boxKey: d.boxKey,
+        boxName: getBoxName(d.boxKey),
+        percentage: scheme ? d.percentage : 0,
+        amount: 0
+    }));
+
+    // Validar si falta información indispensable para calcular el reparto
+    if (!operationState || !operationState.calculable || operationState.saleCurrency !== curr) {
+        let missingMsg = 'Falta información indispensable para calcular el reparto.';
+        if (!operationState) {
+            missingMsg = 'Falta vincular la venta para determinar el costo de adquisición y el capital pendiente de recuperar.';
+        } else if (!operationState.calculable) {
+            missingMsg = (operationState.missingReasons || []).join(' ') || 'Falta el costo de adquisición del vehículo para separar recuperación de capital y margen.';
+        } else if (operationState.saleCurrency !== curr) {
+            missingMsg = `El cobro está en ${curr} pero la venta está pactada en ${operationState.saleCurrency}. No se aplican conversiones silenciosas.`;
+        }
+
+        return {
+            calculable: false,
+            isPendingDistribution: true,
+            requiresSchemeSelection: false,
+            currency: curr,
+            totalCollected,
+            ownGrossAmount,
+            thirdPartyAmount,
+            thirdPartyCapitalReturn,
+            thirdPartyProfitShare,
+            capitalRecoveredToStock: 0,
+            operationPendingCostsReserved: 0,
+            taxObligationsSeparated: 0,
+            obligationsSeparated: 0,
+            marginCollected: 0,
+            distributableMargin: 0,
+            marginDistributed: 0,
+            pendingDistributionAmount: ownGrossAmount,
+            unassignedRemainder: ownGrossAmount,
+            pendingReason: missingMsg,
+            unassignedReason: missingMsg,
+            noMarginReason: null,
+            schemeKey: scheme?.key || null,
+            schemeName: scheme?.name || null,
+            schemePercentages: scheme?.percentages || null,
+            destinationBreakdown: baseDestinations,
+            appliedAllocations: []
+        };
+    }
+
+    if (forcePendingDistribution) {
+        const pendingMsg = 'Registrado como pendiente de distribución para repartir más adelante.';
+        return {
+            calculable: true,
+            isPendingDistribution: true,
+            requiresSchemeSelection: false,
+            currency: curr,
+            totalCollected,
+            ownGrossAmount,
+            thirdPartyAmount,
+            thirdPartyCapitalReturn,
+            thirdPartyProfitShare,
+            capitalRecoveredToStock: 0,
+            operationPendingCostsReserved: 0,
+            taxObligationsSeparated: 0,
+            obligationsSeparated: 0,
+            marginCollected: 0,
+            distributableMargin: 0,
+            marginDistributed: 0,
+            pendingDistributionAmount: ownGrossAmount,
+            unassignedRemainder: ownGrossAmount,
+            pendingReason: pendingMsg,
+            unassignedReason: pendingMsg,
+            noMarginReason: null,
+            schemeKey: scheme?.key || null,
+            schemeName: scheme?.name || null,
+            schemePercentages: scheme?.percentages || null,
+            destinationBreakdown: baseDestinations,
+            appliedAllocations: []
+        };
+    }
+
+    const appliedAllocations = [];
+    const addAllocation = (boxKey, allocAmount, step, historyType, reason) => {
+        const cleanAmt = roundMoney(allocAmount);
+        if (cleanAmt <= 0) return;
+        appliedAllocations.push({
+            boxKey,
+            boxName: getBoxName(boxKey),
+            amount: cleanAmt,
+            step,
+            historyType,
+            reason
+        });
+    };
+
+    let remOwn = ownGrossAmount;
+
+    // 1. RECUPERAR CAPITAL: costo de adquisición y gastos directos ya pagados, descontando lo recuperado anteriormente
+    let capitalRecoveredToStock = 0;
+    const remCap = Math.max(0, roundMoney(Number(operationState.remainingCapitalToRecover || 0)));
+    if (remCap > 0 && remOwn > 0) {
+        capitalRecoveredToStock = roundMoney(Math.min(remOwn, remCap));
+        remOwn = roundMoney(remOwn - capitalRecoveredToStock);
+    }
+
+    // 2. SEPARAR OBLIGACIONES E IMPUESTOS: únicamente los que correspondan y estén registrados
+    let operationPendingCostsReserved = 0;
+    const remObligations = Math.max(0, roundMoney(Number(operationState.remainingPendingCostsToReserve || 0)));
+    if (remObligations > 0 && remOwn > 0) {
+        operationPendingCostsReserved = roundMoney(Math.min(remOwn, remObligations));
+        remOwn = roundMoney(remOwn - operationPendingCostsReserved);
+    }
+
+    let taxObligationsSeparated = 0;
+    const cleanRegisteredTax = Math.max(0, roundMoney(Number(registeredTaxAmount || 0)));
+    if (cleanRegisteredTax > 0 && remOwn > 0) {
+        taxObligationsSeparated = roundMoney(Math.min(remOwn, cleanRegisteredTax));
+        remOwn = roundMoney(remOwn - taxObligationsSeparated);
+    }
+
+    const obligationsSeparated = roundMoney(operationPendingCostsReserved + taxObligationsSeparated);
+
+    // 3. DISTRIBUIR EL MARGEN DISPONIBLE: solo el margen distribuible en caja positivo, respaldado por dinero efectivamente cobrado
+    let noMarginReason = null;
+    if (operationState.reportedNetProfit !== null && Number(operationState.reportedNetProfit) <= 0) {
+        if (remOwn > 0) {
+            capitalRecoveredToStock = roundMoney(capitalRecoveredToStock + remOwn);
+            remOwn = 0;
+        }
+        noMarginReason = 'La venta no posee margen distribuible positivo (operación sin ganancia neta). Todo el cobro propio se destina a recuperación de capital y obligaciones registradas.';
+    } else if (Number(operationState.tradeInCapitalInVehicles || 0) > 0 && remOwn > 0) {
+        // En permutas, el vehículo recibido es stock, no efectivo: no liberar margen que todavía dependa de vender el usado
+        const expectedCash = Math.max(0, roundMoney(Number(operationState.expectedCashTotal ?? (operationState.agreedPrice - operationState.tradeInCapitalInVehicles))));
+        const maxCashMargin = Math.max(0, roundMoney(expectedCash - Number(operationState.ownCashInvestmentToRecover || 0) - Number(operationState.pendingOperationCostsTotal || 0)));
+        const remCashMarginAllowed = Math.max(0, roundMoney(maxCashMargin - Number(operationState.alreadyDistributedMargin || 0)));
+        if (remOwn > remCashMarginAllowed) {
+            const excessToCap = roundMoney(remOwn - remCashMarginAllowed);
+            capitalRecoveredToStock = roundMoney(capitalRecoveredToStock + excessToCap);
+            remOwn = remCashMarginAllowed;
+            if (remOwn <= 0) {
+                noMarginReason = 'El margen restante de la operación está representado en el vehículo tomado en permuta (stock, no efectivo) y solo se liberará cuando se venda.';
+            }
+        }
+    }
+
+    const distributableMargin = roundMoney(Math.max(0, remOwn));
+
+    if (capitalRecoveredToStock > 0) {
+        addAllocation(
+            'stock',
+            capitalRecoveredToStock,
+            'paso_1_recuperar_capital',
+            'recuperacion_capital',
+            'Paso 1: Recuperación de capital invertido (costo de adquisición y gastos directos pagados)'
+        );
+    }
+
+    if (operationPendingCostsReserved > 0) {
+        addAllocation(
+            'operativa',
+            operationPendingCostsReserved,
+            'paso_2_obligaciones_registradas',
+            'reserva_costos_operacion',
+            'Paso 2: Separación de obligaciones registradas de la operación (gastos/comisiones pendientes)'
+        );
+    }
+
+    if (taxObligationsSeparated > 0) {
+        addAllocation(
+            'impuestos',
+            taxObligationsSeparated,
+            'paso_2_impuestos_registrados',
+            'distribucion_cobro',
+            'Paso 2: Separación de impuestos registrados en la operación'
+        );
+    }
+
+    if (distributableMargin <= 0) {
+        if (!noMarginReason) {
+            const stillToRecover = Math.max(0, roundMoney(remCap - capitalRecoveredToStock));
+            if (stillToRecover > 0) {
+                noMarginReason = `El importe cobrado se destina íntegramente a recuperar el capital invertido. Todavía restan recuperar ${curr} ${stillToRecover.toLocaleString('es-AR')} de capital antes de liberar margen distribuible.`;
+            } else {
+                noMarginReason = 'Este cobro cubre exactamente la recuperación de capital y obligaciones pendientes, sin excedente de margen para repartir en este movimiento.';
+            }
+        }
+
+        return {
+            calculable: true,
+            isPendingDistribution: false,
+            requiresSchemeSelection: false,
+            currency: curr,
+            totalCollected,
+            ownGrossAmount,
+            thirdPartyAmount,
+            thirdPartyCapitalReturn,
+            thirdPartyProfitShare,
+            capitalRecoveredToStock,
+            operationPendingCostsReserved,
+            taxObligationsSeparated,
+            obligationsSeparated,
+            marginCollected: 0,
+            distributableMargin: 0,
+            marginDistributed: 0,
+            pendingDistributionAmount: 0,
+            unassignedRemainder: 0,
+            pendingReason: null,
+            unassignedReason: null,
+            noMarginReason,
+            schemeKey: scheme?.key || null,
+            schemeName: scheme?.name || null,
+            schemePercentages: scheme?.percentages || null,
+            destinationBreakdown: baseDestinations,
+            appliedAllocations
+        };
+    }
+
+    // Hay margen distribuible positivo (> 0). Verificar esquema seleccionado
+    if (!scheme) {
+        const msgScheme = 'Seleccioná un esquema de reparto (Caja ajustada, Estabilización o Caja sólida) para distribuir el margen disponible.';
+        return {
+            calculable: true,
+            isPendingDistribution: true,
+            requiresSchemeSelection: true,
+            currency: curr,
+            totalCollected,
+            ownGrossAmount,
+            thirdPartyAmount,
+            thirdPartyCapitalReturn,
+            thirdPartyProfitShare,
+            capitalRecoveredToStock,
+            operationPendingCostsReserved,
+            taxObligationsSeparated,
+            obligationsSeparated,
+            marginCollected: distributableMargin,
+            distributableMargin,
+            marginDistributed: 0,
+            pendingDistributionAmount: ownGrossAmount,
+            unassignedRemainder: ownGrossAmount,
+            pendingReason: msgScheme,
+            unassignedReason: msgScheme,
+            noMarginReason: null,
+            schemeKey: null,
+            schemeName: null,
+            schemePercentages: null,
+            destinationBreakdown: baseDestinations,
+            appliedAllocations: []
+        };
+    }
+
+    // Calcular montos exactos según el esquema elegido, asegurando que los redondeos conserven el total exacto
+    const destinationBreakdown = scheme.destinations.map((dest) => ({
+        destinationKey: dest.destinationKey,
+        destinationLabel: dest.destinationLabel,
+        boxKey: dest.boxKey,
+        boxName: getBoxName(dest.boxKey),
+        percentage: dest.percentage,
+        amount: dest.percentage > 0 ? roundMoney(distributableMargin * (dest.percentage / 100)) : 0
+    }));
+
+    const sumDest = roundMoney(destinationBreakdown.reduce((acc, d) => acc + d.amount, 0));
+    const roundingDiff = roundMoney(distributableMargin - sumDest);
+    if (roundingDiff !== 0) {
+        for (let i = destinationBreakdown.length - 1; i >= 0; i--) {
+            if (destinationBreakdown[i].percentage > 0) {
+                destinationBreakdown[i].amount = roundMoney(Math.max(0, destinationBreakdown[i].amount + roundingDiff));
+                break;
+            }
+        }
+    }
+
+    for (const dest of destinationBreakdown) {
+        if (dest.amount > 0) {
+            addAllocation(
+                dest.boxKey,
+                dest.amount,
+                'paso_3_margen_esquema',
+                'distribucion_cobro',
+                `Paso 3 (${scheme.name} · ${dest.percentage}%): ${dest.destinationLabel}`
+            );
+        }
+    }
+
+    return {
+        calculable: true,
+        isPendingDistribution: false,
+        requiresSchemeSelection: false,
+        currency: curr,
+        totalCollected,
+        ownGrossAmount,
+        thirdPartyAmount,
+        thirdPartyCapitalReturn,
+        thirdPartyProfitShare,
+        capitalRecoveredToStock,
+        operationPendingCostsReserved,
+        taxObligationsSeparated,
+        obligationsSeparated,
+        marginCollected: distributableMargin,
+        distributableMargin,
+        marginDistributed: distributableMargin,
+        pendingDistributionAmount: 0,
+        unassignedRemainder: 0,
+        pendingReason: null,
+        unassignedReason: null,
+        noMarginReason: null,
+        schemeKey: scheme.key,
+        schemeName: scheme.name,
+        schemePercentages: scheme.percentages,
+        destinationBreakdown,
         appliedAllocations
     };
 }
