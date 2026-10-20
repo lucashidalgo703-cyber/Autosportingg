@@ -50,6 +50,7 @@ import TreasuryDistributeIncomeModal from '../../../components/crm/treasury/Trea
 import TreasuryBoxDetailModal from '../../../components/crm/treasury/TreasuryBoxDetailModal';
 import TreasuryCategoryRulesTab from '../../../components/crm/treasury/TreasuryCategoryRulesTab';
 import TreasuryPlanningTab from '../../../components/crm/treasury/TreasuryPlanningTab';
+import TreasuryAuditLogTab from '../../../components/crm/treasury/TreasuryAuditLogTab';
 
 function formatNumber(val) {
     return new Intl.NumberFormat('es-AR').format(val || 0);
@@ -1397,21 +1398,21 @@ export default function TesoreriaEstrategicaPage() {
                                             onClick={() => setDetailBox(box)}
                                             className="inline-flex items-center gap-1 rounded-lg border border-crm-border bg-crm-bg px-2 py-1 text-[11px] font-bold text-crm-fg hover:text-white transition-colors"
                                         >
-                                            <Eye size={12} /> Detalle
+                                            <Eye size={12} /> Detalle / Historial
                                         </button>
                                         <button
                                             type="button"
                                             onClick={() => setEditingBox(box)}
                                             className="inline-flex items-center gap-1 rounded-lg border border-purple-500/30 bg-purple-500/10 px-2 py-1 text-[11px] font-bold text-purple-300 hover:bg-purple-500/20 hover:text-white transition-colors"
                                         >
-                                            <Edit3 size={12} /> Editar
+                                            <Edit3 size={12} /> Editar Caja
                                         </button>
                                         <button
                                             type="button"
                                             onClick={() => { setTransferInitialFromBoxKey(box.key); setIsTransferOpen(true); }}
-                                            className="text-[11px] font-bold text-purple-300/80 hover:text-white transition-colors"
+                                            className="inline-flex items-center gap-1 text-[11px] font-bold text-purple-300/80 hover:text-white transition-colors"
                                         >
-                                            Traspasar →
+                                            <ArrowRightLeft size={11} /> Traspaso →
                                         </button>
                                     </div>
                                 </div>
@@ -1848,7 +1849,8 @@ export default function TesoreriaEstrategicaPage() {
 
             {/* PESTAÑA 7: AUDITORÍA Y CONCILIACIONES */}
             {activeTab === 'auditoria' && (
-                <div className="space-y-6">
+                <div className="space-y-8">
+                    <TreasuryAuditLogTab treasuryToken={treasuryToken} />
                     <div>
                         <h2 className="text-base font-black text-white">Historial de Conciliaciones y Ajustes</h2>
                         <p className="text-xs text-crm-fg-muted">
@@ -1949,8 +1951,10 @@ export default function TesoreriaEstrategicaPage() {
                 isOpen={Boolean(detailBox)}
                 onClose={() => setDetailBox(null)}
                 box={detailBox}
+                treasuryToken={treasuryToken}
                 onEditBox={(b) => setEditingBox(b)}
                 onTransferBox={(b) => { setTransferInitialFromBoxKey(b.key); setIsTransferOpen(true); }}
+                onRefresh={loadDashboardData}
             />
 
             <TreasuryInstallmentRegularizeModal

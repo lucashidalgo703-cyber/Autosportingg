@@ -10229,6 +10229,60 @@ app.post('/api/admin/tesoreria-estrategica/boxes/distribute', authenticateToken,
     }
 });
 
+// 9b. Consultar Historial de Movimientos de Tesorería Estratégica (Paginado y Filtrable)
+app.get('/api/admin/tesoreria-estrategica/history', authenticateToken, requireTreasuryPrivilegedRole, verifyTreasuryStrategicAuth, async (req, res) => {
+    try {
+        const result = await treasuryStrategicService.getTreasuryHistory(req.query, req.user);
+        res.json(result);
+    } catch (error) {
+        console.error('GET /api/admin/tesoreria-estrategica/history error:', error);
+        res.status(500).json({ ok: false, message: error.message });
+    }
+});
+
+// 9c. Modificar Configuración de Caja (Nombre, Metas, Presupuestos, Estado) con Motivo Obligatorio
+app.post('/api/admin/tesoreria-estrategica/boxes/config', authenticateToken, requireTreasuryPrivilegedRole, verifyTreasuryStrategicAuth, async (req, res) => {
+    try {
+        const result = await treasuryStrategicService.updateBoxConfig(req.body, req.user);
+        res.json(result);
+    } catch (error) {
+        console.error('POST /api/admin/tesoreria-estrategica/boxes/config error:', error);
+        res.status(400).json({ ok: false, message: error.message });
+    }
+});
+
+// 9d. Ajustar Saldo Asignado de Caja (Con Vista Previa, Motivo Obligatorio y Sin Saldos Negativos)
+app.post('/api/admin/tesoreria-estrategica/boxes/adjust', authenticateToken, requireTreasuryPrivilegedRole, verifyTreasuryStrategicAuth, async (req, res) => {
+    try {
+        const result = await treasuryStrategicService.adjustBoxBalance(req.body, req.user);
+        res.json(result);
+    } catch (error) {
+        console.error('POST /api/admin/tesoreria-estrategica/boxes/adjust error:', error);
+        res.status(400).json({ ok: false, message: error.message });
+    }
+});
+
+app.post('/api/admin/tesoreria-estrategica/boxes/adjust/preview', authenticateToken, requireTreasuryPrivilegedRole, verifyTreasuryStrategicAuth, async (req, res) => {
+    try {
+        const result = await treasuryStrategicService.adjustBoxBalance({ ...req.body, previewOnly: true }, req.user);
+        res.json(result);
+    } catch (error) {
+        console.error('POST /api/admin/tesoreria-estrategica/boxes/adjust/preview error:', error);
+        res.status(400).json({ ok: false, message: error.message });
+    }
+});
+
+// 9e. Revertir Ajuste o Transferencia Manual de Tesorería (Con Motivo y Auditoría Permanente)
+app.post('/api/admin/tesoreria-estrategica/adjustments/revert', authenticateToken, requireTreasuryPrivilegedRole, verifyTreasuryStrategicAuth, async (req, res) => {
+    try {
+        const result = await treasuryStrategicService.revertAdjustment(req.body, req.user);
+        res.json(result);
+    } catch (error) {
+        console.error('POST /api/admin/tesoreria-estrategica/adjustments/revert error:', error);
+        res.status(400).json({ ok: false, message: error.message });
+    }
+});
+
 // 10. Regularización de cuotas históricas sin duplicar caja
 app.post('/api/admin/tesoreria-estrategica/installments/regularize', authenticateToken, requireTreasuryPrivilegedRole, verifyTreasuryStrategicAuth, async (req, res) => {
     try {

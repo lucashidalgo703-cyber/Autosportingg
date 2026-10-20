@@ -7,6 +7,7 @@ import TreasuryReconciliation from '../models/TreasuryReconciliation.js';
 import TreasuryCategoryRule from '../models/TreasuryCategoryRule.js';
 import TreasuryConfig from '../models/TreasuryConfig.js';
 import TreasuryBatchLog from '../models/TreasuryBatchLog.js';
+import TreasuryAuditLog from '../models/TreasuryAuditLog.js';
 import Account from '../models/Account.js';
 import Transaction from '../models/Transaction.js';
 import Installment from '../models/Installment.js';
@@ -30,6 +31,10 @@ export { DISTRIBUTION_SCHEMES };
 const JWT_SECRET = process.env.JWT_SECRET?.trim() || 'autosporting_secret_jwt_key_crm_2026';
 const LOCK_TIME_MS = 15 * 60 * 1000;
 const MAX_FAILED_ATTEMPTS = 5;
+
+function escapeRegex(string) {
+    return string ? string.replace(/[.*+?^${}()|[\]\\]/g, '\\// Hashing seguro con scrypt nativo') : '';
+}
 
 // Hashing seguro con scrypt nativo
 function hashValue(val) {
@@ -2333,10 +2338,12 @@ export async function collectAndDistribute(payload, user) {
             if (amt <= 0) continue;
             const box = await TreasuryBox.findOne({ key: alloc.boxKey });
             if (box) {
+                const prevBal = cleanCurrency === 'USD' ? (box.balanceUSD || 0) : (box.balanceARS || 0);
+                const nextBal = roundMoney(prevBal + amt);
                 if (cleanCurrency === 'USD') {
-                    box.balanceUSD = roundMoney((box.balanceUSD || 0) + amt);
+                    box.balanceUSD = nextBal;
                 } else {
-                    box.balanceARS = roundMoney((box.balanceARS || 0) + amt);
+                    box.balanceARS = nextBal;
                 }
                 box.history.push({
                     date: new Date(),
@@ -2349,7 +2356,26 @@ export async function collectAndDistribute(payload, user) {
                     sourceIncomeId: tx._id,
                     saleId: saleDoc._id
                 });
-                await box.save();
+
+                const auditEntry = new TreasuryAuditLog({
+                    operationId: 'col_' + tx._id,
+                    actionType: alloc.historyType === 'recuperacion_capital' ? 'recuperacion_capital' : 'distribucion_cobro',
+                    boxKey: box.key,
+                    boxName: box.name,
+                    currency: cleanCurrency,
+                    amount: amt,
+                    balanceBefore: prevBal,
+                    balanceAfter: nextBal,
+                    reason: alloc.reason || `Cobro #${tx._id} (${conceptLabel})`,
+                    user: userName,
+                    userRole: user?.role || 'Admin',
+                    saleId: saleDoc._id,
+                    saleIdentifier: saleDoc.vehicleDetails?.plate || saleDoc.client?.name || String(saleDoc._id),
+                    incomeId: tx._id,
+                    date: new Date()
+                });
+
+                await Promise.all([box.save(), auditEntry.save()]);
                 distributedTotal = roundMoney(distributedTotal + amt);
             }
         }
@@ -2541,10 +2567,17 @@ export async function transferBetweenBoxes(payload, user) {
     }
 
     const cleanReason = String(reason).trim();
+    if (fromBefore < numAmount) {
+        throw new Error(`Saldo insuficiente en ${fromBox.name} (${curr} ${fromBefore.toLocaleString('es-AR')}) para transferir ${curr} ${numAmount.toLocaleString('es-AR')}. No se permiten saldos negativos.`);
+    }
+
     fromBox[field] = fromAfter;
     toBox[field] = toAfter;
 
     const userName = user?.name || user?.email || 'Admin';
+    const userRole = user?.role || 'Admin';
+    const opId = 'tx_' + Date.now() + '_' + Math.random().toString(36).slice(2, 7);
+
     fromBox.history.push({
         date: new Date(),
         type: 'transferencia_entre_cajas',
@@ -2566,7 +2599,41 @@ export async function transferBetweenBoxes(payload, user) {
         user: userName
     });
 
-    await Promise.all([fromBox.save(), toBox.save()]);
+    const auditFrom = new TreasuryAuditLog({
+        operationId: opId,
+        actionType: 'transferencia_entre_cajas',
+        boxKey: fromBox.key,
+        boxName: fromBox.name,
+        targetBoxKey: toBox.key,
+        targetBoxName: toBox.name,
+        currency: curr,
+        amount: -numAmount,
+        balanceBefore: fromBefore,
+        balanceAfter: fromAfter,
+        reason: cleanReason,
+        user: userName,
+        userRole,
+        date: new Date()
+    });
+
+    const auditTo = new TreasuryAuditLog({
+        operationId: opId,
+        actionType: 'transferencia_entre_cajas',
+        boxKey: toBox.key,
+        boxName: toBox.name,
+        targetBoxKey: fromBox.key,
+        targetBoxName: fromBox.name,
+        currency: curr,
+        amount: numAmount,
+        balanceBefore: toBefore,
+        balanceAfter: toAfter,
+        reason: cleanReason,
+        user: userName,
+        userRole,
+        date: new Date()
+    });
+
+    await Promise.all([fromBox.save(), toBox.save(), auditFrom.save(), auditTo.save()]);
 
     return {
         ok: true,
@@ -2620,25 +2687,86 @@ export async function distributeToBoxes(payload, user) {
         });
 
         if (!previewOnly) {
+            const auditLogs = [];
+            const opId = 'dist_' + Date.now() + '_' + Math.random().toString(36).slice(2, 7);
+            const userRole = user?.role || 'Admin';
+
             if (valARS !== undefined) {
                 box.balanceARS = nextARS;
                 if (Math.abs(diffARS) > 0) {
                     box.history.push({ date: new Date(), type: 'ajuste', amount: diffARS, currency: 'ARS', reason: cleanReason, user: userName });
+                    auditLogs.push(new TreasuryAuditLog({
+                        operationId: opId,
+                        actionType: 'ajuste_saldo',
+                        boxKey: box.key,
+                        boxName: box.name,
+                        currency: 'ARS',
+                        amount: diffARS,
+                        balanceBefore: prevARS,
+                        balanceAfter: nextARS,
+                        reason: cleanReason,
+                        user: userName,
+                        userRole,
+                        date: new Date()
+                    }));
                 }
             }
             if (valUSD !== undefined) {
                 box.balanceUSD = nextUSD;
                 if (Math.abs(diffUSD) > 0) {
                     box.history.push({ date: new Date(), type: 'ajuste', amount: diffUSD, currency: 'USD', reason: cleanReason, user: userName });
+                    auditLogs.push(new TreasuryAuditLog({
+                        operationId: opId,
+                        actionType: 'ajuste_saldo',
+                        boxKey: box.key,
+                        boxName: box.name,
+                        currency: 'USD',
+                        amount: diffUSD,
+                        balanceBefore: prevUSD,
+                        balanceAfter: nextUSD,
+                        reason: cleanReason,
+                        user: userName,
+                        userRole,
+                        date: new Date()
+                    }));
                 }
             }
-            if (dist.targetPercent !== undefined) box.targetPercent = Number(dist.targetPercent);
-            if (dist.monthlyBudgetARS !== undefined) box.monthlyBudgetARS = Number(dist.monthlyBudgetARS);
-            if (dist.monthlyBudgetUSD !== undefined) box.monthlyBudgetUSD = Number(dist.monthlyBudgetUSD);
+            const configMods = [];
+            if (dist.targetPercent !== undefined && Number(dist.targetPercent) !== box.targetPercent) {
+                configMods.push({ fieldName: 'targetPercent', fieldLabel: 'Meta %', previousValue: box.targetPercent, newValue: Number(dist.targetPercent) });
+                box.targetPercent = Number(dist.targetPercent);
+            }
+            if (dist.monthlyBudgetARS !== undefined && Number(dist.monthlyBudgetARS) !== box.monthlyBudgetARS) {
+                configMods.push({ fieldName: 'monthlyBudgetARS', fieldLabel: 'Presupuesto mensual ARS', previousValue: box.monthlyBudgetARS, newValue: Number(dist.monthlyBudgetARS) });
+                box.monthlyBudgetARS = Number(dist.monthlyBudgetARS);
+            }
+            if (dist.monthlyBudgetUSD !== undefined && Number(dist.monthlyBudgetUSD) !== box.monthlyBudgetUSD) {
+                configMods.push({ fieldName: 'monthlyBudgetUSD', fieldLabel: 'Presupuesto mensual USD', previousValue: box.monthlyBudgetUSD, newValue: Number(dist.monthlyBudgetUSD) });
+                box.monthlyBudgetUSD = Number(dist.monthlyBudgetUSD);
+            }
             if (dist.monthlyTargetARS !== undefined) box.monthlyTargetARS = Number(dist.monthlyTargetARS);
             if (dist.monthlyTargetUSD !== undefined) box.monthlyTargetUSD = Number(dist.monthlyTargetUSD);
-            if (dist.reserveMonths !== undefined) box.reserveMonths = Number(dist.reserveMonths);
+            if (dist.reserveMonths !== undefined && Number(dist.reserveMonths) !== box.reserveMonths) {
+                configMods.push({ fieldName: 'reserveMonths', fieldLabel: 'Meses de reserva', previousValue: box.reserveMonths, newValue: Number(dist.reserveMonths) });
+                box.reserveMonths = Number(dist.reserveMonths);
+            }
+            if (configMods.length > 0 && Math.abs(diffARS) === 0 && Math.abs(diffUSD) === 0) {
+                auditLogs.push(new TreasuryAuditLog({
+                    operationId: opId,
+                    actionType: 'edicion_configuracion',
+                    boxKey: box.key,
+                    boxName: box.name,
+                    fieldsModified: configMods,
+                    reason: cleanReason,
+                    user: userName,
+                    userRole,
+                    date: new Date()
+                }));
+            }
             await box.save();
+            if (auditLogs.length > 0) {
+                await Promise.all(auditLogs.map(l => l.save()));
+            }
         }
     }
 
@@ -4424,5 +4552,461 @@ export async function executeRedistributeExistingFunds(payload = {}, user) {
         appliedTotal,
         appliedItems,
         message: `Redistribución explícita aplicada por ${curr} ${appliedTotal.toLocaleString('es-AR')} conservando el historial y los ajustes manuales.`
+    };
+}
+
+/**
+ * Actualiza la configuración de una caja (nombre, porcentaje meta, presupuestos, meses reserva, estado activo)
+ * con motivo obligatorio y registro en TreasuryAuditLog.
+ */
+export async function updateBoxConfig(payload, user) {
+    const {
+        boxKey,
+        name,
+        targetPercent,
+        monthlyBudgetARS,
+        monthlyBudgetUSD,
+        reserveMonths,
+        description,
+        isActive,
+        reason
+    } = payload || {};
+
+    if (!reason || !String(reason).trim()) {
+        throw new Error('El motivo de la modificación es obligatorio.');
+    }
+    const cleanReason = String(reason).trim();
+    const userName = user?.name || user?.email || 'Admin';
+    const userRole = user?.role || 'Admin';
+
+    const box = await TreasuryBox.findOne({ key: boxKey });
+    if (!box) throw new Error(`Caja ${boxKey} no encontrada.`);
+
+    const fieldsModified = [];
+
+    if (name !== undefined && String(name).trim() !== '' && String(name).trim() !== box.name) {
+        fieldsModified.push({
+            fieldName: 'name',
+            fieldLabel: 'Nombre',
+            previousValue: box.name,
+            newValue: String(name).trim()
+        });
+        box.name = String(name).trim();
+    }
+
+    if (targetPercent !== undefined) {
+        const numPct = Number(targetPercent);
+        if (numPct !== box.targetPercent) {
+            fieldsModified.push({
+                fieldName: 'targetPercent',
+                fieldLabel: 'Porcentaje sugerido',
+                previousValue: box.targetPercent,
+                newValue: numPct
+            });
+            box.targetPercent = numPct;
+        }
+    }
+
+    if (monthlyBudgetARS !== undefined) {
+        const num = Number(monthlyBudgetARS);
+        if (num !== box.monthlyBudgetARS) {
+            fieldsModified.push({
+                fieldName: 'monthlyBudgetARS',
+                fieldLabel: 'Presupuesto mensual ARS',
+                previousValue: box.monthlyBudgetARS,
+                newValue: num
+            });
+            box.monthlyBudgetARS = num;
+        }
+    }
+
+    if (monthlyBudgetUSD !== undefined) {
+        const num = Number(monthlyBudgetUSD);
+        if (num !== box.monthlyBudgetUSD) {
+            fieldsModified.push({
+                fieldName: 'monthlyBudgetUSD',
+                fieldLabel: 'Presupuesto mensual USD',
+                previousValue: box.monthlyBudgetUSD,
+                newValue: num
+            });
+            box.monthlyBudgetUSD = num;
+        }
+    }
+
+    if (reserveMonths !== undefined) {
+        const num = Number(reserveMonths);
+        if (num !== box.reserveMonths) {
+            fieldsModified.push({
+                fieldName: 'reserveMonths',
+                fieldLabel: 'Meses de reserva',
+                previousValue: box.reserveMonths,
+                newValue: num
+            });
+            box.reserveMonths = num;
+        }
+    }
+
+    if (description !== undefined && description !== box.description) {
+        fieldsModified.push({
+            fieldName: 'description',
+            fieldLabel: 'Descripción',
+            previousValue: box.description,
+            newValue: description
+        });
+        box.description = description;
+    }
+
+    if (isActive !== undefined && Boolean(isActive) !== box.isActive) {
+        if (isActive === false && (box.balanceARS > 0 || box.balanceUSD > 0)) {
+            throw new Error(`No podés desactivar la caja ${box.name} mientras tenga saldo pendiente (${box.balanceARS > 0 ? 'ARS ' + box.balanceARS : ''} ${box.balanceUSD > 0 ? 'USD ' + box.balanceUSD : ''}). Transferí o asigná sus fondos antes de desactivarla.`);
+        }
+        fieldsModified.push({
+            fieldName: 'isActive',
+            fieldLabel: 'Estado Activo',
+            previousValue: box.isActive,
+            newValue: Boolean(isActive)
+        });
+        box.isActive = Boolean(isActive);
+    }
+
+    if (fieldsModified.length === 0) {
+        return { ok: true, box, message: 'No se detectaron cambios en la configuración.' };
+    }
+
+    const opId = 'cfg_' + Date.now() + '_' + Math.random().toString(36).slice(2, 7);
+
+    const log = new TreasuryAuditLog({
+        operationId: opId,
+        actionType: 'edicion_configuracion',
+        boxKey: box.key,
+        boxName: box.name,
+        fieldsModified,
+        reason: cleanReason,
+        user: userName,
+        userRole,
+        date: new Date()
+    });
+
+    box.history.push({
+        date: new Date(),
+        type: 'ajuste',
+        reason: `${cleanReason} (Edición de configuración)`,
+        user: userName
+    });
+
+    await Promise.all([box.save(), log.save()]);
+
+    return {
+        ok: true,
+        box,
+        log,
+        message: `Configuración de ${box.name} actualizada con éxito.`
+    };
+}
+
+/**
+ * Ajusta el saldo asignado de una caja con motivo obligatorio y registro en TreasuryAuditLog.
+ * No permite saldos negativos ni aumentos arbitrarios sin justificación.
+ */
+export async function adjustBoxBalance(payload, user) {
+    const {
+        boxKey,
+        currency = 'ARS',
+        newBalance,
+        adjustmentAmount,
+        reason,
+        previewOnly = false
+    } = payload || {};
+
+    if (!reason || !String(reason).trim()) {
+        throw new Error('El motivo del ajuste es obligatorio.');
+    }
+    const cleanReason = String(reason).trim();
+    const curr = currency === 'USD' ? 'USD' : 'ARS';
+    const field = curr === 'USD' ? 'balanceUSD' : 'balanceARS';
+
+    const box = await TreasuryBox.findOne({ key: boxKey });
+    if (!box) throw new Error(`Caja ${boxKey} no encontrada.`);
+
+    const prevBalance = roundMoney(Number(box[field]) || 0);
+    let targetBalance = prevBalance;
+
+    if (newBalance !== undefined && newBalance !== null && newBalance !== '') {
+        targetBalance = roundMoney(Number(newBalance));
+    } else if (adjustmentAmount !== undefined && adjustmentAmount !== null && adjustmentAmount !== '') {
+        targetBalance = roundMoney(prevBalance + Number(adjustmentAmount));
+    } else {
+        throw new Error('Debés indicar el nuevo saldo o el importe a ajustar.');
+    }
+
+    if (targetBalance < 0) {
+        throw new Error(`El saldo de la caja ${box.name} no puede quedar negativo (${curr} ${targetBalance.toLocaleString('es-AR')}).`);
+    }
+
+    const diff = roundMoney(targetBalance - prevBalance);
+    if (diff === 0) {
+        return { ok: true, box, message: 'El saldo ingresado es idéntico al actual; no hay variación.' };
+    }
+
+    const preview = {
+        boxKey: box.key,
+        boxName: box.name,
+        currency: curr,
+        previousBalance: prevBalance,
+        newBalance: targetBalance,
+        diff,
+        reason: cleanReason,
+        affectsBankBalances: false
+    };
+
+    if (previewOnly) {
+        return {
+            ok: true,
+            isPreview: true,
+            preview,
+            message: `Vista previa de ajuste: ${box.name} pasa de ${curr} ${prevBalance.toLocaleString('es-AR')} a ${curr} ${targetBalance.toLocaleString('es-AR')} (variación: ${diff > 0 ? '+' : ''}${diff.toLocaleString('es-AR')}).`
+        };
+    }
+
+    const userName = user?.name || user?.email || 'Admin';
+    const userRole = user?.role || 'Admin';
+    const opId = 'adj_' + Date.now() + '_' + Math.random().toString(36).slice(2, 7);
+
+    box[field] = targetBalance;
+
+    const log = new TreasuryAuditLog({
+        operationId: opId,
+        actionType: 'ajuste_saldo',
+        boxKey: box.key,
+        boxName: box.name,
+        currency: curr,
+        amount: diff,
+        balanceBefore: prevBalance,
+        balanceAfter: targetBalance,
+        fieldsModified: [{
+            fieldName: field,
+            fieldLabel: `Saldo ${curr}`,
+            previousValue: prevBalance,
+            newValue: targetBalance
+        }],
+        reason: cleanReason,
+        user: userName,
+        userRole,
+        date: new Date()
+    });
+
+    box.history.push({
+        date: new Date(),
+        type: 'ajuste',
+        amount: diff,
+        currency: curr,
+        reason: cleanReason,
+        user: userName
+    });
+
+    await Promise.all([box.save(), log.save()]);
+
+    return {
+        ok: true,
+        box,
+        preview,
+        log,
+        message: `Saldo de ${box.name} ajustado con éxito a ${curr} ${targetBalance.toLocaleString('es-AR')}.`
+    };
+}
+
+/**
+ * Revierte un ajuste o transferencia manual registrado en TreasuryAuditLog.
+ * Genera un nuevo registro de reversión vinculado, sin borrar ni sobrescribir el historial original.
+ */
+export async function revertAdjustment(payload, user) {
+    const { logId, reason } = payload || {};
+    if (!reason || !String(reason).trim()) {
+        throw new Error('El motivo de la reversión es obligatorio.');
+    }
+    const cleanReason = String(reason).trim();
+    const userName = user?.name || user?.email || 'Admin';
+    const userRole = user?.role || 'Admin';
+
+    const originalLog = await TreasuryAuditLog.findById(logId);
+    if (!originalLog) throw new Error('Registro de historial no encontrado.');
+    if (originalLog.isReversal) throw new Error('No podés revertir un registro que ya es una reversión.');
+
+    const alreadyReverted = await TreasuryAuditLog.findOne({ revertedLogId: originalLog._id });
+    if (alreadyReverted) throw new Error('Esta operación ya fue revertida previamente.');
+
+    const curr = originalLog.currency || 'ARS';
+    const field = curr === 'USD' ? 'balanceUSD' : 'balanceARS';
+    const opId = 'rev_' + Date.now() + '_' + Math.random().toString(36).slice(2, 7);
+
+    if (originalLog.actionType === 'transferencia_entre_cajas') {
+        const fromBoxKey = originalLog.boxKey;
+        const toBoxKey = originalLog.targetBoxKey;
+        const amount = Math.abs(originalLog.amount);
+
+        const fromBox = await TreasuryBox.findOne({ key: fromBoxKey });
+        const toBox = await TreasuryBox.findOne({ key: toBoxKey });
+
+        if (!fromBox || !toBox) throw new Error('Una de las cajas de la transferencia ya no existe.');
+        if ((toBox[field] || 0) < amount) {
+            throw new Error(`Saldo insuficiente en ${toBox.name} para revertir la transferencia (requiere ${curr} ${amount.toLocaleString('es-AR')}, saldo actual: ${curr} ${(toBox[field] || 0).toLocaleString('es-AR')}).`);
+        }
+
+        const toBefore = roundMoney(toBox[field]);
+        const fromBefore = roundMoney(fromBox[field]);
+
+        toBox[field] = roundMoney(toBefore - amount);
+        fromBox[field] = roundMoney(fromBefore + amount);
+
+        const revLogFrom = new TreasuryAuditLog({
+            operationId: opId,
+            actionType: 'reversion_ajuste',
+            boxKey: fromBox.key,
+            boxName: fromBox.name,
+            targetBoxKey: toBox.key,
+            targetBoxName: toBox.name,
+            currency: curr,
+            amount,
+            balanceBefore: fromBefore,
+            balanceAfter: fromBox[field],
+            reason: cleanReason,
+            revertedLogId: originalLog._id,
+            isReversal: true,
+            user: userName,
+            userRole,
+            date: new Date()
+        });
+
+        const revLogTo = new TreasuryAuditLog({
+            operationId: opId,
+            actionType: 'reversion_ajuste',
+            boxKey: toBox.key,
+            boxName: toBox.name,
+            targetBoxKey: fromBox.key,
+            targetBoxName: fromBox.name,
+            currency: curr,
+            amount: -amount,
+            balanceBefore: toBefore,
+            balanceAfter: toBox[field],
+            reason: cleanReason,
+            revertedLogId: originalLog._id,
+            isReversal: true,
+            user: userName,
+            userRole,
+            date: new Date()
+        });
+
+        fromBox.history.push({ date: new Date(), type: 'reversion_cobro', amount, currency: curr, reason: cleanReason, user: userName });
+        toBox.history.push({ date: new Date(), type: 'reversion_cobro', amount: -amount, currency: curr, reason: cleanReason, user: userName });
+
+        await Promise.all([fromBox.save(), toBox.save(), revLogFrom.save(), revLogTo.save()]);
+
+        return {
+            ok: true,
+            message: `Transferencia revertida exitosamente. Se restituyeron ${curr} ${amount.toLocaleString('es-AR')} a ${fromBox.name}.`
+        };
+    } else if (originalLog.actionType === 'ajuste_saldo') {
+        const box = await TreasuryBox.findOne({ key: originalLog.boxKey });
+        if (!box) throw new Error(`Caja ${originalLog.boxKey} no encontrada.`);
+
+        const prevBalance = roundMoney(box[field] || 0);
+        const amountToUndo = originalLog.amount;
+        const resultingBalance = roundMoney(prevBalance - amountToUndo);
+
+        if (resultingBalance < 0) {
+            throw new Error(`No se puede revertir el ajuste porque la caja quedaría con saldo negativo (${curr} ${resultingBalance.toLocaleString('es-AR')}).`);
+        }
+
+        box[field] = resultingBalance;
+
+        const revLog = new TreasuryAuditLog({
+            operationId: opId,
+            actionType: 'reversion_ajuste',
+            boxKey: box.key,
+            boxName: box.name,
+            currency: curr,
+            amount: -amountToUndo,
+            balanceBefore: prevBalance,
+            balanceAfter: resultingBalance,
+            reason: cleanReason,
+            revertedLogId: originalLog._id,
+            isReversal: true,
+            user: userName,
+            userRole,
+            date: new Date()
+        });
+
+        box.history.push({
+            date: new Date(),
+            type: 'ajuste',
+            amount: -amountToUndo,
+            currency: curr,
+            reason: `Reversión: ${cleanReason}`,
+            user: userName
+        });
+
+        await Promise.all([box.save(), revLog.save()]);
+
+        return {
+            ok: true,
+            message: `Ajuste revertido exitosamente en ${box.name}. Saldo restituido a ${curr} ${resultingBalance.toLocaleString('es-AR')}.`
+        };
+    } else {
+        throw new Error(`La acción de tipo ${originalLog.actionType} debe revertirse mediante su flujo específico.`);
+    }
+}
+
+/**
+ * Consulta el historial de movimientos de tesorería con filtros y paginación.
+ */
+export async function getTreasuryHistory(query = {}) {
+    const {
+        boxKey,
+        actionType,
+        user,
+        startDate,
+        endDate,
+        page = 1,
+        limit = 20
+    } = query;
+
+    const filter = {};
+    if (boxKey && boxKey !== 'todas') {
+        filter.$or = [{ boxKey }, { targetBoxKey: boxKey }];
+    }
+    if (actionType && actionType !== 'todos') {
+        filter.actionType = actionType;
+    }
+    if (user && user.trim()) {
+        filter.user = { $regex: escapeRegex(user.trim()), $options: 'i' };
+    }
+    if (startDate || endDate) {
+        filter.date = {};
+        if (startDate) filter.date.$gte = new Date(startDate);
+        if (endDate) {
+            const end = new Date(endDate);
+            end.setHours(23, 59, 59, 999);
+            filter.date.$lte = end;
+        }
+    }
+
+    const parsedPage = Math.max(1, parseInt(page) || 1);
+    const parsedLimit = Math.max(1, Math.min(100, parseInt(limit) || 20));
+    const skip = (parsedPage - 1) * parsedLimit;
+
+    const total = await TreasuryAuditLog.countDocuments(filter);
+    const items = await TreasuryAuditLog.find(filter)
+        .sort({ date: -1, createdAt: -1 })
+        .skip(skip)
+        .limit(parsedLimit)
+        .lean();
+
+    return {
+        ok: true,
+        items,
+        total,
+        page: parsedPage,
+        pages: Math.ceil(total / parsedLimit),
+        limit: parsedLimit
     };
 }
