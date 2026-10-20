@@ -178,6 +178,7 @@ export default function TesoreriaEstrategicaPage() {
     const [distributingIncome, setDistributingIncome] = useState(null);
 
     // Configuración editable de Extra de Reinversión (%) y vistas previas de conciliación / redistribución
+    const [activeDistributionScheme, setActiveDistributionScheme] = useState(null);
     const [extraReinvConfigured, setExtraReinvConfigured] = useState(false);
     const [extraReinvPctInput, setExtraReinvPctInput] = useState('');
     const [savingExtraConfig, setSavingExtraConfig] = useState(false);
@@ -254,6 +255,7 @@ export default function TesoreriaEstrategicaPage() {
             if (json.ok) {
                 setDashboardData(json.data);
                 const cfg = json.data?.config || {};
+                setActiveDistributionScheme(cfg.activeDistributionScheme || null);
                 setExtraReinvConfigured(Boolean(cfg.reinvestmentExtraConfigured));
                 setExtraReinvPctInput(
                     cfg.reinvestmentExtraPct !== null && cfg.reinvestmentExtraPct !== undefined
@@ -342,6 +344,33 @@ export default function TesoreriaEstrategicaPage() {
             toast.error('Error de red al confirmar corte inicial.');
         } finally {
             setIsConfirmingCutoff(false);
+        }
+    };
+
+    const handleUpdateActiveScheme = async (schemeKey) => {
+        if (!token || !treasuryToken) return;
+        try {
+            setActiveDistributionScheme(schemeKey);
+            const res = await fetch('/api/admin/tesoreria-estrategica/config', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': 'Bearer ' + token,
+                    'x-treasury-token': treasuryToken
+                },
+                body: JSON.stringify({ activeDistributionScheme: schemeKey })
+            });
+            const data = await res.json().catch(() => ({}));
+            if (res.ok && data.ok) {
+                toast.success(schemeKey ? 'Esquema activo actualizado a ' + schemeKey.replace('_', ' ') : 'Esquema predeterminado quitado');
+                loadDashboardData();
+            } else {
+                toast.error(data.message || 'Error al actualizar esquema.');
+                loadDashboardData();
+            }
+        } catch {
+            toast.error('Error de red al actualizar esquema.');
+            loadDashboardData();
         }
     };
 
