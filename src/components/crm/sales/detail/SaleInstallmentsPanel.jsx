@@ -6,6 +6,7 @@ import GenerateInstallmentsModal from '../../installments/GenerateInstallmentsMo
 import InstallmentStatusBadge from '../../installments/InstallmentStatusBadge';
 import TransactionModal from '../../finance/TransactionModal';
 import ConfirmModal from '../../ui/ConfirmModal';
+import TreasuryCollectAndDistributeModal from '../../treasury/TreasuryCollectAndDistributeModal';
 import { useAdminInstallments } from '../../../../hooks/useAdminInstallments';
 import { useAdminTransactions } from '../../../../hooks/useAdminTransactions';
 
@@ -16,6 +17,14 @@ export default function SaleInstallmentsPanel({ sale, saleFinanceData }) {
     
     // Modal state
     const [isSingleModalOpen, setIsSingleModalOpen] = useState(false);
+    const [treasuryModalData, setTreasuryModalData] = useState({ isOpen: false, instId: null });
+    const [accounts, setAccounts] = useState([]);
+    const [treasuryToken, setTreasuryToken] = useState(() => {
+        if (typeof window !== 'undefined') {
+            return sessionStorage.getItem('as_treasury_token') || null;
+        }
+        return null;
+    });
     const [isGenerateModalOpen, setIsGenerateModalOpen] = useState(false);
     const [isTransactionModalOpen, setIsTransactionModalOpen] = useState(false);
     const [selectedInst, setSelectedInst] = useState(null);
@@ -28,6 +37,18 @@ export default function SaleInstallmentsPanel({ sale, saleFinanceData }) {
     const loadData = async () => {
         const data = await fetchInstallments({ saleId: sale._id });
         setInstallments(data || []);
+        try {
+            const token = localStorage.getItem('token');
+            const accRes = await fetch('/api/admin/accounts', {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            if (accRes.ok) {
+                const accData = await accRes.json();
+                setAccounts(Array.isArray(accData) ? accData : (accData.accounts || []));
+            }
+        } catch {
+            // Silencioso
+        }
     };
 
     useEffect(() => {
@@ -377,12 +398,22 @@ export default function SaleInstallmentsPanel({ sale, saleFinanceData }) {
                                             <td className="py-3 px-4 text-right">
                                                 <div className="flex items-center justify-end gap-3">
                                                     {inst.status !== 'anulada' && (
-                                                        <button 
-                                                            onClick={() => handleRegisterPayment(inst)}
-                                                            className="text-xs font-bold text-green-400 hover:text-green-300 transition-colors"
-                                                        >
-                                                            Cobrar
-                                                        </button>
+                                                        <div className="flex items-center gap-2">
+                                                            <button 
+                                                                onClick={() => setTreasuryModalData({ isOpen: true, instId: inst._id })}
+                                                                className="text-xs font-bold text-purple-400 hover:text-purple-300 transition-colors"
+                                                                title="Cobrar e imputar a cuota con distribución en Tesorería"
+                                                            >
+                                                                Cobrar y distribuir
+                                                            </button>
+                                                            <button 
+                                                                onClick={() => handleRegisterPayment(inst)}
+                                                                className="text-[11px] font-medium text-neutral-400 hover:text-white transition-colors"
+                                                                title="Cobro manual clásico"
+                                                            >
+                                                                Manual
+                                                            </button>
+                                                        </div>
                                                     )}
                                                     <button 
                                                         onClick={() => handleEdit(inst)}
@@ -430,6 +461,16 @@ export default function SaleInstallmentsPanel({ sale, saleFinanceData }) {
                 onClose={() => setIsTransactionModalOpen(false)}
                 transaction={selectedTransactionInst}
                 onSave={handleSaveTransaction}
+            />
+
+            <TreasuryCollectAndDistributeModal
+                isOpen={treasuryModalData.isOpen}
+                onClose={() => setTreasuryModalData({ isOpen: false, instId: null })}
+                accounts={accounts}
+                initialSale={sale}
+                initialInstallmentId={treasuryModalData.instId}
+                treasuryToken={treasuryToken}
+                onSuccess={loadData}
             />
 
             <ConfirmModal

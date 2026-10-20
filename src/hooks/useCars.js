@@ -15,8 +15,7 @@ export const useCars = () => {
             const baseUrl = process.env.NODE_ENV === 'production' ? '' : (API_URL || 'http://localhost:3001');
             
             const endpoint = `${baseUrl}/api/public/cars`;
-
-            const response = await fetch(`${endpoint}?t=${Date.now()}`);
+            const response = await fetch(endpoint);
             
             if (!response.ok) {
                 throw new Error('Failed to fetch public cars');

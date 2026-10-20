@@ -507,8 +507,21 @@ export default function SaleCreateModal({ isOpen, onClose, onSuccess }) {
                                     </CrmSelect>
                                 </div>
                                 <div>
-                                    <FieldLabel>Cuotas (plazo)</FieldLabel>
-                                    <CrmInput type="number" value={formData.installmentsCount} onChange={(e) => updateField('installmentsCount', e.target.value)} disabled={formData.paymentMethod !== 'financiado'} className="h-10 bg-crm-bg disabled:opacity-50" placeholder="Ej. 12" />
+                                    <FieldLabel>Cantidad de cuotas</FieldLabel>
+                                    <CrmSelect 
+                                        value={formData.installmentsCount || 6} 
+                                        onChange={(e) => updateField('installmentsCount', Number(e.target.value))} 
+                                        disabled={formData.paymentMethod !== 'financiado'} 
+                                        className="h-10 bg-crm-bg disabled:opacity-50"
+                                    >
+                                        <option value="3">3 cuotas</option>
+                                        <option value="6">6 cuotas</option>
+                                        <option value="12">12 cuotas</option>
+                                        <option value="18">18 cuotas</option>
+                                        <option value="24">24 cuotas</option>
+                                        <option value="36">36 cuotas</option>
+                                        <option value="48">48 cuotas</option>
+                                    </CrmSelect>
                                     <p className="m-0 mt-2 text-xs text-crm-fg-muted">Solo si el método de pago es Financiado</p>
                                 </div>
                             </div>

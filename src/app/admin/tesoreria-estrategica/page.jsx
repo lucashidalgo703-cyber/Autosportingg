@@ -29,7 +29,10 @@ import {
     Wrench,
     Car,
     TrendingUp,
-    AlertCircle
+    AlertCircle,
+    Eye,
+    Percent,
+    Save
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useAuth } from '../../../context/AuthContext';
@@ -44,8 +47,10 @@ import TreasuryCollectAndDistributeModal from '../../../components/crm/treasury/
 import TreasurySetupWizardModal from '../../../components/crm/treasury/TreasurySetupWizardModal';
 import TreasuryEditBoxModal from '../../../components/crm/treasury/TreasuryEditBoxModal';
 import TreasuryDistributeIncomeModal from '../../../components/crm/treasury/TreasuryDistributeIncomeModal';
+import TreasuryBoxDetailModal from '../../../components/crm/treasury/TreasuryBoxDetailModal';
 import TreasuryCategoryRulesTab from '../../../components/crm/treasury/TreasuryCategoryRulesTab';
 import TreasuryPlanningTab from '../../../components/crm/treasury/TreasuryPlanningTab';
+import TreasuryAuditLogTab from '../../../components/crm/treasury/TreasuryAuditLogTab';
 
 function formatNumber(val) {
     return new Intl.NumberFormat('es-AR').format(val || 0);
@@ -162,6 +167,7 @@ export default function TesoreriaEstrategicaPage() {
     const [isChangePinOpen, setIsChangePinOpen] = useState(false);
     const [isReconcileOpen, setIsReconcileOpen] = useState(false);
     const [isTransferOpen, setIsTransferOpen] = useState(false);
+    const [transferInitialFromBoxKey, setTransferInitialFromBoxKey] = useState(null);
     const [isRegularizeOpen, setIsRegularizeOpen] = useState(false);
     const [isBatchRegularizeOpen, setIsBatchRegularizeOpen] = useState(false);
     const [isOrganizeInitialOpen, setIsOrganizeInitialOpen] = useState(false);
@@ -169,7 +175,18 @@ export default function TesoreriaEstrategicaPage() {
     const [isSetupWizardOpen, setIsSetupWizardOpen] = useState(false);
     const [isConfirmingCutoff, setIsConfirmingCutoff] = useState(false);
     const [editingBox, setEditingBox] = useState(null);
+    const [detailBox, setDetailBox] = useState(null);
     const [distributingIncome, setDistributingIncome] = useState(null);
+
+    // Configuración editable de Extra de Reinversión (%) y vistas previas de conciliación / redistribución
+    const [activeDistributionScheme, setActiveDistributionScheme] = useState(null);
+    const [extraReinvConfigured, setExtraReinvConfigured] = useState(false);
+    const [extraReinvPctInput, setExtraReinvPctInput] = useState('');
+    const [savingExtraConfig, setSavingExtraConfig] = useState(false);
+    const [initialReconcilePreview, setInitialReconcilePreview] = useState(null);
+    const [redistributePreview, setRedistributePreview] = useState(null);
+    const [redistributeReason, setRedistributeReason] = useState('');
+    const [loadingActionPreview, setLoadingActionPreview] = useState(false);
 
     // 1. Cargar estado de seguridad y cotización blue
     const fetchSecurityStatus = useCallback(async () => {
@@ -238,6 +255,14 @@ export default function TesoreriaEstrategicaPage() {
             const json = await res.json();
             if (json.ok) {
                 setDashboardData(json.data);
+                const cfg = json.data?.config || {};
+                setActiveDistributionScheme(cfg.activeDistributionScheme || null);
+                setExtraReinvConfigured(Boolean(cfg.reinvestmentExtraConfigured));
+                setExtraReinvPctInput(
+                    cfg.reinvestmentExtraPct !== null && cfg.reinvestmentExtraPct !== undefined
+                        ? String(cfg.reinvestmentExtraPct)
+                        : ''
+                );
             }
         } catch {
             toast.error('Error al cargar datos de tesorería');
@@ -320,6 +345,157 @@ export default function TesoreriaEstrategicaPage() {
             toast.error('Error de red al confirmar corte inicial.');
         } finally {
             setIsConfirmingCutoff(false);
+        }
+    };
+
+    const handleUpdateActiveScheme = async (schemeKey) => {
+        if (!token || !treasuryToken) return;
+        try {
+            setActiveDistributionScheme(schemeKey);
+            const res = await fetch('/api/admin/tesoreria-estrategica/config', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': 'Bearer ' + token,
+                    'x-treasury-token': treasuryToken
+                },
+                body: JSON.stringify({ activeDistributionScheme: schemeKey })
+            });
+            const data = await res.json().catch(() => ({}));
+            if (res.ok && data.ok) {
+                toast.success(schemeKey ? 'Esquema activo actualizado a ' + schemeKey.replace('_', ' ') : 'Esquema predeterminado quitado');
+                loadDashboardData();
+            } else {
+                toast.error(data.message || 'Error al actualizar esquema.');
+                loadDashboardData();
+            }
+        } catch {
+            toast.error('Error de red al actualizar esquema.');
+            loadDashboardData();
+        }
+    };
+
+    const handleSaveExtraReinvestmentConfig = async () => {
+        if (!token || !treasuryToken) return;
+        if (extraReinvConfigured && (extraReinvPctInput === '' || isNaN(Number(String(extraReinvPctInput).replace(',', '.'))))) {
+            toast.error('Ingresá un porcentaje válido (admite decimales y 0%).');
+            return;
+        }
+        const parsedPct = extraReinvConfigured
+            ? Math.max(0, Math.min(100, Number(String(extraReinvPctInput).replace(',', '.'))))
+            : null;
+        try {
+            setSavingExtraConfig(true);
+            const res = await fetch('/api/admin/tesoreria-estrategica/config', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`,
+                    'x-treasury-token': treasuryToken
+                },
+                body: JSON.stringify({
+                    reinvestmentExtraConfigured: extraReinvConfigured,
+                    reinvestmentExtraPct: parsedPct,
+                    autoDistributeIncomes: config?.autoDistributeIncomes ?? true
+                })
+            });
+            const data = await res.json();
+            if (res.ok && data.ok) {
+                toast.success('Configuración de Extra de Reinversión actualizada (se aplica a nuevos movimientos).');
+                loadDashboardData();
+            } else {
+                toast.error(data.message || 'Error al guardar configuración.');
+            }
+        } catch {
+            toast.error('Error de red al guardar configuración.');
+        } finally {
+            setSavingExtraConfig(false);
+        }
+    };
+
+    const handlePreviewInitialReconcile = async () => {
+        if (!token || !treasuryToken) return;
+        try {
+            setLoadingActionPreview(true);
+            const res = await fetch('/api/admin/tesoreria-estrategica/reconcile/preview', {
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'x-treasury-token': treasuryToken
+                }
+            });
+            const data = await res.json();
+            if (res.ok && data.ok) {
+                setInitialReconcilePreview(data);
+            } else {
+                toast.error(data.message || 'No se pudo generar la vista previa de conciliación inicial.');
+            }
+        } catch {
+            toast.error('Error de conexión al consultar vista previa.');
+        } finally {
+            setLoadingActionPreview(false);
+        }
+    };
+
+    const handlePreviewRedistribute = async (currency = 'ARS') => {
+        if (!token || !treasuryToken) return;
+        try {
+            setLoadingActionPreview(true);
+            const res = await fetch('/api/admin/tesoreria-estrategica/redistribute/preview', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`,
+                    'x-treasury-token': treasuryToken
+                },
+                body: JSON.stringify({ currency })
+            });
+            const data = await res.json();
+            if (res.ok && data.ok) {
+                setRedistributePreview(data);
+            } else {
+                toast.error(data.message || 'No se pudo generar la vista previa de redistribución.');
+            }
+        } catch {
+            toast.error('Error de conexión al consultar redistribución.');
+        } finally {
+            setLoadingActionPreview(false);
+        }
+    };
+
+    const handleExecuteRedistribute = async () => {
+        if (!token || !treasuryToken || !redistributePreview) return;
+        if (!redistributeReason.trim()) {
+            toast.error('Ingresá el motivo obligatorio para redistribuir los fondos existentes.');
+            return;
+        }
+        try {
+            setLoadingActionPreview(true);
+            const res = await fetch('/api/admin/tesoreria-estrategica/redistribute/execute', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`,
+                    'x-treasury-token': treasuryToken
+                },
+                body: JSON.stringify({
+                    currency: redistributePreview.currency,
+                    distributions: redistributePreview.suggestedDistribution,
+                    reason: redistributeReason.trim()
+                })
+            });
+            const data = await res.json();
+            if (res.ok && data.ok) {
+                toast.success(data.message || 'Redistribución explícita aplicada con éxito.');
+                setRedistributePreview(null);
+                setRedistributeReason('');
+                loadDashboardData();
+            } else {
+                toast.error(data.message || 'Error al ejecutar la redistribución.');
+            }
+        } catch {
+            toast.error('Error de red al ejecutar redistribución.');
+        } finally {
+            setLoadingActionPreview(false);
         }
     };
 
@@ -431,6 +607,7 @@ export default function TesoreriaEstrategicaPage() {
     };
     const trackerAudit = dashboardData?.trackerAudit || {};
     const unassignedIncomeCards = dashboardData?.unassignedIncomeCards || [];
+    const operationsRecovery = dashboardData?.operationsRecovery || [];
     const planning = dashboardData?.planning || {};
     const categoryRules = dashboardData?.categoryRules || [];
     const pendingInstallments = dashboardData?.pendingInstallments || [];
@@ -707,6 +884,59 @@ export default function TesoreriaEstrategicaPage() {
                 </div>
             </div>
 
+            {/* Selector de Esquema Activo de Tesorería */}
+            <div className="rounded-2xl border border-crm-border bg-crm-surface p-4 flex flex-col md:flex-row md:items-center justify-between gap-3">
+                <div className="space-y-0.5">
+                    <div className="flex items-center gap-2">
+                        <span className="flex h-6 w-6 items-center justify-center rounded-lg bg-purple-500/20 text-purple-300 text-xs font-bold">
+                            ⚖️
+                        </span>
+                        <h4 className="text-xs font-black uppercase tracking-wider text-white">
+                            Esquema de Reparto Activo para Nuevos Cobros
+                        </h4>
+                        <span className="rounded bg-purple-500/20 px-2 py-0.5 text-[10px] font-bold text-purple-300 uppercase">
+                            {activeDistributionScheme ? activeDistributionScheme.replace('_', ' ') : 'Elegir en cada cobro'}
+                        </span>
+                    </div>
+                    <p className="text-[11px] text-crm-fg-muted">
+                        Aplica exclusivamente sobre el margen positivo disponible (después de recuperar capital y separar obligaciones).
+                    </p>
+                </div>
+                <div className="flex flex-wrap items-center gap-1.5">
+                    <button
+                        type="button"
+                        onClick={() => handleUpdateActiveScheme('caja_ajustada')}
+                        className={`rounded-xl px-3 py-1.5 text-xs font-bold transition-all ${activeDistributionScheme === 'caja_ajustada' ? 'bg-purple-600 text-white shadow-md' : 'border border-crm-border bg-crm-bg text-crm-fg hover:text-white'}`}
+                    >
+                        Caja ajustada (70/20/10)
+                    </button>
+                    <button
+                        type="button"
+                        onClick={() => handleUpdateActiveScheme('estabilizacion')}
+                        className={`rounded-xl px-3 py-1.5 text-xs font-bold transition-all ${activeDistributionScheme === 'estabilizacion' ? 'bg-purple-600 text-white shadow-md' : 'border border-crm-border bg-crm-bg text-crm-fg hover:text-white'}`}
+                    >
+                        Estabilización (60/20/10/10)
+                    </button>
+                    <button
+                        type="button"
+                        onClick={() => handleUpdateActiveScheme('caja_solida')}
+                        className={`rounded-xl px-3 py-1.5 text-xs font-bold transition-all ${activeDistributionScheme === 'caja_solida' ? 'bg-purple-600 text-white shadow-md' : 'border border-crm-border bg-crm-bg text-crm-fg hover:text-white'}`}
+                    >
+                        Caja sólida (50/15/10/20/5)
+                    </button>
+                    {activeDistributionScheme && (
+                        <button
+                            type="button"
+                            onClick={() => handleUpdateActiveScheme(null)}
+                            className="rounded-xl border border-crm-border px-2.5 py-1.5 text-xs text-crm-fg-muted hover:text-red-400"
+                            title="Quitar predeterminado para elegir manualmente en cada cobro"
+                        >
+                            Limpiar
+                        </button>
+                    )}
+                </div>
+            </div>
+
             {/* Pestañas de Navegación del Módulo */}
             <div className="flex items-center gap-2 overflow-x-auto border-b border-crm-border pb-2 text-xs font-bold">
                 <button
@@ -763,19 +993,273 @@ export default function TesoreriaEstrategicaPage() {
             {/* PESTAÑA 1: CAJAS Y METAS (8 CAJAS COMPLETAS) */}
             {activeTab === 'cajas' && (
                 <div className="space-y-6">
+                    {/* Resumen Integral por Moneda (ARS y USD por separado) + Aclaración de Superposición */}
+                    <div className="rounded-2xl border border-crm-border bg-crm-surface p-4 sm:p-5 space-y-4">
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                            <div>
+                                <h3 className="text-sm font-black text-white">Estado Patrimonial y Conciliación por Moneda (Sin Mezclar ARS y USD)</h3>
+                                <p className="text-[11px] text-crm-fg-muted">
+                                    Actualizado: {summary.byCurrency?.ARS?.updatedAt ? new Date(summary.byCurrency.ARS.updatedAt).toLocaleString('es-AR') : new Date().toLocaleString('es-AR')} · Estado: <strong className="text-purple-300">{summary.byCurrency?.ARS?.reconciliationStatusLabel || auditInfo.statusLabel}</strong>
+                                </p>
+                            </div>
+                            <div className="flex flex-wrap items-center gap-2">
+                                <button
+                                    type="button"
+                                    disabled={loadingActionPreview}
+                                    onClick={handlePreviewInitialReconcile}
+                                    className="inline-flex items-center gap-1.5 rounded-xl border border-purple-500/40 bg-purple-500/15 px-3 py-1.5 text-xs font-bold text-purple-200 hover:bg-purple-500/25 transition-colors"
+                                >
+                                    <Eye size={13} /> Vista Previa Conciliación Inicial y Reglas
+                                </button>
+                                <button
+                                    type="button"
+                                    disabled={loadingActionPreview}
+                                    onClick={() => handlePreviewRedistribute('ARS')}
+                                    className="inline-flex items-center gap-1.5 rounded-xl border border-emerald-500/40 bg-emerald-500/15 px-3 py-1.5 text-xs font-bold text-emerald-300 hover:bg-emerald-500/25 transition-colors"
+                                >
+                                    <SlidersHorizontal size={13} /> Redistribuir Sin Asignar ARS (Vista Previa)
+                                </button>
+                            </div>
+                        </div>
+
+                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 text-xs">
+                            {/* Moneda ARS */}
+                            <div className="rounded-xl border border-crm-border bg-crm-bg p-3.5 space-y-2">
+                                <div className="flex items-center justify-between border-b border-crm-border/60 pb-2">
+                                    <span className="font-black text-white uppercase tracking-wider">Moneda ARS (Pesos)</span>
+                                    <span className="font-mono font-black text-sm text-white">
+                                        Saldo real: {formatMoney(summary.byCurrency?.ARS?.realBalance ?? summary.totalCuentasARS, 'ARS')}
+                                    </span>
+                                </div>
+                                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 pt-1">
+                                    <div>
+                                        <span className="text-[10px] text-crm-fg-muted block">Fondos propios asignados</span>
+                                        <strong className="font-mono text-purple-300">{formatMoney(summary.byCurrency?.ARS?.ownAssigned ?? summary.propiosAsignadosARS, 'ARS')}</strong>
+                                    </div>
+                                    <div>
+                                        <span className="text-[10px] text-crm-fg-muted block">Fondos propios sin asignar</span>
+                                        <strong className="font-mono text-white">{formatMoney(summary.byCurrency?.ARS?.ownUnassigned ?? summary.propiosSinAsignarARS, 'ARS')}</strong>
+                                    </div>
+                                    <div>
+                                        <span className="text-[10px] text-crm-fg-muted block">Fondos de terceros</span>
+                                        <strong className="font-mono text-amber-300">{formatMoney(summary.byCurrency?.ARS?.thirdPartyFunds ?? summary.retenidosTercerosARS, 'ARS')}</strong>
+                                    </div>
+                                    <div>
+                                        <span className="text-[10px] text-crm-fg-muted block">Compromisos pendientes</span>
+                                        <strong className="font-mono text-red-400">{formatMoney(summary.byCurrency?.ARS?.commitments ?? summary.totalCommitmentsARS, 'ARS')}</strong>
+                                    </div>
+                                    <div>
+                                        <span className="text-[10px] text-crm-fg-muted block">Faltantes de metas</span>
+                                        <strong className="font-mono text-amber-200">{formatMoney(summary.byCurrency?.ARS?.shortfalls ?? summary.totalShortfallsARS, 'ARS')}</strong>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Moneda USD */}
+                            <div className="rounded-xl border border-crm-border bg-crm-bg p-3.5 space-y-2">
+                                <div className="flex items-center justify-between border-b border-crm-border/60 pb-2">
+                                    <span className="font-black text-emerald-400 uppercase tracking-wider">Moneda USD (Dólares)</span>
+                                    <span className="font-mono font-black text-sm text-emerald-400">
+                                        Saldo real: {formatMoney(summary.byCurrency?.USD?.realBalance ?? summary.totalCuentasUSD, 'USD')}
+                                    </span>
+                                </div>
+                                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 pt-1">
+                                    <div>
+                                        <span className="text-[10px] text-crm-fg-muted block">Fondos propios asignados</span>
+                                        <strong className="font-mono text-purple-300">{formatMoney(summary.byCurrency?.USD?.ownAssigned ?? summary.propiosAsignadosUSD, 'USD')}</strong>
+                                    </div>
+                                    <div>
+                                        <span className="text-[10px] text-crm-fg-muted block">Fondos propios sin asignar</span>
+                                        <strong className="font-mono text-white">{formatMoney(summary.byCurrency?.USD?.ownUnassigned ?? summary.propiosSinAsignarUSD, 'USD')}</strong>
+                                    </div>
+                                    <div>
+                                        <span className="text-[10px] text-crm-fg-muted block">Fondos de terceros</span>
+                                        <strong className="font-mono text-amber-300">{formatMoney(summary.byCurrency?.USD?.thirdPartyFunds ?? summary.retenidosTercerosUSD, 'USD')}</strong>
+                                    </div>
+                                    <div>
+                                        <span className="text-[10px] text-crm-fg-muted block">Compromisos pendientes</span>
+                                        <strong className="font-mono text-red-400">{formatMoney(summary.byCurrency?.USD?.commitments ?? summary.totalCommitmentsUSD, 'USD')}</strong>
+                                    </div>
+                                    <div>
+                                        <span className="text-[10px] text-crm-fg-muted block">Faltantes de metas</span>
+                                        <strong className="font-mono text-amber-200">{formatMoney(summary.byCurrency?.USD?.shortfalls ?? summary.totalShortfallsUSD, 'USD')}</strong>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <p className="text-[11px] text-crm-fg-muted border-t border-crm-border/50 pt-2.5">
+                            ℹ️ <strong>Aclaración de indicadores:</strong> {summary.overlappingIndicatorsNote || 'El Saldo Real equivale a Fondos Propios Asignados + Fondos Propios Sin Asignar + Fondos de Terceros. Los Compromisos se descuentan del Saldo Asignado de cada caja para determinar su Disponible Libre, por lo que no se suman al Saldo Real.'}
+                        </p>
+                    </div>
+
+                    {/* Panel de Vista Previa de Conciliación Inicial y Activación de Reglas (cuando se abre) */}
+                    {initialReconcilePreview && (
+                        <div className="rounded-2xl border border-purple-500/40 bg-purple-500/10 p-4 sm:p-5 text-xs space-y-3">
+                            <div className="flex items-start justify-between gap-3">
+                                <div>
+                                    <h4 className="text-sm font-black text-purple-200">
+                                        Vista Previa de Conciliación Inicial y Activación de Reglas
+                                    </h4>
+                                    <p className="text-crm-fg-muted mt-0.5">{initialReconcilePreview.explanation}</p>
+                                </div>
+                                <button
+                                    type="button"
+                                    onClick={() => setInitialReconcilePreview(null)}
+                                    className="rounded-lg border border-crm-border bg-crm-surface px-2.5 py-1 text-xs font-bold text-crm-fg-muted hover:text-white"
+                                >
+                                    Cerrar
+                                </button>
+                            </div>
+                            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                                <div className="rounded-xl border border-crm-border bg-crm-bg p-2.5">
+                                    <span className="text-[10px] text-crm-fg-muted block">Fecha de Corte Conservada</span>
+                                    <strong className="text-white">{initialReconcilePreview.cutoffDate ? new Date(initialReconcilePreview.cutoffDate).toLocaleDateString('es-AR') : 'Pendiente'}</strong>
+                                </div>
+                                <div className="rounded-xl border border-crm-border bg-crm-bg p-2.5">
+                                    <span className="text-[10px] text-crm-fg-muted block">Extra de Reinversión Configurado</span>
+                                    <strong className="text-cyan-300">
+                                        {initialReconcilePreview.reinvestmentExtraConfigured ? `${initialReconcilePreview.reinvestmentExtraPct}%` : 'Sin configurar'}
+                                    </strong>
+                                </div>
+                                <div className="rounded-xl border border-crm-border bg-crm-bg p-2.5">
+                                    <span className="text-[10px] text-crm-fg-muted block">Operaciones Analizadas</span>
+                                    <strong className="text-white">{initialReconcilePreview.operationsRecoveryCount || 0} ventas</strong>
+                                </div>
+                                <div className="rounded-xl border border-crm-border bg-crm-bg p-2.5">
+                                    <span className="text-[10px] text-crm-fg-muted block">Cobros en Bandeja</span>
+                                    <strong className="text-emerald-400">{initialReconcilePreview.unassignedIncomesCount || 0} cobros</strong>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Panel de Vista Previa de Redistribución Explícita (cuando se abre) */}
+                    {redistributePreview && (
+                        <div className="rounded-2xl border border-emerald-500/40 bg-emerald-500/10 p-4 sm:p-5 text-xs space-y-3">
+                            <div className="flex items-start justify-between gap-3">
+                                <div>
+                                    <h4 className="text-sm font-black text-emerald-200">
+                                        Vista Previa de Redistribución Explícita de Fondos Propios Sin Asignar ({redistributePreview.currency})
+                                    </h4>
+                                    <p className="text-crm-fg-muted mt-0.5">{redistributePreview.message}</p>
+                                </div>
+                                <button
+                                    type="button"
+                                    onClick={() => setRedistributePreview(null)}
+                                    className="rounded-lg border border-crm-border bg-crm-surface px-2.5 py-1 text-xs font-bold text-crm-fg-muted hover:text-white"
+                                >
+                                    Cancelar
+                                </button>
+                            </div>
+
+                            {redistributePreview.suggestedDistribution?.length > 0 && (
+                                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                                    {redistributePreview.suggestedDistribution.map((s, idx) => (
+                                        <div key={idx} className="rounded-xl border border-crm-border bg-crm-bg p-2.5 flex items-center justify-between">
+                                            <div>
+                                                <span className="font-bold text-white block uppercase text-[10px]">{s.boxKey}</span>
+                                                <span className="text-[10px] text-crm-fg-muted">{s.reason}</span>
+                                            </div>
+                                            <strong className="font-mono text-emerald-400">+{formatMoney(s.amount, redistributePreview.currency)}</strong>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+
+                            {redistributePreview.unallocatedPool > 0 && redistributePreview.suggestedDistribution?.length > 0 && (
+                                <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 pt-2 border-t border-emerald-500/20">
+                                    <input
+                                        type="text"
+                                        value={redistributeReason}
+                                        onChange={(e) => setRedistributeReason(e.target.value)}
+                                        placeholder="Motivo obligatorio para aplicar esta redistribución..."
+                                        className="flex-1 rounded-xl border border-crm-border bg-crm-bg px-3 py-2 text-xs text-white focus:border-emerald-500 focus:outline-none"
+                                    />
+                                    <button
+                                        type="button"
+                                        disabled={loadingActionPreview || !redistributeReason.trim()}
+                                        onClick={handleExecuteRedistribute}
+                                        className="rounded-xl bg-emerald-600 px-4 py-2 text-xs font-black text-white hover:bg-emerald-500 transition-colors disabled:opacity-50"
+                                    >
+                                        Confirmar Redistribución Explícita
+                                    </button>
+                                </div>
+                            )}
+                        </div>
+                    )}
+
+                    {/* Configuración Editable por el Dueño: Extra de Reinversión sobre Inversión Real (%) */}
+                    <div className="rounded-2xl border border-cyan-500/30 bg-gradient-to-r from-cyan-950/30 via-crm-surface to-purple-950/20 p-4 sm:p-5">
+                        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+                            <div className="space-y-1">
+                                <div className="flex items-center gap-2">
+                                    <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-cyan-500/20 text-cyan-300">
+                                        <Percent size={15} />
+                                    </span>
+                                    <h3 className="text-sm font-black text-white">
+                                        Extra de Reinversión sobre Inversión Real (%) hacia Stock
+                                    </h3>
+                                    <span className={`rounded px-2 py-0.5 text-[10px] font-bold uppercase ${config.reinvestmentExtraConfigured ? 'bg-cyan-500/20 text-cyan-300' : 'bg-amber-500/20 text-amber-300'}`}>
+                                        {config.reinvestmentExtraConfigured ? `Configurado: ${config.reinvestmentExtraPct}%` : 'Sin configurar'}
+                                    </span>
+                                </div>
+                                <p className="text-xs text-crm-fg-muted max-w-3xl leading-relaxed">
+                                    Es un <strong>destino de la ganancia hacia Stock</strong> (paso 5 de la cascada), <strong>no un costo</strong>: no reduce la ganancia neta informada de la venta y se completa progresivamente entre entrega y cuotas sin repetirse en cada cuota. Los cambios se aplican a nuevos movimientos.
+                                </p>
+                            </div>
+
+                            <div className="flex flex-wrap items-center gap-3 shrink-0">
+                                <label className="inline-flex items-center gap-2 text-xs font-bold text-white cursor-pointer">
+                                    <input
+                                        type="checkbox"
+                                        checked={extraReinvConfigured}
+                                        onChange={(e) => setExtraReinvConfigured(e.target.checked)}
+                                        className="rounded border-crm-border bg-crm-bg text-cyan-500 focus:ring-cyan-500"
+                                    />
+                                    Activar porcentaje configurado
+                                </label>
+
+                                <div className="relative w-28">
+                                    <input
+                                        type="number"
+                                        min="0"
+                                        max="100"
+                                        step="any"
+                                        disabled={!extraReinvConfigured}
+                                        value={extraReinvPctInput}
+                                        onChange={(e) => setExtraReinvPctInput(e.target.value)}
+                                        placeholder="Ej: 10 o 0"
+                                        className="w-full rounded-xl border border-crm-border bg-crm-bg pl-3 pr-7 py-1.5 font-mono text-xs font-bold text-white focus:border-cyan-500 focus:outline-none disabled:opacity-50"
+                                    />
+                                    <span className="absolute right-2.5 top-1/2 -translate-y-1/2 text-xs font-bold text-cyan-300">%</span>
+                                </div>
+
+                                <button
+                                    type="button"
+                                    disabled={savingExtraConfig}
+                                    onClick={handleSaveExtraReinvestmentConfig}
+                                    className="inline-flex items-center gap-1.5 rounded-xl bg-cyan-600 px-3.5 py-2 text-xs font-black text-white hover:bg-cyan-500 transition-colors disabled:opacity-50"
+                                >
+                                    <Save size={13} /> {savingExtraConfig ? 'Guardando...' : 'Guardar Extra (%)'}
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
                     <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                         <div>
-                            <h2 className="text-base font-black text-white">Cajas Estratégicas y Metas por Gasto</h2>
+                            <h2 className="text-base font-black text-white">Cajas Estratégicas Detalladas y Editables (8 Cajas)</h2>
                             <p className="text-xs text-crm-fg-muted">
-                                Las cajas determinan para qué está reservado cada fondo. Las metas se basan en compromisos reales y previsiones configurables.
+                                Cada caja muestra su Saldo asignado, Comprometido, Disponible libre, Objetivo, Faltante y Explicación del cálculo. Los ajustes manuales se conservan siempre.
                             </p>
                         </div>
                         <button
                             type="button"
-                            onClick={() => setIsTransferOpen(true)}
+                            onClick={() => { setTransferInitialFromBoxKey(null); setIsTransferOpen(true); }}
                             className="inline-flex items-center gap-1.5 rounded-xl border border-crm-border bg-crm-surface px-3.5 py-2 text-xs font-bold text-crm-fg hover:bg-crm-surface-raised transition-colors"
                         >
-                            <ArrowRightLeft size={14} /> Traspaso entre Cajas
+                            <ArrowRightLeft size={14} /> Traspaso entre Cajas (con Vista Previa)
                         </button>
                     </div>
 
@@ -804,77 +1288,102 @@ export default function TesoreriaEstrategicaPage() {
                                                     )}
                                                 </div>
                                             </div>
-                                            <button
-                                                type="button"
-                                                onClick={() => setEditingBox(box)}
-                                                title={`Asignar fondos o configurar meta de ${box.name}`}
-                                                className="rounded-lg p-1.5 text-crm-fg-muted hover:bg-crm-surface-raised hover:text-white transition-colors"
-                                            >
-                                                <Edit3 size={15} />
-                                            </button>
+                                            <div className="flex items-center gap-1">
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setDetailBox(box)}
+                                                    title={`Ver detalle y trazabilidad de ${box.name}`}
+                                                    className="rounded-lg p-1.5 text-crm-fg-muted hover:bg-crm-surface-raised hover:text-white transition-colors"
+                                                >
+                                                    <Eye size={15} />
+                                                </button>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setEditingBox(box)}
+                                                    title={`Editar asignación o metas de ${box.name}`}
+                                                    className="rounded-lg p-1.5 text-crm-fg-muted hover:bg-crm-surface-raised hover:text-white transition-colors"
+                                                >
+                                                    <Edit3 size={15} />
+                                                </button>
+                                            </div>
                                         </div>
 
-                                        <p className="mt-3 text-xs leading-relaxed text-crm-fg-muted min-h-[36px]">
+                                        <p className="mt-2.5 text-xs leading-relaxed text-crm-fg-muted">
                                             {box.description}
                                         </p>
 
-                                        {/* Detalle Financiero de la Caja */}
-                                        <div className="mt-4 pt-3 border-t border-crm-border/60 space-y-2 text-xs">
+                                        {/* 6 Indicadores Exigidos en cada Caja */}
+                                        <div className="mt-3.5 pt-3 border-t border-crm-border/60 space-y-2 text-xs">
+                                            {/* 1. Saldo Asignado */}
                                             <div className="flex items-baseline justify-between">
-                                                <span className="text-[10px] font-bold uppercase tracking-wider text-crm-fg-muted">Saldo Asignado</span>
+                                                <span className="text-[10px] font-bold uppercase tracking-wider text-crm-fg-muted">1. Saldo Asignado</span>
                                                 <div className="text-right">
-                                                    <span className={`font-mono font-black ${colors.accent}`}>
-                                                        {formatMoney(box.balanceUSD, 'USD')}
-                                                    </span>
-                                                    <span className="font-mono font-bold text-white block text-[11px]">
+                                                    <span className="font-mono font-black text-white block">
                                                         {formatMoney(box.balanceARS, 'ARS')}
                                                     </span>
+                                                    {(box.balanceUSD > 0 || box.targetMoneyUSD > 0) && (
+                                                        <span className={`font-mono font-bold text-[11px] ${colors.accent}`}>
+                                                            {formatMoney(box.balanceUSD, 'USD')}
+                                                        </span>
+                                                    )}
                                                 </div>
                                             </div>
 
-                                            {/* Compromisos Pendientes */}
-                                            {(box.commitmentsARS > 0 || box.commitmentsUSD > 0) && (
-                                                <div className="flex items-baseline justify-between pt-1 border-t border-crm-border/40 text-red-400">
-                                                    <span className="text-[10px] font-bold uppercase tracking-wider">Compromisos</span>
-                                                    <span className="font-mono font-bold text-[11px]">
-                                                        -{box.commitmentsUSD > 0 ? formatMoney(box.commitmentsUSD, 'USD') : formatMoney(box.commitmentsARS, 'ARS')}
-                                                    </span>
-                                                </div>
-                                            )}
-
-                                            {/* Disponible Neto */}
-                                            <div className="flex items-baseline justify-between pt-1 border-t border-crm-border/40 text-white">
-                                                <span className="text-[10px] font-bold uppercase tracking-wider text-crm-fg-muted">Disponible Neto</span>
-                                                <span className="font-mono font-black text-xs text-emerald-400">
-                                                    {box.availableUSD > 0 ? formatMoney(box.availableUSD, 'USD') : formatMoney(box.availableARS || 0, 'ARS')}
+                                            {/* 2. Comprometido */}
+                                            <div className="flex items-baseline justify-between pt-1 border-t border-crm-border/40">
+                                                <span className="text-[10px] font-bold uppercase tracking-wider text-crm-fg-muted">2. Comprometido</span>
+                                                <span className={`font-mono font-bold text-[11px] ${(box.commitmentsARS > 0 || box.commitmentsUSD > 0) ? 'text-red-400' : 'text-crm-fg-muted'}`}>
+                                                    {box.commitmentsUSD > 0
+                                                        ? `${formatMoney(box.commitmentsARS, 'ARS')} / ${formatMoney(box.commitmentsUSD, 'USD')}`
+                                                        : formatMoney(box.commitmentsARS || 0, 'ARS')}
                                                 </span>
                                             </div>
-                                            {box.uncoveredCommitmentsARS > 0 && (
-                                                <div className="flex items-baseline justify-between text-[10px] text-amber-300">
-                                                    <span>Compromisos por fondear:</span>
-                                                    <span className="font-mono font-bold">ARS {formatNumber(box.uncoveredCommitmentsARS)}</span>
-                                                </div>
-                                            )}
 
-                                            {/* Meta y Cobertura */}
-                                            {(box.targetMoneyARS > 0 || box.targetMoneyUSD > 0) && (
-                                                <div className="pt-2 border-t border-crm-border/40">
-                                                    <div className="flex items-baseline justify-between text-[10px]">
-                                                        <span className="text-crm-fg-muted">Meta Requerida:</span>
-                                                        <span className="font-mono font-bold text-purple-300">
-                                                            {box.targetMoneyUSD > 0 ? formatMoney(box.targetMoneyUSD, 'USD') : formatMoney(box.targetMoneyARS, 'ARS')}
+                                            {/* 3. Disponible Libre */}
+                                            <div className="flex items-baseline justify-between pt-1 border-t border-crm-border/40">
+                                                <span className="text-[10px] font-bold uppercase tracking-wider text-crm-fg-muted">3. Disponible Libre</span>
+                                                <div className="text-right">
+                                                    <span className="font-mono font-black text-xs text-emerald-400 block">
+                                                        {formatMoney(box.availableARS || 0, 'ARS')}
+                                                    </span>
+                                                    {box.availableUSD > 0 && (
+                                                        <span className="font-mono font-bold text-[10px] text-emerald-300">
+                                                            {formatMoney(box.availableUSD, 'USD')}
                                                         </span>
-                                                    </div>
-                                                    <div className="flex items-baseline justify-between text-[10px] mt-0.5">
-                                                        <span className="text-crm-fg-muted">Cobertura:</span>
-                                                        <span className="font-bold text-white">
-                                                            {box.targetMoneyUSD > 0 ? `${box.coveragePercentUSD}%` : `${box.coveragePercentARS}%`}
-                                                        </span>
-                                                    </div>
+                                                    )}
                                                 </div>
-                                            )}
+                                            </div>
 
-                                            {/* Nota de información faltante si corresponde */}
+                                            {/* 4. Objetivo */}
+                                            <div className="flex items-baseline justify-between pt-1 border-t border-crm-border/40">
+                                                <span className="text-[10px] font-bold uppercase tracking-wider text-crm-fg-muted">4. Objetivo</span>
+                                                <span className="font-mono font-bold text-[11px] text-purple-300">
+                                                    {box.targetMoneyUSD > 0
+                                                        ? `${formatMoney(box.targetMoneyARS || 0, 'ARS')} / ${formatMoney(box.targetMoneyUSD, 'USD')}`
+                                                        : formatMoney(box.targetMoneyARS || 0, 'ARS')}
+                                                </span>
+                                            </div>
+
+                                            {/* 5. Faltante */}
+                                            <div className="flex items-baseline justify-between pt-1 border-t border-crm-border/40">
+                                                <span className="text-[10px] font-bold uppercase tracking-wider text-crm-fg-muted">5. Faltante</span>
+                                                <span className={`font-mono font-bold text-[11px] ${(box.shortfallARS > 0 || box.shortfallUSD > 0) ? 'text-amber-300' : 'text-emerald-400'}`}>
+                                                    {(box.shortfallARS > 0 || box.shortfallUSD > 0)
+                                                        ? (box.shortfallUSD > 0 ? `${formatMoney(box.shortfallARS || 0, 'ARS')} / ${formatMoney(box.shortfallUSD, 'USD')}` : formatMoney(box.shortfallARS || 0, 'ARS'))
+                                                        : 'Cubierto (ARS 0)'}
+                                                </span>
+                                            </div>
+
+                                            {/* 6. Explicación del Cálculo */}
+                                            <div className="pt-1.5 border-t border-crm-border/40">
+                                                <span className="text-[9px] font-bold uppercase tracking-wider text-purple-300 block">
+                                                    Explicación del cálculo:
+                                                </span>
+                                                <p className="text-[10px] text-crm-fg-muted leading-snug mt-0.5">
+                                                    {box.calculationExplanation}
+                                                </p>
+                                            </div>
+
                                             {box.missingDataNote && (
                                                 <p className="text-[10px] text-amber-300/80 italic pt-1 border-t border-crm-border/30">
                                                     ℹ️ {box.missingDataNote}
@@ -883,25 +1392,171 @@ export default function TesoreriaEstrategicaPage() {
                                         </div>
                                     </div>
 
-                                    <div className="mt-4 pt-3 border-t border-crm-border/40 flex items-center justify-between">
+                                    <div className="mt-4 pt-3 border-t border-crm-border/40 flex items-center justify-between gap-1">
                                         <button
                                             type="button"
-                                            onClick={() => setEditingBox(box)}
-                                            className="inline-flex items-center gap-1.5 rounded-lg border border-purple-500/30 bg-purple-500/10 px-2.5 py-1 text-xs font-bold text-purple-300 hover:bg-purple-500/20 hover:text-white transition-colors"
+                                            onClick={() => setDetailBox(box)}
+                                            className="inline-flex items-center gap-1 rounded-lg border border-crm-border bg-crm-bg px-2 py-1 text-[11px] font-bold text-crm-fg hover:text-white transition-colors"
                                         >
-                                            <Edit3 size={13} /> Editar saldo / monto
+                                            <Eye size={12} /> Detalle / Historial
                                         </button>
                                         <button
                                             type="button"
-                                            onClick={() => setIsTransferOpen(true)}
-                                            className="text-xs font-bold text-purple-300/80 hover:text-white transition-colors"
+                                            onClick={() => setEditingBox(box)}
+                                            className="inline-flex items-center gap-1 rounded-lg border border-purple-500/30 bg-purple-500/10 px-2 py-1 text-[11px] font-bold text-purple-300 hover:bg-purple-500/20 hover:text-white transition-colors"
                                         >
-                                            Traspasar →
+                                            <Edit3 size={12} /> Editar Caja
+                                        </button>
+                                        <button
+                                            type="button"
+                                            onClick={() => { setTransferInitialFromBoxKey(box.key); setIsTransferOpen(true); }}
+                                            className="inline-flex items-center gap-1 text-[11px] font-bold text-purple-300/80 hover:text-white transition-colors"
+                                        >
+                                            <ArrowRightLeft size={11} /> Traspaso →
                                         </button>
                                     </div>
                                 </div>
                             );
                         })}
+                    </div>
+
+                    {/* SECCIÓN 3 Y 4: RECUPERACIÓN DE INVERSIÓN, PERMUTAS, SOCIOS Y EXTRA DE REINVERSIÓN POR OPERACIÓN */}
+                    <div className="rounded-2xl border border-crm-border bg-crm-surface overflow-hidden">
+                        <div className="p-4 border-b border-crm-border bg-crm-bg flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                            <div>
+                                <h3 className="text-xs font-black uppercase tracking-wider text-white">
+                                    Recuperación de Inversión Real, Permutas, Socios y Extra de Reinversión por Operación
+                                </h3>
+                                <p className="text-[11px] text-crm-fg-muted mt-0.5">
+                                    Diferencia inversión real propia vs. terceros, permutas (capital en otro vehículo), dinero efectivamente cobrado, capital recuperado a Stock y margen cobrado disponible.
+                                </p>
+                            </div>
+                            <span className="rounded-lg bg-crm-surface-raised px-2.5 py-1 text-xs font-bold text-cyan-300 shrink-0">
+                                {operationsRecovery.length} operaciones activas
+                            </span>
+                        </div>
+
+                        <div className="overflow-x-auto">
+                            <table className="w-full text-left text-xs">
+                                <thead className="border-b border-crm-border bg-crm-bg/60 text-[10px] font-bold uppercase tracking-wider text-crm-fg-muted">
+                                    <tr>
+                                        <th className="p-3">Operación / Vehículo</th>
+                                        <th className="p-3 text-right">Inversión Real (Propia / Terceros)</th>
+                                        <th className="p-3 text-right">Costos Op. Pendientes</th>
+                                        <th className="p-3 text-right">Permuta (Cap. en Auto)</th>
+                                        <th className="p-3 text-right">Efectivo Cobrado Propio</th>
+                                        <th className="p-3 text-right">Capital Recuperado (Stock)</th>
+                                        <th className="p-3 text-right">Extra Reinversión (Stock)</th>
+                                        <th className="p-3 text-right">Margen Cobrado Disp.</th>
+                                        <th className="p-3 text-right">Ganancia Neta Informada</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y divide-crm-border">
+                                    {operationsRecovery.length === 0 ? (
+                                        <tr>
+                                            <td colSpan={9} className="p-6 text-center text-crm-fg-muted italic">
+                                                No hay operaciones de venta confirmadas registradas.
+                                            </td>
+                                        </tr>
+                                    ) : (
+                                        operationsRecovery.slice(0, 15).map((op) => {
+                                            const cur = op.saleCurrency || 'ARS';
+                                            const thirdPartyCap = op.thirdPartyRealInvestment ?? op.thirdPartyCapital ?? 0;
+                                            const pendingCosts = op.pendingOperationCostsTotal ?? op.pendingOperationCosts ?? 0;
+                                            const ownCollected = op.totalOwnCashCollectedEstimate ?? op.effectivelyCollectedCash ?? 0;
+                                            const recoveredCap = op.totalCapitalRecoveredSoFar ?? op.alreadyRecoveredCapital ?? 0;
+                                            const unrecoveredCap = op.remainingCapitalToRecover ?? op.unrecoveredOwnCapital ?? 0;
+                                            const marginAvail = op.availableMarginCollectedTotal ?? op.marginCollectedAvailable ?? 0;
+                                            const netProfitVal = op.reportedNetProfit ?? op.reportedSaleProfit;
+                                            return (
+                                                <tr key={op.saleId} className="hover:bg-crm-surface-raised transition-colors">
+                                                    <td className="p-3">
+                                                        <span className="font-bold text-white block">{op.vehicleName || 'Vehículo'}</span>
+                                                        <span className="text-[10px] text-crm-fg-muted">
+                                                            {op.clientName || op.customerName || 'Cliente'} · {op.saleDate ? new Date(op.saleDate).toLocaleDateString('es-AR') : ''}
+                                                            {op.partnerPct > 0 && ` · Socio (${op.partnerPct}%)`}
+                                                        </span>
+                                                    </td>
+                                                    <td className="p-3 text-right font-mono">
+                                                        {op.calculable ? (
+                                                            <>
+                                                                <span className="font-bold text-white block">{formatMoney(op.ownRealInvestment, cur)}</span>
+                                                                {thirdPartyCap > 0 && (
+                                                                    <span className="text-[10px] text-amber-300 block">
+                                                                        Terceros: {formatMoney(thirdPartyCap, cur)}
+                                                                    </span>
+                                                                )}
+                                                            </>
+                                                        ) : (
+                                                            <span className="text-amber-300 text-[10px] font-bold">Dato faltante</span>
+                                                        )}
+                                                    </td>
+                                                    <td className="p-3 text-right font-mono">
+                                                        {pendingCosts > 0 ? (
+                                                            <span className="font-bold text-amber-300">{formatMoney(pendingCosts, cur)}</span>
+                                                        ) : (
+                                                            <span className="text-crm-fg-muted">{formatMoney(0, cur)}</span>
+                                                        )}
+                                                    </td>
+                                                    <td className="p-3 text-right font-mono">
+                                                        {op.tradeInCapitalInVehicles > 0 ? (
+                                                            <span className="font-bold text-purple-300">{formatMoney(op.tradeInCapitalInVehicles, cur)}</span>
+                                                        ) : (
+                                                            <span className="text-crm-fg-muted">-</span>
+                                                        )}
+                                                    </td>
+                                                    <td className="p-3 text-right font-mono font-bold text-emerald-400">
+                                                        {formatMoney(ownCollected, cur)}
+                                                    </td>
+                                                    <td className="p-3 text-right font-mono">
+                                                        {op.calculable ? (
+                                                            <>
+                                                                <span className="font-bold text-cyan-300 block">{formatMoney(recoveredCap, cur)}</span>
+                                                                {unrecoveredCap > 0 && (
+                                                                    <span className="text-[10px] text-crm-fg-muted block">
+                                                                        Pend. recup.: {formatMoney(unrecoveredCap, cur)}
+                                                                    </span>
+                                                                )}
+                                                            </>
+                                                        ) : (
+                                                            <span className="text-crm-fg-muted">-</span>
+                                                        )}
+                                                    </td>
+                                                    <td className="p-3 text-right font-mono">
+                                                        {op.reinvestmentExtraConfigured ? (
+                                                            <>
+                                                                <span className="font-bold text-cyan-200 block">
+                                                                    {formatMoney(op.extraReinvestmentTarget, cur)} ({op.reinvestmentExtraPct}%)
+                                                                </span>
+                                                                <span className="text-[10px] text-crm-fg-muted block">
+                                                                    Cubierto: {formatMoney(op.alreadyAllocatedExtraReinvestment, cur)}
+                                                                </span>
+                                                            </>
+                                                        ) : (
+                                                            <span className="text-[10px] text-crm-fg-muted">Sin config.</span>
+                                                        )}
+                                                    </td>
+                                                    <td className="p-3 text-right font-mono font-bold text-emerald-300">
+                                                        {op.calculable ? formatMoney(marginAvail, cur) : '-'}
+                                                    </td>
+                                                    <td className="p-3 text-right font-mono">
+                                                        {netProfitVal !== null && netProfitVal !== undefined ? (
+                                                            <span className={`font-black ${netProfitVal >= 0 ? 'text-white' : 'text-red-400'}`}>
+                                                                {formatMoney(netProfitVal, cur)}
+                                                            </span>
+                                                        ) : (
+                                                            <span className="text-[10px] text-amber-300 font-bold" title={(op.missingReasons || []).join(' ')}>
+                                                                Ganancia no calculable
+                                                            </span>
+                                                        )}
+                                                    </td>
+                                                </tr>
+                                            );
+                                        })
+                                    )}
+                                </tbody>
+                            </table>
+                        </div>
                     </div>
                 </div>
             )}
@@ -1194,7 +1849,8 @@ export default function TesoreriaEstrategicaPage() {
 
             {/* PESTAÑA 7: AUDITORÍA Y CONCILIACIONES */}
             {activeTab === 'auditoria' && (
-                <div className="space-y-6">
+                <div className="space-y-8">
+                    <TreasuryAuditLogTab treasuryToken={treasuryToken} />
                     <div>
                         <h2 className="text-base font-black text-white">Historial de Conciliaciones y Ajustes</h2>
                         <p className="text-xs text-crm-fg-muted">
@@ -1284,10 +1940,21 @@ export default function TesoreriaEstrategicaPage() {
 
             <TreasuryBoxTransferModal
                 isOpen={isTransferOpen}
-                onClose={() => setIsTransferOpen(false)}
+                onClose={() => { setIsTransferOpen(false); setTransferInitialFromBoxKey(null); }}
                 boxes={boxes}
+                initialFromBoxKey={transferInitialFromBoxKey}
                 treasuryToken={treasuryToken}
                 onTransferSuccess={loadDashboardData}
+            />
+
+            <TreasuryBoxDetailModal
+                isOpen={Boolean(detailBox)}
+                onClose={() => setDetailBox(null)}
+                box={detailBox}
+                treasuryToken={treasuryToken}
+                onEditBox={(b) => setEditingBox(b)}
+                onTransferBox={(b) => { setTransferInitialFromBoxKey(b.key); setIsTransferOpen(true); }}
+                onRefresh={loadDashboardData}
             />
 
             <TreasuryInstallmentRegularizeModal

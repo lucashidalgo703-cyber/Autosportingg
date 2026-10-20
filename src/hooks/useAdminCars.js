@@ -1,6 +1,6 @@
 "use client";
 import { parseResponseSafe } from '../utils/apiHelper';
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useCallback, useRef } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { getActiveOfflineSnapshot } from '../services/offlineSyncService';
 import toast from 'react-hot-toast';
@@ -16,7 +16,12 @@ export const useAdminCars = () => {
     const [brands, setBrands] = useState([]);
     const [filteredTotalUSD, setFilteredTotalUSD] = useState(0);
     const [filteredTotalARS, setFilteredTotalARS] = useState(0);
+    const [filteredCostUSD, setFilteredCostUSD] = useState(0);
+    const [filteredCostARS, setFilteredCostARS] = useState(0);
+
     const { logout } = useAuth();
+    const activeRequestIdRef = useRef(0);
+    const lastFiltersRef = useRef({ page: 1, limit: 20 });
 
     const applyOfflineFallback = useCallback((filters = {}) => {
         const snap = getActiveOfflineSnapshot();
@@ -50,50 +55,68 @@ export const useAdminCars = () => {
         return { cars: filtered, total: filtered.length, pages: 1, page: 1, brands: uniqueBrands, offline: true };
     }, []);
 
-    const fetchCars = useCallback(async (filters = {}) => {
+    const fetchCars = useCallback(async (incomingFilters) => {
+        const requestId = ++activeRequestIdRef.current;
+
+        // Si se llama sin argumentos (o undefined), reutilizamos los últimos filtros activos
+        const effectiveFilters = incomingFilters !== undefined
+            ? { ...lastFiltersRef.current, ...incomingFilters }
+            : { ...lastFiltersRef.current };
+
+        lastFiltersRef.current = effectiveFilters;
+
         try {
             setLoading(true);
             setError(null);
+
             if (typeof window !== 'undefined' && navigator.onLine === false) {
-                const offlineResult = applyOfflineFallback(filters);
+                const offlineResult = applyOfflineFallback(effectiveFilters);
                 if (offlineResult) return offlineResult;
             }
+
             const API_URL = process.env.NEXT_PUBLIC_API_URL;
             const baseUrl = process.env.NODE_ENV === 'production' ? '' : (API_URL || 'http://localhost:3001');
-            
+
             const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
             if (!token) {
                 throw new Error('No admin token found');
             }
 
             const queryParams = new URLSearchParams();
-            queryParams.append('t', Date.now());
-            if (filters.page) queryParams.append('page', filters.page);
-            if (filters.limit) queryParams.append('limit', filters.limit);
-            if (filters.search) queryParams.append('search', filters.search);
-            if (filters.status) queryParams.append('status', filters.status);
-            if (filters.brand) queryParams.append('brand', filters.brand);
-            if (filters.tab) queryParams.append('tab', filters.tab);
-            if (filters.ml) queryParams.append('ml', filters.ml);
+            queryParams.append('t', String(Date.now()));
+            if (effectiveFilters.page) queryParams.append('page', String(effectiveFilters.page));
+            if (effectiveFilters.limit) queryParams.append('limit', String(effectiveFilters.limit));
+            if (effectiveFilters.search) queryParams.append('search', String(effectiveFilters.search));
+            if (effectiveFilters.status) queryParams.append('status', String(effectiveFilters.status));
+            if (effectiveFilters.brand) queryParams.append('brand', String(effectiveFilters.brand));
+            if (effectiveFilters.tab) queryParams.append('tab', String(effectiveFilters.tab));
+            if (effectiveFilters.ml) queryParams.append('ml', String(effectiveFilters.ml));
 
             const endpoint = `${baseUrl}/api/admin/cars?${queryParams.toString()}`;
-
             const headers = {
                 'Authorization': `Bearer ${token}`
             };
 
-            const response = await fetch(endpoint, { headers });
-            
+            const response = await fetch(endpoint, {
+                headers,
+                cache: 'no-store'
+            });
+
+            // Si llegó una petición posterior antes de que esta termine, descartamos esta respuesta
+            if (requestId !== activeRequestIdRef.current) {
+                return;
+            }
+
             if (!response.ok) {
                 if (response.status === 503) {
-                    const offlineResult = applyOfflineFallback(filters);
+                    const offlineResult = applyOfflineFallback(effectiveFilters);
                     if (offlineResult) return offlineResult;
                 }
                 if (response.status === 401 || response.status === 403) {
                     localStorage.removeItem('token');
                     logout();
                 }
-                
+
                 let errorMessage = `Failed to fetch admin cars (status: ${response.status})`;
                 try {
                     const text = await response.text();
@@ -110,39 +133,52 @@ export const useAdminCars = () => {
                         }
                     }
                 } catch (_) {}
-                
+
                 throw new Error(errorMessage);
             }
+
             const data = await parseResponseSafe(response);
+
+            // Verificamos nuevamente la vigencia de la respuesta
+            if (requestId !== activeRequestIdRef.current) {
+                return;
+            }
 
             if (data && data.cars) {
                 setCars(data.cars);
                 setTotal(data.total || 0);
                 setPages(data.pages || 0);
                 setPage(data.page || 1);
-                setSummary(data.summary || null);
+                if (data.summary) {
+                    setSummary(data.summary);
+                }
                 setBrands(data.brands || []);
                 setFilteredTotalUSD(data.filteredTotalUSD || 0);
                 setFilteredTotalARS(data.filteredTotalARS || 0);
+                setFilteredCostUSD(data.filteredCostUSD || 0);
+                setFilteredCostARS(data.filteredCostARS || 0);
                 return data;
             } else {
-                setCars(data || []);
+                setCars(Array.isArray(data) ? data : []);
                 setFilteredTotalUSD(0);
                 setFilteredTotalARS(0);
-                return { cars: data || [] };
+                setFilteredCostUSD(0);
+                setFilteredCostARS(0);
+                return { cars: Array.isArray(data) ? data : [] };
             }
         } catch (err) {
-            const offlineResult = applyOfflineFallback(filters);
+            if (requestId !== activeRequestIdRef.current) return;
+            const offlineResult = applyOfflineFallback(effectiveFilters);
             if (offlineResult) return offlineResult;
             console.error("Error fetching admin cars:", err);
             setError(err.message);
             return { cars: [] };
         } finally {
-            setLoading(false);
+            if (requestId === activeRequestIdRef.current) {
+                setLoading(false);
+            }
         }
     }, [logout, applyOfflineFallback]);
-
-
 
     const deleteCar = async (id) => {
         try {
@@ -167,6 +203,8 @@ export const useAdminCars = () => {
             }
 
             setCars(prev => prev.filter(c => c._id !== id));
+            // Actualizamos la lista y el resumen global
+            fetchCars();
         } catch (err) {
             console.error("Error deleting car:", err);
             toast.error("Error al eliminar vehículo");
@@ -207,5 +245,22 @@ export const useAdminCars = () => {
         }
     };
 
-    return { cars, loading, error, refresh: fetchCars, deleteCar, setCars, total, pages, page, summary, brands, swapCars, filteredTotalUSD, filteredTotalARS };
+    return {
+        cars,
+        loading,
+        error,
+        refresh: fetchCars,
+        deleteCar,
+        setCars,
+        total,
+        pages,
+        page,
+        summary,
+        brands,
+        swapCars,
+        filteredTotalUSD,
+        filteredTotalARS,
+        filteredCostUSD,
+        filteredCostARS
+    };
 };

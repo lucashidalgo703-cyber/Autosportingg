@@ -1,7 +1,7 @@
 // Reglas comerciales de una venta compartidas entre servidor (server.js) y CRM (React).
 // Mantener este archivo libre de dependencias para poder importarlo desde ambos lados.
 
-export const VALID_INSTALLMENT_COUNTS = [6, 12, 18, 24];
+export const VALID_INSTALLMENT_COUNTS = [3, 6, 12, 18, 24];
 
 export const roundMoney = (value) => {
     const num = Number(value);

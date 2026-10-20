@@ -4,8 +4,6 @@ import React, { useState, useEffect } from 'react';
 import {
     X,
     ArrowDownRight,
-    DollarSign,
-    Wallet,
     ShieldCheck,
     Briefcase,
     Landmark,
@@ -14,8 +12,6 @@ import {
     Wrench,
     Car,
     TrendingUp,
-    CheckCircle2,
-    AlertCircle,
     Info,
     SlidersHorizontal
 } from 'lucide-react';
@@ -28,17 +24,6 @@ function formatNumber(val) {
 function formatMoney(amount, currency = 'ARS') {
     return `${currency === 'USD' ? 'USD' : 'ARS'} ${formatNumber(Math.round(amount || 0))}`;
 }
-
-const BOX_NAMES = {
-    operativa: 'Caja Operativa',
-    impuestos: 'Impuestos y Obligaciones',
-    deudas: 'Caja Deudas',
-    personal: 'Caja Personal',
-    postventa: 'Fondo Postventa',
-    reserva: 'Reserva de Liquidez',
-    stock: 'Caja Stock / Vehículos',
-    crecimiento: 'Fondo de Crecimiento'
-};
 
 const BOX_ICONS = {
     operativa: Briefcase,
@@ -68,7 +53,7 @@ export default function TreasuryDistributeIncomeModal({
             const initial = {};
             const suggested = income.suggestedDistribution || [];
             suggested.forEach(s => {
-                initial[s.boxKey] = s.amount || 0;
+                initial[s.boxKey] = (initial[s.boxKey] || 0) + (s.amount || 0);
             });
             setAllocations(initial);
             setNotes(`Distribución de cobro de ${income.category || 'Ingreso'} - ${income.description || ''}`);
@@ -81,6 +66,7 @@ export default function TreasuryDistributeIncomeModal({
     const totalCobrado = Number(income.totalAmount || 0);
     const terceros = Number(income.tercerosAmount || 0);
     const capitalPropio = Number(income.propioAmount || totalCobrado);
+    const wf = income.waterfallSuggestion || null;
 
     const handleAmountChange = (boxKey, val) => {
         const num = parseFloat(String(val).replace(/\./g, '').replace(',', '.')) || 0;
@@ -94,10 +80,10 @@ export default function TreasuryDistributeIncomeModal({
         const suggested = income.suggestedDistribution || [];
         const next = {};
         suggested.forEach(s => {
-            next[s.boxKey] = s.amount || 0;
+            next[s.boxKey] = (next[s.boxKey] || 0) + (s.amount || 0);
         });
         setAllocations(next);
-        toast.success('Propuesta automática aplicada según prioridades y faltantes');
+        toast.success('Propuesta automática (6 pasos) aplicada según recuperación de capital, extra y faltantes');
     };
 
     const totalAllocated = Object.values(allocations).reduce((sum, val) => sum + (Number(val) || 0), 0);
@@ -168,7 +154,7 @@ export default function TreasuryDistributeIncomeModal({
                         </span>
                         <div>
                             <span className="text-[10px] font-black uppercase tracking-wider text-purple-300">
-                                Dirección de Finanzas · Bandeja de Ingresos
+                                Dirección de Finanzas · Cascada de 6 Pasos
                             </span>
                             <h2 className="text-base font-black text-white">Distribuir Cobro a Cajas</h2>
                         </div>
@@ -186,7 +172,7 @@ export default function TreasuryDistributeIncomeModal({
                     <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                         <div>
                             <span className="text-[10px] font-bold uppercase tracking-wider text-crm-fg-muted block">
-                                Cobro Registrado
+                                Cobro Registrado Confirmado
                             </span>
                             <h3 className="text-sm font-black text-white">{income.description}</h3>
                             <span className="text-xs text-crm-fg-muted">
@@ -194,7 +180,7 @@ export default function TreasuryDistributeIncomeModal({
                             </span>
                         </div>
                         <div className="text-right">
-                            <span className="text-[10px] uppercase font-bold text-crm-fg-muted block">Importe Total</span>
+                            <span className="text-[10px] uppercase font-bold text-crm-fg-muted block">Importe Total Cobrado</span>
                             <span className="font-mono text-lg font-black text-emerald-400">
                                 {formatMoney(totalCobrado, currency)}
                             </span>
@@ -205,12 +191,54 @@ export default function TreasuryDistributeIncomeModal({
                         <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-3 text-xs text-amber-200/90 flex items-start gap-2">
                             <Info size={16} className="text-amber-400 shrink-0 mt-0.5" />
                             <div>
-                                <p className="font-bold">Separación de Capital de Terceros</p>
+                                <p className="font-bold">Paso 1: Separación de Capital y Participación de Terceros</p>
                                 <p>{income.thirdPartyNote}</p>
                                 <p className="mt-1 font-mono font-bold text-white">
                                     Monto Neto Propio a Distribuir: {formatMoney(capitalPropio, currency)}
                                 </p>
                             </div>
+                        </div>
+                    )}
+
+                    {/* Desglose de la Cascada de 6 Pasos Sugerida */}
+                    {wf && (
+                        <div className="rounded-xl border border-purple-500/30 bg-purple-500/10 p-3 text-xs space-y-1.5">
+                            <span className="text-[10px] font-black uppercase tracking-wider text-purple-200 block">
+                                Desglose Automático Sugerido (Orden de 6 Pasos)
+                            </span>
+                            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 text-[11px]">
+                                {wf.operationPendingCostsReserved > 0 && (
+                                    <div>
+                                        <span className="text-crm-fg-muted block">1. Costos op. pendientes:</span>
+                                        <strong className="font-mono text-amber-300">{formatMoney(wf.operationPendingCostsReserved, currency)}</strong>
+                                    </div>
+                                )}
+                                <div>
+                                    <span className="text-crm-fg-muted block">2. Recuperación capital (Stock):</span>
+                                    <strong className="font-mono text-cyan-300">{formatMoney(wf.capitalRecoveredToStock || 0, currency)}</strong>
+                                </div>
+                                <div>
+                                    <span className="text-crm-fg-muted block">Margen cobrado disp.:</span>
+                                    <strong className="font-mono text-emerald-400">{formatMoney(wf.marginCollected || 0, currency)}</strong>
+                                </div>
+                                <div>
+                                    <span className="text-crm-fg-muted block">3. Faltantes esenciales:</span>
+                                    <strong className="font-mono text-white">{formatMoney(wf.essentialExpensesCovered || 0, currency)}</strong>
+                                </div>
+                                <div>
+                                    <span className="text-crm-fg-muted block">4. Reserva mínima:</span>
+                                    <strong className="font-mono text-blue-300">{formatMoney(wf.minimumReserveCompleted || 0, currency)}</strong>
+                                </div>
+                                <div>
+                                    <span className="text-crm-fg-muted block">5. Extra reinversión (Stock):</span>
+                                    <strong className="font-mono text-cyan-300">{formatMoney(wf.extraReinvestmentToStock || 0, currency)}</strong>
+                                </div>
+                            </div>
+                            {wf.unassignedAmount > 0 && wf.unassignedReason && (
+                                <p className="text-[11px] text-amber-300 pt-1 border-t border-purple-500/20">
+                                    ℹ️ Sin asignar ({formatMoney(wf.unassignedAmount, currency)}): {wf.unassignedReason}
+                                </p>
+                            )}
                         </div>
                     )}
                 </div>
@@ -222,7 +250,7 @@ export default function TreasuryDistributeIncomeModal({
                             Asignado: <span className="font-mono font-black text-purple-300">{formatMoney(totalAllocated, currency)}</span> ({Math.round((totalAllocated / capitalPropio) * 100) || 0}%)
                         </span>
                         <span className={`font-mono font-bold ${isOverAllocated ? 'text-red-400' : 'text-emerald-400'}`}>
-                            {remainingToAssign >= 0 ? `Restante: ${formatMoney(remainingToAssign, currency)}` : `Excedido: ${formatMoney(Math.abs(remainingToAssign), currency)}`}
+                            {remainingToAssign >= 0 ? `Sin asignar: ${formatMoney(remainingToAssign, currency)}` : `Excedido: ${formatMoney(Math.abs(remainingToAssign), currency)}`}
                         </span>
                     </div>
 
@@ -232,7 +260,7 @@ export default function TreasuryDistributeIncomeModal({
                             onClick={handleApplySuggested}
                             className="inline-flex items-center gap-1.5 text-xs font-bold text-purple-400 hover:text-purple-300 transition-colors"
                         >
-                            <SlidersHorizontal size={13} /> Aplicar propuesta sugerida por prioridades
+                            <SlidersHorizontal size={13} /> Restaurar propuesta sugerida (6 pasos)
                         </button>
                     </div>
                 </div>
@@ -242,7 +270,7 @@ export default function TreasuryDistributeIncomeModal({
                     <div className="space-y-3 max-h-[300px] overflow-y-auto pr-1">
                         {boxes.map((box) => {
                             const Icon = BOX_ICONS[box.key] || Briefcase;
-                            const currentVal = allocations[box.key] || '';
+                            const currentVal = allocations[box.key] ?? '';
                             const shortfall = currency === 'USD' ? (box.shortfallUSD || 0) : (box.shortfallARS || 0);
 
                             return (
@@ -254,7 +282,7 @@ export default function TreasuryDistributeIncomeModal({
                                         <div className="truncate">
                                             <p className="text-xs font-bold text-white truncate">{box.name}</p>
                                             <span className="text-[10px] text-crm-fg-muted block">
-                                                Faltante: {formatMoney(shortfall, currency)}
+                                                Faltante: {formatMoney(shortfall, currency)} · Disp. libre: {formatMoney(currency === 'USD' ? box.availableUSD : box.availableARS, currency)}
                                             </span>
                                         </div>
                                     </div>
@@ -283,7 +311,7 @@ export default function TreasuryDistributeIncomeModal({
                     {/* Notas */}
                     <div>
                         <label className="block text-[11px] font-bold uppercase tracking-wider text-crm-fg-muted mb-1">
-                            Notas / Auditoría de la Distribución
+                            Motivo / Auditoría de la Distribución *
                         </label>
                         <input
                             type="text"
@@ -291,6 +319,7 @@ export default function TreasuryDistributeIncomeModal({
                             onChange={(e) => setNotes(e.target.value)}
                             className="w-full rounded-xl border border-crm-border bg-crm-bg px-3 py-2 text-xs text-white focus:border-purple-500 focus:outline-none"
                             placeholder="Observación para el historial de las cajas..."
+                            required
                         />
                     </div>
 

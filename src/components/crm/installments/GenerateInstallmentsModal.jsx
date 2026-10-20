@@ -102,16 +102,21 @@ export default function GenerateInstallmentsModal({ isOpen, onClose, onGenerate,
                             <div className="flex-1">
                                 <label className="text-xs font-bold text-neutral-400 uppercase tracking-wider mb-2 block">Cantidad de Cuotas</label>
                                 <div className="relative">
-                                    <Layers className="absolute left-4 top-1/2 -translate-y-1/2 text-neutral-500" size={16} />
-                                    <input
-                                        type="number"
+                                    <Layers className="absolute left-4 top-1/2 -translate-y-1/2 text-neutral-500 pointer-events-none" size={16} />
+                                    <select
                                         required
-                                        min="1"
-                                        max="120"
-                                        className="w-full bg-black border border-neutral-800 rounded-xl px-4 py-3 pl-11 text-sm text-white focus:outline-none focus:border-neutral-600 transition-colors"
+                                        className="w-full bg-black border border-neutral-800 rounded-xl px-4 py-3 pl-11 text-sm text-white focus:outline-none focus:border-neutral-600 transition-colors appearance-none cursor-pointer"
                                         value={formData.installmentsCount}
-                                        onChange={(e) => setFormData({...formData, installmentsCount: e.target.value})}
-                                    />
+                                        onChange={(e) => setFormData({...formData, installmentsCount: Number(e.target.value)})}
+                                    >
+                                        <option value="3">3 cuotas</option>
+                                        <option value="6">6 cuotas</option>
+                                        <option value="12">12 cuotas</option>
+                                        <option value="18">18 cuotas</option>
+                                        <option value="24">24 cuotas</option>
+                                        <option value="36">36 cuotas</option>
+                                        <option value="48">48 cuotas</option>
+                                    </select>
                                 </div>
                             </div>
                             <div className="flex-1">

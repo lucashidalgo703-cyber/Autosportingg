@@ -21,7 +21,7 @@ const CarDetail = () => {
                 setLoading(true);
                 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
                 const baseUrl = process.env.NODE_ENV === 'production' ? '' : API_URL;
-                const response = await fetch(`${baseUrl}/api/public/cars/${id}?t=${Date.now()}`);
+                const response = await fetch(`${baseUrl}/api/public/cars/${id}`);
                 if (response.ok) {
                     const data = await response.json();
                     setCar(data);
@@ -161,6 +161,7 @@ const CarDetail = () => {
                                             <Image
                                                 alt={car.name}
                                                 fill
+                                                priority
                                                 className="object-cover w-full h-full fade-in"
                                                 style={{ objectFit: 'cover', objectPosition: car.imagePosition || '50% 75%' }}
                                                 src={getOptimizedImageUrl(currentImg, 1200)}

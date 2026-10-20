@@ -20,7 +20,7 @@ const CarCard = ({ car }) => {
           src={getOptimizedImageUrl(car.coverImage || (car.images && car.images[0]) || car.image, 600) || '/placeholder.png'}
           alt={car.name || 'Auto'}
           fill
-          sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+          sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
           className="card-image"
           style={{ objectFit: 'cover', objectPosition: car.imagePosition || '50% 75%' }}
           unoptimized

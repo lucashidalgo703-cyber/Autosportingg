@@ -72,14 +72,14 @@ const financingDetailsSchema = new mongoose.Schema({
     cashPrice: { type: Number, min: 0 },
     downPayment: { type: Number, min: 0, default: 0 },
     // Sin financiación (contado o entrega que cubre el total): el campo no existe (undefined).
-    // Con saldo financiado debe ser 6, 12, 18 o 24.
+    // Con saldo financiado debe ser 3, 6, 12, 18 o 24.
     installmentsCount: {
         type: Number,
-        enum: [6, 12, 18, 24],
+        enum: [3, 6, 12, 18, 24],
         set: (val) => (val === '' || val === null || val === undefined || Number(val) === 0 ? undefined : Number(val)),
         required: [
             function () { return Boolean(this.hasFinancing) && Number(this.financedBalance) > 0; },
-            'Indicá la cantidad de cuotas (6, 12, 18 o 24) para el saldo financiado.'
+            'Indicá la cantidad de cuotas (3, 6, 12, 18 o 24) para el saldo financiado.'
         ]
     },
     interestRate: { type: Number, min: 0, default: 0 },

@@ -283,8 +283,8 @@ export default function SaleCommercialPanel({ sale, onSave, planActions }) {
             }
 
             const financedBalance = Math.max(0, cashPrice - downPayment);
-            if (financedBalance > 0 && ![6, 12, 18, 24].includes(installmentsCount)) {
-                toast.error('Seleccioná una cantidad de cuotas válida (6, 12, 18 o 24).');
+            if (financedBalance > 0 && ![3, 6, 12, 18, 24].includes(installmentsCount)) {
+                toast.error('Seleccioná una cantidad de cuotas válida (3, 6, 12, 18 o 24).');
                 return;
             }
 
@@ -672,6 +672,7 @@ export default function SaleCommercialPanel({ sale, onSave, planActions }) {
                                     disabled={liveFinancing.financedBalance <= 0}
                                     className="h-9 bg-crm-surface text-xs font-bold"
                                 >
+                                    <option value={3}>3 cuotas</option>
                                     <option value={6}>6 cuotas</option>
                                     <option value={12}>12 cuotas</option>
                                     <option value={18}>18 cuotas</option>

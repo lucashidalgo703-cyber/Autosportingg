@@ -8,6 +8,9 @@ const treasuryConfigSchema = new mongoose.Schema({
     postventaProvisionARS: { type: Number, default: 0 },
     postventaProvisionUSD: { type: Number, default: 0 },
     postventaProvisionPerVehicleARS: { type: Number, default: 0 }, // Provisión fija por vehículo vendido/entregado
+    activeDistributionScheme: { type: String, enum: ['caja_ajustada', 'estabilizacion', 'caja_solida', null], default: null },
+    reinvestmentExtraConfigured: { type: Boolean, default: false },
+    reinvestmentExtraPct: { type: Number, default: null, min: 0, max: 100 }, // Extra de reinversión sobre inversión real (%), destino de ganancia hacia Stock
     surplusRule: {
         configured: { type: Boolean, default: false },
         stockPercent: { type: Number, default: 0 },
@@ -15,10 +18,10 @@ const treasuryConfigSchema = new mongoose.Schema({
     },
     priorityOrder: {
         type: [String],
-        default: ['operativa', 'personal', 'impuestos', 'deudas', 'postventa', 'reserva', 'stock', 'crecimiento']
+        default: ['operativa', 'impuestos', 'deudas', 'postventa', 'reserva', 'personal', 'stock', 'crecimiento']
     },
     autoDistributeIncomes: { type: Boolean, default: false },
-    requirePinForAutoDistribution: { type: Boolean, default: true },
+    requirePinForAutoDistribution: { type: Boolean, default: false },
     isSetupCompleted: { type: Boolean, default: false },
     lastSetupAt: { type: Date },
     updatedBy: { type: String }

@@ -1,29 +1,60 @@
 "use client";
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import {
     ArrowDownRight,
-    DollarSign,
-    Wallet,
-    Calendar,
-    User,
+    Search,
     Car,
-    FileCheck,
+    User,
+    Calendar,
+    Wallet,
+    CreditCard,
+    DollarSign,
     CheckCircle2,
     Clock,
+    AlertTriangle,
     X,
+    ChevronRight,
+    ChevronLeft,
     SlidersHorizontal,
-    MinusCircle
+    Plus,
+    Trash2,
+    ShieldCheck,
+    FileText,
+    Receipt,
+    RefreshCw,
+    Info,
+    RotateCcw
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 function formatNumber(val) {
-    return new Intl.NumberFormat('es-AR').format(val || 0);
+    return new Intl.NumberFormat('es-AR').format(Math.round(val || 0));
 }
 
 function formatMoney(amount, currency = 'ARS') {
-    return `${currency === 'USD' ? 'USD' : 'ARS'} ${formatNumber(Math.round(amount || 0))}`;
+    const isNegative = (amount || 0) < 0;
+    const formatted = new Intl.NumberFormat('es-AR').format(Math.abs(Math.round(amount || 0)));
+    return `${isNegative ? '-' : ''}${currency === 'USD' ? 'USD' : 'ARS'} ${formatted}`;
 }
+
+const SCHEME_DETAILS = {
+    caja_ajustada: {
+        title: 'Caja ajustada',
+        description: 'Prioridad máxima a la operación y reserva de liquidez.',
+        badges: '70% Op. / 20% Res. / 10% Post.'
+    },
+    estabilizacion: {
+        title: 'Estabilización',
+        description: 'Equilibrio operativo con inicio de reinversión para crecimiento.',
+        badges: '60% Op. / 20% Res. / 10% Post. / 10% Crec.'
+    },
+    caja_solida: {
+        title: 'Caja sólida',
+        description: 'Empresa consolidada: reparte a crecimiento y utilidad del titular.',
+        badges: '50% Op. / 15% Res. / 10% Post. / 20% Crec. / 5% Util.'
+    }
+};
 
 export default function TreasuryCollectAndDistributeModal({
     isOpen,
@@ -32,159 +63,363 @@ export default function TreasuryCollectAndDistributeModal({
     boxes = [],
     pendingInstallments = [],
     treasuryToken,
+    activeDistributionScheme = null,
+    initialSale = null,
+    initialSaleId = null,
+    initialInstallmentId = null,
     onSuccess
 }) {
     const todayStr = new Date().toISOString().split('T')[0];
 
-    // Tipo de origen
-    const [collectionType, setCollectionType] = useState('cuota'); // 'cuota' | 'venta' | 'general'
-    const [selectedInstallmentId, setSelectedInstallmentId] = useState('');
-    const [customerName, setCustomerName] = useState('');
-    const [vehicleInfo, setVehicleInfo] = useState('');
+    // Paso del flujo (1: Seleccionar venta, 2: Cargar pago, 3: Revisar distribución, 4: Resumen completado)
+    const [step, setStep] = useState(1);
 
-    // Monto y cuenta
-    const [currency, setCurrency] = useState('ARS');
-    const [grossAmount, setGrossAmount] = useState('');
-    const [accountId, setAccountId] = useState('');
+    // --- PASO 1: Búsqueda y Selección de Venta ---
+    const [searchQuery, setSearchQuery] = useState('');
+    const [searchResults, setSearchResults] = useState([]);
+    const [isSearching, setIsSearching] = useState(false);
+    const [selectedSale, setSelectedSale] = useState(null);
+    const [saleSummary, setSaleSummary] = useState(null);
+    const [loadingSummary, setLoadingSummary] = useState(false);
+
+    // --- PASO 2: Carga de Pago ---
+    const [concept, setConcept] = useState('entrega_inicial'); // 'entrega_inicial' | 'saldo' | 'cuota' | 'otro'
     const [date, setDate] = useState(todayStr);
+    const [amount, setAmount] = useState('');
+    const [currency, setCurrency] = useState('ARS');
+    const [paymentMethod, setPaymentMethod] = useState('Transferencia bancaria');
+    const [selectedInstallmentId, setSelectedInstallmentId] = useState('');
+    const [receiptReference, setReceiptReference] = useState('');
     const [notes, setNotes] = useState('');
 
-    // Deducción / Comisiones a Inversores / Consignatarios
-    const [hasDeduction, setHasDeduction] = useState(false);
-    const [deductionAmount, setDeductionAmount] = useState('');
-    const [deductionRecipient, setDeductionRecipient] = useState('');
-    const [deductionReason, setDeductionReason] = useState('Comisión / Retorno a Inversor');
+    // Splits de Cuentas / Destinos
+    const [isSplitPayment, setIsSplitPayment] = useState(false);
+    const [paymentSplits, setPaymentSplits] = useState([]);
+    const [singleAccountId, setSingleAccountId] = useState('');
 
-    // Distribución personalizada por caja
-    const [boxAllocations, setBoxAllocations] = useState({});
-    const [showDistributionDetail, setShowDistributionDetail] = useState(false);
+    // --- PASO 3: Esquema y Propuesta de Distribución ---
+    const [selectedScheme, setSelectedScheme] = useState(activeDistributionScheme || 'estabilizacion');
+    const [distributionProposal, setDistributionProposal] = useState(null);
+    const [loadingProposal, setLoadingProposal] = useState(false);
+    const [proposalError, setProposalError] = useState(null);
+
+    // --- PASO 4 / Confirmación ---
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const [idempotencyKey, setIdempotencyKey] = useState('');
+    const [completedResult, setCompletedResult] = useState(null);
 
-    // Al seleccionar una cuota del select
+    // Al abrir el modal, inicializar estado
     useEffect(() => {
-        if (selectedInstallmentId && pendingInstallments.length > 0) {
-            const inst = pendingInstallments.find(i => (i._id || i.id) === selectedInstallmentId);
-            if (inst) {
-                setGrossAmount(inst.amount || '');
-                setCurrency(inst.currency || 'ARS');
-                setCustomerName(inst.customerName || '');
-                setVehicleInfo(inst.vehicleInfo || '');
-                setNotes(`Cobro de Cuota ${inst.installmentNumber} - ${inst.customerName || ''}`);
+        if (isOpen) {
+            setStep(1);
+            setCompletedResult(null);
+            setIsSubmitting(false);
+            setIdempotencyKey(`col_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`);
+
+            if (activeDistributionScheme) {
+                setSelectedScheme(activeDistributionScheme);
+            }
+
+            // Si viene una venta preseleccionada
+            if (initialSale) {
+                handleSelectSale(initialSale);
+                if (initialInstallmentId) {
+                    setConcept('cuota');
+                    setSelectedInstallmentId(initialInstallmentId);
+                }
+            } else if (initialSaleId) {
+                loadSaleById(initialSaleId, initialInstallmentId);
+            } else {
+                setSelectedSale(null);
+                setSaleSummary(null);
+                setSearchQuery('');
+                setSearchResults([]);
             }
         }
-    }, [selectedInstallmentId, pendingInstallments]);
+    }, [isOpen, initialSale, initialSaleId, initialInstallmentId, activeDistributionScheme]);
 
-    // Establecer cuenta predeterminada
+    // Establecer cuenta predeterminada para el monto único
     useEffect(() => {
-        if (accounts.length > 0 && !accountId) {
-            const defaultAcc = accounts.find(a => a.currency === currency) || accounts[0];
-            if (defaultAcc) setAccountId(defaultAcc._id);
+        if (accounts.length > 0 && !singleAccountId) {
+            const acc = accounts.find(a => a.currency === currency) || accounts[0];
+            if (acc) setSingleAccountId(acc._id);
         }
-    }, [accounts, currency, accountId]);
+    }, [accounts, currency, singleAccountId]);
 
-    // Calcular monto neto
-    const grossNum = parseFloat(grossAmount) || 0;
-    const dedNum = hasDeduction ? (parseFloat(deductionAmount) || 0) : 0;
-    const netAmount = Math.max(0, grossNum - dedNum);
+    // Buscar ventas en el servidor
+    const searchSales = useCallback(async (query) => {
+        if (!query || query.trim().length < 2) {
+            setSearchResults([]);
+            return;
+        }
+        try {
+            setIsSearching(true);
+            const token = localStorage.getItem('token');
+            const res = await fetch(`/api/admin/tesoreria-estrategica/sales-search?q=${encodeURIComponent(query.trim())}`, {
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'x-treasury-token': treasuryToken || ''
+                }
+            });
+            const data = await res.json();
+            if (data.ok && Array.isArray(data.sales)) {
+                setSearchResults(data.sales);
+            }
+        } catch (err) {
+            console.error('Error buscando ventas:', err);
+        } finally {
+            setIsSearching(false);
+        }
+    }, [treasuryToken]);
 
-    // Calcular distribución sugerida automática por prioridades y faltantes
     useEffect(() => {
-        if (netAmount <= 0 || boxes.length === 0) return;
+        const timer = setTimeout(() => {
+            if (searchQuery.trim().length >= 2) {
+                searchSales(searchQuery);
+            }
+        }, 300);
+        return () => clearTimeout(timer);
+    }, [searchQuery, searchSales]);
 
-        let remaining = netAmount;
-        const suggested = {};
-
-        // Prioridad 1: Operativa (compromisos pendientes)
-        const opBox = boxes.find(b => b.key === 'operativa');
-        const opDeficit = opBox?.uncoveredCommitmentsARS || 0;
-        const opAlloc = Math.min(remaining, opDeficit > 0 ? opDeficit : Math.round(netAmount * 0.15));
-        suggested.operativa = opAlloc;
-        remaining -= opAlloc;
-
-        // Prioridad 2: Impuestos (compromisos tributarios)
-        const impBox = boxes.find(b => b.key === 'impuestos');
-        const impDeficit = impBox?.commitmentsARS || 0;
-        const impAlloc = Math.min(remaining, impDeficit > 0 ? impDeficit : Math.round(netAmount * 0.10));
-        suggested.impuestos = impAlloc;
-        remaining -= impAlloc;
-
-        // Prioridad 3: Personal
-        const persAlloc = Math.min(remaining, Math.round(netAmount * 0.15));
-        suggested.personal = persAlloc;
-        remaining -= persAlloc;
-
-        // Prioridad 4: Deudas
-        const deudasBox = boxes.find(b => b.key === 'deudas');
-        const deudasDeficit = deudasBox?.commitmentsARS || 0;
-        const deudasAlloc = Math.min(remaining, deudasDeficit > 0 ? deudasDeficit : 0);
-        suggested.deudas = deudasAlloc;
-        remaining -= deudasAlloc;
-
-        // Prioridad 5: Postventa (5%)
-        const pvAlloc = Math.min(remaining, Math.round(netAmount * 0.05));
-        suggested.postventa = pvAlloc;
-        remaining -= pvAlloc;
-
-        // Prioridad 6: Reserva (15%)
-        const resAlloc = Math.min(remaining, Math.round(netAmount * 0.15));
-        suggested.reserva = resAlloc;
-        remaining -= resAlloc;
-
-        // Prioridad 7: Stock (remamente principal)
-        const stockAlloc = Math.round(remaining * 0.80);
-        suggested.stock = stockAlloc;
-        remaining -= stockAlloc;
-
-        // Prioridad 8: Crecimiento (lo que sobre)
-        suggested.crecimiento = remaining;
-
-        setBoxAllocations(suggested);
-    }, [netAmount, boxes]);
-
-    if (!isOpen) return null;
-
-    const handleBoxAllocChange = (key, val) => {
-        setBoxAllocations(prev => ({
-            ...prev,
-            [key]: parseFloat(val) || 0
-        }));
+    // Cargar venta por ID
+    const loadSaleById = async (saleId, installmentIdToSelect = null) => {
+        try {
+            setLoadingSummary(true);
+            const token = localStorage.getItem('token');
+            const res = await fetch(`/api/admin/tesoreria-estrategica/sales-search?saleId=${saleId}`, {
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'x-treasury-token': treasuryToken || ''
+                }
+            });
+            const data = await res.json();
+            if (data.ok && data.sales && data.sales[0]) {
+                handleSelectSale(data.sales[0]);
+                if (installmentIdToSelect) {
+                    setConcept('cuota');
+                    setSelectedInstallmentId(installmentIdToSelect);
+                }
+            }
+        } catch (err) {
+            console.error('Error cargando venta:', err);
+        } finally {
+            setLoadingSummary(false);
+        }
     };
 
-    // Confirmar Cobro (distributeImmediately = true | false)
-    const handleConfirm = async (distributeImmediately) => {
-        if (!accountId) {
-            toast.error('Seleccioná la cuenta donde ingresa el dinero');
+    // Al seleccionar una venta
+    const handleSelectSale = async (sale) => {
+        setSelectedSale(sale);
+        setCurrency(sale.currency || sale.saleCurrency || 'ARS');
+        setSearchResults([]);
+        setSearchQuery('');
+
+        // Cargar resumen financiero de Tesorería para la venta
+        try {
+            setLoadingSummary(true);
+            const token = localStorage.getItem('token');
+            const res = await fetch(`/api/admin/tesoreria-estrategica/sales/${sale._id}/summary`, {
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'x-treasury-token': treasuryToken || ''
+                }
+            });
+            const data = await res.json();
+            if (data.ok && data.summary) {
+                setSaleSummary(data.summary);
+                // Pre-cargar monto sugerido si hay saldo pendiente
+                if (data.summary.pendingSaleBalance > 0 && !amount) {
+                    setAmount(String(Math.round(data.summary.pendingSaleBalance)));
+                }
+            }
+        } catch (err) {
+            console.error('Error cargando resumen de venta:', err);
+        } finally {
+            setLoadingSummary(false);
+        }
+    };
+
+    // Cuotas disponibles de la venta seleccionada
+    const saleInstallments = useMemo(() => {
+        if (!selectedSale || !Array.isArray(selectedSale.installments)) return [];
+        return selectedSale.installments.filter(i => i.status !== 'anulada');
+    }, [selectedSale]);
+
+    // Al seleccionar una cuota, actualizar monto sugerido
+    const handleInstallmentChange = (instId) => {
+        setSelectedInstallmentId(instId);
+        if (!instId) return;
+        const inst = saleInstallments.find(i => (i._id || i.id) === instId);
+        if (inst) {
+            const pendingInstAmount = Math.max(0, (inst.amount || 0) - (inst.paidAmount || 0));
+            setAmount(String(Math.round(pendingInstAmount || inst.amount || 0)));
+            if (inst.currency) setCurrency(inst.currency);
+            setNotes(`Cobro Cuota ${inst.installmentNumber} - ${selectedSale.clientName || ''}`);
+        }
+    };
+
+    // Manejo de splits
+    const handleToggleSplit = (checked) => {
+        setIsSplitPayment(checked);
+        if (checked && paymentSplits.length === 0) {
+            const numAmount = parseFloat(amount) || 0;
+            const defaultAcc = accounts.find(a => a.currency === currency) || accounts[0];
+            setPaymentSplits([
+                {
+                    accountId: defaultAcc?._id || '',
+                    paymentMethod: 'Transferencia bancaria',
+                    amount: numAmount > 0 ? numAmount : 0,
+                    reference: ''
+                }
+            ]);
+        }
+    };
+
+    const handleAddSplit = () => {
+        const defaultAcc = accounts.find(a => a.currency === currency) || accounts[0];
+        setPaymentSplits(prev => [
+            ...prev,
+            {
+                accountId: defaultAcc?._id || '',
+                paymentMethod: 'Efectivo',
+                amount: 0,
+                reference: ''
+            }
+        ]);
+    };
+
+    const handleRemoveSplit = (index) => {
+        setPaymentSplits(prev => prev.filter((_, i) => i !== index));
+    };
+
+    const handleSplitChange = (index, field, value) => {
+        setPaymentSplits(prev => {
+            const copy = [...prev];
+            copy[index] = { ...copy[index], [field]: value };
+            return copy;
+        });
+    };
+
+    const totalSplitAmount = useMemo(() => {
+        if (!isSplitPayment) return parseFloat(amount) || 0;
+        return paymentSplits.reduce((acc, curr) => acc + (parseFloat(curr.amount) || 0), 0);
+    }, [isSplitPayment, amount, paymentSplits]);
+
+    const enteredAmount = parseFloat(amount) || 0;
+    const splitDifference = Math.round(Math.abs(enteredAmount - totalSplitAmount) * 100) / 100;
+    const isSplitValid = !isSplitPayment || (splitDifference === 0 && paymentSplits.length > 0 && paymentSplits.every(s => s.accountId && parseFloat(s.amount) > 0));
+
+    // Consultar propuesta de distribución (Paso 3)
+    const fetchDistributionPreview = async (schemeToUse = selectedScheme) => {
+        if (!selectedSale || enteredAmount <= 0) return;
+        try {
+            setLoadingProposal(true);
+            setProposalError(null);
+            const token = localStorage.getItem('token');
+            const res = await fetch('/api/admin/tesoreria-estrategica/incomes/preview-distribution', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`,
+                    'x-treasury-token': treasuryToken || ''
+                },
+                body: JSON.stringify({
+                    saleId: selectedSale._id,
+                    amount: enteredAmount,
+                    currency,
+                    concept,
+                    installmentId: concept === 'cuota' ? selectedInstallmentId : null,
+                    schemeKey: schemeToUse
+                })
+            });
+
+            const data = await res.json();
+            if (res.ok && data.ok) {
+                setDistributionProposal(data);
+            } else {
+                setProposalError(data.message || 'No se pudo generar la propuesta de distribución.');
+            }
+        } catch (err) {
+            setProposalError('Error de red al consultar la distribución de tesorería.');
+        } finally {
+            setLoadingProposal(false);
+        }
+    };
+
+    // Navegación entre pasos
+    const handleNextToPayment = () => {
+        if (!selectedSale) {
+            toast.error('Seleccioná una venta para continuar');
             return;
         }
-        if (grossNum <= 0) {
-            toast.error('Ingresá un importe válido');
+        setStep(2);
+    };
+
+    const handleNextToReview = () => {
+        if (enteredAmount <= 0) {
+            toast.error('Ingresá un importe válido mayor a 0');
             return;
         }
+        if (concept === 'cuota' && !selectedInstallmentId) {
+            toast.error('Seleccioná la cuota que se está cobrando');
+            return;
+        }
+        if (!isSplitPayment && !singleAccountId) {
+            toast.error('Seleccioná la cuenta bancaria o caja física de destino');
+            return;
+        }
+        if (isSplitPayment && !isSplitValid) {
+            toast.error('La suma de los destinos debe coincidir exactamente con el importe total');
+            return;
+        }
+
+        setStep(3);
+        fetchDistributionPreview(selectedScheme);
+    };
+
+    const handleSchemeChange = (schemeKey) => {
+        setSelectedScheme(schemeKey);
+        fetchDistributionPreview(schemeKey);
+    };
+
+    // Confirmar Cobro y Distribución (Paso 4)
+    const handleConfirm = async (markPendingIfMissing = false) => {
+        if (isSubmitting) return;
 
         setIsSubmitting(true);
         try {
             const token = localStorage.getItem('token');
-            const distributionArray = distributeImmediately
-                ? Object.entries(boxAllocations).map(([boxKey, amt]) => ({
-                    boxKey,
-                    amount: Number(amt || 0)
-                })).filter(x => x.amount > 0)
-                : [];
+            const splitsPayload = isSplitPayment
+                ? paymentSplits.map(s => ({
+                    accountId: s.accountId,
+                    paymentMethod: s.paymentMethod,
+                    amount: parseFloat(s.amount) || 0,
+                    reference: s.reference || ''
+                }))
+                : [
+                    {
+                        accountId: singleAccountId,
+                        paymentMethod: paymentMethod,
+                        amount: enteredAmount,
+                        reference: receiptReference || ''
+                    }
+                ];
 
             const payload = {
-                installmentId: collectionType === 'cuota' ? selectedInstallmentId : null,
-                accountId,
-                amount: grossNum,
-                currency,
+                idempotencyKey,
+                saleId: selectedSale._id,
+                installmentId: concept === 'cuota' ? selectedInstallmentId : null,
+                concept,
                 date,
-                notes: notes || `Cobro de ${collectionType} - ${customerName}`,
-                customerName,
-                vehicleInfo,
-                investorDeduction: hasDeduction ? dedNum : 0,
-                investorRecipient: hasDeduction ? deductionRecipient : null,
-                investorReason: hasDeduction ? deductionReason : null,
-                distributeImmediately,
-                distribution: distributionArray
+                amount: enteredAmount,
+                currency,
+                paymentMethod: isSplitPayment ? 'Mixto / Dividido' : paymentMethod,
+                accountId: isSplitPayment ? null : singleAccountId,
+                paymentSplits: splitsPayload,
+                schemeKey: selectedScheme,
+                receiptReference: receiptReference || null,
+                notes: notes || `Cobro de ${concept.replace('_', ' ')} - ${selectedSale.clientName || ''}`,
+                allowPendingDistribution: markPendingIfMissing
             };
 
             const res = await fetch('/api/admin/tesoreria-estrategica/incomes/collect-and-distribute', {
@@ -192,309 +427,814 @@ export default function TreasuryCollectAndDistributeModal({
                 headers: {
                     'Content-Type': 'application/json',
                     'Authorization': `Bearer ${token}`,
-                    'x-treasury-token': treasuryToken
+                    'x-treasury-token': treasuryToken || ''
                 },
                 body: JSON.stringify(payload)
             });
 
             const data = await res.json();
             if (!res.ok || !data.ok) {
-                toast.error(data.message || 'Error al registrar el cobro');
+                toast.error(data.message || 'Error al procesar el cobro.');
+                setIsSubmitting(false);
                 return;
             }
 
-            toast.success(data.message || (distributeImmediately ? 'Cobro registrado y distribuido a cajas.' : 'Cobro registrado en cuenta y acumulado para distribuir.'));
+            toast.success(data.message || 'Cobro registrado y distribuido con éxito.');
+            setCompletedResult(data);
+            setStep(4);
             if (onSuccess) onSuccess();
-            onClose();
-        } catch {
-            toast.error('Error de red al procesar el cobro.');
-        } finally {
+        } catch (err) {
+            toast.error('Error de red al registrar el cobro.');
             setIsSubmitting(false);
         }
     };
 
+    if (!isOpen) return null;
+
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-3 sm:p-4 backdrop-blur-md">
-            <div className="flex flex-col w-full max-w-2xl max-h-[90vh] rounded-3xl border border-purple-500/30 bg-crm-surface shadow-2xl overflow-hidden">
-                {/* Cabecera */}
-                <div className="flex items-center justify-between p-5 border-b border-crm-border shrink-0">
-                    <div className="flex items-center gap-3">
-                        <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-purple-500/20 text-purple-300">
-                            <ArrowDownRight size={20} />
-                        </span>
-                        <div>
-                            <div className="flex items-center gap-2">
-                                <h3 className="text-base font-black text-white">Flujo Rápido: Cobrar y Distribuir</h3>
-                                <span className="rounded-full bg-purple-500/15 border border-purple-500/30 px-2 py-0.5 text-[10px] font-bold text-purple-300 uppercase">
-                                    Un Solo Paso
-                                </span>
+            <div className="flex flex-col w-full max-w-3xl max-h-[92vh] rounded-3xl border border-purple-500/30 bg-crm-surface shadow-2xl overflow-hidden">
+                
+                {/* Cabecera con Pasos */}
+                <div className="p-5 border-b border-crm-border shrink-0 bg-crm-surface/90">
+                    <div className="flex items-center justify-between mb-3">
+                        <div className="flex items-center gap-3">
+                            <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-purple-500/20 text-purple-300">
+                                <ArrowDownRight size={22} />
+                            </span>
+                            <div>
+                                <h3 className="text-base font-black text-white">
+                                    Registrar Cobro y Distribuir
+                                </h3>
+                                <p className="text-xs text-crm-fg-muted">
+                                    Circuito unificado de tesorería: imputa cobro, actualiza venta y distribuye margen por cajas.
+                                </p>
                             </div>
-                            <p className="text-xs text-crm-fg-muted">
-                                Registra el cobro en cuenta bancaria y asigna el neto a las cajas estratégicas sin doble carga.
-                            </p>
+                        </div>
+                        <button
+                            type="button"
+                            onClick={onClose}
+                            className="rounded-lg p-1.5 text-crm-fg-muted hover:text-white hover:bg-crm-surface-raised transition-colors"
+                        >
+                            <X size={18} />
+                        </button>
+                    </div>
+
+                    {/* Barra de progreso de 4 pasos */}
+                    <div className="grid grid-cols-4 gap-2 pt-2 border-t border-crm-border/40">
+                        <div className={`flex items-center gap-2 text-xs font-bold ${step >= 1 ? 'text-purple-300' : 'text-crm-fg-muted'}`}>
+                            <span className={`flex h-5 w-5 items-center justify-center rounded-full text-[10px] ${step >= 1 ? 'bg-purple-600 text-white' : 'bg-crm-bg text-crm-fg-muted'}`}>1</span>
+                            <span className="hidden sm:inline">Venta</span>
+                        </div>
+                        <div className={`flex items-center gap-2 text-xs font-bold ${step >= 2 ? 'text-purple-300' : 'text-crm-fg-muted'}`}>
+                            <span className={`flex h-5 w-5 items-center justify-center rounded-full text-[10px] ${step >= 2 ? 'bg-purple-600 text-white' : 'bg-crm-bg text-crm-fg-muted'}`}>2</span>
+                            <span className="hidden sm:inline">Pago</span>
+                        </div>
+                        <div className={`flex items-center gap-2 text-xs font-bold ${step >= 3 ? 'text-purple-300' : 'text-crm-fg-muted'}`}>
+                            <span className={`flex h-5 w-5 items-center justify-center rounded-full text-[10px] ${step >= 3 ? 'bg-purple-600 text-white' : 'bg-crm-bg text-crm-fg-muted'}`}>3</span>
+                            <span className="hidden sm:inline">Distribución</span>
+                        </div>
+                        <div className={`flex items-center gap-2 text-xs font-bold ${step === 4 ? 'text-emerald-400' : 'text-crm-fg-muted'}`}>
+                            <span className={`flex h-5 w-5 items-center justify-center rounded-full text-[10px] ${step === 4 ? 'bg-emerald-600 text-white' : 'bg-crm-bg text-crm-fg-muted'}`}>4</span>
+                            <span className="hidden sm:inline">Confirmado</span>
                         </div>
                     </div>
-                    <button onClick={onClose} className="rounded-lg p-1.5 text-crm-fg-muted hover:text-white">
-                        <X size={18} />
-                    </button>
                 </div>
 
-                {/* Contenido con scroll */}
+                {/* Contenido Dinámico por Paso */}
                 <div className="flex-1 overflow-y-auto p-5 space-y-4">
-                    {/* Selector de Tipo de Cobro */}
-                    <div className="flex items-center gap-2 rounded-2xl bg-crm-bg p-1 border border-crm-border">
-                        <button
-                            type="button"
-                            onClick={() => setCollectionType('cuota')}
-                            className={`flex-1 rounded-xl py-2 text-xs font-bold transition-colors ${collectionType === 'cuota' ? 'bg-purple-600 text-white' : 'text-crm-fg-muted hover:text-white'}`}
-                        >
-                            Cuota de Financiación
-                        </button>
-                        <button
-                            type="button"
-                            onClick={() => setCollectionType('venta')}
-                            className={`flex-1 rounded-xl py-2 text-xs font-bold transition-colors ${collectionType === 'venta' ? 'bg-purple-600 text-white' : 'text-crm-fg-muted hover:text-white'}`}
-                        >
-                            Anticipo / Venta Auto
-                        </button>
-                        <button
-                            type="button"
-                            onClick={() => setCollectionType('general')}
-                            className={`flex-1 rounded-xl py-2 text-xs font-bold transition-colors ${collectionType === 'general' ? 'bg-purple-600 text-white' : 'text-crm-fg-muted hover:text-white'}`}
-                        >
-                            Otro Ingreso
-                        </button>
-                    </div>
 
-                    {/* Si es cuota, selector de cuotas pendientes */}
-                    {collectionType === 'cuota' && (
-                        <div>
-                            <label className="block text-[11px] font-bold uppercase tracking-wider text-crm-fg-muted mb-1">
-                                Seleccionar Cuota Pendiente
-                            </label>
-                            <select
-                                value={selectedInstallmentId}
-                                onChange={(e) => setSelectedInstallmentId(e.target.value)}
-                                className="w-full rounded-xl border border-crm-border bg-crm-bg p-2.5 text-xs text-white focus:border-purple-500 focus:outline-none"
-                            >
-                                <option value="">-- Seleccionar cuota del CRM --</option>
-                                {pendingInstallments.map((inst) => (
-                                    <option key={inst._id || inst.id} value={inst._id || inst.id}>
-                                        {inst.customerName} - Cuota {inst.installmentNumber} ({formatMoney(inst.amount, inst.currency)}) - {inst.vehicleInfo || ''}
-                                    </option>
-                                ))}
-                            </select>
+                    {/* ==================== PASO 1: SELECCIONAR VENTA ==================== */}
+                    {step === 1 && (
+                        <div className="space-y-4">
+                            {!selectedSale ? (
+                                <div className="space-y-3">
+                                    <label className="block text-xs font-bold text-white">
+                                        Buscar operación por cliente, patente, marca/modelo o número:
+                                    </label>
+                                    <div className="relative">
+                                        <Search size={16} className="absolute left-3.5 top-3 text-crm-fg-muted" />
+                                        <input
+                                            type="text"
+                                            value={searchQuery}
+                                            onChange={(e) => setSearchQuery(e.target.value)}
+                                            placeholder="Ej: Pérez, AF123CD, Hilux, o 1045..."
+                                            className="w-full rounded-xl border border-crm-border bg-crm-bg pl-10 pr-4 py-2.5 text-xs text-white placeholder-crm-fg-muted focus:border-purple-500 focus:outline-none"
+                                            autoFocus
+                                        />
+                                        {isSearching && (
+                                            <RefreshCw size={14} className="absolute right-3.5 top-3 text-purple-300 animate-spin" />
+                                        )}
+                                    </div>
+
+                                    {/* Resultados de búsqueda */}
+                                    <div className="divide-y divide-crm-border rounded-2xl border border-crm-border bg-crm-bg/60 overflow-hidden max-h-72 overflow-y-auto">
+                                        {searchResults.length === 0 ? (
+                                            <p className="p-6 text-center text-xs text-crm-fg-muted italic">
+                                                {searchQuery.trim().length >= 2
+                                                    ? 'No se encontraron operaciones de venta con ese criterio.'
+                                                    : 'Ingresá al menos 2 caracteres para buscar en ventas activas.'}
+                                            </p>
+                                        ) : (
+                                            searchResults.map(s => (
+                                                <button
+                                                    key={s._id}
+                                                    type="button"
+                                                    onClick={() => handleSelectSale(s)}
+                                                    className="w-full p-3.5 text-left flex items-center justify-between hover:bg-crm-surface-raised transition-colors"
+                                                >
+                                                    <div className="space-y-0.5">
+                                                        <div className="flex items-center gap-2">
+                                                            <span className="font-bold text-white text-xs">{s.vehicleName || 'Vehículo'}</span>
+                                                            {s.plate && (
+                                                                <span className="rounded bg-crm-surface border border-crm-border px-1.5 py-0.2 font-mono text-[10px] text-purple-300">
+                                                                    {s.plate}
+                                                                </span>
+                                                            )}
+                                                            <span className="rounded bg-emerald-500/15 text-emerald-300 px-1.5 py-0.2 text-[9px] font-bold uppercase">
+                                                                Op. #{s.saleNumber || String(s._id).substring(18)}
+                                                            </span>
+                                                        </div>
+                                                        <p className="text-[11px] text-crm-fg-muted">
+                                                            Cliente: <strong className="text-white">{s.clientName}</strong> · Precio: {formatMoney(s.salePrice, s.currency)}
+                                                        </p>
+                                                    </div>
+                                                    <ChevronRight size={16} className="text-crm-fg-muted shrink-0" />
+                                                </button>
+                                            ))
+                                        )}
+                                    </div>
+                                </div>
+                            ) : (
+                                /* Venta Seleccionada y Tarjetas de Estado Financiero */
+                                <div className="space-y-4">
+                                    <div className="flex items-center justify-between rounded-2xl border border-purple-500/40 bg-purple-500/10 p-4">
+                                        <div className="flex items-center gap-3">
+                                            <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-purple-500/20 text-purple-300">
+                                                <Car size={20} />
+                                            </span>
+                                            <div>
+                                                <div className="flex items-center gap-2">
+                                                    <h4 className="font-black text-white text-sm">
+                                                        {selectedSale.vehicleName || 'Vehículo'}
+                                                    </h4>
+                                                    {selectedSale.plate && (
+                                                        <span className="rounded bg-crm-surface border border-crm-border px-2 py-0.5 font-mono text-xs font-bold text-purple-300">
+                                                            {selectedSale.plate}
+                                                        </span>
+                                                    )}
+                                                </div>
+                                                <p className="text-xs text-crm-fg-muted mt-0.5">
+                                                    Cliente: <strong className="text-white">{selectedSale.clientName}</strong> · Operación #{selectedSale.saleNumber || String(selectedSale._id).substring(18)}
+                                                </p>
+                                            </div>
+                                        </div>
+                                        <button
+                                            type="button"
+                                            onClick={() => { setSelectedSale(null); setSaleSummary(null); }}
+                                            className="rounded-xl border border-crm-border bg-crm-surface px-3 py-1.5 text-xs font-bold text-crm-fg-muted hover:text-white transition-colors"
+                                        >
+                                            Cambiar venta
+                                        </button>
+                                    </div>
+
+                                    {/* Métricas Requeridas de la Venta (Sección 3) */}
+                                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                                        <div className="rounded-xl border border-crm-border bg-crm-bg p-3">
+                                            <span className="text-[10px] font-bold uppercase text-crm-fg-muted block">Precio de Venta</span>
+                                            <strong className="font-mono text-sm text-white">
+                                                {formatMoney(selectedSale.salePrice, selectedSale.currency || selectedSale.saleCurrency)}
+                                            </strong>
+                                        </div>
+
+                                        <div className="rounded-xl border border-crm-border bg-crm-bg p-3">
+                                            <span className="text-[10px] font-bold uppercase text-crm-fg-muted block">Efectivamente Cobrado</span>
+                                            <strong className="font-mono text-sm text-emerald-400">
+                                                {formatMoney(saleSummary?.effectivelyCollectedCash ?? selectedSale.effectivelyCollectedCash ?? 0, selectedSale.currency || selectedSale.saleCurrency)}
+                                            </strong>
+                                        </div>
+
+                                        <div className="rounded-xl border border-crm-border bg-crm-bg p-3">
+                                            <span className="text-[10px] font-bold uppercase text-crm-fg-muted block">Saldo Pendiente</span>
+                                            <strong className="font-mono text-sm text-amber-300">
+                                                {formatMoney(saleSummary?.pendingSaleBalance ?? selectedSale.pendingSaleBalance ?? 0, selectedSale.currency || selectedSale.saleCurrency)}
+                                            </strong>
+                                        </div>
+
+                                        <div className="rounded-xl border border-crm-border bg-crm-bg p-3">
+                                            <span className="text-[10px] font-bold uppercase text-crm-fg-muted block">Capital Pend. Recuperar</span>
+                                            <strong className="font-mono text-sm text-cyan-300">
+                                                {formatMoney(saleSummary?.remainingCapitalToRecover ?? 0, selectedSale.currency || selectedSale.saleCurrency)}
+                                            </strong>
+                                        </div>
+
+                                        <div className="rounded-xl border border-crm-border bg-crm-bg p-3">
+                                            <span className="text-[10px] font-bold uppercase text-crm-fg-muted block">Margen ya Distribuido</span>
+                                            <strong className="font-mono text-sm text-purple-300">
+                                                {formatMoney(saleSummary?.alreadyDistributedMargin ?? 0, selectedSale.currency || selectedSale.saleCurrency)}
+                                            </strong>
+                                        </div>
+
+                                        <div className="rounded-xl border border-crm-border bg-crm-bg p-3">
+                                            <span className="text-[10px] font-bold uppercase text-crm-fg-muted block">Dinero Pend. Distribuir</span>
+                                            <strong className="font-mono text-sm text-white">
+                                                {formatMoney(saleSummary?.pendingDistributionAmount ?? 0, selectedSale.currency || selectedSale.saleCurrency)}
+                                            </strong>
+                                        </div>
+                                    </div>
+
+                                    {/* Alerta de Permuta o Cuotas si existen */}
+                                    {saleSummary?.tradeInCapitalInVehicles > 0 && (
+                                        <div className="rounded-xl border border-purple-500/30 bg-purple-500/10 p-3 text-xs flex items-center gap-2">
+                                            <Info size={16} className="text-purple-300 shrink-0" />
+                                            <span>
+                                                Esta venta incluye vehículo en permuta por <strong className="font-mono">{formatMoney(saleSummary.tradeInCapitalInVehicles, selectedSale.currency)}</strong>. Se conserva en Stock y no se cuenta como efectivo cobrado.
+                                            </span>
+                                        </div>
+                                    )}
+
+                                    {saleSummary?.pendingOperationCostsTotal > 0 && (
+                                        <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-3 text-xs flex items-center gap-2">
+                                            <AlertTriangle size={16} className="text-amber-400 shrink-0" />
+                                            <span>
+                                                Obligaciones operativas pendientes de pago registradas: <strong className="font-mono">{formatMoney(saleSummary.pendingOperationCostsTotal, selectedSale.currency)}</strong>. Se separan prioritariamente antes de liberar margen.
+                                            </span>
+                                        </div>
+                                    )}
+                                </div>
+                            )}
                         </div>
                     )}
 
-                    {/* Monto Bruto, Moneda y Cuenta */}
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                        <div className="sm:col-span-1">
-                            <label className="block text-[11px] font-bold uppercase tracking-wider text-crm-fg-muted mb-1">
-                                Moneda
-                            </label>
-                            <select
-                                value={currency}
-                                onChange={(e) => setCurrency(e.target.value)}
-                                className="w-full rounded-xl border border-crm-border bg-crm-bg p-2.5 text-xs font-bold text-white focus:border-purple-500 focus:outline-none"
-                            >
-                                <option value="ARS">Pesos (ARS)</option>
-                                <option value="USD">Dólares (USD)</option>
-                            </select>
-                        </div>
-
-                        <div className="sm:col-span-2">
-                            <label className="block text-[11px] font-bold uppercase tracking-wider text-crm-fg-muted mb-1">
-                                Importe Bruto Cobrado
-                            </label>
-                            <input
-                                type="number"
-                                min="0"
-                                step="any"
-                                value={grossAmount}
-                                onChange={(e) => setGrossAmount(e.target.value)}
-                                placeholder="0"
-                                className="w-full rounded-xl border border-crm-border bg-crm-bg p-2.5 font-mono text-xs font-bold text-white focus:border-purple-500 focus:outline-none"
-                                required
-                            />
-                        </div>
-                    </div>
-
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                        <div>
-                            <label className="block text-[11px] font-bold uppercase tracking-wider text-crm-fg-muted mb-1">
-                                Cuenta de Ingreso
-                            </label>
-                            <select
-                                value={accountId}
-                                onChange={(e) => setAccountId(e.target.value)}
-                                className="w-full rounded-xl border border-crm-border bg-crm-bg p-2.5 text-xs text-white focus:border-purple-500 focus:outline-none"
-                                required
-                            >
-                                <option value="">-- Seleccionar cuenta --</option>
-                                {accounts.map(acc => (
-                                    <option key={acc._id} value={acc._id}>
-                                        {acc.name} ({acc.currency} - {acc.type})
-                                    </option>
-                                ))}
-                            </select>
-                        </div>
-
-                        <div>
-                            <label className="block text-[11px] font-bold uppercase tracking-wider text-crm-fg-muted mb-1">
-                                Fecha de Operación
-                            </label>
-                            <input
-                                type="date"
-                                value={date}
-                                onChange={(e) => setDate(e.target.value)}
-                                className="w-full rounded-xl border border-crm-border bg-crm-bg p-2.5 text-xs text-white focus:border-purple-500 focus:outline-none"
-                            />
-                        </div>
-                    </div>
-
-                    {/* Sección Deducción a Inversores / Consignatarios */}
-                    <div className="rounded-2xl border border-crm-border bg-crm-bg/60 p-3.5 space-y-3">
-                        <div className="flex items-center justify-between">
-                            <div className="flex items-center gap-2">
-                                <span className="text-xs font-bold text-white">
-                                    Deducir comisiones o pagos a inversores / consignatarios
-                                </span>
-                            </div>
-                            <input
-                                type="checkbox"
-                                checked={hasDeduction}
-                                onChange={(e) => setHasDeduction(e.target.checked)}
-                                className="rounded border-crm-border text-purple-600 focus:ring-0 cursor-pointer h-4 w-4"
-                            />
-                        </div>
-
-                        {hasDeduction && (
-                            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 pt-2 border-t border-crm-border/40">
+                    {/* ==================== PASO 2: CARGAR PAGO ==================== */}
+                    {step === 2 && (
+                        <div className="space-y-4">
+                            {/* Concepto y Cuota */}
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                                 <div>
-                                    <label className="block text-[10px] font-bold uppercase text-crm-fg-muted mb-1">
-                                        Importe Deducción
+                                    <label className="block text-[11px] font-bold uppercase tracking-wider text-crm-fg-muted mb-1">
+                                        Concepto del Cobro
+                                    </label>
+                                    <select
+                                        value={concept}
+                                        onChange={(e) => setConcept(e.target.value)}
+                                        className="w-full rounded-xl border border-crm-border bg-crm-bg p-2.5 text-xs font-bold text-white focus:border-purple-500 focus:outline-none"
+                                    >
+                                        <option value="entrega_inicial">Entrega inicial / Anticipo</option>
+                                        <option value="saldo">Saldo de venta contado</option>
+                                        <option value="cuota">Cuota de financiación</option>
+                                        <option value="otro">Otro cobro de la venta</option>
+                                    </select>
+                                </div>
+
+                                <div>
+                                    <label className="block text-[11px] font-bold uppercase tracking-wider text-crm-fg-muted mb-1">
+                                        Fecha del Cobro
+                                    </label>
+                                    <input
+                                        type="date"
+                                        value={date}
+                                        onChange={(e) => setDate(e.target.value)}
+                                        className="w-full rounded-xl border border-crm-border bg-crm-bg p-2.5 text-xs text-white focus:border-purple-500 focus:outline-none"
+                                    />
+                                </div>
+                            </div>
+
+                            {/* Selector de Cuota si concept === 'cuota' */}
+                            {concept === 'cuota' && (
+                                <div className="rounded-2xl border border-purple-500/30 bg-purple-500/10 p-3.5 space-y-2">
+                                    <label className="block text-xs font-bold text-white">
+                                        Seleccionar Cuota a Imputar:
+                                    </label>
+                                    {saleInstallments.length === 0 ? (
+                                        <p className="text-xs text-amber-300">
+                                            Esta venta no tiene un plan de cuotas registrado. Podés registrar el cobro como entrega inicial o saldo.
+                                        </p>
+                                    ) : (
+                                        <select
+                                            value={selectedInstallmentId}
+                                            onChange={(e) => handleInstallmentChange(e.target.value)}
+                                            className="w-full rounded-xl border border-crm-border bg-crm-bg p-2.5 text-xs text-white focus:border-purple-500 focus:outline-none"
+                                        >
+                                            <option value="">-- Seleccionar cuota --</option>
+                                            {saleInstallments.map(inst => {
+                                                const pend = Math.max(0, (inst.amount || 0) - (inst.paidAmount || 0));
+                                                return (
+                                                    <option key={inst._id || inst.id} value={inst._id || inst.id}>
+                                                        Cuota {inst.installmentNumber} · Monto: {formatMoney(inst.amount, inst.currency)} · Pendiente: {formatMoney(pend, inst.currency)} · Vence: {inst.dueDate ? new Date(inst.dueDate).toLocaleDateString('es-AR') : 'S/D'} ({inst.status})
+                                                    </option>
+                                                );
+                                            })}
+                                        </select>
+                                    )}
+                                </div>
+                            )}
+
+                            {/* Importe y Moneda */}
+                            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                                <div>
+                                    <label className="block text-[11px] font-bold uppercase tracking-wider text-crm-fg-muted mb-1">
+                                        Moneda
+                                    </label>
+                                    <input
+                                        type="text"
+                                        readOnly
+                                        value={currency === 'USD' ? 'Dólares (USD)' : 'Pesos (ARS)'}
+                                        className="w-full rounded-xl border border-crm-border bg-crm-bg/70 p-2.5 font-bold text-xs text-white focus:outline-none cursor-not-allowed"
+                                        title="Respeta la moneda de la venta y cuota para evitar conversiones silenciosas"
+                                    />
+                                </div>
+
+                                <div className="sm:col-span-2">
+                                    <label className="block text-[11px] font-bold uppercase tracking-wider text-crm-fg-muted mb-1">
+                                        Importe Total Cobrado ({currency})
                                     </label>
                                     <input
                                         type="number"
                                         min="0"
                                         step="any"
-                                        value={deductionAmount}
-                                        onChange={(e) => setDeductionAmount(e.target.value)}
+                                        value={amount}
+                                        onChange={(e) => setAmount(e.target.value)}
                                         placeholder="0"
-                                        className="w-full rounded-xl border border-crm-border bg-crm-surface p-2 font-mono text-xs text-white focus:outline-none"
-                                    />
-                                </div>
-                                <div>
-                                    <label className="block text-[10px] font-bold uppercase text-crm-fg-muted mb-1">
-                                        Destinatario / Inversor
-                                    </label>
-                                    <input
-                                        type="text"
-                                        value={deductionRecipient}
-                                        onChange={(e) => setDeductionRecipient(e.target.value)}
-                                        placeholder="Ej: Inversor Carlos M."
-                                        className="w-full rounded-xl border border-crm-border bg-crm-surface p-2 text-xs text-white focus:outline-none"
-                                    />
-                                </div>
-                                <div>
-                                    <label className="block text-[10px] font-bold uppercase text-crm-fg-muted mb-1">
-                                        Concepto
-                                    </label>
-                                    <input
-                                        type="text"
-                                        value={deductionReason}
-                                        onChange={(e) => setDeductionReason(e.target.value)}
-                                        className="w-full rounded-xl border border-crm-border bg-crm-surface p-2 text-xs text-white focus:outline-none"
+                                        className="w-full rounded-xl border border-crm-border bg-crm-bg p-2.5 font-mono text-sm font-bold text-white focus:border-purple-500 focus:outline-none"
                                     />
                                 </div>
                             </div>
-                        )}
-                    </div>
 
-                    {/* Tarjeta de Resumen Neto a Distribuir */}
-                    <div className="rounded-2xl border border-purple-500/30 bg-purple-500/10 p-4 flex items-center justify-between">
-                        <div>
-                            <span className="text-[10px] font-bold uppercase tracking-wider text-purple-300 block">
-                                Neto Real a Distribuir entre Cajas
-                            </span>
-                            <span className="text-xs text-crm-fg-muted">
-                                {hasDeduction ? `Bruto: ${formatMoney(grossNum, currency)} - Deducción: ${formatMoney(dedNum, currency)}` : 'Sin deducciones aplicadas'}
-                            </span>
-                        </div>
-                        <p className="font-mono text-2xl font-black text-white">
-                            {formatMoney(netAmount, currency)}
-                        </p>
-                    </div>
-
-                    {/* Desglose Sugerido por Cajas */}
-                    <div className="space-y-2">
-                        <div className="flex items-center justify-between">
-                            <span className="text-xs font-bold text-white flex items-center gap-1.5">
-                                <SlidersHorizontal size={14} className="text-purple-300" />
-                                Sugerencia de Distribución por Prioridad
-                            </span>
-                            <button
-                                type="button"
-                                onClick={() => setShowDistributionDetail(!showDistributionDetail)}
-                                className="text-[11px] font-bold text-purple-300 hover:underline"
-                            >
-                                {showDistributionDetail ? 'Ocultar detalle' : 'Ajustar montos por caja'}
-                            </button>
-                        </div>
-
-                        {showDistributionDetail && (
-                            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 p-3 bg-crm-bg/80 border border-crm-border rounded-2xl">
-                                {boxes.map((box) => (
-                                    <div key={box.key} className="space-y-0.5">
-                                        <span className="text-[10px] font-bold text-crm-fg-muted block truncate">
-                                            {box.name}
+                            {/* Destinos del Dinero: Cuenta Única vs División de Destinos (Splits) */}
+                            <div className="rounded-2xl border border-crm-border bg-crm-bg/60 p-4 space-y-3">
+                                <div className="flex items-center justify-between">
+                                    <div>
+                                        <span className="text-xs font-bold text-white block">
+                                            Destino del dinero en cuentas y cajas
                                         </span>
-                                        <input
-                                            type="number"
-                                            min="0"
-                                            value={boxAllocations[box.key] || 0}
-                                            onChange={(e) => handleBoxAllocChange(box.key, e.target.value)}
-                                            className="w-full rounded-lg border border-crm-border bg-crm-surface px-2 py-1 font-mono text-xs font-bold text-white focus:outline-none"
-                                        />
+                                        <span className="text-[11px] text-crm-fg-muted">
+                                            Diferencia dónde ingresa el dinero físico o bancario de su finalidad de reserva.
+                                        </span>
                                     </div>
-                                ))}
+                                    <label className="inline-flex items-center gap-2 text-xs font-bold text-purple-300 cursor-pointer">
+                                        <input
+                                            type="checkbox"
+                                            checked={isSplitPayment}
+                                            onChange={(e) => handleToggleSplit(e.target.checked)}
+                                            className="rounded border-crm-border bg-crm-surface text-purple-600 focus:ring-purple-500 cursor-pointer h-4 w-4"
+                                        />
+                                        Dividir entre varios destinos
+                                    </label>
+                                </div>
+
+                                {!isSplitPayment ? (
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2">
+                                        <div>
+                                            <label className="block text-[10px] font-bold uppercase text-crm-fg-muted mb-1">
+                                                Medio de Pago
+                                            </label>
+                                            <select
+                                                value={paymentMethod}
+                                                onChange={(e) => setPaymentMethod(e.target.value)}
+                                                className="w-full rounded-xl border border-crm-border bg-crm-surface p-2 text-xs text-white focus:outline-none"
+                                            >
+                                                <option value="Transferencia bancaria">Transferencia bancaria</option>
+                                                <option value="Efectivo">Efectivo</option>
+                                                <option value="Cheque">Cheque</option>
+                                                <option value="Depósito">Depósito</option>
+                                            </select>
+                                        </div>
+
+                                        <div>
+                                            <label className="block text-[10px] font-bold uppercase text-crm-fg-muted mb-1">
+                                                Caja física o Cuenta bancaria receptora
+                                            </label>
+                                            <select
+                                                value={singleAccountId}
+                                                onChange={(e) => setSingleAccountId(e.target.value)}
+                                                className="w-full rounded-xl border border-crm-border bg-crm-surface p-2 text-xs text-white focus:outline-none"
+                                            >
+                                                <option value="">-- Seleccionar cuenta receptora --</option>
+                                                {accounts.filter(a => a.currency === currency).map(acc => (
+                                                    <option key={acc._id} value={acc._id}>
+                                                        {acc.name} ({acc.type} - {acc.currency})
+                                                    </option>
+                                                ))}
+                                            </select>
+                                        </div>
+                                    </div>
+                                ) : (
+                                    /* Lista de Splits */
+                                    <div className="space-y-2 pt-2 border-t border-crm-border/40">
+                                        {paymentSplits.map((split, idx) => (
+                                            <div key={idx} className="grid grid-cols-12 gap-2 items-center rounded-xl bg-crm-surface p-2.5 border border-crm-border">
+                                                <div className="col-span-12 sm:col-span-4">
+                                                    <select
+                                                        value={split.accountId}
+                                                        onChange={(e) => handleSplitChange(idx, 'accountId', e.target.value)}
+                                                        className="w-full rounded-lg border border-crm-border bg-crm-bg p-1.5 text-xs text-white"
+                                                    >
+                                                        <option value="">-- Cuenta receptora --</option>
+                                                        {accounts.filter(a => a.currency === currency).map(acc => (
+                                                            <option key={acc._id} value={acc._id}>
+                                                                {acc.name} ({acc.type})
+                                                            </option>
+                                                        ))}
+                                                    </select>
+                                                </div>
+
+                                                <div className="col-span-6 sm:col-span-3">
+                                                    <select
+                                                        value={split.paymentMethod}
+                                                        onChange={(e) => handleSplitChange(idx, 'paymentMethod', e.target.value)}
+                                                        className="w-full rounded-lg border border-crm-border bg-crm-bg p-1.5 text-xs text-white"
+                                                    >
+                                                        <option value="Efectivo">Efectivo</option>
+                                                        <option value="Transferencia bancaria">Transferencia</option>
+                                                        <option value="Cheque">Cheque</option>
+                                                    </select>
+                                                </div>
+
+                                                <div className="col-span-5 sm:col-span-4">
+                                                    <input
+                                                        type="number"
+                                                        min="0"
+                                                        step="any"
+                                                        value={split.amount}
+                                                        onChange={(e) => handleSplitChange(idx, 'amount', e.target.value)}
+                                                        placeholder="Monto"
+                                                        className="w-full rounded-lg border border-crm-border bg-crm-bg p-1.5 font-mono text-xs font-bold text-white text-right"
+                                                    />
+                                                </div>
+
+                                                <div className="col-span-1 text-right">
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => handleRemoveSplit(idx)}
+                                                        disabled={paymentSplits.length <= 1}
+                                                        className="text-crm-fg-muted hover:text-red-400 disabled:opacity-30"
+                                                    >
+                                                        <Trash2 size={15} />
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        ))}
+
+                                        <div className="flex items-center justify-between pt-2">
+                                            <button
+                                                type="button"
+                                                onClick={handleAddSplit}
+                                                className="inline-flex items-center gap-1.5 text-xs font-bold text-purple-300 hover:text-white"
+                                            >
+                                                <Plus size={14} /> Agregar otra cuenta o medio
+                                            </button>
+
+                                            <div className="text-right text-xs font-mono">
+                                                <span className="text-crm-fg-muted">Suma destinos: </span>
+                                                <strong className={splitDifference === 0 ? 'text-emerald-400' : 'text-amber-300'}>
+                                                    {formatMoney(totalSplitAmount, currency)}
+                                                </strong>
+                                                {' '}/ {formatMoney(enteredAmount, currency)}
+                                                {splitDifference > 0 && (
+                                                    <span className="block text-[10px] text-amber-300 font-bold">
+                                                        Diferencia: {formatMoney(splitDifference, currency)}
+                                                    </span>
+                                                )}
+                                            </div>
+                                        </div>
+                                    </div>
+                                )}
                             </div>
-                        )}
-                    </div>
+
+                            {/* Comprobante y Observación Opcionales */}
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                <div>
+                                    <label className="block text-[11px] font-bold uppercase tracking-wider text-crm-fg-muted mb-1">
+                                        N° Comprobante / Recibo (opcional)
+                                    </label>
+                                    <input
+                                        type="text"
+                                        value={receiptReference}
+                                        onChange={(e) => setReceiptReference(e.target.value)}
+                                        placeholder="Ej: REC-00042 o Transf. 9841"
+                                        className="w-full rounded-xl border border-crm-border bg-crm-bg p-2.5 text-xs text-white focus:outline-none"
+                                    />
+                                </div>
+
+                                <div>
+                                    <label className="block text-[11px] font-bold uppercase tracking-wider text-crm-fg-muted mb-1">
+                                        Observación interna (opcional)
+                                    </label>
+                                    <input
+                                        type="text"
+                                        value={notes}
+                                        onChange={(e) => setNotes(e.target.value)}
+                                        placeholder="Nota visible en tesorería y en la venta"
+                                        className="w-full rounded-xl border border-crm-border bg-crm-bg p-2.5 text-xs text-white focus:outline-none"
+                                    />
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* ==================== PASO 3: REVISAR DISTRIBUCIÓN ==================== */}
+                    {step === 3 && (
+                        <div className="space-y-4">
+                            {/* Selector de Esquema de Reparto */}
+                            <div>
+                                <label className="block text-xs font-bold text-white mb-2">
+                                    Esquema de distribución sobre el margen disponible:
+                                </label>
+                                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+                                    {Object.entries(SCHEME_DETAILS).map(([key, info]) => {
+                                        const isSelected = selectedScheme === key;
+                                        return (
+                                            <button
+                                                key={key}
+                                                type="button"
+                                                onClick={() => handleSchemeChange(key)}
+                                                className={`rounded-2xl border p-3 text-left transition-all ${
+                                                    isSelected
+                                                        ? 'border-purple-500 bg-purple-500/15 shadow-lg shadow-purple-500/10'
+                                                        : 'border-crm-border bg-crm-bg/80 hover:bg-crm-surface'
+                                                }`}
+                                            >
+                                                <div className="flex items-center justify-between">
+                                                    <span className={`text-xs font-black ${isSelected ? 'text-white' : 'text-crm-fg'}`}>
+                                                        {info.title}
+                                                    </span>
+                                                    {isSelected && <CheckCircle2 size={14} className="text-purple-300" />}
+                                                </div>
+                                                <p className="text-[10px] text-crm-fg-muted mt-1 leading-snug">
+                                                    {info.description}
+                                                </p>
+                                                <span className="mt-2 block font-mono text-[9px] font-bold text-purple-300">
+                                                    {info.badges}
+                                                </span>
+                                            </button>
+                                        );
+                                    })}
+                                </div>
+                            </div>
+
+                            {/* Estado de carga de la propuesta */}
+                            {loadingProposal && (
+                                <div className="py-8 text-center text-xs text-purple-300 flex items-center justify-center gap-2">
+                                    <RefreshCw size={16} className="animate-spin" />
+                                    <span>Calculando propuesta según prioridades y recupero de capital...</span>
+                                </div>
+                            )}
+
+                            {proposalError && !loadingProposal && (
+                                <div className="rounded-2xl border border-red-500/30 bg-red-500/10 p-4 text-xs text-red-200">
+                                    <div className="flex items-center gap-2 font-bold mb-1">
+                                        <AlertTriangle size={16} className="text-red-400" />
+                                        <span>No se pudo calcular la distribución</span>
+                                    </div>
+                                    <p>{proposalError}</p>
+                                </div>
+                            )}
+
+                            {/* Desglose de Cascada y Asignación Concreta */}
+                            {distributionProposal && !loadingProposal && (
+                                <div className="space-y-4">
+                                    {/* Resumen de Cascada: Capital -> Obligaciones -> Margen */}
+                                    <div className="rounded-2xl border border-crm-border bg-crm-bg p-4 space-y-3">
+                                        <h4 className="text-xs font-black uppercase tracking-wider text-crm-fg">
+                                            Propuesta de Aplicación del Cobro ({formatMoney(enteredAmount, currency)})
+                                        </h4>
+
+                                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-1">
+                                            <div className="rounded-xl border border-cyan-500/30 bg-cyan-500/10 p-3">
+                                                <span className="text-[10px] font-bold uppercase text-cyan-300 block">
+                                                    1. Recuperar Capital (Stock)
+                                                </span>
+                                                <p className="font-mono text-base font-black text-white mt-1">
+                                                    {formatMoney(distributionProposal.proposal?.capitalRecoveredToStock || 0, currency)}
+                                                </p>
+                                                <span className="text-[10px] text-crm-fg-muted block mt-0.5">
+                                                    Queda pendiente: {formatMoney(distributionProposal.proposal?.remainingCapitalAfterThis || 0, currency)}
+                                                </span>
+                                            </div>
+
+                                            <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-3">
+                                                <span className="text-[10px] font-bold uppercase text-amber-300 block">
+                                                    2. Separar Obligaciones / Imp.
+                                                </span>
+                                                <p className="font-mono text-base font-black text-white mt-1">
+                                                    {formatMoney(distributionProposal.proposal?.obligationsSeparated || 0, currency)}
+                                                </p>
+                                                <span className="text-[10px] text-crm-fg-muted block mt-0.5">
+                                                    Solo registradas en la venta
+                                                </span>
+                                            </div>
+
+                                            <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-3">
+                                                <span className="text-[10px] font-bold uppercase text-emerald-300 block">
+                                                    3. Margen Distribuible
+                                                </span>
+                                                <p className="font-mono text-base font-black text-white mt-1">
+                                                    {formatMoney(distributionProposal.proposal?.distributableMargin || 0, currency)}
+                                                </p>
+                                                <span className="text-[10px] text-crm-fg-muted block mt-0.5">
+                                                    Efectivamente respaldado en caja
+                                                </span>
+                                            </div>
+                                        </div>
+
+                                        {/* Aclaración explicativa */}
+                                        <p className="text-[11px] text-crm-fg-muted border-t border-crm-border/40 pt-2">
+                                            {distributionProposal.proposal?.explanation || 'El capital recuperado queda separado en la caja de Stock para reposición sin obligar a comprar de inmediato.'}
+                                        </p>
+                                    </div>
+
+                                    {/* Tabla de Importes Concretos por Destino según el Esquema */}
+                                    {distributionProposal.proposal?.distributableMargin > 0 ? (
+                                        <div className="rounded-2xl border border-purple-500/30 bg-crm-surface overflow-hidden">
+                                            <div className="p-3 border-b border-crm-border bg-crm-bg flex items-center justify-between text-xs">
+                                                <span className="font-bold text-white uppercase text-[11px]">
+                                                    Destinos del Margen según &ldquo;{distributionProposal.proposal?.schemeTitle || selectedScheme}&rdquo;
+                                                </span>
+                                                <span className="text-crm-fg-muted">
+                                                    Suma exacta: <strong className="font-mono text-emerald-400">{formatMoney(distributionProposal.proposal?.distributableMargin, currency)}</strong>
+                                                </span>
+                                            </div>
+
+                                            <div className="divide-y divide-crm-border text-xs">
+                                                {(distributionProposal.proposal?.destinationBreakdown || []).map((dest, idx) => (
+                                                    <div key={idx} className="p-3 flex items-center justify-between hover:bg-crm-surface-raised transition-colors">
+                                                        <div>
+                                                            <span className="font-bold text-white block">{dest.label}</span>
+                                                            <span className="text-[10px] text-crm-fg-muted">{dest.percentage}% del margen disponible</span>
+                                                        </div>
+                                                        <span className="font-mono font-black text-sm text-purple-300">
+                                                            {formatMoney(dest.amount, currency)}
+                                                        </span>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    ) : (
+                                        /* Mensaje si no hay margen distribuible en este cobro */
+                                        <div className="rounded-2xl border border-crm-border bg-crm-bg p-4 text-xs text-center space-y-1">
+                                            <span className="font-bold text-white block">
+                                                Sin margen distribuible en este cobro
+                                            </span>
+                                            <p className="text-crm-fg-muted">
+                                                El importe total cobrado se imputa a recuperar la inversión en el vehículo y cubrir obligaciones operativas. No se generan asignaciones negativas ni distribución simulada.
+                                            </p>
+                                        </div>
+                                    )}
+
+                                    {/* Alerta de Pendiente de Distribución si faltan datos */}
+                                    {distributionProposal.missingData && (
+                                        <div className="rounded-2xl border border-amber-500/40 bg-amber-500/10 p-4 text-xs space-y-2">
+                                            <div className="flex items-center gap-2 font-bold text-amber-300">
+                                                <AlertTriangle size={16} />
+                                                <span>Falta información indispensable para calcular el reparto exacto</span>
+                                            </div>
+                                            <p className="text-amber-100/90 leading-relaxed">
+                                                {distributionProposal.missingReason || 'Se requiere completar el costo de compra o gastos de la operación.'} Podés confirmar el ingreso en cuenta y dejar la asignación como &ldquo;Pendiente de distribución&rdquo; para repartirla luego sin registrar nuevamente el dinero.
+                                            </p>
+                                        </div>
+                                    )}
+                                </div>
+                            )}
+                        </div>
+                    )}
+
+                    {/* ==================== PASO 4: RESULTADO Y RESUMEN ==================== */}
+                    {step === 4 && completedResult && (
+                        <div className="space-y-4 text-center py-4">
+                            <div className="flex h-16 w-16 items-center justify-center rounded-full bg-emerald-500/20 text-emerald-400 mx-auto">
+                                <CheckCircle2 size={36} />
+                            </div>
+
+                            <div>
+                                <h4 className="text-lg font-black text-white">
+                                    ¡Cobro registrado y distribuido con éxito!
+                                </h4>
+                                <p className="text-xs text-crm-fg-muted mt-1 max-w-md mx-auto">
+                                    El movimiento impactó en cuentas, actualizó los saldos de la venta y reservó los fondos en las cajas estratégicas sin duplicaciones.
+                                </p>
+                            </div>
+
+                            <div className="rounded-2xl border border-crm-border bg-crm-bg p-4 text-left max-w-lg mx-auto text-xs space-y-2.5">
+                                <div className="flex justify-between border-b border-crm-border/60 pb-2">
+                                    <span className="text-crm-fg-muted">Operación / Vehículo:</span>
+                                    <span className="font-bold text-white">{selectedSale.vehicleName} ({selectedSale.clientName})</span>
+                                </div>
+                                <div className="flex justify-between border-b border-crm-border/60 pb-2">
+                                    <span className="text-crm-fg-muted">Importe total cobrado:</span>
+                                    <span className="font-mono font-black text-emerald-400">{formatMoney(enteredAmount, currency)}</span>
+                                </div>
+                                <div className="flex justify-between border-b border-crm-border/60 pb-2">
+                                    <span className="text-crm-fg-muted">Capital recuperado a Stock:</span>
+                                    <span className="font-mono font-bold text-cyan-300">
+                                        {formatMoney(completedResult.summary?.capitalRecoveredToStock || 0, currency)}
+                                    </span>
+                                </div>
+                                <div className="flex justify-between border-b border-crm-border/60 pb-2">
+                                    <span className="text-crm-fg-muted">Margen distribuido a cajas:</span>
+                                    <span className="font-mono font-bold text-purple-300">
+                                        {formatMoney(completedResult.summary?.marginDistributed || 0, currency)}
+                                    </span>
+                                </div>
+                                <div className="flex justify-between">
+                                    <span className="text-crm-fg-muted">Esquema aplicado:</span>
+                                    <span className="font-bold text-white uppercase">{completedResult.schemeUsed || selectedScheme}</span>
+                                </div>
+                            </div>
+                        </div>
+                    )}
                 </div>
 
-                {/* Pie del Modal con Doble Botón: Distribuir Ahora vs Distribuir Después */}
-                <div className="p-4 border-t border-crm-border bg-crm-surface/90 shrink-0 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                    <button
-                        type="button"
-                        onClick={onClose}
-                        className="rounded-xl border border-crm-border px-4 py-2 text-xs font-bold text-crm-fg hover:bg-crm-surface-raised transition-colors"
-                    >
-                        Cancelar
-                    </button>
+                {/* Pie de Acciones */}
+                <div className="p-4 border-t border-crm-border bg-crm-surface/90 shrink-0 flex items-center justify-between gap-3">
+                    {step === 1 && (
+                        <>
+                            <button
+                                type="button"
+                                onClick={onClose}
+                                className="rounded-xl border border-crm-border px-4 py-2 text-xs font-bold text-crm-fg hover:bg-crm-surface-raised transition-colors"
+                            >
+                                Cancelar
+                            </button>
+                            <button
+                                type="button"
+                                disabled={!selectedSale}
+                                onClick={handleNextToPayment}
+                                className="inline-flex items-center gap-1.5 rounded-xl bg-purple-600 px-5 py-2 text-xs font-black text-white hover:bg-purple-500 disabled:opacity-40 transition-colors shadow-lg shadow-purple-600/20"
+                            >
+                                Cargar Pago <ChevronRight size={15} />
+                            </button>
+                        </>
+                    )}
 
-                    <div className="flex flex-wrap items-center gap-2">
-                        <button
-                            type="button"
-                            disabled={isSubmitting || netAmount <= 0}
-                            onClick={() => handleConfirm(false)}
-                            className="inline-flex items-center gap-1.5 rounded-xl border border-purple-500/40 bg-purple-500/15 px-4 py-2 text-xs font-bold text-purple-200 hover:bg-purple-500/25 disabled:opacity-50 transition-colors"
-                            title="Ingresa a cuenta bancaria y queda pendiente en la bandeja de Tesorería para revisión agrupada"
-                        >
-                            <Clock size={15} /> Cobrar y Distribuir Después
-                        </button>
+                    {step === 2 && (
+                        <>
+                            <button
+                                type="button"
+                                onClick={() => setStep(1)}
+                                className="inline-flex items-center gap-1.5 rounded-xl border border-crm-border px-4 py-2 text-xs font-bold text-crm-fg hover:bg-crm-surface-raised transition-colors"
+                            >
+                                <ChevronLeft size={15} /> Volver a Venta
+                            </button>
+                            <button
+                                type="button"
+                                disabled={enteredAmount <= 0 || (isSplitPayment && !isSplitValid)}
+                                onClick={handleNextToReview}
+                                className="inline-flex items-center gap-1.5 rounded-xl bg-purple-600 px-5 py-2 text-xs font-black text-white hover:bg-purple-500 disabled:opacity-40 transition-colors shadow-lg shadow-purple-600/20"
+                            >
+                                Revisar Distribución <ChevronRight size={15} />
+                            </button>
+                        </>
+                    )}
 
-                        <button
-                            type="button"
-                            disabled={isSubmitting || netAmount <= 0}
-                            onClick={() => handleConfirm(true)}
-                            className="inline-flex items-center gap-2 rounded-xl bg-purple-600 px-5 py-2 text-xs font-black text-white hover:bg-purple-500 disabled:opacity-50 transition-colors shadow-lg shadow-purple-600/20"
-                            title="Ingresa a cuenta y asigna inmediatamente el neto a las 8 cajas"
-                        >
-                            <CheckCircle2 size={16} /> Cobrar y Distribuir Ahora
-                        </button>
-                    </div>
+                    {step === 3 && (
+                        <>
+                            <button
+                                type="button"
+                                disabled={isSubmitting}
+                                onClick={() => setStep(2)}
+                                className="inline-flex items-center gap-1.5 rounded-xl border border-crm-border px-4 py-2 text-xs font-bold text-crm-fg hover:bg-crm-surface-raised transition-colors"
+                            >
+                                <ChevronLeft size={15} /> Volver a Pago
+                            </button>
+
+                            <div className="flex flex-wrap items-center gap-2">
+                                {distributionProposal?.missingData && (
+                                    <button
+                                        type="button"
+                                        disabled={isSubmitting}
+                                        onClick={() => handleConfirm(true)}
+                                        className="inline-flex items-center gap-1.5 rounded-xl border border-amber-500/40 bg-amber-500/15 px-4 py-2 text-xs font-bold text-amber-200 hover:bg-amber-500/25 disabled:opacity-40 transition-colors"
+                                        title="Registra el ingreso en cuenta y deja la asignación pendiente para distribuir cuando se carguen los datos"
+                                    >
+                                        <Clock size={15} /> Registrar como Pendiente de Distribución
+                                    </button>
+                                )}
+
+                                <button
+                                    type="button"
+                                    disabled={isSubmitting || loadingProposal}
+                                    onClick={() => handleConfirm(false)}
+                                    className="inline-flex items-center gap-2 rounded-xl bg-purple-600 px-5 py-2 text-xs font-black text-white hover:bg-purple-500 disabled:opacity-50 transition-colors shadow-lg shadow-purple-600/20"
+                                >
+                                    <CheckCircle2 size={16} />
+                                    {isSubmitting ? 'Confirmando y distribuyendo...' : 'Confirmar Cobro y Distribución'}
+                                </button>
+                            </div>
+                        </>
+                    )}
+
+                    {step === 4 && (
+                        <div className="w-full flex justify-end">
+                            <button
+                                type="button"
+                                onClick={onClose}
+                                className="rounded-xl bg-purple-600 px-6 py-2 text-xs font-black text-white hover:bg-purple-500 transition-colors"
+                            >
+                                Finalizar
+                            </button>
+                        </div>
+                    )}
                 </div>
             </div>
         </div>

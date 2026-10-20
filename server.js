@@ -880,42 +880,48 @@ app.get('/api/admin/audit-logs', authenticateToken, requirePermission(PERMISSION
     }
 });
 
-// GET public cars (Sanitized)
+// GET public cars (Sanitized & Optimized)
 app.get('/api/public/cars', async (req, res) => {
     try {
         await connectDB();
-        res.setHeader('Cache-Control', 'no-store, max-age=0');
+        // Cache público en CDN Vercel durante 15s, con revalidación en segundo plano por 30s.
+        // Ventana máxima de desactualización: 15 segundos (ideal para concesionarias con cambios eventuales).
+        res.setHeader('Cache-Control', 'public, s-maxage=15, stale-while-revalidate=30');
         // Only return visible/public cars. We use $ne: false so existing cars without the field are still visible.
         // We exclude specifically 'Vendido', 'Reservado', 'Pausado', 'Cancelado', 'Eliminado'
         const cars = await Car.find({
             visibleEnWeb: { $ne: false },
             status: { $nin: [/^vendido$/i, /^reservado$/i, /^pausado$/i, /^cancelado$/i, /^eliminado$/i] }
         })
-            .select('-purchasePrice -purchaseCurrency -ownerName -ownerEmail -ownerPhone -linkedClient -consignedBy -notes -agencyOwned -engineNumber -chassisNumber -location -hasManuals -hasDuplicateKeys -hasOfficialServices -publishedOnML -publishedBy -mlLink -plateOrVin -expenses -visibleEnWeb -createdAt -updatedAt -__v -order -owners -auditLog')
-            .sort({ order: 1, createdAt: -1 });
+            .select('brand name year km price currency fuel fuelType transmission condition vehicleType type category status featured coverImage images imagePosition')
+            .sort({ order: 1, createdAt: -1 })
+            .lean();
         res.json(cars);
     } catch (error) {
-        res.status(500).json({ error: 'No se pudo cargar el cat├ílogo de veh├¡culos.' });
+        res.status(500).json({ error: 'No se pudo cargar el catálogo de vehículos.' });
     }
 });
 
-// GET single public car (Sanitized)
+// GET single public car (Sanitized & Optimized)
 app.get('/api/public/cars/:id', async (req, res) => {
     try {
         await connectDB();
+        // Ventana máxima de 30s en borde
+        res.setHeader('Cache-Control', 'public, s-maxage=30, stale-while-revalidate=60');
         const car = await Car.findOne({
             _id: req.params.id,
             visibleEnWeb: { $ne: false },
             status: { $nin: [/^vendido$/i, /^reservado$/i, /^pausado$/i, /^cancelado$/i, /^eliminado$/i] }
         })
-            .select('-purchasePrice -purchaseCurrency -ownerName -ownerEmail -ownerPhone -linkedClient -consignedBy -notes -agencyOwned -engineNumber -chassisNumber -location -hasManuals -hasDuplicateKeys -hasOfficialServices -publishedOnML -publishedBy -mlLink -plateOrVin -expenses -visibleEnWeb -createdAt -updatedAt -__v -order -owners -auditLog');
+            .select('-purchasePrice -purchaseCurrency -ownerName -ownerEmail -ownerPhone -linkedClient -consignedBy -notes -agencyOwned -engineNumber -chassisNumber -location -hasManuals -hasDuplicateKeys -hasOfficialServices -publishedOnML -publishedBy -mlLink -plateOrVin -expenses -visibleEnWeb -createdAt -updatedAt -__v -order -owners -auditLog')
+            .lean();
 
         if (!car) {
             return res.status(404).json({ message: 'Car not found' });
         }
         res.json(car);
     } catch (error) {
-        res.status(500).json({ error: 'No se pudo cargar el veh├¡culo.' });
+        res.status(500).json({ error: 'No se pudo cargar el vehículo.' });
     }
 });
 
@@ -1125,18 +1131,28 @@ app.get('/api/admin/cars/export', authenticateToken, requirePermission(PERMISSIO
     }
 });
 
-// GET combined dashboard data (Optimized single request to avoid SSL connection errors)
+// GET combined dashboard data (Optimized single request with surgical field projection)
 app.get('/api/admin/dashboard', authenticateToken, async (req, res) => {
     try {
         await connectDB();
         res.setHeader('Cache-Control', 'no-store, max-age=0');
         
-        // Ejecutar las consultas en paralelo con tolerancia a fallos
+        // Ejecutar las consultas en paralelo con proyección quirúrgica y tolerancia a fallos:
+        // Excluimos checklists pesados y descripciones extensas que sobrecargan el payload.
         const [cars, sales, transactions, installments, dolarBlue] = await Promise.all([
-            Car.find({}).lean(),
-            Sale.find({}).populate('vehicleId', 'brand name year purchasePrice purchaseCurrency plateOrVin plate').lean(),
-            Transaction.find({}).lean(),
-            Installment.find({}).lean(),
+            Car.find({})
+                .select('brand name model year status price currency purchasePrice purchaseCurrency agencyOwned isSharedInvestment investor expenses fechaIngresoStock createdAt coverImage visibleEnWeb consignedBy documentation plateOrVin plate auditLog')
+                .lean(),
+            Sale.find({})
+                .select('saleDate createdAt status salePrice saleCurrency vehicleId salesperson assignedTo createdBy consignationOwnerId vehicleOwnerName notes paymentMethod clientId buyerName financingDetails')
+                .populate('vehicleId', 'brand name year purchasePrice purchaseCurrency plateOrVin plate')
+                .lean(),
+            Transaction.find({})
+                .select('amount currency type date createdAt status')
+                .lean(),
+            Installment.find({})
+                .select('amount currency status dueDate')
+                .lean(),
             getDolarBlueRate(false).catch(() => null)
         ]);
         
@@ -1183,91 +1199,134 @@ app.get('/api/admin/cars', authenticateToken, requirePermission(PERMISSIONS.STOC
 
         // Fetch minimal info for ALL cars to calculate summary stats
         const allCarsForSummary = await Car.find({})
-            .select('status currency purchaseCurrency price purchasePrice investor.percentage agencyOwned consignedBy km condition')
+            .select('status currency purchaseCurrency price purchasePrice investor.percentage agencyOwned consignedBy km condition sold visibleEnWeb')
             .lean();
 
-        // Calculate summary using same logic as frontend mapping
+        // Calculate summary using robust normalization
         // Exclude sold and cancelled cars from stock metrics
-        const stockCars = allCarsForSummary.filter(c => c.status !== 'Vendido' && c.status !== 'Cancelado');
+        const stockCars = allCarsForSummary.filter(c => {
+            const st = (c.status || '').toLowerCase().trim();
+            return st !== 'vendido' && st !== 'cancelado' && st !== 'anulado' && !c.sold;
+        });
         const totalCarsCount = stockCars.length;
-        const disponibles = stockCars.filter(c => (c.status || '').toLowerCase() === 'disponible');
+        const disponibles = stockCars.filter(c => (c.status || '').toLowerCase().trim() === 'disponible');
+        const reservados = stockCars.filter(c => (c.status || '').toLowerCase().trim() === 'reservado');
+        const pausados = stockCars.filter(c => (c.status || '').toLowerCase().trim() === 'pausado');
+        const sinEstado = stockCars.filter(c => !['disponible', 'reservado', 'pausado'].includes((c.status || '').toLowerCase().trim()));
 
-        let valorActivoUSD = 0;
-        let valorActivoARS = 0;
-        let valorActivoInversionistasUSD = 0;
-        let valorActivoInversionistasARS = 0;
-        let capitalInvertidoInversionistasUSD = 0;
-        let capitalInvertidoInversionistasARS = 0;
+        // Bloque Patrimonial Homogéneo: Todos los vehículos activos PROPIOS y COMPARTIDOS
+        // Las consignaciones quedan estrictamente excluidas de este bloque y se informan por separado
         let valorTotalUSD = 0;
         let valorTotalARS = 0;
+        let valorPropioUSD = 0;
+        let valorPropioARS = 0;
+        let valorInversionistasUSD = 0;
+        let valorInversionistasARS = 0;
 
-        disponibles.forEach(c => {
-            const isShared = c.investor && c.investor.percentage > 0;
-            const isConsignment = c.consignedBy && c.consignedBy !== '';
-            const isPropio = c.agencyOwned;
+        let costoPropioUSD = 0;
+        let costoPropioARS = 0;
+        let costoInversionistasUSD = 0;
+        let costoInversionistasARS = 0;
 
-            // Map origen
-            const origen = isShared ? 'compartido' : (isPropio ? 'propio' : (isConsignment ? 'consignación' : 'tercero'));
-            const currency = c.currency === 'U$S' || c.currency === 'USD' ? 'USD' : 'ARS';
+        let consignacionesCount = 0;
+        let consignacionesValorUSD = 0;
+        let consignacionesValorARS = 0;
 
-            // monedaCompra logic from mapper
-            const purchaseCurrency = ((c.purchaseCurrency || c.currency) === 'USD' || (c.purchaseCurrency || c.currency) === 'U$S') && c.purchasePrice > 200000 ? 'ARS' : (c.purchaseCurrency || (c.currency === 'U$S' || c.currency === 'USD' ? 'USD' : 'ARS'));
+        let missingPriceCount = 0;
+        let missingCostCount = 0;
 
-            const priceValTotal = c.price || 0;
-            if (currency === 'USD') {
-                valorTotalUSD += priceValTotal;
+        stockCars.forEach(c => {
+            const isConsignment = Boolean(c.consignedBy && String(c.consignedBy).trim() !== '');
+            const isShared = !isConsignment && c.investor && Number(c.investor.percentage) > 0;
+            const currency = (c.currency === 'U$S' || c.currency === 'USD') ? 'USD' : 'ARS';
+
+            const rawPurchaseCurr = c.purchaseCurrency || c.currency;
+            const purchaseCurrency = ((rawPurchaseCurr === 'USD' || rawPurchaseCurr === 'U$S') && c.purchasePrice > 200000)
+                ? 'ARS'
+                : ((rawPurchaseCurr === 'U$S' || rawPurchaseCurr === 'USD') ? 'USD' : 'ARS');
+
+            const price = Number(c.price) || 0;
+            const purchasePrice = Number(c.purchasePrice) || 0;
+
+            if (!price || price <= 100) {
+                missingPriceCount++;
+            }
+
+            if (isConsignment) {
+                consignacionesCount++;
+                if (currency === 'USD') consignacionesValorUSD += price;
+                else consignacionesValorARS += price;
             } else {
-                valorTotalARS += priceValTotal;
-            }
-
-            if (origen === 'propio' || origen === 'compartido') {
-                const investorPercentage = (origen === 'compartido' && c.investor) ? c.investor.percentage : 0;
-                const agencyPercentage = 100 - investorPercentage;
-                const priceVal = c.price || 0;
-
-                if (currency === 'USD') {
-                    valorActivoUSD += priceVal * (agencyPercentage / 100);
-                } else {
-                    valorActivoARS += priceVal * (agencyPercentage / 100);
+                if (!purchasePrice || purchasePrice <= 0) {
+                    missingCostCount++;
                 }
-            }
 
-            if (origen === 'compartido') {
-                const priceVal = c.price || 0;
-                const purchasePriceVal = c.purchasePrice || 0;
-                const investorPercentage = c.investor?.percentage || 0;
+                const invPct = isShared ? Math.min(100, Math.max(0, Number(c.investor?.percentage) || 0)) : 0;
+                const agencyPct = Math.max(0, 100 - invPct);
+
+                // Cuota exacta para asegurar que valorTotal === valorPropio + valorInversionistas
+                const contribPropio = Math.round(price * (agencyPct / 100));
+                const contribInv = price - contribPropio;
+
+                const costoContribPropio = Math.round(purchasePrice * (agencyPct / 100));
+                const costoContribInv = purchasePrice - costoContribPropio;
 
                 if (currency === 'USD') {
-                    valorActivoInversionistasUSD += priceVal * (investorPercentage / 100);
+                    valorTotalUSD += price;
+                    valorPropioUSD += contribPropio;
+                    valorInversionistasUSD += contribInv;
                 } else {
-                    valorActivoInversionistasARS += priceVal * (investorPercentage / 100);
+                    valorTotalARS += price;
+                    valorPropioARS += contribPropio;
+                    valorInversionistasARS += contribInv;
                 }
 
                 if (purchaseCurrency === 'USD') {
-                    capitalInvertidoInversionistasUSD += purchasePriceVal * (investorPercentage / 100);
+                    costoPropioUSD += costoContribPropio;
+                    costoInversionistasUSD += costoContribInv;
                 } else {
-                    capitalInvertidoInversionistasARS += purchasePriceVal * (investorPercentage / 100);
+                    costoPropioARS += costoContribPropio;
+                    costoInversionistasARS += costoContribInv;
                 }
             }
         });
 
         const summary = {
             total: totalCarsCount,
+            totalStock: totalCarsCount,
             disponibles: disponibles.length,
-            consignaciones: stockCars.filter(c => c.consignedBy && c.consignedBy !== '').length,
-            compartidos: stockCars.filter(c => c.investor && c.investor.percentage > 0).length,
+            reservados: reservados.length,
+            pausados: pausados.length,
+            sinEstado: sinEstado.length,
+            publicadosWeb: disponibles.filter(c => c.visibleEnWeb !== false).length,
+            consignaciones: consignacionesCount,
+            consignacionesValorUSD: Math.round(consignacionesValorUSD),
+            consignacionesValorARS: Math.round(consignacionesValorARS),
+            compartidos: stockCars.filter(c => c.investor && Number(c.investor.percentage) > 0).length,
             ceroKm: stockCars.filter(c => {
                 const cond = (c.condition || '').toLowerCase().replace(/\s+/g, '');
                 return cond === '0km' || cond === 'nuevo' || c.km === 0;
             }).length,
-            valorActivoUSD,
-            valorActivoARS,
-            valorActivoInversionistasUSD,
-            valorActivoInversionistasARS,
-            capitalInvertidoInversionistasUSD,
-            capitalInvertidoInversionistasARS,
-            valorTotalUSD,
-            valorTotalARS
+            // 3 Valores Principales a precio de venta (Valor Total = Valor Propio + Valor Inversionistas):
+            valorTotalUSD: Math.round(valorTotalUSD),
+            valorTotalARS: Math.round(valorTotalARS),
+            valorActivoUSD: Math.round(valorPropioUSD),
+            valorActivoARS: Math.round(valorPropioARS),
+            valorActivoInversionistasUSD: Math.round(valorInversionistasUSD),
+            valorActivoInversionistasARS: Math.round(valorInversionistasARS),
+            // Costo Invertido de Adquisición (información secundaria de compra):
+            capitalInvertidoUSD: Math.round(costoPropioUSD),
+            capitalInvertidoARS: Math.round(costoPropioARS),
+            capitalInvertidoInversionistasUSD: Math.round(costoInversionistasUSD),
+            capitalInvertidoInversionistasARS: Math.round(costoInversionistasARS),
+            costoTotalUSD: Math.round(costoPropioUSD + costoInversionistasUSD),
+            costoTotalARS: Math.round(costoPropioARS + costoInversionistasARS),
+            // Inconsistencias y datos incompletos detectados
+            inconsistencias: {
+                missingPriceCount,
+                missingCostCount,
+                sinEstadoCount: sinEstado.length
+            }
         };
 
         // Now build query for the current page
@@ -1354,23 +1413,31 @@ app.get('/api/admin/cars', authenticateToken, requirePermission(PERMISSIONS.STOC
             .limit(parsedLimit)
             .lean();
             
-        // Calculate the sum of prices for the filtered vehicles
+        // Calculate the sum of prices and purchase costs for the filtered vehicles
         const filteredTotals = await Car.aggregate([
             { $match: query },
             { 
                 $group: { 
                     _id: "$currency", 
-                    total: { $sum: "$price" } 
+                    totalPrice: { $sum: "$price" },
+                    totalPurchase: { $sum: "$purchasePrice" }
                 } 
             }
         ]);
         
         let filteredTotalUSD = 0;
         let filteredTotalARS = 0;
+        let filteredCostUSD = 0;
+        let filteredCostARS = 0;
         filteredTotals.forEach(item => {
             const curr = (item._id === 'U$S' || item._id === 'USD') ? 'USD' : 'ARS';
-            if (curr === 'USD') filteredTotalUSD += item.total || 0;
-            else filteredTotalARS += item.total || 0;
+            if (curr === 'USD') {
+                filteredTotalUSD += item.totalPrice || 0;
+                filteredCostUSD += item.totalPurchase || 0;
+            } else {
+                filteredTotalARS += item.totalPrice || 0;
+                filteredCostARS += item.totalPurchase || 0;
+            }
         });
 
         const brands = await Car.distinct('brand');
@@ -1383,7 +1450,9 @@ app.get('/api/admin/cars', authenticateToken, requirePermission(PERMISSIONS.STOC
             summary,
             brands,
             filteredTotalUSD,
-            filteredTotalARS
+            filteredTotalARS,
+            filteredCostUSD,
+            filteredCostARS
         });
     } catch (error) {
         res.status(500).json({ message: error.message });
@@ -3409,6 +3478,12 @@ app.post('/api/transactions', authenticateToken, requirePermission(PERMISSIONS.F
         account.balance += balanceChange;
         await account.save();
 
+        if (savedTx.type === 'Egreso') {
+            await treasuryStrategicService.syncExpenseWithTreasury(savedTx, { isNew: true, user: req.user?.username || 'Admin' });
+        } else if (savedTx.type === 'Ingreso' && savedTx.status === 'activo') {
+            await treasuryStrategicService.registerCollectionForTreasury(savedTx, { user: req.user });
+        }
+
         const populatedTx = await Transaction.findById(savedTx._id)
             .populate('accountId')
             .populate('carId');
@@ -3422,10 +3497,11 @@ app.post('/api/transactions', authenticateToken, requirePermission(PERMISSIONS.F
 app.delete('/api/transactions/:id', authenticateToken, requirePermission(PERMISSIONS.FINANZAS_WRITE), async (req, res) => {
     try {
         const tx = await Transaction.findById(req.params.id);
-        if (!tx) return res.status(404).json({ message: 'Transacci├│n no encontrada' });
+        if (!tx) return res.status(404).json({ message: 'Transacción no encontrada' });
+        const oldStatus = tx.status;
 
         const account = await Account.findById(tx.accountId);
-        if (account) {
+        if (account && (oldStatus === 'activo' || oldStatus === 'Completado')) {
             const revertChange = tx.type === 'Ingreso' ? -tx.amount : tx.amount;
             account.balance += revertChange;
             await account.save();
@@ -3433,6 +3509,20 @@ app.delete('/api/transactions/:id', authenticateToken, requirePermission(PERMISS
 
         tx.status = 'anulado';
         await tx.save();
+
+        if (tx.type === 'Egreso') {
+            await treasuryStrategicService.syncExpenseWithTreasury(tx, {
+                statusChanged: true,
+                oldStatus,
+                user: req.user?.username || 'Admin'
+            });
+        } else if (tx.type === 'Ingreso') {
+            await treasuryStrategicService.reverseIncomeDistribution(tx, {
+                user: req.user?.username || 'Admin',
+                reason: 'Anulación de cobro'
+            });
+        }
+
         res.json({ message: 'Transacción anulada y balance de caja revertido' });
     } catch (error) {
         res.status(500).json({ message: error.message });
@@ -5249,7 +5339,7 @@ app.patch('/api/admin/sales/:id', authenticateToken, requirePermission(PERMISSIO
                 field: 'paymentMethod',
                 oldValue: sale.paymentMethod,
                 newValue: paymentMethod,
-                details: `M├®todo de pago actualizado a ${paymentMethod}`,
+                details: `Método de pago actualizado a ${paymentMethod}`,
                 user: user,
                 source: 'CRM_V2'
             });
@@ -5362,8 +5452,8 @@ app.patch('/api/admin/sales/:id', authenticateToken, requirePermission(PERMISSIO
                 const financedBalance = Math.max(0, cashPrice - downPayment);
                 const planActive = financedBalance > 0;
                 if (planActive) {
-                    if (![6, 12, 18, 24].includes(installmentsCount)) {
-                        return res.status(400).json({ message: 'La cantidad de cuotas debe ser 6, 12, 18 o 24 cuando exista saldo financiado.' });
+                    if (![3, 6, 12, 18, 24].includes(installmentsCount)) {
+                        return res.status(400).json({ message: 'La cantidad de cuotas debe ser 3, 6, 12, 18 o 24 cuando exista saldo financiado.' });
                     }
                 }
 
@@ -6314,6 +6404,11 @@ app.post('/api/admin/transactions/bulk-annul', authenticateToken, requirePermiss
                         oldStatus,
                         user: req.user?.username || 'Admin'
                     });
+                } else if (tx.type === 'Ingreso' || tx.type === 'ingreso') {
+                    await treasuryStrategicService.reverseIncomeDistribution(tx, {
+                        user: req.user?.username || 'Admin',
+                        reason: 'Anulación masiva de transacciones'
+                    });
                 }
                 annulledCount++;
             }
@@ -6351,6 +6446,11 @@ app.delete('/api/admin/transactions/:id', authenticateToken, requirePermission(P
                 statusChanged: true,
                 oldStatus,
                 user: req.user?.username || 'Admin'
+            });
+        } else if (tx.type === 'Ingreso' || tx.type === 'ingreso') {
+            await treasuryStrategicService.reverseIncomeDistribution(tx, {
+                user: req.user?.username || 'Admin',
+                reason: 'Anulación de cobro desde Finanzas'
             });
         }
 
@@ -6684,6 +6784,15 @@ app.patch('/api/admin/transactions/:id', authenticateToken, requirePermission(PE
                     oldStatus,
                     user
                 });
+            } else if (tx.type === 'Ingreso' || oldType === 'Ingreso') {
+                if ((oldStatus === 'activo' || oldStatus === 'Completado') && tx.status !== 'activo' && tx.status !== 'Completado') {
+                    await treasuryStrategicService.reverseIncomeDistribution(tx, {
+                        user,
+                        reason: `Cambio de estado a ${tx.status}`
+                    });
+                } else if (oldStatus !== 'activo' && tx.status === 'activo') {
+                    await treasuryStrategicService.registerCollectionForTreasury(tx, { user: req.user });
+                }
             }
         }
 
@@ -7441,6 +7550,7 @@ app.get('/api/admin/notifications', authenticateToken, async (req, res) => {
         // 1. CUOTAS
         if (canReadInstallments) {
             const installments = await Installment.find({ status: { $in: ['pendiente', 'parcial'] } })
+                .select('dueDate installmentNumber currency amount saleId status')
                 .populate('saleId', 'clientId vehicleId')
                 .lean();
 
@@ -7454,7 +7564,7 @@ app.get('/api/admin/notifications', authenticateToken, async (req, res) => {
                         type: 'installment_overdue',
                         severity: 'danger',
                         title: 'Cuota Vencida',
-                        description: `La cuota ${inst.installmentNumber} (${inst.currency} ${inst.amount}) est├í vencida.`,
+                        description: `La cuota ${inst.installmentNumber} (${inst.currency} ${inst.amount}) está vencida.`,
                         module: 'cuotas',
                         entityType: 'Installment',
                         entityId: inst._id.toString(),
@@ -7465,7 +7575,7 @@ app.get('/api/admin/notifications', authenticateToken, async (req, res) => {
                     rawNotifs.push({
                         type: 'installment_due_soon',
                         severity: 'warning',
-                        title: 'Cuota Pr├│xima a Vencer',
+                        title: 'Cuota Próxima a Vencer',
                         description: `La cuota ${inst.installmentNumber} vence el ${new Date(inst.dueDate).toLocaleDateString('es-AR')}.`,
                         module: 'cuotas',
                         entityType: 'Installment',
@@ -7480,7 +7590,9 @@ app.get('/api/admin/notifications', authenticateToken, async (req, res) => {
         // 2. TAREAS (CrmTasks)
         if (canReadTasks) {
             const tasksQuery = { status: 'pendiente' };
-            const tasks = await CrmTask.find(tasksQuery).lean();
+            const tasks = await CrmTask.find(tasksQuery)
+                .select('title dueDate status assignedTo')
+                .lean();
 
             tasks.forEach(task => {
                 if (!isOwnerAdmin && task.assignedTo && task.assignedTo.toString() !== req.user?.userId) return;
@@ -7519,7 +7631,9 @@ app.get('/api/admin/notifications', authenticateToken, async (req, res) => {
 
         // 3. DOCUMENTACION / ENTREGAS / POSTVENTA
         if (canReadDocs || canReadPostventa) {
-            const activeSales = await Sale.find({ status: { $in: ['confirmada', 'pendiente_entrega', 'entregada'] } }).lean();
+            const activeSales = await Sale.find({ status: { $in: ['confirmada', 'pendiente_entrega', 'entregada'] } })
+                .select('assignedTo documentationStatus deliveryStatus status postSaleStatus createdAt estimatedDeliveryDate updatedAt')
+                .lean();
 
             activeSales.forEach(sale => {
                 if (!isOwnerAdmin && sale.assignedTo && sale.assignedTo.toString() !== req.user?.userId) return;
@@ -10115,6 +10229,60 @@ app.post('/api/admin/tesoreria-estrategica/boxes/distribute', authenticateToken,
     }
 });
 
+// 9b. Consultar Historial de Movimientos de Tesorería Estratégica (Paginado y Filtrable)
+app.get('/api/admin/tesoreria-estrategica/history', authenticateToken, requireTreasuryPrivilegedRole, verifyTreasuryStrategicAuth, async (req, res) => {
+    try {
+        const result = await treasuryStrategicService.getTreasuryHistory(req.query, req.user);
+        res.json(result);
+    } catch (error) {
+        console.error('GET /api/admin/tesoreria-estrategica/history error:', error);
+        res.status(500).json({ ok: false, message: error.message });
+    }
+});
+
+// 9c. Modificar Configuración de Caja (Nombre, Metas, Presupuestos, Estado) con Motivo Obligatorio
+app.post('/api/admin/tesoreria-estrategica/boxes/config', authenticateToken, requireTreasuryPrivilegedRole, verifyTreasuryStrategicAuth, async (req, res) => {
+    try {
+        const result = await treasuryStrategicService.updateBoxConfig(req.body, req.user);
+        res.json(result);
+    } catch (error) {
+        console.error('POST /api/admin/tesoreria-estrategica/boxes/config error:', error);
+        res.status(400).json({ ok: false, message: error.message });
+    }
+});
+
+// 9d. Ajustar Saldo Asignado de Caja (Con Vista Previa, Motivo Obligatorio y Sin Saldos Negativos)
+app.post('/api/admin/tesoreria-estrategica/boxes/adjust', authenticateToken, requireTreasuryPrivilegedRole, verifyTreasuryStrategicAuth, async (req, res) => {
+    try {
+        const result = await treasuryStrategicService.adjustBoxBalance(req.body, req.user);
+        res.json(result);
+    } catch (error) {
+        console.error('POST /api/admin/tesoreria-estrategica/boxes/adjust error:', error);
+        res.status(400).json({ ok: false, message: error.message });
+    }
+});
+
+app.post('/api/admin/tesoreria-estrategica/boxes/adjust/preview', authenticateToken, requireTreasuryPrivilegedRole, verifyTreasuryStrategicAuth, async (req, res) => {
+    try {
+        const result = await treasuryStrategicService.adjustBoxBalance({ ...req.body, previewOnly: true }, req.user);
+        res.json(result);
+    } catch (error) {
+        console.error('POST /api/admin/tesoreria-estrategica/boxes/adjust/preview error:', error);
+        res.status(400).json({ ok: false, message: error.message });
+    }
+});
+
+// 9e. Revertir Ajuste o Transferencia Manual de Tesorería (Con Motivo y Auditoría Permanente)
+app.post('/api/admin/tesoreria-estrategica/adjustments/revert', authenticateToken, requireTreasuryPrivilegedRole, verifyTreasuryStrategicAuth, async (req, res) => {
+    try {
+        const result = await treasuryStrategicService.revertAdjustment(req.body, req.user);
+        res.json(result);
+    } catch (error) {
+        console.error('POST /api/admin/tesoreria-estrategica/adjustments/revert error:', error);
+        res.status(400).json({ ok: false, message: error.message });
+    }
+});
+
 // 10. Regularización de cuotas históricas sin duplicar caja
 app.post('/api/admin/tesoreria-estrategica/installments/regularize', authenticateToken, requireTreasuryPrivilegedRole, verifyTreasuryStrategicAuth, async (req, res) => {
     try {
@@ -10227,6 +10395,80 @@ app.post('/api/admin/tesoreria-estrategica/installments/batch-revert', authentic
     }
 });
 
+
+// 19b. Búsqueda de ventas para "Registrar cobro y distribuir"
+app.get('/api/admin/tesoreria-estrategica/sales-search', authenticateToken, requireTreasuryPrivilegedRole, verifyTreasuryStrategicAuth, async (req, res) => {
+    try {
+        const results = await treasuryStrategicService.searchSalesForCollection({
+            q: req.query.q,
+            saleId: req.query.saleId,
+            limit: req.query.limit
+        });
+        res.json(results);
+    } catch (error) {
+        console.error('GET /api/admin/tesoreria-estrategica/sales-search error:', error);
+        res.status(400).json({ ok: false, message: error.message });
+    }
+});
+
+// 19c. Resumen de venta para modal de cobro y distribución
+app.get('/api/admin/tesoreria-estrategica/sales/:saleId/summary', authenticateToken, requireTreasuryPrivilegedRole, verifyTreasuryStrategicAuth, async (req, res) => {
+    try {
+        const summary = await treasuryStrategicService.getSaleTreasurySummary(req.params.saleId);
+        res.json(summary);
+    } catch (error) {
+        console.error('GET /api/admin/tesoreria-estrategica/sales/:saleId/summary error:', error);
+        res.status(400).json({ ok: false, message: error.message });
+    }
+});
+
+// 19d. Resumen de venta para panel de detalle de venta (acceso desde Ventas)
+app.get('/api/admin/sales/:saleId/treasury-summary', authenticateToken, async (req, res) => {
+    try {
+        const summary = await treasuryStrategicService.getSaleTreasurySummary(req.params.saleId);
+        res.json(summary);
+    } catch (error) {
+        console.error('GET /api/admin/sales/:saleId/treasury-summary error:', error);
+        res.status(400).json({ ok: false, message: error.message });
+    }
+});
+
+// 19e. Previsualización server-side de propuesta de cobro y distribución
+app.post('/api/admin/tesoreria-estrategica/incomes/preview-distribution', authenticateToken, requireTreasuryPrivilegedRole, verifyTreasuryStrategicAuth, async (req, res) => {
+    try {
+        const preview = await treasuryStrategicService.previewSaleCollectionDistribution(req.body);
+        res.json(preview);
+    } catch (error) {
+        console.error('POST /api/admin/tesoreria-estrategica/incomes/preview-distribution error:', error);
+        res.status(400).json({ ok: false, message: error.message });
+    }
+});
+
+// 19f. Reversión / Anulación de un cobro o de su distribución
+app.post('/api/admin/tesoreria-estrategica/incomes/:id/revert', authenticateToken, requireTreasuryPrivilegedRole, verifyTreasuryStrategicAuth, async (req, res) => {
+    try {
+        const { revertDistributionOnly = false, reason = 'Reversión desde Tesorería Estratégica' } = req.body || {};
+        const userName = req.user?.username || req.user?.name || 'Admin';
+        
+        let result = null;
+        if (revertDistributionOnly) {
+            result = await treasuryStrategicService.reverseIncomeDistribution(req.params.id, {
+                user: userName,
+                reason
+            });
+        } else {
+            result = await treasuryStrategicService.annulCollectionAndReverse(req.params.id, {
+                user: userName,
+                reason
+            });
+        }
+        res.json(result);
+    } catch (error) {
+        console.error('POST /api/admin/tesoreria-estrategica/incomes/:id/revert error:', error);
+        res.status(400).json({ ok: false, message: error.message });
+    }
+});
+
 // 20. Cobro único con distribución inmediata o posterior (Cobrar y Distribuir)
 app.post('/api/admin/tesoreria-estrategica/incomes/collect-and-distribute', authenticateToken, requireTreasuryPrivilegedRole, verifyTreasuryStrategicAuth, async (req, res) => {
     try {
@@ -10323,6 +10565,60 @@ app.post('/api/admin/tesoreria-estrategica/simulate-purchase', authenticateToken
         res.status(400).json({ ok: false, message: error.message });
     }
 });
+
+// 27. Vista previa de transferencia entre cajas y edición de cajas (sin modificar saldos bancarios)
+app.post('/api/admin/tesoreria-estrategica/boxes/transfer/preview', authenticateToken, requireTreasuryPrivilegedRole, verifyTreasuryStrategicAuth, async (req, res) => {
+    try {
+        const result = await treasuryStrategicService.transferBetweenBoxes({ ...(req.body || {}), previewOnly: true }, req.user);
+        res.json(result);
+    } catch (error) {
+        console.error('POST /api/admin/tesoreria-estrategica/boxes/transfer/preview error:', error);
+        res.status(400).json({ ok: false, message: error.message });
+    }
+});
+
+app.post('/api/admin/tesoreria-estrategica/boxes/distribute/preview', authenticateToken, requireTreasuryPrivilegedRole, verifyTreasuryStrategicAuth, async (req, res) => {
+    try {
+        const result = await treasuryStrategicService.distributeToBoxes({ ...(req.body || {}), previewOnly: true }, req.user);
+        res.json(result);
+    } catch (error) {
+        console.error('POST /api/admin/tesoreria-estrategica/boxes/distribute/preview error:', error);
+        res.status(400).json({ ok: false, message: error.message });
+    }
+});
+
+// 28. Vista previa de conciliación inicial y activación de reglas (sin reiniciar cajas ni cuentas)
+app.post('/api/admin/tesoreria-estrategica/reconcile/preview', authenticateToken, requireTreasuryPrivilegedRole, verifyTreasuryStrategicAuth, async (req, res) => {
+    try {
+        const result = await treasuryStrategicService.previewInitialReconciliationAndActivation(req.body || {});
+        res.json(result);
+    } catch (error) {
+        console.error('POST /api/admin/tesoreria-estrategica/reconcile/preview error:', error);
+        res.status(400).json({ ok: false, message: error.message });
+    }
+});
+
+// 29. Vista previa y ejecución explícita de redistribución de fondos existentes
+app.post('/api/admin/tesoreria-estrategica/redistribute/preview', authenticateToken, requireTreasuryPrivilegedRole, verifyTreasuryStrategicAuth, async (req, res) => {
+    try {
+        const result = await treasuryStrategicService.previewRedistributeExistingFunds(req.body || {});
+        res.json(result);
+    } catch (error) {
+        console.error('POST /api/admin/tesoreria-estrategica/redistribute/preview error:', error);
+        res.status(400).json({ ok: false, message: error.message });
+    }
+});
+
+app.post('/api/admin/tesoreria-estrategica/redistribute/execute', authenticateToken, requireTreasuryPrivilegedRole, verifyTreasuryStrategicAuth, async (req, res) => {
+    try {
+        const result = await treasuryStrategicService.executeRedistributeExistingFunds(req.body || {}, req.user);
+        res.json(result);
+    } catch (error) {
+        console.error('POST /api/admin/tesoreria-estrategica/redistribute/execute error:', error);
+        res.status(400).json({ ok: false, message: error.message });
+    }
+});
+
 
 // ==========================================
 // MODO OFFLINE CRM v1 (Etapa 4)
@@ -11076,6 +11372,16 @@ app.patch('/api/admin/checks/:id', authenticateToken, requirePermission(PERMISSI
                 await Transaction.findByIdAndDelete(newTx._id);
                 throw new Error(`Error al actualizar saldo de cuenta: ${err.message}`);
             }
+
+            try {
+                if (direction === 'emitido') {
+                    await treasuryStrategicService.syncExpenseWithTreasury(newTx, { isNew: true, user });
+                } else {
+                    await treasuryStrategicService.registerCollectionForTreasury(newTx, { user: req.user });
+                }
+            } catch (trErr) {
+                console.error('Error sincronizando cheque en tesorería:', trErr);
+            }
         }
 
         let updated;
@@ -11402,6 +11708,12 @@ app.post('/api/admin/finance/card-expenses', authenticateToken, requirePermissio
             throw new Error(`Error al actualizar saldo de cuenta: ${err.message}`);
         }
 
+        try {
+            await treasuryStrategicService.syncExpenseWithTreasury(newTx, { isNew: true, user });
+        } catch (trErr) {
+            console.error('Error sincronizando gasto tarjeta en tesorería:', trErr);
+        }
+
         res.status(201).json(newTx);
     } catch (error) {
         console.error('POST /api/admin/finance/card-expenses error:', error);
@@ -11459,6 +11771,12 @@ app.post('/api/admin/finance/withdrawals', authenticateToken, requirePermission(
         } catch (err) {
             await Transaction.findByIdAndDelete(newTx._id);
             throw new Error(`Error al actualizar saldo de cuenta: ${err.message}`);
+        }
+
+        try {
+            await treasuryStrategicService.syncExpenseWithTreasury(newTx, { isNew: true, user });
+        } catch (trErr) {
+            console.error('Error sincronizando retiro en tesorería:', trErr);
         }
 
         res.status(201).json(newTx);
@@ -11539,6 +11857,12 @@ app.post('/api/admin/finance/loans', authenticateToken, requirePermission(PERMIS
             await Transaction.findByIdAndDelete(newTx._id);
             await Loan.findByIdAndDelete(newLoan._id);
             throw new Error(`Error al actualizar saldo de cuenta: ${err.message}`);
+        }
+
+        try {
+            await treasuryStrategicService.syncExpenseWithTreasury(newTx, { isNew: true, user });
+        } catch (trErr) {
+            console.error('Error sincronizando préstamo en tesorería:', trErr);
         }
 
         res.status(201).json(newLoan);
@@ -11890,6 +12214,16 @@ app.post('/api/admin/finance/recurrences/generate-month', authenticateToken, req
                 } catch (err) {
                     await Transaction.findByIdAndDelete(newTx._id);
                     throw err;
+                }
+
+                try {
+                    if (rule.type === 'Egreso') {
+                        await treasuryStrategicService.syncExpenseWithTreasury(newTx, { isNew: true, user });
+                    } else if (rule.type === 'Ingreso') {
+                        await treasuryStrategicService.registerCollectionForTreasury(newTx, { user: req.user });
+                    }
+                } catch (trErr) {
+                    console.error('Error sincronizando recurrencia en tesorería:', trErr);
                 }
 
                 transactions.push(newTx);
@@ -12911,6 +13245,12 @@ app.patch('/api/admin/settlements/:id', authenticateToken, requirePermission(PER
                     });
 
                     await settlement.save();
+
+                    try {
+                        await treasuryStrategicService.syncExpenseWithTreasury(savedTx, { isNew: true, user: req.user.username });
+                    } catch (trErr) {
+                        console.error('Error sincronizando liquidación de comisión en tesorería:', trErr);
+                    }
 
                 } catch (err) {
                     if (txIdCreated) await Transaction.deleteOne({ _id: txIdCreated });
