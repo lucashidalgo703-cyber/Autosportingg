@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import toast from 'react-hot-toast';
-import { Plus, Trash2, Edit2, Loader2, X } from 'lucide-react';
+import { Plus, Trash2, Edit2, Loader2, X, History, AlertTriangle } from 'lucide-react';
+import AccountMovementsModal from '../AccountMovementsModal';
 import ConfirmModal from '../../ui/ConfirmModal';
 import CrmModal from '../../ui/CrmModal';
 
@@ -10,6 +11,10 @@ export default function CuentasTab({ balances, accounts = [], fetchAccounts, cre
     const [isConfirmOpen, setIsConfirmOpen] = useState(false);
     const [confirmAction, setConfirmAction] = useState(null);
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const [selectedAccountForHistory, setSelectedAccountForHistory] = useState(null);
+    const [recalculatePreview, setRecalculatePreview] = useState(null);
+    const [isPreviewModalOpen, setIsPreviewModalOpen] = useState(false);
+    const [isLoadingPreview, setIsLoadingPreview] = useState(false);
 
     const formatMoney = (amount, currency = 'ARS') => {
         return `${currency === 'USD' ? 'USD' : '$'} ${Number(amount || 0).toLocaleString('es-AR')}`;
@@ -37,21 +42,37 @@ export default function CuentasTab({ balances, accounts = [], fetchAccounts, cre
         setIsConfirmOpen(true);
     };
 
-    const handleRecalculate = () => {
-        setConfirmAction({
-            title: 'Recalcular Saldos',
-            message: '¿Estás seguro de recalcular los saldos de TODAS las cuentas? Esta operación leerá todos los movimientos desde cero.',
-            action: async () => {
-                try {
-                    await recalculateBalances();
-                    toast.success('Saldos recalculados con éxito');
-                    if(fetchAccounts) fetchAccounts();
-                } catch (err) {
-                    toast.error(err.message || 'Error al recalcular saldos');
-                }
+    const handleRecalculate = async () => {
+        setIsLoadingPreview(true);
+        try {
+            const token = localStorage.getItem('token');
+            const res = await fetch('/api/admin/accounts/recalculate?preview=true', {
+                method: 'POST',
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            const data = await res.json();
+            if (res.ok && data.ok) {
+                setRecalculatePreview(data);
+                setIsPreviewModalOpen(true);
+            } else {
+                toast.error('No se pudo obtener la vista previa del recálculo');
             }
-        });
-        setIsConfirmOpen(true);
+        } catch (err) {
+            toast.error('Error de red al consultar vista previa');
+        } finally {
+            setIsLoadingPreview(false);
+        }
+    };
+
+    const handleConfirmRecalculate = async () => {
+        try {
+            await recalculateBalances();
+            toast.success('Saldos recalculados y auditados con éxito');
+            setIsPreviewModalOpen(false);
+            if(fetchAccounts) fetchAccounts();
+        } catch (err) {
+            toast.error(err.message || 'Error al recalcular saldos');
+        }
     };
 
     return (
@@ -91,9 +112,19 @@ export default function CuentasTab({ balances, accounts = [], fetchAccounts, cre
                             </div>
                             <p className="text-2xl font-black text-crm-fg">{formatMoney(account.balance, account.currency)}</p>
                         </div>
-                        <div className="flex justify-end gap-2 mt-4 pt-4 border-t border-crm-border">
-                            <button onClick={() => handleOpenForm(account)} className="p-2 text-crm-fg-muted hover:text-crm-fg transition-colors"><Edit2 size={16}/></button>
-                            <button onClick={() => handleDeleteClick(account)} className="p-2 text-crm-fg-muted hover:text-crm-red transition-colors"><Trash2 size={16}/></button>
+                        <div className="flex items-center justify-between gap-2 mt-4 pt-4 border-t border-crm-border">
+                            <button
+                                type="button"
+                                onClick={() => setSelectedAccountForHistory(account)}
+                                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-white bg-crm-surface-raised hover:bg-crm-surface border border-crm-border rounded-lg transition-colors"
+                            >
+                                <History size={14} className="text-purple-400" />
+                                Historial
+                            </button>
+                            <div className="flex items-center gap-1">
+                                <button onClick={() => handleOpenForm(account)} title="Editar cuenta" className="p-2 text-crm-fg-muted hover:text-white transition-colors"><Edit2 size={16}/></button>
+                                <button onClick={() => handleDeleteClick(account)} title="Desactivar cuenta" className="p-2 text-crm-fg-muted hover:text-crm-red transition-colors"><Trash2 size={16}/></button>
+                            </div>
                         </div>
                     </div>
                 ))}
@@ -124,6 +155,81 @@ export default function CuentasTab({ balances, accounts = [], fetchAccounts, cre
                     }}
                     isSubmitting={isSubmitting}
                 />
+            )}
+
+            <AccountMovementsModal
+                isOpen={Boolean(selectedAccountForHistory)}
+                onClose={() => setSelectedAccountForHistory(null)}
+                account={selectedAccountForHistory}
+            />
+
+            {isPreviewModalOpen && recalculatePreview && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 backdrop-blur-sm">
+                    <div className="w-full max-w-lg rounded-2xl border border-crm-border bg-crm-surface p-6 shadow-2xl space-y-4">
+                        <div className="flex items-center justify-between border-b border-crm-border pb-3">
+                            <div className="flex items-center gap-2">
+                                <AlertTriangle size={20} className="text-amber-400" />
+                                <h4 className="text-base font-black text-white">Vista Previa: Resetear / Recalcular Saldos</h4>
+                            </div>
+                            <button type="button" onClick={() => setIsPreviewModalOpen(false)} className="text-crm-fg-muted hover:text-white">
+                                <X size={18} />
+                            </button>
+                        </div>
+
+                        <p className="text-xs text-crm-fg-muted">
+                            Se compararon los saldos almacenados contra la suma real de todos los movimientos de ingreso y egreso registrados en la base de datos.
+                        </p>
+
+                        {recalculatePreview.differencesCount === 0 ? (
+                            <div className="p-4 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-xs text-emerald-400 font-bold text-center">
+                                Todos los saldos coinciden exactamente con sus movimientos. No se detectaron desvíos.
+                            </div>
+                        ) : (
+                            <div className="space-y-2">
+                                <p className="text-xs font-bold text-amber-300">
+                                    Se detectaron diferencias en {recalculatePreview.differencesCount} cuenta(s):
+                                </p>
+                                <div className="divide-y divide-crm-border rounded-xl border border-crm-border bg-crm-bg/70 max-h-48 overflow-y-auto">
+                                    {recalculatePreview.differences.map(d => (
+                                        <div key={d.accountId} className="p-3 text-xs flex items-center justify-between">
+                                            <div>
+                                                <span className="font-bold text-white block">{d.name}</span>
+                                                <span className="text-[11px] text-crm-fg-muted">
+                                                    Actual: {d.currency} {Number(d.currentBalance).toLocaleString('es-AR')}
+                                                </span>
+                                            </div>
+                                            <div className="text-right">
+                                                <span className="font-black text-emerald-400 block">
+                                                    Calculado: {d.currency} {Number(d.calculatedBalance).toLocaleString('es-AR')}
+                                                </span>
+                                                <span className="text-[10px] text-amber-400">
+                                                    Dif: {d.diff > 0 ? '+' : ''}{Number(d.diff).toLocaleString('es-AR')}
+                                                </span>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
+
+                        <div className="flex gap-2 pt-3 border-t border-crm-border">
+                            <button
+                                type="button"
+                                onClick={() => setIsPreviewModalOpen(false)}
+                                className="flex-1 py-2.5 rounded-xl border border-crm-border text-crm-fg-muted hover:text-white hover:bg-crm-surface-raised font-bold text-xs"
+                            >
+                                Cancelar
+                            </button>
+                            <button
+                                type="button"
+                                onClick={handleConfirmRecalculate}
+                                className="flex-1 py-2.5 rounded-xl bg-crm-red hover:bg-crm-red-hover text-white font-bold text-xs"
+                            >
+                                Confirmar Recálculo y Auditar
+                            </button>
+                        </div>
+                    </div>
+                </div>
             )}
 
             {isConfirmOpen && (

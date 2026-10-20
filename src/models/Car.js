@@ -62,6 +62,44 @@ const carSchema = new mongoose.Schema({
         source: { type: String, enum: ['sale_flow', 'manual_link'] }
     },
 
+    // Estado del pago de compra de unidades propias
+    purchasePaymentState: {
+        modality: { 
+            type: String, 
+            enum: ['pagar_ahora', 'pendiente', 'pago_parcial', 'ya_pagado_historico'],
+            default: 'ya_pagado_historico'
+        },
+        status: {
+            type: String,
+            enum: ['pagado', 'pendiente', 'parcial', 'no_aplica'],
+            default: 'no_aplica'
+        },
+        totalCost: { type: Number, default: 0 },
+        amountPaid: { type: Number, default: 0 },
+        pendingDebt: { type: Number, default: 0 },
+        currency: { type: String, default: 'USD' },
+        accountId: { type: String },
+        accountName: { type: String },
+        deductFromStrategicBox: { type: Boolean, default: false },
+        strategicBoxKey: { type: String, default: 'stock' },
+        paymentDate: { type: Date },
+        expectedFundsNote: { type: String },
+        expectedFundsSaleId: { type: String },
+        payments: [{
+            date: { type: Date, default: Date.now },
+            amount: { type: Number, required: true },
+            currency: { type: String, default: 'USD' },
+            accountId: { type: String },
+            accountName: { type: String },
+            paymentMethod: { type: String },
+            reference: { type: String },
+            deductedFromBox: { type: Boolean, default: false },
+            boxKey: { type: String, default: 'stock' },
+            transactionId: { type: String },
+            user: { type: String }
+        }]
+    },
+
     documentation: {
         tituloAutomotor: { type: String, enum: ['recibido', 'pendiente', 'no aplica'], default: 'pendiente' },
         cedulaVerde: { type: String, enum: ['recibido', 'pendiente', 'no aplica'], default: 'pendiente' },

@@ -993,6 +993,12 @@ app.post('/api/cars', authenticateToken, requirePermission(PERMISSIONS.STOCK_WRI
         delete carData.tradeInOriginValue;
         delete carData.tradeInOriginCurrency;
 
+        let purchasePayment = carData.purchasePayment;
+        if (typeof purchasePayment === 'string') {
+            try { purchasePayment = JSON.parse(purchasePayment); } catch (_) { purchasePayment = null; }
+        }
+        delete carData.purchasePayment;
+
         if (typeof carData.investor === 'string') {
             try { carData.investor = JSON.parse(carData.investor); } catch (_) { delete carData.investor; }
         }
@@ -1011,6 +1017,115 @@ app.post('/api/cars', authenticateToken, requirePermission(PERMISSIONS.STOCK_WRI
         });
 
         const savedCar = await newCar.save();
+
+        // Procesamiento del pago de compra de unidades propias (si aplica)
+        if (savedCar.agencyOwned && purchasePayment && typeof purchasePayment === 'object') {
+            const modality = purchasePayment.modality || 'ya_pagado_historico';
+            const cost = Number(savedCar.purchasePrice) || 0;
+            const curr = savedCar.purchaseCurrency === 'ARS' ? 'ARS' : 'USD';
+            let amountPaid = 0;
+            let pendingDebt = 0;
+            let status = 'pagado';
+            let createdTx = null;
+
+            if (modality === 'pagar_ahora') {
+                amountPaid = cost;
+                pendingDebt = 0;
+                status = 'pagado';
+            } else if (modality === 'pago_parcial') {
+                amountPaid = Math.min(cost, Math.max(0, Number(purchasePayment.amountPaid) || 0));
+                pendingDebt = Math.max(0, cost - amountPaid);
+                status = pendingDebt === 0 ? 'pagado' : 'parcial';
+            } else if (modality === 'pendiente') {
+                amountPaid = 0;
+                pendingDebt = cost;
+                status = 'pendiente';
+            } else {
+                amountPaid = cost;
+                pendingDebt = 0;
+                status = 'pagado';
+            }
+
+            if (amountPaid > 0 && modality !== 'ya_pagado_historico' && purchasePayment.accountId) {
+                const targetAccount = await Account.findById(purchasePayment.accountId);
+                if (targetAccount) {
+                    targetAccount.balance = (targetAccount.balance || 0) - amountPaid;
+                    await targetAccount.save();
+
+                    const normMethod = (pm) => {
+                        const s = String(pm || '').toLowerCase();
+                        if (s.includes('transf')) return 'transferencia';
+                        if (s.includes('efect')) return 'efectivo';
+                        if (s.includes('cheq')) return 'cheque';
+                        if (s.includes('tarj')) return 'tarjeta';
+                        return 'otro';
+                    };
+
+                    createdTx = new Transaction({
+                        type: 'Egreso',
+                        category: 'compra_vehiculo',
+                        amount: amountPaid,
+                        currency: curr,
+                        accountId: targetAccount._id,
+                        date: new Date(),
+                        concept: `Compra de vehículo: ${savedCar.brand} ${savedCar.name} (${savedCar.plateOrVin || 'S/P'})`,
+                        description: `Adquisición de stock propio. ${purchasePayment.reference ? `Ref: ${purchasePayment.reference}` : ''}`.trim(),
+                        status: 'activo',
+                        module: 'crm_v2',
+                        carId: savedCar._id,
+                        vehicleId: savedCar._id,
+                        paymentMethod: normMethod(purchasePayment.paymentMethod),
+                        reference: purchasePayment.reference || null,
+                        createdBy: user
+                    });
+                    await createdTx.save();
+
+                    if (purchasePayment.deductFromStrategicBox) {
+                        try {
+                            await treasuryStrategicService.adjustBoxBalance({
+                                boxKey: 'stock',
+                                currency: curr,
+                                adjustmentAmount: -amountPaid,
+                                reason: `Pago compra vehículo: ${savedCar.brand} ${savedCar.name} (${savedCar.plateOrVin || 'S/P'})`
+                            }, user);
+                        } catch (boxErr) {
+                            console.error('Error ajustando caja estratégica stock:', boxErr);
+                        }
+                    }
+                }
+            }
+
+            savedCar.purchasePaymentState = {
+                modality,
+                status,
+                totalCost: cost,
+                amountPaid,
+                pendingDebt,
+                currency: curr,
+                accountId: purchasePayment.accountId || null,
+                accountName: purchasePayment.accountName || null,
+                deductFromStrategicBox: Boolean(purchasePayment.deductFromStrategicBox),
+                strategicBoxKey: 'stock',
+                paymentDate: amountPaid > 0 ? new Date() : null,
+                expectedFundsNote: purchasePayment.expectedFundsNote || '',
+                expectedFundsSaleId: purchasePayment.expectedFundsSaleId || null,
+                payments: amountPaid > 0 ? [{
+                    date: new Date(),
+                    amount: amountPaid,
+                    currency: curr,
+                    accountId: purchasePayment.accountId || null,
+                    accountName: purchasePayment.accountName || null,
+                    paymentMethod: purchasePayment.paymentMethod || 'Transferencia bancaria',
+                    reference: purchasePayment.reference || '',
+                    deductedFromBox: Boolean(purchasePayment.deductFromStrategicBox),
+                    boxKey: 'stock',
+                    transactionId: createdTx ? createdTx._id : null,
+                    user
+                }] : []
+            };
+
+            await savedCar.save();
+        }
 
         if (originSale) {
             const now = new Date();
@@ -1087,6 +1202,148 @@ app.post('/api/cars', authenticateToken, requirePermission(PERMISSIONS.STOCK_WRI
     } catch (error) {
         console.error("POST /api/cars error:", error);
         res.status(400).json({ message: error.message });
+    }
+});
+
+// POST registrar abono / pago de compra de vehículo propio
+app.post('/api/admin/cars/:id/purchase-payment', authenticateToken, requirePermission(PERMISSIONS.STOCK_WRITE), async (req, res) => {
+    try {
+        await connectDB();
+        const user = req.user ? (req.user.username || req.user.email || req.user.role) : 'System';
+        const car = await Car.findById(req.params.id);
+        if (!car) {
+            return res.status(404).json({ ok: false, message: 'Vehículo no encontrado.' });
+        }
+
+        const {
+            amount,
+            accountId,
+            paymentMethod = 'Transferencia bancaria',
+            reference = '',
+            deductFromStrategicBox = false,
+            notes = ''
+        } = req.body;
+
+        const numAmount = Number(amount);
+        if (!numAmount || numAmount <= 0) {
+            return res.status(400).json({ ok: false, message: 'El importe a pagar debe ser mayor a 0.' });
+        }
+        if (!accountId) {
+            return res.status(400).json({ ok: false, message: 'Debés seleccionar una cuenta física de origen.' });
+        }
+
+        const account = await Account.findById(accountId);
+        if (!account) {
+            return res.status(404).json({ ok: false, message: 'Cuenta no encontrada.' });
+        }
+
+        const curr = car.purchaseCurrency === 'ARS' ? 'ARS' : 'USD';
+        const totalCost = Number(car.purchasePrice) || 0;
+        const currentPaid = Number(car.purchasePaymentState?.amountPaid) || 0;
+        const newPaid = currentPaid + numAmount;
+        const newPending = Math.max(0, totalCost - newPaid);
+        const newStatus = newPending === 0 ? 'pagado' : 'parcial';
+
+        // Descontar saldo de la cuenta física
+        account.balance = (account.balance || 0) - numAmount;
+        await account.save();
+
+        // Registrar transacción de egreso
+        const normMethod = (pm) => {
+            const s = String(pm || '').toLowerCase();
+            if (s.includes('transf')) return 'transferencia';
+            if (s.includes('efect')) return 'efectivo';
+            if (s.includes('cheq')) return 'cheque';
+            if (s.includes('tarj')) return 'tarjeta';
+            return 'otro';
+        };
+
+        const tx = new Transaction({
+            type: 'Egreso',
+            category: 'compra_vehiculo',
+            amount: numAmount,
+            currency: curr,
+            accountId: account._id,
+            date: new Date(),
+            concept: `Pago compra vehículo: ${car.brand} ${car.name} (${car.plateOrVin || 'S/P'})`,
+            description: `Abono de saldo por adquisición de unidad. ${reference ? `Ref: ${reference}` : ''} ${notes}`.trim(),
+            status: 'activo',
+            module: 'crm_v2',
+            carId: car._id,
+            vehicleId: car._id,
+            paymentMethod: normMethod(paymentMethod),
+            reference: reference || null,
+            createdBy: user
+        });
+        await tx.save();
+
+        // Coordinar con la caja estratégica Stock si corresponde
+        if (deductFromStrategicBox) {
+            try {
+                await treasuryStrategicService.adjustBoxBalance({
+                    boxKey: 'stock',
+                    currency: curr,
+                    adjustmentAmount: -numAmount,
+                    reason: `Pago compra vehículo: ${car.brand} ${car.name} (${car.plateOrVin || 'S/P'})`
+                }, user);
+            } catch (boxErr) {
+                console.error('Error ajustando caja estratégica stock:', boxErr);
+            }
+        }
+
+        // Actualizar estado del vehículo
+        const existingPayments = car.purchasePaymentState?.payments || [];
+        car.purchasePaymentState = {
+            ...(car.purchasePaymentState?.toObject ? car.purchasePaymentState.toObject() : car.purchasePaymentState),
+            status: newStatus,
+            totalCost,
+            amountPaid: newPaid,
+            pendingDebt: newPending,
+            currency: curr,
+            payments: [
+                ...existingPayments,
+                {
+                    date: new Date(),
+                    amount: numAmount,
+                    currency: curr,
+                    accountId: account._id,
+                    accountName: account.name,
+                    paymentMethod,
+                    reference,
+                    deductedFromBox: Boolean(deductFromStrategicBox),
+                    boxKey: 'stock',
+                    transactionId: tx._id,
+                    user
+                }
+            ]
+        };
+
+        if (!Array.isArray(car.auditLog)) car.auditLog = [];
+        car.auditLog.push({
+            action: 'PAGO_COMPRA',
+            field: 'purchasePaymentState',
+            details: `Se registró un pago de ${curr} ${numAmount.toLocaleString('es-AR')} desde la cuenta ${account.name}. Saldo pendiente restante: ${curr} ${newPending.toLocaleString('es-AR')}.`,
+            user,
+            source: 'CRM_V2',
+            date: new Date()
+        });
+
+        await car.save();
+
+        await logAudit({
+            req,
+            action: 'VEHICULO_PAGO_COMPRA',
+            module: 'stock',
+            entityType: 'Car',
+            entityId: car._id,
+            entityLabel: `${car.brand} ${car.name}`,
+            description: `Se registró un pago de compra por ${curr} ${numAmount.toLocaleString('es-AR')}.`
+        });
+
+        res.json({ ok: true, car, message: 'Pago de compra registrado exitosamente.' });
+    } catch (error) {
+        console.error('Error POST /api/admin/cars/:id/purchase-payment:', error);
+        res.status(500).json({ ok: false, message: error.message });
     }
 });
 
@@ -3336,27 +3593,250 @@ app.delete('/api/admin/accounts/:id', authenticateToken, requirePermission(PERMI
 app.post('/api/admin/accounts/recalculate', authenticateToken, requirePermission(PERMISSIONS.CAJA_WRITE), async (req, res) => {
     try {
         await connectDB();
+        const user = req.user ? (req.user.username || req.user.email || req.user.role) : 'System';
+        const isPreview = req.query.preview === 'true' || req.body?.preview === true;
         const accounts = await Account.find();
         let recalculatedCount = 0;
+        const differences = [];
 
         for (const account of accounts) {
             const transactions = await Transaction.find({ accountId: account._id, status: 'activo' });
             let realBalance = 0;
             transactions.forEach(tx => {
-                if (tx.type === 'Ingreso') realBalance += tx.amount;
-                if (tx.type === 'Egreso') realBalance -= tx.amount;
+                const t = (tx.type || '').toLowerCase();
+                if (t === 'ingreso') realBalance += Number(tx.amount) || 0;
+                if (t === 'egreso') realBalance -= Number(tx.amount) || 0;
             });
 
             if (account.balance !== realBalance) {
-                account.balance = realBalance;
-                await account.save();
-                recalculatedCount++;
+                differences.push({
+                    accountId: account._id,
+                    name: account.name,
+                    currency: account.currency,
+                    currentBalance: account.balance,
+                    calculatedBalance: realBalance,
+                    diff: realBalance - account.balance
+                });
+
+                if (!isPreview) {
+                    account.balance = realBalance;
+                    await account.save();
+                    recalculatedCount++;
+                }
             }
         }
 
-        res.json({ message: `Saldos recalculados exitosamente. Cuentas actualizadas: ${recalculatedCount}` });
+        if (isPreview) {
+            return res.json({
+                ok: true,
+                preview: true,
+                totalAccounts: accounts.length,
+                differencesCount: differences.length,
+                differences
+            });
+        }
+
+        await logAudit({
+            req,
+            action: 'RECALCULO_SALDOS_CUENTAS',
+            module: 'finanzas',
+            entityType: 'Account',
+            entityLabel: 'Todas las cuentas',
+            description: `Se recalculó el saldo de todas las cuentas a partir de sus movimientos reales. Cuentas corregidas: ${recalculatedCount}.`,
+            metadata: { recalculatedCount, user }
+        });
+
+        res.json({ ok: true, message: `Saldos recalculados exitosamente. Cuentas actualizadas: ${recalculatedCount}`, differences });
     } catch (error) {
-        res.status(500).json({ message: error.message });
+        console.error('Error recalculating balances:', error);
+        res.status(500).json({ ok: false, message: error.message });
+    }
+});
+
+// GET historial y extracto de movimientos por cuenta
+app.get('/api/admin/accounts/:id/movements', authenticateToken, requirePermission(PERMISSIONS.CAJA_READ), async (req, res) => {
+    try {
+        await connectDB();
+        const account = await Account.findById(req.params.id);
+        if (!account) return res.status(404).json({ ok: false, message: 'Cuenta no encontrada' });
+
+        const { from, to, type } = req.query;
+        let query = {
+            accountId: account._id,
+            status: { $ne: 'anulado' }
+        };
+
+        if (from || to) {
+            query.date = {};
+            if (from) query.date.$gte = new Date(from);
+            if (to) query.date.$lte = new Date(new Date(to).setHours(23, 59, 59, 999));
+        }
+
+        if (type && type !== 'todos') {
+            query.type = new RegExp(`^${type}$`, 'i');
+        }
+
+        const transactions = await Transaction.find(query)
+            .sort({ date: -1, createdAt: -1 })
+            .lean();
+
+        let totalIngresos = 0;
+        let totalEgresosOperativos = 0;
+        let totalEgresosStock = 0;
+        let totalTransferencias = 0;
+        let totalAjustes = 0;
+
+        transactions.forEach(tx => {
+            const txType = (tx.type || '').toLowerCase();
+            const txCat = (tx.category || '').toLowerCase();
+            const amt = Number(tx.amount) || 0;
+
+            if (txType === 'ingreso') {
+                totalIngresos += amt;
+            } else if (txType === 'egreso') {
+                if (txCat.includes('compra_vehiculo') || txCat.includes('compra') || txCat.includes('stock')) {
+                    totalEgresosStock += amt;
+                } else {
+                    totalEgresosOperativos += amt;
+                }
+            } else if (txType.includes('transferencia')) {
+                totalTransferencias += amt;
+            } else if (txType.includes('ajuste') || txCat.includes('ajuste')) {
+                totalAjustes += amt;
+            }
+        });
+
+        const totalEgresos = totalEgresosOperativos + totalEgresosStock;
+        const netFlow = totalIngresos - totalEgresos;
+
+        res.json({
+            ok: true,
+            account: {
+                _id: account._id,
+                name: account.name,
+                type: account.type,
+                currency: account.currency,
+                currentBalance: account.balance
+            },
+            summary: {
+                totalIngresos,
+                totalEgresos,
+                totalEgresosStock,
+                totalEgresosOperativos,
+                totalTransferencias,
+                totalAjustes,
+                netFlow,
+                movementsCount: transactions.length
+            },
+            movements: transactions
+        });
+    } catch (error) {
+        console.error('GET /api/admin/accounts/:id/movements error:', error);
+        res.status(500).json({ ok: false, message: error.message });
+    }
+});
+
+// GET resumen categorizado de gastos y compromisos
+app.get('/api/admin/finance/expenses-summary', authenticateToken, requirePermission(PERMISSIONS.CAJA_READ), async (req, res) => {
+    try {
+        await connectDB();
+        const { from, to } = req.query;
+        let query = {
+            status: { $ne: 'anulado' },
+            type: { $regex: /^egreso$/i }
+        };
+
+        if (from || to) {
+            query.date = {};
+            if (from) query.date.$gte = new Date(from);
+            if (to) query.date.$lte = new Date(new Date(to).setHours(23, 59, 59, 999));
+        }
+
+        const [txs, pendingCars] = await Promise.all([
+            Transaction.find(query).sort({ date: -1 }).lean(),
+            Car.find({
+                agencyOwned: true,
+                'purchasePaymentState.pendingDebt': { $gt: 0 }
+            }).select('brand name plateOrVin purchasePrice purchaseCurrency purchasePaymentState').lean()
+        ]);
+
+        const categories = {
+            sueldos: { label: 'Sueldos y Personal', totalARS: 0, totalUSD: 0, count: 0 },
+            comisiones: { label: 'Comisiones de Ventas', totalARS: 0, totalUSD: 0, count: 0 },
+            taller: { label: 'Taller / Mantenimiento', totalARS: 0, totalUSD: 0, count: 0 },
+            gastos_personales: { label: 'Gastos Personales / Retiros', totalARS: 0, totalUSD: 0, count: 0 },
+            proveedores: { label: 'Proveedores y Servicios', totalARS: 0, totalUSD: 0, count: 0 },
+            compra_vehiculos: { label: 'Compra de Vehículos (Stock)', totalARS: 0, totalUSD: 0, count: 0 },
+            otros: { label: 'Otros Gastos Operativos', totalARS: 0, totalUSD: 0, count: 0 }
+        };
+
+        let grandTotalARS = 0;
+        let grandTotalUSD = 0;
+
+        txs.forEach(tx => {
+            const cat = (tx.category || '').toLowerCase();
+            const desc = (tx.concept || tx.description || '').toLowerCase();
+            const amt = Number(tx.amount) || 0;
+            const curr = tx.currency === 'USD' ? 'USD' : 'ARS';
+
+            let group = 'otros';
+            if (cat.includes('sueldo') || desc.includes('sueldo') || cat.includes('salario') || cat.includes('empleado')) {
+                group = 'sueldos';
+            } else if (cat.includes('comision') || desc.includes('comision') || cat.includes('comisión')) {
+                group = 'comisiones';
+            } else if (cat.includes('taller') || desc.includes('taller') || cat.includes('mantenimiento') || cat.includes('mecanic') || cat.includes('chapa')) {
+                group = 'taller';
+            } else if (cat.includes('personal') || desc.includes('retiro personal') || cat.includes('retiro') || desc.includes('socio')) {
+                group = 'gastos_personales';
+            } else if (cat.includes('proveedor') || desc.includes('proveedor') || cat.includes('servicio') || cat.includes('luz') || cat.includes('alquiler')) {
+                group = 'proveedores';
+            } else if (cat.includes('compra_vehiculo') || cat.includes('compra') || desc.includes('compra de vehículo') || desc.includes('adquisición')) {
+                group = 'compra_vehiculos';
+            }
+
+            if (curr === 'USD') {
+                categories[group].totalUSD += amt;
+                grandTotalUSD += amt;
+            } else {
+                categories[group].totalARS += amt;
+                grandTotalARS += amt;
+            }
+            categories[group].count++;
+        });
+
+        // Deuda de compras pendientes (compromisos)
+        let pendingPurchasesUSD = 0;
+        let pendingPurchasesARS = 0;
+        pendingCars.forEach(c => {
+            const debt = Number(c.purchasePaymentState?.pendingDebt) || 0;
+            if (c.purchaseCurrency === 'ARS') pendingPurchasesARS += debt;
+            else pendingPurchasesUSD += debt;
+        });
+
+        res.json({
+            ok: true,
+            grandTotalARS,
+            grandTotalUSD,
+            categories,
+            totalTransactions: txs.length,
+            pendingCommitments: {
+                carsCount: pendingCars.length,
+                pendingPurchasesARS,
+                pendingPurchasesUSD,
+                cars: pendingCars.map(c => ({
+                    _id: c._id,
+                    brand: c.brand,
+                    name: c.name,
+                    plate: c.plateOrVin,
+                    pendingDebt: c.purchasePaymentState?.pendingDebt,
+                    currency: c.purchaseCurrency || 'USD',
+                    expectedFundsNote: c.purchasePaymentState?.expectedFundsNote || ''
+                }))
+            }
+        });
+    } catch (error) {
+        console.error('GET /api/admin/finance/expenses-summary error:', error);
+        res.status(500).json({ ok: false, message: error.message });
     }
 });
 
@@ -4321,6 +4801,140 @@ app.get('/api/admin/sales', authenticateToken, requirePermission(PERMISSIONS.VEN
     } catch (error) {
         console.error('Error fetching sales:', error);
         res.status(500).json({ message: error.message });
+    }
+});
+
+// Búsqueda de ventas para asociar a cuotas / cuentas por cobrar
+app.get('/api/admin/sales/search-for-installments', authenticateToken, requirePermission(PERMISSIONS.VENTAS_READ), async (req, res) => {
+    try {
+        await connectDB();
+        const { q = '', limit = 20 } = req.query;
+        const trimmed = String(q || '').trim();
+
+        const filter = {
+            status: { $nin: ['cancelada', 'borrador'] }
+        };
+
+        if (trimmed) {
+            const regex = new RegExp(trimmed.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i');
+
+            // Buscar clientes que coincidan
+            const matchingClients = await Client.find({
+                $or: [
+                    { firstName: regex },
+                    { lastName: regex },
+                    { fullName: regex },
+                    { dni: regex },
+                    { documentNumber: regex }
+                ]
+            }).select('_id').lean();
+            const clientIds = matchingClients.map(c => c._id);
+
+            // Buscar autos que coincidan
+            const matchingCars = await Car.find({
+                $or: [
+                    { brand: regex },
+                    { name: regex },
+                    { model: regex },
+                    { plateOrVin: regex }
+                ]
+            }).select('_id').lean();
+            const carIds = matchingCars.map(c => c._id);
+
+            const idMatches = [];
+            if (mongoose.Types.ObjectId.isValid(trimmed)) {
+                idMatches.push({ _id: new mongoose.Types.ObjectId(trimmed) });
+            }
+
+            filter.$or = [
+                ...idMatches,
+                { customerName: regex },
+                { buyerName: regex },
+                { operationNumber: regex },
+                ...(clientIds.length > 0 ? [{ clientId: { $in: clientIds } }] : []),
+                ...(carIds.length > 0 ? [{ vehicleId: { $in: carIds } }] : [])
+            ];
+        }
+
+        const sales = await Sale.find(filter)
+            .populate('clientId', 'firstName lastName fullName phone documentNumber')
+            .populate('vehicleId', 'brand name model year plateOrVin')
+            .sort({ saleDate: -1, createdAt: -1 })
+            .limit(Number(limit) || 20)
+            .lean();
+
+        const saleIds = sales.map(s => s._id);
+
+        const [transactions, existingInstallments] = await Promise.all([
+            Transaction.find({
+                saleId: { $in: saleIds },
+                type: 'ingreso',
+                status: 'activo'
+            }).select('saleId amount currency').lean(),
+            Installment.find({
+                saleId: { $in: saleIds },
+                status: { $ne: 'anulada' }
+            }).select('saleId installmentNumber amount currency status paidAmount').lean()
+        ]);
+
+        const txsBySale = {};
+        transactions.forEach(tx => {
+            const sid = String(tx.saleId);
+            if (!txsBySale[sid]) txsBySale[sid] = 0;
+            txsBySale[sid] += Number(tx.amount) || 0;
+        });
+
+        const instBySale = {};
+        existingInstallments.forEach(inst => {
+            const sid = String(inst.saleId);
+            if (!instBySale[sid]) instBySale[sid] = [];
+            instBySale[sid].push(inst);
+        });
+
+        const results = sales.map(s => {
+            const sid = String(s._id);
+            const totalCollected = txsBySale[sid] || 0;
+            const salePrice = Number(s.salePrice) || 0;
+            const pendingBalance = Math.max(0, salePrice - totalCollected);
+            const insts = instBySale[sid] || [];
+            const clientName = s.clientId
+                ? `${s.clientId.firstName || ''} ${s.clientId.lastName || ''}`.trim() || s.clientId.fullName
+                : s.customerName || 'Cliente directo';
+            const vehicleDesc = s.vehicleId
+                ? `${s.vehicleId.brand || ''} ${s.vehicleId.name || s.vehicleId.model || ''} (${s.vehicleId.year || ''})`.trim()
+                : 'Vehículo s/d';
+            const plate = s.vehicleId?.plateOrVin || '';
+            const maxInstallmentNumber = insts.reduce((max, i) => Math.max(max, Number(i.installmentNumber) || 0), 0);
+
+            return {
+                _id: s._id,
+                operationNumber: s.operationNumber || null,
+                saleDate: s.saleDate || s.createdAt,
+                currency: s.saleCurrency || s.currency || 'ARS',
+                salePrice,
+                totalCollected,
+                pendingBalance,
+                client: {
+                    _id: s.clientId?._id || null,
+                    name: clientName,
+                    phone: s.clientId?.phone || s.customerPhone || '',
+                    documentNumber: s.clientId?.documentNumber || ''
+                },
+                vehicle: {
+                    _id: s.vehicleId?._id || null,
+                    description: vehicleDesc,
+                    plate: plate
+                },
+                installmentsCount: insts.length,
+                installmentsTotal: insts.reduce((sum, i) => sum + (Number(i.amount) || 0), 0),
+                nextInstallmentNumber: maxInstallmentNumber + 1
+            };
+        });
+
+        res.json({ ok: true, sales: results });
+    } catch (error) {
+        console.error('Error searching sales for installments:', error);
+        res.status(500).json({ ok: false, message: error.message });
     }
 });
 
@@ -7458,9 +8072,9 @@ app.post('/api/admin/installments', authenticateToken, requirePermission(PERMISS
             return value;
         };
 
-        const cleanSaleId = sanitizeOptionalObjectId(saleId);
-        const cleanClientId = sanitizeOptionalObjectId(clientId);
-        const cleanVehicleId = sanitizeOptionalObjectId(vehicleId);
+        let cleanSaleId = sanitizeOptionalObjectId(saleId);
+        let cleanClientId = sanitizeOptionalObjectId(clientId);
+        let cleanVehicleId = sanitizeOptionalObjectId(vehicleId);
 
         if (!isManual && (!cleanSaleId || !mongoose.Types.ObjectId.isValid(cleanSaleId))) {
             return res.status(400).json({ message: "saleId inválido o faltante" });
@@ -7468,6 +8082,35 @@ app.post('/api/admin/installments', authenticateToken, requirePermission(PERMISS
         if (cleanSaleId && !mongoose.Types.ObjectId.isValid(cleanSaleId)) {
             return res.status(400).json({ message: "saleId inválido" });
         }
+
+        // Si viene vinculada a venta, verificar existencia y autocompletar cliente/vehículo si faltan
+        if (cleanSaleId) {
+            const saleDoc = await Sale.findById(cleanSaleId).lean();
+            if (!saleDoc) {
+                return res.status(404).json({ message: "La venta asociada no existe." });
+            }
+            if (!cleanClientId && saleDoc.clientId) {
+                cleanClientId = String(saleDoc.clientId);
+            }
+            if (!cleanVehicleId && saleDoc.vehicleId) {
+                cleanVehicleId = String(saleDoc.vehicleId);
+            }
+
+            // Prevención de duplicación de cuotas: verificar si ya existe este número de cuota activa
+            const instNum = Number(installmentNumber) || 1;
+            const existingDuplicate = await Installment.findOne({
+                saleId: cleanSaleId,
+                installmentNumber: instNum,
+                status: { $ne: 'anulada' }
+            }).lean();
+
+            if (existingDuplicate) {
+                return res.status(409).json({
+                    message: `Ya existe la cuota número ${instNum} para esta venta. Por favor verificá los números o editá la cuota existente.`
+                });
+            }
+        }
+
         if (cleanClientId && !mongoose.Types.ObjectId.isValid(cleanClientId)) {
             return res.status(400).json({ message: "clientId inválido" });
         }

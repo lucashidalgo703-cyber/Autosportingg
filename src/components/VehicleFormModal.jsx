@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, Upload, Plus, ArrowLeft, ArrowRight, Star, Scan } from 'lucide-react';
+import { X, Upload, Plus, ArrowLeft, ArrowRight, Star, Scan, CheckCircle2, DollarSign } from 'lucide-react';
 import toast from 'react-hot-toast';
 import CrmModal from './crm/ui/CrmModal';
 import { compressImage } from '../utils/imageCompressor';
@@ -34,6 +34,40 @@ export default function VehicleFormModal({ isOpen, onClose, onSave, editingCar }
 
     const [availableSales, setAvailableSales] = useState([]);
     const [loadingSales, setLoadingSales] = useState(false);
+    const [accounts, setAccounts] = useState([]);
+    const [loadingAccounts, setLoadingAccounts] = useState(false);
+
+    const [purchasePayment, setPurchasePayment] = useState({
+        modality: 'ya_pagado_historico',
+        accountId: '',
+        amountPaid: '',
+        deductFromStrategicBox: false,
+        strategicBoxKey: 'stock',
+        expectedFundsNote: '',
+        paymentMethod: 'Transferencia bancaria',
+        reference: ''
+    });
+
+    useEffect(() => {
+        if (isOpen && accounts.length === 0 && !loadingAccounts) {
+            setLoadingAccounts(true);
+            const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
+            fetch('/api/admin/accounts', {
+                headers: token ? { Authorization: `Bearer ${token}` } : {}
+            })
+                .then(res => res.ok ? res.json() : [])
+                .then(data => {
+                    const list = Array.isArray(data) ? data : (data.accounts || []);
+                    const filtered = list.filter(a => a.isActive !== false);
+                    setAccounts(filtered);
+                    if (filtered.length > 0 && !purchasePayment.accountId) {
+                        setPurchasePayment(prev => ({ ...prev, accountId: filtered[0]._id }));
+                    }
+                })
+                .catch(err => console.error('Error loading accounts:', err))
+                .finally(() => setLoadingAccounts(false));
+        }
+    }, [isOpen, accounts.length, loadingAccounts]);
 
     const [formData, setFormData] = useState({
         brand: '', name: '', year: '', km: '', fuel: 'Nafta', condition: 'Muy bueno',
@@ -292,6 +326,9 @@ export default function VehicleFormModal({ isOpen, onClose, onSave, editingCar }
             delete dataToSave.tradeInOriginCurrency;
         }
 
+        if (dataToSave.agencyOwned && !dataToSave.receivedAsTradeIn && !editingCar) {
+            dataToSave.purchasePayment = JSON.stringify(purchasePayment);
+        }
         onSave(dataToSave, files);
     };
 
@@ -414,6 +451,190 @@ export default function VehicleFormModal({ isOpen, onClose, onSave, editingCar }
                                         <span className="text-[10px] text-gray-500">El auto es de la agencia, no consignado por un tercero.</span>
                                     </div>
                                 </label>
+
+{formData.agencyOwned && !formData.receivedAsTradeIn && !editingCar && (
+                                    <div className="border-t border-crm-border pt-4 mt-2 space-y-4">
+                                        <div>
+                                            <span className="text-xs font-bold text-emerald-400 uppercase tracking-widest block mb-1">
+                                                Pago de la compra (Unidad Propia)
+                                            </span>
+                                            <span className="text-[11px] text-gray-400">
+                                                Seleccioná cómo se abona la compra para sincronizar con cuentas físicas y la caja estratégica de reposición.
+                                            </span>
+                                        </div>
+
+                                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                                            <button
+                                                type="button"
+                                                onClick={() => setPurchasePayment(prev => ({ ...prev, modality: 'pagar_ahora' }))}
+                                                className={`p-3 rounded-xl border text-left transition-all ${
+                                                    purchasePayment.modality === 'pagar_ahora'
+                                                        ? 'border-emerald-500 bg-emerald-500/10 text-white'
+                                                        : 'border-crm-border bg-crm-bg/40 text-gray-400 hover:text-white hover:bg-crm-surface-raised'
+                                                }`}
+                                            >
+                                                <div className="flex items-center justify-between mb-1">
+                                                    <span className="text-xs font-bold">Pagar ahora</span>
+                                                    {purchasePayment.modality === 'pagar_ahora' && <CheckCircle2 size={14} className="text-emerald-400" />}
+                                                </div>
+                                                <p className="text-[10px] text-gray-400">
+                                                    Fondos disponibles. Genera un egreso inmediato en la cuenta seleccionada.
+                                                </p>
+                                            </button>
+
+                                            <button
+                                                type="button"
+                                                onClick={() => setPurchasePayment(prev => ({ ...prev, modality: 'pendiente' }))}
+                                                className={`p-3 rounded-xl border text-left transition-all ${
+                                                    purchasePayment.modality === 'pendiente'
+                                                        ? 'border-amber-500 bg-amber-500/10 text-white'
+                                                        : 'border-crm-border bg-crm-bg/40 text-gray-400 hover:text-white hover:bg-crm-surface-raised'
+                                                }`}
+                                            >
+                                                <div className="flex items-center justify-between mb-1">
+                                                    <span className="text-xs font-bold">Pendiente / Esperando fondos</span>
+                                                    {purchasePayment.modality === 'pendiente' && <CheckCircle2 size={14} className="text-amber-400" />}
+                                                </div>
+                                                <p className="text-[10px] text-gray-400">
+                                                    Se liquidará con un cobro futuro (previsión vinculada a una venta o cuota).
+                                                </p>
+                                            </button>
+
+                                            <button
+                                                type="button"
+                                                onClick={() => setPurchasePayment(prev => ({ ...prev, modality: 'pago_parcial' }))}
+                                                className={`p-3 rounded-xl border text-left transition-all ${
+                                                    purchasePayment.modality === 'pago_parcial'
+                                                        ? 'border-blue-500 bg-blue-500/10 text-white'
+                                                        : 'border-crm-border bg-crm-bg/40 text-gray-400 hover:text-white hover:bg-crm-surface-raised'
+                                                }`}
+                                            >
+                                                <div className="flex items-center justify-between mb-1">
+                                                    <span className="text-xs font-bold">Pago parcial</span>
+                                                    {purchasePayment.modality === 'pago_parcial' && <CheckCircle2 size={14} className="text-blue-400" />}
+                                                </div>
+                                                <p className="text-[10px] text-gray-400">
+                                                    Se abona un anticipo ahora y el resto queda como saldo a pagar.
+                                                </p>
+                                            </button>
+
+                                            <button
+                                                type="button"
+                                                onClick={() => setPurchasePayment(prev => ({ ...prev, modality: 'ya_pagado_historico' }))}
+                                                className={`p-3 rounded-xl border text-left transition-all ${
+                                                    purchasePayment.modality === 'ya_pagado_historico'
+                                                        ? 'border-purple-500 bg-purple-500/10 text-white'
+                                                        : 'border-crm-border bg-crm-bg/40 text-gray-400 hover:text-white hover:bg-crm-surface-raised'
+                                                }`}
+                                            >
+                                                <div className="flex items-center justify-between mb-1">
+                                                    <span className="text-xs font-bold">Ya pagado / Alta histórica</span>
+                                                    {purchasePayment.modality === 'ya_pagado_historico' && <CheckCircle2 size={14} className="text-purple-400" />}
+                                                </div>
+                                                <p className="text-[10px] text-gray-400">
+                                                    Unidad liquidada con anterioridad. No genera movimientos de caja actuales.
+                                                </p>
+                                            </button>
+                                        </div>
+
+                                        {(purchasePayment.modality === 'pagar_ahora' || purchasePayment.modality === 'pago_parcial') && (
+                                            <div className="p-3 bg-crm-bg/70 border border-crm-border rounded-xl space-y-3">
+                                                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                                    <div>
+                                                        <InputLabel required>Cuenta física de origen</InputLabel>
+                                                        <select
+                                                            value={purchasePayment.accountId}
+                                                            onChange={(e) => setPurchasePayment(prev => ({ ...prev, accountId: e.target.value }))}
+                                                            className="w-full bg-crm-surface border border-crm-border rounded-md px-3 py-2 text-xs text-white focus:border-emerald-500 focus:outline-none"
+                                                            required
+                                                        >
+                                                            <option value="">— Seleccionar cuenta —</option>
+                                                            {accounts.map(acc => (
+                                                                <option key={acc._id} value={acc._id}>
+                                                                    {acc.name} ({acc.currency} {Number(acc.balance || 0).toLocaleString('es-AR')})
+                                                                </option>
+                                                            ))}
+                                                        </select>
+                                                    </div>
+
+                                                    {purchasePayment.modality === 'pago_parcial' && (
+                                                        <div>
+                                                            <InputLabel required>Monto abonado ahora ({formData.purchaseCurrency})</InputLabel>
+                                                            <input
+                                                                type="number"
+                                                                min="1"
+                                                                placeholder="Ej: 5000"
+                                                                value={purchasePayment.amountPaid}
+                                                                onChange={(e) => setPurchasePayment(prev => ({ ...prev, amountPaid: e.target.value }))}
+                                                                className="w-full bg-crm-surface border border-crm-border rounded-md px-3 py-2 text-xs text-white focus:border-emerald-500 focus:outline-none"
+                                                                required
+                                                            />
+                                                        </div>
+                                                    )}
+
+                                                    <div>
+                                                        <InputLabel>Medio de pago</InputLabel>
+                                                        <select
+                                                            value={purchasePayment.paymentMethod}
+                                                            onChange={(e) => setPurchasePayment(prev => ({ ...prev, paymentMethod: e.target.value }))}
+                                                            className="w-full bg-crm-surface border border-crm-border rounded-md px-3 py-2 text-xs text-white focus:outline-none"
+                                                        >
+                                                            <option value="Transferencia bancaria">Transferencia bancaria</option>
+                                                            <option value="Efectivo">Efectivo</option>
+                                                            <option value="Cheque">Cheque</option>
+                                                            <option value="Otro">Otro</option>
+                                                        </select>
+                                                    </div>
+
+                                                    <div>
+                                                        <InputLabel>Comprobante / Referencia (opcional)</InputLabel>
+                                                        <input
+                                                            type="text"
+                                                            placeholder="Ej: Transf. 984128"
+                                                            value={purchasePayment.reference}
+                                                            onChange={(e) => setPurchasePayment(prev => ({ ...prev, reference: e.target.value }))}
+                                                            className="w-full bg-crm-surface border border-crm-border rounded-md px-3 py-2 text-xs text-white focus:outline-none"
+                                                        />
+                                                    </div>
+                                                </div>
+
+                                                <label className="flex items-start gap-2.5 pt-2 border-t border-crm-border/60 cursor-pointer">
+                                                    <input
+                                                        type="checkbox"
+                                                        checked={purchasePayment.deductFromStrategicBox}
+                                                        onChange={(e) => setPurchasePayment(prev => ({ ...prev, deductFromStrategicBox: e.target.checked }))}
+                                                        className="w-4 h-4 mt-0.5 rounded border-crm-border text-emerald-500 focus:ring-emerald-500 bg-crm-surface"
+                                                    />
+                                                    <div>
+                                                        <span className="text-xs font-bold text-white block">
+                                                            Deducir asignación de caja estratégica Stock / Reposición
+                                                        </span>
+                                                        <span className="text-[10px] text-gray-400">
+                                                            Descuenta la reserva para reposición de unidades en Tesorería Estratégica en coordinación con la cuenta bancaria.
+                                                        </span>
+                                                    </div>
+                                                </label>
+                                            </div>
+                                        )}
+
+                                        {(purchasePayment.modality === 'pendiente' || purchasePayment.modality === 'pago_parcial') && (
+                                            <div className="p-3 bg-amber-500/10 border border-amber-500/20 rounded-xl space-y-2">
+                                                <InputLabel>Previsión de fondos / Cobro futuro esperado</InputLabel>
+                                                <input
+                                                    type="text"
+                                                    placeholder="Ej: Se liquidará con el cobro de la cuota #2 de la venta Pérez o ingreso de seña..."
+                                                    value={purchasePayment.expectedFundsNote}
+                                                    onChange={(e) => setPurchasePayment(prev => ({ ...prev, expectedFundsNote: e.target.value }))}
+                                                    className="w-full bg-crm-surface border border-crm-border rounded-md px-3 py-2 text-xs text-white focus:border-amber-500 focus:outline-none"
+                                                />
+                                                <p className="text-[10px] text-amber-300">
+                                                    No crea dinero ficticio ni altera saldos actuales. Queda registrado como saldo pendiente de pago para liquidar desde Stock o Finanzas.
+                                                </p>
+                                            </div>
+                                        )}
+                                    </div>
+                                )}
+                                
 
                                 {!editingCar && (
                                     <div className="border-t border-crm-border pt-3">

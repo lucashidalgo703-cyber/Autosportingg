@@ -24,7 +24,8 @@ import {
     Receipt,
     RefreshCw,
     Info,
-    RotateCcw
+    RotateCcw,
+    Lock
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 
@@ -108,6 +109,72 @@ export default function TreasuryCollectAndDistributeModal({
     const [idempotencyKey, setIdempotencyKey] = useState('');
     const [completedResult, setCompletedResult] = useState(null);
 
+    // --- AUTORIZACIÓN Y DESBLOQUEO DE PIN ---
+    const [localTreasuryToken, setLocalTreasuryToken] = useState(() => {
+        return treasuryToken || (typeof window !== 'undefined' ? sessionStorage.getItem('as_treasury_token') : null);
+    });
+    const [requiresPin, setRequiresPin] = useState(false);
+    const [pinInput, setPinInput] = useState('');
+    const [pinError, setPinError] = useState(null);
+    const [isVerifyingPin, setIsVerifyingPin] = useState(false);
+
+    useEffect(() => {
+        if (treasuryToken) {
+            setLocalTreasuryToken(treasuryToken);
+            if (typeof window !== 'undefined') {
+                sessionStorage.setItem('as_treasury_token', treasuryToken);
+            }
+        }
+    }, [treasuryToken]);
+
+    const handleVerifyPin = async (e, pinToVerify = pinInput) => {
+        if (e) e.preventDefault();
+        const cleanPin = String(pinToVerify || '').trim();
+        if (!/^\d{4}$/.test(cleanPin)) {
+            setPinError('El PIN debe contener exactamente 4 dígitos numéricos.');
+            return;
+        }
+        setIsVerifyingPin(true);
+        setPinError(null);
+        try {
+            const token = localStorage.getItem('token');
+            const res = await fetch('/api/admin/tesoreria-estrategica/pin/verify', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                },
+                body: JSON.stringify({ pin: cleanPin })
+            });
+            const data = await res.json();
+            if (!res.ok || !data.ok) {
+                setPinError(data.message || 'PIN incorrecto.');
+                return;
+            }
+            const newToken = data.treasuryToken;
+            if (typeof window !== 'undefined') {
+                sessionStorage.setItem('as_treasury_token', newToken);
+            }
+            setLocalTreasuryToken(newToken);
+            setRequiresPin(false);
+            setPinInput('');
+            toast.success('Tesorería desbloqueada con éxito');
+
+            // Reanudar la carga de la venta preseleccionada
+            if (initialSale) {
+                handleSelectSale(initialSale, newToken);
+            } else if (initialSaleId) {
+                loadSaleById(initialSaleId, initialInstallmentId, newToken);
+            } else if (selectedSale) {
+                handleSelectSale(selectedSale, newToken);
+            }
+        } catch {
+            setPinError('Error de conexión al verificar el PIN.');
+        } finally {
+            setIsVerifyingPin(false);
+        }
+    };
+
     // Al abrir el modal, inicializar estado
     useEffect(() => {
         if (isOpen) {
@@ -116,19 +183,24 @@ export default function TreasuryCollectAndDistributeModal({
             setIsSubmitting(false);
             setIdempotencyKey(`col_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`);
 
+            const storedToken = treasuryToken || (typeof window !== 'undefined' ? sessionStorage.getItem('as_treasury_token') : null);
+            if (storedToken) {
+                setLocalTreasuryToken(storedToken);
+            }
+
             if (activeDistributionScheme) {
                 setSelectedScheme(activeDistributionScheme);
             }
 
             // Si viene una venta preseleccionada
             if (initialSale) {
-                handleSelectSale(initialSale);
+                handleSelectSale(initialSale, storedToken);
                 if (initialInstallmentId) {
                     setConcept('cuota');
                     setSelectedInstallmentId(initialInstallmentId);
                 }
             } else if (initialSaleId) {
-                loadSaleById(initialSaleId, initialInstallmentId);
+                loadSaleById(initialSaleId, initialInstallmentId, storedToken);
             } else {
                 setSelectedSale(null);
                 setSaleSummary(null);
@@ -136,7 +208,7 @@ export default function TreasuryCollectAndDistributeModal({
                 setSearchResults([]);
             }
         }
-    }, [isOpen, initialSale, initialSaleId, initialInstallmentId, activeDistributionScheme]);
+    }, [isOpen, initialSale, initialSaleId, initialInstallmentId, activeDistributionScheme, treasuryToken]);
 
     // Establecer cuenta predeterminada para el monto único
     useEffect(() => {
@@ -147,21 +219,26 @@ export default function TreasuryCollectAndDistributeModal({
     }, [accounts, currency, singleAccountId]);
 
     // Buscar ventas en el servidor
-    const searchSales = useCallback(async (query) => {
+    const searchSales = useCallback(async (query, customToken = null) => {
         if (!query || query.trim().length < 2) {
             setSearchResults([]);
             return;
         }
+        const tokenToSend = customToken || localTreasuryToken || '';
         try {
             setIsSearching(true);
             const token = localStorage.getItem('token');
             const res = await fetch(`/api/admin/tesoreria-estrategica/sales-search?q=${encodeURIComponent(query.trim())}`, {
                 headers: {
                     'Authorization': `Bearer ${token}`,
-                    'x-treasury-token': treasuryToken || ''
+                    'x-treasury-token': tokenToSend
                 }
             });
             const data = await res.json();
+            if (data.requirePin || res.status === 403) {
+                setRequiresPin(true);
+                return;
+            }
             if (data.ok && Array.isArray(data.sales)) {
                 setSearchResults(data.sales);
             }
@@ -170,7 +247,7 @@ export default function TreasuryCollectAndDistributeModal({
         } finally {
             setIsSearching(false);
         }
-    }, [treasuryToken]);
+    }, [localTreasuryToken]);
 
     useEffect(() => {
         const timer = setTimeout(() => {
@@ -182,19 +259,24 @@ export default function TreasuryCollectAndDistributeModal({
     }, [searchQuery, searchSales]);
 
     // Cargar venta por ID
-    const loadSaleById = async (saleId, installmentIdToSelect = null) => {
+    const loadSaleById = async (saleId, installmentIdToSelect = null, customToken = null) => {
+        const tokenToSend = customToken || localTreasuryToken || '';
         try {
             setLoadingSummary(true);
             const token = localStorage.getItem('token');
             const res = await fetch(`/api/admin/tesoreria-estrategica/sales-search?saleId=${saleId}`, {
                 headers: {
                     'Authorization': `Bearer ${token}`,
-                    'x-treasury-token': treasuryToken || ''
+                    'x-treasury-token': tokenToSend
                 }
             });
             const data = await res.json();
+            if (data.requirePin || res.status === 403) {
+                setRequiresPin(true);
+                return;
+            }
             if (data.ok && data.sales && data.sales[0]) {
-                handleSelectSale(data.sales[0]);
+                handleSelectSale(data.sales[0], tokenToSend);
                 if (installmentIdToSelect) {
                     setConcept('cuota');
                     setSelectedInstallmentId(installmentIdToSelect);
@@ -208,11 +290,17 @@ export default function TreasuryCollectAndDistributeModal({
     };
 
     // Al seleccionar una venta
-    const handleSelectSale = async (sale) => {
+    const handleSelectSale = async (sale, customToken = null) => {
         setSelectedSale(sale);
         setCurrency(sale.currency || sale.saleCurrency || 'ARS');
         setSearchResults([]);
         setSearchQuery('');
+
+        const tokenToSend = customToken || localTreasuryToken || '';
+        if (!tokenToSend) {
+            setRequiresPin(true);
+            return;
+        }
 
         // Cargar resumen financiero de Tesorería para la venta
         try {
@@ -221,13 +309,16 @@ export default function TreasuryCollectAndDistributeModal({
             const res = await fetch(`/api/admin/tesoreria-estrategica/sales/${sale._id}/summary`, {
                 headers: {
                     'Authorization': `Bearer ${token}`,
-                    'x-treasury-token': treasuryToken || ''
+                    'x-treasury-token': tokenToSend
                 }
             });
             const data = await res.json();
+            if (data.requirePin || res.status === 403) {
+                setRequiresPin(true);
+                return;
+            }
             if (data.ok && data.summary) {
                 setSaleSummary(data.summary);
-                // Pre-cargar monto sugerido si hay saldo pendiente
                 if (data.summary.pendingSaleBalance > 0 && !amount) {
                     setAmount(String(Math.round(data.summary.pendingSaleBalance)));
                 }
@@ -310,8 +401,13 @@ export default function TreasuryCollectAndDistributeModal({
     const isSplitValid = !isSplitPayment || (splitDifference === 0 && paymentSplits.length > 0 && paymentSplits.every(s => s.accountId && parseFloat(s.amount) > 0));
 
     // Consultar propuesta de distribución (Paso 3)
-    const fetchDistributionPreview = async (schemeToUse = selectedScheme) => {
+    const fetchDistributionPreview = async (schemeToUse = selectedScheme, customToken = null) => {
         if (!selectedSale || enteredAmount <= 0) return;
+        const tokenToSend = customToken || localTreasuryToken || treasuryToken || '';
+        if (!tokenToSend) {
+            setRequiresPin(true);
+            return;
+        }
         try {
             setLoadingProposal(true);
             setProposalError(null);
@@ -321,7 +417,7 @@ export default function TreasuryCollectAndDistributeModal({
                 headers: {
                     'Content-Type': 'application/json',
                     'Authorization': `Bearer ${token}`,
-                    'x-treasury-token': treasuryToken || ''
+                    'x-treasury-token': tokenToSend
                 },
                 body: JSON.stringify({
                     saleId: selectedSale._id,
@@ -334,6 +430,10 @@ export default function TreasuryCollectAndDistributeModal({
             });
 
             const data = await res.json();
+            if (data.requirePin || res.status === 403) {
+                setRequiresPin(true);
+                return;
+            }
             if (res.ok && data.ok) {
                 setDistributionProposal(data);
             } else {
@@ -383,8 +483,14 @@ export default function TreasuryCollectAndDistributeModal({
     };
 
     // Confirmar Cobro y Distribución (Paso 4)
-    const handleConfirm = async (markPendingIfMissing = false) => {
+    const handleConfirm = async (markPendingIfMissing = false, customToken = null) => {
         if (isSubmitting) return;
+
+        const tokenToSend = customToken || localTreasuryToken || treasuryToken || '';
+        if (!tokenToSend) {
+            setRequiresPin(true);
+            return;
+        }
 
         setIsSubmitting(true);
         try {
@@ -427,12 +533,17 @@ export default function TreasuryCollectAndDistributeModal({
                 headers: {
                     'Content-Type': 'application/json',
                     'Authorization': `Bearer ${token}`,
-                    'x-treasury-token': treasuryToken || ''
+                    'x-treasury-token': tokenToSend
                 },
                 body: JSON.stringify(payload)
             });
 
             const data = await res.json();
+            if (data.requirePin || res.status === 403) {
+                setRequiresPin(true);
+                setIsSubmitting(false);
+                return;
+            }
             if (!res.ok || !data.ok) {
                 toast.error(data.message || 'Error al procesar el cobro.');
                 setIsSubmitting(false);
@@ -453,7 +564,65 @@ export default function TreasuryCollectAndDistributeModal({
 
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-3 sm:p-4 backdrop-blur-md">
-            <div className="flex flex-col w-full max-w-3xl max-h-[92vh] rounded-3xl border border-purple-500/30 bg-crm-surface shadow-2xl overflow-hidden">
+            <div className="relative flex flex-col w-full max-w-3xl max-h-[92vh] rounded-3xl border border-purple-500/30 bg-crm-surface shadow-2xl overflow-hidden">
+                
+                {/* Overlay de Desbloqueo de PIN si no está autenticado */}
+                {requiresPin && (
+                    <div className="absolute inset-0 z-50 flex items-center justify-center bg-crm-bg/95 p-6 backdrop-blur-md">
+                        <form onSubmit={handleVerifyPin} className="w-full max-w-sm rounded-2xl border border-purple-500/40 bg-crm-surface p-6 text-center space-y-4 shadow-2xl animate-in fade-in zoom-in-95 duration-200">
+                            <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-purple-500/20 text-purple-300">
+                                <Lock size={24} />
+                            </div>
+                            <div>
+                                <h4 className="text-base font-black text-white">Desbloquear Tesorería Estratégica</h4>
+                                <p className="text-xs text-crm-fg-muted mt-1">
+                                    Ingresá tu PIN de 4 dígitos para acceder a la distribución y registrar cobros.
+                                </p>
+                            </div>
+                            <div>
+                                <input
+                                    type="password"
+                                    inputMode="numeric"
+                                    maxLength={4}
+                                    value={pinInput}
+                                    onChange={(e) => {
+                                        const val = e.target.value.replace(/\D/g, '').slice(0, 4);
+                                        setPinInput(val);
+                                        setPinError(null);
+                                        if (val.length === 4) {
+                                            handleVerifyPin(null, val);
+                                        }
+                                    }}
+                                    placeholder="••••"
+                                    className="w-36 text-center tracking-[0.5em] text-2xl font-black rounded-xl border border-purple-500/40 bg-crm-bg py-2.5 text-white placeholder-crm-fg-muted focus:border-purple-400 focus:outline-none"
+                                    autoFocus
+                                />
+                                {pinError && (
+                                    <p className="text-xs text-rose-400 font-semibold mt-2">{pinError}</p>
+                                )}
+                            </div>
+                            <div className="flex gap-2 pt-2">
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        setRequiresPin(false);
+                                        onClose();
+                                    }}
+                                    className="flex-1 rounded-xl border border-crm-border py-2 text-xs font-bold text-crm-fg-muted hover:text-white hover:bg-crm-surface-raised transition-colors"
+                                >
+                                    Cancelar
+                                </button>
+                                <button
+                                    type="submit"
+                                    disabled={pinInput.length !== 4 || isVerifyingPin}
+                                    className="flex-1 rounded-xl bg-purple-600 hover:bg-purple-500 py-2 text-xs font-bold text-white disabled:opacity-50 transition-colors"
+                                >
+                                    {isVerifyingPin ? 'Verificando...' : 'Desbloquear'}
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                )}
                 
                 {/* Cabecera con Pasos */}
                 <div className="p-5 border-b border-crm-border shrink-0 bg-crm-surface/90">

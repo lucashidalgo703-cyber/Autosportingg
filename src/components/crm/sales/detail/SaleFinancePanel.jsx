@@ -39,9 +39,44 @@ export default function SaleFinancePanel({ sale }) {
         }
     };
 
+    const fetchAccounts = async () => {
+        try {
+            const token = localStorage.getItem('token');
+            const res = await fetch('/api/admin/accounts', {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            if (res.ok) {
+                const data = await res.json();
+                setAccounts(data.accounts || (Array.isArray(data) ? data : []));
+            }
+        } catch (err) {
+            console.error("Error loading accounts", err);
+        }
+    };
+
+    const fetchTreasurySummary = async () => {
+        if (!sale?._id) return;
+        try {
+            const token = localStorage.getItem('token');
+            const res = await fetch(`/api/admin/sales/${sale._id}/treasury-summary`, {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            if (res.ok) {
+                const data = await res.json();
+                if (data.ok && data.summary) {
+                    setTreasurySummary(data.summary);
+                }
+            }
+        } catch (err) {
+            console.error("Error loading treasury summary", err);
+        }
+    };
+
     useEffect(() => {
         if (sale && sale._id) {
             loadData();
+            fetchAccounts();
+            fetchTreasurySummary();
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [sale]);
@@ -406,6 +441,20 @@ export default function SaleFinancePanel({ sale }) {
                 transaction={selectedTx}
                 onSave={handleSaveTransaction}
                 onAnnul={handleAnnulTransaction}
+            />
+
+            <TreasuryCollectAndDistributeModal
+                isOpen={isTreasuryModalOpen}
+                onClose={() => setIsTreasuryModalOpen(false)}
+                accounts={accounts}
+                initialSale={sale}
+                initialSaleId={sale?._id}
+                treasuryToken={treasuryToken}
+                onSuccess={() => {
+                    setIsTreasuryModalOpen(false);
+                    loadData();
+                    fetchTreasurySummary();
+                }}
             />
         </div>
     );
