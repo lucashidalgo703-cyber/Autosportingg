@@ -880,42 +880,48 @@ app.get('/api/admin/audit-logs', authenticateToken, requirePermission(PERMISSION
     }
 });
 
-// GET public cars (Sanitized)
+// GET public cars (Sanitized & Optimized)
 app.get('/api/public/cars', async (req, res) => {
     try {
         await connectDB();
-        res.setHeader('Cache-Control', 'no-store, max-age=0');
+        // Cache público en CDN Vercel durante 15s, con revalidación en segundo plano por 30s.
+        // Ventana máxima de desactualización: 15 segundos (ideal para concesionarias con cambios eventuales).
+        res.setHeader('Cache-Control', 'public, s-maxage=15, stale-while-revalidate=30');
         // Only return visible/public cars. We use $ne: false so existing cars without the field are still visible.
         // We exclude specifically 'Vendido', 'Reservado', 'Pausado', 'Cancelado', 'Eliminado'
         const cars = await Car.find({
             visibleEnWeb: { $ne: false },
             status: { $nin: [/^vendido$/i, /^reservado$/i, /^pausado$/i, /^cancelado$/i, /^eliminado$/i] }
         })
-            .select('-purchasePrice -purchaseCurrency -ownerName -ownerEmail -ownerPhone -linkedClient -consignedBy -notes -agencyOwned -engineNumber -chassisNumber -location -hasManuals -hasDuplicateKeys -hasOfficialServices -publishedOnML -publishedBy -mlLink -plateOrVin -expenses -visibleEnWeb -createdAt -updatedAt -__v -order -owners -auditLog')
-            .sort({ order: 1, createdAt: -1 });
+            .select('brand name year km price currency fuel fuelType transmission condition vehicleType type category status featured coverImage images imagePosition')
+            .sort({ order: 1, createdAt: -1 })
+            .lean();
         res.json(cars);
     } catch (error) {
-        res.status(500).json({ error: 'No se pudo cargar el cat├ílogo de veh├¡culos.' });
+        res.status(500).json({ error: 'No se pudo cargar el catálogo de vehículos.' });
     }
 });
 
-// GET single public car (Sanitized)
+// GET single public car (Sanitized & Optimized)
 app.get('/api/public/cars/:id', async (req, res) => {
     try {
         await connectDB();
+        // Ventana máxima de 30s en borde
+        res.setHeader('Cache-Control', 'public, s-maxage=30, stale-while-revalidate=60');
         const car = await Car.findOne({
             _id: req.params.id,
             visibleEnWeb: { $ne: false },
             status: { $nin: [/^vendido$/i, /^reservado$/i, /^pausado$/i, /^cancelado$/i, /^eliminado$/i] }
         })
-            .select('-purchasePrice -purchaseCurrency -ownerName -ownerEmail -ownerPhone -linkedClient -consignedBy -notes -agencyOwned -engineNumber -chassisNumber -location -hasManuals -hasDuplicateKeys -hasOfficialServices -publishedOnML -publishedBy -mlLink -plateOrVin -expenses -visibleEnWeb -createdAt -updatedAt -__v -order -owners -auditLog');
+            .select('-purchasePrice -purchaseCurrency -ownerName -ownerEmail -ownerPhone -linkedClient -consignedBy -notes -agencyOwned -engineNumber -chassisNumber -location -hasManuals -hasDuplicateKeys -hasOfficialServices -publishedOnML -publishedBy -mlLink -plateOrVin -expenses -visibleEnWeb -createdAt -updatedAt -__v -order -owners -auditLog')
+            .lean();
 
         if (!car) {
             return res.status(404).json({ message: 'Car not found' });
         }
         res.json(car);
     } catch (error) {
-        res.status(500).json({ error: 'No se pudo cargar el veh├¡culo.' });
+        res.status(500).json({ error: 'No se pudo cargar el vehículo.' });
     }
 });
 
@@ -1125,18 +1131,28 @@ app.get('/api/admin/cars/export', authenticateToken, requirePermission(PERMISSIO
     }
 });
 
-// GET combined dashboard data (Optimized single request to avoid SSL connection errors)
+// GET combined dashboard data (Optimized single request with surgical field projection)
 app.get('/api/admin/dashboard', authenticateToken, async (req, res) => {
     try {
         await connectDB();
         res.setHeader('Cache-Control', 'no-store, max-age=0');
         
-        // Ejecutar las consultas en paralelo con tolerancia a fallos
+        // Ejecutar las consultas en paralelo con proyección quirúrgica y tolerancia a fallos:
+        // Excluimos checklists pesados y descripciones extensas que sobrecargan el payload.
         const [cars, sales, transactions, installments, dolarBlue] = await Promise.all([
-            Car.find({}).lean(),
-            Sale.find({}).populate('vehicleId', 'brand name year purchasePrice purchaseCurrency plateOrVin plate').lean(),
-            Transaction.find({}).lean(),
-            Installment.find({}).lean(),
+            Car.find({})
+                .select('brand name model year status price currency purchasePrice purchaseCurrency agencyOwned isSharedInvestment investor expenses fechaIngresoStock createdAt coverImage visibleEnWeb consignedBy documentation plateOrVin plate auditLog')
+                .lean(),
+            Sale.find({})
+                .select('saleDate createdAt status salePrice saleCurrency vehicleId salesperson assignedTo createdBy consignationOwnerId vehicleOwnerName notes paymentMethod clientId buyerName financingDetails')
+                .populate('vehicleId', 'brand name year purchasePrice purchaseCurrency plateOrVin plate')
+                .lean(),
+            Transaction.find({})
+                .select('amount currency type date createdAt status')
+                .lean(),
+            Installment.find({})
+                .select('amount currency status dueDate')
+                .lean(),
             getDolarBlueRate(false).catch(() => null)
         ]);
         
@@ -5270,7 +5286,7 @@ app.patch('/api/admin/sales/:id', authenticateToken, requirePermission(PERMISSIO
                 field: 'paymentMethod',
                 oldValue: sale.paymentMethod,
                 newValue: paymentMethod,
-                details: `M├®todo de pago actualizado a ${paymentMethod}`,
+                details: `Método de pago actualizado a ${paymentMethod}`,
                 user: user,
                 source: 'CRM_V2'
             });
@@ -7481,6 +7497,7 @@ app.get('/api/admin/notifications', authenticateToken, async (req, res) => {
         // 1. CUOTAS
         if (canReadInstallments) {
             const installments = await Installment.find({ status: { $in: ['pendiente', 'parcial'] } })
+                .select('dueDate installmentNumber currency amount saleId status')
                 .populate('saleId', 'clientId vehicleId')
                 .lean();
 
@@ -7494,7 +7511,7 @@ app.get('/api/admin/notifications', authenticateToken, async (req, res) => {
                         type: 'installment_overdue',
                         severity: 'danger',
                         title: 'Cuota Vencida',
-                        description: `La cuota ${inst.installmentNumber} (${inst.currency} ${inst.amount}) est├í vencida.`,
+                        description: `La cuota ${inst.installmentNumber} (${inst.currency} ${inst.amount}) está vencida.`,
                         module: 'cuotas',
                         entityType: 'Installment',
                         entityId: inst._id.toString(),
@@ -7505,7 +7522,7 @@ app.get('/api/admin/notifications', authenticateToken, async (req, res) => {
                     rawNotifs.push({
                         type: 'installment_due_soon',
                         severity: 'warning',
-                        title: 'Cuota Pr├│xima a Vencer',
+                        title: 'Cuota Próxima a Vencer',
                         description: `La cuota ${inst.installmentNumber} vence el ${new Date(inst.dueDate).toLocaleDateString('es-AR')}.`,
                         module: 'cuotas',
                         entityType: 'Installment',
@@ -7520,7 +7537,9 @@ app.get('/api/admin/notifications', authenticateToken, async (req, res) => {
         // 2. TAREAS (CrmTasks)
         if (canReadTasks) {
             const tasksQuery = { status: 'pendiente' };
-            const tasks = await CrmTask.find(tasksQuery).lean();
+            const tasks = await CrmTask.find(tasksQuery)
+                .select('title dueDate status assignedTo')
+                .lean();
 
             tasks.forEach(task => {
                 if (!isOwnerAdmin && task.assignedTo && task.assignedTo.toString() !== req.user?.userId) return;
@@ -7559,7 +7578,9 @@ app.get('/api/admin/notifications', authenticateToken, async (req, res) => {
 
         // 3. DOCUMENTACION / ENTREGAS / POSTVENTA
         if (canReadDocs || canReadPostventa) {
-            const activeSales = await Sale.find({ status: { $in: ['confirmada', 'pendiente_entrega', 'entregada'] } }).lean();
+            const activeSales = await Sale.find({ status: { $in: ['confirmada', 'pendiente_entrega', 'entregada'] } })
+                .select('assignedTo documentationStatus deliveryStatus status postSaleStatus createdAt estimatedDeliveryDate updatedAt')
+                .lean();
 
             activeSales.forEach(sale => {
                 if (!isOwnerAdmin && sale.assignedTo && sale.assignedTo.toString() !== req.user?.userId) return;

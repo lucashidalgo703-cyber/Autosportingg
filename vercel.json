@@ -1,4 +1,10 @@
 {
+    "regions": ["gru1"],
+    "functions": {
+        "api/index.js": {
+            "regions": ["gru1"]
+        }
+    },
     "rewrites": [
         {
             "source": "/api/(.*)",
