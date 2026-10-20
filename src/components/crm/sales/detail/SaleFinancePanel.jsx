@@ -63,8 +63,9 @@ export default function SaleFinancePanel({ sale }) {
             });
             if (res.ok) {
                 const data = await res.json();
-                if (data.ok && data.summary) {
-                    setTreasurySummary(data.summary);
+                const summaryData = data.summary || data.saleState;
+                if (data.ok && summaryData) {
+                    setTreasurySummary(summaryData);
                 }
             }
         } catch (err) {

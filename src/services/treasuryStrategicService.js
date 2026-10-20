@@ -1951,6 +1951,7 @@ export async function getSaleTreasurySummary(saleId) {
 
     return {
         ok: true,
+        summary: state,
         saleState: state,
         accounts: accounts.map(a => ({
             id: a._id,

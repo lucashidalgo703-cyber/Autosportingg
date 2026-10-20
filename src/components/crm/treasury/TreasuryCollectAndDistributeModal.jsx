@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import {
     ArrowDownRight,
     Search,
@@ -109,6 +109,12 @@ export default function TreasuryCollectAndDistributeModal({
     const [idempotencyKey, setIdempotencyKey] = useState('');
     const [completedResult, setCompletedResult] = useState(null);
 
+    // --- CUENTAS Y AUTORIZACIÓN PIN ---
+    const [internalAccounts, setInternalAccounts] = useState([]);
+    const effectiveAccounts = useMemo(() => (Array.isArray(accounts) && accounts.length > 0 ? accounts : internalAccounts), [accounts, internalAccounts]);
+    const isVerifyingPinRef = useRef(false);
+    const prevIsOpenRef = useRef(false);
+
     // --- AUTORIZACIÓN Y DESBLOQUEO DE PIN ---
     const [localTreasuryToken, setLocalTreasuryToken] = useState(() => {
         return treasuryToken || (typeof window !== 'undefined' ? sessionStorage.getItem('as_treasury_token') : null);
@@ -129,11 +135,15 @@ export default function TreasuryCollectAndDistributeModal({
 
     const handleVerifyPin = async (e, pinToVerify = pinInput) => {
         if (e) e.preventDefault();
+        if (isVerifyingPinRef.current) return;
+
         const cleanPin = String(pinToVerify || '').trim();
         if (!/^\d{4}$/.test(cleanPin)) {
             setPinError('El PIN debe contener exactamente 4 dígitos numéricos.');
             return;
         }
+
+        isVerifyingPinRef.current = true;
         setIsVerifyingPin(true);
         setPinError(null);
         try {
@@ -158,26 +168,34 @@ export default function TreasuryCollectAndDistributeModal({
             setLocalTreasuryToken(newToken);
             setRequiresPin(false);
             setPinInput('');
+            setPinError(null);
             toast.success('Tesorería desbloqueada con éxito');
 
-            // Reanudar la carga de la venta preseleccionada
+            // Reanudar la carga de la venta preseleccionada y preview con el token desbloqueado
             if (initialSale) {
-                handleSelectSale(initialSale, newToken);
+                await handleSelectSale(initialSale, newToken);
             } else if (initialSaleId) {
-                loadSaleById(initialSaleId, initialInstallmentId, newToken);
+                await loadSaleById(initialSaleId, initialInstallmentId, newToken);
             } else if (selectedSale) {
-                handleSelectSale(selectedSale, newToken);
+                await handleSelectSale(selectedSale, newToken);
+            }
+            if (step === 3) {
+                await fetchDistributionPreview(selectedScheme, newToken);
             }
         } catch {
             setPinError('Error de conexión al verificar el PIN.');
         } finally {
+            isVerifyingPinRef.current = false;
             setIsVerifyingPin(false);
         }
     };
 
     // Al abrir el modal, inicializar estado
     useEffect(() => {
-        if (isOpen) {
+        const justOpened = isOpen && !prevIsOpenRef.current;
+        prevIsOpenRef.current = isOpen;
+
+        if (justOpened) {
             setStep(1);
             setCompletedResult(null);
             setIsSubmitting(false);
@@ -212,11 +230,11 @@ export default function TreasuryCollectAndDistributeModal({
 
     // Establecer cuenta predeterminada para el monto único
     useEffect(() => {
-        if (accounts.length > 0 && !singleAccountId) {
-            const acc = accounts.find(a => a.currency === currency) || accounts[0];
+        if (effectiveAccounts.length > 0 && !singleAccountId) {
+            const acc = effectiveAccounts.find(a => a.currency === currency) || effectiveAccounts[0];
             if (acc) setSingleAccountId(acc._id);
         }
-    }, [accounts, currency, singleAccountId]);
+    }, [effectiveAccounts, currency, singleAccountId]);
 
     // Buscar ventas en el servidor
     const searchSales = useCallback(async (query, customToken = null) => {
@@ -224,7 +242,7 @@ export default function TreasuryCollectAndDistributeModal({
             setSearchResults([]);
             return;
         }
-        const tokenToSend = customToken || localTreasuryToken || '';
+        const tokenToSend = customToken || localTreasuryToken || (typeof window !== 'undefined' ? sessionStorage.getItem('as_treasury_token') : '') || '';
         try {
             setIsSearching(true);
             const token = localStorage.getItem('token');
@@ -260,7 +278,7 @@ export default function TreasuryCollectAndDistributeModal({
 
     // Cargar venta por ID
     const loadSaleById = async (saleId, installmentIdToSelect = null, customToken = null) => {
-        const tokenToSend = customToken || localTreasuryToken || '';
+        const tokenToSend = customToken || localTreasuryToken || (typeof window !== 'undefined' ? sessionStorage.getItem('as_treasury_token') : '') || '';
         try {
             setLoadingSummary(true);
             const token = localStorage.getItem('token');
@@ -276,7 +294,7 @@ export default function TreasuryCollectAndDistributeModal({
                 return;
             }
             if (data.ok && data.sales && data.sales[0]) {
-                handleSelectSale(data.sales[0], tokenToSend);
+                await handleSelectSale(data.sales[0], tokenToSend);
                 if (installmentIdToSelect) {
                     setConcept('cuota');
                     setSelectedInstallmentId(installmentIdToSelect);
@@ -296,7 +314,7 @@ export default function TreasuryCollectAndDistributeModal({
         setSearchResults([]);
         setSearchQuery('');
 
-        const tokenToSend = customToken || localTreasuryToken || '';
+        const tokenToSend = customToken || localTreasuryToken || (typeof window !== 'undefined' ? sessionStorage.getItem('as_treasury_token') : '') || '';
         if (!tokenToSend) {
             setRequiresPin(true);
             return;
@@ -317,11 +335,15 @@ export default function TreasuryCollectAndDistributeModal({
                 setRequiresPin(true);
                 return;
             }
-            if (data.ok && data.summary) {
-                setSaleSummary(data.summary);
-                if (data.summary.pendingSaleBalance > 0 && !amount) {
-                    setAmount(String(Math.round(data.summary.pendingSaleBalance)));
+            const summaryData = data.summary || data.saleState;
+            if (data.ok && summaryData) {
+                setSaleSummary(summaryData);
+                if (summaryData.pendingSaleBalance > 0 && !amount) {
+                    setAmount(String(Math.round(summaryData.pendingSaleBalance)));
                 }
+            }
+            if (data.ok && Array.isArray(data.accounts) && data.accounts.length > 0) {
+                setInternalAccounts(data.accounts);
             }
         } catch (err) {
             console.error('Error cargando resumen de venta:', err);
@@ -354,7 +376,7 @@ export default function TreasuryCollectAndDistributeModal({
         setIsSplitPayment(checked);
         if (checked && paymentSplits.length === 0) {
             const numAmount = parseFloat(amount) || 0;
-            const defaultAcc = accounts.find(a => a.currency === currency) || accounts[0];
+            const defaultAcc = effectiveAccounts.find(a => a.currency === currency) || effectiveAccounts[0];
             setPaymentSplits([
                 {
                     accountId: defaultAcc?._id || '',
@@ -367,7 +389,7 @@ export default function TreasuryCollectAndDistributeModal({
     };
 
     const handleAddSplit = () => {
-        const defaultAcc = accounts.find(a => a.currency === currency) || accounts[0];
+        const defaultAcc = effectiveAccounts.find(a => a.currency === currency) || effectiveAccounts[0];
         setPaymentSplits(prev => [
             ...prev,
             {
@@ -403,7 +425,7 @@ export default function TreasuryCollectAndDistributeModal({
     // Consultar propuesta de distribución (Paso 3)
     const fetchDistributionPreview = async (schemeToUse = selectedScheme, customToken = null) => {
         if (!selectedSale || enteredAmount <= 0) return;
-        const tokenToSend = customToken || localTreasuryToken || treasuryToken || '';
+        const tokenToSend = customToken || localTreasuryToken || treasuryToken || (typeof window !== 'undefined' ? sessionStorage.getItem('as_treasury_token') : '') || '';
         if (!tokenToSend) {
             setRequiresPin(true);
             return;
@@ -486,7 +508,7 @@ export default function TreasuryCollectAndDistributeModal({
     const handleConfirm = async (markPendingIfMissing = false, customToken = null) => {
         if (isSubmitting) return;
 
-        const tokenToSend = customToken || localTreasuryToken || treasuryToken || '';
+        const tokenToSend = customToken || localTreasuryToken || treasuryToken || (typeof window !== 'undefined' ? sessionStorage.getItem('as_treasury_token') : '') || '';
         if (!tokenToSend) {
             setRequiresPin(true);
             return;
@@ -585,16 +607,17 @@ export default function TreasuryCollectAndDistributeModal({
                                     inputMode="numeric"
                                     maxLength={4}
                                     value={pinInput}
+                                    disabled={isVerifyingPin}
                                     onChange={(e) => {
                                         const val = e.target.value.replace(/\D/g, '').slice(0, 4);
                                         setPinInput(val);
                                         setPinError(null);
-                                        if (val.length === 4) {
+                                        if (val.length === 4 && !isVerifyingPinRef.current) {
                                             handleVerifyPin(null, val);
                                         }
                                     }}
                                     placeholder="••••"
-                                    className="w-36 text-center tracking-[0.5em] text-2xl font-black rounded-xl border border-purple-500/40 bg-crm-bg py-2.5 text-white placeholder-crm-fg-muted focus:border-purple-400 focus:outline-none"
+                                    className="w-36 text-center tracking-[0.5em] text-2xl font-black rounded-xl border border-purple-500/40 bg-crm-bg py-2.5 text-white placeholder-crm-fg-muted focus:border-purple-400 focus:outline-none disabled:opacity-50"
                                     autoFocus
                                 />
                                 {pinError && (
@@ -980,7 +1003,7 @@ export default function TreasuryCollectAndDistributeModal({
                                                 className="w-full rounded-xl border border-crm-border bg-crm-surface p-2 text-xs text-white focus:outline-none"
                                             >
                                                 <option value="">-- Seleccionar cuenta receptora --</option>
-                                                {accounts.filter(a => a.currency === currency).map(acc => (
+                                                {effectiveAccounts.filter(a => a.currency === currency).map(acc => (
                                                     <option key={acc._id} value={acc._id}>
                                                         {acc.name} ({acc.type} - {acc.currency})
                                                     </option>
@@ -1000,7 +1023,7 @@ export default function TreasuryCollectAndDistributeModal({
                                                         className="w-full rounded-lg border border-crm-border bg-crm-bg p-1.5 text-xs text-white"
                                                     >
                                                         <option value="">-- Cuenta receptora --</option>
-                                                        {accounts.filter(a => a.currency === currency).map(acc => (
+                                                        {effectiveAccounts.filter(a => a.currency === currency).map(acc => (
                                                             <option key={acc._id} value={acc._id}>
                                                                 {acc.name} ({acc.type})
                                                             </option>
