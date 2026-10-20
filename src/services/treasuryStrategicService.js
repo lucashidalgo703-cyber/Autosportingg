@@ -2069,6 +2069,26 @@ export async function previewSaleCollectionDistribution(payload = {}) {
 
 // 10. Flujo "Cobrar y Distribuir" (Una Sola Carga)
 
+
+function normalizeTreasuryPaymentMethod(pm) {
+    if (!pm) return 'transferencia';
+    const s = String(pm).trim();
+    const lower = s.toLowerCase();
+    if (lower.includes('transf')) {
+        if (lower.includes('galicia')) return 'transferencia BANCO GALICIA';
+        if (lower.includes('santander')) return 'transferencia BANCO SANTANDER';
+        if (lower.includes('nacion') || lower.includes('nación')) return 'transferencia BANCO NACION';
+        return 'transferencia';
+    }
+    if (lower.includes('efect')) return 'efectivo';
+    if (lower.includes('tarj')) return 'tarjeta';
+    if (lower.includes('cheq')) return 'cheque';
+    if (lower.includes('dolar') || lower.includes('dólar')) return 'dolares';
+    if (lower.includes('deposit') || lower.includes('depósito')) return 'deposito';
+    if (lower.includes('mixt')) return 'mixto';
+    return lower;
+}
+
 // 10. Flujo "Cobrar y Distribuir" (Una Sola Carga, Idempotencia y Destinos Múltiples)
 export async function collectAndDistribute(payload, user) {
     await ensureDefaultBoxes();
@@ -2189,7 +2209,7 @@ export async function collectAndDistribute(payload, user) {
                 accountId: acc._id,
                 accountName: acc.name,
                 accountType: acc.type,
-                paymentMethod: sp.paymentMethod || paymentMethod || 'transferencia',
+                paymentMethod: normalizeTreasuryPaymentMethod(sp.paymentMethod || paymentMethod),
                 amount: spAmount,
                 currency: cleanCurrency
             });
@@ -2212,7 +2232,7 @@ export async function collectAndDistribute(payload, user) {
             accountId: acc._id,
             accountName: acc.name,
             accountType: acc.type,
-            paymentMethod: paymentMethod || 'transferencia',
+            paymentMethod: normalizeTreasuryPaymentMethod(paymentMethod),
             amount: payAmount,
             currency: cleanCurrency
         });
@@ -2265,7 +2285,7 @@ export async function collectAndDistribute(payload, user) {
         description: conceptLabel,
         concept: conceptLabel,
         category: payload.category || (linkedInstallment ? 'Cobro cuota' : 'Cobro venta'),
-        paymentMethod: resolvedSplits[0]?.paymentMethod || paymentMethod || 'transferencia',
+        paymentMethod: normalizeTreasuryPaymentMethod(resolvedSplits[0]?.paymentMethod || paymentMethod),
         accountId: resolvedSplits[0]?.accountId,
         paymentSplits: resolvedSplits,
         receiptReference: receiptRef,

@@ -1,5 +1,33 @@
 import mongoose from 'mongoose';
 
+
+const VALID_PAYMENT_METHODS = [
+    'efectivo', 'transferencia', 'tarjeta', 'cheque', 'otro', 'dolares', 'deposito', 'mixto',
+    'transferencia BANCO GALICIA', 'transferencia BANCO SANTANDER', 'transferencia BANCO NACION',
+    'Transferencia bancaria', 'Efectivo', 'Cheque', 'Depósito', 'Dólares', 'Otro', 'Mixto / Dividido', 'Transferencia'
+];
+
+function normalizeTransactionPaymentMethod(val) {
+    if (!val) return 'otro';
+    const s = String(val).trim();
+    const lower = s.toLowerCase();
+    if (lower.includes('transf')) {
+        if (lower.includes('galicia')) return 'transferencia BANCO GALICIA';
+        if (lower.includes('santander')) return 'transferencia BANCO SANTANDER';
+        if (lower.includes('nacion') || lower.includes('nación')) return 'transferencia BANCO NACION';
+        return 'transferencia';
+    }
+    if (lower.includes('efect')) return 'efectivo';
+    if (lower.includes('tarj')) return 'tarjeta';
+    if (lower.includes('cheq')) return 'cheque';
+    if (lower.includes('dolar') || lower.includes('dólar')) return 'dolares';
+    if (lower.includes('deposit') || lower.includes('depósito')) return 'deposito';
+    if (lower.includes('mixt')) return 'mixto';
+    if (VALID_PAYMENT_METHODS.includes(s)) return s;
+    if (VALID_PAYMENT_METHODS.includes(lower)) return lower;
+    return 'otro';
+}
+
 const transactionSchema = new mongoose.Schema({
     type: { type: String, enum: ['Ingreso', 'Egreso'], required: true },
     amount: { type: Number, required: true },
@@ -15,7 +43,11 @@ const transactionSchema = new mongoose.Schema({
     module: { type: String, enum: ['legacy', 'crm_v2'], default: 'legacy' },
     source: { type: String, enum: ['manual', 'venta', 'reserva', 'cuota', 'otro'], default: 'manual' },
     concept: { type: String },
-    paymentMethod: { type: String, enum: ['efectivo', 'transferencia', 'tarjeta', 'cheque', 'otro', 'transferencia BANCO GALICIA', 'transferencia BANCO SANTANDER', 'transferencia BANCO NACION'] },
+    paymentMethod: {
+        type: String,
+        set: normalizeTransactionPaymentMethod,
+        enum: VALID_PAYMENT_METHODS
+    },
     status: { type: String, enum: ['activo', 'anulado', 'pendiente'], default: 'activo' },
     saleId: { type: mongoose.Schema.Types.ObjectId, ref: 'Sale' },
     reservationId: { type: mongoose.Schema.Types.ObjectId, ref: 'Reservation' },
