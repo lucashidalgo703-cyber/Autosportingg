@@ -4853,6 +4853,272 @@ app.patch('/api/admin/sales/:id/link-vehicle', authenticateToken, requirePermiss
     }
 });
 
+// Vista previa comparativa para cambio de vehículo en una venta
+app.post('/api/admin/sales/:id/change-vehicle/preview', authenticateToken, requirePermission(PERMISSIONS.VENTAS_WRITE), async (req, res) => {
+    try {
+        await connectDB();
+        const { id } = req.params;
+        const { newVehicleId } = req.body;
+
+        if (!newVehicleId) {
+            return res.status(400).json({ ok: false, message: 'Debés seleccionar el nuevo vehículo.' });
+        }
+
+        const sale = await Sale.findById(id).populate('vehicleId').lean();
+        if (!sale) return res.status(404).json({ ok: false, message: 'Venta no encontrada.' });
+        if (sale.status === 'cancelada') {
+            return res.status(400).json({ ok: false, message: 'No se puede cambiar de vehículo en una venta cancelada.' });
+        }
+
+        const newCar = await Car.findById(newVehicleId).lean();
+        if (!newCar) return res.status(404).json({ ok: false, message: 'El nuevo vehículo seleccionado no existe.' });
+
+        if (sale.vehicleId?._id?.toString() === newCar._id.toString()) {
+            return res.status(400).json({ ok: false, message: 'El vehículo seleccionado es el mismo que ya está asignado a la venta.' });
+        }
+
+        const existingSale = await Sale.findOne({
+            vehicleId: newCar._id,
+            _id: { $ne: sale._id },
+            status: { $in: ['señado', 'confirmada', 'pendiente_entrega', 'entregada'] }
+        }).lean();
+
+        if (existingSale) {
+            return res.status(400).json({
+                ok: false,
+                message: `El vehículo ${newCar.brand} ${newCar.name} (${newCar.plateOrVin || 'Sin patente'}) ya se encuentra asignado a otra venta activa.`
+            });
+        }
+
+        const prevCar = sale.vehicleId || null;
+        const prevPurchase = Number(prevCar?.purchasePrice) || 0;
+        const newPurchase = Number(newCar.purchasePrice) || 0;
+        const costDiff = newPurchase - prevPurchase;
+
+        const prevInvestorPct = Number(prevCar?.investor?.percentage) || 0;
+        const newInvestorPct = Number(newCar.investor?.percentage) || 0;
+        const investorDiff = newInvestorPct - prevInvestorPct;
+
+        const salePrice = Number(sale.salePrice) || 0;
+        const newCarPrice = Number(newCar.price) || 0;
+        const hasPriceDiff = newCarPrice !== salePrice;
+
+        const documentsChecklist = [
+            { key: 'form_08', label: 'Formulario 08 / Transferencia de dominio', checked: false },
+            { key: 'verif_policial', label: 'Verificación Policial (F-12)', checked: false },
+            { key: 'informe_dominio', label: 'Informe de dominio e inhibición', checked: false },
+            { key: 'seguro', label: 'Seguro y baja/alta de cobertura', checked: false },
+            { key: 'recibo_entrega', label: 'Póliza / Recibo y Acta de entrega de la unidad', checked: false }
+        ];
+
+        res.json({
+            ok: true,
+            preview: {
+                previousVehicle: prevCar ? {
+                    id: prevCar._id,
+                    brand: prevCar.brand,
+                    name: prevCar.name,
+                    year: prevCar.year,
+                    plateOrVin: prevCar.plateOrVin,
+                    price: prevCar.price,
+                    currency: prevCar.currency,
+                    purchasePrice: prevCar.purchasePrice,
+                    purchaseCurrency: prevCar.purchaseCurrency,
+                    investor: prevCar.investor
+                } : null,
+                newVehicle: {
+                    id: newCar._id,
+                    brand: newCar.brand,
+                    name: newCar.name,
+                    year: newCar.year,
+                    plateOrVin: newCar.plateOrVin,
+                    price: newCar.price,
+                    currency: newCar.currency,
+                    purchasePrice: newCar.purchasePrice,
+                    purchaseCurrency: newCar.purchaseCurrency,
+                    investor: newCar.investor,
+                    status: newCar.status
+                },
+                saleTerms: {
+                    salePrice: sale.salePrice,
+                    saleCurrency: sale.saleCurrency,
+                    status: sale.status
+                },
+                costDiff,
+                investorDiff,
+                hasPriceDiff,
+                priceWarning: hasPriceDiff
+                    ? `Atención: El nuevo vehículo tiene precio publicado de ${newCar.currency || '$'} ${newCarPrice.toLocaleString('es-AR')}, pero la venta conservará el precio pactado de ${sale.saleCurrency} ${salePrice.toLocaleString('es-AR')}.`
+                    : null,
+                documentsChecklist
+            }
+        });
+    } catch (error) {
+        console.error('Error in POST /api/admin/sales/:id/change-vehicle/preview:', error);
+        res.status(500).json({ ok: false, message: error.message });
+    }
+});
+
+// Ejecución atómica de cambio de vehículo en una venta con auditoría bidireccional
+app.post('/api/admin/sales/:id/change-vehicle', authenticateToken, requirePermission(PERMISSIONS.VENTAS_WRITE), async (req, res) => {
+    try {
+        await connectDB();
+        const { id } = req.params;
+        const { newVehicleId, reason, documentsChecklist, notes } = req.body;
+
+        if (!reason || !String(reason).trim()) {
+            return res.status(400).json({ ok: false, message: 'El motivo del cambio de vehículo es obligatorio.' });
+        }
+        if (!newVehicleId) {
+            return res.status(400).json({ ok: false, message: 'Debés seleccionar el nuevo vehículo.' });
+        }
+
+        const sale = await Sale.findById(id);
+        if (!sale) return res.status(404).json({ ok: false, message: 'Venta no encontrada.' });
+        if (sale.status === 'cancelada') {
+            return res.status(400).json({ ok: false, message: 'No se puede cambiar de vehículo en una venta cancelada.' });
+        }
+
+        const newCar = await Car.findById(newVehicleId);
+        if (!newCar) return res.status(404).json({ ok: false, message: 'El nuevo vehículo no existe.' });
+
+        if (sale.vehicleId?.toString() === newCar._id.toString()) {
+            return res.status(400).json({ ok: false, message: 'El vehículo seleccionado es el mismo que ya está asignado a la venta.' });
+        }
+
+        const existingSale = await Sale.findOne({
+            vehicleId: newCar._id,
+            _id: { $ne: sale._id },
+            status: { $in: ['señado', 'confirmada', 'pendiente_entrega', 'entregada'] }
+        });
+        if (existingSale) {
+            return res.status(400).json({
+                ok: false,
+                message: `El vehículo ${newCar.brand} ${newCar.name} ya está asignado a otra venta activa.`
+            });
+        }
+
+        const userStr = req.user?.name || req.user?.email || req.user?.username || 'Admin';
+        const cleanReason = String(reason).trim();
+
+        let prevCarSnapshot = null;
+        if (sale.vehicleId) {
+            const oldCar = await Car.findById(sale.vehicleId);
+            if (oldCar) {
+                prevCarSnapshot = {
+                    brand: oldCar.brand,
+                    model: oldCar.name,
+                    year: oldCar.year,
+                    plate: oldCar.plateOrVin,
+                    price: oldCar.price,
+                    currency: oldCar.currency,
+                    purchasePrice: oldCar.purchasePrice,
+                    purchaseCurrency: oldCar.purchaseCurrency,
+                    investorPercentage: oldCar.investor?.percentage || 0
+                };
+                oldCar.status = 'Disponible';
+                if (!oldCar.auditLog) oldCar.auditLog = [];
+                oldCar.auditLog.push({
+                    action: 'ESTADO',
+                    field: 'status',
+                    oldValue: 'Vendido',
+                    newValue: 'Disponible',
+                    justification: cleanReason,
+                    details: `Desvinculado de la venta ${sale._id} por cambio de vehículo. Motivo: ${cleanReason}`,
+                    user: userStr,
+                    date: new Date()
+                });
+                await oldCar.save();
+            }
+        }
+
+        const targetStatus = sale.status === 'señado' ? 'Reservado' : 'Vendido';
+        const oldNewCarStatus = newCar.status;
+        newCar.status = targetStatus;
+        if (!newCar.auditLog) newCar.auditLog = [];
+        newCar.auditLog.push({
+            action: 'ESTADO',
+            field: 'status',
+            oldValue: oldNewCarStatus,
+            newValue: targetStatus,
+            justification: cleanReason,
+            details: `Asignado a la venta ${sale._id} en reemplazo de vehículo anterior. Motivo: ${cleanReason}`,
+            user: userStr,
+            date: new Date()
+        });
+        await newCar.save();
+
+        const newCarSnapshot = {
+            brand: newCar.brand,
+            model: newCar.name,
+            year: newCar.year,
+            plate: newCar.plateOrVin,
+            price: newCar.price,
+            currency: newCar.currency,
+            purchasePrice: newCar.purchasePrice,
+            purchaseCurrency: newCar.purchaseCurrency,
+            investorPercentage: newCar.investor?.percentage || 0
+        };
+
+        const previousVehicleId = sale.vehicleId;
+        sale.vehicleId = newCar._id;
+        sale.updatedBy = userStr;
+
+        if (!sale.vehicleChangeHistory) sale.vehicleChangeHistory = [];
+        sale.vehicleChangeHistory.push({
+            date: new Date(),
+            user: userStr,
+            reason: cleanReason,
+            previousVehicleId: previousVehicleId || newCar._id,
+            previousVehicleSnapshot: prevCarSnapshot,
+            newVehicleId: newCar._id,
+            newVehicleSnapshot: newCarSnapshot,
+            documentsChecklist: Array.isArray(documentsChecklist) ? documentsChecklist : [],
+            notes: notes ? String(notes).trim() : ''
+        });
+
+        if (!sale.saleAuditLog) sale.saleAuditLog = [];
+        sale.saleAuditLog.push({
+            action: 'CAMBIO_VEHICULO',
+            field: 'vehicleId',
+            oldValue: previousVehicleId ? previousVehicleId.toString() : null,
+            newValue: newCar._id.toString(),
+            details: `Cambio de vehículo por ${newCar.brand} ${newCar.name} (${newCar.plateOrVin || 'Sin patente'}). Motivo: ${cleanReason}`,
+            user: userStr,
+            date: new Date(),
+            source: 'CRM_V2'
+        });
+
+        await Installment.updateMany(
+            { saleId: sale._id },
+            { $set: { vehicleId: newCar._id } }
+        );
+
+        await sale.save();
+
+        await logAudit({
+            req,
+            action: 'VENTA_CAMBIO_VEHICULO',
+            module: 'ventas',
+            entityType: 'Sale',
+            entityId: sale._id,
+            entityLabel: 'Venta',
+            description: `Se cambió el vehículo de la venta a ${newCar.brand} ${newCar.name}. Motivo: ${cleanReason}`,
+            metadata: { previousVehicleId, newVehicleId: newCar._id, reason: cleanReason }
+        });
+
+        const populatedSale = await buildPopulatedSaleResponse(sale._id, req.user);
+        res.json({
+            ok: true,
+            message: `Vehículo cambiado exitosamente a ${newCar.brand} ${newCar.name}.`,
+            sale: populatedSale
+        });
+    } catch (error) {
+        console.error('Error in POST /api/admin/sales/:id/change-vehicle:', error);
+        res.status(500).json({ ok: false, message: error.message });
+    }
+});
+
 app.post('/api/admin/sales/:id/create-link-vehicle', authenticateToken, requirePermission(PERMISSIONS.VENTAS_WRITE), async (req, res) => {
     try {
         await connectDB();
@@ -6907,6 +7173,214 @@ app.get('/api/admin/installments', authenticateToken, requirePermission(PERMISSI
     }
 });
 
+// 1. Vista mensual con navegación por mes/año, criterios, estados, buscador y pendientes anteriores
+app.get('/api/admin/installments/monthly', authenticateToken, requirePermission(PERMISSIONS.FINANZAS_READ), async (req, res) => {
+    try {
+        await connectDB();
+        const {
+            month,
+            year,
+            criteria = 'original', // 'original' | 'rescheduled' | 'collected'
+            status = 'todas',      // 'todas' | 'pendiente' | 'pagada' | 'reprogramada'
+            search = '',
+            onlyPreviousPending = 'false'
+        } = req.query;
+
+        const now = new Date();
+        const y = parseInt(year) || now.getFullYear();
+        const m = parseInt(month) || (now.getMonth() + 1);
+
+        // Rango mensual en zona horaria Argentina (UTC-3)
+        const startOfMonth = new Date(Date.UTC(y, m - 1, 1, 3, 0, 0, 0));
+        const endOfMonth = new Date(Date.UTC(y, m, 1, 2, 59, 59, 999));
+
+        const allActiveInstallments = await Installment.find({ status: { $ne: 'anulada' } })
+            .populate({
+                path: 'saleId',
+                select: '_id salePrice saleCurrency salesperson status saleDate',
+                populate: [
+                    { path: 'clientId', select: 'firstName lastName fullName phone dni' },
+                    { path: 'vehicleId', select: 'brand name year plateOrVin price currency purchasePrice' }
+                ]
+            })
+            .populate('clientId', 'firstName lastName fullName phone dni')
+            .populate('vehicleId', 'brand name year plateOrVin price currency purchasePrice')
+            .sort({ dueDate: 1, installmentNumber: 1 })
+            .lean();
+
+        const installmentIds = allActiveInstallments.map(i => i._id);
+        const transactions = await Transaction.find({
+            installmentId: { $in: installmentIds },
+            status: { $ne: 'anulado' }
+        }).lean();
+
+        const txByInstallment = {};
+        transactions.forEach(tx => {
+            const instId = tx.installmentId?.toString();
+            if (instId) {
+                if (!txByInstallment[instId]) txByInstallment[instId] = [];
+                txByInstallment[instId].push(tx);
+            }
+        });
+
+        // Contar cuotas pendientes de meses anteriores
+        let previousPendingCount = 0;
+        allActiveInstallments.forEach(inst => {
+            const paid = Number(inst.paidAmount || 0);
+            const total = Number(inst.amount || 0);
+            const isFullyPaid = paid >= total || inst.status === 'pagada' || inst.status === 'pagada_manual';
+            const effDue = inst.isRescheduled && inst.rescheduledDate ? new Date(inst.rescheduledDate) : new Date(inst.originalDueDate || inst.dueDate);
+            if (!isFullyPaid && effDue < startOfMonth) {
+                previousPendingCount++;
+            }
+        });
+
+        const showOnlyPrev = onlyPreviousPending === 'true';
+
+        const filteredByDate = allActiveInstallments.filter(inst => {
+            const origDue = new Date(inst.originalDueDate || inst.dueDate);
+            const effDue = inst.isRescheduled && inst.rescheduledDate ? new Date(inst.rescheduledDate) : origDue;
+            const paid = Number(inst.paidAmount || 0);
+            const total = Number(inst.amount || 0);
+            const isFullyPaid = paid >= total || inst.status === 'pagada' || inst.status === 'pagada_manual';
+
+            if (showOnlyPrev) {
+                return !isFullyPaid && effDue < startOfMonth;
+            }
+
+            if (criteria === 'rescheduled') {
+                return effDue >= startOfMonth && effDue <= endOfMonth;
+            } else if (criteria === 'collected') {
+                const txs = txByInstallment[inst._id.toString()] || [];
+                const hasTxInMonth = txs.some(tx => {
+                    const txDate = new Date(tx.date || tx.createdAt);
+                    return txDate >= startOfMonth && txDate <= endOfMonth;
+                });
+                const hasPaidDateInMonth = inst.paidDate && (new Date(inst.paidDate) >= startOfMonth && new Date(inst.paidDate) <= endOfMonth);
+                return hasTxInMonth || hasPaidDateInMonth;
+            } else {
+                return origDue >= startOfMonth && origDue <= endOfMonth;
+            }
+        });
+
+        const enrichedItems = filteredByDate.map(inst => {
+            const instId = inst._id.toString();
+            const instTxs = txByInstallment[instId] || [];
+            const amount = Number(inst.amount || 0);
+            const paidAmount = Number(inst.paidAmount || 0);
+            const pendingAmount = Math.max(0, amount - paidAmount);
+            const currency = inst.currency === 'USD' ? 'USD' : 'ARS';
+
+            const origDueDate = inst.originalDueDate ? new Date(inst.originalDueDate) : new Date(inst.dueDate);
+            const effectiveDueDate = inst.isRescheduled && inst.rescheduledDate ? new Date(inst.rescheduledDate) : origDueDate;
+
+            const isFullyPaid = paidAmount >= amount || inst.status === 'pagada' || inst.status === 'pagada_manual';
+            const isPartial = paidAmount > 0 && !isFullyPaid;
+            const isRescheduled = Boolean(inst.isRescheduled && !isFullyPaid);
+
+            let mainStatus = 'PENDIENTE';
+            if (isFullyPaid) {
+                mainStatus = 'PAGADO';
+            } else if (isRescheduled) {
+                mainStatus = 'REPROGRAMADO';
+            }
+
+            const today = new Date();
+            const isOverdue = !isFullyPaid && today > effectiveDueDate;
+            const daysOverdue = isOverdue ? Math.max(1, Math.floor((today - effectiveDueDate) / (1000 * 60 * 60 * 24))) : 0;
+            const isAgreedDateOverdue = Boolean(isRescheduled && inst.rescheduledDate && today > new Date(inst.rescheduledDate));
+
+            const client = inst.clientId || inst.saleId?.clientId || { fullName: 'Sin cliente' };
+            const vehicle = inst.vehicleId || inst.saleId?.vehicleId || { brand: '', name: 'Sin vehículo', plateOrVin: '' };
+
+            return {
+                ...inst,
+                client,
+                vehicle,
+                currency,
+                amount,
+                paidAmount,
+                pendingAmount,
+                originalDueDate: origDueDate,
+                effectiveDueDate,
+                mainStatus,
+                isFullyPaid,
+                isPartial,
+                isRescheduled,
+                isOverdue,
+                daysOverdue,
+                isAgreedDateOverdue,
+                linkedTransactions: instTxs
+            };
+        });
+
+        const filteredByStatus = enrichedItems.filter(item => {
+            if (status === 'todas') return true;
+            if (status === 'pendiente') return item.mainStatus === 'PENDIENTE';
+            if (status === 'pagada') return item.mainStatus === 'PAGADO';
+            if (status === 'reprogramada') return item.mainStatus === 'REPROGRAMADO';
+            return true;
+        });
+
+        const finalItems = filteredByStatus.filter(item => {
+            if (!search || !search.trim()) return true;
+            const q = search.trim().toLowerCase();
+            const clientText = `${item.client?.fullName || ''} ${item.client?.firstName || ''} ${item.client?.lastName || ''} ${item.client?.phone || ''} ${item.client?.dni || ''}`.toLowerCase();
+            const vehicleText = `${item.vehicle?.brand || ''} ${item.vehicle?.name || ''} ${item.vehicle?.plateOrVin || ''}`.toLowerCase();
+            const saleText = `${item.saleId?._id || ''}`.toLowerCase();
+            return clientText.includes(q) || vehicleText.includes(q) || saleText.includes(q);
+        });
+
+        const summary = {
+            ars: {
+                totalExpected: 0,
+                totalCollected: 0,
+                totalPending: 0,
+                countTotal: 0,
+                countPaid: 0,
+                countPending: 0,
+                countRescheduled: 0
+            },
+            usd: {
+                totalExpected: 0,
+                totalCollected: 0,
+                totalPending: 0,
+                countTotal: 0,
+                countPaid: 0,
+                countPending: 0,
+                countRescheduled: 0
+            }
+        };
+
+        enrichedItems.forEach(item => {
+            const bucket = item.currency === 'USD' ? summary.usd : summary.ars;
+            bucket.totalExpected += item.amount;
+            bucket.totalCollected += item.paidAmount;
+            bucket.totalPending += item.pendingAmount;
+            bucket.countTotal++;
+            if (item.mainStatus === 'PAGADO') bucket.countPaid++;
+            else if (item.mainStatus === 'REPROGRAMADO') bucket.countRescheduled++;
+            else bucket.countPending++;
+        });
+
+        res.json({
+            ok: true,
+            month: m,
+            year: y,
+            criteria,
+            status,
+            previousPendingCount,
+            summary,
+            items: finalItems,
+            totalItems: finalItems.length
+        });
+    } catch (error) {
+        console.error('Error in GET /api/admin/installments/monthly:', error);
+        res.status(500).json({ ok: false, message: error.message });
+    }
+});
+
+
 app.get('/api/admin/installments/:id', authenticateToken, requirePermission(PERMISSIONS.FINANZAS_READ), async (req, res) => {
     try {
         await connectDB();
@@ -7295,6 +7769,185 @@ app.delete('/api/admin/installments/:id', authenticateToken, requirePermission(P
     } catch (error) {
         console.error('Error deleting installment:', error);
         res.status(500).json({ message: error.message });
+    }
+});
+
+// ==========================================
+// CUOTAS Y COBRANZAS: VISTA MENSUAL, REPROGRAMACIONES Y AUDITORÍA
+// ==========================================
+
+// 2. Reprogramar cuota con nueva fecha y motivo obligatorio
+app.post('/api/admin/installments/:id/reschedule', authenticateToken, requirePermission(PERMISSIONS.FINANZAS_WRITE), async (req, res) => {
+    try {
+        await connectDB();
+        const { id } = req.params;
+        const { newDate, reason, notes } = req.body;
+
+        if (!reason || !String(reason).trim()) {
+            return res.status(400).json({ ok: false, message: 'El motivo de la reprogramación es obligatorio.' });
+        }
+        if (!newDate) {
+            return res.status(400).json({ ok: false, message: 'La nueva fecha acordada es obligatoria.' });
+        }
+        const parsedNewDate = new Date(newDate);
+        if (isNaN(parsedNewDate.getTime())) {
+            return res.status(400).json({ ok: false, message: 'La fecha ingresada no es válida.' });
+        }
+
+        const installment = await Installment.findById(id);
+        if (!installment) return res.status(404).json({ ok: false, message: 'Cuota no encontrada' });
+
+        if (installment.status === 'pagada' || installment.status === 'pagada_manual' || (installment.paidAmount >= installment.amount)) {
+            return res.status(400).json({ ok: false, message: 'No se puede reprogramar una cuota que ya está completamente pagada.' });
+        }
+        if (installment.status === 'anulada') {
+            return res.status(400).json({ ok: false, message: 'No se puede reprogramar una cuota anulada.' });
+        }
+
+        if (!installment.originalDueDate) {
+            installment.originalDueDate = installment.dueDate;
+        }
+
+        const previousDate = installment.rescheduledDate || installment.dueDate;
+        const userStr = req.user?.name || req.user?.email || req.user?.username || 'Admin';
+
+        if (!installment.rescheduleHistory) {
+            installment.rescheduleHistory = [];
+        }
+
+        installment.rescheduleHistory.push({
+            previousDate,
+            newDate: parsedNewDate,
+            reason: String(reason).trim(),
+            notes: notes ? String(notes).trim() : '',
+            user: userStr,
+            date: new Date()
+        });
+
+        installment.isRescheduled = true;
+        installment.rescheduledDate = parsedNewDate;
+        installment.rescheduledReason = String(reason).trim();
+        installment.rescheduledBy = userStr;
+        installment.status = 'reprogramada';
+
+        if (!installment.installmentAuditLog) installment.installmentAuditLog = [];
+        installment.installmentAuditLog.push({
+            action: 'CUOTA_REPROGRAMADA',
+            user: userStr,
+            date: new Date(),
+            description: `Cuota reprogramada al ${parsedNewDate.toLocaleDateString('es-AR')}. Motivo: ${String(reason).trim()}`,
+            metadata: { previousDate, newDate: parsedNewDate, reason: String(reason).trim() }
+        });
+
+        await installment.save();
+
+        res.json({
+            ok: true,
+            message: 'Cuota reprogramada con éxito.',
+            installment
+        });
+    } catch (error) {
+        console.error('Error in POST /api/admin/installments/:id/reschedule:', error);
+        res.status(500).json({ ok: false, message: error.message });
+    }
+});
+
+// 3. Cancelar reprogramación y restaurar fecha original
+app.post('/api/admin/installments/:id/cancel-reschedule', authenticateToken, requirePermission(PERMISSIONS.FINANZAS_WRITE), async (req, res) => {
+    try {
+        await connectDB();
+        const { id } = req.params;
+        const { cancelReason } = req.body;
+
+        if (!cancelReason || !String(cancelReason).trim()) {
+            return res.status(400).json({ ok: false, message: 'El motivo para cancelar la reprogramación es obligatorio.' });
+        }
+
+        const installment = await Installment.findById(id);
+        if (!installment) return res.status(404).json({ ok: false, message: 'Cuota no encontrada' });
+
+        if (!installment.isRescheduled) {
+            return res.status(400).json({ ok: false, message: 'Esta cuota no tiene una reprogramación activa para cancelar.' });
+        }
+
+        const userStr = req.user?.name || req.user?.email || req.user?.username || 'Admin';
+
+        if (Array.isArray(installment.rescheduleHistory) && installment.rescheduleHistory.length > 0) {
+            const activeResched = [...installment.rescheduleHistory].reverse().find(r => !r.isCancelled);
+            if (activeResched) {
+                activeResched.isCancelled = true;
+                activeResched.cancelReason = String(cancelReason).trim();
+            }
+        }
+
+        installment.isRescheduled = false;
+        installment.rescheduledDate = null;
+        installment.rescheduledReason = null;
+        installment.rescheduledBy = null;
+
+        const now = new Date();
+        const origDueDate = new Date(installment.originalDueDate || installment.dueDate);
+        const paid = Number(installment.paidAmount || 0);
+        const amount = Number(installment.amount || 0);
+
+        if (paid >= amount) {
+            installment.status = 'pagada';
+        } else if (paid > 0) {
+            installment.status = 'parcial';
+        } else if (now > origDueDate) {
+            installment.status = 'vencida';
+        } else {
+            installment.status = 'pendiente';
+        }
+
+        if (!installment.installmentAuditLog) installment.installmentAuditLog = [];
+        installment.installmentAuditLog.push({
+            action: 'CUOTA_REPROGRAMACION_CANCELADA',
+            user: userStr,
+            date: new Date(),
+            description: `Reprogramación cancelada. Se restableció el vencimiento original. Motivo: ${String(cancelReason).trim()}`,
+            metadata: { cancelReason: String(cancelReason).trim() }
+        });
+
+        await installment.save();
+
+        res.json({
+            ok: true,
+            message: 'Reprogramación cancelada y vencimiento original restablecido.',
+            installment
+        });
+    } catch (error) {
+        console.error('Error in POST /api/admin/installments/:id/cancel-reschedule:', error);
+        res.status(500).json({ ok: false, message: error.message });
+    }
+});
+
+// 4. Consultar historial completo de reprogramaciones, cobros y auditoría de una cuota
+app.get('/api/admin/installments/:id/history', authenticateToken, requirePermission(PERMISSIONS.FINANZAS_READ), async (req, res) => {
+    try {
+        await connectDB();
+        const { id } = req.params;
+        const installment = await Installment.findById(id)
+            .populate('clientId', 'firstName lastName fullName phone')
+            .populate('vehicleId', 'brand name year plateOrVin')
+            .lean();
+        if (!installment) return res.status(404).json({ ok: false, message: 'Cuota no encontrada' });
+
+        const transactions = await Transaction.find({
+            installmentId: installment._id,
+            status: { $ne: 'anulado' }
+        }).sort({ date: -1 }).lean();
+
+        res.json({
+            ok: true,
+            installment,
+            rescheduleHistory: installment.rescheduleHistory || [],
+            installmentAuditLog: installment.installmentAuditLog || [],
+            transactions
+        });
+    } catch (error) {
+        console.error('Error in GET /api/admin/installments/:id/history:', error);
+        res.status(500).json({ ok: false, message: error.message });
     }
 });
 

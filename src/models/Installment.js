@@ -1,10 +1,32 @@
 import mongoose from 'mongoose';
 
+const rescheduleHistorySchema = new mongoose.Schema({
+    previousDate: { type: Date, required: true },
+    newDate: { type: Date, required: true },
+    reason: { type: String, required: true },
+    notes: { type: String },
+    user: { type: String, required: true },
+    date: { type: Date, default: Date.now },
+    isCancelled: { type: Boolean, default: false },
+    cancelReason: { type: String }
+}, { _id: true });
+
 const installmentAuditSchema = new mongoose.Schema({
     action: {
         type: String,
         required: true,
-        enum: ['CUOTA_CREADA', 'CUOTA_EDITADA', 'CUOTA_ANULADA', 'CUOTA_MARCADA_PAGADA_MANUAL', 'PLAN_GENERADO', 'COBRO_REGISTRADO', 'REGULARIZACION_CONCILIADA', 'REGULARIZACION_REVERTIDA']
+        enum: [
+            'CUOTA_CREADA',
+            'CUOTA_EDITADA',
+            'CUOTA_ANULADA',
+            'CUOTA_MARCADA_PAGADA_MANUAL',
+            'PLAN_GENERADO',
+            'COBRO_REGISTRADO',
+            'REGULARIZACION_CONCILIADA',
+            'REGULARIZACION_REVERTIDA',
+            'CUOTA_REPROGRAMADA',
+            'CUOTA_REPROGRAMACION_CANCELADA'
+        ]
     },
     user: { type: String, required: true },
     date: { type: Date, default: Date.now },
@@ -49,6 +71,26 @@ const installmentSchema = new mongoose.Schema({
         type: Date,
         required: true
     },
+    originalDueDate: {
+        type: Date
+    },
+    isRescheduled: {
+        type: Boolean,
+        default: false
+    },
+    rescheduledDate: {
+        type: Date
+    },
+    rescheduledReason: {
+        type: String
+    },
+    rescheduledBy: {
+        type: String
+    },
+    rescheduleHistory: {
+        type: [rescheduleHistorySchema],
+        default: []
+    },
     amount: {
         type: Number,
         required: true,
@@ -62,7 +104,7 @@ const installmentSchema = new mongoose.Schema({
     status: {
         type: String,
         required: true,
-        enum: ['pendiente', 'parcial', 'pagada', 'vencida', 'pagada_manual', 'anulada'],
+        enum: ['pendiente', 'parcial', 'pagada', 'vencida', 'pagada_manual', 'anulada', 'reprogramada'],
         default: 'pendiente'
     },
     paidAmount: {
@@ -98,6 +140,13 @@ const installmentSchema = new mongoose.Schema({
     },
     installmentAuditLog: [installmentAuditSchema]
 }, { timestamps: true });
+
+installmentSchema.pre('save', function (next) {
+    if (!this.originalDueDate && this.dueDate) {
+        this.originalDueDate = this.dueDate;
+    }
+    if (typeof next === 'function') next();
+});
 
 const Installment = mongoose.models.Installment || mongoose.model('Installment', installmentSchema);
 export default Installment;

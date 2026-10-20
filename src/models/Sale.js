@@ -27,6 +27,42 @@ const checklistItemSchema = new mongoose.Schema({
     completedBy: { type: String }
 }, { _id: false });
 
+const vehicleChangeHistorySchema = new mongoose.Schema({
+    date: { type: Date, default: Date.now },
+    user: { type: String, required: true },
+    reason: { type: String, required: true },
+    previousVehicleId: { type: mongoose.Schema.Types.ObjectId, ref: 'Car', required: true },
+    previousVehicleSnapshot: {
+        brand: String,
+        model: String,
+        year: Number,
+        plate: String,
+        price: Number,
+        currency: String,
+        purchasePrice: Number,
+        purchaseCurrency: String,
+        investorPercentage: Number
+    },
+    newVehicleId: { type: mongoose.Schema.Types.ObjectId, ref: 'Car', required: true },
+    newVehicleSnapshot: {
+        brand: String,
+        model: String,
+        year: Number,
+        plate: String,
+        price: Number,
+        currency: String,
+        purchasePrice: Number,
+        purchaseCurrency: String,
+        investorPercentage: Number
+    },
+    documentsChecklist: [{
+        key: { type: String },
+        label: { type: String },
+        checked: { type: Boolean, default: false }
+    }],
+    notes: { type: String }
+}, { _id: true });
+
 const safeNumberSetter = (val) => {
     if (val === '' || val === null || val === undefined) return undefined;
     const num = Number(val);
@@ -230,6 +266,7 @@ const saleSchema = new mongoose.Schema({
     postSaleNotes: { type: String },
     satisfactionRating: { type: Number, min: 1, max: 5 },
 
+    vehicleChangeHistory: { type: [vehicleChangeHistorySchema], default: [] },
     saleAuditLog: { type: [saleAuditSchema], default: [] }
 }, {
     timestamps: true

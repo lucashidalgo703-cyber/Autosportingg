@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { Link2, CarFront, User, CalendarClock, ChevronRight, AlertTriangle, Search, Handshake } from 'lucide-react';
+import { Link2, CarFront, User, CalendarClock, ChevronRight, AlertTriangle, Search, Handshake, RefreshCw } from 'lucide-react';
+import SaleChangeVehicleModal from './SaleChangeVehicleModal';
 
 export default function SaleLinkedEntitiesPanel({ sale, onUpdate }) {
     const [clientSearch, setClientSearch] = useState('');
@@ -25,6 +26,7 @@ export default function SaleLinkedEntitiesPanel({ sale, onUpdate }) {
 
     const [isLinking, setIsLinking] = useState(false);
     const [error, setError] = useState(null);
+    const [isChangeVehicleModalOpen, setIsChangeVehicleModalOpen] = useState(false);
 
     useEffect(() => {
         if (clientSearch.length > 2) {
@@ -251,9 +253,22 @@ export default function SaleLinkedEntitiesPanel({ sale, onUpdate }) {
                                 {vehicleVin && <span className="text-[10px] text-neutral-500 font-mono mt-1">{vehicleVin}</span>}
                             </div>
                         </div>
-                        <Link href={vehicleHref} className="w-10 h-10 rounded-xl bg-crm-surface-raised hover:bg-neutral-700 text-white flex items-center justify-center transition-colors shadow-sm">
-                            <ChevronRight size={18} />
-                        </Link>
+                        <div className="flex items-center gap-2">
+                            {sale.status !== 'cancelada' && (
+                                <button
+                                    type="button"
+                                    onClick={() => setIsChangeVehicleModalOpen(true)}
+                                    className="px-2.5 py-1.5 rounded-lg bg-neutral-800 hover:bg-neutral-700 text-neutral-300 hover:text-white text-xs font-semibold flex items-center gap-1.5 transition-colors border border-neutral-700 shadow-sm"
+                                    title="Cambiar vehículo de la venta"
+                                >
+                                    <RefreshCw size={13} className="text-blue-400" />
+                                    <span>Cambiar</span>
+                                </button>
+                            )}
+                            <Link href={vehicleHref} className="w-10 h-10 rounded-xl bg-crm-surface-raised hover:bg-neutral-700 text-white flex items-center justify-center transition-colors shadow-sm">
+                                <ChevronRight size={18} />
+                            </Link>
+                        </div>
                     </div>
                 ) : (
                     <div className="bg-crm-red/10 border border-red-500/20 rounded-xl p-4 flex flex-col gap-4">
@@ -546,6 +561,16 @@ export default function SaleLinkedEntitiesPanel({ sale, onUpdate }) {
                 )}
 
             </div>
+
+            <SaleChangeVehicleModal
+                isOpen={isChangeVehicleModalOpen}
+                onClose={() => setIsChangeVehicleModalOpen(false)}
+                sale={sale}
+                onSuccess={() => {
+                    if (onUpdate) onUpdate();
+                    else window.location.reload();
+                }}
+            />
         </div>
     );
 }

@@ -4715,6 +4715,7 @@ export async function adjustBoxBalance(payload, user) {
         newBalance,
         adjustmentAmount,
         reason,
+        counterpartyBoxKey,
         previewOnly = false
     } = payload || {};
 
@@ -4748,6 +4749,45 @@ export async function adjustBoxBalance(payload, user) {
         return { ok: true, box, message: 'El saldo ingresado es idéntico al actual; no hay variación.' };
     }
 
+    let sourceBox = null;
+    let targetBox = null;
+
+    if (diff > 0) {
+        if (counterpartyBoxKey) {
+            sourceBox = await TreasuryBox.findOne({ key: counterpartyBoxKey });
+            if (!sourceBox) throw new Error(`Caja de origen ${counterpartyBoxKey} no encontrada.`);
+            if (sourceBox.key === box.key) throw new Error('La caja de origen no puede ser la misma caja a ajustar.');
+            const sourceBalance = roundMoney(Number(sourceBox[field]) || 0);
+            if (sourceBalance < diff) {
+                throw new Error(`Saldo insuficiente en ${sourceBox.name} para transferir a ${box.name}. Requiere ${curr} ${diff.toLocaleString('es-AR')}, pero solo dispone de ${curr} ${sourceBalance.toLocaleString('es-AR')}.`);
+            }
+        } else {
+            // Validar contrapartida con fondos pendientes de asignar si existen cuentas bancarias registradas
+            const accounts = await Account.find({ isActive: { $ne: false } }).lean();
+            if (accounts && accounts.length > 0) {
+                let totalCuentas = 0;
+                accounts.forEach(acc => {
+                    if ((curr === 'USD' && acc.currency === 'USD') || (curr === 'ARS' && acc.currency !== 'USD')) {
+                        totalCuentas += Number(acc.balance || 0);
+                    }
+                });
+                const allBoxes = await TreasuryBox.find().lean();
+                let totalCajas = 0;
+                allBoxes.forEach(b => {
+                    totalCajas += Number(b[field] || 0);
+                });
+                const unallocated = roundMoney(totalCuentas - totalCajas);
+                if (diff > unallocated) {
+                    throw new Error(`No se puede aumentar el saldo de ${box.name} en ${curr} ${diff.toLocaleString('es-AR')} porque supera los fondos pendientes de asignar en cuentas (${curr} ${Math.max(0, unallocated).toLocaleString('es-AR')} disponibles). Toda asignación debe tener respaldo en dinero real.`);
+                }
+            }
+        }
+    } else if (diff < 0 && counterpartyBoxKey) {
+        targetBox = await TreasuryBox.findOne({ key: counterpartyBoxKey });
+        if (!targetBox) throw new Error(`Caja de destino ${counterpartyBoxKey} no encontrada.`);
+        if (targetBox.key === box.key) throw new Error('La caja de destino no puede ser la misma caja a ajustar.');
+    }
+
     const preview = {
         boxKey: box.key,
         boxName: box.name,
@@ -4755,6 +4795,8 @@ export async function adjustBoxBalance(payload, user) {
         previousBalance: prevBalance,
         newBalance: targetBalance,
         diff,
+        counterpartyBoxKey: sourceBox?.key || targetBox?.key || null,
+        counterpartyBoxName: sourceBox?.name || targetBox?.name || (diff > 0 ? 'Fondos pendientes de asignar' : 'Fondos liberados a cuentas'),
         reason: cleanReason,
         affectsBankBalances: false
     };
@@ -4774,11 +4816,37 @@ export async function adjustBoxBalance(payload, user) {
 
     box[field] = targetBalance;
 
+    if (sourceBox) {
+        sourceBox[field] = roundMoney((sourceBox[field] || 0) - diff);
+        sourceBox.history.push({
+            date: new Date(),
+            type: 'ajuste',
+            amount: -diff,
+            currency: curr,
+            reason: `${cleanReason} (Transferido hacia ${box.name})`,
+            user: userName
+        });
+        await sourceBox.save();
+    } else if (targetBox) {
+        targetBox[field] = roundMoney((targetBox[field] || 0) + Math.abs(diff));
+        targetBox.history.push({
+            date: new Date(),
+            type: 'ajuste',
+            amount: Math.abs(diff),
+            currency: curr,
+            reason: `${cleanReason} (Transferido desde ${box.name})`,
+            user: userName
+        });
+        await targetBox.save();
+    }
+
     const log = new TreasuryAuditLog({
         operationId: opId,
         actionType: 'ajuste_saldo',
         boxKey: box.key,
         boxName: box.name,
+        targetBoxKey: sourceBox?.key || targetBox?.key || null,
+        targetBoxName: sourceBox?.name || targetBox?.name || null,
         currency: curr,
         amount: diff,
         balanceBefore: prevBalance,
