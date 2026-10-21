@@ -44,6 +44,11 @@ const crmSettingsSchema = new mongoose.Schema({
         stockCriticalDays: { type: Number, default: 90, min: 15, max: 365 },
         taskOverdueGraceDays: { type: Number, default: 0, min: 0 }
     },
+    cockpitMonthlyTargetUSD: {
+        type: Number,
+        default: 110000,
+        min: 1000
+    },
     notifications: {
         enableGoalAlerts: { type: Boolean, default: true },
         enableInstallmentAlerts: { type: Boolean, default: true },

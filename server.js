@@ -59,7 +59,7 @@ import Complaint from './src/models/Complaint.js';
 import { DailySummaryService } from './src/services/DailySummaryService.js';
 import { getNextLeadAssignee, checkLeadSLA } from './src/services/leadRoutingService.js';
 import { logAudit, logSystemAudit } from './src/utils/auditLogger.js';
-import { getDolarBlueRate, setManualDolarBlueRate } from './src/services/dolarService.js';
+import { getDolarBlueRate, setManualDolarBlueRate, getDolarBlueHistoricalSeries, resolveHistoricalRate } from './src/services/dolarService.js';
 import * as treasuryStrategicService from './src/services/treasuryStrategicService.js';
 import OfflineSyncOperation from './src/models/OfflineSyncOperation.js';
 import { hasPermission, PERMISSIONS, ROLES } from './src/utils/adminPermissions.js';
@@ -1876,13 +1876,13 @@ app.get('/api/admin/dashboard', authenticateToken, async (req, res) => {
         
         // Ejecutar las consultas en paralelo con proyección quirúrgica y tolerancia a fallos:
         // Excluimos checklists pesados y descripciones extensas que sobrecargan el payload.
-        const [cars, sales, transactions, installments, dolarBlue] = await Promise.all([
+        const [cars, sales, transactions, installments, dolarBlue, dolarBlueHistory, crmSettings] = await Promise.all([
             Car.find({})
                 .select('brand name model year status price currency purchasePrice purchaseCurrency agencyOwned isSharedInvestment investor expenses fechaIngresoStock createdAt coverImage visibleEnWeb consignedBy documentation plateOrVin plate auditLog')
                 .lean(),
             Sale.find({})
-                .select('saleDate createdAt status salePrice saleCurrency vehicleId salesperson assignedTo createdBy consignationOwnerId vehicleOwnerName notes paymentMethod clientId buyerName financingDetails')
-                .populate('vehicleId', 'brand name year purchasePrice purchaseCurrency plateOrVin plate agencyOwned consignedBy')
+                .select('saleDate createdAt status salePrice saleCurrency vehicleId salesperson assignedTo createdBy consignationOwnerId vehicleOwnerName notes paymentMethod clientId buyerName financingDetails exchangeRate saleExpenses commissionSettings tradeIns tradeInTotalAmount')
+                .populate('vehicleId', 'brand name year purchasePrice purchaseCurrency plateOrVin plate agencyOwned consignedBy expenses investor jointOwnership tradeInOrigin')
                 .populate('clientId', 'fullName name')
                 .lean(),
             Transaction.find({})
@@ -1891,10 +1891,13 @@ app.get('/api/admin/dashboard', authenticateToken, async (req, res) => {
             Installment.find({})
                 .select('amount currency status dueDate')
                 .lean(),
-            getDolarBlueRate(false).catch(() => null)
+            getDolarBlueRate(false).catch(() => null),
+            getDolarBlueHistoricalSeries(false).catch(() => null),
+            CrmSettings.findOne({}).lean().catch(() => null)
         ]);
         
-        res.json({ cars, sales, transactions, installments, dolarBlue, user: req.user });
+        const cockpitTargetUSD = crmSettings?.cockpitMonthlyTargetUSD || 110000;
+        res.json({ cars, sales, transactions, installments, dolarBlue, dolarBlueHistory, cockpitTargetUSD, user: req.user });
     } catch (error) {
         console.error('Error fetching dashboard data:', error);
         res.status(500).json({ message: 'Error fetching dashboard data' });
@@ -1910,6 +1913,61 @@ app.get('/api/dolar-blue', async (req, res) => {
     } catch (error) {
         console.error('Error en GET /api/dolar-blue:', error);
         res.status(500).json({ ok: false, message: error.message || 'Error obteniendo cotización' });
+    }
+});
+
+// GET Serie Histórica Dólar Blue (Ámbito Financiero con caché)
+app.get('/api/dolar-blue/history', async (req, res) => {
+    try {
+        const forceRefresh = req.query.refresh === 'true';
+        const data = await getDolarBlueHistoricalSeries(forceRefresh);
+        res.json({ ok: true, data });
+    } catch (error) {
+        console.error('Error en GET /api/dolar-blue/history:', error);
+        res.status(500).json({ ok: false, message: error.message || 'Error obteniendo serie histórica' });
+    }
+});
+
+// PATCH Actualizar Objetivo Mensual del Cockpit CEO (persistido en backend con auditoría)
+app.patch('/api/admin/dashboard/cockpit-target', authenticateToken, async (req, res) => {
+    try {
+        const canWrite = hasPermission(req.user, PERMISSIONS.FINANZAS_WRITE) || 
+                         hasPermission(req.user, PERMISSIONS.METAS_WRITE) ||
+                         hasPermission(req.user, PERMISSIONS.SETTINGS_WRITE);
+        if (!canWrite) {
+            return res.status(403).json({ ok: false, message: 'Sin permisos para modificar el objetivo comercial del cockpit.' });
+        }
+
+        const { targetUSD } = req.body;
+        const num = Number(targetUSD);
+        if (!Number.isFinite(num) || num <= 0) {
+            return res.status(400).json({ ok: false, message: 'El objetivo mensual debe ser un número positivo válido.' });
+        }
+
+        await connectDB();
+        let settings = await CrmSettings.findOne();
+        if (!settings) {
+            settings = new CrmSettings();
+        }
+        const oldTarget = settings.cockpitMonthlyTargetUSD || 110000;
+        settings.cockpitMonthlyTargetUSD = num;
+        settings.updatedBy = req.user._id;
+        await settings.save();
+
+        await logAudit({
+            req,
+            action: 'COCKPIT_TARGET_UPDATE',
+            module: 'cockpit',
+            entityType: 'CrmSettings',
+            entityId: settings._id,
+            description: `Objetivo mensual del Cockpit CEO actualizado de USD ${oldTarget.toLocaleString('es-AR')} a USD ${num.toLocaleString('es-AR')} por ${req.user.name || req.user.username || 'Admin'}.`,
+            metadata: { oldTarget, newTarget: num }
+        });
+
+        res.json({ ok: true, targetUSD: num, message: 'Objetivo comercial actualizado con éxito en el servidor.' });
+    } catch (err) {
+        console.error('Error actualizando objetivo del cockpit:', err);
+        res.status(500).json({ ok: false, message: err.message || 'Error al guardar el objetivo comercial en el servidor.' });
     }
 });
 

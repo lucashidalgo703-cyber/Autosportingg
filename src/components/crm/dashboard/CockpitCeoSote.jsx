@@ -20,6 +20,7 @@ import {
 } from 'lucide-react';
 import UpcomingDuesPanel from './UpcomingDuesPanel';
 import AnnualBillingPanel from './AnnualBillingPanel';
+import MonthlyGainPanel from './MonthlyGainPanel';
 
 const monthLabel = new Intl.DateTimeFormat('es-AR', { month: 'long', year: 'numeric' }).format(new Date());
 
@@ -135,34 +136,7 @@ function CashProjectionPanel({ metrics, hideAmounts }) {
     );
 }
 
-function MonthlyGainPanel({ selectedDate }) {
-    // Generate dynamic months (last 11 months + current month)
-    const months = Array.from({ length: 12 }).map((_, i) => {
-        const d = new Date(selectedDate);
-        d.setMonth(d.getMonth() - (11 - i));
-        return d.toLocaleDateString('es-AR', { month: 'short', year: '2-digit' }).toUpperCase();
-    });
 
-    return (
-        <section className="rounded-xl border border-crm-border bg-crm-surface p-4 sm:p-5">
-            <h3 className="text-xs font-bold uppercase tracking-[0.16em] text-crm-fg-muted">ÚLTIMOS 12 MESES · GANANCIA USD</h3>
-            <div className="mt-4 flex flex-wrap gap-2">
-                <span className="rounded-md bg-crm-surface-raised px-2 py-1 text-[10px] font-bold uppercase text-crm-fg-muted">Mes actual</span>
-                <span className="rounded-md bg-emerald-500/10 px-2 py-1 text-[10px] font-bold uppercase text-emerald-300">Superó obj</span>
-                <span className="rounded-md bg-crm-bg px-2 py-1 text-[10px] font-bold uppercase text-crm-fg-muted">Mes normal</span>
-            </div>
-            <p className="mt-3 text-xs text-crm-fg-muted">Objetivo USD 110k no visible - max 12m: USD 0k</p>
-            <div className="mt-5 flex h-36 items-end gap-2 border-b border-crm-border pb-3">
-                {months.map((month, index) => (
-                    <div key={month} className="flex flex-1 flex-col items-center gap-2">
-                        <div className={`w-full rounded-t-md ${index === months.length - 1 ? 'h-8 bg-crm-red/70' : 'h-3 bg-crm-surface-raised'}`} />
-                        <span className="text-center text-[9px] font-semibold leading-tight text-crm-fg-muted">{month}</span>
-                    </div>
-                ))}
-            </div>
-        </section>
-    );
-}
 
 
 export default function CockpitCeoSote({ metrics, canSeeFinancials = false, user, selectedDate = new Date(), onPrevMonth, onNextMonth, hideAmounts = false }) {
@@ -343,7 +317,7 @@ export default function CockpitCeoSote({ metrics, canSeeFinancials = false, user
 
                     {/* Aclaración reglamentaria de volumen comercial */}
                     <p className="mt-2 text-[11px] leading-snug text-crm-fg-muted">
-                        Total pactado en ventas del período; incluye importes pendientes de cobro
+                        Total pactado en ventas del período; incluye importes pendientes de cobro. Representa volumen comercial pactado, no necesariamente facturación fiscal emitida.
                     </p>
 
                     {/* Información explícita de cotización Ámbito Financiero */}
@@ -555,7 +529,13 @@ export default function CockpitCeoSote({ metrics, canSeeFinancials = false, user
             </section>
 
             {canSeeFinancials && <CashProjectionPanel metrics={metrics} hideAmounts={hideAmounts} />}
-            <MonthlyGainPanel selectedDate={selectedDate} />
+            <MonthlyGainPanel
+                gainsData={metrics.last12MonthsGains}
+                selectedDate={selectedDate}
+                canSeeFinancials={canSeeFinancials}
+                hideAmounts={hideAmounts}
+                dolarBlue={metrics.dolarBlue}
+            />
             <AnnualBillingPanel
                 annualSummary={metrics.annualSummary}
                 historicalTotal={metrics.historicalTotal}
@@ -619,7 +599,7 @@ export default function CockpitCeoSote({ metrics, canSeeFinancials = false, user
                                     </span>
                                 </div>
                                 <p className="mt-1 text-xs text-crm-fg-muted">
-                                    Total pactado en ventas del período; incluye importes pendientes de cobro
+                                    Total pactado en ventas del período; incluye importes pendientes de cobro. Representa volumen comercial pactado, no necesariamente facturación fiscal emitida.
                                 </p>
                             </div>
                             <button

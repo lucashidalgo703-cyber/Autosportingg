@@ -1,3 +1,93 @@
+import { computeSaleProfit } from '../../../utils/saleCommercial.js';
+
+export function resolveHistoricalRateMeta(date, historyObj, rateType = 'venta') {
+    if (!historyObj) {
+        return {
+            rate: null,
+            rateDate: null,
+            isExactDate: false,
+            isSubstituted: false,
+            substitutedFromDate: null,
+            rateType: `Dólar blue (${rateType})`,
+            source: 'Ámbito Financiero — dólar blue',
+            note: 'Sin histórico de Ámbito disponible'
+        };
+    }
+    const series = historyObj.series || historyObj;
+    if (!series || typeof series !== 'object') {
+        return {
+            rate: null,
+            rateDate: null,
+            isExactDate: false,
+            isSubstituted: false,
+            substitutedFromDate: null,
+            rateType: `Dólar blue (${rateType})`,
+            source: 'Ámbito Financiero — dólar blue',
+            note: 'Serie histórica de Ámbito no inicializada'
+        };
+    }
+    const ym = getArgentinaYearMonth(date);
+    if (!ym || ym.year === null || ym.month === null || ym.day === null) {
+        return {
+            rate: null,
+            rateDate: null,
+            isExactDate: false,
+            isSubstituted: false,
+            substitutedFromDate: null,
+            rateType: `Dólar blue (${rateType})`,
+            source: 'Ámbito Financiero — dólar blue',
+            note: 'Fecha inválida'
+        };
+    }
+    const iso = `${ym.year}-${String(ym.month + 1).padStart(2, '0')}-${String(ym.day).padStart(2, '0')}`;
+    if (series[iso] && Number(series[iso]) > 0) {
+        return {
+            rate: Number(series[iso]),
+            rateDate: iso,
+            isExactDate: true,
+            isSubstituted: false,
+            substitutedFromDate: null,
+            rateType: `Dólar blue (${rateType})`,
+            source: 'Ámbito Financiero — dólar blue',
+            note: `Cotización exacta del día de la operación (${iso})`
+        };
+    }
+    const baseDate = new Date(`${iso}T12:00:00Z`);
+    if (!isNaN(baseDate.getTime())) {
+        for (let offset = 1; offset <= 10; offset++) {
+            const prev = new Date(baseDate.getTime() - offset * 24 * 60 * 60 * 1000);
+            const prevIso = prev.toISOString().slice(0, 10);
+            if (series[prevIso] && Number(series[prevIso]) > 0) {
+                return {
+                    rate: Number(series[prevIso]),
+                    rateDate: prevIso,
+                    isExactDate: false,
+                    isSubstituted: true,
+                    substitutedFromDate: prevIso,
+                    rateType: `Dólar blue (${rateType})`,
+                    source: 'Ámbito Financiero — dólar blue',
+                    note: `Sustitución por último día hábil anterior disponible (${prevIso}) para operación del ${iso}`
+                };
+            }
+        }
+    }
+    return {
+        rate: null,
+        rateDate: null,
+        isExactDate: false,
+        isSubstituted: false,
+        substitutedFromDate: null,
+        rateType: `Dólar blue (${rateType})`,
+        source: 'Ámbito Financiero — dólar blue',
+        note: `Sin cotización histórica anterior disponible en Ámbito para ${iso}`
+    };
+}
+
+export function resolveHistoricalRateFromSeries(date, historyObj, rateType = 'venta') {
+    const meta = resolveHistoricalRateMeta(date, historyObj, rateType);
+    return meta.rate;
+}
+
 export function getArgentinaYearMonth(date) {
     if (!date) return { year: null, month: null, day: null, key: null };
     const d = typeof date === 'string' || typeof date === 'number' ? new Date(date) : date;
@@ -296,10 +386,56 @@ export function calculateDashboardMetrics(cars = []) {
         let billingTotalUSD = 0;
         const billingOtherCurrencies = {};
 
-        // Parámetro de cotización del Dólar Blue (Ámbito Financiero)
+        // Parámetros completos extraídos
+        const transactions = arguments.length > 3 && arguments[3] ? arguments[3] : [];
+        const installments = arguments.length > 4 && arguments[4] ? arguments[4] : [];
+        // user ya extraido arriba
         const dolarBlue = arguments.length > 6 && arguments[6] ? arguments[6] : null;
         const blueRate = (dolarBlue && dolarBlue.rate && Number(dolarBlue.rate) > 0) ? Number(dolarBlue.rate) : null;
+        const dolarBlueHistory = arguments.length > 7 && arguments[7] ? arguments[7] : null;
+        const cockpitTargetUSD = (arguments.length > 8 && arguments[8] && Number(arguments[8]) > 0) ? Number(arguments[8]) : 110000;
         metrics.dolarBlue = dolarBlue;
+        metrics.dolarBlueHistory = dolarBlueHistory;
+
+        // Estructura para el panel Últimos 12 meses · Ganancia Dual (Proyectada vs Liberada por Cobros)
+        const MONTH_NAMES_12M_SHORT = ['ENE', 'FEB', 'MAR', 'ABR', 'MAY', 'JUN', 'JUL', 'AGO', 'SEP', 'OCT', 'NOV', 'DIC'];
+        const MONTH_NAMES_12M_FULL = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
+
+        function createEmpty12Months() {
+            const list = [];
+            for (let i = 0; i < 12; i++) {
+                const d = new Date(selectedDate);
+                d.setDate(1);
+                d.setMonth(d.getMonth() - (11 - i));
+                const ym = getArgentinaYearMonth(d);
+                const y = ym.year;
+                const m = ym.month;
+                const isCur = y === currentArgYM.year && m === currentArgYM.month;
+                const isSel = i === 11;
+                const shortYear = String(y).slice(-2);
+                list.push({
+                    index: i,
+                    year: y,
+                    month: m,
+                    key: `${y}-${String(m + 1).padStart(2, '0')}`,
+                    label: `${MONTH_NAMES_12M_SHORT[m]} ${shortYear}`,
+                    fullLabel: `${MONTH_NAMES_12M_FULL[m]} ${y}`,
+                    isCurrentMonth: isCur,
+                    isSelectedMonth: isSel,
+                    salesCount: 0,
+                    gainARS: 0,
+                    gainUSD: 0,
+                    incompleteCount: 0,
+                    status: 'empty',
+                    sales: []
+                });
+            }
+            return list;
+        }
+
+        const projectedMonths = createEmpty12Months();
+        const releasedMonths = createEmpty12Months();
+        const saleWaterfallMap = new Map();
 
         sales.forEach(sale => {
             // Priorizar siempre la fecha comercial de la venta sobre createdAt
@@ -317,23 +453,51 @@ export function calculateDashboardMetrics(cars = []) {
                 // Buscar en stock por si necesitamos datos que no vinieron populados
                 const carFromStock = carIdStr ? cars.find(c => String(c._id) === String(carIdStr)) : null;
                 
-                const carData = isPopulated ? sale.vehicleId : carFromStock;
-                
-                let profitUSD = 0;
-                let profitARS = 0;
+                // Combinar datos del stock con los populados de la venta
+                const carData = carFromStock || (isPopulated ? sale.vehicleId : null);
 
-                if (carData && carData.purchasePrice) {
+                // Cotización histórica de Ámbito correspondiente a la fecha de venta
+                const rateMeta = resolveHistoricalRateMeta(saleDateRaw, dolarBlueHistory, 'venta');
+                const explicitRate = (sale.exchangeRate && Number(sale.exchangeRate) > 0) ? Number(sale.exchangeRate) : null;
+                const historicalRate = explicitRate || rateMeta.rate;
+                const appliedRate = historicalRate || blueRate;
+
+                // Cálculo estricto de ganancia comercial neta de la agencia
+                // (descontando costo de adquisición/toma, gastos del auto, gastos de venta, comisiones y participación de socios)
+                const commercialProfit = computeSaleProfit({
+                    salePrice: sale.salePrice,
+                    saleCurrency: sale.saleCurrency,
+                    vehicle: carData,
+                    vehicleExpenses: carData?.expenses || [],
+                    saleExpenses: sale.saleExpenses || [],
+                    commissionSettings: sale.commissionSettings,
+                    exchangeRate: appliedRate
+                });
+
+                let profitARS = 0;
+                let profitUSD = 0;
+                let isCalculableProfit = commercialProfit.calculable && commercialProfit.agencyNetProfit !== null;
+
+                if (isCalculableProfit) {
+                    if (commercialProfit.currency === 'USD') {
+                        profitUSD = commercialProfit.agencyNetProfit;
+                        profitARS = appliedRate ? Math.round(commercialProfit.agencyNetProfit * appliedRate) : 0;
+                    } else {
+                        profitARS = commercialProfit.agencyNetProfit;
+                        profitUSD = appliedRate ? Math.round(commercialProfit.agencyNetProfit / appliedRate) : 0;
+                    }
+                } else if (carData && carData.purchasePrice) {
+                    // Fallback a margen básico si falta algún dato pero hay precio y costo
                     const cost = Number(carData.purchasePrice);
                     const price = Number(sale.salePrice);
-                    
-                    // Simple exact currency margin
-                    const normalizedSaleCurrency = (sale.saleCurrency === 'U$S' || sale.saleCurrency === 'USD') ? 'USD' : (sale.saleCurrency === '$' || sale.saleCurrency === 'ARS') ? 'ARS' : sale.saleCurrency;
-                    const normalizedPurchaseCurrency = (carData.purchaseCurrency === 'U$S' || carData.purchaseCurrency === 'USD') ? 'USD' : (carData.purchaseCurrency === '$' || carData.purchaseCurrency === 'ARS') ? 'ARS' : carData.purchaseCurrency;
-
-                    if (normalizedSaleCurrency === 'USD' && normalizedPurchaseCurrency === 'USD') {
+                    const normSaleCur = (sale.saleCurrency === 'U$S' || sale.saleCurrency === 'USD') ? 'USD' : 'ARS';
+                    const normPurchCur = (carData.purchaseCurrency === 'U$S' || carData.purchaseCurrency === 'USD') ? 'USD' : 'ARS';
+                    if (normSaleCur === 'USD' && normPurchCur === 'USD') {
                         profitUSD = price - cost;
-                    } else if (normalizedSaleCurrency === 'ARS' && normalizedPurchaseCurrency === 'ARS') {
+                        profitARS = appliedRate ? Math.round(profitUSD * appliedRate) : 0;
+                    } else if (normSaleCur === 'ARS' && normPurchCur === 'ARS') {
                         profitARS = price - cost;
+                        profitUSD = appliedRate ? Math.round(profitARS / appliedRate) : 0;
                     }
                 }
 
@@ -476,7 +640,71 @@ export function calculateDashboardMetrics(cars = []) {
                     });
                 }
                 
-                // Cálculo para el array histórico de 12 meses
+                // Asignar al bucket de ganancia comercial proyectada (agrupada por fecha de venta)
+                const bucketProj = projectedMonths.find(b => b.year === saleArgYM.year && b.month === saleArgYM.month);
+                if (bucketProj) {
+                    bucketProj.salesCount++;
+                    if (isCalculableProfit) {
+                        bucketProj.gainARS += profitARS;
+                        if (historicalRate || (sale.saleCurrency === 'USD')) {
+                            bucketProj.gainUSD += profitUSD;
+                        } else {
+                            bucketProj.incompleteCount++;
+                        }
+                    } else {
+                        bucketProj.incompleteCount++;
+                    }
+
+                    const hasFinancing = Boolean(sale.financingDetails?.hasFinancing || sale.paymentMethod === 'financiado');
+                    const financedBal = hasFinancing ? Number(sale.financingDetails?.financedBalance || 0) : 0;
+
+                    bucketProj.sales.push({
+                        id: sale._id,
+                        date: saleDateRaw,
+                        dateDisplay: formatArgentinaDate(saleDateRaw),
+                        carName: displayCarName,
+                        plate: carData?.plateOrVin || carData?.plate || 'S/D',
+                        salePrice: Number(sale.salePrice) || 0,
+                        saleCurrency: (sale.saleCurrency === 'U$S' || sale.saleCurrency === 'USD') ? 'USD' : 'ARS',
+                        cost: commercialProfit.acquisitionCost,
+                        expenses: commercialProfit.totalExpenses,
+                        commissions: commercialProfit.commissionAmount,
+                        investorPct: commercialProfit.investorPercentage,
+                        investorProfit: commercialProfit.investorProfitShare,
+                        agencyProfitARS: isCalculableProfit ? profitARS : null,
+                        agencyProfitUSD: (isCalculableProfit && (historicalRate || sale.saleCurrency === 'USD')) ? profitUSD : null,
+                        rateUsed: appliedRate,
+                        rateDate: rateMeta.rateDate,
+                        isExactDate: rateMeta.isExactDate,
+                        isSubstituted: rateMeta.isSubstituted,
+                        substitutedFromDate: rateMeta.substitutedFromDate,
+                        rateSource: explicitRate ? 'Registrada en venta' : rateMeta.source,
+                        rateNote: rateMeta.note,
+                        calculable: commercialProfit.calculable,
+                        missingReasons: commercialProfit.missingReasons,
+                        isConsigned: Boolean(sale.consignationOwnerId || (carData && (carData.consignedBy || carData.agencyOwned === false))),
+                        hasFinancing,
+                        financedBalance: financedBal,
+                        type: 'sale_projection'
+                    });
+                }
+
+                // Registrar venta en el circuito de Tesorería para calcular margen liberado por cobros
+                const acquisitionCost = commercialProfit.acquisitionCost || 0;
+                const totalExpenses = (commercialProfit.vehicleExpensesTotal || 0) + (commercialProfit.saleExpensesTotal || 0);
+                const realInvestment = acquisitionCost + totalExpenses;
+                const investorPct = commercialProfit.investorPercentage || 0;
+                const agencyPct = (100 - investorPct) / 100;
+                saleWaterfallMap.set(String(sale._id), {
+                    sale,
+                    carData,
+                    commercialProfit,
+                    realInvestment,
+                    agencyPct,
+                    collectedSoFar: 0
+                });
+
+                // Cálculo para el array histórico de 12 meses (ventas brutas para Dashboard General)
                 const monthDiff = (targetYear - saleDate.getFullYear()) * 12 + (targetMonth - saleDate.getMonth());
                 if (monthDiff >= 0 && monthDiff < 12) {
                     const arrayIndex = 11 - monthDiff;
@@ -551,6 +779,129 @@ export function calculateDashboardMetrics(cars = []) {
         metrics.margenEstimado.USD = realMarginUSD;
         metrics.salesDetails = salesDetails;
 
+        // --- Procesamiento de Cobros Reales en Tesorería (Margen Liberado) ---
+        const sortedTransactions = [...transactions].sort((a, b) => {
+            const da = new Date(a.date || a.createdAt || 0).getTime();
+            const db = new Date(b.date || b.createdAt || 0).getTime();
+            return da - db;
+        });
+
+        sortedTransactions.forEach(t => {
+            const status = (t.status || '').toLowerCase();
+            if (status === 'anulado' || status === 'cancelado') return;
+            const type = (t.type || '').toLowerCase();
+            if (type !== 'ingreso') return;
+
+            const amt = Number(t.amount) || 0;
+            if (amt <= 0) return;
+
+            const tDate = t.date ? new Date(t.date) : new Date(t.createdAt);
+            if (isNaN(tDate.getTime())) return;
+
+            if (t.saleId && saleWaterfallMap.has(String(t.saleId))) {
+                const sw = saleWaterfallMap.get(String(t.saleId));
+                const prevCollected = sw.collectedSoFar;
+                const newCollected = prevCollected + amt;
+                sw.collectedSoFar = newCollected;
+
+                const prevReleased = Math.max(0, prevCollected - sw.realInvestment) * sw.agencyPct;
+                const newReleased = Math.max(0, newCollected - sw.realInvestment) * sw.agencyPct;
+                const deltaReleasedARS = Math.max(0, newReleased - prevReleased);
+
+                const txArgYM = getArgentinaYearMonth(tDate);
+                const relBucket = releasedMonths.find(b => b.year === txArgYM.year && b.month === txArgYM.month);
+
+                if (relBucket) {
+                    const rateMeta = resolveHistoricalRateMeta(tDate, dolarBlueHistory, 'venta');
+                    const rateApplied = rateMeta.rate || blueRate || 1540;
+                    const deltaReleasedUSD = Math.round(deltaReleasedARS / rateApplied);
+
+                    relBucket.salesCount++;
+                    relBucket.gainARS += Math.round(deltaReleasedARS);
+                    relBucket.gainUSD += deltaReleasedUSD;
+
+                    relBucket.sales.push({
+                        id: t._id,
+                        saleId: t.saleId,
+                        date: tDate,
+                        dateDisplay: formatArgentinaDate(tDate),
+                        clientName: sw.sale.buyerName || sw.sale.clientId?.fullName || 'Cliente',
+                        concept: t.concept || t.description || 'Cobro de venta / cuota',
+                        carName: sw.carData ? `${sw.carData.brand || ''} ${sw.carData.name || ''}`.trim() : 'Vehículo',
+                        plate: sw.carData?.plateOrVin || sw.carData?.plate || 'S/D',
+                        amountCollected: amt,
+                        currency: t.currency || 'ARS',
+                        realInvestment: sw.realInvestment,
+                        collectedSoFar: newCollected,
+                        agencyProfitARS: Math.round(deltaReleasedARS),
+                        agencyProfitUSD: deltaReleasedUSD,
+                        rateUsed: rateApplied,
+                        rateDate: rateMeta.rateDate,
+                        isExactDate: rateMeta.isExactDate,
+                        isSubstituted: rateMeta.isSubstituted,
+                        substitutedFromDate: rateMeta.substitutedFromDate,
+                        rateSource: rateMeta.source,
+                        rateNote: rateMeta.note,
+                        calculable: true,
+                        type: 'cash_collection'
+                    });
+                }
+            }
+        });
+
+        // Función para consolidar estados y estadísticas de cada colección
+        function finalizeGainsCollection(list) {
+            list.forEach(b => {
+                if (b.salesCount === 0) {
+                    b.status = 'empty';
+                } else if (b.incompleteCount > 0 && b.sales.every(s => !s.calculable)) {
+                    b.status = 'incomplete';
+                } else if (b.gainUSD < 0 || b.gainARS < 0) {
+                    b.status = 'negative';
+                } else {
+                    b.status = 'positive';
+                }
+            });
+
+            const totalAccARS = list.reduce((acc, b) => acc + b.gainARS, 0);
+            const totalAccUSD = list.reduce((acc, b) => acc + b.gainUSD, 0);
+            const activeMonths = list.filter(b => b.salesCount > 0);
+            const activeCount = activeMonths.length || 1;
+            const avgARS = Math.round(totalAccARS / activeCount);
+            const avgUSD = Math.round(totalAccUSD / activeCount);
+            const maxGainUSD = Math.max(...list.map(b => b.gainUSD), 0);
+            const maxGainARS = Math.max(...list.map(b => b.gainARS), 0);
+            const minGainUSD = Math.min(...list.map(b => b.gainUSD), 0);
+            const minGainARS = Math.min(...list.map(b => b.gainARS), 0);
+            const totalSalesCount = list.reduce((acc, b) => acc + b.salesCount, 0);
+
+            return {
+                months: list,
+                totalAccumulatedARS: totalAccARS,
+                totalAccumulatedUSD: totalAccUSD,
+                monthlyAverageARS: avgARS,
+                monthlyAverageUSD: avgUSD,
+                maxGainUSD,
+                maxGainARS,
+                minGainUSD,
+                minGainARS,
+                totalSalesCount12m: totalSalesCount,
+                activeMonthsCount: activeMonths.length
+            };
+        }
+
+        const projSummary = finalizeGainsCollection(projectedMonths);
+        const relSummary = finalizeGainsCollection(releasedMonths);
+
+        metrics.last12MonthsGains = {
+            months: projectedMonths, // Compatible por defecto
+            projected: projSummary,
+            released: relSummary,
+            cockpitTargetUSD: cockpitTargetUSD || 110000,
+            dolarBlueCurrent: blueRate,
+            dolarBlueHistoryCount: dolarBlueHistory?.count || 0
+        };
+
         // --- Totales convertidos para Facturación Mensual ---
         const rateVenta = (blueRate && blueRate > 0) ? blueRate : null;
         const rateCompra = (dolarBlue && Number(dolarBlue.compra) > 0) ? Number(dolarBlue.compra) : null;
@@ -603,8 +954,6 @@ export function calculateDashboardMetrics(cars = []) {
         };
         
         // --- Transacciones (Cash Flow) ---
-        const transactions = arguments.length > 3 && arguments[3] ? arguments[3] : [];
-        const installments = arguments.length > 4 && arguments[4] ? arguments[4] : [];
 
         metrics.finanzas = {
             ingresosUSD: 0, ingresosARS: 0,

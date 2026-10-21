@@ -5,7 +5,7 @@ import { parseResponseSafe } from '../utils/apiHelper';
 import toast from 'react-hot-toast';
 
 export const useAdminDashboard = () => {
-    const [data, setData] = useState({ cars: [], sales: [], transactions: [], installments: [], dolarBlue: null });
+    const [data, setData] = useState({ cars: [], sales: [], transactions: [], installments: [], dolarBlue: null, dolarBlueHistory: null, cockpitTargetUSD: 110000 });
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
     const { logout } = useAuth();
@@ -16,7 +16,7 @@ export const useAdminDashboard = () => {
             setError(null);
             
             const API_URL = process.env.NEXT_PUBLIC_API_URL;
-            const baseUrl = process.env.NODE_ENV === 'production' ? '' : (API_URL || 'http://localhost:3001');
+            const baseUrl = process.env.NEXT_PUBLIC_API_URL || (typeof window !== 'undefined' && window.location.hostname !== 'localhost' ? '' : 'http://localhost:3001');
             const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
             
             if (!token) throw new Error('No admin token found');
@@ -42,7 +42,9 @@ export const useAdminDashboard = () => {
                     sales: json.sales || [],
                     transactions: json.transactions || [],
                     installments: json.installments || [],
-                    dolarBlue: json.dolarBlue || null
+                    dolarBlue: json.dolarBlue || null,
+                    dolarBlueHistory: json.dolarBlueHistory || null,
+                    cockpitTargetUSD: json.cockpitTargetUSD || 110000
                 });
             }
         } catch (err) {

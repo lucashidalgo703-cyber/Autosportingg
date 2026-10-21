@@ -235,6 +235,7 @@ export const computeSaleProfit = ({
     let vehicleExpensesTotal = 0;
     let excludedVehicleExpensesCount = 0;
     let usedExchangeRateOnExpenses = false;
+    const registeredVehicleExpenses = [];
 
     for (const exp of rawVehExpenses) {
         const amt = Number(exp?.amount) || 0;
@@ -244,6 +245,11 @@ export const computeSaleProfit = ({
         if (conv.ok) {
             vehicleExpensesTotal = roundMoney(vehicleExpensesTotal + conv.amount);
             if (conv.converted) usedExchangeRateOnExpenses = true;
+            registeredVehicleExpenses.push({
+                concept: (exp?.concept || exp?.description || '').trim().toLowerCase(),
+                amount: amt,
+                currency: expCur
+            });
         } else {
             excludedVehicleExpensesCount += 1;
         }
@@ -255,7 +261,7 @@ export const computeSaleProfit = ({
         );
     }
 
-    // Gastos comerciales de la venta (sale.saleExpenses)
+    // Gastos comerciales de la venta (sale.saleExpenses) con deduplicación estricta
     const rawSaleExpenses = Array.isArray(saleExpenses)
         ? saleExpenses
         : (Array.isArray(expenses) ? expenses : []);
@@ -265,7 +271,18 @@ export const computeSaleProfit = ({
     for (const exp of rawSaleExpenses) {
         const amt = Number(exp?.amount) || 0;
         if (!(amt > 0)) continue;
+        const expConcept = (exp?.description || exp?.concept || '').trim().toLowerCase();
         const expCur = exp?.currency ? normalizeCurrency(exp.currency) : targetCurrency;
+
+        // Comprobar si ya fue registrado de forma idéntica en los gastos del vehículo
+        const isDuplicateWithCar = registeredVehicleExpenses.some(ve =>
+            ve.concept === expConcept && ve.amount === amt && ve.currency === expCur
+        );
+        if (isDuplicateWithCar) {
+            // Se omite para no descontar dos veces el mismo gasto
+            continue;
+        }
+
         const conv = toTargetCurrency(amt, expCur);
         if (conv.ok) {
             saleExpensesTotal = roundMoney(saleExpensesTotal + conv.amount);
