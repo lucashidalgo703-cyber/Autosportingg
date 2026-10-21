@@ -1,3 +1,5 @@
+import { getCarPurchasePaymentSummary } from '../../../utils/carPurchasePayment';
+
 export const mapRealCarToCRM = (car) => {
     // Calculamos el costo total sumando el precio de compra original + gastos en la MISMA moneda.
     // Asumiremos que los gastos se guardaron en la moneda principal.
@@ -51,6 +53,7 @@ export const mapRealCarToCRM = (car) => {
         tradeInOrigin: car.tradeInOrigin || null,
         agencyOwned: Boolean(car.agencyOwned),
         purchasePaymentState: car.purchasePaymentState || null,
+        purchasePaymentSummary: getCarPurchasePaymentSummary(car),
         auditLog: car.auditLog || [], // Nuevo campo de auditoría
         _original: car // Mantenemos el original para enviar al PATCH sin perder campos
     };

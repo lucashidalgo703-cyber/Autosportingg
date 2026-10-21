@@ -1220,6 +1220,9 @@ app.post('/api/admin/cars/:id/purchase-payment', authenticateToken, requirePermi
             accountId,
             paymentMethod = 'Transferencia bancaria',
             reference = '',
+            receiptUrl = '',
+            effectiveDate,
+            concept = '',
             deductFromStrategicBox = false,
             notes = ''
         } = req.body;
@@ -1237,14 +1240,41 @@ app.post('/api/admin/cars/:id/purchase-payment', authenticateToken, requirePermi
             return res.status(404).json({ ok: false, message: 'Cuenta no encontrada.' });
         }
 
+        // Validación de fondos suficientes en la cuenta de salida
+        if ((account.balance || 0) < numAmount) {
+            return res.status(400).json({
+                ok: false,
+                message: `Fondos insuficientes en la cuenta "${account.name}". Saldo disponible: ${account.currency} ${(account.balance || 0).toLocaleString('es-AR')}, requerido: ${account.currency} ${numAmount.toLocaleString('es-AR')}.`
+            });
+        }
+
         const curr = car.purchaseCurrency === 'ARS' ? 'ARS' : 'USD';
-        const totalCost = Number(car.purchasePrice) || 0;
-        const currentPaid = Number(car.purchasePaymentState?.amountPaid) || 0;
+        const totalCost = Number(car.purchasePrice) || Number(car.purchasePaymentState?.totalCost) || 0;
+        const paymentsList = car.purchasePaymentState?.payments || [];
+        const currentPaid = paymentsList.length > 0 
+            ? paymentsList.reduce((acc, p) => acc + (Number(p.amount) || 0), 0)
+            : (Number(car.purchasePaymentState?.amountPaid) || 0);
+        const currentPending = Math.max(0, totalCost - currentPaid);
+
+        if (currentPending <= 0 || car.purchasePaymentState?.status === 'pagado') {
+            return res.status(400).json({
+                ok: false,
+                message: 'Esta unidad ya se encuentra totalmente pagada. No registra saldo pendiente de compra.'
+            });
+        }
+
+        if (numAmount > currentPending + 0.01) {
+            return res.status(400).json({
+                ok: false,
+                message: `El importe a pagar (${curr} ${numAmount.toLocaleString('es-AR')}) no puede superar el saldo pendiente (${curr} ${currentPending.toLocaleString('es-AR')}).`
+            });
+        }
+
         const newPaid = currentPaid + numAmount;
         const newPending = Math.max(0, totalCost - newPaid);
         const newStatus = newPending === 0 ? 'pagado' : 'parcial';
 
-        // Descontar saldo de la cuenta física
+        // Descontar saldo de la cuenta física una sola vez
         account.balance = (account.balance || 0) - numAmount;
         await account.save();
 
@@ -1258,15 +1288,17 @@ app.post('/api/admin/cars/:id/purchase-payment', authenticateToken, requirePermi
             return 'otro';
         };
 
+        const txDate = effectiveDate ? new Date(effectiveDate) : new Date();
         const tx = new Transaction({
             type: 'Egreso',
             category: 'compra_vehiculo',
             amount: numAmount,
             currency: curr,
             accountId: account._id,
-            date: new Date(),
-            concept: `Pago compra vehículo: ${car.brand} ${car.name} (${car.plateOrVin || 'S/P'})`,
-            description: `Abono de saldo por adquisición de unidad. ${reference ? `Ref: ${reference}` : ''} ${notes}`.trim(),
+            date: txDate,
+            concept: concept || `Pago compra vehículo: ${car.brand} ${car.name} (${car.plateOrVin || 'S/P'})`,
+            description: `Abono de saldo por adquisición de unidad. ${reference ? `Ref: ${reference}. ` : ''}${receiptUrl ? `Comprobante: ${receiptUrl}. ` : ''}${notes}`.trim(),
+            receiptUrl: receiptUrl || null,
             status: 'activo',
             module: 'crm_v2',
             carId: car._id,
@@ -1295,24 +1327,29 @@ app.post('/api/admin/cars/:id/purchase-payment', authenticateToken, requirePermi
         const existingPayments = car.purchasePaymentState?.payments || [];
         car.purchasePaymentState = {
             ...(car.purchasePaymentState?.toObject ? car.purchasePaymentState.toObject() : car.purchasePaymentState),
+            modality: car.purchasePaymentState?.modality || (newPending === 0 ? 'pagar_ahora' : 'pendiente'),
             status: newStatus,
             totalCost,
             amountPaid: newPaid,
             pendingDebt: newPending,
             currency: curr,
+            paymentDate: txDate,
             payments: [
                 ...existingPayments,
                 {
-                    date: new Date(),
+                    date: txDate,
                     amount: numAmount,
                     currency: curr,
                     accountId: account._id,
                     accountName: account.name,
                     paymentMethod,
                     reference,
+                    receiptUrl: receiptUrl || '',
+                    notes: notes || concept || `Pago compra: ${car.brand} ${car.name}`,
                     deductedFromBox: Boolean(deductFromStrategicBox),
                     boxKey: 'stock',
                     transactionId: tx._id,
+                    linkedExistingTx: false,
                     user
                 }
             ]
@@ -1322,7 +1359,7 @@ app.post('/api/admin/cars/:id/purchase-payment', authenticateToken, requirePermi
         car.auditLog.push({
             action: 'PAGO_COMPRA',
             field: 'purchasePaymentState',
-            details: `Se registró un pago de ${curr} ${numAmount.toLocaleString('es-AR')} desde la cuenta ${account.name}. Saldo pendiente restante: ${curr} ${newPending.toLocaleString('es-AR')}.`,
+            details: `Se registró un pago de ${curr} ${numAmount.toLocaleString('es-AR')} desde la cuenta ${account.name} (Saldo rest: ${account.currency} ${account.balance.toLocaleString('es-AR')}). Saldo de compra pendiente: ${curr} ${newPending.toLocaleString('es-AR')}.`,
             user,
             source: 'CRM_V2',
             date: new Date()
@@ -1343,6 +1380,216 @@ app.post('/api/admin/cars/:id/purchase-payment', authenticateToken, requirePermi
         res.json({ ok: true, car, message: 'Pago de compra registrado exitosamente.' });
     } catch (error) {
         console.error('Error POST /api/admin/cars/:id/purchase-payment:', error);
+        res.status(500).json({ ok: false, message: error.message });
+    }
+});
+
+// POST vincular egreso existente a la compra de la unidad (sin volver a descontarlo)
+app.post('/api/admin/cars/:id/link-purchase-expense', authenticateToken, requirePermission(PERMISSIONS.STOCK_WRITE), async (req, res) => {
+    try {
+        await connectDB();
+        const user = req.user ? (req.user.username || req.user.email || req.user.role) : 'System';
+        const car = await Car.findById(req.params.id);
+        if (!car) {
+            return res.status(404).json({ ok: false, message: 'Vehículo no encontrado.' });
+        }
+
+        const { transactionId, reason, notes = '' } = req.body;
+        if (!transactionId) {
+            return res.status(400).json({ ok: false, message: 'Debés seleccionar una transacción de egreso existente.' });
+        }
+        if (!reason || !reason.trim()) {
+            return res.status(400).json({ ok: false, message: 'El motivo de la conciliación o vinculación es obligatorio.' });
+        }
+
+        const tx = await Transaction.findById(transactionId);
+        if (!tx) {
+            return res.status(404).json({ ok: false, message: 'Transacción no encontrada.' });
+        }
+        if (tx.type !== 'Egreso') {
+            return res.status(400).json({ ok: false, message: 'La transacción seleccionada debe ser de tipo Egreso.' });
+        }
+
+        // Vincular transacción al vehículo (sin volver a debitar fondos)
+        tx.carId = car._id;
+        tx.vehicleId = car._id;
+        await tx.save();
+
+        const account = tx.accountId ? await Account.findById(tx.accountId) : null;
+        const totalCost = Number(car.purchasePrice) || Number(car.purchasePaymentState?.totalCost) || 0;
+        const paymentsList = car.purchasePaymentState?.payments || [];
+        const currentPaid = paymentsList.length > 0 
+            ? paymentsList.reduce((acc, p) => acc + (Number(p.amount) || 0), 0)
+            : (Number(car.purchasePaymentState?.amountPaid) || 0);
+
+        const txAmount = Number(tx.amount) || 0;
+        const newPaid = currentPaid + txAmount;
+        const newPending = Math.max(0, totalCost - newPaid);
+        const newStatus = newPending === 0 ? 'pagado' : 'parcial';
+
+        if (!car.purchasePaymentState) car.purchasePaymentState = {};
+
+        car.purchasePaymentState = {
+            ...(car.purchasePaymentState?.toObject ? car.purchasePaymentState.toObject() : car.purchasePaymentState),
+            modality: 'vinculado_egreso',
+            status: newStatus,
+            totalCost,
+            amountPaid: newPaid,
+            pendingDebt: newPending,
+            currency: tx.currency || car.purchaseCurrency || 'USD',
+            payments: [
+                ...paymentsList,
+                {
+                    date: tx.date || new Date(),
+                    amount: txAmount,
+                    currency: tx.currency || 'USD',
+                    accountId: tx.accountId,
+                    accountName: account?.name || 'Cuenta asociada en egreso',
+                    paymentMethod: tx.paymentMethod || 'Transferencia',
+                    reference: tx.reference || '',
+                    receiptUrl: tx.receiptUrl || '',
+                    notes: `[Egreso vinculado] ${notes || tx.concept || ''}. Motivo: ${reason.trim()}`.trim(),
+                    deductedFromBox: false,
+                    transactionId: tx._id,
+                    linkedExistingTx: true,
+                    user
+                }
+            ]
+        };
+
+        if (!Array.isArray(car.auditLog)) car.auditLog = [];
+        car.auditLog.push({
+            action: 'VINCULO_EGRESO_COMPRA',
+            field: 'purchasePaymentState',
+            details: `Se vinculó egreso existente de ${tx.currency} ${txAmount.toLocaleString('es-AR')} (Tx #${tx._id}) sin duplicar salida de dinero. Motivo: ${reason.trim()}. Nuevo saldo pendiente: ${newPending.toLocaleString('es-AR')}.`,
+            user,
+            source: 'CRM_V2',
+            date: new Date()
+        });
+
+        await car.save();
+
+        await logAudit({
+            req,
+            action: 'VEHICULO_VINCULO_EGRESO',
+            module: 'stock',
+            entityType: 'Car',
+            entityId: car._id,
+            entityLabel: `${car.brand} ${car.name}`,
+            description: `Se vinculó egreso contable preexistente #${tx._id} por ${tx.currency} ${txAmount.toLocaleString('es-AR')} sin duplicar movimientos.`
+        });
+
+        res.json({ ok: true, car, message: 'Egreso existente vinculado exitosamente sin volver a debitar fondos.' });
+    } catch (error) {
+        console.error('Error linking purchase expense:', error);
+        res.status(500).json({ ok: false, message: error.message });
+    }
+});
+
+// PATCH actualizar datos del compromiso de pago (fecha prevista, fondos esperados, observaciones con motivo obligatorio)
+app.patch('/api/admin/cars/:id/purchase-commitment', authenticateToken, requirePermission(PERMISSIONS.STOCK_WRITE), async (req, res) => {
+    try {
+        await connectDB();
+        const user = req.user ? (req.user.username || req.user.email || req.user.role) : 'System';
+        const car = await Car.findById(req.params.id);
+        if (!car) {
+            return res.status(404).json({ ok: false, message: 'Vehículo no encontrado.' });
+        }
+
+        const { expectedDate, expectedFundsNote, commitNotes, reason } = req.body;
+        if (!reason || !reason.trim()) {
+            return res.status(400).json({ ok: false, message: 'El motivo de la modificación del compromiso es obligatorio.' });
+        }
+
+        if (!car.purchasePaymentState) car.purchasePaymentState = {};
+
+        const previousData = {
+            expectedDate: car.purchasePaymentState.expectedDate,
+            expectedFundsNote: car.purchasePaymentState.expectedFundsNote,
+            commitNotes: car.purchasePaymentState.commitNotes
+        };
+
+        if (expectedDate !== undefined) {
+            car.purchasePaymentState.expectedDate = expectedDate ? new Date(expectedDate) : null;
+        }
+        if (expectedFundsNote !== undefined) {
+            car.purchasePaymentState.expectedFundsNote = String(expectedFundsNote).trim();
+        }
+        if (commitNotes !== undefined) {
+            car.purchasePaymentState.commitNotes = String(commitNotes).trim();
+        }
+
+        if (!Array.isArray(car.purchasePaymentState.commitAuditLog)) {
+            car.purchasePaymentState.commitAuditLog = [];
+        }
+
+        const logEntry = {
+            date: new Date(),
+            user,
+            reason: reason.trim(),
+            changes: {
+                previous: previousData,
+                next: {
+                    expectedDate: car.purchasePaymentState.expectedDate,
+                    expectedFundsNote: car.purchasePaymentState.expectedFundsNote,
+                    commitNotes: car.purchasePaymentState.commitNotes
+                }
+            }
+        };
+
+        car.purchasePaymentState.commitAuditLog.push(logEntry);
+
+        if (!Array.isArray(car.auditLog)) car.auditLog = [];
+        car.auditLog.push({
+            action: 'MODIFICACION_COMPROMISO_COMPRA',
+            field: 'purchasePaymentState',
+            details: `Modificación del compromiso de compra. Motivo: ${reason.trim()}. Previsión fondos: "${car.purchasePaymentState.expectedFundsNote || 'S/D'}", Fecha prevista: ${car.purchasePaymentState.expectedDate ? new Date(car.purchasePaymentState.expectedDate).toLocaleDateString('es-AR') : 'S/F'}.`,
+            user,
+            source: 'CRM_V2',
+            date: new Date()
+        });
+
+        await car.save();
+
+        res.json({ ok: true, car, message: 'Datos del compromiso actualizados exitosamente.' });
+    } catch (error) {
+        console.error('Error updating purchase commitment:', error);
+        res.status(500).json({ ok: false, message: error.message });
+    }
+});
+
+// GET egresos disponibles para vincular a la compra de una unidad
+app.get('/api/admin/cars/:id/linkable-expenses', authenticateToken, requirePermission(PERMISSIONS.STOCK_READ), async (req, res) => {
+    try {
+        await connectDB();
+        const car = await Car.findById(req.params.id);
+        if (!car) return res.status(404).json({ ok: false, message: 'Vehículo no encontrado' });
+
+        const search = req.query.search ? String(req.query.search).trim() : '';
+        const query = {
+            type: 'Egreso',
+            module: 'crm_v2'
+        };
+
+        if (search) {
+            const regex = new RegExp(search, 'i');
+            query.$or = [
+                { concept: regex },
+                { description: regex },
+                { reference: regex },
+                { category: regex }
+            ];
+        }
+
+        const transactions = await Transaction.find(query)
+            .populate('accountId', 'name currency balance')
+            .sort({ date: -1 })
+            .limit(40)
+            .lean();
+
+        res.json({ ok: true, transactions });
+    } catch (error) {
+        console.error('Error fetching linkable expenses:', error);
         res.status(500).json({ ok: false, message: error.message });
     }
 });
@@ -2060,6 +2307,21 @@ app.patch('/api/admin/cars/:id', authenticateToken, requirePermission(PERMISSION
                 if (car.tradeInOrigin && (car.tradeInOrigin.saleId || car.tradeInOrigin.value !== undefined)) {
                     car.tradeInOrigin.value = nextPurchasePrice;
                     car.markModified('tradeInOrigin');
+                }
+                if (car.purchasePaymentState) {
+                    const paid = (car.purchasePaymentState.payments || []).reduce((acc, p) => acc + (Number(p.amount) || 0), 0) || Number(car.purchasePaymentState.amountPaid) || 0;
+                    car.purchasePaymentState.totalCost = nextPurchasePrice;
+                    if (car.purchasePaymentState.status !== 'conciliacion_pendiente') {
+                        car.purchasePaymentState.pendingDebt = Math.max(0, nextPurchasePrice - paid);
+                        if (car.purchasePaymentState.pendingDebt === 0 && paid > 0) {
+                            car.purchasePaymentState.status = 'pagado';
+                        } else if (paid > 0) {
+                            car.purchasePaymentState.status = 'parcial';
+                        } else {
+                            car.purchasePaymentState.status = 'pendiente';
+                        }
+                    }
+                    car.markModified('purchasePaymentState');
                 }
 
                 newAuditLogs.push({

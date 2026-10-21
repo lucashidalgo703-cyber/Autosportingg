@@ -66,12 +66,12 @@ const carSchema = new mongoose.Schema({
     purchasePaymentState: {
         modality: { 
             type: String, 
-            enum: ['pagar_ahora', 'pendiente', 'pago_parcial', 'ya_pagado_historico'],
+            enum: ['pagar_ahora', 'pendiente', 'pago_parcial', 'ya_pagado_historico', 'vinculado_egreso'],
             default: 'ya_pagado_historico'
         },
         status: {
             type: String,
-            enum: ['pagado', 'pendiente', 'parcial', 'no_aplica'],
+            enum: ['pagado', 'pendiente', 'parcial', 'conciliacion_pendiente', 'no_aplica'],
             default: 'no_aplica'
         },
         totalCost: { type: Number, default: 0 },
@@ -83,8 +83,16 @@ const carSchema = new mongoose.Schema({
         deductFromStrategicBox: { type: Boolean, default: false },
         strategicBoxKey: { type: String, default: 'stock' },
         paymentDate: { type: Date },
+        expectedDate: { type: Date },
         expectedFundsNote: { type: String },
         expectedFundsSaleId: { type: String },
+        commitNotes: { type: String },
+        commitAuditLog: [{
+            date: { type: Date, default: Date.now },
+            user: { type: String },
+            reason: { type: String },
+            changes: { type: mongoose.Schema.Types.Mixed }
+        }],
         payments: [{
             date: { type: Date, default: Date.now },
             amount: { type: Number, required: true },
@@ -93,9 +101,12 @@ const carSchema = new mongoose.Schema({
             accountName: { type: String },
             paymentMethod: { type: String },
             reference: { type: String },
+            receiptUrl: { type: String },
+            notes: { type: String },
             deductedFromBox: { type: Boolean, default: false },
             boxKey: { type: String, default: 'stock' },
             transactionId: { type: String },
+            linkedExistingTx: { type: Boolean, default: false },
             user: { type: String }
         }]
     },
