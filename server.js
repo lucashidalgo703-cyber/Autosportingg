@@ -1882,7 +1882,8 @@ app.get('/api/admin/dashboard', authenticateToken, async (req, res) => {
                 .lean(),
             Sale.find({})
                 .select('saleDate createdAt status salePrice saleCurrency vehicleId salesperson assignedTo createdBy consignationOwnerId vehicleOwnerName notes paymentMethod clientId buyerName financingDetails')
-                .populate('vehicleId', 'brand name year purchasePrice purchaseCurrency plateOrVin plate')
+                .populate('vehicleId', 'brand name year purchasePrice purchaseCurrency plateOrVin plate agencyOwned consignedBy')
+                .populate('clientId', 'fullName name')
                 .lean(),
             Transaction.find({})
                 .select('amount currency type date createdAt status')

@@ -1,7 +1,42 @@
+export function getArgentinaYearMonth(date) {
+    if (!date) return { year: null, month: null, day: null, key: null };
+    const d = typeof date === 'string' || typeof date === 'number' ? new Date(date) : date;
+    if (isNaN(d.getTime())) return { year: null, month: null, day: null, key: null };
+    const parts = new Intl.DateTimeFormat('en-US', {
+        timeZone: 'America/Argentina/Buenos_Aires',
+        year: 'numeric',
+        month: 'numeric',
+        day: 'numeric'
+    }).formatToParts(d);
+    let year = 0, month = 0, day = 0;
+    for (const p of parts) {
+        if (p.type === 'year') year = parseInt(p.value, 10);
+        if (p.type === 'month') month = parseInt(p.value, 10);
+        if (p.type === 'day') day = parseInt(p.value, 10);
+    }
+    return { year, month: month - 1, day, key: `${year}-${String(month).padStart(2, '0')}` };
+}
+
+export function formatArgentinaDate(date) {
+    if (!date) return '—';
+    const d = typeof date === 'string' || typeof date === 'number' ? new Date(date) : date;
+    if (isNaN(d.getTime())) return '—';
+    return new Intl.DateTimeFormat('es-AR', {
+        timeZone: 'America/Argentina/Buenos_Aires',
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric'
+    }).format(d);
+}
+
 export function calculateDashboardMetrics(cars = []) {
     const selectedDate = arguments.length > 2 && arguments[2] ? new Date(arguments[2]) : new Date();
-    const targetMonth = selectedDate.getMonth();
-    const targetYear = selectedDate.getFullYear();
+    const targetArgYM = getArgentinaYearMonth(selectedDate);
+    const targetMonth = targetArgYM.month ?? selectedDate.getMonth();
+    const targetYear = targetArgYM.year ?? selectedDate.getFullYear();
+    const currentArgYM = getArgentinaYearMonth(new Date());
+    const isCurrentMonth = targetArgYM.year === currentArgYM.year && targetArgYM.month === currentArgYM.month;
+    const isPastMonth = (targetArgYM.year < currentArgYM.year) || (targetArgYM.year === currentArgYM.year && targetArgYM.month < currentArgYM.month);
 
     const metrics = {
         capitalPublicado: { ARS: 0, USD: 0, NONE: 0 },
@@ -49,6 +84,27 @@ export function calculateDashboardMetrics(cars = []) {
             avgTicketUSD: null,
             startYear: targetYear, 
             sales: [] 
+        },
+
+        monthlyBilling: {
+            targetYear,
+            targetMonth,
+            targetLabel: new Intl.DateTimeFormat('es-AR', { month: 'long', year: 'numeric', timeZone: 'America/Argentina/Buenos_Aires' }).format(selectedDate),
+            isCurrentMonth,
+            isPastMonth,
+            salesCount: 0,
+            totalOriginalARS: 0,
+            totalOriginalUSD: 0,
+            otherCurrencies: [],
+            blueRateVenta: null,
+            blueRateCompra: null,
+            blueData: null,
+            conversionAvailable: false,
+            totalEquivARS: null,
+            totalEquivUSD: null,
+            totalEquivARSCompra: null,
+            totalEquivUSDCompra: null,
+            sales: []
         }
     };
 
@@ -235,6 +291,10 @@ export function calculateDashboardMetrics(cars = []) {
         };
 
         const salesDetails = [];
+        const monthlyBillingSales = [];
+        let billingTotalARS = 0;
+        let billingTotalUSD = 0;
+        const billingOtherCurrencies = {};
 
         // Parámetro de cotización del Dólar Blue (Ámbito Financiero)
         const dolarBlue = arguments.length > 6 && arguments[6] ? arguments[6] : null;
@@ -353,12 +413,67 @@ export function calculateDashboardMetrics(cars = []) {
                     historicalTotal.startYear = sYear;
                 }
 
-                if (saleDate.getMonth() === targetMonth && saleDate.getFullYear() === targetYear) {
+                const saleArgYM = getArgentinaYearMonth(saleDateRaw);
+                const isSelectedMonthInArgentina = saleArgYM.year === targetYear && saleArgYM.month === targetMonth;
+
+                if (isSelectedMonthInArgentina) {
                     metrics.counts.vendidos++;
                     realMarginUSD += profitUSD;
                     realMarginARS += profitARS;
 
                     salesDetails.push(fullSaleDetail);
+
+                    // --- Facturación mensual pactada (Cockpit CEO) ---
+                    let finalOperationPrice = Number(sale.salePrice) || 0;
+                    let vehiclePrice = finalOperationPrice;
+                    let interestAmount = 0;
+                    const hasFinancing = Boolean(sale.financingDetails?.hasFinancing || sale.paymentMethod === 'financiado');
+
+                    if (hasFinancing && sale.financingDetails) {
+                        const totalOp = Number(sale.financingDetails.totalOperationPrice);
+                        if (Number.isFinite(totalOp) && totalOp > 0) {
+                            finalOperationPrice = totalOp;
+                        }
+                        interestAmount = Number(sale.financingDetails.interestAmount) || 0;
+                        vehiclePrice = Number(sale.financingDetails.cashPrice) || Math.max(0, finalOperationPrice - interestAmount);
+                    }
+
+                    const originalCurrency = (sale.saleCurrency === 'U$S' || sale.saleCurrency === 'USD')
+                        ? 'USD'
+                        : (sale.saleCurrency === '$' || sale.saleCurrency === 'ARS')
+                        ? 'ARS'
+                        : (sale.saleCurrency || 'ARS');
+
+                    const isConsigned = Boolean(
+                        sale.consignationOwnerId ||
+                        (carData && (carData.consignedBy || carData.agencyOwned === false))
+                    );
+
+                    if (originalCurrency === 'ARS') {
+                        billingTotalARS += finalOperationPrice;
+                    } else if (originalCurrency === 'USD') {
+                        billingTotalUSD += finalOperationPrice;
+                    } else {
+                        billingOtherCurrencies[originalCurrency] = (billingOtherCurrencies[originalCurrency] || 0) + finalOperationPrice;
+                    }
+
+                    monthlyBillingSales.push({
+                        id: sale._id,
+                        date: saleDate,
+                        dateRaw: saleDateRaw,
+                        dateDisplay: formatArgentinaDate(saleDateRaw),
+                        clientName: sale.clientId?.fullName || sale.clientId?.name || sale.buyerName || 'Cliente sin nombre',
+                        carName: displayCarName,
+                        plate: carData?.plateOrVin || carData?.plate || 'S/D',
+                        originalPrice: finalOperationPrice,
+                        originalCurrency,
+                        vehiclePrice,
+                        interestAmount,
+                        hasFinancing,
+                        isConsigned,
+                        paymentMethod: sale.paymentMethod || 'Contado',
+                        saleRef: `/admin/ventas?saleId=${sale._id}`
+                    });
                 }
                 
                 // Cálculo para el array histórico de 12 meses
@@ -435,6 +550,57 @@ export function calculateDashboardMetrics(cars = []) {
         metrics.margenEstimado.ARS = realMarginARS;
         metrics.margenEstimado.USD = realMarginUSD;
         metrics.salesDetails = salesDetails;
+
+        // --- Totales convertidos para Facturación Mensual ---
+        const rateVenta = (blueRate && blueRate > 0) ? blueRate : null;
+        const rateCompra = (dolarBlue && Number(dolarBlue.compra) > 0) ? Number(dolarBlue.compra) : null;
+        const conversionAvailable = Boolean(rateVenta && rateVenta > 0);
+
+        monthlyBillingSales.sort((a, b) => new Date(b.date) - new Date(a.date));
+
+        monthlyBillingSales.forEach(s => {
+            if (conversionAvailable) {
+                if (s.originalCurrency === 'USD') {
+                    s.rowEquivARS = s.originalPrice * rateVenta;
+                    s.rowEquivUSD = s.originalPrice;
+                } else if (s.originalCurrency === 'ARS') {
+                    s.rowEquivUSD = s.originalPrice / rateVenta;
+                    s.rowEquivARS = s.originalPrice;
+                } else {
+                    s.rowEquivARS = null;
+                    s.rowEquivUSD = null;
+                }
+            } else {
+                s.rowEquivARS = null;
+                s.rowEquivUSD = null;
+            }
+        });
+
+        const totalEquivARS = conversionAvailable ? (billingTotalARS + (billingTotalUSD * rateVenta)) : null;
+        const totalEquivUSD = conversionAvailable ? (billingTotalUSD + (billingTotalARS / rateVenta)) : null;
+        const totalEquivARSCompra = (rateCompra && rateCompra > 0) ? (billingTotalARS + (billingTotalUSD * rateCompra)) : null;
+        const totalEquivUSDCompra = (rateCompra && rateCompra > 0) ? (billingTotalUSD + (billingTotalARS / rateCompra)) : null;
+
+        metrics.monthlyBilling = {
+            targetYear,
+            targetMonth,
+            targetLabel: new Intl.DateTimeFormat('es-AR', { month: 'long', year: 'numeric', timeZone: 'America/Argentina/Buenos_Aires' }).format(selectedDate),
+            isCurrentMonth,
+            isPastMonth,
+            salesCount: monthlyBillingSales.length,
+            totalOriginalARS: billingTotalARS,
+            totalOriginalUSD: billingTotalUSD,
+            otherCurrencies: Object.entries(billingOtherCurrencies).map(([currency, amount]) => ({ currency, amount })),
+            blueRateVenta: rateVenta,
+            blueRateCompra: rateCompra,
+            blueData: dolarBlue || null,
+            conversionAvailable,
+            totalEquivARS,
+            totalEquivUSD,
+            totalEquivARSCompra,
+            totalEquivUSDCompra,
+            sales: monthlyBillingSales
+        };
         
         // --- Transacciones (Cash Flow) ---
         const transactions = arguments.length > 3 && arguments[3] ? arguments[3] : [];
