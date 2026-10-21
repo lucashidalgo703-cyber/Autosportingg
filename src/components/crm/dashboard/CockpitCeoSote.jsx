@@ -2,6 +2,7 @@ import { useState } from 'react';
 import Link from 'next/link';
 import {
     AlertTriangle,
+    ArrowUpRight,
     Award,
     Car,
     Check,
@@ -9,6 +10,7 @@ import {
     ChevronRight,
     CircleDollarSign,
     ClipboardCheck,
+    DollarSign,
     ExternalLink,
     Gauge,
     Landmark,
