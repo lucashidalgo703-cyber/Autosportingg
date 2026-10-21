@@ -173,7 +173,7 @@ const DEFAULT_CATEGORY_RULES = [
     { category: 'Inversión', boxKey: 'crecimiento', notes: 'Inversiones estratégicas' }
 ];
 
-async function ensureDefaultBoxes() {
+export async function ensureDefaultBoxes() {
     for (const def of DEFAULT_BOXES) {
         const exists = await TreasuryBox.findOne({ key: def.key });
         if (!exists) {
@@ -2052,6 +2052,8 @@ export async function previewSaleCollectionDistribution(payload = {}) {
         pendingSaleBalance: roundMoney(Math.max(0, Number(opState.pendingSaleBalance || 0) - numAmount)),
         alreadyRecoveredCapital: roundMoney(Number(opState.alreadyRecoveredCapital || 0) + Number(proposal.capitalRecoveredToStock || 0)),
         remainingCapitalToRecover: roundMoney(Math.max(0, Number(opState.remainingCapitalToRecover || 0) - Number(proposal.capitalRecoveredToStock || 0))),
+        alreadyAllocatedExtraReinvestment: roundMoney(Number(opState.alreadyAllocatedExtraReinvestment || 0) + Number(proposal.extraReinvestmentToStock || 0)),
+        remainingExtraReinvestmentTarget: roundMoney(Math.max(0, Number(opState.remainingExtraReinvestmentTarget || 0) - Number(proposal.extraReinvestmentToStock || 0))),
         alreadyReservedPendingCosts: roundMoney(Number(opState.alreadyReservedPendingCosts || 0) + Number(proposal.obligationsSeparated || 0)),
         remainingPendingCostsToReserve: roundMoney(Math.max(0, Number(opState.remainingPendingCostsToReserve || 0) - Number(proposal.obligationsSeparated || 0))),
         alreadyDistributedMargin: roundMoney(Number(opState.alreadyDistributedMargin || 0) + Number(proposal.marginDistributed || 0)),
@@ -2427,6 +2429,7 @@ export async function collectAndDistribute(payload, user) {
             totalCollected: payAmount,
             capitalRecovered: proposal.capitalRecoveredToStock || 0,
             obligationsSeparated: proposal.obligationsSeparated || 0,
+            extraReinvestmentToStock: proposal.extraReinvestmentToStock || 0,
             distributableMargin: proposal.distributableMargin || 0,
             marginDistributed: proposal.marginDistributed || 0,
             totalDistributedToBoxes: distributedTotal,
@@ -3425,6 +3428,8 @@ const CANONICAL_EXPENSE_BOX_MAP = {
 export async function syncExpenseWithTreasury(tx, options = {}) {
     if (!tx || tx.type !== 'Egreso') return;
     if (EXCLUDED_INBOX_CATEGORIES.includes(tx.category)) return;
+    if (tx.category === 'compra_vehiculo' || tx.category === 'Pago compra vehículo' || tx.category === 'Pago Empresas') return;
+    if (tx.isTreasuryExpenseSynced) return;
 
     await ensureDefaultBoxes();
     await ensureDefaultCategoryRules();
@@ -4747,6 +4752,7 @@ export async function adjustBoxBalance(payload, user) {
     const curr = currency === 'USD' ? 'USD' : 'ARS';
     const field = curr === 'USD' ? 'balanceUSD' : 'balanceARS';
 
+    await ensureDefaultBoxes();
     const box = await TreasuryBox.findOne({ key: boxKey });
     if (!box) throw new Error(`Caja ${boxKey} no encontrada.`);
 
@@ -5097,5 +5103,225 @@ export async function getTreasuryHistory(query = {}) {
         page: parsedPage,
         pages: Math.ceil(total / parsedLimit),
         limit: parsedLimit
+    };
+}
+
+/**
+ * Diagnóstico integral en modo de solo lectura de movimientos, cuentas, cajas, pagos de compra y cobros.
+ * No muta la base de datos ni crea transacciones automáticas.
+ */
+export async function runTreasuryDiagnosticAudit() {
+    await ensureDefaultBoxes();
+    const accounts = await Account.find({ isActive: { $ne: false } }).lean();
+    const boxes = await TreasuryBox.find({ isActive: true }).lean();
+
+    let totalCuentasARS = 0;
+    let totalCuentasUSD = 0;
+    let totalEfectivoARS = 0;
+    let totalEfectivoUSD = 0;
+    let totalBancosARS = 0;
+    let totalBancosUSD = 0;
+    const accountIssues = [];
+
+    accounts.forEach(acc => {
+        const bal = roundMoney(Number(acc.balance || 0));
+        const isPhysical = acc.type === 'Efectivo';
+        if (acc.currency === 'USD') {
+            totalCuentasUSD += bal;
+            if (isPhysical) totalEfectivoUSD += bal;
+            else totalBancosUSD += bal;
+        } else {
+            totalCuentasARS += bal;
+            if (isPhysical) totalEfectivoARS += bal;
+            else totalBancosARS += bal;
+        }
+
+        if (isPhysical && bal < 0) {
+            accountIssues.push({
+                accountId: acc._id,
+                accountName: acc.name,
+                currency: acc.currency,
+                balance: bal,
+                severity: 'error',
+                description: `Saldo negativo en caja de efectivo físico (${acc.currency} ${bal.toLocaleString('es-AR')}). Requiere arqueo conciliatorio.`
+            });
+        } else if (!isPhysical && bal < 0) {
+            accountIssues.push({
+                accountId: acc._id,
+                accountName: acc.name,
+                currency: acc.currency,
+                balance: bal,
+                severity: 'warning',
+                description: `Descubierto bancario registrado (${acc.currency} ${bal.toLocaleString('es-AR')}).`
+            });
+        }
+    });
+
+    totalCuentasARS = roundMoney(totalCuentasARS);
+    totalCuentasUSD = roundMoney(totalCuentasUSD);
+
+    let totalCajasARS = 0;
+    let totalCajasUSD = 0;
+    const negativeBoxes = [];
+
+    boxes.forEach(b => {
+        const bARS = roundMoney(Number(b.balanceARS || 0));
+        const bUSD = roundMoney(Number(b.balanceUSD || 0));
+        totalCajasARS += bARS;
+        totalCajasUSD += bUSD;
+
+        if (bARS < 0 || bUSD < 0) {
+            negativeBoxes.push({
+                boxKey: b.key,
+                boxName: b.name,
+                balanceARS: bARS,
+                balanceUSD: bUSD,
+                severity: 'error',
+                description: `Caja estratégica ${b.name} tiene saldo negativo.`
+            });
+        }
+    });
+
+    totalCajasARS = roundMoney(totalCajasARS);
+    totalCajasUSD = roundMoney(totalCajasUSD);
+
+    const unallocatedARS = roundMoney(totalCuentasARS - totalCajasARS);
+    const unallocatedUSD = roundMoney(totalCuentasUSD - totalCajasUSD);
+
+    // Ecuación Central: Liquidez real === Cajas + Sin Asignar
+    const diffConciliacionARS = roundMoney(totalCuentasARS - (totalCajasARS + unallocatedARS));
+    const diffConciliacionUSD = roundMoney(totalCuentasUSD - (totalCajasUSD + unallocatedUSD));
+
+    // Detección de Pagos de compra sin deducción estratégica vinculada
+    const purchaseTxs = await Transaction.find({
+        type: 'Egreso',
+        $or: [
+            { category: 'compra_vehiculo' },
+            { category: 'Pago compra vehículo' },
+            { category: 'Pago Empresas' },
+            { carId: { $exists: true, $ne: null } }
+        ]
+    }).sort({ date: -1 }).limit(100).lean();
+
+    const unlinkedPurchasePayments = [];
+    purchaseTxs.forEach(tx => {
+        if (!tx.treasuryBoxKey && !tx.isTreasuryExpenseSynced && (!tx.notes || !tx.notes.includes('unallocated'))) {
+            unlinkedPurchasePayments.push({
+                transactionId: tx._id,
+                amount: tx.amount,
+                currency: tx.currency,
+                concept: tx.concept,
+                date: tx.date,
+                notes: 'Pago de compra registrado sin caja estratégica ni dinero sin asignar explícito.'
+            });
+        }
+    });
+
+    // Detección de Posibles Duplicados (misma fecha aprox, monto y cuenta)
+    const recentTxs = await Transaction.find().sort({ createdAt: -1 }).limit(300).lean();
+    const potentialDuplicates = [];
+    for (let i = 0; i < recentTxs.length; i++) {
+        for (let j = i + 1; j < recentTxs.length; j++) {
+            const a = recentTxs[i];
+            const b = recentTxs[j];
+            if (
+                a.type === b.type &&
+                Math.abs(Number(a.amount || 0) - Number(b.amount || 0)) < 0.01 &&
+                a.currency === b.currency &&
+                String(a.accountId || '') === String(b.accountId || '') &&
+                a.category === b.category &&
+                Math.abs(new Date(a.date).getTime() - new Date(b.date).getTime()) < 10 * 60 * 1000 // 10 min
+            ) {
+                potentialDuplicates.push({
+                    tx1Id: a._id,
+                    tx2Id: b._id,
+                    amount: a.amount,
+                    currency: a.currency,
+                    concept: a.concept,
+                    category: a.category,
+                    date: a.date
+                });
+            }
+        }
+    }
+
+    // Detección de Inconsistencias en Autos
+    const carsWithPayments = await Car.find({
+        'purchasePaymentState.amountPaid': { $gt: 0 }
+    }).select('brand name plateOrVin purchasePrice purchaseCurrency purchasePaymentState').lean();
+
+    const carInconsistencies = [];
+    carsWithPayments.forEach(c => {
+        const state = c.purchasePaymentState;
+        if (state && state.status !== 'conciliacion_pendiente') {
+            const agencyCost = Number(state.agencyCost || state.totalCost || c.purchasePrice || 0);
+            const paid = Number(state.amountPaid || 0);
+            const pending = Number(state.pendingDebt || 0);
+            if (Math.abs((paid + pending) - agencyCost) > 1) {
+                carInconsistencies.push({
+                    carId: c._id,
+                    carLabel: `${c.brand} ${c.name} (${c.plateOrVin || 'S/P'})`,
+                    agencyCost,
+                    paid,
+                    pending,
+                    difference: roundMoney(agencyCost - (paid + pending))
+                });
+            }
+        }
+    });
+
+    const isSystemBalanced = diffConciliacionARS === 0 && diffConciliacionUSD === 0 && accountIssues.filter(i => i.severity === 'error').length === 0 && negativeBoxes.length === 0;
+
+    return {
+        ok: true,
+        timestamp: new Date(),
+        isSystemBalanced,
+        reconciliationEquation: {
+            ARS: {
+                totalCuentas: totalCuentasARS,
+                totalCajas: totalCajasARS,
+                unallocated: unallocatedARS,
+                difference: diffConciliacionARS,
+                formula: `${totalCuentasARS} = ${totalCajasARS} (cajas) + ${unallocatedARS} (sin asignar)`,
+                isBalanced: diffConciliacionARS === 0
+            },
+            USD: {
+                totalCuentas: totalCuentasUSD,
+                totalCajas: totalCajasUSD,
+                unallocated: unallocatedUSD,
+                difference: diffConciliacionUSD,
+                formula: `${totalCuentasUSD} = ${totalCajasUSD} (cajas) + ${unallocatedUSD} (sin asignar)`,
+                isBalanced: diffConciliacionUSD === 0
+            }
+        },
+        liquidityDetails: {
+            accounts: {
+                totalARS: totalCuentasARS,
+                totalUSD: totalCuentasUSD,
+                efectivoARS: totalEfectivoARS,
+                efectivoUSD: totalEfectivoUSD,
+                bancosARS: totalBancosARS,
+                bancosUSD: totalBancosUSD,
+                list: accounts.map(a => ({ id: a._id, name: a.name, type: a.type, currency: a.currency, balance: a.balance }))
+            },
+            boxes: {
+                totalARS: totalCajasARS,
+                totalUSD: totalCajasUSD,
+                list: boxes.map(b => ({ key: b.key, name: b.name, balanceARS: b.balanceARS, balanceUSD: b.balanceUSD }))
+            }
+        },
+        auditFindings: {
+            accountIssues,
+            negativeBoxes,
+            unlinkedPurchasePayments: unlinkedPurchasePayments.slice(0, 20),
+            potentialDuplicates: potentialDuplicates.slice(0, 10),
+            carInconsistencies: carInconsistencies.slice(0, 20)
+        },
+        summary: {
+            totalAccounts: accounts.length,
+            totalBoxes: boxes.length,
+            issuesCount: accountIssues.length + negativeBoxes.length + unlinkedPurchasePayments.length + carInconsistencies.length,
+            statusLabel: isSystemBalanced ? 'Conciliación Cuadrada y Equilibrada' : 'Observaciones para Conciliación'
+        }
     };
 }

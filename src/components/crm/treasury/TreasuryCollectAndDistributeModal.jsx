@@ -575,6 +575,11 @@ export default function TreasuryCollectAndDistributeModal({
             toast.success(data.message || 'Cobro registrado y distribuido con éxito.');
             setCompletedResult(data);
             setStep(4);
+            if (typeof window !== 'undefined') {
+                window.dispatchEvent(new CustomEvent('treasury-updated'));
+                window.dispatchEvent(new CustomEvent('sale-updated', { detail: { saleId: selectedSale?._id } }));
+                window.dispatchEvent(new CustomEvent('account-balance-updated'));
+            }
             if (onSuccess) onSuccess();
         } catch (err) {
             toast.error('Error de red al registrar el cobro.');
@@ -1192,7 +1197,7 @@ export default function TreasuryCollectAndDistributeModal({
                                             Propuesta de Aplicación del Cobro ({formatMoney(enteredAmount, currency)})
                                         </h4>
 
-                                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-1">
+                                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 pt-1">
                                             <div className="rounded-xl border border-cyan-500/30 bg-cyan-500/10 p-3">
                                                 <span className="text-[10px] font-bold uppercase text-cyan-300 block">
                                                     1. Recuperar Capital (Stock)
@@ -1219,7 +1224,21 @@ export default function TreasuryCollectAndDistributeModal({
 
                                             <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-3">
                                                 <span className="text-[10px] font-bold uppercase text-emerald-300 block">
-                                                    3. Margen Distribuible
+                                                    3. Extra Reinversión (Stock)
+                                                </span>
+                                                <p className="font-mono text-base font-black text-white mt-1">
+                                                    {formatMoney(distributionProposal.proposal?.extraReinvestmentToStock || 0, currency)}
+                                                </p>
+                                                <span className="text-[10px] text-crm-fg-muted block mt-0.5">
+                                                    {distributionProposal.proposal?.reinvestmentTarget > 0
+                                                        ? `Obj: ${formatMoney(distributionProposal.proposal.reinvestmentTarget, currency)} (${distributionProposal.proposal.reinvestmentExtraPct}%)`
+                                                        : 'Sin extra configurado'}
+                                                </span>
+                                            </div>
+
+                                            <div className="rounded-xl border border-purple-500/30 bg-purple-500/10 p-3">
+                                                <span className="text-[10px] font-bold uppercase text-purple-300 block">
+                                                    4. Margen Distribuible
                                                 </span>
                                                 <p className="font-mono text-base font-black text-white mt-1">
                                                     {formatMoney(distributionProposal.proposal?.distributableMargin || 0, currency)}
@@ -1322,6 +1341,14 @@ export default function TreasuryCollectAndDistributeModal({
                                         {formatMoney(completedResult.summary?.capitalRecoveredToStock || 0, currency)}
                                     </span>
                                 </div>
+                                {completedResult.summary?.extraReinvestmentToStock > 0 && (
+                                    <div className="flex justify-between border-b border-crm-border/60 pb-2">
+                                        <span className="text-crm-fg-muted">Extra reinversión a Stock:</span>
+                                        <span className="font-mono font-bold text-emerald-400">
+                                            {formatMoney(completedResult.summary.extraReinvestmentToStock, currency)}
+                                        </span>
+                                    </div>
+                                )}
                                 <div className="flex justify-between border-b border-crm-border/60 pb-2">
                                     <span className="text-crm-fg-muted">Margen distribuido a cajas:</span>
                                     <span className="font-mono font-bold text-purple-300">

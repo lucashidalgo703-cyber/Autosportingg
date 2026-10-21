@@ -172,6 +172,7 @@ export function computeOperationRecoveryState({
             isConsignment,
             thirdPartyOwner,
             realInvestmentTotal: null,
+            ownPurchaseCost: null,
             ownRealInvestment: null,
             thirdPartyRealInvestment: null,
             pendingOperationCostsTotal: 0,
@@ -264,10 +265,10 @@ export function computeOperationRecoveryState({
     const ownCashInvestmentToRecover = roundMoney(Math.max(0, ownPaidInvestment - ownTradeInCapitalShare));
     const remainingCapitalToRecover = roundMoney(Math.max(0, ownCashInvestmentToRecover - alreadyRecoveredCapital));
 
-    // Base de inversión propia de esta etapa para el Extra de Reinversión (%)
-    // En una cadena de permutas se aplica sobre el capital propio neto de esta etapa (ownRealInvestment - ownTradeInCapitalShare)
-    // para evitar duplicar el porcentaje sobre el mismo capital transferido al auto tomado.
-    const ownReinvestmentBase = roundMoney(Math.max(0, ownRealInvestment - ownTradeInCapitalShare));
+    // Base de inversión propia para el Extra de Reinversión (%)
+    // Se calcula estrictamente sobre el costo de compra correspondiente a la participación propia de la agencia.
+    const ownPurchaseCost = isConsignment ? 0 : roundMoney(purchaseCost * (agencyPct / 100));
+    const ownReinvestmentBase = ownPurchaseCost;
     const reinvestmentExtraConfigured = Boolean(
         config?.reinvestmentExtraConfigured &&
         config?.reinvestmentExtraPct !== null &&
@@ -338,6 +339,7 @@ export function computeOperationRecoveryState({
         marginReleased: roundMoney(Math.max(alreadyDistributedMargin, availableMarginCollectedTotal)),
         alreadyDistributedMargin,
         pendingDistributionAmount,
+        ownPurchaseCost,
         ownReinvestmentBase,
         reinvestmentExtraConfigured,
         reinvestmentExtraPct,
@@ -782,6 +784,10 @@ export function computeSchemeDistributionForCollection({
             operationPendingCostsReserved: 0,
             taxObligationsSeparated: 0,
             obligationsSeparated: 0,
+            extraReinvestmentToStock: 0,
+            extraReinvestmentPctApplied: null,
+            extraReinvestmentTarget: 0,
+            remainingExtraReinvestmentTarget: 0,
             marginCollected: 0,
             distributableMargin: 0,
             marginDistributed: 0,
@@ -814,6 +820,10 @@ export function computeSchemeDistributionForCollection({
             operationPendingCostsReserved: 0,
             taxObligationsSeparated: 0,
             obligationsSeparated: 0,
+            extraReinvestmentToStock: 0,
+            extraReinvestmentPctApplied: null,
+            extraReinvestmentTarget: 0,
+            remainingExtraReinvestmentTarget: 0,
             marginCollected: 0,
             distributableMargin: 0,
             marginDistributed: 0,
@@ -894,6 +904,23 @@ export function computeSchemeDistributionForCollection({
         }
     }
 
+    // 3. EXTRA DE REINVERSIÓN HACIA STOCK: reservado sobre el margen disponible positivo, hasta el objetivo acumulado de la venta
+    let extraReinvestmentToStock = 0;
+    const extraConfigured = Boolean(
+        config?.reinvestmentExtraConfigured &&
+        config?.reinvestmentExtraPct !== null &&
+        config?.reinvestmentExtraPct !== undefined &&
+        Number.isFinite(Number(config.reinvestmentExtraPct)) &&
+        Number(config.reinvestmentExtraPct) > 0
+    );
+    const extraPct = extraConfigured ? Number(config.reinvestmentExtraPct) : null;
+    const remainingExtraTarget = Math.max(0, roundMoney(Number(operationState.remainingExtraReinvestmentTarget || 0)));
+
+    if (remOwn > 0 && extraConfigured && remainingExtraTarget > 0) {
+        extraReinvestmentToStock = roundMoney(Math.min(remOwn, remainingExtraTarget));
+        remOwn = roundMoney(remOwn - extraReinvestmentToStock);
+    }
+
     const distributableMargin = roundMoney(Math.max(0, remOwn));
 
     if (capitalRecoveredToStock > 0) {
@@ -926,11 +953,23 @@ export function computeSchemeDistributionForCollection({
         );
     }
 
+    if (extraReinvestmentToStock > 0) {
+        addAllocation(
+            'stock',
+            extraReinvestmentToStock,
+            'paso_3_extra_reinversion',
+            'extra_reinversion',
+            `Paso 3: Extra de reinversión (${extraPct}% sobre costo de compra propio) destinado a Caja Stock`
+        );
+    }
+
     if (distributableMargin <= 0) {
         if (!noMarginReason) {
             const stillToRecover = Math.max(0, roundMoney(remCap - capitalRecoveredToStock));
             if (stillToRecover > 0) {
                 noMarginReason = `El importe cobrado se destina íntegramente a recuperar el capital invertido. Todavía restan recuperar ${curr} ${stillToRecover.toLocaleString('es-AR')} de capital antes de liberar margen distribuible.`;
+            } else if (extraReinvestmentToStock > 0) {
+                noMarginReason = `El cobro cubre la recuperación de capital y reserva de extra de reinversión hacia Stock (${curr} ${extraReinvestmentToStock.toLocaleString('es-AR')}), sin excedente de margen para repartir en este movimiento.`;
             } else {
                 noMarginReason = 'Este cobro cubre exactamente la recuperación de capital y obligaciones pendientes, sin excedente de margen para repartir en este movimiento.';
             }
@@ -950,7 +989,11 @@ export function computeSchemeDistributionForCollection({
             operationPendingCostsReserved,
             taxObligationsSeparated,
             obligationsSeparated,
-            marginCollected: 0,
+            extraReinvestmentToStock,
+            extraReinvestmentPctApplied: extraPct,
+            extraReinvestmentTarget: operationState.extraReinvestmentTarget || 0,
+            remainingExtraReinvestmentTarget: Math.max(0, roundMoney(remainingExtraTarget - extraReinvestmentToStock)),
+            marginCollected: extraReinvestmentToStock,
             distributableMargin: 0,
             marginDistributed: 0,
             pendingDistributionAmount: 0,
@@ -983,7 +1026,11 @@ export function computeSchemeDistributionForCollection({
             operationPendingCostsReserved,
             taxObligationsSeparated,
             obligationsSeparated,
-            marginCollected: distributableMargin,
+            extraReinvestmentToStock,
+            extraReinvestmentPctApplied: extraPct,
+            extraReinvestmentTarget: operationState.extraReinvestmentTarget || 0,
+            remainingExtraReinvestmentTarget: Math.max(0, roundMoney(remainingExtraTarget - extraReinvestmentToStock)),
+            marginCollected: roundMoney(extraReinvestmentToStock + distributableMargin),
             distributableMargin,
             marginDistributed: 0,
             pendingDistributionAmount: ownGrossAmount,
@@ -1046,7 +1093,11 @@ export function computeSchemeDistributionForCollection({
         operationPendingCostsReserved,
         taxObligationsSeparated,
         obligationsSeparated,
-        marginCollected: distributableMargin,
+        extraReinvestmentToStock,
+        extraReinvestmentPctApplied: extraPct,
+        extraReinvestmentTarget: operationState.extraReinvestmentTarget || 0,
+        remainingExtraReinvestmentTarget: Math.max(0, roundMoney(remainingExtraTarget - extraReinvestmentToStock)),
+        marginCollected: roundMoney(extraReinvestmentToStock + distributableMargin),
         distributableMargin,
         marginDistributed: distributableMargin,
         pendingDistributionAmount: 0,

@@ -115,6 +115,7 @@ const carSchema = new mongoose.Schema({
             notes: { type: String },
             deductedFromBox: { type: Boolean, default: false },
             boxKey: { type: String, default: 'stock' },
+            strategicBoxKey: { type: String, default: 'stock' },
             transactionId: { type: String },
             linkedExistingTx: { type: Boolean, default: false },
             user: { type: String }

@@ -79,7 +79,26 @@ export default function SaleFinancePanel({ sale }) {
             fetchAccounts();
             fetchTreasurySummary();
         }
-        // eslint-disable-next-line react-hooks/exhaustive-deps
+
+        const handleRealtimeSync = (e) => {
+            if (e?.detail?.saleId && sale?._id && String(e.detail.saleId) !== String(sale._id)) {
+                return;
+            }
+            if (sale && sale._id) {
+                loadData();
+                fetchAccounts();
+                fetchTreasurySummary();
+            }
+        };
+
+        window.addEventListener('treasury-updated', handleRealtimeSync);
+        window.addEventListener('sale-updated', handleRealtimeSync);
+        window.addEventListener('account-balance-updated', handleRealtimeSync);
+        return () => {
+            window.removeEventListener('treasury-updated', handleRealtimeSync);
+            window.removeEventListener('sale-updated', handleRealtimeSync);
+            window.removeEventListener('account-balance-updated', handleRealtimeSync);
+        };
     }, [sale]);
 
     const handleNewTransaction = (type = 'ingreso', category = 'Cobro venta') => {
@@ -278,7 +297,7 @@ export default function SaleFinancePanel({ sale }) {
                                 {treasurySummary.reinvestmentExtraConfigured ? `Extra Reinversión: ${treasurySummary.reinvestmentExtraPct}%` : 'Sin extra reinv.'}
                             </span>
                         </div>
-                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
+                        <div className={`grid grid-cols-2 ${treasurySummary.reinvestmentExtraConfigured ? 'sm:grid-cols-5' : 'sm:grid-cols-4'} gap-3 text-xs`}>
                             <div>
                                 <span className="text-[10px] text-neutral-400 block uppercase">Efectivo Cobrado</span>
                                 <strong className="font-mono text-emerald-400">{formatCurrency(treasurySummary.effectivelyCollectedCash || 0, sale.saleCurrency)}</strong>
@@ -290,6 +309,15 @@ export default function SaleFinancePanel({ sale }) {
                                     <span className="text-[9px] text-neutral-500 block">Pend: {formatCurrency(treasurySummary.remainingCapitalToRecover, sale.saleCurrency)}</span>
                                 )}
                             </div>
+                            {treasurySummary.reinvestmentExtraConfigured && (
+                                <div>
+                                    <span className="text-[10px] text-neutral-400 block uppercase">Extra Reinv. (Stock)</span>
+                                    <strong className="font-mono text-emerald-300">{formatCurrency(treasurySummary.alreadyAllocatedExtraReinvestment || 0, sale.saleCurrency)}</strong>
+                                    {treasurySummary.remainingReinvestmentExtraToReserve > 0 && (
+                                        <span className="text-[9px] text-neutral-500 block">Pend: {formatCurrency(treasurySummary.remainingReinvestmentExtraToReserve, sale.saleCurrency)}</span>
+                                    )}
+                                </div>
+                            )}
                             <div>
                                 <span className="text-[10px] text-neutral-400 block uppercase">Margen ya Distribuido</span>
                                 <strong className="font-mono text-purple-300">{formatCurrency(treasurySummary.alreadyDistributedMargin || 0, sale.saleCurrency)}</strong>

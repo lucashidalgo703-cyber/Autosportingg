@@ -48,6 +48,7 @@ import TreasurySetupWizardModal from '../../../components/crm/treasury/TreasuryS
 import TreasuryEditBoxModal from '../../../components/crm/treasury/TreasuryEditBoxModal';
 import TreasuryDistributeIncomeModal from '../../../components/crm/treasury/TreasuryDistributeIncomeModal';
 import TreasuryBoxDetailModal from '../../../components/crm/treasury/TreasuryBoxDetailModal';
+import TreasuryDiagnosticModal from '../../../components/crm/treasury/TreasuryDiagnosticModal';
 import TreasuryCategoryRulesTab from '../../../components/crm/treasury/TreasuryCategoryRulesTab';
 import TreasuryPlanningTab from '../../../components/crm/treasury/TreasuryPlanningTab';
 import TreasuryAuditLogTab from '../../../components/crm/treasury/TreasuryAuditLogTab';
@@ -188,6 +189,31 @@ export default function TesoreriaEstrategicaPage() {
     const [redistributeReason, setRedistributeReason] = useState('');
     const [loadingActionPreview, setLoadingActionPreview] = useState(false);
 
+    // Diagnóstico integral de movimientos y conciliación (solo lectura)
+    const [isDiagnosticModalOpen, setIsDiagnosticModalOpen] = useState(false);
+    const [diagnosticData, setDiagnosticData] = useState(null);
+    const [loadingDiagnostic, setLoadingDiagnostic] = useState(false);
+
+    const handleOpenDiagnostic = async () => {
+        setIsDiagnosticModalOpen(true);
+        setLoadingDiagnostic(true);
+        try {
+            const res = await fetch('/api/admin/tesoreria-estrategica/diagnostic-audit', {
+                headers: token ? { Authorization: `Bearer ${token}` } : {}
+            });
+            const data = await res.json();
+            if (data.ok) {
+                setDiagnosticData(data);
+            } else {
+                toast.error(data.message || 'Error al obtener diagnóstico');
+            }
+        } catch {
+            toast.error('Error de red al consultar diagnóstico de tesorería');
+        } finally {
+            setLoadingDiagnostic(false);
+        }
+    };
+
     // 1. Cargar estado de seguridad y cotización blue
     const fetchSecurityStatus = useCallback(async () => {
         if (!token) return;
@@ -275,6 +301,13 @@ export default function TesoreriaEstrategicaPage() {
         if (treasuryToken) {
             loadDashboardData();
         }
+        const handleTreasuryUpdate = () => {
+            if (treasuryToken) {
+                loadDashboardData();
+            }
+        };
+        window.addEventListener('treasury-updated', handleTreasuryUpdate);
+        return () => window.removeEventListener('treasury-updated', handleTreasuryUpdate);
     }, [treasuryToken, loadDashboardData]);
 
     // 3. Temporizador de 15 minutos e inactividad en el cliente
@@ -794,11 +827,11 @@ export default function TesoreriaEstrategicaPage() {
 
                         <button
                             type="button"
-                            onClick={() => setIsSetupWizardOpen(true)}
-                            className="inline-flex items-center gap-1.5 rounded-xl border border-purple-500/40 bg-crm-surface px-3.5 py-2 text-xs font-bold text-crm-fg hover:bg-crm-surface-raised transition-colors"
-                            title="Asistente de configuración de Tesorería"
+                            onClick={handleOpenDiagnostic}
+                            className="inline-flex items-center gap-1.5 rounded-xl border border-cyan-500/40 bg-cyan-500/15 px-3.5 py-2 text-xs font-bold text-cyan-200 hover:bg-cyan-500/25 transition-colors"
+                            title="Auditoría de solo lectura de movimientos, cuentas y conciliación"
                         >
-                            <Sparkles size={14} className="text-purple-300" /> Configurar Tesorería
+                            <ShieldCheck size={14} /> Diagnóstico de Movimientos
                         </button>
                     </div>
                 </div>
@@ -1198,14 +1231,14 @@ export default function TesoreriaEstrategicaPage() {
                                         <Percent size={15} />
                                     </span>
                                     <h3 className="text-sm font-black text-white">
-                                        Extra de Reinversión sobre Inversión Real (%) hacia Stock
+                                        Extra de Reinversión sobre Costo de Compra Propio (%) hacia Stock
                                     </h3>
                                     <span className={`rounded px-2 py-0.5 text-[10px] font-bold uppercase ${config.reinvestmentExtraConfigured ? 'bg-cyan-500/20 text-cyan-300' : 'bg-amber-500/20 text-amber-300'}`}>
-                                        {config.reinvestmentExtraConfigured ? `Configurado: ${config.reinvestmentExtraPct}%` : 'Sin configurar'}
+                                        {config.reinvestmentExtraConfigured ? `Configurado: ${config.reinvestmentExtraPct}%` : 'Sin configurar (0%)'}
                                     </span>
                                 </div>
                                 <p className="text-xs text-crm-fg-muted max-w-3xl leading-relaxed">
-                                    Es un <strong>destino de la ganancia hacia Stock</strong> (paso 5 de la cascada), <strong>no un costo</strong>: no reduce la ganancia neta informada de la venta y se completa progresivamente entre entrega y cuotas sin repetirse en cada cuota. Los cambios se aplican a nuevos movimientos.
+                                    <strong>Base de cálculo estricta:</strong> Se calcula exclusivamente sobre el costo de compra correspondiente a la <strong>participación propia de la agencia</strong> (ej. 50% en co-inversión, 100% en unidad propia). <em>No se calcula sobre el cobro bruto, saldo bancario ni cuotas futuras.</em> Es un objetivo acumulado por venta destinado a Caja Stock, limitado al margen disponible sin tomar fondos de otras operaciones ni repetirse por cuota.
                                 </p>
                             </div>
 
@@ -1747,6 +1780,89 @@ export default function TesoreriaEstrategicaPage() {
                         </button>
                     </div>
 
+                    {/* Regla Central de Conciliación: Liquidez real = Cajas + Dinero sin asignar */}
+                    <div className="rounded-2xl border border-purple-500/30 bg-crm-surface p-4 sm:p-5 space-y-3">
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-crm-border pb-3">
+                            <div className="flex items-center gap-2">
+                                <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-purple-500/20 text-purple-300">
+                                    <Scale size={15} />
+                                </span>
+                                <div>
+                                    <h3 className="text-xs font-black uppercase tracking-wider text-white">
+                                        Regla Central de Conciliación de Tesorería
+                                    </h3>
+                                    <p className="text-[11px] text-crm-fg-muted">
+                                        Las cuentas físicas indican dónde está el dinero. Las cajas estratégicas indican para qué está reservado.
+                                    </p>
+                                </div>
+                            </div>
+                            <div className="flex items-center gap-2 shrink-0">
+                                <span className="rounded-lg bg-emerald-500/20 px-2.5 py-1 font-mono text-[11px] font-bold text-emerald-300">
+                                    Diferencia ARS: {formatMoney(Math.round(((summary.totalCuentasARS || 0) - ((summary.totalCajasARS || 0) + (summary.unallocatedARS || 0))) * 100) / 100, 'ARS')}
+                                </span>
+                                <span className="rounded-lg bg-emerald-500/20 px-2.5 py-1 font-mono text-[11px] font-bold text-emerald-300">
+                                    Diferencia USD: {formatMoney(Math.round(((summary.totalCuentasUSD || 0) - ((summary.totalCajasUSD || 0) + (summary.unallocatedUSD || 0))) * 100) / 100, 'USD')}
+                                </span>
+                            </div>
+                        </div>
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-1">
+                            {/* Panel ARS */}
+                            <div className="rounded-xl border border-crm-border bg-crm-bg p-3.5 space-y-2">
+                                <div className="flex items-center justify-between">
+                                    <span className="text-xs font-bold text-white">Conciliación en Pesos (ARS)</span>
+                                    <span className="text-[10px] font-mono text-purple-300">
+                                        {accounts.filter(a => a.currency === 'ARS').length} cuentas activas
+                                    </span>
+                                </div>
+                                <div className="space-y-1 font-mono text-xs">
+                                    <div className="flex justify-between text-crm-fg">
+                                        <span>1. Liquidez Total en Cuentas:</span>
+                                        <strong className="text-white">{formatMoney(summary.totalCuentasARS, 'ARS')}</strong>
+                                    </div>
+                                    <div className="flex justify-between text-purple-300">
+                                        <span>2. Total Asignado a Cajas:</span>
+                                        <strong>{formatMoney(summary.totalCajasARS, 'ARS')}</strong>
+                                    </div>
+                                    <div className="flex justify-between text-cyan-300">
+                                        <span>3. Dinero Sin Asignar:</span>
+                                        <strong>{formatMoney(summary.unallocatedARS, 'ARS')}</strong>
+                                    </div>
+                                </div>
+                                <p className="text-[10px] text-crm-fg-muted pt-1 border-t border-crm-border/40">
+                                    Ecuación: {formatMoney(summary.totalCuentasARS, 'ARS')} = {formatMoney(summary.totalCajasARS, 'ARS')} + {formatMoney(summary.unallocatedARS, 'ARS')}
+                                </p>
+                            </div>
+
+                            {/* Panel USD */}
+                            <div className="rounded-xl border border-crm-border bg-crm-bg p-3.5 space-y-2">
+                                <div className="flex items-center justify-between">
+                                    <span className="text-xs font-bold text-white">Conciliación en Dólares (USD)</span>
+                                    <span className="text-[10px] font-mono text-emerald-400">
+                                        {accounts.filter(a => a.currency === 'USD').length} cuentas activas
+                                    </span>
+                                </div>
+                                <div className="space-y-1 font-mono text-xs">
+                                    <div className="flex justify-between text-crm-fg">
+                                        <span>1. Liquidez Total en Cuentas:</span>
+                                        <strong className="text-white">{formatMoney(summary.totalCuentasUSD, 'USD')}</strong>
+                                    </div>
+                                    <div className="flex justify-between text-purple-300">
+                                        <span>2. Total Asignado a Cajas:</span>
+                                        <strong>{formatMoney(summary.totalCajasUSD, 'USD')}</strong>
+                                    </div>
+                                    <div className="flex justify-between text-cyan-300">
+                                        <span>3. Dinero Sin Asignar:</span>
+                                        <strong>{formatMoney(summary.unallocatedUSD, 'USD')}</strong>
+                                    </div>
+                                </div>
+                                <p className="text-[10px] text-crm-fg-muted pt-1 border-t border-crm-border/40">
+                                    Ecuación: {formatMoney(summary.totalCuentasUSD, 'USD')} = {formatMoney(summary.totalCajasUSD, 'USD')} + {formatMoney(summary.unallocatedUSD, 'USD')}
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+
                     <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
                         {accounts.map((acc) => (
                             <div key={acc._id} className="rounded-2xl border border-crm-border bg-crm-surface p-5">
@@ -2021,6 +2137,14 @@ export default function TesoreriaEstrategicaPage() {
                 boxes={boxes}
                 treasuryToken={treasuryToken}
                 onSuccess={loadDashboardData}
+            />
+
+            <TreasuryDiagnosticModal
+                isOpen={isDiagnosticModalOpen}
+                onClose={() => setIsDiagnosticModalOpen(false)}
+                diagnosticData={diagnosticData}
+                loading={loadingDiagnostic}
+                onRefresh={handleOpenDiagnostic}
             />
         </div>
     );

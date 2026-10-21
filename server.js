@@ -1223,6 +1223,47 @@ app.post('/api/cars', authenticateToken, requirePermission(PERMISSIONS.STOCK_WRI
     }
 });
 
+// GET resumen liviano de cajas estratégicas y dinero sin asignar (para modales de pagos y compras)
+app.get('/api/admin/treasury/boxes-summary', authenticateToken, async (req, res) => {
+    try {
+        await connectDB();
+        const data = await treasuryStrategicService.getTreasuryDashboardData();
+        res.json({
+            ok: true,
+            boxes: (data.boxes || []).map(b => ({
+                key: b.key,
+                name: b.name,
+                priority: b.priority,
+                balanceARS: b.balanceARS || 0,
+                balanceUSD: b.balanceUSD || 0
+            })),
+            totalCuentasARS: data.totalCuentasARS || 0,
+            totalCuentasUSD: data.totalCuentasUSD || 0,
+            totalCajasARS: data.totalCajasARS || 0,
+            totalCajasUSD: data.totalCajasUSD || 0,
+            unallocatedARS: data.unallocatedARS || 0,
+            unallocatedUSD: data.unallocatedUSD || 0,
+            reconciliationDifferenceARS: 0,
+            reconciliationDifferenceUSD: 0
+        });
+    } catch (error) {
+        console.error('GET /api/admin/treasury/boxes-summary error:', error);
+        res.status(500).json({ ok: false, message: error.message });
+    }
+});
+
+// GET diagnóstico integral de movimientos, conciliación y saldos (solo lectura)
+app.get('/api/admin/tesoreria-estrategica/diagnostic-audit', authenticateToken, async (req, res) => {
+    try {
+        await connectDB();
+        const auditResult = await treasuryStrategicService.runTreasuryDiagnosticAudit();
+        res.json(auditResult);
+    } catch (error) {
+        console.error('GET /api/admin/tesoreria-estrategica/diagnostic-audit error:', error);
+        res.status(500).json({ ok: false, message: error.message });
+    }
+});
+
 // POST registrar abono / pago de compra de vehículo propio
 app.post('/api/admin/cars/:id/purchase-payment', authenticateToken, requirePermission(PERMISSIONS.STOCK_WRITE), async (req, res) => {
     try {
@@ -1242,6 +1283,7 @@ app.post('/api/admin/cars/:id/purchase-payment', authenticateToken, requirePermi
             effectiveDate,
             concept = '',
             deductFromStrategicBox = false,
+            strategicBoxKey = null,
             notes = '',
             payeeCompany,
             isSharedInvestment,
@@ -1307,15 +1349,77 @@ app.post('/api/admin/cars/:id/purchase-payment', authenticateToken, requirePermi
             });
         }
 
+        // Obtener resumen de tesorería y saldos disponibles
+        const treasuryDashboard = await treasuryStrategicService.getTreasuryDashboardData();
+        const tSummary = treasuryDashboard.summary || treasuryDashboard;
+        const unallocatedFunds = roundMoney(Number(curr === 'USD' ? (tSummary.unallocatedUSD ?? treasuryDashboard.unallocatedUSD ?? 0) : (tSummary.unallocatedARS ?? treasuryDashboard.unallocatedARS ?? 0)));
+        const boxesList = treasuryDashboard.boxes || [];
+
+        // Resolución de la asignación estratégica utilizada (stock, unallocated, u otra caja)
+        let resolvedBoxKey = strategicBoxKey ? String(strategicBoxKey).trim().toLowerCase() : null;
+        if (!resolvedBoxKey) {
+            if (deductFromStrategicBox) {
+                const stockBox = boxesList.find(b => b.key === 'stock');
+                const stockBal = curr === 'USD' ? (stockBox?.balanceUSD || 0) : (stockBox?.balanceARS || 0);
+                resolvedBoxKey = (stockBal >= numAmount) ? 'stock' : (unallocatedFunds >= numAmount ? 'unallocated' : 'stock');
+            } else {
+                resolvedBoxKey = 'unallocated';
+            }
+        }
+
+        const chosenBox = resolvedBoxKey !== 'unallocated'
+            ? boxesList.find(b => b.key === resolvedBoxKey)
+            : null;
+
+        if (resolvedBoxKey === 'unallocated') {
+            if (unallocatedFunds < numAmount) {
+                return res.status(400).json({
+                    ok: false,
+                    message: `Fondos sin asignar insuficientes en ${curr} (${curr} ${Math.max(0, unallocatedFunds).toLocaleString('es-AR')} disponibles, requerido: ${curr} ${numAmount.toLocaleString('es-AR')}). Toda salida debe tener respaldo en dinero disponible.`
+                });
+            }
+        } else {
+            const availableInBox = curr === 'USD' ? (chosenBox?.balanceUSD || 0) : (chosenBox?.balanceARS || 0);
+            if (availableInBox < numAmount) {
+                return res.status(400).json({
+                    ok: false,
+                    message: `Fondos insuficientes en la caja estratégica "${chosenBox?.name || resolvedBoxKey}". Saldo disponible: ${curr} ${availableInBox.toLocaleString('es-AR')}, requerido: ${curr} ${numAmount.toLocaleString('es-AR')}.`
+                });
+            }
+        }
+
         const newPaid = currentPaid + numAmount;
         const newPending = Math.max(0, agencyCost - newPaid);
         const newStatus = newPending === 0 ? 'pagado' : 'parcial';
 
-        // Descontar saldo de la cuenta física una sola vez
-        account.balance = (account.balance || 0) - numAmount;
+        // 1. Descontar saldo de la cuenta física una sola vez
+        const prevAccountBal = Number(account.balance || 0);
+        account.balance = roundMoney(prevAccountBal - numAmount);
         await account.save();
 
-        // Registrar transacción de egreso
+        // 2. Coordinar con la asignación estratégica elegida o dinero sin asignar
+        let prevFundBal = 0;
+        let nextFundBal = 0;
+        let fundLabel = '';
+
+        if (resolvedBoxKey === 'unallocated') {
+            prevFundBal = unallocatedFunds;
+            nextFundBal = roundMoney(unallocatedFunds - numAmount);
+            fundLabel = 'Dinero sin asignar';
+        } else {
+            fundLabel = chosenBox?.name || `Caja ${resolvedBoxKey}`;
+            prevFundBal = curr === 'USD' ? (chosenBox?.balanceUSD || 0) : (chosenBox?.balanceARS || 0);
+            nextFundBal = roundMoney(prevFundBal - numAmount);
+
+            await treasuryStrategicService.adjustBoxBalance({
+                boxKey: resolvedBoxKey,
+                currency: curr,
+                adjustmentAmount: -numAmount,
+                reason: `Pago compra vehículo: ${car.brand} ${car.name} (${car.plateOrVin || 'S/P'})`
+            }, user);
+        }
+
+        // 3. Registrar transacción de egreso única vinculada
         const normMethod = (pm) => {
             const s = String(pm || '').toLowerCase();
             if (s.includes('transf')) return 'transferencia';
@@ -1335,9 +1439,11 @@ app.post('/api/admin/cars/:id/purchase-payment', authenticateToken, requirePermi
             amount: numAmount,
             currency: curr,
             accountId: account._id,
+            treasuryBoxKey: resolvedBoxKey === 'unallocated' ? null : resolvedBoxKey,
+            isTreasuryExpenseSynced: true,
             date: txDate,
             concept: concept || `Pago compra vehículo: ${car.brand} ${car.name} (${car.plateOrVin || 'S/P'})${effectiveIsShared ? ` (Co-inversión con ${effectivePartnerCompany})` : ''}`,
-            description: `Abono de saldo por adquisición de unidad.${effectiveIsShared ? ` Inversión a medias (${effectivePartnerPct}% con ${effectivePartnerCompany}. Aporte socio: ${curr} ${partnerContribution.toLocaleString('es-AR')}).` : ''} ${reference ? `Ref: ${reference}. ` : ''}${receiptUrl ? `Comprobante: ${receiptUrl}. ` : ''}${notes}`.trim(),
+            description: `Abono de saldo por adquisición de unidad.${effectiveIsShared ? ` Inversión a medias (${effectivePartnerPct}% con ${effectivePartnerCompany}. Aporte socio: ${curr} ${partnerContribution.toLocaleString('es-AR')}).` : ''} Origen estratégico: ${fundLabel} (${curr} ${prevFundBal.toLocaleString('es-AR')} -> ${curr} ${nextFundBal.toLocaleString('es-AR')}). ${reference ? `Ref: ${reference}. ` : ''}${receiptUrl ? `Comprobante: ${receiptUrl}. ` : ''}${notes}`.trim(),
             receiptUrl: receiptUrl || null,
             status: 'activo',
             module: 'crm_v2',
@@ -1346,25 +1452,17 @@ app.post('/api/admin/cars/:id/purchase-payment', authenticateToken, requirePermi
             paymentMethod: normMethod(paymentMethod),
             reference: reference || null,
             payeeCompany: matchedPayeeCompany,
-            createdBy: user
+            createdBy: user,
+            transactionAuditLog: [{
+                action: 'PAGO_COMPRA_VINCULADO',
+                user,
+                date: new Date(),
+                details: `Pago de ${curr} ${numAmount.toLocaleString('es-AR')} debitado de cuenta ${account.name} (Saldo: ${curr} ${prevAccountBal.toLocaleString('es-AR')} -> ${curr} ${account.balance.toLocaleString('es-AR')}) y consumido de ${fundLabel} (Saldo: ${curr} ${prevFundBal.toLocaleString('es-AR')} -> ${curr} ${nextFundBal.toLocaleString('es-AR')}).`
+            }]
         });
         await tx.save();
 
-        // Coordinar con la caja estratégica Stock si corresponde
-        if (deductFromStrategicBox) {
-            try {
-                await treasuryStrategicService.adjustBoxBalance({
-                    boxKey: 'stock',
-                    currency: curr,
-                    adjustmentAmount: -numAmount,
-                    reason: `Pago compra vehículo: ${car.brand} ${car.name} (${car.plateOrVin || 'S/P'})`
-                }, user);
-            } catch (boxErr) {
-                console.error('Error ajustando caja estratégica stock:', boxErr);
-            }
-        }
-
-        // Actualizar estado del vehículo
+        // 4. Actualizar estado del vehículo
         const existingPayments = car.purchasePaymentState?.payments || [];
         car.purchasePaymentState = {
             ...(car.purchasePaymentState?.toObject ? car.purchasePaymentState.toObject() : car.purchasePaymentState),
@@ -1381,6 +1479,8 @@ app.post('/api/admin/cars/:id/purchase-payment', authenticateToken, requirePermi
             payeeCompany: matchedPayeeCompany || payeeCompany || '',
             currency: curr,
             paymentDate: txDate,
+            strategicBoxKey: resolvedBoxKey,
+            deductFromStrategicBox: resolvedBoxKey !== 'unallocated',
             payments: [
                 ...existingPayments,
                 {
@@ -1397,8 +1497,9 @@ app.post('/api/admin/cars/:id/purchase-payment', authenticateToken, requirePermi
                     partnerCompany: effectivePartnerCompany,
                     partnerPercentage: effectivePartnerPct,
                     notes: notes || concept || `Pago compra: ${car.brand} ${car.name}`,
-                    deductedFromBox: Boolean(deductFromStrategicBox),
-                    boxKey: 'stock',
+                    deductedFromBox: resolvedBoxKey !== 'unallocated',
+                    boxKey: resolvedBoxKey,
+                    strategicBoxKey: resolvedBoxKey,
                     transactionId: tx._id,
                     linkedExistingTx: false,
                     user
@@ -1417,7 +1518,7 @@ app.post('/api/admin/cars/:id/purchase-payment', authenticateToken, requirePermi
         car.auditLog.push({
             action: 'PAGO_COMPRA',
             field: 'purchasePaymentState',
-            details: `Se registró un pago de ${curr} ${numAmount.toLocaleString('es-AR')} desde la cuenta ${account.name}.${effectiveIsShared ? ` Inversión a medias (${effectivePartnerPct}% con ${effectivePartnerCompany}). Aporte socio: ${curr} ${partnerContribution.toLocaleString('es-AR')}.` : ''} Saldo pendiente agencia: ${curr} ${newPending.toLocaleString('es-AR')}.`,
+            details: `Se registró un pago de ${curr} ${numAmount.toLocaleString('es-AR')} desde la cuenta ${account.name} consumiendo ${fundLabel}.${effectiveIsShared ? ` Inversión a medias (${effectivePartnerPct}% con ${effectivePartnerCompany}). Aporte socio: ${curr} ${partnerContribution.toLocaleString('es-AR')}.` : ''} Saldo pendiente agencia: ${curr} ${newPending.toLocaleString('es-AR')}.`,
             user,
             source: 'CRM_V2',
             date: new Date()
@@ -1432,10 +1533,32 @@ app.post('/api/admin/cars/:id/purchase-payment', authenticateToken, requirePermi
             entityType: 'Car',
             entityId: car._id,
             entityLabel: `${car.brand} ${car.name}`,
-            description: `Se registró un pago de compra por ${curr} ${numAmount.toLocaleString('es-AR')}.`
+            description: `Se registró un pago de compra por ${curr} ${numAmount.toLocaleString('es-AR')} (Cuenta: ${account.name}, Fondo: ${fundLabel}).`
         });
 
-        res.json({ ok: true, car, message: 'Pago de compra registrado exitosamente.' });
+        res.json({
+            ok: true,
+            car,
+            transaction: tx,
+            balances: {
+                account: {
+                    id: account._id,
+                    name: account.name,
+                    currency: account.currency,
+                    previousBalance: prevAccountBal,
+                    resultingBalance: account.balance
+                },
+                strategicFund: {
+                    type: resolvedBoxKey === 'unallocated' ? 'unallocated' : 'box',
+                    key: resolvedBoxKey,
+                    name: fundLabel,
+                    currency: curr,
+                    previousBalance: prevFundBal,
+                    resultingBalance: nextFundBal
+                }
+            },
+            message: 'Pago de compra registrado exitosamente.'
+        });
     } catch (error) {
         console.error('Error POST /api/admin/cars/:id/purchase-payment:', error);
         res.status(500).json({ ok: false, message: error.message });

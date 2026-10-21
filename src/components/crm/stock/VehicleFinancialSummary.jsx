@@ -70,13 +70,21 @@ export default function VehicleFinancialSummary({ vehicle, onEdit, onPaymentSave
         reference: '',
         receiptUrl: '',
         concept: '',
-        deductFromStrategicBox: false,
+        deductFromStrategicBox: true,
+        strategicBoxKey: 'stock',
         notes: '',
         payeeCompany: '',
         isSharedInvestment: false,
         partnerCompany: 'LHIVER',
         partnerPercentage: 50
     });
+
+    const [strategicFundsSummary, setStrategicFundsSummary] = useState({
+        boxes: [],
+        unallocatedARS: 0,
+        unallocatedUSD: 0
+    });
+    const [loadingStrategicFunds, setLoadingStrategicFunds] = useState(false);
 
     // Formulario de Edición de Compromiso
     const [commitmentForm, setCommitmentForm] = useState({
@@ -110,6 +118,29 @@ export default function VehicleFinancialSummary({ vehicle, onEdit, onPaymentSave
                 .finally(() => setLoadingAccounts(false));
         }
     }, [isPaymentModalOpen, accounts.length, loadingAccounts]);
+
+    // Cargar cajas estratégicas y dinero sin asignar cuando se abre el modal de pago
+    useEffect(() => {
+        if (isPaymentModalOpen) {
+            setLoadingStrategicFunds(true);
+            const token = localStorage.getItem('token');
+            fetch('/api/admin/treasury/boxes-summary', {
+                headers: token ? { Authorization: `Bearer ${token}` } : {}
+            })
+                .then(res => res.ok ? res.json() : null)
+                .then(data => {
+                    if (data && data.ok) {
+                        setStrategicFundsSummary({
+                            boxes: data.boxes || [],
+                            unallocatedARS: data.unallocatedARS || 0,
+                            unallocatedUSD: data.unallocatedUSD || 0
+                        });
+                    }
+                })
+                .catch(err => console.error('Error cargando cajas estratégicas:', err))
+                .finally(() => setLoadingStrategicFunds(false));
+        }
+    }, [isPaymentModalOpen]);
 
     // Cargar egresos cuando se abre el modal de vincular egreso
     useEffect(() => {
@@ -166,7 +197,8 @@ export default function VehicleFinancialSummary({ vehicle, onEdit, onPaymentSave
             reference: '',
             receiptUrl: '',
             concept: `Pago compra vehículo: ${vehicle.marca} ${vehicle.modelo} (${vehicle.dominio})`,
-            deductFromStrategicBox: false,
+            deductFromStrategicBox: true,
+            strategicBoxKey: 'stock',
             notes: '',
             payeeCompany: initialPartnerCompany && LOADED_COMPANIES.includes(initialPartnerCompany) ? initialPartnerCompany : '',
             isSharedInvestment: initialIsShared,
@@ -220,6 +252,15 @@ export default function VehicleFinancialSummary({ vehicle, onEdit, onPaymentSave
     const resultingBalance = accountBalance - parsedAmount;
     const hasInsufficientFunds = selectedAccount && parsedAmount > accountBalance;
 
+    // Asignación estratégica seleccionada y cálculo de saldos en tiempo real
+    const isUnallocated = paymentForm.strategicBoxKey === 'unallocated';
+    const selectedBox = !isUnallocated ? (strategicFundsSummary.boxes || []).find(b => b.key === paymentForm.strategicBoxKey) : null;
+    const strategicFundBalance = isUnallocated
+        ? (currency === 'USD' ? (strategicFundsSummary.unallocatedUSD || 0) : (strategicFundsSummary.unallocatedARS || 0))
+        : (currency === 'USD' ? (selectedBox?.balanceUSD || 0) : (selectedBox?.balanceARS || 0));
+    const resultingStrategicFundBalance = strategicFundBalance - parsedAmount;
+    const hasInsufficientStrategicFunds = Boolean(paymentForm.strategicBoxKey && parsedAmount > strategicFundBalance);
+
     // Confirmar Registro de Pago Directo
     const handleConfirmPayment = async (e) => {
         e.preventDefault();
@@ -234,6 +275,10 @@ export default function VehicleFinancialSummary({ vehicle, onEdit, onPaymentSave
         }
         if (hasInsufficientFunds) {
             toast.error(`Fondos insuficientes en la cuenta "${selectedAccount.name}". Saldo disponible: ${selectedAccount.currency} ${accountBalance.toLocaleString('es-AR')}`);
+            return;
+        }
+        if (hasInsufficientStrategicFunds) {
+            toast.error(`Fondos insuficientes en la asignación estratégica "${isUnallocated ? 'Dinero sin asignar' : (selectedBox?.name || 'Stock')}". Saldo disponible: ${currency} ${Number(strategicFundBalance).toLocaleString('es-AR')}`);
             return;
         }
 
@@ -254,7 +299,8 @@ export default function VehicleFinancialSummary({ vehicle, onEdit, onPaymentSave
                     reference: paymentForm.reference,
                     receiptUrl: paymentForm.receiptUrl,
                     concept: paymentForm.concept,
-                    deductFromStrategicBox: paymentForm.deductFromStrategicBox,
+                    deductFromStrategicBox: paymentForm.strategicBoxKey !== 'unallocated',
+                    strategicBoxKey: paymentForm.strategicBoxKey,
                     notes: paymentForm.notes,
                     payeeCompany: paymentForm.payeeCompany || undefined,
                     isSharedInvestment: paymentForm.isSharedInvestment,
@@ -271,6 +317,11 @@ export default function VehicleFinancialSummary({ vehicle, onEdit, onPaymentSave
 
             toast.success('Pago de compra registrado exitosamente');
             setIsPaymentModalOpen(false);
+            if (typeof window !== 'undefined') {
+                window.dispatchEvent(new CustomEvent('treasury-updated'));
+                window.dispatchEvent(new CustomEvent('vehicle-updated'));
+                window.dispatchEvent(new CustomEvent('account-balance-updated'));
+            }
             if (onPaymentSaved) onPaymentSaved();
         } catch (err) {
             console.error('Error confirmando pago:', err);
@@ -316,6 +367,10 @@ export default function VehicleFinancialSummary({ vehicle, onEdit, onPaymentSave
 
             toast.success('Compromiso actualizado con auditoría');
             setIsCommitmentModalOpen(false);
+            if (typeof window !== 'undefined') {
+                window.dispatchEvent(new CustomEvent('treasury-updated'));
+                window.dispatchEvent(new CustomEvent('vehicle-updated'));
+            }
             if (onPaymentSaved) onPaymentSaved();
         } catch (err) {
             console.error('Error actualizando compromiso:', err);
@@ -361,6 +416,11 @@ export default function VehicleFinancialSummary({ vehicle, onEdit, onPaymentSave
 
             toast.success('Egreso vinculado exitosamente sin duplicar movimientos');
             setIsLinkExpenseModalOpen(false);
+            if (typeof window !== 'undefined') {
+                window.dispatchEvent(new CustomEvent('treasury-updated'));
+                window.dispatchEvent(new CustomEvent('vehicle-updated'));
+                window.dispatchEvent(new CustomEvent('account-balance-updated'));
+            }
             if (onPaymentSaved) onPaymentSaved();
         } catch (err) {
             console.error('Error vinculando egreso:', err);
@@ -976,23 +1036,53 @@ export default function VehicleFinancialSummary({ vehicle, onEdit, onPaymentSave
                                 />
                             </div>
 
-                            {/* Reserva estratégica Stock / Reposición */}
-                            <label className="flex items-start gap-2.5 p-3 rounded-xl bg-black/40 border border-crm-border cursor-pointer">
-                                <input
-                                    type="checkbox"
-                                    checked={paymentForm.deductFromStrategicBox}
-                                    onChange={(e) => setPaymentForm(prev => ({ ...prev, deductFromStrategicBox: e.target.checked }))}
-                                    className="w-4 h-4 mt-0.5 rounded border-crm-border text-emerald-500 focus:ring-emerald-500 bg-crm-bg"
-                                />
-                                <div>
-                                    <span className="text-xs font-bold text-white block">
-                                        Deducir asignación de caja estratégica Stock / Reposición
-                                    </span>
-                                    <span className="text-[10px] text-gray-400">
-                                        Descuenta además la reserva de dinero para reposición en Tesorería Estratégica.
-                                    </span>
+                            {/* Selector de Asignación Estratégica o Fondos sin Asignar */}
+                            <div>
+                                <label className="block text-[11px] font-bold text-gray-300 mb-1">
+                                    Asignación estratégica o fondos sin asignar *
+                                </label>
+                                <select
+                                    value={paymentForm.strategicBoxKey}
+                                    onChange={(e) => setPaymentForm(prev => ({ ...prev, strategicBoxKey: e.target.value }))}
+                                    required
+                                    className="w-full bg-crm-bg border border-crm-border rounded-xl px-3 py-2 text-white focus:outline-none text-xs"
+                                >
+                                    <option value="stock">Reposición de Stock (Caja Estratégica) — Recomendado</option>
+                                    <option value="unallocated">Dinero sin asignar (Liquidez libre en cuentas)</option>
+                                    {(strategicFundsSummary.boxes || []).filter(b => b.key !== 'stock').map(b => (
+                                        <option key={b.key} value={b.key}>
+                                            {b.name} (Caja Estratégica)
+                                        </option>
+                                    ))}
+                                </select>
+
+                                {/* Panel en tiempo real de saldos antes y después de la asignación estratégica */}
+                                <div className={`mt-2 p-2.5 rounded-xl border text-xs ${
+                                    hasInsufficientStrategicFunds 
+                                        ? 'bg-amber-500/10 border-amber-500/30 text-amber-300' 
+                                        : 'bg-black/30 border-white/5 text-zinc-300'
+                                }`}>
+                                    <div className="flex justify-between">
+                                        <span className="text-[11px] text-gray-400">
+                                            Asignación actual ({isUnallocated ? 'Sin asignar' : (selectedBox?.name || 'Stock')}):
+                                        </span>
+                                        <span className="font-mono font-bold text-white">
+                                            {currency} {Number(strategicFundBalance || 0).toLocaleString('es-AR')}
+                                        </span>
+                                    </div>
+                                    <div className="flex justify-between mt-1 pt-1 border-t border-white/5">
+                                        <span className="text-[11px] text-gray-400">Asignación resultante estimada:</span>
+                                        <span className={`font-mono font-bold ${hasInsufficientStrategicFunds ? 'text-amber-400' : 'text-emerald-400'}`}>
+                                            {currency} {Number(resultingStrategicFundBalance || 0).toLocaleString('es-AR')}
+                                        </span>
+                                    </div>
+                                    {hasInsufficientStrategicFunds && (
+                                        <p className="text-[10px] text-amber-400 font-bold mt-1.5 flex items-center gap-1">
+                                            <AlertTriangle size={12} /> Saldo insuficiente en la asignación estratégica elegida ({currency} {Number(strategicFundBalance || 0).toLocaleString('es-AR')}).
+                                        </p>
+                                    )}
                                 </div>
-                            </label>
+                            </div>
 
                             <div className="flex gap-2 pt-3 border-t border-crm-border">
                                 <button
@@ -1004,7 +1094,7 @@ export default function VehicleFinancialSummary({ vehicle, onEdit, onPaymentSave
                                 </button>
                                 <button
                                     type="submit"
-                                    disabled={isSubmitting || hasInsufficientFunds}
+                                    disabled={isSubmitting || hasInsufficientFunds || hasInsufficientStrategicFunds}
                                     className="flex-1 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold disabled:opacity-50 flex items-center justify-center gap-1.5"
                                 >
                                     {isSubmitting && <RefreshCw size={14} className="animate-spin" />}
