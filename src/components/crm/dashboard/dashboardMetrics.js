@@ -692,7 +692,8 @@ export function calculateDashboardMetrics(cars = []) {
                 // Registrar venta en el circuito de Tesorería para calcular margen liberado por cobros
                 const acquisitionCost = commercialProfit.acquisitionCost || 0;
                 const totalExpenses = (commercialProfit.vehicleExpensesTotal || 0) + (commercialProfit.saleExpensesTotal || 0);
-                const realInvestment = acquisitionCost + totalExpenses;
+                const commissions = commercialProfit.commissionAmount || 0;
+                const realInvestment = acquisitionCost + totalExpenses + commissions;
                 const investorPct = commercialProfit.investorPercentage || 0;
                 const agencyPct = (100 - investorPct) / 100;
                 saleWaterfallMap.set(String(sale._id), {
@@ -790,7 +791,6 @@ export function calculateDashboardMetrics(cars = []) {
             const status = (t.status || '').toLowerCase();
             if (status === 'anulado' || status === 'cancelado') return;
             const type = (t.type || '').toLowerCase();
-            if (type !== 'ingreso') return;
 
             const amt = Number(t.amount) || 0;
             if (amt <= 0) return;
@@ -798,18 +798,37 @@ export function calculateDashboardMetrics(cars = []) {
             const tDate = t.date ? new Date(t.date) : new Date(t.createdAt);
             if (isNaN(tDate.getTime())) return;
 
+            const txArgYM = getArgentinaYearMonth(tDate);
+            const relBucket = releasedMonths.find(b => b.year === txArgYM.year && b.month === txArgYM.month);
+
             if (t.saleId && saleWaterfallMap.has(String(t.saleId))) {
                 const sw = saleWaterfallMap.get(String(t.saleId));
+
+                // Reversión o egreso ligado a la venta
+                if (type === 'egreso') {
+                    sw.collectedSoFar = Math.max(0, sw.collectedSoFar - amt);
+                    return;
+                }
+
+                if (type !== 'ingreso') return;
+
                 const prevCollected = sw.collectedSoFar;
                 const newCollected = prevCollected + amt;
                 sw.collectedSoFar = newCollected;
 
-                const prevReleased = Math.max(0, prevCollected - sw.realInvestment) * sw.agencyPct;
-                const newReleased = Math.max(0, newCollected - sw.realInvestment) * sw.agencyPct;
-                const deltaReleasedARS = Math.max(0, newReleased - prevReleased);
+                let deltaReleasedARS = 0;
+                const bd = t.treasuryBreakdown;
 
-                const txArgYM = getArgentinaYearMonth(tDate);
-                const relBucket = releasedMonths.find(b => b.year === txArgYM.year && b.month === txArgYM.month);
+                // Si Tesorería ya procesó y distribuyó oficialmente la transacción,
+                // respetamos estrictamente el margen asignado (excluyendo capitalRecoveredToStock, obligaciones y extras).
+                if (bd && (t.isTreasuryDistributed || bd.marginDistributed !== undefined || bd.marginCollected !== undefined)) {
+                    deltaReleasedARS = Math.max(0, Number(bd.marginDistributed ?? bd.marginCollected ?? 0));
+                } else {
+                    // Si no tiene distribución previa en Tesorería, aplicamos la cascada sobre la inversión desembolsada en efectivo
+                    const prevReleased = Math.max(0, prevCollected - sw.realInvestment) * sw.agencyPct;
+                    const newReleased = Math.max(0, newCollected - sw.realInvestment) * sw.agencyPct;
+                    deltaReleasedARS = Math.max(0, newReleased - prevReleased);
+                }
 
                 if (relBucket) {
                     const rateMeta = resolveHistoricalRateMeta(tDate, dolarBlueHistory, 'venta');
@@ -846,6 +865,32 @@ export function calculateDashboardMetrics(cars = []) {
                         type: 'cash_collection'
                     });
                 }
+            } else if (type === 'ingreso' && relBucket) {
+                // Ingreso histórico sin venta vinculada o sin desglose comercial completo
+                // Se registra como pendiente de conciliación sin inventar margen
+                relBucket.salesCount++;
+                relBucket.incompleteCount++;
+                relBucket.sales.push({
+                    id: t._id,
+                    saleId: null,
+                    date: tDate,
+                    dateDisplay: formatArgentinaDate(tDate),
+                    clientName: 'Sin venta asociada',
+                    concept: t.concept || t.description || 'Ingreso de Tesorería',
+                    carName: 'Pendiente de conciliación',
+                    plate: 'S/D',
+                    amountCollected: amt,
+                    currency: t.currency || 'ARS',
+                    realInvestment: null,
+                    collectedSoFar: amt,
+                    agencyProfitARS: 0,
+                    agencyProfitUSD: 0,
+                    rateUsed: null,
+                    rateDate: null,
+                    calculable: false,
+                    missingReasons: ['Pendiente de conciliación con operación comercial'],
+                    type: 'cash_collection_unlinked'
+                });
             }
         });
 
