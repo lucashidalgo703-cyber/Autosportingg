@@ -9,7 +9,7 @@ import {
 import toast from 'react-hot-toast';
 import { useAuth } from '../../../context/AuthContext';
 import { hasPermission, PERMISSIONS } from '../../../utils/adminPermissions';
-import { getCarPurchasePaymentSummary } from '../../../utils/carPurchasePayment';
+import { getCarPurchasePaymentSummary, LOADED_COMPANIES } from '../../../utils/carPurchasePayment';
 
 export default function VehicleFinancialSummary({ vehicle, onEdit, onPaymentSaved }) {
     const { user } = useAuth();
@@ -24,6 +24,7 @@ export default function VehicleFinancialSummary({ vehicle, onEdit, onPaymentSave
     // Datos y listas
     const [accounts, setAccounts] = useState([]);
     const [loadingAccounts, setLoadingAccounts] = useState(false);
+    const [companies, setCompanies] = useState(LOADED_COMPANIES);
     const [isSubmitting, setIsSubmitting] = useState(false);
 
     // Egresos para vinculación
@@ -42,6 +43,12 @@ export default function VehicleFinancialSummary({ vehicle, onEdit, onPaymentSave
     const {
         isAgencyOwned,
         isHistorical,
+        isSharedInvestment,
+        partnerCompany,
+        partnerPercentage = 50,
+        agencyPercentage = 50,
+        agencyCost = 0,
+        partnerContribution = 0,
         status: paymentStatus,
         totalCost = 0,
         amountPaid = 0,
@@ -64,7 +71,11 @@ export default function VehicleFinancialSummary({ vehicle, onEdit, onPaymentSave
         receiptUrl: '',
         concept: '',
         deductFromStrategicBox: false,
-        notes: ''
+        notes: '',
+        payeeCompany: '',
+        isSharedInvestment: false,
+        partnerCompany: 'LHIVER',
+        partnerPercentage: 50
     });
 
     // Formulario de Edición de Compromiso
@@ -72,7 +83,10 @@ export default function VehicleFinancialSummary({ vehicle, onEdit, onPaymentSave
         expectedDate: '',
         expectedFundsNote: '',
         commitNotes: '',
-        reason: ''
+        reason: '',
+        isSharedInvestment: false,
+        partnerCompany: 'LHIVER',
+        partnerPercentage: 50
     });
 
     // Cargar cuentas físicas cuando se abre el modal de pago
@@ -115,14 +129,37 @@ export default function VehicleFinancialSummary({ vehicle, onEdit, onPaymentSave
         }
     }, [isLinkExpenseModalOpen, expenseSearch, vehicle?.id]);
 
+    // Cargar empresas cargadas en el sistema
+    useEffect(() => {
+        const token = localStorage.getItem('token');
+        fetch('/api/admin/companies', {
+            headers: token ? { Authorization: `Bearer ${token}` } : {}
+        })
+            .then(res => res.ok ? res.json() : { companies: LOADED_COMPANIES })
+            .then(data => {
+                if (Array.isArray(data.companies) && data.companies.length > 0) {
+                    setCompanies(data.companies);
+                }
+            })
+            .catch(() => setCompanies(LOADED_COMPANIES));
+    }, []);
+
     // Apertura modal Registrar Pago
     const handleOpenPaymentModal = () => {
         if (!canRegisterPayment) {
             toast.error('No tenés permisos para registrar pagos de compra.');
             return;
         }
+
+        const initialIsShared = Boolean(isSharedInvestment || (vehicle?.investor && Number(vehicle.investor.percentage) > 0) || vehicle?.origen === 'compartido');
+        const initialPartnerCompany = partnerCompany || vehicle?.investor?.name || 'LHIVER';
+        const initialPartnerPct = partnerPercentage || vehicle?.investor?.percentage || 50;
+        const initialAgencyPct = initialIsShared ? Math.max(0, 100 - initialPartnerPct) : 100;
+        const initialAgencyCost = initialIsShared ? Math.round(totalCost * (initialAgencyPct / 100)) : totalCost;
+        const initialPending = Math.max(0, initialAgencyCost - amountPaid);
+
         setPaymentForm({
-            amount: String(pendingDebt > 0 ? pendingDebt : (isHistorical && totalCost > 0 ? totalCost : '')),
+            amount: String(initialPending > 0 ? initialPending : (pendingDebt > 0 ? pendingDebt : (isHistorical && totalCost > 0 ? totalCost : ''))),
             accountId: accounts[0]?._id || '',
             effectiveDate: new Date().toISOString().split('T')[0],
             paymentMethod: 'Transferencia bancaria',
@@ -130,7 +167,11 @@ export default function VehicleFinancialSummary({ vehicle, onEdit, onPaymentSave
             receiptUrl: '',
             concept: `Pago compra vehículo: ${vehicle.marca} ${vehicle.modelo} (${vehicle.dominio})`,
             deductFromStrategicBox: false,
-            notes: ''
+            notes: '',
+            payeeCompany: initialPartnerCompany && LOADED_COMPANIES.includes(initialPartnerCompany) ? initialPartnerCompany : '',
+            isSharedInvestment: initialIsShared,
+            partnerCompany: initialPartnerCompany,
+            partnerPercentage: initialPartnerPct
         });
         setIsPaymentModalOpen(true);
     };
@@ -145,7 +186,10 @@ export default function VehicleFinancialSummary({ vehicle, onEdit, onPaymentSave
             expectedDate: expectedDate ? new Date(expectedDate).toISOString().split('T')[0] : '',
             expectedFundsNote: expectedFundsNote || '',
             commitNotes: commitNotes || '',
-            reason: ''
+            reason: '',
+            isSharedInvestment: Boolean(isSharedInvestment || (vehicle?.investor && Number(vehicle.investor.percentage) > 0)),
+            partnerCompany: partnerCompany || vehicle?.investor?.name || 'LHIVER',
+            partnerPercentage: partnerPercentage || vehicle?.investor?.percentage || 50
         });
         setIsCommitmentModalOpen(true);
     };
@@ -161,6 +205,13 @@ export default function VehicleFinancialSummary({ vehicle, onEdit, onPaymentSave
         setLinkNotes('');
         setIsLinkExpenseModalOpen(true);
     };
+
+    // Cálculos dinámicos del formulario de pago si es inversión compartida / a medias
+    const formPartnerPct = paymentForm.isSharedInvestment ? Math.min(99, Math.max(1, Number(paymentForm.partnerPercentage || 50))) : 0;
+    const formAgencyPct = paymentForm.isSharedInvestment ? Math.max(0, 100 - formPartnerPct) : 100;
+    const formAgencyCost = paymentForm.isSharedInvestment ? Math.round(totalCost * (formAgencyPct / 100)) : totalCost;
+    const formPartnerContribution = paymentForm.isSharedInvestment ? (totalCost - formAgencyCost) : 0;
+    const formAgencyPending = Math.max(0, formAgencyCost - amountPaid);
 
     // Cuenta seleccionada actualmente y cálculo de saldos en tiempo real
     const selectedAccount = accounts.find(a => a._id === paymentForm.accountId);
@@ -204,7 +255,11 @@ export default function VehicleFinancialSummary({ vehicle, onEdit, onPaymentSave
                     receiptUrl: paymentForm.receiptUrl,
                     concept: paymentForm.concept,
                     deductFromStrategicBox: paymentForm.deductFromStrategicBox,
-                    notes: paymentForm.notes
+                    notes: paymentForm.notes,
+                    payeeCompany: paymentForm.payeeCompany || undefined,
+                    isSharedInvestment: paymentForm.isSharedInvestment,
+                    partnerCompany: paymentForm.partnerCompany,
+                    partnerPercentage: paymentForm.partnerPercentage
                 })
             });
 
@@ -246,7 +301,10 @@ export default function VehicleFinancialSummary({ vehicle, onEdit, onPaymentSave
                     expectedDate: commitmentForm.expectedDate || null,
                     expectedFundsNote: commitmentForm.expectedFundsNote,
                     commitNotes: commitmentForm.commitNotes,
-                    reason: commitmentForm.reason
+                    reason: commitmentForm.reason,
+                    isSharedInvestment: commitmentForm.isSharedInvestment,
+                    partnerCompany: commitmentForm.partnerCompany,
+                    partnerPercentage: commitmentForm.partnerPercentage
                 })
             });
 
@@ -382,7 +440,7 @@ export default function VehicleFinancialSummary({ vehicle, onEdit, onPaymentSave
 
                             {paymentStatus === 'pagado' ? (
                                 <span className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-400 bg-emerald-500/10 px-2.5 py-0.5 rounded-full border border-emerald-500/20">
-                                    <CheckCircle2 size={12} /> Pagado / Liquidado
+                                    <CheckCircle2 size={12} /> {isSharedInvestment ? (partnerCompany ? `Pagado (Co-inversión con ${partnerCompany})` : `Pagado (Inversión a medias)`) : 'Pagado / Liquidado'}
                                 </span>
                             ) : paymentStatus === 'parcial' ? (
                                 <span className="inline-flex items-center gap-1 text-[11px] font-bold text-blue-400 bg-blue-500/10 px-2.5 py-0.5 rounded-full border border-blue-500/20">
@@ -395,6 +453,12 @@ export default function VehicleFinancialSummary({ vehicle, onEdit, onPaymentSave
                             ) : (
                                 <span className="inline-flex items-center gap-1 text-[11px] font-bold text-amber-400 bg-amber-500/10 px-2.5 py-0.5 rounded-full border border-amber-500/20">
                                     <AlertTriangle size={12} /> Pendiente de Pago
+                                </span>
+                            )}
+
+                            {isSharedInvestment && (
+                                <span className="inline-flex items-center gap-1 text-[11px] font-bold text-blue-300 bg-blue-500/15 px-2.5 py-0.5 rounded-full border border-blue-500/30">
+                                    🏢 Co-inversión: {partnerPercentage}% {partnerCompany || 'Socio'} / {agencyPercentage}% Agencia
                                 </span>
                             )}
                         </div>
@@ -459,30 +523,70 @@ export default function VehicleFinancialSummary({ vehicle, onEdit, onPaymentSave
                     </div>
 
                     {/* Fila de Métricas del Pago */}
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs pt-1">
-                        <div className="p-2.5 bg-black/40 rounded-lg border border-white/5">
-                            <span className="text-gray-400 block text-[11px]">Costo de adquisición:</span>
-                            <span className="font-bold text-white text-sm">
-                                {currency} {totalCost.toLocaleString('es-AR')}
-                            </span>
+                    {isSharedInvestment ? (
+                        <div className="space-y-2 pt-1">
+                            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
+                                <div className="p-2.5 bg-black/40 rounded-lg border border-white/5">
+                                    <span className="text-gray-400 block text-[11px]">Costo total compra:</span>
+                                    <span className="font-bold text-white text-sm">
+                                        {currency} {totalCost.toLocaleString('es-AR')}
+                                    </span>
+                                    <span className="text-[10px] text-blue-300 block mt-0.5">
+                                        Aporte {partnerCompany || 'Socio'} ({partnerPercentage}%): {currency} {partnerContribution.toLocaleString('es-AR')}
+                                    </span>
+                                </div>
+                                <div className="p-2.5 bg-black/40 rounded-lg border border-blue-500/20">
+                                    <span className="text-blue-300 block text-[11px]">Compromiso Agencia ({agencyPercentage}%):</span>
+                                    <span className="font-bold text-white text-sm">
+                                        {currency} {agencyCost.toLocaleString('es-AR')}
+                                    </span>
+                                </div>
+                                <div className="p-2.5 bg-black/40 rounded-lg border border-white/5">
+                                    <span className="text-gray-400 block text-[11px]">Abonado por Agencia:</span>
+                                    <span className="font-bold text-emerald-400 text-sm">
+                                        {currency} {amountPaid.toLocaleString('es-AR')}
+                                    </span>
+                                </div>
+                                <div className="p-2.5 bg-black/40 rounded-lg border border-white/5">
+                                    <span className="text-gray-400 block text-[11px]">Saldo pendiente Agencia:</span>
+                                    <span className={`font-bold text-sm ${pendingDebt > 0 ? 'text-amber-400' : 'text-emerald-400'}`}>
+                                        {pendingDebt === 0 ? '$0 (Liquidado)' : `${currency} ${pendingDebt.toLocaleString('es-AR')}`}
+                                    </span>
+                                </div>
+                            </div>
+                            <div className="flex items-center gap-2 text-[11px] text-blue-300 bg-blue-500/10 p-2 rounded-lg border border-blue-500/20">
+                                <Info size={13} className="shrink-0 text-blue-400" />
+                                <span>
+                                    Inversión a medias con <strong>{partnerCompany || 'Empresa socia'}</strong>: La empresa aportó el {partnerPercentage}% ({currency} {partnerContribution.toLocaleString('es-AR')}). La agencia asume el {agencyPercentage}% ({currency} {agencyCost.toLocaleString('es-AR')}). {pendingDebt === 0 && '¡Obligación completamente cancelada sin saldo pendiente!'}
+                                </span>
+                            </div>
                         </div>
-                        <div className="p-2.5 bg-black/40 rounded-lg border border-white/5">
-                            <span className="text-gray-400 block text-[11px]">Total abonado:</span>
-                            <span className="font-bold text-emerald-400 text-sm">
-                                {currency} {amountPaid.toLocaleString('es-AR')}
-                            </span>
+                    ) : (
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs pt-1">
+                            <div className="p-2.5 bg-black/40 rounded-lg border border-white/5">
+                                <span className="text-gray-400 block text-[11px]">Costo de adquisición:</span>
+                                <span className="font-bold text-white text-sm">
+                                    {currency} {totalCost.toLocaleString('es-AR')}
+                                </span>
+                            </div>
+                            <div className="p-2.5 bg-black/40 rounded-lg border border-white/5">
+                                <span className="text-gray-400 block text-[11px]">Total abonado:</span>
+                                <span className="font-bold text-emerald-400 text-sm">
+                                    {currency} {amountPaid.toLocaleString('es-AR')}
+                                </span>
+                            </div>
+                            <div className="p-2.5 bg-black/40 rounded-lg border border-white/5">
+                                <span className="text-gray-400 block text-[11px]">Saldo pendiente de pago:</span>
+                                <span className={`font-bold text-sm ${pendingDebt > 0 ? 'text-amber-400' : 'text-gray-400'}`}>
+                                    {isHistorical && pendingDebt === 0 && amountPaid === 0 ? (
+                                        <span className="text-purple-300 font-normal text-xs">Pendiente de conciliación</span>
+                                    ) : (
+                                        `${currency} ${pendingDebt.toLocaleString('es-AR')}`
+                                    )}
+                                </span>
+                            </div>
                         </div>
-                        <div className="p-2.5 bg-black/40 rounded-lg border border-white/5">
-                            <span className="text-gray-400 block text-[11px]">Saldo pendiente de pago:</span>
-                            <span className={`font-bold text-sm ${pendingDebt > 0 ? 'text-amber-400' : 'text-gray-400'}`}>
-                                {isHistorical && pendingDebt === 0 && amountPaid === 0 ? (
-                                    <span className="text-purple-300 font-normal text-xs">Pendiente de conciliación</span>
-                                ) : (
-                                    `${currency} ${pendingDebt.toLocaleString('es-AR')}`
-                                )}
-                            </span>
-                        </div>
-                    </div>
+                    )}
 
                     {/* Advertencia para unidades históricas */}
                     {isHistorical && (
@@ -575,50 +679,181 @@ export default function VehicleFinancialSummary({ vehicle, onEdit, onPaymentSave
                         </div>
 
                         {/* Indicadores Clave en la Cabecera del Modal */}
-                        <div className="grid grid-cols-3 gap-2 bg-black/40 p-3 rounded-xl border border-white/5 text-center text-xs">
-                            <div>
-                                <span className="text-[10px] text-gray-400 block">Costo adquisición</span>
-                                <span className="font-bold text-white font-mono">{currency} {totalCost.toLocaleString('es-AR')}</span>
+                        {paymentForm.isSharedInvestment ? (
+                            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 bg-black/40 p-3 rounded-xl border border-blue-500/20 text-center text-xs">
+                                <div>
+                                    <span className="text-[10px] text-gray-400 block">Costo total</span>
+                                    <span className="font-bold text-white font-mono">{currency} {totalCost.toLocaleString('es-AR')}</span>
+                                </div>
+                                <div>
+                                    <span className="text-[10px] text-blue-300 block">Aporte {paymentForm.partnerCompany} ({formPartnerPct}%)</span>
+                                    <span className="font-bold text-blue-400 font-mono">{currency} {formPartnerContribution.toLocaleString('es-AR')}</span>
+                                </div>
+                                <div>
+                                    <span className="text-[10px] text-gray-300 block">Compromiso Agencia ({formAgencyPct}%)</span>
+                                    <span className="font-bold text-white font-mono">{currency} {formAgencyCost.toLocaleString('es-AR')}</span>
+                                </div>
+                                <div>
+                                    <span className="text-[10px] text-amber-300 block">Saldo pendiente Agencia</span>
+                                    <span className={`font-bold font-mono ${formAgencyPending > 0 ? 'text-amber-400' : 'text-emerald-400'}`}>
+                                        {currency} {formAgencyPending.toLocaleString('es-AR')}
+                                    </span>
+                                </div>
                             </div>
-                            <div>
-                                <span className="text-[10px] text-gray-400 block">Total pagado</span>
-                                <span className="font-bold text-emerald-400 font-mono">{currency} {amountPaid.toLocaleString('es-AR')}</span>
+                        ) : (
+                            <div className="grid grid-cols-3 gap-2 bg-black/40 p-3 rounded-xl border border-white/5 text-center text-xs">
+                                <div>
+                                    <span className="text-[10px] text-gray-400 block">Costo adquisición</span>
+                                    <span className="font-bold text-white font-mono">{currency} {totalCost.toLocaleString('es-AR')}</span>
+                                </div>
+                                <div>
+                                    <span className="text-[10px] text-gray-400 block">Total pagado</span>
+                                    <span className="font-bold text-emerald-400 font-mono">{currency} {amountPaid.toLocaleString('es-AR')}</span>
+                                </div>
+                                <div>
+                                    <span className="text-[10px] text-gray-400 block">Saldo pendiente</span>
+                                    <span className="font-bold text-amber-400 font-mono">
+                                        {currency} {(pendingDebt > 0 ? pendingDebt : (isHistorical ? totalCost : 0)).toLocaleString('es-AR')}
+                                    </span>
+                                </div>
                             </div>
-                            <div>
-                                <span className="text-[10px] text-gray-400 block">Saldo pendiente</span>
-                                <span className="font-bold text-amber-400 font-mono">
-                                    {currency} {(pendingDebt > 0 ? pendingDebt : (isHistorical ? totalCost : 0)).toLocaleString('es-AR')}
-                                </span>
-                            </div>
-                        </div>
+                        )}
 
                         <form onSubmit={handleConfirmPayment} className="space-y-4 text-xs">
+                            {/* SECCIÓN CO-INVERSIÓN / INVERSIÓN A MEDIAS */}
+                            <div className="p-3.5 rounded-xl bg-blue-500/10 border border-blue-500/20 space-y-3">
+                                <label className="flex items-start gap-2.5 cursor-pointer">
+                                    <input
+                                        type="checkbox"
+                                        checked={paymentForm.isSharedInvestment}
+                                        onChange={(e) => {
+                                            const isChecked = e.target.checked;
+                                            const partnerPct = isChecked ? 50 : 0;
+                                            const agCost = isChecked ? Math.round(totalCost * 0.5) : totalCost;
+                                            const pend = Math.max(0, agCost - amountPaid);
+                                            setPaymentForm(prev => ({
+                                                ...prev,
+                                                isSharedInvestment: isChecked,
+                                                partnerPercentage: 50,
+                                                amount: String(pend > 0 ? pend : '')
+                                            }));
+                                        }}
+                                        className="w-4 h-4 mt-0.5 rounded border-crm-border text-blue-500 focus:ring-blue-500 bg-crm-bg"
+                                    />
+                                    <div>
+                                        <span className="text-xs font-bold text-white block">
+                                            ¿Fue una inversión a medias (Co-inversión)?
+                                        </span>
+                                        <span className="text-[10px] text-gray-400 block">
+                                            Asociá una empresa socia cargada. El aporte del socio queda cubierto y la agencia solo responde por su parte propia, garantizando que no quede saldo pendiente.
+                                        </span>
+                                    </div>
+                                </label>
+
+                                {paymentForm.isSharedInvestment && (
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2.5 border-t border-blue-500/20 animate-in fade-in duration-150">
+                                        <div>
+                                            <label className="block text-[11px] font-bold text-gray-300 mb-1">
+                                                Empresa socia / co-inversora *
+                                            </label>
+                                            <select
+                                                value={paymentForm.partnerCompany}
+                                                onChange={(e) => setPaymentForm(prev => ({ ...prev, partnerCompany: e.target.value }))}
+                                                required={paymentForm.isSharedInvestment}
+                                                className="w-full bg-crm-bg border border-crm-border rounded-xl px-3 py-2 text-white focus:border-blue-500 focus:outline-none text-xs font-medium"
+                                            >
+                                                {companies.map(c => (
+                                                    <option key={c} value={c}>{c}</option>
+                                                ))}
+                                            </select>
+                                        </div>
+                                        <div>
+                                            <label className="block text-[11px] font-bold text-gray-300 mb-1">
+                                                Participación socio (%)
+                                            </label>
+                                            <input
+                                                type="number"
+                                                min="1"
+                                                max="99"
+                                                value={paymentForm.partnerPercentage}
+                                                onChange={(e) => {
+                                                    const pct = Math.min(99, Math.max(1, Number(e.target.value) || 50));
+                                                    const agCost = Math.round(totalCost * ((100 - pct) / 100));
+                                                    const pend = Math.max(0, agCost - amountPaid);
+                                                    setPaymentForm(prev => ({
+                                                        ...prev,
+                                                        partnerPercentage: pct,
+                                                        amount: String(pend > 0 ? pend : '')
+                                                    }));
+                                                }}
+                                                className="w-full bg-crm-bg border border-crm-border rounded-xl px-3 py-2 text-white focus:border-blue-500 focus:outline-none text-xs font-medium"
+                                            />
+                                        </div>
+                                        <div className="sm:col-span-2 text-[11px] text-blue-300 bg-black/40 p-2.5 rounded-lg border border-blue-500/20 flex flex-wrap justify-between gap-1">
+                                            <span>Aporte {paymentForm.partnerCompany} ({formPartnerPct}%): <strong>{currency} {formPartnerContribution.toLocaleString('es-AR')}</strong> (Cubierto)</span>
+                                            <span>Compromiso propio Agencia ({formAgencyPct}%): <strong>{currency} {formAgencyCost.toLocaleString('es-AR')}</strong></span>
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+
+                            {/* Empresa destinataria del pago */}
+                            <div>
+                                <label className="block text-[11px] font-bold text-gray-300 mb-1">
+                                    Empresa destinataria / receptora del pago (Opcional)
+                                </label>
+                                <select
+                                    value={paymentForm.payeeCompany}
+                                    onChange={(e) => setPaymentForm(prev => ({ ...prev, payeeCompany: e.target.value }))}
+                                    className="w-full bg-crm-bg border border-crm-border rounded-xl px-3 py-2 text-white focus:border-emerald-500 focus:outline-none text-xs"
+                                >
+                                    <option value="">— Sin empresa específica / Particular —</option>
+                                    {companies.map(c => (
+                                        <option key={c} value={c}>{c}</option>
+                                    ))}
+                                </select>
+                            </div>
+
                             {/* Importe a pagar */}
                             <div>
                                 <div className="flex items-center justify-between mb-1">
                                     <label className="text-[11px] font-bold text-gray-300">
                                         Importe a pagar ahora ({currency}) *
                                     </label>
-                                    {pendingDebt > 0 && (
+                                    {((paymentForm.isSharedInvestment ? formAgencyPending : pendingDebt) > 0) ? (
                                         <button
                                             type="button"
-                                            onClick={() => setPaymentForm(prev => ({ ...prev, amount: String(pendingDebt) }))}
+                                            onClick={() => setPaymentForm(prev => ({ 
+                                                ...prev, 
+                                                amount: String(paymentForm.isSharedInvestment ? formAgencyPending : pendingDebt) 
+                                            }))}
                                             className="text-[10px] text-emerald-400 hover:underline font-bold"
                                         >
-                                            Pagar saldo total ({currency} {pendingDebt.toLocaleString('es-AR')})
+                                            {paymentForm.isSharedInvestment 
+                                                ? `Pagar saldo propio (${currency} {formAgencyPending.toLocaleString('es-AR')})` 
+                                                : `Pagar saldo total (${currency} {pendingDebt.toLocaleString('es-AR')})`}
                                         </button>
+                                    ) : (
+                                        <span className="text-[10px] text-emerald-400 font-bold">
+                                            Compromiso propio saldado (No queda saldo pendiente)
+                                        </span>
                                     )}
                                 </div>
                                 <input
                                     type="number"
                                     min="1"
-                                    max={pendingDebt > 0 ? pendingDebt : undefined}
+                                    max={paymentForm.isSharedInvestment ? (formAgencyPending > 0 ? formAgencyPending : undefined) : (pendingDebt > 0 ? pendingDebt : undefined)}
                                     value={paymentForm.amount}
                                     onChange={(e) => setPaymentForm(prev => ({ ...prev, amount: e.target.value }))}
                                     required
                                     placeholder="0"
                                     className="w-full bg-crm-bg border border-crm-border rounded-xl px-3 py-2.5 text-white focus:border-emerald-500 focus:outline-none font-bold text-sm"
                                 />
+                                {paymentForm.isSharedInvestment && (
+                                    <span className="text-[10px] text-gray-400 block mt-1">
+                                        Al abonar el compromiso propio, la unidad queda totalmente liquidada con la empresa socia y no queda saldo pendiente.
+                                    </span>
+                                )}
                             </div>
 
                             {/* Selector de cuenta de salida */}
@@ -953,6 +1188,50 @@ export default function VehicleFinancialSummary({ vehicle, onEdit, onPaymentSave
                         </div>
 
                         <form onSubmit={handleConfirmCommitment} className="space-y-4 text-xs">
+                            {/* Inversión a medias (Co-inversión) */}
+                            <div className="p-3 rounded-xl bg-blue-500/10 border border-blue-500/20 space-y-2.5">
+                                <label className="flex items-start gap-2 cursor-pointer">
+                                    <input
+                                        type="checkbox"
+                                        checked={commitmentForm.isSharedInvestment}
+                                        onChange={(e) => setCommitmentForm(prev => ({ ...prev, isSharedInvestment: e.target.checked }))}
+                                        className="w-4 h-4 mt-0.5 rounded border-crm-border text-blue-500 bg-crm-bg"
+                                    />
+                                    <div>
+                                        <span className="text-xs font-bold text-white block">Inversión a medias (Co-inversión)</span>
+                                        <span className="text-[10px] text-gray-400">Si se financió a medias con una empresa asociada, la agencia solo asume su cuota y el resto no queda pendiente.</span>
+                                    </div>
+                                </label>
+
+                                {commitmentForm.isSharedInvestment && (
+                                    <div className="grid grid-cols-2 gap-2.5 pt-2 border-t border-blue-500/20 animate-in fade-in duration-150">
+                                        <div>
+                                            <label className="block text-[10px] font-bold text-gray-300 mb-1">Empresa socia *</label>
+                                            <select
+                                                value={commitmentForm.partnerCompany}
+                                                onChange={(e) => setCommitmentForm(prev => ({ ...prev, partnerCompany: e.target.value }))}
+                                                className="w-full bg-crm-bg border border-crm-border rounded-lg px-2.5 py-1.5 text-white text-xs"
+                                            >
+                                                {companies.map(c => (
+                                                    <option key={c} value={c}>{c}</option>
+                                                ))}
+                                            </select>
+                                        </div>
+                                        <div>
+                                            <label className="block text-[10px] font-bold text-gray-300 mb-1">Porcentaje socio (%)</label>
+                                            <input
+                                                type="number"
+                                                min="1"
+                                                max="99"
+                                                value={commitmentForm.partnerPercentage}
+                                                onChange={(e) => setCommitmentForm(prev => ({ ...prev, partnerPercentage: Number(e.target.value) }))}
+                                                className="w-full bg-crm-bg border border-crm-border rounded-lg px-2.5 py-1.5 text-white text-xs"
+                                            />
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+
                             <div>
                                 <label className="block text-[11px] font-bold text-gray-300 mb-1">
                                     Fecha prevista de pago
@@ -1100,6 +1379,16 @@ export default function VehicleFinancialSummary({ vehicle, onEdit, onPaymentSave
                                                         {p.deductedFromBox && (
                                                             <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-300 font-mono">
                                                                 Caja Stock
+                                                            </span>
+                                                        )}
+                                                        {(p.partnerCompany || p.payeeCompany) && (
+                                                            <span className="text-[10px] px-1.5 py-0.5 rounded bg-blue-500/15 text-blue-300 font-medium border border-blue-500/25">
+                                                                🏢 {p.partnerCompany || p.payeeCompany}
+                                                            </span>
+                                                        )}
+                                                        {p.isSharedInvestment && (
+                                                            <span className="text-[10px] px-1.5 py-0.5 rounded bg-blue-500/10 text-blue-300 font-medium">
+                                                                A medias ({p.partnerPercentage || 50}%)
                                                             </span>
                                                         )}
                                                     </div>

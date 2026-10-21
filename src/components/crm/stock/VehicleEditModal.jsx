@@ -426,7 +426,13 @@ export default function VehicleEditModal({ isOpen, onClose, onSave, vehicleData 
                                     <div className="grid grid-cols-2 gap-4 mt-2 p-3 bg-blue-500/10 border border-blue-500/20 rounded-lg">
                                         <div className="flex flex-col gap-1.5">
                                             <label className="text-xs font-medium text-crm-fg-muted uppercase tracking-wider">Nombre del Inversor *</label>
-                                            <input type="text" name="investorName" value={formData.investorName || ''} onChange={handleChange} required={formData.isSharedInvestment} placeholder="Ej: Juan" className="bg-crm-bg border border-crm-border text-crm-fg rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500" />
+                                            <input list="edit-companies-datalist" type="text" name="investorName" value={formData.investorName || ''} onChange={handleChange} required={formData.isSharedInvestment} placeholder="Seleccionar empresa o nombre..." className="bg-crm-bg border border-crm-border text-crm-fg rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500" />
+                                            <datalist id="edit-companies-datalist">
+                                                <option value="LHIVER" />
+                                                <option value="AUTOTERRA" />
+                                                <option value="AKAR" />
+                                                <option value="ALWAYS SAS" />
+                                            </datalist>
                                         </div>
                                         <div className="flex flex-col gap-1.5">
                                             <label className="text-xs font-medium text-crm-fg-muted uppercase tracking-wider">Porcentaje (%) *</label>

@@ -289,4 +289,147 @@ await test('9. Editar costo del vehículo: actualiza metadatos sin crear transac
     assert.equal(accountBalanceAfter, accountBalanceBefore, 'No debe modificar saldos de cuentas');
 });
 
+await test('10. Registrar pago con inversión a medias (50% LHIVER): cancela obligación propia y no deja saldo pendiente', async () => {
+    // Fondos suficientes para la prueba
+    await Account.findByIdAndUpdate(testAccount._id, { balance: 30000000 });
+
+    // Vehículo con costo total $20.000.000
+    const carShared = new Car({
+        brand: 'Jeep',
+        name: 'Compass Limited',
+        model: 'Compass',
+        year: 2023,
+        km: 20000,
+        condition: 'Usado',
+        fuel: 'Nafta',
+        plateOrVin: 'AF777XX',
+        price: 25000000,
+        currency: 'ARS',
+        purchasePrice: 20000000,
+        purchaseCurrency: 'ARS',
+        status: 'Disponible',
+        agencyOwned: true,
+        purchasePaymentState: {
+            totalCost: 20000000,
+            amountPaid: 0,
+            pendingDebt: 20000000,
+            status: 'pendiente',
+            payments: []
+        }
+    });
+    await carShared.save();
+
+    const initialAccountBalance = (await Account.findById(testAccount._id)).balance;
+    const agencyShareAmount = 10000000; // 50% de 20M
+
+    const res = await call('POST', `/api/admin/cars/${carShared._id}/purchase-payment`, {
+        accountId: testAccount._id.toString(),
+        amount: agencyShareAmount,
+        paymentMethod: 'Transferencia bancaria',
+        concept: 'Pago compra 50% Jeep Compass en conjunto',
+        isSharedInvestment: true,
+        partnerCompany: 'LHIVER',
+        partnerPercentage: 50,
+        payeeCompany: 'LHIVER'
+    });
+
+    assert.equal(res.status, 200, `Error: ${JSON.stringify(res.json)}`);
+    assert.equal(res.json.ok, true);
+
+    const updatedPaymentState = res.json.car.purchasePaymentState;
+    assert.equal(updatedPaymentState.isSharedInvestment, true);
+    assert.equal(updatedPaymentState.partnerCompany, 'LHIVER');
+    assert.equal(updatedPaymentState.partnerPercentage, 50);
+    assert.equal(updatedPaymentState.partnerContribution, 10000000);
+    assert.equal(updatedPaymentState.agencyCost, 10000000);
+    assert.equal(updatedPaymentState.amountPaid, 10000000);
+    assert.equal(updatedPaymentState.pendingDebt, 0, 'No debe quedar saldo pendiente al saldar la cuota de la agencia');
+    assert.equal(updatedPaymentState.status, 'pagado', 'El estado debe ser pagado');
+
+    // Verificar descuento en la cuenta física
+    const currentAccount = await Account.findById(testAccount._id);
+    assert.equal(currentAccount.balance, initialAccountBalance - agencyShareAmount);
+
+    // Verificar transacción creada con la empresa cargada vinculada
+    const tx = await Transaction.findOne({ vehicleId: carShared._id, type: 'Egreso' });
+    assert.ok(tx);
+    assert.equal(tx.amount, agencyShareAmount);
+    assert.equal(tx.payeeCompany, 'LHIVER');
+
+    // Verificar que getCarPurchasePaymentSummary refleja no pendiente
+    const summary = getCarPurchasePaymentSummary(res.json.car);
+    assert.equal(summary.pendingDebt, 0);
+    assert.equal(summary.status, 'pagado');
+});
+
+await test('11. Editar compromiso a inversión a medias con empresa (AUTOTERRA): liquida deuda pendiente si cuota fue abonada', async () => {
+    // Vehículo con costo 30.000.000 y 15.000.000 ya abonados (quedaban 15M pendientes como auto propio)
+    const carToAdjust = new Car({
+        brand: 'Ford',
+        name: 'Territory Titanium',
+        model: 'Territory',
+        year: 2022,
+        km: 30000,
+        condition: 'Usado',
+        fuel: 'Nafta',
+        plateOrVin: 'AF888YY',
+        price: 35000000,
+        currency: 'ARS',
+        purchasePrice: 30000000,
+        purchaseCurrency: 'ARS',
+        status: 'Disponible',
+        agencyOwned: true,
+        purchasePaymentState: {
+            totalCost: 30000000,
+            amountPaid: 15000000,
+            pendingDebt: 15000000,
+            status: 'parcial',
+            payments: [{
+                date: new Date('2026-09-01'),
+                amount: 15000000,
+                currency: 'ARS',
+                paymentMethod: 'Transferencia',
+                user: 'Admin'
+            }]
+        }
+    });
+    await carToAdjust.save();
+
+    // Modificamos el compromiso a inversión a medias con AUTOTERRA (50%)
+    const patchRes = await call('PATCH', `/api/admin/cars/${carToAdjust._id}/purchase-commitment`, {
+        isSharedInvestment: true,
+        partnerCompany: 'AUTOTERRA',
+        partnerPercentage: 50,
+        reason: 'Corrección contable: adquisición a medias con AUTOTERRA, los 15M pagados cancelan la cuota de la agencia'
+    });
+
+    assert.equal(patchRes.status, 200, `Error: ${JSON.stringify(patchRes.json)}`);
+    assert.equal(patchRes.json.ok, true);
+
+    const state = patchRes.json.car.purchasePaymentState;
+    assert.equal(state.isSharedInvestment, true);
+    assert.equal(state.partnerCompany, 'AUTOTERRA');
+    assert.equal(state.agencyCost, 15000000);
+    assert.equal(state.partnerContribution, 15000000);
+    assert.equal(state.amountPaid, 15000000);
+    assert.equal(state.pendingDebt, 0, 'El saldo pendiente debe quedar en 0');
+    assert.equal(state.status, 'pagado', 'El estado debe pasar a pagado');
+
+    // Comprobar summary
+    const summary = getCarPurchasePaymentSummary(patchRes.json.car);
+    assert.equal(summary.pendingDebt, 0);
+    assert.equal(summary.status, 'pagado');
+});
+
+await test('12. Endpoint GET /api/admin/companies lista empresas cargadas en el sistema', async () => {
+    const res = await call('GET', '/api/admin/companies');
+    assert.equal(res.status, 200);
+    assert.equal(res.json.ok, true);
+    assert.ok(Array.isArray(res.json.companies));
+    assert.ok(res.json.companies.includes('LHIVER'));
+    assert.ok(res.json.companies.includes('AUTOTERRA'));
+    assert.ok(res.json.companies.includes('AKAR'));
+    assert.ok(res.json.companies.includes('ALWAYS SAS'));
+});
+
 await finish();

@@ -1028,20 +1028,26 @@ app.post('/api/cars', authenticateToken, requirePermission(PERMISSIONS.STOCK_WRI
             let status = 'pagado';
             let createdTx = null;
 
+            const isSharedCar = Boolean(savedCar.investor && Number(savedCar.investor.percentage) > 0);
+            const partnerPct = isSharedCar ? Number(savedCar.investor.percentage) : 0;
+            const agencyCost = isSharedCar ? Math.round(cost * ((100 - partnerPct) / 100)) : cost;
+            const partnerContribution = cost - agencyCost;
+
             if (modality === 'pagar_ahora') {
-                amountPaid = cost;
+                amountPaid = isSharedCar ? agencyCost : cost;
                 pendingDebt = 0;
                 status = 'pagado';
             } else if (modality === 'pago_parcial') {
-                amountPaid = Math.min(cost, Math.max(0, Number(purchasePayment.amountPaid) || 0));
-                pendingDebt = Math.max(0, cost - amountPaid);
+                const targetLimit = isSharedCar ? agencyCost : cost;
+                amountPaid = Math.min(targetLimit, Math.max(0, Number(purchasePayment.amountPaid) || 0));
+                pendingDebt = Math.max(0, targetLimit - amountPaid);
                 status = pendingDebt === 0 ? 'pagado' : 'parcial';
             } else if (modality === 'pendiente') {
                 amountPaid = 0;
-                pendingDebt = cost;
+                pendingDebt = isSharedCar ? agencyCost : cost;
                 status = 'pendiente';
             } else {
-                amountPaid = cost;
+                amountPaid = isSharedCar ? agencyCost : cost;
                 pendingDebt = 0;
                 status = 'pagado';
             }
@@ -1061,21 +1067,25 @@ app.post('/api/cars', authenticateToken, requirePermission(PERMISSIONS.STOCK_WRI
                         return 'otro';
                     };
 
+                    const validCompanies = ['LHIVER', 'AUTOTERRA', 'AKAR', 'ALWAYS SAS'];
+                    const matchedCompany = validCompanies.find(c => c.toLowerCase() === String(savedCar.investor?.name || '').toLowerCase()) || undefined;
+
                     createdTx = new Transaction({
                         type: 'Egreso',
-                        category: 'compra_vehiculo',
+                        category: matchedCompany ? 'Pago Empresas' : 'compra_vehiculo',
                         amount: amountPaid,
                         currency: curr,
                         accountId: targetAccount._id,
                         date: new Date(),
-                        concept: `Compra de vehículo: ${savedCar.brand} ${savedCar.name} (${savedCar.plateOrVin || 'S/P'})`,
-                        description: `Adquisición de stock propio. ${purchasePayment.reference ? `Ref: ${purchasePayment.reference}` : ''}`.trim(),
+                        concept: `Compra de vehículo: ${savedCar.brand} ${savedCar.name} (${savedCar.plateOrVin || 'S/P'})${isSharedCar ? ` (Co-inversión ${partnerPct}% con ${savedCar.investor?.name})` : ''}`,
+                        description: `Adquisición de stock propio.${isSharedCar ? ` Inversión a medias (${partnerPct}% con ${savedCar.investor?.name}. Aporte socio: ${curr} ${partnerContribution.toLocaleString('es-AR')}).` : ''} ${purchasePayment.reference ? `Ref: ${purchasePayment.reference}` : ''}`.trim(),
                         status: 'activo',
                         module: 'crm_v2',
                         carId: savedCar._id,
                         vehicleId: savedCar._id,
                         paymentMethod: normMethod(purchasePayment.paymentMethod),
                         reference: purchasePayment.reference || null,
+                        payeeCompany: matchedCompany,
                         createdBy: user
                     });
                     await createdTx.save();
@@ -1101,6 +1111,11 @@ app.post('/api/cars', authenticateToken, requirePermission(PERMISSIONS.STOCK_WRI
                 totalCost: cost,
                 amountPaid,
                 pendingDebt,
+                agencyCost,
+                partnerContribution,
+                isSharedInvestment: isSharedCar,
+                partnerCompany: savedCar.investor?.name || '',
+                partnerPercentage: partnerPct,
                 currency: curr,
                 accountId: purchasePayment.accountId || null,
                 accountName: purchasePayment.accountName || null,
@@ -1117,6 +1132,9 @@ app.post('/api/cars', authenticateToken, requirePermission(PERMISSIONS.STOCK_WRI
                     accountName: purchasePayment.accountName || null,
                     paymentMethod: purchasePayment.paymentMethod || 'Transferencia bancaria',
                     reference: purchasePayment.reference || '',
+                    isSharedInvestment: isSharedCar,
+                    partnerCompany: savedCar.investor?.name || '',
+                    partnerPercentage: partnerPct,
                     deductedFromBox: Boolean(purchasePayment.deductFromStrategicBox),
                     boxKey: 'stock',
                     transactionId: createdTx ? createdTx._id : null,
@@ -1224,7 +1242,11 @@ app.post('/api/admin/cars/:id/purchase-payment', authenticateToken, requirePermi
             effectiveDate,
             concept = '',
             deductFromStrategicBox = false,
-            notes = ''
+            notes = '',
+            payeeCompany,
+            isSharedInvestment,
+            partnerCompany,
+            partnerPercentage = 50
         } = req.body;
 
         const numAmount = Number(amount);
@@ -1254,7 +1276,22 @@ app.post('/api/admin/cars/:id/purchase-payment', authenticateToken, requirePermi
         const currentPaid = paymentsList.length > 0 
             ? paymentsList.reduce((acc, p) => acc + (Number(p.amount) || 0), 0)
             : (Number(car.purchasePaymentState?.amountPaid) || 0);
-        const currentPending = Math.max(0, totalCost - currentPaid);
+
+        const effectiveIsShared = isSharedInvestment !== undefined
+            ? Boolean(isSharedInvestment)
+            : Boolean(car.purchasePaymentState?.isSharedInvestment || (car.investor && Number(car.investor.percentage) > 0));
+
+        const effectivePartnerPct = effectiveIsShared
+            ? Math.min(99, Math.max(1, Number(partnerPercentage || car.purchasePaymentState?.partnerPercentage || car.investor?.percentage || 50)))
+            : 0;
+
+        const effectivePartnerCompany = partnerCompany || payeeCompany || car.purchasePaymentState?.partnerCompany || car.investor?.name || (effectiveIsShared ? 'LHIVER' : '');
+        const agencyPct = effectiveIsShared ? Math.max(0, 100 - effectivePartnerPct) : 100;
+
+        const agencyCost = effectiveIsShared ? Math.round(totalCost * (agencyPct / 100)) : totalCost;
+        const partnerContribution = effectiveIsShared ? (totalCost - agencyCost) : 0;
+
+        const currentPending = Math.max(0, agencyCost - currentPaid);
 
         if (currentPending <= 0 || car.purchasePaymentState?.status === 'pagado') {
             return res.status(400).json({
@@ -1266,12 +1303,12 @@ app.post('/api/admin/cars/:id/purchase-payment', authenticateToken, requirePermi
         if (numAmount > currentPending + 0.01) {
             return res.status(400).json({
                 ok: false,
-                message: `El importe a pagar (${curr} ${numAmount.toLocaleString('es-AR')}) no puede superar el saldo pendiente (${curr} ${currentPending.toLocaleString('es-AR')}).`
+                message: `El importe a pagar (${curr} ${numAmount.toLocaleString('es-AR')}) no puede superar el saldo pendiente del compromiso de la agencia (${curr} ${currentPending.toLocaleString('es-AR')}).`
             });
         }
 
         const newPaid = currentPaid + numAmount;
-        const newPending = Math.max(0, totalCost - newPaid);
+        const newPending = Math.max(0, agencyCost - newPaid);
         const newStatus = newPending === 0 ? 'pagado' : 'parcial';
 
         // Descontar saldo de la cuenta física una sola vez
@@ -1288,16 +1325,19 @@ app.post('/api/admin/cars/:id/purchase-payment', authenticateToken, requirePermi
             return 'otro';
         };
 
+        const validCompanies = ['LHIVER', 'AUTOTERRA', 'AKAR', 'ALWAYS SAS'];
+        const matchedPayeeCompany = validCompanies.find(c => c.toLowerCase() === String(payeeCompany || effectivePartnerCompany || '').toLowerCase()) || undefined;
+
         const txDate = effectiveDate ? new Date(effectiveDate) : new Date();
         const tx = new Transaction({
             type: 'Egreso',
-            category: 'compra_vehiculo',
+            category: matchedPayeeCompany ? 'Pago Empresas' : 'compra_vehiculo',
             amount: numAmount,
             currency: curr,
             accountId: account._id,
             date: txDate,
-            concept: concept || `Pago compra vehículo: ${car.brand} ${car.name} (${car.plateOrVin || 'S/P'})`,
-            description: `Abono de saldo por adquisición de unidad. ${reference ? `Ref: ${reference}. ` : ''}${receiptUrl ? `Comprobante: ${receiptUrl}. ` : ''}${notes}`.trim(),
+            concept: concept || `Pago compra vehículo: ${car.brand} ${car.name} (${car.plateOrVin || 'S/P'})${effectiveIsShared ? ` (Co-inversión con ${effectivePartnerCompany})` : ''}`,
+            description: `Abono de saldo por adquisición de unidad.${effectiveIsShared ? ` Inversión a medias (${effectivePartnerPct}% con ${effectivePartnerCompany}. Aporte socio: ${curr} ${partnerContribution.toLocaleString('es-AR')}).` : ''} ${reference ? `Ref: ${reference}. ` : ''}${receiptUrl ? `Comprobante: ${receiptUrl}. ` : ''}${notes}`.trim(),
             receiptUrl: receiptUrl || null,
             status: 'activo',
             module: 'crm_v2',
@@ -1305,6 +1345,7 @@ app.post('/api/admin/cars/:id/purchase-payment', authenticateToken, requirePermi
             vehicleId: car._id,
             paymentMethod: normMethod(paymentMethod),
             reference: reference || null,
+            payeeCompany: matchedPayeeCompany,
             createdBy: user
         });
         await tx.save();
@@ -1332,6 +1373,12 @@ app.post('/api/admin/cars/:id/purchase-payment', authenticateToken, requirePermi
             totalCost,
             amountPaid: newPaid,
             pendingDebt: newPending,
+            agencyCost,
+            partnerContribution,
+            isSharedInvestment: effectiveIsShared,
+            partnerCompany: effectivePartnerCompany,
+            partnerPercentage: effectivePartnerPct,
+            payeeCompany: matchedPayeeCompany || payeeCompany || '',
             currency: curr,
             paymentDate: txDate,
             payments: [
@@ -1345,6 +1392,10 @@ app.post('/api/admin/cars/:id/purchase-payment', authenticateToken, requirePermi
                     paymentMethod,
                     reference,
                     receiptUrl: receiptUrl || '',
+                    payeeCompany: matchedPayeeCompany || payeeCompany || '',
+                    isSharedInvestment: effectiveIsShared,
+                    partnerCompany: effectivePartnerCompany,
+                    partnerPercentage: effectivePartnerPct,
                     notes: notes || concept || `Pago compra: ${car.brand} ${car.name}`,
                     deductedFromBox: Boolean(deductFromStrategicBox),
                     boxKey: 'stock',
@@ -1355,11 +1406,18 @@ app.post('/api/admin/cars/:id/purchase-payment', authenticateToken, requirePermi
             ]
         };
 
+        if (effectiveIsShared) {
+            car.investor = {
+                name: effectivePartnerCompany,
+                percentage: effectivePartnerPct
+            };
+        }
+
         if (!Array.isArray(car.auditLog)) car.auditLog = [];
         car.auditLog.push({
             action: 'PAGO_COMPRA',
             field: 'purchasePaymentState',
-            details: `Se registró un pago de ${curr} ${numAmount.toLocaleString('es-AR')} desde la cuenta ${account.name} (Saldo rest: ${account.currency} ${account.balance.toLocaleString('es-AR')}). Saldo de compra pendiente: ${curr} ${newPending.toLocaleString('es-AR')}.`,
+            details: `Se registró un pago de ${curr} ${numAmount.toLocaleString('es-AR')} desde la cuenta ${account.name}.${effectiveIsShared ? ` Inversión a medias (${effectivePartnerPct}% con ${effectivePartnerCompany}). Aporte socio: ${curr} ${partnerContribution.toLocaleString('es-AR')}.` : ''} Saldo pendiente agencia: ${curr} ${newPending.toLocaleString('es-AR')}.`,
             user,
             source: 'CRM_V2',
             date: new Date()
@@ -1496,7 +1554,7 @@ app.patch('/api/admin/cars/:id/purchase-commitment', authenticateToken, requireP
             return res.status(404).json({ ok: false, message: 'Vehículo no encontrado.' });
         }
 
-        const { expectedDate, expectedFundsNote, commitNotes, reason } = req.body;
+        const { expectedDate, expectedFundsNote, commitNotes, reason, isSharedInvestment, partnerCompany, partnerPercentage } = req.body;
         if (!reason || !reason.trim()) {
             return res.status(400).json({ ok: false, message: 'El motivo de la modificación del compromiso es obligatorio.' });
         }
@@ -1506,7 +1564,10 @@ app.patch('/api/admin/cars/:id/purchase-commitment', authenticateToken, requireP
         const previousData = {
             expectedDate: car.purchasePaymentState.expectedDate,
             expectedFundsNote: car.purchasePaymentState.expectedFundsNote,
-            commitNotes: car.purchasePaymentState.commitNotes
+            commitNotes: car.purchasePaymentState.commitNotes,
+            isSharedInvestment: car.purchasePaymentState.isSharedInvestment,
+            partnerCompany: car.purchasePaymentState.partnerCompany,
+            partnerPercentage: car.purchasePaymentState.partnerPercentage
         };
 
         if (expectedDate !== undefined) {
@@ -1517,6 +1578,39 @@ app.patch('/api/admin/cars/:id/purchase-commitment', authenticateToken, requireP
         }
         if (commitNotes !== undefined) {
             car.purchasePaymentState.commitNotes = String(commitNotes).trim();
+        }
+
+        if (isSharedInvestment !== undefined) {
+            const isShared = Boolean(isSharedInvestment);
+            const partnerPct = isShared ? Math.min(99, Math.max(1, Number(partnerPercentage || 50))) : 0;
+            const companyName = isShared ? String(partnerCompany || car.purchasePaymentState.partnerCompany || 'LHIVER').trim() : '';
+
+            car.purchasePaymentState.isSharedInvestment = isShared;
+            car.purchasePaymentState.partnerCompany = companyName;
+            car.purchasePaymentState.partnerPercentage = partnerPct;
+
+            const totalCost = Number(car.purchasePrice) || Number(car.purchasePaymentState.totalCost) || 0;
+            const agencyCost = isShared ? Math.round(totalCost * ((100 - partnerPct) / 100)) : totalCost;
+            const partnerContribution = totalCost - agencyCost;
+
+            car.purchasePaymentState.agencyCost = agencyCost;
+            car.purchasePaymentState.partnerContribution = partnerContribution;
+
+            const paid = (car.purchasePaymentState.payments || []).reduce((acc, p) => acc + (Number(p.amount) || 0), 0) || Number(car.purchasePaymentState.amountPaid) || 0;
+            const newPending = Math.max(0, agencyCost - paid);
+            car.purchasePaymentState.pendingDebt = newPending;
+
+            if (car.purchasePaymentState.status !== 'conciliacion_pendiente') {
+                if (newPending === 0 && (paid > 0 || agencyCost === 0)) {
+                    car.purchasePaymentState.status = 'pagado';
+                } else if (paid > 0) {
+                    car.purchasePaymentState.status = 'parcial';
+                } else {
+                    car.purchasePaymentState.status = 'pendiente';
+                }
+            }
+
+            car.investor = isShared ? { name: companyName, percentage: partnerPct } : { name: '', percentage: 0 };
         }
 
         if (!Array.isArray(car.purchasePaymentState.commitAuditLog)) {
@@ -1532,7 +1626,10 @@ app.patch('/api/admin/cars/:id/purchase-commitment', authenticateToken, requireP
                 next: {
                     expectedDate: car.purchasePaymentState.expectedDate,
                     expectedFundsNote: car.purchasePaymentState.expectedFundsNote,
-                    commitNotes: car.purchasePaymentState.commitNotes
+                    commitNotes: car.purchasePaymentState.commitNotes,
+                    isSharedInvestment: car.purchasePaymentState.isSharedInvestment,
+                    partnerCompany: car.purchasePaymentState.partnerCompany,
+                    partnerPercentage: car.purchasePaymentState.partnerPercentage
                 }
             }
         };
@@ -1543,7 +1640,7 @@ app.patch('/api/admin/cars/:id/purchase-commitment', authenticateToken, requireP
         car.auditLog.push({
             action: 'MODIFICACION_COMPROMISO_COMPRA',
             field: 'purchasePaymentState',
-            details: `Modificación del compromiso de compra. Motivo: ${reason.trim()}. Previsión fondos: "${car.purchasePaymentState.expectedFundsNote || 'S/D'}", Fecha prevista: ${car.purchasePaymentState.expectedDate ? new Date(car.purchasePaymentState.expectedDate).toLocaleDateString('es-AR') : 'S/F'}.`,
+            details: `Modificación del compromiso de compra. Motivo: ${reason.trim()}.${car.purchasePaymentState.isSharedInvestment ? ` Inversión a medias (${car.purchasePaymentState.partnerPercentage}% con ${car.purchasePaymentState.partnerCompany}). Saldo pendiente: ${car.purchasePaymentState.pendingDebt}.` : ''} Previsión fondos: "${car.purchasePaymentState.expectedFundsNote || 'S/D'}", Fecha prevista: ${car.purchasePaymentState.expectedDate ? new Date(car.purchasePaymentState.expectedDate).toLocaleDateString('es-AR') : 'S/F'}.`,
             user,
             source: 'CRM_V2',
             date: new Date()
@@ -1555,6 +1652,19 @@ app.patch('/api/admin/cars/:id/purchase-commitment', authenticateToken, requireP
     } catch (error) {
         console.error('Error updating purchase commitment:', error);
         res.status(500).json({ ok: false, message: error.message });
+    }
+});
+
+// GET empresas cargadas en el sistema (LHIVER, AUTOTERRA, AKAR, ALWAYS SAS y registradas)
+app.get('/api/admin/companies', authenticateToken, async (req, res) => {
+    try {
+        await connectDB();
+        const base = ['LHIVER', 'AUTOTERRA', 'AKAR', 'ALWAYS SAS'];
+        const fromTx = await Transaction.distinct('payeeCompany', { payeeCompany: { $ne: null } });
+        const allCompanies = Array.from(new Set([...base, ...(fromTx || [])].filter(Boolean)));
+        res.json({ ok: true, companies: allCompanies });
+    } catch (e) {
+        res.json({ ok: true, companies: ['LHIVER', 'AUTOTERRA', 'AKAR', 'ALWAYS SAS'] });
     }
 });
 
@@ -2311,8 +2421,13 @@ app.patch('/api/admin/cars/:id', authenticateToken, requirePermission(PERMISSION
                 if (car.purchasePaymentState) {
                     const paid = (car.purchasePaymentState.payments || []).reduce((acc, p) => acc + (Number(p.amount) || 0), 0) || Number(car.purchasePaymentState.amountPaid) || 0;
                     car.purchasePaymentState.totalCost = nextPurchasePrice;
+                    const isShared = Boolean(car.purchasePaymentState.isSharedInvestment || (car.investor && Number(car.investor.percentage) > 0));
+                    const invPct = isShared ? Number(car.purchasePaymentState.partnerPercentage || car.investor?.percentage || 50) : 0;
+                    const agencyCost = isShared ? Math.round(nextPurchasePrice * ((100 - invPct) / 100)) : nextPurchasePrice;
+                    car.purchasePaymentState.agencyCost = agencyCost;
+                    car.purchasePaymentState.partnerContribution = nextPurchasePrice - agencyCost;
                     if (car.purchasePaymentState.status !== 'conciliacion_pendiente') {
-                        car.purchasePaymentState.pendingDebt = Math.max(0, nextPurchasePrice - paid);
+                        car.purchasePaymentState.pendingDebt = Math.max(0, agencyCost - paid);
                         if (car.purchasePaymentState.pendingDebt === 0 && paid > 0) {
                             car.purchasePaymentState.status = 'pagado';
                         } else if (paid > 0) {

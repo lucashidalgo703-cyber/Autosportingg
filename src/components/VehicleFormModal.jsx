@@ -749,7 +749,21 @@ export default function VehicleFormModal({ isOpen, onClose, onSave, editingCar }
                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-2 p-3 bg-blue-500/10 border border-blue-500/20 rounded-lg">
                                         <div>
                                             <InputLabel required>Nombre del inversionista</InputLabel>
-                                            <TextInput name="investorName" value={formData.investorName} onChange={handleChange} placeholder="Ej: Juan Perez" required={formData.isSharedInvestment} />
+                                            <input
+                                                list="loaded-companies-datalist"
+                                                name="investorName"
+                                                value={formData.investorName}
+                                                onChange={handleChange}
+                                                placeholder="Seleccionar empresa cargada o ingresar nombre..."
+                                                required={formData.isSharedInvestment}
+                                                className="w-full bg-crm-surface-raised border border-crm-border text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-red-500 focus:ring-1 focus:ring-red-500"
+                                            />
+                                            <datalist id="loaded-companies-datalist">
+                                                <option value="LHIVER" />
+                                                <option value="AUTOTERRA" />
+                                                <option value="AKAR" />
+                                                <option value="ALWAYS SAS" />
+                                            </datalist>
                                         </div>
                                         <div>
                                             <InputLabel required>Porcentaje del Inversionista (%)</InputLabel>
