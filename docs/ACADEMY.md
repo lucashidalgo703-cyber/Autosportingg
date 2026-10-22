@@ -14,6 +14,10 @@ Validación: `node --test tests/academy.test.js`. Verificación visual y compila
 
 Sin endpoints, MongoDB, migraciones, datos operativos, proveedores de IA ni cambios en autenticación, seguridad, auditoría o cálculos existentes. Sin push, merge o deploy.
 
+## 13.6 · Entrenador
+
+Seis escenarios, dos alternativas cada uno: compra/liquidez, descuento/espera, financiación, permuta, diversificación y stock lento. Selección y comparación con resultados hipotéticos, fórmulas, ventajas, riesgos y costo de oportunidad. Se registra práctica local, sin puntuar decisiones como universalmente correctas. Pruebas de cada alternativa y comprobaciones de caja intermedia, valor presente y consistencia de asignación.
+
 ## 13.5 · Seguimiento local
 
 Repositorio local versionado y sustituible, separado por identificador del usuario autenticado existente. No almacena token, nombre, contenido operativo ni respuestas privadas. Sin identificador estable funciona temporalmente en memoria. Guarda lecciones completadas después de resolver el ejercicio, hasta 100 intentos y 50 decisiones; métricas calculadas desde la actividad, sin precarga ficticia. Dashboard y enlaces permiten continuar el recorrido; cursos aceptan enlaces directos por curso/lección.
