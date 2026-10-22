@@ -1,7 +1,7 @@
 import crypto from 'crypto';
 import TrustedDevice from '../models/TrustedDevice.js';
 import UserSession from '../models/UserSession.js';
-import AuditLog from '../models/AuditLog.js';
+import AuditLog, { computeAuditHash } from '../models/AuditLog.js';
 import AdminUser from '../models/AdminUser.js';
 import SecurityChallenge from '../models/SecurityChallenge.js';
 import SecurityRateLimit from '../models/SecurityRateLimit.js';
@@ -499,6 +499,16 @@ export async function authorizeDeviceAsTrusted({ deviceId, targetName, verificat
         throw err;
     }
 
+    // PRECONDICIÓN DE ACTIVACIÓN DE 2FA:
+    // Si el propietario no tiene configurado 2FA ni códigos de recuperación, guiarlo de inmediato
+    // sin penalizarlo ni consumir sus intentos en el rate limiter distribuido.
+    if (!ownerDoc.twoFactorEnabled && (!ownerDoc.recoveryCodes || ownerDoc.recoveryCodes.length === 0)) {
+        const err = new Error('Para registrar una computadora de confianza ("PC Agencia" o "PC Privada"), primero debe activar la Autenticación en Dos Pasos (2FA) en su cuenta. Ingrese a Configuración > 2FA para activarlo y respaldar sus códigos de recuperación.');
+        err.status = 409;
+        err.code = 'MFA_NOT_CONFIGURED';
+        throw err;
+    }
+
     const ip = getTrustedClientIp(req);
     const ownerId = String(ownerDoc._id);
 
@@ -810,5 +820,93 @@ export async function getDeviceForensicAudit(deviceId, requestingUser = null) {
         exportsAndDeletions,
         sectionsVisited,
         trustHistory: device.trustHistory || []
+    };
+}
+
+
+/**
+ * Herramienta de solo lectura para auditar la integridad criptográfica de la cadena de AuditLog
+ * Detecta alteraciones de contenido, discontinuidades de enlace y bifurcaciones concurrentes
+ */
+export async function verifyAuditLogIntegrity({ limit = 500 } = {}) {
+    const logs = await AuditLog.find()
+        .sort({ sequence: 1, createdAt: 1, _id: 1 })
+        .limit(limit)
+        .lean();
+
+    let validCount = 0;
+    let corruptedCount = 0;
+    let brokenLinksCount = 0;
+    let forkCount = 0;
+    const anomalies = [];
+    const knownHashes = new Set(['GENESIS']);
+    const parentUsageCount = new Map();
+
+    for (const log of logs) {
+        // 1. Verificar autenticidad del contenido recalculando HMAC con el secreto de servidor
+        const expectedHash = computeAuditHash({
+            previousHash: log.previousHash,
+            action: log.action,
+            module: log.module,
+            userId: log.userId,
+            deviceId: log.deviceId,
+            description: log.description,
+            timestamp: log.createdAt
+        });
+
+        if (log.currentHash !== expectedHash) {
+            corruptedCount++;
+            anomalies.push({
+                type: 'CORRUPTED_PAYLOAD',
+                logId: String(log._id),
+                action: log.action,
+                sequence: log.sequence,
+                recordedHash: log.currentHash,
+                expectedHash
+            });
+            continue;
+        }
+
+        // 2. Verificar enlace con registro previo
+        if (!knownHashes.has(log.previousHash)) {
+            brokenLinksCount++;
+            anomalies.push({
+                type: 'BROKEN_CHAIN_LINK',
+                logId: String(log._id),
+                action: log.action,
+                sequence: log.sequence,
+                previousHash: log.previousHash,
+                details: 'El previousHash no coincide con ningún registro precedente'
+            });
+        } else {
+            // Rastrear bifurcaciones concurrentes (dos escrituras con el mismo padre)
+            const usages = (parentUsageCount.get(log.previousHash) || 0) + 1;
+            parentUsageCount.set(log.previousHash, usages);
+            if (usages > 1 && log.previousHash !== 'GENESIS') {
+                forkCount++;
+                anomalies.push({
+                    type: 'CONCURRENT_FORK',
+                    logId: String(log._id),
+                    action: log.action,
+                    sequence: log.sequence,
+                    parentHash: log.previousHash,
+                    details: 'Bifurcación concurrente detectada (escritura simultánea legítima compartiendo bloque anterior)'
+                });
+            }
+        }
+
+        knownHashes.add(log.currentHash);
+        validCount++;
+    }
+
+    return {
+        ok: corruptedCount === 0 && brokenLinksCount === 0,
+        totalChecked: logs.length,
+        validCount,
+        corruptedCount,
+        brokenLinksCount,
+        forkCount,
+        anomalies,
+        verifiedAt: new Date()
     };
 }

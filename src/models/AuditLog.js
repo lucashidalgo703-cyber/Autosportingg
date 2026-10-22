@@ -1,6 +1,26 @@
 import mongoose from 'mongoose';
 import crypto from 'crypto';
 
+/**
+ * Función canónica y determinística para calcular el HMAC-SHA256 de un registro de auditoría.
+ * Protege contra manipulación offline al requerir la clave secreta de servidor.
+ */
+export function computeAuditHash({ previousHash, action, module, userId, deviceId, description, timestamp }) {
+    const auditSecret = process.env.AUDIT_HMAC_SECRET || process.env.JWT_SECRET || 'autosporting-audit-internal-salt';
+    const tsStr = timestamp ? (typeof timestamp === 'string' ? timestamp : (timestamp.toISOString ? timestamp.toISOString() : String(timestamp))) : '';
+    const payloadToHash = [
+        previousHash || 'GENESIS',
+        action || '',
+        module || '',
+        userId || '',
+        deviceId || '',
+        description || '',
+        tsStr
+    ].join('|');
+
+    return crypto.createHmac('sha256', auditSecret).update(payloadToHash).digest('hex');
+}
+
 const auditLogSchema = new mongoose.Schema({
     userId: { type: String, index: true },
     userName: { type: String },
@@ -25,7 +45,8 @@ const auditLogSchema = new mongoose.Schema({
         index: true 
     },
     sessionId: { type: String, index: true },
-    // FASE 4: Integridad Criptográfica y Hash Chaining
+    // Cadena de Custodia Criptográfica (HMAC-SHA256)
+    sequence: { type: Number, index: true },
     previousHash: { type: String, default: 'GENESIS', index: true },
     currentHash: { type: String, index: true }
 }, { 
@@ -40,33 +61,33 @@ auditLogSchema.index({ module: 1, action: 1 });
 auditLogSchema.index({ userId: 1, createdAt: -1 });
 auditLogSchema.index({ entityType: 1, entityId: 1 });
 
-// FASE 4: Hash Chaining criptográfico (SHA-256) garantizando cadena de custodia inmutable
+// Encadenamiento criptográfico HMAC-SHA256 garantizando cadena de custodia detectable
 auditLogSchema.pre('save', async function () {
     if (this.isNew && !this.currentHash) {
         const lastLog = await mongoose.models.AuditLog
-            .findOne({}, { currentHash: 1 })
+            .findOne({}, { currentHash: 1, sequence: 1 })
             .sort({ _id: -1 })
             .lean();
 
         this.previousHash = lastLog?.currentHash || 'GENESIS';
+        this.sequence = (lastLog?.sequence || 0) + 1;
 
-        const payloadToHash = [
-            this.previousHash,
-            this.action || '',
-            this.module || '',
-            this.userId || '',
-            this.deviceId || '',
-            this.description || '',
-            this.createdAt ? this.createdAt.toISOString() : new Date().toISOString()
-        ].join('|');
-
-        this.currentHash = crypto.createHash('sha256').update(payloadToHash).digest('hex');
+        const ts = this.createdAt || new Date();
+        this.currentHash = computeAuditHash({
+            previousHash: this.previousHash,
+            action: this.action,
+            module: this.module,
+            userId: this.userId,
+            deviceId: this.deviceId,
+            description: this.description,
+            timestamp: ts
+        });
     }
 });
 
-// PROTECCIÓN DE INTEGRIDAD: Inmutabilidad estricta a nivel de esquema (Append-Only)
+// PROTECCIÓN DE INTEGRIDAD: Inmutabilidad a nivel de esquema Mongoose (Append-Only)
 const blockMutation = function (next) {
-    const err = new Error('Violación de Integridad: Los registros de auditoría son inmutables y no pueden modificarse ni eliminarse.');
+    const err = new Error('Violación de Integridad: Los registros de auditoría son inmutables y no pueden modificarse ni eliminarse mediante la API.');
     err.status = 403;
     if (typeof next === 'function') next(err);
     else throw err;

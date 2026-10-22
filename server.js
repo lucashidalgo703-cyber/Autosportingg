@@ -72,7 +72,8 @@ import {
     revokeDevice, 
     getDeviceForensicAudit,
     validateSessionAndDevice,
-    createSecurityChallenge
+    createSecurityChallenge,
+    verifyAuditLogIntegrity
 } from './src/services/deviceSecurityBackend.js';
 import { hasPermission, PERMISSIONS, ROLES } from './src/utils/adminPermissions.js';
 import { CloudinaryStorage } from 'multer-storage-cloudinary';
@@ -82,6 +83,9 @@ import QRCode from 'qrcode';
 import crypto from 'crypto';
 
 const app = express();
+if (process.env.VERCEL === '1' || process.env.TRUST_PROXY === 'true') {
+    app.set('trust proxy', 1);
+}
 const PORT = process.env.PORT || 3001;
 const JWT_SECRET = process.env.JWT_SECRET?.trim();
 
@@ -1022,6 +1026,40 @@ app.post('/api/auth/logout', authenticateToken, async (req, res) => {
             description: `Cierre de sesión de ${req.user?.email || req.user?.username} desde ${req.deviceName || 'equipo'}`
         });
         res.json({ ok: true, message: 'Sesión cerrada correctamente' });
+    } catch (err) {
+        res.status(500).json({ message: err.message });
+    }
+});
+
+// GET /api/admin/devices/owner-mfa-status - Comprobar si el Owner tiene 2FA activo sin exponer secretos
+app.get('/api/admin/devices/owner-mfa-status', authenticateToken, async (req, res) => {
+    try {
+        if (req.user?.role !== 'owner') {
+            return res.status(403).json({ message: 'Solo el propietario puede consultar el estado de MFA para terminales.' });
+        }
+        const ownerDoc = await AdminUser.findById(req.user.id || req.user._id).select('twoFactorEnabled recoveryCodes').lean();
+        if (!ownerDoc) {
+            return res.status(404).json({ message: 'Propietario no encontrado.' });
+        }
+        res.json({
+            ok: true,
+            twoFactorEnabled: Boolean(ownerDoc.twoFactorEnabled),
+            hasRecoveryCodes: Boolean(ownerDoc.recoveryCodes && ownerDoc.recoveryCodes.length > 0)
+        });
+    } catch (err) {
+        res.status(500).json({ message: err.message });
+    }
+});
+
+// GET /api/admin/audit/verify-integrity - Herramienta de solo lectura para auditar la integridad de la cadena
+app.get('/api/admin/audit/verify-integrity', authenticateToken, async (req, res) => {
+    try {
+        if (req.user?.role !== 'owner') {
+            return res.status(403).json({ message: 'Solo el propietario puede auditar la integridad criptográfica de la base de datos.' });
+        }
+        const limit = Math.min(Number(req.query.limit) || 500, 2000);
+        const report = await verifyAuditLogIntegrity({ limit });
+        res.json({ ok: true, report });
     } catch (err) {
         res.status(500).json({ message: err.message });
     }

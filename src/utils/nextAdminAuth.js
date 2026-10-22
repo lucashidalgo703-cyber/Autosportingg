@@ -1,9 +1,9 @@
-import { NextResponse } from 'next/server';
+import { NextResponse } from 'next/server.js';
 import jwt from 'jsonwebtoken';
-import connectDB from '../config/db';
-import AdminUser from '../models/AdminUser';
-import { validateSessionAndDevice } from '../services/deviceSecurityBackend';
-import { hasPermission, ROLES } from './adminPermissions';
+import connectDB from '../config/db.js';
+import AdminUser from '../models/AdminUser.js';
+import { validateSessionAndDevice } from '../services/deviceSecurityBackend.js';
+import { hasPermission, ROLES } from './adminPermissions.js';
 
 export function withAdminAuth(requiredPermission, handler) {
     return async (request, context) => {

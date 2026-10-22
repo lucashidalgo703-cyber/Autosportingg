@@ -1,40 +1,51 @@
 import net from 'net';
 
 /**
- * Validador estricto de direcciones IPv4 / IPv6 para descartar valores manipulados o inyectados
+ * Validador estricto de direcciones IPv4 / IPv6 para descartar valores manipulados o inyectados.
  */
-function isValidIp(ip) {
+export function isValidIp(ip) {
     return typeof ip === 'string' && net.isIP(ip.trim()) !== 0;
 }
 
 /**
- * Resolver de IP confiable para la arquitectura de Vercel y Express.
- * En entornos cloud/serverless (Vercel), Edge Network sobreescribe de forma autoritativa la cabecera 'x-real-ip'.
- * En entornos sin proxy de confianza verificado, previene spoofing descartando cabeceras arbitrarias del cliente.
+ * Resolver de IP confiable con límite explícito de confianza de proxy.
+ *
+ * LÍMITE DE CONFIANZA:
+ * 1. Solo se confía en cabeceras de proxy ('x-real-ip', 'x-vercel-forwarded-for', 'x-forwarded-for') si el
+ *    entorno del servidor certifica de forma inviolable que se encuentra detrás de una infraestructura
+ *    perimetral autorizada:
+ *    - Variable de entorno de sistema: process.env.VERCEL === '1' (garantizada por Vercel Edge Network,
+ *      imposible de inyectar por clientes HTTP externos).
+ *    - O configuración explícita del administrador: process.env.TRUST_PROXY === 'true'.
+ * 2. Si NO se certifica un proxy confiable (ej. servidor Express expuesto directamente a Internet):
+ *    - SE IGNORAN Y DESCARTAN todas las cabeceras provistas por el cliente (incluyendo 'x-vercel-id',
+ *      'x-real-ip', 'x-forwarded-for'), ya que cualquier atacante puede inyectarlas libremente.
+ *    - Se utiliza exclusivamente la dirección de conexión TCP física del socket subyacente.
  */
 export function getTrustedClientIp(req) {
-    if (!req) return 'unknown';
+    if (!req) return '127.0.0.1';
 
-    const isVercel = process.env.VERCEL === '1' || Boolean(req.headers?.['x-vercel-id']);
+    // Certificación de infraestructura de proxy confiable (exclusivamente por variables de entorno del servidor)
+    const isVercelRuntime = process.env.VERCEL === '1';
     const isExplicitTrustedProxy = process.env.TRUST_PROXY === 'true';
-    const isTestOrLocal = process.env.NODE_ENV === 'test' || !process.env.NODE_ENV;
+    const isTestRuntimeWithFlag = Boolean(req?.isTrustedProxy);
+    const isTrustedBoundary = isVercelRuntime || isExplicitTrustedProxy || isTestRuntimeWithFlag;
 
-    // Solo confiar en cabeceras de reenvío perimetral si el entorno es de confianza
-    if (isVercel || isExplicitTrustedProxy || isTestOrLocal) {
-        // 1. Cabecera inyectada autoritativamente por Vercel Edge Network
+    if (isTrustedBoundary) {
+        // 1. Cabecera autoritativa sobreescrita por Vercel Edge Network
         const xRealIp = req.headers?.['x-real-ip'];
         if (isValidIp(xRealIp)) {
             return xRealIp.trim();
         }
 
-        // 2. Cabecera de reenvío perimetral interna de Vercel
+        // 2. Cabecera interna de reenvío perimetral de Vercel
         const xVercelForwarded = req.headers?.['x-vercel-forwarded-for'];
         if (typeof xVercelForwarded === 'string' && xVercelForwarded.trim()) {
             const first = xVercelForwarded.split(',')[0].trim();
             if (isValidIp(first)) return first;
         }
 
-        // 3. Fallback en caso de proxy reverso estándar (toma la última IP agregada por el gateway confiable)
+        // 3. Fallback para proxy inverso estándar (última IP registrada por el gateway confiable)
         const forwarded = req.headers?.['x-forwarded-for'];
         if (typeof forwarded === 'string' && forwarded.trim()) {
             const parts = forwarded.split(',').map(s => s.trim()).filter(isValidIp);
@@ -44,14 +55,16 @@ export function getTrustedClientIp(req) {
         }
     }
 
-    // 4. Socket directo (desarrollo local o entorno Express directo sin proxy)
-    const rawIp = req.socket?.remoteAddress || req.connection?.remoteAddress || req.ip || '127.0.0.1';
-    if (typeof rawIp === 'string' && rawIp.startsWith('::ffff:')) {
-        const unmapped = rawIp.slice(7);
+    // 4. Socket directo (conexión TCP directa verificada por el kernel)
+    let socketIp = req.socket?.remoteAddress || req.connection?.remoteAddress || req.ip || '127.0.0.1';
+
+    // Normalizar IPv4-mapped IPv6 (::ffff:192.0.2.1 -> 192.0.2.1)
+    if (typeof socketIp === 'string' && socketIp.startsWith('::ffff:')) {
+        const unmapped = socketIp.slice(7);
         if (isValidIp(unmapped)) return unmapped;
     }
 
-    return isValidIp(rawIp) ? rawIp : '127.0.0.1';
+    return isValidIp(socketIp) ? socketIp : '127.0.0.1';
 }
 
 export default getTrustedClientIp;

@@ -17,7 +17,8 @@ import {
     validateSessionAndDevice,
     createSecurityChallenge,
     verifyDeviceSignature,
-    enforceSecurityRateLimit
+    enforceSecurityRateLimit,
+    verifyAuditLogIntegrity
 } from '../src/services/deviceSecurityBackend.js';
 import speakeasy from 'speakeasy';
 import crypto from 'crypto';
@@ -69,20 +70,38 @@ async function runTests() {
         assert.ok(deleteBlocked, 'deleteOne fue bloqueado');
         console.log('  ok - AuditLog es estrictamente inmutable');
 
-        // 2. Resolución de IP Segura (Anti-Spoofing en Vercel)
-        console.log('Test 2: Resolución segura de IP...');
-        const mockReqSpoofed = {
+        // 2. Resolución de IP Segura y Límite de Confianza de Proxy
+        console.log('Test 2: Resolución segura de IP y límite de confianza de proxy...');
+        // 2.1: En entorno Vercel verificado, confía en x-real-ip de borde
+        process.env.VERCEL = '1';
+        const mockVercelReq = {
             headers: {
-                'x-forwarded-for': '198.51.100.1, 203.0.113.195', // IP falsificada inyectada por cliente
-                'x-real-ip': '203.0.113.195'                        // IP real garantizada por Vercel
-            }
+                'x-forwarded-for': '198.51.100.1, 203.0.113.195',
+                'x-real-ip': '203.0.113.195'
+            },
+            socket: { remoteAddress: '10.0.0.1' }
         };
-        const resolvedIp = getTrustedClientIp(mockReqSpoofed);
-        assert.strictEqual(resolvedIp, '203.0.113.195', 'Debe preferir x-real-ip sobre x-forwarded-for falsificado');
+        const resolvedVercelIp = getTrustedClientIp(mockVercelReq);
+        assert.strictEqual(resolvedVercelIp, '203.0.113.195', 'Vercel Edge confía en x-real-ip autoritativa');
+
+        // 2.2: En Express directo fuera de Vercel, descarta x-vercel-id y x-real-ip inyectadas por atacante
+        delete process.env.VERCEL;
+        delete process.env.TRUST_PROXY;
+        const mockDirectAttackReq = {
+            headers: {
+                'x-vercel-id': 'spoofed-header-attack',
+                'x-real-ip': '198.51.100.99',
+                'x-forwarded-for': '198.51.100.99'
+            },
+            socket: { remoteAddress: '181.44.120.10' }
+        };
+        const directIp = getTrustedClientIp(mockDirectAttackReq);
+        assert.strictEqual(directIp, '181.44.120.10', 'En Express directo descarta cabeceras spoofeadas y usa socket TCP');
 
         const mockReqLocal = { socket: { remoteAddress: '127.0.0.1' }, headers: {} };
         assert.strictEqual(getTrustedClientIp(mockReqLocal), '127.0.0.1', 'Fallback correcto en local');
-        console.log('  ok - Resolución de IP protege contra spoofing');
+        process.env.VERCEL = '1';
+        console.log('  ok - Resolución de IP protege contra spoofing en Vercel y Express directo');
 
         // 3. Crear usuario Propietario con 2FA configurado
         console.log('Test 3: Creación de usuario Owner y secreto 2FA...');
@@ -616,7 +635,65 @@ async function runTests() {
         assert.strictEqual(failSecureCheck.code, 'AUTH_INFRASTRUCTURE_ERROR', 'Código AUTH_INFRASTRUCTURE_ERROR');
         console.log('  ok - Principio Fail-Secure verificado: rechazo 503 ante caída de infraestructura');
 
-        console.log('\n✅ TODAS LAS PRUEBAS DE SEGURIDAD Y AUDITORÍA PASARON EXITOSAMENTE (26/26)');
+        // 27. RONDA FINAL: Precondición segura cuando Owner no tiene 2FA (409 sin bloqueo rate limit)
+        console.log('Test 27: Precondición de 2FA del Owner (409 MFA_NOT_CONFIGURED sin rate limit)...');
+        const ownerWithout2FA = new AdminUser({
+            name: 'Owner Sin MFA',
+            email: 'owner.sinmfa@autosporting.test',
+            passwordHash: 'hash:fake',
+            role: 'owner',
+            active: true,
+            twoFactorEnabled: false
+        });
+        await ownerWithout2FA.save();
+
+        let mfaPrecondThrown = false;
+        try {
+            await authorizeDeviceAsTrusted({
+                deviceId: 'dev-owner-no-mfa-test',
+                targetName: 'PC Agencia',
+                verificationCode: '123456',
+                ownerUser: ownerWithout2FA,
+                req: { headers: {}, socket: { remoteAddress: '127.0.0.1' } }
+            });
+        } catch (err) {
+            mfaPrecondThrown = true;
+            assert.strictEqual(err.status, 409, 'Debe arrojar 409 Conflict');
+            assert.strictEqual(err.code, 'MFA_NOT_CONFIGURED', 'Código MFA_NOT_CONFIGURED');
+            assert.ok(err.message.includes('Configuración > 2FA'), 'Mensaje debe guiar a Configuración > 2FA');
+        }
+        assert.ok(mfaPrecondThrown, 'Precondición de 2FA exigida');
+
+        // Confirmar que no consumió puntos de tasa
+        const rateLimitOwnerNo2FA = await SecurityRateLimit.findOne({ key: `dev_auth:owner:${ownerWithout2FA._id}` });
+        assert.strictEqual(rateLimitOwnerNo2FA, null, 'No debe penalizar al Owner sin 2FA en el rate limiter');
+        console.log('  ok - Owner sin 2FA guiado con 409 sin penalización de rate limit');
+
+        // 28. RONDA FINAL: Detección de adulteración mediante verifyAuditLogIntegrity
+        console.log('Test 28: Detección de manipulación maliciosa mediante verifyAuditLogIntegrity...');
+        const legitLog = new AuditLog({
+            action: 'AUDIT_INTEGRITY_CHECK',
+            module: 'seguridad',
+            description: 'Log legítimo original'
+        });
+        await legitLog.save();
+
+        const cleanReport = await verifyAuditLogIntegrity({ limit: 100 });
+        assert.strictEqual(cleanReport.ok, true, 'Cadena limpia debe reportar ok: true');
+
+        // Simular adulteración directa en la base de datos (vía driver sin pasar por hooks)
+        await AuditLog.collection.updateOne(
+            { _id: legitLog._id },
+            { $set: { description: 'DESCRIPCIÓN ALTERADA MALICIOSAMENTE' } }
+        );
+
+        const tamperedReport = await verifyAuditLogIntegrity({ limit: 100 });
+        assert.strictEqual(tamperedReport.ok, false, 'Cadena adulterada debe reportar ok: false');
+        assert.ok(tamperedReport.corruptedCount >= 1, 'Debe detectar al menos un registro corrupto');
+        assert.ok(tamperedReport.anomalies.some(a => a.type === 'CORRUPTED_PAYLOAD' && a.logId === String(legitLog._id)), 'Anomalía identificada como CORRUPTED_PAYLOAD para el log alterado');
+        console.log('  ok - Herramienta de auditoría detectó adulteración directa de datos en MongoDB');
+
+        console.log('\n✅ TODAS LAS PRUEBAS DE SEGURIDAD Y AUDITORÍA PASARON EXITOSAMENTE (28/28)');
 
     } finally {
         await teardown();
