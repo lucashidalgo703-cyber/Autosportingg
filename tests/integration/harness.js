@@ -41,6 +41,23 @@ export async function boot() {
         expiresAt: new Date(Date.now() + 86400000)
     });
 
+    // Crear usuario propietario activo en MongoDB para que pase la barrera de verificación estricta
+    const { default: AdminUser } = await import('../../src/models/AdminUser.js');
+    await AdminUser.findOneAndUpdate(
+        { _id: new mongoose.Types.ObjectId(ownerId) },
+        {
+            $setOnInsert: {
+                _id: new mongoose.Types.ObjectId(ownerId),
+                name: 'test_owner',
+                email: 'owner@autosporting.test',
+                role: 'owner',
+                active: true,
+                status: 'activo'
+            }
+        },
+        { upsert: true, new: true }
+    );
+
     const makeToken = (role = 'owner', customId = null) => {
         const uId = customId || (role === 'owner' ? ownerId : new mongoose.Types.ObjectId().toString());
         return jwt.sign({

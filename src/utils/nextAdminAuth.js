@@ -51,6 +51,14 @@ export function withAdminAuth(requiredPermission, handler) {
                 return NextResponse.json({ error: 'User is inactive or deleted' }, { status: 401 });
             }
 
+            // BARRERA DE PROPIETARIO ÚNICO: Verificación estricta contra base de datos (no confiar en el JWT)
+            if (user.role !== ROLES.OWNER) {
+                return NextResponse.json({
+                    code: 'ONLY_OWNER_ALLOWED',
+                    error: 'Acceso denegado: El CRM está restringido exclusivamente al propietario autorizado.'
+                }, { status: 403 });
+            }
+
             // Normalizar usuario para permisos
             const authUser = {
                 id: user._id.toString(),
@@ -66,14 +74,8 @@ export function withAdminAuth(requiredPermission, handler) {
 
             // Comprobar permisos
             if (requiredPermission) {
-                if (requiredPermission === 'ADMIN_OR_OWNER') {
-                    if (authUser.role !== ROLES.OWNER && authUser.role !== ROLES.ADMIN) {
-                        return NextResponse.json({ error: 'No tienes permisos suficientes (Requiere Admin/Owner)' }, { status: 403 });
-                    }
-                } else {
-                    if (!hasPermission(authUser, requiredPermission)) {
-                        return NextResponse.json({ error: `No tienes permisos suficientes (${requiredPermission})` }, { status: 403 });
-                    }
+                if (!hasPermission(authUser, requiredPermission)) {
+                    return NextResponse.json({ error: `No tienes permisos suficientes (${requiredPermission})` }, { status: 403 });
                 }
             }
 

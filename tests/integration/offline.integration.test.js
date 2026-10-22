@@ -29,7 +29,7 @@ function createMemoryStorage() {
     };
 }
 
-const { call: apiCall, test, finish, base: baseUrl } = await boot();
+const { call: apiCall, test, finish, base: baseUrl, token, ownerId } = await boot();
 console.log('Etapa 4 — Uso del CRM sin Conexión (Modo Offline v1)');
 
 await test('Preparación del dispositivo: descarga stock, clientes, ventas, cuotas y gastos autorizados sin exponer Tesorería Estratégica privada y soporta opción con/sin fotos', async () => {
@@ -107,18 +107,14 @@ await test('Preparación del dispositivo: descarga stock, clientes, ventas, cuot
             ...opts,
             headers: {
                 ...(opts.headers || {}),
-                Authorization: `Bearer ${jwt.sign(
-                    { id: 'user_owner_1', username: 'owner_test', role: 'owner' },
-                    process.env.JWT_SECRET,
-                    { expiresIn: '2h' }
-                )}`
+                Authorization: `Bearer ${token}`
             }
         });
     };
 
     // 1. Preparar con fotos
     const bundleWithPhotos = await prepareDeviceForOffline({
-        userId: 'user_owner_1',
+        userId: ownerId,
         includePhotos: true,
         onProgress: (p) => progressSteps.push(p),
         fetchImpl: fetcher,
@@ -136,7 +132,7 @@ await test('Preparación del dispositivo: descarga stock, clientes, ventas, cuot
 
     // 2. Preparar sin fotos
     const bundleNoPhotos = await prepareDeviceForOffline({
-        userId: 'user_owner_1',
+        userId: ownerId,
         includePhotos: false,
         fetchImpl: fetcher,
         customStorage: storage
@@ -150,7 +146,7 @@ await test('Cola offline e idempotencia: observaciones, peritajes, borradores de
     const storage = createMemoryStorage();
 
     // Encolar las 4 operaciones operativas mientras está sin conexión
-    const opObs = enqueueOfflineOperation('user_owner_1', {
+    const opObs = enqueueOfflineOperation(ownerId, {
         idempotencyKey: 'idem_obs_001',
         operationType: 'observation',
         entityType: 'Car',
@@ -162,7 +158,7 @@ await test('Cola offline e idempotencia: observaciones, peritajes, borradores de
         }
     }, storage);
 
-    const opAppraisal = enqueueOfflineOperation('user_owner_1', {
+    const opAppraisal = enqueueOfflineOperation(ownerId, {
         idempotencyKey: 'idem_app_001',
         operationType: 'appraisal',
         entityType: 'Car',
@@ -175,7 +171,7 @@ await test('Cola offline e idempotencia: observaciones, peritajes, borradores de
         }
     }, storage);
 
-    const opClient = enqueueOfflineOperation('user_owner_1', {
+    const opClient = enqueueOfflineOperation(ownerId, {
         idempotencyKey: 'idem_cli_001',
         operationType: 'client_draft',
         entityType: 'Client',
@@ -186,7 +182,7 @@ await test('Cola offline e idempotencia: observaciones, peritajes, borradores de
         }
     }, storage);
 
-    const opExpense = enqueueOfflineOperation('user_owner_1', {
+    const opExpense = enqueueOfflineOperation(ownerId, {
         idempotencyKey: 'idem_exp_001',
         operationType: 'expense',
         entityType: 'Car',
@@ -199,7 +195,7 @@ await test('Cola offline e idempotencia: observaciones, peritajes, borradores de
         }
     }, storage);
 
-    const snapBefore = getOfflineSnapshot('user_owner_1', storage);
+    const snapBefore = getOfflineSnapshot(ownerId, storage);
     assert.equal(snapBefore.outbox.length, 4);
 
     // Sincronizar con el servidor

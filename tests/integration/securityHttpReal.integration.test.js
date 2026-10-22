@@ -103,9 +103,42 @@ async function runRealHttpTests() {
             passwordHash,
             role: 'admin',
             active: true,
-            permissions: ['AUDITORIA_READ', 'STOCK_WRITE']
+            permissions: ['AUDITORIA_READ', 'STOCK_WRITE', 'VENTAS_WRITE', 'FINANZAS_READ']
         });
         await adminUser.save();
+
+        // Vendedor
+        const ventasUser = new AdminUser({
+            name: 'Vendedor Comercial',
+            email: 'ventas@autosporting.test',
+            passwordHash,
+            role: 'ventas',
+            active: true,
+            permissions: ['VENTAS_READ', 'VENTAS_WRITE', 'STOCK_READ']
+        });
+        await ventasUser.save();
+
+        // Administrativo
+        const adminisUser = new AdminUser({
+            name: 'Administrativo Contable',
+            email: 'administrativo@autosporting.test',
+            passwordHash,
+            role: 'administrativo',
+            active: true,
+            permissions: ['CAJA_READ', 'CAJA_WRITE', 'CUOTAS_READ', 'CUOTAS_WRITE']
+        });
+        await adminisUser.save();
+
+        // Solo Lectura
+        const soloLecturaUser = new AdminUser({
+            name: 'Auditor Externo',
+            email: 'solo_lectura@autosporting.test',
+            passwordHash,
+            role: 'solo_lectura',
+            active: true,
+            permissions: ['STOCK_READ']
+        });
+        await soloLecturaUser.save();
 
         // --- TEST 1: POST /api/auth/challenge (HTTP Real) ---
         console.log('Test HTTP 1: Solicitud de desafío criptográfico dinámico (POST /api/auth/challenge)...');
@@ -403,7 +436,7 @@ async function runRealHttpTests() {
         // El servidor no adoptó 1.2.3.4 sino la conexión local 127.0.0.1
         console.log('  ok - Express directo ignora cabeceras spoofeadas de proxy');
 
-        // --- TEST 13: Ejecución de Middleware Next.js App Router (withAdminAuth) ---
+        // --- TEST 13: Ejecución de Middleware Next.js App Router (withAdminAuth) con Owner y bloqueo de No-Owner ---
         console.log('Test HTTP 13: Ejecución de middleware Next.js App Router (withAdminAuth)...');
         let nextHandlerCalled = false;
         const mockNextHandler = async (req) => {
@@ -413,8 +446,23 @@ async function runRealHttpTests() {
 
         const wrappedNextRoute = withAdminAuth('STOCK_WRITE', mockNextHandler);
 
-        // Petición válida a Next.js
-        const mockNextReqValid = {
+        // Petición de Owner válido a Next.js
+        const mockNextReqOwner = {
+            headers: {
+                get: (h) => {
+                    if (h.toLowerCase() === 'authorization') return `Bearer ${tokenOwner2FA}`;
+                    if (h.toLowerCase() === 'x-device-id') return 'dev-http-valid';
+                    return null;
+                }
+            }
+        };
+        const nextResOwner = await wrappedNextRoute(mockNextReqOwner, {});
+        assert.strictEqual(nextHandlerCalled, true, 'Handler de Next.js ejecutado para el Owner');
+        assert.strictEqual(nextResOwner.status, 200, 'Next.js response 200 para Owner');
+
+        // Petición de Admin a Next.js: debe ser rechazada con 403 ONLY_OWNER_ALLOWED
+        let nextAdminHandlerCalled = false;
+        const mockNextReqAdmin = {
             headers: {
                 get: (h) => {
                     if (h.toLowerCase() === 'authorization') return `Bearer ${tokenAdmin}`;
@@ -423,23 +471,134 @@ async function runRealHttpTests() {
                 }
             }
         };
-
-        const nextResValid = await wrappedNextRoute(mockNextReqValid, {});
-        assert.strictEqual(nextHandlerCalled, true, 'Handler de Next.js ejecutado');
-        assert.strictEqual(nextResValid.status, 200, 'Next.js response 200');
-
-        // Petición a Next.js con permiso insuficiente
-        let nextRestrictedCalled = false;
-        const wrappedRestrictedRoute = withAdminAuth('PERMISO_INEXISTENTE_XYZ', async () => {
-            nextRestrictedCalled = true;
-            return { status: 200 };
-        });
-        const nextResForbidden = await wrappedRestrictedRoute(mockNextReqValid, {});
-        assert.strictEqual(nextRestrictedCalled, false, 'Handler no debe ejecutarse sin permisos');
-        assert.strictEqual(nextResForbidden.status, 403, 'Next.js debe responder 403');
+        const nextResAdmin = await wrappedNextRoute(mockNextReqAdmin, {});
+        assert.strictEqual(nextAdminHandlerCalled, false, 'Handler no debe ejecutarse para Admin');
+        assert.strictEqual(nextResAdmin.status, 403, 'Next.js debe responder 403 ONLY_OWNER_ALLOWED');
+        const nextAdminBody = await nextResAdmin.json();
+        assert.strictEqual(nextAdminBody.code, 'ONLY_OWNER_ALLOWED', 'Código de rechazo ONLY_OWNER_ALLOWED');
         console.log('  ok - Middleware Next.js App Router (withAdminAuth) verificado exitosamente');
 
-        console.log('\n✅ TODAS LAS PRUEBAS DE INTEGRACIÓN HTTP REAL PASARON EXITOSAMENTE (13/13)');
+        // --- TEST 14: Bloqueo de roles secundarios en Express (admin, ventas, administrativo, solo_lectura) ---
+        console.log('Test HTTP 14: Bloqueo HTTP 403 ONLY_OWNER_ALLOWED a roles secundarios en Express...');
+        // Sesiones y tokens para cada rol secundario
+        const rolesConfigs = [
+            { user: adminUser, role: 'admin' },
+            { user: ventasUser, role: 'ventas' },
+            { user: adminisUser, role: 'administrativo' },
+            { user: soloLecturaUser, role: 'solo_lectura' }
+        ];
+
+        for (const rc of rolesConfigs) {
+            const sId = `session-${rc.role}-test`;
+            await UserSession.create({
+                sessionId: sId,
+                userId: rc.user._id,
+                userName: rc.user.name,
+                deviceId: 'dev-http-valid',
+                deviceName: 'PC Agencia',
+                deviceStatus: 'trusted',
+                status: 'active',
+                expiresAt: new Date(Date.now() + 3600000)
+            });
+            const rToken = jwt.sign(
+                { id: rc.user._id, role: rc.role, sessionId: sId },
+                JWT_SECRET,
+                { expiresIn: '1h' }
+            );
+
+            // Intentar acceder a endpoint operativo (GET /api/admin/cars)
+            const carsRes = await fetch(`${base}/api/admin/cars`, {
+                headers: { Authorization: `Bearer ${rToken}` }
+            });
+            assert.strictEqual(carsRes.status, 403, `Rol ${rc.role} debe ser rechazado con 403 en /api/admin/cars`);
+            const carsBody = await carsRes.json();
+            assert.strictEqual(carsBody.code, 'ONLY_OWNER_ALLOWED', `Debe indicar ONLY_OWNER_ALLOWED para ${rc.role}`);
+
+            // Intentar acceder a endpoint financiero (GET /api/transactions)
+            const finRes = await fetch(`${base}/api/transactions`, {
+                headers: { Authorization: `Bearer ${rToken}` }
+            });
+            assert.strictEqual(finRes.status, 403, `Rol ${rc.role} debe ser rechazado con 403 en /api/transactions`);
+            const finBody = await finRes.json();
+            assert.strictEqual(finBody.code, 'ONLY_OWNER_ALLOWED', `Debe indicar ONLY_OWNER_ALLOWED en finanzas para ${rc.role}`);
+
+            // Intentar acceder a Tesorería Estratégica (GET /api/admin/tesoreria-estrategica/status)
+            const trRes = await fetch(`${base}/api/admin/tesoreria-estrategica/status`, {
+                headers: { Authorization: `Bearer ${rToken}` }
+            });
+            assert.strictEqual(trRes.status, 403, `Rol ${rc.role} debe ser rechazado con 403 en Tesorería`);
+        }
+        console.log('  ok - Roles secundarios (admin, ventas, administrativo, solo_lectura) rechazados con 403 ONLY_OWNER_ALLOWED');
+
+        // --- TEST 15: Ataque de evasión con JWT falso reclamando role: owner pero usuario en DB con rol no-owner ---
+        console.log('Test HTTP 15: Token con claim role: owner pero usuario en BD con rol ventas...');
+        const sessionSpoof = `session-spoofed-role-${Date.now()}`;
+        await UserSession.create({
+            sessionId: sessionSpoof,
+            userId: ventasUser._id,
+            userName: ventasUser.name,
+            deviceId: 'dev-http-valid',
+            deviceName: 'PC Agencia',
+            deviceStatus: 'trusted',
+            status: 'active',
+            expiresAt: new Date(Date.now() + 3600000)
+        });
+        // JWT firmado con el secret correcto, donde el payload clama fraudulentamente role: owner
+        const spoofedOwnerToken = jwt.sign(
+            { id: ventasUser._id, role: 'owner', sessionId: sessionSpoof },
+            JWT_SECRET,
+            { expiresIn: '1h' }
+        );
+        const spoofRes = await fetch(`${base}/api/admin/cars`, {
+            headers: { Authorization: `Bearer ${spoofedOwnerToken}` }
+        });
+        assert.strictEqual(spoofRes.status, 403, 'Ataque de spoofing de rol en JWT debe ser bloqueado con 403');
+        const spoofData = await spoofRes.json();
+        assert.strictEqual(spoofData.code, 'ONLY_OWNER_ALLOWED', 'La base de datos delata que el usuario real es ventas');
+        console.log('  ok - Verificación estricta contra base de datos detectó y neutralizó claim spoofed en JWT');
+
+        // --- TEST 16: Bloqueo de creación de usuarios secundarios (POST /api/admin/users) en Modo Propietario Único ---
+        console.log('Test HTTP 16: Bloqueo de creación de usuarios secundarios en POST /api/admin/users...');
+        const createUserRes = await fetch(`${base}/api/admin/users`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${tokenOwner2FA}` },
+            body: JSON.stringify({
+                name: 'Nuevo Empleado',
+                email: 'empleado@autosporting.test',
+                password: 'Password123!',
+                role: 'ventas'
+            })
+        });
+        assert.strictEqual(createUserRes.status, 403, 'Creación de usuarios debe responder 403 en modo Propietario Único');
+        const createUserData = await createUserRes.json();
+        assert.strictEqual(createUserData.code, 'ONLY_OWNER_ALLOWED', 'Código ONLY_OWNER_ALLOWED');
+        console.log('  ok - Creación de cuentas secundarias efectivamente bloqueada');
+
+        // --- TEST 17: Bloqueo de activación o asignación de permisos a cuentas secundarias (PATCH /api/admin/users/:id) ---
+        console.log('Test HTTP 17: Bloqueo de activación de cuentas secundarias en PATCH /api/admin/users/:id...');
+        const patchUserRes = await fetch(`${base}/api/admin/users/${ventasUser._id}`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${tokenOwner2FA}` },
+            body: JSON.stringify({ active: true, role: 'admin' })
+        });
+        assert.strictEqual(patchUserRes.status, 403, 'Activación de cuenta secundaria debe responder 403');
+        const patchUserData = await patchUserRes.json();
+        assert.strictEqual(patchUserData.code, 'ONLY_OWNER_ALLOWED', 'Código ONLY_OWNER_ALLOWED');
+        console.log('  ok - Activación o escalación de cuentas secundarias efectivamente bloqueada');
+
+        // --- TEST 18: Acceso legítimo del Propietario a rutas operativas y financieras ---
+        console.log('Test HTTP 18: Acceso legítimo del Propietario a endpoints operativos y financieros...');
+        const ownerCarsRes = await fetch(`${base}/api/admin/cars`, {
+            headers: { Authorization: `Bearer ${tokenOwner2FA}` }
+        });
+        assert.strictEqual(ownerCarsRes.status, 200, 'Owner debe recibir 200 en /api/admin/cars');
+        const ownerTxRes = await fetch(`${base}/api/transactions`, {
+            headers: { Authorization: `Bearer ${tokenOwner2FA}` }
+        });
+        assert.strictEqual(ownerTxRes.status, 200, 'Owner debe recibir 200 en /api/transactions');
+        console.log('  ok - Propietario verificado accede con éxito a todas las áreas');
+
+        console.log('\n✅ TODAS LAS PRUEBAS DE INTEGRACIÓN HTTP REAL PASARON EXITOSAMENTE (18/18)');
     } finally {
         await teardown();
     }

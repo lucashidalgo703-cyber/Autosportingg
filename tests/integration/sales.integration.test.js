@@ -1,42 +1,12 @@
 // Prueba de integración etapas 1 y 2 + plan de cuotas.
-// Usa una MongoDB EN MEMORIA (mongodb-memory-server): nunca toca producción.
-// Ejecutar: npm install --no-save mongodb-memory-server && node tests/integration/sales.integration.test.js
 import assert from 'node:assert/strict';
-import crypto from 'node:crypto';
+import { boot } from './harness.js';
 
-const { MongoMemoryServer } = await import('mongodb-memory-server');
-const mongod = await MongoMemoryServer.create();
-process.env.MONGODB_URI = mongod.getUri('autosporting_test'); // se pisa siempre: aislado
-process.env.JWT_SECRET = crypto.randomBytes(24).toString('hex');
-process.env.NODE_ENV = 'production'; // evita app.listen dentro de server.js
-
-const { default: app } = await import('../../server.js');
+const { call, test, finish } = await boot();
 const { default: mongoose } = await import('mongoose');
-const jwt = (await import('jsonwebtoken')).default;
 const { default: Sale } = await import('../../src/models/Sale.js');
 const { default: Car } = await import('../../src/models/Car.js');
 const { default: Installment } = await import('../../src/models/Installment.js');
-const { default: connectDB } = await import('../../src/config/db.js');
-await connectDB();
-
-const server = app.listen(0);
-const base = `http://127.0.0.1:${server.address().port}`;
-const token = jwt.sign({ id: new mongoose.Types.ObjectId().toString(), username: 'tester', role: 'owner' }, process.env.JWT_SECRET);
-const call = async (method, path, body) => {
-    const res = await fetch(base + path, {
-        method,
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-        body: body ? JSON.stringify(body) : undefined
-    });
-    const json = await res.json().catch(() => ({}));
-    return { status: res.status, json };
-};
-
-let passed = 0;
-const test = async (name, fn) => {
-    try { await fn(); passed++; console.log(`  ok  - ${name}`); }
-    catch (e) { console.error(`  FAIL - ${name}\n`, e); process.exitCode = 1; }
-};
 
 const mkCar = (purchasePrice, purchaseCurrency = 'ARS') => Car.create({
     brand: 'Test', name: 'Auto', year: 2020, km: 1, fuel: 'Nafta', condition: 'Usado',
@@ -219,8 +189,4 @@ await test('guardar comisión no crea egresos ni movimientos', async () => {
     assert.equal(await Transaction.countDocuments(), before);
 });
 
-console.log(`\n${passed} pruebas OK${process.exitCode ? ' (con fallos)' : ''}`);
-server.close();
-await mongoose.disconnect();
-await mongod.stop();
-process.exit(process.exitCode || 0);
+await finish();

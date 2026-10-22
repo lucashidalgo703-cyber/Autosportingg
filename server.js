@@ -441,37 +441,71 @@ const authenticateToken = (req, res, next) => {
             return res.status(503).json({ message: 'Error verificando sesión en base de datos' });
         }
 
-        req.user = user;
-        req.user.id = user.id || user.userId;
-        req.user.userId = user.userId || user.id;
-        req.user.sessionId = req.sessionId;
-        req.user.deviceId = req.deviceId;
-        req.user.deviceName = req.deviceName;
-        req.user.deviceStatus = req.deviceStatus;
+        // BARRERA DE PROPIETARIO ÚNICO: Verificación estricta contra base de datos (no confiar en el JWT)
+        let dbUser;
+        try {
+            const userId = user.id || user.userId;
+            dbUser = await AdminUser.findById(userId).select("role active email name permissions").lean();
+        } catch (userDbErr) {
+            console.error("Error verificando usuario en base de datos:", userDbErr.message);
+            return res.status(503).json({ message: "Error verificando usuario en base de datos" });
+        }
+
+        if (!dbUser || !dbUser.active) {
+            return res.status(401).json({ code: "USER_INACTIVE_OR_NOT_FOUND", message: "Usuario inexistente o inactivo." });
+        }
+
+        if (dbUser.role !== ROLES.OWNER) {
+            return res.status(403).json({
+                code: "ONLY_OWNER_ALLOWED",
+                message: "Acceso denegado: El CRM está restringido exclusivamente al propietario autorizado."
+            });
+        }
+
+        req.user = {
+            ...user,
+            ...dbUser,
+            id: dbUser._id.toString(),
+            userId: dbUser._id.toString(),
+            role: dbUser.role,
+            sessionId: req.sessionId,
+            deviceId: req.deviceId,
+            deviceName: req.deviceName,
+            deviceStatus: req.deviceStatus
+        };
         next();
     });
 };
 
-const requirePermission = (permission, allowedRoles = [ROLES.OWNER, ROLES.ADMIN]) => {
+const requirePermission = (permission, allowedRoles = [ROLES.OWNER]) => {
     return (req, res, next) => {
+        if (req.user?.role !== ROLES.OWNER) {
+            return res.status(403).json({
+                code: "ONLY_OWNER_ALLOWED",
+                message: "Acceso denegado: El CRM está restringido exclusivamente al propietario autorizado."
+            });
+        }
         const roleAllowed = allowedRoles.includes(req.user?.role);
         if (roleAllowed || hasPermission(req.user, permission)) {
             return next();
         }
-
         return res.status(403).json({ message: 'No tenes permisos para realizar esta accion.' });
     };
 };
 
-const requireAnyPermission = (permissions, allowedRoles = [ROLES.OWNER, ROLES.ADMIN]) => {
+const requireAnyPermission = (permissions, allowedRoles = [ROLES.OWNER]) => {
     return (req, res, next) => {
+        if (req.user?.role !== ROLES.OWNER) {
+            return res.status(403).json({
+                code: "ONLY_OWNER_ALLOWED",
+                message: "Acceso denegado: El CRM está restringido exclusivamente al propietario autorizado."
+            });
+        }
         const roleAllowed = allowedRoles.includes(req.user?.role);
         const permissionAllowed = permissions.some((permission) => hasPermission(req.user, permission));
-
         if (roleAllowed || permissionAllowed) {
             return next();
         }
-
         return res.status(403).json({ message: 'No tenes permisos para realizar esta accion.' });
     };
 };
@@ -530,6 +564,14 @@ app.post('/api/login', requireJwtConfiguration, enforceLoginRateLimit, async (re
 
         if (isValid) {
             await clearLoginAttempts(req);
+
+            // BARRERA DE PROPIETARIO ÚNICO: Bloqueo a nivel login para cuentas secundarias
+            if (user.role !== ROLES.OWNER) {
+                return res.status(403).json({
+                    code: "ONLY_OWNER_ALLOWED",
+                    message: "Acceso denegado: El CRM está restringido exclusivamente al propietario autorizado."
+                });
+            }
 
             if (user.twoFactorEnabled) {
                 // Generate a temporary challenge token valid for 5 mins
@@ -658,6 +700,14 @@ app.post('/api/login/2fa', requireJwtConfiguration, async (req, res) => {
         const user = await AdminUser.findById(decoded.challengeUserId);
         if (!user || !user.active || !user.twoFactorEnabled) {
             return res.status(401).json({ message: 'Usuario inválido o 2FA no activo.' });
+        }
+
+        // BARRERA DE PROPIETARIO ÚNICO
+        if (user.role !== ROLES.OWNER) {
+            return res.status(403).json({
+                code: "ONLY_OWNER_ALLOWED",
+                message: "Acceso denegado: El CRM está restringido exclusivamente al propietario autorizado."
+            });
         }
 
         let isVerified = false;
@@ -801,6 +851,10 @@ app.get('/api/admin/users/active', authenticateToken, async (req, res) => {
 
 // POST Create Admin User
 app.post('/api/admin/users', authenticateToken, requirePermission(PERMISSIONS.USUARIOS_WRITE), async (req, res) => {
+    return res.status(403).json({
+        code: "ONLY_OWNER_ALLOWED",
+        message: "Operación bloqueada: El CRM opera exclusivamente bajo el modo Propietario Único. No se permite crear cuentas secundarias."
+    });
     try {
         if (req.user.role !== 'owner' && req.user.role !== 'admin') {
             return res.status(403).json({ message: 'Sin permisos para crear usuarios' });
@@ -840,13 +894,24 @@ app.post('/api/admin/users', authenticateToken, requirePermission(PERMISSIONS.US
 // PATCH Edit Admin User
 app.patch('/api/admin/users/:id', authenticateToken, requirePermission(PERMISSIONS.USUARIOS_WRITE), async (req, res) => {
     try {
-        if (req.user.role !== 'owner' && req.user.role !== 'admin') {
-            return res.status(403).json({ message: 'Sin permisos para editar usuarios' });
+        if (req.user.role !== ROLES.OWNER) {
+            return res.status(403).json({
+                code: "ONLY_OWNER_ALLOWED",
+                message: "Sin permisos para editar usuarios (requiere rol Owner)"
+            });
         }
         const { name, email, role, active, permissions } = req.body;
 
         const userToUpdate = await AdminUser.findById(req.params.id);
         if (!userToUpdate) return res.status(404).json({ message: 'Usuario no encontrado' });
+
+        // En modo Propietario Único, no se permite la activación ni asignación de permisos operativos a cuentas secundarias
+        if ((active === true || permissions || (role && role !== ROLES.OWNER)) && userToUpdate.role !== ROLES.OWNER) {
+            return res.status(403).json({
+                code: "ONLY_OWNER_ALLOWED",
+                message: "Operación bloqueada: No se permite la activación ni asignación de permisos a cuentas secundarias en modo Propietario Único."
+            });
+        }
 
         // Regla: No desactivar ni quitar rol owner al ├║ltimo owner
         if ((active === false || (role && role !== 'owner')) && userToUpdate.role === 'owner') {
@@ -12257,13 +12322,14 @@ const verifyTreasuryStrategicAuth = (req, res, next) => {
 };
 
 const requireTreasuryPrivilegedRole = (req, res, next) => {
-    if (req.user?.role === ROLES.OWNER || req.user?.role === ROLES.ADMIN) {
-        return next();
+    if (req.user?.role !== ROLES.OWNER) {
+        return res.status(403).json({
+            ok: false,
+            code: "ONLY_OWNER_ALLOWED",
+            message: "Acceso denegado: El CRM está restringido exclusivamente al propietario autorizado."
+        });
     }
-    return res.status(403).json({
-        ok: false,
-        message: 'Acceso restringido únicamente al propietario o administrador general.'
-    });
+    return next();
 };
 
 // 1. Estado de seguridad (sin exponer PIN)

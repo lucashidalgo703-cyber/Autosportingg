@@ -19,17 +19,22 @@ function hashValue(val) {
     return `${salt}:${hash}`;
 }
 
-// Crear usuario propietario en la DB en memoria para probar recuperación de PIN con contraseña
+// Crear/actualizar usuario propietario en la DB en memoria para probar recuperación de PIN con contraseña
 const ownerPassword = 'OwnerSecretPassword2026!';
-await AdminUser.create({
-    _id: new mongoose.Types.ObjectId(ownerId),
-    name: 'Propietario Test',
-    email: 'owner@autosporting.test',
-    passwordHash: hashValue(ownerPassword),
-    role: 'owner',
-    status: 'activo',
-    active: true
-});
+await AdminUser.findOneAndUpdate(
+    { _id: new mongoose.Types.ObjectId(ownerId) },
+    {
+        $set: {
+            name: 'Propietario Test',
+            email: 'owner@autosporting.test',
+            passwordHash: hashValue(ownerPassword),
+            role: 'owner',
+            status: 'activo',
+            active: true
+        }
+    },
+    { upsert: true, new: true }
+);
 
 let treasuryToken = null;
 const tCall = (method, path, body) => call(method, path, body, token, treasuryToken ? { 'x-treasury-token': treasuryToken } : {});
