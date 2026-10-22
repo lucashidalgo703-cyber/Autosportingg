@@ -3429,7 +3429,7 @@ export async function syncExpenseWithTreasury(tx, options = {}) {
     if (!tx || tx.type !== 'Egreso') return;
     if (EXCLUDED_INBOX_CATEGORIES.includes(tx.category)) return;
     if (tx.category === 'compra_vehiculo' || tx.category === 'Pago compra vehículo' || tx.category === 'Pago Empresas') return;
-    if (tx.isTreasuryExpenseSynced) return;
+    if (tx.isTreasuryExpenseSynced && !options.statusChanged) return;
 
     await ensureDefaultBoxes();
     await ensureDefaultCategoryRules();

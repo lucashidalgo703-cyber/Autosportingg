@@ -575,7 +575,48 @@ async function runTests() {
         assert.ok(ownerAccessData && ownerAccessData.device, 'Owner puede auditar PC Privada exitosamente');
         console.log('  ok - PC Privada restringida estrictamente a rol Owner (403 para otros roles)');
 
-        console.log('\n✅ TODAS LAS PRUEBAS DE SEGURIDAD Y AUDITORÍA PASARON EXITOSAMENTE (24/24)');
+        // 25. FASE 6: Resolución estricta de IP y descarte de inyecciones maliciosas
+        console.log('Test 25: Descarte de inyecciones maliciosas y strings arbitrarios en cabeceras de IP...');
+        const maliciousReq = {
+            headers: {
+                'x-real-ip': 'invalid-spoofed-string; DROP TABLE users',
+                'x-forwarded-for': 'not-an-ip'
+            },
+            socket: { remoteAddress: '127.0.0.1' }
+        };
+        const sanitizedIp = getTrustedClientIp(maliciousReq);
+        assert.strictEqual(sanitizedIp, '127.0.0.1', 'Debe ignorar strings no-IP y caer en socket seguro');
+
+        const ipv4MappedReq = {
+            headers: {},
+            socket: { remoteAddress: '::ffff:190.220.10.5' }
+        };
+        const unmappedIp = getTrustedClientIp(ipv4MappedReq);
+        assert.strictEqual(unmappedIp, '190.220.10.5', 'Debe normalizar correctamente IPv4-mapped IPv6');
+        console.log('  ok - Inyecciones maliciosas descartadas y mapeo IPv6/IPv4 verificado');
+
+        // 26. FASE 6: Comportamiento Fail-Secure ante fallas de infraestructura
+        console.log('Test 26: Comportamiento Fail-Secure ante caídas o excepciones de BD en validación...');
+        const originalFindOne = UserSession.findOne;
+        // Simular caída transitoria de base de datos
+        UserSession.findOne = () => {
+            throw new Error('MongoNetworkTimeoutException: Conexión perdida con el cluster');
+        };
+
+        const failSecureCheck = await validateSessionAndDevice({
+            sessionId: 'valid-session-id-timeout-test',
+            user: { id: ownerUser._id, role: 'owner' }
+        });
+
+        // Restaurar método original
+        UserSession.findOne = originalFindOne;
+
+        assert.strictEqual(failSecureCheck.valid, false, 'Ante caída de BD NUNCA debe permitir acceso (fail-secure)');
+        assert.strictEqual(failSecureCheck.status, 503, 'Código 503 de servicio de autenticación');
+        assert.strictEqual(failSecureCheck.code, 'AUTH_INFRASTRUCTURE_ERROR', 'Código AUTH_INFRASTRUCTURE_ERROR');
+        console.log('  ok - Principio Fail-Secure verificado: rechazo 503 ante caída de infraestructura');
+
+        console.log('\n✅ TODAS LAS PRUEBAS DE SEGURIDAD Y AUDITORÍA PASARON EXITOSAMENTE (26/26)');
 
     } finally {
         await teardown();

@@ -366,33 +366,21 @@ export async function validateSessionAndDevice({ sessionId, user, deviceId }) {
         };
     }
 
-    const session = await UserSession.findOne({ sessionId })
-        .select('status deviceId deviceName deviceStatus userId')
-        .lean();
+    try {
+        const session = await UserSession.findOne({ sessionId })
+            .select('status deviceId deviceName deviceStatus userId')
+            .lean();
 
-    if (!session || session.status !== 'active') {
-        return {
-            valid: false,
-            status: 401,
-            code: 'SESSION_REVOKED',
-            message: 'Esta sesión ha sido revocada o ha finalizado. Por favor inicie sesión nuevamente.'
-        };
-    }
+        if (!session || session.status !== 'active') {
+            return {
+                valid: false,
+                status: 401,
+                code: 'SESSION_REVOKED',
+                message: 'Esta sesión ha sido revocada o ha finalizado. Por favor inicie sesión nuevamente.'
+            };
+        }
 
-    if (session.deviceStatus === 'revoked') {
-        return {
-            valid: false,
-            status: 401,
-            code: 'DEVICE_REVOKED',
-            message: 'Este dispositivo ha sido revocado por el administrador.'
-        };
-    }
-
-    // Comprobación de seguridad adicional: verificar si el dispositivo figura revocado en TrustedDevice
-    const targetDeviceId = session.deviceId || deviceId;
-    if (targetDeviceId) {
-        const devDoc = await TrustedDevice.findOne({ deviceId: targetDeviceId }).select('status').lean();
-        if (devDoc && devDoc.status === 'revoked') {
+        if (session.deviceStatus === 'revoked') {
             return {
                 valid: false,
                 status: 401,
@@ -400,12 +388,34 @@ export async function validateSessionAndDevice({ sessionId, user, deviceId }) {
                 message: 'Este dispositivo ha sido revocado por el administrador.'
             };
         }
-    }
 
-    return {
-        valid: true,
-        session
-    };
+        // Comprobación de seguridad adicional: verificar si el dispositivo figura revocado en TrustedDevice
+        const targetDeviceId = session.deviceId || deviceId;
+        if (targetDeviceId) {
+            const devDoc = await TrustedDevice.findOne({ deviceId: targetDeviceId }).select('status').lean();
+            if (devDoc && devDoc.status === 'revoked') {
+                return {
+                    valid: false,
+                    status: 401,
+                    code: 'DEVICE_REVOKED',
+                    message: 'Este dispositivo ha sido revocado por razones de seguridad.'
+                };
+            }
+        }
+
+        return {
+            valid: true,
+            session
+        };
+    } catch (err) {
+        console.error('Error de infraestructura en validación de sesión/dispositivo:', err.message);
+        return {
+            valid: false,
+            status: 503,
+            code: 'AUTH_INFRASTRUCTURE_ERROR',
+            message: 'Error de infraestructura al verificar el estado de la sesión. Intente nuevamente más tarde.'
+        };
+    }
 }
 
 /**
