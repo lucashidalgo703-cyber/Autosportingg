@@ -1,4 +1,12 @@
 import { computeSaleProfit } from '../../../utils/saleCommercial.js';
+import {
+    buildSaleGainState,
+    computeGainEvents,
+    isActiveTransaction,
+    isIncomeTransaction,
+    isExpenseTransaction,
+    toArsUsd
+} from './gainsCalculations.js';
 
 export function resolveHistoricalRateMeta(date, historyObj, rateType = 'venta') {
     if (!historyObj) {
@@ -434,8 +442,19 @@ export function calculateDashboardMetrics(cars = []) {
         }
 
         const projectedMonths = createEmpty12Months();
-        const releasedMonths = createEmpty12Months();
+        const releasedMonths = createEmpty12Months();   // GANANCIA COBRADA (por fecha de cobro)
+        const distributedMonths = createEmpty12Months(); // GANANCIA DISTRIBUIDA por Tesorería (por fecha de cobro)
         const saleWaterfallMap = new Map();
+        const depositEvents = [];
+
+        // Ventas cuya seña ya figura como movimiento propio (evita contar dos veces la seña aplicada)
+        const saleIdsWithDepositTx = new Set();
+        transactions.forEach(t => {
+            if (t && t.saleId && isIncomeTransaction(t) && isActiveTransaction(t)
+                && (t.source === 'reserva' || /seña|reserva/i.test(`${t.concept || ''} ${t.description || ''}`))) {
+                saleIdsWithDepositTx.add(String(t.saleId));
+            }
+        });
 
         sales.forEach(sale => {
             // Priorizar siempre la fecha comercial de la venta sobre createdAt
@@ -645,12 +664,11 @@ export function calculateDashboardMetrics(cars = []) {
                 if (bucketProj) {
                     bucketProj.salesCount++;
                     if (isCalculableProfit) {
-                        bucketProj.gainARS += profitARS;
-                        if (historicalRate || (sale.saleCurrency === 'USD')) {
-                            bucketProj.gainUSD += profitUSD;
-                        } else {
-                            bucketProj.incompleteCount++;
-                        }
+                        // Normalización ARS/USD: nunca se usa la cotización actual para completar el equivalente de una venta histórica.
+                        const isUsdSale = (sale.saleCurrency === 'USD' || sale.saleCurrency === 'U$S');
+                        if (historicalRate || isUsdSale) bucketProj.gainUSD += profitUSD;
+                        if (historicalRate || !isUsdSale) bucketProj.gainARS += profitARS;
+                        if (!historicalRate) bucketProj.incompleteCount++;
                     } else {
                         bucketProj.incompleteCount++;
                     }
@@ -689,20 +707,26 @@ export function calculateDashboardMetrics(cars = []) {
                     });
                 }
 
-                // Registrar venta en el circuito de Tesorería para calcular margen liberado por cobros
-                const acquisitionCost = commercialProfit.acquisitionCost || 0;
-                const totalExpenses = (commercialProfit.vehicleExpensesTotal || 0) + (commercialProfit.saleExpensesTotal || 0);
-                const realInvestment = acquisitionCost + totalExpenses;
-                const investorPct = commercialProfit.investorPercentage || 0;
-                const agencyPct = (100 - investorPct) / 100;
-                saleWaterfallMap.set(String(sale._id), {
-                    sale,
-                    carData,
-                    commercialProfit,
-                    realInvestment,
-                    agencyPct,
-                    collectedSoFar: 0
-                });
+                // Registrar venta en el circuito de Tesorería para calcular la ganancia cobrada / distribuida
+                // (costo + gastos + comisión descontada una sola vez, parte de socios y capital de permutas).
+                const gainState = buildSaleGainState({ sale, commercialProfit, carData });
+                saleWaterfallMap.set(String(sale._id), gainState);
+
+                // Seña aplicada a la venta sin movimiento propio: se considera efectivo cobrado (igual criterio que Tesorería)
+                const depositAmt = Number(sale.depositAppliedAmount) || 0;
+                if (depositAmt > 0 && !saleIdsWithDepositTx.has(String(sale._id))) {
+                    depositEvents.push({
+                        _id: `deposit-${sale._id}`,
+                        saleId: sale._id,
+                        date: saleDateRaw,
+                        amount: depositAmt,
+                        currency: sale.depositAppliedCurrency || sale.saleCurrency,
+                        type: 'Ingreso',
+                        status: 'activo',
+                        source: 'reserva',
+                        concept: 'Seña aplicada a la venta'
+                    });
+                }
 
                 // Cálculo para el array histórico de 12 meses (ventas brutas para Dashboard General)
                 const monthDiff = (targetYear - saleDate.getFullYear()) * 12 + (targetMonth - saleDate.getMonth());
@@ -779,73 +803,78 @@ export function calculateDashboardMetrics(cars = []) {
         metrics.margenEstimado.USD = realMarginUSD;
         metrics.salesDetails = salesDetails;
 
-        // --- Procesamiento de Cobros Reales en Tesorería (Margen Liberado) ---
-        const sortedTransactions = [...transactions].sort((a, b) => {
-            const da = new Date(a.date || a.createdAt || 0).getTime();
-            const db = new Date(b.date || b.createdAt || 0).getTime();
-            return da - db;
+        // --- Procesamiento de cobros reales: GANANCIA COBRADA y GANANCIA DISTRIBUIDA ---
+        // La ganancia comercial (por fecha de venta) ya se acumuló arriba en projectedMonths.
+        // Cotización ARS/USD de un cobro: la registrada en el movimiento, luego la pactada en la venta, luego la histórica de Ámbito.
+        // Nunca se completa con la cotización actual ni con un valor fijo.
+        const resolveTxRate = (t, tDate, saleState) => {
+            const txRate = Number(t?.exchangeRate) > 0 ? Number(t.exchangeRate) : null;
+            const saleRate = Number(saleState?.saleRate) > 0 ? Number(saleState.saleRate) : null;
+            const meta = resolveHistoricalRateMeta(tDate, dolarBlueHistory, 'venta');
+            if (txRate) {
+                return { ...meta, rate: txRate, isExactDate: true, isSubstituted: false, source: 'Registrada en el cobro', note: 'Cotización registrada en el movimiento' };
+            }
+            if (saleRate) {
+                return { ...meta, rate: saleRate, isExactDate: false, isSubstituted: false, source: 'Registrada en la venta', note: 'Cotización pactada en la venta' };
+            }
+            return meta;
+        };
+
+        const { events: gainEvents, reconciliation: gainsReconciliation } = computeGainEvents({
+            saleStates: saleWaterfallMap,
+            transactions,
+            resolveTxRate,
+            depositEvents
         });
 
-        sortedTransactions.forEach(t => {
-            const status = (t.status || '').toLowerCase();
-            if (status === 'anulado' || status === 'cancelado') return;
-            const type = (t.type || '').toLowerCase();
-            if (type !== 'ingreso') return;
+        const pushGainEntry = (bucket, ev, amountObj, extra = {}) => {
+            const rate = ev.rateMeta?.rate || null;
+            const conv = toArsUsd(amountObj.amount, amountObj.currency, rate);
+            const calc = ev.calculable && !conv.missingRate;
+            bucket.salesCount++;
+            bucket.gainARS += conv.ars;
+            bucket.gainUSD += conv.usd;
+            if (!calc) bucket.incompleteCount++;
+            const st = ev.state;
+            bucket.sales.push({
+                id: ev.id,
+                saleId: ev.saleId,
+                date: ev.date,
+                dateDisplay: formatArgentinaDate(ev.date),
+                clientName: st.sale.clientId?.fullName || st.sale.clientId?.name || st.sale.buyerName || 'Cliente',
+                concept: ev.tx.concept || ev.tx.description || 'Cobro de venta / cuota',
+                carName: st.carData ? `${st.carData.brand || ''} ${st.carData.name || ''}`.trim() : 'Vehículo',
+                plate: st.carData?.plateOrVin || st.carData?.plate || 'S/D',
+                amountCollected: ev.amount,
+                currency: ev.txCurrency,
+                realInvestment: st.totalCosts,
+                collectedSoFar: ev.collectedSoFar,
+                agencyProfitARS: conv.ars,
+                agencyProfitUSD: conv.missingRate ? null : conv.usd,
+                rateUsed: rate,
+                rateDate: ev.rateMeta?.rateDate || null,
+                isExactDate: ev.rateMeta?.isExactDate,
+                isSubstituted: ev.rateMeta?.isSubstituted,
+                substitutedFromDate: ev.rateMeta?.substitutedFromDate,
+                rateSource: ev.rateMeta?.source,
+                rateNote: ev.rateMeta?.note,
+                calculable: calc,
+                missingReasons: ev.missingReasons || (conv.missingRate ? ['Falta cotización histórica para el equivalente ARS/USD'] : undefined),
+                basis: ev.basis,
+                type: ev.type,
+                ...extra
+            });
+        };
 
-            const amt = Number(t.amount) || 0;
-            if (amt <= 0) return;
+        gainEvents.forEach(ev => {
+            const ym = getArgentinaYearMonth(ev.date);
+            const relBucket = releasedMonths.find(b => b.year === ym.year && b.month === ym.month);
+            if (relBucket) pushGainEntry(relBucket, ev, ev.collected);
 
-            const tDate = t.date ? new Date(t.date) : new Date(t.createdAt);
-            if (isNaN(tDate.getTime())) return;
-
-            if (t.saleId && saleWaterfallMap.has(String(t.saleId))) {
-                const sw = saleWaterfallMap.get(String(t.saleId));
-                const prevCollected = sw.collectedSoFar;
-                const newCollected = prevCollected + amt;
-                sw.collectedSoFar = newCollected;
-
-                const prevReleased = Math.max(0, prevCollected - sw.realInvestment) * sw.agencyPct;
-                const newReleased = Math.max(0, newCollected - sw.realInvestment) * sw.agencyPct;
-                const deltaReleasedARS = Math.max(0, newReleased - prevReleased);
-
-                const txArgYM = getArgentinaYearMonth(tDate);
-                const relBucket = releasedMonths.find(b => b.year === txArgYM.year && b.month === txArgYM.month);
-
-                if (relBucket) {
-                    const rateMeta = resolveHistoricalRateMeta(tDate, dolarBlueHistory, 'venta');
-                    const rateApplied = rateMeta.rate || blueRate || 1540;
-                    const deltaReleasedUSD = Math.round(deltaReleasedARS / rateApplied);
-
-                    relBucket.salesCount++;
-                    relBucket.gainARS += Math.round(deltaReleasedARS);
-                    relBucket.gainUSD += deltaReleasedUSD;
-
-                    relBucket.sales.push({
-                        id: t._id,
-                        saleId: t.saleId,
-                        date: tDate,
-                        dateDisplay: formatArgentinaDate(tDate),
-                        clientName: sw.sale.buyerName || sw.sale.clientId?.fullName || 'Cliente',
-                        concept: t.concept || t.description || 'Cobro de venta / cuota',
-                        carName: sw.carData ? `${sw.carData.brand || ''} ${sw.carData.name || ''}`.trim() : 'Vehículo',
-                        plate: sw.carData?.plateOrVin || sw.carData?.plate || 'S/D',
-                        amountCollected: amt,
-                        currency: t.currency || 'ARS',
-                        realInvestment: sw.realInvestment,
-                        collectedSoFar: newCollected,
-                        agencyProfitARS: Math.round(deltaReleasedARS),
-                        agencyProfitUSD: deltaReleasedUSD,
-                        rateUsed: rateApplied,
-                        rateDate: rateMeta.rateDate,
-                        isExactDate: rateMeta.isExactDate,
-                        isSubstituted: rateMeta.isSubstituted,
-                        substitutedFromDate: rateMeta.substitutedFromDate,
-                        rateSource: rateMeta.source,
-                        rateNote: rateMeta.note,
-                        calculable: true,
-                        type: 'cash_collection'
-                    });
-                }
+            // Distribuida: solo cobros que Tesorería ya repartió oficialmente (nunca se confunde con la cobrada)
+            if (ev.basis === 'tesoreria' && ev.distributed.amount > 0) {
+                const distBucket = distributedMonths.find(b => b.year === ym.year && b.month === ym.month);
+                if (distBucket) pushGainEntry(distBucket, ev, ev.distributed);
             }
         });
 
@@ -892,11 +921,20 @@ export function calculateDashboardMetrics(cars = []) {
 
         const projSummary = finalizeGainsCollection(projectedMonths);
         const relSummary = finalizeGainsCollection(releasedMonths);
+        const distSummary = finalizeGainsCollection(distributedMonths);
 
+        // Tres conceptos separados:
+        //   commercial  = ganancia comercial (por fecha de venta)      [alias histórico: projected]
+        //   collected   = ganancia cobrada / liberada (por fecha de cobro) [alias histórico: released]
+        //   distributed = margen asignado por Tesorería (por fecha de cobro)
         metrics.last12MonthsGains = {
             months: projectedMonths, // Compatible por defecto
+            commercial: projSummary,
+            collected: relSummary,
+            distributed: distSummary,
             projected: projSummary,
             released: relSummary,
+            reconciliation: gainsReconciliation,
             cockpitTargetUSD: cockpitTargetUSD || 110000,
             dolarBlueCurrent: blueRate,
             dolarBlueHistoryCount: dolarBlueHistory?.count || 0
@@ -962,15 +1000,17 @@ export function calculateDashboardMetrics(cars = []) {
         };
 
         transactions.forEach(t => {
+            // Tesorería guarda el tipo como 'Ingreso'/'Egreso' (capitalizado) y los movimientos anulados/pendientes no son dinero real.
+            if (!isActiveTransaction(t)) return;
             const tDate = new Date(t.date || t.createdAt);
             if (tDate.getMonth() === targetMonth && tDate.getFullYear() === targetYear) {
                 const amount = Number(t.amount) || 0;
                 const currency = (t.currency === 'ARS' || t.currency === '$') ? 'ARS' : 'USD';
                 
-                if (t.type === 'ingreso') {
+                if (isIncomeTransaction(t)) {
                     if (currency === 'USD') metrics.finanzas.ingresosUSD += amount;
                     else metrics.finanzas.ingresosARS += amount;
-                } else if (t.type === 'egreso') {
+                } else if (isExpenseTransaction(t)) {
                     if (currency === 'USD') metrics.finanzas.egresosUSD += amount;
                     else metrics.finanzas.egresosARS += amount;
                 }

@@ -55,7 +55,7 @@ export default function MonthlyGainPanel({
     hideAmounts = false,
     dolarBlue = null
 }) {
-    // 1. Selector de Métrica: 'projected' (Margen Comercial Proyectado) | 'released' (Margen Liberado por Cobros)
+    // 1. Selector de Métrica: 'projected' (Ganancia Comercial) | 'released' (Ganancia Cobrada / Liberada)
     const [metricMode, setMetricMode] = useState('projected');
     const isProjected = metricMode === 'projected';
 
@@ -260,7 +260,7 @@ export default function MonthlyGainPanel({
                         <div>
                             <div className="flex items-center gap-2 flex-wrap">
                                 <h3 className="text-xs font-bold uppercase tracking-[0.16em] text-crm-fg">
-                                    ÚLTIMOS 12 MESES · {isProjected ? 'MARGEN COMERCIAL PROYECTADO' : 'MARGEN LIBERADO POR COBROS'} ({currency})
+                                    ÚLTIMOS 12 MESES · {isProjected ? 'GANANCIA COMERCIAL' : 'GANANCIA COBRADA / LIBERADA'} ({currency})
                                 </h3>
                                 <span className="rounded-full bg-crm-surface-raised px-2 py-0.5 text-[10px] font-semibold text-crm-fg-muted">
                                     {totalOperationsCount} {isProjected ? 'ventas' : 'cobros'}
@@ -269,7 +269,7 @@ export default function MonthlyGainPanel({
                             <p className="mt-0.5 text-[11px] text-crm-fg-muted">
                                 {isProjected
                                     ? 'Resultado esperado por operación comercial según fecha de venta · No representa dinero cobrado en caja'
-                                    : 'Margen liberado por cobros reales de Tesorería tras recuperar el capital invertido · Agrupado por fecha de cobro'}
+                                    : 'Parte de la ganancia respaldada por cobros reales tras recuperar el capital invertido · Agrupado por fecha de cobro · No equivale a lo distribuido por Tesorería'}
                             </p>
                         </div>
                     </div>
@@ -286,9 +286,9 @@ export default function MonthlyGainPanel({
                                         ? 'bg-indigo-600 text-white shadow-sm'
                                         : 'text-crm-fg-muted hover:text-crm-fg'
                                 }`}
-                                title="Margen total pactado agrupado por fecha de venta comercial"
+                                title="Ganancia comercial: margen de cada venta (precio menos costo, gastos, comisión y parte de socios), agrupado por fecha de venta"
                             >
-                                Proyectado
+                                Comercial
                             </button>
                             <button
                                 type="button"
@@ -298,9 +298,9 @@ export default function MonthlyGainPanel({
                                         ? 'bg-emerald-600 text-white shadow-sm'
                                         : 'text-crm-fg-muted hover:text-crm-fg'
                                 }`}
-                                title="Margen liberado por cobros efectivos en Tesorería tras recuperar costo de adquisición y gastos"
+                                title="Ganancia cobrada: parte del margen respaldada por cobros reales tras recuperar el capital, agrupada por fecha de cobro"
                             >
-                                Liberado Tesorería
+                                Cobrada
                             </button>
                         </div>
 
@@ -370,11 +370,11 @@ export default function MonthlyGainPanel({
                         <span>
                             {isProjected ? (
                                 <>
-                                    <strong>Margen Comercial Proyectado:</strong> Mide el resultado total esperado de cada operación (precio pactado menos costo real de compra/toma, gastos directos, comisiones y derechos de socios).
+                                    <strong>Ganancia Comercial:</strong> Mide el resultado total esperado de cada operación (precio pactado menos costo real de compra/toma, gastos directos, comisiones y derechos de socios).
                                 </>
                             ) : (
                                 <>
-                                    <strong>Margen Liberado por Cobros:</strong> Mide los ingresos reales de Tesorería que superaron la amortización de capital inicial invertido. Imputa cobros de cuotas y saldos de meses anteriores.
+                                    <strong>Ganancia Cobrada / Liberada:</strong> Mide la parte del margen respaldada por cobros reales, una vez recuperado el capital invertido. Imputa cobros de cuotas y saldos al mes en que se cobran. La ganancia distribuida por Tesorería a obligaciones, reservas o cajas es un indicador distinto.
                                 </>
                             )}
                         </span>
@@ -622,11 +622,11 @@ export default function MonthlyGainPanel({
             <p className="mt-3 text-[11px] leading-relaxed text-crm-fg-muted">
                 {isProjected ? (
                     <>
-                        * <strong>Margen Comercial Proyectado:</strong> Mide el resultado esperado por operación cerrada (precio pactado menos costo real de adquisición, gastos directos del vehículo y venta, comisiones y derechos de socios). No representa dinero disponible en caja ni ganancia neta total de la empresa (no descuenta gastos fijos/generales del negocio). Conversión a USD según cotizaciones históricas de Ámbito Financiero — dólar blue (venta) a la fecha de cada venta como equivalencia informativa.
+                        * <strong>Ganancia Comercial:</strong> Mide el resultado esperado por operación cerrada (precio pactado menos costo real de adquisición, gastos directos del vehículo y venta, comisiones y derechos de socios). No representa dinero disponible en caja ni ganancia neta total de la empresa (no descuenta gastos fijos/generales del negocio). Conversión a USD según cotizaciones históricas de Ámbito Financiero — dólar blue (venta) a la fecha de cada venta como equivalencia informativa.
                     </>
                 ) : (
                     <>
-                        * <strong>Margen Liberado por Cobros:</strong> Mide los fondos efectivamente liberados en Tesorería tras recuperar el 100% del capital inicial invertido. No reconoce cuotas futuras pendientes como cobradas. Conversión a USD según cotización histórica de Ámbito Financiero — dólar blue (venta) a la fecha efectiva de cada cobro.
+                        * <strong>Ganancia Cobrada / Liberada:</strong> Mide la parte del margen respaldada por cobros efectivos, tras recuperar el 100% del capital invertido (las permutas no son efectivo). No reconoce cuotas futuras pendientes como cobradas y no se confunde con la ganancia distribuida por Tesorería. Conversión a USD según cotización histórica de Ámbito Financiero — dólar blue (venta) a la fecha efectiva de cada cobro.
                     </>
                 )}
             </p>
@@ -721,7 +721,7 @@ export default function MonthlyGainPanel({
                             <div>
                                 <h3 className="text-base font-bold text-white flex items-center gap-2">
                                     {isProjected ? <TrendingUp size={18} className="text-indigo-400" /> : <Wallet size={18} className="text-emerald-400" />}
-                                    Auditoría · {isProjected ? 'Margen Comercial Proyectado' : 'Margen Liberado por Cobros'} (12 Meses)
+                                    Auditoría · {isProjected ? 'Ganancia Comercial' : 'Ganancia Cobrada / Liberada'} (12 Meses)
                                 </h3>
                                 <p className="text-xs text-crm-fg-muted mt-0.5">
                                     {isProjected
@@ -764,7 +764,7 @@ export default function MonthlyGainPanel({
                                             isProjected ? 'bg-indigo-600 text-white' : 'text-crm-fg-muted hover:text-white'
                                         }`}
                                     >
-                                        Proyectado
+                                        Comercial
                                     </button>
                                     <button
                                         type="button"
@@ -773,7 +773,7 @@ export default function MonthlyGainPanel({
                                             !isProjected ? 'bg-emerald-600 text-white' : 'text-crm-fg-muted hover:text-white'
                                         }`}
                                     >
-                                        Liberado
+                                        Cobrada
                                     </button>
                                 </div>
                             </div>
@@ -912,7 +912,7 @@ export default function MonthlyGainPanel({
                                     </tbody>
                                 </table>
                             ) : (
-                                /* TABLA 2: MARGEN LIBERADO POR COBROS REALES EN TESORERÍA */
+                                /* TABLA 2: GANANCIA COBRADA / LIBERADA REALES EN TESORERÍA */
                                 <table className="w-full text-left text-xs border-collapse">
                                     <thead className="sticky top-0 bg-crm-surface-raised border-b border-crm-border text-crm-fg-muted uppercase text-[10px] tracking-wider font-bold z-10">
                                         <tr>
@@ -922,9 +922,9 @@ export default function MonthlyGainPanel({
                                             <th className="py-2.5 px-3">Concepto Cobro</th>
                                             <th className="py-2.5 px-3 text-right">Importe Cobrado</th>
                                             <th className="py-2.5 px-3 text-right">Inversión Recuperada</th>
-                                            <th className="py-2.5 px-3 text-right font-black text-emerald-300">Margen Liberado ARS</th>
+                                            <th className="py-2.5 px-3 text-right font-black text-emerald-300">Ganancia Cobrada ARS</th>
                                             <th className="py-2.5 px-3 text-center">Dólar Ámbito (Cobro)</th>
-                                            <th className="py-2.5 px-3 text-right font-black text-emerald-400">Margen Liberado USD</th>
+                                            <th className="py-2.5 px-3 text-right font-black text-emerald-400">Ganancia Cobrada USD</th>
                                             <th className="py-2.5 px-3 text-center">Op.</th>
                                         </tr>
                                     </thead>

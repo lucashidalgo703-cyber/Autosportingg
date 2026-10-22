@@ -2,7 +2,7 @@
 // Service Worker de soporte Offline para AutoSporting CRM (Etapa 4)
 // Estrategia: Network-First con respaldo en CacheStorage cuando el navegador está sin conexión.
 
-const CACHE_NAME = 'autosporting-offline-shell-v1';
+const CACHE_NAME = 'autosporting-offline-shell-v2';
 
 function normalizeCacheKey(requestUrl) {
     try {
@@ -20,7 +20,13 @@ self.addEventListener('install', (event) => {
 });
 
 self.addEventListener('activate', (event) => {
-    event.waitUntil(self.clients.claim());
+    event.waitUntil(
+        caches.keys().then((keys) =>
+            Promise.all(
+                keys.filter((k) => k !== CACHE_NAME).map((k) => caches.delete(k))
+            )
+        ).then(() => self.clients.claim())
+    );
 });
 
 self.addEventListener('fetch', (event) => {
@@ -86,8 +92,14 @@ self.addEventListener('fetch', (event) => {
 
                 // Si es una consulta de API en segundo plano sin caché previa, devolver JSON controlado
                 if (url.pathname.startsWith('/api/')) {
+                    // Distinguir falta real de internet de un fallo de red hacia el servidor (CORS, URL errónea, servidor caído)
+                    // para no ocultar errores de API detrás de un mensaje de sin conexión.
+                    const browserOffline = self.navigator && self.navigator.onLine === false;
+                    const message = browserOffline
+                        ? 'Sin conexión a internet — usando datos locales.'
+                        : 'No se pudo conectar con el servidor (' + url.origin + '). El navegador tiene internet: revisá la URL de la API, CORS o el estado del servidor.';
                     return new Response(
-                        JSON.stringify({ ok: false, offline: true, message: 'Sin conexión a internet — usando datos locales.' }),
+                        JSON.stringify({ ok: false, offline: browserOffline, networkError: true, target: url.origin, message }),
                         { status: 503, headers: { 'Content-Type': 'application/json' } }
                     );
                 }

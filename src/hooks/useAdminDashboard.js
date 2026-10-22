@@ -16,7 +16,14 @@ export const useAdminDashboard = () => {
             setError(null);
             
             const API_URL = process.env.NEXT_PUBLIC_API_URL;
-            const baseUrl = process.env.NEXT_PUBLIC_API_URL || (typeof window !== 'undefined' && window.location.hostname !== 'localhost' ? '' : 'http://localhost:3001');
+            // Producción (dominio real): misma origen, igual que el resto de hooks y el login.
+            // Desarrollo o `next start` en localhost/127.0.0.1: NEXT_PUBLIC_API_URL o backend local en :3001.
+            // Un NEXT_PUBLIC_API_URL incrustado en el build nunca debe redirigir el dashboard en producción.
+            const host = typeof window !== 'undefined' ? window.location.hostname : '';
+            const isLocalHost = host === 'localhost' || host === '127.0.0.1';
+            const baseUrl = (process.env.NODE_ENV === 'production' && !isLocalHost)
+                ? ''
+                : (API_URL || 'http://localhost:3001');
             const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
             
             if (!token) throw new Error('No admin token found');

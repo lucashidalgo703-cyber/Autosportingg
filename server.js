@@ -1881,12 +1881,14 @@ app.get('/api/admin/dashboard', authenticateToken, async (req, res) => {
                 .select('brand name model year status price currency purchasePrice purchaseCurrency agencyOwned isSharedInvestment investor expenses fechaIngresoStock createdAt coverImage visibleEnWeb consignedBy documentation plateOrVin plate auditLog')
                 .lean(),
             Sale.find({})
-                .select('saleDate createdAt status salePrice saleCurrency vehicleId salesperson assignedTo createdBy consignationOwnerId vehicleOwnerName notes paymentMethod clientId buyerName financingDetails exchangeRate saleExpenses commissionSettings tradeIns tradeInTotalAmount')
+                .select('saleDate createdAt status salePrice saleCurrency vehicleId salesperson assignedTo createdBy consignationOwnerId vehicleOwnerName notes paymentMethod clientId buyerName financingDetails exchangeRate saleExpenses commissionSettings tradeIns tradeInTotalAmount depositAppliedAmount depositAppliedCurrency')
                 .populate('vehicleId', 'brand name year purchasePrice purchaseCurrency plateOrVin plate agencyOwned consignedBy expenses investor jointOwnership tradeInOrigin')
                 .populate('clientId', 'fullName name')
                 .lean(),
+            // Se incluyen los campos necesarios para conciliar cobros con ventas y con la distribución de Tesorería.
+            // Solo subcampos numéricos de treasuryBreakdown (sin destinationBreakdown/appliedAllocations) para no inflar el payload.
             Transaction.find({})
-                .select('amount currency type date createdAt status')
+                .select('amount currency type date createdAt status saleId carId vehicleId installmentId source category concept description exchangeRate isTreasuryDistributed isTreasuryDistributionReversed thirdPartyAmount thirdPartyCapitalReturn thirdPartyProfitShare treasuryBreakdown.totalCollected treasuryBreakdown.ownGrossAmount treasuryBreakdown.thirdPartyAmount treasuryBreakdown.thirdPartyCapitalReturn treasuryBreakdown.thirdPartyProfitShare treasuryBreakdown.operationPendingCostsReserved treasuryBreakdown.capitalRecoveredToStock treasuryBreakdown.marginCollected treasuryBreakdown.distributableMargin treasuryBreakdown.marginDistributed treasuryBreakdown.extraReinvestmentToStock treasuryBreakdown.essentialShortfallsCovered treasuryBreakdown.reserveCovered treasuryBreakdown.remainderDistributed treasuryBreakdown.obligationsSeparated treasuryBreakdown.taxObligationsSeparated treasuryBreakdown.pendingDistributionAmount treasuryBreakdown.schemeKey')
                 .lean(),
             Installment.find({})
                 .select('amount currency status dueDate')
