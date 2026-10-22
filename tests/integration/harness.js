@@ -12,18 +12,54 @@ export async function boot() {
     const { default: mongoose } = await import('mongoose');
     const jwt = (await import('jsonwebtoken')).default;
     const { default: connectDB } = await import('../../src/config/db.js');
+    const { default: UserSession } = await import('../../src/models/UserSession.js');
+    const { default: TrustedDevice } = await import('../../src/models/TrustedDevice.js');
     await connectDB();
 
     const server = app.listen(0);
     const base = `http://127.0.0.1:${server.address().port}`;
     const ownerId = new mongoose.Types.ObjectId().toString();
-    const makeToken = (role = 'owner', customId = null) => jwt.sign({ id: customId || (role === 'owner' ? ownerId : new mongoose.Types.ObjectId().toString()), username: `test_${role}`, role }, process.env.JWT_SECRET);
+
+    // Crear dispositivo confiable y sesión revocable válida para pruebas de integración
+    const harnessDeviceId = 'harness-device-' + crypto.randomUUID();
+    await TrustedDevice.create({
+        deviceId: harnessDeviceId,
+        deviceName: 'PC Agencia',
+        status: 'trusted',
+        registeredBy: { userId: ownerId, name: 'test_owner' }
+    });
+
+    const harnessSessionId = 'harness-session-' + crypto.randomUUID();
+    await UserSession.create({
+        sessionId: harnessSessionId,
+        userId: ownerId,
+        userName: 'test_owner',
+        deviceId: harnessDeviceId,
+        deviceName: 'PC Agencia',
+        deviceStatus: 'trusted',
+        status: 'active',
+        expiresAt: new Date(Date.now() + 86400000)
+    });
+
+    const makeToken = (role = 'owner', customId = null) => {
+        const uId = customId || (role === 'owner' ? ownerId : new mongoose.Types.ObjectId().toString());
+        return jwt.sign({
+            id: uId,
+            userId: uId,
+            username: `test_${role}`,
+            role,
+            sessionId: harnessSessionId,
+            deviceId: harnessDeviceId,
+            deviceStatus: 'trusted'
+        }, process.env.JWT_SECRET);
+    };
+
     const token = makeToken('owner', ownerId);
 
     const call = async (method, path, body, tk = token, extraHeaders = {}) => {
         const res = await fetch(base + path, {
             method,
-            headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${tk}`, ...extraHeaders },
+            headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${tk}`, 'X-Device-Id': harnessDeviceId, ...extraHeaders },
             body: body ? JSON.stringify(body) : undefined
         });
         const json = await res.json().catch(() => ({}));
