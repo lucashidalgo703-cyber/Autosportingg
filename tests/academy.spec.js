@@ -3,7 +3,7 @@ import { questions } from '../src/lib/academy/assessments.js';
 
 // Sesión y endpoints exclusivamente ficticios, interceptados antes de navegar.
 test.beforeEach(async ({ page, baseURL }) => {
-    await page.route('**/*', async route => {
+    await page.context().route('**/*', async route => {
         const url = new URL(route.request().url());
         if (url.origin !== baseURL) return route.abort();
         if (url.pathname.startsWith('/api/')) {
@@ -14,11 +14,35 @@ test.beforeEach(async ({ page, baseURL }) => {
         }
         return route.continue();
     });
-    await page.addInitScript(() => {
-        const payload = btoa(JSON.stringify({ id: 'academy-test', username: 'Alumno ficticio', role: 'ventas', exp: Math.floor(Date.now() / 1000) + 3600 }));
+    await page.context().addInitScript(() => {
+        const id = localStorage.getItem('academy-test-learner') || 'academy-test';
+        const payload = btoa(JSON.stringify({ id, username: 'Alumno ficticio', role: 'ventas', exp: Math.floor(Date.now() / 1000) + 3600 }));
         localStorage.setItem('token', `test.${payload}.test`);
-        localStorage.setItem('autosporting_tour_seen_academy-test', 'true');
+        localStorage.setItem(`autosporting_tour_seen_${id}`, 'true');
     });
+});
+
+test('Dos pestañas sincronizan avances concurrentes, reset e identidad separada', async ({ page, context }) => {
+    const other = await context.newPage();
+    await page.goto('/admin/academy/cursos?curso=fundamentos&leccion=fundamentos-1');
+    await other.goto('/admin/academy/cursos?curso=fundamentos&leccion=fundamentos-2');
+    await page.locator('main input').fill('18000000');
+    await other.locator('main input').fill('3000000');
+    await page.getByRole('button', { name: 'Comprobar respuesta' }).click();
+    await other.getByRole('button', { name: 'Comprobar respuesta' }).click();
+    await Promise.all([page.getByRole('button', { name: 'Completar lección', exact: true }).click(), other.getByRole('button', { name: 'Completar lección', exact: true }).click()]);
+    await page.getByRole('navigation', { name: 'Secciones de Academy' }).getByRole('link', { name: 'Mi progreso', exact: true }).click();
+    await other.getByRole('navigation', { name: 'Secciones de Academy' }).getByRole('link', { name: 'Mi progreso', exact: true }).click();
+    await expect(page.getByText('2 / 24', { exact: true })).toBeVisible();
+    await expect(other.getByText('2 / 24', { exact: true })).toBeVisible();
+    await page.getByRole('button', { name: 'Restablecer progreso', exact: true }).click();
+    await page.getByRole('button', { name: 'Confirmar restablecimiento' }).click();
+    await expect(other.getByText('0 / 24', { exact: true })).toBeVisible();
+    await page.evaluate(() => localStorage.setItem('academy-test-learner', 'otro-alumno'));
+    await page.reload();
+    await expect(page.getByText('0 / 24', { exact: true })).toBeVisible();
+    await expect(other.getByText('0 / 24', { exact: true })).toBeVisible();
+    await other.close();
 });
 
 async function noOverflow(page) {

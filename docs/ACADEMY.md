@@ -28,7 +28,7 @@ Seis escenarios, dos alternativas cada uno: compra/liquidez, descuento/espera, f
 
 Repositorio local versionado y sustituible, separado por identificador del usuario autenticado existente. No almacena token, nombre, contenido operativo ni respuestas privadas. Sin identificador estable funciona temporalmente en memoria. Guarda lecciones completadas después de resolver el ejercicio, hasta 100 intentos y 50 decisiones; métricas calculadas desde la actividad, sin precarga ficticia. Dashboard y enlaces permiten continuar el recorrido; cursos aceptan enlaces directos por curso/lección.
 
-Se informa cuando el almacenamiento falla. Incluye estado vacío, historial y restablecimiento con confirmación dentro de Academy. Sin sincronización entre dispositivos ni consolidación multi-pestaña; no es evidencia certificada de aprendizaje. Persistencia de servidor, políticas nuevas y certificaciones quedan pendientes de autorización posterior.
+Se informa cuando el almacenamiento falla. Incluye estado vacío, historial y restablecimiento con confirmación dentro de Academy. La corrección posterior incorpora consolidación entre pestañas; sigue sin sincronización entre dispositivos ni valor de certificación. Persistencia de servidor, políticas nuevas y certificaciones quedan pendientes de autorización posterior.
 
 ## 13.4 · Evaluaciones
 
@@ -122,5 +122,11 @@ Modificados fuera del módulo:
 - Pruebas: 20 tests de Academy aprobados, incluyendo 105 combinaciones de principal/tasa/plazo con oráculo de valor presente independiente, conservación, cierre, recurrencia y uniformidad de cuotas. Lint focalizado y `git diff --check` aprobados.
 
 El hallazgo documental 6 queda corregido en la sección Límites: se explicita el encabezado heredado sin modificarlo.
+
+## Corrección de auditoría · Grupo 2 (hallazgo 2)
+
+Operaciones de lectura/modificación/escritura serializadas por usuario mediante Web Locks. Cada operación lee el último estado guardado, y las pestañas reciben eventos `storage` y actualizaciones al recuperar visibilidad. El restablecimiento escribe una generación nueva: las operaciones pendientes de la anterior se rechazan para impedir resucitar datos borrados. Migra los documentos v1 en la siguiente escritura local; no hay migración de base de datos.
+
+Sin Web Locks el avance es temporal y se informa expresamente: no se ofrece persistencia concurrente insegura. Los errores de escritura no se presentan como guardados exitosos. La corrupción exige restablecimiento explícito. Pruebas unitarias con exclusión mutua: actualizaciones simultáneas, conservación de historial, reset contra una escritura pendiente, generaciones, migración, corrupción, fallo de cuota e identidad separada. Los 22 tests acumulados pasan; se incorpora además un flujo Playwright de dos pestañas para la verificación final.
 
 `main` permanece en `73efd4b65ff0966aad2306c368f3fe2fb93f6ab4`. No se ejecutaron push, merge, deploy, migraciones ni conexiones con producción.

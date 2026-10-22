@@ -14,16 +14,40 @@ export function normalizeProgress(value) {
 
 // Contrato sustituible por un repositorio remoto autorizado en una etapa futura.
 // Solo contiene avance educativo; nunca guarda token, nombre ni datos comerciales.
-export function createLocalProgressRepository(storage, learnerId) {
-    const key = `autosporting.academy.v1:${encodeURIComponent(learnerId)}`;
+export function createLocalProgressRepository(storage, learnerId, locks) {
+    if (!locks?.request) throw new Error('Este navegador no ofrece bloqueo entre pestañas. El avance será temporal para evitar sobrescrituras.');
+    const key = 'autosporting.academy.v1:' + encodeURIComponent(learnerId);
+    const snapshot = () => {
+        const raw = storage.getItem(key);
+        if (!raw) return { generation: 'initial', progress: emptyProgress() };
+        try {
+            const value = JSON.parse(raw);
+            if (value.schema === 2 && typeof value.generation === 'string' && value.progress?.version === 1) return { generation: value.generation, progress: normalizeProgress(value.progress) };
+            if (value.version === 1) return { generation: 'initial', progress: normalizeProgress(value) };
+            throw new Error('Formato desconocido');
+        } catch { throw new Error('El progreso local no se pudo leer. Podés restablecerlo desde Mi progreso.'); }
+    };
+    const write = state => storage.setItem(key, JSON.stringify({ schema: 2, ...state }));
+    const stale = () => { throw new Error('El progreso fue restablecido en otra pestaña. Revisá el estado actualizado y repetí la acción si corresponde.'); };
     return {
-        load() {
-            const raw = storage.getItem(key);
-            if (!raw) return emptyProgress();
-            try { return normalizeProgress(JSON.parse(raw)); } catch { throw new Error('El progreso local no se pudo leer. Podés restablecerlo desde Mi progreso.'); }
-        },
-        save(value) { storage.setItem(key, JSON.stringify(normalizeProgress(value))); },
-        clear() { storage.removeItem(key); },
+        key, snapshot,
+        load: () => snapshot().progress,
+        update: (reducer, expectedGeneration) => locks.request(key, () => {
+            const latest = snapshot();
+            if (latest.generation !== expectedGeneration) stale();
+            const next = { generation: latest.generation, progress: normalizeProgress(reducer(latest.progress)) };
+            write(next);
+            return next;
+        }),
+        reset: expectedGeneration => locks.request(key, () => {
+            let latest;
+            try { latest = snapshot(); } catch (error) { if (expectedGeneration !== null) throw error; }
+            if (latest && latest.generation !== expectedGeneration) stale();
+            const next = { generation: globalThis.crypto.randomUUID(), progress: emptyProgress() };
+            // Tombstone: borrar la clave permitiría resucitar escrituras antiguas.
+            write(next);
+            return next;
+        }),
     };
 }
 
