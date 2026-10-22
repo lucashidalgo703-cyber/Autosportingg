@@ -1,11 +1,11 @@
 import { notFound } from 'next/navigation';
 import { academySections } from '../../../../lib/academy/catalog';
-import CrmCard from '../../../../components/crm/ui/CrmCard';
 import AcademyCourses from '../../../../components/crm/academy/AcademyCourses';
 import AcademyLab from '../../../../components/crm/academy/AcademyLab';
 import AcademyAssessments from '../../../../components/crm/academy/AcademyAssessments';
 import AcademyProgress from '../../../../components/crm/academy/AcademyProgress';
 import AcademyDecisions from '../../../../components/crm/academy/AcademyDecisions';
+import AcademyTutor from '../../../../components/crm/academy/AcademyTutor';
 
 export default async function AcademySectionPage({ params, searchParams }) {
     const { section } = await params;
@@ -19,5 +19,6 @@ export default async function AcademySectionPage({ params, searchParams }) {
     if (section === 'evaluaciones') return <AcademyAssessments />;
     if (section === 'progreso') return <AcademyProgress />;
     if (section === 'entrenador') return <AcademyDecisions />;
-    return <CrmCard><h1 className="text-[26px] font-bold">{entry[1]}</h1><p className="mt-3 text-crm-fg-muted">{entry[2]}</p><p className="mt-4 text-sm">Contenido en preparación por subetapas.</p></CrmCard>;
+    if (section === 'tutor') return <AcademyTutor />;
+    notFound();
 }

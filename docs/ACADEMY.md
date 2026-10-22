@@ -14,6 +14,10 @@ Validación: `node --test tests/academy.test.js`. Verificación visual y compila
 
 Sin endpoints, MongoDB, migraciones, datos operativos, proveedores de IA ni cambios en autenticación, seguridad, auditoría o cálculos existentes. Sin push, merge o deploy.
 
+## 13.7 · Tutor estructurado
+
+Tutor funcional con selección de curso/lección y cuatro consultas predefinidas: concepto, ejemplo, ejercicio resuelto y glosario. Respuestas con fuente y enlace a la lección. Declara expresamente que no hay IA conectada. Conversación temporal limitada a 20 consultas, sin envío ni guardado remoto. Adaptador `structuredTutor.respond` separado de la interfaz, con manejo de error; un proveedor futuro requiere autorización. Prueba de 96 combinaciones de respuesta, determinismo y rechazo de temas inexistentes.
+
 ## 13.6 · Entrenador
 
 Seis escenarios, dos alternativas cada uno: compra/liquidez, descuento/espera, financiación, permuta, diversificación y stock lento. Selección y comparación con resultados hipotéticos, fórmulas, ventajas, riesgos y costo de oportunidad. Se registra práctica local, sin puntuar decisiones como universalmente correctas. Pruebas de cada alternativa y comprobaciones de caja intermedia, valor presente y consistencia de asignación.
