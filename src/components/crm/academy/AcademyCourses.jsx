@@ -4,6 +4,7 @@ import CrmCard from '../ui/CrmCard';
 import CrmButton from '../ui/CrmButton';
 import { courses, checkNumericAnswer } from '../../../lib/academy/curriculum';
 import { useAcademyProgress } from './AcademyProgressProvider';
+import AcademyCourseCase from './AcademyCourseCase';
 
 function Lesson({ lesson }) {
     const { progress, completeLesson } = useAcademyProgress();
@@ -12,6 +13,7 @@ function Lesson({ lesson }) {
     return <div className="space-y-5">
         <h3 className="text-xl font-bold">{lesson.title}</h3>
         <p className="text-sm leading-7 text-crm-fg-muted">{lesson.body}</p>
+        <section className="space-y-3"><h4 className="font-semibold">{lesson.reading.title}</h4>{lesson.reading.paragraphs.map(paragraph => <p key={paragraph} className="text-sm leading-7 text-crm-fg-muted">{paragraph}</p>)}</section>
         <div className="rounded-lg border border-crm-border bg-crm-bg p-4"><h4 className="font-semibold">Ejemplo ficticio</h4><p className="mt-2 text-sm leading-6">{lesson.example}</p></div>
         <form onSubmit={event => { event.preventDefault(); setFeedback(checkNumericAnswer(answer, lesson.exercise.answer)); }} className="space-y-3">
             <label className="block text-sm font-semibold" htmlFor={`answer-${lesson.id}`}>{lesson.exercise.question} ({lesson.exercise.unit})</label>
@@ -39,6 +41,7 @@ export default function AcademyCourses({ initialCourse, initialLesson }) {
                 <CrmCard><h2 className="text-lg font-bold">{course.title}</h2><p className="mt-2 text-sm text-crm-fg-muted">{course.description}</p><div className="mt-4 flex flex-wrap gap-2">{course.lessons.map((item, index) => <CrmButton key={item.id} variant={index === lessonIndex ? 'primary' : 'secondary'} onClick={() => setLessonIndex(index)} aria-pressed={index === lessonIndex}>Lección {index + 1}</CrmButton>)}</div></CrmCard>
                 <CrmCard><Lesson key={lesson.id} lesson={lesson} /><div className="mt-5 flex flex-wrap justify-between gap-3"><CrmButton variant="secondary" disabled={lessonIndex === 0} onClick={() => setLessonIndex(index => index - 1)}>Anterior</CrmButton><CrmButton variant="secondary" disabled={lessonIndex === course.lessons.length - 1} onClick={() => setLessonIndex(index => index + 1)}>Siguiente lección</CrmButton></div></CrmCard>
                 <CrmCard><h3 className="font-bold">Glosario del curso</h3><dl className="mt-3 space-y-3">{Object.entries(course.glossary).map(([term, definition]) => <div key={term}><dt className="text-sm font-semibold">{term}</dt><dd className="text-sm text-crm-fg-muted">{definition}</dd></div>)}</dl></CrmCard>
+                <AcademyCourseCase key={course.id} courseCase={course.courseCase} />
             </div>
         </div>
     </div>;

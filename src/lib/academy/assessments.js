@@ -1,4 +1,6 @@
 import { courses, checkNumericAnswer } from './curriculum.js';
+import { assessmentVariants } from './assessmentVariants.js';
+import { parseAcademyDecimal } from './decimal.js';
 
 const concepts = {
     fundamentos: ['¿Qué cambia al comprar un vehículo al contado para stock?', ['Se cambia caja por inventario.', 'Siempre se genera una pérdida por todo el precio.', 'Aumentan las ventas.'], 0, 'La compra transforma activos. El resultado por venta se determina con su reconocimiento y costo correspondiente.'],
@@ -29,7 +31,7 @@ function choice(courseId, type, tuple, level) {
 
 export const questions = courses.flatMap(course => [
     choice(course.id, 'concepto', concepts[course.id], 'Inicial'),
-    ...course.lessons.map(lesson => ({ id: `${lesson.id}-numerico`, courseId: course.id, type: 'numeric', prompt: `${lesson.exercise.question} (${lesson.exercise.unit})`, correct: lesson.exercise.answer, explanation: lesson.exercise.explanation, level: 'Intermedio' })),
+    ...assessmentVariants[course.id].map(([prompt, correct, explanation, unit], index) => ({ id: `${course.id}-${index + 1}-numerico`, courseId: course.id, type: 'numeric', prompt: `${prompt} (${unit})`, correct, explanation, level: 'Intermedio' })),
     choice(course.id, 'caso', cases[course.id], 'Avanzado'),
 ]);
 
@@ -38,6 +40,7 @@ export function gradeAssessment(items, answers) {
     const results = items.map(item => {
         const answer = answers[item.id];
         if (answer === undefined || answer === null || String(answer).trim() === '') throw new Error('Respondé todas las preguntas antes de corregir.');
+        if (item.type === 'numeric') parseAcademyDecimal(answer);
         if (item.type === 'choice' && (!Number.isInteger(Number(answer)) || Number(answer) < 0 || Number(answer) >= item.options.length)) throw new Error('Elegí una alternativa válida.');
         const correct = item.type === 'numeric' ? checkNumericAnswer(answer, item.correct) : Number(answer) === item.correct;
         return { id: item.id, courseId: item.courseId, correct, explanation: item.explanation };

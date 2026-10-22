@@ -129,4 +129,16 @@ Operaciones de lectura/modificación/escritura serializadas por usuario mediante
 
 Sin Web Locks el avance es temporal y se informa expresamente: no se ofrece persistencia concurrente insegura. Los errores de escritura no se presentan como guardados exitosos. La corrupción exige restablecimiento explícito. Pruebas unitarias con exclusión mutua: actualizaciones simultáneas, conservación de historial, reset contra una escritura pendiente, generaciones, migración, corrupción, fallo de cuota e identidad separada. Los 22 tests acumulados pasan; se incorpora además un flujo Playwright de dos pestañas para la verificación final.
 
+## Corrección de auditoría · Grupo 3 (hallazgos 3 y 4)
+
+Se mantienen 24 lecciones para preservar el seguimiento existente. Cada una incorpora desarrollo propio con ejemplos interpretados y análisis de decisiones, sin aumentar artificialmente la cantidad. Los ocho cursos añaden un caso integrado con 4–5 pasos de resolución, alternativas, riesgos, preguntas de justificación y ejercicios interactivos; hay 25 respuestas adicionales de práctica.
+
+Dirección Financiera Avanzada desarrolla presupuesto de capital con restricciones por fecha, unidades indivisibles, selección factible, costo ponderado sin efecto fiscal automático, consistencia entre flujos y tasas, escenarios de estrés y revisión de desvíos. El caso compara tres carteras y demuestra por qué una contribución futura no resuelve un vencimiento intermedio. No se presenta como una certificación profesional ni cubre toda la disciplina.
+
+Las 40 preguntas de examen conservan 16 preguntas conceptuales/casos y reemplazan las 24 numéricas por un banco independiente de la práctica: nuevas cifras, enunciados y resoluciones; incluye problemas de varios pasos y redondeo de unidades enteras. El tutor estructurado también usa el desarrollo ampliado al explicar. Los casos integrados son práctica formativa y no alteran permisos ni añaden marcas de lección al progreso.
+
+Pruebas acumuladas: 24 tests aprobados. Se contrastan las 25 respuestas de casos y las 24 variantes numéricas con fórmulas independientes, incluyendo VAN, valor presente, presupuesto temporal y medias al costo. Las pruebas estructurales ayudan a detectar contenido faltante, pero la profundidad se sustenta en los desarrollos y casos, no en un mínimo artificial de palabras.
+
+Referencias adicionales de contraste (material original): [consistencia entre flujos y tasa, NYU Stern](https://pages.stern.nyu.edu/~adamodar/New_Home_Page/background/valintro.htm) y [especificación Web Locks, W3C](https://www.w3.org/TR/web-locks/).
+
 `main` permanece en `73efd4b65ff0966aad2306c368f3fe2fb93f6ab4`. No se ejecutaron push, merge, deploy, migraciones ni conexiones con producción.

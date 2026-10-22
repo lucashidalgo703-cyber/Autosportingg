@@ -1,5 +1,6 @@
 import { test, expect } from '@playwright/test';
 import { questions } from '../src/lib/academy/assessments.js';
+import { courseCases } from '../src/lib/academy/courseCases.js';
 
 // Sesión y endpoints exclusivamente ficticios, interceptados antes de navegar.
 test.beforeEach(async ({ page, baseURL }) => {
@@ -26,8 +27,8 @@ test('Dos pestañas sincronizan avances concurrentes, reset e identidad separada
     const other = await context.newPage();
     await page.goto('/admin/academy/cursos?curso=fundamentos&leccion=fundamentos-1');
     await other.goto('/admin/academy/cursos?curso=fundamentos&leccion=fundamentos-2');
-    await page.locator('main input').fill('18000000');
-    await other.locator('main input').fill('3000000');
+    await page.locator('main form').first().getByRole('textbox').fill('18000000');
+    await other.locator('main form').first().getByRole('textbox').fill('3000000');
     await page.getByRole('button', { name: 'Comprobar respuesta' }).click();
     await other.getByRole('button', { name: 'Comprobar respuesta' }).click();
     await Promise.all([page.getByRole('button', { name: 'Completar lección', exact: true }).click(), other.getByRole('button', { name: 'Completar lección', exact: true }).click()]);
@@ -38,11 +39,43 @@ test('Dos pestañas sincronizan avances concurrentes, reset e identidad separada
     await page.getByRole('button', { name: 'Restablecer progreso', exact: true }).click();
     await page.getByRole('button', { name: 'Confirmar restablecimiento' }).click();
     await expect(other.getByText('0 / 24', { exact: true })).toBeVisible();
+    await page.goto('/admin/academy/cursos?curso=fundamentos&leccion=fundamentos-1');
+    await page.locator('main form').first().getByRole('textbox').fill('18000000');
+    await page.getByRole('button', { name: 'Comprobar respuesta' }).click();
+    await page.getByRole('button', { name: 'Completar lección', exact: true }).click();
+    await expect(other.getByText('1 / 24', { exact: true })).toBeVisible();
     await page.evaluate(() => localStorage.setItem('academy-test-learner', 'otro-alumno'));
-    await page.reload();
+    await page.goto('/admin/academy/progreso');
     await expect(page.getByText('0 / 24', { exact: true })).toBeVisible();
-    await expect(other.getByText('0 / 24', { exact: true })).toBeVisible();
+    await expect(other.getByText('1 / 24', { exact: true })).toBeVisible();
     await other.close();
+});
+
+test('Casos integrados se resuelven y los límites económicos se explican en pantalla', async ({ page }) => {
+    for (const id of ['fundamentos', 'direccion']) {
+        await page.goto(`/admin/academy/cursos?curso=${id}`);
+        await page.locator('details summary').click();
+        const fields = page.locator('details').getByRole('textbox');
+        for (const [index, exercise] of courseCases[id].exercises.entries()) await fields.nth(index).fill(String(exercise.answer));
+        await page.getByRole('button', { name: 'Corregir caso integrado' }).click();
+        await expect(page.locator('details').getByRole('status')).not.toContainText('Para revisar');
+        await expect(page.locator('details').getByRole('status')).toContainText('Correcto');
+        await noOverflow(page);
+    }
+    await page.goto('/admin/academy/simuladores');
+    await page.getByRole('combobox').selectOption('rotacion');
+    await page.locator('main').getByRole('textbox').first().fill('0');
+    await expect(page.locator('main').getByText('No definido', { exact: true })).toBeVisible();
+    await page.getByRole('combobox').selectOption('recuperacion');
+    await page.locator('main').getByRole('textbox').nth(1).fill('0');
+    await expect(page.locator('main').getByText('No se recupera', { exact: true })).toBeVisible();
+    await page.getByRole('combobox').selectOption('cuotas');
+    await page.locator('main').getByRole('textbox').nth(1).fill('10');
+    await page.locator('main').getByRole('textbox').nth(2).fill('600');
+    const payments = await page.getByRole('table').locator('tbody tr td:nth-child(2)').allTextContents();
+    expect(new Set(payments).size).toBe(1);
+    await page.locator('main').getByRole('textbox').first().fill('0x10');
+    await expect(page.locator('main').getByRole('alert')).toContainText('decimales');
 });
 
 async function noOverflow(page) {

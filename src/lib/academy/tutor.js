@@ -18,7 +18,7 @@ export const structuredTutor = {
         const lesson = course?.lessons.find(item => item.id === lessonId);
         if (!lesson || !tutorPrompts.some(item => item.id === promptId)) throw new Error('Elegí un curso, una lección y una pregunta disponibles.');
         const replies = {
-            explicar: lesson.body,
+            explicar: [lesson.body, lesson.reading.title, ...lesson.reading.paragraphs].join('\n\n'),
             ejemplo: `Ejemplo ficticio: ${lesson.example}`,
             practicar: `${lesson.exercise.question}\n\nResolución: ${lesson.exercise.explanation}`,
             glosario: Object.entries(course.glossary).map(([term, definition]) => `${term}: ${definition}`).join('\n\n'),

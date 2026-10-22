@@ -1,5 +1,7 @@
 import { academyCourses } from './catalog.js';
 import { parseAcademyDecimal } from './decimal.js';
+import { deepening } from './deepening.js';
+import { courseCases } from './courseCases.js';
 
 // Contenido original: todos los importes son ejemplos ficticios en pesos.
 const content = {
@@ -72,8 +74,10 @@ const content = {
 export const courses = academyCourses.map(course => ({
     ...course,
     glossary: content[course.id].glossary,
+    courseCase: courseCases[course.id],
     lessons: content[course.id].lessons.map(([title, body, example, question, answer, explanation, unit], index) => ({
         id: `${course.id}-${index + 1}`, title, body, example,
+        reading: { title: deepening[course.id][index][0], paragraphs: deepening[course.id][index].slice(1) },
         exercise: { question, answer, explanation, unit, tolerance: 0.01 },
     })),
 }));
