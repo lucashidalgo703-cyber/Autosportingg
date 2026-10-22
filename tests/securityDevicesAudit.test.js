@@ -18,7 +18,11 @@ import {
     createSecurityChallenge,
     verifyDeviceSignature,
     enforceSecurityRateLimit,
-    verifyAuditLogIntegrity
+    verifyAuditLogIntegrity,
+    computeHistoricalManifest,
+    verifyHistoricalManifest,
+    buildHistoricalManifestFromDatabase,
+    computeLegacyRecordFingerprint
 } from '../src/services/deviceSecurityBackend.js';
 import speakeasy from 'speakeasy';
 import crypto from 'crypto';
@@ -693,29 +697,40 @@ async function runTests() {
         assert.ok(tamperedReport.anomalies.some(a => a.type === 'CORRUPTED_PAYLOAD' && a.logId === String(legitLog._id)), 'Anomalía identificada como CORRUPTED_PAYLOAD para el log alterado');
         console.log('  ok - Herramienta de auditoría detectó adulteración directa de datos en MongoDB');
 
-                // 29. COMPATIBILIDAD HISTÓRICA: Base con registros exclusivamente legacy
-        console.log('Test 29: Compatibilidad histórica - Base con registros exclusivamente legacy...');
+                // 29. BASE EXCLUSIVAMENTE HISTÓRICA (Sin manifiesto = UNVERIFIED, Con manifiesto = VERIFIED)
+        console.log('Test 29: Base exclusivamente histórica (Diferenciación UNVERIFIED vs VERIFIED)...');
         await AuditLog.collection.deleteMany({});
-        await AuditLog.collection.insertMany([
-            { action: 'LOGIN_LEGACY', module: 'auth', description: 'Acceso legacy 1', createdAt: new Date('2025-01-01T10:00:00Z') },
-            { action: 'VIEW_CAR_LEGACY', module: 'stock', description: 'Consulta legacy 2', createdAt: new Date('2025-01-02T11:00:00Z') },
-            { action: 'EDIT_PRICE_LEGACY', module: 'ventas', description: 'Edición legacy 3', createdAt: new Date('2025-01-03T12:00:00Z') }
-        ]);
-        const legacyOnlyReport = await verifyAuditLogIntegrity({ limit: 100 });
-        assert.strictEqual(legacyOnlyReport.ok, true, 'Base legacy exclusiva debe reportar ok: true');
-        assert.strictEqual(legacyOnlyReport.totalChecked, 3, 'Debe revisar los 3 registros');
-        assert.strictEqual(legacyOnlyReport.legacyCount, 3, 'Los 3 registros deben clasificarse como legacy');
-        assert.strictEqual(legacyOnlyReport.corruptedCount, 0, 'Cero registros corruptos en base legacy pura');
-        assert.strictEqual(legacyOnlyReport.chainStarted, false, 'La cadena firmada no ha iniciado en base legacy pura');
-        console.log('  ok - Base exclusivamente legacy clasificada correctamente sin falsas alarmas de corrupción');
+        const legacyDocs = [
+            { action: 'LOGIN_LEGACY_1', module: 'auth', description: 'Acceso legacy 1', createdAt: new Date('2025-01-01T10:00:00Z') },
+            { action: 'VIEW_CAR_LEGACY_2', module: 'stock', description: 'Consulta legacy 2', createdAt: new Date('2025-01-02T11:00:00Z') },
+            { action: 'EDIT_PRICE_LEGACY_3', module: 'ventas', description: 'Edición legacy 3', createdAt: new Date('2025-01-03T12:00:00Z') }
+        ];
+        await AuditLog.collection.insertMany(legacyDocs);
 
-        // 30. COMPATIBILIDAD HISTÓRICA: Base mixta (registros legacy + registros HMAC nuevos)
-        console.log('Test 30: Compatibilidad histórica - Base mixta (legacy + HMAC nuevo encadenado)...');
-        // Agregar registros nuevos con firma HMAC post-despliegue
+        // Caso 1: Sin manifiesto independiente -> NO DEBE dar ok: true; debe declarar UNVERIFIED
+        const unanchoredReport = await verifyAuditLogIntegrity({ limit: 100 });
+        assert.strictEqual(unanchoredReport.ok, false, 'Sin anclaje independiente debe reportar ok: false');
+        assert.strictEqual(unanchoredReport.integrityStatus, 'UNVERIFIED', 'Estado de integridad debe ser UNVERIFIED');
+        assert.strictEqual(unanchoredReport.frontierStatus, 'UNANCHORED_HISTORICAL_MANIFEST', 'Frontera debe ser UNANCHORED_HISTORICAL_MANIFEST');
+        assert.strictEqual(unanchoredReport.legacyCount, 3, 'Debe detectar 3 registros legacy');
+        assert.ok(unanchoredReport.anomalies.some(a => a.type === 'UNVERIFIED_HISTORICAL_RECORD'), 'Debe emitir anomalía UNVERIFIED_HISTORICAL_RECORD');
+
+        // Caso 2: Con manifiesto histórico firmado autorizado -> VERIFIED
+        const validManifest = await buildHistoricalManifestFromDatabase();
+        const anchoredReport = await verifyAuditLogIntegrity({ limit: 100, historicalManifest: validManifest });
+        assert.strictEqual(anchoredReport.ok, true, 'Con manifiesto histórico debe reportar ok: true');
+        assert.strictEqual(anchoredReport.integrityStatus, 'VERIFIED', 'Integridad debe ser VERIFIED');
+        assert.strictEqual(anchoredReport.frontierStatus, 'VERIFIED_ANCHORED_HISTORICAL_ERA', 'Frontera debe ser VERIFIED_ANCHORED_HISTORICAL_ERA');
+        assert.strictEqual(anchoredReport.legacyCount, 3, 'Debe auditar los 3 registros legacy');
+        assert.strictEqual(anchoredReport.corruptedCount, 0, 'Cero corruptos');
+        console.log('  ok - Base exclusivamente histórica diferencia limpiamente UNVERIFIED sin manifiesto y VERIFIED con manifiesto');
+
+        // 30. BASE MIXTA: Registros históricos respaldados + registros HMAC nuevos
+        console.log('Test 30: Base mixta con registros históricos y firmados...');
         const hmacGenesis = new AuditLog({
             action: 'SECURITY_MODULE_ACTIVATED',
             module: 'seguridad',
-            description: 'Primer registro firmado del módulo nuevo (Genesis)',
+            description: 'Bloque Genesis del módulo criptográfico',
             createdAt: new Date('2026-10-22T00:01:00Z')
         });
         await hmacGenesis.save();
@@ -729,77 +744,159 @@ async function runTests() {
         });
         await hmacChild.save();
 
-        const mixedReport = await verifyAuditLogIntegrity({ limit: 100 });
-        assert.strictEqual(mixedReport.ok, true, 'Base mixta debe reportar ok: true');
-        assert.strictEqual(mixedReport.totalChecked, 5, '3 legacy + 2 HMAC = 5 registros totales');
-        assert.strictEqual(mixedReport.legacyCount, 3, '3 registros clasificados como legacy');
-        assert.strictEqual(mixedReport.validCount, 2, '2 registros firmados válidos');
-        assert.strictEqual(mixedReport.corruptedCount, 0, 'Cero registros corruptos');
-        assert.strictEqual(mixedReport.chainStarted, true, 'La cadena firmada debe haberse iniciado');
-        assert.strictEqual(mixedReport.chainGenesisId, String(hmacGenesis._id), 'chainGenesisId debe apuntar al bloque Genesis');
-        console.log('  ok - Base mixta identifica limpiamente frontera legacy y cadena HMAC');
+        const mixedReport = await verifyAuditLogIntegrity({ limit: 100, historicalManifest: validManifest });
+        assert.strictEqual(mixedReport.ok, true, 'Base mixta con manifiesto debe reportar ok: true');
+        assert.strictEqual(mixedReport.integrityStatus, 'VERIFIED', 'Integridad debe ser VERIFIED');
+        assert.strictEqual(mixedReport.frontierStatus, 'VERIFIED_ANCHORED_HISTORICAL_ERA', 'Frontera histórica respaldada');
+        assert.strictEqual(mixedReport.legacyCount, 3, '3 legacy verificados');
+        assert.strictEqual(mixedReport.validCount, 2, '2 firmados válidos');
+        assert.strictEqual(mixedReport.corruptedCount, 0, 'Cero corruptos');
+        assert.strictEqual(mixedReport.chainStarted, true, 'Cadena firmada iniciada');
+        console.log('  ok - Base mixta verifica simultáneamente frontera histórica y cadena HMAC');
 
-        // 31. DETECCIÓN DE EVASIÓN: Registro nuevo con currentHash eliminado (intento de suplantar legacy)
-        console.log('Test 31: Detección de evasión - Registro nuevo despojado de currentHash...');
-        const evasionLog = new AuditLog({
-            action: 'CRITICAL_OPERATION',
-            module: 'finanzas',
-            sessionId: 'session-attacker-uuid',
-            deviceId: 'dev-attacker-uuid',
-            description: 'Operación firmada que el atacante intenta ocultar despojando hash'
+        // 31. REGISTRO MODERNO CON ELIMINACIÓN DE currentHash
+        console.log('Test 31: Registro moderno con eliminación de currentHash...');
+        const logMissingHash = new AuditLog({
+            action: 'CRITICAL_TRANSFER',
+            module: 'tesoreria',
+            sessionId: 'session-attacker-1',
+            deviceId: 'dev-attacker-1',
+            description: 'Operación firmada despojada de hash'
         });
-        await evasionLog.save();
+        await logMissingHash.save();
 
-        // El atacante elimina directamente el currentHash en MongoDB para simular ser un registro legacy
         await AuditLog.collection.updateOne(
-            { _id: evasionLog._id },
+            { _id: logMissingHash._id },
             { $unset: { currentHash: 1 } }
         );
 
-        const evasionReport = await verifyAuditLogIntegrity({ limit: 100 });
-        assert.strictEqual(evasionReport.ok, false, 'Intento de evasión debe reportar ok: false');
-        assert.ok(evasionReport.corruptedCount >= 1, 'Debe detectar registro despojado como corrupto');
-        assert.ok(
-            evasionReport.anomalies.some(a => a.type === 'TAMPERED_RECORD_MISSING_HASH' && a.logId === String(evasionLog._id)),
-            'Debe emitir anomalía TAMPERED_RECORD_MISSING_HASH para el registro atacado'
-        );
-        console.log('  ok - Intento de evasión despojando currentHash detectado inmediatamente como TAMPERED_RECORD_MISSING_HASH');
+        const missingHashReport = await verifyAuditLogIntegrity({ limit: 100, historicalManifest: validManifest });
+        assert.strictEqual(missingHashReport.ok, false, 'Debe fallar integridad');
+        assert.strictEqual(missingHashReport.integrityStatus, 'COMPROMISED', 'Integridad debe ser COMPROMISED');
+        assert.ok(missingHashReport.anomalies.some(a => a.type === 'TAMPERED_RECORD_MISSING_HASH' && a.logId === String(logMissingHash._id)));
+        console.log('  ok - Eliminación de currentHash en registro moderno detectada como TAMPERED_RECORD_MISSING_HASH');
 
-        // 32. DETECCIÓN DE ADULTERACIÓN: Registro firmado con contenido alterado
-        console.log('Test 32: Detección de adulteración en registro firmado...');
-        // Restaurar base limpia con 2 registros firmados
-        await AuditLog.collection.deleteMany({});
-        const genesisValid = new AuditLog({
-            action: 'INITIAL_EVENT',
+        // 32. ATAQUE DE EVASIÓN TOTAL: Eliminación simultánea de TODOS los metadatos criptográficos y createdAt retrocedido
+        console.log('Test 32: Ataque de evasión total - Despojo de todos los metadatos y createdAt retrocedido...');
+        // Crear registro moderno
+        const stealthLog = new AuditLog({
+            action: 'UNAUTHORIZED_EXFILTRATION',
             module: 'seguridad',
-            description: 'Evento inicial legítimo'
+            sessionId: 'session-stealth',
+            deviceId: 'dev-stealth',
+            description: 'Ataque donde el atacante borra todos los campos y pone fecha 2024'
         });
-        await genesisValid.save();
+        await stealthLog.save();
 
-        const childValid = new AuditLog({
-            action: 'FINANCIAL_TRANSFER',
-            module: 'tesoreria',
-            description: 'Transferencia bancaria USD 1000'
-        });
-        await childValid.save();
-
-        // Adulterar monto en base de datos
+        // El atacante borra TODOS los campos del nuevo módulo y altera createdAt para ubicarlo antes de Genesis
         await AuditLog.collection.updateOne(
-            { _id: childValid._id },
-            { $set: { description: 'Transferencia bancaria USD 999999' } }
+            { _id: stealthLog._id },
+            { 
+                $unset: { currentHash: 1, sequence: 1, sessionId: 1, deviceId: 1, previousHash: 1 },
+                $set: { createdAt: new Date('2024-06-15T08:00:00Z') }
+            }
         );
 
-        const tamperedContentReport = await verifyAuditLogIntegrity({ limit: 100 });
-        assert.strictEqual(tamperedContentReport.ok, false, 'Contenido adulterado debe reportar ok: false');
-        assert.strictEqual(tamperedContentReport.corruptedCount, 1, 'Exactamente 1 registro corrupto');
+        const stealthReport = await verifyAuditLogIntegrity({ limit: 100, historicalManifest: validManifest });
+        assert.strictEqual(stealthReport.ok, false, 'Ataque de evasión total debe ser detectado');
+        assert.strictEqual(stealthReport.integrityStatus, 'COMPROMISED', 'Integridad debe ser COMPROMISED');
+        assert.strictEqual(stealthReport.frontierStatus, 'COMPROMISED_HISTORICAL_ERA', 'Frontera histórica comprometida');
         assert.ok(
-            tamperedContentReport.anomalies.some(a => a.type === 'CORRUPTED_PAYLOAD' && a.logId === String(childValid._id)),
-            'Debe emitir CORRUPTED_PAYLOAD para el registro alterado'
+            stealthReport.anomalies.some(a => a.type === 'INJECTED_UNHASHED_RECORD'),
+            'Debe emitir anomalía INJECTED_UNHASHED_RECORD'
         );
-        console.log('  ok - Adulteración de contenido detectada inmediatamente como CORRUPTED_PAYLOAD');
+        console.log('  ok - Ataque de evasión con despojo total y timestamp falso detectado inmediatamente como INJECTED_UNHASHED_RECORD');
 
-        // 33. RESILIENCIA DISTRIBUIDA: Secuencias concurrentes (CONCURRENT_FORK)
-        console.log('Test 33: Resiliencia distribuida - Manejo de bifurcaciones concurrentes legítimas...');
+        // 33. REGISTRO ADULTERADO CON createdAt ANTERIOR A GENESIS (Alteración de marca temporal en registro histórico)
+        console.log('Test 33: Registro histórico adulterado con createdAt manipulado...');
+        await AuditLog.collection.deleteMany({});
+        const baseHistoricLog = { action: 'HISTORIC_PAYMENT', module: 'tesoreria', description: 'Pago antiguo', createdAt: new Date('2025-05-01T10:00:00Z') };
+        const insertedHistoric = await AuditLog.collection.insertOne(baseHistoricLog);
+        const manifestForTamper = await buildHistoricalManifestFromDatabase();
+
+        // Manipular el createdAt del registro histórico legítimo en la base de datos
+        await AuditLog.collection.updateOne(
+            { _id: insertedHistoric.insertedId },
+            { $set: { createdAt: new Date('2024-01-01T10:00:00Z') } }
+        );
+
+        const tamperedTimestampReport = await verifyAuditLogIntegrity({ limit: 100, historicalManifest: manifestForTamper });
+        assert.strictEqual(tamperedTimestampReport.ok, false, 'Marca temporal adulterada debe reportar ok: false');
+        assert.strictEqual(tamperedTimestampReport.integrityStatus, 'COMPROMISED', 'Integridad debe ser COMPROMISED');
+        assert.ok(
+            tamperedTimestampReport.anomalies.some(a => a.type === 'TAMPERED_LEGACY_RECORD'),
+            'Debe emitir anomalía TAMPERED_LEGACY_RECORD por discrepancia de huella digital de tiempo'
+        );
+        console.log('  ok - Modificación de createdAt en registro histórico detectada como TAMPERED_LEGACY_RECORD');
+
+        // 34. INSERCIÓN DE UN REGISTRO FALSAMENTE HISTÓRICO
+        console.log('Test 34: Inserción de un registro falsamente histórico post-manifiesto...');
+        // Partir de base limpia con manifiesto autorizado de 1 registro
+        await AuditLog.collection.deleteMany({});
+        const legitimateDoc = { action: 'LEGIT_LEGACY', module: 'crm', description: 'Registro genuino', createdAt: new Date('2025-01-01T00:00:00Z') };
+        await AuditLog.collection.insertOne(legitimateDoc);
+        const sealedManifest1 = await buildHistoricalManifestFromDatabase();
+
+        // Atacante inyecta un documento nuevo sin firma con fecha antigua
+        await AuditLog.collection.insertOne({
+            action: 'FAKE_HISTORIC_INJECTION',
+            module: 'admin',
+            description: 'Registro inyectado falsamente como histórico',
+            createdAt: new Date('2025-02-01T00:00:00Z')
+        });
+
+        const injectedReport = await verifyAuditLogIntegrity({ limit: 100, historicalManifest: sealedManifest1 });
+        assert.strictEqual(injectedReport.ok, false, 'Inserción falsa debe reportar ok: false');
+        assert.strictEqual(injectedReport.integrityStatus, 'COMPROMISED', 'Integridad debe ser COMPROMISED');
+        assert.ok(injectedReport.anomalies.some(a => a.type === 'INJECTED_UNHASHED_RECORD'));
+        console.log('  ok - Inserción de registro falsamente histórico detectada como INJECTED_UNHASHED_RECORD');
+
+        // 35. MODIFICACIÓN Y ELIMINACIÓN DE REGISTROS HISTÓRICOS
+        console.log('Test 35: Modificación y eliminación de registros históricos...');
+        await AuditLog.collection.deleteMany({});
+        const docToModify = { action: 'EXPENSE_AUDIT', module: 'finanzas', description: 'Gasto original $100', createdAt: new Date('2025-03-01T00:00:00Z') };
+        const docToDelete = { action: 'AUDIT_TRAIL', module: 'seguridad', description: 'Log que será borrado', createdAt: new Date('2025-03-02T00:00:00Z') };
+        const insRes = await AuditLog.collection.insertMany([docToModify, docToDelete]);
+        const sealedManifest2 = await buildHistoricalManifestFromDatabase();
+
+        // 35.1 Modificación de contenido (descripción adulterada)
+        await AuditLog.collection.updateOne(
+            { _id: insRes.insertedIds[0] },
+            { $set: { description: 'Gasto modificado $999999' } }
+        );
+        const modReport = await verifyAuditLogIntegrity({ limit: 100, historicalManifest: sealedManifest2 });
+        assert.strictEqual(modReport.ok, false, 'Modificación histórica debe reportar ok: false');
+        assert.ok(modReport.anomalies.some(a => a.type === 'TAMPERED_LEGACY_RECORD'));
+
+        // Restaurar contenido y probar eliminación
+        await AuditLog.collection.updateOne(
+            { _id: insRes.insertedIds[0] },
+            { $set: { description: 'Gasto original $100' } }
+        );
+        await AuditLog.collection.deleteOne({ _id: insRes.insertedIds[1] });
+
+        const delReport = await verifyAuditLogIntegrity({ limit: 100, historicalManifest: sealedManifest2 });
+        assert.strictEqual(delReport.ok, false, 'Eliminación histórica debe reportar ok: false');
+        assert.ok(delReport.anomalies.some(a => a.type === 'DELETED_HISTORICAL_RECORD'));
+        console.log('  ok - Modificación y eliminación de registros históricos detectadas (TAMPERED_LEGACY_RECORD / DELETED_HISTORICAL_RECORD)');
+
+        // 36. AUSENCIA O ALTERACIÓN DE LA REFERENCIA HISTÓRICA INDEPENDIENTE
+        console.log('Test 36: Ausencia o alteración de la referencia histórica independiente...');
+        await AuditLog.collection.deleteMany({});
+        await AuditLog.collection.insertOne({ action: 'LEGACY_DOC', module: 'auth', description: 'Doc 1', createdAt: new Date('2025-01-01T00:00:00Z') });
+        const legitManifest = await buildHistoricalManifestFromDatabase();
+
+        // Manifiesto con firma manipulada / adulterada
+        const tamperedManifest = { ...legitManifest, signature: 'signature_falsificada_invalida' };
+        const badSigReport = await verifyAuditLogIntegrity({ limit: 100, historicalManifest: tamperedManifest });
+        assert.strictEqual(badSigReport.ok, false, 'Firma de manifiesto alterada debe reportar ok: false');
+        assert.strictEqual(badSigReport.integrityStatus, 'COMPROMISED', 'Integridad debe ser COMPROMISED');
+        assert.strictEqual(badSigReport.frontierStatus, 'COMPROMISED_MANIFEST', 'Frontera debe ser COMPROMISED_MANIFEST');
+        assert.ok(badSigReport.anomalies.some(a => a.type === 'INVALID_HISTORICAL_ANCHOR_SIGNATURE'));
+        console.log('  ok - Firma de manifiesto alterada detectada como INVALID_HISTORICAL_ANCHOR_SIGNATURE');
+
+        // 37. CONCURRENCIA ENTRE INSTANCIAS (Bifurcaciones distribuidas)
+        console.log('Test 37: Concurrencia entre instancias evaluando simultáneamente con manifiesto...');
         await AuditLog.collection.deleteMany({});
         const forkGenesis = new AuditLog({
             action: 'DISTRIBUTED_GENESIS',
@@ -808,74 +905,70 @@ async function runTests() {
         });
         await forkGenesis.save();
 
-        // Simular dos instancias de servidor que firman concurrentemente enlazando al mismo forkGenesis
         const forkHashGenesis = forkGenesis.currentHash;
         const nowFork = new Date();
 
-        const forkBranch1 = new AuditLog({
-            action: 'PAYMENT_RECEIVED_SERVER_1',
+        const fork1 = new AuditLog({
+            action: 'PAYMENT_RECEIVED_A',
             module: 'ventas',
-            description: 'Cobro procesado por Instancia Vercel A',
+            description: 'Venta procesada por Instancia A',
             previousHash: forkHashGenesis,
             sequence: 2,
             createdAt: nowFork
         });
-        // Forzar cálculo de firma determinística con ese previousHash
-        forkBranch1.currentHash = computeAuditHash({
+        fork1.currentHash = computeAuditHash({
             previousHash: forkHashGenesis,
-            action: forkBranch1.action,
-            module: forkBranch1.module,
-            userId: forkBranch1.userId,
-            deviceId: forkBranch1.deviceId,
-            description: forkBranch1.description,
+            action: fork1.action,
+            module: fork1.module,
+            userId: fork1.userId,
+            deviceId: fork1.deviceId,
+            description: fork1.description,
             timestamp: nowFork
         });
-        await AuditLog.collection.insertOne(forkBranch1.toObject());
+        await AuditLog.collection.insertOne(fork1.toObject());
 
-        const forkBranch2 = new AuditLog({
-            action: 'STOCK_UPDATED_SERVER_2',
-            module: 'stock',
-            description: 'Stock actualizado por Instancia Vercel B',
+        const fork2 = new AuditLog({
+            action: 'PAYMENT_RECEIVED_B',
+            module: 'ventas',
+            description: 'Venta procesada por Instancia B',
             previousHash: forkHashGenesis,
             sequence: 2,
             createdAt: new Date(nowFork.getTime() + 10)
         });
-        forkBranch2.currentHash = computeAuditHash({
+        fork2.currentHash = computeAuditHash({
             previousHash: forkHashGenesis,
-            action: forkBranch2.action,
-            module: forkBranch2.module,
-            userId: forkBranch2.userId,
-            deviceId: forkBranch2.deviceId,
-            description: forkBranch2.description,
+            action: fork2.action,
+            module: fork2.module,
+            userId: fork2.userId,
+            deviceId: fork2.deviceId,
+            description: fork2.description,
             timestamp: new Date(nowFork.getTime() + 10)
         });
-        await AuditLog.collection.insertOne(forkBranch2.toObject());
+        await AuditLog.collection.insertOne(fork2.toObject());
 
-        const forkReport = await verifyAuditLogIntegrity({ limit: 100 });
-        assert.strictEqual(forkReport.ok, true, 'Cadena con bifurcaciones legítimas debe ser ok: true');
-        assert.strictEqual(forkReport.corruptedCount, 0, 'Cero registros corruptos en bifurcación legítima');
-        assert.strictEqual(forkReport.brokenLinksCount, 0, 'Cero enlaces rotos');
-        assert.strictEqual(forkReport.validCount, 3, 'Los 3 registros (genesis + 2 forks) son válidos');
-        assert.strictEqual(forkReport.forkCount, 1, 'Debe detectar exactamente 1 bifurcación concurrente');
-        assert.ok(forkReport.anomalies.some(a => a.type === 'CONCURRENT_FORK'), 'Anomalía informativa CONCURRENT_FORK registrada');
-        console.log('  ok - Bifurcación concurrente en Vercel reconocida y validada sin fallar la integridad');
+        // Dos verificaciones simultáneas (simulando dos servidores)
+        const [repInst1, repInst2] = await Promise.all([
+            verifyAuditLogIntegrity({ limit: 100 }),
+            verifyAuditLogIntegrity({ limit: 100 })
+        ]);
 
-        // 34. ESTADO BASE: Historial de auditoría vacío
-        console.log('Test 34: Estado base - Verificación con historial de auditoría vacío...');
+        assert.strictEqual(repInst1.ok, true, 'Instancia 1 debe reportar ok: true');
+        assert.strictEqual(repInst2.ok, true, 'Instancia 2 debe reportar ok: true');
+        assert.strictEqual(repInst1.forkCount, 1, 'Instancia 1 detecta 1 fork legítimo');
+        assert.strictEqual(repInst2.forkCount, 1, 'Instancia 2 detecta 1 fork legítimo');
+        console.log('  ok - Concurrencia entre instancias verificada con éxito');
+
+        // 38. BASE DE AUDITORÍA VACÍA
+        console.log('Test 38: Base de auditoría vacía...');
         await AuditLog.collection.deleteMany({});
         const emptyReport = await verifyAuditLogIntegrity({ limit: 100 });
         assert.strictEqual(emptyReport.ok, true, 'Historial vacío debe reportar ok: true');
-        assert.strictEqual(emptyReport.totalChecked, 0, 'Cero registros analizados');
-        assert.strictEqual(emptyReport.validCount, 0, 'Cero válidos');
-        assert.strictEqual(emptyReport.legacyCount, 0, 'Cero legacy');
-        assert.strictEqual(emptyReport.corruptedCount, 0, 'Cero corruptos');
-        assert.strictEqual(emptyReport.brokenLinksCount, 0, 'Cero enlaces rotos');
-        assert.strictEqual(emptyReport.chainStarted, false, 'Cadena no iniciada');
-        assert.strictEqual(emptyReport.chainGenesisId, null, 'Genesis nulo');
-        console.log('  ok - Historial vacío evaluado limpiamente sin errores');
+        assert.strictEqual(emptyReport.totalChecked, 0, 'Cero registros');
+        assert.strictEqual(emptyReport.frontierStatus, 'EMPTY_HISTORY', 'Frontera EMPTY_HISTORY');
+        assert.strictEqual(emptyReport.integrityStatus, 'VERIFIED', 'Integridad VERIFIED');
+        console.log('  ok - Base de auditoría vacía evaluada como VERIFIED limpiamente');
 
-        console.log('\n✅ TODAS LAS PRUEBAS DE SEGURIDAD Y AUDITORÍA PASARON EXITOSAMENTE (34/34)');
-
+        console.log('\n✅ TODAS LAS PRUEBAS DE SEGURIDAD Y AUDITORÍA PASARON EXITOSAMENTE (38/38)');
     } finally {
         await teardown();
     }

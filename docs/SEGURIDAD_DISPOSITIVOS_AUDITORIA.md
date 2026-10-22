@@ -15,15 +15,20 @@
 - **Lo que NO garantiza (Aclaración de Inmutabilidad):**  
   MongoDB no es un almacenamiento WORM (*Write Once, Read Many*) por hardware. Un administrador con credenciales de superusuario de MongoDB Atlas que también conozca las variables de entorno de producción podría modificar registros y recalcular los HMACs. Por tanto, el sistema ofrece **integridad verificable y detección de alteraciones**, no **inmutabilidad absoluta indestructible**.
 
-### 1.2. Límite de Verificabilidad Histórica y Compatibilidad con Registros Legacy
-- **Frontera de Verificabilidad:** Los registros creados en MongoDB con anterioridad al despliegue del módulo criptográfico carecen de firma HMAC (`currentHash`), secuencia (`sequence`) y enlace previo (`previousHash`).
-- **Política de Inmutabilidad Histórica:** El sistema **no elimina, no reescribe ni firma retroactivamente** registros antiguos existentes en la base de datos. Alterar registros pasados para forzar una firma extemporánea violaría el principio fundamental de integridad forense.
-- **Clasificación Explícita (`LEGACY_UNHASHED_RECORD`):** La herramienta `verifyAuditLogIntegrity` reconoce los eventos anteriores a la activación del módulo como registros históricos válidos (`LEGACY_UNHASHED_RECORD`). Se contabilizan de forma transparente (`legacyCount`) y **no se reportan como `CORRUPTED_PAYLOAD`** únicamente por carecer de firma histórica.
-- **Inicio de la Cadena Firmada (Bloque Genesis):** La cadena criptográfica se inicia formalmente con el primer registro emitido con `previousHash: 'GENESIS'` y un `currentHash` válido calculado con el secreto del servidor. A partir de este hito (`chainStarted = true`), la exigencia criptográfica es absoluta.
-- **Prevención de Evasión Maliciosa:** Si un atacante intenta despojar el `currentHash` de un evento moderno para aparentar que es un registro legacy no firmado, el verificador detecta inmediatamente la anomalía y emite **`TAMPERED_RECORD_MISSING_HASH`** (incrementando `corruptedCount`) si:
-  1. El registro fue emitido con posterioridad al inicio de la cadena firmada (`chainStarted === true`).
-  2. El registro contiene metadatos del nuevo sistema (`sequence`, `sessionId`, `deviceId` o `previousHash` no genésico).
-- **Garantía Resultante:** Ningún registro moderno firmado, adulterado o despojado de firma puede evadir la auditoría fingiendo ser un registro previo.
+### 1.2. Frontera Criptográfica Independiente y Manifiesto Histórico Sellado
+- **Frontera de Verificabilidad:** Los registros creados en MongoDB con anterioridad al despliegue del módulo carecen intrínsecamente de firma HMAC (`currentHash`), secuencia (`sequence`) y enlace previo (`previousHash`).
+- **Política de Inmutabilidad Histórica:** El sistema **no elimina, no reescribe ni firma retroactivamente** registros antiguos en la base de datos. Forzar firmas extemporáneas sobre eventos pasados violaría el principio de trazabilidad forense.
+- **Vulnerabilidad de Despojo Total Mitigada:** Un atacante con acceso de escritura directo a MongoDB que elimine conjuntamente `currentHash`, `sequence`, `sessionId`, `deviceId` y `previousHash`, y modifique `createdAt` para situarlo antes de Genesis, no puede evadir la verificación porque el sistema **no depende exclusivamente de los campos del propio documento**.
+- **Anclaje Histórico Independiente (Manifiesto Criptográfico):**  
+  El sistema incorpora la función canónica `computeHistoricalManifest`, que genera un resumen criptográfico sellado con HMAC-SHA256 (`AUDIT_HMAC_SECRET`) a partir de la huella digital canónica (`_id|action|module|description|createdAt`) de cada registro histórico legítimo:
+  1. **Conteo Cardinal Inmutable (`count`):** La cantidad de registros legacy queda congelada de forma definitiva.
+  2. **Raíz Hash de Huellas (`rootHash`):** SHA-256 concatenado de las huellas de todos los registros preexistentes.
+  3. **Firma de Servidor (`signature`):** HMAC-SHA256 firmado con el secreto maestro.
+- **Estados Explícitos de Integridad (Sin Falsos Positivos ni Falsas Garantías):**
+  - **`VERIFIED` (`ok: true`):** La cadena firmada post-Genesis es válida y continua, y la era histórica (si existen registros sin firma) coincide exactamente con el manifiesto independiente autorizado (`VERIFIED_ANCHORED_HISTORICAL_ERA`).
+  - **`UNVERIFIED` (`ok: false`):** Existen registros sin firma en la base de datos pero aún no se ha configurado la variable de anclaje independiente (`AUDIT_HISTORICAL_ANCHOR`). El sistema rechaza otorgar `ok: true` como garantía cuando falta evidencia independiente (`UNANCHORED_HISTORICAL_MANIFEST`).
+  - **`COMPROMISED` (`ok: false`):** Se detecta manipulación de registros firmados (`CORRUPTED_PAYLOAD`), enlaces rotos (`BROKEN_CHAIN_LINK`), inyecciones de registros despojados (`INJECTED_UNHASHED_RECORD`), adulteración de marcas temporales o descripciones en registros históricos (`TAMPERED_LEGACY_RECORD`), o firmas de manifiesto adulteradas (`INVALID_HISTORICAL_ANCHOR_SIGNATURE`).
+- **Garantía Resultante:** Ninguna modificación, inyección, borrado o despojo de registros puede evadir la verificación sin ser delatada por el anclaje criptográfico independiente.
 
 ### 1.3. Concurrencia Serverless y Resiliencia ante Bifurcaciones (Forks)
 - En Vercel o entornos multi-instancia, dos peticiones simultáneas pueden consultar el último registro al mismo milisegundo y enlazar al mismo `previousHash`.

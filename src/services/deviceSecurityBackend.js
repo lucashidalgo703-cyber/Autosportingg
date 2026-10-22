@@ -825,13 +825,99 @@ export async function getDeviceForensicAudit(deviceId, requestingUser = null) {
 
 
 /**
- * Herramienta de solo lectura para auditar la integridad criptográfica de la cadena de AuditLog
- * - Distingue registros históricos no firmados (LEGACY_UNHASHED_RECORD) sin marcarlos como corruptos.
- * - Detecta el punto exacto de inicio de la cadena firmada (Genesis).
- * - Impide que registros modernos firmados o adulterados evadan la verificación fingiendo ser legacy.
- * - Detecta alteraciones de contenido, eliminación de hashes, discontinuidades de enlace y bifurcaciones concurrentes.
+ * Calcula la huella digital criptográfica (SHA-256) canónica de un registro histórico (era pre-HMAC).
+ * Incluye _id, action, module, description y createdAt.
  */
-export async function verifyAuditLogIntegrity({ limit = 500 } = {}) {
+export function computeLegacyRecordFingerprint(doc) {
+    const idStr = String(doc._id);
+    const action = String(doc.action || '');
+    const module = String(doc.module || '');
+    const desc = String(doc.description || '');
+    const ts = doc.createdAt ? (doc.createdAt.toISOString ? doc.createdAt.toISOString() : String(doc.createdAt)) : '';
+    const raw = [idStr, action, module, desc, ts].join('|');
+    return crypto.createHash('sha256').update(raw).digest('hex');
+}
+
+/**
+ * Genera el Manifiesto Histórico Criptográfico sellado con HMAC-SHA256 para un conjunto de registros legacy.
+ * Puede utilizarse para crear el anclaje de despliegue antes de habilitar el módulo en producción.
+ */
+export function computeHistoricalManifest({ legacyRecords = [], secret = null } = {}) {
+    const auditSecret = secret || process.env.AUDIT_HMAC_SECRET || process.env.JWT_SECRET || 'autosporting-audit-internal-salt';
+    
+    const sorted = [...legacyRecords].sort((a, b) => String(a._id).localeCompare(String(b._id)));
+    const count = sorted.length;
+    const fingerprints = sorted.map(computeLegacyRecordFingerprint);
+    
+    const rootHash = count === 0 
+        ? 'EMPTY_LEGACY_ERA' 
+        : crypto.createHash('sha256').update(fingerprints.join(':')).digest('hex');
+        
+    const lastLegacyId = count > 0 ? String(sorted[sorted.length - 1]._id) : 'NONE';
+    const payloadToSign = [rootHash, count, lastLegacyId].join('|');
+    const signature = crypto.createHmac('sha256', auditSecret).update(payloadToSign).digest('hex');
+    
+    return {
+        count,
+        rootHash,
+        lastLegacyId,
+        signature,
+        generatedAt: new Date().toISOString()
+    };
+}
+
+/**
+ * Valida la autenticidad de la firma HMAC de un manifiesto histórico con el secreto de servidor.
+ */
+export function verifyHistoricalManifest(manifest, { secret = null } = {}) {
+    if (!manifest || typeof manifest !== 'object') {
+        return { valid: false, reason: 'MANIFEST_MISSING' };
+    }
+    const auditSecret = secret || process.env.AUDIT_HMAC_SECRET || process.env.JWT_SECRET || 'autosporting-audit-internal-salt';
+    const payloadToSign = [manifest.rootHash, manifest.count, manifest.lastLegacyId].join('|');
+    const expectedSignature = crypto.createHmac('sha256', auditSecret).update(payloadToSign).digest('hex');
+    
+    if (manifest.signature !== expectedSignature) {
+        return { valid: false, reason: 'INVALID_MANIFEST_SIGNATURE' };
+    }
+    return { valid: true };
+}
+
+/**
+ * Construye el Manifiesto Histórico consultando directamente los registros sin firma en la base de datos.
+ * Esta función se utiliza de forma controlada durante el procedimiento de despliegue para congelar el estado histórico.
+ */
+export async function buildHistoricalManifestFromDatabase({ secret = null } = {}) {
+    const legacyRecords = await AuditLog.find({
+        $or: [
+            { currentHash: { $exists: false } },
+            { currentHash: null },
+            { currentHash: '' }
+        ]
+    }).lean();
+    return computeHistoricalManifest({ legacyRecords, secret });
+}
+
+/**
+ * Herramienta de solo lectura para auditar la integridad criptográfica de la cadena de AuditLog
+ * - Distingue registros históricos no firmados (LEGACY_UNHASHED_RECORD) respaldados por un manifiesto independiente.
+ * - Detecta el punto exacto de inicio de la cadena firmada (Genesis).
+ * - Impide que registros modernos despojados de todos sus metadatos o con timestamps falsos evadan la verificación.
+ * - Diferencia entre integridad VERIFICADA, COMPROMETIDA e INVERIFICABLE (cuando falta el anclaje histórico).
+ */
+export async function verifyAuditLogIntegrity({ limit = 500, historicalManifest = null } = {}) {
+    // 1. Resolver el manifiesto histórico independiente (parámetro o variable de entorno)
+    let manifest = historicalManifest;
+    if (!manifest && process.env.AUDIT_HISTORICAL_ANCHOR) {
+        try {
+            manifest = typeof process.env.AUDIT_HISTORICAL_ANCHOR === 'string'
+                ? JSON.parse(process.env.AUDIT_HISTORICAL_ANCHOR)
+                : process.env.AUDIT_HISTORICAL_ANCHOR;
+        } catch (e) {
+            manifest = null;
+        }
+    }
+
     const query = AuditLog.find().sort({ createdAt: 1, sequence: 1, _id: 1 });
     if (limit && Number(limit) > 0) {
         query.limit(Number(limit));
@@ -849,14 +935,14 @@ export async function verifyAuditLogIntegrity({ limit = 500 } = {}) {
     const anomalies = [];
     const knownHashes = new Set(['GENESIS']);
     const parentUsageCount = new Map();
+    const detectedLegacyRecords = [];
 
     for (const log of logs) {
         const hasHash = typeof log.currentHash === 'string' && log.currentHash.trim().length > 0;
 
         // CASO 1: Registro SIN currentHash
         if (!hasHash) {
-            // Verificar si es un intento de evasión:
-            // Un registro NO puede ser clasificado como legacy legítimo si:
+            // Un registro NO puede ser clasificado como legacy si:
             // a) La cadena firmada ya se inició previamente (no se admiten registros sin firma en la era HMAC).
             // b) Posee número de secuencia asignado (sequence != null).
             // c) Posee identificador de terminal o sesión del nuevo módulo (sessionId o deviceId).
@@ -879,8 +965,8 @@ export async function verifyAuditLogIntegrity({ limit = 500 } = {}) {
                         : 'Registro con metadatos del nuevo módulo de seguridad pero sin firma criptográfica válida (posible eliminación de hash).'
                 });
             } else {
-                // Registro histórico anterior a la implementación del sistema criptográfico
                 legacyCount++;
+                detectedLegacyRecords.push(log);
             }
             continue;
         }
@@ -953,8 +1039,79 @@ export async function verifyAuditLogIntegrity({ limit = 500 } = {}) {
         validCount++;
     }
 
+    // EVALUACIÓN DE LA FRONTERA HISTÓRICA INDEPENDIENTE
+    let frontierStatus = 'NO_LEGACY_RECORDS';
+    let integrityStatus = 'VERIFIED';
+
+    if (logs.length === 0) {
+        frontierStatus = 'EMPTY_HISTORY';
+        integrityStatus = 'VERIFIED';
+    } else if (legacyCount > 0) {
+        // Existen registros sin firma en la base de datos: requerir y validar el anclaje independiente
+        if (!manifest) {
+            frontierStatus = 'UNANCHORED_HISTORICAL_MANIFEST';
+            integrityStatus = 'UNVERIFIED';
+            anomalies.push({
+                type: 'UNVERIFIED_HISTORICAL_RECORD',
+                count: legacyCount,
+                details: 'Existen registros sin firma en la base de datos pero no se ha configurado un anclaje o manifiesto histórico independiente para verificar su autenticidad.'
+            });
+        } else {
+            // Verificar firma del manifiesto
+            const manifestCheck = verifyHistoricalManifest(manifest);
+            if (!manifestCheck.valid) {
+                frontierStatus = 'COMPROMISED_MANIFEST';
+                integrityStatus = 'COMPROMISED';
+                corruptedCount++;
+                anomalies.push({
+                    type: 'INVALID_HISTORICAL_ANCHOR_SIGNATURE',
+                    details: 'La firma criptográfica del manifiesto histórico es inválida o fue manipulada.'
+                });
+            } else if (detectedLegacyRecords.length > manifest.count) {
+                frontierStatus = 'COMPROMISED_HISTORICAL_ERA';
+                integrityStatus = 'COMPROMISED';
+                corruptedCount++;
+                anomalies.push({
+                    type: 'INJECTED_UNHASHED_RECORD',
+                    details: `Se detectaron ${detectedLegacyRecords.length} registros no firmados, pero el manifiesto histórico autorizado solo contiene ${manifest.count}. Posible inyección maliciosa o despojo de firma.`
+                });
+            } else if (detectedLegacyRecords.length < manifest.count) {
+                frontierStatus = 'COMPROMISED_HISTORICAL_ERA';
+                integrityStatus = 'COMPROMISED';
+                brokenLinksCount++;
+                anomalies.push({
+                    type: 'DELETED_HISTORICAL_RECORD',
+                    details: `Se detectaron ${detectedLegacyRecords.length} registros no firmados, pero el manifiesto histórico autorizado certifica ${manifest.count}. Posible eliminación no autorizada de registros históricos.`
+                });
+            } else {
+                // Cantidad coincide: verificar concordancia exacta de huellas digitales de todos los registros
+                const sortedLegacy = [...detectedLegacyRecords].sort((a, b) => String(a._id).localeCompare(String(b._id)));
+                const actualFingerprints = sortedLegacy.map(computeLegacyRecordFingerprint);
+                const actualRoot = crypto.createHash('sha256').update(actualFingerprints.join(':')).digest('hex');
+
+                if (actualRoot !== manifest.rootHash) {
+                    frontierStatus = 'COMPROMISED_HISTORICAL_ERA';
+                    integrityStatus = 'COMPROMISED';
+                    corruptedCount++;
+                    anomalies.push({
+                        type: 'TAMPERED_LEGACY_RECORD',
+                        details: 'El contenido, identificador o marca de tiempo de los registros históricos difiere del manifiesto histórico sellado criptográficamente.'
+                    });
+                } else {
+                    frontierStatus = 'VERIFIED_ANCHORED_HISTORICAL_ERA';
+                }
+            }
+        }
+    }
+
+    if (corruptedCount > 0 || brokenLinksCount > 0) {
+        integrityStatus = 'COMPROMISED';
+    }
+
     return {
-        ok: corruptedCount === 0 && brokenLinksCount === 0,
+        ok: integrityStatus === 'VERIFIED',
+        integrityStatus, // 'VERIFIED' | 'COMPROMISED' | 'UNVERIFIED'
+        frontierStatus,  // 'VERIFIED_ANCHORED_HISTORICAL_ERA' | 'NO_LEGACY_RECORDS' | 'UNANCHORED_HISTORICAL_MANIFEST' | 'COMPROMISED_HISTORICAL_ERA' | 'COMPROMISED_MANIFEST' | 'EMPTY_HISTORY'
         totalChecked: logs.length,
         validCount,
         legacyCount,
