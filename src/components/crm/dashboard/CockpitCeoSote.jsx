@@ -90,52 +90,76 @@ function CashProjectionCard({ label, value, detail, tone = 'neutral' }) {
 }
 
 function CashProjectionPanel({ metrics, hideAmounts }) {
-    const usdBalance = metrics.margenEstimado?.USD || 0;
-    const arsBalance = metrics.margenEstimado?.ARS || 0;
+    const netCashUSD = metrics.finanzas?.saldos?.USD ?? 0;
+    const netCashARS = metrics.finanzas?.saldos?.ARS ?? 0;
 
     return (
         <section className="rounded-xl border border-crm-border bg-crm-surface p-4">
             <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                <h3 className="flex items-center gap-2 text-base font-semibold text-crm-fg">
-                    <Landmark size={15} className="text-amber-400" />
-                    Proyección de caja
-                </h3>
+                <div className="flex flex-wrap items-center gap-2">
+                    <h3 className="flex items-center gap-2 text-base font-semibold text-crm-fg">
+                        <Landmark size={15} className="text-amber-400" />
+                        Proyección de caja
+                    </h3>
+                    <span className="rounded-md border border-amber-500/30 bg-amber-500/15 px-2 py-0.5 text-[10px] font-semibold text-amber-300">
+                        Proyección pendiente de integración
+                    </span>
+                </div>
                 <div className="flex items-center gap-4 text-xs">
-                    <span className="text-crm-fg-muted">0 entradas · 0 salidas previstas</span>
+                    <span className="text-crm-fg-muted">Cronograma en desarrollo</span>
                     <Link href="/admin/finanzas" className="font-semibold text-amber-300 transition hover:text-amber-200">
-                        Ver más →
+                        Ver Tesorería →
                     </Link>
                 </div>
             </div>
             <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-4">
-                <CashProjectionCard label="Saldo actual" value={hideAmounts ? '***' : `USD ${formatCurrency(usdBalance)}`} detail={hideAmounts ? '***' : `ARS ${formatCurrency(arsBalance)}`} />
-                <CashProjectionCard label="A cobrar" value={hideAmounts ? '***' : "USD 0"} tone="green" />
-                <CashProjectionCard label="A pagar" value={hideAmounts ? '***' : "USD 0"} tone="red" />
-                <CashProjectionCard label="Resultado" value={hideAmounts ? '***' : `USD ${formatCurrency(usdBalance)}`} tone={usdBalance < 0 ? 'red' : 'green'} />
+                <CashProjectionCard
+                    label="Flujo neto del mes"
+                    value={hideAmounts ? '***' : `USD ${formatCurrency(netCashUSD)}`}
+                    detail={hideAmounts ? '***' : `ARS ${formatCurrency(netCashARS)}`}
+                    tone={netCashUSD < 0 ? 'red' : netCashUSD > 0 ? 'green' : 'neutral'}
+                />
+                <CashProjectionCard
+                    label="A cobrar"
+                    value="Pendiente"
+                    detail="Cálculo dinámico en desarrollo"
+                    tone="neutral"
+                />
+                <CashProjectionCard
+                    label="A pagar"
+                    value="Pendiente"
+                    detail="Cálculo dinámico en desarrollo"
+                    tone="neutral"
+                />
+                <CashProjectionCard
+                    label="Resultado proyectado"
+                    value="Pendiente"
+                    detail="No usar margen como liquidez"
+                    tone="neutral"
+                />
             </div>
             <div className="mt-4 grid grid-cols-1 gap-3 lg:grid-cols-2">
-                <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/10 p-4">
-                    <div className="mb-3 flex items-center justify-between">
-                        <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-emerald-200">Entradas previstas</p>
-                        <span className="rounded-md bg-emerald-500/15 px-2 py-1 text-[10px] font-bold text-emerald-200">Top 0</span>
+                <div className="rounded-xl border border-amber-500/20 bg-amber-500/5 p-4">
+                    <div className="mb-2 flex items-center justify-between">
+                        <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-amber-200">Entradas previstas</p>
+                        <span className="rounded-md bg-amber-500/15 px-2 py-0.5 text-[10px] font-bold text-amber-300">En desarrollo</span>
                     </div>
-                    <p className="text-xs text-emerald-100/75">Sin entradas previstas.</p>
+                    <p className="text-xs text-crm-fg-muted">Integración con cuotas y cobros pendientes de ventas en proceso.</p>
                 </div>
-                <div className="rounded-xl border border-red-500/20 bg-crm-red/10 p-4">
-                    <div className="mb-3 flex items-center justify-between">
-                        <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-red-200">Salidas previstas</p>
-                        <span className="rounded-md bg-crm-red/15 px-2 py-1 text-[10px] font-bold text-red-200">Top 0</span>
+                <div className="rounded-xl border border-amber-500/20 bg-amber-500/5 p-4">
+                    <div className="mb-2 flex items-center justify-between">
+                        <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-amber-200">Salidas previstas</p>
+                        <span className="rounded-md bg-amber-500/15 px-2 py-0.5 text-[10px] font-bold text-amber-300">En desarrollo</span>
                     </div>
-                    <p className="text-xs text-red-100/75">Sin salidas previstas.</p>
+                    <p className="text-xs text-crm-fg-muted">Integración con pagos a propietarios, comisiones y egresos programados en proceso.</p>
                 </div>
             </div>
             <p className="mt-4 border-t border-crm-border pt-3 text-[11px] leading-relaxed text-crm-fg-muted">
-                Mismos números que la pantalla x Cobrar/Pagar: a cobrar toma valores, cuotas y gastos del comprador; a pagar contempla pagos a propietarios, registros y comisiones.
+                Módulo en desarrollo: no utilizar estos valores como saldo disponible ni proyección confirmada de liquidez hasta completar la integración con Tesorería.
             </p>
         </section>
     );
 }
-
 
 
 
