@@ -3,7 +3,7 @@ import mongoose from 'mongoose';
 import { MongoMemoryServer } from 'mongodb-memory-server';
 import TrustedDevice from '../src/models/TrustedDevice.js';
 import UserSession from '../src/models/UserSession.js';
-import AuditLog from '../src/models/AuditLog.js';
+import AuditLog, { computeAuditHash } from '../src/models/AuditLog.js';
 import AdminUser from '../src/models/AdminUser.js';
 import SecurityChallenge from '../src/models/SecurityChallenge.js';
 import SecurityRateLimit from '../src/models/SecurityRateLimit.js';
@@ -693,7 +693,188 @@ async function runTests() {
         assert.ok(tamperedReport.anomalies.some(a => a.type === 'CORRUPTED_PAYLOAD' && a.logId === String(legitLog._id)), 'Anomalía identificada como CORRUPTED_PAYLOAD para el log alterado');
         console.log('  ok - Herramienta de auditoría detectó adulteración directa de datos en MongoDB');
 
-        console.log('\n✅ TODAS LAS PRUEBAS DE SEGURIDAD Y AUDITORÍA PASARON EXITOSAMENTE (28/28)');
+                // 29. COMPATIBILIDAD HISTÓRICA: Base con registros exclusivamente legacy
+        console.log('Test 29: Compatibilidad histórica - Base con registros exclusivamente legacy...');
+        await AuditLog.collection.deleteMany({});
+        await AuditLog.collection.insertMany([
+            { action: 'LOGIN_LEGACY', module: 'auth', description: 'Acceso legacy 1', createdAt: new Date('2025-01-01T10:00:00Z') },
+            { action: 'VIEW_CAR_LEGACY', module: 'stock', description: 'Consulta legacy 2', createdAt: new Date('2025-01-02T11:00:00Z') },
+            { action: 'EDIT_PRICE_LEGACY', module: 'ventas', description: 'Edición legacy 3', createdAt: new Date('2025-01-03T12:00:00Z') }
+        ]);
+        const legacyOnlyReport = await verifyAuditLogIntegrity({ limit: 100 });
+        assert.strictEqual(legacyOnlyReport.ok, true, 'Base legacy exclusiva debe reportar ok: true');
+        assert.strictEqual(legacyOnlyReport.totalChecked, 3, 'Debe revisar los 3 registros');
+        assert.strictEqual(legacyOnlyReport.legacyCount, 3, 'Los 3 registros deben clasificarse como legacy');
+        assert.strictEqual(legacyOnlyReport.corruptedCount, 0, 'Cero registros corruptos en base legacy pura');
+        assert.strictEqual(legacyOnlyReport.chainStarted, false, 'La cadena firmada no ha iniciado en base legacy pura');
+        console.log('  ok - Base exclusivamente legacy clasificada correctamente sin falsas alarmas de corrupción');
+
+        // 30. COMPATIBILIDAD HISTÓRICA: Base mixta (registros legacy + registros HMAC nuevos)
+        console.log('Test 30: Compatibilidad histórica - Base mixta (legacy + HMAC nuevo encadenado)...');
+        // Agregar registros nuevos con firma HMAC post-despliegue
+        const hmacGenesis = new AuditLog({
+            action: 'SECURITY_MODULE_ACTIVATED',
+            module: 'seguridad',
+            description: 'Primer registro firmado del módulo nuevo (Genesis)',
+            createdAt: new Date('2026-10-22T00:01:00Z')
+        });
+        await hmacGenesis.save();
+
+        const hmacChild = new AuditLog({
+            action: 'DEVICE_AUTHORIZED',
+            module: 'seguridad',
+            deviceId: 'dev-pc-agencia-uuid',
+            description: 'Segundo registro firmado encadenado a Genesis',
+            createdAt: new Date('2026-10-22T00:02:00Z')
+        });
+        await hmacChild.save();
+
+        const mixedReport = await verifyAuditLogIntegrity({ limit: 100 });
+        assert.strictEqual(mixedReport.ok, true, 'Base mixta debe reportar ok: true');
+        assert.strictEqual(mixedReport.totalChecked, 5, '3 legacy + 2 HMAC = 5 registros totales');
+        assert.strictEqual(mixedReport.legacyCount, 3, '3 registros clasificados como legacy');
+        assert.strictEqual(mixedReport.validCount, 2, '2 registros firmados válidos');
+        assert.strictEqual(mixedReport.corruptedCount, 0, 'Cero registros corruptos');
+        assert.strictEqual(mixedReport.chainStarted, true, 'La cadena firmada debe haberse iniciado');
+        assert.strictEqual(mixedReport.chainGenesisId, String(hmacGenesis._id), 'chainGenesisId debe apuntar al bloque Genesis');
+        console.log('  ok - Base mixta identifica limpiamente frontera legacy y cadena HMAC');
+
+        // 31. DETECCIÓN DE EVASIÓN: Registro nuevo con currentHash eliminado (intento de suplantar legacy)
+        console.log('Test 31: Detección de evasión - Registro nuevo despojado de currentHash...');
+        const evasionLog = new AuditLog({
+            action: 'CRITICAL_OPERATION',
+            module: 'finanzas',
+            sessionId: 'session-attacker-uuid',
+            deviceId: 'dev-attacker-uuid',
+            description: 'Operación firmada que el atacante intenta ocultar despojando hash'
+        });
+        await evasionLog.save();
+
+        // El atacante elimina directamente el currentHash en MongoDB para simular ser un registro legacy
+        await AuditLog.collection.updateOne(
+            { _id: evasionLog._id },
+            { $unset: { currentHash: 1 } }
+        );
+
+        const evasionReport = await verifyAuditLogIntegrity({ limit: 100 });
+        assert.strictEqual(evasionReport.ok, false, 'Intento de evasión debe reportar ok: false');
+        assert.ok(evasionReport.corruptedCount >= 1, 'Debe detectar registro despojado como corrupto');
+        assert.ok(
+            evasionReport.anomalies.some(a => a.type === 'TAMPERED_RECORD_MISSING_HASH' && a.logId === String(evasionLog._id)),
+            'Debe emitir anomalía TAMPERED_RECORD_MISSING_HASH para el registro atacado'
+        );
+        console.log('  ok - Intento de evasión despojando currentHash detectado inmediatamente como TAMPERED_RECORD_MISSING_HASH');
+
+        // 32. DETECCIÓN DE ADULTERACIÓN: Registro firmado con contenido alterado
+        console.log('Test 32: Detección de adulteración en registro firmado...');
+        // Restaurar base limpia con 2 registros firmados
+        await AuditLog.collection.deleteMany({});
+        const genesisValid = new AuditLog({
+            action: 'INITIAL_EVENT',
+            module: 'seguridad',
+            description: 'Evento inicial legítimo'
+        });
+        await genesisValid.save();
+
+        const childValid = new AuditLog({
+            action: 'FINANCIAL_TRANSFER',
+            module: 'tesoreria',
+            description: 'Transferencia bancaria USD 1000'
+        });
+        await childValid.save();
+
+        // Adulterar monto en base de datos
+        await AuditLog.collection.updateOne(
+            { _id: childValid._id },
+            { $set: { description: 'Transferencia bancaria USD 999999' } }
+        );
+
+        const tamperedContentReport = await verifyAuditLogIntegrity({ limit: 100 });
+        assert.strictEqual(tamperedContentReport.ok, false, 'Contenido adulterado debe reportar ok: false');
+        assert.strictEqual(tamperedContentReport.corruptedCount, 1, 'Exactamente 1 registro corrupto');
+        assert.ok(
+            tamperedContentReport.anomalies.some(a => a.type === 'CORRUPTED_PAYLOAD' && a.logId === String(childValid._id)),
+            'Debe emitir CORRUPTED_PAYLOAD para el registro alterado'
+        );
+        console.log('  ok - Adulteración de contenido detectada inmediatamente como CORRUPTED_PAYLOAD');
+
+        // 33. RESILIENCIA DISTRIBUIDA: Secuencias concurrentes (CONCURRENT_FORK)
+        console.log('Test 33: Resiliencia distribuida - Manejo de bifurcaciones concurrentes legítimas...');
+        await AuditLog.collection.deleteMany({});
+        const forkGenesis = new AuditLog({
+            action: 'DISTRIBUTED_GENESIS',
+            module: 'seguridad',
+            description: 'Genesis para prueba de concurrencia'
+        });
+        await forkGenesis.save();
+
+        // Simular dos instancias de servidor que firman concurrentemente enlazando al mismo forkGenesis
+        const forkHashGenesis = forkGenesis.currentHash;
+        const nowFork = new Date();
+
+        const forkBranch1 = new AuditLog({
+            action: 'PAYMENT_RECEIVED_SERVER_1',
+            module: 'ventas',
+            description: 'Cobro procesado por Instancia Vercel A',
+            previousHash: forkHashGenesis,
+            sequence: 2,
+            createdAt: nowFork
+        });
+        // Forzar cálculo de firma determinística con ese previousHash
+        forkBranch1.currentHash = computeAuditHash({
+            previousHash: forkHashGenesis,
+            action: forkBranch1.action,
+            module: forkBranch1.module,
+            userId: forkBranch1.userId,
+            deviceId: forkBranch1.deviceId,
+            description: forkBranch1.description,
+            timestamp: nowFork
+        });
+        await AuditLog.collection.insertOne(forkBranch1.toObject());
+
+        const forkBranch2 = new AuditLog({
+            action: 'STOCK_UPDATED_SERVER_2',
+            module: 'stock',
+            description: 'Stock actualizado por Instancia Vercel B',
+            previousHash: forkHashGenesis,
+            sequence: 2,
+            createdAt: new Date(nowFork.getTime() + 10)
+        });
+        forkBranch2.currentHash = computeAuditHash({
+            previousHash: forkHashGenesis,
+            action: forkBranch2.action,
+            module: forkBranch2.module,
+            userId: forkBranch2.userId,
+            deviceId: forkBranch2.deviceId,
+            description: forkBranch2.description,
+            timestamp: new Date(nowFork.getTime() + 10)
+        });
+        await AuditLog.collection.insertOne(forkBranch2.toObject());
+
+        const forkReport = await verifyAuditLogIntegrity({ limit: 100 });
+        assert.strictEqual(forkReport.ok, true, 'Cadena con bifurcaciones legítimas debe ser ok: true');
+        assert.strictEqual(forkReport.corruptedCount, 0, 'Cero registros corruptos en bifurcación legítima');
+        assert.strictEqual(forkReport.brokenLinksCount, 0, 'Cero enlaces rotos');
+        assert.strictEqual(forkReport.validCount, 3, 'Los 3 registros (genesis + 2 forks) son válidos');
+        assert.strictEqual(forkReport.forkCount, 1, 'Debe detectar exactamente 1 bifurcación concurrente');
+        assert.ok(forkReport.anomalies.some(a => a.type === 'CONCURRENT_FORK'), 'Anomalía informativa CONCURRENT_FORK registrada');
+        console.log('  ok - Bifurcación concurrente en Vercel reconocida y validada sin fallar la integridad');
+
+        // 34. ESTADO BASE: Historial de auditoría vacío
+        console.log('Test 34: Estado base - Verificación con historial de auditoría vacío...');
+        await AuditLog.collection.deleteMany({});
+        const emptyReport = await verifyAuditLogIntegrity({ limit: 100 });
+        assert.strictEqual(emptyReport.ok, true, 'Historial vacío debe reportar ok: true');
+        assert.strictEqual(emptyReport.totalChecked, 0, 'Cero registros analizados');
+        assert.strictEqual(emptyReport.validCount, 0, 'Cero válidos');
+        assert.strictEqual(emptyReport.legacyCount, 0, 'Cero legacy');
+        assert.strictEqual(emptyReport.corruptedCount, 0, 'Cero corruptos');
+        assert.strictEqual(emptyReport.brokenLinksCount, 0, 'Cero enlaces rotos');
+        assert.strictEqual(emptyReport.chainStarted, false, 'Cadena no iniciada');
+        assert.strictEqual(emptyReport.chainGenesisId, null, 'Genesis nulo');
+        console.log('  ok - Historial vacío evaluado limpiamente sin errores');
+
+        console.log('\n✅ TODAS LAS PRUEBAS DE SEGURIDAD Y AUDITORÍA PASARON EXITOSAMENTE (34/34)');
 
     } finally {
         await teardown();

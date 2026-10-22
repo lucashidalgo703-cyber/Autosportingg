@@ -65,8 +65,8 @@ auditLogSchema.index({ entityType: 1, entityId: 1 });
 auditLogSchema.pre('save', async function () {
     if (this.isNew && !this.currentHash) {
         const lastLog = await mongoose.models.AuditLog
-            .findOne({}, { currentHash: 1, sequence: 1 })
-            .sort({ _id: -1 })
+            .findOne({ currentHash: { $exists: true, $ne: null } }, { currentHash: 1, sequence: 1 })
+            .sort({ sequence: -1, createdAt: -1, _id: -1 })
             .lean();
 
         this.previousHash = lastLog?.currentHash || 'GENESIS';

@@ -826,23 +826,66 @@ export async function getDeviceForensicAudit(deviceId, requestingUser = null) {
 
 /**
  * Herramienta de solo lectura para auditar la integridad criptográfica de la cadena de AuditLog
- * Detecta alteraciones de contenido, discontinuidades de enlace y bifurcaciones concurrentes
+ * - Distingue registros históricos no firmados (LEGACY_UNHASHED_RECORD) sin marcarlos como corruptos.
+ * - Detecta el punto exacto de inicio de la cadena firmada (Genesis).
+ * - Impide que registros modernos firmados o adulterados evadan la verificación fingiendo ser legacy.
+ * - Detecta alteraciones de contenido, eliminación de hashes, discontinuidades de enlace y bifurcaciones concurrentes.
  */
 export async function verifyAuditLogIntegrity({ limit = 500 } = {}) {
-    const logs = await AuditLog.find()
-        .sort({ sequence: 1, createdAt: 1, _id: 1 })
-        .limit(limit)
-        .lean();
+    const query = AuditLog.find().sort({ createdAt: 1, sequence: 1, _id: 1 });
+    if (limit && Number(limit) > 0) {
+        query.limit(Number(limit));
+    }
+    const logs = await query.lean();
 
     let validCount = 0;
+    let legacyCount = 0;
     let corruptedCount = 0;
     let brokenLinksCount = 0;
     let forkCount = 0;
+    let chainStarted = false;
+    let chainGenesisId = null;
+
     const anomalies = [];
     const knownHashes = new Set(['GENESIS']);
     const parentUsageCount = new Map();
 
     for (const log of logs) {
+        const hasHash = typeof log.currentHash === 'string' && log.currentHash.trim().length > 0;
+
+        // CASO 1: Registro SIN currentHash
+        if (!hasHash) {
+            // Verificar si es un intento de evasión:
+            // Un registro NO puede ser clasificado como legacy legítimo si:
+            // a) La cadena firmada ya se inició previamente (no se admiten registros sin firma en la era HMAC).
+            // b) Posee número de secuencia asignado (sequence != null).
+            // c) Posee identificador de terminal o sesión del nuevo módulo (sessionId o deviceId).
+            // d) Posee previousHash que apunte a un hash firmado (distinto de nulo y de 'GENESIS').
+            const hasModernSecurityMetadata = 
+                log.sequence != null || 
+                Boolean(log.sessionId) || 
+                Boolean(log.deviceId) ||
+                (Boolean(log.previousHash) && log.previousHash !== 'GENESIS');
+
+            if (chainStarted || hasModernSecurityMetadata) {
+                corruptedCount++;
+                anomalies.push({
+                    type: 'TAMPERED_RECORD_MISSING_HASH',
+                    logId: String(log._id),
+                    action: log.action,
+                    sequence: log.sequence,
+                    details: chainStarted 
+                        ? 'Registro sin firma criptográfica insertado o despojado de hash después del inicio de la cadena firmada.'
+                        : 'Registro con metadatos del nuevo módulo de seguridad pero sin firma criptográfica válida (posible eliminación de hash).'
+                });
+            } else {
+                // Registro histórico anterior a la implementación del sistema criptográfico
+                legacyCount++;
+            }
+            continue;
+        }
+
+        // CASO 2: Registro CON currentHash (era firmada)
         // 1. Verificar autenticidad del contenido recalculando HMAC con el secreto de servidor
         const expectedHash = computeAuditHash({
             previousHash: log.previousHash,
@@ -856,6 +899,7 @@ export async function verifyAuditLogIntegrity({ limit = 500 } = {}) {
 
         if (log.currentHash !== expectedHash) {
             corruptedCount++;
+            chainStarted = true;
             anomalies.push({
                 type: 'CORRUPTED_PAYLOAD',
                 logId: String(log._id),
@@ -867,31 +911,41 @@ export async function verifyAuditLogIntegrity({ limit = 500 } = {}) {
             continue;
         }
 
-        // 2. Verificar enlace con registro previo
+        // 2. Verificar enlace con registro previo en la cadena
         if (!knownHashes.has(log.previousHash)) {
             brokenLinksCount++;
+            chainStarted = true;
             anomalies.push({
                 type: 'BROKEN_CHAIN_LINK',
                 logId: String(log._id),
                 action: log.action,
                 sequence: log.sequence,
                 previousHash: log.previousHash,
-                details: 'El previousHash no coincide con ningún registro precedente'
+                details: 'El previousHash no coincide con ningún registro precedente en la cadena criptográfica'
             });
         } else {
-            // Rastrear bifurcaciones concurrentes (dos escrituras con el mismo padre)
-            const usages = (parentUsageCount.get(log.previousHash) || 0) + 1;
-            parentUsageCount.set(log.previousHash, usages);
-            if (usages > 1 && log.previousHash !== 'GENESIS') {
-                forkCount++;
-                anomalies.push({
-                    type: 'CONCURRENT_FORK',
-                    logId: String(log._id),
-                    action: log.action,
-                    sequence: log.sequence,
-                    parentHash: log.previousHash,
-                    details: 'Bifurcación concurrente detectada (escritura simultánea legítima compartiendo bloque anterior)'
-                });
+            // Rastrear inicio de la cadena (bloque Genesis)
+            if (log.previousHash === 'GENESIS') {
+                if (!chainStarted) {
+                    chainStarted = true;
+                    chainGenesisId = String(log._id);
+                }
+            } else {
+                chainStarted = true;
+                // Rastrear bifurcaciones concurrentes (dos escrituras con el mismo padre en entornos distribuidos)
+                const usages = (parentUsageCount.get(log.previousHash) || 0) + 1;
+                parentUsageCount.set(log.previousHash, usages);
+                if (usages > 1) {
+                    forkCount++;
+                    anomalies.push({
+                        type: 'CONCURRENT_FORK',
+                        logId: String(log._id),
+                        action: log.action,
+                        sequence: log.sequence,
+                        parentHash: log.previousHash,
+                        details: 'Bifurcación concurrente detectada (escritura simultánea legítima compartiendo bloque anterior)'
+                    });
+                }
             }
         }
 
@@ -903,9 +957,12 @@ export async function verifyAuditLogIntegrity({ limit = 500 } = {}) {
         ok: corruptedCount === 0 && brokenLinksCount === 0,
         totalChecked: logs.length,
         validCount,
+        legacyCount,
         corruptedCount,
         brokenLinksCount,
         forkCount,
+        chainStarted,
+        chainGenesisId,
         anomalies,
         verifiedAt: new Date()
     };

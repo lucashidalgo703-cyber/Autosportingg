@@ -15,11 +15,21 @@
 - **Lo que NO garantiza (Aclaración de Inmutabilidad):**  
   MongoDB no es un almacenamiento WORM (*Write Once, Read Many*) por hardware. Un administrador con credenciales de superusuario de MongoDB Atlas que también conozca las variables de entorno de producción podría modificar registros y recalcular los HMACs. Por tanto, el sistema ofrece **integridad verificable y detección de alteraciones**, no **inmutabilidad absoluta indestructible**.
 
-### 1.2. Concurrencia Serverless y Resiliencia ante Bifurcaciones (Forks)
+### 1.2. Límite de Verificabilidad Histórica y Compatibilidad con Registros Legacy
+- **Frontera de Verificabilidad:** Los registros creados en MongoDB con anterioridad al despliegue del módulo criptográfico carecen de firma HMAC (`currentHash`), secuencia (`sequence`) y enlace previo (`previousHash`).
+- **Política de Inmutabilidad Histórica:** El sistema **no elimina, no reescribe ni firma retroactivamente** registros antiguos existentes en la base de datos. Alterar registros pasados para forzar una firma extemporánea violaría el principio fundamental de integridad forense.
+- **Clasificación Explícita (`LEGACY_UNHASHED_RECORD`):** La herramienta `verifyAuditLogIntegrity` reconoce los eventos anteriores a la activación del módulo como registros históricos válidos (`LEGACY_UNHASHED_RECORD`). Se contabilizan de forma transparente (`legacyCount`) y **no se reportan como `CORRUPTED_PAYLOAD`** únicamente por carecer de firma histórica.
+- **Inicio de la Cadena Firmada (Bloque Genesis):** La cadena criptográfica se inicia formalmente con el primer registro emitido con `previousHash: 'GENESIS'` y un `currentHash` válido calculado con el secreto del servidor. A partir de este hito (`chainStarted = true`), la exigencia criptográfica es absoluta.
+- **Prevención de Evasión Maliciosa:** Si un atacante intenta despojar el `currentHash` de un evento moderno para aparentar que es un registro legacy no firmado, el verificador detecta inmediatamente la anomalía y emite **`TAMPERED_RECORD_MISSING_HASH`** (incrementando `corruptedCount`) si:
+  1. El registro fue emitido con posterioridad al inicio de la cadena firmada (`chainStarted === true`).
+  2. El registro contiene metadatos del nuevo sistema (`sequence`, `sessionId`, `deviceId` o `previousHash` no genésico).
+- **Garantía Resultante:** Ningún registro moderno firmado, adulterado o despojado de firma puede evadir la auditoría fingiendo ser un registro previo.
+
+### 1.3. Concurrencia Serverless y Resiliencia ante Bifurcaciones (Forks)
 - En Vercel o entornos multi-instancia, dos peticiones simultáneas pueden consultar el último registro al mismo milisegundo y enlazar al mismo `previousHash`.
 - El verificador `verifyAuditLogIntegrity` reconoce este patrón como `CONCURRENT_FORK` legítimo (escrituras paralelas), validando la autenticidad individual de cada bloque sin reportar una falsa corrupción de datos.
 
-### 1.3. Poda de Documentos y Mitigación de DoS
+### 1.4. Poda de Documentos y Mitigación de DoS
 - En `TrustedDevice`, el campo `trustHistory` se limita automáticamente a los **50 eventos más recientes** mediante un hook de pre-guardado, impidiendo ataques de agotamiento de memoria BSON (límite de 16MB por documento).
 - El historial forense exhaustivo e ilimitado se almacena de forma independiente en la colección `AuditLog`.
 
