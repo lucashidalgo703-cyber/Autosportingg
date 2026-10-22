@@ -4,6 +4,7 @@ import UserSession from '../models/UserSession.js';
 import AuditLog from '../models/AuditLog.js';
 import AdminUser from '../models/AdminUser.js';
 import SecurityChallenge from '../models/SecurityChallenge.js';
+import SecurityRateLimit from '../models/SecurityRateLimit.js';
 import Car from '../models/Car.js';
 import { logAudit } from '../utils/auditLogger.js';
 import { getTrustedClientIp } from '../utils/securityIpResolver.js';
@@ -410,6 +411,63 @@ export async function validateSessionAndDevice({ sessionId, user, deviceId }) {
 /**
  * Autoriza un dispositivo como confiable ('PC Agencia' o 'PC Privada') con verificación MFA obligatoria
  */
+/**
+ * Rate Limiter distribuido en MongoDB para proteger endpoints críticos en entornos multi-instancia/serverless
+ */
+export async function enforceSecurityRateLimit({ key, maxAttempts = 5, windowSeconds = 900 }) {
+    const now = new Date();
+    const resetAt = new Date(now.getTime() + windowSeconds * 1000);
+
+    // Intentar incrementar atómicamente si el registro activo existe y no ha superado el límite
+    const updated = await SecurityRateLimit.findOneAndUpdate(
+        { key, expiresAt: { $gt: now }, points: { $lt: maxAttempts } },
+        { $inc: { points: 1 }, $set: { updatedAt: now } },
+        { new: true }
+    );
+
+    if (updated) {
+        return {
+            allowed: true,
+            remaining: Math.max(0, maxAttempts - updated.points),
+            resetAt: updated.expiresAt
+        };
+    }
+
+    // Si no se actualizó, verificar si ya superó el límite dentro de la ventana activa
+    const existing = await SecurityRateLimit.findOne({ key, expiresAt: { $gt: now } });
+    if (existing && existing.points >= maxAttempts) {
+        const retryAfterSeconds = Math.max(1, Math.ceil((existing.expiresAt.getTime() - Date.now()) / 1000));
+        return {
+            allowed: false,
+            remaining: 0,
+            resetAt: existing.expiresAt,
+            retryAfterSeconds
+        };
+    }
+
+    // No existe o expiró: reiniciar o crear nuevo registro con upsert
+    try {
+        const fresh = await SecurityRateLimit.findOneAndUpdate(
+            { key },
+            { $set: { points: 1, expiresAt: resetAt, updatedAt: now } },
+            { upsert: true, new: true, setDefaultsOnInsert: true }
+        );
+        return {
+            allowed: true,
+            remaining: maxAttempts - 1,
+            resetAt: fresh.expiresAt
+        };
+    } catch (e) {
+        const current = await SecurityRateLimit.findOne({ key });
+        const allowed = !current || current.points < maxAttempts;
+        return {
+            allowed,
+            remaining: allowed ? Math.max(0, maxAttempts - (current?.points || 1)) : 0,
+            resetAt: current?.expiresAt || resetAt
+        };
+    }
+}
+
 export async function authorizeDeviceAsTrusted({ deviceId, targetName, verificationCode, recoveryCode, ownerUser, req }) {
     if (ownerUser.role !== 'owner') {
         const err = new Error('Solo el propietario de la agencia puede autorizar computadoras de confianza.');
@@ -431,6 +489,52 @@ export async function authorizeDeviceAsTrusted({ deviceId, targetName, verificat
         throw err;
     }
 
+    const ip = getTrustedClientIp(req);
+    const ownerId = String(ownerDoc._id);
+
+    // FASE 3: Rate Limiting Distribuido (Max 5 intentos por ventana de 15 min por IP y por Owner)
+    const ipLimit = await enforceSecurityRateLimit({
+        key: `dev_auth:ip:${ip}`,
+        maxAttempts: 5,
+        windowSeconds: 900
+    });
+    if (!ipLimit.allowed) {
+        await logAudit({
+            req,
+            action: 'RATE_LIMIT_EXCEDIDO_AUTORIZACION',
+            module: 'seguridad',
+            entityType: 'TrustedDevice',
+            entityId: deviceId,
+            description: `Límite de tasa excedido para autorización de dispositivos desde IP ${ip}`,
+            metadata: { ip, retryAfterSeconds: ipLimit.retryAfterSeconds }
+        });
+        const err = new Error(`Demasiados intentos de autorización. Por seguridad, la IP ha sido temporalmente bloqueada por ${Math.ceil(ipLimit.retryAfterSeconds / 60)} minutos.`);
+        err.status = 429;
+        err.code = 'RATE_LIMIT_EXCEEDED';
+        throw err;
+    }
+
+    const userLimit = await enforceSecurityRateLimit({
+        key: `dev_auth:owner:${ownerId}`,
+        maxAttempts: 5,
+        windowSeconds: 900
+    });
+    if (!userLimit.allowed) {
+        await logAudit({
+            req,
+            action: 'RATE_LIMIT_EXCEDIDO_AUTORIZACION',
+            module: 'seguridad',
+            entityType: 'TrustedDevice',
+            entityId: deviceId,
+            description: `Límite de tasa excedido para autorización de dispositivos para usuario Owner ${ownerId}`,
+            metadata: { ownerId, retryAfterSeconds: userLimit.retryAfterSeconds }
+        });
+        const err = new Error(`Demasiados intentos de autorización para esta cuenta. Por seguridad, intente nuevamente en ${Math.ceil(userLimit.retryAfterSeconds / 60)} minutos.`);
+        err.status = 429;
+        err.code = 'RATE_LIMIT_EXCEEDED';
+        throw err;
+    }
+
     // VERIFICACIÓN OBLIGATORIA INDEPENDIENTE (MFA TOTP o Recovery Code)
     let isVerified = false;
     let authMethod = 'mfa_totp';
@@ -445,20 +549,22 @@ export async function authorizeDeviceAsTrusted({ deviceId, targetName, verificat
                 window: 1
             });
         }
-    } else if (recoveryCode && Array.isArray(ownerDoc.recoveryCodes)) {
+    } else if (recoveryCode) {
+        // FASE 3: Consumo atómico de códigos de recuperación contra Race Conditions
         const hashedInput = crypto.createHash('sha256').update(recoveryCode.trim()).digest('hex');
-        const codeIndex = ownerDoc.recoveryCodes.indexOf(hashedInput);
-        if (codeIndex !== -1) {
+        const updatedOwner = await AdminUser.findOneAndUpdate(
+            { _id: ownerDoc._id, recoveryCodes: hashedInput },
+            { $pull: { recoveryCodes: hashedInput } },
+            { new: true }
+        );
+        if (updatedOwner) {
             isVerified = true;
             authMethod = 'recovery_code';
-            ownerDoc.recoveryCodes.splice(codeIndex, 1);
-            await ownerDoc.save();
         }
     }
 
     if (!isVerified) {
         // Registrar intento de autorización fallido
-        const ip = getTrustedClientIp(req);
         await logAudit({
             req,
             action: 'DISPOSITIVO_AUTORIZACION_FALLIDA',
@@ -481,7 +587,6 @@ export async function authorizeDeviceAsTrusted({ deviceId, targetName, verificat
         throw err;
     }
 
-    const ip = getTrustedClientIp(req);
     const prevStatus = device.status;
     const prevName = device.deviceName;
 

@@ -6,6 +6,7 @@ import UserSession from '../src/models/UserSession.js';
 import AuditLog from '../src/models/AuditLog.js';
 import AdminUser from '../src/models/AdminUser.js';
 import SecurityChallenge from '../src/models/SecurityChallenge.js';
+import SecurityRateLimit from '../src/models/SecurityRateLimit.js';
 import { getTrustedClientIp } from '../src/utils/securityIpResolver.js';
 import { 
     resolveDeviceOnLogin, 
@@ -15,7 +16,8 @@ import {
     getDeviceForensicAudit,
     validateSessionAndDevice,
     createSecurityChallenge,
-    verifyDeviceSignature
+    verifyDeviceSignature,
+    enforceSecurityRateLimit
 } from '../src/services/deviceSecurityBackend.js';
 import speakeasy from 'speakeasy';
 import crypto from 'crypto';
@@ -388,7 +390,124 @@ async function runTests() {
         assert.ok(substitutionBlocked, 'Intento de sustitución de clave pública bloqueado');
         console.log('  ok - Intento de sustitución de clave pública bloqueado con alerta de seguridad');
 
-        console.log('\n✅ TODAS LAS PRUEBAS DE SEGURIDAD Y AUDITORÍA PASARON EXITOSAMENTE (18/18)');
+        // 19. FASE 3: Consumo atómico de códigos de recuperación contra Race Conditions
+        console.log('Test 19: Consumo atómico de recovery codes contra peticiones simultáneas...');
+        const uniqueRecoveryCode = 'RACE-CODE-XYZ999';
+        const hashedRecovery = crypto.createHash('sha256').update(uniqueRecoveryCode).digest('hex');
+        
+        // Usar Owner dedicado para tests aislados de concurrencia de recuperación
+        const atomicOwner = new AdminUser({
+            name: 'Atomic Owner',
+            passwordHash: 'dummyhash123',
+            email: 'atomic.owner@autosporting.com',
+            role: 'owner',
+            active: true,
+            twoFactorEnabled: true,
+            recoveryCodes: [hashedRecovery]
+        });
+        await atomicOwner.save();
+
+        // Crear dos dispositivos desconocidos para la prueba concurrente
+        const devA = new TrustedDevice({ deviceId: 'dev-race-a', deviceName: 'Dev A', status: 'unknown' });
+        const devB = new TrustedDevice({ deviceId: 'dev-race-b', deviceName: 'Dev B', status: 'unknown' });
+        await devA.save();
+        await devB.save();
+
+        // Lanzar dos peticiones simultáneas consumiendo el MISMO código de recuperación
+        const reqA = { headers: { 'x-real-ip': '192.168.10.1' }, ip: '192.168.10.1' };
+        const reqB = { headers: { 'x-real-ip': '192.168.10.2' }, ip: '192.168.10.2' };
+
+        const results = await Promise.allSettled([
+            authorizeDeviceAsTrusted({
+                deviceId: 'dev-race-a',
+                targetName: 'Terminal Race A',
+                recoveryCode: uniqueRecoveryCode,
+                ownerUser: atomicOwner,
+                req: reqA
+            }),
+            authorizeDeviceAsTrusted({
+                deviceId: 'dev-race-b',
+                targetName: 'Terminal Race B',
+                recoveryCode: uniqueRecoveryCode,
+                ownerUser: atomicOwner,
+                req: reqB
+            })
+        ]);
+
+        const fulfilled = results.filter(r => r.status === 'fulfilled');
+        const rejected = results.filter(r => r.status === 'rejected');
+
+        assert.strictEqual(fulfilled.length, 1, 'Exactamente una petición paralela debe tener éxito');
+        assert.strictEqual(rejected.length, 1, 'Exactamente una petición paralela debe ser rechazada');
+        assert.strictEqual(rejected[0].reason.status, 401, 'La petición rechazada recibe 401');
+
+        const reloadedOwner = await AdminUser.findById(atomicOwner._id);
+        assert.ok(!reloadedOwner.recoveryCodes.includes(hashedRecovery), 'El código fue consumido atómicamente de MongoDB');
+        console.log('  ok - Consumo atómico probado: 1 éxito, 1 bloqueo en ejecución concurrente');
+
+        // 20. FASE 3: Rechazo inmediato de código ya consumido
+        console.log('Test 20: Prevención de reutilización de recovery code consumido...');
+        let reuseBlocked = false;
+        try {
+            await authorizeDeviceAsTrusted({
+                deviceId: 'dev-race-b',
+                targetName: 'Terminal Race B',
+                recoveryCode: uniqueRecoveryCode,
+                ownerUser: atomicOwner,
+                req: reqB
+            });
+        } catch (err) {
+            reuseBlocked = true;
+            assert.strictEqual(err.status, 401, 'Código 401 al intentar reutilizar recovery code');
+        }
+        assert.ok(reuseBlocked, 'Reutilización de recovery code prevenida');
+        console.log('  ok - Intento de reutilización bloqueado');
+
+        // 21. FASE 3: Rate Limiting Distribuido (Max 5 intentos por ventana de 15 min)
+        console.log('Test 21: Rate limiting distribuido en autorización de terminales...');
+        const spamOwner = new AdminUser({
+            name: 'Spam Target Owner',
+            passwordHash: 'dummyhash123',
+            email: 'spam.target@autosporting.com',
+            role: 'owner',
+            active: true,
+            twoFactorEnabled: true,
+            twoFactorSecret: encryptedSecret
+        });
+        await spamOwner.save();
+
+        const spamIp = '200.55.99.10';
+        const spamReq = { headers: { 'x-real-ip': spamIp }, ip: spamIp };
+        const spamDev = new TrustedDevice({ deviceId: 'dev-spam-test', deviceName: 'Spam Dev', status: 'unknown' });
+        await spamDev.save();
+
+        let attemptsBlocked = 0;
+        let rateLimitTriggered = false;
+
+        for (let i = 0; i < 6; i++) {
+            try {
+                await authorizeDeviceAsTrusted({
+                    deviceId: 'dev-spam-test',
+                    targetName: 'PC Spam Test',
+                    verificationCode: '999999', // Código TOTP inválido
+                    ownerUser: spamOwner,
+                    req: spamReq
+                });
+            } catch (err) {
+                if (err.status === 429 && err.code === 'RATE_LIMIT_EXCEEDED') {
+                    rateLimitTriggered = true;
+                    attemptsBlocked++;
+                }
+            }
+        }
+
+        assert.ok(rateLimitTriggered, 'Rate limit distribuido activado tras superar 5 intentos');
+        const rateLimitDoc = await SecurityRateLimit.findOne({ key: `dev_auth:ip:${spamIp}` });
+        assert.ok(rateLimitDoc, 'Registro de rate limit persistido en MongoDB');
+        assert.ok(rateLimitDoc.points >= 5, 'Puntos de tasa acumulados >= 5');
+        console.log('  ok - Rate limit distribuido activado y persistido en MongoDB con TTL');
+
+        console.log('\n✅ TODAS LAS PRUEBAS DE SEGURIDAD Y AUDITORÍA PASARON EXITOSAMENTE (21/21)');
 
     } finally {
         await teardown();

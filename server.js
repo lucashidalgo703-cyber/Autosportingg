@@ -672,11 +672,14 @@ app.post('/api/login/2fa', requireJwtConfiguration, async (req, res) => {
             });
         } else if (recoveryCode) {
             const hashedInput = crypto.createHash('sha256').update(recoveryCode).digest('hex');
-            const codeIndex = user.recoveryCodes.indexOf(hashedInput);
+            const updatedUser = await AdminUser.findOneAndUpdate(
+                { _id: user._id, recoveryCodes: hashedInput },
+                { $pull: { recoveryCodes: hashedInput } },
+                { new: true }
+            );
 
-            if (codeIndex !== -1) {
+            if (updatedUser) {
                 isVerified = true;
-                user.recoveryCodes.splice(codeIndex, 1); // Consumir el código
             }
         }
 
