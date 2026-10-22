@@ -1,4 +1,5 @@
 import { academyCourses } from './catalog.js';
+import { parseAcademyDecimal } from './decimal.js';
 
 // Contenido original: todos los importes son ejemplos ficticios en pesos.
 const content = {
@@ -78,9 +79,6 @@ export const courses = academyCourses.map(course => ({
 }));
 
 export function checkNumericAnswer(value, expected, tolerance = 0.01) {
-    if (typeof value !== 'string' && typeof value !== 'number') return false;
-    if (String(value).trim() === '') return false;
-    const normalized = typeof value === 'string' ? value.trim().replace(',', '.') : value;
-    const number = Number(normalized);
-    return Number.isFinite(number) && Math.abs(number - expected) <= tolerance;
+    try { return Math.abs(parseAcademyDecimal(value) - expected) <= tolerance; }
+    catch { return false; }
 }

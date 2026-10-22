@@ -12,7 +12,9 @@ Validación inicial: `node --test tests/academy.test.js`. Verificación visual y
 
 ## Límites
 
-Sin endpoints, MongoDB, migraciones, datos operativos, proveedores de IA ni cambios en autenticación, seguridad, auditoría o cálculos existentes. Sin push, merge o deploy.
+Los componentes y motores educativos no consultan endpoints operativos ni usan datos de clientes, ventas o tesorería en ejercicios. No se incorpora MongoDB, migraciones, proveedores de IA ni cambios en autenticación, seguridad, auditoría o cálculos existentes. Sin push, merge o deploy.
+
+La página completa hereda el encabezado administrativo: según los permisos existentes, este consulta y muestra resúmenes de cuentas, ventas y stock del CRM. Por lo tanto, **la página completa no es un entorno exclusivamente ficticio**. Esta conducta heredada no se modifica; las pruebas interceptan esas consultas con datos ficticios. No se amplía el acceso ni se conectan estos datos con el aprendizaje.
 
 ## 13.7 · Tutor estructurado
 
@@ -109,6 +111,16 @@ Modificados fuera del módulo:
 - IA externa, elección de proveedor, costos y políticas del tutor, previa autorización. Actualmente solo responde preguntas predefinidas; no hay interpretación de texto libre.
 - Ampliar contenido y variantes de casos según necesidades de capacitación; los escenarios actuales son fijos y los simuladores permiten entradas manuales.
 - La revisión de regresión fue estática, de compilación, unitarias offline y navegación de Academy. No se ejecutaron integraciones con MongoDB ni una certificación end-to-end de todos los módulos operativos.
-- No hay bloqueo funcional conocido dentro del alcance local autorizado.
+- La auditoría posterior detectó ocho hallazgos. Su corrección y evidencia se registran abajo; los resultados originales de 13.8 son históricos y no certifican por sí solos la versión corregida.
+
+## Corrección de auditoría · Grupo 1 (hallazgos 1, 5, 7 y 8)
+
+- Amortización calculada desde el valor presente del saldo restante y amortizaciones geométricas, sin acumular restas inestables ni forzar una última cuota. Tolerancia absoluta de $0,01 por identidad monetaria y por total; se rechazan combinaciones cuya resolución numérica o verificaciones internas no permiten cumplirla. Cronograma teórico sin redondeo intermedio; no es un contrato de cuotas redondeadas a centavos.
+- Rotación cero sin ventas; días no definidos cuando no existe estimación finita. Inventario promedio cero produce indicadores no definidos. Recuperación imposible con inversión positiva y flujo uniforme nulo/negativo; inversión nula se recupera en cero períodos. Negativos no admitidos, campos vacíos y formatos inválidos siguen siendo errores de entrada.
+- Parser decimal único para simuladores y respuestas; admite signo, coma o punto decimal y espacios exteriores. Rechaza agrupaciones, exponentes, prefijos hexadecimales/binarios/octales y números no finitos.
+- Descuento bruto de $750.000 identificado frente a lista; diferencia neta de esperar de $450.000 identificada después de $300.000 de costos.
+- Pruebas: 20 tests de Academy aprobados, incluyendo 105 combinaciones de principal/tasa/plazo con oráculo de valor presente independiente, conservación, cierre, recurrencia y uniformidad de cuotas. Lint focalizado y `git diff --check` aprobados.
+
+El hallazgo documental 6 queda corregido en la sección Límites: se explicita el encabezado heredado sin modificarlo.
 
 `main` permanece en `73efd4b65ff0966aad2306c368f3fe2fb93f6ab4`. No se ejecutaron push, merge, deploy, migraciones ni conexiones con producción.

@@ -27,7 +27,7 @@ test('Margen, retorno y ROI utilizan sus denominadores respectivos', () => {
 });
 test('Rotación al costo y oportunidad para el mismo horizonte', () => {
     const rotation = values('rotacion'); near(rotation[0], 30000000); near(rotation[1], 4); near(rotation[2], 91.25);
-    assert.throws(() => values('rotacion', { opening: 0, closing: 0 }));
+    assert.equal(calculateSimulator('rotacion', { sold: 0, opening: 0, closing: 0, days: 365 }).metrics[1].state, 'undefined');
     const opportunity = values('oportunidad'); near(opportunity[0], 1200000); near(opportunity[1], -300000);
 });
 test('Intereses, conversión de tasas, inflación y valor presente', () => {
