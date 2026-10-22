@@ -32,7 +32,7 @@ Se informa cuando el almacenamiento falla. Incluye estado vacío, historial y re
 
 ## 13.4 · Evaluaciones
 
-40 preguntas: conceptos de opción múltiple, ejercicios numéricos y casos prácticos. Filtros por curso y nivel, puntaje por igual ponderación, explicaciones, repaso y reintentos. Resultados formativos, sin certificación ni cambios de acceso. Corrección pura testeada con respuestas completas, erróneas, parciales e incompletas. No hay respuestas ni usuarios en servidor.
+40 preguntas: conceptos de opción múltiple, ejercicios numéricos y casos prácticos. Filtros por curso y nivel, puntaje por igual ponderación, explicaciones, repaso y reintentos. Resultados formativos, sin certificación ni cambios de acceso. Corrección pura testeada con respuestas completas, erróneas, parciales e incompletas. No se crea persistencia remota de respuestas ni perfiles educativos; el banco y sus soluciones forman parte del código cliente, apropiado para evaluación formativa local.
 
 ## 13.3 · Laboratorio
 
@@ -82,9 +82,9 @@ Las capturas y trazas de Playwright se escriben en `%TEMP%/autosporting-academy-
 
 Nuevos:
 - `src/app/admin/academy/`: `layout.jsx`, `page.jsx`, `[section]/page.jsx`.
-- `src/components/crm/academy/`: `AcademyFrame.jsx`, `AcademyDashboard.jsx`, `AcademyCourses.jsx`, `AcademyLab.jsx`, `AcademyAssessments.jsx`, `AcademyProgressProvider.jsx`, `AcademyProgress.jsx`, `AcademyDecisions.jsx`, `AcademyTutor.jsx`.
-- `src/lib/academy/`: `catalog.js`, `curriculum.js`, `simulators.js`, `assessments.js`, `progress.js`, `decisions.js`, `tutor.js`.
-- `tests/`: `academy.test.js`, `academySimulators.test.js`, `academyAssessments.test.js`, `academyProgress.test.js`, `academyDecisions.test.js`, `academyTutor.test.js`, `academy.spec.js`.
+- `src/components/crm/academy/`: `AcademyFrame.jsx`, `AcademyDashboard.jsx`, `AcademyCourses.jsx`, `AcademyCourseCase.jsx`, `AcademyLab.jsx`, `AcademyAssessments.jsx`, `AcademyProgressProvider.jsx`, `AcademyProgress.jsx`, `AcademyDecisions.jsx`, `AcademyTutor.jsx`.
+- `src/lib/academy/`: `catalog.js`, `curriculum.js`, `deepening.js`, `courseCases.js`, `assessmentVariants.js`, `decimal.js`, `simulators.js`, `assessments.js`, `progress.js`, `decisions.js`, `tutor.js`.
+- `tests/`: `academy.test.js`, `academySimulators.test.js`, `academyAssessments.test.js`, `academyProgress.test.js`, `academyCorrections.test.js`, `academyEducation.test.js`, `academyDecisions.test.js`, `academyTutor.test.js`, `academy.spec.js`.
 - `playwright.academy.config.js` y este documento.
 
 Modificados fuera del módulo:
@@ -140,5 +140,52 @@ Las 40 preguntas de examen conservan 16 preguntas conceptuales/casos y reemplaza
 Pruebas acumuladas: 24 tests aprobados. Se contrastan las 25 respuestas de casos y las 24 variantes numéricas con fórmulas independientes, incluyendo VAN, valor presente, presupuesto temporal y medias al costo. Las pruebas estructurales ayudan a detectar contenido faltante, pero la profundidad se sustenta en los desarrollos y casos, no en un mínimo artificial de palabras.
 
 Referencias adicionales de contraste (material original): [consistencia entre flujos y tasa, NYU Stern](https://pages.stern.nyu.edu/~adamodar/New_Home_Page/background/valintro.htm) y [especificación Web Locks, W3C](https://www.w3.org/TR/web-locks/).
+
+## Verificación final de las correcciones
+
+Rama `feature/academy-financiera`, base de auditoría `10a85ef`. Commits por grupo: `4c18bef` (cálculos, decimal, estados económicos, descuento y límites documentales), `db23d72` (concurrencia) y `16aea8c` (profundidad educativa y evaluación independiente).
+
+Resultados sobre el código corregido:
+
+| Comprobación | Resultado |
+| --- | --- |
+| `npm run test:academy` | 24 tests aprobados; incluyen 105 combinaciones de amortización y oráculos independientes para 49 respuestas nuevas |
+| Academy + ganancias + comercial + ayuda con `node --test` | 27 tests del runner aprobados; ganancias contiene además sus 22 aserciones propias |
+| `npm run test:academy:ui` con servidor local compilado | 18 tests aprobados: 9 desktop y 9 móvil; incluye dos pestañas, reset, aislamiento, casos integrados, cuota a 600 períodos y estados sin ventas/sin recuperación |
+| `npm run check` | Aprobado: cero errores y las 18 advertencias preexistentes ya contrastadas con la base |
+| `npm run build` | Aprobado; sitemap usa fallback estático por ausencia de backend real |
+| `tests/integration/*.test.js` | 14 suites aprobadas, 110 aserciones internas, MongoDB temporal en 127.0.0.1 |
+| `tests/treasuryDistribution.test.js` | Fallo preexistente en línea 553: al anular gasto espera 500.000 y obtiene 300.000; también reproducido sobre copia temporal del commit `10a85ef` con idéntico resultado |
+
+Se instalaron herramientas de MongoDB en una carpeta temporal y se utilizó una junction ignorada dentro de node_modules para resolverlas, sin editar package.json ni package-lock.json. Los binarios y bases fueron locales y temporales; no se leyó una URI de producción. Para reproducir integraciones se requiere `mongodb-memory-server`; el directorio de descarga puede establecerse con `MONGOMS_DOWNLOAD_DIR`. Se corrigió una configuración inicial de caché antes de obtener los resultados anteriores.
+
+Las pruebas UI heredadas (`admin-smoke`, `ayuda-interactions`, `user-profile`, `visual-help`) se ejecutaron aparte con Chrome local y configuración temporal, sin editar esos tests. Una primera ejecución acotada a 6 segundos no superó la carga de recursos externos. Se repitió con el timeout normal de 30 segundos, bloqueando DNS externo y conservando el servidor local: **6 smoke tests pasaron y 17 pruebas fallaron esperando la navegación a `/admin` en el login de preparación**. No había backend ni credenciales de prueba configurados; no se consideran verificadas las interacciones de ayuda/perfil. Los smoke tests solo comprueban renderizado básico y no certifican acceso funcional a datos. Login, sus componentes y estos tests no cambiaron respecto de `10a85ef`. No se considera que las integraciones o UI no aprobadas estén resueltas por estas correcciones de Academy.
+
+La suite global, por tanto, **no está completamente verde**. El fallo de reversión de gasto de Tesorería está reproducido antes y después de estas correcciones; los 17 fallos UI heredados corresponden a precondiciones de autenticación del entorno, no a una comprobación funcional superada. Se dejan pendientes sin tocar los módulos excluidos ni iniciar EX.5.
+
+Evidencia local de esta ejecución (archivos temporales, no versionados):
+- `%TEMP%/autosporting-academy-integration.log`: 14 suites aprobadas y el fallo de Tesorería.
+- `%TEMP%/autosporting-academy-baseline-treasury.log`: el mismo fallo sobre copia del commit anterior.
+- `%TEMP%/autosporting-legacy-ui-final.log`: 6 smoke aprobados y 17 timeouts en `page.waitForURL('/admin')` durante `beforeEach`.
+- `%TEMP%/autosporting-academy-playwright`: capturas desktop/móvil de la versión corregida.
+
+Reproducción del fallo de Tesorería, con la dependencia temporal disponible:
+
+```powershell
+$env:MONGOMS_DOWNLOAD_DIR = "$env:TEMP\autosporting-academy-mongodb"
+node --test tests/treasuryDistribution.test.js
+```
+
+Para verificar Academy se usó `npm run build`, un servidor `npm run start -- --hostname 127.0.0.1 --port 3104` y `$env:ACADEMY_BASE_URL='http://127.0.0.1:3104'; npm run test:academy:ui`. Al terminar se detuvo el servidor. No quedó una sesión de MongoDB de prueba activa.
+
+Se revisaron capturas responsive del contenido ampliado. Diferencia de Git de autenticación, permisos, auditoría, encabezado compartido, servidor, modelos, servicios y módulos financieros operativos: cero. Dependencias de producción idénticas a la base.
+
+### Límites vigentes
+
+- El cronograma es teórico sin redondeo intermedio; no sustituye un contrato con reglas de redondeo. Se rechazan combinaciones sin precisión garantizada, aunque sus entradas individuales estén en rango.
+- Web Locks requiere un contexto compatible (HTTPS o localhost). Si no está disponible se informa avance temporal; no hay fallback a escrituras concurrentes inseguras. Todas las pestañas deben recargar la versión corregida; clientes antiguos no participan del protocolo nuevo.
+- No hay sincronización entre dispositivos, certificación, permisos nuevos, IA externa ni datos operativos dentro de ejercicios. El encabezado CRM conserva su conducta existente.
+- La corrección de Tesorería y la adecuación de tests UI heredados son trabajos separados: no se modifican módulos financieros, autenticación ni seguridad para hacer pasar la suite global.
+- No se inició EX.5. Sin push, merge, deploy ni cambios en main.
 
 `main` permanece en `73efd4b65ff0966aad2306c368f3fe2fb93f6ab4`. No se ejecutaron push, merge, deploy, migraciones ni conexiones con producción.
