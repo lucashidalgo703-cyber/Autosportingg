@@ -3,6 +3,7 @@ import { academySections } from '../../../../lib/academy/catalog';
 import CrmCard from '../../../../components/crm/ui/CrmCard';
 import AcademyCourses from '../../../../components/crm/academy/AcademyCourses';
 import AcademyLab from '../../../../components/crm/academy/AcademyLab';
+import AcademyAssessments from '../../../../components/crm/academy/AcademyAssessments';
 
 export default async function AcademySectionPage({ params }) {
     const { section } = await params;
@@ -10,5 +11,6 @@ export default async function AcademySectionPage({ params }) {
     if (!entry) notFound();
     if (section === 'cursos') return <AcademyCourses />;
     if (section === 'simuladores') return <AcademyLab />;
+    if (section === 'evaluaciones') return <AcademyAssessments />;
     return <CrmCard><h1 className="text-[26px] font-bold">{entry[1]}</h1><p className="mt-3 text-crm-fg-muted">{entry[2]}</p><p className="mt-4 text-sm">Contenido en preparación por subetapas.</p></CrmCard>;
 }

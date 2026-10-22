@@ -14,6 +14,10 @@ Validación: `node --test tests/academy.test.js`. Verificación visual y compila
 
 Sin endpoints, MongoDB, migraciones, datos operativos, proveedores de IA ni cambios en autenticación, seguridad, auditoría o cálculos existentes. Sin push, merge o deploy.
 
+## 13.4 · Evaluaciones
+
+40 preguntas: conceptos de opción múltiple, ejercicios numéricos y casos prácticos. Filtros por curso y nivel, puntaje por igual ponderación, explicaciones, repaso y reintentos. Resultados formativos, sin certificación ni cambios de acceso. Corrección pura testeada con respuestas completas, erróneas, parciales e incompletas. No hay respuestas ni usuarios en servidor.
+
 ## 13.3 · Laboratorio
 
 16 simuladores con valores ficticios editables, fórmulas, unidades y supuestos visibles; resultados inmediatos y cronograma francés. Motor puro en `src/lib/academy/simulators.js`, sin dependencias operativas. Validaciones de rangos, tasas/plazos, denominadores, sobreasignación y desbordamiento. Cálculos sin redondeo intermedio; presentación con dos decimales. Los modelos excluyen cargos e impuestos salvo costos explícitos; TEA no es CFT. Payback simple con flujos uniformes y reserva sin rendimiento.
