@@ -1,31 +1,55 @@
 import AuditLog from '../models/AuditLog.js';
+import { getTrustedClientIp } from './securityIpResolver.js';
 
-const logAudit = async ({ req, action, module, entityType, entityId, entityLabel, description, metadata, strict = false }) => {
+const logAudit = async ({ 
+    req, 
+    action, 
+    module, 
+    entityType, 
+    entityId, 
+    entityLabel, 
+    description, 
+    metadata, 
+    strict = false,
+    session = null 
+}) => {
     if (!action || !module) {
         throw new Error('Action and module are required for audit logs');
     }
 
-    // Obtenemos los datos del request de forma segura
+    // Datos del usuario autenticado
     const user = req?.user || {};
-    const ip = req?.headers?.['x-forwarded-for'] || req?.connection?.remoteAddress || 'system';
+    
+    // Resolución de IP no manipulable
+    const ip = req ? getTrustedClientIp(req) : 'system';
     const userAgent = req?.headers?.['user-agent'] || 'system';
+
+    // Resolución de Dispositivo y Sesión (inyectados por authenticateToken o cabeceras)
+    const deviceId = req?.deviceId || req?.headers?.['x-device-id'] || user?.deviceId || undefined;
+    const deviceName = req?.deviceName || user?.deviceName || (deviceId ? 'Dispositivo desconocido' : undefined);
+    const deviceStatus = req?.deviceStatus || user?.deviceStatus || (deviceId ? 'unknown' : undefined);
+    const sessionId = req?.sessionId || user?.sessionId || undefined;
 
     // Sanitización estricta de metadata para no exponer información confidencial
     let safeMetadata = undefined;
     if (metadata) {
-        safeMetadata = JSON.parse(JSON.stringify(metadata));
-        const sensitiveKeys = ['password', 'passwordhash', 'token', 'authorization', 'secret'];
-        
-        const sanitizeObject = (obj) => {
-            for (const key in obj) {
-                if (sensitiveKeys.includes(key.toLowerCase())) {
-                    obj[key] = '***REDACTED***';
-                } else if (typeof obj[key] === 'object' && obj[key] !== null) {
-                    sanitizeObject(obj[key]);
+        try {
+            safeMetadata = JSON.parse(JSON.stringify(metadata));
+            const sensitiveKeys = ['password', 'passwordhash', 'token', 'authorization', 'secret', 'recoverycodes', 'privatekey'];
+            
+            const sanitizeObject = (obj) => {
+                for (const key in obj) {
+                    if (sensitiveKeys.includes(key.toLowerCase())) {
+                        obj[key] = '***REDACTED***';
+                    } else if (typeof obj[key] === 'object' && obj[key] !== null) {
+                        sanitizeObject(obj[key]);
+                    }
                 }
-            }
-        };
-        sanitizeObject(safeMetadata);
+            };
+            sanitizeObject(safeMetadata);
+        } catch {
+            safeMetadata = { error: 'No serializable metadata' };
+        }
     }
 
     const logEntry = new AuditLog({
@@ -41,11 +65,16 @@ const logAudit = async ({ req, action, module, entityType, entityId, entityLabel
         description,
         metadata: safeMetadata,
         ip,
-        userAgent
+        userAgent,
+        deviceId,
+        deviceName,
+        deviceStatus,
+        sessionId
     });
 
     try {
-        await logEntry.save();
+        const saveOptions = session ? { session } : {};
+        await logEntry.save(saveOptions);
         return true;
     } catch (error) {
         console.error('Error interno registrando auditoría:', error.message);
@@ -61,3 +90,4 @@ const logSystemAudit = async (params) => {
 };
 
 export { logAudit, logSystemAudit };
+export default logAudit;

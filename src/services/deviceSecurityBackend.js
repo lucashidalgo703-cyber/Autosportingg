@@ -1,0 +1,506 @@
+import crypto from 'crypto';
+import TrustedDevice from '../models/TrustedDevice.js';
+import UserSession from '../models/UserSession.js';
+import AuditLog from '../models/AuditLog.js';
+import AdminUser from '../models/AdminUser.js';
+import Car from '../models/Car.js';
+import { logAudit } from '../utils/auditLogger.js';
+import { getTrustedClientIp } from '../utils/securityIpResolver.js';
+import speakeasy from 'speakeasy';
+
+// Helper de cifrado/descifrado seguro AES-256-GCM para 2FA Secrets (100% compatible con server.js)
+const getTwoFactorEncryptionKey = () => {
+    const key = process.env.TWO_FACTOR_ENCRYPTION_KEY || process.env.JWT_SECRET || 'autosporting-default-secret';
+    return crypto.createHash('sha256').update(String(key)).digest();
+};
+
+export function encrypt2FaSecret(text) {
+    try {
+        const iv = crypto.randomBytes(12);
+        const cipher = crypto.createCipheriv('aes-256-gcm', getTwoFactorEncryptionKey(), iv);
+        let encrypted = cipher.update(text, 'utf8', 'base64');
+        encrypted += cipher.final('base64');
+        const authTag = cipher.getAuthTag().toString('base64');
+        return `${iv.toString('base64')}:${authTag}:${encrypted}`;
+    } catch (err) {
+        console.error('Encryption error:', err);
+        throw err;
+    }
+}
+
+export function decrypt2FaSecret(encryptedData) {
+    if (!encryptedData) return null;
+    try {
+        const parts = encryptedData.split(':');
+        if (parts.length !== 3) return null;
+        const iv = Buffer.from(parts[0], 'base64');
+        const authTag = Buffer.from(parts[1], 'base64');
+        const encryptedText = Buffer.from(parts[2], 'base64');
+
+        const decipher = crypto.createDecipheriv('aes-256-gcm', getTwoFactorEncryptionKey(), iv);
+        decipher.setAuthTag(authTag);
+        let decrypted = decipher.update(encryptedText, 'base64', 'utf8');
+        decrypted += decipher.final('utf8');
+        return decrypted;
+    } catch {
+        return null;
+    }
+}
+
+/**
+ * Parser no invasivo de Sistema Operativo y Navegador
+ */
+export function parseClientEnvironment(userAgent = '') {
+    const ua = String(userAgent);
+    let os = 'Desconocido';
+    let browser = 'Desconocido';
+
+    // Detección de OS
+    if (/windows nt 10\.0/i.test(ua)) os = 'Windows 10/11';
+    else if (/windows nt 6\.3/i.test(ua)) os = 'Windows 8.1';
+    else if (/windows nt 6\.1/i.test(ua)) os = 'Windows 7';
+    else if (/macintosh|mac os x/i.test(ua)) os = 'macOS';
+    else if (/android/i.test(ua)) os = 'Android';
+    else if (/iphone|ipad|ipod/i.test(ua)) os = 'iOS';
+    else if (/linux/i.test(ua)) os = 'Linux';
+
+    // Detección de Browser
+    if (/edg\//i.test(ua)) browser = 'Microsoft Edge';
+    else if (/chrome\//i.test(ua) && !/edg\//i.test(ua)) browser = 'Google Chrome';
+    else if (/safari\//i.test(ua) && !/chrome\//i.test(ua)) browser = 'Apple Safari';
+    else if (/firefox\//i.test(ua)) browser = 'Mozilla Firefox';
+    else if (/opera|opr\//i.test(ua)) browser = 'Opera';
+
+    return { os, browser, rawUserAgent: ua };
+}
+
+/**
+ * Resuelve o registra un dispositivo en el flujo de login
+ */
+export async function resolveDeviceOnLogin({ deviceId, publicKey, user, req }) {
+    const ip = getTrustedClientIp(req);
+    const userAgent = req?.headers?.['user-agent'] || 'unknown';
+    const clientEnv = parseClientEnvironment(userAgent);
+
+    let device = null;
+    let isUnknown = false;
+
+    if (deviceId) {
+        device = await TrustedDevice.findOne({ deviceId });
+    }
+
+    if (!device) {
+        // Dispositivo no registrado previamente -> Estado unknown / pending_verification
+        const assignedDeviceId = deviceId || crypto.randomUUID();
+        device = new TrustedDevice({
+            deviceId: assignedDeviceId,
+            deviceName: 'Dispositivo desconocido',
+            status: 'unknown',
+            publicKey: publicKey || null,
+            registeredBy: {
+                userId: String(user._id || user.id),
+                name: user.name || user.username,
+                email: user.email
+            },
+            firstRegisteredIp: ip,
+            lastSeenIp: ip,
+            lastSeenUser: user.name || user.username,
+            clientInfo: clientEnv,
+            trustHistory: [{
+                event: 'REGISTRO_SOLICITADO',
+                performedBy: {
+                    userId: String(user._id || user.id),
+                    name: user.name || user.username,
+                    role: user.role
+                },
+                authMethod: 'system',
+                ip,
+                details: `Acceso inicial desde navegador no registrado (${clientEnv.os} · ${clientEnv.browser})`
+            }]
+        });
+        await device.save();
+        isUnknown = true;
+
+        // Registrar alerta de seguridad inmediata
+        await logAudit({
+            req,
+            action: 'DISPOSITIVO_DESCONOCIDO_ACCESO',
+            module: 'seguridad',
+            entityType: 'TrustedDevice',
+            entityId: assignedDeviceId,
+            entityLabel: 'Dispositivo desconocido',
+            description: `Acceso registrado desde equipo no autorizado: ${clientEnv.os} · ${clientEnv.browser} (IP: ${ip}) por ${user.email}`,
+            metadata: { deviceId: assignedDeviceId, ip, clientEnv }
+        });
+    } else {
+        // Dispositivo registrado previamente -> Comprobar si está revocado
+        if (device.status === 'revoked') {
+            device.trustHistory.push({
+                event: 'ACCESO_POST_REVOCACION',
+                performedBy: {
+                    userId: String(user._id || user.id),
+                    name: user.name || user.username,
+                    role: user.role
+                },
+                authMethod: 'system',
+                ip,
+                details: `Intento de inicio de sesión desde dispositivo revocado`
+            });
+            await device.save();
+
+            await logAudit({
+                req,
+                action: 'DISPOSITIVO_REVOCADO_ACCESO',
+                module: 'seguridad',
+                entityType: 'TrustedDevice',
+                entityId: device.deviceId,
+                entityLabel: device.deviceName,
+                description: `Intento de acceso bloqueado desde dispositivo revocado: ${device.deviceName} (ID: ${device.deviceId}) por ${user.email}`,
+                metadata: { deviceId: device.deviceId, ip }
+            });
+
+            const error = new Error('Este dispositivo ha sido revocado por razones de seguridad. Comuníquese con el Propietario para reautorizarlo.');
+            error.status = 403;
+            error.code = 'DEVICE_REVOKED';
+            throw error;
+        }
+
+        // Registrar cambio de IP si aplica
+        if (device.lastSeenIp && device.lastSeenIp !== ip) {
+            device.trustHistory.push({
+                event: 'IP_CAMBIADA',
+                performedBy: {
+                    userId: String(user._id || user.id),
+                    name: user.name || user.username,
+                    role: user.role
+                },
+                previousValue: device.lastSeenIp,
+                newValue: ip,
+                ip,
+                details: `Cambio de IP detectado: ${device.lastSeenIp} -> ${ip}`
+            });
+        }
+
+        device.lastSeenAt = new Date();
+        device.lastSeenIp = ip;
+        device.lastSeenUser = user.name || user.username;
+        if (publicKey && !device.publicKey) {
+            device.publicKey = publicKey;
+        }
+        await device.save();
+    }
+
+    return { device, isUnknown };
+}
+
+/**
+ * Crea una sesión revocable vinculada al usuario y al dispositivo
+ */
+export async function createUserSession({ user, device, req }) {
+    const ip = getTrustedClientIp(req);
+    const userAgent = req?.headers?.['user-agent'] || 'unknown';
+    const sessionId = crypto.randomUUID();
+
+    const session = new UserSession({
+        sessionId,
+        userId: user._id || user.id,
+        userName: user.name || user.username,
+        userEmail: user.email,
+        userRole: user.role,
+        deviceId: device.deviceId,
+        deviceName: device.deviceName,
+        deviceStatus: device.status,
+        status: 'active',
+        ip,
+        userAgent,
+        loginAt: new Date(),
+        lastActiveAt: new Date(),
+        expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000)
+    });
+
+    await session.save();
+    return session;
+}
+
+/**
+ * Autoriza un dispositivo como confiable ('PC Agencia' o 'PC Privada') con verificación MFA obligatoria
+ */
+export async function authorizeDeviceAsTrusted({ deviceId, targetName, verificationCode, recoveryCode, ownerUser, req }) {
+    if (ownerUser.role !== 'owner') {
+        const err = new Error('Solo el propietario de la agencia puede autorizar computadoras de confianza.');
+        err.status = 403;
+        throw err;
+    }
+
+    if (!['PC Agencia', 'PC Privada'].includes(targetName) && !targetName.trim()) {
+        const err = new Error('El nombre de la computadora debe ser "PC Agencia", "PC Privada" o un nombre descriptivo.');
+        err.status = 400;
+        throw err;
+    }
+
+    // Cargar usuario owner completo con secretos 2FA
+    const ownerDoc = await AdminUser.findById(ownerUser.id || ownerUser._id);
+    if (!ownerDoc) {
+        const err = new Error('Usuario propietario no encontrado.');
+        err.status = 404;
+        throw err;
+    }
+
+    // VERIFICACIÓN OBLIGATORIA INDEPENDIENTE (MFA TOTP o Recovery Code)
+    let isVerified = false;
+    let authMethod = 'mfa_totp';
+
+    if (verificationCode && ownerDoc.twoFactorEnabled && ownerDoc.twoFactorSecret) {
+        const secret = decrypt2FaSecret(ownerDoc.twoFactorSecret);
+        if (secret) {
+            isVerified = speakeasy.totp.verify({
+                secret,
+                encoding: 'base32',
+                token: String(verificationCode).trim(),
+                window: 1
+            });
+        }
+    } else if (recoveryCode && Array.isArray(ownerDoc.recoveryCodes)) {
+        const hashedInput = crypto.createHash('sha256').update(recoveryCode.trim()).digest('hex');
+        const codeIndex = ownerDoc.recoveryCodes.indexOf(hashedInput);
+        if (codeIndex !== -1) {
+            isVerified = true;
+            authMethod = 'recovery_code';
+            ownerDoc.recoveryCodes.splice(codeIndex, 1);
+            await ownerDoc.save();
+        }
+    }
+
+    if (!isVerified) {
+        // Registrar intento de autorización fallido
+        const ip = getTrustedClientIp(req);
+        await logAudit({
+            req,
+            action: 'DISPOSITIVO_AUTORIZACION_FALLIDA',
+            module: 'seguridad',
+            entityType: 'TrustedDevice',
+            entityId: deviceId,
+            description: `Intento fallido de autorizar ${targetName} sin verificación MFA válida por ${ownerUser.email}`,
+            metadata: { deviceId, targetName, ip }
+        });
+
+        const err = new Error('Código de verificación MFA inválido. Se requiere autenticación en dos pasos para registrar una computadora de confianza.');
+        err.status = 401;
+        throw err;
+    }
+
+    const device = await TrustedDevice.findOne({ deviceId });
+    if (!device) {
+        const err = new Error('Dispositivo no encontrado.');
+        err.status = 404;
+        throw err;
+    }
+
+    const ip = getTrustedClientIp(req);
+    const prevStatus = device.status;
+    const prevName = device.deviceName;
+
+    device.status = 'trusted';
+    device.deviceName = targetName.trim();
+    device.authorizedBy = {
+        userId: String(ownerDoc._id),
+        name: ownerDoc.name,
+        email: ownerDoc.email,
+        authorizedAt: new Date(),
+        authMethod
+    };
+
+    device.trustHistory.push({
+        event: 'REGISTRO_AUTORIZADO',
+        performedBy: {
+            userId: String(ownerDoc._id),
+            name: ownerDoc.name,
+            role: ownerDoc.role
+        },
+        authMethod,
+        previousValue: `${prevName} (${prevStatus})`,
+        newValue: `${targetName} (trusted)`,
+        ip,
+        details: `Dispositivo promovido a Confiable con verificación ${authMethod}`
+    });
+
+    await device.save();
+
+    // Actualizar todas las sesiones activas de este dispositivo para reflejar el estado confiable
+    await UserSession.updateMany(
+        { deviceId: device.deviceId, status: 'active' },
+        { $set: { deviceStatus: 'trusted', deviceName: targetName.trim() } }
+    );
+
+    // Registro de auditoría
+    await logAudit({
+        req,
+        action: 'DISPOSITIVO_AUTORIZADO',
+        module: 'seguridad',
+        entityType: 'TrustedDevice',
+        entityId: device.deviceId,
+        entityLabel: targetName,
+        description: `Dispositivo ${targetName} (${device.deviceId}) autorizado como Confiable por ${ownerDoc.name} mediante ${authMethod}`,
+        metadata: { deviceId: device.deviceId, previousName: prevName, targetName, authMethod }
+    });
+
+    return device;
+}
+
+/**
+ * Revoca un dispositivo de forma inmediata e invalida todas sus sesiones activas
+ */
+export async function revokeDevice({ deviceId, reason, ownerUser, req }) {
+    if (ownerUser.role !== 'owner') {
+        const err = new Error('Solo el propietario de la agencia puede revocar computadoras.');
+        err.status = 403;
+        throw err;
+    }
+
+    const device = await TrustedDevice.findOne({ deviceId });
+    if (!device) {
+        const err = new Error('Dispositivo no encontrado.');
+        err.status = 404;
+        throw err;
+    }
+
+    const ip = getTrustedClientIp(req);
+    const prevStatus = device.status;
+
+    device.status = 'revoked';
+    device.revokedAt = new Date();
+    device.revokedBy = {
+        userId: String(ownerUser.id || ownerUser._id),
+        name: ownerUser.name || ownerUser.username
+    };
+    device.revocationReason = reason || 'Revocación manual por el propietario';
+
+    device.trustHistory.push({
+        event: 'DISPOSITIVO_REVOCADO',
+        performedBy: {
+            userId: String(ownerUser.id || ownerUser._id),
+            name: ownerUser.name || ownerUser.username,
+            role: ownerUser.role
+        },
+        authMethod: 'system',
+        previousValue: prevStatus,
+        newValue: 'revoked',
+        ip,
+        details: `Motivo: ${device.revocationReason}`
+    });
+
+    await device.save();
+
+    // INVALIDACIÓN ATÓMICA DE SESIONES EN MONGODB
+    // Al pasar a 'revoked', cualquier solicitud posterior en cualquier instancia serverless será rechazada
+    const sessionUpdateResult = await UserSession.updateMany(
+        { deviceId: device.deviceId, status: 'active' },
+        { 
+            $set: { 
+                status: 'revoked', 
+                deviceStatus: 'revoked', 
+                revokedAt: new Date(), 
+                revokedBy: ownerUser.name,
+                revocationReason: device.revocationReason 
+            } 
+        }
+    );
+
+    await logAudit({
+        req,
+        action: 'DISPOSITIVO_REVOCADO',
+        module: 'seguridad',
+        entityType: 'TrustedDevice',
+        entityId: device.deviceId,
+        entityLabel: device.deviceName,
+        description: `Dispositivo ${device.deviceName} (${device.deviceId}) fue REVOCADO por ${ownerUser.name}. Sesiones terminadas: ${sessionUpdateResult.modifiedCount}`,
+        metadata: { 
+            deviceId: device.deviceId, 
+            reason: device.revocationReason, 
+            sessionsTerminated: sessionUpdateResult.modifiedCount 
+        }
+    });
+
+    return { device, sessionsTerminated: sessionUpdateResult.modifiedCount };
+}
+
+/**
+ * Consulta forense completa para una computadora (12 puntos de análisis)
+ */
+export async function getDeviceForensicAudit(deviceId) {
+    const device = await TrustedDevice.findOne({ deviceId }).lean();
+    if (!device) {
+        const err = new Error('Dispositivo no encontrado.');
+        err.status = 404;
+        throw err;
+    }
+
+    // 1. Historial de sesiones
+    const sessions = await UserSession.find({ deviceId })
+        .sort({ loginAt: -1 })
+        .limit(100)
+        .lean();
+
+    // 2. Usuarios distintos
+    const distinctUsers = await UserSession.distinct('userName', { deviceId });
+
+    // 3. IPs distintas utilizadas
+    const distinctIps = await UserSession.distinct('ip', { deviceId });
+
+    // 4. Modificaciones con valores anteriores y nuevos
+    const modifications = await AuditLog.find({ 
+        deviceId, 
+        action: { $regex: /_EDITADO|_ACTUALIZADO/ } 
+    }).sort({ createdAt: -1 }).limit(100).lean();
+
+    // 5. Vehículos consultados
+    const vehicleConsults = await AuditLog.find({ 
+        deviceId, 
+        action: 'VEHICULO_CONSULTADO' 
+    }).sort({ createdAt: -1 }).limit(100).lean();
+
+    // 6. Operaciones financieras
+    const financialOperations = await AuditLog.find({ 
+        deviceId, 
+        module: { $in: ['finanzas', 'tesoreria', 'ventas', 'cuotas'] } 
+    }).sort({ createdAt: -1 }).limit(100).lean();
+
+    // 7. Intentos fallidos
+    const failedLogins = await AuditLog.find({ 
+        $or: [
+            { deviceId, action: 'LOGIN_FALLIDO' },
+            { ip: { $in: distinctIps }, action: 'LOGIN_FALLIDO' }
+        ]
+    }).sort({ createdAt: -1 }).limit(50).lean();
+
+    // 8. Exportaciones y eliminaciones
+    const exportsAndDeletions = await AuditLog.find({ 
+        deviceId, 
+        action: { $regex: /EXPORT|ELIMINAD/ } 
+    }).sort({ createdAt: -1 }).limit(50).lean();
+
+    // 9. Secciones visitadas
+    const sectionsVisited = await AuditLog.find({ 
+        deviceId, 
+        action: 'SECCION_VISITADA' 
+    }).sort({ createdAt: -1 }).limit(100).lean();
+
+    return {
+        device,
+        summary: {
+            totalSessions: sessions.length,
+            distinctUsersCount: distinctUsers.length,
+            users: distinctUsers,
+            ips: distinctIps,
+            activeSessions: sessions.filter(s => s.status === 'active').length
+        },
+        sessions,
+        modifications,
+        vehicleConsults,
+        financialOperations,
+        failedLogins,
+        exportsAndDeletions,
+        sectionsVisited,
+        trustHistory: device.trustHistory || []
+    };
+}

@@ -1,5 +1,6 @@
 import { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { clearOfflineData } from '../services/offlineSyncService';
+import { getPersistentDeviceId } from '../services/deviceSecurityService';
 
 const AuthContext = createContext(null);
 
@@ -8,6 +9,11 @@ export const AuthProvider = ({ children }) => {
     const [user, setUser] = useState(null);
     const [token, setToken] = useState(null);
     const [loading, setLoading] = useState(true);
+    const [deviceInfo, setDeviceInfo] = useState({
+        deviceId: null,
+        deviceName: 'Dispositivo desconocido',
+        deviceStatus: 'unknown'
+    });
 
     const decodeToken = (token) => {
         try {
@@ -46,23 +52,38 @@ export const AuthProvider = ({ children }) => {
         let cancelled = false;
 
         const restoreSession = async () => {
+            const currentDeviceId = getPersistentDeviceId();
             const storedToken = localStorage.getItem('token');
 
             if (!storedToken || !isTokenValid(storedToken)) {
                 if (storedToken) localStorage.removeItem('token');
-                if (!cancelled) setLoading(false);
+                if (!cancelled) {
+                    setDeviceInfo(prev => ({ ...prev, deviceId: currentDeviceId }));
+                    setLoading(false);
+                }
                 return;
             }
 
+            const decoded = decodeToken(storedToken);
+
             try {
                 const response = await fetch('/api/admin/auth/me', {
-                    headers: { Authorization: `Bearer ${storedToken}` },
+                    headers: { 
+                        Authorization: `Bearer ${storedToken}`,
+                        'X-Device-Id': currentDeviceId 
+                    },
                     cache: 'no-store'
                 });
 
                 if (response.status === 401) {
+                    const data = await response.json().catch(() => ({}));
                     if (!cancelled) {
                         clearSession();
+                        if (data.code === 'SESSION_REVOKED') {
+                            console.warn('La sesión ha sido revocada desde el servidor.');
+                        } else if (data.code === 'DEVICE_REVOKED') {
+                            console.warn('Este dispositivo ha sido revocado por el propietario.');
+                        }
                         setLoading(false);
                     }
                     return;
@@ -74,10 +95,14 @@ export const AuthProvider = ({ children }) => {
             if (!cancelled) {
                 setToken(storedToken);
                 setIsAuthenticated(true);
-                setUser(decodeToken(storedToken));
+                setUser(decoded);
+                setDeviceInfo({
+                    deviceId: currentDeviceId,
+                    deviceName: decoded?.deviceName || 'Dispositivo desconocido',
+                    deviceStatus: decoded?.deviceStatus || 'unknown'
+                });
+                setLoading(false);
             }
-
-            if (!cancelled) setLoading(false);
         };
 
         restoreSession();
@@ -96,20 +121,40 @@ export const AuthProvider = ({ children }) => {
         return () => window.removeEventListener('autosporting-auth-expired', handleAuthExpired);
     }, [clearSession]);
 
-    const login = (token) => {
+    const login = (token, deviceMeta = {}) => {
         if (!token || !isTokenValid(token)) {
             clearSession();
             return;
         }
 
+        const decoded = decodeToken(token);
         localStorage.setItem('token', token);
         setToken(token);
         setIsAuthenticated(true);
-        setUser(decodeToken(token));
+        setUser(decoded);
+        setDeviceInfo({
+            deviceId: deviceMeta.deviceId || decoded?.deviceId || getPersistentDeviceId(),
+            deviceName: deviceMeta.deviceName || decoded?.deviceName || 'Dispositivo desconocido',
+            deviceStatus: deviceMeta.deviceStatus || decoded?.deviceStatus || 'unknown'
+        });
     };
 
-    const logout = () => {
-        clearSession();
+    const logout = async () => {
+        const currentToken = token || localStorage.getItem('token');
+        const currentDeviceId = getPersistentDeviceId();
+        try {
+            if (currentToken) {
+                await fetch('/api/auth/logout', {
+                    method: 'POST',
+                    headers: {
+                        Authorization: `Bearer ${currentToken}`,
+                        'X-Device-Id': currentDeviceId
+                    }
+                }).catch(() => {});
+            }
+        } finally {
+            clearSession();
+        }
     };
 
     const getToken = () => {
@@ -130,7 +175,18 @@ export const AuthProvider = ({ children }) => {
     };
 
     return (
-        <AuthContext.Provider value={{ isAuthenticated, user, login, logout, loading, token, getToken, validateSession }}>
+        <AuthContext.Provider value={{ 
+            isAuthenticated, 
+            user, 
+            login, 
+            logout, 
+            loading, 
+            token, 
+            getToken, 
+            validateSession,
+            deviceInfo,
+            setDeviceInfo
+        }}>
             {!loading && children}
         </AuthContext.Provider>
     );

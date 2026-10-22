@@ -62,6 +62,16 @@ import { logAudit, logSystemAudit } from './src/utils/auditLogger.js';
 import { getDolarBlueRate, setManualDolarBlueRate, getDolarBlueHistoricalSeries, resolveHistoricalRate } from './src/services/dolarService.js';
 import * as treasuryStrategicService from './src/services/treasuryStrategicService.js';
 import OfflineSyncOperation from './src/models/OfflineSyncOperation.js';
+import TrustedDevice from './src/models/TrustedDevice.js';
+import UserSession from './src/models/UserSession.js';
+import { getTrustedClientIp } from './src/utils/securityIpResolver.js';
+import { 
+    resolveDeviceOnLogin, 
+    createUserSession, 
+    authorizeDeviceAsTrusted, 
+    revokeDevice, 
+    getDeviceForensicAudit 
+} from './src/services/deviceSecurityBackend.js';
 import { hasPermission, PERMISSIONS, ROLES } from './src/utils/adminPermissions.js';
 import { CloudinaryStorage } from 'multer-storage-cloudinary';
 import jwt from 'jsonwebtoken';
@@ -381,7 +391,7 @@ const enforceLoginRateLimit = async (req, res, next) => {
     next();
 };
 
-// Authentication Middleware
+// Authentication Middleware con Validación de Sesión y Dispositivo Compartida
 const authenticateToken = (req, res, next) => {
     if (!JWT_SECRET) {
         console.error('Authentication unavailable: JWT_SECRET is not configured.');
@@ -393,7 +403,7 @@ const authenticateToken = (req, res, next) => {
 
     if (!token) return res.sendStatus(401);
 
-    jwt.verify(token, JWT_SECRET, (err, user) => {
+    jwt.verify(token, JWT_SECRET, async (err, user) => {
         if (err) return res.sendStatus(403);
 
         // No permitir que un token de desafío se use como sesión regular
@@ -401,9 +411,51 @@ const authenticateToken = (req, res, next) => {
             return res.status(403).json({ message: 'Token de desafío inválido para esta operación' });
         }
 
+        // VALIDACIÓN DE SESIÓN Y DISPOSITIVO EN ALMACENAMIENTO COMPARTIDO (MongoDB)
+        try {
+            if (user.sessionId) {
+                const session = await UserSession.findOne({ sessionId: user.sessionId }).select('status deviceId deviceName deviceStatus userId').lean();
+                
+                // Si la sesión no existe o fue revocada/cerrada:
+                if (!session || session.status !== 'active') {
+                    return res.status(401).json({ 
+                        code: 'SESSION_REVOKED', 
+                        message: 'Esta sesión ha sido revocada o ha finalizado. Por favor inicie sesión nuevamente.' 
+                    });
+                }
+
+                // Si el dispositivo fue revocado:
+                if (session.deviceStatus === 'revoked') {
+                    return res.status(401).json({ 
+                        code: 'DEVICE_REVOKED', 
+                        message: 'Este dispositivo ha sido revocado por el administrador.' 
+                    });
+                }
+
+                req.sessionId = session.sessionId;
+                req.deviceId = session.deviceId;
+                req.deviceName = session.deviceName;
+                req.deviceStatus = session.deviceStatus;
+            } else {
+                // MIGRACIÓN TRANSPARENTE: Soporte para tokens previos emitidos antes de la actualización
+                req.sessionId = 'legacy-' + (user.id || user.userId);
+                req.deviceId = req.headers['x-device-id'] || 'legacy-device';
+                req.deviceName = 'Sesión previa (Migrada)';
+                req.deviceStatus = 'trusted';
+                res.setHeader('X-Session-Upgraded', 'true');
+            }
+        } catch (dbErr) {
+            console.error('Error validando sesión compartida:', dbErr.message);
+            return res.status(503).json({ message: 'Error verificando sesión en base de datos' });
+        }
+
         req.user = user;
         req.user.id = user.id || user.userId;
         req.user.userId = user.userId || user.id;
+        req.user.sessionId = req.sessionId;
+        req.user.deviceId = req.deviceId;
+        req.user.deviceName = req.deviceName;
+        req.user.deviceStatus = req.deviceStatus;
         next();
     });
 };
@@ -511,6 +563,19 @@ app.post('/api/login', requireJwtConfiguration, enforceLoginRateLimit, async (re
             user.lastLoginAt = new Date();
             await user.save();
 
+            // Vincular dispositivo confiable o desconocido
+            const clientDeviceId = req.headers['x-device-id'] || req.body?.deviceId;
+            const clientPublicKey = req.body?.publicKey;
+            const { device } = await resolveDeviceOnLogin({
+                deviceId: clientDeviceId,
+                publicKey: clientPublicKey,
+                user,
+                req
+            });
+
+            // Crear sesión revocable en servidor
+            const session = await createUserSession({ user, device, req });
+
             const token = jwt.sign(
                 {
                     id: user._id,
@@ -518,7 +583,11 @@ app.post('/api/login', requireJwtConfiguration, enforceLoginRateLimit, async (re
                     email: user.email,
                     username: user.name,
                     role: user.role,
-                    permissions: user.permissions
+                    permissions: user.permissions,
+                    sessionId: session.sessionId,
+                    deviceId: device.deviceId,
+                    deviceName: device.deviceName,
+                    deviceStatus: device.status
                 },
                 JWT_SECRET,
                 { expiresIn: '24h' }
@@ -531,10 +600,17 @@ app.post('/api/login', requireJwtConfiguration, enforceLoginRateLimit, async (re
                 entityType: 'User',
                 entityId: user._id,
                 entityLabel: user.email,
-                description: `Login exitoso DB de ${user.email}`
+                description: `Login exitoso DB de ${user.email} desde ${device.deviceName} (${device.deviceId})`
             });
 
-            return res.json({ token, role: user.role, name: user.name });
+            return res.json({ 
+                token, 
+                role: user.role, 
+                name: user.name,
+                deviceId: device.deviceId,
+                deviceName: device.deviceName,
+                deviceStatus: device.status
+            });
         }
 
         await recordFailedLogin(req);
@@ -619,6 +695,19 @@ app.post('/api/login/2fa', requireJwtConfiguration, async (req, res) => {
         user.lastLoginAt = new Date();
         await user.save();
 
+        // Vincular dispositivo confiable o desconocido
+        const clientDeviceId = req.headers['x-device-id'] || req.body?.deviceId;
+        const clientPublicKey = req.body?.publicKey;
+        const { device } = await resolveDeviceOnLogin({
+            deviceId: clientDeviceId,
+            publicKey: clientPublicKey,
+            user,
+            req
+        });
+
+        // Crear sesión revocable en servidor
+        const session = await createUserSession({ user, device, req });
+
         const token = jwt.sign(
             {
                 id: user._id,
@@ -626,7 +715,11 @@ app.post('/api/login/2fa', requireJwtConfiguration, async (req, res) => {
                 email: user.email,
                 username: user.name,
                 role: user.role,
-                permissions: user.permissions
+                permissions: user.permissions,
+                sessionId: session.sessionId,
+                deviceId: device.deviceId,
+                deviceName: device.deviceName,
+                deviceStatus: device.status
             },
             JWT_SECRET,
             { expiresIn: '24h' }
@@ -639,10 +732,17 @@ app.post('/api/login/2fa', requireJwtConfiguration, async (req, res) => {
             entityType: 'User',
             entityId: user._id,
             entityLabel: user.email,
-            description: `Login 2FA exitoso de ${user.email}`
+            description: `Login 2FA exitoso de ${user.email} desde ${device.deviceName} (${device.deviceId})`
         });
 
-        return res.json({ token, role: user.role, name: user.name });
+        return res.json({ 
+            token, 
+            role: user.role, 
+            name: user.name,
+            deviceId: device.deviceId,
+            deviceName: device.deviceName,
+            deviceStatus: device.status
+        });
 
     } catch (error) {
         console.error("2FA Login Error: ", error);
@@ -848,13 +948,15 @@ app.get('/api/admin/audit-logs', authenticateToken, requirePermission(PERMISSION
         if (!req.user || (req.user.role !== 'owner' && req.user.role !== 'admin')) {
             return res.status(403).json({ message: 'Sin permisos de auditoria' });
         }
-        const { user, role, module, action, startDate, endDate, search, page = 1, limit = 50 } = req.query;
+        const { user, role, module, action, startDate, endDate, search, deviceId, deviceName, page = 1, limit = 50 } = req.query;
         let query = {};
 
         if (user) query.userId = user;
         if (role) query.userRole = role;
         if (module) query.module = module;
         if (action) query.action = action;
+        if (deviceId) query.deviceId = deviceId;
+        if (deviceName) query.deviceName = deviceName;
 
         if (startDate || endDate) {
             query.createdAt = {};
@@ -866,7 +968,9 @@ app.get('/api/admin/audit-logs', authenticateToken, requirePermission(PERMISSION
             query.$or = [
                 { userName: { $regex: search, $options: 'i' } },
                 { description: { $regex: search, $options: 'i' } },
-                { entityLabel: { $regex: search, $options: 'i' } }
+                { entityLabel: { $regex: search, $options: 'i' } },
+                { deviceName: { $regex: search, $options: 'i' } },
+                { ipAddress: { $regex: search, $options: 'i' } }
             ];
         }
 
@@ -881,6 +985,139 @@ app.get('/api/admin/audit-logs', authenticateToken, requirePermission(PERMISSION
 });
 
 // GET public cars (Sanitized & Optimized)
+
+// ==========================================
+// MÓDULO DE SEGURIDAD Y AUDITORÍA DE DISPOSITIVOS
+// ==========================================
+
+// POST /api/auth/logout - Cierre de sesión real en servidor
+app.post('/api/auth/logout', authenticateToken, async (req, res) => {
+    try {
+        if (req.sessionId && !req.sessionId.startsWith('legacy-')) {
+            await UserSession.updateOne(
+                { sessionId: req.sessionId },
+                { $set: { status: 'logged_out', lastActiveAt: new Date() } }
+            );
+        }
+        await logAudit({
+            req,
+            action: 'LOGOUT',
+            module: 'usuarios',
+            entityType: 'User',
+            entityId: req.user?.id || req.user?.userId,
+            entityLabel: req.user?.email,
+            description: `Cierre de sesión de ${req.user?.email || req.user?.username} desde ${req.deviceName || 'equipo'}`
+        });
+        res.json({ ok: true, message: 'Sesión cerrada correctamente' });
+    } catch (err) {
+        res.status(500).json({ message: err.message });
+    }
+});
+
+// GET /api/admin/devices - Listar todas las computadoras registradas
+app.get('/api/admin/devices', authenticateToken, requirePermission(PERMISSIONS.AUDITORIA_READ), async (req, res) => {
+    try {
+        const devices = await TrustedDevice.find().sort({ lastSeenAt: -1 }).lean();
+        res.json({ ok: true, devices });
+    } catch (err) {
+        res.status(500).json({ message: err.message });
+    }
+});
+
+// POST /api/admin/devices/authorize - Autorizar como 'PC Agencia' o 'PC Privada' con MFA obligatorio
+app.post('/api/admin/devices/authorize', authenticateToken, async (req, res) => {
+    try {
+        const { deviceId, targetName, verificationCode, recoveryCode } = req.body;
+        const device = await authorizeDeviceAsTrusted({
+            deviceId,
+            targetName,
+            verificationCode,
+            recoveryCode,
+            ownerUser: req.user,
+            req
+        });
+        res.json({ ok: true, device });
+    } catch (err) {
+        res.status(err.status || 500).json({ message: err.message });
+    }
+});
+
+// POST /api/admin/devices/:deviceId/revoke - Revocar dispositivo y terminar sesiones
+app.post('/api/admin/devices/:deviceId/revoke', authenticateToken, async (req, res) => {
+    try {
+        const { deviceId } = req.params;
+        const { reason } = req.body;
+        const result = await revokeDevice({
+            deviceId,
+            reason,
+            ownerUser: req.user,
+            req
+        });
+        res.json({ ok: true, ...result });
+    } catch (err) {
+        res.status(err.status || 500).json({ message: err.message });
+    }
+});
+
+// GET /api/admin/devices/:deviceId/audit - Consulta forense completa (12 puntos)
+app.get('/api/admin/devices/:deviceId/audit', authenticateToken, requirePermission(PERMISSIONS.AUDITORIA_READ), async (req, res) => {
+    try {
+        const { deviceId } = req.params;
+        const forensicData = await getDeviceForensicAudit(deviceId);
+        res.json({ ok: true, ...forensicData });
+    } catch (err) {
+        res.status(err.status || 500).json({ message: err.message });
+    }
+});
+
+// POST /api/admin/audit/navigation - Registro controlado de secciones visitadas
+app.post('/api/admin/audit/navigation', authenticateToken, async (req, res) => {
+    try {
+        const { pathname, timeSpent } = req.body;
+        if (!pathname || typeof pathname !== 'string') {
+            return res.status(400).json({ message: 'pathname requerido' });
+        }
+        await logAudit({
+            req,
+            action: 'SECCION_VISITADA',
+            module: 'navegacion',
+            entityType: 'Route',
+            entityId: pathname,
+            entityLabel: pathname,
+            description: `Sección visitada: ${pathname}`,
+            metadata: { pathname, timeSpent }
+        });
+        res.json({ ok: true });
+    } catch (err) {
+        res.status(500).json({ message: err.message });
+    }
+});
+
+// POST /api/admin/audit/view-car - Registro controlado de consulta de vehículo
+app.post('/api/admin/audit/view-car', authenticateToken, async (req, res) => {
+    try {
+        const { carId } = req.body;
+        if (!carId) return res.status(400).json({ message: 'carId requerido' });
+        const car = await Car.findById(carId).select('brand name plate price currency year').lean();
+        if (!car) return res.status(404).json({ message: 'Auto no encontrado' });
+        
+        await logAudit({
+            req,
+            action: 'VEHICULO_CONSULTADO',
+            module: 'stock',
+            entityType: 'Car',
+            entityId: carId,
+            entityLabel: `${car.brand} ${car.name} (${car.plate || 'Sin dominio'})`,
+            description: `Ficha de vehículo consultada: ${car.brand} ${car.name} (${car.year || 'S/D'})`,
+            metadata: { carId, brand: car.brand, name: car.name, price: car.price, currency: car.currency }
+        });
+        res.json({ ok: true });
+    } catch (err) {
+        res.status(500).json({ message: err.message });
+    }
+});
+
+
 app.get('/api/public/cars', async (req, res) => {
     try {
         await connectDB();

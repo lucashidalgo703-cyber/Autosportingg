@@ -2,6 +2,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '../context/AuthContext';
+import { getPersistentDeviceId, getOrCreateDeviceKeyPair } from '../services/deviceSecurityService';
 import { Lock, KeyRound, ArrowLeft, Eye, EyeOff, ShieldCheck, CheckCircle2, ArrowRight, AlertTriangle, Cpu } from 'lucide-react';
 
 const Login = () => {
@@ -132,12 +133,20 @@ const Login = () => {
     try {
       const API_URL = process.env.NEXT_PUBLIC_API_URL;
       const baseUrl = process.env.NODE_ENV === 'production' ? '' : (API_URL || 'http://localhost:3001');
+      const deviceId = getPersistentDeviceId();
+      let publicKeyJwk = null;
+      try {
+        const keyData = await getOrCreateDeviceKeyPair();
+        publicKeyJwk = keyData.publicKeyJwk;
+      } catch {}
+
       const response = await fetch(`${baseUrl}/api/login`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'X-Device-Id': deviceId,
         },
-        body: JSON.stringify({ email: email.trim(), password }),
+        body: JSON.stringify({ email: email.trim(), password, deviceId, publicKey: publicKeyJwk }),
       });
 
       const data = await response.json();
@@ -146,7 +155,7 @@ const Login = () => {
         if (data.require2FA) {
           setChallengeId(data.challengeId);
         } else {
-          login(data.token);
+          login(data.token, { deviceId: data.deviceId, deviceName: data.deviceName, deviceStatus: data.deviceStatus });
           const displayName = data.name || data.user?.name || (email.split('@')[0]) || 'Operador';
           setWelcomeUserName(displayName);
           setAuthSuccess(true);
@@ -177,11 +186,13 @@ const Login = () => {
         payload.code = twoFactorCode.trim();
       }
 
+      const deviceId = getPersistentDeviceId();
       const response = await fetch(`${baseUrl}/api/login/2fa`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${challengeId}`
+          'Authorization': `Bearer ${challengeId}`,
+          'X-Device-Id': deviceId
         },
         body: JSON.stringify(payload),
       });
@@ -189,7 +200,7 @@ const Login = () => {
       const data = await response.json();
 
       if (response.ok) {
-        login(data.token);
+        login(data.token, { deviceId: data.deviceId, deviceName: data.deviceName, deviceStatus: data.deviceStatus });
         const displayName = data.name || data.user?.name || (email.split('@')[0]) || 'Operador';
         setWelcomeUserName(displayName);
         setAuthSuccess(true);
