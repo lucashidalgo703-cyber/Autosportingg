@@ -20,7 +20,8 @@ function Lesson({ lesson }) {
             <div><CrmButton type="submit">Comprobar respuesta</CrmButton></div>
             {feedback !== null && <div role="status" className="rounded-lg border border-crm-border p-4 text-sm"><strong>{feedback ? 'Correcto.' : 'Revisá el cálculo.'}</strong><p className="mt-2">{lesson.exercise.explanation}</p></div>}
         </form>
-        <CrmButton variant="secondary" disabled={!feedback || progress.completed.includes(lesson.id)} onClick={() => completeLesson(lesson.id)}>{progress.completed.includes(lesson.id) ? 'Lección completada' : 'Completar lección tras resolver el ejercicio'}</CrmButton>
+        <p className="text-xs text-crm-fg-muted">Resolvé correctamente el ejercicio para registrar esta lección.</p>
+        <CrmButton variant="secondary" disabled={!feedback || progress.completed.includes(lesson.id)} onClick={() => completeLesson(lesson.id)}>{progress.completed.includes(lesson.id) ? 'Lección completada' : 'Completar lección'}</CrmButton>
     </div>;
 }
 
@@ -33,7 +34,7 @@ export default function AcademyCourses({ initialCourse, initialLesson }) {
     return <div className="space-y-5">
         <h1 className="text-[26px] font-bold">Cursos financieros</h1>
         <div className="grid gap-5 lg:grid-cols-[280px_minmax(0,1fr)]">
-            <aside className="space-y-2" aria-label="Elegir curso">{courses.map((item, index) => <button key={item.id} aria-pressed={item.id === courseId} onClick={() => { setCourseId(item.id); setLessonIndex(0); }} className={`w-full rounded-lg border p-3 text-left text-sm ${item.id === courseId ? 'border-crm-red bg-crm-red/10' : 'border-crm-border bg-crm-surface'}`}><span className="text-xs text-crm-fg-muted">{index + 1}. {item.level}</span><span className="mt-1 block font-semibold">{item.title}</span></button>)}</aside>
+            <aside className="space-y-2" aria-label="Elegir curso">{courses.map((item, index) => <button key={item.id} aria-pressed={item.id === courseId} onClick={() => { setCourseId(item.id); setLessonIndex(0); }} className={`w-full rounded-lg border p-3 text-left text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-crm-red ${item.id === courseId ? 'border-crm-red bg-crm-red/10 text-crm-red ring-1 ring-crm-red' : 'border-crm-border bg-crm-surface text-crm-fg'}`}><span className="text-xs text-crm-fg-muted">{index + 1}. {item.level}</span><span className="mt-1 block font-semibold">{item.title}</span></button>)}</aside>
             <div className="min-w-0 space-y-4">
                 <CrmCard><h2 className="text-lg font-bold">{course.title}</h2><p className="mt-2 text-sm text-crm-fg-muted">{course.description}</p><div className="mt-4 flex flex-wrap gap-2">{course.lessons.map((item, index) => <CrmButton key={item.id} variant={index === lessonIndex ? 'primary' : 'secondary'} onClick={() => setLessonIndex(index)} aria-pressed={index === lessonIndex}>Lección {index + 1}</CrmButton>)}</div></CrmCard>
                 <CrmCard><Lesson key={lesson.id} lesson={lesson} /><div className="mt-5 flex flex-wrap justify-between gap-3"><CrmButton variant="secondary" disabled={lessonIndex === 0} onClick={() => setLessonIndex(index => index - 1)}>Anterior</CrmButton><CrmButton variant="secondary" disabled={lessonIndex === course.lessons.length - 1} onClick={() => setLessonIndex(index => index + 1)}>Siguiente lección</CrmButton></div></CrmCard>

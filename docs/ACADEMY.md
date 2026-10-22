@@ -6,9 +6,9 @@ Rama: `feature/academy-financiera`. Módulo educativo bajo `/admin/academy`.
 
 Panel, catálogo inicial de ocho cursos y navegación a laboratorio, evaluaciones, progreso, entrenador y tutor. Hereda el layout administrativo y reutiliza CrmCard y tokens del CRM. Único cambio compartido: una entrada en `CrmSidebar.jsx`; no se cambia la función de permisos. Academy queda disponible para las sesiones que ya acceden al área administrativa.
 
-Los destinos de las siguientes subetapas muestran explícitamente que están en preparación. El avance inicial es cero, sin resultados inventados.
+El avance inicial es cero, sin resultados inventados. Los seis destinos quedaron funcionales al completar las subetapas siguientes.
 
-Validación: `node --test tests/academy.test.js`. Verificación visual y compilación completa previstas en 13.8.
+Validación inicial: `node --test tests/academy.test.js`. Verificación visual y compilación completa registradas en 13.8.
 
 ## Límites
 
@@ -46,3 +46,69 @@ Referencias de contraste conceptual (contenido propio, no transcripción):
 - BCRA: https://www.bcra.gob.ar/prestamos-personales-comparar-costos-y-condiciones/ (TNA, TEA y CFT).
 - CFPB: https://www.consumerfinance.gov/ask-cfpb/how-does-compound-interest-work-en-1683/ (capitalización).
 - Lean Enterprise Institute: https://www.lean.org/lexicon-terms/inventory-turns/ (rotación al costo).
+
+## 13.8 · Verificación y reproducción
+
+Fecha: 22 de octubre de 2026. Rama `feature/academy-financiera`.
+
+Comandos desde la raíz:
+
+```powershell
+npm ci
+npm run test:academy
+npm run check
+npm run build
+npm run test:academy:ui
+node --test tests/dashboardGains.test.js tests/saleCommercial.test.js
+npm run test:help
+```
+
+La configuración de navegador usa Chrome instalado: escritorio 1280×720 y emulación móvil iPhone 13 (390×664, DPR 3). No requiere credenciales: todas las APIs y la sesión del navegador son ficticias e interceptadas; se bloquea tráfico externo. No se ejecuta el backend Express ni se conecta una base de datos. Para usar otro servidor local ya iniciado, establecer `ACADEMY_BASE_URL` y ejecutar el comando UI. Esta variable es solo de pruebas.
+
+Resultados:
+- 16 pruebas unitarias de Academy: aprobadas, con múltiples casos y límites por prueba.
+- 14 pruebas de navegador (7 en escritorio y 7 en móvil): navegación, 16 simuladores, recarga/restablecimiento del avance, corrección/puntaje, seis escenarios, tutor, enlaces a ocho cursos, dificultad y recuperación de almacenamiento corrupto.
+- `npm run check`: aprobado; 18 advertencias preexistentes de directivas ESLint sin uso en archivos ajenos a Academy, cero errores.
+- `npm run build`: aprobado. Sitemap usa su fallback estático porque el backend local no está disponible; no se configuró una conexión real.
+- Regresión offline de ganancias: 22 casos aprobados; cálculo comercial y certificación del manual de ayuda aprobados.
+- Capturas desktop/móvil revisadas. Se corrigió texto negro heredado de botones nativos en el selector de cursos, con colores explícitos y selección visible solo en Academy. Sin desbordamiento horizontal en las pantallas probadas.
+- Diferencia de Git revisada: sin cambios en autenticación, permisos, auditoría, servidor, modelos o servicios/cálculos financieros existentes.
+
+Las capturas y trazas de Playwright se escriben en `%TEMP%/autosporting-academy-playwright`, fuera del repositorio; cada ejecución renueva esa carpeta. Los primeros fallos UI fueron selectores que también encontraban el buscador del CRM o el anunciador interno de Next; se corrigieron delimitando la búsqueda al contenido principal. En este entorno se usó un servidor local separado para evitar que el cierre del proceso hijo de Playwright quedara esperando; se detuvo al terminar.
+
+## Inventario de archivos
+
+Nuevos:
+- `src/app/admin/academy/`: `layout.jsx`, `page.jsx`, `[section]/page.jsx`.
+- `src/components/crm/academy/`: `AcademyFrame.jsx`, `AcademyDashboard.jsx`, `AcademyCourses.jsx`, `AcademyLab.jsx`, `AcademyAssessments.jsx`, `AcademyProgressProvider.jsx`, `AcademyProgress.jsx`, `AcademyDecisions.jsx`, `AcademyTutor.jsx`.
+- `src/lib/academy/`: `catalog.js`, `curriculum.js`, `simulators.js`, `assessments.js`, `progress.js`, `decisions.js`, `tutor.js`.
+- `tests/`: `academy.test.js`, `academySimulators.test.js`, `academyAssessments.test.js`, `academyProgress.test.js`, `academyDecisions.test.js`, `academyTutor.test.js`, `academy.spec.js`.
+- `playwright.academy.config.js` y este documento.
+
+Modificados fuera del módulo:
+- `src/components/crm/layout/CrmSidebar.jsx`: una entrada de menú; función de permisos intacta.
+- `package.json`: comandos de prueba de Academy y dependencia de desarrollo `@playwright/test`, que faltaba aunque el repositorio ya tenía pruebas Playwright.
+- `package-lock.json`: resolución reproducible de esa dependencia de desarrollo. No se actualizan dependencias de producción.
+
+## Commits por subetapa
+
+| Subetapa | Commit | Avance |
+| --- | --- | --- |
+| 13.1 | `76fb916` | Panel y navegación |
+| 13.2 | `664e960` | Cursos y ejercicios |
+| 13.3 | `c539916` | Laboratorio de 16 simuladores |
+| 13.4 | `1e9a74a` | Evaluaciones y repaso |
+| 13.5 | `3995a17` | Seguimiento local |
+| 13.6 | `2a93876` | Escenarios de decisión |
+| 13.7 | `b4b7a35` | Tutor estructurado |
+| 13.8 | Consultar `git log -1` | Pruebas UI, contraste y documentación final |
+
+## Pendientes y próximos pasos
+
+- Persistencia remota por usuario y sincronización entre dispositivos, previa autorización. La información local es editable por quien controla el navegador: no sirve para certificación.
+- IA externa, elección de proveedor, costos y políticas del tutor, previa autorización. Actualmente solo responde preguntas predefinidas; no hay interpretación de texto libre.
+- Ampliar contenido y variantes de casos según necesidades de capacitación; los escenarios actuales son fijos y los simuladores permiten entradas manuales.
+- La revisión de regresión fue estática, de compilación, unitarias offline y navegación de Academy. No se ejecutaron integraciones con MongoDB ni una certificación end-to-end de todos los módulos operativos.
+- No hay bloqueo funcional conocido dentro del alcance local autorizado.
+
+`main` permanece en `73efd4b65ff0966aad2306c368f3fe2fb93f6ab4`. No se ejecutaron push, merge, deploy, migraciones ni conexiones con producción.
