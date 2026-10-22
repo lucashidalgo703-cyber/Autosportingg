@@ -717,11 +717,19 @@ export async function revokeDevice({ deviceId, reason, ownerUser, req }) {
 /**
  * Consulta forense completa para una computadora (12 puntos de análisis)
  */
-export async function getDeviceForensicAudit(deviceId) {
+export async function getDeviceForensicAudit(deviceId, requestingUser = null) {
     const device = await TrustedDevice.findOne({ deviceId }).lean();
     if (!device) {
         const err = new Error('Dispositivo no encontrado.');
         err.status = 404;
+        throw err;
+    }
+
+    // FASE 4: Restricción estricta de PC Privada (Solo accesible por rol 'owner')
+    if (device.deviceName === 'PC Privada' && requestingUser && requestingUser.role !== 'owner') {
+        const err = new Error('Acceso denegado: Solo el Propietario (Owner) puede auditar la PC Privada.');
+        err.status = 403;
+        err.code = 'PC_PRIVADA_ACCESS_DENIED';
         throw err;
     }
 

@@ -1030,7 +1030,8 @@ app.post('/api/auth/logout', authenticateToken, async (req, res) => {
 // GET /api/admin/devices - Listar todas las computadoras registradas
 app.get('/api/admin/devices', authenticateToken, requirePermission(PERMISSIONS.AUDITORIA_READ), async (req, res) => {
     try {
-        const devices = await TrustedDevice.find().sort({ lastSeenAt: -1 }).lean();
+        const filter = req.user?.role === 'owner' ? {} : { deviceName: { $ne: 'PC Privada' } };
+        const devices = await TrustedDevice.find(filter).sort({ lastSeenAt: -1 }).lean();
         res.json({ ok: true, devices });
     } catch (err) {
         res.status(500).json({ message: err.message });
@@ -1076,10 +1077,10 @@ app.post('/api/admin/devices/:deviceId/revoke', authenticateToken, async (req, r
 app.get('/api/admin/devices/:deviceId/audit', authenticateToken, requirePermission(PERMISSIONS.AUDITORIA_READ), async (req, res) => {
     try {
         const { deviceId } = req.params;
-        const forensicData = await getDeviceForensicAudit(deviceId);
+        const forensicData = await getDeviceForensicAudit(deviceId, req.user);
         res.json({ ok: true, ...forensicData });
     } catch (err) {
-        res.status(err.status || 500).json({ message: err.message });
+        res.status(err.status || 500).json({ message: err.message, code: err.code });
     }
 });
 

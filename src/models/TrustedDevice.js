@@ -125,5 +125,12 @@ const trustedDeviceSchema = new mongoose.Schema({
 
 trustedDeviceSchema.index({ status: 1, lastSeenAt: -1 });
 
+// FASE 4: Protección contra DoS / Document Bloat: acotar trustHistory a un máximo de 50 eventos
+trustedDeviceSchema.pre('save', function () {
+    if (this.trustHistory && this.trustHistory.length > 50) {
+        this.trustHistory = this.trustHistory.slice(-50);
+    }
+});
+
 const TrustedDevice = mongoose.models.TrustedDevice || mongoose.model('TrustedDevice', trustedDeviceSchema);
 export default TrustedDevice;

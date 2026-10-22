@@ -1,4 +1,5 @@
 import mongoose from 'mongoose';
+import crypto from 'crypto';
 
 const auditLogSchema = new mongoose.Schema({
     userId: { type: String, index: true },
@@ -23,7 +24,10 @@ const auditLogSchema = new mongoose.Schema({
         default: 'unknown',
         index: true 
     },
-    sessionId: { type: String, index: true }
+    sessionId: { type: String, index: true },
+    // FASE 4: Integridad Criptográfica y Hash Chaining
+    previousHash: { type: String, default: 'GENESIS', index: true },
+    currentHash: { type: String, index: true }
 }, { 
     timestamps: true 
 });
@@ -35,6 +39,30 @@ auditLogSchema.index({ sessionId: 1, createdAt: -1 });
 auditLogSchema.index({ module: 1, action: 1 });
 auditLogSchema.index({ userId: 1, createdAt: -1 });
 auditLogSchema.index({ entityType: 1, entityId: 1 });
+
+// FASE 4: Hash Chaining criptográfico (SHA-256) garantizando cadena de custodia inmutable
+auditLogSchema.pre('save', async function () {
+    if (this.isNew && !this.currentHash) {
+        const lastLog = await mongoose.models.AuditLog
+            .findOne({}, { currentHash: 1 })
+            .sort({ _id: -1 })
+            .lean();
+
+        this.previousHash = lastLog?.currentHash || 'GENESIS';
+
+        const payloadToHash = [
+            this.previousHash,
+            this.action || '',
+            this.module || '',
+            this.userId || '',
+            this.deviceId || '',
+            this.description || '',
+            this.createdAt ? this.createdAt.toISOString() : new Date().toISOString()
+        ].join('|');
+
+        this.currentHash = crypto.createHash('sha256').update(payloadToHash).digest('hex');
+    }
+});
 
 // PROTECCIÓN DE INTEGRIDAD: Inmutabilidad estricta a nivel de esquema (Append-Only)
 const blockMutation = function (next) {

@@ -507,7 +507,75 @@ async function runTests() {
         assert.ok(rateLimitDoc.points >= 5, 'Puntos de tasa acumulados >= 5');
         console.log('  ok - Rate limit distribuido activado y persistido en MongoDB con TTL');
 
-        console.log('\n✅ TODAS LAS PRUEBAS DE SEGURIDAD Y AUDITORÍA PASARON EXITOSAMENTE (21/21)');
+        // 22. FASE 4: Integridad Criptográfica y Hash Chaining en AuditLog
+        console.log('Test 22: Integridad criptográfica y Hash Chaining en AuditLog...');
+        const chainLog1 = new AuditLog({
+            action: 'CHAIN_TEST_1',
+            module: 'auditoria',
+            description: 'Bloque génesis o intermedio'
+        });
+        await chainLog1.save();
+        assert.ok(chainLog1.currentHash && chainLog1.currentHash.length === 64, 'currentHash generado como SHA-256');
+
+        const chainLog2 = new AuditLog({
+            action: 'CHAIN_TEST_2',
+            module: 'auditoria',
+            description: 'Bloque encadenado'
+        });
+        await chainLog2.save();
+        assert.strictEqual(chainLog2.previousHash, chainLog1.currentHash, 'previousHash debe apuntar al currentHash del registro anterior');
+        assert.ok(chainLog2.currentHash && chainLog2.currentHash.length === 64, 'currentHash generado para bloque 2');
+        console.log('  ok - Hash chaining criptográfico SHA-256 verificado en AuditLog');
+
+        // 23. FASE 4: Protección contra DoS / Document Bloat en TrustedDevice
+        console.log('Test 23: Protección contra DoS/BSON Bloat (acotar trustHistory a <= 50)...');
+        const bloatDev = new TrustedDevice({
+            deviceId: 'dev-bloat-test',
+            deviceName: 'Dev Bloat Test',
+            status: 'unknown'
+        });
+        await bloatDev.save();
+
+        // Inyectar 65 eventos al trustHistory
+        for (let i = 1; i <= 65; i++) {
+            bloatDev.trustHistory.push({
+                event: 'IP_CAMBIADA',
+                details: `Evento de estrés número ${i}`,
+                timestamp: new Date()
+            });
+        }
+        await bloatDev.save();
+
+        const reloadedBloatDev = await TrustedDevice.findOne({ deviceId: 'dev-bloat-test' });
+        assert.strictEqual(reloadedBloatDev.trustHistory.length, 50, 'trustHistory debe quedar estrictamente acotado a 50 elementos');
+        assert.ok(reloadedBloatDev.trustHistory[49].details.includes('65'), 'El elemento más reciente debe preservarse');
+        console.log('  ok - Document Bloat prevenido: historial acotado a los 50 más recientes');
+
+        // 24. FASE 4: Restricción estricta de auditoría forense para "PC Privada"
+        console.log('Test 24: Restricción estricta de auditoría de PC Privada solo para Owner...');
+        const adminUser = {
+            id: 'admin-not-owner-id',
+            role: 'admin',
+            name: 'Admin Común',
+            permissions: ['AUDITORIA_READ']
+        };
+
+        let pcPrivadaBlocked = false;
+        try {
+            await getDeviceForensicAudit('browser-pc-privada-uuid', adminUser);
+        } catch (err) {
+            pcPrivadaBlocked = true;
+            assert.strictEqual(err.status, 403, 'Error 403 para no-owners');
+            assert.strictEqual(err.code, 'PC_PRIVADA_ACCESS_DENIED', 'Código PC_PRIVADA_ACCESS_DENIED');
+        }
+        assert.ok(pcPrivadaBlocked, 'Acceso a auditoría de PC Privada bloqueado para Admin no-Owner');
+
+        // Acceso permitido para Owner
+        const ownerAccessData = await getDeviceForensicAudit('browser-pc-privada-uuid', { role: 'owner', name: 'Lucas Owner' });
+        assert.ok(ownerAccessData && ownerAccessData.device, 'Owner puede auditar PC Privada exitosamente');
+        console.log('  ok - PC Privada restringida estrictamente a rol Owner (403 para otros roles)');
+
+        console.log('\n✅ TODAS LAS PRUEBAS DE SEGURIDAD Y AUDITORÍA PASARON EXITOSAMENTE (24/24)');
 
     } finally {
         await teardown();
