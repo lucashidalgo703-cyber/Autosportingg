@@ -26,7 +26,11 @@ const trustedDeviceSchema = new mongoose.Schema({
         default: 'unknown',
         index: true 
     },
-    // Clave pública para verificación de firma asimétrica (Anti-clonación)
+    // Clave pública para verificación de firma asimétrica ECDSA P-256
+    // NOTA DE SEGURIDAD: La clave privada reside en IndexedDB (Web Crypto API) como no exportable
+    // para mitigar robo por XSS o manipulación de localStorage. No constituye un HWID inalterable
+    // ni sustituye la seguridad de hardware (TPM / WebAuthn FIDO2), dado que los archivos locales
+    // del perfil del navegador pueden ser clonados por malware o copias directas de disco a nivel del SO.
     publicKey: {
         type: String,
         default: null

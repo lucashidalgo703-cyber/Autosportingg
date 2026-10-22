@@ -3,6 +3,7 @@ import TrustedDevice from '../models/TrustedDevice.js';
 import UserSession from '../models/UserSession.js';
 import AuditLog from '../models/AuditLog.js';
 import AdminUser from '../models/AdminUser.js';
+import SecurityChallenge from '../models/SecurityChallenge.js';
 import Car from '../models/Car.js';
 import { logAudit } from '../utils/auditLogger.js';
 import { getTrustedClientIp } from '../utils/securityIpResolver.js';
@@ -75,9 +76,72 @@ export function parseClientEnvironment(userAgent = '') {
 }
 
 /**
+ * Crea un desafío criptográfico de corta duración (TTL 90s) vinculado a una terminal
+ */
+export async function createSecurityChallenge({ deviceId, purpose = 'login' }) {
+    if (!deviceId) throw new Error('deviceId requerido para emitir desafío');
+
+    const challengeId = crypto.randomUUID();
+    const nonce = crypto.randomBytes(32).toString('hex');
+    const expiresAt = new Date(Date.now() + 90 * 1000);
+
+    const challenge = new SecurityChallenge({
+        challengeId,
+        deviceId,
+        nonce,
+        purpose,
+        expiresAt
+    });
+
+    await challenge.save();
+    return {
+        challengeId,
+        nonce,
+        expiresAt
+    };
+}
+
+/**
+ * Valida la firma ECDSA P-256 de una terminal contra un desafío
+ * Formato IEEE P1363 compatible nativamente entre Web Crypto API y Node.js
+ */
+export async function verifyDeviceSignature({ challengeId, deviceId, signature, publicKeyJwk }) {
+    if (!challengeId || !deviceId || !signature || !publicKeyJwk) {
+        return { valid: false, reason: 'PARAMETROS_INCOMPLETOS' };
+    }
+
+    // 1. Consumir atómicamente el desafío (un solo uso, protección contra replay)
+    const challenge = await SecurityChallenge.findOneAndUpdate(
+        { challengeId, deviceId, used: false, expiresAt: { $gt: new Date() } },
+        { $set: { used: true, usedAt: new Date() } }
+    );
+
+    if (!challenge) {
+        return { valid: false, reason: 'CHALLENGE_INVALIDO_O_EXPIRADO' };
+    }
+
+    // 2. Verificar la firma asimétrica contra la clave pública JWK usando IEEE P1363 (Web Crypto)
+    try {
+        const jwkObj = typeof publicKeyJwk === 'string' ? JSON.parse(publicKeyJwk) : publicKeyJwk;
+        const keyObject = crypto.createPublicKey({ key: jwkObj, format: 'jwk' });
+        
+        const verify = crypto.createVerify('SHA256');
+        verify.update(challenge.nonce);
+        
+        const sigBuffer = Buffer.from(signature, 'hex');
+        const isValid = verify.verify({ key: keyObject, dsaEncoding: 'ieee-p1363' }, sigBuffer);
+        
+        return { valid: isValid, reason: isValid ? null : 'FIRMA_NO_COINCIDE' };
+    } catch (err) {
+        console.error('Error verificando firma ECDSA:', err.message);
+        return { valid: false, reason: 'ERROR_CRIPTO: ' + err.message };
+    }
+}
+
+/**
  * Resuelve o registra un dispositivo en el flujo de login
  */
-export async function resolveDeviceOnLogin({ deviceId, publicKey, user, req }) {
+export async function resolveDeviceOnLogin({ deviceId, publicKey, signature, challengeId, user, req }) {
     const ip = getTrustedClientIp(req);
     const userAgent = req?.headers?.['user-agent'] || 'unknown';
     const clientEnv = parseClientEnvironment(userAgent);
@@ -92,6 +156,23 @@ export async function resolveDeviceOnLogin({ deviceId, publicKey, user, req }) {
     if (!device) {
         // Dispositivo no registrado previamente -> Estado unknown / pending_verification
         const assignedDeviceId = deviceId || crypto.randomUUID();
+
+        // Si se provee clave y firma, validar que el cliente posea la clave privada antes de guardarla
+        if (publicKey && signature && challengeId) {
+            const sigCheck = await verifyDeviceSignature({
+                challengeId,
+                deviceId: assignedDeviceId,
+                signature,
+                publicKeyJwk: publicKey
+            });
+            if (!sigCheck.valid) {
+                const err = new Error('Firma criptográfica inicial inválida para la clave pública proporcionada.');
+                err.code = 'FIRMA_INICIAL_INVALIDA';
+                err.status = 403;
+                throw err;
+            }
+        }
+
         device = new TrustedDevice({
             deviceId: assignedDeviceId,
             deviceName: 'Dispositivo desconocido',
@@ -165,6 +246,54 @@ export async function resolveDeviceOnLogin({ deviceId, publicKey, user, req }) {
             throw error;
         }
 
+        // FASE 2: Validar seguridad criptográfica en terminales autorizadas
+        if (device.status === 'trusted') {
+            // Impedir que un cliente sustituya arbitrariamente la clave pública de un dispositivo previamente autorizado
+            if (publicKey && device.publicKey && publicKey !== device.publicKey) {
+                await logAudit({
+                    req,
+                    action: 'INTENTO_SUSTITUCION_CLAVE',
+                    module: 'seguridad',
+                    entityType: 'TrustedDevice',
+                    entityId: device.deviceId,
+                    entityLabel: device.deviceName,
+                    description: `Intento bloqueado de sustitución de clave pública en terminal confiable: ${device.deviceName}`,
+                    metadata: { deviceId: device.deviceId, ip }
+                });
+                const err = new Error('Violación de Seguridad: No se permite sustituir la clave pública de un dispositivo confiable.');
+                err.code = 'INTENTO_SUSTITUCION_CLAVE';
+                err.status = 403;
+                throw err;
+            }
+
+            // Si la terminal tiene clave pública registrada y el cliente envía firma, verificarla
+            if (device.publicKey && signature && challengeId) {
+                const sigCheck = await verifyDeviceSignature({
+                    challengeId,
+                    deviceId: device.deviceId,
+                    signature,
+                    publicKeyJwk: device.publicKey
+                });
+
+                if (!sigCheck.valid) {
+                    await logAudit({
+                        req,
+                        action: 'FIRMA_INVALIDA_CLONACION',
+                        module: 'seguridad',
+                        entityType: 'TrustedDevice',
+                        entityId: device.deviceId,
+                        entityLabel: device.deviceName,
+                        description: `Firma criptográfica inválida en terminal ${device.deviceName} (${sigCheck.reason})`,
+                        metadata: { deviceId: device.deviceId, reason: sigCheck.reason, ip }
+                    });
+                    const err = new Error('Firma criptográfica de terminal inválida. No se pudo verificar la posesión de la clave privada.');
+                    err.code = 'FIRMA_INVALIDA_CLONACION';
+                    err.status = 403;
+                    throw err;
+                }
+            }
+        }
+
         // Registrar cambio de IP si aplica
         if (device.lastSeenIp && device.lastSeenIp !== ip) {
             device.trustHistory.push({
@@ -184,7 +313,7 @@ export async function resolveDeviceOnLogin({ deviceId, publicKey, user, req }) {
         device.lastSeenAt = new Date();
         device.lastSeenIp = ip;
         device.lastSeenUser = user.name || user.username;
-        if (publicKey && !device.publicKey) {
+        if (publicKey && !device.publicKey && device.status !== 'trusted') {
             device.publicKey = publicKey;
         }
         await device.save();

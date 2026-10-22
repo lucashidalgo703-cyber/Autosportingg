@@ -2,7 +2,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '../context/AuthContext';
-import { getPersistentDeviceId, getOrCreateDeviceKeyPair } from '../services/deviceSecurityService';
+import { getPersistentDeviceId, getOrCreateDeviceKeyPair, requestAndSignDeviceChallenge } from '../services/deviceSecurityService';
 import { Lock, KeyRound, ArrowLeft, Eye, EyeOff, ShieldCheck, CheckCircle2, ArrowRight, AlertTriangle, Cpu } from 'lucide-react';
 
 const Login = () => {
@@ -140,13 +140,25 @@ const Login = () => {
         publicKeyJwk = keyData.publicKeyJwk;
       } catch {}
 
+      let challengeData = null;
+      try {
+        challengeData = await requestAndSignDeviceChallenge(deviceId, 'login', baseUrl);
+      } catch {}
+
       const response = await fetch(`${baseUrl}/api/login`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'X-Device-Id': deviceId,
         },
-        body: JSON.stringify({ email: email.trim(), password, deviceId, publicKey: publicKeyJwk }),
+        body: JSON.stringify({
+          email: email.trim(),
+          password,
+          deviceId,
+          publicKey: publicKeyJwk,
+          challengeId: challengeData?.challengeId,
+          signature: challengeData?.signature
+        }),
       });
 
       const data = await response.json();
@@ -179,7 +191,23 @@ const Login = () => {
       const API_URL = process.env.NEXT_PUBLIC_API_URL;
       const baseUrl = process.env.NODE_ENV === 'production' ? '' : (API_URL || 'http://localhost:3001');
       
-      const payload = { challengeId };
+      let keyData = null;
+      try {
+        keyData = await getOrCreateDeviceKeyPair();
+      } catch {}
+
+      let challengeData = null;
+      try {
+        challengeData = await requestAndSignDeviceChallenge(deviceId, 'login_2fa', baseUrl);
+      } catch {}
+
+      const payload = {
+        challengeId,
+        deviceId,
+        publicKey: keyData?.publicKeyJwk,
+        deviceChallengeId: challengeData?.challengeId,
+        signature: challengeData?.signature
+      };
       if (recoveryMode) {
         payload.recoveryCode = twoFactorCode.trim();
       } else {

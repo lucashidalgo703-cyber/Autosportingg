@@ -5,6 +5,7 @@ import TrustedDevice from '../src/models/TrustedDevice.js';
 import UserSession from '../src/models/UserSession.js';
 import AuditLog from '../src/models/AuditLog.js';
 import AdminUser from '../src/models/AdminUser.js';
+import SecurityChallenge from '../src/models/SecurityChallenge.js';
 import { getTrustedClientIp } from '../src/utils/securityIpResolver.js';
 import { 
     resolveDeviceOnLogin, 
@@ -12,7 +13,9 @@ import {
     authorizeDeviceAsTrusted, 
     revokeDevice, 
     getDeviceForensicAudit,
-    validateSessionAndDevice 
+    validateSessionAndDevice,
+    createSecurityChallenge,
+    verifyDeviceSignature
 } from '../src/services/deviceSecurityBackend.js';
 import speakeasy from 'speakeasy';
 import crypto from 'crypto';
@@ -301,7 +304,91 @@ async function runTests() {
         assert.strictEqual(deviceRevokedCheck.code, 'DEVICE_REVOKED', 'Código DEVICE_REVOKED');
         console.log('  ok - Dispositivo revocado rechazado con código 401 DEVICE_REVOKED');
 
-        console.log('\n✅ TODAS LAS PRUEBAS DE SEGURIDAD Y AUDITORÍA PASARON EXITOSAMENTE (14/14)');
+        // 15. FASE 2: Handshake de desafío ECDSA P-256 y firma válida
+        console.log('Test 15: Handshake de desafío ECDSA P-256 y verificación de firma...');
+        const challengeDevId = 'ecdsa-device-uuid-test';
+        const challenge = await createSecurityChallenge({ deviceId: challengeDevId, purpose: 'login' });
+        assert.ok(challenge.challengeId, 'Desafío generado con challengeId');
+        assert.ok(challenge.nonce && challenge.nonce.length >= 64, 'Nonce criptográfico aleatorio presente');
+
+        // Generar par de claves ECDSA P-256
+        const { privateKey: devPrivKey, publicKey: devPubKey } = crypto.generateKeyPairSync('ec', { namedCurve: 'prime256v1' });
+        const devPubKeyJwk = devPubKey.export({ format: 'jwk' });
+
+        // Firmar nonce del desafío
+        const signer = crypto.createSign('SHA256');
+        signer.update(challenge.nonce);
+        const validSig = signer.sign({ key: devPrivKey, dsaEncoding: 'ieee-p1363' }, 'hex');
+
+        const verification = await verifyDeviceSignature({
+            challengeId: challenge.challengeId,
+            deviceId: challengeDevId,
+            signature: validSig,
+            publicKeyJwk: devPubKeyJwk
+        });
+        assert.strictEqual(verification.valid, true, 'Firma ECDSA válida verificada');
+        console.log('  ok - Handshake ECDSA P-256 verificado con éxito');
+
+        // 16. FASE 2: Protección contra Replay de desafíos
+        console.log('Test 16: Prevención de Replay Attack con desafíos consumidos...');
+        const replayVerification = await verifyDeviceSignature({
+            challengeId: challenge.challengeId,
+            deviceId: challengeDevId,
+            signature: validSig,
+            publicKeyJwk: devPubKeyJwk
+        });
+        assert.strictEqual(replayVerification.valid, false, 'Desafío reutilizado debe ser rechazado');
+        assert.strictEqual(replayVerification.reason, 'CHALLENGE_INVALIDO_O_EXPIRADO', 'Razón esperada de desafío consumido');
+        console.log('  ok - Intento de Replay Attack bloqueado atómicamente');
+
+        // 17. FASE 2: Rechazo de firma inválida / clonación de dispositivo
+        console.log('Test 17: Detección y rechazo de firma inválida (intento de clonación)...');
+        const challenge2 = await createSecurityChallenge({ deviceId: challengeDevId, purpose: 'login' });
+        const { privateKey: fakePrivKey } = crypto.generateKeyPairSync('ec', { namedCurve: 'prime256v1' });
+        const fakeSigner = crypto.createSign('SHA256');
+        fakeSigner.update(challenge2.nonce);
+        const invalidSig = fakeSigner.sign({ key: fakePrivKey, dsaEncoding: 'ieee-p1363' }, 'hex');
+
+        const invalidVerification = await verifyDeviceSignature({
+            challengeId: challenge2.challengeId,
+            deviceId: challengeDevId,
+            signature: invalidSig,
+            publicKeyJwk: devPubKeyJwk
+        });
+        assert.strictEqual(invalidVerification.valid, false, 'Firma generada con clave distinta debe rechazarse');
+        assert.strictEqual(invalidVerification.reason, 'FIRMA_NO_COINCIDE', 'Razón esperada: FIRMA_NO_COINCIDE');
+        console.log('  ok - Firma con clave clonada/falsa rechazada');
+
+        // 18. FASE 2: Bloqueo de sustitución de clave pública en terminal confiable
+        console.log('Test 18: Bloqueo de sustitución arbitraria de clave pública en terminal confiable...');
+        const trustedWithKey = new TrustedDevice({
+            deviceId: 'pc-con-clave-fija-uuid',
+            deviceName: 'PC Con Clave Fija',
+            status: 'trusted',
+            publicKey: JSON.stringify(devPubKeyJwk),
+            registeredBy: { userId: String(ownerUser._id), name: ownerUser.name, email: ownerUser.email }
+        });
+        await trustedWithKey.save();
+
+        const { publicKey: attackerPubKey } = crypto.generateKeyPairSync('ec', { namedCurve: 'prime256v1' });
+        const attackerPubKeyJwk = attackerPubKey.export({ format: 'jwk' });
+
+        let substitutionBlocked = false;
+        try {
+            await resolveDeviceOnLogin({
+                deviceId: 'pc-con-clave-fija-uuid',
+                publicKey: JSON.stringify(attackerPubKeyJwk),
+                user: ownerUser,
+                req: { headers: {}, ip: '127.0.0.1' }
+            });
+        } catch (e) {
+            substitutionBlocked = true;
+            assert.strictEqual(e.code, 'INTENTO_SUSTITUCION_CLAVE', 'Código INTENTO_SUSTITUCION_CLAVE');
+        }
+        assert.ok(substitutionBlocked, 'Intento de sustitución de clave pública bloqueado');
+        console.log('  ok - Intento de sustitución de clave pública bloqueado con alerta de seguridad');
+
+        console.log('\n✅ TODAS LAS PRUEBAS DE SEGURIDAD Y AUDITORÍA PASARON EXITOSAMENTE (18/18)');
 
     } finally {
         await teardown();

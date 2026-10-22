@@ -2,6 +2,13 @@
  * Servicio de Seguridad y Gestión de Terminales (Cliente)
  * Maneja el identificador persistente de la instalación del navegador
  * y la criptografía asimétrica no exportable (ECDSA P-256) en IndexedDB.
+ *
+ * NOTA DE SEGURIDAD Y ALCANCE CRIPTOGRÁFICO:
+ * La clave privada se genera con extractable: false en IndexedDB para mitigar
+ * robo por inyecciones XSS o manipulación de localStorage. No constituye un HWID
+ * inalterable ni reemplaza la seguridad física de hardware (TPM / WebAuthn FIDO2),
+ * dado que los archivos locales de la base de datos IndexedDB pueden ser copiados
+ * si un atacante tiene acceso directo al sistema de archivos del sistema operativo.
  */
 
 const DEVICE_STORAGE_KEY = 'autosporting_device_id';
@@ -95,9 +102,9 @@ export async function getOrCreateDeviceKeyPair() {
     }
 }
 
-// 4. Firma de desafíos para evitar clonación de deviceId
+// 4. Firma de desafíos para verificar posesión de clave ECDSA P-256
 export async function signSecurityChallenge(challengeText) {
-    if (typeof window === 'undefined' || !window.crypto?.subtle) return null;
+    if (typeof window === 'undefined' || !window.crypto?.subtle || !challengeText) return null;
 
     try {
         const db = await openCryptoDb();
@@ -125,7 +132,36 @@ export async function signSecurityChallenge(challengeText) {
         return Array.from(new Uint8Array(signature))
             .map(b => b.toString(16).padStart(2, '0'))
             .join('');
-    } catch {
+    } catch (err) {
+        console.warn('Error firmando desafío criptográfico:', err);
+        return null;
+    }
+}
+
+// 5. Handshake completo: Solicitar desafío al servidor y firmarlo
+export async function requestAndSignDeviceChallenge(deviceId, purpose = 'login', baseUrl = '') {
+    try {
+        const res = await fetch(`${baseUrl}/api/auth/challenge`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ deviceId, purpose })
+        });
+
+        if (!res.ok) {
+            console.warn('No se pudo obtener desafío del servidor');
+            return null;
+        }
+
+        const data = await res.json();
+        if (!data.challengeId || !data.nonce) return null;
+
+        const signature = await signSecurityChallenge(data.nonce);
+        return {
+            challengeId: data.challengeId,
+            signature
+        };
+    } catch (e) {
+        console.warn('Error en handshake de desafío:', e.message);
         return null;
     }
 }

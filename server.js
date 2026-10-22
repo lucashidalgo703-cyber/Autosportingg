@@ -71,7 +71,8 @@ import {
     authorizeDeviceAsTrusted, 
     revokeDevice, 
     getDeviceForensicAudit,
-    validateSessionAndDevice
+    validateSessionAndDevice,
+    createSecurityChallenge
 } from './src/services/deviceSecurityBackend.js';
 import { hasPermission, PERMISSIONS, ROLES } from './src/utils/adminPermissions.js';
 import { CloudinaryStorage } from 'multer-storage-cloudinary';
@@ -553,9 +554,13 @@ app.post('/api/login', requireJwtConfiguration, enforceLoginRateLimit, async (re
             // Vincular dispositivo confiable o desconocido
             const clientDeviceId = req.headers['x-device-id'] || req.body?.deviceId;
             const clientPublicKey = req.body?.publicKey;
+            const clientSignature = req.body?.signature;
+            const clientChallengeId = req.body?.challengeId;
             const { device } = await resolveDeviceOnLogin({
                 deviceId: clientDeviceId,
                 publicKey: clientPublicKey,
+                signature: clientSignature,
+                challengeId: clientChallengeId,
                 user,
                 req
             });
@@ -685,9 +690,13 @@ app.post('/api/login/2fa', requireJwtConfiguration, async (req, res) => {
         // Vincular dispositivo confiable o desconocido
         const clientDeviceId = req.headers['x-device-id'] || req.body?.deviceId;
         const clientPublicKey = req.body?.publicKey;
+        const clientSignature = req.body?.signature;
+        const clientChallengeId = req.body?.deviceChallengeId || (req.body?.challengeId && req.body.challengeId !== challengeId ? req.body.challengeId : null);
         const { device } = await resolveDeviceOnLogin({
             deviceId: clientDeviceId,
             publicKey: clientPublicKey,
+            signature: clientSignature,
+            challengeId: clientChallengeId,
             user,
             req
         });
@@ -976,6 +985,20 @@ app.get('/api/admin/audit-logs', authenticateToken, requirePermission(PERMISSION
 // ==========================================
 // MÓDULO DE SEGURIDAD Y AUDITORÍA DE DISPOSITIVOS
 // ==========================================
+
+// POST /api/auth/challenge - Emitir desafío criptográfico de un solo uso para terminal
+app.post('/api/auth/challenge', async (req, res) => {
+    try {
+        const { deviceId, purpose = 'login' } = req.body;
+        if (!deviceId || typeof deviceId !== 'string') {
+            return res.status(400).json({ message: 'deviceId requerido' });
+        }
+        const challenge = await createSecurityChallenge({ deviceId, purpose });
+        res.json({ ok: true, ...challenge });
+    } catch (err) {
+        res.status(500).json({ message: err.message });
+    }
+});
 
 // POST /api/auth/logout - Cierre de sesión real en servidor
 app.post('/api/auth/logout', authenticateToken, async (req, res) => {
