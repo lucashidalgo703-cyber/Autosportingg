@@ -5,14 +5,21 @@ import CrmCard from '../ui/CrmCard';
 import CrmButton from '../ui/CrmButton';
 import { courses } from '../../../lib/academy/curriculum';
 import { questions, gradeAssessment } from '../../../lib/academy/assessments';
+import { useAcademyProgress } from './AcademyProgressProvider';
 
-function Assessment({ items, course }) {
+function Assessment({ items, course, level }) {
+    const { recordAttempt } = useAcademyProgress();
     const [answers, setAnswers] = useState({});
     const [result, setResult] = useState(null);
     const [error, setError] = useState('');
     const submit = event => {
         event.preventDefault();
-        try { setResult(gradeAssessment(items, answers)); setError(''); } catch (e) { setError(e.message); }
+        if (result) return;
+        try {
+            const graded = gradeAssessment(items, answers);
+            setResult(graded); setError('');
+            recordAttempt({ courseId: course.id, level, score: graded.score, total: graded.total });
+        } catch (e) { setError(e.message); }
     };
     return <form onSubmit={submit} className="space-y-4">
         <p className="text-xs text-crm-fg-muted">Evaluación formativa local, sin certificación ni efectos sobre permisos. Cada pregunta vale lo mismo.</p>
@@ -29,5 +36,5 @@ export default function AcademyAssessments() {
     const [level, setLevel] = useState('Todos');
     const course = courses.find(item => item.id === courseId);
     const items = questions.filter(item => item.courseId === courseId && (level === 'Todos' || item.level === level));
-    return <div className="space-y-5"><h1 className="text-[26px] font-bold">Evaluaciones</h1><div className="grid gap-4 sm:grid-cols-2"><label className="text-sm">Curso<select className="mt-2 min-h-11 w-full rounded-lg border border-crm-border bg-crm-surface px-3" value={courseId} onChange={event => setCourseId(event.target.value)}>{courses.map(item => <option key={item.id} value={item.id}>{item.title}</option>)}</select></label><label className="text-sm">Nivel<select className="mt-2 min-h-11 w-full rounded-lg border border-crm-border bg-crm-surface px-3" value={level} onChange={event => setLevel(event.target.value)}>{['Todos', 'Inicial', 'Intermedio', 'Avanzado'].map(item => <option key={item}>{item}</option>)}</select></label></div><Assessment key={`${courseId}-${level}`} items={items} course={course} /></div>;
+    return <div className="space-y-5"><h1 className="text-[26px] font-bold">Evaluaciones</h1><div className="grid gap-4 sm:grid-cols-2"><label className="text-sm">Curso<select className="mt-2 min-h-11 w-full rounded-lg border border-crm-border bg-crm-surface px-3" value={courseId} onChange={event => setCourseId(event.target.value)}>{courses.map(item => <option key={item.id} value={item.id}>{item.title}</option>)}</select></label><label className="text-sm">Nivel<select className="mt-2 min-h-11 w-full rounded-lg border border-crm-border bg-crm-surface px-3" value={level} onChange={event => setLevel(event.target.value)}>{['Todos', 'Inicial', 'Intermedio', 'Avanzado'].map(item => <option key={item}>{item}</option>)}</select></label></div><Assessment key={`${courseId}-${level}`} items={items} course={course} level={level} /></div>;
 }

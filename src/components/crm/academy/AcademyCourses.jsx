@@ -3,8 +3,10 @@ import { useState } from 'react';
 import CrmCard from '../ui/CrmCard';
 import CrmButton from '../ui/CrmButton';
 import { courses, checkNumericAnswer } from '../../../lib/academy/curriculum';
+import { useAcademyProgress } from './AcademyProgressProvider';
 
 function Lesson({ lesson }) {
+    const { progress, completeLesson } = useAcademyProgress();
     const [answer, setAnswer] = useState('');
     const [feedback, setFeedback] = useState(null);
     return <div className="space-y-5">
@@ -18,12 +20,14 @@ function Lesson({ lesson }) {
             <div><CrmButton type="submit">Comprobar respuesta</CrmButton></div>
             {feedback !== null && <div role="status" className="rounded-lg border border-crm-border p-4 text-sm"><strong>{feedback ? 'Correcto.' : 'Revisá el cálculo.'}</strong><p className="mt-2">{lesson.exercise.explanation}</p></div>}
         </form>
+        <CrmButton variant="secondary" disabled={!feedback || progress.completed.includes(lesson.id)} onClick={() => completeLesson(lesson.id)}>{progress.completed.includes(lesson.id) ? 'Lección completada' : 'Completar lección tras resolver el ejercicio'}</CrmButton>
     </div>;
 }
 
-export default function AcademyCourses() {
-    const [courseId, setCourseId] = useState(courses[0].id);
-    const [lessonIndex, setLessonIndex] = useState(0);
+export default function AcademyCourses({ initialCourse, initialLesson }) {
+    const selected = courses.find(course => course.id === initialCourse) || courses[0];
+    const [courseId, setCourseId] = useState(selected.id);
+    const [lessonIndex, setLessonIndex] = useState(Math.max(0, selected.lessons.findIndex(lesson => lesson.id === initialLesson)));
     const course = courses.find(item => item.id === courseId);
     const lesson = course.lessons[lessonIndex];
     return <div className="space-y-5">

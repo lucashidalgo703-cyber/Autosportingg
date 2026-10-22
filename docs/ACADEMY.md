@@ -14,6 +14,12 @@ Validación: `node --test tests/academy.test.js`. Verificación visual y compila
 
 Sin endpoints, MongoDB, migraciones, datos operativos, proveedores de IA ni cambios en autenticación, seguridad, auditoría o cálculos existentes. Sin push, merge o deploy.
 
+## 13.5 · Seguimiento local
+
+Repositorio local versionado y sustituible, separado por identificador del usuario autenticado existente. No almacena token, nombre, contenido operativo ni respuestas privadas. Sin identificador estable funciona temporalmente en memoria. Guarda lecciones completadas después de resolver el ejercicio, hasta 100 intentos y 50 decisiones; métricas calculadas desde la actividad, sin precarga ficticia. Dashboard y enlaces permiten continuar el recorrido; cursos aceptan enlaces directos por curso/lección.
+
+Se informa cuando el almacenamiento falla. Incluye estado vacío, historial y restablecimiento con confirmación dentro de Academy. Sin sincronización entre dispositivos ni consolidación multi-pestaña; no es evidencia certificada de aprendizaje. Persistencia de servidor, políticas nuevas y certificaciones quedan pendientes de autorización posterior.
+
 ## 13.4 · Evaluaciones
 
 40 preguntas: conceptos de opción múltiple, ejercicios numéricos y casos prácticos. Filtros por curso y nivel, puntaje por igual ponderación, explicaciones, repaso y reintentos. Resultados formativos, sin certificación ni cambios de acceso. Corrección pura testeada con respuestas completas, erróneas, parciales e incompletas. No hay respuestas ni usuarios en servidor.
