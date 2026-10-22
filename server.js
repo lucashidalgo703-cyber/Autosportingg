@@ -70,7 +70,8 @@ import {
     createUserSession, 
     authorizeDeviceAsTrusted, 
     revokeDevice, 
-    getDeviceForensicAudit 
+    getDeviceForensicAudit,
+    validateSessionAndDevice
 } from './src/services/deviceSecurityBackend.js';
 import { hasPermission, PERMISSIONS, ROLES } from './src/utils/adminPermissions.js';
 import { CloudinaryStorage } from 'multer-storage-cloudinary';
@@ -413,37 +414,23 @@ const authenticateToken = (req, res, next) => {
 
         // VALIDACIÓN DE SESIÓN Y DISPOSITIVO EN ALMACENAMIENTO COMPARTIDO (MongoDB)
         try {
-            if (user.sessionId) {
-                const session = await UserSession.findOne({ sessionId: user.sessionId }).select('status deviceId deviceName deviceStatus userId').lean();
-                
-                // Si la sesión no existe o fue revocada/cerrada:
-                if (!session || session.status !== 'active') {
-                    return res.status(401).json({ 
-                        code: 'SESSION_REVOKED', 
-                        message: 'Esta sesión ha sido revocada o ha finalizado. Por favor inicie sesión nuevamente.' 
-                    });
-                }
+            const validation = await validateSessionAndDevice({
+                sessionId: user.sessionId,
+                user,
+                deviceId: req.headers['x-device-id'] || user.deviceId
+            });
 
-                // Si el dispositivo fue revocado:
-                if (session.deviceStatus === 'revoked') {
-                    return res.status(401).json({ 
-                        code: 'DEVICE_REVOKED', 
-                        message: 'Este dispositivo ha sido revocado por el administrador.' 
-                    });
-                }
-
-                req.sessionId = session.sessionId;
-                req.deviceId = session.deviceId;
-                req.deviceName = session.deviceName;
-                req.deviceStatus = session.deviceStatus;
-            } else {
-                // MIGRACIÓN TRANSPARENTE: Soporte para tokens previos emitidos antes de la actualización
-                req.sessionId = 'legacy-' + (user.id || user.userId);
-                req.deviceId = req.headers['x-device-id'] || 'legacy-device';
-                req.deviceName = 'Sesión previa (Migrada)';
-                req.deviceStatus = 'trusted';
-                res.setHeader('X-Session-Upgraded', 'true');
+            if (!validation.valid) {
+                return res.status(validation.status).json({
+                    code: validation.code,
+                    message: validation.message
+                });
             }
+
+            req.sessionId = validation.session.sessionId;
+            req.deviceId = validation.session.deviceId;
+            req.deviceName = validation.session.deviceName;
+            req.deviceStatus = validation.session.deviceStatus;
         } catch (dbErr) {
             console.error('Error validando sesión compartida:', dbErr.message);
             return res.status(503).json({ message: 'Error verificando sesión en base de datos' });

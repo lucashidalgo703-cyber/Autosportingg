@@ -83,6 +83,8 @@ export const AuthProvider = ({ children }) => {
                             console.warn('La sesión ha sido revocada desde el servidor.');
                         } else if (data.code === 'DEVICE_REVOKED') {
                             console.warn('Este dispositivo ha sido revocado por el propietario.');
+                        } else if (data.code === 'LEGACY_TOKEN_REJECTED') {
+                            console.warn('Sesión anterior expirada: se requiere reautenticación segura.');
                         }
                         setLoading(false);
                     }

@@ -223,6 +223,62 @@ export async function createUserSession({ user, device, req }) {
 }
 
 /**
+ * Validador unificado de sesión y dispositivo para Express y Next.js
+ * Erradica la confianza en tokens legacy sin sessionId y verifica revocaciones en MongoDB.
+ */
+export async function validateSessionAndDevice({ sessionId, user, deviceId }) {
+    if (!sessionId) {
+        return {
+            valid: false,
+            status: 401,
+            code: 'LEGACY_TOKEN_REJECTED',
+            message: 'Su sesión requiere reautenticación por actualización de seguridad. Por favor inicie sesión nuevamente.'
+        };
+    }
+
+    const session = await UserSession.findOne({ sessionId })
+        .select('status deviceId deviceName deviceStatus userId')
+        .lean();
+
+    if (!session || session.status !== 'active') {
+        return {
+            valid: false,
+            status: 401,
+            code: 'SESSION_REVOKED',
+            message: 'Esta sesión ha sido revocada o ha finalizado. Por favor inicie sesión nuevamente.'
+        };
+    }
+
+    if (session.deviceStatus === 'revoked') {
+        return {
+            valid: false,
+            status: 401,
+            code: 'DEVICE_REVOKED',
+            message: 'Este dispositivo ha sido revocado por el administrador.'
+        };
+    }
+
+    // Comprobación de seguridad adicional: verificar si el dispositivo figura revocado en TrustedDevice
+    const targetDeviceId = session.deviceId || deviceId;
+    if (targetDeviceId) {
+        const devDoc = await TrustedDevice.findOne({ deviceId: targetDeviceId }).select('status').lean();
+        if (devDoc && devDoc.status === 'revoked') {
+            return {
+                valid: false,
+                status: 401,
+                code: 'DEVICE_REVOKED',
+                message: 'Este dispositivo ha sido revocado por el administrador.'
+            };
+        }
+    }
+
+    return {
+        valid: true,
+        session
+    };
+}
+
+/**
  * Autoriza un dispositivo como confiable ('PC Agencia' o 'PC Privada') con verificación MFA obligatoria
  */
 export async function authorizeDeviceAsTrusted({ deviceId, targetName, verificationCode, recoveryCode, ownerUser, req }) {

@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import jwt from 'jsonwebtoken';
 import connectDB from '../config/db';
 import AdminUser from '../models/AdminUser';
+import { validateSessionAndDevice } from '../services/deviceSecurityBackend';
 import { hasPermission, ROLES } from './adminPermissions';
 
 export function withAdminAuth(requiredPermission, handler) {
@@ -24,26 +25,46 @@ export function withAdminAuth(requiredPermission, handler) {
                 return NextResponse.json({ error: 'Invalid token payload' }, { status: 401 });
             }
 
+            // Conectar a BD
+            await connectDB();
+
+            // FASE 1: Validación unificada de sesión revocable y dispositivo
+            const validation = await validateSessionAndDevice({
+                sessionId: decoded.sessionId,
+                user: decoded,
+                deviceId: request.headers.get('x-device-id') || decoded.deviceId
+            });
+
+            if (!validation.valid) {
+                return NextResponse.json({ 
+                    code: validation.code, 
+                    error: validation.message 
+                }, { status: validation.status });
+            }
+
+            const session = validation.session;
             const userId = decoded.id || decoded.userId;
 
-            // Connect to DB to verify the user is still active
-            await connectDB();
+            // Validar que el usuario continúe activo
             const user = await AdminUser.findById(userId).lean();
-
             if (!user || !user.active) {
                 return NextResponse.json({ error: 'User is inactive or deleted' }, { status: 401 });
             }
 
-            // Normalizar usuario para los permisos
+            // Normalizar usuario para permisos
             const authUser = {
                 id: user._id.toString(),
                 email: user.email,
                 name: user.name,
                 role: user.role,
-                permissions: user.permissions || []
+                permissions: user.permissions || [],
+                sessionId: session.sessionId,
+                deviceId: session.deviceId,
+                deviceName: session.deviceName,
+                deviceStatus: session.deviceStatus
             };
 
-            // Check permissions
+            // Comprobar permisos
             if (requiredPermission) {
                 if (requiredPermission === 'ADMIN_OR_OWNER') {
                     if (authUser.role !== ROLES.OWNER && authUser.role !== ROLES.ADMIN) {
@@ -56,15 +77,19 @@ export function withAdminAuth(requiredPermission, handler) {
                 }
             }
 
-            // Inject the user into the request object (we create a custom request wrapper or just attach it)
-            // NextRequest doesn't let us mutate it easily, but we can pass it as an extra argument or attach it.
-            // A common pattern is to attach it as request.user = authUser;
+            // Inyectar datos de sesión y dispositivo en la petición
             request.user = authUser;
+            request.sessionId = session.sessionId;
+            request.deviceId = session.deviceId;
+            request.deviceName = session.deviceName;
+            request.deviceStatus = session.deviceStatus;
 
             return handler(request, context);
         } catch (error) {
-            console.error('Auth Middleware Error:', error);
+            console.error('Auth Middleware Error in Next.js route:', error);
             return NextResponse.json({ error: 'Internal Server Error during authentication' }, { status: 500 });
         }
     };
 }
+
+export default withAdminAuth;

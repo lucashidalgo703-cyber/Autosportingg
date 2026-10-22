@@ -11,7 +11,8 @@ import {
     createUserSession, 
     authorizeDeviceAsTrusted, 
     revokeDevice, 
-    getDeviceForensicAudit 
+    getDeviceForensicAudit,
+    validateSessionAndDevice 
 } from '../src/services/deviceSecurityBackend.js';
 import speakeasy from 'speakeasy';
 import crypto from 'crypto';
@@ -247,7 +248,60 @@ async function runTests() {
         assert.ok(auditData.summary.users.includes('Lucas Owner'), 'Usuario identificado');
         console.log('  ok - Consulta forense devuelve estructura completa');
 
-        console.log('\n✅ TODAS LAS PRUEBAS DE SEGURIDAD Y AUDITORÍA PASARON EXITOSAMENTE (11/11)');
+        // 12. FASE 1: Rechazo estricto de JWT Legacy sin sessionId
+        console.log('Test 12: Rechazo estricto de JWT Legacy sin sessionId...');
+        const legacyCheck = await validateSessionAndDevice({
+            sessionId: null,
+            user: { id: ownerUser._id, role: 'owner' }
+        });
+        assert.strictEqual(legacyCheck.valid, false, 'JWT legacy sin sessionId no es válido');
+        assert.strictEqual(legacyCheck.code, 'LEGACY_TOKEN_REJECTED', 'Código LEGACY_TOKEN_REJECTED');
+        console.log('  ok - JWT Legacy sin sessionId rechazado con código 401 LEGACY_TOKEN_REJECTED');
+
+        // 13. FASE 1: Rechazo de sesión revocada en validador unificado
+        console.log('Test 13: Rechazo de sesión revocada en validador unificado...');
+        const sessionToRevoke = new UserSession({
+            sessionId: 'session-to-revoke-test',
+            userId: ownerUser._id,
+            userName: ownerUser.name,
+            deviceId: 'browser-pc-agencia-uuid',
+            deviceStatus: 'trusted',
+            status: 'revoked',
+            expiresAt: new Date(Date.now() + 3600000)
+        });
+        await sessionToRevoke.save();
+
+        const revokedSessionCheck = await validateSessionAndDevice({
+            sessionId: sessionToRevoke.sessionId,
+            user: { id: ownerUser._id, role: 'owner' }
+        });
+        assert.strictEqual(revokedSessionCheck.valid, false, 'Sesión revocada no es válida');
+        assert.strictEqual(revokedSessionCheck.code, 'SESSION_REVOKED', 'Código SESSION_REVOKED');
+        console.log('  ok - Sesión revocada rechazada con código 401 SESSION_REVOKED');
+
+        // 14. FASE 1: Rechazo de dispositivo revocado en validador unificado
+        console.log('Test 14: Rechazo de dispositivo revocado en validador unificado...');
+        const activeSessionOnRevokedDev = new UserSession({
+            sessionId: 'active-session-revoked-dev',
+            userId: ownerUser._id,
+            userName: ownerUser.name,
+            deviceId: 'browser-pc-privada-uuid',
+            deviceStatus: 'revoked',
+            status: 'active',
+            expiresAt: new Date(Date.now() + 3600000)
+        });
+        await activeSessionOnRevokedDev.save();
+
+        const deviceRevokedCheck = await validateSessionAndDevice({
+            sessionId: activeSessionOnRevokedDev.sessionId,
+            user: { id: ownerUser._id, role: 'owner' },
+            deviceId: 'browser-pc-privada-uuid'
+        });
+        assert.strictEqual(deviceRevokedCheck.valid, false, 'Dispositivo revocado no es válido');
+        assert.strictEqual(deviceRevokedCheck.code, 'DEVICE_REVOKED', 'Código DEVICE_REVOKED');
+        console.log('  ok - Dispositivo revocado rechazado con código 401 DEVICE_REVOKED');
+
+        console.log('\n✅ TODAS LAS PRUEBAS DE SEGURIDAD Y AUDITORÍA PASARON EXITOSAMENTE (14/14)');
 
     } finally {
         await teardown();
