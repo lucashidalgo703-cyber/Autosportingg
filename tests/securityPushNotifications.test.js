@@ -10,20 +10,26 @@ import AdminUser from '../src/models/AdminUser.js';
 import SecurityAlert from '../src/models/SecurityAlert.js';
 import PushSubscription from '../src/models/PushSubscription.js';
 import PushDeliveryLog from '../src/models/PushDeliveryLog.js';
+import PushSystemConfig from '../src/models/PushSystemConfig.js';
+import TrustedDevice from '../src/models/TrustedDevice.js';
 import { validatePushEndpoint, sanitizePushEndpoint, sanitizePushKeys } from '../src/utils/webPushEndpointValidator.js';
 import {
     getOrInitializeVapidKeys,
+    getOrInitializeVapidKeysAsync,
     getVapidPublicKey,
     subscribeOwnerDevice,
     listOwnerSubscriptions,
     revokeOwnerSubscription,
+    revokeDevicePushSubscriptions,
+    processPendingPushDeliveries,
     qualifiesForPushNotification,
     buildSecurePushPayload,
     sendNotificationToSubscription,
     dispatchAlertPushNotification,
     sendTestPushNotification,
     updateSubscriptionPreferences,
-    _resetRateLimit
+    _resetRateLimit,
+    _resetVapidCache
 } from '../src/services/webPushService.js';
 import { 
     createSecurityAlert,
@@ -538,5 +544,170 @@ test('Seguridad Web Push y Alertas Móviles: Suite de Pruebas Obligatorias (17/1
 
         const resCrit = await dispatchAlertPushNotification(criticalAlert, { customClient: mockClient });
         assert.equal(resCrit.dispatched, true, 'Alertas críticas deben despacharse aun con alertas no críticas silenciadas');
+    });
+
+    // 18. Alertas críticas NUNCA son bloqueadas por límites de menor prioridad
+    await t.test('18. Alertas críticas NUNCA son bloqueadas por límites aplicados a alertas de menor prioridad', async () => {
+        _resetRateLimit();
+
+        // Reactivar suscripciones
+        await PushSubscription.updateMany(
+            { userId: String(ownerUser._id) },
+            { $set: { 'preferences.nonCriticalEnabled': true, status: 'active' } }
+        );
+
+        const warningAlert = {
+            alertId: 'alt_warning_flood',
+            type: 'UNRECOGNIZED_DEVICE_LOGIN',
+            severity: 'warning',
+            title: 'Acceso no reconocido',
+            description: 'Advertencia'
+        };
+
+        const mockClient = {
+            sendNotification: async () => ({ statusCode: 201 })
+        };
+
+        // Enviar 10 advertencias para saturar la cuota de alertas no críticas
+        for (let i = 0; i < 10; i++) {
+            const res = await dispatchAlertPushNotification(warningAlert, { customClient: mockClient });
+            assert.equal(res.dispatched, true);
+        }
+
+        // El envío 11 de advertencia debe ser bloqueado por rate limit
+        const blockedWarning = await dispatchAlertPushNotification(warningAlert, { customClient: mockClient });
+        assert.equal(blockedWarning.dispatched, false);
+        assert.equal(blockedWarning.reason, 'RATE_LIMIT_EXCEEDED_ALERT_STORM_PROTECTION');
+
+        // Un evento CRÍTICO ocurre inmediatamente después (intento con sesión revocada)
+        const criticalAlert = {
+            alertId: 'alt_critical_emergency',
+            type: 'INVALID_SESSION_ACCESS',
+            severity: 'critical',
+            title: 'Intrusión con sesión revocada',
+            description: 'Alerta crítica prioritaria'
+        };
+
+        const resCrit = await dispatchAlertPushNotification(criticalAlert, { customClient: mockClient });
+        assert.equal(resCrit.dispatched, true, 'La alerta crítica debe despacharse sin ser afectada por el límite no crítico');
+        assert.equal(resCrit.priority, 'critical');
+    });
+
+    // 19. Claves VAPID persistentes en MongoDB entre instancias serverless
+    await t.test('19. Claves VAPID persistentes en MongoDB entre instancias serverless y reinicios', async () => {
+        delete process.env.VAPID_PUBLIC_KEY;
+        delete process.env.VAPID_PRIVATE_KEY;
+        _resetVapidCache();
+
+        const keys1 = await getOrInitializeVapidKeysAsync({ forceRefresh: true });
+        assert.ok(keys1.publicKey);
+        assert.ok(keys1.privateKey);
+
+        const configDoc = await PushSystemConfig.findOne({ key: 'vapid_keys' });
+        assert.ok(configDoc, 'La configuración VAPID debe persistirse en PushSystemConfig en MongoDB');
+        assert.equal(configDoc.vapidPublicKey, keys1.publicKey);
+
+        // Simular cold-start de otra instancia reseteando la memoria
+        _resetVapidCache();
+        const keys2 = await getOrInitializeVapidKeysAsync();
+        assert.equal(keys2.publicKey, keys1.publicKey, 'La clave pública debe ser idéntica entre instancias');
+        assert.equal(keys2.privateKey, keys1.privateKey, 'La clave privada debe ser idéntica entre instancias');
+    });
+
+    // 20. Cola persistente en MongoDB, reintentos idempotentes y drenaje de fallos temporales
+    await t.test('20. Cola persistente en MongoDB, reintentos idempotentes y drenaje de fallos temporales', async () => {
+        const sub = await PushSubscription.findOne({ status: 'active', userId: String(ownerUser._id) });
+        assert.ok(sub);
+
+        const alert = {
+            alertId: 'alt_persistent_task_01',
+            type: 'MFA_REPEATED_FAILURES',
+            severity: 'warning'
+        };
+
+        // Simular fallo temporal en el primer intento (503)
+        const mockFailing = {
+            sendNotification: async () => {
+                const err = new Error('Service Unavailable');
+                err.statusCode = 503;
+                throw err;
+            }
+        };
+
+        const firstTry = await sendNotificationToSubscription({
+            subscription: sub,
+            payload: { title: 'Test Persistent' },
+            alert,
+            customClient: mockFailing
+        });
+
+        assert.equal(firstTry.status, 'failed');
+        assert.equal(firstTry.attempt, 1);
+        assert.ok(firstTry.nextRetryAt > new Date());
+
+        // Comprobar persistencia del registro en MongoDB
+        const inDb = await PushDeliveryLog.findOne({ alertId: alert.alertId, subscriptionId: sub.subscriptionId });
+        assert.ok(inDb);
+        assert.equal(inDb.status, 'failed');
+        assert.equal(inDb.attempt, 1);
+        assert.equal(inDb.attemptsHistory.length, 1);
+
+        // Simular drenaje de serverless cuando el servicio push se recupera (201)
+        inDb.nextRetryAt = new Date(Date.now() - 1000); // Forzar vencimiento para reintento
+        await inDb.save();
+
+        const mockSuccess = {
+            sendNotification: async () => ({ statusCode: 201 })
+        };
+
+        const drainResult = await processPendingPushDeliveries({ limit: 10, customClient: mockSuccess });
+        assert.ok(drainResult.successful > 0);
+
+        const afterDrain = await PushDeliveryLog.findById(inDb._id);
+        assert.equal(afterDrain.status, 'accepted');
+        assert.equal(afterDrain.statusCode, 201);
+    });
+
+    // 21. Revocación en cascada de dispositivos y bloqueo estricto de terminales dadas de baja
+    await t.test('21. Revocación en cascada de dispositivos y bloqueo estricto de terminales dadas de baja', async () => {
+        const testDeviceId = 'dev_cascade_revoke_123';
+
+        // 1. Crear dispositivo confiable
+        await TrustedDevice.create({
+            deviceId: testDeviceId,
+            deviceName: 'Laptop Comercial',
+            status: 'trusted',
+            registeredBy: { userId: String(ownerUser._id), email: ownerUser.email }
+        });
+
+        // 2. Suscribir para push
+        const sub = await subscribeOwnerDevice({
+            userId: String(ownerUser._id),
+            userEmail: ownerUser.email,
+            subscription: {
+                endpoint: 'https://fcm.googleapis.com/fcm/send/cascade-token',
+                keys: { p256dh: 'p256_cascade', auth: 'auth_cascade' }
+            },
+            deviceInfo: { deviceId: testDeviceId, deviceName: 'Laptop Comercial' }
+        });
+
+        assert.equal(sub.status, 'active');
+
+        // 3. Revocar dispositivo en cascada
+        await revokeDevicePushSubscriptions(testDeviceId, 'Terminal dada de baja');
+
+        const subInDb = await PushSubscription.findOne({ subscriptionId: sub.subscriptionId });
+        assert.equal(subInDb.status, 'revoked');
+        assert.equal(subInDb.revokedReason, 'Terminal dada de baja');
+
+        // 4. Intentar enviar push a la suscripción revocada
+        const sendAttempt = await sendNotificationToSubscription({
+            subscription: subInDb,
+            payload: { title: 'Test Revoked' },
+            alert: { alertId: 'alt_revoked_test', type: 'TEST', severity: 'info' }
+        });
+
+        assert.equal(sendAttempt.success, false);
+        assert.equal(sendAttempt.status, 'revoked');
     });
 });

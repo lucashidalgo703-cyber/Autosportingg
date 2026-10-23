@@ -95,6 +95,8 @@ import {
     subscribeOwnerDevice,
     listOwnerSubscriptions,
     revokeOwnerSubscription,
+    revokeDevicePushSubscriptions,
+    processPendingPushDeliveries,
     sendTestPushNotification,
     updateSubscriptionPreferences
 } from './src/services/webPushService.js';
@@ -1558,6 +1560,7 @@ app.post('/api/admin/devices/:deviceId/revoke', authenticateToken, async (req, r
             ownerUser: req.user,
             req
         });
+        await revokeDevicePushSubscriptions(deviceId, reason).catch(() => {});
         triggerRevokedDeviceAlert({
             deviceId,
             deviceName: result.device?.deviceName || deviceId,
@@ -1928,6 +1931,20 @@ app.patch('/api/admin/push/preferences', authenticateToken, async (req, res) => 
         res.json({ ok: true, subscription: result });
     } catch (err) {
         res.status(err.status || 500).json({ ok: false, message: err.message });
+    }
+});
+
+// POST /api/admin/push/drain - Procesar y reintentar notificaciones push pendientes en MongoDB (Serverless Draining)
+app.post('/api/admin/push/drain', authenticateToken, async (req, res) => {
+    try {
+        if (req.user?.role !== 'owner') {
+            return res.status(403).json({ message: 'Solo el propietario puede ejecutar el drenaje de cola push.' });
+        }
+        const limit = Math.min(Number(req.body?.limit) || 20, 100);
+        const result = await processPendingPushDeliveries({ limit });
+        res.json({ ok: true, ...result });
+    } catch (err) {
+        res.status(500).json({ ok: false, message: err.message });
     }
 });
 
