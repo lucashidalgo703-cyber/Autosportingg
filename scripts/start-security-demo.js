@@ -2,11 +2,12 @@
  * AUTOSPORTING INTELLIGENCE — LANZADOR DEL ENTORNO LOCAL DE PRUEBA DEL PROPIETARIO
  * 
  * Inicia de forma 100% aislada:
- * 1. Base MongoDB ReplicaSet en memoria (MongoMemoryReplSet con soporte completo de transacciones).
- * 2. Carga datos mínimos de prueba y cuenta ficticia de propietario (demo.owner@autosporting.local).
- * 3. Servidor Express Backend en puerto 3001 (127.0.0.1).
- * 4. Servidor Next.js Frontend en puerto 3000 (127.0.0.1) con enrutamiento automático de /api/*.
- * 5. Cierre y limpieza limpia de todos los procesos al presionar Ctrl+C.
+ * 1. Comprobación estricta de no existencia de archivos .env no autorizados en disco.
+ * 2. Base MongoDB ReplicaSet en memoria con validación rigurosa de host/puerto loopback.
+ * 3. Carga datos mínimos de prueba sin saldos inflados y cuenta ficticia de propietario.
+ * 4. Servidor Express Backend en puerto 3001 (127.0.0.1).
+ * 5. Servidor Next.js Frontend en puerto 3000 con entorno hijo limpio y AUTOSPORTING_SECURITY_DEMO=1.
+ * 6. Cierre y limpieza limpia de todos los procesos al presionar Ctrl+C.
  */
 
 import crypto from 'node:crypto';
@@ -15,18 +16,35 @@ import { spawn } from 'node:child_process';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { MongoMemoryReplSet } from 'mongodb-memory-server';
+import { 
+    validateDemoMongoUri, 
+    filterDemoChildProcessEnv, 
+    checkForUnauthorizedEnvFiles,
+    validateBackendPort 
+} from '../src/utils/securityDemoValidator.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const rootDir = path.resolve(__dirname, '..');
 
-// 1. Configuración de Aislamiento y Secretos Efímeros Aleatorios
+// 1. Salvaguarda Previa: Comprobar que no existen archivos .env locales no autorizados
+const envCheck = checkForUnauthorizedEnvFiles(rootDir);
+if (!envCheck.safe) {
+    console.error(`\n❌ ERROR CRÍTICO DE SEGURIDAD: Se detectaron archivos de entorno no autorizados en disco:`);
+    console.error(`   ${envCheck.unauthorizedFiles.join(', ')}`);
+    console.error(`   Para garantizar aislamiento total, la demo se rehúsa a iniciar con archivos .env presentes.`);
+    process.exit(1);
+}
+
+// 2. Configuración de Aislamiento y Secretos Efímeros Aleatorios
 process.env.DOTENV_CONFIG_PATH = path.join(rootDir, 'non_existent_demo_env');
 const JWT_SECRET = crypto.randomBytes(32).toString('hex');
 const TWO_FACTOR_ENCRYPTION_KEY = crypto.randomBytes(32).toString('hex');
 const AUDIT_HMAC_SECRET = crypto.randomBytes(32).toString('hex');
 const MASTER_RECOVERY_KEY = crypto.randomBytes(32).toString('hex');
 
+// Variable explícita de servidor para el enrutamiento de Next.js (no expuesta como NEXT_PUBLIC_)
+process.env.AUTOSPORTING_SECURITY_DEMO = '1';
 process.env.JWT_SECRET = JWT_SECRET;
 process.env.TWO_FACTOR_ENCRYPTION_KEY = TWO_FACTOR_ENCRYPTION_KEY;
 process.env.AUDIT_HMAC_SECRET = AUDIT_HMAC_SECRET;
@@ -51,7 +69,7 @@ let mongoose = null;
 
 async function startDemo() {
     console.log('\n================================================================');
-    console.log('   AUTOSPORTING INTELLIGENCE — ENTORNO LOCAL DE DEMO');
+    console.log('   AUTOSPORTING INTELLIGENCE — ENTORNO LOCAL DE DEMO AISLADO');
     console.log('================================================================\n');
 
     // Paso 1: Iniciar MongoDB en memoria con ReplicaSet
@@ -61,13 +79,14 @@ async function startDemo() {
     });
     const mongoUri = replSet.getUri('autosporting_owner_demo');
 
-    // Salvaguarda obligatoria de no-conexión externa
-    if (!mongoUri.includes('127.0.0.1') && !mongoUri.includes('localhost')) {
-        throw new Error('VIOLACIÓN DE SEGURIDAD: Conexión externa detectada. Abortando.');
+    // Validación estricta de loopback, puertos y protocolo
+    const uriValidation = validateDemoMongoUri(mongoUri);
+    if (!uriValidation.valid) {
+        throw new Error(`VIOLACIÓN DE SEGURIDAD EN URI DE MONGO: ${uriValidation.error}`);
     }
 
     process.env.MONGODB_URI = mongoUri;
-    console.log(`      ✓ MongoDB activo en ${mongoUri}`);
+    console.log(`      ✓ MongoDB activo exclusivamente en loopback: ${mongoUri}`);
 
     // Paso 2: Conectar e inyectar datos ficticios
     console.log('[2/4] Conectando y sembrando cuenta ficticia y datos del CRM...');
@@ -95,17 +114,17 @@ async function startDemo() {
         twoFactorEnabled: false
     });
 
-    // Sembrar cuentas de prueba para el encabezado
+    // Sembrar cuentas de prueba para el encabezado con balance 0 (evitar exhibir saldos ficticios)
     await Account.create([
-        { name: 'Caja Operativa Pesos (Demo)', currency: 'ARS', balance: 14850000, isActive: true },
-        { name: 'Caja Dólares Tesorería (Demo)', currency: 'USD', balance: 35000, isActive: true }
+        { name: 'Caja Operativa Pesos (Demo)', currency: 'ARS', balance: 0, isActive: true },
+        { name: 'Caja Dólares Tesorería (Demo)', currency: 'USD', balance: 0, isActive: true }
     ]);
 
     // Sembrar vehículos de prueba para stock
     await Car.create([
         { 
             brand: 'Audi', 
-            name: 'Audi A4 2.0 TFSI', 
+            name: 'Audi A4 2.0 TFSI (Demo)', 
             year: 2022, 
             km: 28000, 
             fuel: 'Nafta', 
@@ -116,7 +135,7 @@ async function startDemo() {
         },
         { 
             brand: 'Toyota', 
-            name: 'Toyota Hilux SRX 4x4', 
+            name: 'Toyota Hilux SRX 4x4 (Demo)', 
             year: 2023, 
             km: 15000, 
             fuel: 'Diesel', 
@@ -148,7 +167,7 @@ async function startDemo() {
         status: 'pending'
     });
 
-    // Sembrar 1 registro de auditoría HMAC
+    // Sembrar 1 registro de auditoría HMAC inicial con usuario autenticado
     await AuditLog.create({
         userId: String(ownerUser._id),
         userName: ownerUser.name,
@@ -160,7 +179,7 @@ async function startDemo() {
     });
 
     console.log('      ✓ Cuenta ficticia de propietario creada.');
-    console.log('      ✓ Cajas, stock y alertas de demostración cargadas.');
+    console.log('      ✓ Cajas (saldo neutro), stock y alertas de demostración cargadas.');
 
     // Paso 3: Iniciar Servidor Express Backend (Puerto 3001)
     console.log('[3/4] Iniciando Backend Express en http://127.0.0.1:3001...');
@@ -176,23 +195,36 @@ async function startDemo() {
     });
     console.log('      ✓ Backend Express escuchando en http://127.0.0.1:3001');
 
-    // Paso 4: Iniciar Frontend Next.js (Puerto 3000)
+    // Paso 4: Iniciar Frontend Next.js (Puerto 3000) con entorno hijo limpio y filtrado
     console.log('[4/4] Iniciando Frontend Next.js en http://localhost:3000...');
     const nextBin = path.join(rootDir, 'node_modules', 'next', 'dist', 'bin', 'next');
 
+    const explicitDemoVars = {
+        AUTOSPORTING_SECURITY_DEMO: '1',
+        NODE_ENV: 'development',
+        PORT: '3000',
+        BACKEND_PORT: '3001',
+        NEXT_PUBLIC_API_URL: 'http://localhost:3001',
+        JWT_SECRET,
+        TWO_FACTOR_ENCRYPTION_KEY,
+        AUDIT_HMAC_SECRET,
+        MASTER_RECOVERY_KEY,
+        WEBAUTHN_RP_ID: 'localhost',
+        WEBAUTHN_ORIGIN: 'http://localhost:3000',
+        MONGODB_URI: mongoUri
+    };
+
+    const cleanChildEnv = filterDemoChildProcessEnv(process.env, explicitDemoVars);
+
     nextProcess = spawn(process.execPath, [nextBin, 'dev', '-p', '3000', '-H', '127.0.0.1'], {
         cwd: rootDir,
-        env: {
-            ...process.env,
-            BACKEND_PORT: '3001',
-            NEXT_PUBLIC_API_URL: 'http://localhost:3001'
-        },
+        env: cleanChildEnv,
         stdio: ['ignore', 'pipe', 'pipe']
     });
 
     nextProcess.stdout.on('data', (data) => {
         const msg = data.toString();
-        // Filtrar ruido de Turbopack para mantener la terminal limpia
+        // Filtrar mensajes de arranque relevantes
         if (msg.includes('Ready in') || msg.includes('compiled') || msg.includes('Starting')) {
             console.log(`      [Next.js] ${msg.trim()}`);
         }
