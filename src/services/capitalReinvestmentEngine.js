@@ -1,4 +1,4 @@
-import { computeIncomeOwnership } from './treasuryStrategicService.js';
+import { computeIncomeOwnership } from './treasuryIncomeOwnership.js';
 import {
     computeOperationRecoveryState,
     computeSchemeDistributionForCollection
