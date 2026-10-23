@@ -487,9 +487,9 @@ export default function SecurityCenterPage() {
                 <div className="rounded-2xl border border-crm-border bg-crm-surface p-4.5 space-y-2 hover:border-purple-500/30 transition-all">
                     <div className="flex items-center justify-between">
                         <span className="text-[11px] font-bold uppercase tracking-wider text-crm-fg-muted">
-                            Sesiones Abiertas
+                            Sesiones Abiertas (Revocables)
                         </span>
-                        <div className="flex h-7 w-7 items-center justify-center rounded-lg border border-purple-500/30 bg-purple-500/10 text-purple-400">
+                        <div className="flex h-7 w-7 items-center justify-center rounded-lg border border-purple-500/30 bg-purple-500/10 text-purple-400" title="Tokens JWT revocables en MongoDB. No constituyen presencia en línea por latido continuo.">
                             <KeyRound size={16} />
                         </div>
                     </div>
@@ -497,7 +497,7 @@ export default function SecurityCenterPage() {
                         <span className="text-2xl font-black text-white">{kpis.openSessions}</span>
                         <span className="text-[10px] text-purple-400 font-bold">En MongoDB</span>
                     </div>
-                    <p className="text-[11px] text-crm-fg-muted">Revocables al instante</p>
+                    <p className="text-[11px] text-crm-fg-muted">Tokens JWT con TTL y revocación inmediata</p>
                 </div>
 
                 {/* KPI 5: Alertas Pendientes */}
@@ -620,7 +620,7 @@ export default function SecurityCenterPage() {
                         }`}
                     >
                         <KeyRound size={16} />
-                        <span>Sesiones Abiertas</span>
+                        <span>Sesiones Abiertas (Revocables)</span>
                         <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-black/20 text-white">
                             {sessions.length}
                         </span>
@@ -976,6 +976,15 @@ export default function SecurityCenterPage() {
                             </button>
                         </div>
 
+                        {/* Aclaración sobre Identidad de Dispositivo */}
+                        <div className="flex items-start gap-3 p-3.5 rounded-xl border border-blue-500/20 bg-blue-500/5 text-blue-200 text-xs leading-relaxed">
+                            <Info size={16} className="shrink-0 text-blue-400 mt-0.5" />
+                            <div>
+                                <span className="font-bold text-white">Aclaración de Identidad: </span>
+                                Un &quot;dispositivo confiable&quot; representa una clave criptográfica (ECDSA P-256) custodiada en el almacenamiento local del navegador web, no una prueba física inmutable de identidad humana de la persona.
+                            </div>
+                        </div>
+
                         {loadingDevices ? (
                             <div className="flex justify-center p-8">
                                 <RefreshCw size={24} className="animate-spin text-crm-red" />
@@ -1119,9 +1128,9 @@ export default function SecurityCenterPage() {
                 <div className="space-y-4">
                     <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 rounded-2xl border border-crm-border bg-crm-surface">
                         <div>
-                            <h3 className="text-sm font-bold text-white">Sesiones Activas en MongoDB</h3>
+                            <h3 className="text-sm font-bold text-white">Sesiones Abiertas (Revocables)</h3>
                             <p className="text-xs text-crm-fg-muted">
-                                Sesiones firmadas con JWT vinculadas a terminales de trabajo
+                                Registros en base de datos con TTL/expiración. No constituyen presencia en línea continua por WebSocket o latido de red.
                             </p>
                         </div>
                         {sessions.length > 1 && (

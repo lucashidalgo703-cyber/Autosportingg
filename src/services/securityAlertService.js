@@ -366,7 +366,7 @@ export async function getSecurityOverviewMetrics({ period = '24h' } = {}) {
     ] = await Promise.all([
         // Inicios de sesión exitosos en 24h
         AuditLog.countDocuments({
-            action: { $in: ['LOGIN_EXITOSO', 'PASSKEY_AUTH_SUCCESS'] },
+            action: { $in: ['LOGIN_EXITOSO', 'LOGIN_EXITOSO_2FA', 'PASSKEY_AUTH_SUCCESS'] },
             createdAt: { $gte: since24h }
         }),
         // Intentos fallidos en 24h
@@ -382,11 +382,11 @@ export async function getSecurityOverviewMetrics({ period = '24h' } = {}) {
         SecurityAlert.countDocuments({ status: 'pending' }),
         // Último acceso exitoso
         AuditLog.findOne({
-            action: { $in: ['LOGIN_EXITOSO', 'PASSKEY_AUTH_SUCCESS'] }
+            action: { $in: ['LOGIN_EXITOSO', 'LOGIN_EXITOSO_2FA', 'PASSKEY_AUTH_SUCCESS'] }
         }).sort({ createdAt: -1 }).lean(),
         // Total éxitos periodo
         AuditLog.countDocuments({
-            action: { $in: ['LOGIN_EXITOSO', 'PASSKEY_AUTH_SUCCESS'] },
+            action: { $in: ['LOGIN_EXITOSO', 'LOGIN_EXITOSO_2FA', 'PASSKEY_AUTH_SUCCESS'] },
             createdAt: { $gte: periodStart }
         }),
         // Total fallos periodo
@@ -446,10 +446,10 @@ export async function getLoginHistory({
         action: {
             $in: [
                 'LOGIN_EXITOSO',
+                'LOGIN_EXITOSO_2FA',
                 'LOGIN_FALLIDO',
                 'PASSKEY_AUTH_SUCCESS',
                 'PASSKEY_AUTH_FAILED',
-                'LOGIN_REQUIRES_2FA',
                 '2FA_FAILED',
                 'SESSION_REVOKED',
                 'DEVICE_REVOKED',
@@ -459,7 +459,7 @@ export async function getLoginHistory({
     };
 
     if (status === 'success') {
-        query.action = { $in: ['LOGIN_EXITOSO', 'PASSKEY_AUTH_SUCCESS'] };
+        query.action = { $in: ['LOGIN_EXITOSO', 'LOGIN_EXITOSO_2FA', 'PASSKEY_AUTH_SUCCESS'] };
     } else if (status === 'failed') {
         query.action = {
             $in: ['LOGIN_FALLIDO', 'PASSKEY_AUTH_FAILED', '2FA_FAILED', 'SESSION_REVOKED', 'DEVICE_REVOKED']
@@ -496,12 +496,12 @@ export async function getLoginHistory({
     ]);
 
     const items = logs.map(log => {
-        const isSuccess = ['LOGIN_EXITOSO', 'PASSKEY_AUTH_SUCCESS'].includes(log.action);
+        const isSuccess = ['LOGIN_EXITOSO', 'LOGIN_EXITOSO_2FA', 'PASSKEY_AUTH_SUCCESS'].includes(log.action);
         const parsedUa = parseUserAgent(log.userAgent);
 
         let authMethod = 'password';
         if (log.action.includes('PASSKEY')) authMethod = 'passkey';
-        else if (log.action === '2FA_FAILED' || log.metadata?.authMethod === 'totp') authMethod = 'totp';
+        else if (log.action === 'LOGIN_EXITOSO_2FA' || log.action === '2FA_FAILED' || log.metadata?.authMethod === 'totp') authMethod = 'totp';
         else if (log.metadata?.authMethod === 'recovery_code') authMethod = 'recovery_code';
 
         let failureReason = null;
@@ -521,12 +521,14 @@ export async function getLoginHistory({
             userName: log.userName || null,
             result: isSuccess ? 'SUCCESS' : 'FAILED',
             action: log.action,
-            ip: log.ip || '127.0.0.1',
+            ip: log.ip || null,
             geoApproximation: {
-                location: log.ip === '127.0.0.1' || log.ip?.startsWith('192.168.') || log.ip?.startsWith('10.') 
-                    ? 'Red Local / Loopback' 
-                    : 'Zona Concesionario (IP Red)',
-                disclaimer: 'Geolocalización referencial estimada por enrutamiento de red. No constituye dirección física exacta ni prueba de presencia o identidad física.'
+                location: !log.ip 
+                    ? 'No disponible'
+                    : (log.ip === '127.0.0.1' || log.ip === '::1' || log.ip?.startsWith('192.168.') || log.ip?.startsWith('10.') 
+                        ? 'Red Local / Loopback' 
+                        : 'Zona Concesionario (Aproximada por IP)'),
+                disclaimer: 'Aproximada por IP - Puede variar por VPN o proveedor. No constituye dirección física exacta ni prueba de presencia o identidad física.'
             },
             browser: parsedUa.browser,
             os: parsedUa.os,

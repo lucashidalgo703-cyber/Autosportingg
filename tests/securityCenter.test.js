@@ -419,7 +419,78 @@ async function runTests() {
         assert.equal(devData.totalPasskeys, 1);
         console.log('  ok - Dispositivos y passkeys vinculadas consultados con éxito');
 
-        console.log('\n✅ TODAS LAS PRUEBAS DEL CENTRO DE SEGURIDAD PASARON EXITOSAMENTE (10/10)\n');
+        // -------------------------------------------------------------
+        // Prueba 11: No-duplicación de logins (1 login consolidado vs eventos intermedios 2FA)
+        // -------------------------------------------------------------
+        console.log('Prueba 11: Verificación de 1 intento vs 2 eventos en logins con TOTP y Passkey...');
+        
+        // Simular flujo TOTP: intermedio + final
+        await AuditLog.create({
+            userId: String(owner._id),
+            userEmail: owner.email,
+            action: 'LOGIN_REQUIRES_2FA',
+            module: 'usuarios',
+            description: 'Login requiere 2FA (intermedio)',
+            createdAt: new Date()
+        });
+        await AuditLog.create({
+            userId: String(owner._id),
+            userEmail: owner.email,
+            action: 'LOGIN_EXITOSO_2FA',
+            module: 'usuarios',
+            description: 'Login exitoso completado con TOTP',
+            createdAt: new Date(),
+            ip: '181.44.20.10'
+        });
+
+        // Simular flujo Passkey: intermedio + final
+        await AuditLog.create({
+            userId: String(owner._id),
+            userEmail: owner.email,
+            action: 'LOGIN_REQUIRES_2FA',
+            module: 'usuarios',
+            description: 'Login requiere 2FA (intermedio)',
+            createdAt: new Date()
+        });
+        await AuditLog.create({
+            userId: String(owner._id),
+            userEmail: owner.email,
+            action: 'PASSKEY_AUTH_SUCCESS',
+            module: 'seguridad',
+            description: 'Login exitoso completado con Passkey FIDO2',
+            createdAt: new Date(),
+            ip: null // Probar IP no disponible
+        });
+
+        const consolidatedRes = await fetch(`${base}/api/admin/security/logins?limit=10`, {
+            headers: {
+                'Authorization': `Bearer ${ownerToken}`,
+                'x-device-id': 'device_desktop_owner'
+            }
+        });
+        assert.equal(consolidatedRes.status, 200);
+        const consolidatedData = await consolidatedRes.json();
+
+        // Verificar que ningún item sea LOGIN_REQUIRES_2FA
+        const requires2faItems = consolidatedData.items.filter(i => i.action === 'LOGIN_REQUIRES_2FA');
+        assert.equal(requires2faItems.length, 0, 'LOGIN_REQUIRES_2FA no debe exponerse como fila en el historial');
+
+        // Verificar item con IP nula
+        const nullIpItem = consolidatedData.items.find(i => i.action === 'PASSKEY_AUTH_SUCCESS');
+        assert.ok(nullIpItem, 'Debe existir el registro de passkey');
+        assert.equal(nullIpItem.ip, null);
+        assert.equal(nullIpItem.geoApproximation.location, 'No disponible');
+        assert.ok(nullIpItem.geoApproximation.disclaimer.includes('Aproximada por IP - Puede variar por VPN o proveedor'));
+        assert.equal(nullIpItem.authMethod, 'passkey');
+
+        // Verificar item con TOTP
+        const totpItem = consolidatedData.items.find(i => i.action === 'LOGIN_EXITOSO_2FA');
+        assert.ok(totpItem, 'Debe existir el registro de totp');
+        assert.equal(totpItem.authMethod, 'totp');
+
+        console.log('  ok - Eventos intermedios excluidos del historial: 1 login = 1 fila en la vista');
+
+        console.log('\n✅ TODAS LAS PRUEBAS DEL CENTRO DE SEGURIDAD PASARON EXITOSAMENTE (11/11)\n');
     } finally {
         await teardown();
     }

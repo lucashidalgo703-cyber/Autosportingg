@@ -16,6 +16,7 @@ import AuditLog, { computeAuditHash } from '../models/AuditLog.js';
 export async function executeOwnerEmergencyRecovery({
     email,
     masterRecoveryKey,
+    temporaryPassword = null,
     reason = 'Dispositivo extraviado y códigos de respaldo agotados'
 } = {}) {
     // 1. Validar clave maestra fuera de banda
@@ -63,6 +64,15 @@ export async function executeOwnerEmergencyRecovery({
     owner.recoveryCodes = [];
     owner.forcePasswordReset = true;
     owner.tokenVersion = (owner.tokenVersion || 0) + 1;
+
+    let generatedTempPassword = null;
+    if (temporaryPassword && typeof temporaryPassword === 'string') {
+        const salt = crypto.randomBytes(16).toString('hex');
+        const hash = crypto.scryptSync(temporaryPassword.trim(), salt, 64).toString('hex');
+        owner.passwordHash = `${salt}:${hash}`;
+        generatedTempPassword = temporaryPassword.trim();
+    }
+
     await owner.save();
 
     // 4. Revocar todas las Passkeys activas del propietario
@@ -83,7 +93,16 @@ export async function executeOwnerEmergencyRecovery({
 
     // 5. Revocar todas las terminales registradas previamente
     const devicesResult = await TrustedDevice.updateMany(
-        { 'registeredBy.userId': String(owner._id), status: { $ne: 'revoked' } },
+        {
+            status: { $ne: 'revoked' },
+            $or: [
+                { 'registeredBy.userId': String(owner._id) },
+                { 'registeredBy.userId': owner._id },
+                { registeredBy: { $exists: false } },
+                { 'registeredBy.userId': null },
+                { 'registeredBy.userId': { $exists: false } }
+            ]
+        },
         {
             $set: {
                 status: 'revoked',
@@ -142,7 +161,9 @@ export async function executeOwnerEmergencyRecovery({
 
     return {
         success: true,
+        ok: true,
         email: owner.email,
+        temporaryPassword: generatedTempPassword,
         action: 'OWNER_MFA_EMERGENCY_RESET',
         revokedPasskeys: passkeysResult.modifiedCount,
         revokedDevices: devicesResult.modifiedCount,
@@ -152,3 +173,5 @@ export async function executeOwnerEmergencyRecovery({
         auditHash: auditRecord.currentHash
     };
 }
+
+export const executeEmergencyRecovery = executeOwnerEmergencyRecovery;

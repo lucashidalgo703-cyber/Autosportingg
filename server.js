@@ -217,6 +217,17 @@ app.use(async (req, res, next) => {
 
     try {
         const lock = await checkMaintenanceState();
+        if (lock && lock.error) {
+            // DB timeout / fallo durante chequeo de lock en operación mutativa:
+            // Por postura de seguridad fail-closed, rechazar la escritura determinísticamente con 503
+            res.setHeader('Retry-After', '10');
+            return res.status(503).json({
+                error: 'LOCK_CHECK_DATABASE_UNAVAILABLE',
+                message: 'No es posible verificar el estado del sistema de forma segura. Operación rechazada por protección de integridad.',
+                retryAfter: 10
+            });
+        }
+
         if (lock && lock.active) {
             // Permitir bypass administrativo con token SHA-256 verificado
             const bypassHeader = req.headers['x-maintenance-bypass'];
@@ -237,6 +248,12 @@ app.use(async (req, res, next) => {
         }
     } catch (lockErr) {
         console.error('Error verificando pestillo de mantenimiento:', lockErr.message);
+        res.setHeader('Retry-After', '10');
+        return res.status(503).json({
+            error: 'LOCK_CHECK_DATABASE_UNAVAILABLE',
+            message: 'Error al verificar pestillo de mantenimiento. Operación mutativa rechazada por seguridad.',
+            retryAfter: 10
+        });
     }
     next();
 });
@@ -514,6 +531,14 @@ const authenticateToken = (req, res, next) => {
         }
 
         if (dbUser.forcePasswordReset) {
+            // Permitir exclusivamente el endpoint para completar el reseteo forzado de contraseña
+            if (req.path === '/api/auth/reset-password') {
+                req.user = dbUser;
+                req.user.id = String(dbUser._id);
+                req.user.userId = String(dbUser._id);
+                req.sessionId = user.sessionId;
+                return next();
+            }
             return res.status(403).json({
                 code: "PASSWORD_RESET_REQUIRED",
                 message: "Debe reestablecer su contraseña tras la recuperación de emergencia."
@@ -728,7 +753,8 @@ app.post('/api/login', requireJwtConfiguration, enforceLoginRateLimit, async (re
                 name: user.name,
                 deviceId: device.deviceId,
                 deviceName: device.deviceName,
-                deviceStatus: device.status
+                deviceStatus: device.status,
+                forcePasswordReset: Boolean(user.forcePasswordReset)
             });
         }
 
@@ -756,6 +782,47 @@ app.post('/api/login', requireJwtConfiguration, enforceLoginRateLimit, async (re
     } catch (error) {
         console.error("Login Error: ", error);
         res.status(500).json({ message: 'Error interno de autenticacion.' });
+    }
+});
+
+// POST /api/auth/reset-password - Permite cambiar la contraseña obligatoria tras una recuperación de emergencia
+app.post('/api/auth/reset-password', authenticateToken, async (req, res) => {
+    try {
+        const { newPassword } = req.body || {};
+        if (!newPassword || typeof newPassword !== 'string' || newPassword.trim().length < 8) {
+            return res.status(400).json({ 
+                ok: false, 
+                message: 'La nueva contraseña debe tener al menos 8 caracteres.' 
+            });
+        }
+
+        const userId = req.user.id || req.user.userId || req.user._id;
+        const user = await AdminUser.findById(userId);
+        if (!user) {
+            return res.status(404).json({ ok: false, message: 'Usuario no encontrado.' });
+        }
+
+        user.passwordHash = hashPassword(newPassword.trim());
+        user.forcePasswordReset = false;
+        await user.save();
+
+        await logAudit({
+            req,
+            action: 'PASSWORD_RESET_EXITOSO',
+            module: 'seguridad',
+            entityType: 'User',
+            entityId: user._id,
+            entityLabel: user.email,
+            description: `Reseteo forzado de contraseña completado exitosamente para ${user.email}.`
+        });
+
+        res.json({ 
+            ok: true, 
+            message: 'Contraseña actualizada exitosamente. Proceda a reconfigurar su segundo factor (TOTP).' 
+        });
+    } catch (err) {
+        console.error('Error in /api/auth/reset-password:', err);
+        res.status(500).json({ ok: false, message: err.message });
     }
 });
 
@@ -1653,7 +1720,7 @@ app.post('/api/admin/security/sessions/revoke-others', authenticateToken, async 
 app.get('/api/admin/security/devices', authenticateToken, async (req, res) => {
     try {
         const devices = await TrustedDevice.find().sort({ lastSeenAt: -1, createdAt: -1 }).lean();
-        const passkeys = await PasskeyCredential.find({ status: 'active' }).lean();
+        const passkeys = await PasskeyCredential.find({ status: 'active' }).select('-publicKey').lean();
 
         const devicesWithPasskeys = devices.map(d => {
             const linkedPasskeys = passkeys.filter(pk => {
@@ -17759,6 +17826,14 @@ app.post('/api/webhooks/whatsapp', async (req, res) => {
                             const from = msg.from;
                             const text = msg.text?.body || '';
                             const messageId = msg.id;
+
+                            // Idempotencia: omitir mensajes ya procesados previamente (reintentos o duplicados de Meta)
+                            if (messageId) {
+                                const existingLog = await CommunicationLog.findOne({ externalId: messageId });
+                                if (existingLog) {
+                                    continue;
+                                }
+                            }
 
                             // Normalizacion simple para busqueda local
                             let searchPhone = WhatsAppAdapter.formatPhoneNumber(from) || from;

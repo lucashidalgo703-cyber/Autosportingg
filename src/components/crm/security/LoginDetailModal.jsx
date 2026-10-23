@@ -123,9 +123,9 @@ export default function LoginDetailModal({ item, onClose }) {
                             <span>Red e IP Pública</span>
                         </div>
                         <div className="flex items-center justify-between">
-                            <span className="font-mono text-sm font-bold text-white">{item.ip}</span>
+                            <span className="font-mono text-sm font-bold text-white">{item.ip || 'No disponible'}</span>
                             <span className="text-xs text-crm-fg-muted font-semibold">
-                                {item.geoApproximation?.location || 'Zona de red'}
+                                {item.geoApproximation?.location || 'No disponible'}
                             </span>
                         </div>
                         
@@ -133,7 +133,7 @@ export default function LoginDetailModal({ item, onClose }) {
                         <div className="flex items-start gap-2.5 p-3 rounded-lg bg-blue-500/10 border border-blue-500/20 text-blue-200">
                             <Info size={16} className="shrink-0 mt-0.5 text-blue-400" />
                             <p className="text-xs leading-relaxed">
-                                {item.geoApproximation?.disclaimer}
+                                {item.geoApproximation?.disclaimer || 'Aproximada por IP - Puede variar por VPN o proveedor. No constituye dirección física exacta ni prueba de presencia o identidad física.'}
                             </p>
                         </div>
                     </div>

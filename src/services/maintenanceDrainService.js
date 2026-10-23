@@ -24,8 +24,8 @@ export async function checkMaintenanceState() {
             doc: lock || { active: false, mode: 'IDLE' }
         };
         return cachedLock.doc;
-    } catch {
-        return { active: false, mode: 'IDLE' };
+    } catch (err) {
+        return { active: false, mode: 'ERROR_DB', error: err.message };
     }
 }
 
