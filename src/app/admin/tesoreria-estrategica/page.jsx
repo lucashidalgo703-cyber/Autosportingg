@@ -52,6 +52,7 @@ import TreasuryDiagnosticModal from '../../../components/crm/treasury/TreasuryDi
 import TreasuryCategoryRulesTab from '../../../components/crm/treasury/TreasuryCategoryRulesTab';
 import TreasuryPlanningTab from '../../../components/crm/treasury/TreasuryPlanningTab';
 import TreasuryAuditLogTab from '../../../components/crm/treasury/TreasuryAuditLogTab';
+import CapitalReinvestmentLiveSection from '../../../components/crm/treasury/CapitalReinvestmentLiveSection';
 
 function formatNumber(val) {
     return new Intl.NumberFormat('es-AR').format(val || 0);
@@ -1021,6 +1022,13 @@ export default function TesoreriaEstrategicaPage() {
                 >
                     7. Historial y Auditoría
                 </button>
+                <button
+                    type="button"
+                    onClick={() => setActiveTab('capital-reinversion')}
+                    className={`rounded-xl px-4 py-2 transition-colors whitespace-nowrap flex items-center gap-1.5 ${activeTab === 'capital-reinversion' ? 'bg-purple-600 text-white' : 'text-crm-fg-muted hover:bg-crm-surface hover:text-white'}`}
+                >
+                    <Car size={13} /> 8. Capital y Reinversión
+                </button>
             </div>
 
             {/* PESTAÑA 1: CAJAS Y METAS (8 CAJAS COMPLETAS) */}
@@ -1592,6 +1600,10 @@ export default function TesoreriaEstrategicaPage() {
                         </div>
                     </div>
                 </div>
+            )}
+
+            {activeTab === 'capital-reinversion' && (
+                <CapitalReinvestmentLiveSection token={token} treasuryToken={treasuryToken} />
             )}
 
             {/* PESTAÑA 2: BANDEJA DE COBROS ("DISTRIBUIR COBRO") */}

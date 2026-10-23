@@ -79,14 +79,14 @@ function CurrencySection({ currency, totals, liquidity }) {
     );
 }
 
-function OperationCard({ operation }) {
+function OperationCard({ operation, demo }) {
     const reconciled = operation.status === 'conciliado';
     return (
         <article className="rounded-2xl border border-white/10 bg-[#101820] p-4 sm:p-5">
             <div className="flex flex-wrap items-start justify-between gap-3">
                 <div>
                     <h4 className="font-bold text-crm-fg">{operation.vehicleLabel}</h4>
-                    <p className="mt-1 text-xs text-crm-fg-muted">Operación ficticia · {operation.currency}</p>
+                    <p className="mt-1 text-xs text-crm-fg-muted">{demo ? 'Operación ficticia' : 'Operación CRM · solo lectura'} · {operation.currency}</p>
                 </div>
                 <span className={`rounded-full px-3 py-1 text-xs font-semibold ${reconciled ? 'bg-emerald-400/10 text-emerald-300' : 'bg-amber-400/10 text-amber-200'}`}>
                     {reconciled ? 'Conciliado' : 'Pendiente de conciliación'}
@@ -112,6 +112,18 @@ function OperationCard({ operation }) {
                         <p>Extra de reinversión: <strong className="text-crm-fg">{money(operation.distributionRecommendation.extraReinvestmentToStock, operation.currency)}</strong></p>
                         <p>Sin asignar: <strong className="text-crm-fg">{money(operation.distributionRecommendation.pendingDistributionAmount, operation.currency)}</strong></p>
                     </div>
+                </details>
+            )}
+            {operation.waterfallReconciliation && (
+                <details className="mt-4 rounded-xl border border-white/10 bg-white/[0.02] p-3">
+                    <summary className="cursor-pointer text-sm font-semibold text-crm-fg">Conciliación contra distribuciones de Tesorería · {operation.waterfallReconciliation.status === 'conciliado' ? 'conciliada' : 'pendiente'}</summary>
+                    <p className="mt-2 text-xs text-crm-fg-muted">Venta: {operation.waterfallReconciliation.saleDate ? new Date(operation.waterfallReconciliation.saleDate).toLocaleDateString('es-AR') : 'sin fecha disponible'}. Valores de origen comparados con el cálculo proyectado; moneda {operation.currency}.</p>
+                    <div className="mt-3 grid gap-2 text-xs sm:grid-cols-2">
+                        {Object.entries(operation.waterfallReconciliation.differences).map(([key, difference]) => (
+                            <p key={key} className="text-crm-fg-muted">Diferencia {key}: <strong className="font-mono text-crm-fg">{difference === null ? 'No comparable' : money(difference, operation.currency)}</strong></p>
+                        ))}
+                    </div>
+                    {operation.waterfallReconciliation.reason && <p className="mt-2 text-xs text-amber-200">{operation.waterfallReconciliation.reason}</p>}
                 </details>
             )}
             {operation.warnings.length > 0 && (
@@ -171,7 +183,7 @@ export default function CapitalReinvestmentPanel({ projection }) {
                     <p className="text-xs text-crm-fg-muted">ARS y USD se muestran por separado; no se convierten ni se suman entre sí.</p>
                 </div>
                 <div className="grid gap-3 xl:grid-cols-2">
-                    {projection.operations.map((operation) => <OperationCard key={operation.id} operation={operation} />)}
+                    {projection.operations.map((operation) => <OperationCard key={operation.id} operation={operation} demo={projection.demo} />)}
                 </div>
             </section>
 

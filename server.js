@@ -61,6 +61,7 @@ import { getNextLeadAssignee, checkLeadSLA } from './src/services/leadRoutingSer
 import { logAudit, logSystemAudit } from './src/utils/auditLogger.js';
 import { getDolarBlueRate, setManualDolarBlueRate, getDolarBlueHistoricalSeries, resolveHistoricalRate } from './src/services/dolarService.js';
 import * as treasuryStrategicService from './src/services/treasuryStrategicService.js';
+import { getCapitalReinvestmentProjection } from './src/services/capitalReinvestmentReadAdapter.js';
 import OfflineSyncOperation from './src/models/OfflineSyncOperation.js';
 import { hasPermission, PERMISSIONS, ROLES } from './src/utils/adminPermissions.js';
 import { CloudinaryStorage } from 'multer-storage-cloudinary';
@@ -11976,6 +11977,18 @@ const requireTreasuryPrivilegedRole = (req, res, next) => {
         message: 'Acceso restringido únicamente al propietario o administrador general.'
     });
 };
+
+// Capital y Reinversión: snapshot analítico de solo lectura, protegido por la misma sesión PIN.
+app.get('/api/admin/capital-reinversion/projection', authenticateToken, requireTreasuryPrivilegedRole, verifyTreasuryStrategicAuth, async (req, res) => {
+    try {
+        const projection = await getCapitalReinvestmentProjection();
+        res.set('Cache-Control', 'no-store');
+        res.json({ ok: true, projection });
+    } catch (error) {
+        console.error('GET /api/admin/capital-reinversion/projection error:', error);
+        res.status(500).json({ ok: false, message: 'No se pudo calcular la proyección de Capital y Reinversión.' });
+    }
+});
 
 // 1. Estado de seguridad (sin exponer PIN)
 app.get('/api/admin/tesoreria-estrategica/status', authenticateToken, requireTreasuryPrivilegedRole, async (req, res) => {
