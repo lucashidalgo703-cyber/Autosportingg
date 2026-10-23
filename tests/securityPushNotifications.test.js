@@ -710,4 +710,101 @@ test('Seguridad Web Push y Alertas Móviles: Suite de Pruebas Obligatorias (17/1
         assert.equal(sendAttempt.success, false);
         assert.equal(sendAttempt.status, 'revoked');
     });
+
+    // 22. Recuperación automática de tareas 'processing' abandonadas por reciclado serverless
+    await t.test('22. Recuperación automática de tareas processing abandonadas por reciclado de contenedores', async () => {
+        const sub = await PushSubscription.findOne({ status: 'active', userId: String(ownerUser._id) });
+        assert.ok(sub);
+
+        // Crear una tarea simulando que un contenedor serverless murió a mitad del proceso hace 10 minutos
+        const tenMinutesAgo = new Date(Date.now() - 10 * 60 * 1000);
+        const abandonedLog = await PushDeliveryLog.create({
+            logId: `plog_abandoned_${Date.now()}`,
+            idempotencyKey: `alt_abandoned_01:${sub.subscriptionId}`,
+            alertId: 'alt_abandoned_01',
+            subscriptionId: sub.subscriptionId,
+            endpointHash: sub.endpointHash,
+            eventType: 'REVOKED_DEVICE_ACCESS',
+            severity: 'critical',
+            status: 'processing',
+            attempt: 1,
+            maxAttempts: 3,
+            updatedAt: tenMinutesAgo,
+            payload: { title: 'Alerta Crítica Recuperada' }
+        });
+
+        // Forzar la fecha updatedAt vieja en MongoDB (desactivando el timestamp hook de Mongoose)
+        await PushDeliveryLog.updateOne(
+            { _id: abandonedLog._id },
+            { $set: { updatedAt: tenMinutesAgo } },
+            { timestamps: false }
+        );
+
+        const mockSuccess = {
+            sendNotification: async () => ({ statusCode: 201 })
+        };
+
+        // Ejecutar drenaje: debe detectar el bloqueo abandonado, registrar la recuperación y completarla
+        const drainResult = await processPendingPushDeliveries({ limit: 10, customClient: mockSuccess });
+        assert.ok(drainResult.successful > 0, 'La tarea abandonada debió ser procesada exitosamente');
+
+        const recoveredDoc = await PushDeliveryLog.findById(abandonedLog._id);
+        assert.equal(recoveredDoc.status, 'accepted');
+        assert.equal(recoveredDoc.statusCode, 201);
+        const hasRecoveredHistory = recoveredDoc.attemptsHistory.some(h => h.error === 'ABANDONED_PROCESSING_RECOVERED_BY_DRAIN');
+        assert.ok(hasRecoveredHistory, 'Debe quedar constancia de auditoría de la recuperación de bloqueo');
+    });
+
+    // 23. Generación concurrente atómica de claves VAPID compartidas
+    await t.test('23. Generación concurrente atómica de claves VAPID compartidas en cold-start', async () => {
+        delete process.env.VAPID_PUBLIC_KEY;
+        delete process.env.VAPID_PRIVATE_KEY;
+        _resetVapidCache();
+        await PushSystemConfig.deleteMany({ key: 'vapid_keys_concurrent_test' });
+
+        // Simular 5 instancias serverless ejecutando inicialización en el mismo milisegundo
+        const promises = Array.from({ length: 5 }, () => getOrInitializeVapidKeysAsync());
+        const results = await Promise.all(promises);
+
+        const firstPublicKey = results[0].publicKey;
+        const firstPrivateKey = results[0].privateKey;
+
+        for (let i = 1; i < results.length; i++) {
+            assert.equal(results[i].publicKey, firstPublicKey, `Instancia ${i} debe tener exactamente la misma clave pública`);
+            assert.equal(results[i].privateKey, firstPrivateKey, `Instancia ${i} debe tener exactamente la misma clave privada`);
+        }
+    });
+
+    // 24. Control de ráfaga para alertas críticas sin silenciar el primer evento
+    await t.test('24. Control de ráfaga para alertas críticas sin silenciar eventos iniciales', async () => {
+        _resetRateLimit();
+
+        const criticalAlert = {
+            alertId: 'alt_burst_critical',
+            type: 'REVOKED_DEVICE_ACCESS',
+            severity: 'critical',
+            title: 'Intento con equipo revocado',
+            description: 'Ataque en ráfaga'
+        };
+
+        const mockClient = {
+            sendNotification: async () => ({ statusCode: 201 })
+        };
+
+        let dispatchedCount = 0;
+        let aggregatedCount = 0;
+
+        // Disparar 10 alertas críticas en ráfaga
+        for (let i = 0; i < 10; i++) {
+            const res = await dispatchAlertPushNotification(criticalAlert, { customClient: mockClient });
+            if (res.dispatched) {
+                dispatchedCount++;
+            } else if (res.reason === 'CRITICAL_BURST_LIMIT_AGGREGATED_IN_DB') {
+                aggregatedCount++;
+            }
+        }
+
+        assert.equal(dispatchedCount, 5, 'Deben despacharse exactamente las primeras 5 alertas críticas');
+        assert.equal(aggregatedCount, 5, 'Las siguientes 5 deben ser agrupadas en BD sin saturar el teléfono');
+    });
 });

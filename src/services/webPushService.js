@@ -18,8 +18,11 @@ let cachedVapidKeys = null;
 
 // Memoria de control de tasa para prevenir tormentas de alertas en alta prioridad
 const dispatchHistory = [];
+const criticalDispatchHistory = [];
 const RATE_LIMIT_WINDOW_MS = 10 * 60 * 1000; // 10 minutos
 const MAX_NON_CRITICAL_PUSH_PER_WINDOW = 10;
+const CRITICAL_BURST_WINDOW_MS = 2 * 60 * 1000; // 2 minutos
+const MAX_CRITICAL_BURST_PER_WINDOW = 5;
 
 /**
  * Obtiene o inicializa las claves VAPID del sistema de forma persistente.
@@ -383,6 +386,27 @@ function checkNonCriticalRateLimit() {
 }
 
 /**
+ * Control de ráfaga para alertas críticas
+ * Permite hasta 5 alertas críticas por ventana de 2 minutos.
+ * Si se supera, evita saturar el dispositivo móvil y agrupa las alertas manteniendo trazabilidad en BD.
+ */
+function checkCriticalBurstLimit() {
+    const now = Date.now();
+    const cutoff = now - CRITICAL_BURST_WINDOW_MS;
+
+    while (criticalDispatchHistory.length > 0 && criticalDispatchHistory[0] < cutoff) {
+        criticalDispatchHistory.shift();
+    }
+
+    if (criticalDispatchHistory.length >= MAX_CRITICAL_BURST_PER_WINDOW) {
+        return false;
+    }
+
+    criticalDispatchHistory.push(now);
+    return true;
+}
+
+/**
  * Encola una notificación persistente en MongoDB con clave de idempotencia
  */
 export async function enqueuePushNotification({ subscription, payload, alert }) {
@@ -598,6 +622,11 @@ export async function dispatchAlertPushNotification(alert, { customClient = null
         if (!checkNonCriticalRateLimit()) {
             return { dispatched: false, reason: 'RATE_LIMIT_EXCEEDED_ALERT_STORM_PROTECTION' };
         }
+    } else {
+        // Alertas críticas: control de ráfaga para evitar spam masivo en teléfono (máx 5 en 2 min)
+        if (!checkCriticalBurstLimit()) {
+            return { dispatched: false, priority: 'critical', reason: 'CRITICAL_BURST_LIMIT_AGGREGATED_IN_DB' };
+        }
     }
 
     // Buscar propietarios activos
@@ -640,14 +669,23 @@ export async function dispatchAlertPushNotification(alert, { customClient = null
 }
 
 /**
- * Procesa y reintenta las entregas pendientes o fallidas almacenadas en MongoDB
- * Mecanismo seguro para ejecución en serverless (cron de Vercel o drenaje)
+ * Procesa y reintenta las entregas pendientes, fallidas o abandonadas almacenadas en MongoDB
+ * Mecanismo seguro para ejecución en serverless (cron de Vercel, drenaje o recuperación de bloqueos)
  */
-export async function processPendingPushDeliveries({ limit = 20, customClient = null } = {}) {
+export async function processPendingPushDeliveries({ 
+    limit = 20, 
+    customClient = null, 
+    staleTimeoutMs = 5 * 60 * 1000 
+} = {}) {
     const now = new Date();
+    const staleThreshold = new Date(now.getTime() - staleTimeoutMs);
+
+    // Recupera tareas pendientes/fallidas programadas Y tareas en 'processing' abandonadas por contenedores serverless reciclados
     const pendingLogs = await PushDeliveryLog.find({
-        status: { $in: ['pending', 'failed'] },
-        nextRetryAt: { $lte: now }
+        $or: [
+            { status: { $in: ['pending', 'failed'] }, nextRetryAt: { $lte: now } },
+            { status: 'processing', updatedAt: { $lte: staleThreshold } }
+        ]
     }).limit(limit);
 
     if (!pendingLogs || pendingLogs.length === 0) {
@@ -664,6 +702,16 @@ export async function processPendingPushDeliveries({ limit = 20, customClient = 
             log.error = 'Suscripción inactiva o eliminada';
             await log.save();
             continue;
+        }
+
+        // Si estaba abandonada en 'processing', registrar la recuperación de bloqueo en su historial
+        if (log.status === 'processing') {
+            log.attemptsHistory.push({
+                attempt: log.attempt,
+                statusCode: null,
+                error: 'ABANDONED_PROCESSING_RECOVERED_BY_DRAIN',
+                timestamp: new Date()
+            });
         }
 
         const alertStub = {
@@ -745,6 +793,7 @@ export async function sendTestPushNotification({ userId, deviceName = null, cust
 // Reset para suites de pruebas
 export function _resetRateLimit() {
     dispatchHistory.length = 0;
+    criticalDispatchHistory.length = 0;
 }
 
 export function _resetVapidCache() {

@@ -20181,6 +20181,35 @@ const handleLeadSlaCron = async (req, res) => {
 app.get('/api/internal/jobs/lead-sla', handleLeadSlaCron);
 app.post('/api/internal/jobs/lead-sla', handleLeadSlaCron);
 
+const handlePushDrainCron = async (req, res) => {
+    try {
+        const cronSecret = process.env.CRON_SECRET || process.env.INTERNAL_SERVICE_KEY;
+
+        if (process.env.NODE_ENV === 'production' && (!cronSecret || cronSecret.trim() === '')) {
+            return res.status(503).json({ message: 'CRON_SECRET not configured' });
+        }
+
+        const authHeader = req.headers['authorization'];
+        const isAuthorized = 
+            (cronSecret && authHeader === `Bearer ${cronSecret}`) ||
+            (process.env.NODE_ENV !== 'production' && (req.headers['x-internal-job'] === 'push-drain' || !cronSecret));
+
+        if (!isAuthorized) {
+            return res.status(401).json({ message: 'Unauthorized cron request' });
+        }
+
+        const limit = Math.min(Number(req.query?.limit || req.body?.limit) || 25, 100);
+        const result = await processPendingPushDeliveries({ limit });
+        res.json({ ok: true, source: 'cron', ...result });
+    } catch (err) {
+        console.error('Error running push drain cron:', err);
+        res.status(500).json({ error: err.message });
+    }
+};
+
+app.get('/api/internal/jobs/push-drain', handlePushDrainCron);
+app.post('/api/internal/jobs/push-drain', handlePushDrainCron);
+
 // ==========================================
 
 if (process.env.NODE_ENV !== 'production') {
