@@ -3385,7 +3385,9 @@ export async function syncExpenseWithTreasury(tx, options = {}) {
     if (!tx || tx.type !== 'Egreso') return;
     if (EXCLUDED_INBOX_CATEGORIES.includes(tx.category)) return;
     if (tx.category === 'compra_vehiculo' || tx.category === 'Pago compra vehículo' || tx.category === 'Pago Empresas') return;
-    if (tx.isTreasuryExpenseSynced) return;
+    // Una marca de sincronización activa no debe impedir procesar el cambio de
+    // estado que revierte un gasto previamente debitado.
+    if (tx.isTreasuryExpenseSynced && !options.statusChanged) return;
 
     await ensureDefaultBoxes();
     await ensureDefaultCategoryRules();
@@ -3485,27 +3487,74 @@ export async function syncExpenseWithTreasury(tx, options = {}) {
             tx.isTreasuryExpenseSynced = true;
             await tx.save();
         } else if ((options.oldStatus === 'activo' || options.oldStatus === 'Completado') && !isActivo) {
-            // Revertir efecto en caja una sola vez si se anuló o volvió a pendiente
-            if (curr === 'USD') {
-                box.balanceUSD = roundMoney((box.balanceUSD || 0) + amt);
-                if (isPendiente) box.pendingCommitmentsUSD = roundMoney((box.pendingCommitmentsUSD || 0) + amt);
-            } else {
-                box.balanceARS = roundMoney((box.balanceARS || 0) + amt);
-                if (isPendiente) box.pendingCommitmentsARS = roundMoney((box.pendingCommitmentsARS || 0) + amt);
+            // La reversión debe corresponder a un débito auditable. El filtro
+            // condicional y la escritura atómica en un único documento evitan
+            // que dos reintentos concurrentes acrediten dos veces el gasto.
+            const sourceExpenseId = tx._id;
+            const hasOriginalDebit = (box.history || []).some((entry) =>
+                entry.type === 'egreso_finanzas' && String(entry.sourceExpenseId) === String(sourceExpenseId)
+            );
+            const alreadyReversed = (box.history || []).some((entry) =>
+                entry.type === 'reversion_egreso' && String(entry.sourceExpenseId) === String(sourceExpenseId)
+            );
+
+            if (!hasOriginalDebit && !alreadyReversed) {
+                throw new Error(`No se puede revertir el gasto ${sourceExpenseId}: no existe un débito de Tesorería asociado para conciliar.`);
             }
 
-            box.history.push({
+            const reversalEntry = {
                 date: new Date(),
                 type: 'reversion_egreso',
                 amount: amt,
                 currency: curr,
                 reason: `Reversión de Gasto Finanzas #${tx._id} (Estado: ${tx.status})`,
                 user: options.user || 'Sistema',
-                sourceExpenseId: tx._id
+                sourceExpenseId
+            };
+            const balanceField = curr === 'USD' ? 'balanceUSD' : 'balanceARS';
+            const pendingField = curr === 'USD' ? 'pendingCommitmentsUSD' : 'pendingCommitmentsARS';
+            const roundedAdd = (field, value) => ({
+                $round: [{ $add: [{ $ifNull: [`$${field}`, 0] }, value] }, 2]
             });
-            await box.save();
+            const atomicSet = {
+                [balanceField]: roundedAdd(balanceField, amt),
+                history: { $concatArrays: [{ $ifNull: ['$history', []] }, { $literal: [reversalEntry] }] }
+            };
+            if (isPendiente) atomicSet[pendingField] = roundedAdd(pendingField, amt);
+
+            if (hasOriginalDebit && !alreadyReversed) {
+                const result = await TreasuryBox.updateOne(
+                    {
+                        key: boxKey,
+                        history: {
+                            $elemMatch: { type: 'egreso_finanzas', sourceExpenseId }
+                        },
+                        $nor: [{
+                            history: {
+                                $elemMatch: { type: 'reversion_egreso', sourceExpenseId }
+                            }
+                        }]
+                    },
+                    [{ $set: atomicSet }],
+                    { updatePipeline: true }
+                );
+
+                if (result.modifiedCount !== 1) {
+                    const currentBox = await TreasuryBox.findOne({ key: boxKey }).lean();
+                    const reversalWasRecorded = (currentBox?.history || []).some((entry) =>
+                        entry.type === 'reversion_egreso' && String(entry.sourceExpenseId) === String(sourceExpenseId)
+                    );
+                    if (!reversalWasRecorded) {
+                        throw new Error(`No se pudo confirmar la reversión del gasto ${sourceExpenseId}; el saldo no fue acreditado.`);
+                    }
+                }
+            }
+
+            await Transaction.updateOne(
+                { _id: tx._id },
+                { $set: { isTreasuryExpenseSynced: false } }
+            );
             tx.isTreasuryExpenseSynced = false;
-            await tx.save();
         }
     }
 }
