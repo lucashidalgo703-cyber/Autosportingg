@@ -296,4 +296,3 @@ export async function getCapitalReinvestmentProjection(models, options) {
     projection.unresolvedCapitalAllocationIds = projection.unresolvedCapitalAllocationIds.length;
     return projection;
 }
-
