@@ -16,6 +16,10 @@ export function browserSupportsWebAuthn() {
     );
 }
 
+// Alias de exportación retrocompatible requerido por Login.jsx y TwoFactorConfigPage
+export const isWebAuthnSupported = browserSupportsWebAuthn;
+export const fetchUserPasskeys = listUserPasskeys;
+
 /**
  * Comprueba si el autenticador de plataforma está disponible (Windows Hello, Touch ID, Face ID)
  */

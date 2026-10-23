@@ -216,7 +216,7 @@ async function startDemo() {
 
     const cleanChildEnv = filterDemoChildProcessEnv(process.env, explicitDemoVars);
 
-    nextProcess = spawn(process.execPath, [nextBin, 'dev', '-p', '3000', '-H', '127.0.0.1'], {
+    nextProcess = spawn(process.execPath, [nextBin, 'dev', '-p', '3000'], {
         cwd: rootDir,
         env: cleanChildEnv,
         stdio: ['ignore', 'pipe', 'pipe']
