@@ -62,6 +62,14 @@ const menuGroups = [
                 badge: 'PIN',
                 prefetch: false,
                 isPrivate: true
+            },
+            {
+                name: 'Centro de Seguridad',
+                path: '/admin/seguridad',
+                icon: '🛡️',
+                badge: 'OWNER',
+                prefetch: false,
+                isPrivate: true
             }
         ]
     },
@@ -124,6 +132,7 @@ export default function CrmSidebar({ isOpen, onClose }) {
         if (itemName === 'Finanzas') return hasPermission(user, PERMISSIONS.FINANZAS_READ);
         if (itemName === 'Tesorería') return hasPermission(user, PERMISSIONS.CAJA_READ) || hasPermission(user, PERMISSIONS.FINANZAS_READ);
         if (itemName === 'Tesorería Estratégica') return user?.role === 'owner' || user?.role === 'admin';
+        if (itemName === 'Centro de Seguridad') return user?.role === 'owner';
         if (itemName === 'Liquidaciones') return hasPermission(user, PERMISSIONS.LIQUIDACIONES_READ);
         if (itemName === 'Mis comisiones') return hasPermission(user, PERMISSIONS.COMISIONES_READ);
         if (itemName === 'Mensajes') return hasPermission(user, PERMISSIONS.MENSAJES_READ);

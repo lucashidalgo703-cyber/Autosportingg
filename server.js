@@ -74,6 +74,20 @@ import {
     revokePasskey
 } from './src/services/passkeySecurityService.js';
 import { checkMaintenanceState } from './src/services/maintenanceDrainService.js';
+import SecurityAlert from './src/models/SecurityAlert.js';
+import {
+    getSecurityOverviewMetrics,
+    getLoginHistory,
+    getSecurityAlerts,
+    reviewSecurityAlert,
+    evaluateLoginFailureAlerts,
+    triggerMfaFailureAlert,
+    triggerRevokedDeviceAlert,
+    triggerInvalidSessionAlert,
+    triggerPasskeyAlert,
+    triggerDeviceRegisteredAlert,
+    triggerAuthConfigChangeAlert
+} from './src/services/securityAlertService.js';
 import { getTrustedClientIp } from './src/utils/securityIpResolver.js';
 import { 
     resolveDeviceOnLogin, 
@@ -729,6 +743,14 @@ app.post('/api/login', requireJwtConfiguration, enforceLoginRateLimit, async (re
             description: `Intento de login fallido para ${normalizedEmail}`
         });
 
+        evaluateLoginFailureAlerts({
+            ip: getTrustedClientIp(req),
+            userEmail: normalizedEmail,
+            userAgent: req.headers['user-agent'],
+            deviceId: req.headers['x-device-id'] || req.body?.deviceId,
+            req
+        }).catch(() => {});
+
         res.status(401).json({ message: 'Credenciales invalidas.' });
 
     } catch (error) {
@@ -805,6 +827,12 @@ app.post('/api/login/2fa', requireJwtConfiguration, async (req, res) => {
         }
 
         if (!isVerified) {
+            triggerMfaFailureAlert({
+                userEmail: user.email,
+                ip: getTrustedClientIp(req),
+                userAgent: req.headers['user-agent'],
+                deviceId: req.headers['x-device-id'] || req.body?.deviceId
+            }).catch(() => {});
             return res.status(401).json({ message: 'Código inválido.' });
         }
 
@@ -1358,6 +1386,13 @@ app.post('/api/admin/devices/authorize', authenticateToken, async (req, res) => 
             ownerUser: req.user,
             req
         });
+        triggerDeviceRegisteredAlert({
+            deviceId,
+            deviceName: targetName,
+            userEmail: req.user.email,
+            ip: getTrustedClientIp(req),
+            authMethod: verificationCode ? 'MFA TOTP' : 'Código de Recuperación'
+        }).catch(() => {});
         res.json({ ok: true, device });
     } catch (err) {
         res.status(err.status || 500).json({ message: err.message });
@@ -1375,6 +1410,12 @@ app.post('/api/admin/devices/:deviceId/revoke', authenticateToken, async (req, r
             ownerUser: req.user,
             req
         });
+        triggerRevokedDeviceAlert({
+            deviceId,
+            deviceName: result.device?.deviceName || deviceId,
+            userEmail: req.user.email,
+            ip: getTrustedClientIp(req)
+        }).catch(() => {});
         res.json({ ok: true, ...result });
     } catch (err) {
         res.status(err.status || 500).json({ message: err.message });
@@ -1439,6 +1480,200 @@ app.post('/api/admin/audit/view-car', authenticateToken, async (req, res) => {
     }
 });
 
+
+// =========================================================================
+// CENTRO DE SEGURIDAD — ENDPOINTS ADMINISTRATIVOS (EXCLUSIVO PROPIETARIO)
+// =========================================================================
+
+// GET /api/admin/security/overview - KPIs y Métricas en tiempo real
+app.get('/api/admin/security/overview', authenticateToken, async (req, res) => {
+    try {
+        const period = req.query.period || '24h';
+        const data = await getSecurityOverviewMetrics({ period });
+        res.json({ ok: true, ...data });
+    } catch (err) {
+        console.error('Error in /api/admin/security/overview:', err);
+        res.status(500).json({ ok: false, message: err.message });
+    }
+});
+
+// GET /api/admin/security/logins - Historial detallado de inicios de sesión
+app.get('/api/admin/security/logins', authenticateToken, async (req, res) => {
+    try {
+        const { page, limit, search, status, method, period } = req.query;
+        const data = await getLoginHistory({ page, limit, search, status, method, period });
+        res.json({ ok: true, ...data });
+    } catch (err) {
+        console.error('Error in /api/admin/security/logins:', err);
+        res.status(500).json({ ok: false, message: err.message });
+    }
+});
+
+// GET /api/admin/security/alerts - Listado paginado de alertas automáticas
+app.get('/api/admin/security/alerts', authenticateToken, async (req, res) => {
+    try {
+        const { status, severity, page, limit } = req.query;
+        const data = await getSecurityAlerts({ status, severity, page, limit });
+        res.json({ ok: true, ...data });
+    } catch (err) {
+        console.error('Error in /api/admin/security/alerts:', err);
+        res.status(500).json({ ok: false, message: err.message });
+    }
+});
+
+// PATCH /api/admin/security/alerts/:id/review - Marcar alerta como revisada
+app.patch('/api/admin/security/alerts/:id/review', authenticateToken, async (req, res) => {
+    try {
+        const { notes } = req.body || {};
+        const alert = await reviewSecurityAlert({
+            alertId: req.params.id,
+            reviewedBy: {
+                userId: String(req.user.id || req.user.userId || req.user._id),
+                name: req.user.name,
+                email: req.user.email
+            },
+            notes
+        });
+
+        await logAudit({
+            req,
+            action: 'SECURITY_ALERT_REVIEWED',
+            module: 'seguridad',
+            entityType: 'SecurityAlert',
+            entityId: alert.alertId,
+            entityLabel: alert.title,
+            description: `Alerta de seguridad '${alert.title}' (${alert.alertId}) marcada como revisada por ${req.user.email}.`,
+            metadata: { alertId: alert.alertId, notes }
+        });
+
+        res.json({ ok: true, alert });
+    } catch (err) {
+        console.error('Error in /api/admin/security/alerts/:id/review:', err);
+        res.status(err.status || 500).json({ ok: false, message: err.message });
+    }
+});
+
+// GET /api/admin/security/sessions - Sesiones de usuario activas
+app.get('/api/admin/security/sessions', authenticateToken, async (req, res) => {
+    try {
+        const userId = req.user.id || req.user.userId || req.user._id;
+        const sessions = await UserSession.find({
+            userId,
+            status: 'active'
+        }).sort({ createdAt: -1 }).lean();
+
+        const enrichedSessions = sessions.map(s => ({
+            ...s,
+            isCurrent: s.sessionId === req.sessionId
+        }));
+
+        res.json({ ok: true, sessions: enrichedSessions, currentSessionId: req.sessionId });
+    } catch (err) {
+        console.error('Error in /api/admin/security/sessions:', err);
+        res.status(500).json({ ok: false, message: err.message });
+    }
+});
+
+// POST /api/admin/security/sessions/:sessionId/revoke - Revocar sesión individual
+app.post('/api/admin/security/sessions/:sessionId/revoke', authenticateToken, async (req, res) => {
+    try {
+        const { sessionId } = req.params;
+        const session = await UserSession.findOneAndUpdate(
+            { sessionId, status: 'active' },
+            {
+                $set: {
+                    status: 'revoked',
+                    revokedAt: new Date(),
+                    revocationReason: 'Revocada manualmente por el propietario desde el Centro de Seguridad'
+                }
+            },
+            { new: true }
+        );
+
+        if (!session) {
+            return res.status(404).json({ ok: false, message: 'Sesión no encontrada o ya finalizada' });
+        }
+
+        await logAudit({
+            req,
+            action: 'SESION_REVOCADA_MANUAL',
+            module: 'seguridad',
+            entityType: 'UserSession',
+            entityId: sessionId,
+            entityLabel: session.deviceName || sessionId,
+            description: `Sesión ${sessionId} revocada manualmente desde el Centro de Seguridad.`
+        });
+
+        res.json({ ok: true, message: 'Sesión revocada exitosamente' });
+    } catch (err) {
+        console.error('Error in /api/admin/security/sessions/:sessionId/revoke:', err);
+        res.status(500).json({ ok: false, message: err.message });
+    }
+});
+
+// POST /api/admin/security/sessions/revoke-others - Revocar todas las demás sesiones
+app.post('/api/admin/security/sessions/revoke-others', authenticateToken, async (req, res) => {
+    try {
+        const userId = req.user.id || req.user.userId || req.user._id;
+        const currentSessionId = req.sessionId;
+
+        const result = await UserSession.updateMany(
+            {
+                userId,
+                sessionId: { $ne: currentSessionId },
+                status: 'active'
+            },
+            {
+                $set: {
+                    status: 'revoked',
+                    revokedAt: new Date(),
+                    revocationReason: 'Cierre masivo de otras sesiones por el propietario'
+                }
+            }
+        );
+
+        await logAudit({
+            req,
+            action: 'SESIONES_MULTIPLES_REVOCADAS',
+            module: 'seguridad',
+            entityType: 'UserSession',
+            entityId: currentSessionId,
+            entityLabel: `Todas excepto ${currentSessionId}`,
+            description: `Se cerraron ${result.modifiedCount} sesiones activas excepto la sesión actual.`
+        });
+
+        res.json({ ok: true, revokedCount: result.modifiedCount });
+    } catch (err) {
+        console.error('Error in /api/admin/security/sessions/revoke-others:', err);
+        res.status(500).json({ ok: false, message: err.message });
+    }
+});
+
+// GET /api/admin/security/devices - Dispositivos autorizados con passkeys vinculadas
+app.get('/api/admin/security/devices', authenticateToken, async (req, res) => {
+    try {
+        const devices = await TrustedDevice.find().sort({ lastSeenAt: -1, createdAt: -1 }).lean();
+        const passkeys = await PasskeyCredential.find({ status: 'active' }).lean();
+
+        const devicesWithPasskeys = devices.map(d => {
+            const linkedPasskeys = passkeys.filter(pk => {
+                const dName = (d.deviceName || '').toLowerCase();
+                const pkName = (pk.name || '').toLowerCase();
+                return (dName.includes('agencia') && pkName.includes('agencia')) ||
+                       (dName.includes('privada') && pkName.includes('privada'));
+            });
+            return {
+                ...d,
+                passkeys: linkedPasskeys
+            };
+        });
+
+        res.json({ ok: true, devices: devicesWithPasskeys, totalPasskeys: passkeys.length });
+    } catch (err) {
+        console.error('Error in /api/admin/security/devices:', err);
+        res.status(500).json({ ok: false, message: err.message });
+    }
+});
 
 app.get('/api/public/cars', async (req, res) => {
     try {
@@ -17412,6 +17647,14 @@ app.post('/api/admin/passkeys/verify', authenticateToken, async (req, res) => {
             req
         });
 
+        triggerPasskeyAlert({
+            event: 'REGISTERED',
+            userEmail: user.email,
+            passkeyName: name,
+            credentialId: result.credentialId,
+            ip: getTrustedClientIp(req)
+        }).catch(() => {});
+
         res.json(result);
     } catch (error) {
         res.status(error.status || 500).json({ message: error.message, code: error.code });
@@ -17436,6 +17679,14 @@ app.post('/api/admin/passkeys/:credentialId/revoke', authenticateToken, async (r
             reason: req.body?.reason,
             req
         });
+
+        triggerPasskeyAlert({
+            event: 'REVOKED',
+            userEmail: user.email,
+            passkeyName: result.name || req.params.credentialId,
+            credentialId: req.params.credentialId,
+            ip: getTrustedClientIp(req)
+        }).catch(() => {});
 
         res.json(result);
     } catch (error) {

@@ -368,7 +368,7 @@ export async function validateSessionAndDevice({ sessionId, user, deviceId }) {
 
     try {
         const session = await UserSession.findOne({ sessionId })
-            .select('status deviceId deviceName deviceStatus userId')
+            .select('sessionId status deviceId deviceName deviceStatus userId')
             .lean();
 
         if (!session || session.status !== 'active') {

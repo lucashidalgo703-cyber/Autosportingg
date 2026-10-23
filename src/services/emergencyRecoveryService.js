@@ -134,6 +134,12 @@ export async function executeOwnerEmergencyRecovery({
     });
     await auditRecord.save();
 
+    // 8. Disparar alerta automática de seguridad
+    try {
+        const { triggerEmergencyRecoveryAlert } = await import('./securityAlertService.js');
+        await triggerEmergencyRecoveryAlert({ userEmail: owner.email, reason });
+    } catch {}
+
     return {
         success: true,
         email: owner.email,
