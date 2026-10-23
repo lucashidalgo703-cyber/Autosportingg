@@ -439,9 +439,9 @@ export default function TwoFactorConfigPage() {
                 onClose={() => setRegisterPasskeyModal(false)}
                 onConfirm={handleRegisterPasskey}
                 title="Registrar Nueva Passkey"
-                message="Asignale un nombre descriptivo a esta credencial (ej. AutoSporting — PRUEBA LOCAL):"
+                message="Asignale un nombre descriptivo a esta credencial (ej. PC Agencia, PC Privada, iPhone Personal):"
                 label="Nombre del Dispositivo"
-                placeholder="AutoSporting — PRUEBA LOCAL"
+                placeholder="PC Agencia"
                 variant="primary"
                 confirmText="Comenzar Registro"
             />

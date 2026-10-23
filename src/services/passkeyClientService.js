@@ -1,47 +1,70 @@
-import {
-    browserSupportsWebAuthn,
-    platformAuthenticatorIsAvailable,
-    startAuthentication,
-    startRegistration
-} from '@simplewebauthn/browser';
-import {
-    getPersistentDeviceId,
-    getOrCreateDeviceKeyPair,
-    requestAndSignDeviceChallenge
-} from './deviceSecurityService.js';
+import { startRegistration, startAuthentication } from '@simplewebauthn/browser';
 
 /**
- * Comprueba si el navegador actual soporta WebAuthn / Passkeys
+ * Servicio del cliente para gestionar Passkeys (WebAuthn / FIDO2)
+ * Diseñado exclusivamente para el navegador del propietario (Windows Hello / Touch ID / Hardware Keys)
  */
-export function isWebAuthnSupported() {
-    return browserSupportsWebAuthn();
+
+/**
+ * Comprueba si el navegador actual soporta WebAuthn y Passkeys
+ */
+export function browserSupportsWebAuthn() {
+    return (
+        typeof window !== 'undefined' &&
+        window.PublicKeyCredential !== undefined &&
+        typeof window.PublicKeyCredential === 'function'
+    );
 }
 
 /**
- * Comprueba si el dispositivo cuenta con autenticador de plataforma
- * (Windows Hello, Touch ID, Face ID, PIN del dispositivo)
+ * Comprueba si el autenticador de plataforma está disponible (Windows Hello, Touch ID, Face ID)
  */
 export async function isPlatformAuthenticatorReady() {
+    if (!browserSupportsWebAuthn()) return false;
     try {
-        if (!browserSupportsWebAuthn()) return false;
-        return await platformAuthenticatorIsAvailable();
+        if (typeof window.PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable === 'function') {
+            return await window.PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable();
+        }
+        return false;
     } catch {
         return false;
     }
 }
 
 /**
- * Registra una nueva Passkey desde el Centro de Seguridad
- * @param {string} name - Nombre asignado por el propietario (ej. 'PC Agencia', 'iPhone')
- * @param {string} token - Token JWT de sesión del propietario
- * @param {string} baseUrl - URL base de la API (opcional)
+ * Registra una nueva Passkey desde el Centro de Seguridad o Configuración 2FA
+ * @param {Object} options
+ * @param {string} [options.name] - Nombre asignado por el propietario (ej. 'PC Agencia', 'iPhone')
+ * @param {string} [options.friendlyName] - Alias compatible para el nombre asignado
+ * @param {string} options.token - Token JWT de sesión del propietario
+ * @param {string} [options.baseUrl=''] - URL base de la API (opcional)
+ * @param {boolean} [options.isDemo=false] - Indica si opera en entorno de demostración
  */
-export async function registerNewPasskey({ name, friendlyName, token, baseUrl = '' }) {
+export async function registerNewPasskey({ name, friendlyName, token, baseUrl = '', isDemo = false } = {}) {
     if (!browserSupportsWebAuthn()) {
         throw new Error('Tu navegador no soporta autenticación mediante Passkeys/WebAuthn.');
     }
 
-    const passkeyName = (name || friendlyName || 'AutoSporting — PRUEBA LOCAL').trim();
+    const candidate = (name !== undefined && name !== null) ? name : friendlyName;
+
+    // Validación estricta de tipo de dato
+    if (candidate !== undefined && candidate !== null && typeof candidate !== 'string') {
+        throw new TypeError('El nombre descriptivo de la passkey debe ser una cadena de texto.');
+    }
+
+    const defaultName = isDemo ? 'AutoSporting — PRUEBA LOCAL' : 'Dispositivo Principal';
+    const rawName = (candidate !== undefined && candidate !== null) ? candidate : defaultName;
+
+    if (typeof rawName !== 'string') {
+        throw new TypeError('El nombre descriptivo de la passkey debe ser una cadena de texto.');
+    }
+
+    const passkeyName = rawName.trim();
+
+    // Validación estricta de espacios o nombre vacío
+    if (!passkeyName) {
+        throw new Error('El nombre descriptivo de la passkey no puede estar vacío ni contener solo espacios.');
+    }
 
     // 1. Obtener opciones del servidor
     const optRes = await fetch(`${baseUrl}/api/admin/passkeys/generate-options`, {
@@ -101,76 +124,57 @@ export async function loginWithPasskey({ challengeId, baseUrl = '' }) {
         throw new Error('Tu navegador no soporta autenticación mediante Passkeys/WebAuthn.');
     }
 
-    // 1. Obtener opciones de autenticación del servidor
-    const optRes = await fetch(`${baseUrl}/api/login/passkey/options`, {
+    // 1. Obtener opciones de autenticación
+    const optRes = await fetch(`${baseUrl}/api/auth/passkeys/generate-auth-options`, {
         method: 'POST',
         headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${challengeId}`
+            'Content-Type': 'application/json'
         },
         body: JSON.stringify({ challengeId })
     });
 
     if (!optRes.ok) {
         const errData = await optRes.json().catch(() => ({}));
-        throw new Error(errData.message || 'Error al iniciar desafío de passkey');
+        throw new Error(errData.message || 'Error al obtener desafío de autenticación WebAuthn');
     }
 
     const options = await optRes.json();
 
-    // 2. Ejecutar ceremonia de autenticación en el navegador
-    let asseResp;
+    // 2. Ejecutar ceremonia biométrica (Windows Hello / PIN)
+    let asResp;
     try {
-        asseResp = await startAuthentication({ optionsJSON: options });
+        asResp = await startAuthentication({ optionsJSON: options });
     } catch (err) {
         if (err.name === 'NotAllowedError') {
-            throw new Error('Autenticación cancelada o tiempo de espera agotado.');
+            throw new Error('Inicio con Passkey cancelado por el usuario.');
         }
-        throw new Error('Fallo en autenticación con passkey: ' + (err.message || 'Error de autenticador'));
+        throw new Error('Error al autenticar con passkey: ' + (err.message || 'Error desconocido'));
     }
 
-    // 3. Recopilar datos criptográficos del dispositivo confiable (TrustedDevice handshake)
-    const deviceId = getPersistentDeviceId();
-    let keyData = null;
-    try {
-        keyData = await getOrCreateDeviceKeyPair();
-    } catch {}
-
-    let challengeData = null;
-    try {
-        challengeData = await requestAndSignDeviceChallenge(deviceId, 'login_passkey', baseUrl);
-    } catch {}
-
-    // 4. Enviar verificación al servidor
-    const verifyRes = await fetch(`${baseUrl}/api/login/passkey/verify`, {
+    // 3. Verificar aserción en el backend
+    const verifyRes = await fetch(`${baseUrl}/api/auth/passkeys/verify-auth`, {
         method: 'POST',
         headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${challengeId}`,
-            'X-Device-Id': deviceId
+            'Content-Type': 'application/json'
         },
         body: JSON.stringify({
             challengeId,
-            credential: asseResp,
-            deviceId,
-            publicKey: keyData?.publicKeyJwk,
-            deviceChallengeId: challengeData?.challengeId,
-            signature: challengeData?.signature
+            credential: asResp
         })
     });
 
     if (!verifyRes.ok) {
         const errData = await verifyRes.json().catch(() => ({}));
-        throw new Error(errData.message || 'Verificación de passkey rechazada por el servidor');
+        throw new Error(errData.message || 'Error al verificar la firma de la Passkey');
     }
 
     return await verifyRes.json();
 }
 
 /**
- * Obtiene la lista de passkeys registradas del propietario
+ * Lista las Passkeys registradas para el usuario actual
  */
-export async function fetchUserPasskeys({ token, baseUrl = '' }) {
+export async function listUserPasskeys({ token, baseUrl = '' }) {
     const res = await fetch(`${baseUrl}/api/admin/passkeys`, {
         headers: {
             'Authorization': `Bearer ${token}`
@@ -178,8 +182,7 @@ export async function fetchUserPasskeys({ token, baseUrl = '' }) {
     });
 
     if (!res.ok) {
-        const err = await res.json().catch(() => ({}));
-        throw new Error(err.message || 'Error al obtener lista de passkeys');
+        throw new Error('Error al obtener la lista de Passkeys');
     }
 
     const data = await res.json();
@@ -187,11 +190,11 @@ export async function fetchUserPasskeys({ token, baseUrl = '' }) {
 }
 
 /**
- * Revoca una passkey registrada
+ * Revoca una Passkey registrada
  */
-export async function revokeUserPasskey({ credentialId, reason, token, baseUrl = '' }) {
-    const res = await fetch(`${baseUrl}/api/admin/passkeys/${encodeURIComponent(credentialId)}/revoke`, {
-        method: 'POST',
+export async function revokeUserPasskey({ token, credentialId, reason = 'Revocada por el propietario', baseUrl = '' }) {
+    const res = await fetch(`${baseUrl}/api/admin/passkeys/${credentialId}`, {
+        method: 'DELETE',
         headers: {
             'Content-Type': 'application/json',
             'Authorization': `Bearer ${token}`
@@ -200,8 +203,8 @@ export async function revokeUserPasskey({ credentialId, reason, token, baseUrl =
     });
 
     if (!res.ok) {
-        const err = await res.json().catch(() => ({}));
-        throw new Error(err.message || 'Error al revocar passkey');
+        const errData = await res.json().catch(() => ({}));
+        throw new Error(errData.message || 'Error al revocar la Passkey');
     }
 
     return await res.json();
