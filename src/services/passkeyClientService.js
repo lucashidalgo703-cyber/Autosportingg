@@ -36,10 +36,12 @@ export async function isPlatformAuthenticatorReady() {
  * @param {string} token - Token JWT de sesión del propietario
  * @param {string} baseUrl - URL base de la API (opcional)
  */
-export async function registerNewPasskey({ name, token, baseUrl = '' }) {
+export async function registerNewPasskey({ name, friendlyName, token, baseUrl = '' }) {
     if (!browserSupportsWebAuthn()) {
         throw new Error('Tu navegador no soporta autenticación mediante Passkeys/WebAuthn.');
     }
+
+    const passkeyName = (name || friendlyName || 'AutoSporting — PRUEBA LOCAL').trim();
 
     // 1. Obtener opciones del servidor
     const optRes = await fetch(`${baseUrl}/api/admin/passkeys/generate-options`, {
@@ -77,7 +79,7 @@ export async function registerNewPasskey({ name, token, baseUrl = '' }) {
         },
         body: JSON.stringify({
             credential: attResp,
-            name: name.trim()
+            name: passkeyName
         })
     });
 

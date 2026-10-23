@@ -14,6 +14,15 @@ const nextConfig = {
             }
         ],
     },
+    async rewrites() {
+        const backendPort = process.env.BACKEND_PORT || '3001';
+        return [
+            {
+                source: '/api/:path*',
+                destination: `http://127.0.0.1:${backendPort}/api/:path*`,
+            },
+        ];
+    },
     async redirects() {
         return [
             // Redirect /admin if someone hits the root without slash? No need, handled by Next router.

@@ -299,7 +299,7 @@ export default function SecurityCenterPage() {
     const handleRegisterPasskey = async () => {
         setRegisteringPasskey(true);
         try {
-            const passkeyName = prompt('Nombre descriptivo para la Passkey:', 'Windows Hello Propietario');
+            const passkeyName = prompt('Nombre descriptivo para la Passkey:', 'AutoSporting — PRUEBA LOCAL');
             if (!passkeyName) {
                 setRegisteringPasskey(false);
                 return;
@@ -307,6 +307,7 @@ export default function SecurityCenterPage() {
 
             await registerNewPasskey({
                 token,
+                name: passkeyName,
                 friendlyName: passkeyName
             });
 
