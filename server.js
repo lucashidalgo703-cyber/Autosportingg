@@ -73,6 +73,7 @@ import {
     verifyPasskeyAuthentication,
     revokePasskey
 } from './src/services/passkeySecurityService.js';
+import { checkMaintenanceState } from './src/services/maintenanceDrainService.js';
 import { getTrustedClientIp } from './src/utils/securityIpResolver.js';
 import { 
     resolveDeviceOnLogin, 
@@ -191,6 +192,40 @@ app.use(express.json({
     }
 }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+
+// Pestillo Global de Mantenimiento y Drenaje de Escrituras (Serverless / Multi-instancia)
+app.use(async (req, res, next) => {
+    // Métodos de solo lectura siempre permitidos
+    const method = req.method.toUpperCase();
+    if (method === 'GET' || method === 'HEAD' || method === 'OPTIONS') {
+        return next();
+    }
+
+    try {
+        const lock = await checkMaintenanceState();
+        if (lock && lock.active) {
+            // Permitir bypass administrativo con token SHA-256 verificado
+            const bypassHeader = req.headers['x-maintenance-bypass'];
+            if (bypassHeader && lock.bypassTokenHash) {
+                const headerHash = crypto.createHash('sha256').update(String(bypassHeader)).digest('hex');
+                if (headerHash === lock.bypassTokenHash) {
+                    return next();
+                }
+            }
+
+            res.setHeader('Retry-After', '30');
+            return res.status(503).json({
+                error: 'SYSTEM_MAINTENANCE',
+                message: 'El sistema se encuentra en mantenimiento y drenaje de operaciones. Intente nuevamente en unos instantes.',
+                mode: lock.mode || 'MAINTENANCE',
+                retryAfter: 30
+            });
+        }
+    } catch (lockErr) {
+        console.error('Error verificando pestillo de mantenimiento:', lockErr.message);
+    }
+    next();
+});
 
 // Configure Multer for Cloudinary
 const storage = new CloudinaryStorage({
@@ -454,7 +489,7 @@ const authenticateToken = (req, res, next) => {
         let dbUser;
         try {
             const userId = user.id || user.userId;
-            dbUser = await AdminUser.findById(userId).select("role active email name permissions").lean();
+            dbUser = await AdminUser.findById(userId).select("role active email name permissions forcePasswordReset tokenVersion").lean();
         } catch (userDbErr) {
             console.error("Error verificando usuario en base de datos:", userDbErr.message);
             return res.status(503).json({ message: "Error verificando usuario en base de datos" });
@@ -462,6 +497,20 @@ const authenticateToken = (req, res, next) => {
 
         if (!dbUser || !dbUser.active) {
             return res.status(401).json({ code: "USER_INACTIVE_OR_NOT_FOUND", message: "Usuario inexistente o inactivo." });
+        }
+
+        if (dbUser.forcePasswordReset) {
+            return res.status(403).json({
+                code: "PASSWORD_RESET_REQUIRED",
+                message: "Debe reestablecer su contraseña tras la recuperación de emergencia."
+            });
+        }
+
+        if (user.tokenVersion !== undefined && dbUser.tokenVersion !== undefined && user.tokenVersion !== dbUser.tokenVersion) {
+            return res.status(401).json({
+                code: "TOKEN_REVOKED",
+                message: "Sesión invalidada por cambio de credenciales o recuperación de emergencia."
+            });
         }
 
         if (dbUser.role !== ROLES.OWNER) {

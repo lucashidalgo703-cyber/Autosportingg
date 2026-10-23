@@ -1,8 +1,10 @@
 import { NextResponse } from 'next/server.js';
 import jwt from 'jsonwebtoken';
+import crypto from 'crypto';
 import connectDB from '../config/db.js';
 import AdminUser from '../models/AdminUser.js';
 import { validateSessionAndDevice } from '../services/deviceSecurityBackend.js';
+import { checkMaintenanceState } from '../services/maintenanceDrainService.js';
 import { hasPermission, ROLES } from './adminPermissions.js';
 
 export function withAdminAuth(requiredPermission, handler) {
@@ -28,6 +30,33 @@ export function withAdminAuth(requiredPermission, handler) {
             // Conectar a BD
             await connectDB();
 
+            // PESTILLO DE MANTENIMIENTO: Bloqueo de escrituras concurrentes
+            const method = (request.method || 'GET').toUpperCase();
+            if (method !== 'GET' && method !== 'HEAD' && method !== 'OPTIONS') {
+                const lock = await checkMaintenanceState();
+                if (lock && lock.active) {
+                    const bypassHeader = request.headers.get('x-maintenance-bypass');
+                    let allowed = false;
+                    if (bypassHeader && lock.bypassTokenHash) {
+                        const headerHash = crypto.createHash('sha256').update(String(bypassHeader)).digest('hex');
+                        if (headerHash === lock.bypassTokenHash) {
+                            allowed = true;
+                        }
+                    }
+                    if (!allowed) {
+                        return NextResponse.json({
+                            error: 'SYSTEM_MAINTENANCE',
+                            message: 'El sistema se encuentra en mantenimiento y drenaje de operaciones. Intente nuevamente en unos instantes.',
+                            mode: lock.mode || 'MAINTENANCE',
+                            retryAfter: 30
+                        }, {
+                            status: 503,
+                            headers: { 'Retry-After': '30' }
+                        });
+                    }
+                }
+            }
+
             // FASE 1: Validación unificada de sesión revocable y dispositivo
             const validation = await validateSessionAndDevice({
                 sessionId: decoded.sessionId,
@@ -49,6 +78,20 @@ export function withAdminAuth(requiredPermission, handler) {
             const user = await AdminUser.findById(userId).lean();
             if (!user || !user.active) {
                 return NextResponse.json({ error: 'User is inactive or deleted' }, { status: 401 });
+            }
+
+            if (user.forcePasswordReset) {
+                return NextResponse.json({
+                    code: 'PASSWORD_RESET_REQUIRED',
+                    error: 'Debe reestablecer su contraseña tras la recuperación de emergencia.'
+                }, { status: 403 });
+            }
+
+            if (decoded.tokenVersion !== undefined && user.tokenVersion !== undefined && decoded.tokenVersion !== user.tokenVersion) {
+                return NextResponse.json({
+                    code: 'TOKEN_REVOKED',
+                    error: 'Sesión invalidada por cambio de credenciales o recuperación de emergencia.'
+                }, { status: 401 });
             }
 
             // BARRERA DE PROPIETARIO ÚNICO: Verificación estricta contra base de datos (no confiar en el JWT)

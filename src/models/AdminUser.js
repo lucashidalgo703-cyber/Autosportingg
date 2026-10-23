@@ -44,6 +44,14 @@ const adminUserSchema = new mongoose.Schema({
     },
     lastLoginAt: {
         type: Date
+    },
+    forcePasswordReset: {
+        type: Boolean,
+        default: false
+    },
+    tokenVersion: {
+        type: Number,
+        default: 0
     }
 }, { timestamps: true });
 
