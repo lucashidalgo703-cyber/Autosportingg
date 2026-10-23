@@ -3,6 +3,7 @@ import { getTrustedClientIp } from './securityIpResolver.js';
 
 const logAudit = async ({ 
     req, 
+    user: explicitUser,
     action, 
     module, 
     entityType, 
@@ -10,6 +11,10 @@ const logAudit = async ({
     entityLabel, 
     description, 
     metadata, 
+    deviceId: explicitDeviceId,
+    deviceName: explicitDeviceName,
+    deviceStatus: explicitDeviceStatus,
+    sessionId: explicitSessionId,
     strict = false,
     session = null 
 }) => {
@@ -17,18 +22,18 @@ const logAudit = async ({
         throw new Error('Action and module are required for audit logs');
     }
 
-    // Datos del usuario autenticado
-    const user = req?.user || {};
+    // Datos del usuario autenticado (priorizar explicitUser si se suministra, ej. en login antes de middleware)
+    const user = explicitUser || req?.user || {};
     
     // Resolución de IP no manipulable
     const ip = req ? getTrustedClientIp(req) : 'system';
     const userAgent = req?.headers?.['user-agent'] || 'system';
 
-    // Resolución de Dispositivo y Sesión (inyectados por authenticateToken o cabeceras)
-    const deviceId = req?.deviceId || req?.headers?.['x-device-id'] || user?.deviceId || undefined;
-    const deviceName = req?.deviceName || user?.deviceName || (deviceId ? 'Dispositivo desconocido' : undefined);
-    const deviceStatus = req?.deviceStatus || user?.deviceStatus || (deviceId ? 'unknown' : undefined);
-    const sessionId = req?.sessionId || user?.sessionId || undefined;
+    // Resolución de Dispositivo y Sesión (priorizar explícito, luego inyectados por middleware o cabeceras)
+    const deviceId = explicitDeviceId || req?.deviceId || req?.headers?.['x-device-id'] || user?.deviceId || undefined;
+    const deviceName = explicitDeviceName || req?.deviceName || user?.deviceName || (deviceId ? 'Dispositivo desconocido' : undefined);
+    const deviceStatus = explicitDeviceStatus || req?.deviceStatus || user?.deviceStatus || (deviceId ? 'unknown' : undefined);
+    const sessionId = explicitSessionId || req?.sessionId || user?.sessionId || undefined;
 
     // Sanitización estricta de metadata para no exponer información confidencial
     let safeMetadata = undefined;

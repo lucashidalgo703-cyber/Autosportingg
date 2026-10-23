@@ -258,7 +258,7 @@ export default function OfflineSyncControl() {
             >
                 {isOnline ? <Wifi size={14} className="text-emerald-400" /> : <WifiOff size={14} className="text-amber-400" />}
                 <span className="hidden md:inline">
-                    {!isOnline ? 'Sin conexión' : pendingOutboxCount > 0 ? `Pendientes (${pendingOutboxCount})` : 'Offline'}
+                    {!isOnline ? 'Sin conexión' : pendingOutboxCount > 0 ? `Pendientes (${pendingOutboxCount})` : 'En línea'}
                 </span>
                 {(pendingOutboxCount > 0 || conflictsCount > 0) && (
                     <span className="flex h-4 min-w-4 items-center justify-center rounded-full bg-crm-red-brand px-1 text-[10px] font-bold text-white">

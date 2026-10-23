@@ -739,12 +739,24 @@ app.post('/api/login', requireJwtConfiguration, enforceLoginRateLimit, async (re
 
             await logAudit({
                 req,
+                user: {
+                    _id: user._id,
+                    id: user._id,
+                    email: user.email,
+                    username: user.name,
+                    name: user.name,
+                    role: user.role
+                },
                 action: 'LOGIN_EXITOSO',
                 module: 'usuarios',
                 entityType: 'User',
                 entityId: user._id,
                 entityLabel: user.email,
-                description: `Login exitoso DB de ${user.email} desde ${device.deviceName} (${device.deviceId})`
+                description: `Login exitoso DB de ${user.email} desde ${device.deviceName} (${device.deviceId})`,
+                deviceId: device.deviceId,
+                deviceName: device.deviceName,
+                deviceStatus: device.status,
+                sessionId: session.sessionId
             });
 
             return res.json({ 
@@ -766,7 +778,11 @@ app.post('/api/login', requireJwtConfiguration, enforceLoginRateLimit, async (re
             module: 'usuarios',
             entityType: 'User',
             entityLabel: normalizedEmail,
-            description: `Intento de login fallido para ${normalizedEmail}`
+            description: `Intento de login fallido para ${normalizedEmail}`,
+            metadata: {
+                attemptedEmail: normalizedEmail,
+                identityVerified: false
+            }
         });
 
         evaluateLoginFailureAlerts({
@@ -942,12 +958,24 @@ app.post('/api/login/2fa', requireJwtConfiguration, async (req, res) => {
 
         await logAudit({
             req,
+            user: {
+                _id: user._id,
+                id: user._id,
+                email: user.email,
+                username: user.name,
+                name: user.name,
+                role: user.role
+            },
             action: 'LOGIN_EXITOSO_2FA',
             module: 'usuarios',
             entityType: 'User',
             entityId: user._id,
             entityLabel: user.email,
-            description: `Login 2FA exitoso de ${user.email} desde ${device.deviceName} (${device.deviceId})`
+            description: `Login 2FA exitoso de ${user.email} desde ${device.deviceName} (${device.deviceId})`,
+            deviceId: device.deviceId,
+            deviceName: device.deviceName,
+            deviceStatus: device.status,
+            sessionId: session.sessionId
         });
 
         return res.json({ 

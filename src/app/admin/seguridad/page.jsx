@@ -299,7 +299,7 @@ export default function SecurityCenterPage() {
     const handleRegisterPasskey = async () => {
         setRegisteringPasskey(true);
         try {
-            const passkeyName = prompt('Nombre descriptivo para la Passkey:', 'AutoSporting — PRUEBA LOCAL');
+            const passkeyName = prompt('Nombre descriptivo para la Passkey (ej. PC Agencia, PC Privada):', 'Dispositivo Principal');
             if (!passkeyName) {
                 setRegisteringPasskey(false);
                 return;
@@ -352,18 +352,25 @@ export default function SecurityCenterPage() {
         );
     }
 
-    const kpis = overview?.kpis || {
-        successfulLogins24h: 0,
-        failedLogins24h: 0,
-        activeTrustedDevices: 0,
-        openSessions: 0,
-        pendingAlerts: 0,
-        lastSuccessfulLogin: null
-    };
+    const kpis = overview?.kpis || null;
 
     return (
-        <div className="w-full max-w-[1600px] mx-auto p-4 md:p-6 lg:p-8 space-y-8 animate-in fade-in duration-300">
+        <div className="w-full max-w-[1600px] mx-auto p-4 md:p-6 lg:p-8 space-y-6 animate-in fade-in duration-300">
             
+            {/* BANNER PERMANENTE DE ENTORNO FICTICIO / DEMOSTRACIÓN */}
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3.5 rounded-2xl border border-amber-500/30 bg-amber-500/10 text-amber-200 shadow-sm">
+                <div className="flex items-center gap-2.5">
+                    <AlertTriangle size={18} className="text-amber-400 shrink-0" />
+                    <p className="text-xs font-medium leading-relaxed">
+                        <strong className="text-white font-bold">Entorno de Demostración y Pruebas Locales: </strong> 
+                        Todos los datos, eventos, identidades y registros corresponden a una simulación aislada en memoria RAM. No representan transacciones productivas ni saldos reales.
+                    </p>
+                </div>
+                <span className="shrink-0 self-start sm:self-center text-[10px] font-mono font-bold uppercase tracking-wider px-2.5 py-1 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/40">
+                    Simulación Aislada
+                </span>
+            </div>
+
             {/* ENCABEZADO */}
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-crm-border pb-6">
                 <div className="space-y-1">
@@ -423,26 +430,36 @@ export default function SecurityCenterPage() {
             {/* SECCIÓN 1: PANEL PRINCIPAL (INDICADORES Y KPIS REALES) */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
                 
-                {/* KPI 1: Inicios Exitosos 24h */}
+                {/* KPI 1: Inicios Exitosos */}
                 <div className="rounded-2xl border border-crm-border bg-crm-surface p-4.5 space-y-2 hover:border-emerald-500/30 transition-all">
                     <div className="flex items-center justify-between">
                         <span className="text-[11px] font-bold uppercase tracking-wider text-crm-fg-muted">
-                            Logins Exitosos (24h)
+                            Logins Exitosos ({period})
                         </span>
                         <div className="flex h-7 w-7 items-center justify-center rounded-lg border border-emerald-500/30 bg-emerald-500/10 text-emerald-400">
                             <CheckCircle2 size={16} />
                         </div>
                     </div>
                     <div className="flex items-baseline gap-2">
-                        <span className="text-2xl font-black text-white">{kpis.successfulLogins24h}</span>
-                        <span className="text-[10px] text-emerald-400 font-bold">Autenticados</span>
+                        {loadingOverview ? (
+                            <div className="h-8 w-14 bg-crm-border/40 animate-pulse rounded-lg" />
+                        ) : (
+                            <>
+                                <span className="text-2xl font-black text-white">
+                                    {period === '24h' ? (kpis?.successfulLogins24h ?? '—') : (overview?.periodStats?.totalSuccessful ?? '—')}
+                                </span>
+                                <span className="text-[10px] text-emerald-400 font-bold">Autenticados</span>
+                            </>
+                        )}
                     </div>
-                    <p className="text-[11px] text-crm-fg-muted">En el periodo: {overview?.periodStats?.totalSuccessful || 0}</p>
+                    <p className="text-[11px] text-crm-fg-muted">
+                        {loadingOverview ? 'Cargando métricas...' : `Total en período: ${overview?.periodStats?.totalSuccessful ?? 0}`}
+                    </p>
                 </div>
 
                 {/* KPI 2: Intentos Rechazados */}
                 <div className={`rounded-2xl border p-4.5 space-y-2 transition-all ${
-                    kpis.failedLogins24h > 0
+                    (kpis?.failedLogins24h || 0) > 0
                         ? 'border-red-500/40 bg-red-500/10'
                         : 'border-crm-border bg-crm-surface hover:border-crm-border-hover'
                 }`}>
@@ -451,7 +468,7 @@ export default function SecurityCenterPage() {
                             Intentos Rechazados
                         </span>
                         <div className={`flex h-7 w-7 items-center justify-center rounded-lg border ${
-                            kpis.failedLogins24h > 0
+                            (kpis?.failedLogins24h || 0) > 0
                                 ? 'border-red-500/40 bg-red-500/20 text-red-400'
                                 : 'border-crm-border bg-crm-surface text-crm-fg-muted'
                         }`}>
@@ -459,12 +476,20 @@ export default function SecurityCenterPage() {
                         </div>
                     </div>
                     <div className="flex items-baseline gap-2">
-                        <span className={`text-2xl font-black ${kpis.failedLogins24h > 0 ? 'text-red-300' : 'text-white'}`}>
-                            {kpis.failedLogins24h}
-                        </span>
-                        <span className="text-[10px] font-bold text-red-400">En 24h</span>
+                        {loadingOverview ? (
+                            <div className="h-8 w-14 bg-crm-border/40 animate-pulse rounded-lg" />
+                        ) : (
+                            <>
+                                <span className={`text-2xl font-black ${(kpis?.failedLogins24h || 0) > 0 ? 'text-red-300' : 'text-white'}`}>
+                                    {kpis?.failedLogins24h ?? '—'}
+                                </span>
+                                <span className="text-[10px] font-bold text-red-400">En 24h</span>
+                            </>
+                        )}
                     </div>
-                    <p className="text-[11px] text-crm-fg-muted">En el periodo: {overview?.periodStats?.totalFailed || 0}</p>
+                    <p className="text-[11px] text-crm-fg-muted">
+                        {loadingOverview ? 'Cargando métricas...' : `Total en período: ${overview?.periodStats?.totalFailed ?? 0}`}
+                    </p>
                 </div>
 
                 {/* KPI 3: Dispositivos Confiables */}
@@ -478,8 +503,16 @@ export default function SecurityCenterPage() {
                         </div>
                     </div>
                     <div className="flex items-baseline gap-2">
-                        <span className="text-2xl font-black text-white">{kpis.activeTrustedDevices}</span>
-                        <span className="text-[10px] text-blue-400 font-bold">Activas</span>
+                        {loadingOverview ? (
+                            <div className="h-8 w-14 bg-crm-border/40 animate-pulse rounded-lg" />
+                        ) : (
+                            <>
+                                <span className="text-2xl font-black text-white">
+                                    {kpis?.activeTrustedDevices ?? '—'}
+                                </span>
+                                <span className="text-[10px] text-blue-400 font-bold">Activas</span>
+                            </>
+                        )}
                     </div>
                     <p className="text-[11px] text-crm-fg-muted">PC Agencia y PC Privada</p>
                 </div>
@@ -488,22 +521,30 @@ export default function SecurityCenterPage() {
                 <div className="rounded-2xl border border-crm-border bg-crm-surface p-4.5 space-y-2 hover:border-purple-500/30 transition-all">
                     <div className="flex items-center justify-between">
                         <span className="text-[11px] font-bold uppercase tracking-wider text-crm-fg-muted">
-                            Sesiones Abiertas (Revocables)
+                            Sesiones Abiertas
                         </span>
-                        <div className="flex h-7 w-7 items-center justify-center rounded-lg border border-purple-500/30 bg-purple-500/10 text-purple-400" title="Tokens JWT revocables en MongoDB. No constituyen presencia en línea por latido continuo.">
+                        <div className="flex h-7 w-7 items-center justify-center rounded-lg border border-purple-500/30 bg-purple-500/10 text-purple-400" title="Tokens JWT revocables en MongoDB">
                             <KeyRound size={16} />
                         </div>
                     </div>
                     <div className="flex items-baseline gap-2">
-                        <span className="text-2xl font-black text-white">{kpis.openSessions}</span>
-                        <span className="text-[10px] text-purple-400 font-bold">En MongoDB</span>
+                        {loadingOverview ? (
+                            <div className="h-8 w-14 bg-crm-border/40 animate-pulse rounded-lg" />
+                        ) : (
+                            <>
+                                <span className="text-2xl font-black text-white">
+                                    {kpis?.openSessions ?? '—'}
+                                </span>
+                                <span className="text-[10px] text-purple-400 font-bold">En MongoDB</span>
+                            </>
+                        )}
                     </div>
-                    <p className="text-[11px] text-crm-fg-muted">Tokens JWT con TTL y revocación inmediata</p>
+                    <p className="text-[11px] text-crm-fg-muted">Tokens con revocación inmediata</p>
                 </div>
 
                 {/* KPI 5: Alertas Pendientes */}
                 <div className={`rounded-2xl border p-4.5 space-y-2 transition-all ${
-                    kpis.pendingAlerts > 0
+                    (kpis?.pendingAlerts || 0) > 0
                         ? 'border-amber-500/40 bg-amber-500/10'
                         : 'border-crm-border bg-crm-surface hover:border-crm-border-hover'
                 }`}>
@@ -512,7 +553,7 @@ export default function SecurityCenterPage() {
                             Alertas Pendientes
                         </span>
                         <div className={`flex h-7 w-7 items-center justify-center rounded-lg border ${
-                            kpis.pendingAlerts > 0
+                            (kpis?.pendingAlerts || 0) > 0
                                 ? 'border-amber-500/40 bg-amber-500/20 text-amber-400'
                                 : 'border-crm-border bg-crm-surface text-crm-fg-muted'
                         }`}>
@@ -520,13 +561,19 @@ export default function SecurityCenterPage() {
                         </div>
                     </div>
                     <div className="flex items-baseline gap-2">
-                        <span className={`text-2xl font-black ${kpis.pendingAlerts > 0 ? 'text-amber-300' : 'text-white'}`}>
-                            {kpis.pendingAlerts}
-                        </span>
-                        {alertCounts.critical > 0 && (
-                            <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-red-500/20 text-red-300 border border-red-500/30">
-                                {alertCounts.critical} Críticas
-                            </span>
+                        {loadingOverview ? (
+                            <div className="h-8 w-14 bg-crm-border/40 animate-pulse rounded-lg" />
+                        ) : (
+                            <>
+                                <span className={`text-2xl font-black ${(kpis?.pendingAlerts || 0) > 0 ? 'text-amber-300' : 'text-white'}`}>
+                                    {kpis?.pendingAlerts ?? '—'}
+                                </span>
+                                {alertCounts.critical > 0 && (
+                                    <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-red-500/20 text-red-300 border border-red-500/30">
+                                        {alertCounts.critical} Críticas
+                                    </span>
+                                )}
+                            </>
                         )}
                     </div>
                     <p className="text-[11px] text-crm-fg-muted">Requieren verificación</p>
@@ -542,7 +589,9 @@ export default function SecurityCenterPage() {
                             <Clock size={16} />
                         </div>
                     </div>
-                    {kpis.lastSuccessfulLogin ? (
+                    {loadingOverview ? (
+                        <div className="h-8 w-24 bg-crm-border/40 animate-pulse rounded-lg" />
+                    ) : kpis?.lastSuccessfulLogin ? (
                         <>
                             <p className="text-xs font-bold text-white truncate">
                                 {new Date(kpis.lastSuccessfulLogin.timestamp).toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
@@ -572,7 +621,7 @@ export default function SecurityCenterPage() {
                         }`}
                     >
                         <History size={16} />
-                        <span>Historial de Inicios de Sesión</span>
+                        <span>Historial de Accesos</span>
                         {historyTotal > 0 && (
                             <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-black/20 text-white">
                                 {historyTotal}
@@ -590,9 +639,9 @@ export default function SecurityCenterPage() {
                     >
                         <AlertTriangle size={16} />
                         <span>Alertas de Seguridad</span>
-                        {kpis.pendingAlerts > 0 && (
+                        {alertCounts.pending > 0 && (
                             <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded-full bg-amber-500 text-black">
-                                {kpis.pendingAlerts}
+                                {alertCounts.pending}
                             </span>
                         )}
                     </button>
@@ -621,7 +670,7 @@ export default function SecurityCenterPage() {
                         }`}
                     >
                         <KeyRound size={16} />
-                        <span>Sesiones Abiertas (Revocables)</span>
+                        <span>Sesiones Abiertas</span>
                         <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-black/20 text-white">
                             {sessions.length}
                         </span>
@@ -684,7 +733,7 @@ export default function SecurityCenterPage() {
                     <div className="flex items-start gap-2.5 p-3 rounded-xl bg-blue-500/10 border border-blue-500/20 text-blue-200">
                         <Info size={16} className="shrink-0 mt-0.5 text-blue-400" />
                         <p className="text-xs leading-relaxed">
-                            <strong>Aviso de Privacidad y Geolocalización:</strong> La geolocalización aproximada de las direcciones IP refleja enrutamiento de red y telecomunicaciones de proveedores de internet. No representa ni certifica un domicilio físico exacto ni prueba de presencia o identidad física.
+                            <strong>Aviso de Red y Geolocalización:</strong> Las conexiones en loopback (127.0.0.1 y ::1) representan el equipo local de prueba. La geolocalización aproximada de direcciones IP públicas refleja enrutamiento de telecomunicaciones de proveedores de internet y no certifica un domicilio físico exacto ni identidad física.
                         </p>
                     </div>
 
@@ -703,12 +752,14 @@ export default function SecurityCenterPage() {
                         <div className="space-y-2">
                             {historyItems.map((item) => {
                                 const isSuccess = item.result === 'SUCCESS';
+                                const isLoopback = item.ipType === 'loopback' || item.ip === '127.0.0.1' || item.ip === '::1';
+
                                 return (
                                     <div
                                         key={item.id}
                                         className="flex flex-col lg:flex-row lg:items-center justify-between p-4 rounded-xl border border-crm-border bg-crm-surface hover:bg-crm-surface-raised hover:border-crm-border-hover transition-all gap-3"
                                     >
-                                        <div className="flex items-start gap-3">
+                                        <div className="flex items-start gap-3 min-w-0">
                                             <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border mt-0.5 ${
                                                 isSuccess
                                                     ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-400'
@@ -716,11 +767,18 @@ export default function SecurityCenterPage() {
                                             }`}>
                                                 {isSuccess ? <CheckCircle2 size={18} /> : <AlertTriangle size={18} />}
                                             </div>
-                                            <div>
+                                            <div className="min-w-0">
                                                 <div className="flex flex-wrap items-center gap-2">
-                                                    <span className="text-sm font-bold text-white">
-                                                        {item.userEmail}
-                                                    </span>
+                                                    {isSuccess ? (
+                                                        <span className="text-sm font-bold text-white truncate">
+                                                            {item.userEmail}
+                                                        </span>
+                                                    ) : (
+                                                        <span className="text-xs font-medium text-crm-fg-muted">
+                                                            Correo ingresado: <span className="text-sm font-bold text-red-200">{item.attemptedEmail || item.userEmail}</span>
+                                                        </span>
+                                                    )}
+                                                    
                                                     <span className={`text-[10px] font-bold uppercase px-2 py-0.5 rounded-full border ${
                                                         isSuccess
                                                             ? 'border-emerald-500/30 bg-emerald-500/20 text-emerald-300'
@@ -728,22 +786,40 @@ export default function SecurityCenterPage() {
                                                     }`}>
                                                         {isSuccess ? 'Exitoso' : 'Rechazado'}
                                                     </span>
+
                                                     <span className="text-[10px] font-bold uppercase px-2 py-0.5 rounded border border-crm-border bg-crm-surface text-crm-fg-muted">
                                                         {item.authMethod}
                                                     </span>
-                                                    {item.deviceName && (
-                                                        <span className="text-[10px] font-bold px-2 py-0.5 rounded border border-blue-500/30 bg-blue-500/10 text-blue-300">
-                                                            {item.deviceName}
+
+                                                    <span className={`text-[10px] font-bold px-2 py-0.5 rounded border ${
+                                                        item.deviceType === 'trusted'
+                                                            ? 'border-blue-500/30 bg-blue-500/10 text-blue-300'
+                                                            : item.deviceType === 'revoked'
+                                                            ? 'border-red-500/30 bg-red-500/10 text-red-300'
+                                                            : 'border-crm-border bg-crm-surface text-crm-fg-muted'
+                                                    }`}>
+                                                        {item.deviceName || item.deviceBadgeLabel || 'Navegador Web'}
+                                                    </span>
+
+                                                    {isLoopback ? (
+                                                        <span className="text-[10px] font-mono px-2 py-0.5 rounded border border-purple-500/30 bg-purple-500/10 text-purple-300">
+                                                            Conexión local (Loopback)
+                                                        </span>
+                                                    ) : (
+                                                        <span className="text-[10px] font-mono px-2 py-0.5 rounded border border-crm-border bg-crm-surface text-crm-fg-muted">
+                                                            {item.ipLabel || 'IP Pública'}
                                                         </span>
                                                     )}
                                                 </div>
+
                                                 <div className="flex flex-wrap items-center gap-3 mt-1.5 text-xs text-crm-fg-muted">
                                                     <span>{new Date(item.timestamp).toLocaleString('es-AR')}</span>
                                                     <span>•</span>
-                                                    <span className="font-mono text-crm-fg">{item.ip}</span>
+                                                    <span className="font-mono text-crm-fg">{item.ip || 'Sin IP'}</span>
                                                     <span>•</span>
                                                     <span>{item.browser} ({item.os})</span>
                                                 </div>
+
                                                 {item.failureReason && (
                                                     <p className="text-xs text-red-400 font-medium mt-1">
                                                         Motivo: {item.failureReason}
@@ -755,7 +831,7 @@ export default function SecurityCenterPage() {
                                         <div className="flex items-center gap-2 shrink-0 self-end lg:self-center">
                                             <button
                                                 onClick={() => setSelectedLoginItem(item)}
-                                                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-crm-border bg-crm-surface text-xs font-bold text-crm-fg hover:bg-crm-surface-raised transition-colors"
+                                                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-crm-border bg-crm-surface text-xs font-bold text-crm-fg hover:bg-crm-surface-raised hover:text-white transition-colors"
                                             >
                                                 <Eye size={14} />
                                                 <span>Ver Detalle</span>
@@ -801,7 +877,7 @@ export default function SecurityCenterPage() {
                     <div className="flex flex-wrap items-center justify-between gap-3 p-4 rounded-2xl border border-crm-border bg-crm-surface">
                         <div className="flex flex-wrap items-center gap-2">
                             <button
-                                onClick={() => { setAlertFilters(prev => ({ ...prev, status: 'pending' })); setAlertPage(1); }}
+                                onClick={() => { setAlertFilters(prev => ({ ...prev, status: 'pending' })); setAlertsPage(1); }}
                                 className={`px-3 py-1.5 text-xs font-bold rounded-xl border transition-all ${
                                     alertFilters.status === 'pending'
                                         ? 'border-amber-500/40 bg-amber-500/20 text-amber-300'
@@ -811,7 +887,7 @@ export default function SecurityCenterPage() {
                                 Pendientes ({alertCounts.pending})
                             </button>
                             <button
-                                onClick={() => { setAlertFilters(prev => ({ ...prev, status: 'reviewed' })); setAlertPage(1); }}
+                                onClick={() => { setAlertFilters(prev => ({ ...prev, status: 'reviewed' })); setAlertsPage(1); }}
                                 className={`px-3 py-1.5 text-xs font-bold rounded-xl border transition-all ${
                                     alertFilters.status === 'reviewed'
                                         ? 'border-emerald-500/40 bg-emerald-500/20 text-emerald-300'
@@ -821,7 +897,7 @@ export default function SecurityCenterPage() {
                                 Revisadas
                             </button>
                             <button
-                                onClick={() => { setAlertFilters(prev => ({ ...prev, status: 'all' })); setAlertPage(1); }}
+                                onClick={() => { setAlertFilters(prev => ({ ...prev, status: 'all' })); setAlertsPage(1); }}
                                 className={`px-3 py-1.5 text-xs font-bold rounded-xl border transition-all ${
                                     alertFilters.status === 'all'
                                         ? 'border-crm-red/40 bg-crm-red/20 text-white'
@@ -838,7 +914,7 @@ export default function SecurityCenterPage() {
                                 value={alertFilters.severity}
                                 onChange={(e) => {
                                     setAlertFilters(prev => ({ ...prev, severity: e.target.value }));
-                                    setAlertPage(1);
+                                    setAlertsPage(1);
                                 }}
                                 className="px-3 py-1.5 text-xs rounded-xl border border-crm-border bg-crm-surface-raised text-crm-fg focus:border-crm-red focus:outline-none"
                             >
@@ -855,7 +931,7 @@ export default function SecurityCenterPage() {
                         <div className="flex items-center gap-2">
                             <ShieldCheck size={16} className="text-crm-red" />
                             <span>
-                                <strong>Canales de notificación:</strong> Almacenamiento interno de auditoría activo. Canales externos (WhatsApp, Email, SMS) diseñados en estado latente.
+                                <strong>Canales de notificación:</strong> Auditoría interna activa. Canales externos (WhatsApp, Email, SMS) diseñados en estado latente.
                             </span>
                         </div>
                         <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-black/30 border border-white/5">
@@ -1026,7 +1102,7 @@ export default function SecurityCenterPage() {
                                                                 ? 'border-red-500/30 bg-red-500/20 text-red-300'
                                                                 : 'border-amber-500/30 bg-amber-500/20 text-amber-300'
                                                         }`}>
-                                                            {dev.status}
+                                                            {dev.status === 'trusted' ? 'Confiable' : dev.status === 'revoked' ? 'Revocado' : dev.status}
                                                         </span>
                                                     </div>
                                                 </div>

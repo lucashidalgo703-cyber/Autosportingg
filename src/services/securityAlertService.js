@@ -514,20 +514,62 @@ export async function getLoginHistory({
             else failureReason = 'CREDENCIALES_INCORRECTAS';
         }
 
+        // Clasificación estricta de IP: Loopback, Intranet o Pública
+        const isLoopback = log.ip === '127.0.0.1' || log.ip === '::1';
+        const isPrivateNet = log.ip?.startsWith('192.168.') || log.ip?.startsWith('10.') || log.ip?.startsWith('172.16.');
+        let ipType = 'public';
+        let ipLabel = 'IP Pública';
+        let locationText = 'Zona Concesionario (Aproximada por IP)';
+
+        if (!log.ip) {
+            ipType = 'unknown';
+            ipLabel = 'No disponible';
+            locationText = 'No disponible';
+        } else if (isLoopback) {
+            ipType = 'loopback';
+            ipLabel = 'Conexión local (Loopback)';
+            locationText = 'Entorno Local / Loopback';
+        } else if (isPrivateNet) {
+            ipType = 'intranet';
+            ipLabel = 'Red Local / Intranet';
+            locationText = 'Red Privada / Concesionaria';
+        }
+
+        // Clasificación de dispositivo: Confiable, Revocado o Sin Registrar
+        let deviceType = 'unregistered';
+        let deviceBadgeLabel = 'Navegador Web Sin Registrar';
+        if (log.deviceStatus === 'trusted' || (log.deviceName && (log.deviceName.toLowerCase().includes('agencia') || log.deviceName.toLowerCase().includes('privada')))) {
+            deviceType = 'trusted';
+            deviceBadgeLabel = 'Dispositivo Confiable';
+        } else if (log.deviceStatus === 'revoked' || log.action === 'DEVICE_REVOKED') {
+            deviceType = 'revoked';
+            deviceBadgeLabel = 'Dispositivo Revocado';
+        }
+
+        // Distinción de cuenta autenticada vs correo introducido
+        const hasAuthenticAccount = isSuccess && log.userEmail && log.userEmail !== 'system';
+        const resolvedAccountEmail = hasAuthenticAccount 
+            ? log.userEmail 
+            : (isSuccess ? (log.entityLabel || 'Propietario Autenticado') : null);
+        
+        const attemptedEmail = !isSuccess 
+            ? (log.metadata?.attemptedEmail || log.entityLabel || (log.userEmail !== 'system' ? log.userEmail : null) || 'No informado')
+            : null;
+
         return {
             id: String(log._id),
             timestamp: log.createdAt,
-            userEmail: log.userEmail || log.entityLabel || 'No informado',
-            userName: log.userName || null,
+            userEmail: resolvedAccountEmail || (isSuccess ? 'Propietario Autenticado' : 'No verificado'),
+            attemptedEmail,
+            identityVerified: isSuccess,
+            userName: log.userName && log.userName !== 'System' ? log.userName : null,
             result: isSuccess ? 'SUCCESS' : 'FAILED',
             action: log.action,
             ip: log.ip || null,
+            ipType,
+            ipLabel,
             geoApproximation: {
-                location: !log.ip 
-                    ? 'No disponible'
-                    : (log.ip === '127.0.0.1' || log.ip === '::1' || log.ip?.startsWith('192.168.') || log.ip?.startsWith('10.') 
-                        ? 'Red Local / Loopback' 
-                        : 'Zona Concesionario (Aproximada por IP)'),
+                location: locationText,
                 disclaimer: 'Aproximada por IP - Puede variar por VPN o proveedor. No constituye dirección física exacta ni prueba de presencia o identidad física.'
             },
             browser: parsedUa.browser,
@@ -535,6 +577,8 @@ export async function getLoginHistory({
             deviceId: log.deviceId || null,
             deviceName: log.deviceName || null,
             deviceStatus: log.deviceStatus || 'unknown',
+            deviceType,
+            deviceBadgeLabel,
             authMethod,
             failureReason,
             sessionId: log.sessionId || null,

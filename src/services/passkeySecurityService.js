@@ -472,6 +472,14 @@ export async function verifyPasskeyAuthentication({ user, credentialResponse, re
 
     await logAudit({
         req,
+        user: {
+            _id: user._id,
+            id: user._id,
+            email: user.email,
+            username: user.name,
+            name: user.name,
+            role: user.role
+        },
         action: 'PASSKEY_AUTH_SUCCESS',
         module: 'seguridad',
         entityType: 'PasskeyCredential',
