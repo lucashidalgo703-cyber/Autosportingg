@@ -158,6 +158,36 @@ await test('Sin débito original no acredita dinero ni inventa una restitución'
     assert.equal(reversalCount(after, expense._id), 0);
 });
 
+await test('Importe o moneda contradictorios y gastos no positivos requieren conciliación', async () => {
+    const amountMismatch = await makeDebitedExpense({ amount: 10000, balance: 90000 });
+    const amountBox = await TreasuryBox.findOne({ key: 'operativa' });
+    amountBox.history.find((entry) => entry.type === 'egreso_finanzas' && String(entry.sourceExpenseId) === String(amountMismatch._id)).amount = -9000;
+    await amountBox.save();
+    await assert.rejects(
+        syncExpenseWithTreasury(amountMismatch, { statusChanged: true, oldStatus: 'activo', user }),
+        /importe o moneda no coinciden/
+    );
+    assert.equal((await TreasuryBox.findOne({ key: 'operativa' })).balanceARS, 90000);
+
+    const currencyMismatch = await makeDebitedExpense({ amount: 10000, currency: 'USD', balance: 90000 });
+    const currencyBox = await TreasuryBox.findOne({ key: 'operativa' });
+    currencyBox.history.find((entry) => entry.type === 'egreso_finanzas' && String(entry.sourceExpenseId) === String(currencyMismatch._id)).currency = 'ARS';
+    await currencyBox.save();
+    await assert.rejects(
+        syncExpenseWithTreasury(currencyMismatch, { statusChanged: true, oldStatus: 'activo', user }),
+        /importe o moneda no coinciden/
+    );
+
+    const invalid = await Transaction.create({
+        type: 'Egreso', category: 'Alquiler', amount: -1, currency: 'ARS', description: 'Importe inválido',
+        accountId: account._id, status: 'anulado', module: 'crm_v2', treasuryBoxKey: 'operativa', isTreasuryExpenseSynced: true
+    });
+    await assert.rejects(
+        syncExpenseWithTreasury(invalid, { statusChanged: true, oldStatus: 'activo', user }),
+        /importe debe ser positivo/
+    );
+});
+
 await test('La proyección de Capital observa caja e historial ya restituidos y conserva bloqueo conservador', async () => {
     const expense = await makeDebitedExpense({ amount: 200000, balance: 300000, boxKey: 'reserva' });
     await syncExpenseWithTreasury(expense, { statusChanged: true, oldStatus: 'activo', user });

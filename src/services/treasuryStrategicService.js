@@ -3491,15 +3491,29 @@ export async function syncExpenseWithTreasury(tx, options = {}) {
             // condicional y la escritura atómica en un único documento evitan
             // que dos reintentos concurrentes acrediten dos veces el gasto.
             const sourceExpenseId = tx._id;
-            const hasOriginalDebit = (box.history || []).some((entry) =>
+            if (!Number.isFinite(amt) || amt <= 0) {
+                throw new Error(`No se puede revertir el gasto ${sourceExpenseId}: el importe debe ser positivo y válido.`);
+            }
+            const originalDebits = (box.history || []).filter((entry) =>
                 entry.type === 'egreso_finanzas' && String(entry.sourceExpenseId) === String(sourceExpenseId)
             );
-            const alreadyReversed = (box.history || []).some((entry) =>
+            const reversals = (box.history || []).filter((entry) =>
                 entry.type === 'reversion_egreso' && String(entry.sourceExpenseId) === String(sourceExpenseId)
             );
+            const alreadyReversed = reversals.length === 1;
 
-            if (!hasOriginalDebit && !alreadyReversed) {
+            if (originalDebits.length !== 1) {
                 throw new Error(`No se puede revertir el gasto ${sourceExpenseId}: no existe un débito de Tesorería asociado para conciliar.`);
+            }
+            const originalDebit = originalDebits[0];
+            if (Math.abs(roundMoney(Number(originalDebit.amount))) !== amt || originalDebit.currency !== curr) {
+                throw new Error(`No se puede revertir el gasto ${sourceExpenseId}: importe o moneda no coinciden con el débito de Tesorería.`);
+            }
+            if (reversals.length > 1) {
+                throw new Error(`No se puede revertir el gasto ${sourceExpenseId}: existen varias reversiones y requiere conciliación manual.`);
+            }
+            if (alreadyReversed && (roundMoney(Number(reversals[0].amount)) !== amt || reversals[0].currency !== curr)) {
+                throw new Error(`No se puede reintentar la reversión del gasto ${sourceExpenseId}: el asiento existente no coincide con el gasto.`);
             }
 
             const reversalEntry = {
@@ -3522,7 +3536,7 @@ export async function syncExpenseWithTreasury(tx, options = {}) {
             };
             if (isPendiente) atomicSet[pendingField] = roundedAdd(pendingField, amt);
 
-            if (hasOriginalDebit && !alreadyReversed) {
+            if (!alreadyReversed) {
                 const result = await TreasuryBox.updateOne(
                     {
                         key: boxKey,
