@@ -184,6 +184,39 @@ export async function getCapitalReinvestmentProjection(models, options) {
     const snapshot = await buildCapitalReinvestmentSnapshot(models, options);
     const projection = projectCapitalReinvestment(snapshot);
     projection.sourceReconciliation = snapshot.treasury.sourceReconciliation;
+    const expenseHistory = snapshot.treasury.boxes.flatMap((box) => box.history || []);
+    const expenseIdsWithTreasuryDebit = new Set(expenseHistory
+        .filter((entry) => entry.type === 'egreso_finanzas' && entry.sourceExpenseId)
+        .map((entry) => id(entry.sourceExpenseId)));
+    const reversedExpenseIdsWithUnverifiedBalance = new Set(snapshot.treasury.expenseTransactions
+        .filter((transaction) => expenseIdsWithTreasuryDebit.has(id(transaction)))
+        .map(id));
+    if (reversedExpenseIdsWithUnverifiedBalance.size > 0) {
+        const warning = {
+            code: 'expense_reversal_balance_unverified',
+            message: 'Hay gastos anulados con débitos previos de caja. El historial no prueba que el saldo se haya restaurado correctamente; la liquidez queda pendiente, incluso si existe un asiento de reversa.'
+        };
+        projection.warnings.push(warning);
+        projection.reconciliationStatus = 'pendiente_conciliacion';
+        for (const currency of ['ARS', 'USD']) {
+            const liquidity = projection.liquidity[currency];
+            liquidity.status = 'pendiente_conciliacion';
+            for (const key of ['accountCash', 'assignedToBoxes', 'ownUnassigned', 'thirdPartyFunds', 'protectedFunds', 'commitments', 'uncoveredCommitments', 'stockAvailable', 'availableForPurchase']) liquidity[key] = null;
+        }
+        projection.sourceReconciliation = {
+            ...projection.sourceReconciliation,
+            balanceIntegrity: 'unknown_expense_reversal',
+            byCurrency: Object.fromEntries(['ARS', 'USD'].map((currency) => [currency, {
+                ...projection.sourceReconciliation.byCurrency[currency],
+                accountBalance: null,
+                assignedToBoxes: null,
+                thirdPartyFunds: null,
+                ownUnassigned: null,
+                equationDifference: null
+            }]))
+        };
+        projection.unresolvedExpenseReversalIds = Math.max(projection.unresolvedExpenseReversalIds.length, reversedExpenseIdsWithUnverifiedBalance.size);
+    }
     if (snapshot.sourceCompleteness.truncated) {
         projection.reconciliationStatus = 'pendiente_conciliacion';
         projection.warnings.push({ code: 'source_limit_exceeded', message: 'El volumen de datos supera el límite de lectura; no se muestran importes como conciliados.' });

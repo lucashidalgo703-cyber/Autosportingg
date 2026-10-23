@@ -12,7 +12,7 @@ La nueva pestaña “8. Capital y Reinversión” en Tesorería Estratégica con
 
 - Las cuentas son una medición del efectivo total. Las cajas son asignaciones de ese mismo efectivo: nunca se suman entre sí para obtener liquidez.
 - La proyección requiere corte confirmado, configuración completada, saldo de cada cuenta explicado por el corte más movimientos activos posteriores, ecuación por moneda balanceada y fuentes sin truncamiento.
-- La disponibilidad se mantiene como pendiente cuando falta un registro del corte, hay movimiento sin explicar, los importes no cierran, se excede el límite de lectura o aparece un egreso anulado con débito de caja sin reversa.
+- La disponibilidad se mantiene como pendiente cuando falta un registro del corte, hay movimiento sin explicar, los importes no cierran, se excede el límite de lectura o aparece un egreso anulado con débito de caja. Dado el defecto conocido, un asiento de reversa no basta para probar que el saldo se restauró.
 - ARS y USD nunca se convierten implícitamente.
 - Un cobro confirmado es un ingreso activo vinculado a la venta. Importe de venta, seña sin movimiento y cuotas futuras no son caja.
 - Una compra se considera desembolsada solo con transacción de egreso activa coincidente. Para contarla como capital reinvertido, su registro de pago también debe marcar origen Stock.
@@ -20,7 +20,7 @@ La nueva pestaña “8. Capital y Reinversión” en Tesorería Estratégica con
 
 ## Pruebas y demostración
 
-El adaptador se probó mediante Express real y MongoDB en memoria con datos ficticios. Se verificó denegación sin PIN y a un rol no privilegiado, respuesta del endpoint con el dueño ficticio, ausencia de datos privados en el DTO y conteos documentales iguales antes/después de la consulta.
+El adaptador se probó mediante Express real y MongoDB en memoria con datos ficticios. Se verificó denegación sin PIN y a un rol no privilegiado, respuesta del endpoint con el dueño ficticio, ausencia de datos privados en el DTO, conteos documentales iguales antes/después de la consulta y bloqueo de liquidez ante un gasto ficticio de `$200.000` con una reversa registrada.
 
 La captura de escritorio y móvil se generó desde una sesión local real en `artifacts/`. El auxiliar `scripts/start-capital-reinvestment-integration-demo-local.js` crea una copia temporal de este árbol, excluye `.env*`, `.git`, `.next` y módulos, usa MongoDB en memoria, genera una contraseña descartable y enlaza únicamente a loopback. Muestra una venta y reinversión de ejemplo; no carga datos reales. Para iniciarlo: `node scripts/start-capital-reinvestment-integration-demo-local.js`. El usuario y clave se imprimen solo al iniciar. Ctrl+C cierra Next, Express y MongoDB temporal.
 
@@ -31,7 +31,7 @@ La captura de escritorio y móvil se generó desde una sesión local real en `ar
 - `Settlement` y `FinanceRecurringRule` se identificaron, pero no son fuentes operativas del snapshot. Los compromisos visibles en esta primera versión vienen de `TreasuryBox.pendingCommitments*`; un desglose adicional requiere mapear y conciliar sus transacciones asociadas.
 - La retención de fondos de terceros sigue el criterio del CRM (ingresos activos posteriores al corte menos egresos de liquidación en las mismas categorías). Si el legado no registra con claridad titularidad, salida o vínculo, la ecuación/conciliación debe quedar pendiente.
 - La verificación del movimiento de cada cuenta toma el saldo `realBalance` del corte confirmado y movimientos activos por `accountId` desde entonces. Los casos históricos sin enlace de cuenta requieren conciliación operativa; no se infiere una cuenta.
-- El defecto heredado de `syncExpenseWithTreasury` permanece abierto. `tests/treasuryDistribution.test.js:553` sigue esperando `$500.000` y obtiene `$300.000`; esta etapa no cambia su cálculo ni su expectativa. La proyección bloquea disponibilidad si el débito del gasto anulado queda identificado sin asiento de reversa, pero esto no sustituye la corrección heredada.
+- El defecto heredado de `syncExpenseWithTreasury` permanece abierto. `tests/treasuryDistribution.test.js:553` sigue esperando `$500.000` y obtiene `$300.000`; esta etapa no cambia su cálculo ni su expectativa. Si el débito de un gasto anulado se identifica en el historial, la proyección bloquea saldos consolidados de liquidez aun cuando haya asiento de reversa, porque el historial no prueba la restitución efectiva. Esto no sustituye la corrección heredada.
 - No hubo conexión a MongoDB Atlas ni se integró información de producción. La integración de seguridad futura puede requerir ajustar los guards al módulo de Seguridad cuando ambas ramas se integren; no se copió ni cambió código de Seguridad.
 
 ## Próxima etapa propuesta

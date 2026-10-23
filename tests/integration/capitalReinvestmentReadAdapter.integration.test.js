@@ -67,4 +67,26 @@ await test('Límite y falta de conciliación bloquean liquidez exacta', async ()
     assert.equal(response.json.projection.liquidity.USD.availableForPurchase, null);
 });
 
+await test('Gasto anulado bloquea liquidez aunque exista asiento de reversa', async () => {
+    const account = await Account.findOne({ currency: 'ARS' }).lean();
+    const expense = await Transaction.create({
+        type: 'Egreso', amount: 200000, currency: 'ARS', description: 'Gasto ficticio revertido',
+        category: 'reparacion', accountId: account._id, status: 'anulado', date: new Date('2026-01-15T12:00:00.000Z')
+    });
+    await TreasuryBox.create({
+        key: 'stock', name: 'Stock ficticio', isActive: true,
+        history: [
+            { type: 'egreso_finanzas', amount: 200000, currency: 'ARS', sourceExpenseId: expense._id },
+            { type: 'reversion_egreso', amount: 200000, currency: 'ARS', sourceExpenseId: expense._id }
+        ]
+    });
+    const response = await call('GET', '/api/admin/capital-reinversion/projection', null, token, { 'x-treasury-token': treasuryToken });
+    assert.equal(response.status, 200);
+    assert.ok(response.json.projection.warnings.some((warning) => warning.code === 'expense_reversal_balance_unverified'));
+    assert.equal(response.json.projection.liquidity.ARS.availableForPurchase, null);
+    assert.equal(response.json.projection.liquidity.ARS.accountCash, null);
+    assert.equal(response.json.projection.sourceReconciliation.balanceIntegrity, 'unknown_expense_reversal');
+    assert.equal(JSON.stringify(response.json.projection).includes(String(expense._id)), false);
+});
+
 await finish();
