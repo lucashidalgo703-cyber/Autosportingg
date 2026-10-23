@@ -109,3 +109,65 @@ self.addEventListener('fetch', (event) => {
         })()
     );
 });
+
+
+// ============================================================================
+// MANEJO DE NOTIFICACIONES WEB PUSH DE SEGURIDAD (PUSH API & W3C WEB PUSH)
+// ============================================================================
+
+self.addEventListener('push', (event) => {
+    let payload = {
+        title: 'AUTOSPORTING INTELLIGENCE',
+        body: 'Nueva alerta de seguridad en el CRM.',
+        icon: '/logo192.png',
+        badge: '/badge.png',
+        data: { url: '/admin/seguridad' }
+    };
+
+    if (event.data) {
+        try {
+            payload = event.data.json();
+        } catch (_) {
+            payload.body = event.data.text() || payload.body;
+        }
+    }
+
+    const options = {
+        body: payload.body,
+        icon: payload.icon || '/logo192.png',
+        badge: payload.badge || '/badge.png',
+        tag: payload.tag || 'autosporting-security-alert',
+        requireInteraction: Boolean(payload.requireInteraction),
+        renotify: true,
+        data: payload.data || { url: '/admin/seguridad' }
+    };
+
+    event.waitUntil(
+        self.registration.showNotification(payload.title || 'AUTOSPORTING INTELLIGENCE', options)
+    );
+});
+
+self.addEventListener('notificationclick', (event) => {
+    event.notification.close();
+
+    const targetUrl = (event.notification.data && event.notification.data.url) || '/admin/seguridad';
+
+    event.waitUntil(
+        clients.matchAll({ type: 'window', includeUncontrolled: true }).then((windowClients) => {
+            // Si ya existe una ventana abierta del CRM, enfocarla y navegar a /admin/seguridad
+            for (const client of windowClients) {
+                if (client.url && 'focus' in client) {
+                    client.focus();
+                    if ('navigate' in client) {
+                        return client.navigate(targetUrl);
+                    }
+                    return client;
+                }
+            }
+            // Si no hay ventana abierta, abrir una nueva en el navegador
+            if (clients.openWindow) {
+                return clients.openWindow(targetUrl);
+            }
+        })
+    );
+});

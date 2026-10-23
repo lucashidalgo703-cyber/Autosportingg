@@ -5,13 +5,15 @@ import {
     ShieldAlert, ShieldCheck, History, Laptop, Monitor, Key, 
     RefreshCw, Filter, Search, AlertTriangle, CheckCircle2, 
     User, Globe, Smartphone, Lock, Ban, Eye, KeyRound, 
-    Calendar, Clock, Info, Check, PlusCircle, Trash2, Fingerprint
+    Calendar, Clock, Info, Check, PlusCircle, Trash2, Fingerprint,
+    Bell
 } from 'lucide-react';
 import { useAuth } from '../../../context/AuthContext';
 import DeviceAuthorizeModal from '../../../components/crm/security/DeviceAuthorizeModal';
 import DeviceForensicModal from '../../../components/crm/security/DeviceForensicModal';
 import LoginDetailModal from '../../../components/crm/security/LoginDetailModal';
 import AlertReviewModal from '../../../components/crm/security/AlertReviewModal';
+import PushNotificationsSection from '../../../components/crm/security/PushNotificationsSection';
 import { 
     registerNewPasskey, 
     revokeUserPasskey 
@@ -675,6 +677,18 @@ export default function SecurityCenterPage() {
                             {sessions.length}
                         </span>
                     </button>
+
+                    <button
+                        onClick={() => setActiveTab('push')}
+                        className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs md:text-sm font-bold transition-all whitespace-nowrap ${
+                            activeTab === 'push'
+                                ? 'bg-crm-red-gradient text-white shadow-crm-shadow-red shadow-sm'
+                                : 'text-crm-fg-muted hover:text-crm-fg hover:bg-crm-surface'
+                        }`}
+                    >
+                        <Bell size={16} />
+                        <span>Notificaciones Push</span>
+                    </button>
                 </div>
             </div>
 
@@ -1287,6 +1301,11 @@ export default function SecurityCenterPage() {
                         </div>
                     )}
                 </div>
+            )}
+
+            {/* TAB 5: NOTIFICACIONES DE SEGURIDAD (WEB PUSH) */}
+            {activeTab === 'push' && (
+                <PushNotificationsSection token={token} isOwner={isOwner} />
             )}
 
             {/* MODALES AUXILIARES */}

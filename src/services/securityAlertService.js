@@ -126,6 +126,25 @@ export async function triggerMfaFailureAlert({ userEmail, ip, userAgent, deviceI
 }
 
 /**
+ * Alerta por inicio de sesión completado desde un dispositivo no reconocido (Alta Prioridad)
+ */
+export async function triggerUnrecognizedDeviceAlert({ deviceId, deviceName, userEmail, ip, userAgent, clientEnv }) {
+    const osStr = clientEnv?.os || 'Sistema desconocido';
+    const browserStr = clientEnv?.browser || 'Navegador';
+    return await createSecurityAlert({
+        type: 'UNRECOGNIZED_DEVICE_LOGIN',
+        severity: 'warning',
+        title: 'Inicio de sesión desde dispositivo no reconocido',
+        description: `Se completó un acceso a la cuenta ${userEmail} desde una terminal no registrada previamente (${osStr} · ${browserStr}).`,
+        ip,
+        userAgent,
+        userEmail,
+        deviceId,
+        metadata: { deviceId, deviceName, clientEnv }
+    });
+}
+
+/**
  * Alerta por intento de acceso desde dispositivo revocado
  */
 export async function triggerRevokedDeviceAlert({ deviceId, deviceName, userEmail, ip, userAgent }) {
@@ -143,13 +162,13 @@ export async function triggerRevokedDeviceAlert({ deviceId, deviceName, userEmai
 }
 
 /**
- * Alerta por intento de uso de sesión invalidada
+ * Alerta por intento de uso de sesión invalidada (Prioridad Crítica)
  */
 export async function triggerInvalidSessionAlert({ sessionId, userEmail, ip, userAgent, deviceId }) {
     return await createSecurityAlert({
         type: 'INVALID_SESSION_ACCESS',
-        severity: 'warning',
-        title: 'Intento de acceso con sesión invalidada o expirada',
+        severity: 'critical',
+        title: 'Intento de acceso con sesión invalidada o revocada',
         description: `Se intentó realizar una operación utilizando el identificador de sesión revocado '${sessionId}'.`,
         ip,
         userAgent,

@@ -8,6 +8,8 @@
  *   sin requerir refactorización del servicio principal de alertas.
  */
 
+import { dispatchAlertPushNotification } from './webPushService.js';
+
 class NotificationChannel {
     constructor(name) {
         this.name = name;
@@ -33,6 +35,34 @@ class InternalStorageChannel extends NotificationChannel {
             timestamp: new Date(),
             reference: alert.alertId
         };
+    }
+}
+
+/**
+ * Canal Web Push para Alertas Críticas y de Alta Prioridad en Celular (Activo)
+ */
+class WebPushNotificationChannel extends NotificationChannel {
+    constructor() {
+        super('webpush');
+        this.enabled = true;
+    }
+
+    async send(alert) {
+        if (!this.enabled) {
+            return { channel: this.name, delivered: false, reason: 'CHANNEL_DISABLED_BY_POLICY' };
+        }
+        try {
+            const pushResult = await dispatchAlertPushNotification(alert);
+            return {
+                channel: this.name,
+                delivered: !!pushResult.dispatched,
+                targetsCount: pushResult.targetsCount || 0,
+                results: pushResult.results || [],
+                reason: pushResult.reason || null
+            };
+        } catch (err) {
+            return { channel: this.name, delivered: false, error: err.message };
+        }
     }
 }
 
@@ -92,6 +122,7 @@ class SmsNotificationChannel extends NotificationChannel {
 // Registro de canales disponibles
 const registeredChannels = [
     new InternalStorageChannel(),
+    new WebPushNotificationChannel(),
     new WhatsAppNotificationChannel(),
     new EmailNotificationChannel(),
     new SmsNotificationChannel()
@@ -116,6 +147,7 @@ export async function dispatchSecurityAlertNotification(alert) {
 export {
     NotificationChannel,
     InternalStorageChannel,
+    WebPushNotificationChannel,
     WhatsAppNotificationChannel,
     EmailNotificationChannel,
     SmsNotificationChannel

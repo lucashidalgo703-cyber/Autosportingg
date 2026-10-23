@@ -86,8 +86,18 @@ import {
     triggerInvalidSessionAlert,
     triggerPasskeyAlert,
     triggerDeviceRegisteredAlert,
-    triggerAuthConfigChangeAlert
+    triggerAuthConfigChangeAlert,
+    triggerUnrecognizedDeviceAlert,
+    triggerAuditIntegrityAnomalyAlert
 } from './src/services/securityAlertService.js';
+import {
+    getVapidPublicKey,
+    subscribeOwnerDevice,
+    listOwnerSubscriptions,
+    revokeOwnerSubscription,
+    sendTestPushNotification,
+    updateSubscriptionPreferences
+} from './src/services/webPushService.js';
 import { getTrustedClientIp } from './src/utils/securityIpResolver.js';
 import { 
     resolveDeviceOnLogin, 
@@ -720,6 +730,18 @@ app.post('/api/login', requireJwtConfiguration, enforceLoginRateLimit, async (re
             // Crear sesión revocable en servidor
             const session = await createUserSession({ user, device, req });
 
+            // Alerta si el inicio de sesión se completa desde dispositivo no reconocido
+            if (device.status !== 'trusted') {
+                triggerUnrecognizedDeviceAlert({
+                    deviceId: device.deviceId,
+                    deviceName: device.deviceName,
+                    userEmail: user.email,
+                    ip: getTrustedClientIp(req),
+                    userAgent: req.headers['user-agent'],
+                    clientEnv: device.clientInfo
+                }).catch(() => {});
+            }
+
             const token = jwt.sign(
                 {
                     id: user._id,
@@ -939,6 +961,18 @@ app.post('/api/login/2fa', requireJwtConfiguration, async (req, res) => {
         // Crear sesión revocable en servidor
         const session = await createUserSession({ user, device, req });
 
+        // Alerta si el inicio de sesión se completa desde dispositivo no reconocido
+        if (device.status !== 'trusted') {
+            triggerUnrecognizedDeviceAlert({
+                deviceId: device.deviceId,
+                deviceName: device.deviceName,
+                userEmail: user.email,
+                ip: getTrustedClientIp(req),
+                userAgent: req.headers['user-agent'],
+                clientEnv: device.clientInfo
+            }).catch(() => {});
+        }
+
         const token = jwt.sign(
             {
                 id: user._id,
@@ -1099,6 +1133,18 @@ app.post('/api/login/passkey/verify', requireJwtConfiguration, async (req, res) 
 
         // Crear sesión revocable en servidor
         const session = await createUserSession({ user, device, req });
+
+        // Alerta si el inicio de sesión se completa desde dispositivo no reconocido
+        if (device.status !== 'trusted') {
+            triggerUnrecognizedDeviceAlert({
+                deviceId: device.deviceId,
+                deviceName: device.deviceName,
+                userEmail: user.email,
+                ip: getTrustedClientIp(req),
+                userAgent: req.headers['user-agent'],
+                clientEnv: device.clientInfo
+            }).catch(() => {});
+        }
 
         const token = jwt.sign(
             {
@@ -1452,6 +1498,13 @@ app.get('/api/admin/audit/verify-integrity', authenticateToken, async (req, res)
         }
         const limit = Math.min(Number(req.query.limit) || 500, 2000);
         const report = await verifyAuditLogIntegrity({ limit });
+        if (report.corruptedCount > 0 || report.brokenLinksCount > 0) {
+            triggerAuditIntegrityAnomalyAlert({
+                anomalyType: 'AUDIT_HASH_CORRUPTION',
+                description: `Se detectaron anomalías de integridad en la cadena de auditoría (${report.corruptedCount} corruptos, ${report.brokenLinksCount} enlaces rotos).`,
+                ip: getTrustedClientIp(req)
+            }).catch(() => {});
+        }
         res.json({ ok: true, report });
     } catch (err) {
         res.status(500).json({ message: err.message });
@@ -1767,6 +1820,114 @@ app.get('/api/admin/security/devices', authenticateToken, async (req, res) => {
     } catch (err) {
         console.error('Error in /api/admin/security/devices:', err);
         res.status(500).json({ ok: false, message: err.message });
+    }
+});
+
+// ============================================================================
+// ENDPOINTS DE NOTIFICACIONES WEB PUSH DE SEGURIDAD (OWNER-ONLY)
+// ============================================================================
+
+// GET /api/admin/push/vapid-public-key - Obtener clave pública VAPID para suscripción
+app.get('/api/admin/push/vapid-public-key', authenticateToken, async (req, res) => {
+    try {
+        if (req.user?.role !== 'owner') {
+            return res.status(403).json({ message: 'Solo el propietario puede gestionar notificaciones push de seguridad.' });
+        }
+        const publicKey = getVapidPublicKey();
+        res.json({ ok: true, publicKey });
+    } catch (err) {
+        res.status(500).json({ ok: false, message: err.message });
+    }
+});
+
+// POST /api/admin/push/subscribe - Registrar o actualizar suscripción Web Push del dispositivo
+app.post('/api/admin/push/subscribe', authenticateToken, async (req, res) => {
+    try {
+        if (req.user?.role !== 'owner') {
+            return res.status(403).json({ message: 'Solo el propietario puede registrar suscripciones push de seguridad.' });
+        }
+        const { subscription, deviceInfo } = req.body;
+        const result = await subscribeOwnerDevice({
+            userId: String(req.user.id || req.user._id),
+            userEmail: req.user.email,
+            subscription,
+            deviceInfo: {
+                ...deviceInfo,
+                ip: getTrustedClientIp(req),
+                userAgent: req.headers['user-agent']
+            },
+            allowLoopback: process.env.NODE_ENV === 'test'
+        });
+        res.json({ ok: true, subscription: result });
+    } catch (err) {
+        res.status(err.status || 500).json({ ok: false, message: err.message });
+    }
+});
+
+// GET /api/admin/push/subscriptions - Listar dispositivos suscritos a notificaciones
+app.get('/api/admin/push/subscriptions', authenticateToken, async (req, res) => {
+    try {
+        if (req.user?.role !== 'owner') {
+            return res.status(403).json({ message: 'Solo el propietario puede consultar dispositivos suscritos.' });
+        }
+        const subscriptions = await listOwnerSubscriptions(String(req.user.id || req.user._id));
+        res.json({ ok: true, subscriptions });
+    } catch (err) {
+        res.status(500).json({ ok: false, message: err.message });
+    }
+});
+
+// DELETE /api/admin/push/subscriptions/:subscriptionId - Revocar suscripción de un dispositivo
+app.delete('/api/admin/push/subscriptions/:subscriptionId', authenticateToken, async (req, res) => {
+    try {
+        if (req.user?.role !== 'owner') {
+            return res.status(403).json({ message: 'Solo el propietario puede revocar suscripciones push.' });
+        }
+        const { subscriptionId } = req.params;
+        const { reason } = req.body || {};
+        const result = await revokeOwnerSubscription({
+            userId: String(req.user.id || req.user._id),
+            subscriptionId,
+            reason: reason || 'Revocada desde el panel del Centro de Seguridad'
+        });
+        res.json({ ok: true, ...result });
+    } catch (err) {
+        res.status(err.status || 500).json({ ok: false, message: err.message });
+    }
+});
+
+// POST /api/admin/push/test - Enviar notificación de prueba a los dispositivos del propietario
+app.post('/api/admin/push/test', authenticateToken, async (req, res) => {
+    try {
+        if (req.user?.role !== 'owner') {
+            return res.status(403).json({ message: 'Solo el propietario puede emitir notificaciones de prueba.' });
+        }
+        const { deviceName } = req.body || {};
+        const result = await sendTestPushNotification({
+            userId: String(req.user.id || req.user._id),
+            deviceName
+        });
+        res.json({ ok: true, ...result });
+    } catch (err) {
+        res.status(err.status || 500).json({ ok: false, message: err.message });
+    }
+});
+
+// PATCH /api/admin/push/preferences - Actualizar categorías y preferencias de push
+app.patch('/api/admin/push/preferences', authenticateToken, async (req, res) => {
+    try {
+        if (req.user?.role !== 'owner') {
+            return res.status(403).json({ message: 'Solo el propietario puede configurar categorías de notificación.' });
+        }
+        const { subscriptionId, nonCriticalEnabled } = req.body;
+        const result = await updateSubscriptionPreferences({
+            userId: String(req.user.id || req.user._id),
+            subscriptionId,
+            nonCriticalEnabled
+        });
+        res.json({ ok: true, subscription: result });
+    } catch (err) {
+        res.status(err.status || 500).json({ ok: false, message: err.message });
     }
 });
 

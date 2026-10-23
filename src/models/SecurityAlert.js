@@ -16,6 +16,7 @@ const securityAlertSchema = new mongoose.Schema({
         type: String,
         required: true,
         enum: [
+            'UNRECOGNIZED_DEVICE_LOGIN',
             'FAILED_LOGINS_FLOOD',
             'MFA_REPEATED_FAILURES',
             'REVOKED_DEVICE_ACCESS',
