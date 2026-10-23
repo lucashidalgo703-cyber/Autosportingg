@@ -64,6 +64,15 @@ import * as treasuryStrategicService from './src/services/treasuryStrategicServi
 import OfflineSyncOperation from './src/models/OfflineSyncOperation.js';
 import TrustedDevice from './src/models/TrustedDevice.js';
 import UserSession from './src/models/UserSession.js';
+import PasskeyCredential from './src/models/PasskeyCredential.js';
+import PasskeyChallenge from './src/models/PasskeyChallenge.js';
+import {
+    issuePasskeyRegistrationOptions,
+    verifyAndRegisterPasskey,
+    issuePasskeyAuthenticationOptions,
+    verifyPasskeyAuthentication,
+    revokePasskey
+} from './src/services/passkeySecurityService.js';
 import { getTrustedClientIp } from './src/utils/securityIpResolver.js';
 import { 
     resolveDeviceOnLogin, 
@@ -591,7 +600,16 @@ app.post('/api/login', requireJwtConfiguration, enforceLoginRateLimit, async (re
                     description: `Login requiere 2FA para ${user.email}`
                 });
 
-                return res.json({ require2FA: true, challengeId: challengeToken });
+                const passkeysCount = await PasskeyCredential.countDocuments({
+                    userId: user._id,
+                    status: 'active'
+                });
+
+                return res.json({ 
+                    require2FA: true, 
+                    challengeId: challengeToken,
+                    passkeysAvailable: passkeysCount > 0
+                });
             }
 
             user.lastLoginAt = new Date();
@@ -803,6 +821,144 @@ app.post('/api/login/2fa', requireJwtConfiguration, async (req, res) => {
     }
 });
 
+
+// POST /api/login/passkey/options - Genera opciones de autenticación WebAuthn (Ceremonia 2FA)
+app.post('/api/login/passkey/options', requireJwtConfiguration, async (req, res) => {
+    try {
+        let { challengeId } = req.body || {};
+        const authHeader = req.headers['authorization'];
+        const headerToken = authHeader && authHeader.split(' ')[1];
+        challengeId = challengeId || headerToken;
+
+        if (!challengeId) {
+            return res.status(400).json({ message: 'Se requiere token de desafío 2FA.' });
+        }
+
+        let decoded;
+        try {
+            decoded = jwt.verify(challengeId, JWT_SECRET);
+            if (decoded.type !== '2fa_challenge') {
+                return res.status(401).json({ message: 'Tipo de token inválido para este desafío.' });
+            }
+        } catch {
+            return res.status(401).json({ message: 'Desafío expirado o inválido.' });
+        }
+
+        const user = await AdminUser.findById(decoded.challengeUserId);
+        if (!user || !user.active || !user.twoFactorEnabled) {
+            return res.status(401).json({ message: 'Usuario inválido o 2FA no activo.' });
+        }
+
+        if (user.role !== ROLES.OWNER) {
+            return res.status(403).json({
+                code: "ONLY_OWNER_ALLOWED",
+                message: "Acceso denegado: El CRM está restringido exclusivamente al propietario autorizado."
+            });
+        }
+
+        const options = await issuePasskeyAuthenticationOptions({ user, req });
+        res.json(options);
+    } catch (error) {
+        console.error("Passkey Options Error:", error);
+        res.status(error.status || 500).json({ message: error.message, code: error.code });
+    }
+});
+
+// POST /api/login/passkey/verify - Valida la aserción criptográfica WebAuthn y completa el login
+app.post('/api/login/passkey/verify', requireJwtConfiguration, async (req, res) => {
+    try {
+        let { challengeId, credential } = req.body || {};
+        const authHeader = req.headers['authorization'];
+        const headerToken = authHeader && authHeader.split(' ')[1];
+        challengeId = challengeId || headerToken;
+
+        if (!challengeId || !credential) {
+            return res.status(400).json({ message: 'Se requiere token de desafío 2FA y respuesta de credencial WebAuthn.' });
+        }
+
+        let decoded;
+        try {
+            decoded = jwt.verify(challengeId, JWT_SECRET);
+            if (decoded.type !== '2fa_challenge') {
+                return res.status(401).json({ message: 'Tipo de token inválido para este desafío.' });
+            }
+        } catch {
+            return res.status(401).json({ message: 'Desafío expirado o inválido.' });
+        }
+
+        const user = await AdminUser.findById(decoded.challengeUserId);
+        if (!user || !user.active || !user.twoFactorEnabled) {
+            return res.status(401).json({ message: 'Usuario inválido o 2FA no activo.' });
+        }
+
+        if (user.role !== ROLES.OWNER) {
+            return res.status(403).json({
+                code: "ONLY_OWNER_ALLOWED",
+                message: "Acceso denegado: El CRM está restringido exclusivamente al propietario autorizado."
+            });
+        }
+
+        const { verified, passkey } = await verifyPasskeyAuthentication({
+            user,
+            credentialResponse: credential,
+            req
+        });
+
+        if (!verified) {
+            return res.status(401).json({ message: 'Autenticación WebAuthn fallida.' });
+        }
+
+        user.lastLoginAt = new Date();
+        await user.save();
+
+        // Vincular dispositivo confiable o desconocido (TrustedDevice Handshake)
+        const clientDeviceId = req.headers['x-device-id'] || req.body?.deviceId;
+        const clientPublicKey = req.body?.publicKey;
+        const clientSignature = req.body?.signature;
+        const clientChallengeId = req.body?.deviceChallengeId || (req.body?.challengeId && req.body.challengeId !== challengeId ? req.body.challengeId : null);
+        const { device } = await resolveDeviceOnLogin({
+            deviceId: clientDeviceId,
+            publicKey: clientPublicKey,
+            signature: clientSignature,
+            challengeId: clientChallengeId,
+            user,
+            req
+        });
+
+        // Crear sesión revocable en servidor
+        const session = await createUserSession({ user, device, req });
+
+        const token = jwt.sign(
+            {
+                id: user._id,
+                userId: user._id,
+                email: user.email,
+                username: user.name,
+                role: user.role,
+                permissions: user.permissions,
+                sessionId: session.sessionId,
+                deviceId: device.deviceId,
+                deviceName: device.deviceName,
+                deviceStatus: device.status
+            },
+            JWT_SECRET,
+            { expiresIn: '24h' }
+        );
+
+        return res.json({ 
+            token, 
+            role: user.role, 
+            name: user.name,
+            deviceId: device.deviceId,
+            deviceName: device.deviceName,
+            deviceStatus: device.status
+        });
+
+    } catch (error) {
+        console.error("Passkey Verify Error:", error);
+        res.status(error.status || 500).json({ message: error.message, code: error.code });
+    }
+});
 
 // GET Current Auth User (Diagnostic)
 app.get('/api/admin/auth/me', authenticateToken, async (req, res) => {
@@ -17143,6 +17299,98 @@ app.post('/api/admin/2fa/disable', authenticateToken, async (req, res) => {
         res.json({ message: '2FA desactivado' });
     } catch (error) {
         res.status(500).json({ message: error.message });
+    }
+});
+
+// --- PASSKEYS / WEBAUTHN MANAGEMENT ENDPOINTS ---
+
+// GET /api/admin/passkeys - Listar passkeys registradas por el propietario
+app.get('/api/admin/passkeys', authenticateToken, async (req, res) => {
+    try {
+        const user = await AdminUser.findById(req.user.id || req.user.userId);
+        if (!user || user.role !== ROLES.OWNER) {
+            return res.status(403).json({
+                code: "ONLY_OWNER_ALLOWED",
+                message: "Acceso denegado: El CRM está restringido exclusivamente al propietario autorizado."
+            });
+        }
+
+        const passkeys = await PasskeyCredential.find({ userId: user._id })
+            .select('credentialId name status deviceType backedUp transports registeredAt lastUsedAt revokedAt revocationReason')
+            .sort({ registeredAt: -1 })
+            .lean();
+
+        res.json({ ok: true, passkeys });
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+});
+
+// POST /api/admin/passkeys/generate-options - Genera opciones de registro WebAuthn
+app.post('/api/admin/passkeys/generate-options', authenticateToken, async (req, res) => {
+    try {
+        const user = await AdminUser.findById(req.user.id || req.user.userId);
+        if (!user || user.role !== ROLES.OWNER) {
+            return res.status(403).json({
+                code: "ONLY_OWNER_ALLOWED",
+                message: "Acceso denegado: El CRM está restringido exclusivamente al propietario autorizado."
+            });
+        }
+
+        const options = await issuePasskeyRegistrationOptions({ user, req });
+        res.json(options);
+    } catch (error) {
+        res.status(error.status || 500).json({ message: error.message, code: error.code });
+    }
+});
+
+// POST /api/admin/passkeys/verify - Valida la respuesta de registro y guarda la Passkey
+app.post('/api/admin/passkeys/verify', authenticateToken, async (req, res) => {
+    try {
+        const user = await AdminUser.findById(req.user.id || req.user.userId);
+        if (!user || user.role !== ROLES.OWNER) {
+            return res.status(403).json({
+                code: "ONLY_OWNER_ALLOWED",
+                message: "Acceso denegado: El CRM está restringido exclusivamente al propietario autorizado."
+            });
+        }
+
+        const { credential, name } = req.body;
+        const result = await verifyAndRegisterPasskey({
+            user,
+            credentialResponse: credential,
+            name,
+            req
+        });
+
+        res.json(result);
+    } catch (error) {
+        res.status(error.status || 500).json({ message: error.message, code: error.code });
+    }
+});
+
+// POST /api/admin/passkeys/:credentialId/revoke - Revoca una Passkey específica
+app.post('/api/admin/passkeys/:credentialId/revoke', authenticateToken, async (req, res) => {
+    try {
+        const user = await AdminUser.findById(req.user.id || req.user.userId);
+        if (!user || user.role !== ROLES.OWNER) {
+            return res.status(403).json({
+                code: "ONLY_OWNER_ALLOWED",
+                message: "Acceso denegado: El CRM está restringido exclusivamente al propietario autorizado."
+            });
+        }
+
+        const result = await revokePasskey({
+            userId: user._id,
+            credentialId: req.params.credentialId,
+            operatorUser: user,
+            reason: req.body?.reason,
+            req
+        });
+
+        res.json(result);
+    } catch (error) {
+        res.status(error.status || 500).json({ message: error.message, code: error.code });
     }
 });
 

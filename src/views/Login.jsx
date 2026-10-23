@@ -3,7 +3,8 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '../context/AuthContext';
 import { getPersistentDeviceId, getOrCreateDeviceKeyPair, requestAndSignDeviceChallenge } from '../services/deviceSecurityService';
-import { Lock, KeyRound, ArrowLeft, Eye, EyeOff, ShieldCheck, CheckCircle2, ArrowRight, AlertTriangle, Cpu } from 'lucide-react';
+import { Lock, KeyRound, ArrowLeft, Eye, EyeOff, ShieldCheck, CheckCircle2, ArrowRight, AlertTriangle, Cpu, Fingerprint, Smartphone } from 'lucide-react';
+import { loginWithPasskey, isWebAuthnSupported } from '../services/passkeyClientService';
 
 const Login = () => {
   const [email, setEmail] = useState('');
@@ -22,6 +23,8 @@ const Login = () => {
   const [challengeId, setChallengeId] = useState(null);
   const [twoFactorCode, setTwoFactorCode] = useState('');
   const [recoveryMode, setRecoveryMode] = useState(false);
+  const [passkeysAvailable, setPasskeysAvailable] = useState(false);
+  const [active2FaTab, setActive2FaTab] = useState('totp'); // 'passkey' | 'totp'
 
   const { login } = useAuth();
   const router = useRouter();
@@ -166,6 +169,13 @@ const Login = () => {
       if (response.ok) {
         if (data.require2FA) {
           setChallengeId(data.challengeId);
+          const hasPasskeys = Boolean(data.passkeysAvailable);
+          setPasskeysAvailable(hasPasskeys);
+          if (hasPasskeys && isWebAuthnSupported()) {
+            setActive2FaTab('passkey');
+          } else {
+            setActive2FaTab('totp');
+          }
         } else {
           login(data.token, { deviceId: data.deviceId, deviceName: data.deviceName, deviceStatus: data.deviceStatus });
           const displayName = data.name || data.user?.name || (email.split('@')[0]) || 'Operador';
@@ -242,7 +252,34 @@ const Login = () => {
     }
   };
 
+  const handlePasskeySubmit = async () => {
+    setError('');
+    setLoading(true);
+    setDecryptText('VERIFICANDO PASSKEY CON EL DISPOSITIVO...');
+
+    try {
+      const API_URL = process.env.NEXT_PUBLIC_API_URL;
+      const baseUrl = process.env.NODE_ENV === 'production' ? '' : (API_URL || 'http://localhost:3001');
+
+      const data = await loginWithPasskey({
+        challengeId,
+        baseUrl
+      });
+
+      login(data.token, { deviceId: data.deviceId, deviceName: data.deviceName, deviceStatus: data.deviceStatus });
+      const displayName = data.name || data.user?.name || (email.split('@')[0]) || 'Propietario';
+      setWelcomeUserName(displayName);
+      setAuthSuccess(true);
+    } catch (err) {
+      setError(err.message || 'Error durante la verificación con passkey');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const cancel2FA = () => {
+    setPasskeysAvailable(false);
+    setActive2FaTab('totp');
     setChallengeId(null);
     setTwoFactorCode('');
     setError('');
@@ -477,80 +514,195 @@ const Login = () => {
                 <ArrowLeft size={16} />
               </button>
 
-              <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl border border-purple-500/40 bg-purple-950/30 text-purple-400 shadow-[0_0_20px_rgba(168,85,247,0.25)]">
-                <KeyRound className="h-7 w-7 text-purple-400" />
+              {/* Icono central según método seleccionado */}
+              <div className={`mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl border transition-all duration-300 ${
+                active2FaTab === 'passkey'
+                  ? 'border-emerald-500/40 bg-emerald-950/30 text-emerald-400 shadow-[0_0_20px_rgba(16,185,129,0.25)]'
+                  : 'border-purple-500/40 bg-purple-950/30 text-purple-400 shadow-[0_0_20px_rgba(168,85,247,0.25)]'
+              }`}>
+                {active2FaTab === 'passkey' ? (
+                  <Fingerprint className="h-7 w-7 text-emerald-400" />
+                ) : (
+                  <KeyRound className="h-7 w-7 text-purple-400" />
+                )}
               </div>
 
-              <div className="text-center mb-6 font-mono">
+              <div className="text-center mb-5 font-mono">
                 <h1 className="text-xl sm:text-2xl font-black tracking-wider uppercase text-white">
-                  VERIFICACIÓN <span className="text-purple-400">2FA</span>
+                  VERIFICACIÓN <span className={active2FaTab === 'passkey' ? 'text-emerald-400' : 'text-purple-400'}>2FA</span>
                 </h1>
                 <p className="mt-1 text-xs text-zinc-400 tracking-wide">
-                  {recoveryMode
-                    ? '[EMERGENCIA] INGRESÁ TU CÓDIGO DE RECUPERACIÓN'
-                    : '[TOTP] CÓDIGO DE 6 DÍGITOS DE TU AUTENTICADOR'}
+                  {active2FaTab === 'passkey'
+                    ? '[WEBAUTHN] CONTINUAR CON HUELLA, ROSTRO O PIN'
+                    : recoveryMode
+                      ? '[EMERGENCIA] INGRESÁ TU CÓDIGO DE RECUPERACIÓN'
+                      : '[TOTP] CÓDIGO DE 6 DÍGITOS DE TU AUTENTICADOR'}
                 </p>
               </div>
 
-              <form onSubmit={handle2FASubmit} className="space-y-4">
-                <div>
-                  <div className="group relative flex items-center rounded-xl border border-purple-500/40 bg-black/60 focus-within:border-purple-400 focus-within:ring-1 focus-within:ring-purple-500/40 transition-all shadow-inner">
-                    <input
-                      type="text"
-                      value={twoFactorCode}
-                      onChange={(e) => setTwoFactorCode(e.target.value.replace(/\s/g, ''))}
-                      placeholder={recoveryMode ? "EMERGENCY_KEY" : "000000"}
-                      autoComplete="one-time-code"
-                      maxLength={recoveryMode ? 64 : 6}
-                      required
-                      autoFocus
-                      disabled={loading}
-                      className="w-full bg-transparent py-3 text-center text-xl font-mono font-black tracking-[0.4em] text-white placeholder-zinc-700 outline-none disabled:opacity-50"
-                    />
-                  </div>
-                </div>
-
-                {error && (
-                  <div className="flex items-start gap-2.5 rounded-xl border border-rose-500/40 bg-rose-500/10 p-3 text-xs font-mono text-rose-300 animate-in fade-in duration-200">
-                    <AlertTriangle size={16} className="shrink-0 mt-0.5 text-rose-400" />
-                    <span>[ERR_2FA]: {error}</span>
-                  </div>
-                )}
-
-                <button
-                  type="submit"
-                  disabled={loading}
-                  className="group relative mt-3 flex w-full items-center justify-center gap-2 overflow-hidden rounded-xl bg-gradient-to-r from-purple-600 via-purple-700 to-purple-800 py-3.5 px-4 font-mono font-bold text-xs uppercase tracking-widest text-white shadow-[0_0_20px_rgba(168,85,247,0.4)] hover:shadow-[0_0_35px_rgba(168,85,247,0.65)] hover:brightness-110 active:scale-[0.99] disabled:opacity-80 disabled:cursor-wait transition-all cursor-pointer"
-                >
-                  {loading ? (
-                    <div className="flex items-center gap-2 text-center font-mono">
-                      <Cpu size={16} className="animate-spin text-white" />
-                      <span className="tracking-wider text-[11px] animate-pulse">VALIDANDO TOKEN CRIPTOGRÁFICO...</span>
-                    </div>
-                  ) : (
-                    <>
-                      <span>VALIDAR CÓDIGO // AUTH</span>
-                      <ArrowRight size={15} className="transition-transform duration-200 group-hover:translate-x-1" />
-                    </>
-                  )}
-                </button>
-
-                <div className="pt-2 text-center font-mono">
+              {/* Selector de Método 2FA si hay Passkeys disponibles */}
+              {passkeysAvailable && (
+                <div className="flex rounded-xl bg-black/60 p-1 mb-5 border border-zinc-800 font-mono text-[11px]">
                   <button
                     type="button"
                     onClick={() => {
-                      setRecoveryMode(!recoveryMode);
-                      setTwoFactorCode('');
+                      setActive2FaTab('passkey');
                       setError('');
                     }}
-                    className="text-[11px] text-zinc-400 hover:text-white transition-colors underline underline-offset-4 cursor-pointer"
+                    className={`flex-1 flex items-center justify-center gap-1.5 py-2 px-2 rounded-lg font-bold transition-all cursor-pointer ${
+                      active2FaTab === 'passkey'
+                        ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 shadow-sm'
+                        : 'text-zinc-400 hover:text-white'
+                    }`}
                   >
-                    {recoveryMode
-                      ? '&gt; VOLVER A CÓDIGO TOTP ESTÁNDAR'
-                      : '&gt; ¿SIN ACCESO AL DISPOSITIVO? USAR CÓDIGO DE RECUPERACIÓN'}
+                    <Fingerprint size={14} />
+                    <span>PASSKEY</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setActive2FaTab('totp');
+                      setError('');
+                    }}
+                    className={`flex-1 flex items-center justify-center gap-1.5 py-2 px-2 rounded-lg font-bold transition-all cursor-pointer ${
+                      active2FaTab === 'totp'
+                        ? 'bg-purple-500/20 text-purple-300 border border-purple-500/40 shadow-sm'
+                        : 'text-zinc-400 hover:text-white'
+                    }`}
+                  >
+                    <KeyRound size={14} />
+                    <span>AUTHENTICATOR</span>
                   </button>
                 </div>
-              </form>
+              )}
+
+              {/* PESTAÑA PASSKEY */}
+              {active2FaTab === 'passkey' ? (
+                <div className="space-y-4">
+                  <div className="rounded-xl border border-emerald-500/30 bg-emerald-950/10 p-4 text-center font-mono">
+                    <p className="text-xs text-zinc-300 leading-relaxed">
+                      Utilizá la huella dactilar, reconocimiento facial o el PIN de seguridad de este equipo para verificar tu identidad.
+                    </p>
+                  </div>
+
+                  {error && (
+                    <div className="flex items-start gap-2.5 rounded-xl border border-rose-500/40 bg-rose-500/10 p-3 text-xs font-mono text-rose-300 animate-in fade-in duration-200">
+                      <AlertTriangle size={16} className="shrink-0 mt-0.5 text-rose-400" />
+                      <span>[ERR_PASSKEY]: {error}</span>
+                    </div>
+                  )}
+
+                  <button
+                    type="button"
+                    onClick={handlePasskeySubmit}
+                    disabled={loading}
+                    className="group relative mt-2 flex w-full items-center justify-center gap-2 overflow-hidden rounded-xl bg-gradient-to-r from-emerald-600 via-emerald-500 to-teal-600 py-3.5 px-4 font-mono font-bold text-xs uppercase tracking-widest text-white shadow-[0_0_20px_rgba(16,185,129,0.35)] hover:shadow-[0_0_35px_rgba(16,185,129,0.6)] hover:brightness-110 active:scale-[0.99] disabled:opacity-80 disabled:cursor-wait transition-all cursor-pointer"
+                  >
+                    {loading ? (
+                      <div className="flex items-center gap-2 text-center font-mono">
+                        <Cpu size={16} className="animate-spin text-white" />
+                        <span className="tracking-wider text-[11px] animate-pulse">VALIDANDO PASSKEY...</span>
+                      </div>
+                    ) : (
+                      <>
+                        <Fingerprint size={16} />
+                        <span>CONTINUAR CON BIOMETRÍA // PIN</span>
+                        <ArrowRight size={15} className="transition-transform duration-200 group-hover:translate-x-1" />
+                      </>
+                    )}
+                  </button>
+
+                  <div className="pt-2 text-center font-mono">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setActive2FaTab('totp');
+                        setError('');
+                      }}
+                      className="text-[11px] text-zinc-400 hover:text-white transition-colors underline underline-offset-4 cursor-pointer"
+                    >
+                      &gt; USAR GOOGLE AUTHENTICATOR EN SU LUGAR
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                /* PESTAÑA TOTP / RECUPERACIÓN */
+                <form onSubmit={handle2FASubmit} className="space-y-4">
+                  <div>
+                    <div className="group relative flex items-center rounded-xl border border-purple-500/40 bg-black/60 focus-within:border-purple-400 focus-within:ring-1 focus-within:ring-purple-500/40 transition-all shadow-inner">
+                      <input
+                        type="text"
+                        value={twoFactorCode}
+                        onChange={(e) => setTwoFactorCode(e.target.value.replace(/\s/g, ''))}
+                        placeholder={recoveryMode ? "EMERGENCY_KEY" : "000000"}
+                        autoComplete="one-time-code"
+                        maxLength={recoveryMode ? 64 : 6}
+                        required
+                        autoFocus
+                        disabled={loading}
+                        className="w-full bg-transparent py-3 text-center text-xl font-mono font-black tracking-[0.4em] text-white placeholder-zinc-700 outline-none disabled:opacity-50"
+                      />
+                    </div>
+                  </div>
+
+                  {error && (
+                    <div className="flex items-start gap-2.5 rounded-xl border border-rose-500/40 bg-rose-500/10 p-3 text-xs font-mono text-rose-300 animate-in fade-in duration-200">
+                      <AlertTriangle size={16} className="shrink-0 mt-0.5 text-rose-400" />
+                      <span>[ERR_2FA]: {error}</span>
+                    </div>
+                  )}
+
+                  <button
+                    type="submit"
+                    disabled={loading}
+                    className="group relative mt-3 flex w-full items-center justify-center gap-2 overflow-hidden rounded-xl bg-gradient-to-r from-purple-600 via-purple-700 to-purple-800 py-3.5 px-4 font-mono font-bold text-xs uppercase tracking-widest text-white shadow-[0_0_20px_rgba(168,85,247,0.4)] hover:shadow-[0_0_35px_rgba(168,85,247,0.65)] hover:brightness-110 active:scale-[0.99] disabled:opacity-80 disabled:cursor-wait transition-all cursor-pointer"
+                  >
+                    {loading ? (
+                      <div className="flex items-center gap-2 text-center font-mono">
+                        <Cpu size={16} className="animate-spin text-white" />
+                        <span className="tracking-wider text-[11px] animate-pulse">VALIDANDO TOKEN CRIPTOGRÁFICO...</span>
+                      </div>
+                    ) : (
+                      <>
+                        <span>VALIDAR CÓDIGO // AUTH</span>
+                        <ArrowRight size={15} className="transition-transform duration-200 group-hover:translate-x-1" />
+                      </>
+                    )}
+                  </button>
+
+                  <div className="pt-2 text-center font-mono space-y-1.5">
+                    {passkeysAvailable && (
+                      <div>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setActive2FaTab('passkey');
+                            setError('');
+                          }}
+                          className="text-[11px] text-emerald-400 hover:text-emerald-300 transition-colors underline underline-offset-4 cursor-pointer"
+                        >
+                          &gt; VOLVER A PASSKEY (HUELLA O PIN)
+                        </button>
+                      </div>
+                    )}
+                    <div>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setRecoveryMode(!recoveryMode);
+                          setTwoFactorCode('');
+                          setError('');
+                        }}
+                        className="text-[11px] text-zinc-400 hover:text-white transition-colors underline underline-offset-4 cursor-pointer"
+                      >
+                        {recoveryMode
+                          ? '&gt; VOLVER A CÓDIGO TOTP ESTÁNDAR'
+                          : '&gt; ¿SIN ACCESO AL DISPOSITIVO? USAR CÓDIGO DE RECUPERACIÓN'}
+                      </button>
+                    </div>
+                  </div>
+                </form>
+              )}
             </>
           )}
 
