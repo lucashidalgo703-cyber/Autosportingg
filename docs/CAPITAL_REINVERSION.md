@@ -2,9 +2,9 @@
 
 ## Alcance de esta etapa
 
-La demostración de `/admin/capital-reinversion-demo` usa exclusivamente fixtures estáticos ficticios. No consulta MongoDB, no lee datos del CRM, no registra cobros, no distribuye fondos y no altera saldos. El motor `projectCapitalReinvestment(snapshot)` es determinístico con los mismos snapshots y devuelve `pendiente_conciliacion`/`null` cuando la evidencia no alcanza.
+La demostración de `/admin/capital-reinversion-demo` usa exclusivamente fixtures estáticos ficticios. No consulta MongoDB, no lee datos del CRM, no registra cobros, no distribuye fondos y no altera saldos. La pestaña integrada de `/admin/tesoreria-estrategica` usa el adaptador de consulta de solo lectura y requiere sesión administrativa más la reautenticación PIN existente de Tesorería. El motor `projectCapitalReinvestment(snapshot)` es determinístico con los mismos snapshots y devuelve `pendiente_conciliacion`/`null` cuando la evidencia no alcanza.
 
-No se integró la vista en Tesorería Estratégica. La función pura de participación `computeIncomeOwnership` se reutiliza desde el servicio existente; el motor la invoca con objetos en memoria y no llama a sus funciones de lectura o escritura.
+La ruta de demostración no integra una fuente del CRM; la pestaña integrada sí consume el adaptador de solo lectura. La función pura `computeIncomeOwnership` vive en `src/services/treasuryIncomeOwnership.js` y se reexporta desde el servicio existente por compatibilidad. El motor la invoca con objetos en memoria y no llama a funciones de lectura o escritura de Tesorería.
 
 ## Fuentes y cálculos reutilizados
 
@@ -42,9 +42,9 @@ Una permuta queda como valor de adquisición no monetario. El estado de una cuot
 
 ## Reversión de egresos
 
-El snapshot incluye el historial de cajas y los egresos anulados. Si existe un asiento `egreso_finanzas` asociado a un gasto anulado sin `reversion_egreso` correspondiente, se marca `expense_reversal_unreconciled` y el disponible queda `null`/`Pendiente de conciliación`.
+El snapshot incluye el historial de cajas y los egresos anulados. Si un gasto anulado tiene un débito estratégico previo, la liquidez consolidada queda pendiente aun cuando haya un asiento de reversa: el adaptador no puede verificar el saldo histórico únicamente con esos registros.
 
-El defecto informado en `syncExpenseWithTreasury` no se corrigió en esta etapa; tampoco se modificaron `treasuryStrategicService.js` ni `treasuryDistribution.test.js`. Se agregó una prueba ficticia que alimenta una reversa incompleta y verifica que no se muestre liquidez exacta. La prueba de regresión heredada de Tesorería debe ejecutarse como control; si falla, el arreglo continúa perteneciendo al módulo financiero existente y queda como bloqueo de integración.
+La rama candidata incluye una corrección en `syncExpenseWithTreasury`: la anulación solo repone una vez un débito asociado con el mismo importe y moneda, y registra atómicamente saldo e historial. La expectativa original de `tests/treasuryDistribution.test.js` se conserva. Los registros históricos no se corrigen automáticamente; Capital continúa bloqueando la liquidez consolidada para gastos anulados con débitos previos hasta una conciliación independiente.
 
 ## Limitaciones
 
@@ -54,12 +54,12 @@ El defecto informado en `syncExpenseWithTreasury` no se corrigió en esta etapa;
 - El vínculo temporal o causal entre un cobro específico y una compra posterior no existe en los modelos actuales. El panel informa pagos confirmados desde Stock, no atribución de cada peso a una venta concreta.
 - El cálculo existente usa la base propia de costo de compra para el extra porcentual, mientras el comentario de `TreasuryConfig` lo describe como porcentaje sobre inversión real. Esta etapa conserva el resultado actual y no redefine el porcentaje.
 - `computeIncomeOwnership` vive dentro de `treasuryStrategicService.js`, módulo que también importa modelos. Solo se llama la función pura exportada; una integración futura debería resolver la dependencia modular sin duplicar sus reglas y sin ejecutar las funciones con acceso a datos.
-- La implementación no corrige el problema histórico de reversión ni autoriza su uso con datos operativos. La integración depende de una fuente de snapshots solo lectura, conciliada y probada.
+- La corrección local de reversión no demuestra por sí sola la integridad de saldos históricos ni autoriza uso productivo. La integración depende de conciliación operativa, compatibilidad con Seguridad y verificación en un entorno aislado representativo.
 
 ## Pruebas
 
-`tests/capitalReinvestment.test.js` utiliza snapshots ficticios y cubre contado, financiado, cobro parcial, seña sin transacción, compra parcial, gastos pagados y sin estado, permuta, socios, terceros, reinversión parcial/total, reversa de cobro, reversa de gasto incompleta, historial de distribución inconsistente, inconsistencias de saldos, compromisos, monedas, datos incompletos, ausencia de cotización, doble contabilización y vista previa sin mutar el snapshot.
+`tests/capitalReinvestment.test.js` utiliza snapshots ficticios y cubre contado, financiado, cobro parcial, seña sin transacción, compra parcial, gastos pagados y sin estado, permuta, socios, terceros, reinversión parcial/total, reversa de cobro, reversa de gasto incompleta, historial de distribución inconsistente, inconsistencias de saldos, compromisos, monedas, datos incompletos, ausencia de cotización, doble contabilización y vista previa sin mutar el snapshot. Las suites `tests/integration/capitalReinvestmentReadAdapter.integration.test.js` y `tests/integration/treasuryExpenseReversal.integration.test.js` verifican la consulta aislada, los permisos heredados, la privacidad del DTO y la corrección de reversión con MongoDB en memoria.
 
 Comando: `node --test tests/capitalReinvestment.test.js`.
 
-La integración real queda fuera de este alcance. Requiere un adaptador de consulta conciliado y aprobación independiente; no se deben ejecutar movimientos al presentar una recomendación.
+La integración solo agrega consulta y recomendación; no se deben ejecutar movimientos al presentar una propuesta. Antes de publicar, deben resolverse la compatibilidad con Seguridad/propietario único, la conciliación de operaciones históricas y los límites operativos descritos en `CAPITAL_REINVESTMENT_INTEGRATION.md`.

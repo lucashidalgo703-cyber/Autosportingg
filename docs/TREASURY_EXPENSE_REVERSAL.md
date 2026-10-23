@@ -4,7 +4,7 @@
 
 La sincronización de un gasto activo con Tesorería podía omitir su reversión al anularlo: `syncExpenseWithTreasury` retornaba al encontrar `isTreasuryExpenseSynced` antes de evaluar `statusChanged`. La corrección permite procesar ese cambio y exige un movimiento de débito original `egreso_finanzas` vinculado al mismo `sourceExpenseId`.
 
-La restitución actualiza en una sola operación atómica el saldo monetario (redondeado a centavos) y el historial `reversion_egreso`. La operación solo se aplica si todavía no hay reversión registrada para ese gasto en la caja. Así, reintentos y llamadas concurrentes no duplican el crédito. El movimiento conserva moneda, fecha, usuario, motivo y referencia del gasto. Si el débito original no está, la operación falla explícitamente; no inventa una restitución.
+La restitución actualiza en una sola operación atómica el saldo monetario (redondeado a centavos) y el historial `reversion_egreso`. Exige un único débito original con importe absoluto y moneda coincidentes; varios débitos/reversiones, importe no positivo o una reversa contradictoria requieren conciliación manual. La operación solo se aplica si todavía no hay reversión registrada para ese gasto en la caja. Así, reintentos y llamadas concurrentes no duplican el crédito. El movimiento conserva moneda, fecha, usuario, motivo y referencia del gasto. Si el débito original no está, la operación falla explícitamente; no inventa una restitución.
 
 Al cambiar un gasto activo a pendiente, además de restituir el saldo se restablece el compromiso pendiente en la moneda correspondiente. El cambio de la marca del documento de gasto se guarda después del asiento de caja; si ese guardado falla, el reintento detecta el asiento ya confirmado y no vuelve a acreditar.
 

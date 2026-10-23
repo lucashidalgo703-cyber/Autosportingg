@@ -24,11 +24,11 @@ El adaptador arma un objeto plano equivalente a `capitalReinvestmentDemoSnapshot
 
 La salida conserva ARS y USD separados. Una conversión solo puede usar tipo de cambio explícito de la venta y queda sujeta a conciliación. Se limitarán los registros de fuente y, si el límite se excede, el snapshot se marcará incompleto y no presentará cifras como conciliadas.
 
-## Regla de liquidez y defecto heredado
+## Regla de liquidez y reversión de gastos
 
-La liquidez reportable requiere la conciliación vigente de Tesorería, que el saldo actual de cada cuenta coincida con el último corte más los movimientos activos enlazados a esa cuenta desde el corte, que la ecuación de cuentas contra cajas, fondos propios no asignados y fondos de terceros cuadre por moneda, volumen dentro del límite de lectura y ausencia de débitos de gasto anulados cuyo saldo no pueda verificarse. Las cuentas nuevas sin línea en el corte, movimientos sin cuenta enlazada o saldos no explicados mantienen la liquidez pendiente. El defecto heredado de reversión de gastos de `$200.000` puede dejar una caja en `$300.000` cuando debería volver a `$500.000`; una entrada de reversa en historial no demuestra por sí sola que el saldo se restauró. Si un gasto anulado tiene un débito de caja asociado, el adaptador bloquea los importes consolidados de liquidez y no revela un disponible exacto, aun cuando se vea un asiento de reversa. El adaptador no infiere ni ajusta el saldo corregido.
+La liquidez reportable requiere la conciliación vigente de Tesorería, que el saldo actual de cada cuenta coincida con el último corte más los movimientos activos enlazados a esa cuenta desde el corte, que la ecuación de cuentas contra cajas, fondos propios no asignados y fondos de terceros cuadre por moneda, volumen dentro del límite de lectura y ausencia de gastos anulados con débitos previos cuyo saldo no pueda verificarse. Las cuentas nuevas sin línea en el corte, movimientos sin cuenta enlazada o saldos no explicados mantienen la liquidez pendiente.
 
-El defecto de reversión sigue fuera del alcance autorizado; requiere una tarea separada sobre `syncExpenseWithTreasury` y sus pruebas financieras heredadas.
+La rama candidata corrige `syncExpenseWithTreasury` para nuevas anulaciones: requiere un único débito original con importe y moneda coincidentes, y acredita caja e historial en una operación atómica e idempotente. No repara movimientos heredados, débitos/reversiones duplicados ni referencias faltantes. Si un gasto anulado tiene un débito previo, el adaptador mantiene bloqueada la liquidez consolidada incluso cuando encuentra un asiento de reversa, hasta que exista conciliación independiente. No infiere ni ajusta saldos históricos.
 
 ## Seguridad y ausencia de efectos laterales
 
