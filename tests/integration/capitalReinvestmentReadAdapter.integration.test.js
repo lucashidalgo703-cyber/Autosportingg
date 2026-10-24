@@ -18,13 +18,20 @@ const countSources = async () => Promise.all([
     TreasuryBox.countDocuments(), TreasuryConfig.countDocuments(), TreasuryReconciliation.countDocuments()
 ]);
 
-await test('La ruta de proyección permanece cerrada hasta integrar el contrato Owner-Only oficial', async () => {
-    for (const [label, authToken] of [['sin token', null], ['sesión heredada', token], ['rol vendedor', makeToken('vendedor')]]) {
-        const response = await call('GET', '/api/admin/capital-reinversion/projection', null, authToken);
-        assert.equal(response.status, 503, label);
-        assert.equal(response.json.code, 'OWNER_ONLY_SECURITY_CONTRACT_PENDING');
-        assert.equal(Object.hasOwn(response.json, 'projection'), false);
-    }
+await test('La ruta de proyección está protegida con el contrato Owner-Only oficial', async () => {
+    const unauth = await call('GET', '/api/admin/capital-reinversion/projection', null, null);
+    assert.ok([401, 403].includes(unauth.status), 'sin token');
+    assert.equal(Object.hasOwn(unauth.json, 'projection'), false);
+
+    const vendedorRes = await call('GET', '/api/admin/capital-reinversion/projection', null, makeToken('vendedor'));
+    assert.equal(vendedorRes.status, 403, 'rol vendedor');
+    assert.equal(vendedorRes.json.code, 'ONLY_OWNER_ALLOWED');
+    assert.equal(Object.hasOwn(vendedorRes.json, 'projection'), false);
+
+    const noPinRes = await call('GET', '/api/admin/capital-reinversion/projection', null, token);
+    assert.equal(noPinRes.status, 403, 'owner sin PIN');
+    assert.equal(noPinRes.json.requirePin, true);
+    assert.equal(Object.hasOwn(noPinRes.json, 'projection'), false);
 });
 
 await test('El adaptador de lectura produce DTO sin documentos ni campos privados', async () => {

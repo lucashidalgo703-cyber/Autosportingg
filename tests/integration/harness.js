@@ -14,11 +14,14 @@ export async function boot() {
     const { default: connectDB } = await import('../../src/config/db.js');
     const { default: UserSession } = await import('../../src/models/UserSession.js');
     const { default: TrustedDevice } = await import('../../src/models/TrustedDevice.js');
+    const { default: AdminUser } = await import('../../src/models/AdminUser.js');
     await connectDB();
 
     const server = app.listen(0);
     const base = `http://127.0.0.1:${server.address().port}`;
     const ownerId = new mongoose.Types.ObjectId().toString();
+    const adminUserId = new mongoose.Types.ObjectId().toString();
+    const vendedorUserId = new mongoose.Types.ObjectId().toString();
 
     // Crear dispositivo confiable y sesión revocable válida para pruebas de integración
     const harnessDeviceId = 'harness-device-' + crypto.randomUUID();
@@ -41,25 +44,21 @@ export async function boot() {
         expiresAt: new Date(Date.now() + 86400000)
     });
 
-    // Crear usuario propietario activo en MongoDB para que pase la barrera de verificación estricta
-    const { default: AdminUser } = await import('../../src/models/AdminUser.js');
-    await AdminUser.findOneAndUpdate(
-        { _id: new mongoose.Types.ObjectId(ownerId) },
-        {
-            $setOnInsert: {
-                _id: new mongoose.Types.ObjectId(ownerId),
-                name: 'test_owner',
-                email: 'owner@autosporting.test',
-                role: 'owner',
-                active: true,
-                status: 'activo'
-            }
-        },
-        { upsert: true, new: true }
-    );
+    // Crear usuarios en MongoDB para verificar la barrera estricta de base de datos
+    await AdminUser.create([
+        { _id: new mongoose.Types.ObjectId(ownerId), name: 'test_owner', email: 'owner@autosporting.test', passwordHash: 'dummy_hash', role: 'owner', active: true, status: 'activo' },
+        { _id: new mongoose.Types.ObjectId(adminUserId), name: 'test_admin', email: 'admin@autosporting.test', passwordHash: 'dummy_hash', role: 'admin', active: true, status: 'activo' },
+        { _id: new mongoose.Types.ObjectId(vendedorUserId), name: 'test_vendedor', email: 'vendedor@autosporting.test', passwordHash: 'dummy_hash', role: 'ventas', active: true, status: 'activo' }
+    ]);
 
     const makeToken = (role = 'owner', customId = null) => {
-        const uId = customId || (role === 'owner' ? ownerId : new mongoose.Types.ObjectId().toString());
+        let uId = customId;
+        if (!uId) {
+            if (role === 'owner') uId = ownerId;
+            else if (role === 'admin') uId = adminUserId;
+            else if (role === 'vendedor' || role === 'ventas') uId = vendedorUserId;
+            else uId = new mongoose.Types.ObjectId().toString();
+        }
         return jwt.sign({
             id: uId,
             userId: uId,
@@ -74,9 +73,13 @@ export async function boot() {
     const token = makeToken('owner', ownerId);
 
     const call = async (method, path, body, tk = token, extraHeaders = {}) => {
+        const headers = { 'Content-Type': 'application/json', 'X-Device-Id': harnessDeviceId, ...extraHeaders };
+        if (tk !== null && tk !== undefined) {
+            headers.Authorization = `Bearer ${tk}`;
+        }
         const res = await fetch(base + path, {
             method,
-            headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${tk}`, 'X-Device-Id': harnessDeviceId, ...extraHeaders },
+            headers,
             body: body ? JSON.stringify(body) : undefined
         });
         const json = await res.json().catch(() => ({}));
