@@ -184,6 +184,11 @@ export const DEFAULT_ROLE_PERMISSIONS = {
     ]
 };
 
+// Helper para verificar si un usuario es propietario exclusivo
+export const isOwner = (user) => {
+    return Boolean(user && user.role === ROLES.OWNER);
+};
+
 // Helper para verificar en frontend/backend
 export const hasPermission = (user, permission) => {
     if (!user || !permission) return false;

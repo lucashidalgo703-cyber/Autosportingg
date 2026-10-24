@@ -137,4 +137,11 @@ export function withAdminAuth(requiredPermission, handler) {
     };
 }
 
+/**
+ * Wrapper de conveniencia para rutas de App Router de acceso exclusivo del Propietario
+ */
+export function withOwnerAuth(handler) {
+    return withAdminAuth(null, handler);
+}
+
 export default withAdminAuth;

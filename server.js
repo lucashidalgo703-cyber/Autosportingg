@@ -13045,6 +13045,8 @@ const requireTreasuryPrivilegedRole = (req, res, next) => {
     return next();
 };
 
+const requireOwner = requireTreasuryPrivilegedRole;
+
 // 1. Estado de seguridad (sin exponer PIN)
 app.get('/api/admin/tesoreria-estrategica/status', authenticateToken, requireTreasuryPrivilegedRole, async (req, res) => {
     try {
