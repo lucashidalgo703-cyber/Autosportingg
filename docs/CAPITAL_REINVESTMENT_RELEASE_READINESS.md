@@ -6,8 +6,8 @@ La rama candidata local parte de `main` en `73efd4b` e incluye la demostración,
 
 ## Dependencias de ejecución y Seguridad
 
-- La ruta `GET /api/admin/capital-reinversion/projection` depende de `authenticateToken`, `requireTreasuryPrivilegedRole` y `verifyTreasuryStrategicAuth` del servidor actual. El token PIN temporal dura 15 minutos y debe corresponder al usuario autenticado.
-- El guard heredado admite tanto `owner` como `admin`. La política aprobada para AutoSporting Intelligence reserva el acceso operativo al propietario. Esta diferencia bloquea la integración hasta que Antigravity confirme el contrato y el guard compatible con Seguridad. Este candidato no modifica autenticación, roles, passkeys, dispositivos confiables ni auditoría.
+- En esta rama no existen `requireOwner` ni `withOwnerAuth`. La ruta `GET /api/admin/capital-reinversion/projection` ahora falla cerrada con HTTP 503 y no calcula ni devuelve el DTO. Su punto de integración queda antes de `verifyTreasuryStrategicAuth`; debe reemplazarse solo por el guard oficial Owner-Only de Antigravity. El PIN de Tesorería de 15 minutos se conserva después como segundo requisito obligatorio.
+- No se probó ni simula revocación de sesión/dispositivo. La ruta no se debe reactivar hasta disponer del middleware oficial y verificar sesión activa, dispositivo activo y PIN ligado al propietario autenticado. No se copió ni implementó un segundo mecanismo de autenticación.
 - No se agregan variables de entorno específicas de Capital. La ejecución normal depende de la configuración existente del CRM, en particular `MONGODB_URI` y `JWT_SECRET` del servidor y del puerto `PORT`. El componente usa la ruta relativa existente `/api`. El auxiliar de demostración crea un `MONGODB_URI` de MongoMemoryServer, un `JWT_SECRET` aleatorio y puertos loopback temporales; no debe usarse como configuración de publicación.
 - `scripts/start-capital-reinversion-demo-local.js` está anclado intencionalmente al snapshot anterior `66d4297` y sirve para la demo inicial, no para verificar la integración candidata actual. `scripts/start-capital-reinvestment-integration-demo-local.js` materializa el checkout actual en un directorio temporal y es el auxiliar correspondiente a esa integración.
 
@@ -29,6 +29,8 @@ La rama candidata local parte de `main` en `73efd4b` e incluye la demostración,
 ## Validación local de esta candidata
 
 Pasaron 17 suites financieras/comerciales relevantes en entorno aislado: distribución, motor y adaptador de Capital, ownership, cálculo comercial, ganancias, Tesorería (integración, auditoría, distribución, sincronización y reversión), ventas, pagos de vehículos, permutas, cambio de vehículo, cuotas y métricas de stock. Todas las suites con persistencia usaron MongoDB en memoria y datos ficticios. `npm run check` y `npm run build` también pasaron; el check reportó 18 advertencias ESLint heredadas por directivas `eslint-disable` sin uso, con cero errores.
+
+En la adaptación Owner-Only, la prueba de compatibilidad confirma que peticiones de propietario con PIN/sin PIN, administrador con PIN, vendedor, token inválido y acceso directo reciben `503 OWNER_ONLY_SECURITY_CONTRACT_PENDING` y nunca datos de proyección. Esto verifica el cierre preventivo, no el comportamiento del middleware oficial. La revocación real de sesión y dispositivo, el éxito del propietario con PIN y el borrado de estado en navegador requieren verificación al integrar Seguridad.
 
 ## Plan de reversión no destructivo
 

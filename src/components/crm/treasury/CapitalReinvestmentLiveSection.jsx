@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { AlertTriangle, LoaderCircle, RefreshCw } from 'lucide-react';
 import CapitalReinvestmentPanel from './CapitalReinvestmentPanel.jsx';
 
@@ -12,27 +12,68 @@ export default function CapitalReinvestmentLiveSection({ token, treasuryToken })
     const [projection, setProjection] = useState(null);
     const [error, setError] = useState('');
     const [loading, setLoading] = useState(false);
+    const requestRef = useRef(null);
 
     const loadProjection = useCallback(async () => {
-        if (!token || !treasuryToken) return;
+        requestRef.current?.abort();
+        requestRef.current = null;
+        if (!token || !treasuryToken) {
+            setProjection(null);
+            setError('');
+            setLoading(false);
+            return;
+        }
+
+        const controller = new AbortController();
+        requestRef.current = controller;
+        // No conservar cifras del usuario o sesión anterior durante la recarga.
+        setProjection(null);
         setLoading(true);
         setError('');
         try {
             const response = await fetch('/api/admin/capital-reinversion/projection', {
                 headers: { Authorization: `Bearer ${token}`, 'x-treasury-token': treasuryToken },
-                cache: 'no-store'
+                cache: 'no-store',
+                signal: controller.signal
             });
             const payload = await response.json().catch(() => ({}));
             if (!response.ok || !payload.ok) throw new Error(payload.message || 'No se pudo obtener la proyección.');
             setProjection(payload.projection);
         } catch (loadError) {
+            if (loadError.name === 'AbortError') return;
+            setProjection(null);
             setError(loadError.message || 'Error al leer la proyección financiera.');
         } finally {
-            setLoading(false);
+            if (requestRef.current === controller) {
+                requestRef.current = null;
+                setLoading(false);
+            }
         }
     }, [token, treasuryToken]);
 
-    useEffect(() => { loadProjection(); }, [loadProjection]);
+    useEffect(() => {
+        loadProjection();
+        return () => requestRef.current?.abort();
+    }, [loadProjection]);
+
+    useEffect(() => {
+        const clearSensitiveState = () => {
+            requestRef.current?.abort();
+            requestRef.current = null;
+            setProjection(null);
+            setError('');
+            setLoading(false);
+        };
+        const handleStorage = (event) => {
+            if (event.key === 'token' && !event.newValue) clearSensitiveState();
+        };
+        window.addEventListener('autosporting-auth-expired', clearSensitiveState);
+        window.addEventListener('storage', handleStorage);
+        return () => {
+            window.removeEventListener('autosporting-auth-expired', clearSensitiveState);
+            window.removeEventListener('storage', handleStorage);
+        };
+    }, []);
 
     return (
         <section className="space-y-4">

@@ -11978,8 +11978,17 @@ const requireTreasuryPrivilegedRole = (req, res, next) => {
     });
 };
 
-// Capital y Reinversión: snapshot analítico de solo lectura, protegido por la misma sesión PIN.
-app.get('/api/admin/capital-reinversion/projection', authenticateToken, requireTreasuryPrivilegedRole, verifyTreasuryStrategicAuth, async (req, res) => {
+// Punto de integración owner-only. Este clon todavía no incorpora requireOwner/withOwnerAuth
+// de Seguridad; la ruta permanece cerrada hasta conectar el contrato oficial de Antigravity.
+const capitalOwnerAuthIntegrationPending = (_req, res) => res.status(503).json({
+    ok: false,
+    code: 'OWNER_ONLY_SECURITY_CONTRACT_PENDING',
+    message: 'Capital y Reinversión no está disponible hasta integrar el contrato Owner-Only oficial.'
+});
+
+// Al reemplazar el placeholder por requireOwner/withOwnerAuth, conservar verifyTreasuryStrategicAuth
+// como requisito adicional antes de calcular y responder la proyección.
+app.get('/api/admin/capital-reinversion/projection', capitalOwnerAuthIntegrationPending, verifyTreasuryStrategicAuth, async (req, res) => {
     try {
         const projection = await getCapitalReinvestmentProjection();
         res.set('Cache-Control', 'no-store');

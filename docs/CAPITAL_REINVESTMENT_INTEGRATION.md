@@ -4,7 +4,7 @@
 
 `capitalReinvestmentReadAdapter.js` lee `Car`, `Sale`, `Transaction`, `Installment`, `TreasuryBox`, `TreasuryConfig`, `Account` y `TreasuryReconciliation` usando proyecciones explícitas, `.lean()` y un límite detectable de 10.000 registros por fuente. Convierte esos documentos a un snapshot plano y llama al motor determinístico `projectCapitalReinvestment`. El motor no importa Mongoose ni ejecuta I/O.
 
-El endpoint `GET /api/admin/capital-reinversion/projection` aplica el JWT administrativo, rol de propietario/administrador y token PIN de Tesorería de 15 minutos. Devuelve un DTO proyectado, sin documentos Mongoose, datos de contacto, notas o IDs de transacciones. Se excluye `recoveryState` del contrato de respuesta. No usa el servicio estratégico de lectura porque su endpoint de dashboard llama primero a rutinas de inicialización.
+El endpoint `GET /api/admin/capital-reinversion/projection` está temporalmente cerrado con HTTP 503 y no calcula ni devuelve la proyección porque este clon no contiene `requireOwner` ni `withOwnerAuth`. El punto de integración requiere el contrato oficial Owner-Only de Seguridad y luego el token PIN de Tesorería de 15 minutos como requisito adicional. No se debe reactivar con el guard heredado owner/admin. Al integrar el contrato, deberá devolver solo el DTO proyectado, sin documentos Mongoose, datos de contacto, notas o IDs de transacciones, y excluir `recoveryState`. No debe usar el servicio estratégico de lectura porque su endpoint de dashboard llama primero a rutinas de inicialización.
 
 La nueva pestaña “8. Capital y Reinversión” en Tesorería Estratégica consume ese endpoint y reutiliza el panel aprobado. No ofrece acciones de escritura. Cada fuente se vuelve a leer al abrir/actualizar; no hay caché persistente ni efectos laterales en el endpoint.
 
@@ -20,7 +20,7 @@ La nueva pestaña “8. Capital y Reinversión” en Tesorería Estratégica con
 
 ## Pruebas y demostración
 
-El adaptador se probó mediante Express real y MongoDB en memoria con datos ficticios. Se verificó denegación sin PIN y a un rol no privilegiado, respuesta del endpoint con el dueño ficticio, ausencia de datos privados en el DTO, conteos documentales iguales antes/después de la consulta y bloqueo de liquidez ante un gasto ficticio de `$200.000` con una reversa registrada.
+El adaptador se probó mediante Express real y MongoDB en memoria con datos ficticios antes de suspender el endpoint. En la adaptación Owner-Only se verificó que propietario con/sin PIN, administrador, vendedor, token inválido y acceso directo reciban HTTP 503 sin DTO financiero mientras falte el contrato. La revocación real de sesión y dispositivo y una respuesta exitosa del propietario con PIN quedan pendientes de integrar y probar con el middleware oficial.
 
 La captura de escritorio y móvil se generó desde una sesión local real en `artifacts/`. El auxiliar `scripts/start-capital-reinvestment-integration-demo-local.js` crea una copia temporal de este árbol, excluye `.env*`, `.git`, `.next` y módulos, usa MongoDB en memoria, genera una contraseña descartable y enlaza únicamente a loopback. Muestra una venta y reinversión de ejemplo; no carga datos reales. Para iniciarlo: `node scripts/start-capital-reinvestment-integration-demo-local.js`. El usuario y clave se imprimen solo al iniciar. Ctrl+C cierra Next, Express y MongoDB temporal.
 
@@ -32,7 +32,7 @@ La captura de escritorio y móvil se generó desde una sesión local real en `ar
 - La retención de fondos de terceros sigue el criterio del CRM (ingresos activos posteriores al corte menos egresos de liquidación en las mismas categorías). Si el legado no registra con claridad titularidad, salida o vínculo, la ecuación/conciliación debe quedar pendiente.
 - La verificación del movimiento de cada cuenta toma el saldo `realBalance` del corte confirmado y movimientos activos por `accountId` desde entonces. Los casos históricos sin enlace de cuenta requieren conciliación operativa; no se infiere una cuenta.
 - La regresión de `tests/treasuryDistribution.test.js:553` queda corregida en la rama candidata sin cambiar su expectativa. La anulación exige un débito original único, con importe y moneda coincidentes, y escribe una sola restitución atómica. Los gastos históricos anulados siguen bloqueando saldos consolidados de liquidez aunque tengan reversa, porque esos datos requieren conciliación externa.
-- No hubo conexión a MongoDB Atlas ni se integró información de producción. La ruta actual hereda los guards de Tesorería, que admiten propietario y administrador general, mientras que la política aprobada para AutoSporting Intelligence reserva el acceso operativo al propietario. No se cambió el permiso ni se tocó Seguridad; la compatibilidad debe resolverse con Antigravity antes de integrar la ruta.
+- No hubo conexión a MongoDB Atlas ni se integró información de producción. `requireOwner` y `withOwnerAuth` no existen en este clon. La ruta falla cerrada con HTTP 503; la revocación de sesión/dispositivo no se puede verificar sin el middleware oficial. No se copió ni cambió código de Seguridad.
 
 ## Próxima etapa propuesta
 

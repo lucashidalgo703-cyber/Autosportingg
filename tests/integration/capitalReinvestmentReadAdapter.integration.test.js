@@ -11,26 +11,26 @@ const { default: Installment } = await import('../../src/models/Installment.js')
 const { default: TreasuryBox } = await import('../../src/models/TreasuryBox.js');
 const { default: TreasuryConfig } = await import('../../src/models/TreasuryConfig.js');
 const { default: TreasuryReconciliation } = await import('../../src/models/TreasuryReconciliation.js');
+const { getCapitalReinvestmentProjection } = await import('../../src/services/capitalReinvestmentReadAdapter.js');
 
-let treasuryToken;
 const countSources = async () => Promise.all([
     Car.countDocuments(), Sale.countDocuments(), Account.countDocuments(), Transaction.countDocuments(), Installment.countDocuments(),
     TreasuryBox.countDocuments(), TreasuryConfig.countDocuments(), TreasuryReconciliation.countDocuments()
 ]);
 
-await test('Acceso al endpoint requiere autenticación, rol privilegiado y PIN', async () => {
-    const noPin = await call('GET', '/api/admin/capital-reinversion/projection', null, token);
-    assert.equal(noPin.status, 403);
-    assert.equal(noPin.json.requirePin, true);
-    const cashier = await call('GET', '/api/admin/capital-reinversion/projection', null, makeToken('vendedor'), { 'x-treasury-token': 'invalid' });
-    assert.equal(cashier.status, 403);
+await test('La ruta de proyección permanece cerrada hasta integrar el contrato Owner-Only oficial', async () => {
+    for (const [label, authToken] of [['sin token', null], ['sesión heredada', token], ['rol vendedor', makeToken('vendedor')]]) {
+        const response = await call('GET', '/api/admin/capital-reinversion/projection', null, authToken);
+        assert.equal(response.status, 503, label);
+        assert.equal(response.json.code, 'OWNER_ONLY_SECURITY_CONTRACT_PENDING');
+        assert.equal(Object.hasOwn(response.json, 'projection'), false);
+    }
 });
 
-await test('Lee datos ficticios y devuelve DTO sin documentos ni campos privados', async () => {
+await test('El adaptador de lectura produce DTO sin documentos ni campos privados', async () => {
     const setup = await call('POST', '/api/admin/tesoreria-estrategica/pin/setup', { pin: '4321', confirmPin: '4321' });
     assert.equal(setup.status, 200);
-    treasuryToken = setup.json.treasuryToken;
-    assert.ok(treasuryToken);
+    assert.ok(setup.json.treasuryToken);
 
     const car = await Car.create({
         brand: 'Demo', name: 'Unidad Ficticia', year: 2022, km: 12000, fuel: 'Nafta', condition: 'Usado',
@@ -44,14 +44,12 @@ await test('Lee datos ficticios y devuelve DTO sin documentos ni campos privados
     await TreasuryReconciliation.create({ status: 'confirmado', cutoffDate: new Date('2025-12-31T00:00:00.000Z') });
 
     const before = await countSources();
-    const response = await call('GET', '/api/admin/capital-reinversion/projection', null, token, { 'x-treasury-token': treasuryToken });
+    const projection = await getCapitalReinvestmentProjection();
     const after = await countSources();
-    assert.equal(response.status, 200);
-    assert.equal(response.json.ok, true);
-    assert.equal(response.json.projection.demo, false);
-    assert.equal(response.json.projection.operations.length, 1);
+    assert.equal(projection.demo, false);
+    assert.equal(projection.operations.length, 1);
     assert.deepEqual(after, before, 'La consulta no debe crear ni modificar documentos');
-    const serialized = JSON.stringify(response.json.projection);
+    const serialized = JSON.stringify(projection);
     assert.equal(serialized.includes('private@example.test'), false);
     assert.equal(serialized.includes('NOTA PRIVADA'), false);
     assert.equal(serialized.includes('ownerEmail'), false);
@@ -60,11 +58,10 @@ await test('Lee datos ficticios y devuelve DTO sin documentos ni campos privados
 });
 
 await test('Límite y falta de conciliación bloquean liquidez exacta', async () => {
-    const response = await call('GET', '/api/admin/capital-reinversion/projection', null, token, { 'x-treasury-token': treasuryToken });
-    assert.equal(response.status, 200);
-    assert.equal(response.json.projection.liquidity.ARS.status, 'pendiente_conciliacion');
-    assert.equal(response.json.projection.liquidity.ARS.availableForPurchase, null);
-    assert.equal(response.json.projection.liquidity.USD.availableForPurchase, null);
+    const projection = await getCapitalReinvestmentProjection();
+    assert.equal(projection.liquidity.ARS.status, 'pendiente_conciliacion');
+    assert.equal(projection.liquidity.ARS.availableForPurchase, null);
+    assert.equal(projection.liquidity.USD.availableForPurchase, null);
 });
 
 await test('Gasto anulado bloquea liquidez aunque exista asiento de reversa', async () => {
@@ -80,13 +77,12 @@ await test('Gasto anulado bloquea liquidez aunque exista asiento de reversa', as
             { type: 'reversion_egreso', amount: 200000, currency: 'ARS', sourceExpenseId: expense._id }
         ]
     });
-    const response = await call('GET', '/api/admin/capital-reinversion/projection', null, token, { 'x-treasury-token': treasuryToken });
-    assert.equal(response.status, 200);
-    assert.ok(response.json.projection.warnings.some((warning) => warning.code === 'expense_reversal_balance_unverified'));
-    assert.equal(response.json.projection.liquidity.ARS.availableForPurchase, null);
-    assert.equal(response.json.projection.liquidity.ARS.accountCash, null);
-    assert.equal(response.json.projection.sourceReconciliation.balanceIntegrity, 'unknown_expense_reversal');
-    assert.equal(JSON.stringify(response.json.projection).includes(String(expense._id)), false);
+    const projection = await getCapitalReinvestmentProjection();
+    assert.ok(projection.warnings.some((warning) => warning.code === 'expense_reversal_balance_unverified'));
+    assert.equal(projection.liquidity.ARS.availableForPurchase, null);
+    assert.equal(projection.liquidity.ARS.accountCash, null);
+    assert.equal(projection.sourceReconciliation.balanceIntegrity, 'unknown_expense_reversal');
+    assert.equal(JSON.stringify(projection).includes(String(expense._id)), false);
 });
 
 await finish();
