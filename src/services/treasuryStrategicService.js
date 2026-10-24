@@ -19,6 +19,7 @@ import FinanceRecurringRule from '../models/FinanceRecurringRule.js';
 import Settlement from '../models/Settlement.js';
 import { resolveOriginForCar } from './tradeInChainService.js';
 import { roundMoney } from '../utils/saleCommercial.js';
+import { computeIncomeOwnership } from './treasuryIncomeOwnership.js';
 import {
     computeOperationRecoveryState,
     computeSixStepWaterfallForCollection,
@@ -27,6 +28,7 @@ import {
 } from './treasuryWaterfallHelpers.js';
 
 export { DISTRIBUTION_SCHEMES };
+export { computeIncomeOwnership };
 
 const JWT_SECRET = process.env.JWT_SECRET?.trim() || 'autosporting_secret_jwt_key_crm_2026';
 const LOCK_TIME_MS = 15 * 60 * 1000;
@@ -320,52 +322,6 @@ const EXCLUDED_INBOX_CATEGORIES = [
     'Traspaso',
     'Regularización Histórica'
 ];
-
-export function computeIncomeOwnership(inc) {
-    const totalAmount = Number(inc?.amount || 0);
-    let tercerosAmount = 0;
-    let propioAmount = totalAmount;
-    let thirdPartyNote = null;
-    let thirdPartyOwner = inc?.thirdPartyOwner || null;
-
-    if (Number(inc?.thirdPartyAmount) > 0) {
-        tercerosAmount = Math.min(totalAmount, Math.round(Number(inc.thirdPartyAmount) * 100) / 100);
-        propioAmount = Math.max(0, Math.round((totalAmount - tercerosAmount) * 100) / 100);
-        thirdPartyOwner = thirdPartyOwner || 'Tercero / Socio';
-        thirdPartyNote = `Fondos de ${thirdPartyOwner}: ${inc.currency || 'ARS'} ${tercerosAmount.toLocaleString('es-AR')} (Propio: ${inc.currency || 'ARS'} ${propioAmount.toLocaleString('es-AR')}).`;
-        return { totalAmount, tercerosAmount, propioAmount, thirdPartyNote, thirdPartyOwner };
-    }
-
-    const v = inc?.vehicleId && typeof inc.vehicleId === 'object' ? inc.vehicleId : null;
-    const s = inc?.saleId && typeof inc.saleId === 'object' ? inc.saleId : null;
-
-    if (v) {
-        const partnerPct = Number(
-            (v.investor && v.investor.percentage > 0 ? v.investor.percentage : 0) ||
-            (v.jointOwnership && v.jointOwnership.hasPartner && v.jointOwnership.partnerPercentage > 0 ? v.jointOwnership.partnerPercentage : 0)
-        );
-        if (partnerPct > 0) {
-            tercerosAmount = Math.round((totalAmount * partnerPct)) / 100;
-            propioAmount = Math.max(0, Math.round((totalAmount - tercerosAmount) * 100) / 100);
-            thirdPartyOwner = v.investor?.name || v.jointOwnership?.partnerName || 'Socio';
-            thirdPartyNote = `Socio (${thirdPartyOwner}, ${partnerPct}%): ${inc.currency || 'ARS'} ${tercerosAmount.toLocaleString('es-AR')}.`;
-        } else if (v.consignedBy || (v.agencyOwned === false && v.ownerName)) {
-            const commission = Number(v.consignmentCommission || 0);
-            tercerosAmount = commission > 0 ? Math.max(0, totalAmount - commission) : totalAmount;
-            propioAmount = commission > 0 ? Math.min(totalAmount, commission) : 0;
-            thirdPartyOwner = v.consignedBy || v.ownerName || 'Comitente';
-            thirdPartyNote = `Consignación de ${thirdPartyOwner}. Retenido: ${inc.currency || 'ARS'} ${tercerosAmount.toLocaleString('es-AR')}.`;
-        }
-    } else if (s && (s.vehicleOwnerName || s.ownerName || s.consignationOwnerId)) {
-        thirdPartyOwner = s.vehicleOwnerName || s.ownerName || 'Propietario Comitente';
-        const commAmt = Number(s.commissionSettings?.extraAmount || 0);
-        tercerosAmount = commAmt > 0 && commAmt < totalAmount ? Math.max(0, totalAmount - commAmt) : totalAmount;
-        propioAmount = Math.max(0, totalAmount - tercerosAmount);
-        thirdPartyNote = `Liquidación pendiente a ${thirdPartyOwner}: ${inc.currency || 'ARS'} ${tercerosAmount.toLocaleString('es-AR')}.`;
-    }
-
-    return { totalAmount, tercerosAmount, propioAmount, thirdPartyNote, thirdPartyOwner };
-}
 
 function generateTreasuryToken(userId, role) {
     return jwt.sign(
@@ -3429,6 +3385,8 @@ export async function syncExpenseWithTreasury(tx, options = {}) {
     if (!tx || tx.type !== 'Egreso') return;
     if (EXCLUDED_INBOX_CATEGORIES.includes(tx.category)) return;
     if (tx.category === 'compra_vehiculo' || tx.category === 'Pago compra vehículo' || tx.category === 'Pago Empresas') return;
+    // Una marca de sincronización activa no debe impedir procesar el cambio de
+    // estado que revierte un gasto previamente debitado.
     if (tx.isTreasuryExpenseSynced && !options.statusChanged) return;
 
     await ensureDefaultBoxes();
@@ -3529,27 +3487,88 @@ export async function syncExpenseWithTreasury(tx, options = {}) {
             tx.isTreasuryExpenseSynced = true;
             await tx.save();
         } else if ((options.oldStatus === 'activo' || options.oldStatus === 'Completado') && !isActivo) {
-            // Revertir efecto en caja una sola vez si se anuló o volvió a pendiente
-            if (curr === 'USD') {
-                box.balanceUSD = roundMoney((box.balanceUSD || 0) + amt);
-                if (isPendiente) box.pendingCommitmentsUSD = roundMoney((box.pendingCommitmentsUSD || 0) + amt);
-            } else {
-                box.balanceARS = roundMoney((box.balanceARS || 0) + amt);
-                if (isPendiente) box.pendingCommitmentsARS = roundMoney((box.pendingCommitmentsARS || 0) + amt);
+            // La reversión debe corresponder a un débito auditable. El filtro
+            // condicional y la escritura atómica en un único documento evitan
+            // que dos reintentos concurrentes acrediten dos veces el gasto.
+            const sourceExpenseId = tx._id;
+            if (!Number.isFinite(amt) || amt <= 0) {
+                throw new Error(`No se puede revertir el gasto ${sourceExpenseId}: el importe debe ser positivo y válido.`);
+            }
+            const originalDebits = (box.history || []).filter((entry) =>
+                entry.type === 'egreso_finanzas' && String(entry.sourceExpenseId) === String(sourceExpenseId)
+            );
+            const reversals = (box.history || []).filter((entry) =>
+                entry.type === 'reversion_egreso' && String(entry.sourceExpenseId) === String(sourceExpenseId)
+            );
+            const alreadyReversed = reversals.length === 1;
+
+            if (originalDebits.length !== 1) {
+                throw new Error(`No se puede revertir el gasto ${sourceExpenseId}: no existe un débito de Tesorería asociado para conciliar.`);
+            }
+            const originalDebit = originalDebits[0];
+            if (Math.abs(roundMoney(Number(originalDebit.amount))) !== amt || originalDebit.currency !== curr) {
+                throw new Error(`No se puede revertir el gasto ${sourceExpenseId}: importe o moneda no coinciden con el débito de Tesorería.`);
+            }
+            if (reversals.length > 1) {
+                throw new Error(`No se puede revertir el gasto ${sourceExpenseId}: existen varias reversiones y requiere conciliación manual.`);
+            }
+            if (alreadyReversed && (roundMoney(Number(reversals[0].amount)) !== amt || reversals[0].currency !== curr)) {
+                throw new Error(`No se puede reintentar la reversión del gasto ${sourceExpenseId}: el asiento existente no coincide con el gasto.`);
             }
 
-            box.history.push({
+            const reversalEntry = {
                 date: new Date(),
                 type: 'reversion_egreso',
                 amount: amt,
                 currency: curr,
                 reason: `Reversión de Gasto Finanzas #${tx._id} (Estado: ${tx.status})`,
                 user: options.user || 'Sistema',
-                sourceExpenseId: tx._id
+                sourceExpenseId
+            };
+            const balanceField = curr === 'USD' ? 'balanceUSD' : 'balanceARS';
+            const pendingField = curr === 'USD' ? 'pendingCommitmentsUSD' : 'pendingCommitmentsARS';
+            const roundedAdd = (field, value) => ({
+                $round: [{ $add: [{ $ifNull: [`$${field}`, 0] }, value] }, 2]
             });
-            await box.save();
+            const atomicSet = {
+                [balanceField]: roundedAdd(balanceField, amt),
+                history: { $concatArrays: [{ $ifNull: ['$history', []] }, { $literal: [reversalEntry] }] }
+            };
+            if (isPendiente) atomicSet[pendingField] = roundedAdd(pendingField, amt);
+
+            if (!alreadyReversed) {
+                const result = await TreasuryBox.updateOne(
+                    {
+                        key: boxKey,
+                        history: {
+                            $elemMatch: { type: 'egreso_finanzas', sourceExpenseId }
+                        },
+                        $nor: [{
+                            history: {
+                                $elemMatch: { type: 'reversion_egreso', sourceExpenseId }
+                            }
+                        }]
+                    },
+                    [{ $set: atomicSet }],
+                    { updatePipeline: true }
+                );
+
+                if (result.modifiedCount !== 1) {
+                    const currentBox = await TreasuryBox.findOne({ key: boxKey }).lean();
+                    const reversalWasRecorded = (currentBox?.history || []).some((entry) =>
+                        entry.type === 'reversion_egreso' && String(entry.sourceExpenseId) === String(sourceExpenseId)
+                    );
+                    if (!reversalWasRecorded) {
+                        throw new Error(`No se pudo confirmar la reversión del gasto ${sourceExpenseId}; el saldo no fue acreditado.`);
+                    }
+                }
+            }
+
+            await Transaction.updateOne(
+                { _id: tx._id },
+                { $set: { isTreasuryExpenseSynced: false } }
+            );
             tx.isTreasuryExpenseSynced = false;
-            await tx.save();
         }
     }
 }
