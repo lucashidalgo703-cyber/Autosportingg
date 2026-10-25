@@ -1,0 +1,47 @@
+=== PRUEBAS: GANANCIA COMERCIAL / COBRADA / DISTRIBUIDA ===
+  ok  - Ganancia comercial: descuenta costo, gastos y comisión una sola vez y va al mes de la venta
+  ok  - Cobro parcial: no libera margen hasta recuperar capital (costo + gastos + comisión)
+  ok  - Cobro parcial que supera el capital libera solo el excedente
+  ok  - Cobro total = ganancia comercial (nunca la supera aunque se cobre de más)
+  ok  - Cobros en meses distintos: el margen va al mes del cobro, la comercial al mes de la venta
+  ok  - Comisiones: el pago de la comisión NO resta cobros ni duplica el descuento
+  ok  - Devoluciones: un egreso de devolución al cliente revierte margen cobrado
+  ok  - Socios: la ganancia comercial y la cobrada consideran solo la parte de la agencia
+  ok  - Permutas: el vehículo recibido no es efectivo; el efectivo cubre el resto sin duplicar capital
+  ok  - Tesorería: margen cobrado se toma de marginCollected aunque marginDistributed sea 0 (esquema pendiente)
+  ok  - Tesorería: marginDistributed va solo a distribuida y no infla la cobrada
+  ok  - Tesorería: documentos viejos con marginDistributed = 0 usan la suma de componentes
+  ok  - Capital recuperado por Tesorería no se cuenta dos veces con cobros posteriores sin distribuir
+  ok  - Distribución revertida: se trata como cobro sin distribuir (cascada estimada)
+  ok  - Monedas: venta ARS cobrada en USD usa la cotización registrada; sin cotización no inventa margen
+  ok  - Cobros pendientes y movimientos anulados no cuentan como dinero cobrado
+  ok  - Ingresos sin venta vinculada no generan margen: se informan para conciliar
+  ok  - Seña aplicada sin movimiento propio cuenta como efectivo cobrado (sin duplicarse si existe el movimiento)
+  ok  - Venta sin ganancia calculable (sin costo): no inventa margen cobrado
+  ok  - Ventas canceladas o en borrador no generan ganancia
+  ok  - Flujo del mes (Dashboard general): reconoce Ingreso/Egreso capitalizados y excluye anulados
+  ok  - La estructura del panel conserva claves compatibles (months, projected, released) y nuevas
+
+22 pruebas OK
+✔ tests\dashboardGains.test.js (113.9005ms)
+--- Iniciando Certificación de Manual de Ayuda ---
+✅ 1. Cada capítulo tiene ID único.
+✅ 2. Cada route existe.
+✅ 3. Cada actionRoute es válido.
+✅ 8. Los roles están configurados.
+✅ 9. No hay referencias a Sote.
+✅ 10. No hay funciones marcadas "missing".
+✅ 11. Resumen, roles, pasos y consejos presentes en todos.
+✅ 4. La búsqueda ignora tildes y mayúsculas.
+\n🚀 CERTIFICACIÓN EXITOSA: El manual cumple los criterios automáticos.
+✔ tests\helpRegistry.test.js (32.0466ms)
+saleCommercial: OK
+✔ tests\saleCommercial.test.js (41.9508ms)
+ℹ tests 3
+ℹ suites 0
+ℹ pass 3
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 119.5319

@@ -1,0 +1,36 @@
+
+> autosporting-replica@0.0.0 test:academy
+> node --test tests/academy*.test.js
+
+✔ Academy expone ocho cursos únicos y seis destinos de navegación (0.591ms)
+✔ Los ocho cursos contienen tres lecciones, glosario y ejercicios corregibles (0.3437ms)
+✔ 40 preguntas cubren todos los cursos, formatos y tres niveles (0.9872ms)
+✔ Corrección completa, parcial, equivocada e incompleta (0.4777ms)
+✔ Parser decimal único: admite coma/punto y rechaza prefijos, exponentes y agrupaciones (0.8658ms)
+✔ Cronograma estable: uniformidad, cierre, conservación y recurrencia con tolerancia absoluta de $0,01 (12.4348ms)
+✔ Estados económicos válidos se distinguen de entradas inválidas (1.2141ms)
+✔ Descuento bruto y diferencia neta de espera tienen bases explícitas (0.2028ms)
+✔ Seis escenarios ofrecen alternativas explícitas con ventajas y riesgos (1.4129ms)
+✔ Escenarios conservan relaciones económicas y muestran el faltante intermedio (0.1318ms)
+✔ Casos de práctica: 25 resultados contrastados con operaciones independientes (1.2442ms)
+✔ 24 variantes de examen independientes de práctica y resueltas con oráculos propios (0.8625ms)
+✔ Concurrencia: dos pestañas conservan ambas lecciones e historiales (1.3067ms)
+✔ Reset serializado invalida escrituras pendientes y no afecta otro usuario (2.5776ms)
+✔ Migración local conserva v1; corrupción requiere reset explícito y se informan fallos (0.311ms)
+✔ Normaliza historial y enlaces sin campos ajenos al aprendizaje (0.2433ms)
+✔ 16 simuladores producen resultados finitos y rechazan campos vacíos o inválidos (5.7778ms)
+✔ Margen, retorno y ROI utilizan sus denominadores respectivos (0.1546ms)
+✔ Rotación al costo y oportunidad para el mismo horizonte (0.1224ms)
+✔ Intereses, conversión de tasas, inflación y valor presente (0.1508ms)
+✔ Sistema francés conserva principal, liquida saldo y cumple recurrencia (0.2944ms)
+✔ Caja, descuentos, permutas y recuperación muestran pérdidas y reservas (0.5228ms)
+✔ Asignación respeta capital disponible y contempla reserva sin rendimiento (0.1238ms)
+✔ Tutor responde las cuatro preguntas de cada lección con fuente y sin IA (2.1229ms)
+ℹ tests 24
+ℹ suites 0
+ℹ pass 24
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 113.2269

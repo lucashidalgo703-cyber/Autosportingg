@@ -1,0 +1,82 @@
+
+> autosporting-replica@0.0.0 check
+> node --check server.js && npm run lint && node scripts/validate-codebase.js
+
+
+> autosporting-replica@0.0.0 lint
+> eslint src
+
+
+C:\Proyectos\AutoSporting-Codex\src\app\admin\agenda\page.jsx
+  174:9  warning  Unused eslint-disable directive (no problems were reported from 'react-hooks/exhaustive-deps')
+
+C:\Proyectos\AutoSporting-Codex\src\app\admin\configuracion\general\page.jsx
+  45:5  warning  Unused eslint-disable directive (no problems were reported from 'react-hooks/exhaustive-deps')
+
+C:\Proyectos\AutoSporting-Codex\src\app\admin\documentacion\page.jsx
+  40:9  warning  Unused eslint-disable directive (no problems were reported from 'react-hooks/exhaustive-deps')
+
+C:\Proyectos\AutoSporting-Codex\src\app\admin\exportaciones\page.jsx
+  24:5  warning  Unused eslint-disable directive (no problems were reported from 'react-hooks/exhaustive-deps')
+
+C:\Proyectos\AutoSporting-Codex\src\app\admin\finanzas\page.jsx
+  241:9  warning  Unused eslint-disable directive (no problems were reported from 'react-hooks/exhaustive-deps')
+
+C:\Proyectos\AutoSporting-Codex\src\app\admin\leads\[id]\page.jsx
+  70:9  warning  Unused eslint-disable directive (no problems were reported from 'react-hooks/exhaustive-deps')
+
+C:\Proyectos\AutoSporting-Codex\src\app\admin\leads\page.jsx
+  43:9  warning  Unused eslint-disable directive (no problems were reported from 'react-hooks/exhaustive-deps')
+
+C:\Proyectos\AutoSporting-Codex\src\app\admin\mi-espacio\page.jsx
+  903:9  warning  Unused eslint-disable directive (no problems were reported from 'react-hooks/exhaustive-deps')
+
+C:\Proyectos\AutoSporting-Codex\src\app\admin\mis-comisiones\page.jsx
+  80:9  warning  Unused eslint-disable directive (no problems were reported from 'react-hooks/exhaustive-deps')
+
+C:\Proyectos\AutoSporting-Codex\src\app\admin\mis-ventas\page.jsx
+  96:9  warning  Unused eslint-disable directive (no problems were reported from 'react-hooks/exhaustive-deps')
+
+C:\Proyectos\AutoSporting-Codex\src\app\admin\reportes\imprimir\page.jsx
+  43:9  warning  Unused eslint-disable directive (no problems were reported from 'react-hooks/exhaustive-deps')
+
+C:\Proyectos\AutoSporting-Codex\src\app\admin\reportes\page.jsx
+  142:9  warning  Unused eslint-disable directive (no problems were reported from 'react-hooks/exhaustive-deps')
+
+C:\Proyectos\AutoSporting-Codex\src\app\admin\reservas\page.jsx
+  36:9  warning  Unused eslint-disable directive (no problems were reported from 'react-hooks/exhaustive-deps')
+
+C:\Proyectos\AutoSporting-Codex\src\app\admin\sistema\page.jsx
+  62:5  warning  Unused eslint-disable directive (no problems were reported from 'react-hooks/exhaustive-deps')
+
+C:\Proyectos\AutoSporting-Codex\src\app\admin\ventas\[id]\page.jsx
+  45:9  warning  Unused eslint-disable directive (no problems were reported from 'react-hooks/exhaustive-deps')
+
+C:\Proyectos\AutoSporting-Codex\src\app\admin\ventas\page.jsx
+  56:9  warning  Unused eslint-disable directive (no problems were reported from 'react-hooks/exhaustive-deps')
+
+C:\Proyectos\AutoSporting-Codex\src\components\crm\leads\LeadLinkClientModal.jsx
+  24:9  warning  Unused eslint-disable directive (no problems were reported from 'react-hooks/exhaustive-deps')
+
+C:\Proyectos\AutoSporting-Codex\src\components\crm\sales\detail\SaleInstallmentsPanel.jsx
+  58:9  warning  Unused eslint-disable directive (no problems were reported from 'react-hooks/exhaustive-deps')
+
+✖ 18 problems (0 errors, 18 warnings)
+  0 errors and 18 warnings potentially fixable with the `--fix` option.
+
+npm notice
+npm notice New major version of npm available! 11.19.0 -> 12.2.1
+npm notice Changelog: https://github.com/npm/cli/releases/tag/v12.2.1
+npm notice To update run: npm install -g npm@12.2.1
+npm notice
+Successfully parsed 86 permissions from adminPermissions.js
+
+Checked 528 files.
+
+✅ All validations passed!
+
+npm notice
+npm notice New major version of npm available! 11.19.0 -> 12.2.1
+npm notice Changelog: https://github.com/npm/cli/releases/tag/v12.2.1
+npm notice To update run: npm install -g npm@12.2.1
+npm notice

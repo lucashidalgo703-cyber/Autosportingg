@@ -1,0 +1,351 @@
+[dotenv@17.2.3] injecting env (0) from .env -- tip: 🔄 add secrets lifecycle management: https://dotenvx.com/ops
+[dotenv@17.2.3] injecting env (0) from .env -- tip: 🔐 prevent committing .env to code: https://dotenvx.com/precommit
+MongoDB Connected: 127.0.0.1
+Pedidos Adicionales — Justificación de Compra/Toma y Empresa Receptora ALWAYS SAS
+  ok  - 1. Modificar purchasePrice sin justificación o sin tipo de cambio es rechazado con 400 y no altera el vehículo
+  ok  - 2. Modificar purchasePrice como correccion_precio actualiza base de compra/toma, registra en Historial Interno y no duplica gastos
+  ok  - 3. Modificar purchasePrice como gasto_adicional conserva el precio base original, suma solo la diferencia como gasto y audita sin duplicar costos
+  ok  - 4. Empresa receptora ALWAYS SAS disponible y persistente en transacciones sin duplicados ni datos fiscales inventados
+
+4 pruebas OK
+✔ tests\integration\additional_requests.integration.test.js (2357.0271ms)
+[dotenv@17.2.3] injecting env (0) from .env -- tip: 🗂️ backup and recover secrets: https://dotenvx.com/ops
+[dotenv@17.2.3] injecting env (0) from .env -- tip: 🔐 encrypt with Dotenvx: https://dotenvx.com
+MongoDB Connected: 127.0.0.1
+
+--- INICIANDO PRUEBAS DE INTEGRACIÓN: 4 PRIORIDADES CRM ---
+  ok  - Setup: Crear entidades base (Cliente, Vehículo, Cuenta, Venta)
+  ok  - Prioridad 1: Resumen de tesorería para la venta (seña y saldos)
+  ok  - Prioridad 2a: Búsqueda de ventas para cuotas por cliente, patente o modelo
+  ok  - Prioridad 2b: Crear cuota vinculada a venta y prevenir duplicación de número
+  ok  - Prioridad 3a: Alta de vehículo propio con modalidad "pagar_ahora"
+  ok  - Prioridad 3b: Alta de vehículo con modalidad "pendiente" y pago posterior
+  ok  - Prioridad 4a: Historial de movimientos y extracto por cuenta
+  ok  - Prioridad 4b: Resumen categorizado de gastos y compromisos pendientes
+  ok  - Prioridad 4c: Recálculo de saldos con preview seguro y auditoría
+
+9 pruebas OK
+✔ tests\integration\crmFourPriorities.integration.test.js (2597.1175ms)
+[dotenv@17.2.3] injecting env (0) from .env -- tip: 🗂️ backup and recover secrets: https://dotenvx.com/ops
+[dotenv@17.2.3] injecting env (0) from .env -- tip: ✅ audit secrets and track compliance: https://dotenvx.com/ops
+MongoDB Connected: 127.0.0.1
+=== PRUEBAS DE INTEGRACIÓN: CUOTAS MENSUALES, REPROGRAMACIONES Y AUDITORÍA ===
+  ok  - 0. Preparación de datos: Cliente, Auto, Venta y Cuotas multimoneda
+  ok  - 1. GET /api/admin/installments/monthly - Vista del mes actual y separación estricta de monedas
+  ok  - 2. GET /api/admin/installments/monthly?onlyPreviousPending=true - Pendientes de meses anteriores
+  ok  - 3. POST /api/admin/installments/:id/reschedule - Reprogramación con motivo obligatorio
+  ok  - 4. Múltiples reprogramaciones conservan historial cronológico
+  ok  - 5. POST /api/admin/installments/:id/cancel-reschedule - Cancelar reprogramación restaura fecha original
+  ok  - 6. GET /api/admin/installments/:id/history - Historial completo de auditoría y transacciones
+=== PRUEBAS DE CUOTAS Y REPROGRAMACIONES COMPLETADAS EXITOSAMENTE ===
+
+7 pruebas OK
+✔ tests\integration\cuotasMonthlyAndReschedule.integration.test.js (2501.9166ms)
+[dotenv@17.2.3] injecting env (0) from .env -- tip: 🔑 add access controls to secrets: https://dotenvx.com/ops
+[dotenv@17.2.3] injecting env (0) from .env -- tip: 👥 sync secrets across teammates & machines: https://dotenvx.com/ops
+MongoDB Connected: 127.0.0.1
+=== PRUEBAS DE INTEGRACIÓN: DASHBOARD GENERAL Y COCKPIT CEO ===
+  ok  - GET /api/admin/dashboard responde 200 con la estructura esperada
+  ok  - Las transacciones del dashboard incluyen saleId y treasuryBreakdown para conciliar cobros
+  ok  - calculateDashboardMetrics procesa el payload de la API y genera todas las métricas de UI
+
+3 pruebas OK
+✔ tests\integration\dashboardGeneral.integration.test.js (2739.4887ms)
+[dotenv@17.2.3] injecting env (0) from .env -- tip: 👥 sync secrets across teammates & machines: https://dotenvx.com/ops
+[dotenv@17.2.3] injecting env (0) from .env -- tip: 🔐 prevent committing .env to code: https://dotenvx.com/precommit
+MongoDB Connected: 127.0.0.1
+Etapa 4 — Uso del CRM sin Conexión (Modo Offline v1)
+  ok  - Preparación del dispositivo: descarga stock, clientes, ventas, cuotas y gastos autorizados sin exponer Tesorería Estratégica privada y soporta opción con/sin fotos
+  ok  - Cola offline e idempotencia: observaciones, peritajes, borradores de cliente y gastos de unidad se aplican una sola vez sin duplicarse en reintentos
+  ok  - Detección de conflictos y protección contable: cambios en el servidor generan conflicto claro sin pisar datos, y borradores financieros quedan pendientes de confirmación sin alterar saldos
+  ok  - Aislamiento por usuario, limpieza al cerrar sesión y protección de PIN de Tesorería
+
+4 pruebas OK
+✔ tests\integration\offline.integration.test.js (2450.8934ms)
+[dotenv@17.2.3] injecting env (0) from .env -- tip: ✅ audit secrets and track compliance: https://dotenvx.com/ops
+[dotenv@17.2.3] injecting env (0) from .env -- tip: ⚙️  suppress all logs with { quiet: true }
+MongoDB Connected: 127.0.0.1
+=== PRUEBAS DE INTEGRACIÓN: CAMBIAR VEHÍCULO EN UNA VENTA ===
+  ok  - 0. Preparación: Cliente, Vehículo Original, Nuevo Vehículo y Venta Activa
+  ok  - 1. POST /api/admin/sales/:id/change-vehicle/preview - Comparativa, avisos y validaciones
+  ok  - 2. POST /api/admin/sales/:id/change-vehicle - Ejecución atómica y consistencia total
+=== PRUEBAS DE CAMBIAR VEHÍCULO COMPLETADAS EXITOSAMENTE ===
+
+3 pruebas OK
+✔ tests\integration\saleChangeVehicle.integration.test.js (2499.0243ms)
+[dotenv@17.2.3] injecting env (0) from .env -- tip: 🔑 add access controls to secrets: https://dotenvx.com/ops
+[dotenv@17.2.3] injecting env (0) from .env -- tip: 🔐 prevent committing .env to code: https://dotenvx.com/precommit
+MongoDB Connected: 127.0.0.1
+Etapa 1 - guardado
+  ok  - guardar venta CONTADO (financingDetails:null) no falla y persiste
+  ok  - guardar financiada con 12 cuotas valida y persiste
+  ok  - cuotas inválidas (7) se rechazan
+  ok  - entrega que cubre todo el precio se guarda sin cuotas
+  ok  - registro legacy con installmentsCount 0 se puede volver a guardar
+Plan de cuotas activo
+  ok  - no se puede pasar a contado con plan activo sin cobros (409) y no se borra nada
+  ok  - cancelar plan: exige confirmación, motivo e ids; anula sin borrar; luego permite contado
+  ok  - plan con cobros: no se puede cancelar ni pasar a contado
+  ok  - plan con cobros: modificar condiciones sigue protegido
+Etapa 2 - comisión
+  ok  - 1,3% sobre 25.500.000 = 331.500 y persiste base/porcentaje/importe
+  ok  - modificar precio recalcula la comisión en el servidor (sin enviar commissionSettings)
+  ok  - modificar porcentaje recalcula; porcentajes inválidos se rechazan
+  ok  - financiada: base = precio total pactado (una sola vez)
+  ok  - comisión histórica de importe fijo se conserva (documento sin mode)
+  ok  - pasar de porcentaje a fijo limpia porcentaje y base
+  ok  - guardar comisión no crea egresos ni movimientos
+
+16 pruebas OK
+✔ tests\integration\sales.integration.test.js (2923.6728ms)
+[dotenv@17.2.3] injecting env (0) from .env -- tip: ⚙️  override existing env vars with { override: true }
+[dotenv@17.2.3] injecting env (0) from .env -- tip: 🛠️  run anywhere with `dotenvx run -- yourcommand`
+MongoDB Connected: 127.0.0.1
+=== PRUEBAS DE INTEGRACIÓN: INDICADORES DE STOCK, FILTROS Y PAGINACIÓN ===
+  ok  - 1. El resumen global calcula correctamente cantidades y valores por separado sin sumar ARS y USD
+  ok  - 2. El parámetro limit=1 devuelve 1 vehículo pero conserva el resumen global completo
+  ok  - 3. Cambiar un filtro altera el resultado filtrado pero NO los indicadores globales
+  ok  - 4. Paginación: navegar entre páginas no altera el conteo total ni los valores globales
+  ok  - 5. Altas, modificaciones de precio y cambios de estado actualizan coherentemente los totales
+  ok  - 6. Asignaciones de dinero a la caja estratégica "Stock" no aumentan la cantidad de vehículos ni el inventario
+
+6 pruebas OK
+✔ tests\integration\stockMetricsConsistency.integration.test.js (1720.0144ms)
+[dotenv@17.2.3] injecting env (0) from .env -- tip: 🔄 add secrets lifecycle management: https://dotenvx.com/ops
+[dotenv@17.2.3] injecting env (0) from .env -- tip: ⚙️  override existing env vars with { override: true }
+MongoDB Connected: 127.0.0.1
+Cadenas de permutas
+  ok  - ingresar el recibido desde la venta lo vincula solo, con costo = valor de toma
+  ok  - rentabilidad acumulada = 4M + 3M = 7M sin contar la permuta como caja ni doble
+  ok  - vehículo recibido sin vender: costo en stock y margen estimado separados de lo concretado
+  ok  - cuotas pendientes: ganancia ≠ caja cobrada, saldo por cobrar visible
+  ok  - comisión y gastos de venta se atribuyen a cada vehículo
+  ok  - socio: resultado total vs parte de la agencia
+  ok  - monedas distintas no se suman; costo en USD vs venta ARS queda no comparable
+  ok  - operación con más de un vehículo recibido y cadena que continúa (A -> B -> C)
+  ok  - no se puede crear dos veces el mismo vehículo desde el mismo recibido
+Vinculación de históricos
+  ok  - vincular histórico: exige confirmación, valor y moneda; no inventa nada
+  ok  - vínculo duplicado y relaciones circulares se rechazan
+  ok  - vincular a un recibido existente evita doble vínculo del mismo recibido
+  ok  - desvincular exige motivo y deja auditoría; luego puede revincularse
+  ok  - endpoint por venta devuelve la misma cadena
+  ok  - 15) POST /api/cars con "Recibido en parte de pago" vincula venta de origen y registra valor de toma como costo inicial
+  ok  - 16) Cotización registrada opcional muestra equivalencia referencial sin mezclar los totales por moneda
+
+16 pruebas OK
+✔ tests\integration\tradein.integration.test.js (2209.6237ms)
+[dotenv@17.2.3] injecting env (0) from .env -- tip: ⚙️  specify custom .env file path with { path: '/custom/path/.env' }
+[dotenv@17.2.3] injecting env (0) from .env -- tip: ⚙️  specify custom .env file path with { path: '/custom/path/.env' }
+MongoDB Connected: 127.0.0.1
+Etapas 5, 6, 7 y 8 — Tesorería Estratégica, Regularización Histórica, PIN y Simulador
+POST /api/admin/tesoreria-estrategica/pin/setup error: Error: El PIN ya fue configurado previamente.
+    at Module.setupInitialPin (file:///C:/Proyectos/AutoSporting-Codex/src/services/treasuryStrategicService.js:405:15)
+    at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+    at async file:///C:/Proyectos/AutoSporting-Codex/server.js:11995:24
+POST /api/admin/tesoreria-estrategica/pin/verify error: Error: PIN incorrecto. Te quedan 4 intentos.
+    at Module.verifyPin (file:///C:/Proyectos/AutoSporting-Codex/src/services/treasuryStrategicService.js:469:25)
+    at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+    at async file:///C:/Proyectos/AutoSporting-Codex/server.js:12007:24 {
+  statusCode: 401,
+  remainingAttempts: 4
+}
+POST /api/admin/tesoreria-estrategica/pin/verify error: Error: PIN incorrecto. Te quedan 3 intentos.
+    at Module.verifyPin (file:///C:/Proyectos/AutoSporting-Codex/src/services/treasuryStrategicService.js:469:25)
+    at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+    at async file:///C:/Proyectos/AutoSporting-Codex/server.js:12007:24 {
+  statusCode: 401,
+  remainingAttempts: 3
+}
+POST /api/admin/tesoreria-estrategica/pin/verify error: Error: PIN incorrecto. Te quedan 2 intentos.
+    at Module.verifyPin (file:///C:/Proyectos/AutoSporting-Codex/src/services/treasuryStrategicService.js:469:25)
+    at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+    at async file:///C:/Proyectos/AutoSporting-Codex/server.js:12007:24 {
+  statusCode: 401,
+  remainingAttempts: 2
+}
+POST /api/admin/tesoreria-estrategica/pin/verify error: Error: PIN incorrecto. Te quedan 1 intento.
+    at Module.verifyPin (file:///C:/Proyectos/AutoSporting-Codex/src/services/treasuryStrategicService.js:469:25)
+    at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+    at async file:///C:/Proyectos/AutoSporting-Codex/server.js:12007:24 {
+  statusCode: 401,
+  remainingAttempts: 1
+}
+POST /api/admin/tesoreria-estrategica/pin/verify error: Error: 5 intentos fallidos alcanzados. Bloqueado por 15 minutos.
+    at Module.verifyPin (file:///C:/Proyectos/AutoSporting-Codex/src/services/treasuryStrategicService.js:461:25)
+    at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+    at async file:///C:/Proyectos/AutoSporting-Codex/server.js:12007:24 {
+  statusCode: 423,
+  isLocked: true,
+  lockRemainingMinutes: 15
+}
+POST /api/admin/tesoreria-estrategica/pin/verify error: Error: Acceso temporalmente bloqueado. Intentá en 15 min.
+    at Module.verifyPin (file:///C:/Proyectos/AutoSporting-Codex/src/services/treasuryStrategicService.js:434:21)
+    at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+    at async file:///C:/Proyectos/AutoSporting-Codex/server.js:12007:24 {
+  statusCode: 423,
+  isLocked: true,
+  lockRemainingMinutes: 15
+}
+  ok  - Etapa 7: estado inicial sin PIN, bloqueo de rutas sin token, configuración de PIN, bloqueo tras 5 intentos fallidos y recuperación con contraseña
+  ok  - Etapa 5 y 7: configurar parámetros, confirmar corte inicial, organizar saldo inicial entre las 8 cajas sin crear ingresos y verificar ecuación de conciliación ARS y USD
+POST /api/admin/tesoreria-estrategica/incomes/distribute error: Error: Este cobro ya fue distribuido previamente en Tesorería.
+    at Module.distributeSingleIncome (file:///C:/Proyectos/AutoSporting-Codex/src/services/treasuryStrategicService.js:2925:15)
+    at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+    at async file:///C:/Proyectos/AutoSporting-Codex/server.js:12158:24
+  ok  - Etapa 5: cobro único desde cuota ingresa una sola vez a la cuenta, aparece en bandeja de pendientes, aplica distribución sugerida y bloquea doble distribución
+POST /api/admin/tesoreria-estrategica/incomes/distribute error: Error: El monto a distribuir (ARS 8.000.000) supera los fondos propios disponibles del cobro (ARS 5.000.000). Los fondos de terceros (ARS 5.000.000) están retenidos y no pueden asignarse a cajas propias.
+    at Module.distributeSingleIncome (file:///C:/Proyectos/AutoSporting-Codex/src/services/treasuryStrategicService.js:3023:15)
+    at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+    at async file:///C:/Proyectos/AutoSporting-Codex/server.js:12158:24
+  ok  - Etapa 5: separación de fondos de terceros/socios en cobros, límite de distribución sobre porción propia y recuperación segura de cobros posteriores al corte
+  ok  - Etapa 5: reglas de categorías de gastos (Sueldos/Comisiones -> Operativa, Retiros Personales -> Personal) y reserva de compromisos pendientes vs descuento al pagar
+  ok  - Etapa 6: regularización histórica de cuotas por venta ("Pagadas hasta la cuota N") y selección puntual sin tocar cuentas ni cajas ni fabricar paymentDate, y reversión de lote
+  ok  - Etapa 8: simulador de capacidad de compra (100% propio vs compartido con socio, quién paga gastos, cajas protegidas afectadas y días de cobertura) sin mutar DB
+
+7 pruebas OK
+✔ tests\integration\treasury.integration.test.js (2879.0344ms)
+[dotenv@17.2.3] injecting env (0) from .env -- tip: 🔄 add secrets lifecycle management: https://dotenvx.com/ops
+[dotenv@17.2.3] injecting env (0) from .env -- tip: ✅ audit secrets and track compliance: https://dotenvx.com/ops
+MongoDB Connected: 127.0.0.1
+=== PRUEBAS DE INTEGRACIÓN: EDICIÓN DE CAJAS, TRASPASOS, AUDITORÍA Y REVERSIONES ===
+  ok  - 0. Autenticación y configuración inicial de PIN en Tesorería
+POST /api/admin/tesoreria-estrategica/boxes/adjust error: Error: El motivo del ajuste es obligatorio.
+    at Module.adjustBoxBalance (file:///C:/Proyectos/AutoSporting-Codex/src/services/treasuryStrategicService.js:4749:15)
+    at file:///C:/Proyectos/AutoSporting-Codex/server.js:12114:55
+    at Layer.handleRequest (C:\Proyectos\AutoSporting-Codex\node_modules\router\lib\layer.js:152:17)
+    at next (C:\Proyectos\AutoSporting-Codex\node_modules\router\lib\route.js:157:13)
+    at verifyTreasuryStrategicAuth (file:///C:/Proyectos/AutoSporting-Codex/server.js:11959:9)
+    at Layer.handleRequest (C:\Proyectos\AutoSporting-Codex\node_modules\router\lib\layer.js:152:17)
+    at next (C:\Proyectos\AutoSporting-Codex\node_modules\router\lib\route.js:157:13)
+    at requireTreasuryPrivilegedRole (file:///C:/Proyectos/AutoSporting-Codex/server.js:11972:16)
+    at Layer.handleRequest (C:\Proyectos\AutoSporting-Codex\node_modules\router\lib\layer.js:152:17)
+    at next (C:\Proyectos\AutoSporting-Codex\node_modules\router\lib\route.js:157:13)
+POST /api/admin/tesoreria-estrategica/boxes/adjust error: Error: El saldo de la caja Caja Operativa no puede quedar negativo (ARS -50.000).
+    at Module.adjustBoxBalance (file:///C:/Proyectos/AutoSporting-Codex/src/services/treasuryStrategicService.js:4771:15)
+    at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+    at async file:///C:/Proyectos/AutoSporting-Codex/server.js:12114:24
+  ok  - 1. Ajuste manual de saldo con motivo obligatorio y vista previa
+POST /api/admin/tesoreria-estrategica/boxes/config error: Error: El motivo de la modificación es obligatorio.
+    at Module.updateBoxConfig (file:///C:/Proyectos/AutoSporting-Codex/src/services/treasuryStrategicService.js:4602:15)
+    at file:///C:/Proyectos/AutoSporting-Codex/server.js:12103:55
+    at Layer.handleRequest (C:\Proyectos\AutoSporting-Codex\node_modules\router\lib\layer.js:152:17)
+    at next (C:\Proyectos\AutoSporting-Codex\node_modules\router\lib\route.js:157:13)
+    at verifyTreasuryStrategicAuth (file:///C:/Proyectos/AutoSporting-Codex/server.js:11959:9)
+    at Layer.handleRequest (C:\Proyectos\AutoSporting-Codex\node_modules\router\lib\layer.js:152:17)
+    at next (C:\Proyectos\AutoSporting-Codex\node_modules\router\lib\route.js:157:13)
+    at requireTreasuryPrivilegedRole (file:///C:/Proyectos/AutoSporting-Codex/server.js:11972:16)
+    at Layer.handleRequest (C:\Proyectos\AutoSporting-Codex\node_modules\router\lib\layer.js:152:17)
+    at next (C:\Proyectos\AutoSporting-Codex\node_modules\router\lib\route.js:157:13)
+  ok  - 2. Modificación de configuración de caja con motivo obligatorio
+POST /api/admin/tesoreria-estrategica/boxes/transfer error: Error: Saldo insuficiente en Caja Operativa Central (ARS 800.000) para transferir ARS 99.999.999. No se permiten saldos negativos.
+    at Module.transferBetweenBoxes (file:///C:/Proyectos/AutoSporting-Codex/src/services/treasuryStrategicService.js:2595:15)
+    at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+    at async file:///C:/Proyectos/AutoSporting-Codex/server.js:12070:24
+  ok  - 3. Transferencia entre cajas con auditoría y control de fondos
+POST /api/admin/tesoreria-estrategica/adjustments/revert error: Error: Esta operación ya fue revertida previamente.
+    at Module.revertAdjustment (file:///C:/Proyectos/AutoSporting-Codex/src/services/treasuryStrategicService.js:4931:32)
+    at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+    at async file:///C:/Proyectos/AutoSporting-Codex/server.js:12135:24
+  ok  - 4. Reversión de ajuste y de transferencia
+  ok  - 5. Consulta de Historial y Auditoría con filtros y paginación
+
+6 pruebas OK
+✔ tests\integration\treasuryBoxAudit.integration.test.js (2043.3981ms)
+[dotenv@17.2.3] injecting env (0) from .env -- tip: 👥 sync secrets across teammates & machines: https://dotenvx.com/ops
+[dotenv@17.2.3] injecting env (0) from .env -- tip: 🔐 prevent building .env in docker: https://dotenvx.com/prebuild
+MongoDB Connected: 127.0.0.1
+=== PRUEBAS DE INTEGRACIÓN: REGISTRAR COBRO Y DISTRIBUIR ===
+  ok  - 0. Autenticación y configuración inicial de PIN en Tesorería Estratégica
+  ok  - Escenario 8: Rechazo estricto de operaciones sin autorización válida
+  ok  - Escenario 1: Cobro parcial y cobro completo con esquema acordado
+POST /api/admin/tesoreria-estrategica/incomes/collect-and-distribute error: Error: El importe (ARS 2.000.000) supera el saldo pendiente de la cuota #1 (ARS 1.200.000).
+    at Module.collectAndDistribute (file:///C:/Proyectos/AutoSporting-Codex/src/services/treasuryStrategicService.js:2173:19)
+    at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+    at async file:///C:/Proyectos/AutoSporting-Codex/server.js:12332:24
+  ok  - Escenario 2: Cobro de cuota con plan de 3 cuotas y desglose capital/interés
+POST /api/admin/tesoreria-estrategica/incomes/collect-and-distribute error: Error: La suma de los destinos (ARS 4.000.000) debe coincidir exactamente con el total cobrado (ARS 5.000.000).
+    at Module.collectAndDistribute (file:///C:/Proyectos/AutoSporting-Codex/src/services/treasuryStrategicService.js:2223:19)
+    at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+    at async file:///C:/Proyectos/AutoSporting-Codex/server.js:12332:24
+  ok  - Escenario 3: Pago dividido entre Efectivo y Transferencia
+  ok  - Escenario 4: Venta sin margen distribuible no genera asignaciones negativas
+  ok  - Escenario 5: Cobro pendiente de distribución y reparto posterior
+  ok  - Escenario 6: Doble envío e idempotencia sin duplicar saldos
+  ok  - Escenario 7: Reversión y anulación integral de un cobro
+
+9 pruebas OK
+✔ tests\integration\treasuryCollectAndDistribute.integration.test.js (2385.1124ms)
+[dotenv@17.2.3] injecting env (0) from .env -- tip: ⚙️  specify custom .env file path with { path: '/custom/path/.env' }
+[dotenv@17.2.3] injecting env (0) from .env -- tip: ✅ audit secrets and track compliance: https://dotenvx.com/ops
+MongoDB Connected: 127.0.0.1
+
+=== INICIANDO PRUEBAS DE INTEGRACIÓN: TESORERÍA, CONCILIACIÓN Y REINVERSIÓN ===
+
+  ok  - 0. Setup: Inicializar PIN, Cuentas y Cajas de Tesorería
+  ok  - 1. Diagnóstico de Tesorería (Solo Lectura) y Ecuación Central de Conciliación
+  ok  - 2. Boxes Summary: Endpoint para selección de fondos en pago de compra
+  ok  - 3. Pago de compra descontando de la Caja Stock / Reposición
+  ok  - 4. Pago de compra descontando de Dinero Sin Asignar (unallocated)
+  ok  - 5. Cobro de Venta: Recupero de capital propio y Extra de Reinversión (10% sobre costo propio)
+  ok  - 6. Ventas en Cuotas: El extra de reinversión no se repite una vez cubierto el objetivo
+
+7 pruebas OK
+✔ tests\integration\treasurySyncAndReinvestment.integration.test.js (2075.514ms)
+[dotenv@17.2.3] injecting env (0) from .env -- tip: 🗂️ backup and recover secrets: https://dotenvx.com/ops
+[dotenv@17.2.3] injecting env (0) from .env -- tip: 🗂️ backup and recover secrets: https://dotenvx.com/ops
+MongoDB Connected: 127.0.0.1
+
+--- INICIANDO PRUEBAS DE INTEGRACIÓN: PAGO DE COMPRA DE LA UNIDAD ---
+  ok  - Setup: Crear cuenta bancaria de prueba
+  ok  - 1. Corrección de inconsistencia: Costo 20.646.000 con 0 abonado y pendiente 0 en DB
+  ok  - 2. Vehículo histórico sin información de pago: estado "conciliacion_pendiente" sin inventar deuda
+  ok  - 3. Registrar pago parcial: valida fondos, descuenta de la cuenta y crea egreso
+  ok  - 4. Rechazar pago por fondos insuficientes en la cuenta física
+  ok  - 5. Registrar pago restante hasta completar cancelación: status pasa a "pagado"
+  ok  - 6. Rechazar pagos adicionales cuando la unidad ya está pagada al 100%
+  ok  - 7. Vincular egreso existente sin volver a descontar fondos de la cuenta
+  ok  - 8. Editar datos del compromiso: exige motivo obligatorio y registra auditoría
+  ok  - 9. Editar costo del vehículo: actualiza metadatos sin crear transacciones automáticas
+  ok  - 10. Registrar pago con inversión a medias (50% LHIVER): cancela obligación propia y no deja saldo pendiente
+  ok  - 11. Editar compromiso a inversión a medias con empresa (AUTOTERRA): liquida deuda pendiente si cuota fue abonada
+  ok  - 12. Endpoint GET /api/admin/companies lista empresas cargadas en el sistema
+
+13 pruebas OK
+✔ tests\integration\vehiclePurchasePayment.integration.test.js (1892.6917ms)
+=== INICIANDO PRUEBAS DE DISTRIBUCIÓN DE TESORERÍA ESTRATÉGICA (SECCIONES 2 A 9) ===
+
+✓ Test 1 OK: Ejemplo exacto del prompt ($12.700.000 capital + $1.270.000 extra reinversión a Stock, $1.530.000 otros destinos, ganancia $2.800.000)
+✓ Test 2 OK: Cuotas con recuperación progresiva, separación capital/excedente y sin repetir el extra en cada cuota
+✓ Test 3 OK: Reserva de costos y comisiones pendientes de pago sin duplicar asignación a Stock
+✓ Test 4 OK: Margen insuficiente / pérdida y Extra de reinversión en 0% y sin configurar
+✓ Test 5 OK: Cobertura estricta en orden (Pasos 3 y 4 antes del Extra de Reinversión en Paso 5 y Remanente en Paso 6)
+✓ Test 6 OK: Permutas (capital en otro vehículo sin doble conteo) y Socios (separación capital propio vs terceros)
+Fallo en tests de distribución: AssertionError [ERR_ASSERTION]: Al anular el gasto se restituyen los $200.000 a Operativa
+
+300000 !== 500000
+
+    at runTests (file:///C:/Proyectos/AutoSporting-Codex/tests/treasuryDistribution.test.js:553:16)
+    at process.processTicksAndRejections (node:internal/process/task_queues:104:5) {
+  generatedMessage: false,
+  code: 'ERR_ASSERTION',
+  actual: 300000,
+  expected: 500000,
+  operator: 'strictEqual',
+  diff: 'simple'
+}
+✖ tests\treasuryDistribution.test.js (1125.4725ms)
+ℹ tests 15
+ℹ suites 0
+ℹ pass 14
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 5392.7291
+
+✖ failing tests:
+
+test at tests\treasuryDistribution.test.js:1:1
+✖ tests\treasuryDistribution.test.js (1125.4725ms)
+  'test failed'

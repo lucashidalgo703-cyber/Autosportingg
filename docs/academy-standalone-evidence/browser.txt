@@ -1,0 +1,272 @@
+
+> autosporting-replica@0.0.0 test:academy:ui
+> playwright test --config playwright.academy.config.js
+
+
+Running 36 tests using 1 worker
+
+(node:18028) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ok  1 [desktop] › tests\academy.spec.js:26:1 › Dos pestañas sincronizan avances concurrentes, reset e identidad separada (780ms)
+  ok  2 [desktop] › tests\academy.spec.js:54:1 › Casos integrados se resuelven y los límites económicos se explican en pantalla (637ms)
+  ok  3 [desktop] › tests\academy.spec.js:85:1 › Academy usa un shell educativo sin cargar endpoints operativos del CRM (314ms)
+  ok  4 [desktop] › tests\academy.spec.js:105:1 › Navega por las seis secciones sin errores y respeta el ancho disponible (395ms)
+  ok  5 [desktop] › tests\academy.spec.js:120:1 › Resuelve una lección, conserva avance al recargar y permite restablecerlo (381ms)
+  ok  6 [desktop] › tests\academy.spec.js:135:1 › Calcula 16 modelos y valida entradas; cronograma cabe en móvil (499ms)
+  ok  7 [desktop] › tests\academy.spec.js:155:1 › Corrige evaluación, registra puntaje y abre el curso recomendado (373ms)
+  ok  8 [desktop] › tests\academy.spec.js:173:1 › Compara decisiones y consulta el tutor sin proveedor externo (532ms)
+  ok  9 [desktop] › tests\academy.spec.js:192:1 › Abre los ocho cursos y sus lecciones por enlaces directos (1.2s)
+  ok 10 [desktop] › tests\academy.spec.js:204:1 › Filtra dificultad, recomienda repaso y recupera progreso local corrupto (375ms)
+  ok 11 [desktop] › tests\academyRelease.spec.js:41:5 › Acceso protegido: sin token (655ms)
+  ok 12 [desktop] › tests\academyRelease.spec.js:41:5 › Acceso protegido: token malformado (675ms)
+  ok 13 [desktop] › tests\academyRelease.spec.js:41:5 › Acceso protegido: token vencido (671ms)
+  ok 14 [desktop] › tests\academyRelease.spec.js:41:5 › Acceso protegido: sesión rechazada 401 (781ms)
+  x  15 [desktop] › tests\academyRelease.spec.js:41:5 › Acceso protegido: sesión rechazada 403 (5.2s)
+(node:28472) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  x  16 [desktop] › tests\academyRelease.spec.js:41:5 › Acceso protegido: servidor 503 (5.3s)
+(node:19180) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  x  17 [desktop] › tests\academyRelease.spec.js:41:5 › Acceso protegido: sin conexión (5.3s)
+(node:19284) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ok 18 [desktop] › tests\academyRelease.spec.js:51:1 › Una sesión administrativa validada conserva el shell general fuera de Academy (846ms)
+(node:5068) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ok 19 [mobile] › tests\academy.spec.js:26:1 › Dos pestañas sincronizan avances concurrentes, reset e identidad separada (676ms)
+  ok 20 [mobile] › tests\academy.spec.js:54:1 › Casos integrados se resuelven y los límites económicos se explican en pantalla (638ms)
+  ok 21 [mobile] › tests\academy.spec.js:85:1 › Academy usa un shell educativo sin cargar endpoints operativos del CRM (323ms)
+  ok 22 [mobile] › tests\academy.spec.js:105:1 › Navega por las seis secciones sin errores y respeta el ancho disponible (513ms)
+  ok 23 [mobile] › tests\academy.spec.js:120:1 › Resuelve una lección, conserva avance al recargar y permite restablecerlo (381ms)
+  ok 24 [mobile] › tests\academy.spec.js:135:1 › Calcula 16 modelos y valida entradas; cronograma cabe en móvil (586ms)
+  ok 25 [mobile] › tests\academy.spec.js:155:1 › Corrige evaluación, registra puntaje y abre el curso recomendado (365ms)
+  ok 26 [mobile] › tests\academy.spec.js:173:1 › Compara decisiones y consulta el tutor sin proveedor externo (528ms)
+  ok 27 [mobile] › tests\academy.spec.js:192:1 › Abre los ocho cursos y sus lecciones por enlaces directos (1.5s)
+  ok 28 [mobile] › tests\academy.spec.js:204:1 › Filtra dificultad, recomienda repaso y recupera progreso local corrupto (374ms)
+  ok 29 [mobile] › tests\academyRelease.spec.js:41:5 › Acceso protegido: sin token (690ms)
+  ok 30 [mobile] › tests\academyRelease.spec.js:41:5 › Acceso protegido: token malformado (666ms)
+  ok 31 [mobile] › tests\academyRelease.spec.js:41:5 › Acceso protegido: token vencido (686ms)
+  ok 32 [mobile] › tests\academyRelease.spec.js:41:5 › Acceso protegido: sesión rechazada 401 (699ms)
+  x  33 [mobile] › tests\academyRelease.spec.js:41:5 › Acceso protegido: sesión rechazada 403 (5.4s)
+(node:10228) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  x  34 [mobile] › tests\academyRelease.spec.js:41:5 › Acceso protegido: servidor 503 (5.4s)
+(node:12040) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  x  35 [mobile] › tests\academyRelease.spec.js:41:5 › Acceso protegido: sin conexión (5.4s)
+(node:6332) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ok 36 [mobile] › tests\academyRelease.spec.js:51:1 › Una sesión administrativa validada conserva el shell general fuera de Academy (854ms)
+
+
+  1) [desktop] › tests\academyRelease.spec.js:41:5 › Acceso protegido: sesión rechazada 403 ────────
+
+    Error: expect(page).toHaveURL(expected) failed
+
+    Expected pattern: /\/login$/
+    Received string:  "http://127.0.0.1:3100/admin/academy"
+    Timeout: 5000ms
+
+    Call log:
+      - Expect "toHaveURL" with timeout 5000ms
+        14 × locator resolved to <html lang="es" class="dark">…</html>
+           - unexpected value "http://127.0.0.1:3100/admin/academy"
+
+
+      43 |         for (const route of routes) {
+      44 |             await page.goto(route);
+    > 45 |             await expect(page).toHaveURL(/\/login$/);
+         |                                ^
+      46 |             await expect(page.locator('[data-academy-shell]')).toHaveCount(0);
+      47 |         }
+      48 |     });
+        at C:\Proyectos\AutoSporting-Codex\tests\academyRelease.spec.js:45:32
+
+    Error Context: ..\..\Users\Tomas\AppData\Local\Temp\autosporting-academy-playwright\academyRelease-Acceso-protegido-sesión-rechazada-403-desktop\error-context.md
+
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    ..\..\Users\Tomas\AppData\Local\Temp\autosporting-academy-playwright\academyRelease-Acceso-protegido-sesión-rechazada-403-desktop\trace.zip
+    Usage:
+
+        npx playwright show-trace ..\..\Users\Tomas\AppData\Local\Temp\autosporting-academy-playwright\academyRelease-Acceso-protegido-sesión-rechazada-403-desktop\trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  2) [desktop] › tests\academyRelease.spec.js:41:5 › Acceso protegido: servidor 503 ────────────────
+
+    Error: expect(page).toHaveURL(expected) failed
+
+    Expected pattern: /\/login$/
+    Received string:  "http://127.0.0.1:3100/admin/academy"
+    Timeout: 5000ms
+
+    Call log:
+      - Expect "toHaveURL" with timeout 5000ms
+        14 × locator resolved to <html lang="es" class="dark">…</html>
+           - unexpected value "http://127.0.0.1:3100/admin/academy"
+
+
+      43 |         for (const route of routes) {
+      44 |             await page.goto(route);
+    > 45 |             await expect(page).toHaveURL(/\/login$/);
+         |                                ^
+      46 |             await expect(page.locator('[data-academy-shell]')).toHaveCount(0);
+      47 |         }
+      48 |     });
+        at C:\Proyectos\AutoSporting-Codex\tests\academyRelease.spec.js:45:32
+
+    Error Context: ..\..\Users\Tomas\AppData\Local\Temp\autosporting-academy-playwright\academyRelease-Acceso-protegido-servidor-503-desktop\error-context.md
+
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    ..\..\Users\Tomas\AppData\Local\Temp\autosporting-academy-playwright\academyRelease-Acceso-protegido-servidor-503-desktop\trace.zip
+    Usage:
+
+        npx playwright show-trace ..\..\Users\Tomas\AppData\Local\Temp\autosporting-academy-playwright\academyRelease-Acceso-protegido-servidor-503-desktop\trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  3) [desktop] › tests\academyRelease.spec.js:41:5 › Acceso protegido: sin conexión ────────────────
+
+    Error: expect(page).toHaveURL(expected) failed
+
+    Expected pattern: /\/login$/
+    Received string:  "http://127.0.0.1:3100/admin/academy"
+    Timeout: 5000ms
+
+    Call log:
+      - Expect "toHaveURL" with timeout 5000ms
+        14 × locator resolved to <html lang="es" class="dark">…</html>
+           - unexpected value "http://127.0.0.1:3100/admin/academy"
+
+
+      43 |         for (const route of routes) {
+      44 |             await page.goto(route);
+    > 45 |             await expect(page).toHaveURL(/\/login$/);
+         |                                ^
+      46 |             await expect(page.locator('[data-academy-shell]')).toHaveCount(0);
+      47 |         }
+      48 |     });
+        at C:\Proyectos\AutoSporting-Codex\tests\academyRelease.spec.js:45:32
+
+    Error Context: ..\..\Users\Tomas\AppData\Local\Temp\autosporting-academy-playwright\academyRelease-Acceso-protegido-sin-conexión-desktop\error-context.md
+
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    ..\..\Users\Tomas\AppData\Local\Temp\autosporting-academy-playwright\academyRelease-Acceso-protegido-sin-conexión-desktop\trace.zip
+    Usage:
+
+        npx playwright show-trace ..\..\Users\Tomas\AppData\Local\Temp\autosporting-academy-playwright\academyRelease-Acceso-protegido-sin-conexión-desktop\trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  4) [mobile] › tests\academyRelease.spec.js:41:5 › Acceso protegido: sesión rechazada 403 ─────────
+
+    Error: expect(page).toHaveURL(expected) failed
+
+    Expected pattern: /\/login$/
+    Received string:  "http://127.0.0.1:3100/admin/academy"
+    Timeout: 5000ms
+
+    Call log:
+      - Expect "toHaveURL" with timeout 5000ms
+        14 × locator resolved to <html lang="es" class="dark">…</html>
+           - unexpected value "http://127.0.0.1:3100/admin/academy"
+
+
+      43 |         for (const route of routes) {
+      44 |             await page.goto(route);
+    > 45 |             await expect(page).toHaveURL(/\/login$/);
+         |                                ^
+      46 |             await expect(page.locator('[data-academy-shell]')).toHaveCount(0);
+      47 |         }
+      48 |     });
+        at C:\Proyectos\AutoSporting-Codex\tests\academyRelease.spec.js:45:32
+
+    Error Context: ..\..\Users\Tomas\AppData\Local\Temp\autosporting-academy-playwright\academyRelease-Acceso-protegido-sesión-rechazada-403-mobile\error-context.md
+
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    ..\..\Users\Tomas\AppData\Local\Temp\autosporting-academy-playwright\academyRelease-Acceso-protegido-sesión-rechazada-403-mobile\trace.zip
+    Usage:
+
+        npx playwright show-trace ..\..\Users\Tomas\AppData\Local\Temp\autosporting-academy-playwright\academyRelease-Acceso-protegido-sesión-rechazada-403-mobile\trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  5) [mobile] › tests\academyRelease.spec.js:41:5 › Acceso protegido: servidor 503 ─────────────────
+
+    Error: expect(page).toHaveURL(expected) failed
+
+    Expected pattern: /\/login$/
+    Received string:  "http://127.0.0.1:3100/admin/academy"
+    Timeout: 5000ms
+
+    Call log:
+      - Expect "toHaveURL" with timeout 5000ms
+        14 × locator resolved to <html lang="es" class="dark">…</html>
+           - unexpected value "http://127.0.0.1:3100/admin/academy"
+
+
+      43 |         for (const route of routes) {
+      44 |             await page.goto(route);
+    > 45 |             await expect(page).toHaveURL(/\/login$/);
+         |                                ^
+      46 |             await expect(page.locator('[data-academy-shell]')).toHaveCount(0);
+      47 |         }
+      48 |     });
+        at C:\Proyectos\AutoSporting-Codex\tests\academyRelease.spec.js:45:32
+
+    Error Context: ..\..\Users\Tomas\AppData\Local\Temp\autosporting-academy-playwright\academyRelease-Acceso-protegido-servidor-503-mobile\error-context.md
+
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    ..\..\Users\Tomas\AppData\Local\Temp\autosporting-academy-playwright\academyRelease-Acceso-protegido-servidor-503-mobile\trace.zip
+    Usage:
+
+        npx playwright show-trace ..\..\Users\Tomas\AppData\Local\Temp\autosporting-academy-playwright\academyRelease-Acceso-protegido-servidor-503-mobile\trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  6) [mobile] › tests\academyRelease.spec.js:41:5 › Acceso protegido: sin conexión ─────────────────
+
+    Error: expect(page).toHaveURL(expected) failed
+
+    Expected pattern: /\/login$/
+    Received string:  "http://127.0.0.1:3100/admin/academy"
+    Timeout: 5000ms
+
+    Call log:
+      - Expect "toHaveURL" with timeout 5000ms
+        14 × locator resolved to <html lang="es" class="dark">…</html>
+           - unexpected value "http://127.0.0.1:3100/admin/academy"
+
+
+      43 |         for (const route of routes) {
+      44 |             await page.goto(route);
+    > 45 |             await expect(page).toHaveURL(/\/login$/);
+         |                                ^
+      46 |             await expect(page.locator('[data-academy-shell]')).toHaveCount(0);
+      47 |         }
+      48 |     });
+        at C:\Proyectos\AutoSporting-Codex\tests\academyRelease.spec.js:45:32
+
+    Error Context: ..\..\Users\Tomas\AppData\Local\Temp\autosporting-academy-playwright\academyRelease-Acceso-protegido-sin-conexión-mobile\error-context.md
+
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    ..\..\Users\Tomas\AppData\Local\Temp\autosporting-academy-playwright\academyRelease-Acceso-protegido-sin-conexión-mobile\trace.zip
+    Usage:
+
+        npx playwright show-trace ..\..\Users\Tomas\AppData\Local\Temp\autosporting-academy-playwright\academyRelease-Acceso-protegido-sin-conexión-mobile\trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  6 failed
+    [desktop] › tests\academyRelease.spec.js:41:5 › Acceso protegido: sesión rechazada 403 ─────────
+    [desktop] › tests\academyRelease.spec.js:41:5 › Acceso protegido: servidor 503 ─────────────────
+    [desktop] › tests\academyRelease.spec.js:41:5 › Acceso protegido: sin conexión ─────────────────
+    [mobile] › tests\academyRelease.spec.js:41:5 › Acceso protegido: sesión rechazada 403 ──────────
+    [mobile] › tests\academyRelease.spec.js:41:5 › Acceso protegido: servidor 503 ──────────────────
+    [mobile] › tests\academyRelease.spec.js:41:5 › Acceso protegido: sin conexión ──────────────────
+  30 passed (56.0s)
+npm notice
+npm notice New major version of npm available! 11.19.0 -> 12.2.1
+npm notice Changelog: https://github.com/npm/cli/releases/tag/v12.2.1
+npm notice To update run: npm install -g npm@12.2.1
+npm notice
