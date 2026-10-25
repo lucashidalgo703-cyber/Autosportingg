@@ -7,6 +7,7 @@ import HelpTour from '../help/HelpTour';
 
 export default function AdminLayoutClient({ children }) {
     const pathname = usePathname();
+    const isAcademyRoute = pathname === '/admin/academy' || pathname.startsWith('/admin/academy/');
 
     // Si es la ruta legacy o de imprimir, no usamos el shell
     if (pathname === '/admin/legacy' || pathname === '/admin/reportes/imprimir') {
@@ -23,7 +24,7 @@ export default function AdminLayoutClient({ children }) {
             <CrmShell>
                 {children}
             </CrmShell>
-            <HelpTour />
+            {!isAcademyRoute && <HelpTour />}
         </ProtectedRoute>
     );
 }

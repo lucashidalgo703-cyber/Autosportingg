@@ -11,7 +11,9 @@
     "check": "node --check server.js && npm run lint && node scripts/validate-codebase.js",
     "api": "node server.js",
     "test:smoke": "playwright test",
-    "test:help": "node tests/helpRegistry.test.js"
+    "test:help": "node tests/helpRegistry.test.js",
+    "test:academy": "node --test tests/academy*.test.js",
+    "test:academy:ui": "playwright test --config playwright.academy.config.js"
   },
   "dependencies": {
     "@simplewebauthn/browser": "^14.0.0",
@@ -44,6 +46,7 @@
     "xlsx": "^0.18.5"
   },
   "devDependencies": {
+    "@playwright/test": "1.64.1",
     "@types/react": "^19.2.5",
     "@types/react-dom": "^19.2.3",
     "autoprefixer": "^10.5.0",
