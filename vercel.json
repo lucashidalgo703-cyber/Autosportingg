@@ -15,10 +15,6 @@
         {
             "path": "/api/internal/jobs/lead-sla",
             "schedule": "0 0 * * *"
-        },
-        {
-            "path": "/api/internal/jobs/push-drain",
-            "schedule": "*/2 * * * *"
         }
     ]
 }
