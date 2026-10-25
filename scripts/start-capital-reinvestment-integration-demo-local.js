@@ -21,7 +21,7 @@ Object.assign(process.env, cleanEnv, { MONGOMS_DOWNLOAD_DIR: MONGO_CACHE });
 function isExcluded(source) {
     const relative = path.relative(REPO_ROOT, source);
     if (!relative || relative.startsWith('..')) return false;
-    return relative.split(path.sep).some((part) => ['.git', 'node_modules', '.next', '.turbo', 'coverage', '.vercel'].includes(part))
+    return relative.split(path.sep).some((part) => ['.git', 'node_modules', '.next', '.turbo', 'coverage', '.vercel', 'scripts', 'tests', 'docs'].includes(part))
         || path.basename(source).startsWith('.env');
 }
 
@@ -57,6 +57,9 @@ async function main() {
     if (!config.includes(anchor)) throw new Error('No se reconoció el next.config.mjs esperado; no se modificó el proyecto fuente.');
     config = config.replace(anchor, `    async rewrites() { return [{ source: '/api/:path*', destination: 'http://127.0.0.1:${API_PORT}/api/:path*' }]; },\n${anchor}`);
     fs.writeFileSync(configPath, config);
+
+    // Prevent dotenv in the copied app from resolving a .env file in the source checkout.
+    process.chdir(SOURCE_DIR);
 
     const mongo = await MongoMemoryServer.create({ binary: { version: '8.2.6', downloadDir: MONGO_CACHE }, instance: { ip: '127.0.0.1' } });
     const mongoUri = mongo.getUri('autosporting_capital_integration_demo');
@@ -121,16 +124,22 @@ async function main() {
     const close = async () => {
         if (closing) return;
         closing = true;
-        if (next.exitCode === null) next.kill();
+        if (next.exitCode === null) {
+            next.kill();
+            await new Promise((resolve) => next.once('exit', resolve));
+        }
         await new Promise((resolve) => api.close(resolve));
         await mongoose.disconnect();
         await mongo.stop();
+        fs.rmSync(RUN_DIR, { recursive: true, force: true });
         process.exit(0);
     };
     process.once('SIGINT', close);
     process.once('SIGTERM', close);
     console.log('\nDemo local aislada lista. No se cargaron archivos .env.');
     console.log(`CRM: http://127.0.0.1:${UI_PORT}/admin/tesoreria-estrategica`);
+    console.log(`Capital demostrativo: http://127.0.0.1:${UI_PORT}/admin/capital-reinversion-demo`);
+    console.log(`Academy: http://127.0.0.1:${UI_PORT}/admin/academy`);
     console.log(`Login: http://127.0.0.1:${UI_PORT}/login`);
     console.log(`Usuario ficticio: ${email}`);
     console.log(`Clave temporal: ${password}`);
