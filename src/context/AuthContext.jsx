@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
 import { clearOfflineData } from '../services/offlineSyncService';
 
 const AuthContext = createContext(null);
@@ -8,6 +8,8 @@ export const AuthProvider = ({ children }) => {
     const [user, setUser] = useState(null);
     const [token, setToken] = useState(null);
     const [loading, setLoading] = useState(true);
+    const [connectionError, setConnectionError] = useState(false);
+    const isMountedRef = useRef(true);
 
     const decodeToken = (token) => {
         try {
@@ -23,6 +25,7 @@ export const AuthProvider = ({ children }) => {
     };
 
     const isTokenValid = (token) => {
+        if (!token || typeof token !== 'string') return false;
         const decoded = decodeToken(token);
         if (!decoded) return false;
         if (decoded.exp && decoded.exp * 1000 <= Date.now()) return false;
@@ -42,54 +45,99 @@ export const AuthProvider = ({ children }) => {
         setUser(null);
     }, []);
 
-    useEffect(() => {
-        let cancelled = false;
+    const restoreSession = useCallback(async () => {
+        const storedToken = localStorage.getItem('token');
 
-        const restoreSession = async () => {
-            const storedToken = localStorage.getItem('token');
-
-            if (!storedToken || !isTokenValid(storedToken)) {
-                if (storedToken) localStorage.removeItem('token');
-                if (!cancelled) setLoading(false);
-                return;
+        if (!storedToken || !isTokenValid(storedToken)) {
+            if (storedToken) localStorage.removeItem('token');
+            if (isMountedRef.current) {
+                setIsAuthenticated(false);
+                setUser(null);
+                setToken(null);
+                setConnectionError(false);
+                setLoading(false);
             }
+            return;
+        }
 
-            try {
-                const response = await fetch('/api/admin/auth/me', {
-                    headers: { Authorization: `Bearer ${storedToken}` },
-                    cache: 'no-store'
-                });
+        try {
+            const response = await fetch('/api/admin/auth/me', {
+                headers: { Authorization: `Bearer ${storedToken}` },
+                cache: 'no-store'
+            });
 
-                if (response.status === 401) {
-                    if (!cancelled) {
-                        clearSession();
+            // 1. Verificación positiva del servidor (Fail-closed: SOLO 200 OK con payload válido otorga acceso)
+            if (response.ok) {
+                const data = await response.json().catch(() => null);
+                if (data && (data.ok || data.user)) {
+                    if (isMountedRef.current) {
+                        setToken(storedToken);
+                        setIsAuthenticated(true);
+                        setUser(data.user || decodeToken(storedToken));
+                        setConnectionError(false);
                         setLoading(false);
                     }
                     return;
                 }
-            } catch (error) {
-                console.warn('No se pudo validar la sesion contra el servidor:', error.message);
             }
 
-            if (!cancelled) {
+            // 2. Errores de autenticación/autorización: 401 Unauthorized o 403 Forbidden
+            // Cubre: token fabricado (403), firma inválida (403), token expirado (403/401), sesión revocada (401)
+            if (response.status === 401 || response.status === 403) {
+                if (isMountedRef.current) {
+                    clearSession();
+                    setConnectionError(false);
+                    setLoading(false);
+                }
+                return;
+            }
+
+            // 3. Errores temporales de conectividad / indisponibilidad de servidor (500, 502, 503, 504)
+            // Política fail-closed: NO se autoriza acceso (isAuthenticated = false), pero se preserva el token válido
+            if (response.status >= 500) {
+                if (isMountedRef.current) {
+                    setIsAuthenticated(false);
+                    setUser(null);
+                    setToken(storedToken);
+                    setConnectionError(true);
+                    setLoading(false);
+                }
+                return;
+            }
+
+            // 4. Fallback fail-closed para cualquier otra respuesta imprevista (400, 404, etc.)
+            if (isMountedRef.current) {
+                clearSession();
+                setConnectionError(false);
+                setLoading(false);
+            }
+        } catch (error) {
+            // Error de red / fetch rechazado (offline, caída de DNS, conexión rechazada)
+            // Política fail-closed: NO se autoriza acceso, pero se preserva el token para reintento
+            console.warn('No se pudo validar la sesion contra el servidor:', error.message);
+            if (isMountedRef.current) {
+                setIsAuthenticated(false);
+                setUser(null);
                 setToken(storedToken);
-                setIsAuthenticated(true);
-                setUser(decodeToken(storedToken));
+                setConnectionError(true);
+                setLoading(false);
             }
+        }
+    }, [clearSession]);
 
-            if (!cancelled) setLoading(false);
-        };
-
+    useEffect(() => {
+        isMountedRef.current = true;
         restoreSession();
 
         return () => {
-            cancelled = true;
+            isMountedRef.current = false;
         };
-    }, [clearSession]);
+    }, [restoreSession]);
 
     useEffect(() => {
         const handleAuthExpired = () => {
             clearSession();
+            setConnectionError(false);
         };
 
         window.addEventListener('autosporting-auth-expired', handleAuthExpired);
@@ -102,35 +150,54 @@ export const AuthProvider = ({ children }) => {
             return;
         }
 
+        const decoded = decodeToken(token);
         localStorage.setItem('token', token);
         setToken(token);
         setIsAuthenticated(true);
-        setUser(decodeToken(token));
+        setUser(decoded);
+        setConnectionError(false);
     };
 
-    const logout = () => {
+    const logout = useCallback(() => {
         clearSession();
-    };
+        setConnectionError(false);
+    }, [clearSession]);
 
-    const getToken = () => {
+    const retryAuth = useCallback(async () => {
+        setLoading(true);
+        setConnectionError(false);
+        await restoreSession();
+    }, [restoreSession]);
+
+    const getToken = useCallback(() => {
         if (typeof window !== 'undefined') {
             const storedToken = localStorage.getItem('token');
             return storedToken && isTokenValid(storedToken) ? storedToken : null;
         }
         return null;
-    };
+    }, []);
 
-    const validateSession = () => {
+    const validateSession = useCallback(() => {
         const validToken = getToken();
-        if (!validToken) {
-            clearSession();
+        if (!validToken || !isAuthenticated) {
             return false;
         }
         return true;
-    };
+    }, [getToken, isAuthenticated]);
 
     return (
-        <AuthContext.Provider value={{ isAuthenticated, user, login, logout, loading, token, getToken, validateSession }}>
+        <AuthContext.Provider value={{
+            isAuthenticated,
+            user,
+            login,
+            logout,
+            loading,
+            token,
+            getToken,
+            validateSession,
+            connectionError,
+            retryAuth
+        }}>
             {!loading && children}
         </AuthContext.Provider>
     );
