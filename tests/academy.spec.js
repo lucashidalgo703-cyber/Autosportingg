@@ -9,7 +9,7 @@ test.beforeEach(async ({ page, baseURL }) => {
         if (url.origin !== baseURL) return route.abort();
         if (url.pathname.startsWith('/api/')) {
             const body = url.pathname.includes('/settings') ? { ok: true, settings: { featureFlags: {} } }
-                : url.pathname.includes('/auth/me') ? { id: 'academy-test', role: 'ventas' }
+                : url.pathname.includes('/auth/me') ? { ok: true, user: { id: JSON.parse(Buffer.from(route.request().headers().authorization.split('.')[1], 'base64url').toString()).id, role: 'ventas' }, hasValidObjectId: false }
                 : url.pathname.includes('/subscription-summary') ? {} : [];
             return route.fulfill({ json: body });
         }

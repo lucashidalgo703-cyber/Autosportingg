@@ -15,7 +15,7 @@ async function isolate(context, baseURL, session, authResult) {
         if (url.origin !== baseURL) return route.abort();
         if (url.pathname.startsWith('/api/')) {
             if (url.pathname === '/api/admin/auth/me') {
-                return authResult === 'offline' ? route.abort() : route.fulfill({ status: authResult, json: { id: 'release-test', role: 'admin' } });
+                return authResult === 'offline' ? route.abort() : route.fulfill({ status: authResult, json: { ok: authResult === 200, user: authResult === 200 ? { id: 'release-test', role: 'admin' } : undefined, hasValidObjectId: false } });
             }
             const json = url.pathname.includes('settings') ? { ok: true, settings: { featureFlags: {} } } : [];
             return route.fulfill({ json });
@@ -38,13 +38,31 @@ for (const [name, session, response] of [
     ['servidor 503', token(4102444800), 503],
     ['sin conexión', token(4102444800), 'offline'],
 ]) {
-    test(`Acceso protegido: ${name}`, async ({ context, page, baseURL }) => {
+    test(`Acceso protegido: ${name}`, async ({ context, page, baseURL }, testInfo) => {
         await isolate(context, baseURL, session, response);
+        const operationalRequests = [];
+        const errors = [];
+        page.on('request', request => {
+            const pathname = new URL(request.url()).pathname;
+            if (pathname.startsWith('/api/admin/') && pathname !== '/api/admin/auth/me') operationalRequests.push(pathname);
+        });
+        page.on('pageerror', error => errors.push(error.message));
         for (const route of routes) {
             await page.goto(route);
-            await expect(page).toHaveURL(/\/login$/);
+            if (response === 503 || response === 'offline') {
+                await expect(page.getByRole('heading', { name: 'Error de Conexión con el Servidor' })).toBeVisible();
+                await expect(page).toHaveURL(new URL(route, baseURL).href);
+                expect(await page.evaluate(() => localStorage.getItem('token'))).toBe(session);
+            } else {
+                await expect(page).toHaveURL(/\/login$/);
+                expect(await page.evaluate(() => localStorage.getItem('token'))).toBeNull();
+            }
             await expect(page.locator('[data-academy-shell]')).toHaveCount(0);
+            await expect(page.locator('[data-admin-shell]')).toHaveCount(0);
+            if (route === '/admin/academy') await page.screenshot({ path: testInfo.outputPath('auth-denied.png'), fullPage: true });
         }
+        expect(operationalRequests).toEqual([]);
+        expect(errors).toEqual([]);
     });
 }
 
