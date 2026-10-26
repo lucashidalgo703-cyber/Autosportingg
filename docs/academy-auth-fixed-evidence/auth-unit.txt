@@ -1,0 +1,19 @@
+=== PRUEBAS DE AUTENTICACIÓN FAIL-CLOSED & PROTECCIÓN DE RUTAS ===
+
+  ok  - Servidor: Token fabricado con clave arbitraria devuelve 403 Forbidden
+  ok  - Servidor: Token expirado devuelve 403 Forbidden
+  ok  - Servidor: Sin header Authorization devuelve 401 Unauthorized
+  ok  - Servidor: Falta de JWT_SECRET en entorno devuelve 503 Service Unavailable
+  ok  - Servidor: Token legítimo y firmado con clave correcta devuelve 200 OK y datos
+  ok  - Servidor: Token tipo 2fa_challenge no se autoriza como sesión regular (403)
+  ok  - Cliente [FAIL-CLOSED]: Token fabricado cuando /auth/me devuelve 403 NO concede acceso
+  ok  - Cliente [FAIL-CLOSED]: Token cuando /auth/me devuelve 503 NO concede acceso
+  ok  - Cliente [FAIL-CLOSED]: Fallo de red / excepción de conexión NO concede acceso
+  ok  - Cliente [FAIL-CLOSED]: Respuesta 401 (sesión revocada / caducada) purga sesión y deniega acceso
+  ok  - Cliente: Token localmente expirado es rechazado sin llamar al servidor
+  ok  - Cliente: Validación positiva (200 OK + ok:true) concede acceso y adopta usuario del servidor
+  ok  - Resiliencia: Transición de error de conexión a recuperación exitosa (sin bucle ni pérdida de token)
+  ok  - Auditoría estática: Todos los endpoints /api/admin/* en server.js exigen authenticateToken o auth explícita
+
+Resultado: 14/14 pruebas pasaron satisfactoriamente.
+✅ Todas las pruebas de fail-closed y seguridad de autenticación superadas exitosamente.

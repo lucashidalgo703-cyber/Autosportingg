@@ -1,0 +1,9 @@
+SHA256=F632BDDC9EEDC0F7D118040066865AEE14AD89B05497B14CBC31C32D71AFA915
+Bytes=7521
+The bundle contains this ref:
+C:/Proyectos/auth-me-fail-closed.bundle is okay
+70d1a377820b0c14bb975dcb5b8d3a933738d3b0 refs/heads/fix/auth-me-fail-closed
+The bundle requires this ref:
+73efd4b65ff0966aad2306c368f3fe2fb93f6ab4
+The bundle uses this hash algorithm: sha1
+70d1a377820b0c14bb975dcb5b8d3a933738d3b0 refs/heads/fix/auth-me-fail-closed

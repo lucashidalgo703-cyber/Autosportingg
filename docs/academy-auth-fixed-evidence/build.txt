@@ -1,0 +1,130 @@
+
+> autosporting-replica@0.0.0 build
+> next build
+
+▲ Next.js 16.2.2 (Turbopack)
+
+  Creating an optimized production build ...
+✓ Compiled successfully in 15.4s
+  Running TypeScript ...
+  Finished TypeScript in 176ms ...
+  Collecting page data using 7 workers ...
+[dotenv@17.2.3] injecting env (0) from .env -- tip: 📡 add observability to secrets: https://dotenvx.com/ops
+[dotenv@17.2.3] injecting env (0) from .env -- tip: 🗂️ backup and recover secrets: https://dotenvx.com/ops
+[dotenv@17.2.3] injecting env (0) from .env -- tip: ⚙️  enable debug logging with { debug: true }
+[dotenv@17.2.3] injecting env (0) from .env -- tip: 🔄 add secrets lifecycle management: https://dotenvx.com/ops
+[dotenv@17.2.3] injecting env (0) from .env -- tip: ⚙️  suppress all logs with { quiet: true }
+[dotenv@17.2.3] injecting env (0) from .env -- tip: ⚙️  load multiple .env files with { path: ['.env.local', '.env'] }
+[dotenv@17.2.3] injecting env (0) from .env -- tip: ✅ audit secrets and track compliance: https://dotenvx.com/ops
+[dotenv@17.2.3] injecting env (0) from .env -- tip: ⚙️  specify custom .env file path with { path: '/custom/path/.env' }
+  Generating static pages using 7 workers (0/79) ...
+  Generating static pages using 7 workers (19/79)
+  Generating static pages using 7 workers (39/79)
+  Generating static pages using 7 workers (59/79)
+Sitemap: Backend no disponible (ECONNREFUSED). Generando sitemap estático básico.
+✓ Generating static pages using 7 workers (79/79) in 517ms
+  Finalizing page optimization ...
+
+Route (app)                              Revalidate  Expire
+┌ ○ /
+├ ○ /_not-found
+├ ○ /admin
+├ ○ /admin/academy
+├ ƒ /admin/academy/[section]
+├ ○ /admin/agenda
+├ ○ /admin/alertas
+├ ○ /admin/analitica
+├ ○ /admin/auditoria
+├ ○ /admin/autorizaciones
+├ ○ /admin/ayuda
+├ ○ /admin/calidad-datos
+├ ○ /admin/clientes
+├ ƒ /admin/clientes/[id]
+├ ○ /admin/configuracion
+├ ○ /admin/configuracion/2fa
+├ ○ /admin/configuracion/asistente
+├ ○ /admin/configuracion/backups
+├ ○ /admin/configuracion/funciones
+├ ○ /admin/configuracion/general
+├ ○ /admin/configuracion/perfil
+├ ○ /admin/configuracion/plantillas
+├ ○ /admin/configuracion/resumen-diario
+├ ○ /admin/configuracion/usuarios
+├ ○ /admin/consignaciones
+├ ○ /admin/correos
+├ ○ /admin/cotizaciones
+├ ƒ /admin/cotizaciones/[id]
+├ ○ /admin/cuotas
+├ ○ /admin/documentacion
+├ ○ /admin/dormidos
+├ ○ /admin/equipo
+├ ƒ /admin/equipo/[userId]
+├ ○ /admin/expedientes
+├ ○ /admin/exportaciones
+├ ○ /admin/finanzas
+├ ○ /admin/gestoria
+├ ○ /admin/infracciones
+├ ○ /admin/leads
+├ ƒ /admin/leads/[id]
+├ ○ /admin/liquidaciones
+├ ○ /admin/mensajes
+├ ○ /admin/metas
+├ ○ /admin/mi-espacio
+├ ○ /admin/mis-comisiones
+├ ○ /admin/mis-pendientes
+├ ○ /admin/mis-ventas
+├ ○ /admin/notificaciones
+├ ○ /admin/nps
+├ ○ /admin/oportunidades
+├ ○ /admin/papelera
+├ ○ /admin/pedidos
+├ ○ /admin/postventa
+├ ○ /admin/productividad
+├ ○ /admin/reclamos
+├ ○ /admin/reportes
+├ ○ /admin/reportes/imprimir
+├ ○ /admin/reservas
+├ ○ /admin/sistema
+├ ○ /admin/stock
+├ ƒ /admin/stock/[id]
+├ ○ /admin/sugerencias
+├ ○ /admin/taller
+├ ○ /admin/telefonos
+├ ○ /admin/telefonos-utiles
+├ ○ /admin/tesoreria
+├ ○ /admin/tesoreria-estrategica
+├ ○ /admin/ventas
+├ ƒ /admin/ventas/[id]
+├ ○ /admin/whatsapp
+├ ƒ /api-gestoria
+├ ƒ /api-gestoria/[id]
+├ ƒ /api/admin/infracciones
+├ ƒ /api/admin/infracciones/[id]
+├ ƒ /api/admin/infracciones/stats
+├ ƒ /api/admin/pedidos
+├ ƒ /api/admin/pedidos/[id]
+├ ƒ /api/admin/telefonos
+├ ƒ /api/admin/telefonos/[id]
+├ ƒ /api/test-sales
+├ ƒ /auto/[id]
+├ ○ /catalogo
+├ ○ /contacto
+├ ○ /cotizar
+├ ○ /crm
+├ ƒ /encuesta/[token]
+├ ○ /favoritos
+├ ○ /financiacion
+├ ○ /login
+├ ○ /nosotros
+├ ○ /robots.txt
+└ ○ /sitemap.xml                                 1h      1y
+
+
+○  (Static)   prerendered as static content
+ƒ  (Dynamic)  server-rendered on demand
+
+npm notice
+npm notice New major version of npm available! 11.19.0 -> 12.2.1
+npm notice Changelog: https://github.com/npm/cli/releases/tag/v12.2.1
+npm notice To update run: npm install -g npm@12.2.1
+npm notice

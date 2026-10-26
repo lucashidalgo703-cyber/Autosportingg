@@ -1,0 +1,13 @@
+7fdfff15c0ce1dd19bfddf5c7668805323aa8bdf refs/heads/feature/academy-financiera
+0f36f9498db8f6a2639b40ec177941a4326d0d67 refs/heads/feature/capital-owner-only-adaptation
+d7574b24f5043fab4cebeae82ab0c5bd2cce0ee7 refs/heads/feature/capital-reinversion
+025eed60e8d972ecbda1eb128be3c09305ad7511 refs/heads/feature/capital-reinversion-integracion
+e800b3269e7f855f6f9288a4c545e9e6cf589567 refs/heads/feature/experience-ex5
+9c2b106e84009eeae9ef3924dc80de3a703891a8 refs/heads/feature/experience-preview-local
+a06ab3d584219c70a6a961602067eaa01cb8a71d refs/heads/feature/treasury-expense-reversal-fix
+98aa4291b4eb444ba61d2398e1e9afec9c23795a refs/heads/integration/capital-academy-candidate
+73efd4b65ff0966aad2306c368f3fe2fb93f6ab4 refs/heads/main
+0625c093f92fb772699d2b1ca60053ee069443e0 refs/heads/release/academy-auth-candidate
+b0986e24b33331d1a364fe3e2934582408781e64 refs/heads/release/academy-auth-fixed
+a90fa3bc478cc6104b3d02d83686678a622a8042 refs/heads/release/academy-standalone
+f9c62b48248fd1fde656804a2102ee1e481d63e9 refs/heads/release/capital-reinversion-candidate

@@ -1,0 +1,18 @@
+
+Running 4 tests using 1 worker
+
+(node:30648) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ok 1 [desktop] › tests\authFailClosed.browser.spec.js:6:5 › Bloquea 503, conserva token y recupera por reintento sin bucles (1.2s)
+  ok 2 [desktop] › tests\authFailClosed.browser.spec.js:6:5 › Bloquea offline, conserva token y recupera por reintento sin bucles (598ms)
+(node:30140) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ok 3 [mobile] › tests\authFailClosed.browser.spec.js:6:5 › Bloquea 503, conserva token y recupera por reintento sin bucles (852ms)
+  ok 4 [mobile] › tests\authFailClosed.browser.spec.js:6:5 › Bloquea offline, conserva token y recupera por reintento sin bucles (620ms)
+
+  4 passed (5.9s)
+npm notice
+npm notice New major version of npm available! 11.19.0 -> 12.2.1
+npm notice Changelog: https://github.com/npm/cli/releases/tag/v12.2.1
+npm notice To update run: npm install -g npm@12.2.1
+npm notice

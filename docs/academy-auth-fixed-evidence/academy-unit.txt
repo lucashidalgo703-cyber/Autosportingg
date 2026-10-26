@@ -1,0 +1,41 @@
+
+> autosporting-replica@0.0.0 test:academy
+> node --test tests/academy*.test.js
+
+✔ Academy expone ocho cursos únicos y seis destinos de navegación (0.5698ms)
+✔ Los ocho cursos contienen tres lecciones, glosario y ejercicios corregibles (0.3781ms)
+✔ 40 preguntas cubren todos los cursos, formatos y tres niveles (1.1499ms)
+✔ Corrección completa, parcial, equivocada e incompleta (0.4754ms)
+✔ Parser decimal único: admite coma/punto y rechaza prefijos, exponentes y agrupaciones (0.8916ms)
+✔ Cronograma estable: uniformidad, cierre, conservación y recurrencia con tolerancia absoluta de $0,01 (32.9802ms)
+✔ Estados económicos válidos se distinguen de entradas inválidas (0.9211ms)
+✔ Descuento bruto y diferencia neta de espera tienen bases explícitas (0.2175ms)
+✔ Seis escenarios ofrecen alternativas explícitas con ventajas y riesgos (1.4767ms)
+✔ Escenarios conservan relaciones económicas y muestran el faltante intermedio (0.3648ms)
+✔ Casos de práctica: 25 resultados contrastados con operaciones independientes (4.4171ms)
+✔ 24 variantes de examen independientes de práctica y resueltas con oráculos propios (0.9418ms)
+✔ Concurrencia: dos pestañas conservan ambas lecciones e historiales (1.5311ms)
+✔ Reset serializado invalida escrituras pendientes y no afecta otro usuario (3.1141ms)
+✔ Migración local conserva v1; corrupción requiere reset explícito y se informan fallos (0.3244ms)
+✔ Normaliza historial y enlaces sin campos ajenos al aprendizaje (0.2526ms)
+✔ 16 simuladores producen resultados finitos y rechazan campos vacíos o inválidos (11.8781ms)
+✔ Margen, retorno y ROI utilizan sus denominadores respectivos (0.1546ms)
+✔ Rotación al costo y oportunidad para el mismo horizonte (0.1234ms)
+✔ Intereses, conversión de tasas, inflación y valor presente (0.1513ms)
+✔ Sistema francés conserva principal, liquida saldo y cumple recurrencia (0.304ms)
+✔ Caja, descuentos, permutas y recuperación muestran pérdidas y reservas (0.5372ms)
+✔ Asignación respeta capital disponible y contempla reserva sin rendimiento (0.1296ms)
+✔ Tutor responde las cuatro preguntas de cada lección con fuente y sin IA (2.5377ms)
+ℹ tests 24
+ℹ suites 0
+ℹ pass 24
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 802.8068
+npm notice
+npm notice New major version of npm available! 11.19.0 -> 12.2.1
+npm notice Changelog: https://github.com/npm/cli/releases/tag/v12.2.1
+npm notice To update run: npm install -g npm@12.2.1
+npm notice

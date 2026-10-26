@@ -1,5 +1,7 @@
 # Academy Financiera — candidata independiente
 
+> Informe histórico de `a90fa3b`. La integración posterior del bundle de autenticación y su dictamen vigente están en [ACADEMY_AUTH_FIXED_RELEASE.md](ACADEMY_AUTH_FIXED_RELEASE.md); los resultados de esta entrega anterior se conservan sin sobrescribir.
+
 Fecha: 25/10/2026 (America/Buenos_Aires). Dictamen: **NO-GO para publicación por autenticación heredada**. Preparación local terminada; no se habilitó ninguna ruta en producción.
 
 ## Rama, base y procedencia

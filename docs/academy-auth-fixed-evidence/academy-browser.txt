@@ -1,0 +1,54 @@
+
+> autosporting-replica@0.0.0 test:academy:ui
+> playwright test --config playwright.academy.config.js
+
+
+Running 36 tests using 1 worker
+
+(node:16524) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ok  1 [desktop] › tests\academy.spec.js:26:1 › Dos pestañas sincronizan avances concurrentes, reset e identidad separada (2.1s)
+  ok  2 [desktop] › tests\academy.spec.js:54:1 › Casos integrados se resuelven y los límites económicos se explican en pantalla (1.0s)
+  ok  3 [desktop] › tests\academy.spec.js:85:1 › Academy usa un shell educativo sin cargar endpoints operativos del CRM (788ms)
+  ok  4 [desktop] › tests\academy.spec.js:105:1 › Navega por las seis secciones sin errores y respeta el ancho disponible (754ms)
+  ok  5 [desktop] › tests\academy.spec.js:120:1 › Resuelve una lección, conserva avance al recargar y permite restablecerlo (585ms)
+  ok  6 [desktop] › tests\academy.spec.js:135:1 › Calcula 16 modelos y valida entradas; cronograma cabe en móvil (684ms)
+  ok  7 [desktop] › tests\academy.spec.js:155:1 › Corrige evaluación, registra puntaje y abre el curso recomendado (539ms)
+  ok  8 [desktop] › tests\academy.spec.js:173:1 › Compara decisiones y consulta el tutor sin proveedor externo (738ms)
+  ok  9 [desktop] › tests\academy.spec.js:192:1 › Abre los ocho cursos y sus lecciones por enlaces directos (1.5s)
+  ok 10 [desktop] › tests\academy.spec.js:204:1 › Filtra dificultad, recomienda repaso y recupera progreso local corrupto (485ms)
+  ok 11 [desktop] › tests\academyRelease.spec.js:41:5 › Acceso protegido: sin token (1.2s)
+  ok 12 [desktop] › tests\academyRelease.spec.js:41:5 › Acceso protegido: token malformado (1.1s)
+  ok 13 [desktop] › tests\academyRelease.spec.js:41:5 › Acceso protegido: token vencido (1.1s)
+  ok 14 [desktop] › tests\academyRelease.spec.js:41:5 › Acceso protegido: sesión rechazada 401 (1.3s)
+  ok 15 [desktop] › tests\academyRelease.spec.js:41:5 › Acceso protegido: sesión rechazada 403 (1.2s)
+  ok 16 [desktop] › tests\academyRelease.spec.js:41:5 › Acceso protegido: servidor 503 (745ms)
+  ok 17 [desktop] › tests\academyRelease.spec.js:41:5 › Acceso protegido: sin conexión (728ms)
+  ok 18 [desktop] › tests\academyRelease.spec.js:69:1 › Una sesión administrativa validada conserva el shell general fuera de Academy (971ms)
+(node:29208) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ok 19 [mobile] › tests\academy.spec.js:26:1 › Dos pestañas sincronizan avances concurrentes, reset e identidad separada (1.0s)
+  ok 20 [mobile] › tests\academy.spec.js:54:1 › Casos integrados se resuelven y los límites económicos se explican en pantalla (809ms)
+  ok 21 [mobile] › tests\academy.spec.js:85:1 › Academy usa un shell educativo sin cargar endpoints operativos del CRM (444ms)
+  ok 22 [mobile] › tests\academy.spec.js:105:1 › Navega por las seis secciones sin errores y respeta el ancho disponible (656ms)
+  ok 23 [mobile] › tests\academy.spec.js:120:1 › Resuelve una lección, conserva avance al recargar y permite restablecerlo (542ms)
+  ok 24 [mobile] › tests\academy.spec.js:135:1 › Calcula 16 modelos y valida entradas; cronograma cabe en móvil (730ms)
+  ok 25 [mobile] › tests\academy.spec.js:155:1 › Corrige evaluación, registra puntaje y abre el curso recomendado (522ms)
+  ok 26 [mobile] › tests\academy.spec.js:173:1 › Compara decisiones y consulta el tutor sin proveedor externo (674ms)
+  ok 27 [mobile] › tests\academy.spec.js:192:1 › Abre los ocho cursos y sus lecciones por enlaces directos (1.8s)
+  ok 28 [mobile] › tests\academy.spec.js:204:1 › Filtra dificultad, recomienda repaso y recupera progreso local corrupto (545ms)
+  ok 29 [mobile] › tests\academyRelease.spec.js:41:5 › Acceso protegido: sin token (1.2s)
+  ok 30 [mobile] › tests\academyRelease.spec.js:41:5 › Acceso protegido: token malformado (1.2s)
+  ok 31 [mobile] › tests\academyRelease.spec.js:41:5 › Acceso protegido: token vencido (1.1s)
+  ok 32 [mobile] › tests\academyRelease.spec.js:41:5 › Acceso protegido: sesión rechazada 401 (1.1s)
+  ok 33 [mobile] › tests\academyRelease.spec.js:41:5 › Acceso protegido: sesión rechazada 403 (1.2s)
+  ok 34 [mobile] › tests\academyRelease.spec.js:41:5 › Acceso protegido: servidor 503 (768ms)
+  ok 35 [mobile] › tests\academyRelease.spec.js:41:5 › Acceso protegido: sin conexión (770ms)
+  ok 36 [mobile] › tests\academyRelease.spec.js:69:1 › Una sesión administrativa validada conserva el shell general fuera de Academy (981ms)
+
+  36 passed (36.3s)
+npm notice
+npm notice New major version of npm available! 11.19.0 -> 12.2.1
+npm notice Changelog: https://github.com/npm/cli/releases/tag/v12.2.1
+npm notice To update run: npm install -g npm@12.2.1
+npm notice

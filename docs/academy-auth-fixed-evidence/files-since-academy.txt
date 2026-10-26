@@ -1,0 +1,8 @@
+A	playwright.auth.config.js
+M	src/components/ProtectedRoute.jsx
+M	src/context/AuthContext.jsx
+M	tests/academy.spec.js
+M	tests/academyRelease.spec.js
+A	tests/authFailClosed.browser.spec.js
+A	tests/authFailClosed.test.js
+A	tests/integration/authFailClosed.integration.test.js

@@ -1,10 +1,10 @@
 # AutoSporting Academy
 
-Origen: `feature/academy-financiera` (`7fdfff15`). Candidata actual: `release/academy-standalone`, desde `origin/main` verificado (`73efd4b`). Módulo educativo bajo `/admin/academy`. El shell aislado proviene de la candidata combinada, sin incorporar Capital. Esta evidencia histórica no sustituye el dictamen actual **NO-GO** de `docs/ACADEMY_STANDALONE_RELEASE.md`.
+Origen: `feature/academy-financiera` (`7fdfff15`). Candidata actual: `release/academy-auth-fixed`, desde Academy `a90fa3b` y base verificada `73efd4b`, con corrección mínima de autenticación recibida por bundle. Módulo educativo bajo `/admin/academy`. El shell aislado se conserva sin Capital. Dictamen vigente y evidencia: [ACADEMY_AUTH_FIXED_RELEASE.md](ACADEMY_AUTH_FIXED_RELEASE.md). Las verificaciones por subetapa de este documento son históricas.
 
 ## 13.1 · Interfaz principal
 
-Panel, catálogo inicial de ocho cursos y navegación a laboratorio, evaluaciones, progreso, entrenador y tutor. Reutiliza CrmCard y tokens del CRM. La candidata independiente conserva `ProtectedRoute` y usa el shell educativo aislado; añade la entrada en `CrmSidebar.jsx` sin cambiar permisos. La publicación queda bloqueada por la validación de sesión heredada descrita en el informe actual.
+Panel, catálogo inicial de ocho cursos y navegación a laboratorio, evaluaciones, progreso, entrenador y tutor. Reutiliza CrmCard y tokens del CRM. La candidata independiente conserva el proveedor y login publicados, con la corrección mínima de validación de sesión, y usa el shell educativo aislado; añade la entrada en `CrmSidebar.jsx` sin cambiar permisos. Consultar el informe vigente para las condiciones de publicación.
 
 El avance inicial es cero, sin resultados inventados. Los seis destinos quedaron funcionales al completar las subetapas siguientes.
 
