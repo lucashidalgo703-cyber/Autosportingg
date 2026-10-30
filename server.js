@@ -896,7 +896,11 @@ app.get('/api/public/cars', async (req, res) => {
             .select('brand name year km price currency fuel fuelType transmission condition vehicleType type category status featured coverImage images imagePosition')
             .sort({ order: 1, createdAt: -1 })
             .lean();
-        res.json(cars);
+        const normalizedCars = cars.map(c => ({
+            ...c,
+            imagePosition: (!c.imagePosition || c.imagePosition === '50% 75%') ? 'center' : c.imagePosition
+        }));
+        res.json(normalizedCars);
     } catch (error) {
         res.status(500).json({ error: 'No se pudo cargar el catálogo de vehículos.' });
     }
@@ -918,6 +922,9 @@ app.get('/api/public/cars/:id', async (req, res) => {
 
         if (!car) {
             return res.status(404).json({ message: 'Car not found' });
+        }
+        if (!car.imagePosition || car.imagePosition === '50% 75%') {
+            car.imagePosition = 'center';
         }
         res.json(car);
     } catch (error) {
