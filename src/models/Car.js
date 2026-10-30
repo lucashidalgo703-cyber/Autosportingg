@@ -171,7 +171,7 @@ const carSchema = new mongoose.Schema({
     },
 
     order: { type: Number, default: 0 }, // For manual sorting
-    imagePosition: { type: String, default: 'center' }, // CSS object-position
+    imagePosition: { type: String, default: '50% 75%' }, // CSS object-position
     images: [{ type: String }], // Array of Cloudinary URLs
     coverImage: { type: String }, // specific cover image URL
     createdAt: { type: Date, default: Date.now },

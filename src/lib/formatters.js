@@ -72,9 +72,9 @@ export const formatPrice = (price, currency = 'USD') => {
     return `${c} ${Number(price).toLocaleString('es-AR')}`;
 };
 
-export const resolveImagePosition = (pos) => {
-    if (!pos || typeof pos !== 'string' || pos.trim() === '' || pos.trim() === '50% 75%') {
-        return 'center';
+export const resolveImagePosition = (pos, fallback = '50% 75%') => {
+    if (!pos || typeof pos !== 'string' || !pos.trim() || pos.trim() === 'center' || pos.trim() === '50% 50%') {
+        return fallback;
     }
     return pos.trim();
 };

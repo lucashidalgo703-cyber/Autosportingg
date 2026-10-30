@@ -164,7 +164,7 @@ const CarDetail = () => {
                                                 fill
                                                 priority
                                                 className="object-cover w-full h-full fade-in"
-                                                style={{ objectFit: 'cover', objectPosition: resolveImagePosition(car.imagePosition) }}
+                                                style={{ objectFit: 'cover', objectPosition: resolveImagePosition(car.imagePosition, '50% 68%') }}
                                                 src={getOptimizedImageUrl(currentImg, 1200)}
                                                 unoptimized
                                             />
@@ -244,7 +244,7 @@ const CarDetail = () => {
                                                 alt={`${car.name} view ${index + 2}`}
                                                 fill
                                                 className={`object-cover w-full h-full transition duration-300 ${isLast && remainingCount > 0 ? 'blur-sm' : ''}`}
-                                                style={{ objectFit: 'cover', objectPosition: resolveImagePosition(car.imagePosition) }}
+                                                style={{ objectFit: 'cover', objectPosition: resolveImagePosition(car.imagePosition, '50% 68%') }}
                                                 unoptimized
                                             />
                                         </div>

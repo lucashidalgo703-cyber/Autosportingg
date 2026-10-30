@@ -23,7 +23,7 @@ const CarCard = ({ car }) => {
           fill
           sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
           className="card-image"
-          style={{ objectFit: 'cover', objectPosition: resolveImagePosition(car.imagePosition) }}
+          style={{ objectFit: 'cover', objectPosition: resolveImagePosition(car.imagePosition, '50% 75%') }}
           unoptimized
         />
         {car.status && car.status !== 'Disponible' && (
