@@ -1,6 +1,6 @@
 "use client";
 import { useState, useEffect } from 'react';
-import { X, Save, AlertTriangle, HelpCircle, FileText, Upload, Eye, Trash2 } from 'lucide-react';
+import { X, Save, AlertTriangle, HelpCircle, FileText, Upload, Eye, Trash2, Edit } from 'lucide-react';
 import Link from 'next/link';
 import toast from 'react-hot-toast';
 import { parseArgentineMoney } from '../../../utils/saleCommercial';
@@ -237,23 +237,43 @@ export default function VehicleEditModal({ isOpen, onClose, onSave, vehicleData 
     const isVisibleWarning = !formData.visibleEnWeb;
 
     return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm overflow-y-auto">
-            <div className="bg-crm-surface border border-crm-border rounded-xl w-full max-w-4xl my-8 flex flex-col relative">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-5 bg-black/85 backdrop-blur-sm animate-fadeIn">
+            <div className="bg-crm-surface border border-crm-border rounded-2xl w-full max-w-4xl max-h-[92vh] flex flex-col shadow-2xl overflow-hidden relative">
                 
-                <div className="flex items-center justify-between p-4 border-b border-crm-border sticky top-0 bg-crm-surface z-10 rounded-t-xl">
+                {/* Header fijo al tope del modal (sin sticky problemático) */}
+                <div className="flex items-center justify-between px-6 py-4 border-b border-crm-border bg-crm-surface-raised shrink-0">
                     <div className="flex items-center gap-3">
-                        <h2 className="text-xl font-bold text-white">Editar Vehículo</h2>
-                        <Link href="/admin/ayuda?tema=stock" className="text-crm-fg-muted hover:text-crm-red transition-colors" title="Ver ayuda sobre catálogo de vehículos">
+                        <div className="w-8 h-8 rounded-lg bg-crm-red/10 border border-crm-red/30 flex items-center justify-center text-crm-red shrink-0">
+                            <Edit size={16} />
+                        </div>
+                        <div>
+                            <div className="flex items-center gap-2">
+                                <h2 className="text-base sm:text-lg font-bold text-white leading-tight">Editar Vehículo</h2>
+                                {vehicleData?.dominio && (
+                                    <span className="text-[10px] font-mono font-bold bg-white/10 text-white/80 border border-white/20 px-2 py-0.5 rounded">
+                                        {vehicleData.dominio}
+                                    </span>
+                                )}
+                            </div>
+                            <p className="text-xs text-crm-fg-muted">
+                                {vehicleData?.marca} {vehicleData?.modelo} {vehicleData?.año ? `• ${vehicleData.año}` : ''}
+                            </p>
+                        </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                        <Link href="/admin/ayuda?tema=stock" className="p-1.5 text-crm-fg-muted hover:text-white rounded-lg hover:bg-white/5 transition-colors" title="Ver ayuda sobre catálogo de vehículos">
                             <HelpCircle size={18} />
                         </Link>
+                        <button onClick={onClose} className="p-1.5 text-crm-fg-muted hover:text-white rounded-lg hover:bg-white/5 transition-colors cursor-pointer" disabled={isSaving}>
+                            <X size={20} />
+                        </button>
                     </div>
-                    <button onClick={onClose} className="p-1 text-crm-fg-muted hover:text-crm-fg transition-colors" disabled={isSaving}>
-                        <X size={20} />
-                    </button>
                 </div>
 
-                <form onSubmit={handleSubmit} className="flex flex-col">
-                    <div className="p-6 grid grid-cols-1 lg:grid-cols-2 gap-8">
+                <form onSubmit={handleSubmit} className="flex flex-col flex-1 overflow-hidden">
+                    {/* Contenido con scroll independiente sin superposición */}
+                    <div className="p-6 overflow-y-auto flex-1 custom-scrollbar space-y-8">
+                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
                         
                         {/* DATOS PÚBLICOS */}
                         <div className="flex flex-col gap-4">
@@ -535,68 +555,75 @@ export default function VehicleEditModal({ isOpen, onClose, onSave, vehicleData 
                     </div>
 
                     {/* DOCUMENTACIÓN REGISTRAL */}
-                    <div className="p-6 pt-0 mt-2">
-                        <h3 className="text-crm-fg-muted font-semibold flex items-center gap-2 border-b border-crm-border pb-2 mb-4">
-                            <FileText size={16} /> Documentación Registral (Archivos)
-                        </h3>
-                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                            {docFieldsConfig.map(field => {
-                                const existingUrl = vehicleData?._original?.documentationFiles?.[field.key] || vehicleData?.documentationFiles?.[field.key];
-                                const hasNewFile = docFiles[field.key] instanceof File;
-                                
-                                return (
-                                    <div key={field.key} className="flex flex-col gap-2 p-3 bg-crm-bg border border-crm-border rounded-lg">
-                                        <span className="text-xs font-medium text-white">{field.label}</span>
-                                        <div className="flex items-center gap-2">
-                                            <label className="flex-1 flex items-center justify-center gap-2 px-3 py-2 bg-crm-surface-raised hover:bg-crm-surface-raised-hover cursor-pointer border border-crm-border border-dashed rounded text-xs text-crm-fg-muted transition-colors text-center">
-                                                <Upload size={14} />
-                                                <span className="truncate">{hasNewFile ? docFiles[field.key].name : 'Subir archivo'}</span>
-                                                <input 
-                                                    type="file" 
-                                                    className="hidden" 
-                                                    accept="image/png, image/jpeg, image/webp, application/pdf"
-                                                    onChange={(e) => handleDocChange(e, field.key)} 
-                                                />
-                                            </label>
-                                            {existingUrl && !hasNewFile && !deletedDocs.includes(field.key) && (
-                                                <div className="flex items-center gap-1">
-                                                    <a href={existingUrl} target="_blank" rel="noreferrer" className="p-2 bg-crm-surface-raised hover:bg-crm-surface-raised-hover border border-crm-border rounded text-crm-fg-muted hover:text-white transition-colors" title="Ver archivo actual">
-                                                        <Eye size={16} />
-                                                    </a>
-                                                    <button
-                                                        type="button"
-                                                        onClick={() => setDeletedDocs(prev => [...prev, field.key])}
-                                                        className="p-2 bg-crm-surface-raised hover:bg-crm-surface-raised-hover border border-crm-border rounded text-crm-fg-muted hover:text-crm-red transition-colors"
-                                                        title="Eliminar archivo"
-                                                    >
-                                                        <Trash2 size={16} />
-                                                    </button>
-                                                </div>
-                                            )}
+                        <div>
+                            <h3 className="text-crm-fg-muted font-semibold flex items-center gap-2 border-b border-crm-border pb-2 mb-4">
+                                <FileText size={16} /> Documentación Registral (Archivos)
+                            </h3>
+                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                                {docFieldsConfig.map(field => {
+                                    const existingUrl = vehicleData?._original?.documentationFiles?.[field.key] || vehicleData?.documentationFiles?.[field.key];
+                                    const hasNewFile = docFiles[field.key] instanceof File;
+                                    
+                                    return (
+                                        <div key={field.key} className="flex flex-col gap-2 p-3 bg-crm-bg border border-crm-border rounded-lg">
+                                            <span className="text-xs font-medium text-white">{field.label}</span>
+                                            <div className="flex items-center gap-2">
+                                                <label className="flex-1 flex items-center justify-center gap-2 px-3 py-2 bg-crm-surface-raised hover:bg-crm-surface-raised-hover cursor-pointer border border-crm-border border-dashed rounded text-xs text-crm-fg-muted transition-colors text-center">
+                                                    <Upload size={14} />
+                                                    <span className="truncate">{hasNewFile ? docFiles[field.key].name : 'Subir archivo'}</span>
+                                                    <input 
+                                                        type="file" 
+                                                        className="hidden" 
+                                                        accept="image/png, image/jpeg, image/webp, application/pdf"
+                                                        onChange={(e) => handleDocChange(e, field.key)} 
+                                                    />
+                                                </label>
+                                                {existingUrl && !hasNewFile && !deletedDocs.includes(field.key) && (
+                                                    <div className="flex items-center gap-1">
+                                                        <a href={existingUrl} target="_blank" rel="noreferrer" className="p-2 bg-crm-surface-raised hover:bg-crm-surface-raised-hover border border-crm-border rounded text-crm-fg-muted hover:text-white transition-colors" title="Ver archivo actual">
+                                                            <Eye size={16} />
+                                                        </a>
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => setDeletedDocs(prev => [...prev, field.key])}
+                                                            className="p-2 bg-crm-surface-raised hover:bg-crm-surface-raised-hover border border-crm-border rounded text-crm-fg-muted hover:text-crm-red transition-colors cursor-pointer"
+                                                            title="Eliminar archivo"
+                                                        >
+                                                            <Trash2 size={16} />
+                                                        </button>
+                                                    </div>
+                                                )}
+                                            </div>
                                         </div>
-                                    </div>
-                                );
-                            })}
+                                    );
+                                })}
+                            </div>
                         </div>
                     </div>
 
-                    <div className="p-4 border-t border-crm-border flex justify-end gap-3 sticky bottom-0 bg-crm-surface rounded-b-xl z-10">
-                        <button 
-                            type="button" 
-                            onClick={onClose}
-                            disabled={isSaving}
-                            className="px-6 py-2.5 bg-transparent border border-crm-border text-crm-fg rounded-lg hover:bg-crm-surface-raised transition-colors font-medium text-sm"
-                        >
-                            Cancelar
-                        </button>
-                        <button 
-                            type="submit" 
-                            disabled={isSaving}
-                            className="px-6 py-2.5 bg-crm-red text-white rounded-lg hover:bg-crm-red-hover transition-colors font-medium text-sm flex items-center gap-2 disabled:opacity-50"
-                        >
-                            {isSaving ? <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div> : <Save size={18} />}
-                            {isSaving ? 'Guardando...' : 'Guardar Cambios'}
-                        </button>
+                    {/* Footer fijo al pie del modal */}
+                    <div className="px-6 py-4 border-t border-crm-border bg-crm-surface-raised flex items-center justify-between shrink-0">
+                        <span className="text-xs text-crm-fg-muted hidden sm:inline">
+                            Los cambios actualizan automáticamente el stock y la ficha técnica
+                        </span>
+                        <div className="flex items-center gap-3 ml-auto">
+                            <button 
+                                type="button" 
+                                onClick={onClose}
+                                disabled={isSaving}
+                                className="px-4 py-2 bg-transparent border border-crm-border text-crm-fg rounded-lg hover:bg-crm-surface-raised transition-colors font-medium text-xs cursor-pointer"
+                            >
+                                Cancelar
+                            </button>
+                            <button 
+                                type="submit" 
+                                disabled={isSaving}
+                                className="px-5 py-2 bg-crm-red hover:bg-red-600 text-white rounded-lg transition-all font-bold text-xs flex items-center gap-2 shadow-lg disabled:opacity-50 cursor-pointer"
+                            >
+                                {isSaving ? <div className="animate-spin rounded-full h-3.5 w-3.5 border-b-2 border-white"></div> : <Save size={14} />}
+                                {isSaving ? 'Guardando...' : 'Guardar Cambios'}
+                            </button>
+                        </div>
                     </div>
 
                 </form>
