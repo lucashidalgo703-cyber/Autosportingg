@@ -73,10 +73,18 @@ export const formatPrice = (price, currency = 'USD') => {
 };
 
 export const resolveImagePosition = (pos, fallback = '50% 75%') => {
-    if (!pos || typeof pos !== 'string' || !pos.trim() || pos.trim() === 'center' || pos.trim() === '50% 50%') {
+    if (!pos || typeof pos !== 'string' || !pos.trim() || pos.trim() === 'center') {
         return fallback;
     }
     return pos.trim();
+};
+
+export const resolveImagePositionByIndex = (car, index = 0, fallback = '50% 75%') => {
+    if (!car) return fallback;
+    if (Array.isArray(car.imagePositions) && car.imagePositions[index]) {
+        return resolveImagePosition(car.imagePositions[index], fallback);
+    }
+    return resolveImagePosition(car.imagePosition, fallback);
 };
 
 export const normalizeCarData = (car) => {
@@ -86,6 +94,7 @@ export const normalizeCarData = (car) => {
         brand: normalizeBrand(car.brand),
         name: normalizeModel(car.name),
         fuel: normalizeFuel(car.fuel),
-        imagePosition: resolveImagePosition(car.imagePosition)
+        imagePosition: resolveImagePosition(car.imagePosition),
+        imagePositions: Array.isArray(car.imagePositions) ? car.imagePositions.map(p => resolveImagePosition(p)) : undefined
     };
 };

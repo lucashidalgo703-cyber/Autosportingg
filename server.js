@@ -893,7 +893,7 @@ app.get('/api/public/cars', async (req, res) => {
             visibleEnWeb: { $ne: false },
             status: { $nin: [/^vendido$/i, /^reservado$/i, /^pausado$/i, /^cancelado$/i, /^eliminado$/i] }
         })
-            .select('brand name year km price currency fuel fuelType transmission condition vehicleType type category status featured coverImage images imagePosition')
+            .select('brand name year km price currency fuel fuelType transmission condition vehicleType type category status featured coverImage images imagePosition imagePositions')
             .sort({ order: 1, createdAt: -1 })
             .lean();
         res.json(cars);
@@ -1001,6 +1001,12 @@ app.post('/api/cars', authenticateToken, requirePermission(PERMISSIONS.STOCK_WRI
 
         if (typeof carData.investor === 'string') {
             try { carData.investor = JSON.parse(carData.investor); } catch (_) { delete carData.investor; }
+        }
+        if (typeof carData.imagePositions === 'string') {
+            try { carData.imagePositions = JSON.parse(carData.imagePositions); } catch (_) {}
+        }
+        if (Array.isArray(carData.imagePositions) && carData.imagePositions.length > 0 && carData.imagePositions[0]) {
+            carData.imagePosition = carData.imagePositions[0];
         }
 
         const newCar = new Car({
@@ -2484,8 +2490,23 @@ app.put('/api/admin/cars/:id/images', authenticateToken, requirePermission(PERMI
 
         car.images = finalImages;
         car.coverImage = finalImages.length > 0 ? finalImages[0] : '';
+        if (req.body.imagePositions) {
+            let parsed = req.body.imagePositions;
+            if (typeof parsed === 'string') {
+                try { parsed = JSON.parse(parsed); } catch (_) {}
+            }
+            if (Array.isArray(parsed)) {
+                car.imagePositions = parsed;
+                if (parsed[0]) car.imagePosition = parsed[0];
+                car.markModified('imagePositions');
+            }
+        }
         if (req.body.imagePosition) {
             car.imagePosition = req.body.imagePosition;
+            if (!Array.isArray(car.imagePositions) || car.imagePositions.length === 0) {
+                car.imagePositions = [req.body.imagePosition];
+                car.markModified('imagePositions');
+            }
         }
 
         const user = req.user ? (req.user.email || req.user.role) : 'System';
@@ -2722,6 +2743,19 @@ app.patch('/api/admin/cars/:id', authenticateToken, requirePermission(PERMISSION
                 user,
                 source: 'CRM_V2'
             });
+        }
+
+        if (otherUpdates.imagePositions !== undefined) {
+            let parsedPos = otherUpdates.imagePositions;
+            if (typeof parsedPos === 'string') {
+                try { parsedPos = JSON.parse(parsedPos); } catch (_) {}
+            }
+            if (Array.isArray(parsedPos)) {
+                car.imagePositions = parsedPos;
+                if (parsedPos[0]) car.imagePosition = parsedPos[0];
+                car.markModified('imagePositions');
+            }
+            delete otherUpdates.imagePositions;
         }
 
         Object.keys(otherUpdates).forEach(key => {

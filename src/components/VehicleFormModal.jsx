@@ -34,6 +34,7 @@ export default function VehicleFormModal({ isOpen, onClose, onSave, editingCar }
     const [files, setFiles] = useState([]);
     const [draggedIndex, setDraggedIndex] = useState(null);
     const [showFramingModal, setShowFramingModal] = useState(false);
+    const [framingInitialIndex, setFramingInitialIndex] = useState(0);
 
     const [availableSales, setAvailableSales] = useState([]);
     const [loadingSales, setLoadingSales] = useState(false);
@@ -110,7 +111,8 @@ export default function VehicleFormModal({ isOpen, onClose, onSave, editingCar }
                     tradeInOriginItemId: editingCar.tradeInOrigin?.tradeInId || '',
                     tradeInOriginValue: editingCar.tradeInOrigin?.value ?? '',
                     tradeInOriginCurrency: editingCar.tradeInOrigin?.currency || editingCar.purchaseCurrency || 'ARS',
-                    imagePosition: editingCar.imagePosition || '50% 75%'
+                    imagePosition: editingCar.imagePosition || '50% 75%',
+                    imagePositions: editingCar.imagePositions || []
                 });
                 
                 // Load existing images if editing
@@ -136,7 +138,8 @@ export default function VehicleFormModal({ isOpen, onClose, onSave, editingCar }
                     isSharedInvestment: false, investorName: '', investorPercentage: 50,
                     receivedAsTradeIn: false, tradeInOriginSaleId: '', tradeInOriginItemId: '',
                     tradeInOriginValue: '', tradeInOriginCurrency: 'ARS',
-                    imagePosition: '50% 75%'
+                    imagePosition: '50% 75%',
+                    imagePositions: []
                 });
                 setFiles([]);
             }
@@ -334,6 +337,9 @@ export default function VehicleFormModal({ isOpen, onClose, onSave, editingCar }
 
         if (dataToSave.agencyOwned && !dataToSave.receivedAsTradeIn && !editingCar) {
             dataToSave.purchasePayment = JSON.stringify(purchasePayment);
+        }
+        if (Array.isArray(dataToSave.imagePositions)) {
+            dataToSave.imagePositions = JSON.stringify(dataToSave.imagePositions);
         }
         onSave(dataToSave, files);
     };
@@ -840,8 +846,22 @@ export default function VehicleFormModal({ isOpen, onClose, onSave, editingCar }
 
                         {/* 7. FOTOS Y NOTAS */}
                         <section>
-                            <div className="flex items-center gap-2 mb-4 border-b border-crm-border pb-2 mt-6">
+                            <div className="flex items-center justify-between mb-4 border-b border-crm-border pb-2 mt-6">
                                 <span className="text-xs font-bold text-white uppercase tracking-widest">7. Fotos y Notas</span>
+                                {files.length > 0 && (
+                                    <button
+                                        type="button"
+                                        onClick={() => {
+                                            setFramingInitialIndex(0);
+                                            setShowFramingModal(true);
+                                        }}
+                                        className="text-xs font-semibold px-2.5 py-1 rounded-lg bg-crm-surface hover:bg-crm-border text-white transition-colors flex items-center gap-1.5 border border-crm-border hover:border-red-500 cursor-pointer"
+                                        title="Ajustar cómo se encuadra la foto en catálogo y ficha"
+                                    >
+                                        <Sliders size={12} className="text-red-500" />
+                                        Ajustar encuadre
+                                    </button>
+                                )}
                             </div>
                             <div className="mb-6">
                                 <InputLabel>Notas Internas</InputLabel>
@@ -890,21 +910,20 @@ export default function VehicleFormModal({ isOpen, onClose, onSave, editingCar }
                                             >
                                                 <img src={file.preview} className="w-full h-full object-cover" />
                                                 {i === 0 && (
-                                                    <>
-                                                        <div className="absolute top-0 left-0 w-full bg-red-500/90 text-white text-[8px] font-bold text-center py-0.5 tracking-wider uppercase z-20">Portada</div>
-                                                        <button
-                                                            type="button"
-                                                            title="Ajustar encuadre de portada"
-                                                            onClick={(e) => {
-                                                                e.stopPropagation();
-                                                                setShowFramingModal(true);
-                                                            }}
-                                                            className="absolute bottom-1 left-1 bg-black/80 hover:bg-red-600 text-white p-1 rounded z-30 shadow transition-colors flex items-center justify-center cursor-pointer border border-white/20"
-                                                        >
-                                                            <Sliders size={10} />
-                                                        </button>
-                                                    </>
+                                                    <div className="absolute top-0 left-0 w-full bg-red-500/90 text-white text-[8px] font-bold text-center py-0.5 tracking-wider uppercase z-20">Portada</div>
                                                 )}
+                                                <button
+                                                    type="button"
+                                                    title={`Ajustar encuadre de foto #${i + 1}`}
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        setFramingInitialIndex(i);
+                                                        setShowFramingModal(true);
+                                                    }}
+                                                    className="absolute bottom-1 left-1 bg-black/80 hover:bg-red-600 text-white p-1 rounded z-30 shadow transition-colors flex items-center justify-center cursor-pointer border border-white/20"
+                                                >
+                                                    <Sliders size={10} />
+                                                </button>
                                                 <button
                                                     type="button"
                                                     onClick={(e) => { e.stopPropagation(); setFiles(files.filter((_, idx) => idx !== i)); }}
@@ -925,19 +944,23 @@ export default function VehicleFormModal({ isOpen, onClose, onSave, editingCar }
             <VehicleImageFramingModal
                 isOpen={showFramingModal}
                 onClose={() => setShowFramingModal(false)}
-                vehicle={editingCar || { brand: formData.brand, name: formData.name, year: formData.year, km: formData.km, imagePosition: formData.imagePosition }}
-                imageUrl={files[0]?.preview || files[0]?.url}
+                vehicle={editingCar || { brand: formData.brand, name: formData.name, year: formData.year, km: formData.km, imagePosition: formData.imagePosition, imagePositions: formData.imagePositions }}
+                images={files}
+                initialIndex={framingInitialIndex}
                 currentPosition={formData.imagePosition || '50% 75%'}
                 onPositionSaved={(newPos) => {
                     setFormData(prev => ({ ...prev, imagePosition: newPos }));
                 }}
-                onCropComplete={(croppedFile) => {
+                onPositionsSaved={(newPositions, coverPos) => {
+                    setFormData(prev => ({ ...prev, imagePositions: newPositions, imagePosition: coverPos }));
+                }}
+                onCropComplete={(croppedFile, cropIndex) => {
                     setFiles(prev => {
                         const updated = [...prev];
-                        updated[0] = croppedFile;
+                        updated[cropIndex] = croppedFile;
                         return updated;
                     });
-                    toast.success('Foto de portada reemplazada con el recorte 4:3');
+                    toast.success(`Foto #${cropIndex + 1} reemplazada con el recorte 4:3`);
                 }}
             />
         </CrmModal>

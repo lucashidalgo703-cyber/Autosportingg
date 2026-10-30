@@ -29,6 +29,7 @@ export default function VehicleImagesPanel({ vehicle, onSaveComplete }) {
     const [draggedIndex, setDraggedIndex] = useState(null);
     const [isSaving, setIsSaving] = useState(false);
     const [showFramingModal, setShowFramingModal] = useState(false);
+    const [framingInitialIndex, setFramingInitialIndex] = useState(0);
     const [currentImagePosition, setCurrentImagePosition] = useState(vehicle?.imagePosition || '50% 75%');
 
     const handleDragStart = (index) => setDraggedIndex(index);
@@ -196,7 +197,10 @@ export default function VehicleImagesPanel({ vehicle, onSaveComplete }) {
                     {files.length > 0 && (
                         <button
                             type="button"
-                            onClick={() => setShowFramingModal(true)}
+                            onClick={() => {
+                                setFramingInitialIndex(0);
+                                setShowFramingModal(true);
+                            }}
                             className="text-xs font-semibold px-2.5 py-1 rounded-lg bg-crm-surface-raised hover:bg-crm-border text-white transition-colors flex items-center gap-1.5 border border-crm-border hover:border-crm-red"
                             title="Ajustar cómo se encuadra la foto en el catálogo y ficha"
                         >
@@ -247,23 +251,22 @@ export default function VehicleImagesPanel({ vehicle, onSaveComplete }) {
                             >
                                 <img src={file.preview} alt={`Foto ${i + 1}`} className="w-full h-full object-cover pointer-events-none" />
                                 {i === 0 && (
-                                    <>
-                                        <div className="absolute top-0 left-0 w-full bg-crm-red/90 text-white text-[8px] font-bold text-center py-0.5 tracking-wider uppercase z-10 pointer-events-none">
-                                            Principal
-                                        </div>
-                                        <button
-                                            type="button"
-                                            title="Ajustar encuadre de portada"
-                                            onClick={(e) => {
-                                                e.stopPropagation();
-                                                setShowFramingModal(true);
-                                            }}
-                                            className="absolute bottom-1 left-1 bg-black/80 hover:bg-crm-red text-white p-1 rounded z-20 shadow transition-colors flex items-center justify-center cursor-pointer border border-white/20"
-                                        >
-                                            <Sliders size={11} />
-                                        </button>
-                                    </>
+                                    <div className="absolute top-0 left-0 w-full bg-crm-red/90 text-white text-[8px] font-bold text-center py-0.5 tracking-wider uppercase z-10 pointer-events-none">
+                                        Principal
+                                    </div>
                                 )}
+                                <button
+                                    type="button"
+                                    title={`Ajustar encuadre de foto #${i + 1}`}
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        setFramingInitialIndex(i);
+                                        setShowFramingModal(true);
+                                    }}
+                                    className="absolute bottom-1 left-1 bg-black/80 hover:bg-crm-red text-white p-1 rounded z-20 shadow transition-colors flex items-center justify-center cursor-pointer border border-white/20"
+                                >
+                                    <Sliders size={11} />
+                                </button>
                                 <button
                                     type="button"
                                     title="Eliminar imagen"
@@ -309,19 +312,28 @@ export default function VehicleImagesPanel({ vehicle, onSaveComplete }) {
                 isOpen={showFramingModal}
                 onClose={() => setShowFramingModal(false)}
                 vehicle={vehicle}
-                imageUrl={files[0]?.preview || files[0]?.url}
+                images={files}
+                initialIndex={framingInitialIndex}
                 currentPosition={currentImagePosition}
                 onPositionSaved={(newPos) => {
                     setCurrentImagePosition(newPos);
                     if (onSaveComplete) onSaveComplete();
                 }}
-                onCropComplete={(croppedFile) => {
+                onPositionsSaved={(newPositions, coverPos) => {
+                    setCurrentImagePosition(coverPos);
+                    if (vehicle) {
+                        vehicle.imagePositions = newPositions;
+                        vehicle.imagePosition = coverPos;
+                    }
+                    if (onSaveComplete) onSaveComplete();
+                }}
+                onCropComplete={(croppedFile, cropIndex) => {
                     setFiles(prev => {
                         const updated = [...prev];
-                        updated[0] = croppedFile;
+                        updated[cropIndex] = croppedFile;
                         return updated;
                     });
-                    toast.success('Foto principal reemplazada con el recorte 4:3');
+                    toast.success(`Foto #${cropIndex + 1} reemplazada con el recorte 4:3`);
                 }}
             />
         </CrmCard>
