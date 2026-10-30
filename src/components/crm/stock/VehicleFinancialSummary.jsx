@@ -567,7 +567,7 @@ export default function VehicleFinancialSummary({ vehicle, onEdit, onPaymentSave
                         {onEdit && (
                             <button
                                 type="button"
-                                onClick={onEdit}
+                                onClick={(e) => { e.preventDefault(); onEdit(); }}
                                 className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium text-crm-fg-muted hover:text-white bg-crm-surface-raised border border-crm-border rounded-lg transition-colors cursor-pointer"
                             >
                                 <Edit size={12} />
@@ -642,7 +642,7 @@ export default function VehicleFinancialSummary({ vehicle, onEdit, onPaymentSave
                         {onEdit && (
                             <button
                                 type="button"
-                                onClick={onEdit}
+                                onClick={(e) => { e.preventDefault(); onEdit(); }}
                                 className="text-blue-400 hover:text-blue-300 font-semibold underline underline-offset-2 ml-2 cursor-pointer"
                             >
                                 Asignar ahora

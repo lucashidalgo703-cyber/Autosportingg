@@ -10,6 +10,7 @@ export default function VehicleEditModal({ isOpen, onClose, onSave, vehicleData 
     const [docFiles, setDocFiles] = useState({});
     const [deletedDocs, setDeletedDocs] = useState([]);
     const [isSaving, setIsSaving] = useState(false);
+    const [isSearchingInfoAuto, setIsSearchingInfoAuto] = useState(false);
 
     const docFieldsConfig = [
         { key: 'tituloAutomotor', label: 'Título Automotor' },
@@ -65,8 +66,6 @@ export default function VehicleEditModal({ isOpen, onClose, onSave, vehicleData 
     }, [isOpen, vehicleData]);
 
     if (!isOpen) return null;
-
-    const [isSearchingInfoAuto, setIsSearchingInfoAuto] = useState(false);
 
     const handleLookupInfoAuto = async () => {
         try {
