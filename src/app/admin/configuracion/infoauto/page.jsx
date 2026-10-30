@@ -193,20 +193,20 @@ export default function InfoAutoSettingsPage() {
             <SettingsTabs />
 
             {/* ENCABEZADO PRINCIPAL */}
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-crm-surface border border-crm-border rounded-2xl p-6">
-                <div className="flex items-center gap-4">
-                    <div className="w-12 h-12 rounded-xl bg-blue-500/10 border border-blue-500/30 flex items-center justify-center text-blue-400">
+            <div className="flex flex-wrap items-center justify-between gap-4 bg-crm-surface border border-crm-border rounded-2xl p-6">
+                <div className="flex items-center gap-4 min-w-0">
+                    <div className="w-12 h-12 rounded-xl bg-blue-500/10 border border-blue-500/30 flex items-center justify-center text-blue-400 shrink-0">
                         <Car size={26} />
                     </div>
-                    <div>
-                        <div className="flex items-center gap-3">
+                    <div className="min-w-0">
+                        <div className="flex flex-wrap items-center gap-2 sm:gap-3">
                             <h1 className="text-xl font-bold text-white">Integración con InfoAuto</h1>
                             {statusInfo.status === 'connected' ? (
-                                <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">
+                                <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 shrink-0">
                                     <CheckCircle2 size={12} /> Conectado
                                 </span>
                             ) : (
-                                <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-amber-500/15 text-amber-400 border border-amber-500/30">
+                                <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-amber-500/15 text-amber-400 border border-amber-500/30 shrink-0">
                                     <AlertTriangle size={12} /> Configuración Pendiente
                                 </span>
                             )}
@@ -217,7 +217,7 @@ export default function InfoAutoSettingsPage() {
                     </div>
                 </div>
 
-                <div className="flex items-center gap-2.5">
+                <div className="flex items-center gap-2.5 shrink-0">
                     <button
                         type="button"
                         onClick={handleTestConnection}
@@ -227,17 +227,15 @@ export default function InfoAutoSettingsPage() {
                         <Activity size={14} className={testing ? 'animate-spin' : ''} />
                         {testing ? 'Probando...' : 'Probar Conexión'}
                     </button>
-                    {canEdit && (
-                        <button
-                            type="button"
-                            onClick={handleSave}
-                            disabled={saving}
-                            className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-xs font-bold bg-crm-red-gradient text-white shadow-crm-shadow-red shadow-sm hover:opacity-90 active:scale-95 transition-all cursor-pointer disabled:opacity-50"
-                        >
-                            <Save size={14} className={saving ? 'animate-spin' : ''} />
-                            {saving ? 'Guardando...' : 'Guardar Cambios'}
-                        </button>
-                    )}
+                    <button
+                        type="button"
+                        onClick={handleSave}
+                        disabled={saving}
+                        className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-xs font-bold bg-crm-red-gradient text-white shadow-crm-shadow-red shadow-sm hover:opacity-90 active:scale-95 transition-all cursor-pointer disabled:opacity-50"
+                    >
+                        <Save size={14} className={saving ? 'animate-spin' : ''} />
+                        {saving ? 'Guardando...' : 'Guardar Cambios'}
+                    </button>
                 </div>
             </div>
 
@@ -375,6 +373,36 @@ export default function InfoAutoSettingsPage() {
                                         </span>
                                     </div>
                                 </label>
+                            </div>
+
+                            {/* BOTONES DE ACCIÓN VISIBLES DEL FORMULARIO */}
+                            <div className="pt-4 border-t border-crm-border flex flex-wrap items-center justify-between gap-3">
+                                <span className="text-[11px] text-crm-fg-muted">
+                                    {statusInfo.status === 'connected' ? (
+                                        <span className="text-emerald-400 font-medium">✓ Credenciales verificadas</span>
+                                    ) : (
+                                        'Recomendado: probá la conexión antes de guardar'
+                                    )}
+                                </span>
+                                <div className="flex items-center gap-2.5">
+                                    <button
+                                        type="button"
+                                        onClick={handleTestConnection}
+                                        disabled={testing}
+                                        className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold bg-crm-surface-raised border border-crm-border text-crm-fg hover:text-white hover:border-crm-fg transition-all cursor-pointer disabled:opacity-50"
+                                    >
+                                        <Activity size={14} className={testing ? 'animate-spin' : ''} />
+                                        {testing ? 'Probando...' : 'Probar Conexión'}
+                                    </button>
+                                    <button
+                                        type="submit"
+                                        disabled={saving}
+                                        className="inline-flex items-center gap-2 px-6 py-2.5 rounded-xl text-xs font-bold bg-crm-red-gradient text-white shadow-crm-shadow-red shadow-sm hover:opacity-90 active:scale-95 transition-all cursor-pointer disabled:opacity-50"
+                                    >
+                                        <Save size={14} className={saving ? 'animate-spin' : ''} />
+                                        {saving ? 'Guardando...' : 'Guardar Cambios'}
+                                    </button>
+                                </div>
                             </div>
                         </div>
                     </form>
