@@ -9,13 +9,68 @@ export const roundMoney = (value) => {
     return Math.round((num + Number.EPSILON) * 100) / 100;
 };
 
-// Acepta número o texto ("1,3" / "1.3"). Devuelve NaN si no es un número válido.
-export const parseDecimal = (raw) => {
-    if (typeof raw === 'number') return raw;
+// Conversión robusta de importes en formato monetario argentino o internacional.
+// Soporta:
+//   - Puntos de miles ("15.000.000", "25.000")
+//   - Decimales con coma ("15.000.000,50", "0,3", "25,50") o punto ("25.50")
+//   - Prefijos de moneda ("$ 15.000.000", "USD 25.000")
+//   - Valores numéricos directos
+// Devuelve NaN ante valores vacíos o no numéricos (evita convertir silenciosamente a cero o alterar magnitud).
+export const parseArgentineMoney = (raw) => {
+    if (typeof raw === 'number') return Number.isFinite(raw) ? raw : NaN;
     if (raw === null || raw === undefined) return NaN;
-    const text = String(raw).trim().replace(',', '.');
-    if (text === '') return NaN;
-    return Number(text);
+    let str = String(raw).trim();
+    if (str === '') return NaN;
+
+    // Quitar símbolos de moneda y espacios
+    str = str.replace(/[$]|USD|ARS|U\$S/gi, '').trim();
+    if (str === '') return NaN;
+
+    const hasDot = str.includes('.');
+    const hasComma = str.includes(',');
+
+    if (hasDot && hasComma) {
+        const lastDot = str.lastIndexOf('.');
+        const lastComma = str.lastIndexOf(',');
+        if (lastComma > lastDot) {
+            // Formato es-AR: 15.000.000,50
+            str = str.replace(/\./g, '').replace(',', '.');
+        } else {
+            // Formato en-US: 15,000,000.50
+            str = str.replace(/,/g, '');
+        }
+    } else if (hasComma) {
+        const parts = str.split(',');
+        if (parts.length > 2) {
+            // Miles múltiples: 15,000,000
+            str = str.replace(/,/g, '');
+        } else if (parts.length === 2) {
+            // Decimal argentino: "15000,50" o porcentaje "0,3"
+            str = parts[0] + '.' + parts[1];
+        }
+    } else if (hasDot) {
+        const parts = str.split('.');
+        if (parts.length > 2) {
+            // Miles múltiples: 15.000.000
+            str = str.replace(/\./g, '');
+        } else if (parts.length === 2) {
+            // Un solo punto: si tiene 3 dígitos es separador de miles argentino (ej: 15.000 o 100.000 o 25.000)
+            if (parts[1].length === 3 && parts[0].length >= 1) {
+                str = parts[0] + parts[1];
+            } else {
+                // Decimal inglés: 25.5 o 25.50
+                str = parts[0] + '.' + parts[1];
+            }
+        }
+    }
+
+    const num = Number(str);
+    return Number.isFinite(num) ? num : NaN;
+};
+
+// Acepta número o texto ("1,3" / "1.3" / "15.000.000"). Devuelve NaN si no es un número válido.
+export const parseDecimal = (raw) => {
+    return parseArgentineMoney(raw);
 };
 
 export const normalizeCurrency = (code) => {

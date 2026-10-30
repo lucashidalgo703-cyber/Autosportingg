@@ -2538,8 +2538,16 @@ app.patch('/api/admin/cars/:id', authenticateToken, requirePermission(PERMISSION
         const oldPrice = car.price !== undefined && car.price !== null ? Number(car.price) : 0;
         const oldStatus = car.status;
 
-        const incomingPurchasePriceProvided = otherUpdates.purchasePrice !== undefined && otherUpdates.purchasePrice !== null && otherUpdates.purchasePrice !== '';
-        const nextPurchasePrice = incomingPurchasePriceProvided ? Number(otherUpdates.purchasePrice) : oldPurchasePrice;
+        const incomingPurchasePriceProvided = otherUpdates.purchasePrice !== undefined && otherUpdates.purchasePrice !== null && String(otherUpdates.purchasePrice).trim() !== '';
+        const parsedIncomingPurchasePrice = incomingPurchasePriceProvided ? parseDecimal(otherUpdates.purchasePrice) : NaN;
+
+        if (incomingPurchasePriceProvided && (Number.isNaN(parsedIncomingPurchasePrice) || parsedIncomingPurchasePrice < 0)) {
+            return res.status(400).json({
+                message: 'Ingresá un valor de toma o costo de compra válido (número positivo).'
+            });
+        }
+
+        const nextPurchasePrice = incomingPurchasePriceProvided ? roundMoney(parsedIncomingPurchasePrice) : oldPurchasePrice;
         const nextPurchaseCurrency = otherUpdates.purchaseCurrency || oldPurchaseCurrency;
 
         const purchasePriceChanged = incomingPurchasePriceProvided && Math.abs(nextPurchasePrice - oldPurchasePrice) > 0.001;
@@ -2596,9 +2604,61 @@ app.patch('/api/admin/cars/:id', authenticateToken, requirePermission(PERMISSION
             } else {
                 // correccion_precio: actualiza el precio de compra/toma base sin crear gasto adicional ni egreso duplicado
                 otherUpdates.purchasePrice = nextPurchasePrice;
-                if (car.tradeInOrigin && (car.tradeInOrigin.saleId || car.tradeInOrigin.value !== undefined)) {
+                otherUpdates.purchaseCurrency = nextPurchaseCurrency;
+                car.purchasePrice = nextPurchasePrice;
+                car.purchaseCurrency = nextPurchaseCurrency;
+
+                // Sincronizar tradeInOrigin y la venta de origen para unidades tomadas en permuta
+                let targetSaleId = car.tradeInOrigin?.saleId;
+                let targetTradeInId = car.tradeInOrigin?.tradeInId;
+
+                if (!targetSaleId) {
+                    const linkedSale = await Sale.findOne({
+                        'tradeIns.linkedStockCarId': car._id,
+                        status: { $ne: 'cancelada' }
+                    });
+                    if (linkedSale) {
+                        targetSaleId = linkedSale._id;
+                        const matched = (linkedSale.tradeIns || []).find(t => t.linkedStockCarId && String(t.linkedStockCarId) === String(car._id));
+                        if (matched?._id) targetTradeInId = matched._id;
+                    }
+                }
+
+                if (targetSaleId) {
+                    if (!car.tradeInOrigin) car.tradeInOrigin = {};
+                    car.tradeInOrigin.saleId = targetSaleId;
+                    if (targetTradeInId) car.tradeInOrigin.tradeInId = targetTradeInId;
                     car.tradeInOrigin.value = nextPurchasePrice;
+                    car.tradeInOrigin.currency = nextPurchaseCurrency;
+                    if (!car.tradeInOrigin.linkedAt) car.tradeInOrigin.linkedAt = new Date();
+                    if (!car.tradeInOrigin.linkedBy) car.tradeInOrigin.linkedBy = user;
+                    if (!car.tradeInOrigin.source) car.tradeInOrigin.source = 'manual_link';
                     car.markModified('tradeInOrigin');
+
+                    // Mantener integridad comercial con la venta que recibió la permuta (sin alterar caja física)
+                    const saleDoc = await Sale.findById(targetSaleId);
+                    if (saleDoc && Array.isArray(saleDoc.tradeIns)) {
+                        const tIndex = saleDoc.tradeIns.findIndex(t =>
+                            (targetTradeInId && String(t._id) === String(targetTradeInId)) ||
+                            (t.linkedStockCarId && String(t.linkedStockCarId) === String(car._id))
+                        );
+                        if (tIndex >= 0) {
+                            saleDoc.tradeIns[tIndex].estimatedValue = nextPurchasePrice;
+                            saleDoc.tradeIns[tIndex].currency = nextPurchaseCurrency;
+                            saleDoc.tradeInTotalAmount = roundMoney(saleDoc.tradeIns.reduce((sum, ti) => sum + (Number(ti.estimatedValue) || 0), 0));
+                            saleDoc.balanceAfterTradeIn = Math.max(0, roundMoney((Number(saleDoc.salePrice) || 0) - saleDoc.tradeInTotalAmount));
+                            if (!saleDoc.saleAuditLog) saleDoc.saleAuditLog = [];
+                            saleDoc.saleAuditLog.push({
+                                action: 'VEHICULO_RECIBIDO_VALOR_CORREGIDO',
+                                field: 'tradeIns',
+                                details: '[Valor de toma actualizado] ' + car.brand + ' ' + car.name + ' (' + car._id + '): de ' + oldPurchaseCurrency + ' ' + oldPurchasePrice.toLocaleString('es-AR') + ' a ' + nextPurchaseCurrency + ' ' + nextPurchasePrice.toLocaleString('es-AR') + '. Motivo: ' + cleanJustification,
+                                user,
+                                source: 'CRM_V2',
+                                date: new Date()
+                            });
+                            await saleDoc.save();
+                        }
+                    }
                 }
                 if (car.purchasePaymentState) {
                     const paid = (car.purchasePaymentState.payments || []).reduce((acc, p) => acc + (Number(p.amount) || 0), 0) || Number(car.purchasePaymentState.amountPaid) || 0;
@@ -7440,6 +7500,8 @@ app.post('/api/admin/cars/:id/link-trade-in', authenticateToken, requirePermissi
             { _id: req.params.id, 'tradeInOrigin.saleId': { $exists: false } },
             {
                 $set: {
+                    purchasePrice: roundMoney(takenValue),
+                    purchaseCurrency: currency,
                     tradeInOrigin: {
                         saleId, ...(tradeInId ? { tradeInId } : {}), value: roundMoney(takenValue), currency,
                         linkedAt: now, linkedBy: user, source: 'manual_link'
