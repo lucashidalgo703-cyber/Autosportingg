@@ -1,6 +1,6 @@
 "use client";
 import { useState, useEffect } from 'react';
-import { X, Save, AlertTriangle, HelpCircle, FileText, Upload, Eye, Trash2, Edit } from 'lucide-react';
+import { X, Save, AlertTriangle, HelpCircle, FileText, Upload, Eye, Trash2, Edit, RefreshCw, TrendingDown, TrendingUp } from 'lucide-react';
 import Link from 'next/link';
 import toast from 'react-hot-toast';
 import { parseArgentineMoney } from '../../../utils/saleCommercial';
@@ -52,12 +52,57 @@ export default function VehicleEditModal({ isOpen, onClose, onSave, vehicleData 
                 soldAt: vehicleData._original?.soldAt ? new Date(vehicleData._original.soldAt).toISOString().split('T')[0] : '',
                 isSharedInvestment: !!(vehicleData.investor && vehicleData.investor.percentage > 0),
                 investorName: vehicleData.investor?.name || '',
-                investorPercentage: vehicleData.investor?.percentage || 50
+                investorPercentage: vehicleData.investor?.percentage || 50,
+                
+                // InfoAuto
+                infoAutoCodia: vehicleData.infoAuto?.codia || vehicleData._original?.infoAuto?.codia || '',
+                infoAutoValor: vehicleData.infoAuto?.valor || vehicleData._original?.infoAuto?.valor || '',
+                infoAutoCurrency: vehicleData.infoAuto?.currency || vehicleData._original?.infoAuto?.currency || 'ARS',
+                infoAutoEdicion: vehicleData.infoAuto?.edicion || vehicleData._original?.infoAuto?.edicion || '',
+                infoAutoAutoSync: vehicleData.infoAuto?.autoSync ?? vehicleData._original?.infoAuto?.autoSync ?? true
             });
         }
     }, [isOpen, vehicleData]);
 
     if (!isOpen) return null;
+
+    const [isSearchingInfoAuto, setIsSearchingInfoAuto] = useState(false);
+
+    const handleLookupInfoAuto = async () => {
+        try {
+            setIsSearchingInfoAuto(true);
+            const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
+            const params = new URLSearchParams();
+            if (formData.infoAutoCodia) params.append('codia', formData.infoAutoCodia);
+            if (formData.brand) params.append('brand', formData.brand);
+            if (formData.name) params.append('model', formData.name);
+            if (formData.year) params.append('year', formData.year);
+
+            const res = await fetch(`/api/admin/infoauto/lookup?${params.toString()}`, {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            const data = await res.json();
+            if (data.ok && data.valor) {
+                setFormData(prev => ({
+                    ...prev,
+                    infoAutoValor: data.valor,
+                    infoAutoCurrency: data.currency || 'ARS',
+                    infoAutoEdicion: data.edicion || prev.infoAutoEdicion,
+                    infoAutoCodia: data.codia || prev.infoAutoCodia
+                }));
+                toast.success(`Cotización InfoAuto: ${data.currency} ${Number(data.valor).toLocaleString('es-AR')}`);
+            } else {
+                if (data.edicion) {
+                    setFormData(prev => ({ ...prev, infoAutoEdicion: data.edicion }));
+                }
+                toast(data.message || 'Podés ingresar el valor oficial manualmente', { icon: 'ℹ️' });
+            }
+        } catch (err) {
+            toast.error('No se pudo consultar InfoAuto: ' + err.message);
+        } finally {
+            setIsSearchingInfoAuto(false);
+        }
+    };
 
     const isTradeIn = Boolean(
         vehicleData?.tradeInOrigin?.saleId || 
@@ -165,7 +210,14 @@ export default function VehicleEditModal({ isOpen, onClose, onSave, vehicleData 
                 investor: formData.isSharedInvestment ? {
                     name: formData.investorName,
                     percentage: Number(formData.investorPercentage)
-                } : { name: '', percentage: 0 }
+                } : { name: '', percentage: 0 },
+                infoAuto: {
+                    codia: formData.infoAutoCodia ? String(formData.infoAutoCodia).trim() : '',
+                    valor: parseArgentineMoney(formData.infoAutoValor) || 0,
+                    currency: formData.infoAutoCurrency || 'ARS',
+                    edicion: formData.infoAutoEdicion ? String(formData.infoAutoEdicion).trim() : '',
+                    autoSync: Boolean(formData.infoAutoAutoSync)
+                }
             };
 
             const docsToUpload = Object.keys(docFiles).filter(key => docFiles[key] instanceof File);
@@ -401,6 +453,173 @@ export default function VehicleEditModal({ isOpen, onClose, onSave, vehicleData 
                                         <option value="ARS">ARS</option>
                                     </select>
                                 </div>
+                            </div>
+
+                            {/* RECUADRO OFICIAL INFOAUTO */}
+                            <div className="flex flex-col gap-3 rounded-xl border border-blue-500/30 bg-blue-500/5 p-4 relative overflow-hidden">
+                                <div className="flex items-center justify-between border-b border-blue-500/20 pb-2.5">
+                                    <div className="flex items-center gap-2">
+                                        <span className="flex h-6 w-6 items-center justify-center rounded-md bg-blue-500/20 text-blue-400 font-bold text-xs">
+                                            ℹ️
+                                        </span>
+                                        <div>
+                                            <span className="text-xs font-bold text-white uppercase tracking-wider block">
+                                                Referencia Oficial InfoAuto
+                                            </span>
+                                            <span className="text-[10px] text-crm-fg-muted">
+                                                {formData.infoAutoEdicion ? `Guía ${formData.infoAutoEdicion}` : 'Guía de precios oficial CCA / InfoAuto'}
+                                            </span>
+                                        </div>
+                                    </div>
+                                    <div className="flex items-center gap-2">
+                                        {Number(formData.infoAutoValor) > 0 ? (
+                                            <span className="text-[10px] font-bold text-emerald-400 bg-emerald-500/15 border border-emerald-500/30 px-2 py-0.5 rounded-full">
+                                                Vinculado
+                                            </span>
+                                        ) : (
+                                            <span className="text-[10px] font-medium text-crm-fg-muted bg-white/5 border border-white/10 px-2 py-0.5 rounded-full">
+                                                Sin cotización
+                                            </span>
+                                        )}
+                                        <button
+                                            type="button"
+                                            onClick={handleLookupInfoAuto}
+                                            disabled={isSearchingInfoAuto}
+                                            className="text-[11px] font-bold text-blue-400 hover:text-blue-300 bg-blue-500/10 hover:bg-blue-500/20 border border-blue-500/30 px-2.5 py-1 rounded-lg transition-all flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+                                            title="Consultar cotización actualizada en InfoAuto"
+                                        >
+                                            {isSearchingInfoAuto ? (
+                                                <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-blue-400"></div>
+                                            ) : (
+                                                <RefreshCw size={12} />
+                                            )}
+                                            <span>Consultar</span>
+                                        </button>
+                                    </div>
+                                </div>
+
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                    <div className="flex flex-col gap-1">
+                                        <label className="text-[11px] font-medium text-crm-fg-muted uppercase tracking-wider">
+                                            Código CODIA InfoAuto
+                                        </label>
+                                        <input
+                                            type="text"
+                                            name="infoAutoCodia"
+                                            value={formData.infoAutoCodia || ''}
+                                            onChange={handleChange}
+                                            placeholder="Ej: 10423"
+                                            className="bg-crm-bg border border-crm-border text-crm-fg rounded-lg px-3 py-1.5 text-xs focus:outline-none focus:border-blue-500 font-mono"
+                                        />
+                                    </div>
+
+                                    <div className="grid grid-cols-[1fr_70px] gap-2">
+                                        <div className="flex flex-col gap-1">
+                                            <label className="text-[11px] font-medium text-crm-fg-muted uppercase tracking-wider">
+                                                Valor de Lista InfoAuto
+                                            </label>
+                                            <input
+                                                type="text"
+                                                inputMode="decimal"
+                                                name="infoAutoValor"
+                                                value={formData.infoAutoValor || ''}
+                                                onChange={handleChange}
+                                                placeholder="0"
+                                                className="bg-crm-bg border border-crm-border text-white font-bold rounded-lg px-3 py-1.5 text-xs focus:outline-none focus:border-blue-500 font-mono"
+                                            />
+                                        </div>
+                                        <div className="flex flex-col gap-1">
+                                            <label className="text-[11px] font-medium text-crm-fg-muted uppercase tracking-wider">
+                                                Moneda
+                                            </label>
+                                            <select
+                                                name="infoAutoCurrency"
+                                                value={formData.infoAutoCurrency || 'ARS'}
+                                                onChange={handleChange}
+                                                className="bg-crm-bg border border-crm-border text-crm-fg rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:border-blue-500"
+                                            >
+                                                <option value="ARS">ARS</option>
+                                                <option value="USD">USD</option>
+                                            </select>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div className="flex items-center justify-between pt-1 text-xs">
+                                    <div className="flex items-center gap-2">
+                                        <label className="text-[10px] text-crm-fg-muted uppercase">Edición:</label>
+                                        <input
+                                            type="text"
+                                            name="infoAutoEdicion"
+                                            value={formData.infoAutoEdicion || ''}
+                                            onChange={handleChange}
+                                            placeholder="Ej: Octubre 2026"
+                                            className="bg-crm-bg/80 border border-crm-border/80 text-crm-fg rounded px-2 py-0.5 text-[11px] focus:outline-none focus:border-blue-500 w-32"
+                                        />
+                                    </div>
+                                    <label className="flex items-center gap-1.5 cursor-pointer">
+                                        <input
+                                            type="checkbox"
+                                            name="infoAutoAutoSync"
+                                            checked={formData.infoAutoAutoSync ?? true}
+                                            onChange={handleChange}
+                                            className="w-3.5 h-3.5 rounded border-blue-500 text-blue-500 bg-crm-bg cursor-pointer"
+                                        />
+                                        <span className="text-[11px] text-crm-fg-muted hover:text-white transition-colors">
+                                            Auto-sincronizar mensualmente
+                                        </span>
+                                    </label>
+                                </div>
+
+                                {/* Comparativa inteligente con Costo y Precio */}
+                                {Number(formData.infoAutoValor) > 0 && (
+                                    <div className="mt-1 pt-2 border-t border-blue-500/20 grid grid-cols-1 sm:grid-cols-2 gap-2 text-[11px]">
+                                        <div className="p-2 rounded bg-crm-bg/60 border border-crm-border flex flex-col justify-between">
+                                            <span className="text-[10px] text-crm-fg-muted uppercase font-semibold">Vs. Costo de Compra</span>
+                                            {currentPurchasePrice > 0 ? (
+                                                <div className="flex items-baseline justify-between mt-1">
+                                                    <span className="font-mono font-bold text-white">
+                                                        {formData.purchaseCurrency} {currentPurchasePrice.toLocaleString('es-AR')}
+                                                    </span>
+                                                    {(() => {
+                                                        const diff = currentPurchasePrice - Number(formData.infoAutoValor);
+                                                        const pct = ((diff / Number(formData.infoAutoValor)) * 100).toFixed(1);
+                                                        return (
+                                                            <span className={`font-bold ${diff <= 0 ? 'text-emerald-400' : 'text-amber-400'}`}>
+                                                                {diff <= 0 ? `-${Math.abs(pct)}% (Ahorro)` : `+${pct}% (Sobre lista)`}
+                                                            </span>
+                                                        );
+                                                    })()}
+                                                </div>
+                                            ) : (
+                                                <span className="text-[10px] text-crm-fg-muted mt-1">Sin costo registrado</span>
+                                            )}
+                                        </div>
+
+                                        <div className="p-2 rounded bg-crm-bg/60 border border-crm-border flex flex-col justify-between">
+                                            <span className="text-[10px] text-crm-fg-muted uppercase font-semibold">Vs. Precio Publicado</span>
+                                            {parseArgentineMoney(formData.price) > 0 ? (
+                                                <div className="flex items-baseline justify-between mt-1">
+                                                    <span className="font-mono font-bold text-white">
+                                                        {formData.currency} {parseArgentineMoney(formData.price).toLocaleString('es-AR')}
+                                                    </span>
+                                                    {(() => {
+                                                        const p = parseArgentineMoney(formData.price);
+                                                        const diff = p - Number(formData.infoAutoValor);
+                                                        const pct = ((diff / Number(formData.infoAutoValor)) * 100).toFixed(1);
+                                                        return (
+                                                            <span className={`font-bold ${diff >= 0 ? 'text-emerald-400' : 'text-blue-400'}`}>
+                                                                {diff >= 0 ? `+${pct}% (Margen)` : `-${Math.abs(pct)}% (Competitivo)`}
+                                                            </span>
+                                                        );
+                                                    })()}
+                                                </div>
+                                            ) : (
+                                                <span className="text-[10px] text-crm-fg-muted mt-1">Sin precio publicado</span>
+                                            )}
+                                        </div>
+                                    </div>
+                                )}
                             </div>
 
                             {hasPurchasePriceChanged && (

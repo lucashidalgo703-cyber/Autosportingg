@@ -34,6 +34,7 @@ import Check from './src/models/Check.js';
 import Loan from './src/models/Loan.js';
 import FinanceBudget from './src/models/FinanceBudget.js';
 import * as xlsx from 'xlsx';
+import { getInfoAutoConfig, saveInfoAutoConfig, testInfoAutoConnection, fetchInfoAutoPrice, syncCarInfoAuto, syncAllStockInfoAuto } from './src/services/infoAutoService.js';
 import FinanceRecurringRule from './src/models/FinanceRecurringRule.js';
 import CashCount from './src/models/CashCount.js';
 import DailyCashClose from './src/models/DailyCashClose.js';
@@ -2756,6 +2757,21 @@ app.patch('/api/admin/cars/:id', authenticateToken, requirePermission(PERMISSION
                 car.markModified('imagePositions');
             }
             delete otherUpdates.imagePositions;
+        }
+
+        if (otherUpdates.infoAuto !== undefined) {
+            let parsedInfoAuto = otherUpdates.infoAuto;
+            if (typeof parsedInfoAuto === 'string') {
+                try { parsedInfoAuto = JSON.parse(parsedInfoAuto); } catch (_) {}
+            }
+            if (parsedInfoAuto && typeof parsedInfoAuto === 'object') {
+                car.infoAuto = {
+                    ...(car.infoAuto ? (car.infoAuto.toObject ? car.infoAuto.toObject() : car.infoAuto) : {}),
+                    ...parsedInfoAuto
+                };
+                car.markModified('infoAuto');
+            }
+            delete otherUpdates.infoAuto;
         }
 
         Object.keys(otherUpdates).forEach(key => {
@@ -10961,6 +10977,98 @@ app.patch('/api/admin/settings', authenticateToken, requirePermission(PERMISSION
     } catch (error) {
         console.error("PATCH /api/admin/settings error:", error);
         res.status(400).json({ ok: false, message: error.message });
+    }
+});
+
+// ========================================== //
+// ============== INFOAUTO API ============== //
+// ========================================== //
+app.get('/api/admin/infoauto/config', authenticateToken, requireAnyPermission([PERMISSIONS.SETTINGS_READ, PERMISSIONS.SETTINGS_WRITE, PERMISSIONS.STOCK_READ]), async (req, res) => {
+    try {
+        await connectDB();
+        const config = await getInfoAutoConfig();
+        const sanitized = {
+            ...config,
+            hasPassword: Boolean(config.password),
+            password: config.password ? '••••••••' : ''
+        };
+        res.json({ ok: true, config: sanitized });
+    } catch (error) {
+        console.error('GET /api/admin/infoauto/config error:', error);
+        res.status(500).json({ ok: false, message: error.message });
+    }
+});
+
+app.post('/api/admin/infoauto/config', authenticateToken, requirePermission(PERMISSIONS.SETTINGS_WRITE), async (req, res) => {
+    try {
+        await connectDB();
+        const updates = req.body || {};
+        if (updates.password === '••••••••') {
+            delete updates.password;
+        }
+        const saved = await saveInfoAutoConfig(updates, req.user?.id);
+        res.json({ ok: true, config: saved });
+    } catch (error) {
+        console.error('POST /api/admin/infoauto/config error:', error);
+        res.status(400).json({ ok: false, message: error.message });
+    }
+});
+
+app.post('/api/admin/infoauto/test', authenticateToken, requirePermission(PERMISSIONS.SETTINGS_WRITE), async (req, res) => {
+    try {
+        await connectDB();
+        const currentConfig = await getInfoAutoConfig();
+        const configToTest = {
+            ...currentConfig,
+            ...(req.body || {})
+        };
+        if (req.body?.password === '••••••••') {
+            configToTest.password = currentConfig.password;
+        }
+        const testResult = await testInfoAutoConnection(configToTest);
+        if (testResult.ok && testResult.status) {
+            await saveInfoAutoConfig({ status: testResult.status });
+        }
+        res.json(testResult);
+    } catch (error) {
+        console.error('POST /api/admin/infoauto/test error:', error);
+        res.status(500).json({ ok: false, message: error.message });
+    }
+});
+
+app.get('/api/admin/infoauto/lookup', authenticateToken, requirePermission(PERMISSIONS.STOCK_READ), async (req, res) => {
+    try {
+        await connectDB();
+        const { codia, brand, model, year } = req.query;
+        const result = await fetchInfoAutoPrice({ codia, brand, model, year: Number(year) || undefined });
+        res.json(result);
+    } catch (error) {
+        console.error('GET /api/admin/infoauto/lookup error:', error);
+        res.status(500).json({ ok: false, message: error.message });
+    }
+});
+
+app.post('/api/admin/cars/:id/sync-infoauto', authenticateToken, requirePermission(PERMISSIONS.STOCK_WRITE), async (req, res) => {
+    try {
+        await connectDB();
+        const carId = req.params.id;
+        const forcedData = req.body || {};
+        const synced = await syncCarInfoAuto(carId, forcedData);
+        res.json({ ok: true, infoAuto: synced });
+    } catch (error) {
+        console.error('POST /api/admin/cars/:id/sync-infoauto error:', error);
+        res.status(400).json({ ok: false, message: error.message });
+    }
+});
+
+app.post('/api/admin/infoauto/sync-all', authenticateToken, requirePermission(PERMISSIONS.STOCK_WRITE), async (req, res) => {
+    try {
+        await connectDB();
+        const result = await syncAllStockInfoAuto();
+        res.json({ ok: true, ...result });
+    } catch (error) {
+        console.error('POST /api/admin/infoauto/sync-all error:', error);
+        res.status(500).json({ ok: false, message: error.message });
     }
 });
 

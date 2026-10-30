@@ -380,6 +380,34 @@ export default function VehicleFinancialSummary({ vehicle, onEdit, onPaymentSave
         }
     };
 
+    // Sincronización rápida con InfoAuto
+    const [isSyncingInfoAuto, setIsSyncingInfoAuto] = useState(false);
+
+    const handleSyncInfoAutoQuick = async () => {
+        try {
+            setIsSyncingInfoAuto(true);
+            const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
+            const res = await fetch(`/api/admin/cars/${vehicle.id}/sync-infoauto`, {
+                method: 'POST',
+                headers: token ? { Authorization: `Bearer ${token}` } : {}
+            });
+            const data = await res.json();
+            if (data.ok) {
+                toast.success(data.message || 'InfoAuto sincronizado');
+                if (typeof window !== 'undefined') {
+                    window.dispatchEvent(new CustomEvent('vehicle-updated'));
+                }
+                if (onPaymentSaved) onPaymentSaved();
+            } else {
+                toast.error(data.message || 'No se pudo sincronizar InfoAuto');
+            }
+        } catch (err) {
+            toast.error('Error al sincronizar con InfoAuto: ' + err.message);
+        } finally {
+            setIsSyncingInfoAuto(false);
+        }
+    };
+
     // Confirmar Vinculación de Egreso Existente
     const handleConfirmLinkExpense = async (e) => {
         e.preventDefault();
@@ -430,6 +458,7 @@ export default function VehicleFinancialSummary({ vehicle, onEdit, onPaymentSave
         }
     };
 
+    const infoAuto = vehicle.infoAuto || vehicle._original?.infoAuto || null;
     const comisionEstimada = (vehicle.precioPublicado || 0) * 0.013;
     const margenNeto = (vehicle.margenEstimado || 0) - comisionEstimada;
     const margenNetoPorcentual = vehicle.costoTotal > 0 
@@ -486,6 +515,141 @@ export default function VehicleFinancialSummary({ vehicle, onEdit, onPaymentSave
                         )}
                     </div>
                 </div>
+            </div>
+
+            {/* SECCIÓN INFOAUTO / VALUACIÓN OFICIAL DE MERCADO */}
+            <div className="mt-4 p-4 rounded-xl border border-blue-500/25 bg-blue-500/5 space-y-3">
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                    <div className="flex items-center gap-2.5">
+                        <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-blue-500/20 text-blue-400 font-bold text-xs">
+                            ℹ️
+                        </div>
+                        <div>
+                            <div className="flex items-center gap-2">
+                                <span className="text-xs font-black uppercase tracking-wider text-white">
+                                    Referencia Oficial InfoAuto
+                                </span>
+                                {Number(infoAuto?.valor) > 0 ? (
+                                    <span className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-400 bg-emerald-500/15 border border-emerald-500/30 px-2 py-0.5 rounded-full">
+                                        <CheckCircle2 size={11} /> Vinculado
+                                    </span>
+                                ) : (
+                                    <span className="inline-flex items-center gap-1 text-[10px] font-medium text-crm-fg-muted bg-white/5 border border-white/10 px-2 py-0.5 rounded-full">
+                                        No vinculado
+                                    </span>
+                                )}
+                                {infoAuto?.autoSync && (
+                                    <span className="hidden sm:inline-flex text-[10px] font-medium text-blue-300/80 bg-blue-500/10 border border-blue-500/20 px-2 py-0.5 rounded-full">
+                                        Auto-sync mensual activo
+                                    </span>
+                                )}
+                            </div>
+                            <span className="text-[11px] text-crm-fg-muted">
+                                {infoAuto?.edicion ? `Guía oficial ${infoAuto.edicion}` : 'Guía de precios oficial de mercado (Cámara del Comercio Automotor / InfoAuto)'}
+                                {infoAuto?.lastSyncAt ? ` • Actualizado: ${new Date(infoAuto.lastSyncAt).toLocaleDateString('es-AR')}` : ''}
+                            </span>
+                        </div>
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                        {Number(infoAuto?.valor) > 0 && (
+                            <button
+                                type="button"
+                                onClick={handleSyncInfoAutoQuick}
+                                disabled={isSyncingInfoAuto}
+                                className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium text-blue-400 hover:text-blue-300 bg-blue-500/10 hover:bg-blue-500/20 border border-blue-500/30 rounded-lg transition-all disabled:opacity-50 cursor-pointer"
+                                title="Actualizar cotización según la guía vigente"
+                            >
+                                <RefreshCw size={12} className={isSyncingInfoAuto ? 'animate-spin' : ''} />
+                                {isSyncingInfoAuto ? 'Sincronizando...' : 'Actualizar'}
+                            </button>
+                        )}
+                        {onEdit && (
+                            <button
+                                type="button"
+                                onClick={onEdit}
+                                className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium text-crm-fg-muted hover:text-white bg-crm-surface-raised border border-crm-border rounded-lg transition-colors cursor-pointer"
+                            >
+                                <Edit size={12} />
+                                {Number(infoAuto?.valor) > 0 ? 'Editar CODIA / Valor' : 'Vincular InfoAuto'}
+                            </button>
+                        )}
+                    </div>
+                </div>
+
+                {Number(infoAuto?.valor) > 0 ? (
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-1">
+                        <div className="flex flex-col gap-0.5 p-2.5 bg-crm-bg/80 rounded-lg border border-crm-border">
+                            <span className="text-[10px] uppercase font-semibold text-crm-fg-muted">
+                                Valor Guía InfoAuto {infoAuto.codia ? `(CODIA ${infoAuto.codia})` : ''}
+                            </span>
+                            <span className="text-white font-mono font-bold text-sm">
+                                {infoAuto.currency || 'ARS'} {Number(infoAuto.valor).toLocaleString('es-AR')}
+                            </span>
+                        </div>
+
+                        <div className="flex flex-col gap-0.5 p-2.5 bg-crm-bg/80 rounded-lg border border-crm-border">
+                            <span className="text-[10px] uppercase font-semibold text-crm-fg-muted">
+                                Brecha vs. Costo Compra
+                            </span>
+                            {vehicle.precioCompra > 0 ? (
+                                <div className="flex items-baseline justify-between">
+                                    <span className="text-white font-mono text-xs font-semibold">
+                                        {currency} {Number(vehicle.precioCompra).toLocaleString('es-AR')}
+                                    </span>
+                                    {(() => {
+                                        const diff = Number(vehicle.precioCompra) - Number(infoAuto.valor);
+                                        const pct = ((diff / Number(infoAuto.valor)) * 100).toFixed(1);
+                                        return (
+                                            <span className={`text-xs font-bold ${diff <= 0 ? 'text-emerald-400' : 'text-amber-400'}`}>
+                                                {diff <= 0 ? `-${Math.abs(pct)}% (Ahorro)` : `+${pct}% (Sobre lista)`}
+                                            </span>
+                                        );
+                                    })()}
+                                </div>
+                            ) : (
+                                <span className="text-xs text-crm-fg-muted">Sin costo cargado</span>
+                            )}
+                        </div>
+
+                        <div className="flex flex-col gap-0.5 p-2.5 bg-crm-bg/80 rounded-lg border border-crm-border">
+                            <span className="text-[10px] uppercase font-semibold text-crm-fg-muted">
+                                Brecha vs. Precio Publicado
+                            </span>
+                            {vehicle.precioPublicado > 0 ? (
+                                <div className="flex items-baseline justify-between">
+                                    <span className="text-white font-mono text-xs font-semibold">
+                                        {vehicle.moneda} {Number(vehicle.precioPublicado).toLocaleString('es-AR')}
+                                    </span>
+                                    {(() => {
+                                        const diff = Number(vehicle.precioPublicado) - Number(infoAuto.valor);
+                                        const pct = ((diff / Number(infoAuto.valor)) * 100).toFixed(1);
+                                        return (
+                                            <span className={`text-xs font-bold ${diff >= 0 ? 'text-emerald-400' : 'text-blue-400'}`}>
+                                                {diff >= 0 ? `+${pct}% (Margen)` : `-${Math.abs(pct)}% (Competitivo)`}
+                                            </span>
+                                        );
+                                    })()}
+                                </div>
+                            ) : (
+                                <span className="text-xs text-crm-fg-muted">Sin precio de venta</span>
+                            )}
+                        </div>
+                    </div>
+                ) : (
+                    <div className="flex items-center justify-between p-2.5 bg-crm-bg/50 rounded-lg border border-dashed border-crm-border text-xs text-crm-fg-muted">
+                        <span>Este vehículo aún no tiene asignado código CODIA ni valor de referencia oficial de InfoAuto.</span>
+                        {onEdit && (
+                            <button
+                                type="button"
+                                onClick={onEdit}
+                                className="text-blue-400 hover:text-blue-300 font-semibold underline underline-offset-2 ml-2 cursor-pointer"
+                            >
+                                Asignar ahora
+                            </button>
+                        )}
+                    </div>
+                )}
             </div>
 
             {/* SECCIÓN PAGO DE COMPRA DE LA UNIDAD */}

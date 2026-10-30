@@ -175,6 +175,19 @@ const carSchema = new mongoose.Schema({
     imagePositions: [{ type: String }], // CSS object-position individual para cada imagen
     images: [{ type: String }], // Array of Cloudinary URLs
     coverImage: { type: String }, // specific cover image URL
+    infoAuto: {
+        codia: { type: String, default: '', trim: true },
+        brandName: { type: String, default: '', trim: true },
+        modelName: { type: String, default: '', trim: true },
+        versionName: { type: String, default: '', trim: true },
+        year: { type: Number },
+        valor: { type: Number, default: 0 },
+        currency: { type: String, default: 'ARS' },
+        edicion: { type: String, default: '' },
+        lastSyncAt: { type: Date },
+        autoSync: { type: Boolean, default: true },
+        notes: { type: String, default: '' }
+    },
     createdAt: { type: Date, default: Date.now },
     updatedAt: { type: Date, default: Date.now }
 });

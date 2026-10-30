@@ -98,6 +98,16 @@ const crmSettingsSchema = new mongoose.Schema({
             slaMinutes: { type: Number, default: 60 }
         }]
     },
+    infoAutoConfig: {
+        enabled: { type: Boolean, default: false },
+        apiUrl: { type: String, default: "https://ws.infoauto.com.ar" },
+        username: { type: String, default: "" },
+        password: { type: String, default: "" },
+        apiKey: { type: String, default: "" },
+        autoSyncMonthly: { type: Boolean, default: true },
+        lastSyncAt: { type: Date, default: null },
+        status: { type: String, enum: ['sin_configurar', 'conectado', 'error_credenciales'], default: 'sin_configurar' }
+    },
     updatedBy: {
         type: mongoose.Schema.Types.ObjectId,
         ref: 'AdminUser',

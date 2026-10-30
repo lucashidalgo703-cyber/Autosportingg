@@ -57,6 +57,7 @@ export const mapRealCarToCRM = (car) => {
         fotos: (Array.isArray(car.images) && car.images.length > 0) ? car.images : (car.coverImage ? [car.coverImage] : []),
         documentation: car.documentation || {},
         documentationFiles: car.documentationFiles || {},
+        infoAuto: car.infoAuto || null,
         tradeInOrigin: car.tradeInOrigin || (acq.source === 'valor_de_toma' && acq.originSaleId ? { saleId: acq.originSaleId, value: resolvedCost, currency: resolvedCurrency } : null),
         agencyOwned: Boolean(car.agencyOwned),
         purchasePaymentState: car.purchasePaymentState || null,

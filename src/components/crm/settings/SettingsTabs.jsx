@@ -3,7 +3,7 @@
 import React from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Building2, Users, FileText, Bot, ToggleLeft, DatabaseBackup, ShieldCheck, Activity, CalendarClock, User } from 'lucide-react';
+import { Building2, Users, FileText, Bot, ToggleLeft, DatabaseBackup, ShieldCheck, Activity, CalendarClock, User, Car } from 'lucide-react';
 import { useAuth } from '../../../context/AuthContext';
 import { hasPermission, PERMISSIONS } from '../../../utils/adminPermissions';
 
@@ -29,6 +29,12 @@ export default function SettingsTabs() {
             name: 'Empresa', 
             path: '/admin/configuracion/general', 
             icon: Building2,
+            visible: ['owner', 'admin'].includes(role) || hasPermission(user, PERMISSIONS.SETTINGS_READ)
+        },
+        { 
+            name: 'InfoAuto', 
+            path: '/admin/configuracion/infoauto', 
+            icon: Car,
             visible: ['owner', 'admin'].includes(role) || hasPermission(user, PERMISSIONS.SETTINGS_READ)
         },
         { 
