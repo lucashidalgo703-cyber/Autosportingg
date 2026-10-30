@@ -497,25 +497,12 @@ export default function VehicleEditModal({ isOpen, onClose, onSave, vehicleData 
                                     </div>
                                 </div>
 
-                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                                    <div className="flex flex-col gap-1">
-                                        <label className="text-[11px] font-medium text-crm-fg-muted uppercase tracking-wider">
-                                            Código CODIA InfoAuto
-                                        </label>
-                                        <input
-                                            type="text"
-                                            name="infoAutoCodia"
-                                            value={formData.infoAutoCodia || ''}
-                                            onChange={handleChange}
-                                            placeholder="Ej: 10423"
-                                            className="bg-crm-bg border border-crm-border text-crm-fg rounded-lg px-3 py-1.5 text-xs focus:outline-none focus:border-blue-500 font-mono"
-                                        />
-                                    </div>
-
-                                    <div className="grid grid-cols-[1fr_70px] gap-2">
+                                <div className="space-y-3">
+                                    {/* 1. Valor de Lista y Moneda (ancho completo sin apretar) */}
+                                    <div className="grid grid-cols-[1fr_90px] gap-2.5">
                                         <div className="flex flex-col gap-1">
-                                            <label className="text-[11px] font-medium text-crm-fg-muted uppercase tracking-wider">
-                                                Valor de Lista InfoAuto
+                                            <label className="text-[11px] font-bold text-crm-fg uppercase tracking-wider">
+                                                Valor de Lista Oficial InfoAuto
                                             </label>
                                             <input
                                                 type="text"
@@ -523,51 +510,73 @@ export default function VehicleEditModal({ isOpen, onClose, onSave, vehicleData 
                                                 name="infoAutoValor"
                                                 value={formData.infoAutoValor || ''}
                                                 onChange={handleChange}
-                                                placeholder="0"
-                                                className="bg-crm-bg border border-crm-border text-white font-bold rounded-lg px-3 py-1.5 text-xs focus:outline-none focus:border-blue-500 font-mono"
+                                                placeholder="Ej: 18.500.000"
+                                                className="bg-crm-bg border border-crm-border text-white font-bold rounded-lg px-3 py-2 text-xs focus:outline-none focus:border-blue-500 font-mono"
                                             />
                                         </div>
                                         <div className="flex flex-col gap-1">
-                                            <label className="text-[11px] font-medium text-crm-fg-muted uppercase tracking-wider">
+                                            <label className="text-[11px] font-bold text-crm-fg-muted uppercase tracking-wider">
                                                 Moneda
                                             </label>
                                             <select
                                                 name="infoAutoCurrency"
                                                 value={formData.infoAutoCurrency || 'ARS'}
                                                 onChange={handleChange}
-                                                className="bg-crm-bg border border-crm-border text-crm-fg rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:border-blue-500"
+                                                className="bg-crm-bg border border-crm-border text-white font-medium rounded-lg px-2.5 py-2 text-xs focus:outline-none focus:border-blue-500 cursor-pointer"
                                             >
                                                 <option value="ARS">ARS</option>
                                                 <option value="USD">USD</option>
                                             </select>
                                         </div>
                                     </div>
-                                </div>
 
-                                <div className="flex items-center justify-between pt-1 text-xs">
-                                    <div className="flex items-center gap-2">
-                                        <label className="text-[10px] text-crm-fg-muted uppercase">Edición:</label>
-                                        <input
-                                            type="text"
-                                            name="infoAutoEdicion"
-                                            value={formData.infoAutoEdicion || ''}
-                                            onChange={handleChange}
-                                            placeholder="Ej: Octubre 2026"
-                                            className="bg-crm-bg/80 border border-crm-border/80 text-crm-fg rounded px-2 py-0.5 text-[11px] focus:outline-none focus:border-blue-500 w-32"
-                                        />
+                                    {/* 2. Código CODIA (Opcional) y Edición */}
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                                        <div className="flex flex-col gap-1">
+                                            <label className="text-[11px] font-medium text-crm-fg-muted uppercase tracking-wider flex items-center justify-between">
+                                                <span>Código CODIA</span>
+                                                <span className="text-[10px] text-blue-400 font-normal lowercase">(opcional)</span>
+                                            </label>
+                                            <input
+                                                type="text"
+                                                name="infoAutoCodia"
+                                                value={formData.infoAutoCodia || ''}
+                                                onChange={handleChange}
+                                                placeholder="Ej: 10423 (o dejar vacío)"
+                                                className="bg-crm-bg border border-crm-border text-crm-fg rounded-lg px-3 py-1.5 text-xs focus:outline-none focus:border-blue-500 font-mono"
+                                            />
+                                        </div>
+
+                                        <div className="flex flex-col gap-1">
+                                            <label className="text-[11px] font-medium text-crm-fg-muted uppercase tracking-wider">
+                                                Edición Guía
+                                            </label>
+                                            <input
+                                                type="text"
+                                                name="infoAutoEdicion"
+                                                value={formData.infoAutoEdicion || ''}
+                                                onChange={handleChange}
+                                                placeholder="Ej: Octubre 2026"
+                                                className="bg-crm-bg border border-crm-border text-crm-fg rounded-lg px-3 py-1.5 text-xs focus:outline-none focus:border-blue-500"
+                                            />
+                                        </div>
                                     </div>
-                                    <label className="flex items-center gap-1.5 cursor-pointer">
-                                        <input
-                                            type="checkbox"
-                                            name="infoAutoAutoSync"
-                                            checked={formData.infoAutoAutoSync ?? true}
-                                            onChange={handleChange}
-                                            className="w-3.5 h-3.5 rounded border-blue-500 text-blue-500 bg-crm-bg cursor-pointer"
-                                        />
-                                        <span className="text-[11px] text-crm-fg-muted hover:text-white transition-colors">
-                                            Auto-sincronizar mensualmente
-                                        </span>
-                                    </label>
+
+                                    {/* 3. Checkbox auto-sincronización */}
+                                    <div className="pt-1 border-t border-blue-500/20">
+                                        <label className="flex items-center gap-2 cursor-pointer">
+                                            <input
+                                                type="checkbox"
+                                                name="infoAutoAutoSync"
+                                                checked={formData.infoAutoAutoSync ?? true}
+                                                onChange={handleChange}
+                                                className="w-3.5 h-3.5 rounded border-blue-500 text-blue-500 bg-crm-bg cursor-pointer"
+                                            />
+                                            <span className="text-[11px] text-crm-fg-muted hover:text-white transition-colors">
+                                                Actualizar cotización automáticamente con la guía mensual
+                                            </span>
+                                        </label>
+                                    </div>
                                 </div>
 
                                 {/* Comparativa inteligente con Costo y Precio */}
