@@ -39,16 +39,37 @@ export default function InfoAutoSettingsPage() {
 
     const canEdit = ['owner', 'admin'].includes(user?.role) || hasPermission(user, PERMISSIONS.SETTINGS_WRITE);
 
+    const getAuthToken = () => {
+        if (token) return token;
+        if (typeof window !== 'undefined') {
+            return localStorage.getItem('token') || localStorage.getItem('auth_token') || '';
+        }
+        return '';
+    };
+
+    const parseJsonResponse = async (res) => {
+        const text = await res.text();
+        try {
+            return JSON.parse(text);
+        } catch {
+            throw new Error(`El servidor respondió con código ${res.status} (${text.slice(0, 100)})`);
+        }
+    };
+
     const loadConfig = async () => {
-        if (!token) return;
+        const currentToken = getAuthToken();
+        if (!currentToken) return;
         setLoading(true);
         setError(null);
         try {
             const res = await fetch('/api/admin/infoauto/config', {
-                headers: { 'Authorization': `Bearer ${token}` }
+                headers: { 
+                    'Authorization': `Bearer ${currentToken}`,
+                    'Accept': 'application/json'
+                }
             });
-            if (!res.ok) throw new Error('Error al cargar la configuración de InfoAuto');
-            const data = await res.json();
+            const data = await parseJsonResponse(res);
+            if (!res.ok) throw new Error(data.message || data.error || 'Error al cargar la configuración de InfoAuto');
             if (data.ok && data.config) {
                 setForm({
                     enabled: data.config.enabled ?? true,
@@ -90,15 +111,17 @@ export default function InfoAutoSettingsPage() {
         if (e) e.preventDefault();
         setSaving(true);
         try {
+            const currentToken = getAuthToken();
             const res = await fetch('/api/admin/infoauto/config', {
-                method: 'PUT',
+                method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${token}`
+                    'Accept': 'application/json',
+                    'Authorization': `Bearer ${currentToken}`
                 },
                 body: JSON.stringify(form)
             });
-            const data = await res.json();
+            const data = await parseJsonResponse(res);
             if (!res.ok || !data.ok) throw new Error(data.error || 'Error al guardar');
             
             toast.success('Configuración de InfoAuto guardada');
@@ -118,15 +141,17 @@ export default function InfoAutoSettingsPage() {
         setTesting(true);
         setTestResult(null);
         try {
+            const currentToken = getAuthToken();
             const res = await fetch('/api/admin/infoauto/test', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${token}`
+                    'Accept': 'application/json',
+                    'Authorization': `Bearer ${currentToken}`
                 },
                 body: JSON.stringify(form)
             });
-            const data = await res.json();
+            const data = await parseJsonResponse(res);
             setTestResult(data);
             if (data.ok) {
                 toast.success('Conexión con InfoAuto exitosa');
@@ -151,11 +176,15 @@ export default function InfoAutoSettingsPage() {
         setSyncingAll(true);
         setSyncResult(null);
         try {
+            const currentToken = getAuthToken();
             const res = await fetch('/api/admin/infoauto/sync-all', {
                 method: 'POST',
-                headers: { 'Authorization': `Bearer ${token}` }
+                headers: { 
+                    'Authorization': `Bearer ${currentToken}`,
+                    'Accept': 'application/json'
+                }
             });
-            const data = await res.json();
+            const data = await parseJsonResponse(res);
             setSyncResult(data);
             if (data.ok) {
                 toast.success(`Sincronización completada: ${data.updated} vehículos actualizados`);

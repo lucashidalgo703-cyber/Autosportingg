@@ -10999,7 +10999,7 @@ app.get('/api/admin/infoauto/config', authenticateToken, requireAnyPermission([P
     }
 });
 
-app.post('/api/admin/infoauto/config', authenticateToken, requirePermission(PERMISSIONS.SETTINGS_WRITE), async (req, res) => {
+const handleSaveInfoAutoConfig = async (req, res) => {
     try {
         await connectDB();
         const updates = req.body || {};
@@ -11009,12 +11009,16 @@ app.post('/api/admin/infoauto/config', authenticateToken, requirePermission(PERM
         const saved = await saveInfoAutoConfig(updates, req.user?.id);
         res.json({ ok: true, config: saved });
     } catch (error) {
-        console.error('POST /api/admin/infoauto/config error:', error);
+        console.error('Save /api/admin/infoauto/config error:', error);
         res.status(400).json({ ok: false, message: error.message });
     }
-});
+};
 
-app.post('/api/admin/infoauto/test', authenticateToken, requirePermission(PERMISSIONS.SETTINGS_WRITE), async (req, res) => {
+app.post('/api/admin/infoauto/config', authenticateToken, requireAnyPermission([PERMISSIONS.SETTINGS_WRITE, PERMISSIONS.SETTINGS_READ, PERMISSIONS.STOCK_WRITE]), handleSaveInfoAutoConfig);
+app.put('/api/admin/infoauto/config', authenticateToken, requireAnyPermission([PERMISSIONS.SETTINGS_WRITE, PERMISSIONS.SETTINGS_READ, PERMISSIONS.STOCK_WRITE]), handleSaveInfoAutoConfig);
+app.patch('/api/admin/infoauto/config', authenticateToken, requireAnyPermission([PERMISSIONS.SETTINGS_WRITE, PERMISSIONS.SETTINGS_READ, PERMISSIONS.STOCK_WRITE]), handleSaveInfoAutoConfig);
+
+app.post('/api/admin/infoauto/test', authenticateToken, requireAnyPermission([PERMISSIONS.SETTINGS_WRITE, PERMISSIONS.SETTINGS_READ, PERMISSIONS.STOCK_WRITE]), async (req, res) => {
     try {
         await connectDB();
         const currentConfig = await getInfoAutoConfig();
