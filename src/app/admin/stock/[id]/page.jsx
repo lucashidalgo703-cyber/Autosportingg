@@ -133,6 +133,9 @@ export default function VehicleDetailPage() {
         }
 
         await fetchCar(); // Refrescar los datos localmente
+        if (typeof window !== 'undefined') {
+            window.dispatchEvent(new CustomEvent('vehicle-updated', { detail: { carId: params.id } }));
+        }
     };
 
     const handleSaveExpense = async (expensePayload) => {

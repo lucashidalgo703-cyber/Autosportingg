@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { X, Upload, Plus, ArrowLeft, ArrowRight, Star, Scan, CheckCircle2, DollarSign } from 'lucide-react';
 import toast from 'react-hot-toast';
+import { parseArgentineMoney } from '../utils/saleCommercial';
 import CrmModal from './crm/ui/CrmModal';
 import { compressImage } from '../utils/imageCompressor';
 
@@ -271,14 +272,15 @@ export default function VehicleFormModal({ isOpen, onClose, onSave, editingCar }
                 toast.error('Seleccioná la venta de origen para el vehículo recibido en parte de pago.');
                 return;
             }
-            if (formData.tradeInOriginValue === '' || Number(formData.tradeInOriginValue) < 0) {
-                toast.error('Ingresá el valor de toma acordado del vehículo.');
+            const parsedTradeInVal = parseArgentineMoney(formData.tradeInOriginValue);
+            if (Number.isNaN(parsedTradeInVal) || parsedTradeInVal < 0) {
+                toast.error('Ingresá el valor de toma acordado del vehículo (número positivo).');
                 return;
             }
         }
 
-        const initialPurchase = editingCar ? Number(editingCar.purchasePrice ?? editingCar.precioCompra ?? 0) : null;
-        const nextPurchase = formData.purchasePrice !== '' && formData.purchasePrice !== undefined ? Number(formData.purchasePrice) : 0;
+        const initialPurchase = editingCar ? parseArgentineMoney(editingCar.purchasePrice ?? editingCar.precioCompra ?? 0) : null;
+        const nextPurchase = parseArgentineMoney(formData.purchasePrice) || 0;
         const purchaseChangedInEdit = Boolean(editingCar && Math.abs(nextPurchase - initialPurchase) > 0.001);
 
         if (purchaseChangedInEdit) {
@@ -347,7 +349,7 @@ export default function VehicleFormModal({ isOpen, onClose, onSave, editingCar }
                 Cancelar
             </button>
             <button type="submit" form="vehicleForm" className="px-6 py-2 rounded-lg text-xs font-bold text-white bg-crm-red hover:bg-crm-red-hover shadow-[0_0_15px_rgba(230,48,39,0.3)] transition-all flex items-center gap-2">
-                Dar de alta
+                {editingCar ? 'Guardar cambios' : 'Dar de alta'}
             </button>
         </div>
     );
@@ -393,7 +395,7 @@ export default function VehicleFormModal({ isOpen, onClose, onSave, editingCar }
                                 <div><InputLabel required>Precio de venta</InputLabel><TextInput name="price" value={formData.price} onChange={handleChange} type="number" required /></div>
                                 <div><InputLabel>Moneda venta</InputLabel><SelectInput name="currency" value={formData.currency} onChange={handleChange} options={['USD', 'ARS']} /></div>
                                 
-                                <div><InputLabel>Precio compra (opcional)</InputLabel><TextInput name="purchasePrice" value={formData.purchasePrice} onChange={handleChange} type="number" /></div>
+                                <div><InputLabel>Precio compra / toma (opcional)</InputLabel><TextInput name="purchasePrice" value={formData.purchasePrice} onChange={handleChange} type="text" placeholder="0" /></div>
                                 <div><InputLabel required>Condición</InputLabel><SelectInput name="condition" value={formData.condition} onChange={handleChange} options={['0 km', 'Excelente', 'Muy bueno', 'Bueno', 'Regular']} /></div>
                                 <div><InputLabel>Combustible</InputLabel><SelectInput name="fuel" value={formData.fuel} onChange={handleChange} options={['Nafta', 'Diésel', 'GNC', 'Híbrido', 'Eléctrico']} /></div>
                                 <div><InputLabel>Estado inicial</InputLabel><SelectInput name="status" value={formData.status} onChange={handleChange} options={['Disponible', 'Reservado', 'Señado', 'Vendido', 'En preparación']} /></div>
@@ -699,10 +701,10 @@ export default function VehicleFormModal({ isOpen, onClose, onSave, editingCar }
                                                     <InputLabel required>Valor de toma acordado</InputLabel>
                                                     <TextInput
                                                         name="tradeInOriginValue"
-                                                        type="number"
+                                                        type="text"
                                                         value={formData.tradeInOriginValue}
                                                         onChange={handleChange}
-                                                        placeholder="Ej: 10000000"
+                                                        placeholder="Ej: 10.000.000"
                                                         required={formData.receivedAsTradeIn}
                                                     />
                                                     <p className="text-[10px] text-purple-300 mt-1">Se usará como costo inicial del vehículo recibido.</p>

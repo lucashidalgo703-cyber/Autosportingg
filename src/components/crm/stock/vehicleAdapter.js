@@ -1,10 +1,16 @@
 import { getCarPurchasePaymentSummary } from '../../../utils/carPurchasePayment';
+import { resolveVehicleAcquisitionCost } from '../../../utils/saleCommercial';
 
 export const mapRealCarToCRM = (car) => {
-    // Calculamos el costo total sumando el precio de compra original + gastos en la MISMA moneda.
-    // Asumiremos que los gastos se guardaron en la moneda principal.
+    const acq = resolveVehicleAcquisitionCost(car);
+    const resolvedCost = acq.hasCost && acq.amount !== null && acq.amount > 0 
+        ? acq.amount 
+        : (car.purchasePrice || car.tradeInOrigin?.value || 0);
+    const resolvedCurrency = acq.currency || car.purchaseCurrency || car.tradeInOrigin?.currency || (car.currency === 'U$S' || car.currency === 'USD' ? 'USD' : 'ARS');
+
+    // Calculamos el costo total sumando el costo base de adquisición (compra o toma) + gastos en la MISMA moneda.
     const gastosTotales = (car.expenses || []).reduce((acc, gasto) => acc + gasto.amount, 0);
-    const costoTotal = (car.purchasePrice || 0) + gastosTotales;
+    const costoTotal = resolvedCost + gastosTotales;
     
     const margenEstimado = (car.price || 0) - costoTotal;
     const margenPorcentual = costoTotal > 0 ? ((margenEstimado / costoTotal) * 100).toFixed(1) : 0;
@@ -22,7 +28,7 @@ export const mapRealCarToCRM = (car) => {
         id: car._id,
         marca: car.brand || 'No definido',
         modelo: car.name || 'No definido',
-        version: car.description || 'N/A', // Usamos description completa para CRM o truncado? El CRM lo usa para mostrar
+        version: car.description || 'N/A',
         año: car.year || new Date().getFullYear(),
         kilometraje: car.km || 0,
         combustible: car.fuel || 'Nafta',
@@ -32,13 +38,14 @@ export const mapRealCarToCRM = (car) => {
         origen: (car.investor && car.investor.percentage > 0) ? 'compartido' : (car.agencyOwned ? 'propio' : (car.consignedBy ? 'consignación' : 'tercero')),
         investor: car.investor || null,
         moneda: car.currency === 'U$S' || car.currency === 'USD' ? 'USD' : 'ARS',
-        monedaCompra: ((car.purchaseCurrency || car.currency) === 'USD' || (car.purchaseCurrency || car.currency) === 'U$S') && car.purchasePrice > 200000 ? 'ARS' : (car.purchaseCurrency || (car.currency === 'U$S' || car.currency === 'USD' ? 'USD' : 'ARS')),
-        precioCompra: car.purchasePrice || 0,
+        monedaCompra: ((resolvedCurrency || car.currency) === 'USD' || (resolvedCurrency || car.currency) === 'U$S') && resolvedCost > 200000 ? 'ARS' : (resolvedCurrency || 'ARS'),
+        precioCompra: resolvedCost,
+        acquisitionSource: acq.source || (car.tradeInOrigin?.saleId ? 'valor_de_toma' : 'compra'),
         gastos: gastosTotales,
         expensesList: car.expenses || [],
         costoTotal,
         precioPublicado: car.price || 0,
-        precioMinimo: car.purchasePrice ? car.purchasePrice * 1.05 : 0, // Fallback demo margin
+        precioMinimo: resolvedCost ? resolvedCost * 1.05 : 0,
         margenEstimado,
         margenPorcentual,
         fechaIngreso: car.createdAt || new Date().toISOString(),
@@ -46,15 +53,15 @@ export const mapRealCarToCRM = (car) => {
         observaciones: car.notes || 'Sin observaciones.',
         diasEnStock,
         alertaRotacion,
-        visibleEnWeb: car.visibleEnWeb !== false, // Default true
+        visibleEnWeb: car.visibleEnWeb !== false,
         fotos: (Array.isArray(car.images) && car.images.length > 0) ? car.images : (car.coverImage ? [car.coverImage] : []),
         documentation: car.documentation || {},
         documentationFiles: car.documentationFiles || {},
-        tradeInOrigin: car.tradeInOrigin || null,
+        tradeInOrigin: car.tradeInOrigin || (acq.source === 'valor_de_toma' && acq.originSaleId ? { saleId: acq.originSaleId, value: resolvedCost, currency: resolvedCurrency } : null),
         agencyOwned: Boolean(car.agencyOwned),
         purchasePaymentState: car.purchasePaymentState || null,
-        purchasePaymentSummary: getCarPurchasePaymentSummary(car),
-        auditLog: car.auditLog || [], // Nuevo campo de auditoría
-        _original: car // Mantenemos el original para enviar al PATCH sin perder campos
+        purchasePaymentSummary: getCarPurchasePaymentSummary({ ...car, purchasePrice: resolvedCost, purchaseCurrency: resolvedCurrency }),
+        auditLog: car.auditLog || [],
+        _original: car
     };
 };

@@ -3,6 +3,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import { GitBranch, Link2, Unlink, ArrowRight, AlertTriangle, CheckCircle2, Clock, DollarSign, Info, RefreshCw } from 'lucide-react';
 import toast from 'react-hot-toast';
+import { parseArgentineMoney } from '../../../utils/saleCommercial';
 
 const formatCurrency = (amount, currency = 'ARS') => {
     const num = Number(amount) || 0;
@@ -85,6 +86,17 @@ export default function TradeInChainPanel({ carId, saleId, onUpdated }) {
 
     useEffect(() => {
         fetchChain();
+        const handleVehicleUpdated = () => {
+            fetchChain();
+        };
+        if (typeof window !== 'undefined') {
+            window.addEventListener('vehicle-updated', handleVehicleUpdated);
+        }
+        return () => {
+            if (typeof window !== 'undefined') {
+                window.removeEventListener('vehicle-updated', handleVehicleUpdated);
+            }
+        };
     }, [fetchChain]);
 
     const openLinkModal = async () => {
@@ -143,8 +155,9 @@ export default function TradeInChainPanel({ carId, saleId, onUpdated }) {
             setLinkError('Seleccioná la venta de origen.');
             return;
         }
-        if (linkForm.value === '' || Number(linkForm.value) < 0) {
-            setLinkError('Ingresá un valor de toma válido.');
+        const parsedVal = parseArgentineMoney(linkForm.value);
+        if (Number.isNaN(parsedVal) || parsedVal < 0) {
+            setLinkError('Ingresá un valor de toma válido (número positivo).');
             return;
         }
         if (!linkForm.confirm) {
@@ -165,7 +178,7 @@ export default function TradeInChainPanel({ carId, saleId, onUpdated }) {
                 body: JSON.stringify({
                     saleId: linkForm.saleId,
                     tradeInId: linkForm.tradeInId || undefined,
-                    value: linkForm.value,
+                    value: parsedVal,
                     currency: linkForm.currency,
                     confirm: true
                 })
@@ -668,12 +681,12 @@ export default function TradeInChainPanel({ carId, saleId, onUpdated }) {
                                         Valor de toma acordado *
                                     </label>
                                     <input
-                                        type="number"
-                                        min="0"
-                                        step="any"
+                                        type="text"
+                                        inputMode="decimal"
                                         value={linkForm.value}
                                         onChange={(e) => setLinkForm(prev => ({ ...prev, value: e.target.value }))}
-                                        className="w-full bg-crm-bg border border-crm-border rounded-lg px-3 py-2 text-xs text-white focus:border-purple-500 focus:outline-none"
+                                        placeholder="0"
+                                        className="w-full bg-crm-bg border border-crm-border rounded-lg px-3 py-2 text-xs text-white focus:border-purple-500 focus:outline-none font-mono"
                                         required
                                     />
                                 </div>

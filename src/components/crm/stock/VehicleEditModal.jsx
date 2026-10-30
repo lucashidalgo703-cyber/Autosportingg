@@ -3,6 +3,7 @@ import { useState, useEffect } from 'react';
 import { X, Save, AlertTriangle, HelpCircle, FileText, Upload, Eye, Trash2 } from 'lucide-react';
 import Link from 'next/link';
 import toast from 'react-hot-toast';
+import { parseArgentineMoney } from '../../../utils/saleCommercial';
 
 export default function VehicleEditModal({ isOpen, onClose, onSave, vehicleData }) {
     const [formData, setFormData] = useState({});
@@ -58,9 +59,14 @@ export default function VehicleEditModal({ isOpen, onClose, onSave, vehicleData 
 
     if (!isOpen) return null;
 
-    const initialPurchasePrice = Number(vehicleData?.precioCompra || 0);
-    const currentPurchasePrice = Number(formData.purchasePrice || 0);
-    const hasPurchasePriceChanged = Math.abs(currentPurchasePrice - initialPurchasePrice) > 0.001;
+    const isTradeIn = Boolean(
+        vehicleData?.tradeInOrigin?.saleId || 
+        vehicleData?.acquisitionSource === 'valor_de_toma' || 
+        vehicleData?._original?.tradeInOrigin?.saleId
+    );
+    const initialPurchasePrice = parseArgentineMoney(vehicleData?.precioCompra ?? vehicleData?.tradeInOrigin?.value ?? 0) || 0;
+    const currentPurchasePrice = parseArgentineMoney(formData.purchasePrice);
+    const hasPurchasePriceChanged = Number.isFinite(currentPurchasePrice) && Math.abs(currentPurchasePrice - initialPurchasePrice) > 0.001;
 
     const handleChange = (e) => {
         const { name, value, type, checked } = e.target;
@@ -89,14 +95,31 @@ export default function VehicleEditModal({ isOpen, onClose, onSave, vehicleData 
     const handleSubmit = async (e) => {
         e.preventDefault();
         
-        if (formData.price < 0 || formData.purchasePrice < 0 || formData.km < 0) {
-            toast.error('Precios y kilometraje deben ser positivos.');
+        const parsedPrice = parseArgentineMoney(formData.price);
+        const parsedPurchasePrice = parseArgentineMoney(formData.purchasePrice);
+        const parsedKm = parseArgentineMoney(formData.km);
+
+        if (Number.isNaN(parsedPrice) || parsedPrice < 0) {
+            toast.error('El precio de publicación debe ser un número válido y positivo.');
+            return;
+        }
+
+        if (Number.isNaN(parsedPurchasePrice) || parsedPurchasePrice < 0) {
+            toast.error('Ingresá un valor de toma / costo de compra válido (número positivo).');
+            return;
+        }
+
+        if (Number.isNaN(parsedKm) || parsedKm < 0) {
+            toast.error('El kilometraje debe ser un número válido y positivo.');
             return;
         }
 
         if (hasPurchasePriceChanged) {
             if (!String(formData.purchasePriceJustification || '').trim()) {
-                toast.error('Debés ingresar una justificación obligatoria para modificar el costo de compra/toma.');
+                toast.error(isTradeIn
+                    ? 'Debés ingresar una justificación obligatoria para modificar el valor de toma acordado.'
+                    : 'Debés ingresar una justificación obligatoria para modificar el costo de compra/toma.'
+                );
                 return;
             }
             if (!['correccion_precio', 'gasto_adicional'].includes(formData.purchasePriceChangeType)) {
@@ -120,12 +143,12 @@ export default function VehicleEditModal({ isOpen, onClose, onSave, vehicleData 
                 km: Number(formData.km),
                 fuel: formData.fuel,
                 condition: formData.condition,
-                price: Number(formData.price),
+                price: parsedPrice,
                 currency: formData.currency,
                 status: formData.status,
                 visibleEnWeb: formData.visibleEnWeb,
                 
-                purchasePrice: Number(formData.purchasePrice),
+                purchasePrice: parsedPurchasePrice,
                 purchaseCurrency: formData.purchaseCurrency,
                 ...(hasPurchasePriceChanged ? {
                     purchasePriceChangeType: formData.purchasePriceChangeType,
@@ -192,6 +215,10 @@ export default function VehicleEditModal({ isOpen, onClose, onSave, vehicleData 
             
             // Save main vehicle data which will also trigger a refetch in the parent
             await onSave(payload);
+
+            if (typeof window !== 'undefined') {
+                window.dispatchEvent(new CustomEvent('vehicle-updated'));
+            }
             
             if (docsUpdated) {
                 toast.success('Vehículo y documentos actualizados', { id: 'saveVehicle' });
@@ -324,8 +351,28 @@ export default function VehicleEditModal({ isOpen, onClose, onSave, vehicleData 
                             
                             <div className="grid grid-cols-[1fr_80px] gap-4">
                                 <div className="flex flex-col gap-1.5">
-                                    <label className="text-xs font-medium text-crm-fg-muted uppercase tracking-wider">Costo de Compra / Toma</label>
-                                    <input type="number" min="0" name="purchasePrice" value={formData.purchasePrice} onChange={handleChange} className="bg-crm-bg border border-crm-border text-crm-fg rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-crm-red focus:ring-1 focus:ring-crm-red" />
+                                    <label className="text-xs font-medium text-crm-fg-muted uppercase tracking-wider flex items-center justify-between">
+                                        <span>{isTradeIn ? 'Valor de Toma Acordado' : 'Costo de Compra / Toma'}</span>
+                                        {isTradeIn && (
+                                            <span className="text-[10px] text-purple-400 bg-purple-500/10 px-1.5 py-0.5 rounded border border-purple-500/30">
+                                                Permuta
+                                            </span>
+                                        )}
+                                    </label>
+                                    <input
+                                        type="text"
+                                        inputMode="decimal"
+                                        name="purchasePrice"
+                                        value={formData.purchasePrice}
+                                        onChange={handleChange}
+                                        placeholder="0"
+                                        className="bg-crm-bg border border-crm-border text-crm-fg rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-crm-red focus:ring-1 focus:ring-crm-red font-mono"
+                                    />
+                                    {Number.isFinite(currentPurchasePrice) && currentPurchasePrice > 0 && (
+                                        <span className="text-[10px] text-crm-fg-muted">
+                                            Interpretado: {formData.purchaseCurrency} {currentPurchasePrice.toLocaleString('es-AR')}
+                                        </span>
+                                    )}
                                 </div>
                                 <div className="flex flex-col gap-1.5">
                                     <label className="text-xs font-medium text-crm-fg-muted uppercase tracking-wider">Moneda</label>
