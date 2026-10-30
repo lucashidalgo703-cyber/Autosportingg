@@ -2484,6 +2484,9 @@ app.put('/api/admin/cars/:id/images', authenticateToken, requirePermission(PERMI
 
         car.images = finalImages;
         car.coverImage = finalImages.length > 0 ? finalImages[0] : '';
+        if (req.body.imagePosition) {
+            car.imagePosition = req.body.imagePosition;
+        }
 
         const user = req.user ? (req.user.email || req.user.role) : 'System';
         if (!car.auditLog) car.auditLog = [];

@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { X, Upload, Plus, ArrowLeft, ArrowRight, Star, Scan, CheckCircle2, DollarSign } from 'lucide-react';
+import { X, Upload, Plus, ArrowLeft, ArrowRight, Star, Scan, CheckCircle2, DollarSign, Sliders } from 'lucide-react';
+import VehicleImageFramingModal from './crm/stock/VehicleImageFramingModal';
 import toast from 'react-hot-toast';
 import { parseArgentineMoney } from '../utils/saleCommercial';
 import CrmModal from './crm/ui/CrmModal';
@@ -32,6 +33,7 @@ export default function VehicleFormModal({ isOpen, onClose, onSave, editingCar }
     const [isDragging, setIsDragging] = useState(false);
     const [files, setFiles] = useState([]);
     const [draggedIndex, setDraggedIndex] = useState(null);
+    const [showFramingModal, setShowFramingModal] = useState(false);
 
     const [availableSales, setAvailableSales] = useState([]);
     const [loadingSales, setLoadingSales] = useState(false);
@@ -107,7 +109,8 @@ export default function VehicleFormModal({ isOpen, onClose, onSave, editingCar }
                     tradeInOriginSaleId: editingCar.tradeInOrigin?.saleId || '',
                     tradeInOriginItemId: editingCar.tradeInOrigin?.tradeInId || '',
                     tradeInOriginValue: editingCar.tradeInOrigin?.value ?? '',
-                    tradeInOriginCurrency: editingCar.tradeInOrigin?.currency || editingCar.purchaseCurrency || 'ARS'
+                    tradeInOriginCurrency: editingCar.tradeInOrigin?.currency || editingCar.purchaseCurrency || 'ARS',
+                    imagePosition: editingCar.imagePosition || '50% 75%'
                 });
                 
                 // Load existing images if editing
@@ -132,7 +135,8 @@ export default function VehicleFormModal({ isOpen, onClose, onSave, editingCar }
                     publishedBy: '', mlLink: '', notes: '', visibleEnWeb: true,
                     isSharedInvestment: false, investorName: '', investorPercentage: 50,
                     receivedAsTradeIn: false, tradeInOriginSaleId: '', tradeInOriginItemId: '',
-                    tradeInOriginValue: '', tradeInOriginCurrency: 'ARS'
+                    tradeInOriginValue: '', tradeInOriginCurrency: 'ARS',
+                    imagePosition: '50% 75%'
                 });
                 setFiles([]);
             }
@@ -885,7 +889,22 @@ export default function VehicleFormModal({ isOpen, onClose, onSave, editingCar }
                                                 `}
                                             >
                                                 <img src={file.preview} className="w-full h-full object-cover" />
-                                                {i === 0 && <div className="absolute top-0 left-0 w-full bg-red-500/90 text-white text-[8px] font-bold text-center py-0.5 tracking-wider uppercase z-20">Portada</div>}
+                                                {i === 0 && (
+                                                    <>
+                                                        <div className="absolute top-0 left-0 w-full bg-red-500/90 text-white text-[8px] font-bold text-center py-0.5 tracking-wider uppercase z-20">Portada</div>
+                                                        <button
+                                                            type="button"
+                                                            title="Ajustar encuadre de portada"
+                                                            onClick={(e) => {
+                                                                e.stopPropagation();
+                                                                setShowFramingModal(true);
+                                                            }}
+                                                            className="absolute bottom-1 left-1 bg-black/80 hover:bg-red-600 text-white p-1 rounded z-30 shadow transition-colors flex items-center justify-center cursor-pointer border border-white/20"
+                                                        >
+                                                            <Sliders size={10} />
+                                                        </button>
+                                                    </>
+                                                )}
                                                 <button
                                                     type="button"
                                                     onClick={(e) => { e.stopPropagation(); setFiles(files.filter((_, idx) => idx !== i)); }}
@@ -902,6 +921,25 @@ export default function VehicleFormModal({ isOpen, onClose, onSave, editingCar }
 
                     </form>
             </div>
+
+            <VehicleImageFramingModal
+                isOpen={showFramingModal}
+                onClose={() => setShowFramingModal(false)}
+                vehicle={editingCar || { brand: formData.brand, name: formData.name, year: formData.year, km: formData.km, imagePosition: formData.imagePosition }}
+                imageUrl={files[0]?.preview || files[0]?.url}
+                currentPosition={formData.imagePosition || '50% 75%'}
+                onPositionSaved={(newPos) => {
+                    setFormData(prev => ({ ...prev, imagePosition: newPos }));
+                }}
+                onCropComplete={(croppedFile) => {
+                    setFiles(prev => {
+                        const updated = [...prev];
+                        updated[0] = croppedFile;
+                        return updated;
+                    });
+                    toast.success('Foto de portada reemplazada con el recorte 4:3');
+                }}
+            />
         </CrmModal>
     );
 }

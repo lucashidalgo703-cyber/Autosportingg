@@ -1,6 +1,7 @@
 "use client";
 import React, { useState } from 'react';
-import { Upload, X, Save, Image as ImageIcon } from 'lucide-react';
+import { Upload, X, Save, Image as ImageIcon, Sliders } from 'lucide-react';
+import VehicleImageFramingModal from './VehicleImageFramingModal';
 import toast from 'react-hot-toast';
 import CrmCard from '../ui/CrmCard';
 
@@ -27,6 +28,8 @@ export default function VehicleImagesPanel({ vehicle, onSaveComplete }) {
     );
     const [draggedIndex, setDraggedIndex] = useState(null);
     const [isSaving, setIsSaving] = useState(false);
+    const [showFramingModal, setShowFramingModal] = useState(false);
+    const [currentImagePosition, setCurrentImagePosition] = useState(vehicle?.imagePosition || '50% 75%');
 
     const handleDragStart = (index) => setDraggedIndex(index);
     const handleDragOver = (e) => e.preventDefault();
@@ -189,7 +192,20 @@ export default function VehicleImagesPanel({ vehicle, onSaveComplete }) {
                     <ImageIcon size={18} className="text-crm-fg-muted" />
                     Imágenes del vehículo
                 </h3>
-                <div className="text-xs text-crm-fg-muted font-medium">{files.length} / 20 fotos</div>
+                <div className="flex items-center gap-3">
+                    {files.length > 0 && (
+                        <button
+                            type="button"
+                            onClick={() => setShowFramingModal(true)}
+                            className="text-xs font-semibold px-2.5 py-1 rounded-lg bg-crm-surface-raised hover:bg-crm-border text-white transition-colors flex items-center gap-1.5 border border-crm-border hover:border-crm-red"
+                            title="Ajustar cómo se encuadra la foto en el catálogo y ficha"
+                        >
+                            <Sliders size={13} className="text-crm-red" />
+                            Ajustar encuadre
+                        </button>
+                    )}
+                    <div className="text-xs text-crm-fg-muted font-medium">{files.length} / 20 fotos</div>
+                </div>
             </div>
 
             <div
@@ -231,9 +247,22 @@ export default function VehicleImagesPanel({ vehicle, onSaveComplete }) {
                             >
                                 <img src={file.preview} alt={`Foto ${i + 1}`} className="w-full h-full object-cover pointer-events-none" />
                                 {i === 0 && (
-                                    <div className="absolute top-0 left-0 w-full bg-crm-red/90 text-white text-[8px] font-bold text-center py-0.5 tracking-wider uppercase z-10 pointer-events-none">
-                                        Principal
-                                    </div>
+                                    <>
+                                        <div className="absolute top-0 left-0 w-full bg-crm-red/90 text-white text-[8px] font-bold text-center py-0.5 tracking-wider uppercase z-10 pointer-events-none">
+                                            Principal
+                                        </div>
+                                        <button
+                                            type="button"
+                                            title="Ajustar encuadre de portada"
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                setShowFramingModal(true);
+                                            }}
+                                            className="absolute bottom-1 left-1 bg-black/80 hover:bg-crm-red text-white p-1 rounded z-20 shadow transition-colors flex items-center justify-center cursor-pointer border border-white/20"
+                                        >
+                                            <Sliders size={11} />
+                                        </button>
+                                    </>
                                 )}
                                 <button
                                     type="button"
@@ -275,6 +304,26 @@ export default function VehicleImagesPanel({ vehicle, onSaveComplete }) {
                     Guardar Imágenes
                 </button>
             </div>
+
+            <VehicleImageFramingModal
+                isOpen={showFramingModal}
+                onClose={() => setShowFramingModal(false)}
+                vehicle={vehicle}
+                imageUrl={files[0]?.preview || files[0]?.url}
+                currentPosition={currentImagePosition}
+                onPositionSaved={(newPos) => {
+                    setCurrentImagePosition(newPos);
+                    if (onSaveComplete) onSaveComplete();
+                }}
+                onCropComplete={(croppedFile) => {
+                    setFiles(prev => {
+                        const updated = [...prev];
+                        updated[0] = croppedFile;
+                        return updated;
+                    });
+                    toast.success('Foto principal reemplazada con el recorte 4:3');
+                }}
+            />
         </CrmCard>
     );
 }
