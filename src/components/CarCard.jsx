@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { getOptimizedImageUrl } from '../lib/cloudinaryUtils';
 import Image from 'next/image';
 import { useFavorites } from '../context/FavoritesContext';
+import { resolveImagePosition } from '../lib/formatters';
 
 const CarCard = ({ car }) => {
   const { isFavorite, toggleFavorite } = useFavorites();
@@ -22,7 +23,7 @@ const CarCard = ({ car }) => {
           fill
           sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
           className="card-image"
-          style={{ objectFit: 'cover', objectPosition: car.imagePosition || '50% 75%' }}
+          style={{ objectFit: 'cover', objectPosition: resolveImagePosition(car.imagePosition) }}
           unoptimized
         />
         {car.status && car.status !== 'Disponible' && (

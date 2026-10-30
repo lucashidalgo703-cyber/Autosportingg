@@ -72,12 +72,20 @@ export const formatPrice = (price, currency = 'USD') => {
     return `${c} ${Number(price).toLocaleString('es-AR')}`;
 };
 
+export const resolveImagePosition = (pos) => {
+    if (!pos || typeof pos !== 'string' || pos.trim() === '' || pos.trim() === '50% 75%') {
+        return 'center';
+    }
+    return pos.trim();
+};
+
 export const normalizeCarData = (car) => {
     if (!car) return null;
     return {
         ...car,
         brand: normalizeBrand(car.brand),
         name: normalizeModel(car.name),
-        fuel: normalizeFuel(car.fuel)
+        fuel: normalizeFuel(car.fuel),
+        imagePosition: resolveImagePosition(car.imagePosition)
     };
 };

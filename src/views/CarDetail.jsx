@@ -5,6 +5,7 @@ import { useParams } from 'next/navigation';
 import { ArrowLeft, Calendar, Gauge, Fuel, Maximize2, X, ChevronLeft, ChevronRight, Heart, Share2, Copy } from 'lucide-react';
 import { useCars } from '../hooks/useCars';
 import { getOptimizedImageUrl, getBlurPlaceholder } from '../lib/cloudinaryUtils';
+import { resolveImagePosition } from '../lib/formatters';
 import { useFavorites } from '../context/FavoritesContext';
 import Image from 'next/image';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -163,7 +164,7 @@ const CarDetail = () => {
                                                 fill
                                                 priority
                                                 className="object-cover w-full h-full fade-in"
-                                                style={{ objectFit: 'cover', objectPosition: car.imagePosition || '50% 75%' }}
+                                                style={{ objectFit: 'cover', objectPosition: resolveImagePosition(car.imagePosition) }}
                                                 src={getOptimizedImageUrl(currentImg, 1200)}
                                                 unoptimized
                                             />
@@ -243,7 +244,7 @@ const CarDetail = () => {
                                                 alt={`${car.name} view ${index + 2}`}
                                                 fill
                                                 className={`object-cover w-full h-full transition duration-300 ${isLast && remainingCount > 0 ? 'blur-sm' : ''}`}
-                                                style={{ objectFit: 'cover', objectPosition: car.imagePosition || '50% 75%' }}
+                                                style={{ objectFit: 'cover', objectPosition: resolveImagePosition(car.imagePosition) }}
                                                 unoptimized
                                             />
                                         </div>
