@@ -405,11 +405,11 @@ const CarDetail = () => {
 
             <style>{`
                 .container {
-                    max-width: 1280px; /* Reverted to 1280px to match reference size exactly */
+                    max-width: 1400px;
                     margin: 0 auto;
                     width: 100%;
-                    padding-left: 1rem;
-                    padding-right: 1rem;
+                    padding-left: 1.5rem;
+                    padding-right: 1.5rem;
                 }
 
                 .page-padding {
@@ -456,8 +456,8 @@ const CarDetail = () => {
 
                 @media (min-width: 1024px) {
                     .detail-grid {
-                        grid-template-columns: 1.2fr 1fr;
-                        gap: 4rem;
+                        grid-template-columns: 1.4fr 1fr;
+                        gap: 3rem;
                     }
                 }
 
