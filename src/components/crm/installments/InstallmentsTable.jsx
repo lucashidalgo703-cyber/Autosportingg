@@ -1,9 +1,11 @@
-import React from 'react';
+import React, { useState } from 'react';
 import Link from 'next/link';
-import { Landmark, Calendar, User, Search, Handshake } from 'lucide-react';
+import { Landmark, Calendar, User, Search, Handshake, Layers } from 'lucide-react';
+import QuotaCoveredExpensesModal from './QuotaCoveredExpensesModal';
 import InstallmentStatusBadge from './InstallmentStatusBadge';
 
 export default function InstallmentsTable({ installments, onEdit, onRegisterPayment, onDelete, currentUserRole }) {
+    const [selectedCoveredQuota, setSelectedCoveredQuota] = useState(null);
     if (!installments || installments.length === 0) {
         return (
             <div className="hidden md:flex flex-col items-center justify-center p-12 bg-neutral-900 border border-neutral-800 rounded-2xl opacity-80">

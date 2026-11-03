@@ -33,6 +33,15 @@ import TeamGoal from './src/models/TeamGoal.js';
 import Check from './src/models/Check.js';
 import Loan from './src/models/Loan.js';
 import FinanceBudget from './src/models/FinanceBudget.js';
+import ExpenseQuotaAssignment from './src/models/ExpenseQuotaAssignment.js';
+import {
+    getExpenseAssignmentSummary,
+    assignQuotaToExpense,
+    releaseQuotaAssignment,
+    searchQuotasForExpense,
+    createManualQuotaAndAssign,
+    getQuotaCoveredExpenses
+} from './src/services/expenseQuotaAssignmentService.js';
 import * as xlsx from 'xlsx';
 import { getInfoAutoConfig, saveInfoAutoConfig, testInfoAutoConnection, fetchInfoAutoPrice, syncCarInfoAuto, syncAllStockInfoAuto } from './src/services/infoAutoService.js';
 import FinanceRecurringRule from './src/models/FinanceRecurringRule.js';
@@ -8054,7 +8063,7 @@ app.post('/api/admin/transactions', authenticateToken, requirePermission(PERMISS
     try {
         await connectDB();
         if (req.user && req.user.role === 'ventas') return res.status(403).json({ message: 'Sin permisos financieros' });
-        const { type, category, concept, amount, currency, paymentMethod, date, notes, status, saleId, reservationId, clientId, vehicleId, installmentId, payeeCompany, payeeVehicle, targetUser, accountId: explicitAccountId, treasuryBoxKey, idempotencyKey } = req.body;
+        const { type, category, concept, amount, currency, paymentMethod, date, notes, status, saleId, reservationId, clientId, vehicleId, installmentId, payeeCompany, payeeVehicle, beneficiary, dueDate, targetUser, accountId: explicitAccountId, treasuryBoxKey, idempotencyKey } = req.body;
 
         // Idempotencia para evitar cobros o movimientos duplicados
         const cleanIdempotencyKey = idempotencyKey || req.headers['x-idempotency-key'];
@@ -8128,6 +8137,8 @@ app.post('/api/admin/transactions', authenticateToken, requirePermission(PERMISS
             payeeCompany: payeeCompany || undefined,
             payeeVehicle: payeeVehicle || undefined,
             targetUser: targetUser || undefined,
+            beneficiary: beneficiary || undefined,
+            dueDate: dueDate ? new Date(dueDate) : undefined,
             createdBy: req.user?.username || 'Admin',
             transactionAuditLog: [{
                 action: 'CREACION_MANUAL',
@@ -8198,7 +8209,7 @@ app.patch('/api/admin/transactions/:id', authenticateToken, requirePermission(PE
     try {
         await connectDB();
         if (req.user && req.user.role === 'ventas') return res.status(403).json({ message: 'Sin permisos financieros' });
-        const { category, concept, paymentMethod, date, notes, status, saleId, reservationId, clientId, vehicleId, installmentId, payeeCompany, payeeVehicle, targetUser, amount, type, currency } = req.body;
+        const { category, concept, paymentMethod, date, notes, status, saleId, reservationId, clientId, vehicleId, installmentId, payeeCompany, payeeVehicle, beneficiary, dueDate, targetUser, amount, type, currency } = req.body;
 
         const tx = await Transaction.findOne({ _id: req.params.id, module: 'crm_v2' });
         if (!tx) return res.status(404).json({ message: 'Transaction not found' });
@@ -8234,6 +8245,16 @@ app.patch('/api/admin/transactions/:id', authenticateToken, requirePermission(PE
 
         if (notes !== undefined && notes !== tx.notes) {
             tx.notes = notes;
+            hasChanges = true;
+        }
+
+        if (beneficiary !== undefined && beneficiary !== tx.beneficiary) {
+            tx.beneficiary = beneficiary;
+            hasChanges = true;
+        }
+
+        if (dueDate !== undefined) {
+            tx.dueDate = dueDate ? new Date(dueDate) : undefined;
             hasChanges = true;
         }
 
@@ -8386,6 +8407,179 @@ app.patch('/api/admin/transactions/:id', authenticateToken, requirePermission(PE
             ok: false,
             error: 'No se pudo actualizar el movimiento financiero.'
         });
+    }
+});
+
+// ========================================== //
+// ======= ASIGNACIONES CUOTAS-GASTOS ======= //
+// ========================================== //
+
+app.get('/api/admin/expenses/:id/quota-assignments', authenticateToken, requirePermission(PERMISSIONS.FINANZAS_READ), async (req, res) => {
+    try {
+        await connectDB();
+        const summary = await getExpenseAssignmentSummary(req.params.id);
+        res.json(summary);
+    } catch (error) {
+        console.error('GET /api/admin/expenses/:id/quota-assignments error:', error);
+        res.status(error.message.includes('no encontrado') ? 404 : 400).json({ message: error.message });
+    }
+});
+
+app.post('/api/admin/expenses/:id/quota-assignments', authenticateToken, requirePermission(PERMISSIONS.FINANZAS_WRITE), async (req, res) => {
+    try {
+        await connectDB();
+        if (req.user && req.user.role === 'ventas') return res.status(403).json({ message: 'Sin permisos financieros' });
+        const { installmentId, assignedAmount, notes } = req.body;
+        const user = req.user?.username || req.user?.email || 'Admin';
+
+        const updatedSummary = await assignQuotaToExpense({
+            expenseId: req.params.id,
+            installmentId,
+            assignedAmount,
+            user,
+            notes
+        });
+
+        await logAudit({
+            req,
+            action: 'CUOTA_ASIGNADA_A_GASTO',
+            module: 'finanzas',
+            entityType: 'ExpenseQuotaAssignment',
+            entityId: req.params.id,
+            entityLabel: `Asignación a gasto ${req.params.id}`,
+            description: `Se asignó cuota ${installmentId} por ${assignedAmount} al gasto ${req.params.id}.`,
+            metadata: { expenseId: req.params.id, installmentId, assignedAmount }
+        });
+
+        res.status(201).json(updatedSummary);
+    } catch (error) {
+        console.error('POST /api/admin/expenses/:id/quota-assignments error:', error);
+        res.status(400).json({ message: error.message });
+    }
+});
+
+app.patch('/api/admin/quota-assignments/:id', authenticateToken, requirePermission(PERMISSIONS.FINANZAS_WRITE), async (req, res) => {
+    try {
+        await connectDB();
+        if (req.user && req.user.role === 'ventas') return res.status(403).json({ message: 'Sin permisos financieros' });
+        const { status, assignedAmount, releaseReason, notes } = req.body;
+        const user = req.user?.username || req.user?.email || 'Admin';
+
+        const assignment = await ExpenseQuotaAssignment.findById(req.params.id);
+        if (!assignment) return res.status(404).json({ message: 'Asignación no encontrada' });
+
+        if (status === 'liberada') {
+            const summary = await releaseQuotaAssignment(assignment._id, user, releaseReason);
+            return res.json(summary);
+        }
+
+        if (assignedAmount !== undefined) {
+            const summary = await assignQuotaToExpense({
+                expenseId: assignment.expenseId,
+                installmentId: assignment.installmentId,
+                assignedAmount,
+                user,
+                notes: notes || assignment.notes
+            });
+            return res.json(summary);
+        }
+
+        res.json({ message: 'Sin cambios solicitados' });
+    } catch (error) {
+        console.error('PATCH /api/admin/quota-assignments/:id error:', error);
+        res.status(400).json({ message: error.message });
+    }
+});
+
+app.delete('/api/admin/quota-assignments/:id', authenticateToken, requirePermission(PERMISSIONS.FINANZAS_WRITE), async (req, res) => {
+    try {
+        await connectDB();
+        if (req.user && req.user.role === 'ventas') return res.status(403).json({ message: 'Sin permisos financieros' });
+        const user = req.user?.username || req.user?.email || 'Admin';
+        const reason = req.query.reason || 'Asignación eliminada por el usuario';
+
+        const summary = await releaseQuotaAssignment(req.params.id, user, reason);
+
+        await logAudit({
+            req,
+            action: 'ASIGNACION_CUOTA_LIBERADA',
+            module: 'finanzas',
+            entityType: 'ExpenseQuotaAssignment',
+            entityId: req.params.id,
+            entityLabel: `Asignación ${req.params.id} liberada`,
+            description: `Se liberó la asignación ${req.params.id}.`,
+            metadata: { assignmentId: req.params.id, reason }
+        });
+
+        res.json(summary);
+    } catch (error) {
+        console.error('DELETE /api/admin/quota-assignments/:id error:', error);
+        res.status(400).json({ message: error.message });
+    }
+});
+
+app.get('/api/admin/installments/search-for-expense', authenticateToken, requirePermission(PERMISSIONS.FINANZAS_READ), async (req, res) => {
+    try {
+        await connectDB();
+        const { currency, search, expenseId, limit } = req.query;
+        const results = await searchQuotasForExpense({
+            currency,
+            search,
+            expenseId,
+            limit: limit ? parseInt(limit, 10) : 50
+        });
+        res.json({ ok: true, installments: results });
+    } catch (error) {
+        console.error('GET /api/admin/installments/search-for-expense error:', error);
+        res.status(400).json({ ok: false, message: error.message });
+    }
+});
+
+app.post('/api/admin/installments/manual-and-assign', authenticateToken, requirePermission(PERMISSIONS.FINANZAS_WRITE), async (req, res) => {
+    try {
+        await connectDB();
+        if (req.user && req.user.role === 'ventas') return res.status(403).json({ message: 'Sin permisos financieros' });
+        const user = req.user?.username || req.user?.email || 'Admin';
+
+        const result = await createManualQuotaAndAssign({
+            ...req.body,
+            user
+        });
+
+        if (result.duplicateWarning) {
+            return res.status(200).json({
+                duplicateWarning: true,
+                duplicates: result.duplicates,
+                message: result.message
+            });
+        }
+
+        await logAudit({
+            req,
+            action: 'CUOTA_MANUAL_CREADA_DESDE_GASTO',
+            module: 'cuotas',
+            entityType: 'Installment',
+            entityId: result.installment._id,
+            entityLabel: `Cuota manual ${result.installment.concept || ''}`,
+            description: `Se creó cuota manual para deudor ${result.installment.customerName} por ${result.installment.currency} ${result.installment.amount}.`,
+            metadata: { installmentId: result.installment._id, expenseId: req.body.expenseId }
+        });
+
+        res.status(201).json(result);
+    } catch (error) {
+        console.error('POST /api/admin/installments/manual-and-assign error:', error);
+        res.status(400).json({ message: error.message });
+    }
+});
+
+app.get('/api/admin/installments/:id/expense-assignments', authenticateToken, requirePermission(PERMISSIONS.FINANZAS_READ), async (req, res) => {
+    try {
+        await connectDB();
+        const result = await getQuotaCoveredExpenses(req.params.id);
+        res.json(result);
+    } catch (error) {
+        console.error('GET /api/admin/installments/:id/expense-assignments error:', error);
+        res.status(error.message.includes('no encontrada') ? 404 : 400).json({ message: error.message });
     }
 });
 

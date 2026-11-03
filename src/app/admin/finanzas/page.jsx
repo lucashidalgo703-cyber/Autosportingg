@@ -427,15 +427,17 @@ function FinanzasPage() {
 
     const handleSaveTransaction = async (data) => {
         try {
+            let saved;
             if (selectedTx) {
-                await updateTransaction(selectedTx._id, data);
+                saved = await updateTransaction(selectedTx._id, data);
                 toast.success('Movimiento actualizado correctamente');
             } else {
-                await createTransaction(data);
+                saved = await createTransaction(data);
                 toast.success('Movimiento registrado correctamente');
             }
             await loadData();
             closeModal();
+            return saved;
         } catch (err) {
             console.error(err.message);
             toast.error(err.message || 'Error al registrar el movimiento');
