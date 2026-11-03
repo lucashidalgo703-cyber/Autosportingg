@@ -1,6 +1,6 @@
 "use client";
 import { useState, useMemo, useEffect } from 'react';
-import { Download, Eye, FileText, Plus, ExternalLink, HelpCircle, AlertCircle, CheckCircle2, Info } from 'lucide-react';
+import { Download, Eye, FileText, Plus, ExternalLink, HelpCircle, AlertCircle, CheckCircle2, Info, Calculator, Filter } from 'lucide-react';
 
 import CrmButton from '../../../components/crm/ui/CrmButton';
 import CrmPageHeader from '../../../components/crm/ui/CrmPageHeader';
@@ -826,6 +826,11 @@ export default function AdminStockPage() {
             />
 
             <VehicleFlyerPdf vehicle={selectedVehicleForPrint} />
+
+            <StockCalculationModal
+                isOpen={showCalculationModal}
+                onClose={() => setShowCalculationModal(false)}
+            />
         </div>
     );
 }
