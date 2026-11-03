@@ -18,6 +18,10 @@ export const useAdminCars = () => {
     const [filteredTotalARS, setFilteredTotalARS] = useState(0);
     const [filteredCostUSD, setFilteredCostUSD] = useState(0);
     const [filteredCostARS, setFilteredCostARS] = useState(0);
+    const [filteredPropioARS, setFilteredPropioARS] = useState(0);
+    const [filteredInversionistasARS, setFilteredInversionistasARS] = useState(0);
+    const [filteredPropioUSD, setFilteredPropioUSD] = useState(0);
+    const [filteredInversionistasUSD, setFilteredInversionistasUSD] = useState(0);
 
     const { logout } = useAuth();
     const activeRequestIdRef = useRef(0);
@@ -157,6 +161,10 @@ export const useAdminCars = () => {
                 setFilteredTotalARS(data.filteredTotalARS || 0);
                 setFilteredCostUSD(data.filteredCostUSD || 0);
                 setFilteredCostARS(data.filteredCostARS || 0);
+                setFilteredPropioARS(data.filteredPropioARS || 0);
+                setFilteredInversionistasARS(data.filteredInversionistasARS || 0);
+                setFilteredPropioUSD(data.filteredPropioUSD || 0);
+                setFilteredInversionistasUSD(data.filteredInversionistasUSD || 0);
                 return data;
             } else {
                 setCars(Array.isArray(data) ? data : []);
@@ -164,6 +172,10 @@ export const useAdminCars = () => {
                 setFilteredTotalARS(0);
                 setFilteredCostUSD(0);
                 setFilteredCostARS(0);
+                setFilteredPropioARS(0);
+                setFilteredInversionistasARS(0);
+                setFilteredPropioUSD(0);
+                setFilteredInversionistasUSD(0);
                 return { cars: Array.isArray(data) ? data : [] };
             }
         } catch (err) {
@@ -261,6 +273,10 @@ export const useAdminCars = () => {
         filteredTotalUSD,
         filteredTotalARS,
         filteredCostUSD,
-        filteredCostARS
+        filteredCostARS,
+        filteredPropioARS,
+        filteredInversionistasARS,
+        filteredPropioUSD,
+        filteredInversionistasUSD
     };
 };

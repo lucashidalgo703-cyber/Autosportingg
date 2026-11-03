@@ -22,6 +22,9 @@ import toast from 'react-hot-toast';
 import Link from 'next/link';
 import CrmPagination from '../../../components/crm/ui/CrmPagination';
 import VehicleFlyerPdf from '../../../components/crm/stock/VehicleFlyerPdf';
+import CapitalSummarySection from '../../../components/crm/stock/CapitalSummarySection';
+import StockCommercialCalculator from '../../../components/crm/stock/StockCommercialCalculator';
+import StockCalculationModal from '../../../components/crm/stock/StockCalculationModal';
 
 
 function formatARS(amount) {
@@ -54,7 +57,14 @@ export default function AdminStockPage() {
         }, 150);
     };
 
-    const { cars, loading, error, refresh, total, pages, summary: backendSummary, brands: backendBrands, swapCars, setCars, filteredTotalUSD, filteredTotalARS } = useAdminCars();
+    const { 
+        cars, loading, error, refresh, total, pages, 
+        summary: backendSummary, brands: backendBrands, 
+        swapCars, setCars, filteredTotalUSD, filteredTotalARS,
+        filteredPropioARS, filteredInversionistasARS,
+        filteredPropioUSD, filteredInversionistasUSD
+    } = useAdminCars();
+    const [showCalculationModal, setShowCalculationModal] = useState(false);
     const [isFormOpen, setIsFormOpen] = useState(false);
     const [isImportModalOpen, setIsImportModalOpen] = useState(false);
     const [isMandateModalOpen, setIsMandateModalOpen] = useState(false);
@@ -384,7 +394,7 @@ export default function AdminStockPage() {
             <div className="flex flex-col gap-6">
                 <CrmPageHeader 
                     title="Stock"
-                    subtitle={`${stockSummary.disponibles} vehículos disponibles para vender`}
+                    subtitle={`${total} vehículos en listado actual · ${stockSummary.disponibles} disponibles para vender (${stockSummary.total} en stock activo total)`}
                     actions={
                         <>
                             <CrmButton variant="secondary" size="sm" className="gap-2 border-amber-500/30 bg-amber-500/10 text-amber-200 hover:bg-amber-500/15">
@@ -414,23 +424,23 @@ export default function AdminStockPage() {
                     }
                 />
 
-                {/* BLOQUE PATRIMONIAL Y CONCILIACIÓN DE STOCK */}
+                {/* BLOQUE DE TARJETAS COMERCIALES: EXCLUSIVAMENTE VEHÍCULOS DISPONIBLES */}
                 <div className="space-y-4">
-                    {/* Tarjetas Principales: 1. Valor total | 2. Valor propio | 3. Valor de inversionistas */}
+                    {/* Tarjetas Principales: 1. Valor total disponible | 2. Mi participación | 3. Participación de inversores */}
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                        {/* 1. VALOR TOTAL */}
+                        {/* 1. VALOR TOTAL DISPONIBLE */}
                         <div className="rounded-2xl border border-crm-border bg-gradient-to-b from-crm-surface to-crm-surface/80 p-5 shadow-sm flex flex-col justify-between">
                             <div>
                                 <div className="flex items-center justify-between gap-2 mb-1.5">
                                     <span className="text-[11px] font-bold uppercase tracking-wider text-crm-fg-subtle">
-                                        1. Valor total
+                                        1. Valor total disponible
                                     </span>
                                     <span className="rounded-full bg-blue-500/10 px-2 py-0.5 text-[10px] font-semibold text-blue-400 border border-blue-500/20">
-                                        Propio + Compartido
+                                        Disponibles ({stockSummary.disponiblesComputadosCount || stockSummary.disponibles} unid.)
                                     </span>
                                 </div>
                                 <p className="text-xs text-crm-fg-muted mb-3 leading-relaxed">
-                                    Valor publicado completo del inventario activo propio y compartido.
+                                    Precio publicado completo de vehículos propios y compartidos disponibles.
                                 </p>
                                 <div className="space-y-1">
                                     <div className="text-2xl md:text-3xl font-extrabold tracking-tight text-white">
@@ -444,27 +454,27 @@ export default function AdminStockPage() {
                                 </div>
                             </div>
                             <div className="mt-4 pt-3 border-t border-crm-border/60 flex items-center justify-between text-[11px] text-crm-fg-muted">
-                                <span>Base homogénea</span>
-                                <span className="font-semibold text-crm-fg">Precio de venta</span>
+                                <span>Base comercial</span>
+                                <span className="font-semibold text-crm-fg">Precio de venta publicado</span>
                             </div>
                         </div>
 
-                        {/* 2. VALOR PROPIO */}
+                        {/* 2. MI PARTICIPACIÓN */}
                         <div className="rounded-2xl border border-crm-border bg-gradient-to-b from-crm-surface to-crm-surface/80 p-5 shadow-sm flex flex-col justify-between">
                             <div>
                                 <div className="flex items-center justify-between gap-2 mb-1.5">
                                     <span className="text-[11px] font-bold uppercase tracking-wider text-crm-fg-subtle">
-                                        2. Valor propio
+                                        2. Mi participación
                                     </span>
                                     <span className="rounded-full bg-emerald-500/10 px-2 py-0.5 text-[10px] font-semibold text-emerald-400 border border-emerald-500/20">
-                                        AutoSporting
+                                        100% Propios + 50% Cuota
                                     </span>
                                 </div>
                                 <p className="text-xs text-crm-fg-muted mb-3 leading-relaxed">
-                                    Participación de AutoSporting (100% de propios + cuota en compartidos).
+                                    Mi participación real (100% propios + 50% en compartidos; 0% en inversión de terceros).
                                 </p>
                                 <div className="space-y-1">
-                                    <div className="text-2xl md:text-3xl font-extrabold tracking-tight text-white">
+                                    <div className="text-2xl md:text-3xl font-extrabold tracking-tight text-emerald-400">
                                         {formatARS(stockSummary.valorActivoARS)}
                                     </div>
                                     {stockSummary.valorActivoUSD > 0 && (
@@ -477,27 +487,29 @@ export default function AdminStockPage() {
                             <div className="mt-4 pt-3 border-t border-crm-border/60 flex items-center justify-between text-[11px] text-crm-fg-muted">
                                 <span>Participación sobre total</span>
                                 <span className="font-semibold text-emerald-400">
-                                    {stockSummary.valorTotalARS > 0 ? `${((stockSummary.valorActivoARS / stockSummary.valorTotalARS) * 100).toFixed(1)}%` : '0%'}
+                                    {stockSummary.valorTotalARS > 0
+                                        ? `${(((stockSummary.valorActivoARS) / stockSummary.valorTotalARS) * 100).toFixed(1)}%`
+                                        : '0%'}
                                 </span>
                             </div>
                         </div>
 
-                        {/* 3. VALOR DE INVERSIONISTAS */}
+                        {/* 3. PARTICIPACIÓN DE INVERSORES */}
                         <div className="rounded-2xl border border-crm-border bg-gradient-to-b from-crm-surface to-crm-surface/80 p-5 shadow-sm flex flex-col justify-between">
                             <div>
                                 <div className="flex items-center justify-between gap-2 mb-1.5">
                                     <span className="text-[11px] font-bold uppercase tracking-wider text-crm-fg-subtle">
-                                        3. Valor de inversionistas
+                                        3. Participación de inversores
                                     </span>
                                     <span className="rounded-full bg-purple-500/10 px-2 py-0.5 text-[10px] font-semibold text-purple-400 border border-purple-500/20">
                                         Socios Inversores
                                     </span>
                                 </div>
                                 <p className="text-xs text-crm-fg-muted mb-3 leading-relaxed">
-                                    Participación de inversionistas según porcentajes reales registrados.
+                                    Participación de inversionistas (50% en compartidos + 100% en autos de inversores).
                                 </p>
                                 <div className="space-y-1">
-                                    <div className="text-2xl md:text-3xl font-extrabold tracking-tight text-white">
+                                    <div className="text-2xl md:text-3xl font-extrabold tracking-tight text-purple-300">
                                         {formatARS(stockSummary.valorActivoInversionistasARS)}
                                     </div>
                                     {stockSummary.valorActivoInversionistasUSD > 0 && (
@@ -510,51 +522,50 @@ export default function AdminStockPage() {
                             <div className="mt-4 pt-3 border-t border-crm-border/60 flex items-center justify-between text-[11px] text-crm-fg-muted">
                                 <span>Participación sobre total</span>
                                 <span className="font-semibold text-purple-400">
-                                    {stockSummary.valorTotalARS > 0 ? `${((stockSummary.valorActivoInversionistasARS / stockSummary.valorTotalARS) * 100).toFixed(1)}%` : '0%'}
+                                    {stockSummary.valorTotalARS > 0
+                                        ? `${(((stockSummary.valorActivoInversionistasARS) / stockSummary.valorTotalARS) * 100).toFixed(1)}%`
+                                        : '0%'}
                                 </span>
                             </div>
                         </div>
                     </div>
 
-                    {/* Barra de Coherencia Matemática y Desglose de Unidades */}
-                    <div className="rounded-xl border border-crm-border bg-crm-surface p-4 flex flex-col lg:flex-row lg:items-center justify-between gap-3 text-xs">
-                        <div className="flex flex-wrap items-center gap-3">
-                            {/* Desglose de Unidades */}
-                            <div className="flex items-center gap-2">
-                                <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-blue-500/15 text-blue-400 font-bold">
-                                    🚗
-                                </span>
-                                <div>
-                                    <div className="flex items-baseline gap-1.5">
-                                        <span className="font-bold text-sm text-white">
-                                            {stockSummary.total} en stock activo
-                                        </span>
-                                        <span className="text-[11px] text-crm-fg-muted">
-                                            ({stockSummary.disponibles} disponibles · {stockSummary.reservados} reservados · {stockSummary.pausados} pausados{stockSummary.sinEstado > 0 ? ` · ${stockSummary.sinEstado} sin estado` : ''})
-                                        </span>
-                                    </div>
-                                </div>
-                            </div>
-
-                            {/* Categorías particulares */}
-                            <div className="flex items-center gap-1.5 border-l border-crm-border/60 pl-3">
-                                <span className="rounded-md bg-crm-bg px-2 py-0.5 text-[11px] font-medium text-crm-fg border border-crm-border">
-                                    {stockSummary.compartidos} compartidos
-                                </span>
-                                <span className="rounded-md bg-crm-bg px-2 py-0.5 text-[11px] font-medium text-crm-fg border border-crm-border">
-                                    {stockSummary.ceroKm} 0 km
-                                </span>
-                            </div>
-                        </div>
-
-                        {/* Coherencia Matemática */}
-                        <div className="flex items-center gap-2 text-[11px] text-emerald-400 bg-emerald-500/10 px-3 py-1.5 rounded-lg border border-emerald-500/20">
-                            <CheckCircle2 size={14} className="shrink-0" />
+                    {/* Barra de Coherencia Matemática y Botón Ver Cálculo */}
+                    <div className="rounded-xl border border-crm-border bg-crm-surface p-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
+                        <div className="flex items-center gap-2 text-emerald-400 bg-emerald-500/10 px-3 py-1.5 rounded-lg border border-emerald-500/20">
+                            <CheckCircle2 size={15} className="shrink-0" />
                             <span>
-                                <strong>Coherencia verificada:</strong> Valor Total = Valor Propio + Inversionistas
+                                <strong>Suma aritmética exacta:</strong> Valor Total ({formatARS(stockSummary.valorTotalARS)}) = Mi Participación ({formatARS(stockSummary.valorActivoARS)}) + Inversores ({formatARS(stockSummary.valorActivoInversionistasARS)})
                             </span>
                         </div>
+
+                        <div className="flex items-center gap-2">
+                            <CrmButton
+                                variant="outline"
+                                size="sm"
+                                onClick={() => setShowCalculationModal(true)}
+                                className="gap-1.5 text-xs font-bold text-blue-400 border-blue-500/30 hover:bg-blue-500/10 shadow-sm"
+                            >
+                                <Calculator size={14} />
+                                Ver cálculo
+                            </CrmButton>
+                        </div>
                     </div>
+
+                    {/* Subtotal del Filtro Actual (Identificado aparte para no confundirse con el total disponible) */}
+                    {(searchTerm || (brandFilter && brandFilter !== 'todas') || (filterStatus && filterStatus !== 'todos' && filterStatus !== 'disponible') || (stockTab && stockTab !== 'stock')) && (
+                        <div className="rounded-xl border border-blue-500/30 bg-blue-500/10 p-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs animate-in fade-in">
+                            <div className="flex items-center gap-2 text-blue-300">
+                                <Filter size={15} className="shrink-0 text-blue-400" />
+                                <span>
+                                    <strong>Subtotal del filtro actual ({total} vehículos):</strong> Total <strong>{formatARS(filteredTotalARS)}</strong> | Mi parte: <strong>{formatARS(filteredPropioARS)}</strong> | Inversionistas: <strong>{formatARS(filteredInversionistasARS)}</strong>
+                                </span>
+                            </div>
+                            <span className="text-[11px] text-blue-200/70 font-sans">
+                                * Las 3 tarjetas superiores reflejan siempre el total global de disponibles.
+                            </span>
+                        </div>
+                    )}
 
                     {/* Información Secundaria: Consignaciones y Costo Invertido */}
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
@@ -611,6 +622,19 @@ export default function AdminStockPage() {
                             </div>
                         </div>
                     )}
+                </div>
+
+                {/* TABLA Y CALCULADORA COMERCIAL DE STOCK A PRECIOS DE VENTA */}
+                <StockCommercialCalculator  />
+
+                {/* CONCILIACIÓN PATRIMONIAL INTEGRAL (STOCK + CAJA + CARTERA − DEUDAS) */}
+                <div className="border-t border-crm-border/60 pt-6">
+                    <div className="mb-2">
+                        <span className="text-[11px] font-bold uppercase tracking-wider text-crm-fg-subtle">
+                            Módulo Adicional de Tesorería Patrimonial:
+                        </span>
+                    </div>
+                    <CapitalSummarySection />
                 </div>
 
                 <div className="flex flex-col">
