@@ -1,7 +1,9 @@
-import React, { useMemo } from 'react';
-import { Plus, Users, Edit, Trash2 } from 'lucide-react';
+import React, { useMemo, useState } from 'react';
+import { Plus, Users, Edit, Trash2, Layers } from 'lucide-react';
+import ExpenseQuotaAssignmentModal from '../modals/ExpenseQuotaAssignmentModal';
 
 export default function SueldosTab({ allTransactions = [], onNew, onEdit, onDelete }) {
+    const [assignModalTx, setAssignModalTx] = useState(null);
     // Filtrar solo los egresos que pertenezcan a la categoría sueldos (case insensitive)
     const sueldosTransactions = useMemo(() => {
         return allTransactions.filter(tx => 
@@ -85,6 +87,9 @@ export default function SueldosTab({ allTransactions = [], onNew, onEdit, onDele
                                         <td className="px-4 py-3 text-sm font-black text-crm-fg">{formatMoney(tx.amount, tx.currency)}</td>
                                         <td className="px-4 py-3 text-center">
                                             <div className="flex items-center justify-center gap-2">
+                                                <button onClick={() => setAssignModalTx(tx)} className="p-1.5 text-purple-400 hover:text-purple-300 hover:bg-purple-500/10 rounded-lg transition-colors" title="Asignar cuotas para cubrir este sueldo">
+                                                    <Layers size={16} />
+                                                </button>
                                                 <button onClick={() => onEdit(tx)} className="p-1.5 text-neutral-400 hover:text-white hover:bg-crm-bg rounded-lg transition-colors" title="Editar">
                                                     <Edit size={16} />
                                                 </button>
@@ -100,6 +105,11 @@ export default function SueldosTab({ allTransactions = [], onNew, onEdit, onDele
                     </table>
                 </div>
             </section>
+            <ExpenseQuotaAssignmentModal
+                isOpen={!!assignModalTx}
+                onClose={() => setAssignModalTx(null)}
+                expense={assignModalTx}
+            />
         </div>
     );
 }

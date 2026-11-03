@@ -1,8 +1,10 @@
-import React from 'react';
-import { ArrowDownRight, ArrowUpRight, Search, FileText } from 'lucide-react';
+import React, { useState } from 'react';
+import { ArrowDownRight, ArrowUpRight, Search, FileText, Layers } from 'lucide-react';
+import ExpenseQuotaAssignmentModal from './modals/ExpenseQuotaAssignmentModal';
 import TransactionStatusBadge from './TransactionStatusBadge';
 
 export default function TransactionsTable({ transactions, onEdit }) {
+    const [assignModalExpense, setAssignModalExpense] = useState(null);
     if (!transactions || transactions.length === 0) {
         return (
             <div className="hidden md:flex flex-col items-center justify-center p-12 bg-neutral-900 border border-neutral-800 rounded-2xl opacity-80">

@@ -66,6 +66,8 @@ const transactionSchema = new mongoose.Schema({
     }],
     payeeCompany: { type: String, enum: ['LHIVER', 'AUTOTERRA', 'AKAR', 'ALWAYS SAS'] },
     payeeVehicle: { type: String },
+    beneficiary: { type: String },
+    dueDate: { type: Date },
     createdBy: { type: String },
     updatedBy: { type: String },
     targetUser: { type: String },

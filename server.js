@@ -33,6 +33,16 @@ import TeamGoal from './src/models/TeamGoal.js';
 import Check from './src/models/Check.js';
 import Loan from './src/models/Loan.js';
 import FinanceBudget from './src/models/FinanceBudget.js';
+import ExpenseQuotaAssignment from './src/models/ExpenseQuotaAssignment.js';
+import { getCapitalSummary } from './src/services/capitalSummaryService.js';
+import {
+    getExpenseAssignmentSummary,
+    assignQuotaToExpense,
+    releaseQuotaAssignment,
+    searchQuotasForExpense,
+    createManualQuotaAndAssign,
+    getQuotaCoveredExpenses
+} from './src/services/expenseQuotaAssignmentService.js';
 import * as xlsx from 'xlsx';
 import { getInfoAutoConfig, saveInfoAutoConfig, testInfoAutoConnection, fetchInfoAutoPrice, syncCarInfoAuto, syncAllStockInfoAuto } from './src/services/infoAutoService.js';
 import FinanceRecurringRule from './src/models/FinanceRecurringRule.js';
@@ -1995,6 +2005,19 @@ app.post('/api/admin/dolar-blue/manual', authenticateToken, requirePermission(PE
     }
 });
 
+// GET Resumen de Capital Patrimonial (Stock + Caja + Cartera − Deudas)
+app.get('/api/admin/stock/capital-summary', authenticateToken, requireAnyPermission([PERMISSIONS.STOCK_READ, PERMISSIONS.FINANZAS_READ]), async (req, res) => {
+    try {
+        await connectDB();
+        res.setHeader('Cache-Control', 'no-store, max-age=0');
+        const summary = await getCapitalSummary();
+        res.json({ ok: true, data: summary });
+    } catch (error) {
+        console.error('Error en GET /api/admin/stock/capital-summary:', error);
+        res.status(500).json({ ok: false, message: error.message || 'Error calculando resumen de capital' });
+    }
+});
+
 // GET all cars for Admin (Protected, Full Data)
 app.get('/api/admin/cars', authenticateToken, requirePermission(PERMISSIONS.STOCK_READ), async (req, res) => {
     try {
@@ -2019,8 +2042,9 @@ app.get('/api/admin/cars', authenticateToken, requirePermission(PERMISSIONS.STOC
         const pausados = stockCars.filter(c => (c.status || '').toLowerCase().trim() === 'pausado');
         const sinEstado = stockCars.filter(c => !['disponible', 'reservado', 'pausado'].includes((c.status || '').toLowerCase().trim()));
 
-        // Bloque Patrimonial Homogéneo: Todos los vehículos activos PROPIOS y COMPARTIDOS
-        // Las consignaciones quedan estrictamente excluidas de este bloque y se informan por separado
+        // REGLA DEFINITIVA: Las tarjetas comerciales principales suman ÚNICAMENTE vehículos DISPONIBLES.
+        // Se excluyen reservados, pausados, sin estado, vendidos y cancelados.
+        // Consignaciones y vehículos de terceros se excluyen de las tres tarjetas y se informan por separado.
         let valorTotalUSD = 0;
         let valorTotalARS = 0;
         let valorPropioUSD = 0;
@@ -2028,71 +2052,58 @@ app.get('/api/admin/cars', authenticateToken, requirePermission(PERMISSIONS.STOC
         let valorInversionistasUSD = 0;
         let valorInversionistasARS = 0;
 
-        let costoPropioUSD = 0;
-        let costoPropioARS = 0;
-        let costoInversionistasUSD = 0;
-        let costoInversionistasARS = 0;
-
         let consignacionesCount = 0;
         let consignacionesValorUSD = 0;
         let consignacionesValorARS = 0;
+        let tercerosCount = 0;
 
         let missingPriceCount = 0;
-        let missingCostCount = 0;
+        let provisionalPriceCount = 0;
 
-        stockCars.forEach(c => {
+        disponibles.forEach(c => {
             const isConsignment = Boolean(c.consignedBy && String(c.consignedBy).trim() !== '');
-            const isShared = !isConsignment && c.investor && Number(c.investor.percentage) > 0;
-            const currency = (c.currency === 'U$S' || c.currency === 'USD') ? 'USD' : 'ARS';
+            const isThirdParty = !isConsignment && c.agencyOwned === false && (!c.investor || Number(c.investor.percentage) === 0);
+            const price = Math.round(Number(c.price) || 0);
 
-            const rawPurchaseCurr = c.purchaseCurrency || c.currency;
-            const purchaseCurrency = ((rawPurchaseCurr === 'USD' || rawPurchaseCurr === 'U$S') && c.purchasePrice > 200000)
-                ? 'ARS'
-                : ((rawPurchaseCurr === 'U$S' || rawPurchaseCurr === 'USD') ? 'USD' : 'ARS');
+            // Normalización de moneda: si el precio es > 200.000 pero figura como USD (ej: alta manual en pesos bajo selector USD),
+            // se trata como ARS para no inflar USD con 13.8M dólares.
+            const isUSD = (c.currency === 'U$S' || c.currency === 'USD') && price <= 200000;
+            const currency = isUSD ? 'USD' : 'ARS';
 
-            const price = Number(c.price) || 0;
-            const purchasePrice = Number(c.purchasePrice) || 0;
-
-            if (!price || price <= 100) {
+            if (price <= 0) {
                 missingPriceCount++;
+            } else if (price === 1) {
+                provisionalPriceCount++;
             }
 
-            if (isConsignment) {
-                consignacionesCount++;
+            if (isConsignment || isThirdParty) {
+                if (isConsignment) consignacionesCount++;
+                if (isThirdParty) tercerosCount++;
                 if (currency === 'USD') consignacionesValorUSD += price;
                 else consignacionesValorARS += price;
+                return;
+            }
+
+            // Propio y Compartido
+            const isShared = c.investor && Number(c.investor.percentage) > 0;
+            const invPct = isShared ? Math.min(100, Math.max(0, Number(c.investor.percentage) || 0)) : 0;
+            const agencyPct = Math.max(0, 100 - invPct);
+
+            // Reglas exactas:
+            // Propio (invPct 0): 100% AutoSporting, 0% Inversor
+            // Compartido 50% (invPct 50): 50% AutoSporting, 50% Inversor
+            // Compartido 100% (invPct 100): 0% AutoSporting, 100% Inversor
+            const contribPropio = Math.round(price * (agencyPct / 100));
+            const contribInv = price - contribPropio;
+
+            if (currency === 'USD') {
+                valorTotalUSD += price;
+                valorPropioUSD += contribPropio;
+                valorInversionistasUSD += contribInv;
             } else {
-                if (!purchasePrice || purchasePrice <= 0) {
-                    missingCostCount++;
-                }
-
-                const invPct = isShared ? Math.min(100, Math.max(0, Number(c.investor?.percentage) || 0)) : 0;
-                const agencyPct = Math.max(0, 100 - invPct);
-
-                // Cuota exacta para asegurar que valorTotal === valorPropio + valorInversionistas
-                const contribPropio = Math.round(price * (agencyPct / 100));
-                const contribInv = price - contribPropio;
-
-                const costoContribPropio = Math.round(purchasePrice * (agencyPct / 100));
-                const costoContribInv = purchasePrice - costoContribPropio;
-
-                if (currency === 'USD') {
-                    valorTotalUSD += price;
-                    valorPropioUSD += contribPropio;
-                    valorInversionistasUSD += contribInv;
-                } else {
-                    valorTotalARS += price;
-                    valorPropioARS += contribPropio;
-                    valorInversionistasARS += contribInv;
-                }
-
-                if (purchaseCurrency === 'USD') {
-                    costoPropioUSD += costoContribPropio;
-                    costoInversionistasUSD += costoContribInv;
-                } else {
-                    costoPropioARS += costoContribPropio;
-                    costoInversionistasARS += costoContribInv;
-                }
+                valorTotalARS += price;
+                valorPropioARS += contribPropio;
+                valorInversionistasARS += contribInv;
             }
         });
 
@@ -2104,32 +2115,36 @@ app.get('/api/admin/cars', authenticateToken, requirePermission(PERMISSIONS.STOC
             pausados: pausados.length,
             sinEstado: sinEstado.length,
             publicadosWeb: disponibles.filter(c => c.visibleEnWeb !== false).length,
-            consignaciones: consignacionesCount,
+            consignaciones: consignacionesCount + tercerosCount,
+            consignacionesSoloCount: consignacionesCount,
+            tercerosCount,
             consignacionesValorUSD: Math.round(consignacionesValorUSD),
             consignacionesValorARS: Math.round(consignacionesValorARS),
-            compartidos: stockCars.filter(c => c.investor && Number(c.investor.percentage) > 0).length,
-            ceroKm: stockCars.filter(c => {
+            compartidos: disponibles.filter(c => c.investor && Number(c.investor.percentage) > 0).length,
+            ceroKm: disponibles.filter(c => {
                 const cond = (c.condition || '').toLowerCase().replace(/\s+/g, '');
                 return cond === '0km' || cond === 'nuevo' || c.km === 0;
             }).length,
-            // 3 Valores Principales a precio de venta (Valor Total = Valor Propio + Valor Inversionistas):
+            // 3 Valores Principales correspondientes ÚNICAMENTE a vehículos DISPONIBLES:
             valorTotalUSD: Math.round(valorTotalUSD),
             valorTotalARS: Math.round(valorTotalARS),
             valorActivoUSD: Math.round(valorPropioUSD),
             valorActivoARS: Math.round(valorPropioARS),
             valorActivoInversionistasUSD: Math.round(valorInversionistasUSD),
             valorActivoInversionistasARS: Math.round(valorInversionistasARS),
-            // Costo Invertido de Adquisición (información secundaria de compra):
-            capitalInvertidoUSD: Math.round(costoPropioUSD),
-            capitalInvertidoARS: Math.round(costoPropioARS),
-            capitalInvertidoInversionistasUSD: Math.round(costoInversionistasUSD),
-            capitalInvertidoInversionistasARS: Math.round(costoInversionistasARS),
-            costoTotalUSD: Math.round(costoPropioUSD + costoInversionistasUSD),
-            costoTotalARS: Math.round(costoPropioARS + costoInversionistasARS),
-            // Inconsistencias y datos incompletos detectados
+            // Campos explícitos de disponibles
+            disponiblesTotalARS: Math.round(valorTotalARS),
+            disponiblesPropioARS: Math.round(valorPropioARS),
+            disponiblesInversionistasARS: Math.round(valorInversionistasARS),
+            disponiblesTotalUSD: Math.round(valorTotalUSD),
+            disponiblesPropioUSD: Math.round(valorPropioUSD),
+            disponiblesInversionistasUSD: Math.round(valorInversionistasUSD),
+            disponiblesComputadosCount: disponibles.length - consignacionesCount - tercerosCount,
+            disponiblesTotalCount: disponibles.length,
+            // Inconsistencias
             inconsistencias: {
                 missingPriceCount,
-                missingCostCount,
+                provisionalPriceCount,
                 sinEstadoCount: sinEstado.length
             }
         };
@@ -2218,30 +2233,53 @@ app.get('/api/admin/cars', authenticateToken, requirePermission(PERMISSIONS.STOC
             .limit(parsedLimit)
             .lean();
             
-        // Calculate the sum of prices and purchase costs for the filtered vehicles
-        const filteredTotals = await Car.aggregate([
-            { $match: query },
-            { 
-                $group: { 
-                    _id: "$currency", 
-                    totalPrice: { $sum: "$price" },
-                    totalPurchase: { $sum: "$purchasePrice" }
-                } 
-            }
-        ]);
-        
+        // Calculate the sum of prices, purchase costs, own share, and investor share for the filtered vehicles
+        const allFilteredCars = await Car.find(query)
+            .select('price purchasePrice currency consignedBy investor agencyOwned')
+            .lean();
+
         let filteredTotalUSD = 0;
         let filteredTotalARS = 0;
         let filteredCostUSD = 0;
         let filteredCostARS = 0;
-        filteredTotals.forEach(item => {
-            const curr = (item._id === 'U$S' || item._id === 'USD') ? 'USD' : 'ARS';
+        let filteredPropioARS = 0;
+        let filteredInversionistasARS = 0;
+        let filteredPropioUSD = 0;
+        let filteredInversionistasUSD = 0;
+        let filteredConsignacionesARS = 0;
+        let filteredConsignacionesUSD = 0;
+
+        allFilteredCars.forEach(c => {
+            const isConsignment = Boolean(c.consignedBy && String(c.consignedBy).trim() !== '');
+            const isThirdParty = !isConsignment && c.agencyOwned === false && (!c.investor || Number(c.investor.percentage) === 0);
+            const price = Math.round(Number(c.price) || 0);
+            const purchasePrice = Math.round(Number(c.purchasePrice) || 0);
+            const isUSD = (c.currency === 'U$S' || c.currency === 'USD') && price <= 200000;
+            const curr = isUSD ? 'USD' : 'ARS';
+
+            if (isConsignment || isThirdParty) {
+                if (curr === 'USD') filteredConsignacionesUSD += price;
+                else filteredConsignacionesARS += price;
+                return;
+            }
+
+            const isShared = c.investor && Number(c.investor.percentage) > 0;
+            const invPct = isShared ? Math.min(100, Math.max(0, Number(c.investor.percentage) || 0)) : 0;
+            const ownPct = Math.max(0, 100 - invPct);
+
+            const contribPropio = Math.round(price * (ownPct / 100));
+            const contribInv = price - contribPropio;
+
             if (curr === 'USD') {
-                filteredTotalUSD += item.totalPrice || 0;
-                filteredCostUSD += item.totalPurchase || 0;
+                filteredTotalUSD += price;
+                filteredCostUSD += purchasePrice;
+                filteredPropioUSD += contribPropio;
+                filteredInversionistasUSD += contribInv;
             } else {
-                filteredTotalARS += item.totalPrice || 0;
-                filteredCostARS += item.totalPurchase || 0;
+                filteredTotalARS += price;
+                filteredCostARS += purchasePrice;
+                filteredPropioARS += contribPropio;
+                filteredInversionistasARS += contribInv;
             }
         });
 
@@ -2257,7 +2295,13 @@ app.get('/api/admin/cars', authenticateToken, requirePermission(PERMISSIONS.STOC
             filteredTotalUSD,
             filteredTotalARS,
             filteredCostUSD,
-            filteredCostARS
+            filteredCostARS,
+            filteredPropioARS,
+            filteredInversionistasARS,
+            filteredPropioUSD,
+            filteredInversionistasUSD,
+            filteredConsignacionesARS,
+            filteredConsignacionesUSD
         });
     } catch (error) {
         res.status(500).json({ message: error.message });
@@ -8054,7 +8098,7 @@ app.post('/api/admin/transactions', authenticateToken, requirePermission(PERMISS
     try {
         await connectDB();
         if (req.user && req.user.role === 'ventas') return res.status(403).json({ message: 'Sin permisos financieros' });
-        const { type, category, concept, amount, currency, paymentMethod, date, notes, status, saleId, reservationId, clientId, vehicleId, installmentId, payeeCompany, payeeVehicle, targetUser, accountId: explicitAccountId, treasuryBoxKey, idempotencyKey } = req.body;
+        const { type, category, concept, amount, currency, paymentMethod, date, notes, status, saleId, reservationId, clientId, vehicleId, installmentId, payeeCompany, payeeVehicle, beneficiary, dueDate, targetUser, accountId: explicitAccountId, treasuryBoxKey, idempotencyKey } = req.body;
 
         // Idempotencia para evitar cobros o movimientos duplicados
         const cleanIdempotencyKey = idempotencyKey || req.headers['x-idempotency-key'];
@@ -8128,6 +8172,8 @@ app.post('/api/admin/transactions', authenticateToken, requirePermission(PERMISS
             payeeCompany: payeeCompany || undefined,
             payeeVehicle: payeeVehicle || undefined,
             targetUser: targetUser || undefined,
+            beneficiary: beneficiary || undefined,
+            dueDate: dueDate ? new Date(dueDate) : undefined,
             createdBy: req.user?.username || 'Admin',
             transactionAuditLog: [{
                 action: 'CREACION_MANUAL',
@@ -8198,7 +8244,7 @@ app.patch('/api/admin/transactions/:id', authenticateToken, requirePermission(PE
     try {
         await connectDB();
         if (req.user && req.user.role === 'ventas') return res.status(403).json({ message: 'Sin permisos financieros' });
-        const { category, concept, paymentMethod, date, notes, status, saleId, reservationId, clientId, vehicleId, installmentId, payeeCompany, payeeVehicle, targetUser, amount, type, currency } = req.body;
+        const { category, concept, paymentMethod, date, notes, status, saleId, reservationId, clientId, vehicleId, installmentId, payeeCompany, payeeVehicle, beneficiary, dueDate, targetUser, amount, type, currency } = req.body;
 
         const tx = await Transaction.findOne({ _id: req.params.id, module: 'crm_v2' });
         if (!tx) return res.status(404).json({ message: 'Transaction not found' });
@@ -8234,6 +8280,16 @@ app.patch('/api/admin/transactions/:id', authenticateToken, requirePermission(PE
 
         if (notes !== undefined && notes !== tx.notes) {
             tx.notes = notes;
+            hasChanges = true;
+        }
+
+        if (beneficiary !== undefined && beneficiary !== tx.beneficiary) {
+            tx.beneficiary = beneficiary;
+            hasChanges = true;
+        }
+
+        if (dueDate !== undefined) {
+            tx.dueDate = dueDate ? new Date(dueDate) : undefined;
             hasChanges = true;
         }
 
@@ -8386,6 +8442,179 @@ app.patch('/api/admin/transactions/:id', authenticateToken, requirePermission(PE
             ok: false,
             error: 'No se pudo actualizar el movimiento financiero.'
         });
+    }
+});
+
+// ========================================== //
+// ======= ASIGNACIONES CUOTAS-GASTOS ======= //
+// ========================================== //
+
+app.get('/api/admin/expenses/:id/quota-assignments', authenticateToken, requirePermission(PERMISSIONS.FINANZAS_READ), async (req, res) => {
+    try {
+        await connectDB();
+        const summary = await getExpenseAssignmentSummary(req.params.id);
+        res.json(summary);
+    } catch (error) {
+        console.error('GET /api/admin/expenses/:id/quota-assignments error:', error);
+        res.status(error.message.includes('no encontrado') ? 404 : 400).json({ message: error.message });
+    }
+});
+
+app.post('/api/admin/expenses/:id/quota-assignments', authenticateToken, requirePermission(PERMISSIONS.FINANZAS_WRITE), async (req, res) => {
+    try {
+        await connectDB();
+        if (req.user && req.user.role === 'ventas') return res.status(403).json({ message: 'Sin permisos financieros' });
+        const { installmentId, assignedAmount, notes } = req.body;
+        const user = req.user?.username || req.user?.email || 'Admin';
+
+        const updatedSummary = await assignQuotaToExpense({
+            expenseId: req.params.id,
+            installmentId,
+            assignedAmount,
+            user,
+            notes
+        });
+
+        await logAudit({
+            req,
+            action: 'CUOTA_ASIGNADA_A_GASTO',
+            module: 'finanzas',
+            entityType: 'ExpenseQuotaAssignment',
+            entityId: req.params.id,
+            entityLabel: `Asignación a gasto ${req.params.id}`,
+            description: `Se asignó cuota ${installmentId} por ${assignedAmount} al gasto ${req.params.id}.`,
+            metadata: { expenseId: req.params.id, installmentId, assignedAmount }
+        });
+
+        res.status(201).json(updatedSummary);
+    } catch (error) {
+        console.error('POST /api/admin/expenses/:id/quota-assignments error:', error);
+        res.status(400).json({ message: error.message });
+    }
+});
+
+app.patch('/api/admin/quota-assignments/:id', authenticateToken, requirePermission(PERMISSIONS.FINANZAS_WRITE), async (req, res) => {
+    try {
+        await connectDB();
+        if (req.user && req.user.role === 'ventas') return res.status(403).json({ message: 'Sin permisos financieros' });
+        const { status, assignedAmount, releaseReason, notes } = req.body;
+        const user = req.user?.username || req.user?.email || 'Admin';
+
+        const assignment = await ExpenseQuotaAssignment.findById(req.params.id);
+        if (!assignment) return res.status(404).json({ message: 'Asignación no encontrada' });
+
+        if (status === 'liberada') {
+            const summary = await releaseQuotaAssignment(assignment._id, user, releaseReason);
+            return res.json(summary);
+        }
+
+        if (assignedAmount !== undefined) {
+            const summary = await assignQuotaToExpense({
+                expenseId: assignment.expenseId,
+                installmentId: assignment.installmentId,
+                assignedAmount,
+                user,
+                notes: notes || assignment.notes
+            });
+            return res.json(summary);
+        }
+
+        res.json({ message: 'Sin cambios solicitados' });
+    } catch (error) {
+        console.error('PATCH /api/admin/quota-assignments/:id error:', error);
+        res.status(400).json({ message: error.message });
+    }
+});
+
+app.delete('/api/admin/quota-assignments/:id', authenticateToken, requirePermission(PERMISSIONS.FINANZAS_WRITE), async (req, res) => {
+    try {
+        await connectDB();
+        if (req.user && req.user.role === 'ventas') return res.status(403).json({ message: 'Sin permisos financieros' });
+        const user = req.user?.username || req.user?.email || 'Admin';
+        const reason = req.query.reason || 'Asignación eliminada por el usuario';
+
+        const summary = await releaseQuotaAssignment(req.params.id, user, reason);
+
+        await logAudit({
+            req,
+            action: 'ASIGNACION_CUOTA_LIBERADA',
+            module: 'finanzas',
+            entityType: 'ExpenseQuotaAssignment',
+            entityId: req.params.id,
+            entityLabel: `Asignación ${req.params.id} liberada`,
+            description: `Se liberó la asignación ${req.params.id}.`,
+            metadata: { assignmentId: req.params.id, reason }
+        });
+
+        res.json(summary);
+    } catch (error) {
+        console.error('DELETE /api/admin/quota-assignments/:id error:', error);
+        res.status(400).json({ message: error.message });
+    }
+});
+
+app.get('/api/admin/installments/search-for-expense', authenticateToken, requirePermission(PERMISSIONS.FINANZAS_READ), async (req, res) => {
+    try {
+        await connectDB();
+        const { currency, search, expenseId, limit } = req.query;
+        const results = await searchQuotasForExpense({
+            currency,
+            search,
+            expenseId,
+            limit: limit ? parseInt(limit, 10) : 50
+        });
+        res.json({ ok: true, installments: results });
+    } catch (error) {
+        console.error('GET /api/admin/installments/search-for-expense error:', error);
+        res.status(400).json({ ok: false, message: error.message });
+    }
+});
+
+app.post('/api/admin/installments/manual-and-assign', authenticateToken, requirePermission(PERMISSIONS.FINANZAS_WRITE), async (req, res) => {
+    try {
+        await connectDB();
+        if (req.user && req.user.role === 'ventas') return res.status(403).json({ message: 'Sin permisos financieros' });
+        const user = req.user?.username || req.user?.email || 'Admin';
+
+        const result = await createManualQuotaAndAssign({
+            ...req.body,
+            user
+        });
+
+        if (result.duplicateWarning) {
+            return res.status(200).json({
+                duplicateWarning: true,
+                duplicates: result.duplicates,
+                message: result.message
+            });
+        }
+
+        await logAudit({
+            req,
+            action: 'CUOTA_MANUAL_CREADA_DESDE_GASTO',
+            module: 'cuotas',
+            entityType: 'Installment',
+            entityId: result.installment._id,
+            entityLabel: `Cuota manual ${result.installment.concept || ''}`,
+            description: `Se creó cuota manual para deudor ${result.installment.customerName} por ${result.installment.currency} ${result.installment.amount}.`,
+            metadata: { installmentId: result.installment._id, expenseId: req.body.expenseId }
+        });
+
+        res.status(201).json(result);
+    } catch (error) {
+        console.error('POST /api/admin/installments/manual-and-assign error:', error);
+        res.status(400).json({ message: error.message });
+    }
+});
+
+app.get('/api/admin/installments/:id/expense-assignments', authenticateToken, requirePermission(PERMISSIONS.FINANZAS_READ), async (req, res) => {
+    try {
+        await connectDB();
+        const result = await getQuotaCoveredExpenses(req.params.id);
+        res.json(result);
+    } catch (error) {
+        console.error('GET /api/admin/installments/:id/expense-assignments error:', error);
+        res.status(error.message.includes('no encontrada') ? 404 : 400).json({ message: error.message });
     }
 });
 

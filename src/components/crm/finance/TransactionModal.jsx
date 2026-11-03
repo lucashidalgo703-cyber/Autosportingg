@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { X, Save, AlertTriangle, Trash2 } from 'lucide-react';
 import ConfirmModal from '../ui/ConfirmModal';
+import ExpenseQuotaAssignmentModal from './modals/ExpenseQuotaAssignmentModal';
+import { Layers } from 'lucide-react';
 
 export default function TransactionModal({ isOpen, onClose, transaction, onSave, onAnnul, initialData = null }) {
     const isEdit = !!transaction;
@@ -20,11 +22,15 @@ export default function TransactionModal({ isOpen, onClose, transaction, onSave,
         reservationId: '',
         clientId: '',
         vehicleId: '',
-        installmentId: ''
+        installmentId: '',
+        beneficiary: '',
+        dueDate: ''
     });
 
     const [errors, setErrors] = useState({});
     const [confirmAnnulModal, setConfirmAnnulModal] = useState(false);
+    const [isAssignModalOpen, setIsAssignModalOpen] = useState(false);
+    const [savedExpenseForAssign, setSavedExpenseForAssign] = useState(null);
     
     // Data for selects
     const [salesOptions, setSalesOptions] = useState([]);
@@ -102,7 +108,9 @@ export default function TransactionModal({ isOpen, onClose, transaction, onSave,
                 vehicleId: transaction.vehicleId || '',
                 installmentId: transaction.installmentId || '',
                 payeeCompany: transaction.payeeCompany || '',
-                targetUser: transaction.targetUser || transaction.createdBy || ''
+                targetUser: transaction.targetUser || transaction.createdBy || '',
+                beneficiary: transaction.beneficiary || '',
+                dueDate: transaction.dueDate ? new Date(transaction.dueDate).toISOString().split('T')[0] : ''
             });
         } else if (isOpen) {
             // Default initial state or props if provided from SaleFinancePanel
@@ -123,6 +131,8 @@ export default function TransactionModal({ isOpen, onClose, transaction, onSave,
                 installmentId: '',
                 payeeCompany: '',
                 targetUser: '',
+                beneficiary: '',
+                dueDate: '',
                 ...(initialData || {})
             });
         }
@@ -156,6 +166,8 @@ export default function TransactionModal({ isOpen, onClose, transaction, onSave,
             if (!dataToSave.installmentId) delete dataToSave.installmentId;
             if (!dataToSave.payeeCompany) delete dataToSave.payeeCompany;
             if (!dataToSave.targetUser) delete dataToSave.targetUser;
+            if (!dataToSave.beneficiary) delete dataToSave.beneficiary;
+            if (!dataToSave.dueDate) delete dataToSave.dueDate;
             
             onSave(dataToSave);
         }
@@ -309,6 +321,75 @@ export default function TransactionModal({ isOpen, onClose, transaction, onSave,
                             />
                             {errors.concept && <span className="text-xs text-crm-red mt-1 block">{errors.concept}</span>}
                         </div>
+
+                        {formData.type === 'egreso' && (
+                            <>
+                                <div>
+                                    <label className="block text-xs font-bold text-neutral-500 uppercase tracking-wider mb-2">Beneficiario / Destinatario</label>
+                                    <input
+                                        type="text"
+                                        placeholder="Ej: Empleado, Propietario, Proveedor..."
+                                        className="w-full bg-black/40 border border-neutral-800 rounded-xl py-2.5 px-4 text-sm text-white focus:outline-none focus:border-neutral-600 transition-colors"
+                                        value={formData.beneficiary || ''}
+                                        onChange={(e) => setFormData({ ...formData, beneficiary: e.target.value })}
+                                        disabled={isAnnulled}
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-xs font-bold text-neutral-500 uppercase tracking-wider mb-2">Fecha de Vencimiento de Obligación</label>
+                                    <input
+                                        type="date"
+                                        className="w-full bg-black/40 border border-neutral-800 rounded-xl py-2.5 px-4 text-sm text-white focus:outline-none focus:border-neutral-600 transition-colors"
+                                        value={formData.dueDate || ''}
+                                        onChange={(e) => setFormData({ ...formData, dueDate: e.target.value })}
+                                        disabled={isAnnulled}
+                                    />
+                                </div>
+                                <div className="col-span-1 md:col-span-2 p-4 rounded-xl border border-purple-500/30 bg-purple-950/20 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                                    <div className="flex items-center gap-3">
+                                        <div className="h-9 w-9 rounded-lg bg-purple-500/20 border border-purple-500/30 flex items-center justify-center text-purple-400 shrink-0">
+                                            <Layers size={18} />
+                                        </div>
+                                        <div>
+                                            <span className="text-xs font-bold text-white block">Asignar cuota para cubrir este pago</span>
+                                            <p className="text-[11px] text-neutral-400">
+                                                Reserva cobros previstos de cuotas o cargá una cuota manual sin salir de esta pantalla.
+                                            </p>
+                                        </div>
+                                    </div>
+                                    <button
+                                        type="button"
+                                        onClick={async () => {
+                                            if (isEdit && transaction) {
+                                                setSavedExpenseForAssign(transaction);
+                                                setIsAssignModalOpen(true);
+                                            } else {
+                                                if (!formData.amount || formData.amount < 0 || !formData.concept.trim() || !formData.category.trim()) {
+                                                    validate();
+                                                    return;
+                                                }
+                                                const dataToSave = {
+                                                    ...formData,
+                                                    amount: Number(formData.amount),
+                                                    status: 'pendiente'
+                                                };
+                                                if (!dataToSave.beneficiary) delete dataToSave.beneficiary;
+                                                if (!dataToSave.dueDate) delete dataToSave.dueDate;
+                                                const res = await onSave(dataToSave);
+                                                if (res && res._id) {
+                                                    setSavedExpenseForAssign(res);
+                                                    setIsAssignModalOpen(true);
+                                                }
+                                            }
+                                        }}
+                                        className="px-4 py-2 rounded-xl bg-purple-600 hover:bg-purple-500 text-white font-bold text-xs transition flex items-center gap-1.5 shrink-0 shadow-lg shadow-purple-600/20"
+                                    >
+                                        <Layers size={14} />
+                                        {isEdit ? 'Gestionar Asignaciones' : 'Guardar y Asignar Cuotas'}
+                                    </button>
+                                </div>
+                            </>
+                        )}
 
                         <div>
                             <label className="block text-xs font-bold text-neutral-500 uppercase tracking-wider mb-2">Categoría</label>
@@ -540,6 +621,15 @@ export default function TransactionModal({ isOpen, onClose, transaction, onSave,
                 message="¿Estás seguro de anular este movimiento? Esta acción registrará el cambio en la auditoría."
                 confirmText="Anular"
                 isDestructive={true}
+            />
+
+            <ExpenseQuotaAssignmentModal
+                isOpen={isAssignModalOpen}
+                onClose={() => setIsAssignModalOpen(false)}
+                expense={savedExpenseForAssign || transaction}
+                onUpdated={() => {
+                    // Refresh data if needed
+                }}
             />
         </div>
     );

@@ -23,8 +23,14 @@ const getOwner = (vehicle) => {
         return <span className="text-green-500 font-medium">Propio</span>;
     }
     if (vehicle.origen === 'compartido') {
-        const investorPct = vehicle.investor?.percentage || 0;
-        return <span className="text-blue-500 font-medium">Compartido ({investorPct}%)</span>;
+        const investorPct = Number(vehicle.investor?.percentage) || 0;
+        if (investorPct === 100) {
+            return <span className="text-purple-400 font-medium whitespace-nowrap">Inversionista 100% — participación propia 0%</span>;
+        }
+        if (investorPct === 50) {
+            return <span className="text-blue-400 font-medium whitespace-nowrap">Compartido (50%)</span>;
+        }
+        return <span className="text-blue-400 font-medium whitespace-nowrap">Compartido ({investorPct}%)</span>;
     }
     if (vehicle.origen === 'tercero') {
         return <span className="text-gray-400 font-medium">Tercero</span>;

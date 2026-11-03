@@ -18,6 +18,8 @@ import { useAdminAccounts } from '../../../hooks/useAdminAccounts';
 import TransactionModal from '../../../components/crm/finance/TransactionModal';
 import TransferModal from '../../../components/crm/finance/TransferModal';
 import MonthlyCloseModal from '../../../components/crm/finance/MonthlyCloseModal';
+import ExpenseQuotaAssignmentModal from '../../../components/crm/finance/modals/ExpenseQuotaAssignmentModal';
+import { Layers } from 'lucide-react';
 import ConfirmModal from '../../../components/crm/ui/ConfirmModal';
 import PersonalFinanceTab from '../../../components/crm/finance/PersonalFinanceTab';
 import CuotasFinancieras from '../../../components/crm/finance/CuotasFinancieras';
@@ -139,6 +141,7 @@ function FinanzasPage() {
     const [selectedTx, setSelectedTx] = useState(null);
     const [modalPreset, setModalPreset] = useState(null);
     const [isTransferOpen, setIsTransferOpen] = useState(false);
+    const [assignModalExpense, setAssignModalExpense] = useState(null);
     const [isMonthlyCloseOpen, setIsMonthlyCloseOpen] = useState(false);
     const [isConfirmOpen, setIsConfirmOpen] = useState(false);
     const [confirmAction, setConfirmAction] = useState(null);
@@ -427,15 +430,17 @@ function FinanzasPage() {
 
     const handleSaveTransaction = async (data) => {
         try {
+            let saved;
             if (selectedTx) {
-                await updateTransaction(selectedTx._id, data);
+                saved = await updateTransaction(selectedTx._id, data);
                 toast.success('Movimiento actualizado correctamente');
             } else {
-                await createTransaction(data);
+                saved = await createTransaction(data);
                 toast.success('Movimiento registrado correctamente');
             }
             await loadData();
             closeModal();
+            return saved;
         } catch (err) {
             console.error(err.message);
             toast.error(err.message || 'Error al registrar el movimiento');
@@ -538,6 +543,7 @@ function FinanzasPage() {
                                 onClearFilters={handleClearFilters}
                                 onEdit={handleEditTransaction}
                                 onDelete={handleDeleteTransaction}
+                                onAssignQuota={(tx) => setAssignModalExpense(tx)}
                                 onExport={exportTransactions}
                                 onMonthlyClose={() => setIsMonthlyCloseOpen(true)}
                                 onTransfer={() => setIsTransferOpen(true)}
@@ -652,6 +658,13 @@ function FinanzasPage() {
                     isOpen={isMonthlyCloseOpen}
                     onClose={() => setIsMonthlyCloseOpen(false)}
                     fetchMonthlyClose={fetchMonthlyClose}
+                />
+
+                <ExpenseQuotaAssignmentModal
+                    isOpen={!!assignModalExpense}
+                    onClose={() => setAssignModalExpense(null)}
+                    expense={assignModalExpense}
+                    onUpdated={loadData}
                 />
 
                 <ConfirmModal
@@ -846,6 +859,7 @@ function MovimientosFinancieros({
     onClearFilters,
     onEdit,
     onDelete,
+    onAssignQuota,
     onExport,
     onMonthlyClose,
     onTransfer,
@@ -1008,7 +1022,18 @@ function MovimientosFinancieros({
                                                 {sign} {formatMoney(tx.amount, tx.currency)}
                                             </td>
                                             <td className="px-4 py-3 text-center">
-                                                <div className="flex items-center justify-center gap-3">
+                                                <div className="flex items-center justify-center gap-2">
+                                                    {!income && !isVoid && (
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => onAssignQuota && onAssignQuota(tx)}
+                                                            className="inline-flex items-center gap-1 rounded bg-purple-500/10 px-2 py-0.5 text-[11px] font-bold text-purple-400 border border-purple-500/20 hover:bg-purple-500/20 transition"
+                                                            title="Asignar cuotas para cubrir este pago"
+                                                        >
+                                                            <Layers size={12} />
+                                                            Asignar Cuota
+                                                        </button>
+                                                    )}
                                                     <button onClick={() => onEdit(tx)} className="text-[11px] font-bold text-crm-fg-muted hover:text-crm-red transition">Editar</button>
                                                     {!isVoid && (
                                                         <button onClick={() => onDelete(tx)} className="text-[11px] font-bold text-crm-fg-muted hover:text-crm-red transition">Anular</button>
