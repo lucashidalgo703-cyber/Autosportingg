@@ -245,6 +245,8 @@ export default function OfflineSyncControl() {
             <button
                 type="button"
                 onClick={() => setShowModal(true)}
+                aria-label={!isOnline ? 'Sin conexión a internet' : pendingOutboxCount > 0 ? `En línea con ${pendingOutboxCount} operaciones pendientes de sincronización` : 'Conectado en línea'}
+                title={!isOnline ? 'Sin conexión' : pendingOutboxCount > 0 ? `Pendientes (${pendingOutboxCount})` : 'En línea'}
                 className={`relative m-0 flex h-9 items-center gap-1.5 rounded-lg border px-2.5 text-xs font-semibold transition-colors ${
                     !isOnline
                         ? 'border-amber-500/40 bg-amber-500/15 text-amber-300'
@@ -252,13 +254,15 @@ export default function OfflineSyncControl() {
                         ? 'border-red-500/40 bg-red-500/15 text-red-300'
                         : pendingOutboxCount > 0
                         ? 'border-blue-500/40 bg-blue-500/15 text-blue-300'
-                        : 'border-crm-border bg-crm-surface text-crm-fg-muted hover:text-white'
+                        : 'border-emerald-500/30 bg-emerald-500/10 text-emerald-400 hover:text-white'
                 }`}
-                title="Modo Offline y Sincronización"
             >
                 {isOnline ? <Wifi size={14} className="text-emerald-400" /> : <WifiOff size={14} className="text-amber-400" />}
                 <span className="hidden md:inline">
-                    {!isOnline ? 'Sin conexión' : pendingOutboxCount > 0 ? `Pendientes (${pendingOutboxCount})` : 'Offline'}
+                    {!isOnline ? 'Sin conexión' : pendingOutboxCount > 0 ? `Pendientes (${pendingOutboxCount})` : 'En línea'}
+                </span>
+                <span className="sr-only md:hidden">
+                    {!isOnline ? 'Sin conexión' : pendingOutboxCount > 0 ? `Pendientes (${pendingOutboxCount})` : 'En línea'}
                 </span>
                 {(pendingOutboxCount > 0 || conflictsCount > 0) && (
                     <span className="flex h-4 min-w-4 items-center justify-center rounded-full bg-crm-red-brand px-1 text-[10px] font-bold text-white">

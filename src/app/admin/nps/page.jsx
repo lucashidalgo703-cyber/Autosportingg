@@ -10,6 +10,7 @@ import toast from 'react-hot-toast';
 export default function NpsDashboardPage() {
     const [data, setData] = useState({ metrics: {}, recentResponses: [], actionRequired: [] });
     const [loading, setLoading] = useState(true);
+    const [error, setError] = useState(null);
     const [isGenerateModalOpen, setGenerateModalOpen] = useState(false);
     const [isCallModalOpen, setCallModalOpen] = useState(false);
     const [timeFilter, setTimeFilter] = useState('Este mes');
@@ -18,24 +19,32 @@ export default function NpsDashboardPage() {
     const [users, setUsers] = useState([]);
     const [loadingUsers, setLoadingUsers] = useState(false);
 
-    const fetchDashboard = async () => {
+    const fetchDashboard = async (selectedFilter = timeFilter) => {
+        setLoading(true);
+        setError(null);
         try {
             const token = localStorage.getItem('token');
-            const res = await fetch('/api/admin/nps/dashboard', {
+            const url = `/api/admin/nps/dashboard?period=${encodeURIComponent(selectedFilter)}`;
+            const res = await fetch(url, {
                 headers: { 'Authorization': `Bearer ${token}` }
             });
+            if (!res.ok) {
+                const errData = await res.json().catch(() => ({}));
+                throw new Error(errData.message || `Error ${res.status}: Fallo al cargar NPS`);
+            }
             const d = await parseResponseSafe(res);
             setData(d);
-        } catch (error) {
-            toast.error(error.message);
+        } catch (err) {
+            setError(err.message || 'Error al cargar respuestas');
+            toast.error(err.message || 'Error al cargar respuestas');
         } finally {
             setLoading(false);
         }
     };
 
     useEffect(() => {
-        fetchDashboard();
-    }, []);
+        fetchDashboard(timeFilter);
+    }, [timeFilter]);
 
     const openFollowUpModal = async (responseId) => {
         setFollowUpModal({ isOpen: true, responseId });
@@ -131,6 +140,21 @@ export default function NpsDashboardPage() {
                         ))}
                     </div>
 
+                    {error ? (
+                        <div className="rounded-2xl border border-crm-red/30 bg-crm-red/10 p-8 text-center">
+                            <AlertTriangle size={36} className="text-crm-red mx-auto mb-3" />
+                            <h3 className="text-lg font-bold text-crm-red">Error al cargar datos de NPS</h3>
+                            <p className="text-sm text-crm-fg-muted mt-1">{error}</p>
+                            <button
+                                type="button"
+                                onClick={() => fetchDashboard(timeFilter)}
+                                className="mt-4 px-4 py-2 bg-crm-red text-white text-sm font-bold rounded-xl hover:bg-crm-red-hover transition-colors"
+                            >
+                                Reintentar
+                            </button>
+                        </div>
+                    ) : (
+                    <>
                     {/* KPI Cards */}
                     <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
                         <div className="bg-crm-surface border border-crm-border p-5 rounded-2xl shadow-sm flex flex-col justify-between">
@@ -139,19 +163,30 @@ export default function NpsDashboardPage() {
                                 <Star size={18} className="text-yellow-500" />
                             </div>
                             <div>
-                                <span className="text-4xl font-black text-crm-fg">{metrics.averageScore || '0.0'}</span>
-                                <p className="text-[10px] text-crm-fg-subtle mt-1">Calificación media</p>
+                                <span className="text-4xl font-black text-crm-fg">{metrics.total > 0 ? (metrics.averageScore || '0.0') : '--'}</span>
+                                <p className="text-[10px] text-crm-fg-subtle mt-1">{metrics.total > 0 ? 'Calificación media' : 'Sin respuestas'}</p>
                             </div>
                         </div>
 
                         <div className="bg-crm-surface border border-crm-border p-5 rounded-2xl shadow-sm flex flex-col justify-between">
                             <div className="flex justify-between items-center mb-4">
                                 <span className="text-xs font-bold text-crm-fg-muted uppercase tracking-wider">NPS Score</span>
-                                <TrendingUp size={18} className={npsColor} />
+                                <TrendingUp size={18} className={metrics.total > 0 ? npsColor : 'text-crm-fg-muted'} />
                             </div>
                             <div>
-                                <span className={`text-4xl font-black ${npsColor}`}>{metrics.npsScore || 0}</span>
-                                <p className="text-[10px] text-crm-fg-subtle mt-1">% Promotores - % Detractores</p>
+                                {metrics.total === 0 || metrics.total === undefined ? (
+                                    <span className="text-2xl font-bold text-crm-fg-muted">Sin respuestas</span>
+                                ) : (
+                                    <div className="flex items-baseline gap-2">
+                                        <span className={`text-4xl font-black ${npsColor}`}>
+                                            {Number(metrics.npsScore || 0) > 0 ? `+${metrics.npsScore}` : (metrics.npsScore ?? 0)}
+                                        </span>
+                                        <span className="text-xs text-crm-fg-muted font-medium">
+                                            ({metrics.total} {metrics.total === 1 ? 'respuesta' : 'respuestas'})
+                                        </span>
+                                    </div>
+                                )}
+                                <p className="text-[10px] text-crm-fg-subtle mt-1">% Promotores - % Detractores ({timeFilter})</p>
                             </div>
                         </div>
 
@@ -278,6 +313,8 @@ export default function NpsDashboardPage() {
                         </div>
 
                     </div>
+                    </>
+                    )}
                 </div>
             </div>
 

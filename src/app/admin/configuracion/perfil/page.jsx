@@ -4,6 +4,7 @@ import React, { useState } from 'react';
 import { useAuth } from '../../../../context/AuthContext';
 import { Save, User, Mail, ShieldCheck, FileKey, Loader2 } from 'lucide-react';
 import toast from 'react-hot-toast';
+import SettingsTabs from '../../../../components/crm/settings/SettingsTabs';
 
 export default function ProfilePage() {
     const { user } = useAuth();
@@ -52,11 +53,15 @@ export default function ProfilePage() {
     };
 
     return (
-        <div className="flex flex-col gap-6 max-w-4xl animate-in fade-in slide-in-from-bottom-4 duration-500">
-            <div>
-                <h1 className="text-2xl font-bold text-white mb-2">Mi Perfil</h1>
-                <p className="text-crm-fg-muted text-sm">Administra tu información personal y credenciales de acceso.</p>
+        <div className="max-w-7xl mx-auto p-4 md:p-6 pb-20 w-full animate-in fade-in slide-in-from-bottom-4 duration-500">
+            <div className="mb-6">
+                <h1 className="text-2xl font-bold text-white tracking-tight">Configuración</h1>
+                <p className="text-sm text-crm-fg-muted mt-1">Administrá tu información personal y credenciales de acceso.</p>
             </div>
+
+            <SettingsTabs />
+
+            <div className="flex flex-col gap-6 max-w-4xl mt-6">
 
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                 
@@ -153,9 +158,9 @@ export default function ProfilePage() {
                             </div>
                         </form>
                     </div>
-
                 </div>
             </div>
         </div>
-    );
+    </div>
+);
 }

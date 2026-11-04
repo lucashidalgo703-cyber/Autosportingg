@@ -206,7 +206,7 @@ export function calculateDashboardMetrics(cars = []) {
         }
     };
 
-    const activeStatuses = ['disponible', 'reservado', 'pausado'];
+    const activeStatuses = ['disponible', 'reservado', 'pausado', 'publicado', 'activo'];
     let allAudits = [];
 
     cars.forEach(car => {
@@ -1085,6 +1085,7 @@ export function calculateDashboardMetrics(cars = []) {
                 }
             });
         }
+        metrics.sales = sales;
     }
 
     return metrics;

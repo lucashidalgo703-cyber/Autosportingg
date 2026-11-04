@@ -3,6 +3,36 @@ import CrmCard from '../ui/CrmCard';
 import { Calendar, AlertCircle, Clock, DollarSign } from 'lucide-react';
 import { hasPermission, PERMISSIONS } from '../../../utils/adminPermissions';
 
+export function formatVehicleLabel(vehicle) {
+    if (!vehicle) return null;
+    if (typeof vehicle === 'string') return vehicle.trim() || null;
+
+    const brand = (vehicle.brand || vehicle.marca || '').trim();
+    const name = (vehicle.name || vehicle.model || vehicle.modelo || vehicle.version || '').trim();
+    const year = vehicle.year || vehicle.año ? `(${vehicle.year || vehicle.año})` : '';
+
+    let description = '';
+    if (brand && name) {
+        if (name.toLowerCase().startsWith(brand.toLowerCase())) {
+            description = name;
+        } else {
+            description = `${brand} ${name}`;
+        }
+    } else {
+        description = brand || name || '';
+    }
+
+    if (!description && vehicle.plateOrVin) {
+        description = `Patente ${vehicle.plateOrVin}`;
+    }
+
+    if (!description) {
+        return year ? `Vehículo ${year}` : null;
+    }
+
+    return `${description} ${year}`.trim();
+}
+
 export default function UpcomingDuesPanel({ user, hideAmounts }) {
     const [dues, setDues] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -128,7 +158,7 @@ export default function UpcomingDuesPanel({ user, hideAmounts }) {
                     {dues.map((due) => {
                         const badge = getDueDateBadge(due.dueDate);
                         const clientName = due.clientId?.fullName || due.clientId?.name || due.customerName || 'Cliente no especificado';
-                        const vehicleLabel = due.vehicleId ? `${due.vehicleId.marca} ${due.vehicleId.modelo} (${due.vehicleId.year})` : null;
+                        const vehicleLabel = formatVehicleLabel(due.vehicleId);
                         const remaining = due.amount - (due.paidAmount || 0);
 
                         return (

@@ -31,6 +31,7 @@ import { useAdminSales } from '../../../hooks/useAdminSales';
 import { useAdminTransactions } from '../../../hooks/useAdminTransactions';
 import { useAdminPersonalAssets } from '../../../hooks/useAdminPersonalAssets';
 import LoadingSkeleton from '../../../components/crm/ui/LoadingSkeleton';
+import { isMySaleOrReservation } from '../../../utils/saleOwnership';
 
 const TAB_MI_DIA = 'Mi d\u00eda';
 const TODAY = () => new Date().toISOString().split('T')[0];
@@ -923,6 +924,19 @@ export default function MiEspacioPage() {
             !['entregada', 'cancelada', 'borrador'].includes(String(sale.status || '').toLowerCase())
         ));
 
+        // Resumen propio para la pestaña "Mis ventas" (conservando el alcance general en "Tu agencia")
+        const mySales = data.sales.filter((sale) => isMySaleOrReservation(sale, user));
+        const myThisMonthSales = mySales.filter((sale) => (
+            isSameMonth(sale.saleDate || sale.createdAt, now) &&
+            !['cancelada', 'borrador'].includes(String(sale.status || '').toLowerCase())
+        ));
+        const myActiveFiles = mySales.filter((sale) => (
+            !['entregada', 'cancelada', 'borrador'].includes(String(sale.status || '').toLowerCase())
+        ));
+        const myMonthIncomeUsd = myThisMonthSales
+            .filter((sale) => sale.saleCurrency === 'USD')
+            .reduce((acc, sale) => acc + Number(sale.salePrice || 0), 0);
+
         const monthInstallments = data.installments.filter((item) => isSameMonth(item.dueDate, now));
         const unpaidInstallments = data.installments.filter((item) => String(item.status || '').toLowerCase() !== 'pagada');
         const monthUnpaidInstallments = monthInstallments.filter((item) => String(item.status || '').toLowerCase() !== 'pagada');
@@ -1025,6 +1039,9 @@ export default function MiEspacioPage() {
             availableStock,
             thisMonthSales,
             activeFiles,
+            myThisMonthSales,
+            myActiveFiles,
+            myMonthIncomeUsd,
             monthInstallments,
             monthUnpaidInstallments,
             unpaidInstallments,
@@ -1052,7 +1069,7 @@ export default function MiEspacioPage() {
                 netoUSD: patrimonioNetoUSD
             }
         };
-    }, [data]);
+    }, [data, user]);
 
     const displayName = user?.name || user?.username || (user?.email ? user.email.split('@')[0] : 'Equipo');
     const role = user?.role === 'admin' ? 'Administrador' : (user?.role || 'Usuario');
@@ -1205,14 +1222,14 @@ export default function MiEspacioPage() {
         if (activeTab === 'Mis ventas') {
             return (
                 <>
-                    <PanelHeader title={`Mis ventas — ${summary.thisMonthSales.length} operaciones`} subtitle="Tu actividad comercial del mes en AutoSporting." />
+                    <PanelHeader title={`Mis ventas — ${summary.myThisMonthSales.length} operaciones`} subtitle="Tu actividad comercial del mes en AutoSporting." />
                     <section className="grid grid-cols-1 gap-3 md:grid-cols-3">
-                        <StatCard icon={Trophy} value={summary.thisMonthSales.length} label="Ventas del mes" tone="indigo" />
-                        <StatCard icon={Wallet} value={money(summary.monthIncomeUsd, 'USD')} label="Ingresos USD" tone="green" />
-                        <StatCard icon={Briefcase} value={summary.activeFiles.length} label="Operaciones abiertas" tone="violet" />
+                        <StatCard icon={Trophy} value={summary.myThisMonthSales.length} label="Ventas del mes" tone="indigo" />
+                        <StatCard icon={Wallet} value={money(summary.myMonthIncomeUsd, 'USD')} label="Ingresos USD" tone="green" />
+                        <StatCard icon={Briefcase} value={summary.myActiveFiles.length} label="Operaciones abiertas" tone="violet" />
                     </section>
                     <ListPanel
-                        items={summary.thisMonthSales.slice(0, 8)}
+                        items={summary.myThisMonthSales.slice(0, 8)}
                         emptyTitle="Sin ventas registradas"
                         emptyText="Todavía no hay operaciones asociadas a tu usuario este mes."
                         renderItem={(sale) => (

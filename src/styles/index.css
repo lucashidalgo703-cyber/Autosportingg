@@ -27,6 +27,7 @@
   --space-2: 0.5rem;
   --space-3: 0.75rem;
   --space-4: 1rem;
+  --space-5: 1.25rem;
   --space-6: 1.5rem;
   --space-8: 2rem;
   --space-12: 3rem;
@@ -315,7 +316,9 @@ ul {
   --crm-sidebar: #161619;
   --crm-surface: #1E1E24;
   --crm-surface-raised: #28282E;
+  --crm-surface-raised-rgb: 40, 40, 46;
   --crm-border: #33333A;
+  --crm-border-rgb: 51, 51, 58;
   --crm-border-strong: #4A4A52;
   --crm-fg: #FAFAFA;
   --crm-fg-muted: #A1A1AA;
@@ -347,7 +350,9 @@ ul {
   --crm-sidebar: #FFFFFF;
   --crm-surface: #FFFFFF;
   --crm-surface-raised: #F9FAFB;
-  --crm-border: #E5E7EB; /* border gray-200 */
+  --crm-surface-raised-rgb: 249, 250, 251;
+  --crm-border: #E5E7EB;
+  --crm-border-rgb: 229, 231, 235; /* border gray-200 */
   --crm-border-strong: #D1D5DB; /* border gray-300 */
   --crm-fg: #111827; /* gray-900 */
   --crm-fg-muted: #374151; /* gray-700 for better contrast */
@@ -568,6 +573,20 @@ ul {
 /* --- TAILWIND CSS PARA PANEL DE ADMINISTRACIÓN --- */
 @tailwind components;
 @tailwind utilities;
+
+/* TAILWIND GRADIENT AND ALPHA SUPPORT WITHOUT PREFLIGHT */
+*, ::before, ::after {
+  --tw-gradient-from-position: 0%;
+  --tw-gradient-via-position: 50%;
+  --tw-gradient-to-position: 100%;
+}
+
+.bg-crm-surface-raised\/40 {
+  background-color: rgba(var(--crm-surface-raised-rgb), 0.4);
+}
+.border-crm-border\/40 {
+  border-color: rgba(var(--crm-border-rgb), 0.4);
+}
 
 /* GLOBAL BUTTON FIX FOR MISSING TAILWIND BASE */
 button {

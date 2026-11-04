@@ -504,15 +504,15 @@ export default function MonthlyGainPanel({
                         }
 
                         if (exceedsTarget) {
-                            barBg = 'bg-gradient-to-t from-emerald-600 to-emerald-400 shadow-[0_0_12px_rgba(16,185,129,0.35)]';
+                            barBg = 'bg-emerald-600 bg-gradient-to-t from-emerald-600 to-emerald-400 shadow-[0_0_12px_rgba(16,185,129,0.35)]';
                             barBorder = 'border-emerald-300';
                         } else if (isPositive) {
                             barBg = isProjected
-                                ? 'bg-gradient-to-t from-indigo-600/80 to-indigo-400/90'
-                                : 'bg-gradient-to-t from-emerald-600/80 to-teal-400/90';
+                                ? 'bg-indigo-600 bg-gradient-to-t from-indigo-600/80 to-indigo-400/90'
+                                : 'bg-emerald-600 bg-gradient-to-t from-emerald-600/80 to-teal-400/90';
                             barBorder = isProjected ? 'border-indigo-400/50' : 'border-emerald-400/50';
                         } else if (isNegative) {
-                            barBg = 'bg-gradient-to-t from-red-600/80 to-red-400/90';
+                            barBg = 'bg-red-600 bg-gradient-to-t from-red-600/80 to-red-400/90';
                             barBorder = 'border-red-400';
                         } else if (m.incompleteCount > 0) {
                             barBg = 'bg-amber-500/20';
@@ -522,13 +522,25 @@ export default function MonthlyGainPanel({
                         return (
                             <div
                                 key={m.key || idx}
+                                tabIndex={0}
+                                role="button"
+                                aria-label={`Auditar ${m.fullLabel}: ${hideAmounts ? '***' : (isUSD ? 'USD ' + formatUSD(m.gainUSD) : 'ARS ' + formatNumber(m.gainARS))}, ${m.salesCount} ${m.salesCount === 1 ? 'operación' : 'operaciones'}`}
+                                onFocus={() => setHoveredMonthIndex(idx)}
+                                onBlur={() => setHoveredMonthIndex(null)}
+                                onKeyDown={(e) => {
+                                    if (e.key === 'Enter' || e.key === ' ') {
+                                        e.preventDefault();
+                                        setAuditMonthFilter(m.key);
+                                        setShowAuditModal(true);
+                                    }
+                                }}
                                 onMouseEnter={() => setHoveredMonthIndex(idx)}
                                 onMouseLeave={() => setHoveredMonthIndex(null)}
                                 onClick={() => {
                                     setAuditMonthFilter(m.key);
                                     setShowAuditModal(true);
                                 }}
-                                className="group relative flex flex-1 h-full flex-col justify-end items-center cursor-pointer select-none"
+                                className="group relative flex flex-1 h-full flex-col justify-end items-center cursor-pointer select-none focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400 focus-visible:ring-offset-2 focus-visible:ring-offset-crm-surface rounded-t-md"
                             >
                                 {/* Tooltip flotante interactivo */}
                                 {isHovered && (
@@ -548,10 +560,10 @@ export default function MonthlyGainPanel({
                                             </span>
                                         </div>
                                         <p className="text-xs font-black text-crm-fg">
-                                            {isUSD ? `USD ${formatUSD(m.gainUSD)}` : `ARS ${formatNumber(m.gainARS)}`}
+                                            {hideAmounts ? '***' : (isUSD ? `USD ${formatUSD(m.gainUSD)}` : `ARS ${formatNumber(m.gainARS)}`)}
                                         </p>
                                         <p className="text-[10px] text-crm-fg-muted">
-                                            Equiv: {isUSD ? `ARS ${formatNumber(m.gainARS)}` : `USD ${formatUSD(m.gainUSD)}`}
+                                            Equiv: {hideAmounts ? '***' : (isUSD ? `ARS ${formatNumber(m.gainARS)}` : `USD ${formatUSD(m.gainUSD)}`)}
                                         </p>
                                         <div className="mt-1.5 pt-1.5 border-t border-crm-border/40 text-[10px] space-y-0.5">
                                             <p className="text-crm-fg-muted">

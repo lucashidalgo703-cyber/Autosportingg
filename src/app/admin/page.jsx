@@ -116,6 +116,7 @@ export default function AdminDashboardPage() {
                     ) : (
                         <GeneralDashboardSote
                             metrics={metrics}
+                            sales={data?.sales || []}
                             canSeeFinancials={hasPermission(user, PERMISSIONS.FINANZAS_READ) && !hideAmounts}
                             user={user}
                             hideAmounts={hideAmounts}

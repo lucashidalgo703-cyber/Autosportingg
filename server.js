@@ -1895,7 +1895,7 @@ app.get('/api/admin/dashboard', authenticateToken, async (req, res) => {
         // Excluimos checklists pesados y descripciones extensas que sobrecargan el payload.
         const [cars, sales, transactions, installments, dolarBlue, dolarBlueHistory, crmSettings] = await Promise.all([
             Car.find({})
-                .select('brand name model year status price currency purchasePrice purchaseCurrency agencyOwned isSharedInvestment investor expenses fechaIngresoStock createdAt coverImage visibleEnWeb consignedBy documentation plateOrVin plate auditLog')
+                .select('brand name model year status sold price currency purchasePrice purchaseCurrency agencyOwned isSharedInvestment investor expenses fechaIngresoStock createdAt coverImage visibleEnWeb consignedBy documentation plateOrVin plate auditLog')
                 .lean(),
             Sale.find({})
                 .select('saleDate createdAt status salePrice saleCurrency vehicleId salesperson assignedTo createdBy consignationOwnerId vehicleOwnerName notes paymentMethod clientId buyerName financingDetails exchangeRate saleExpenses commissionSettings tradeIns tradeInTotalAmount depositAppliedAmount depositAppliedCurrency')
@@ -2139,7 +2139,7 @@ app.get('/api/admin/cars', authenticateToken, requirePermission(PERMISSIONS.STOC
             disponiblesTotalUSD: Math.round(valorTotalUSD),
             disponiblesPropioUSD: Math.round(valorPropioUSD),
             disponiblesInversionistasUSD: Math.round(valorInversionistasUSD),
-            disponiblesComputadosCount: disponibles.length - consignacionesCount - tercerosCount,
+            disponiblesComputadosCount: Math.max(0, disponibles.length - consignacionesCount - tercerosCount),
             disponiblesTotalCount: disponibles.length,
             // Inconsistencias
             inconsistencias: {
@@ -2327,7 +2327,7 @@ app.get('/api/admin/dashboard/upcoming-dues', authenticateToken, requirePermissi
 
         const upcomingDues = await Installment.find(query)
             .populate('clientId', 'name fullName email phone')
-            .populate('vehicleId', 'marca modelo version year precio')
+            .populate('vehicleId', 'brand name model year price currency plateOrVin')
             .sort({ dueDate: 1 })
             .limit(15)
             .lean();
@@ -5388,15 +5388,15 @@ app.get('/api/admin/sales', authenticateToken, requirePermission(PERMISSIONS.VEN
             })
             .populate({
                 path: 'postSaleResponsible',
-                select: 'firstName lastName email'
+                select: 'name firstName lastName email'
             })
             .populate({
                 path: 'assignedTo',
-                select: 'firstName lastName email'
+                select: 'name firstName lastName email'
             })
             .populate({
                 path: 'expedienteResponsible',
-                select: 'firstName lastName email'
+                select: 'name firstName lastName email'
             })
             .sort({ saleDate: -1, createdAt: -1 })
             .select('-saleAuditLog -postSaleChecklist -documentationChecklist -deliveryChecklist')

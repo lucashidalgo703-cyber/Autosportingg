@@ -1,6 +1,6 @@
 import React from 'react';
 import Link from 'next/link';
-import { Filter, ExternalLink } from 'lucide-react';
+import { Filter, ExternalLink, AlertTriangle, Car } from 'lucide-react';
 import CrmTable from '../ui/CrmTable';
 
 const getVehicleYear = (vehicle) => vehicle.year || vehicle['año'] || 'S/D';
@@ -75,7 +75,26 @@ const getFormattedListTotals = (filteredTotalUSD = 0, filteredTotalARS = 0, dola
     return result;
 };
 
-export default function StockTable({ data, onEditML, onDelete, onPrint, onSwap, isSwapping, currentPage = 1, totalPages = 1, onReserve, totalItems, filteredTotalUSD, filteredTotalARS, dolarBlue }) {
+export default function StockTable({
+    data,
+    onEditML,
+    onDelete,
+    onPrint,
+    onSwap,
+    isSwapping,
+    currentPage = 1,
+    totalPages = 1,
+    onReserve,
+    totalItems,
+    filteredTotalUSD,
+    filteredTotalARS,
+    dolarBlue,
+    hasActiveFilters = false,
+    onClearFilters = null,
+    error = null,
+    onRetry = null,
+    onNewVehicle = null
+}) {
     const columns = [
         {
             label: 'Orden',
@@ -245,6 +264,58 @@ export default function StockTable({ data, onEditML, onDelete, onPrint, onSwap, 
         }
     ];
 
+        let emptyIcon = Filter;
+    let emptyTitle = "Sin resultados";
+    let emptyMessage = "Todavía no hay vehículos en el stock. Cargá el primero con el botón Nuevo vehículo.";
+    let emptyAction = null;
+
+    if (error) {
+        emptyIcon = AlertTriangle;
+        emptyTitle = "Error al cargar el stock";
+        emptyMessage = typeof error === 'string' ? error : "Ocurrió un problema al obtener los vehículos.";
+        if (onRetry) {
+            emptyAction = (
+                <button
+                    type="button"
+                    onClick={onRetry}
+                    className="inline-flex items-center gap-2 rounded-lg border border-crm-red/30 bg-crm-red/10 px-4 py-2 text-sm font-semibold text-crm-red hover:bg-crm-red/20 transition-colors"
+                >
+                    Reintentar
+                </button>
+            );
+        }
+    } else if (hasActiveFilters) {
+        emptyIcon = Filter;
+        emptyTitle = "Sin coincidencias";
+        emptyMessage = "No se encontraron vehículos que coincidan con la búsqueda o filtros aplicados.";
+        if (onClearFilters) {
+            emptyAction = (
+                <button
+                    type="button"
+                    onClick={onClearFilters}
+                    className="inline-flex items-center gap-1.5 rounded-lg border border-crm-border bg-crm-bg px-4 py-2 text-sm font-semibold text-crm-fg hover:bg-crm-surface-hover transition-colors"
+                >
+                    Limpiar filtros
+                </button>
+            );
+        }
+    } else {
+        emptyIcon = Car;
+        emptyTitle = "Inventario vacío";
+        emptyMessage = "Todavía no hay vehículos registrados en el stock.";
+        if (onNewVehicle) {
+            emptyAction = (
+                <button
+                    type="button"
+                    onClick={onNewVehicle}
+                    className="inline-flex items-center gap-1.5 rounded-lg bg-crm-red text-white px-4 py-2 text-sm font-semibold hover:bg-crm-red-hover transition-colors shadow-crm-shadow-red"
+                >
+                    Nuevo vehículo
+                </button>
+            );
+        }
+    }
+
     return (
         <div className="flex flex-col gap-4">
             <div className="rounded-xl border border-crm-border bg-crm-surface p-3 text-xs font-semibold text-crm-fg flex flex-col sm:flex-row sm:items-center justify-between gap-2">
@@ -262,8 +333,8 @@ export default function StockTable({ data, onEditML, onDelete, onPrint, onSwap, 
                     </strong>
                 </div>
             </div>
-            
-            <CrmTable 
+
+            <CrmTable
                 data={data}
                 columns={columns}
                 emptyIcon={Filter}

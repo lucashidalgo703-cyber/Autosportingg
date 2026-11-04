@@ -49,6 +49,25 @@ export default function AdminStockPage() {
     const [mlFilter, setMlFilter] = useState('todas');
     const [selectedVehicleForPrint, setSelectedVehicleForPrint] = useState(null);
 
+    const hasActiveFilters = Boolean(
+        searchTerm.trim() ||
+        debouncedSearch.trim() ||
+        (brandFilter && brandFilter !== 'todas') ||
+        (mlFilter && mlFilter !== 'todas') ||
+        (filterStatus && filterStatus !== 'todos' && filterStatus !== '') ||
+        (stockTab && stockTab !== 'stock')
+    );
+
+    const handleClearFilters = () => {
+        setSearchTerm('');
+        setDebouncedSearch('');
+        setBrandFilter('todas');
+        setMlFilter('todas');
+        setFilterStatus('');
+        setStockTab('stock');
+        setPageNumber(1);
+    };
+
     const handlePrint = (carToPrint) => {
         setSelectedVehicleForPrint(carToPrint);
         setTimeout(() => {
@@ -208,7 +227,9 @@ export default function AdminStockPage() {
             valorTotalUSD: 0,
             valorTotalARS: 0,
             costoTotalUSD: 0,
-            costoTotalARS: 0
+            costoTotalARS: 0,
+            disponiblesComputadosCount: 0,
+            disponiblesTotalCount: 0
         };
     }, [backendSummary, mandates.length]);
 
@@ -435,12 +456,15 @@ export default function AdminStockPage() {
                                     <span className="text-[11px] font-bold uppercase tracking-wider text-crm-fg-subtle">
                                         1. Valor total disponible
                                     </span>
-                                    <span className="rounded-full bg-blue-500/10 px-2 py-0.5 text-[10px] font-semibold text-blue-400 border border-blue-500/20">
-                                        Disponibles ({stockSummary.disponiblesComputadosCount || stockSummary.disponibles} unid.)
+                                    <span
+                                        className="rounded-full bg-blue-500/10 px-2 py-0.5 text-[10px] font-semibold text-blue-400 border border-blue-500/20"
+                                        title={`Valorados: ${stockSummary.disponiblesComputadosCount ?? (stockSummary.disponibles ? Math.max(0, stockSummary.disponibles - (stockSummary.consignacionesSoloCount || 0) - (stockSummary.tercerosCount || 0)) : 0)} de ${stockSummary.disponiblesTotalCount ?? stockSummary.disponibles ?? 0} disponibles totales`}
+                                    >
+                                        Disponibles ({stockSummary.disponiblesComputadosCount ?? (stockSummary.disponibles ? Math.max(0, stockSummary.disponibles - (stockSummary.consignacionesSoloCount || 0) - (stockSummary.tercerosCount || 0)) : 0)} de {stockSummary.disponiblesTotalCount ?? stockSummary.disponibles ?? 0} unid.)
                                     </span>
                                 </div>
                                 <p className="text-xs text-crm-fg-muted mb-3 leading-relaxed">
-                                    Precio publicado completo de vehículos propios y compartidos disponibles.
+                                    Precio publicado completo de vehículos propios y compartidos disponibles (excluye consignaciones y terceros informados aparte).
                                 </p>
                                 <div className="space-y-1">
                                     <div className="text-2xl md:text-3xl font-extrabold tracking-tight text-white">
@@ -698,6 +722,19 @@ export default function AdminStockPage() {
                                     filteredTotalUSD={filteredTotalUSD}
                                     filteredTotalARS={filteredTotalARS}
                                     dolarBlue={dolarBlue}
+                                    hasActiveFilters={hasActiveFilters}
+                                    onClearFilters={handleClearFilters}
+                                    error={error}
+                                    onRetry={() => refresh({
+                                        page: pageNumber,
+                                        limit: 20,
+                                        search: debouncedSearch,
+                                        status: filterStatus,
+                                        brand: brandFilter,
+                                        tab: stockTab,
+                                        ml: mlFilter
+                                    })}
+                                    onNewVehicle={() => { setEditingCar(null); setIsFormOpen(true); }}
                                 />
                             </div>
                             <div className="block lg:hidden">
@@ -710,6 +747,19 @@ export default function AdminStockPage() {
                                     filteredTotalUSD={filteredTotalUSD}
                                     filteredTotalARS={filteredTotalARS}
                                     dolarBlue={dolarBlue}
+                                    hasActiveFilters={hasActiveFilters}
+                                    onClearFilters={handleClearFilters}
+                                    error={error}
+                                    onRetry={() => refresh({
+                                        page: pageNumber,
+                                        limit: 20,
+                                        search: debouncedSearch,
+                                        status: filterStatus,
+                                        brand: brandFilter,
+                                        tab: stockTab,
+                                        ml: mlFilter
+                                    })}
+                                    onNewVehicle={() => { setEditingCar(null); setIsFormOpen(true); }}
                                 />
                             </div>
                             <CrmPagination

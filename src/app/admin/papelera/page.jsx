@@ -19,6 +19,7 @@ export default function PapeleraPage() {
     const [confirmModal, setConfirmModal] = useState({ isOpen: false, action: null, id: null });
 
     const [tab, setTab] = useState('clientes'); // clientes, ventas, expedientes
+    const [clientSubFilter, setClientSubFilter] = useState('todos'); // 'todos' | 'client' | 'lead'
     const [searchTerm, setSearchTerm] = useState('');
 
     const fetchTrash = async () => {
@@ -94,8 +95,11 @@ export default function PapeleraPage() {
     const getEntityName = (record) => {
         const s = record.snapshot;
         if (!s) return 'Desconocido';
-        if (record.entityType === 'Client' || record.entityType === 'Lead') {
+        if (record.entityType === 'Client') {
             return `${s.firstName || s.name || ''} ${s.lastName || ''}`.trim() || 'Sin Nombre';
+        }
+        if (record.entityType === 'Lead') {
+            return `Lead: ${s.name || s.firstName || ''} ${s.lastName || ''}`.trim() || 'Lead sin nombre';
         }
         if (record.entityType === 'Quote') {
             return `Cotización ${s.status ? '('+s.status+')' : ''}`;
@@ -117,7 +121,11 @@ export default function PapeleraPage() {
 
     const filteredRecords = records.filter(r => {
         // Tab logic
-        if (tab === 'clientes' && !['Client', 'Lead'].includes(r.entityType)) return false;
+        if (tab === 'clientes') {
+            if (!['Client', 'Lead'].includes(r.entityType)) return false;
+            if (clientSubFilter === 'client' && r.entityType !== 'Client') return false;
+            if (clientSubFilter === 'lead' && r.entityType !== 'Lead') return false;
+        }
         if (tab === 'cotizaciones' && !['Quote'].includes(r.entityType)) return false;
         if (tab === 'ventas' && !['Sale'].includes(r.entityType)) return false;
         if (tab === 'expedientes' && !['Gestoria', 'Car', 'Task', 'Reservation', 'Opportunity', 'Complaint', 'Mandate'].includes(r.entityType)) return false;
@@ -163,7 +171,7 @@ export default function PapeleraPage() {
                     <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-crm-surface border border-crm-border p-2 rounded-xl">
                         <div className="flex gap-1 bg-crm-bg p-1 rounded-lg w-full md:w-auto overflow-x-auto hide-scrollbar">
                             <button onClick={() => setTab('clientes')} className={`flex-1 md:flex-none px-4 py-2 rounded-lg text-xs font-bold transition-colors ${tab === 'clientes' ? 'bg-crm-surface text-crm-fg shadow-sm' : 'text-crm-fg-muted hover:text-crm-fg'}`}>
-                                Clientes
+                                Clientes y Leads
                             </button>
                             <button onClick={() => setTab('cotizaciones')} className={`flex-1 md:flex-none px-4 py-2 rounded-lg text-xs font-bold transition-colors ${tab === 'cotizaciones' ? 'bg-crm-surface text-crm-fg shadow-sm' : 'text-crm-fg-muted hover:text-crm-fg'}`}>
                                 Cotizaciones
@@ -186,6 +194,40 @@ export default function PapeleraPage() {
                             />
                         </div>
                     </div>
+
+                    {tab === 'clientes' && (
+                        <div className="flex flex-wrap items-center justify-between gap-3 px-1 text-xs">
+                            <div className="flex items-center gap-2">
+                                <span className="font-semibold text-crm-fg-muted">Subfiltro:</span>
+                                <div className="flex gap-1 bg-crm-surface border border-crm-border p-1 rounded-lg">
+                                    <button
+                                        type="button"
+                                        onClick={() => setClientSubFilter('todos')}
+                                        className={`px-3 py-1 rounded-md font-bold transition-colors ${clientSubFilter === 'todos' ? 'bg-crm-bg text-crm-fg shadow-sm' : 'text-crm-fg-muted hover:text-crm-fg'}`}
+                                    >
+                                        Todos ({records.filter(r => ['Client', 'Lead'].includes(r.entityType)).length})
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={() => setClientSubFilter('client')}
+                                        className={`px-3 py-1 rounded-md font-bold transition-colors ${clientSubFilter === 'client' ? 'bg-blue-500/20 text-blue-400 border border-blue-500/30' : 'text-crm-fg-muted hover:text-crm-fg'}`}
+                                    >
+                                        Solo Clientes ({records.filter(r => r.entityType === 'Client').length})
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={() => setClientSubFilter('lead')}
+                                        className={`px-3 py-1 rounded-md font-bold transition-colors ${clientSubFilter === 'lead' ? 'bg-purple-500/20 text-purple-400 border border-purple-500/30' : 'text-crm-fg-muted hover:text-crm-fg'}`}
+                                    >
+                                        Solo Leads ({records.filter(r => r.entityType === 'Lead').length})
+                                    </button>
+                                </div>
+                            </div>
+                            <span className="text-crm-fg-subtle">
+                                Los leads eliminados se administran bajo esta sección y se restauran directamente al módulo de Leads.
+                            </span>
+                        </div>
+                    )}
 
                     {/* Tabla de Papelera */}
                     <div className="bg-crm-surface border border-crm-border rounded-2xl shadow-sm overflow-hidden min-h-[400px] flex flex-col">
@@ -219,7 +261,7 @@ export default function PapeleraPage() {
                                                 <tr key={r._id} className="hover:bg-crm-bg/50 transition-colors group">
                                                     <td className="px-6 py-4">
                                                         <div className="flex items-center gap-2 font-bold bg-crm-bg px-2 py-1 rounded-lg w-max border border-crm-border">
-                                                            {getEntityIcon(r.entityType)} {r.entityType}
+                                                            {getEntityIcon(r.entityType)} {r.entityType === 'Client' ? 'Cliente' : r.entityType === 'Lead' ? 'Lead' : r.entityType}
                                                         </div>
                                                     </td>
                                                     <td className="px-6 py-4">

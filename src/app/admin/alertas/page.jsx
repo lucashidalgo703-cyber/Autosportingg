@@ -1,6 +1,7 @@
 "use client";
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState, Suspense } from 'react';
 import Link from 'next/link';
+import { useSearchParams } from 'next/navigation';
 import {
     CalendarDays,
     Check,
@@ -99,8 +100,8 @@ const shortId = (value) => {
 const isPending = (status) => String(status || '').toLowerCase() === 'pendiente';
 
 const isActiveVehicle = (status) => {
-    const value = String(status || '').toLowerCase();
-    return ['disponible', 'publicado', 'activo', ''].includes(value);
+    const value = String(status || '').toLowerCase().trim();
+    return ['disponible', 'publicado', 'activo', 'reservado', 'pausado', ''].includes(value);
 };
 
 const daysSince = (value, fallback = 999) => {
@@ -141,6 +142,28 @@ async function safeFetchJson(endpoint, keys = [], timeoutMs = 6500) {
     } finally {
         window.clearTimeout(timeout);
     }
+}
+
+async function fetchCarsPaginated(pageSize = 50) {
+    const token = localStorage.getItem('token');
+    const headers = token ? { Authorization: `Bearer ${token}` } : {};
+    let allCars = [];
+    let page = 1;
+    let totalPages = 1;
+
+    do {
+        const response = await fetch(`/api/admin/cars?page=${page}&limit=${pageSize}`, { headers });
+        if (!response.ok) {
+            throw new Error(`Error al consultar inventario de vehículos (código HTTP: ${response.status})`);
+        }
+        const data = await response.json();
+        const pageCars = Array.isArray(data.cars) ? data.cars : [];
+        allCars = allCars.concat(pageCars);
+        totalPages = data.pages || (data.total ? Math.ceil(data.total / pageSize) : 1) || 1;
+        page++;
+    } while (page <= totalPages);
+
+    return allCars;
 }
 
 function AlertCard({ alert, onDismiss }) {
@@ -226,8 +249,12 @@ function AlertSection({ group, alerts, isOpen, onToggle, onDismiss }) {
     );
 }
 
-export default function AdminAlertasPage() {
+function AdminAlertasInner() {
+    const searchParams = useSearchParams();
+    const queryFilter = searchParams ? searchParams.get('filtro') : null;
+
     const [loading, setLoading] = useState(true);
+    const [error, setError] = useState(null);
     const [dismissedIds, setDismissedIds] = useState([]);
     const [closedGroups, setClosedGroups] = useState({});
     const [data, setData] = useState({
@@ -241,6 +268,13 @@ export default function AdminAlertasPage() {
     
     const [filterType, setFilterType] = useState('Todas');
     const [filterOwner, setFilterOwner] = useState('Todos');
+    const [filterTopic, setFilterTopic] = useState(queryFilter === 'patentes' ? 'patentes' : 'todos');
+
+    useEffect(() => {
+        if (queryFilter === 'patentes') {
+            setFilterTopic('patentes');
+        }
+    }, [queryFilter]);
 
     // Load dismissed alerts from local storage on mount
     useEffect(() => {
@@ -269,19 +303,28 @@ export default function AdminAlertasPage() {
 
         const loadAlerts = async () => {
             setLoading(true);
+            setError(null);
 
-            const [tasks, leads, sales, reservations, cars, tramites] = await Promise.all([
-                safeFetchJson('/api/admin/crm-tasks', ['tasks']),
-                safeFetchJson('/api/leads', ['leads']),
-                safeFetchJson('/api/admin/sales', ['sales']),
-                safeFetchJson('/api/admin/reservations', ['reservations']),
-                safeFetchJson('/api/admin/cars', ['cars']),
-                safeFetchJson('/api-gestoria')
-            ]);
+            try {
+                const [tasks, leads, sales, reservations, cars, tramites] = await Promise.all([
+                    safeFetchJson('/api/admin/crm-tasks', ['tasks']),
+                    safeFetchJson('/api/leads', ['leads']),
+                    safeFetchJson('/api/admin/sales', ['sales']),
+                    safeFetchJson('/api/admin/reservations', ['reservations']),
+                    fetchCarsPaginated(50),
+                    safeFetchJson('/api-gestoria')
+                ]);
 
-            if (!mounted) return;
-            setData({ tasks, leads, sales, reservations, cars, tramites });
-            setLoading(false);
+                if (!mounted) return;
+                setData({ tasks, leads, sales, reservations, cars, tramites });
+            } catch (err) {
+                console.error('Error loading alerts data:', err);
+                if (mounted) {
+                    setError('No se pudieron cargar las alertas del CRM. Verificá la conexión y reintentá.');
+                }
+            } finally {
+                if (mounted) setLoading(false);
+            }
         };
 
         loadAlerts();
@@ -334,11 +377,15 @@ export default function AdminAlertasPage() {
             });
         });
 
-        // Alertas automáticas de Patentes / Libre Deuda en Stock
-        const carsWithPendingPatentes = data.cars.filter((car) => 
-            isActiveVehicle(car.status) && 
-            car.documentation?.libreDeudaPatentes === 'pendiente'
-        );
+        // Alertas automáticas de Patentes / Libre Deuda en Stock (conciliado con Dashboard)
+        const carsWithPendingPatentes = data.cars.filter((car) => {
+            const doc = car.documentation || {};
+            const status = String(car.status || 'disponible').toLowerCase().trim();
+            const isSold = car.sold === true || status === 'vendido';
+            const isCancelled = ['cancelado', 'anulado'].includes(status);
+            const isActive = ['disponible', 'publicado', 'activo', 'reservado', 'pausado'].includes(status) && !isSold && !isCancelled;
+            return isActive && (doc.libreDeudaPatentes === 'pendiente' || doc.patentes === 'pendiente');
+        });
         carsWithPendingPatentes.forEach((car) => {
             const carName = `${car.brand || ''} ${car.name || car.model || ''} ${car.year || ''}`.replace(/\s+/g, ' ').trim() || 'Vehículo en stock';
             const plate = car.plateOrVin ? `(${car.plateOrVin})` : '';
@@ -500,6 +547,10 @@ export default function AdminAlertasPage() {
 
         let filtered = items.filter((item) => !dismissedIds.includes(item.id));
         
+        if (filterTopic === 'patentes') {
+            filtered = filtered.filter(item => item.id.startsWith('car-patente-') || item.badge === 'Patente Pendiente');
+        }
+
         if (filterType !== 'Todas') {
             filtered = filtered.filter(item => item.category === filterType);
         }
@@ -516,7 +567,7 @@ export default function AdminAlertasPage() {
         });
 
         return filtered;
-    }, [data, dismissedIds, today, filterType, filterOwner]);
+    }, [data, dismissedIds, today, filterType, filterOwner, filterTopic]);
 
     const ownersList = useMemo(() => {
         const owners = new Set();
@@ -569,6 +620,18 @@ export default function AdminAlertasPage() {
                 <div className="flex w-full sm:w-auto h-10 items-center rounded-lg border border-crm-border bg-crm-surface px-3 text-zinc-400">
                     <Filter size={14} className="mr-2 shrink-0" />
                     <select
+                        value={filterTopic}
+                        onChange={(e) => setFilterTopic(e.target.value)}
+                        className="w-full cursor-pointer appearance-none border-none bg-transparent text-sm font-bold text-white outline-none"
+                    >
+                        <option value="todos">Todos los temas</option>
+                        <option value="patentes">💳 Patentes Pendientes</option>
+                    </select>
+                </div>
+
+                <div className="flex w-full sm:w-auto h-10 items-center rounded-lg border border-crm-border bg-crm-surface px-3 text-zinc-400">
+                    <Filter size={14} className="mr-2 shrink-0" />
+                    <select
                         value={filterType}
                         onChange={(e) => setFilterType(e.target.value)}
                         className="w-full cursor-pointer appearance-none border-none bg-transparent text-sm font-bold text-white outline-none"
@@ -594,7 +657,18 @@ export default function AdminAlertasPage() {
                 </div>
             </div>
 
-            {loading ? (
+            {error ? (
+                <section className="flex min-h-[200px] flex-col items-center justify-center rounded-xl border border-red-500/25 bg-red-500/10 p-6 text-center text-red-200">
+                    <p className="m-0 text-sm font-semibold mb-3">{error}</p>
+                    <button
+                        type="button"
+                        onClick={() => window.location.reload()}
+                        className="rounded-lg bg-crm-red px-4 py-2 text-xs font-bold text-white shadow-sm hover:bg-red-500 transition-colors"
+                    >
+                        Reintentar
+                    </button>
+                </section>
+            ) : loading ? (
                 <section className="flex min-h-[220px] flex-col items-center justify-center rounded-xl border border-crm-border bg-crm-surface text-center">
                     <div className="mb-4 h-8 w-8 animate-spin rounded-full border-2 border-crm-border border-b-crm-red" />
                     <p className="m-0 text-xs font-bold uppercase tracking-[0.14em] text-crm-fg-muted">
@@ -624,5 +698,17 @@ export default function AdminAlertasPage() {
                 </div>
             )}
         </div>
+    );
+}
+
+export default function AdminAlertasPage() {
+    return (
+        <Suspense fallback={
+            <div className="mx-auto w-full max-w-[720px] p-6 text-center text-crm-fg-muted">
+                Cargando alertas...
+            </div>
+        }>
+            <AdminAlertasInner />
+        </Suspense>
     );
 }

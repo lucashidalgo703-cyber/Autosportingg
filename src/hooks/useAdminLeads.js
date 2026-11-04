@@ -15,8 +15,12 @@ export const useAdminLeads = () => {
     };
 
     const getBaseUrl = () => {
-        const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
-        return process.env.NODE_ENV === 'production' ? '' : API_URL;
+        const API_URL = process.env.NEXT_PUBLIC_API_URL;
+        const host = typeof window !== 'undefined' ? window.location.hostname : '';
+        const isLocalHost = host === 'localhost' || host === '127.0.0.1';
+        return (process.env.NODE_ENV === 'production' && !isLocalHost)
+            ? ''
+            : (API_URL || 'http://localhost:3001');
     };
 
     const fetchLeads = useCallback(async (filters = {}) => {

@@ -1,7 +1,7 @@
 "use client";
 import { useState } from 'react';
 import Link from 'next/link';
-import { ChevronDown, Filter } from 'lucide-react';
+import { ChevronDown, Filter, AlertTriangle, Car } from 'lucide-react';
 
 const getVehicleYear = (vehicle) => vehicle.year || vehicle['año'] || 'S/D';
 const formatNumber = (value) => Number(value || 0).toLocaleString('es-AR');
@@ -57,7 +57,7 @@ const getProgress = (days) => {
 };
 const getListValue = (data, filteredTotalUSD, filteredTotalARS, dolarBlue) => {
     let totalARS = 0;
-    
+
     if (filteredTotalUSD !== undefined && filteredTotalARS !== undefined) {
         totalARS = filteredTotalARS + (filteredTotalUSD * (dolarBlue || 1));
     } else {
@@ -73,7 +73,21 @@ const getListValue = (data, filteredTotalUSD, filteredTotalARS, dolarBlue) => {
     return `ARS ${formatNumber(Math.round(totalARS))}`;
 };
 
-export default function StockMobileCards({ data, onEditML, onDelete, onPrint, totalItems, filteredTotalUSD, filteredTotalARS, dolarBlue }) {
+export default function StockMobileCards({
+    data,
+    onEditML,
+    onDelete,
+    onPrint,
+    totalItems,
+    filteredTotalUSD,
+    filteredTotalARS,
+    dolarBlue,
+    hasActiveFilters = false,
+    onClearFilters = null,
+    error = null,
+    onRetry = null,
+    onNewVehicle = null
+}) {
     const [expandedId, setExpandedId] = useState(data[0]?.id || null);
 
     if (data.length === 0) {

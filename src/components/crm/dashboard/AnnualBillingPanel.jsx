@@ -549,13 +549,30 @@ export default function AnnualBillingPanel({
                             return (
                                 <div
                                     key={m.name}
+                                    tabIndex={0}
+                                    role="button"
+                                    aria-label={`Detalle de ${m.fullName} ${selectedYearForChart}: ${m.hasSales ? (chartMetric === 'billing' ? (hideAmounts ? '***' : 'ARS ' + formatCurrency(m.amountARS)) : m.carsCount + (m.carsCount === 1 ? ' vehículo' : ' vehículos')) : 'Sin operaciones'}`}
+                                    onFocus={() => setHoveredMonth(idx)}
+                                    onBlur={() => setHoveredMonth(null)}
+                                    onKeyDown={(e) => {
+                                        if (e.key === 'Enter' || e.key === ' ') {
+                                            e.preventDefault();
+                                            setHoveredMonth(hoveredMonth === idx ? null : idx);
+                                        }
+                                    }}
+                                    onClick={() => {
+                                        setHoveredMonth(idx);
+                                    }}
+                                    onTouchStart={() => {
+                                        setHoveredMonth(idx);
+                                    }}
                                     onMouseEnter={() => setHoveredMonth(idx)}
                                     onMouseLeave={() => setHoveredMonth(null)}
-                                    className="group relative flex flex-1 flex-col items-center justify-end h-full cursor-pointer"
+                                    className="group relative flex flex-1 flex-col items-center justify-end h-full cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400 focus-visible:ring-offset-2 focus-visible:ring-offset-crm-surface rounded-t-md"
                                 >
                                     {/* Tooltip flotante en Desktop */}
                                     <div
-                                        className={`pointer-events-none absolute bottom-full mb-2 z-30 hidden -translate-x-1/2 whitespace-nowrap rounded-lg border border-crm-border bg-crm-surface-raised px-3 py-2 text-left shadow-2xl transition-opacity group-hover:block ${
+                                        className={`pointer-events-none absolute bottom-full mb-2 z-30 ${isHovered ? 'block' : 'hidden'} group-hover:block -translate-x-1/2 whitespace-nowrap rounded-lg border border-crm-border bg-crm-surface-raised px-3 py-2 text-left shadow-2xl transition-opacity ${
                                             idx > 8 ? 'right-0 translate-x-0' : idx < 3 ? 'left-0 translate-x-0' : 'left-1/2'
                                         }`}
                                     >
@@ -588,10 +605,10 @@ export default function AnnualBillingPanel({
                                                     : chartMetric === 'billing'
                                                     ? isHovered
                                                         ? 'bg-emerald-400 shadow-lg shadow-emerald-500/20'
-                                                        : 'bg-gradient-to-t from-emerald-600/50 to-emerald-400 border-t border-emerald-300'
+                                                        : 'bg-emerald-600 bg-gradient-to-t from-emerald-600/50 to-emerald-400 border-t border-emerald-300'
                                                     : isHovered
                                                     ? 'bg-indigo-400 shadow-lg shadow-indigo-500/20'
-                                                    : 'bg-gradient-to-t from-indigo-600/50 to-indigo-400 border-t border-indigo-300'
+                                                    : 'bg-indigo-600 bg-gradient-to-t from-indigo-600/50 to-indigo-400 border-t border-indigo-300'
                                             }`}
                                             style={{ height: `${heightPercent}%` }}
                                         />
@@ -615,11 +632,11 @@ export default function AnnualBillingPanel({
                 <div className="mt-3 flex flex-wrap items-center justify-between gap-3 text-xs text-crm-fg-muted">
                     <div className="flex items-center gap-4">
                         <span className="flex items-center gap-1.5">
-                            <span className="h-2.5 w-2.5 rounded-sm bg-emerald-400" />
-                            Mes con ventas
+                            <span className={`h-2.5 w-2.5 rounded-sm ${chartMetric === 'billing' ? 'bg-emerald-400' : 'bg-indigo-400'}`} />
+                            {chartMetric === 'billing' ? 'Mes con facturación' : 'Mes con vehículos vendidos'}
                         </span>
                         <span className="flex items-center gap-1.5">
-                            <span className="h-2.5 w-2.5 rounded-sm bg-crm-surface-raised border border-crm-border/60" />
+                            <span className="h-2.5 w-2.5 rounded-sm bg-crm-surface-raised/40 border border-crm-border/40" />
                             Mes sin operaciones
                         </span>
                     </div>

@@ -55,7 +55,7 @@ export default function CrmShell({ children }) {
             <CrmSidebar isOpen={isSidebarOpen} onClose={closeSidebar} />
             <div className="flex min-w-0 max-w-full flex-1 flex-col overflow-x-hidden">
                 <CrmHeader onMenuClick={() => setSidebarOpen(true)} />
-                <main className="min-w-0 flex-1 touch-pan-y overflow-x-hidden pb-[calc(5.25rem+var(--safe-bottom,0px))] md:pb-0">
+                <main id="main-content" tabIndex={-1} className="min-w-0 flex-1 touch-pan-y overflow-x-hidden pb-[calc(5.25rem+var(--safe-bottom,0px))] md:pb-0 outline-none">
                     {children}
                 </main>
                 <CrmBottomNav isHidden={isSidebarOpen} />

@@ -11,6 +11,7 @@ import {
     ExternalLink,
     Filter,
     Plus,
+    RefreshCw,
     Search
 } from 'lucide-react';
 import { useAdminLeads } from '../../../hooks/useAdminLeads';
@@ -413,7 +414,8 @@ export default function AdminAgendaPage() {
     }).sort(sortEventsAsc);
     const pastEventsCount = normalizedEvents.length - upcomingEvents.length;
 
-    const loading = loadingLeads || loadingTasks;
+    // Spinner a pantalla completa solo en la carga inicial cuando ambas fuentes están cargando y no hay eventos en memoria
+    const isInitialLoading = (loadingLeads && loadingTasks && normalizedEvents.length === 0);
 
     const renderCalendarGrid = () => {
         if (viewMode === 'Mes') {
@@ -555,16 +557,48 @@ export default function AdminAgendaPage() {
                 </div>
             </div>
 
-            {(errorLeads || errorTasks) && (
-                <div className="flex items-center gap-2 rounded-xl border border-amber-500/20 bg-amber-500/10 p-4 text-sm text-amber-200">
-                    <AlertCircle size={18} />
-                    {errorLeads
-                        ? `No se pudieron cargar las cotizaciones del calendario. ${errorLeads}`
-                        : `No se pudieron cargar las tareas CRM. ${errorTasks}`}
+            {errorLeads && (
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-xl border border-amber-500/30 bg-amber-500/10 p-4 text-sm text-amber-200">
+                    <div className="flex items-center gap-2.5">
+                        <AlertCircle size={18} className="shrink-0 text-amber-400" />
+                        <div>
+                            <span className="font-semibold text-white">No se pudieron cargar las cotizaciones del calendario.</span>
+                            <span className="ml-1 text-amber-300/90 text-xs">({errorLeads})</span>
+                            <p className="mt-0.5 text-xs text-amber-200/70">Los eventos y tareas del CRM continúan visibles y operativos.</p>
+                        </div>
+                    </div>
+                    <button
+                        type="button"
+                        onClick={() => fetchLeads({ limit: 500 })}
+                        disabled={loadingLeads}
+                        className="inline-flex items-center gap-1.5 self-start sm:self-auto px-3 py-1.5 rounded-lg border border-amber-400/30 bg-amber-500/20 text-xs font-bold text-amber-200 hover:bg-amber-500/30 hover:text-white transition-colors cursor-pointer disabled:opacity-50"
+                        title="Reintentar carga de cotizaciones"
+                    >
+                        <RefreshCw size={13} className={loadingLeads ? "animate-spin" : ""} />
+                        <span>{loadingLeads ? 'Reintentando...' : 'Reintentar cotizaciones'}</span>
+                    </button>
                 </div>
             )}
 
-            {loading ? (
+            {errorTasks && (
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-xl border border-red-500/30 bg-red-500/10 p-4 text-sm text-red-200">
+                    <div className="flex items-center gap-2.5">
+                        <AlertCircle size={18} className="shrink-0 text-red-400" />
+                        <span>No se pudieron cargar las tareas CRM: {errorTasks}</span>
+                    </div>
+                    <button
+                        type="button"
+                        onClick={() => fetchTasks()}
+                        disabled={loadingTasks}
+                        className="inline-flex items-center gap-1.5 self-start sm:self-auto px-3 py-1.5 rounded-lg border border-red-400/30 bg-red-500/20 text-xs font-bold text-red-200 hover:bg-red-500/30 hover:text-white transition-colors cursor-pointer disabled:opacity-50"
+                    >
+                        <RefreshCw size={13} className={loadingTasks ? "animate-spin" : ""} />
+                        <span>Reintentar tareas</span>
+                    </button>
+                </div>
+            )}
+
+            {isInitialLoading ? (
                 <div className="flex h-72 items-center justify-center rounded-2xl border border-crm-border bg-crm-bg/50">
                     <div className="flex flex-col items-center gap-3">
                         <div className="h-8 w-8 animate-spin rounded-full border-2 border-crm-border border-b-[#dc2626]" />
@@ -637,7 +671,7 @@ export default function AdminAgendaPage() {
                                 <div className="custom-scrollbar max-h-[400px] space-y-3 overflow-y-auto pr-1">
                                     {upcomingEvents.slice(0, 5).length === 0 ? (
                                         <div className="py-7 text-center text-sm text-zinc-500">
-                                            Sin próximos eventos.
+                                            {errorLeads ? 'Sin tareas próximas (carga parcial)' : 'Sin próximos eventos.'}
                                         </div>
                                     ) : (
                                         upcomingEvents.slice(0, 5).map((event) => (
@@ -751,10 +785,157 @@ export default function AdminAgendaPage() {
                         {filteredEvents.length === 0 ? (
                             <div className="flex min-h-[205px] flex-col items-center justify-center gap-3 p-12 text-center">
                                 <CalendarIcon size={34} className="text-zinc-600" />
-                                <span className="text-base font-bold text-white">Sin resultados</span>
-                                <p className="m-0 max-w-md text-base leading-snug text-zinc-400">
-                                    Todavía no hay eventos cargados. Podés crear uno con el botón de arriba.
-                                </p>
+                                {normalizedEvents.length === 0 ? (
+                                    (errorLeads && errorTasks) ? (
+                                        <>
+                                            <span className="text-base font-bold text-white">No se pudieron cargar los eventos</span>
+                                            <p className="m-0 max-w-md text-base leading-snug text-zinc-400">
+                                                Ocurrió un error al consultar las cotizaciones y las tareas del CRM. Utilizá los botones superiores para reintentar la conexión.
+                                            </p>
+                                        </>
+                                    ) : (errorLeads || errorTasks) ? (
+                                        <>
+                                            <span className="text-base font-bold text-white">No se pudieron sincronizar todos los eventos</span>
+                                            <p className="m-0 max-w-md text-base leading-snug text-zinc-400">
+                                                Hubo un error al consultar una de las fuentes de la agenda. Podés reintentarla desde el botón superior o crear un nuevo evento.
+                                            </p>
+                                        </>
+                                    ) : (loadingLeads || loadingTasks) ? (
+                                        <>
+                                            <span className="text-base font-bold text-white">Cargando eventos...</span>
+                                            <p className="m-0 max-w-md text-base leading-snug text-zinc-400">
+                                                Aguardá un instante mientras se sincronizan los eventos del CRM.
+                                            </p>
+                                        </>
+                                    ) : (
+                                        <>
+                                            <span className="text-base font-bold text-white">Sin eventos cargados</span>
+                                            <p className="m-0 max-w-md text-base leading-snug text-zinc-400">
+                                                Todavía no hay eventos ni cotizaciones en la agenda. Podés crear uno con el botón «Nuevo evento».
+                                            </p>
+                                        </>
+                                    )
+                                ) : (searchQuery.trim() || dateFrom || dateTo || selectedTypeFilter !== 'Todos los tipos' || selectedCreatorFilter !== 'Todos los creadores') ? (
+                                    <>
+                                        <span className="text-base font-bold text-white">Sin coincidencias para los filtros</span>
+                                        <p className="m-0 max-w-md text-base leading-snug text-zinc-400">
+                                            No se encontraron eventos con los filtros seleccionados. Podés ajustar la búsqueda o restablecer los filtros.
+                                        </p>
+                                        <button
+                                            type="button"
+                                            onClick={() => {
+                                                setSearchQuery('');
+                                                setDateFrom('');
+                                                setDateTo('');
+                                                setSelectedTypeFilter('Todos los tipos');
+                                                setSelectedCreatorFilter('Todos los creadores');
+                                            }}
+                                            className="mt-1 inline-flex items-center gap-1.5 rounded-lg border border-crm-border bg-crm-surface-raised px-3 py-1.5 text-xs font-semibold text-white hover:border-zinc-500 transition-colors cursor-pointer"
+                                        >
+                                            Limpiar filtros
+                                        </button>
+                                    </>
+                                ) : activeTab === 'Proximos' ? (
+                                    errorLeads ? (
+                                        <>
+                                            <span className="text-base font-bold text-white">Carga parcial de la agenda</span>
+                                            <p className="m-0 max-w-md text-base leading-snug text-zinc-400">
+                                                No se pudieron consultar las cotizaciones del calendario. No hay tareas pendientes para fechas futuras.{pastEventsCount > 0 ? ` Hay ${pastEventsCount} evento${pastEventsCount === 1 ? '' : 's'} en la pestaña Pasados.` : ''}
+                                            </p>
+                                            {pastEventsCount > 0 && (
+                                                <div className="mt-2 flex items-center gap-2">
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => setActiveTab('Pasados')}
+                                                        className="inline-flex items-center gap-1.5 rounded-lg border border-crm-border bg-crm-surface-raised px-3 py-1.5 text-xs font-semibold text-white hover:border-zinc-500 transition-colors cursor-pointer"
+                                                    >
+                                                        Ver {pastEventsCount} {pastEventsCount === 1 ? 'evento pasado' : 'eventos pasados'}
+                                                    </button>
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => setActiveTab('Todos')}
+                                                        className="inline-flex items-center gap-1.5 rounded-lg border border-crm-border bg-crm-surface-raised px-3 py-1.5 text-xs font-semibold text-zinc-400 hover:text-white transition-colors cursor-pointer"
+                                                    >
+                                                        Ver todos ({normalizedEvents.length})
+                                                    </button>
+                                                </div>
+                                            )}
+                                        </>
+                                    ) : errorTasks ? (
+                                        <>
+                                            <span className="text-base font-bold text-white">Carga parcial de la agenda</span>
+                                            <p className="m-0 max-w-md text-base leading-snug text-zinc-400">
+                                                No se pudieron consultar las tareas CRM. No hay cotizaciones pendientes para fechas futuras.{pastEventsCount > 0 ? ` Hay ${pastEventsCount} evento${pastEventsCount === 1 ? '' : 's'} en la pestaña Pasados.` : ''}
+                                            </p>
+                                            {pastEventsCount > 0 && (
+                                                <div className="mt-2 flex items-center gap-2">
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => setActiveTab('Pasados')}
+                                                        className="inline-flex items-center gap-1.5 rounded-lg border border-crm-border bg-crm-surface-raised px-3 py-1.5 text-xs font-semibold text-white hover:border-zinc-500 transition-colors cursor-pointer"
+                                                    >
+                                                        Ver {pastEventsCount} {pastEventsCount === 1 ? 'evento pasado' : 'eventos pasados'}
+                                                    </button>
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => setActiveTab('Todos')}
+                                                        className="inline-flex items-center gap-1.5 rounded-lg border border-crm-border bg-crm-surface-raised px-3 py-1.5 text-xs font-semibold text-zinc-400 hover:text-white transition-colors cursor-pointer"
+                                                    >
+                                                        Ver todos ({normalizedEvents.length})
+                                                    </button>
+                                                </div>
+                                            )}
+                                        </>
+                                    ) : (
+                                        <>
+                                            <span className="text-base font-bold text-white">Sin próximos eventos</span>
+                                            <p className="m-0 max-w-md text-base leading-snug text-zinc-400">
+                                                No hay eventos ni cotizaciones pendientes para fechas futuras.{pastEventsCount > 0 ? ` Hay ${pastEventsCount} evento${pastEventsCount === 1 ? '' : 's'} en la pestaña Pasados.` : ''}
+                                            </p>
+                                            {pastEventsCount > 0 && (
+                                                <div className="mt-2 flex items-center gap-2">
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => setActiveTab('Pasados')}
+                                                        className="inline-flex items-center gap-1.5 rounded-lg border border-crm-border bg-crm-surface-raised px-3 py-1.5 text-xs font-semibold text-white hover:border-zinc-500 transition-colors cursor-pointer"
+                                                    >
+                                                        Ver {pastEventsCount} {pastEventsCount === 1 ? 'evento pasado' : 'eventos pasados'}
+                                                    </button>
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => setActiveTab('Todos')}
+                                                        className="inline-flex items-center gap-1.5 rounded-lg border border-crm-border bg-crm-surface-raised px-3 py-1.5 text-xs font-semibold text-zinc-400 hover:text-white transition-colors cursor-pointer"
+                                                    >
+                                                        Ver todos ({normalizedEvents.length})
+                                                    </button>
+                                                </div>
+                                            )}
+                                        </>
+                                    )
+                                ) : activeTab === 'Pasados' ? (
+                                    <>
+                                        <span className="text-base font-bold text-white">Sin eventos pasados</span>
+                                        <p className="m-0 max-w-md text-base leading-snug text-zinc-400">
+                                            No hay eventos históricos en el registro.{upcomingEvents.length > 0 ? ` Tenés ${upcomingEvents.length} evento${upcomingEvents.length === 1 ? '' : 's'} en la pestaña Próximos.` : ''}
+                                        </p>
+                                        {upcomingEvents.length > 0 && (
+                                            <button
+                                                type="button"
+                                                onClick={() => setActiveTab('Proximos')}
+                                                className="mt-2 inline-flex items-center gap-1.5 rounded-lg border border-crm-border bg-crm-surface-raised px-3 py-1.5 text-xs font-semibold text-white hover:border-zinc-500 transition-colors cursor-pointer"
+                                            >
+                                                Ver {upcomingEvents.length} {upcomingEvents.length === 1 ? 'evento próximo' : 'eventos próximos'}
+                                            </button>
+                                        )}
+                                    </>
+                                ) : (
+                                    <>
+                                        <span className="text-base font-bold text-white">Sin resultados</span>
+                                        <p className="m-0 max-w-md text-base leading-snug text-zinc-400">
+                                            No hay eventos cargados para los criterios actuales.
+                                        </p>
+                                    </>
+                                )}
                             </div>
                         ) : (
                             <div className="divide-y divide-[#27272a]">

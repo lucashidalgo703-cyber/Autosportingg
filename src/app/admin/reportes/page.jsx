@@ -2,8 +2,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { BarChart3, Clock3, Trophy } from 'lucide-react';
 import { useAuth } from '../../../context/AuthContext';
-import { useAdminSales } from '../../../hooks/useAdminSales';
-import { useAdminCars } from '../../../hooks/useAdminCars';
 import { useAdminLeads } from '../../../hooks/useAdminLeads';
 import PermissionGuard from '../../../components/crm/layout/PermissionGuard';
 import { PERMISSIONS } from '../../../utils/adminPermissions';
@@ -35,7 +33,7 @@ const getPersonName = (value, fallback = 'AutoSporting') => {
 const getClientName = (sale) => {
     const client = sale?.clientId || sale?.client || {};
     if (typeof client === 'string') return client;
-    return client.fullName || `${client.firstName || ''} ${client.lastName || ''}`.trim() || client.name || 'Sin cliente';
+    return client.fullName || `${client.firstName || ''} ${client.lastName || ''}`.trim() || client.name || sale?.buyerName || sale?.clientName || 'Sin cliente';
 };
 
 const getSaleUser = (sale) => (
@@ -48,10 +46,15 @@ const getSaleUser = (sale) => (
 
 const formatMonthTitle = (date) => `${MONTHS[date.getMonth()]} De ${date.getFullYear()}`;
 
-const formatUsd = (value) => {
+const formatCurrencyAmount = (value, currency = 'ARS') => {
     const number = Number(value || 0);
-    return `USD ${number.toLocaleString('es-AR', { maximumFractionDigits: 0 })}`;
+    if (currency === 'USD') {
+        return `USD ${number.toLocaleString('es-AR', { maximumFractionDigits: 0 })}`;
+    }
+    return `$ ${number.toLocaleString('es-AR', { maximumFractionDigits: 0 })}`;
 };
+
+const formatUsd = (value) => formatCurrencyAmount(value, 'USD');
 
 const groupBy = (items, getKey) => {
     return items.reduce((acc, item) => {
@@ -92,7 +95,7 @@ function CompactBars({ rows, accent = 'bg-purple-600' }) {
                     <div className="h-2 overflow-hidden rounded-full bg-crm-bg">
                         <div
                             className={`h-full rounded-full ${accent}`}
-                            style={{ width: `${Math.max(6, Math.round((row.value / max) * 100))}%` }}
+                            style={{ width: row.value > 0 ? `${Math.max(6, Math.round((row.value / max) * 100))}%` : '0%' }}
                         />
                     </div>
                 </div>
@@ -101,14 +104,36 @@ function CompactBars({ rows, accent = 'bg-purple-600' }) {
     );
 }
 
+async function fetchCarsPaginated(pageSize = 50) {
+    const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
+    const headers = token ? { Authorization: `Bearer ${token}` } : {};
+    let allCars = [];
+    let page = 1;
+    let totalPages = 1;
+
+    do {
+        const response = await fetch(`/api/admin/cars?page=${page}&limit=${pageSize}`, { headers });
+        if (!response.ok) {
+            throw new Error(`Error al consultar inventario de vehículos (código HTTP: ${response.status})`);
+        }
+        const data = await response.json();
+        const pageCars = Array.isArray(data.cars) ? data.cars : [];
+        allCars = allCars.concat(pageCars);
+        totalPages = data.pages || (data.total ? Math.ceil(data.total / pageSize) : 1) || 1;
+        page++;
+    } while (page <= totalPages);
+
+    return allCars;
+}
+
 function ReportesPageInner() {
     const { user } = useAuth();
-    const { fetchSales } = useAdminSales();
-    const { refresh: fetchCars } = useAdminCars();
     const { leads, fetchLeads } = useAdminLeads();
 
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
+    const [carsError, setCarsError] = useState(false);
+    const [selectedCurrency, setSelectedCurrency] = useState('ARS');
     const [data, setData] = useState({
         sales: [],
         cars: []
@@ -117,17 +142,35 @@ function ReportesPageInner() {
     const loadReportData = async () => {
         setLoading(true);
         setError(null);
+        setCarsError(false);
 
         try {
-            const [salesData, carsData] = await Promise.all([
-                fetchSales(),
-                fetchCars(),
-                fetchLeads({ limit: 1000 })
+            const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
+            const headers = token ? { Authorization: `Bearer ${token}` } : {};
+
+            const [salesRes, carsArray, leadsData] = await Promise.all([
+                fetch('/api/admin/sales', { headers }),
+                fetchCarsPaginated(50).catch((err) => {
+                    console.error('Error loading cars inventory in reports:', err);
+                    setCarsError(true);
+                    return [];
+                }),
+                fetchLeads({ limit: 1000 }).catch((err) => {
+                    console.error('Error loading leads:', err);
+                    return [];
+                })
             ]);
 
+            if (!salesRes.ok) {
+                throw new Error(`Error al cargar ventas (${salesRes.status})`);
+            }
+            const salesData = await salesRes.json();
+
+            const salesArray = Array.isArray(salesData) ? salesData : (salesData?.sales || []);
+
             setData({
-                sales: Array.isArray(salesData) ? salesData : [],
-                cars: Array.isArray(carsData) ? carsData : []
+                sales: salesArray,
+                cars: carsArray
             });
         } catch (err) {
             console.error('Error loading reports data:', err);
@@ -145,9 +188,10 @@ function ReportesPageInner() {
     const today = useMemo(() => new Date(), []);
     const report = useMemo(() => {
         const sales = data.sales || [];
-        const cars = data.cars || [];
+        const cars = carsError ? [] : (data.cars || []);
         const leadItems = Array.isArray(leads) ? leads : [];
         const currentMonthSales = sales.filter((sale) => isSameMonth(sale.saleDate || sale.createdAt, today));
+        const validSales = sales.filter((sale) => !['cancelada', 'borrador'].includes(String(sale.status || '').toLowerCase()));
         const validMonthSales = currentMonthSales.filter((sale) => !['cancelada', 'borrador'].includes(String(sale.status || '').toLowerCase()));
         const currentMonthCars = cars.filter((car) => isSameMonth(car.createdAt || car.updatedAt, today));
         const consignments = currentMonthCars.filter((car) => {
@@ -155,33 +199,121 @@ function ReportesPageInner() {
             return origin.includes('consig') || car.consignedBy;
         }).length;
 
-        const salesByMonth = {};
-        sales
-            .filter((sale) => sale.saleCurrency === 'USD' && !['cancelada', 'borrador'].includes(String(sale.status || '').toLowerCase()))
-            .forEach((sale) => {
-                const date = normalizeDate(sale.saleDate || sale.createdAt);
-                if (!date) return;
-                const label = `${MONTHS[date.getMonth()].slice(0, 3).toUpperCase()} ${String(date.getFullYear()).slice(-2)}`;
-                salesByMonth[label] = (salesByMonth[label] || 0) + Number(sale.salePrice || 0);
-            });
+        const normalizeCurrency = (curr) => {
+            const upper = String(curr || '').toUpperCase().trim();
+            if (upper === 'USD' || upper === 'U$S') return 'USD';
+            return 'ARS';
+        };
 
-        const operationsBySeller = {};
-        sales
-            .filter((sale) => !['cancelada', 'borrador'].includes(String(sale.status || '').toLowerCase()))
-            .forEach((sale) => {
-                const seller = getSaleUser(sale);
-                operationsBySeller[seller] = (operationsBySeller[seller] || 0) + 1;
-            });
+        const otherCurrency = selectedCurrency === 'ARS' ? 'USD' : 'ARS';
+        const hasOperationsInOtherCurrency = validSales.some((s) => normalizeCurrency(s.saleCurrency) === otherCurrency);
+        const salesInSelectedCurrency = validSales.filter((s) => normalizeCurrency(s.saleCurrency) === selectedCurrency);
+
+        // Seis meses calendario en orden cronológico estricto (desde hace 5 meses hasta el mes actual)
+        const sixCalendarMonths = Array.from({ length: 6 }).map((_, i) => {
+            const d = new Date(today.getFullYear(), today.getMonth() - (5 - i), 1);
+            const y = d.getFullYear();
+            const m = d.getMonth();
+            const start = new Date(y, m, 1, 0, 0, 0, 0);
+            const end = new Date(y, m + 1, 0, 23, 59, 59, 999);
+            const label = `${MONTHS[m].slice(0, 3).toUpperCase()} ${String(y).slice(-2)}`;
+            return {
+                label,
+                start,
+                end,
+                value: 0
+            };
+        });
+
+        salesInSelectedCurrency.forEach((sale) => {
+            const date = normalizeDate(sale.saleDate || sale.createdAt);
+            if (!date) return;
+            const bucket = sixCalendarMonths.find((b) => date >= b.start && date <= b.end);
+            if (bucket) {
+                bucket.value += Number(sale.salePrice || 0);
+            }
+        });
+
+        const salesByMonth = sixCalendarMonths.map((b) => ({
+            label: b.label,
+            value: b.value,
+            display: formatCurrencyAmount(b.value, selectedCurrency)
+        }));
+
+        // Estado vacío del gráfico calculado según las ventas de los SEIS MESES VISIBLES
+        const hasSalesInVisibleMonths = sixCalendarMonths.some((b) => b.value > 0);
+        const hasSalesPriorToVisiblePeriod = salesInSelectedCurrency.some((sale) => {
+            const date = normalizeDate(sale.saleDate || sale.createdAt);
+            return date && date < sixCalendarMonths[0].start;
+        });
+
+        // Vendedores:
+        // 1. Identificar todos los vendedores que tienen un ID explícito
+        const nameToIds = new Map();
+        validSales.forEach((sale) => {
+            const sellerId = sale.assignedTo?._id
+                ? String(sale.assignedTo._id)
+                : (typeof sale.assignedTo === 'string' && /^[0-9a-fA-F]{24}$/.test(sale.assignedTo) ? sale.assignedTo : null);
+            const rawSeller = getSaleUser(sale).trim();
+            const normKey = rawSeller.toLowerCase();
+            if (sellerId) {
+                if (!nameToIds.has(normKey)) nameToIds.set(normKey, new Set());
+                nameToIds.get(normKey).add(sellerId);
+            }
+        });
+
+        // 2. Agrupar uniendo registros legados solo cuando haya coincidencia inequívoca y manteniendo homónimos con IDs separados
+        const sellerStats = {};
+        validSales.forEach((sale) => {
+            const rawSeller = getSaleUser(sale).trim();
+            const normKey = rawSeller.toLowerCase();
+            const explicitId = sale.assignedTo?._id
+                ? String(sale.assignedTo._id)
+                : (typeof sale.assignedTo === 'string' && /^[0-9a-fA-F]{24}$/.test(sale.assignedTo) ? sale.assignedTo : null);
+
+            let finalKey;
+            if (explicitId) {
+                // Vendedor con ID: clave única por ID para mantener separados a homónimos
+                finalKey = `id:${explicitId}`;
+            } else {
+                // Registro legado sin ID
+                const matchedIds = nameToIds.get(normKey);
+                if (matchedIds && matchedIds.size === 1) {
+                    // Coincidencia inequívoca: se une al vendedor con ID
+                    const singleId = Array.from(matchedIds)[0];
+                    finalKey = `id:${singleId}`;
+                } else {
+                    // Sin ID o sin coincidencia inequívoca
+                    finalKey = `legacy:${normKey}`;
+                }
+            }
+
+            if (!sellerStats[finalKey]) {
+                sellerStats[finalKey] = {
+                    displayName: rawSeller,
+                    count: 0
+                };
+            } else {
+                const currentName = sellerStats[finalKey].displayName;
+                if (currentName === currentName.toLowerCase() && rawSeller !== rawSeller.toLowerCase()) {
+                    sellerStats[finalKey].displayName = rawSeller;
+                }
+            }
+            sellerStats[finalKey].count += 1;
+        });
+
+        const operationsBySeller = Object.values(sellerStats)
+            .map((item) => ({ label: item.displayName, value: item.count }))
+            .sort((a, b) => b.value - a.value);
 
         const currentMonthLeads = leadItems.filter((lead) => isSameMonth(lead.createdAt || lead.updatedAt, today));
         const leadOrigins = groupBy(currentMonthLeads, (lead) => lead.source || lead.sourceDetail || 'Sin origen');
-        const clientsByUsd = {};
-        sales
-            .filter((sale) => sale.saleCurrency === 'USD' && !['cancelada', 'borrador'].includes(String(sale.status || '').toLowerCase()))
-            .forEach((sale) => {
-                const client = getClientName(sale);
-                clientsByUsd[client] = (clientsByUsd[client] || 0) + Number(sale.salePrice || 0);
-            });
+
+        const clientsByCurrency = {};
+        salesInSelectedCurrency.forEach((sale) => {
+            const client = getClientName(sale);
+            clientsByCurrency[client] = (clientsByCurrency[client] || 0) + Number(sale.salePrice || 0);
+        });
 
         const stockByStatus = [
             {
@@ -212,15 +344,25 @@ function ReportesPageInner() {
         return {
             currentMonthSales: validMonthSales.length,
             consignments,
-            salesByMonth: sortedEntries(salesByMonth).map(([label, value]) => ({ label, value, display: formatUsd(value) })),
-            operationsBySeller: sortedEntries(operationsBySeller).map(([label, value]) => ({ label, value })),
+            salesByMonth,
+            hasSalesInVisibleMonths,
+            hasSalesPriorToVisiblePeriod,
+            hasSalesInSelectedCurrency: salesInSelectedCurrency.length > 0,
+            hasOperationsInOtherCurrency,
+            otherCurrency,
+            operationsBySeller,
             leadOrigins: sortedEntries(leadOrigins).map(([label, value]) => ({ label, value })),
             currentMonthLeads: currentMonthLeads.length,
-            topClients: sortedEntries(clientsByUsd).map(([label, value]) => ({ label, value, display: formatUsd(value) })),
+            topClients: sortedEntries(clientsByCurrency).map(([label, value]) => ({
+                label,
+                value,
+                display: formatCurrencyAmount(value, selectedCurrency)
+            })),
             stockByStatus,
-            stockByBrand
+            stockByBrand,
+            totalCars: cars.length
         };
-    }, [data, leads, today]);
+    }, [data, leads, today, selectedCurrency]);
 
     if (loading) {
         return (
@@ -229,15 +371,15 @@ function ReportesPageInner() {
                     <LoadingSkeleton className="h-8 w-48 mb-2" />
                     <LoadingSkeleton className="h-4 w-64" />
                 </header>
-                
+
                 <LoadingSkeleton className="h-32 w-full mb-6 rounded-2xl" />
                 <LoadingSkeleton className="h-24 w-full mb-6 rounded-2xl" />
-                
+
                 <div className="grid gap-4 md:grid-cols-2 mb-6">
                     <LoadingSkeleton className="h-48 w-full rounded-xl" />
                     <LoadingSkeleton className="h-48 w-full rounded-xl" />
                 </div>
-                
+
                 <div className="grid gap-4 md:grid-cols-2 mb-6">
                     <LoadingSkeleton className="h-48 w-full rounded-xl" />
                     <LoadingSkeleton className="h-48 w-full rounded-xl" />
@@ -262,7 +404,7 @@ function ReportesPageInner() {
             {error && (
                 <div className="mb-6 rounded-xl border border-red-500/20 bg-crm-red/10 p-4 flex items-center justify-between gap-4">
                     <span className="text-sm font-medium text-red-200">{error}</span>
-                    <button 
+                    <button
                         onClick={loadReportData}
                         className="rounded-lg bg-crm-red px-4 py-2 text-xs font-bold text-white shadow-sm hover:bg-red-500 transition-colors"
                     >
@@ -293,7 +435,7 @@ function ReportesPageInner() {
                             <span className="truncate text-sm font-bold text-amber-300">{userName} (vos)</span>
                         </div>
                         <div className="text-center text-base font-bold sm:text-xl">{report.currentMonthSales}</div>
-                        <div className="text-center">{report.consignments}</div>
+                        <div className="text-center">{carsError ? '-' : report.consignments}</div>
                         <div className="text-center text-[11px]">
                             <span className="text-indigo-300">5 para USD 300</span>
                         </div>
@@ -328,9 +470,45 @@ function ReportesPageInner() {
                 </p>
             </section>
 
+            <div className="mb-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-xl border border-crm-border bg-crm-surface p-3 text-xs">
+                <div>
+                    <span className="font-bold text-white">Moneda de análisis:</span>
+                    <span className="ml-2 text-zinc-400">Operaciones en moneda original de cada transacción (sin conversión)</span>
+                </div>
+                <div className="inline-flex rounded-lg border border-crm-border bg-crm-bg p-0.5">
+                    <button
+                        type="button"
+                        onClick={() => setSelectedCurrency('ARS')}
+                        className={`rounded-md px-3 py-1 font-bold transition-colors ${selectedCurrency === 'ARS' ? 'bg-indigo-600 text-white' : 'text-zinc-400 hover:text-white'}`}
+                    >
+                        ARS ($)
+                    </button>
+                    <button
+                        type="button"
+                        onClick={() => setSelectedCurrency('USD')}
+                        className={`rounded-md px-3 py-1 font-bold transition-colors ${selectedCurrency === 'USD' ? 'bg-indigo-600 text-white' : 'text-zinc-400 hover:text-white'}`}
+                    >
+                        USD
+                    </button>
+                </div>
+            </div>
+
             <section className="mb-6 grid gap-4 md:grid-cols-2">
-                <AnalysisCard title="Volumen de Ventas por Mes (USD)">
-                    <CompactBars rows={report.salesByMonth.slice(-6)} />
+                <AnalysisCard title={`Volumen de Ventas por Mes (${selectedCurrency})`}>
+                    <p className="m-0 mb-3 text-[11px] font-semibold text-zinc-400">
+                        Período: Últimos 6 meses · Moneda: {selectedCurrency}
+                    </p>
+                    {report.hasSalesInVisibleMonths ? (
+                        <CompactBars rows={report.salesByMonth} />
+                    ) : (
+                        <EmptyText>
+                            {report.hasSalesPriorToVisiblePeriod
+                                ? `No hay operaciones registradas en ${selectedCurrency} en los últimos 6 meses (existen ventas anteriores fuera de este período).`
+                                : report.hasOperationsInOtherCurrency
+                                ? `Hay operaciones registradas en ${report.otherCurrency}, pero ninguna en ${selectedCurrency} para este período.`
+                                : 'Sin operaciones registradas en este período.'}
+                        </EmptyText>
+                    )}
                 </AnalysisCard>
 
                 <AnalysisCard title="Operaciones por Vendedor">
@@ -343,28 +521,51 @@ function ReportesPageInner() {
                     <CompactBars rows={report.leadOrigins} accent="bg-sky-500" />
                 </AnalysisCard>
 
-                <AnalysisCard title="Top 10 Clientes (USD)">
-                    <CompactBars rows={report.topClients} accent="bg-amber-500" />
+                <AnalysisCard title={`Top 10 Clientes (${selectedCurrency})`}>
+                    <p className="m-0 mb-3 text-[11px] font-semibold text-zinc-400">
+                        Período histórico · Moneda: {selectedCurrency}
+                    </p>
+                    {report.hasSalesInSelectedCurrency ? (
+                        <CompactBars rows={report.topClients} accent="bg-amber-500" />
+                    ) : (
+                        <EmptyText>
+                            {report.hasOperationsInOtherCurrency
+                                ? `Hay operaciones registradas en ${report.otherCurrency}, pero ninguna en ${selectedCurrency} para este período.`
+                                : 'Sin operaciones registradas en este período.'}
+                        </EmptyText>
+                    )}
                 </AnalysisCard>
             </section>
 
             <section className="mb-6 grid gap-4 md:grid-cols-2">
                 <AnalysisCard title="Stock por Estado">
-                    <div className="space-y-2">
-                        {report.stockByStatus.map((row) => (
-                            <div key={row.label} className="flex items-center justify-between gap-3 text-sm">
-                                <span className="flex min-w-0 items-center gap-2 text-zinc-400">
-                                    <span className={`h-2.5 w-2.5 shrink-0 rounded-full ${row.color}`} />
-                                    <span className="truncate">{row.label}</span>
-                                </span>
-                                <span className="font-bold text-white">{row.value}</span>
-                            </div>
-                        ))}
-                    </div>
+                    {carsError ? (
+                        <EmptyText>Error al cargar inventario.</EmptyText>
+                    ) : report.totalCars === 0 ? (
+                        <EmptyText>Sin vehículos en inventario.</EmptyText>
+                    ) : (
+                        <div className="space-y-2">
+                            {report.stockByStatus.map((row) => (
+                                <div key={row.label} className="flex items-center justify-between gap-3 text-sm">
+                                    <span className="flex min-w-0 items-center gap-2 text-zinc-400">
+                                        <span className={`h-2.5 w-2.5 shrink-0 rounded-full ${row.color}`} />
+                                        <span className="truncate">{row.label}</span>
+                                    </span>
+                                    <span className="font-bold text-white">{row.value}</span>
+                                </div>
+                            ))}
+                        </div>
+                    )}
                 </AnalysisCard>
 
                 <AnalysisCard title="Stock por Marca">
-                    <CompactBars rows={report.stockByBrand} />
+                    {carsError ? (
+                        <EmptyText>Error al cargar inventario.</EmptyText>
+                    ) : report.totalCars === 0 ? (
+                        <EmptyText>Sin vehículos en inventario.</EmptyText>
+                    ) : (
+                        <CompactBars rows={report.stockByBrand} />
+                    )}
                 </AnalysisCard>
             </section>
         </div>

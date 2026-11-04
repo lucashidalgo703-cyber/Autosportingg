@@ -7,6 +7,7 @@ export default function CrmTable({
     emptyIcon: EmptyIcon,
     emptyTitle = 'Sin resultados',
     emptyMessage = 'No se encontraron datos para mostrar.',
+    emptyAction = null,
     onRowClick = null,
     minWidth = 'min-w-[1120px]'
 }) {
@@ -29,6 +30,11 @@ export default function CrmTable({
                 <p className="m-0 mt-2 max-w-md text-sm leading-6 text-crm-fg-muted">
                     {emptyMessage}
                 </p>
+                {emptyAction && (
+                    <div className="mt-4">
+                        {emptyAction}
+                    </div>
+                )}
             </div>
         );
     }

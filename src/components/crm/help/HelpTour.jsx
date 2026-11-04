@@ -65,7 +65,27 @@ export default function HelpTour() {
             localStorage.setItem(`autosporting_tour_seen_${user.id}`, 'true');
         }
         setIsVisible(false);
+        setTimeout(() => {
+            const mainContent = document.getElementById('main-content');
+            if (mainContent) {
+                mainContent.focus();
+            } else if (typeof document !== 'undefined' && document.body) {
+                document.body.focus?.();
+            }
+        }, 50);
     };
+
+    useEffect(() => {
+        if (!isVisible) return;
+        const handleKeyDown = (event) => {
+            if (event.key === 'Escape') {
+                event.preventDefault();
+                handleClose();
+            }
+        };
+        window.addEventListener('keydown', handleKeyDown);
+        return () => window.removeEventListener('keydown', handleKeyDown);
+    }, [isVisible]);
 
     const nextStep = () => {
         if (currentStep < tourData.length - 1) {

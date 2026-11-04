@@ -297,11 +297,11 @@ const SmartFilters = ({
             .desktop-filters-grid {
                 display: grid;
                 grid-template-columns: repeat(3, 1fr);
-                gap: var(--space-4);
+                gap: 1rem;
                 background: var(--c-graphite);
                 border: var(--border-thin);
                 border-radius: var(--radius-lg);
-                padding: var(--space-5);
+                padding: 1.25rem 1.5rem;
             }
         }
 
@@ -309,7 +309,9 @@ const SmartFilters = ({
             .desktop-filters-grid {
                 display: flex;
                 flex-wrap: wrap;
-                align-items: flex-end;
+                align-items: flex-start;
+                gap: 1rem;
+                padding: 1.25rem 1.5rem;
             }
             .desktop-filters-grid .filter-item {
                 flex: 1;
@@ -320,15 +322,18 @@ const SmartFilters = ({
         .filter-item {
             display: flex;
             flex-direction: column;
-            gap: var(--space-2);
+            gap: 0.35rem;
         }
 
         .filter-item label {
-            font-size: 0.85rem;
+            display: block;
+            font-size: 0.75rem;
             color: var(--c-ivory-muted);
-            font-weight: 600;
+            font-weight: 700;
             text-transform: uppercase;
-            letter-spacing: 0.05em;
+            letter-spacing: 0.06em;
+            line-height: 1.2;
+            margin-bottom: 0.25rem;
         }
 
         .filter-item select {

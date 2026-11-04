@@ -17,6 +17,7 @@ import ConvertReservationToSaleModal from '../../../components/crm/reservations/
 import CrmButton from '../../../components/crm/ui/CrmButton';
 import ConfirmModal from '../../../components/crm/ui/ConfirmModal';
 import SalesPerformanceDashboard from '../../../components/crm/sales/SalesPerformanceDashboard';
+import { isMySaleOrReservation } from '../../../utils/saleOwnership';
 
 export default function MisVentasPage() {
     const { user } = useAuth();
@@ -104,17 +105,7 @@ export default function MisVentasPage() {
         return expiry <= todayDate;
     };
 
-    const isMyRecord = (record) => {
-        if (!user) return false;
-        const userEmail = (user.email || '').toLowerCase();
-        const userName = (user.name || user.displayName || '').toLowerCase();
-        const sellerInfo = `${record.salesperson || ''} ${record.assignedTo?.name || ''} ${record.assignedTo?.email || ''}`.toLowerCase();
-        
-        return (userEmail && sellerInfo.includes(userEmail)) || 
-               (userName && sellerInfo.includes(userName)) || 
-               (record.assignedTo?._id === user.id || record.assignedTo?._id === user._id) || 
-               (record.salespersonId === user.id || record.salespersonId === user._id);
-    };
+    const isMyRecord = (record) => isMySaleOrReservation(record, user);
 
     const mySales = useMemo(() => allSales.filter(isMyRecord), [allSales, user]);
     const myReservations = useMemo(() => allReservations.filter(isMyRecord), [allReservations, user]);

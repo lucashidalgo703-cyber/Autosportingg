@@ -127,7 +127,7 @@ function CashProjectionPanel({ metrics, hideAmounts }) {
                 </div>
                 <div className="flex items-center gap-4 text-xs">
                     <span className="text-crm-fg-muted">Cronograma en desarrollo</span>
-                    <Link href="/admin/finanzas" className="font-semibold text-amber-300 transition hover:text-amber-200">
+                    <Link href="/admin/tesoreria" className="font-semibold text-amber-300 transition hover:text-amber-200">
                         Ver Tesorería →
                     </Link>
                 </div>
@@ -358,7 +358,7 @@ function DeadlinesPanel({ patentesPendientes = [] }) {
                                     Libre Deuda de Patentes pendiente de regularizar o pagar para evitar multas.
                                 </p>
                                 <Link
-                                    href="/admin/alertas"
+                                    href="/admin/alertas?filtro=patentes"
                                     className="mt-3 inline-flex text-xs font-bold text-amber-300 hover:text-white"
                                 >
                                     Ver en Alertas de Patentes →
@@ -396,10 +396,99 @@ function TopSellersPanel({ user }) {
     );
 }
 
-function SalesLastSixPanel() {
+function SalesLastSixPanel({ sales = [], selectedDate = new Date() }) {
+    const baseDate = selectedDate ? new Date(selectedDate) : new Date();
+    const safeBaseDate = isNaN(baseDate.getTime()) ? new Date() : baseDate;
+
+    // Generar los 6 meses (el seleccionado y los 5 meses calendario previos)
+    const months = Array.from({ length: 6 }).map((_, i) => {
+        const d = new Date(safeBaseDate.getFullYear(), safeBaseDate.getMonth() - (5 - i), 1);
+        const y = d.getFullYear();
+        const m = d.getMonth();
+        const start = new Date(y, m, 1, 0, 0, 0, 0);
+        const end = new Date(y, m + 1, 0, 23, 59, 59, 999);
+        return {
+            key: `${y}-${String(m + 1).padStart(2, '0')}`,
+            label: d.toLocaleDateString('es-AR', { month: 'short', year: '2-digit' }).toUpperCase(),
+            fullLabel: d.toLocaleDateString('es-AR', { month: 'long', year: 'numeric' }),
+            start,
+            end,
+            count: 0
+        };
+    });
+
+    // Criterio de 'Cerradas': entregada (mismo criterio que el filtro de Ventas)
+    const closedSales = (Array.isArray(sales) ? sales : []).filter((sale) => {
+        const st = String(sale.status || '').toLowerCase().trim();
+        return st === 'entregada';
+    });
+
+    closedSales.forEach((sale) => {
+        const saleDateRaw = sale.saleDate || sale.createdAt;
+        if (!saleDateRaw) return;
+        const d = new Date(saleDateRaw);
+        if (isNaN(d.getTime())) return;
+        const bucket = months.find((m) => d >= m.start && d <= m.end);
+        if (bucket) {
+            bucket.count += 1;
+        }
+    });
+
+    const totalClosed = months.reduce((acc, m) => acc + m.count, 0);
+    const maxCount = Math.max(...months.map((m) => m.count), 1);
+
     return (
-        <Panel title="Ventas - ultimos 6 meses" subtitle="Cantidad de ventas cerradas por mes" href="/admin/ventas" icon={TrendingUp} className="min-h-[280px]">
-            <EmptyState title="Sin ventas en el periodo" text="No hay ventas cerradas en los ultimos 6 meses." icon={ShoppingCart} />
+        <Panel
+            title="Ventas - ultimos 6 meses"
+            subtitle="Cantidad de ventas cerradas por mes"
+            href="/admin/ventas"
+            icon={TrendingUp}
+            className="min-h-[280px]"
+        >
+            {totalClosed === 0 ? (
+                <EmptyState
+                    title="Sin ventas en el periodo"
+                    text="No hay ventas cerradas en los ultimos 6 meses."
+                    icon={ShoppingCart}
+                />
+            ) : (
+                <div className="space-y-4">
+                    <div className="flex items-center justify-between text-xs text-crm-fg-muted">
+                        <span>Total cerradas: <strong className="text-white">{totalClosed}</strong></span>
+                        <span>Máximo mensual: <strong className="text-white">{Math.max(...months.map((m) => m.count))}</strong></span>
+                    </div>
+                    <div className="flex h-32 items-end gap-2 border-b border-crm-border pb-3">
+                        {months.map((month, idx) => {
+                            const ratio = maxCount > 0 ? (month.count / maxCount) : 0;
+                            const heightPercent = Math.max(12, Math.min(100, Math.round(ratio * 100)));
+                            const isCurrent = idx === 5;
+                            const hasSales = month.count > 0;
+
+                            return (
+                                <div key={month.key} className="flex flex-1 flex-col items-center gap-1.5">
+                                    <span className="text-[10px] font-bold text-white">
+                                        {hasSales ? month.count : '0'}
+                                    </span>
+                                    <div
+                                        className={`w-full rounded-t-md transition-all ${
+                                            isCurrent
+                                                ? 'bg-crm-red/80'
+                                                : hasSales
+                                                ? 'bg-emerald-500/60'
+                                                : 'bg-crm-surface-raised'
+                                        }`}
+                                        style={{ height: `${hasSales || isCurrent ? heightPercent : 12}%` }}
+                                        title={`${month.fullLabel}: ${month.count} ${month.count === 1 ? 'venta cerrada' : 'ventas cerradas'}`}
+                                    />
+                                    <span className="text-center text-[9px] font-semibold leading-tight text-crm-fg-muted">
+                                        {month.label}
+                                    </span>
+                                </div>
+                            );
+                        })}
+                    </div>
+                </div>
+            )}
         </Panel>
     );
 }
@@ -493,7 +582,7 @@ function LastOperationsPanel() {
     );
 }
 
-export default function GeneralDashboardSote({ metrics, canSeeFinancials = false, user, hideAmounts = false, selectedDate = new Date() }) {
+export default function GeneralDashboardSote({ metrics, canSeeFinancials = false, user, hideAmounts = false, selectedDate = new Date(), sales = [] }) {
     const [showSalesModal, setShowSalesModal] = useState(false);
     const counts = metrics.counts || {};
     const patentesPendientes = metrics.patentesPendientes || [];
@@ -589,7 +678,7 @@ export default function GeneralDashboardSote({ metrics, canSeeFinancials = false
             detail: patentesPendientes.length > 0 ? `${patentesPendientes.length} patentes pend.` : '',
             icon: Bell,
             tone: alertCount > 0 ? 'red' : 'slate',
-            href: '/admin/alertas'
+            href: patentesPendientes.length > 0 ? '/admin/alertas?filtro=patentes' : '/admin/alertas'
         },
         {
             label: 'Ticket promedio (USD)',
@@ -688,7 +777,7 @@ export default function GeneralDashboardSote({ metrics, canSeeFinancials = false
             <UpcomingDuesPanel user={user} hideAmounts={hideAmounts} />
             <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
                 <TopSellersPanel user={user} />
-                <SalesLastSixPanel />
+                <SalesLastSixPanel sales={sales?.length ? sales : (metrics?.sales || [])} selectedDate={selectedDate} />
             </div>
             {canSeeFinancials && (
                 <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">

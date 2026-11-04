@@ -107,7 +107,7 @@ function CashProjectionPanel({ metrics, hideAmounts }) {
                 </div>
                 <div className="flex items-center gap-4 text-xs">
                     <span className="text-crm-fg-muted">Cronograma en desarrollo</span>
-                    <Link href="/admin/finanzas" className="font-semibold text-amber-300 transition hover:text-amber-200">
+                    <Link href="/admin/tesoreria" className="font-semibold text-amber-300 transition hover:text-amber-200">
                         Ver Tesorería →
                     </Link>
                 </div>
@@ -223,7 +223,7 @@ export default function CockpitCeoSote({ metrics, canSeeFinancials = false, user
                             </div>
                         </div>
                         <Link
-                            href="/admin/alertas"
+                            href="/admin/alertas?filtro=patentes"
                             className="inline-flex shrink-0 items-center gap-1.5 rounded-lg border border-amber-500/30 bg-amber-500/20 px-3 py-1.5 text-xs font-bold text-amber-200 transition hover:bg-amber-500/30 hover:text-white"
                         >
                             Ver Alertas de Patentes →

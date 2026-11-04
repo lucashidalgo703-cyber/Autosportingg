@@ -28,12 +28,30 @@ const CatalogContent = () => {
         };
     }, [searchParams]);
 
-    const currentPage = parseInt(searchParams.get('page')) || 1;
+    const pageFromUrl = parseInt(searchParams.get('page')) || 1;
+    const [currentPage, setCurrentPage] = useState(pageFromUrl);
     const itemsPerPage = 9;
+
+    useEffect(() => {
+        const p = parseInt(searchParams.get('page')) || 1;
+        if (p !== currentPage) {
+            setCurrentPage(p);
+        }
+    }, [searchParams]);
+
+    useEffect(() => {
+        const handlePopState = () => {
+            const urlParams = new URLSearchParams(window.location.search);
+            const p = parseInt(urlParams.get('page')) || 1;
+            setCurrentPage(p);
+        };
+        window.addEventListener('popstate', handlePopState);
+        return () => window.removeEventListener('popstate', handlePopState);
+    }, []);
 
     const handleFilterChange = (name, value) => {
         const params = new URLSearchParams(searchParams);
-        
+
         if (name === 'reset') {
             const currentType = params.get('type');
             // Keep type if we came from CategoryNav, or just clear all? Let's clear all.
@@ -47,10 +65,11 @@ const CatalogContent = () => {
                 params.delete(name);
             }
         }
-        
+
         // Reset page on any filter change
+        setCurrentPage(1);
         params.delete('page');
-        
+
         // Analytics
         if (name === 'search' && value) {
             trackEvent('search_inventory', { query: value });
@@ -63,10 +82,21 @@ const CatalogContent = () => {
         router.push(`/catalogo?${params.toString()}`, { scroll: false });
     };
 
-    const handlePageChange = (page) => {
-        const params = new URLSearchParams(searchParams);
-        params.set('page', page);
-        router.push(`/catalogo?${params.toString()}`, { scroll: true });
+    const handlePageChange = (newPage) => {
+        if (newPage < 1 || newPage > totalPages || newPage === currentPage) return;
+        setCurrentPage(newPage);
+        const params = new URLSearchParams(searchParams ? searchParams.toString() : '');
+        params.set('page', String(newPage));
+        router.push(`/catalogo?${params.toString()}`, { scroll: false });
+
+        if (typeof window !== 'undefined') {
+            const catalogContainer = document.getElementById('main-content');
+            if (catalogContainer) {
+                catalogContainer.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            } else {
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+            }
+        }
     };
 
     // Derived lists for filter options (Dynamic)
@@ -90,7 +120,7 @@ const CatalogContent = () => {
     // Filter and Sort logic
     const filteredCars = useMemo(() => {
         let results = cars.filter(car => {
-            const matchesSearch = filters.search === '' || 
+            const matchesSearch = filters.search === '' ||
                 (car.name && car.name.toLowerCase().includes(filters.search.toLowerCase())) ||
                 (car.brand && car.brand.toLowerCase().includes(filters.search.toLowerCase()));
 
@@ -111,7 +141,7 @@ const CatalogContent = () => {
                 matchesType = car.condition === '0km' || car.km === 0 || car.condition === 'Nuevo';
             } else if (filters.type) {
                 matchesType = (car.computedType && car.computedType.toLowerCase() === filters.type.toLowerCase()) ||
-                              (car.vehicleType && car.vehicleType.toLowerCase() === filters.type.toLowerCase()) || 
+                              (car.vehicleType && car.vehicleType.toLowerCase() === filters.type.toLowerCase()) ||
                               (car.type && car.type.toLowerCase() === filters.type.toLowerCase()) ||
                               (car.category && car.category.toLowerCase() === filters.type.toLowerCase());
             }
@@ -259,6 +289,7 @@ const CatalogContent = () => {
             {totalPages > 1 && (
                 <div className="pagination">
                     <button
+                        type="button"
                         className="pagination-btn"
                         onClick={() => handlePageChange(currentPage - 1)}
                         disabled={currentPage === 1}
@@ -277,6 +308,7 @@ const CatalogContent = () => {
                             ) {
                                 return (
                                     <button
+                                        type="button"
                                         key={pageNum}
                                         className={`pagination-number ${currentPage === pageNum ? 'active' : ''}`}
                                         onClick={() => handlePageChange(pageNum)}
@@ -297,6 +329,7 @@ const CatalogContent = () => {
                     </div>
 
                     <button
+                        type="button"
                         className="pagination-btn"
                         onClick={() => handlePageChange(currentPage + 1)}
                         disabled={currentPage === totalPages}
@@ -312,7 +345,7 @@ const CatalogContent = () => {
                     padding-top: 3rem;
                     padding-bottom: 4rem;
                 }
-                
+
                 @media (min-width: 768px) {
                     .page-padding {
                         padding-top: 5rem;
@@ -336,7 +369,7 @@ const CatalogContent = () => {
                     color: var(--c-ivory-muted);
                     font-size: clamp(1rem, 1.5vw, 1.25rem);
                 }
-                
+
                 .catalog-container {
                     width: 100%;
                     max-width: 1440px;
@@ -437,7 +470,7 @@ const CatalogContent = () => {
                     margin-bottom: 16px;
                     animation: loading 1.5s infinite;
                 }
-                
+
                 .skeleton-specs {
                     height: 20px;
                     width: 80%;
