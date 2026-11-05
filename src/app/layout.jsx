@@ -17,12 +17,18 @@ export const metadata = {
     keywords: ['agencia de autos comodoro rivadavia', 'concesionaria de autos comodoro rivadavia', 'autos usados comodoro', 'venta de autos chubut', 'autos 0km comodoro'],
     icons: {
         icon: [
+            { url: '/favicon.ico', sizes: 'any' },
+            { url: '/favicon-48x48.png', sizes: '48x48', type: 'image/png' },
+            { url: '/favicon-96x96.png', sizes: '96x96', type: 'image/png' },
+            { url: '/favicon-192x192.png', sizes: '192x192', type: 'image/png' },
             { url: '/favicon.svg', type: 'image/svg+xml' }
         ],
         apple: [
-            { url: '/favicon.svg' }
-        ]
+            { url: '/apple-touch-icon.png', sizes: '180x180', type: 'image/png' }
+        ],
+        shortcut: '/favicon.ico'
     },
+    manifest: '/site.webmanifest',
     openGraph: {
         type: 'website',
         siteName: 'AutoSporting',
@@ -76,7 +82,7 @@ export default function RootLayout({ children }) {
                             },
                             "description": "Tu agencia de autos de confianza en Comodoro Rivadavia. Amplio catálogo de vehículos usados seleccionados y 0km. Ofrecemos financiación y tomamos usados.",
                             "image": "https://autosportingg.com/autosporting-hero-v2.jpg",
-                            "logo": "https://autosportingg.com/logo-header-final.png",
+                            "logo": "https://autosportingg.com/logo-header-final-user.png",
                             "geo": {
                                 "@type": "GeoCoordinates",
                                 "latitude": "-45.864130",
