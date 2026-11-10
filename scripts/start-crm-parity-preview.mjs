@@ -148,7 +148,9 @@ async function startPreview() {
     });
     const carBase = { year: 2022, km: 35000, fuel: 'Nafta', condition: 'Muy bueno', location: 'Salón Principal', visibleEnWeb: false, color: 'Gris', images: [], expenses: [] };
     const [owned, shared, consigned, sold] = await Car.create([
-        { ...carBase, brand: 'Toyota', name: 'Corolla QA propio', price: 18000000, purchasePrice: 14500000, currency: 'ARS', purchaseCurrency: 'ARS', status: 'Disponible', agencyOwned: true, plateOrVin: 'QA-PROPIO', order: 1 },
+        { ...carBase, brand: 'Toyota', name: 'Corolla QA propio', price: 18000000, purchasePrice: 14500000, currency: 'ARS', purchaseCurrency: 'ARS', status: 'Disponible', agencyOwned: true, plateOrVin: 'QA-PROPIO', order: 1,
+            transmission: 'Automática', bodyType: 'Sedán', doors: 4, engine: '1.8', version: 'QA CVT', color: 'Gris', expenses: [{concept:'Preparación ficticia en otra moneda', amount:300, currency:'USD'}],
+            images: ['/hero-autosporting.jpg', '/logo-header-white-red.png'], coverImage: '/hero-autosporting.jpg', imagePositions: ['50% 25%', '50% 80%'], imagePosition: '50% 25%' },
         { ...carBase, brand: 'Ford', name: 'Focus QA compartido', price: 15000, purchasePrice: 12000, currency: 'USD', purchaseCurrency: 'USD', status: 'Disponible', agencyOwned: true, plateOrVin: 'QA-COMPARTIDO', investor: { name: 'Inversor de prueba', percentage: 50 }, order: 2,
             purchasePaymentState: { modality: 'ya_pagado_historico', status: 'conciliacion_pendiente', isSharedInvestment: true, partnerCompany: 'Inversor de prueba', partnerPercentage: 50 } },
         { ...carBase, brand: 'Renault', name: 'Sandero QA consignado', price: 11000000, currency: 'ARS', purchaseCurrency: 'ARS', status: 'Disponible', agencyOwned: false, ownerName: 'Consignante de prueba', consignedBy: 'Consignante de prueba', consignmentStatus: 'publicado', plateOrVin: 'QA-CONSIGNADO', order: 3 },
@@ -166,6 +168,7 @@ async function startPreview() {
             brand: isFord ? ['Ford', ' FORD ', 'ford'][index % 3] : 'Toyota',
             name: isFord ? 'Focus' : 'Etios', year: 2018 + index % 7,
             km: index % 7 === 0 ? 0 : 10000 + index * 3500,
+            transmission: index % 2 === 0 ? 'Manual' : 'Automática', bodyType: 'Hatchback', doors: 5,
             price: index === 26 ? 0 : (dollars ? 9000 + index * 500 : 10000000 + index * 250000),
             currency, purchaseCurrency: dollars ? 'USD' : 'ARS',
             status: index % 11 === 0 ? 'Pausado' : 'Disponible',
@@ -197,6 +200,14 @@ async function startPreview() {
         installmentsCount: 3, createdBy: owner.name, documentationStatus: 'pendiente', expedienteStatus: 'en_proceso',
         financingDetails: { hasFinancing: true, financedBalance: 15000000, totalFinancedWithInterest: 15000000, installmentsCount: 3, installmentAmount: 5000000, lastInstallmentAmount: 5000000, totalOperationPrice: 15000000, downPayment: 0 },
         commissionSettings: { mode: 'fixed', extraAmount: 0, extraCurrency: 'ARS' }, notes: 'Venta ficticia para revisar cuotas y caja.'
+    });
+    const legacyTradeIn = await Car.create({
+        ...carBase, brand: 'Volkswagen', name: 'Permuta QA legado', plateOrVin: 'QA-PERMUTA-LEGADO',
+        price: 11000, currency: 'USD', purchasePrice: 0, purchaseCurrency: 'USD',
+        status: 'Disponible', agencyOwned: false, images: [], coverImage: '/hero-autosporting.jpg',
+        transmission: 'Manual', color: 'Gris', order: 5,
+        tradeInOrigin: { saleId: activeSale._id, value: 7000, currency: 'USD', source: 'sale_flow' },
+        notes: 'Caso ficticio: portada sin galería y costo de toma distinto del campo de compra legacy.'
     });
     const draft = await Sale.create({
         status: 'borrador', salePrice: 0, saleCurrency: 'USD', createdBy: owner.name,
@@ -240,7 +251,7 @@ async function startPreview() {
     console.log(`Owner ficticio: ${OWNER_EMAIL} / ${OWNER_PASSWORD}`);
     console.log(`Ventas ficticio: ${SELLER_EMAIL} / ${SELLER_PASSWORD}`);
     console.log(`Consulta ficticia de solo lectura: ${READER_EMAIL} / ${READER_PASSWORD}`);
-    console.log(`Fixture IDs: ${JSON.stringify({ owned: String(owned._id), shared: String(shared._id), consigned: String(consigned._id), sold: String(sold._id), activeSale: String(activeSale._id), draft: String(draft._id), partial: String(partial._id), rescheduled: String(rescheduled._id), overdue: String(overdue._id) })}`);
+    console.log(`Fixture IDs: ${JSON.stringify({ owned: String(owned._id), shared: String(shared._id), consigned: String(consigned._id), sold: String(sold._id), legacyTradeIn: String(legacyTradeIn._id), activeSale: String(activeSale._id), draft: String(draft._id), partial: String(partial._id), rescheduled: String(rescheduled._id), overdue: String(overdue._id) })}`);
     console.log(`Etapa 2: ${extraStock.length} unidades y ${extraClients.length} fichas comerciales ficticias adicionales para revisar segunda página y filtros.`);
     console.log('Ctrl+C cierra los servidores y elimina la réplica temporal.\n');
 }

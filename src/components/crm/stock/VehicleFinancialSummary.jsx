@@ -11,9 +11,9 @@ import { useAuth } from '../../../context/AuthContext';
 import { hasPermission, PERMISSIONS } from '../../../utils/adminPermissions';
 import { getCarPurchasePaymentSummary, LOADED_COMPANIES } from '../../../utils/carPurchasePayment';
 
-export default function VehicleFinancialSummary({ vehicle, onEdit, onPaymentSaved }) {
+export default function VehicleFinancialSummary({ vehicle, onEdit, onPaymentSaved, canEdit = false, isOffline = false }) {
     const { user } = useAuth();
-    const canRegisterPayment = hasPermission(user, PERMISSIONS.STOCK_WRITE) || hasPermission(user, PERMISSIONS.CAJA_WRITE);
+    const canRegisterPayment = canEdit && !isOffline && hasPermission(user, PERMISSIONS.STOCK_WRITE);
 
     // Modales
     const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
@@ -162,6 +162,7 @@ export default function VehicleFinancialSummary({ vehicle, onEdit, onPaymentSave
 
     // Cargar empresas cargadas en el sistema
     useEffect(() => {
+        if (!canEdit || isOffline) return;
         const token = localStorage.getItem('token');
         fetch('/api/admin/companies', {
             headers: token ? { Authorization: `Bearer ${token}` } : {}
@@ -173,7 +174,7 @@ export default function VehicleFinancialSummary({ vehicle, onEdit, onPaymentSave
                 }
             })
             .catch(() => setCompanies(LOADED_COMPANIES));
-    }, []);
+    }, [canEdit, isOffline]);
 
     // Apertura modal Registrar Pago
     const handleOpenPaymentModal = () => {
@@ -384,6 +385,7 @@ export default function VehicleFinancialSummary({ vehicle, onEdit, onPaymentSave
     const [isSyncingInfoAuto, setIsSyncingInfoAuto] = useState(false);
 
     const handleSyncInfoAutoQuick = async () => {
+        if (!canEdit || isOffline) return;
         try {
             setIsSyncingInfoAuto(true);
             const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
@@ -459,16 +461,17 @@ export default function VehicleFinancialSummary({ vehicle, onEdit, onPaymentSave
     };
 
     const infoAuto = vehicle.infoAuto || vehicle._original?.infoAuto || null;
-    const comisionEstimada = (vehicle.precioPublicado || 0) * 0.013;
-    const margenNeto = (vehicle.margenEstimado || 0) - comisionEstimada;
-    const margenNetoPorcentual = vehicle.costoTotal > 0 
-        ? ((margenNeto / vehicle.costoTotal) * 100).toFixed(1)
-        : 0;
+    const financial = vehicle.financialDisplay;
+    const formatMoney = (amount, moneyCurrency) => `${moneyCurrency || 'Moneda sin informar'} ${Number(amount || 0).toLocaleString('es-AR', { maximumFractionDigits: 2 })}`;
+    const renderAmounts = (amounts, emptyText = 'Sin importes registrados') => {
+        const entries = Object.entries(amounts || {}).filter(([moneyCurrency, amount]) => ['ARS', 'USD'].includes(moneyCurrency) && Number(amount) !== 0);
+        return entries.length ? entries.map(([moneyCurrency, amount]) => <span key={moneyCurrency} className="block">{formatMoney(amount, moneyCurrency)}</span>) : emptyText;
+    };
 
     return (
         <CrmCard>
             <div className="flex items-center justify-between mb-4">
-                <h3 className="text-white font-semibold text-lg">Resumen Financiero</h3>
+                <h2 className="text-crm-fg font-semibold text-sm">Costos y capital de la unidad</h2>
                 {onEdit && (
                     <button 
                         onClick={onEdit} 
@@ -485,37 +488,39 @@ export default function VehicleFinancialSummary({ vehicle, onEdit, onPaymentSave
                 <div className="flex flex-col gap-1 p-3 bg-crm-bg rounded-lg border border-crm-border">
                     <span className="text-xs text-crm-fg-muted">Costo de Compra</span>
                     <span className="text-white font-medium">
-                        {vehicle.precioCompra > 0 ? `${currency} ${Number(vehicle.precioCompra).toLocaleString('es-AR')}` : 'N/A'}
+                        {financial?.purchase?.hasCost ? formatMoney(financial.purchase.amount, financial.purchase.currency) : 'Sin costo registrado'}
                     </span>
                 </div>
                 
                 <div className="flex flex-col gap-1 p-3 bg-crm-bg rounded-lg border border-crm-border">
                     <span className="text-xs text-crm-fg-muted">Gastos Operativos</span>
                     <span className="text-white font-medium">
-                        {vehicle.gastos > 0 ? `${vehicle.moneda} ${vehicle.gastos.toLocaleString('es-AR')}` : 'N/A'}
+                        {renderAmounts(financial?.expenses, 'Sin gastos registrados')}
                     </span>
                 </div>
 
                 <div className="flex flex-col gap-1 p-3 bg-crm-bg rounded-lg border border-crm-border">
-                    <span className="text-xs text-crm-fg-muted">Costo Total</span>
+                    <span className="text-xs text-crm-fg-muted">{!financial?.purchase?.hasCost || !financial?.purchase?.currency || financial?.expenses?.unknownCount ? 'Subtotal conocido por moneda' : 'Costo por moneda'}</span>
                     <span className="text-white font-bold">
-                        {vehicle.costoTotal > 0 ? `${vehicle.moneda} ${vehicle.costoTotal.toLocaleString('es-AR')}` : 'N/A'}
+                        {renderAmounts(financial?.costs, financial?.purchase?.hasCost && financial?.purchase?.currency ? formatMoney(0, financial.purchase.currency) : 'Sin costos calculables')}
                     </span>
                 </div>
 
                 <div className="flex flex-col gap-1 p-3 bg-crm-bg rounded-lg border border-crm-red/30 relative overflow-hidden">
                     <div className="absolute top-0 right-0 w-16 h-16 bg-gradient-to-bl from-[#E63027]/10 to-transparent"></div>
-                    <span className="text-xs text-crm-fg-muted">Margen Estimado</span>
+                    <span className="text-xs text-crm-fg-muted">Margen antes de comisiones</span>
                     <div className="flex items-baseline gap-2">
-                        <span className="text-[#22C55E] font-bold">
-                            {margenNeto > 0 ? `${vehicle.moneda} ${margenNeto.toLocaleString('es-AR', { maximumFractionDigits: 2 })}` : 'N/A'}
+                        <span className={`${financial?.margin?.amount < 0 ? 'text-red-400' : 'text-crm-fg'} font-bold`}>
+                            {financial?.margin?.calculable ? formatMoney(financial.margin.amount, financial.margin.currency) : 'No calculable'}
                         </span>
-                        {margenNetoPorcentual > 0 && (
-                            <span className="text-xs text-crm-fg-muted">({margenNetoPorcentual}%)</span>
+                        {financial?.margin?.calculable && Number.isFinite(financial.margin.percent) && (
+                            <span className="text-xs text-crm-fg-muted">({financial.margin.percent.toLocaleString('es-AR', { maximumFractionDigits: 1 })}%)</span>
                         )}
                     </div>
                 </div>
             </div>
+
+            {(!financial?.margin?.calculable || financial?.expenses?.unknownCount > 0) && <p className="mt-3 rounded-lg border border-amber-500/20 bg-amber-500/5 p-3 text-xs text-amber-500">{financial?.expenses?.unknownCount > 0 ? `${financial.expenses.unknownCount} gasto(s) sin importe o moneda válidos quedan fuera del subtotal. ` : ''}{financial?.margin?.reason || 'Para calcular margen se necesitan compra, precio y gastos en la misma moneda.'}</p>}
 
             {/* SECCIÓN INFOAUTO / VALUACIÓN OFICIAL DE MERCADO */}
             <div className="mt-4 p-4 rounded-xl border border-blue-500/25 bg-blue-500/5 space-y-3">
@@ -552,7 +557,7 @@ export default function VehicleFinancialSummary({ vehicle, onEdit, onPaymentSave
                     </div>
 
                     <div className="flex items-center gap-2">
-                        {Number(infoAuto?.valor) > 0 && (
+                        {canEdit && Number(infoAuto?.valor) > 0 && (
                             <button
                                 type="button"
                                 onClick={handleSyncInfoAutoQuick}
@@ -700,7 +705,7 @@ export default function VehicleFinancialSummary({ vehicle, onEdit, onPaymentSave
                                             ? 'text-white bg-emerald-600 hover:bg-emerald-500 active:scale-95' 
                                             : 'text-zinc-400 bg-zinc-800 border border-zinc-700 cursor-not-allowed opacity-60'
                                     }`}
-                                    title={canRegisterPayment ? 'Registrar salida física de dinero y abonar obligación' : 'Requiere permisos de Stock o Tesorería'}
+                                    title={canRegisterPayment ? 'Registrar salida física de dinero y abonar obligación' : 'Requiere permiso de edición de Stock y conexión'}
                                 >
                                     {canRegisterPayment ? <DollarSign size={13} /> : <Lock size={12} />}
                                     Registrar pago de compra
@@ -849,7 +854,7 @@ export default function VehicleFinancialSummary({ vehicle, onEdit, onPaymentSave
                     {!canRegisterPayment && (
                         <div className="text-[11px] text-zinc-400 flex items-center gap-1.5 pt-1">
                             <Lock size={12} className="text-zinc-500" />
-                            <span>La registración y conciliación de pagos de compra está reservada para roles autorizados de Stock y Tesorería.</span>
+                            <span>Registrar o conciliar pagos de compra requiere permiso de edición de Stock y conexión.</span>
                         </div>
                     )}
                 </div>
@@ -864,15 +869,13 @@ export default function VehicleFinancialSummary({ vehicle, onEdit, onPaymentSave
                     </span>
                 </div>
                 <div className="md:text-center">
-                    <span className="block text-sm text-crm-fg-muted">Comisión Estimada (1.3%)</span>
-                    <span className="block text-lg font-medium text-[#22C55E] mt-1 opacity-90">
-                        {vehicle.moneda} {comisionEstimada.toLocaleString('es-AR', { maximumFractionDigits: 2 })}
-                    </span>
+                    <span className="block text-sm text-crm-fg-muted">Comisiones</span>
+                    <span className="mt-1 block max-w-[180px] text-xs text-crm-fg-muted">Se definen en la operación de venta.</span>
                 </div>
                 <div className="md:text-right">
-                    <span className="block text-sm text-crm-fg-muted">Precio Mínimo (Reserva)</span>
+                    <span className="block text-sm text-crm-fg-muted">Precio mínimo registrado</span>
                     <span className="block text-lg font-medium text-white mt-1 opacity-80">
-                        {vehicle.precioMinimo > 0 ? `${vehicle.moneda} ${vehicle.precioMinimo.toLocaleString('es-AR')}` : 'No definido'}
+                        {financial?.minimumPrice != null ? formatMoney(financial.minimumPrice, financial.sale.currency) : 'No registrado'}
                     </span>
                 </div>
             </div>

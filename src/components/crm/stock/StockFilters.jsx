@@ -151,6 +151,9 @@ export default function StockFilters({
                         <option value="">Todos los modelos</option>
                         {modelOptions.map(model => <option key={normalizeStockText(model)} value={normalizeStockText(model)}>{model}</option>)}
                     </select></label>
+                    <label className="min-w-0 text-xs text-crm-fg-muted">Transmisión
+                    <input type="text" list="stock-transmissions" aria-label="Filtrar por transmisión" value={filters.transmission || ''} onChange={(event) => update('transmission', event.target.value)} placeholder="Todas las transmisiones" className={fieldClass} />
+                    <datalist id="stock-transmissions"><option value="Manual" /><option value="Automática" /><option value="CVT" /><option value="DCT" /></datalist></label>
                     <label className="min-w-0 text-xs text-crm-fg-muted">Moneda
                     <select aria-label="Moneda del precio de stock" value={filters.currency || ''} onChange={(event) => setFilters?.(previous => ({ ...previous, currency: event.target.value, minPrice: '', maxPrice: '' }))} className={fieldClass}>
                         <option value="">Todas las monedas</option><option value="USD">USD</option><option value="ARS">ARS</option>

@@ -12,8 +12,8 @@
     "api": "node server.js",
     "test:smoke": "playwright test",
     "test:help": "node tests/helpRegistry.test.js",
-    "test:crm-parity": "node --test tests/cashProjection.test.js tests/saleDraftForm.test.js tests/treasuryHistoricalIsolation.test.js tests/installmentCollectionStats.test.js tests/saleCalendarDate.test.js tests/crmNavigation.test.js tests/stockFilters.test.js tests/clientCommercial.test.js tests/offlineSnapshotIsolation.test.js",
-    "test:crm-parity:integration": "node --test --test-concurrency=1 tests/integration/saleDraft.integration.test.js tests/integration/stockFilters.integration.test.js tests/integration/clientCommercial.integration.test.js",
+    "test:crm-parity": "node --test tests/cashProjection.test.js tests/saleDraftForm.test.js tests/treasuryHistoricalIsolation.test.js tests/installmentCollectionStats.test.js tests/saleCalendarDate.test.js tests/crmNavigation.test.js tests/stockFilters.test.js tests/clientCommercial.test.js tests/offlineSnapshotIsolation.test.js tests/stockNavigation.test.js tests/vehicleDetail.test.js tests/vehicleFinancialDisplay.test.js tests/vehicleFormDraft.test.js tests/vehicleValidation.test.js tests/vehicleEditPreservation.test.js",
+    "test:crm-parity:integration": "node --test --test-concurrency=1 tests/integration/saleDraft.integration.test.js tests/integration/stockFilters.integration.test.js tests/integration/clientCommercial.integration.test.js tests/integration/vehicleWrite.integration.test.js",
     "preview:crm-parity": "node scripts/start-crm-parity-preview.mjs"
   },
   "dependencies": {

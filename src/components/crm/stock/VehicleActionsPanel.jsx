@@ -1,134 +1,29 @@
 "use client";
 import CrmCard from '../ui/CrmCard';
-import CrmButton from '../ui/CrmButton';
 import { Edit, CalendarClock, ShoppingCart, Receipt, MessageSquare, Lock, Trash2, Printer } from 'lucide-react';
 import { useAuth } from '../../../context/AuthContext';
 import { hasPermission, PERMISSIONS } from '../../../utils/adminPermissions';
+import { canReserveVehicle, getVehicleOperationalStatus } from '../../../utils/vehicleDetail';
 
-export default function VehicleActionsPanel({
-    vehicle,
-    onEdit,
-    onAddExpense,
-    onReserve,
-    onCancelReserve,
-    onDelete,
-    onAddNote,
-    onStartSale,
-    onPrintFlyer,
-    activeReservation
-}) {
+export default function VehicleActionsPanel({ vehicle, onEdit, onAddExpense, onReserve, onCancelReserve, onDelete, onAddNote, onStartSale, onPrintFlyer, activeReservation, isOffline = false, reservationUnavailable = false }) {
     const { user } = useAuth();
-    const canEditStock = hasPermission(user, PERMISSIONS.STOCK_WRITE);
-    const canReserve = hasPermission(user, PERMISSIONS.RESERVAS_WRITE) || hasPermission(user, PERMISSIONS.VENTAS_WRITE);
-    const canAddExpense = hasPermission(user, PERMISSIONS.STOCK_WRITE) || hasPermission(user, PERMISSIONS.FINANZAS_WRITE);
-    const canStartSale = hasPermission(user, PERMISSIONS.VENTAS_WRITE);
-    const reserveDisabled = vehicle?.status === 'Vendido' || vehicle?.status === 'Reservado' || !!activeReservation?._id;
-
-    return (
-        <CrmCard>
-            <h3 className="text-white font-semibold text-lg mb-4">Acciones de Stock</h3>
-
-            <div className="flex flex-col gap-3">
-                {canEditStock && (
-                    <CrmButton onClick={onEdit} className="flex items-center justify-start gap-3 w-full bg-crm-bg border-crm-border hover:bg-crm-surface-raised text-white">
-                        <Edit size={16} className="text-crm-red" />
-                        <div className="flex flex-col items-start text-left">
-                            <span className="font-medium">Editar Vehiculo</span>
-                            <span className="text-[10px] text-crm-fg-muted font-normal">Actualizar datos y visibilidad</span>
-                        </div>
-                    </CrmButton>
-                )}
-
-                {canReserve && (
-                    <CrmButton
-                        onClick={onReserve}
-                        disabled={reserveDisabled}
-                        className={'flex items-center justify-start gap-3 w-full border-crm-border ' + (reserveDisabled ? 'opacity-50 cursor-not-allowed bg-crm-surface-raised hover:bg-crm-surface-raised' : 'bg-crm-bg hover:bg-crm-surface-raised text-white')}
-                    >
-                        <CalendarClock size={16} className={reserveDisabled ? '' : 'text-crm-red'} />
-                        <div className="flex flex-col items-start text-left">
-                            <span>Tomar Reserva</span>
-                            <span className="text-[10px] text-crm-fg-muted font-normal">
-                                {activeReservation?._id ? 'Ya existe reserva activa' :
-                                 vehicle?.status === 'Vendido' ? 'Vehiculo vendido' :
-                                 vehicle?.status === 'Reservado' ? 'Vehiculo reservado' :
-                                 'Bloquear vehiculo con seña'}
-                            </span>
-                        </div>
-                    </CrmButton>
-                )}
-
-                {canReserve && activeReservation?._id && (
-                    <CrmButton
-                        onClick={onCancelReserve}
-                        className="flex items-center justify-start gap-3 w-full bg-crm-bg border-red-500/30 hover:bg-crm-surface-raised text-white"
-                    >
-                        <Lock size={16} className="text-crm-red" />
-                        <div className="flex flex-col items-start text-left">
-                            <span className="text-red-400">Liberar Reserva</span>
-                            <span className="text-[10px] text-crm-fg-muted font-normal">Desactivar y desbloquear auto</span>
-                        </div>
-                    </CrmButton>
-                )}
-
-                {canStartSale && (
-                    <CrmButton
-                        onClick={onStartSale}
-                        disabled={vehicle?.status === 'Vendido'}
-                        className="flex items-center justify-start gap-3 w-full bg-crm-bg border-crm-border hover:bg-crm-surface-raised text-white disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                        <ShoppingCart size={16} className="text-crm-red" />
-                        <div className="flex flex-col items-start text-left">
-                            <span>Iniciar Venta</span>
-                            <span className="text-[10px] text-crm-fg-muted font-normal">Abrir gestion de ventas</span>
-                        </div>
-                    </CrmButton>
-                )}
-
-                <div className="h-px w-full bg-crm-surface-raised my-1"></div>
-
-                {canAddExpense && (
-                    <CrmButton onClick={onAddExpense} className="flex items-center justify-start gap-3 w-full bg-crm-bg border-crm-border hover:bg-crm-surface-raised text-white">
-                        <Receipt size={16} className="text-[#22C55E]" />
-                        <div className="flex flex-col items-start text-left">
-                            <span className="font-medium">Agregar Gasto</span>
-                            <span className="text-[10px] text-crm-fg-muted font-normal">Registrar costo interno</span>
-                        </div>
-                    </CrmButton>
-                )}
-
-                {canEditStock && (
-                    <CrmButton onClick={onAddNote} className="flex items-center justify-start gap-3 w-full bg-crm-bg border-crm-border hover:bg-crm-surface-raised text-white">
-                        <MessageSquare size={16} className="text-crm-fg-muted" />
-                        <div className="flex flex-col items-start text-left">
-                            <span>Agregar Observacion</span>
-                            <span className="text-[10px] text-crm-fg-muted font-normal">Guardar nota interna</span>
-                        </div>
-                    </CrmButton>
-                )}
-
-                <CrmButton onClick={() => onPrintFlyer?.(vehicle)} className="flex items-center justify-start gap-3 w-full bg-crm-bg border-crm-border hover:bg-crm-surface-raised text-white">
-                    <Printer size={16} className="text-blue-500" />
-                    <div className="flex flex-col items-start text-left">
-                        <span className="font-medium">Imprimir Ficha</span>
-                        <span className="text-[10px] text-crm-fg-muted font-normal">Exportar ficha en A4 / PDF</span>
-                    </div>
-                </CrmButton>
-
-                {canEditStock && (
-                    <>
-                        <div className="h-px w-full bg-crm-surface-raised my-1"></div>
-
-                        <CrmButton onClick={onDelete} className="flex items-center justify-start gap-3 w-full bg-crm-red/10 border-red-500/20 hover:bg-crm-red/20 text-crm-red transition-colors">
-                            <Trash2 size={16} />
-                            <div className="flex flex-col items-start text-left">
-                                <span className="font-medium">Eliminar Vehiculo</span>
-                                <span className="text-[10px] text-red-400/80 font-normal">Accion destructiva</span>
-                            </div>
-                        </CrmButton>
-                    </>
-                )}
-            </div>
-        </CrmCard>
-    );
+    const canEdit = hasPermission(user, PERMISSIONS.STOCK_WRITE) && !isOffline;
+    const canReserve = hasPermission(user, PERMISSIONS.RESERVAS_WRITE) && !isOffline;
+    const canStartSale = hasPermission(user, PERMISSIONS.VENTAS_WRITE) && !isOffline;
+    const reserveDisabled = reservationUnavailable || !canReserveVehicle(vehicle, activeReservation);
+    const status = getVehicleOperationalStatus(vehicle);
+    const actions = [
+        canEdit && { label: 'Editar vehículo', hint: 'Datos, propiedad y precios', icon: Edit, onClick: onEdit },
+        canReserve && { label: 'Tomar reserva', hint: reservationUnavailable ? 'Actualizá la reserva vigente' : activeReservation?._id ? 'Ya tiene una reserva activa' : status !== 'disponible' ? 'Solo para unidades disponibles' : 'Bloquear la unidad con seña', icon: CalendarClock, onClick: onReserve, disabled: reserveDisabled },
+        canReserve && activeReservation?._id && { label: 'Liberar reserva', hint: 'Cancelación y condiciones de la seña', icon: Lock, onClick: onCancelReserve },
+        canStartSale && { label: 'Ir a Ventas', hint: 'Gestionar la operación comercial', icon: ShoppingCart, onClick: onStartSale },
+        canEdit && { label: 'Agregar gasto', hint: 'Registrar un costo de la unidad', icon: Receipt, onClick: onAddExpense },
+        canEdit && { label: 'Agregar observación', hint: 'Guardar una nota en el historial', icon: MessageSquare, onClick: onAddNote },
+        { label: 'Imprimir ficha', hint: 'Ficha de la unidad en A4 / PDF', icon: Printer, onClick: () => onPrintFlyer?.(vehicle) },
+        canEdit && { label: 'Eliminar vehículo', hint: 'Revisar vínculos y consecuencias', icon: Trash2, onClick: onDelete, danger: true }
+    ].filter(Boolean);
+    return <CrmCard className="min-w-0">
+        <h2 className="mb-3 text-sm font-semibold text-crm-fg">Acciones de la unidad</h2>
+        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 xl:grid-cols-1">{actions.map(({ label, hint, icon: Icon, onClick, disabled, danger }) => <button key={label} type="button" onClick={onClick} disabled={disabled} className={`flex min-h-11 min-w-0 items-center gap-2.5 rounded-lg border px-3 py-2 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-crm-red disabled:cursor-not-allowed disabled:opacity-50 ${danger ? 'border-red-500/20 bg-crm-red/5 text-crm-red hover:bg-crm-red/10' : 'border-crm-border bg-crm-bg text-crm-fg hover:bg-crm-surface-raised'}`}><Icon size={15} className="shrink-0" /><span className="min-w-0"><span className="block text-xs font-medium">{label}</span><span className="block break-words text-[10px] font-normal text-crm-fg-muted">{hint}</span></span></button>)}</div>
+    </CrmCard>;
 }

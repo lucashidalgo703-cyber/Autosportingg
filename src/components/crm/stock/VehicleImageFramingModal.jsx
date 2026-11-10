@@ -128,7 +128,7 @@ export default function VehicleImageFramingModal({
             // Auto nuevo en creación
             if (onPositionsSaved) onPositionsSaved(finalPositions, finalCoverPosition);
             if (onPositionSaved) onPositionSaved(finalCoverPosition);
-            toast.success(`Encuadre guardado para ${finalPositions.length} fotos`);
+            toast.success('Encuadre aplicado. Guardá los cambios de las fotos o del vehículo para conservarlo.');
             onClose();
             return;
         }

@@ -1,5 +1,5 @@
 "use client";
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, useRef } from 'react';
 import { Download, FileText, Plus, ExternalLink, HelpCircle, AlertCircle, CheckCircle2, Info, Calculator, Filter } from 'lucide-react';
 
 import CrmButton from '../../../components/crm/ui/CrmButton';
@@ -27,8 +27,12 @@ import CapitalSummarySection from '../../../components/crm/stock/CapitalSummaryS
 import StockCommercialCalculator from '../../../components/crm/stock/StockCommercialCalculator';
 import StockCalculationModal from '../../../components/crm/stock/StockCalculationModal';
 import { STOCK_FILTER_KEYS } from '../../../utils/stockFilters.js';
+import { useAuth } from '../../../context/AuthContext';
+import { hasPermission, PERMISSIONS } from '../../../utils/adminPermissions';
+import { buildStockLocation, readStockLocation } from '../../../utils/stockNavigation.js';
+import { canReserveVehicle } from '../../../utils/vehicleDetail.js';
 
-const EMPTY_STOCK_FILTERS = { model: '', currency: '', minPrice: '', maxPrice: '', minKm: '', maxKm: '', minDays: '', maxDays: '', stagnant: false, review: false, sort: 'manual' };
+const EMPTY_STOCK_FILTERS = { model: '', transmission: '', currency: '', minPrice: '', maxPrice: '', minKm: '', maxKm: '', minDays: '', maxDays: '', stagnant: false, review: false, sort: 'manual' };
 
 
 function formatARS(amount) {
@@ -44,6 +48,7 @@ function formatUSD(amount) {
 }
 
 export default function AdminStockPage() {
+    const { user } = useAuth();
     const [pageNumber, setPageNumber] = useState(1);
     const [searchTerm, setSearchTerm] = useState('');
     const [debouncedSearch, setDebouncedSearch] = useState('');
@@ -55,6 +60,9 @@ export default function AdminStockPage() {
     const [advancedFilters, setAdvancedFilters] = useState({ ...EMPTY_STOCK_FILTERS });
     const [debouncedFilters, setDebouncedFilters] = useState({ ...EMPTY_STOCK_FILTERS });
     const [inventoryLayout, setInventoryLayout] = useState('list');
+    const [navigationReady, setNavigationReady] = useState(false);
+    const [navigationRevision, setNavigationRevision] = useState(0);
+    const skipPageResetRef = useRef(false);
     const [selectedVehicleForPrint, setSelectedVehicleForPrint] = useState(null);
 
     const hasActiveFilters = Boolean(
@@ -93,6 +101,8 @@ export default function AdminStockPage() {
         filteredPropioARS, filteredInversionistasARS,
         filteredPropioUSD, filteredInversionistasUSD
     } = useAdminCars();
+    const canWriteStock = hasPermission(user, PERMISSIONS.STOCK_WRITE) && !isOffline;
+    const canReserve = hasPermission(user, PERMISSIONS.RESERVAS_WRITE) && !isOffline;
     const [showCalculationModal, setShowCalculationModal] = useState(false);
     const [isFormOpen, setIsFormOpen] = useState(false);
     const [isImportModalOpen, setIsImportModalOpen] = useState(false);
@@ -108,20 +118,31 @@ export default function AdminStockPage() {
     const [isSwapping, setIsSwapping] = useState(false);
 
     useEffect(() => {
-        const readStockView = () => {
-            setStockView(new URLSearchParams(window.location.search).get('vista') === 'capital' ? 'capital' : 'inventario');
+        const readLocation = () => {
+            const saved = readStockLocation(window.location.search);
+            skipPageResetRef.current = true;
+            setStockView(saved.view);
+            setInventoryLayout(saved.layout);
+            setSearchTerm(saved.filters.search);
+            setDebouncedSearch(saved.filters.search);
+            setFilterStatus(saved.filters.status);
+            setBrandFilter(saved.filters.brand);
+            setStockTab(saved.filters.tab);
+            setMlFilter(saved.filters.ml);
+            setAdvancedFilters(saved.advanced);
+            setDebouncedFilters(saved.advanced);
+            setPageNumber(saved.filters.page);
+            setNavigationRevision(value => value + 1);
+            setNavigationReady(true);
+            if (saved.error) toast.error(`No se pudieron recuperar los filtros: ${saved.error}`);
         };
-        readStockView();
-        window.addEventListener('popstate', readStockView);
-        return () => window.removeEventListener('popstate', readStockView);
+        readLocation();
+        window.addEventListener('popstate', readLocation);
+        return () => window.removeEventListener('popstate', readLocation);
     }, []);
 
     const changeStockView = (view) => {
         setStockView(view);
-        const url = new URL(window.location.href);
-        if (view === 'capital') url.searchParams.set('vista', 'capital');
-        else url.searchParams.delete('vista');
-        window.history.replaceState(window.history.state, '', url);
     };
 
     useEffect(() => {
@@ -149,8 +170,10 @@ export default function AdminStockPage() {
 
     // Cuando cambian los filtros de búsqueda o estado, reiniciamos a la página 1
     useEffect(() => {
+        if (!navigationReady) return;
+        if (skipPageResetRef.current) { skipPageResetRef.current = false; return; }
         setPageNumber(1);
-    }, [debouncedSearch, filterStatus, brandFilter, stockTab, mlFilter, debouncedFilters]);
+    }, [debouncedSearch, filterStatus, brandFilter, stockTab, mlFilter, debouncedFilters, navigationReady, navigationRevision]);
 
     const currentStockFilters = useMemo(() => ({
         page: pageNumber, limit: 20, search: debouncedSearch, status: filterStatus,
@@ -159,11 +182,26 @@ export default function AdminStockPage() {
 
     // Ejecuta la consulta únicamente cuando cambie la página o los filtros debounced
     useEffect(() => {
-        refresh(currentStockFilters);
-    }, [currentStockFilters, refresh]);
+        if (navigationReady) refresh(currentStockFilters);
+    }, [currentStockFilters, refresh, navigationReady]);
+
+    const stockReturnTo = useMemo(() => {
+        try { return buildStockLocation(currentStockFilters, stockView, inventoryLayout); }
+        catch { return '/admin/stock'; }
+    }, [currentStockFilters, stockView, inventoryLayout]);
+
+    useEffect(() => {
+        if (!navigationReady) return;
+        try {
+            const location = buildStockLocation(currentStockFilters, stockView, inventoryLayout);
+            if (location !== window.location.pathname + window.location.search) {
+                window.history.replaceState(window.history.state, '', location);
+            }
+        } catch { /* El formulario conserva el rango inválido para corregirlo. */ }
+    }, [currentStockFilters, stockView, inventoryLayout, navigationReady]);
 
     const handleSwap = async (index, direction) => {
-        if (isSwapping || advancedFilters.sort !== 'manual' || isOffline) return;
+        if (!canWriteStock || isSwapping || advancedFilters.sort !== 'manual' || isOffline) return;
 
         const targetIndex = direction === 'up' ? index - 1 : index + 1;
         const isCrossPage = targetIndex < 0 || targetIndex >= vehicles.length;
@@ -281,11 +319,13 @@ export default function AdminStockPage() {
     }, [mandates, searchTerm]);
 
     const handleNewVehicle = () => {
+        if (!canWriteStock) return;
         setEditingCar(null);
         setIsFormOpen(true);
     };
 
     const handleNewMandate = () => {
+        if (!canWriteStock) return;
         setIsMandateModalOpen(true);
     };
 
@@ -337,7 +377,10 @@ export default function AdminStockPage() {
     };
 
     const handleSaveVehicle = async (formData, files) => {
+        let loadingToast;
         try {
+            if (!canWriteStock) throw new Error('Necesitás conexión y permiso para editar el stock.');
+            formData = { ...formData };
             // Normalización de marcas
             if (formData.brand) {
                 const brandLower = formData.brand.toLowerCase().trim();
@@ -349,7 +392,7 @@ export default function AdminStockPage() {
             // Validación de precio anómalo
             if (formData.price && Number(formData.price) <= 100 && formData.currency === 'ARS') {
                 if (!window.confirm("⚠️ El precio publicado en ARS parece anómalo (<= 100). ¿Guardar de todas formas?")) {
-                    return;
+                    return false;
                 }
             }
 
@@ -359,7 +402,7 @@ export default function AdminStockPage() {
             }
 
             const token = localStorage.getItem('token');
-            if (!token) throw new Error("No token found");
+            if (!token) throw new Error('Tu sesión no está disponible. Volvé a iniciar sesión.');
 
             const API_URL = process.env.NEXT_PUBLIC_API_URL;
             const baseUrl = process.env.NODE_ENV === 'production' ? '' : (API_URL || 'http://localhost:3001');
@@ -394,11 +437,11 @@ export default function AdminStockPage() {
                 });
             }
             
-            if (isEditing) {
+            if (isEditing && Array.isArray(files)) {
                 payload.append('imageOrder', JSON.stringify(imageOrder));
             }
 
-            const loadingToast = toast.loading(isEditing ? 'Actualizando vehículo...' : 'Creando vehículo...');
+            loadingToast = toast.loading(isEditing ? 'Actualizando vehículo...' : 'Creando vehículo...');
 
             const res = await fetch(endpoint, {
                 method,
@@ -410,9 +453,14 @@ export default function AdminStockPage() {
 
             if (!res.ok) {
                 const errData = await res.json().catch(()=>({}));
-                throw new Error(errData.message || 'Error al guardar el vehículo');
+                const error = new Error(errData.message || 'Error al guardar el vehículo');
+                error.errors = errData.errors;
+                error.code = errData.code;
+                error.status = res.status;
+                throw error;
             }
 
+            const savedVehicle = await res.json();
             toast.success(isEditing ? 'Vehículo actualizado' : 'Vehículo creado exitosamente');
             setIsFormOpen(false);
             setEditingCar(null);
@@ -422,9 +470,13 @@ export default function AdminStockPage() {
                 // fallback to page reload if refresh is not available from useAdminCars
                 window.location.reload();
             }
+            return savedVehicle;
         } catch (error) {
             console.error("Save vehicle error:", error);
             toast.error(error.message || 'Error al guardar el vehículo');
+            throw error;
+        } finally {
+            if (loadingToast) toast.dismiss(loadingToast);
         }
     };
 
@@ -457,18 +509,18 @@ export default function AdminStockPage() {
                                 <Download size={14} />
                                 Exportar todo XLSX
                             </CrmButton>
-                            <CrmButton variant="secondary" size="sm" className="gap-2" onClick={() => setIsImportModalOpen(true)}>
+                            {canWriteStock && <CrmButton variant="secondary" size="sm" className="gap-2" onClick={() => setIsImportModalOpen(true)}>
                                 <FileText size={14} />
                                 Importar XLSX
-                            </CrmButton>
-                            <CrmButton variant="primary" size="sm" onClick={handleNewMandate} className="gap-2 bg-blue-600 hover:bg-blue-700">
+                            </CrmButton>}
+                            {canWriteStock && <CrmButton variant="primary" size="sm" onClick={handleNewMandate} className="gap-2 bg-blue-600 hover:bg-blue-700">
                                 <Plus size={14} />
                                 Nuevo mandato + Stock
-                            </CrmButton>
-                            <CrmButton variant="primary" size="sm" onClick={handleNewVehicle} className="gap-2">
+                            </CrmButton>}
+                            {canWriteStock && <CrmButton variant="primary" size="sm" onClick={handleNewVehicle} className="gap-2">
                                 <Plus size={14} />
                                 Nuevo vehículo
-                            </CrmButton>
+                            </CrmButton>}
                         </>
                     }
                 />
@@ -774,25 +826,27 @@ export default function AdminStockPage() {
                         <div className="mt-4">
                             <MandateTable 
                                 data={filteredMandates} 
-                                onDelete={(m) => setConfirmDeleteMandate({ isOpen: true, mandate: m })}
+                                onDelete={canWriteStock ? (m) => setConfirmDeleteMandate({ isOpen: true, mandate: m }) : undefined}
                             />
                         </div>
                     ) : (
                         <>
-                            {inventoryLayout === 'cards' ? <StockCards data={filteredVehicles} onPrint={handlePrint} onReserve={setReservingCar} onEditML={setMlEditingCar} onDelete={setDeletingCar} hasActiveFilters={hasActiveFilters} onClearFilters={handleClearFilters} /> : <div className="hidden lg:block">
+                            {inventoryLayout === 'cards' ? <StockCards data={filteredVehicles} returnTo={stockReturnTo} onPrint={handlePrint} onReserve={canReserve ? setReservingCar : undefined} onEditML={canWriteStock ? setMlEditingCar : undefined} onDelete={canWriteStock ? setDeletingCar : undefined} hasActiveFilters={hasActiveFilters} onClearFilters={handleClearFilters} /> : <div className="hidden lg:block">
                                 <StockTable 
                                     data={filteredVehicles} 
-                                    onEditML={setMlEditingCar} 
-                                    onDelete={setDeletingCar} 
+                                    returnTo={stockReturnTo}
+                                    canEdit={canWriteStock}
+                                    onEditML={canWriteStock ? setMlEditingCar : undefined}
+                                    onDelete={canWriteStock ? setDeletingCar : undefined}
                                     onPrint={handlePrint} 
                                     onSwap={handleSwap} 
                                     isSwapping={isSwapping} 
                                     compact={inventoryLayout === 'list'}
-                                    canReorder={advancedFilters.sort === 'manual' && !isOffline}
+                                    canReorder={canWriteStock && advancedFilters.sort === 'manual'}
                                     showTotals={!isOffline}
                                     currentPage={pageNumber} 
                                     totalPages={pages} 
-                                    onReserve={setReservingCar}
+                                    onReserve={canReserve ? setReservingCar : undefined}
                                     totalItems={total}
                                     filteredTotalUSD={filteredTotalUSD}
                                     filteredTotalARS={filteredTotalARS}
@@ -809,15 +863,17 @@ export default function AdminStockPage() {
                                         tab: stockTab,
                                         ml: mlFilter
                                     })}
-                                    onNewVehicle={() => { setEditingCar(null); setIsFormOpen(true); }}
+                                    onNewVehicle={canWriteStock ? handleNewVehicle : undefined}
                                 />
                             </div>}
                             {inventoryLayout !== 'cards' && <div className="block lg:hidden">
                                 <StockMobileCards 
+                                    returnTo={stockReturnTo}
                                     showTotals={!isOffline}
                                     data={filteredVehicles} 
-                                    onEditML={setMlEditingCar} 
-                                    onDelete={setDeletingCar} 
+                                    canEdit={canWriteStock}
+                                    onEditML={canWriteStock ? setMlEditingCar : undefined}
+                                    onDelete={canWriteStock ? setDeletingCar : undefined}
                                     onPrint={handlePrint} 
                                     totalItems={total}
                                     filteredTotalUSD={filteredTotalUSD}
@@ -835,7 +891,7 @@ export default function AdminStockPage() {
                                         tab: stockTab,
                                         ml: mlFilter
                                     })}
-                                    onNewVehicle={() => { setEditingCar(null); setIsFormOpen(true); }}
+                                    onNewVehicle={canWriteStock ? handleNewVehicle : undefined}
                                 />
                             </div>}
                             <CrmPagination
@@ -852,14 +908,14 @@ export default function AdminStockPage() {
             </div>
 
             <VehicleFormModal
-                isOpen={isFormOpen}
+                isOpen={isFormOpen && canWriteStock}
                 onClose={() => { setIsFormOpen(false); setEditingCar(null); }}
                 onSave={handleSaveVehicle}
                 editingCar={editingCar}
             />
 
             <MandateStockModal
-                isOpen={isMandateModalOpen}
+                isOpen={isMandateModalOpen && canWriteStock}
                 onClose={() => setIsMandateModalOpen(false)}
                 onSave={async (data) => {
                     const token = localStorage.getItem('token');
@@ -887,7 +943,7 @@ export default function AdminStockPage() {
             />
             
             <StockImportModal
-                isOpen={isImportModalOpen}
+                isOpen={isImportModalOpen && canWriteStock}
                 onClose={() => setIsImportModalOpen(false)}
                 onSuccess={(count) => {
                     toast.success(`Se importaron ${count} vehículos correctamente.`);
@@ -897,7 +953,7 @@ export default function AdminStockPage() {
             />
 
             <MLActionModal
-                isOpen={!!mlEditingCar}
+                isOpen={!!mlEditingCar && canWriteStock}
                 onClose={() => setMlEditingCar(null)}
                 vehicle={mlEditingCar}
                 onSave={() => {
@@ -908,7 +964,7 @@ export default function AdminStockPage() {
             />
 
             <VehicleDeleteModal
-                isOpen={!!deletingCar}
+                isOpen={!!deletingCar && canWriteStock}
                 onClose={() => setDeletingCar(null)}
                 vehicle={deletingCar}
                 onSuccess={() => {
@@ -919,7 +975,7 @@ export default function AdminStockPage() {
             />
 
             <ConfirmModal
-                isOpen={confirmDeleteMandate.isOpen}
+                isOpen={confirmDeleteMandate.isOpen && canWriteStock}
                 onClose={() => setConfirmDeleteMandate({ isOpen: false, mandate: null })}
                 onConfirm={async () => {
                     if (!confirmDeleteMandate.mandate) return;
@@ -937,7 +993,7 @@ export default function AdminStockPage() {
             />
 
             <ReservationModal
-                isOpen={!!reservingCar}
+                isOpen={!!reservingCar && canReserve && canReserveVehicle(reservingCar)}
                 onClose={() => setReservingCar(null)}
                 onSuccess={() => {
                     setReservingCar(null);
@@ -946,7 +1002,7 @@ export default function AdminStockPage() {
                 }}
                 initialData={{
                     vehicleId: reservingCar?.id || reservingCar?._id,
-                    vehicleName: `${reservingCar?.marca} ${reservingCar?.modelo} ${reservingCar?.version || ''} ${reservingCar?.year || ''}`.trim(),
+                    vehicleName: `${reservingCar?.marca || ''} ${reservingCar?.modelo || ''} ${reservingCar?.technicalVersion || ''} ${reservingCar?.['año'] || reservingCar?.year || ''}`.trim(),
                     agreedPrice: reservingCar?.precioPublicado || reservingCar?.precio,
                     agreedCurrency: reservingCar?.moneda || 'USD'
                 }}

@@ -3,6 +3,8 @@ import Link from 'next/link';
 import { Filter, ExternalLink, AlertTriangle, Car } from 'lucide-react';
 import CrmTable from '../ui/CrmTable';
 import { stockIsPublished } from '../../../utils/stockFilters.js';
+import { vehicleDetailHref } from '../../../utils/stockNavigation.js';
+import { canReserveVehicle } from '../../../utils/vehicleDetail.js';
 
 const getVehicleYear = (vehicle) => vehicle.year || vehicle['año'] || 'S/D';
 const formatNumber = (value) => Number(value || 0).toLocaleString('es-AR');
@@ -97,7 +99,9 @@ export default function StockTable({
     onNewVehicle = null,
     compact = false,
     canReorder = true,
-    showTotals = true
+    showTotals = true,
+    canEdit = false,
+    returnTo = '/admin/stock'
 }) {
     const columns = [
         {
@@ -146,9 +150,9 @@ export default function StockTable({
                 const progress = getProgress(days);
                 return (
                     <>
-                        <div className="font-medium leading-5 text-crm-fg">
+                        <Link href={vehicleDetailHref(vehicle.id, returnTo)} className="font-medium leading-5 text-crm-fg hover:text-crm-red focus-visible:outline focus-visible:outline-2 focus-visible:outline-crm-red">
                             {vehicle.marca} {vehicle.modelo}
-                        </div>
+                        </Link>
                         <div className="mt-0.5 text-xs text-crm-fg-muted">{vehicle.color}</div>
                         <div className="mt-2">
                             <div className="flex items-center justify-between gap-2 text-xs text-crm-fg">
@@ -201,7 +205,6 @@ export default function StockTable({
         },
         {
             label: 'Mercado Libre',
-            label: 'Mercado Libre',
             key: 'ml',
             render: (v) => {
                 const isPublished = stockIsPublished(v._original?.publishedOnML);
@@ -236,12 +239,12 @@ export default function StockTable({
             key: 'actions',
             render: (vehicle) => (
                 <div className="flex items-center gap-2">
-                    <Link
-                        href={`/admin/stock/${vehicle.id}`}
+                    {canEdit && <Link
+                        href={vehicleDetailHref(vehicle.id, returnTo, true)}
                         className="inline-flex h-8 items-center rounded-lg border border-transparent bg-transparent px-2 text-xs font-semibold text-crm-fg no-underline transition-colors hover:bg-crm-surface-raised"
                     >
                         Editar
-                    </Link>
+                    </Link>}
                     <button
                         type="button"
                         onClick={() => onPrint && onPrint(vehicle)}
@@ -249,20 +252,21 @@ export default function StockTable({
                     >
                         Imprimir
                     </button>
-                    <button
+                    {onReserve && <button
                         type="button"
                         onClick={() => onReserve && onReserve(vehicle)}
+                        disabled={!canReserveVehicle(vehicle)}
                         className="m-0 h-8 appearance-none rounded-lg border border-transparent bg-transparent px-2 text-xs font-semibold text-crm-fg transition-colors hover:bg-crm-surface-raised cursor-pointer"
                     >
                         Señar
-                    </button>
-                    <button
+                    </button>}
+                    {onDelete && <button
                         type="button"
                         onClick={() => onDelete && onDelete(vehicle)}
                         className="m-0 h-8 appearance-none rounded-lg border border-transparent bg-transparent px-2 text-xs font-semibold text-crm-red transition-colors hover:bg-crm-red/10 cursor-pointer"
                     >
                         Eliminar
-                    </button>
+                    </button>}
                 </div>
             )
         }

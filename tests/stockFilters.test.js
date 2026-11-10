@@ -5,6 +5,16 @@ import { buildStockQuery, filterStockSnapshot, normalizeStockText, parseStockFil
 const cut = new Date('2026-11-10T14:00:00Z');
 const vehicle = (overrides = {}) => ({ _id: 'a', order: 1, brand: 'Ford', name: 'Focus', status: 'Disponible', price: 10000, currency: 'USD', km: 20000, createdAt: '2026-11-10T03:30:00Z', publishedOnML: 'Sí', images: ['https://example.test/photo.jpg'], ...overrides });
 
+test('transmisión filtra antes de paginar y mantiene equivalencia online/offline sin excluir datos legacy del listado general', () => {
+    const cars = [vehicle({ _id: 'manual', transmission: ' Manual ' }), vehicle({ _id: 'auto', transmission: 'Automática' }), vehicle({ _id: 'legacy' })];
+    const { query } = buildStockQuery({ transmission: 'manual' }, cut);
+    assert.equal(query.$and.find(item => item.transmission).transmission.test(' MANUAL '), true);
+    assert.deepEqual(filterStockSnapshot(cars, { transmission: 'manual' }, cut).map(car => car._id), ['manual']);
+    assert.equal(filterStockSnapshot(cars, {}, cut).length, 3);
+    assert.throws(() => parseStockFilters({ transmission: ['Manual'] }));
+    assert.equal(buildStockQuery({ transmission: 'CVT+' }, cut).query.$and.find(item => item.transmission).transmission.test('CVTT'), false);
+});
+
 test('marcas y modelos agrupan espacios y mayúsculas sin modificar originales ni fusionar otros nombres', () => {
     const source = [' Ford ', 'FORD', 'Ford', 'Land   Rover', 'land rover', 'Citroën', 'Citroen'];
     const before = [...source];

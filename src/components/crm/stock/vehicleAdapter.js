@@ -1,6 +1,7 @@
 import { getCarPurchasePaymentSummary } from '../../../utils/carPurchasePayment';
 import { resolveVehicleAcquisitionCost } from '../../../utils/saleCommercial';
 import { stockDays } from '../../../utils/stockFilters.js';
+import { getVehicleFinancialDisplay } from '../../../utils/vehicleFinancialDisplay.js';
 
 export const mapRealCarToCRM = (car) => {
     const acq = resolveVehicleAcquisitionCost(car);
@@ -26,7 +27,12 @@ export const mapRealCarToCRM = (car) => {
         id: car._id,
         marca: car.brand || 'No definido',
         modelo: car.name || 'No definido',
-        version: car.description || 'N/A',
+        version: car.version || car.description || 'N/A',
+        transmission: car.transmission || '',
+        bodyType: car.bodyType || '',
+        doors: car.doors ?? null,
+        engine: car.engine || '',
+        technicalVersion: car.version || '',
         año: car.year || new Date().getFullYear(),
         kilometraje: car.km || 0,
         combustible: car.fuel || 'Nafta',
@@ -61,6 +67,7 @@ export const mapRealCarToCRM = (car) => {
         purchasePaymentState: car.purchasePaymentState || null,
         purchasePaymentSummary: getCarPurchasePaymentSummary({ ...car, purchasePrice: resolvedCost, purchaseCurrency: resolvedCurrency }),
         auditLog: car.auditLog || [],
+        financialDisplay: getVehicleFinancialDisplay(car),
         _original: car
     };
 };

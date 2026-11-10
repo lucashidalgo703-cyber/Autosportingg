@@ -2,7 +2,7 @@ import { getArgentinaDateKey } from './cashProjection.js';
 const DAY_MS = 86400000;
 const STATUS_MAP = { disponible: 'Disponible', senado: 'Reservado', vendido_sin_confirmar: 'Pausado', vendido: 'Vendido' };
 export const STOCK_SORTS = ['manual', 'recent', 'oldest', 'price_asc', 'price_desc', 'year_desc', 'km_asc', 'brand_model'];
-export const STOCK_FILTER_KEYS = ['search', 'status', 'brand', 'model', 'tab', 'ml', 'currency', 'minPrice', 'maxPrice', 'minKm', 'maxKm', 'minDays', 'maxDays', 'stagnant', 'review', 'sort'];
+export const STOCK_FILTER_KEYS = ['search', 'status', 'brand', 'model', 'transmission', 'tab', 'ml', 'currency', 'minPrice', 'maxPrice', 'minKm', 'maxKm', 'minDays', 'maxDays', 'stagnant', 'review', 'sort'];
 
 export const normalizeStockText = (value) => String(value ?? '').trim().replace(/\s+/g, ' ').toLocaleLowerCase('es');
 const escapeRegex = (value) => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -44,7 +44,7 @@ export function stockOptions(values = []) {
 
 export function parseStockFilters(input = {}) {
     const result = {};
-    for (const key of ['search', 'status', 'brand', 'model', 'tab', 'ml']) {
+    for (const key of ['search', 'status', 'brand', 'model', 'transmission', 'tab', 'ml']) {
         if (input[key] !== null && input[key] !== undefined && typeof input[key] !== 'string') throw new Error('Los filtros de texto deben contener un valor simple.');
         result[key] = String(input[key] ?? '').trim();
         if (result[key].length > (key === 'search' ? 300 : 120)) throw new Error('El texto del filtro es demasiado largo.');
@@ -78,6 +78,7 @@ export function buildStockQuery(input = {}, asOf = new Date()) {
     clauses.push(filters.status && filters.status !== 'todos' ? { status: STATUS_MAP[filters.status] || filters.status } : { status: { $nin: ['Vendido', 'Cancelado'] } });
     if (filters.brand && filters.brand !== 'todas') clauses.push({ brand: exactTextRegex(filters.brand) });
     if (filters.model && filters.model !== 'todos') clauses.push({ name: exactTextRegex(filters.model) });
+    if (filters.transmission) clauses.push({ transmission: exactTextRegex(filters.transmission) });
     if (filters.tab === 'consignaciones') clauses.push({ consignedBy: { $exists: true, $regex: /\S/ } });
     if (filters.tab === 'compartidos') clauses.push({ 'investor.percentage': { $gt: 0 } });
     if (filters.tab === 'cero_km') clauses.push({ $or: [{ condition: /^\s*(0\s*km|nuevo)\s*$/i }, { km: 0 }] });
@@ -140,6 +141,7 @@ export function filterStockSnapshot(cars, input = {}, asOf = new Date()) {
         if (status ? car.status !== status : ['Vendido', 'Cancelado'].includes(car.status)) return false;
         if (filters.brand && filters.brand !== 'todas' && normalizeStockText(car.brand) !== normalizeStockText(filters.brand)) return false;
         if (filters.model && filters.model !== 'todos' && normalizeStockText(car.name) !== normalizeStockText(filters.model)) return false;
+        if (filters.transmission && normalizeStockText(car.transmission) !== normalizeStockText(filters.transmission)) return false;
         if (filters.tab === 'consignaciones' && !String(car.consignedBy || '').trim()) return false;
         if (filters.tab === 'compartidos' && !(Number(car.investor?.percentage) > 0)) return false;
         if (filters.tab === 'cero_km' && !(Number(car.km) === 0 || /^\s*(0\s*km|nuevo)\s*$/i.test(car.condition || ''))) return false;

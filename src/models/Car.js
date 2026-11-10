@@ -6,6 +6,11 @@ const carSchema = new mongoose.Schema({
     year: { type: Number, required: true },
     km: { type: Number, required: true },
     fuel: { type: String, required: true },
+    transmission: { type: String, trim: true },
+    bodyType: { type: String, trim: true },
+    doors: { type: Number, min: 0, max: 12 },
+    engine: { type: String, trim: true },
+    version: { type: String, trim: true },
     condition: { type: String, required: true },
     description: { type: String }, // Free text description
     price: { type: Number, required: true },

@@ -1,6 +1,7 @@
 "use client";
 import { useState } from 'react';
 import Link from 'next/link';
+import { vehicleDetailHref } from '../../../utils/stockNavigation.js';
 import { ChevronDown, Filter, AlertTriangle, Car } from 'lucide-react';
 
 const getVehicleYear = (vehicle) => vehicle.year || vehicle['año'] || 'S/D';
@@ -77,7 +78,9 @@ export default function StockMobileCards({
     error = null,
     onRetry = null,
     onNewVehicle = null,
-    showTotals = true
+    showTotals = true,
+    canEdit = false,
+    returnTo = '/admin/stock'
 }) {
     const [expandedId, setExpandedId] = useState(data[0]?.id || null);
 
@@ -156,35 +159,35 @@ export default function StockMobileCards({
 
                                     <div className="mt-4 flex items-center gap-2 border-t border-crm-border pt-3">
                                         <Link
-                                            href={`/admin/stock/${vehicle.id}`}
+                                            href={vehicleDetailHref(vehicle.id, returnTo)}
                                             className="inline-flex h-7 items-center justify-center rounded-lg bg-crm-red/10 px-3 text-xs font-semibold text-red-300 no-underline transition-colors hover:bg-crm-red/15"
                                         >
                                             Ver detalle
                                         </Link>
-                                        <Link
-                                            href={`/admin/stock/${vehicle.id}`}
+                                        {canEdit && <Link
+                                            href={vehicleDetailHref(vehicle.id, returnTo, true)}
                                             className="inline-flex h-7 items-center justify-center rounded-lg bg-crm-surface-raised px-3 text-xs font-semibold text-crm-fg no-underline transition-colors hover:bg-crm-border"
                                         >
                                             Editar
-                                        </Link>
+                                        </Link>}
                                         <button
                                             onClick={() => onPrint && onPrint(vehicle)}
                                             className="inline-flex h-7 items-center justify-center rounded-lg bg-blue-500/10 px-3 text-xs font-semibold text-blue-400 transition-colors hover:bg-blue-500/20 ml-2 cursor-pointer"
                                         >
                                             Imprimir
                                         </button>
-                                        <button
+                                        {onEditML && <button
                                             onClick={() => onEditML && onEditML(vehicle)}
                                             className="inline-flex h-7 items-center justify-center rounded-lg border border-yellow-500/30 bg-yellow-500/10 px-3 text-xs font-semibold text-yellow-500 transition-colors hover:bg-yellow-500/20 ml-auto"
                                         >
                                             ML
-                                        </button>
-                                        <button
+                                        </button>}
+                                        {onDelete && <button
                                             onClick={() => onDelete && onDelete(vehicle)}
                                             className="inline-flex h-7 items-center justify-center rounded-lg bg-crm-red/10 px-3 text-xs font-semibold text-crm-red transition-colors hover:bg-crm-red/20 ml-2"
                                         >
                                             Eliminar
-                                        </button>
+                                        </button>}
                                     </div>
                                 </div>
                             )}

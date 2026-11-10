@@ -4,7 +4,9 @@ import { saveSaleOperation } from './src/services/saleDraftService.js';
 import { getCashProjection } from './src/services/cashProjectionService.js';
 import { OPEN_INSTALLMENT_STATUSES, getEffectiveInstallmentDueDate, getArgentinaDateKey } from './src/utils/cashProjection.js';
 import { buildStockQuery, buildStockPipeline, stockOptions, stockStatisticsCurrency, STOCK_FILTER_KEYS } from './src/utils/stockFilters.js';
-import { computeCommissionAmount, computeSaleProfit, validateCommissionPercent, parseDecimal, roundMoney } from './src/utils/saleCommercial.js';
+import { validateVehicleInput, resolveVehicleImageOrder } from './src/utils/vehicleValidation.js';
+import { findVehicleIdentityConflict, findVehicleStateConflict, findVehiclePurchasePaymentError } from './src/services/vehicleWriteValidationService.js';
+import { computeCommissionAmount, computeSaleProfit, validateCommissionPercent, parseDecimal, roundMoney, normalizeCurrency } from './src/utils/saleCommercial.js';
 import { buildTradeInChain, validateTradeInLink, resolveOriginForCar } from './src/services/tradeInChainService.js';
 import AnalyticsEvent from './src/models/AnalyticsEvent.js';
 import CustomerVehicle from './src/models/CustomerVehicle.js';
@@ -897,6 +899,8 @@ app.get('/api/admin/audit-logs', authenticateToken, requirePermission(PERMISSION
     }
 });
 
+const PUBLIC_CAR_FIELDS = 'brand name version year km price currency fuel fuelType transmission bodyType doors engine condition vehicleType type category status featured coverImage images imagePosition imagePositions';
+
 // GET public cars (Sanitized & Optimized)
 app.get('/api/public/cars', async (req, res) => {
     try {
@@ -910,7 +914,7 @@ app.get('/api/public/cars', async (req, res) => {
             visibleEnWeb: { $ne: false },
             status: { $nin: [/^vendido$/i, /^reservado$/i, /^pausado$/i, /^cancelado$/i, /^eliminado$/i] }
         })
-            .select('brand name year km price currency fuel fuelType transmission condition vehicleType type category status featured coverImage images imagePosition imagePositions')
+            .select(PUBLIC_CAR_FIELDS)
             .sort({ order: 1, createdAt: -1 })
             .lean();
         res.json(cars);
@@ -930,7 +934,7 @@ app.get('/api/public/cars/:id', async (req, res) => {
             visibleEnWeb: { $ne: false },
             status: { $nin: [/^vendido$/i, /^reservado$/i, /^pausado$/i, /^cancelado$/i, /^eliminado$/i] }
         })
-            .select('-purchasePrice -purchaseCurrency -ownerName -ownerEmail -ownerPhone -linkedClient -consignedBy -notes -agencyOwned -engineNumber -chassisNumber -location -hasManuals -hasDuplicateKeys -hasOfficialServices -publishedOnML -publishedBy -mlLink -plateOrVin -expenses -visibleEnWeb -createdAt -updatedAt -__v -order -owners -auditLog')
+            .select(`${PUBLIC_CAR_FIELDS} description`)
             .lean();
 
         if (!car) {
@@ -946,7 +950,12 @@ app.get('/api/public/cars/:id', async (req, res) => {
 app.post('/api/cars', authenticateToken, requirePermission(PERMISSIONS.STOCK_WRITE), upload.array('images', 20), async (req, res) => {
     try {
         await connectDB();
-        const carData = { ...req.body };
+        const { values: carData, errors } = validateVehicleInput(req.body);
+        if (Object.keys(errors).length > 0) return res.status(400).json({ message: Object.values(errors)[0], code: 'VEHICLE_VALIDATION', errors });
+        // These values are derived by the audited purchase/trade-in workflows, never by the form payload.
+        for (const key of ['_id', '__v', 'purchasePaymentState', 'tradeInOrigin', 'updatedAt']) delete carData[key];
+        const identityConflict = await findVehicleIdentityConflict(carData);
+        if (identityConflict) return res.status(409).json(identityConflict);
         const user = req.user ? (req.user.username || req.user.email || req.user.role) : 'System';
 
         if (req.files && req.files.length > 0) {
@@ -959,16 +968,21 @@ app.post('/api/cars', authenticateToken, requirePermission(PERMISSIONS.STOCK_WRI
         let takenValue = null;
         let takenCurrency = null;
 
+        if (isTradeIn && !carData.tradeInOriginSaleId) return res.status(400).json({ message: 'Seleccioná la venta de origen de la permuta.', code: 'VEHICLE_VALIDATION', errors: { tradeInOriginSaleId: 'Seleccioná una venta de origen válida.' } });
+
         if (isTradeIn && carData.tradeInOriginSaleId) {
             if (!mongoose.isValidObjectId(carData.tradeInOriginSaleId)) {
                 return res.status(400).json({ message: 'Seleccioná una venta de origen válida para el vehículo recibido en parte de pago.' });
             }
-            originSale = await Sale.findById(carData.tradeInOriginSaleId).select('vehicleId status tradeIns saleCurrency').lean();
+            originSale = await Sale.findById(carData.tradeInOriginSaleId).select('vehicleId status tradeIns saleCurrency historicalOnly').lean();
             if (!originSale) {
                 return res.status(404).json({ message: 'La venta de origen seleccionada no existe.' });
             }
             if (originSale.status === 'cancelada') {
                 return res.status(409).json({ message: 'La venta de origen está anulada y no puede vincularse.' });
+            }
+            if (originSale.status === 'borrador' || originSale.historicalOnly === true) {
+                return res.status(409).json({ message: 'Un borrador o una carga solo histórica no puede incorporar una permuta al stock.', code: 'SALE_NOT_OPERATIONAL', errors: { tradeInOriginSaleId: 'Elegí una venta operativa como origen de la permuta.' } });
             }
             if (!originSale.vehicleId) {
                 return res.status(409).json({ message: 'La venta de origen no tiene un vehículo principal vinculado.' });
@@ -1010,10 +1024,9 @@ app.post('/api/cars', authenticateToken, requirePermission(PERMISSIONS.STOCK_WRI
         delete carData.tradeInOriginValue;
         delete carData.tradeInOriginCurrency;
 
-        let purchasePayment = carData.purchasePayment;
-        if (typeof purchasePayment === 'string') {
-            try { purchasePayment = JSON.parse(purchasePayment); } catch (_) { purchasePayment = null; }
-        }
+        const purchasePayment = carData.purchasePayment;
+        const paymentError = await findVehiclePurchasePaymentError(carData);
+        if (paymentError) return res.status(400).json(paymentError);
         delete carData.purchasePayment;
 
         if (typeof carData.investor === 'string') {
@@ -1872,6 +1885,11 @@ app.get('/api/admin/cars/export', authenticateToken, requirePermission(PERMISSIO
                 'Año': car.year || '',
                 'Kilometraje': car.km || 0,
                 'Combustible': car.fuel || '',
+                'Transmisión': car.transmission || '',
+                'Carrocería': car.bodyType || '',
+                'Puertas': car.doors ?? '',
+                'Motor/Cilindrada': car.engine || '',
+                'Versión': car.version || '',
                 'Dominio': car.plateOrVin || '',
                 'Precio Publicado': car.price || 0,
                 'Moneda': car.currency || '',
@@ -2549,6 +2567,27 @@ app.patch('/api/admin/cars/:id', authenticateToken, requirePermission(PERMISSION
             return res.status(404).json({ message: 'Car not found' });
         }
 
+        const validation = validateVehicleInput(updates, { partial: true });
+        if (Object.keys(validation.errors).length > 0) return res.status(400).json({ message: Object.values(validation.errors)[0], code: 'VEHICLE_VALIDATION', errors: validation.errors });
+        updates = validation.values;
+        const identityConflict = await findVehicleIdentityConflict(updates, car);
+        if (identityConflict) return res.status(409).json(identityConflict);
+        const stateConflict = await findVehicleStateConflict(updates, car);
+        if (stateConflict) return res.status(409).json(stateConflict);
+        let nextImages;
+        try {
+            if (updates.imageOrder !== undefined || req.files?.length || updates.images !== undefined) {
+                nextImages = resolveVehicleImageOrder({
+                    existing: Array.isArray(car.images) && car.images.length ? car.images : (car.coverImage ? [car.coverImage] : []),
+                    uploaded: (req.files || []).map(file => file.path),
+                    order: updates.imageOrder,
+                    images: updates.images,
+                });
+            }
+        } catch (error) {
+            return res.status(400).json({ message: error.message, code: 'VEHICLE_VALIDATION', errors: { images: error.message } });
+        }
+
         const newAuditLogs = [];
         const {
             _id,
@@ -2558,6 +2597,7 @@ app.patch('/api/admin/cars/:id', authenticateToken, requirePermission(PERMISSION
             expenses,
             documentation,
             images,
+            imageOrder,
             purchasePriceChangeType,
             purchasePriceJustification,
             purchasePriceExpenseConcept,
@@ -2568,6 +2608,10 @@ app.patch('/api/admin/cars/:id', authenticateToken, requirePermission(PERMISSION
         const oldPurchaseCurrency = car.purchaseCurrency || (car.currency === 'U$S' || car.currency === 'USD' ? 'USD' : 'ARS');
         const oldPrice = car.price !== undefined && car.price !== null ? Number(car.price) : 0;
         const oldStatus = car.status;
+
+        for (const key of Object.keys(otherUpdates)) {
+            if (['__v', 'purchasePaymentState', 'tradeInOrigin', 'updatedAt'].includes(key) || (!Object.hasOwn(Car.schema.paths, key) && !Object.hasOwn(Car.schema.nested, key))) delete otherUpdates[key];
+        }
 
         const incomingPurchasePriceProvided = otherUpdates.purchasePrice !== undefined && otherUpdates.purchasePrice !== null && String(otherUpdates.purchasePrice).trim() !== '';
         const parsedIncomingPurchasePrice = incomingPurchasePriceProvided ? parseDecimal(otherUpdates.purchasePrice) : NaN;
@@ -2581,7 +2625,16 @@ app.patch('/api/admin/cars/:id', authenticateToken, requirePermission(PERMISSION
         const nextPurchasePrice = incomingPurchasePriceProvided ? roundMoney(parsedIncomingPurchasePrice) : oldPurchasePrice;
         const nextPurchaseCurrency = otherUpdates.purchaseCurrency || oldPurchaseCurrency;
 
-        const purchasePriceChanged = incomingPurchasePriceProvided && Math.abs(nextPurchasePrice - oldPurchasePrice) > 0.001;
+        const purchaseCurrencyChanged = otherUpdates.purchaseCurrency !== undefined && normalizeCurrency(nextPurchaseCurrency) !== normalizeCurrency(oldPurchaseCurrency);
+        const purchasePriceChanged = (incomingPurchasePriceProvided && Math.abs(nextPurchasePrice - oldPurchasePrice) > 0.001) || purchaseCurrencyChanged;
+        const operativeStateChanged = (otherUpdates.status !== undefined && otherUpdates.status !== oldStatus) || (otherUpdates.sold !== undefined && otherUpdates.sold !== Boolean(car.sold));
+        if (operativeStateChanged && purchasePriceChanged) {
+            const message = 'Guardá la corrección del costo y el cambio de estado por separado para conservar la trazabilidad de la operación.';
+            return res.status(409).json({ message, code: 'VEHICLE_SEPARATE_COST_AND_STATE', errors: { status: message } });
+        }
+        // Metadata/state edits must not overwrite a stock claim made by a sale while this request was running.
+        // Acquisition corrections retain their existing separate workflow; the early guard above avoids late partial failures.
+        if (operativeStateChanged) car.$where = { $or: [{ status: oldStatus }, { status: { $exists: false } }] };
 
         if (purchasePriceChanged) {
             const cleanJustification = String(purchasePriceJustification || '').trim();
@@ -2599,6 +2652,7 @@ app.patch('/api/admin/cars/:id', authenticateToken, requirePermission(PERMISSION
             }
 
             if (cleanChangeType === 'gasto_adicional') {
+                if (purchaseCurrencyChanged) return res.status(400).json({ message: 'Un gasto adicional no cambia la moneda del costo base. Usá una corrección de compra/toma para cambiarla.', code: 'VEHICLE_VALIDATION', errors: { purchaseCurrency: 'La moneda del costo base debe conservarse al agregar un gasto.' } });
                 const diffAmount = nextPurchasePrice - oldPurchasePrice;
                 if (diffAmount <= 0) {
                     return res.status(400).json({
@@ -2726,7 +2780,7 @@ app.patch('/api/admin/cars/:id', authenticateToken, requirePermission(PERMISSION
             }
         }
 
-        if (otherUpdates.price !== undefined && Math.abs(Number(otherUpdates.price) - oldPrice) > 0.001) {
+        if ((otherUpdates.price !== undefined && Math.abs(Number(otherUpdates.price) - oldPrice) > 0.001) || (otherUpdates.currency !== undefined && normalizeCurrency(otherUpdates.currency) !== normalizeCurrency(car.currency))) {
             newAuditLogs.push({
                 action: 'PRECIO',
                 field: 'price',
@@ -2778,13 +2832,24 @@ app.patch('/api/admin/cars/:id', authenticateToken, requirePermission(PERMISSION
             delete otherUpdates.infoAuto;
         }
 
+        const metadataLabels = {
+            brand: 'Marca', name: 'Modelo', version: 'Versión', year: 'Año', km: 'Kilometraje', fuel: 'Combustible', transmission: 'Transmisión', bodyType: 'Carrocería', doors: 'Cantidad de puertas', engine: 'Motor/cilindrada', condition: 'Condición', description: 'Descripción pública', vehicleType: 'Tipo de vehículo', plateOrVin: 'Patente/VIN', color: 'Color', location: 'Ubicación', owners: 'Cantidad de dueños', agencyOwned: 'Propiedad de la agencia', ownerName: 'Nombre del propietario', ownerPhone: 'Teléfono del propietario', ownerEmail: 'Email del propietario', linkedClient: 'Cliente vinculado', clientId: 'Cliente vinculado', consignedBy: 'Responsable de consignación', engineNumber: 'Número de motor', chassisNumber: 'Número de chasis', hasManuals: 'Manuales', hasDuplicateKeys: 'Duplicado de llaves', hasOfficialServices: 'Servicios oficiales', publishedOnML: 'Publicación en Mercado Libre', publishedBy: 'Responsable de publicación', mlLink: 'Enlace de Mercado Libre', notes: 'Observaciones internas', visibleEnWeb: 'Visibilidad en el catálogo', investor: 'Participación del inversor',
+        };
         Object.keys(otherUpdates).forEach(key => {
+            const oldValue = car[key]?.toObject ? car[key].toObject() : car[key];
+            const newValue = otherUpdates[key];
+            if (metadataLabels[key] && JSON.stringify(oldValue) !== JSON.stringify(newValue)) newAuditLogs.push({
+                action: key === 'visibleEnWeb' ? 'VISIBILIDAD' : 'EDICION', field: key, oldValue, newValue,
+                details: `Se actualizó ${metadataLabels[key].toLowerCase()}.`, user, source: 'CRM_V2',
+            });
             car[key] = otherUpdates[key];
         });
 
-        if (req.files && req.files.length > 0) {
-            const newImages = req.files.map(file => file.path);
-            updates.images = [...(car.images || []), ...newImages];
+        if (nextImages) {
+            const oldImages = [...(car.images || [])];
+            car.images = nextImages;
+            car.coverImage = nextImages[0] || '';
+            if (JSON.stringify(oldImages) !== JSON.stringify(nextImages)) newAuditLogs.push({ action: 'EDICION', field: 'images', oldValue: oldImages, newValue: nextImages, details: `Imágenes actualizadas. Total: ${nextImages.length}`, user, source: 'CRM_V2' });
         }
 
         if (documentation) {
@@ -2905,6 +2970,7 @@ app.patch('/api/admin/cars/:id', authenticateToken, requirePermission(PERMISSION
 
         res.json(updatedCar);
     } catch (error) {
+        if (error.name === 'DocumentNotFoundError' || error.name === 'VersionError') return res.status(409).json({ message: 'El vehículo cambió durante la edición. Actualizá la ficha antes de guardar.', code: 'VEHICLE_STATE_CONFLICT', errors: { status: 'Actualizá la ficha para consultar los datos vigentes.' } });
         console.error("PATCH error:", error);
         res.status(400).json({ message: error.message });
     }

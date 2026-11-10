@@ -76,13 +76,13 @@ export default function MandateTable({ data, onEdit, onDelete }) {
                                 <td className="px-4 py-3 text-right">
                                     <div className="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
                                         {/* Edit disabled for MVP, user requests simple UI but we can open modal if needed */}
-                                        <button 
+                                        {onDelete && <button
                                             onClick={() => onDelete(mandate)}
                                             className="p-1.5 rounded bg-crm-bg text-crm-red hover:text-white hover:bg-red-900/30 transition-colors"
                                             title="Eliminar mandato"
                                         >
                                             <Trash2 size={14} />
-                                        </button>
+                                        </button>}
                                     </div>
                                 </td>
                             </tr>

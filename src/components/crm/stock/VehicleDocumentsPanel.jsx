@@ -1,31 +1,26 @@
 "use client";
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import CrmCard from '../ui/CrmCard';
 import CrmBadge from '../ui/CrmBadge';
 import { FileCheck, FileX, FileMinus, Edit2, X, Eye } from 'lucide-react';
 import toast from 'react-hot-toast';
 
-export default function VehicleDocumentsPanel({ vehicle, onSaveComplete }) {
+const DEFAULT_DOCS = {
+    tituloAutomotor: 'pendiente', cedulaVerde: 'pendiente', verificacionPolicial: 'pendiente',
+    informeDominio: 'pendiente', formulario08: 'pendiente', libreDeudaPatentes: 'pendiente'
+};
+
+export default function VehicleDocumentsPanel({ vehicle, onSaveComplete, canEdit = false }) {
     const [isEditing, setIsEditing] = useState(false);
     const [loading, setLoading] = useState(false);
 
-    // Default docs structure
-    const defaultDocs = {
-        tituloAutomotor: 'pendiente',
-        cedulaVerde: 'pendiente',
-        verificacionPolicial: 'pendiente',
-        informeDominio: 'pendiente',
-        formulario08: 'pendiente',
-        libreDeudaPatentes: 'pendiente'
-    };
-
-    const currentDocs = vehicle?.documentation || defaultDocs;
+    const currentDocs = useMemo(() => ({ ...DEFAULT_DOCS, ...vehicle?.documentation }), [vehicle?.documentation]);
 
     const [formData, setFormData] = useState(currentDocs);
 
     useEffect(() => {
-        setFormData(currentDocs);
-    }, [vehicle?.documentation]);
+        if (!isEditing) setFormData(currentDocs);
+    }, [currentDocs, isEditing]);
 
     const labels = {
         tituloAutomotor: 'Título Automotor',
@@ -59,6 +54,7 @@ export default function VehicleDocumentsPanel({ vehicle, onSaveComplete }) {
     };
 
     const handleSave = async () => {
+        if (!canEdit) return;
         try {
             setLoading(true);
             const token = localStorage.getItem('token');
@@ -100,9 +96,11 @@ export default function VehicleDocumentsPanel({ vehicle, onSaveComplete }) {
     return (
         <CrmCard>
             <div className="flex justify-between items-center mb-4">
-                <h3 className="text-white font-semibold text-lg">Documentación Registral</h3>
-                {!isEditing && (
+                <h2 className="text-crm-fg font-semibold text-sm">Documentación registral</h2>
+                {canEdit && !isEditing && (
                     <button 
+                        type="button"
+                        aria-label="Editar estados de documentación"
                         onClick={() => setIsEditing(true)}
                         className="text-crm-fg-muted hover:text-white transition-colors"
                     >
@@ -120,6 +118,7 @@ export default function VehicleDocumentsPanel({ vehicle, onSaveComplete }) {
                         </div>
                         {isEditing ? (
                             <select 
+                                aria-label={`Estado de ${labels[key]}`}
                                 value={formData[key]}
                                 onChange={(e) => handleChange(key, e.target.value)}
                                 className="bg-crm-surface border border-crm-border text-white text-xs rounded px-2 py-1 outline-none focus:border-red-500"
@@ -138,6 +137,7 @@ export default function VehicleDocumentsPanel({ vehicle, onSaveComplete }) {
                                         rel="noreferrer" 
                                         className="p-1.5 bg-crm-surface hover:bg-crm-surface-raised border border-crm-border rounded text-crm-fg-muted hover:text-white transition-colors" 
                                         title="Ver archivo adjunto"
+                                        aria-label={`Ver archivo de ${labels[key]}`}
                                     >
                                         <Eye size={14} />
                                     </a>

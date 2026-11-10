@@ -1,125 +1,52 @@
 "use client";
-import React, { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Globe, AlertTriangle, CheckCircle, Save } from 'lucide-react';
 import toast from 'react-hot-toast';
 import CrmCard from '../ui/CrmCard';
+import { getVehicleOperationalStatus } from '../../../utils/vehicleDetail';
 
-export default function VehicleWebStatusPanel({ vehicle, onSaveComplete }) {
+export default function VehicleWebStatusPanel({ vehicle, onSaveComplete, canEdit = false }) {
     const [visibleEnWeb, setVisibleEnWeb] = useState(vehicle?.visibleEnWeb !== false);
-    const [status, setStatus] = useState(vehicle?.status || 'Disponible');
     const [isSaving, setIsSaving] = useState(false);
-
-    const isPublishableStatus = status && !['vendido', 'reservado', 'pausado', 'cancelado', 'eliminado'].includes(status.toLowerCase());
-    const isPublicado = visibleEnWeb !== false && isPublishableStatus;
+    const status = getVehicleOperationalStatus(vehicle);
+    const isPublishableStatus = status === 'disponible' && !vehicle?._original?.sold;
+    const wasPublished = vehicle?.visibleEnWeb !== false && isPublishableStatus;
+    const changed = visibleEnWeb !== (vehicle?.visibleEnWeb !== false);
+    const source = vehicle?._original || {};
     const imageCount = vehicle?.fotos?.length || vehicle?.images?.length || 0;
+    useEffect(() => { setVisibleEnWeb(vehicle?.visibleEnWeb !== false); }, [vehicle?.id, vehicle?.visibleEnWeb]);
 
     const handleSave = async () => {
+        if (!canEdit || !changed || isSaving) return;
         try {
             setIsSaving(true);
-            const payload = { visibleEnWeb, status };
-
-            const API_URL = process.env.NEXT_PUBLIC_API_URL;
-            const baseUrl = process.env.NODE_ENV === 'production' ? '' : (API_URL || 'http://localhost:3001');
-            const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
-
-            toast.loading("Actualizando publicación...", { id: 'saveWeb' });
-
+            const baseUrl = process.env.NODE_ENV === 'production' ? '' : (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001');
+            const token = localStorage.getItem('token');
             const response = await fetch(`${baseUrl}/api/admin/cars/${vehicle.id || vehicle._id}`, {
-                method: 'PATCH',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${token}`
-                },
-                body: JSON.stringify(payload)
+                method: 'PATCH', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+                // La preferencia del catálogo no cambia el estado comercial de la unidad.
+                body: JSON.stringify({ visibleEnWeb })
             });
-
-            if (!response.ok) {
-                const errData = await response.json();
-                throw new Error(errData.message || 'Error al actualizar');
-            }
-
-            toast.success("Publicación actualizada", { id: 'saveWeb' });
-            if (onSaveComplete) onSaveComplete();
-        } catch (error) {
-            toast.error(error.message, { id: 'saveWeb' });
-        } finally {
-            setIsSaving(false);
-        }
+            if (!response.ok) { const result = await response.json().catch(() => ({})); throw new Error(result.message || 'No se pudo actualizar la publicación.'); }
+            toast.success('Visibilidad actualizada');
+            await onSaveComplete?.();
+        } catch (failure) { toast.error(failure.message); }
+        finally { setIsSaving(false); }
     };
 
-    return (
-        <CrmCard>
-            <div className="flex justify-between items-center mb-4 border-b border-crm-border pb-3">
-                <h3 className="text-white font-semibold text-lg flex items-center gap-2">
-                    <Globe size={18} className={isPublicado ? "text-blue-400" : "text-crm-fg-muted"} />
-                    Publicación Web
-                </h3>
-                {isPublicado ? (
-                    <span className="text-[10px] bg-blue-500/10 text-blue-400 border border-blue-500/20 px-2 py-0.5 rounded-full font-bold uppercase flex items-center gap-1">
-                        <CheckCircle size={10} /> Publicado en catálogo
-                    </span>
-                ) : (
-                    <span className="text-[10px] bg-crm-surface-raised text-crm-fg-muted border border-crm-border px-2 py-0.5 rounded-full font-bold uppercase flex items-center gap-1">
-                        Oculto del catálogo
-                    </span>
-                )}
-            </div>
-
-            <div className="flex flex-col gap-4">
-                <div className="flex flex-col gap-1.5">
-                    <label className="text-sm font-medium text-crm-fg-muted">Estado Operativo</label>
-                    <select value={status} onChange={(e) => setStatus(e.target.value)} className="bg-crm-bg border border-crm-border text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-crm-red">
-                        <option value="Disponible">Disponible</option>
-                        <option value="Reservado">Reservado</option>
-                        <option value="Vendido">Vendido</option>
-                        <option value="Pausado">Pausado</option>
-                    </select>
-                </div>
-
-                <label className="flex items-center justify-between cursor-pointer p-3 bg-crm-bg border border-crm-border rounded-lg group hover:border-crm-red/50 transition-colors">
-                    <div className="flex flex-col">
-                        <span className="text-white font-medium text-sm">Mostrar en sitio web</span>
-                        <span className="text-[10px] text-crm-fg-muted">Visibilidad pública del vehículo</span>
-                    </div>
-                    <div className={`w-10 h-6 rounded-full flex items-center p-1 transition-colors ${visibleEnWeb ? 'bg-crm-red' : 'bg-crm-surface-raised'}`}>
-                        <div className={`w-4 h-4 bg-white rounded-full shadow-md transform transition-transform ${visibleEnWeb ? 'translate-x-4' : 'translate-x-0'}`}></div>
-                    </div>
-                    {/* Hidden input strictly for React state sync if needed, though state is managed directly */}
-                    <input type="checkbox" className="hidden" checked={visibleEnWeb} onChange={(e) => setVisibleEnWeb(e.target.checked)} />
-                </label>
-
-                {!isPublicado && (
-                    <div className="flex items-start gap-2 p-3 bg-[#EAB308]/10 border border-[#EAB308]/30 rounded-lg">
-                        <AlertTriangle size={16} className="text-[#EAB308] shrink-0 mt-0.5" />
-                        <p className="text-xs text-[#EAB308] leading-relaxed">
-                            {status.toLowerCase() === 'pausado' ? 'Este vehículo está pausado y no aparece en el catálogo.' : 
-                             ['vendido', 'reservado', 'cancelado', 'eliminado'].includes(status.toLowerCase()) ? `El estado "${status}" oculta este vehículo del catálogo público.` :
-                             !visibleEnWeb ? 'Este vehículo está oculto mediante el switch manual.' : 
-                             'Para aparecer en el catálogo, el vehículo no debe estar Pausado, Vendido ni Reservado, y debe tener Mostrar en sitio web activado.'}
-                        </p>
-                    </div>
-                )}
-
-                {imageCount === 0 && (
-                    <div className="flex items-start gap-2 p-3 bg-crm-red/10 border border-red-500/20 rounded-lg">
-                        <AlertTriangle size={16} className="text-red-400 shrink-0 mt-0.5" />
-                        <p className="text-xs text-red-400 leading-relaxed">
-                            Este vehículo no tiene imágenes cargadas. Se recomienda agregar fotos antes de publicarlo.
-                        </p>
-                    </div>
-                )}
-
-                <div className="flex justify-end mt-2">
-                    <button 
-                        onClick={handleSave}
-                        disabled={isSaving || (visibleEnWeb === (vehicle?.visibleEnWeb !== false) && status === vehicle?.status)}
-                        className="bg-crm-bg border border-crm-border hover:bg-crm-surface-raised text-white text-xs font-bold px-4 py-2 rounded-lg transition-colors flex items-center gap-2 disabled:opacity-50"
-                    >
-                        {isSaving ? <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-white"></div> : <Save size={14} />}
-                        Guardar Publicación
-                    </button>
-                </div>
-            </div>
-        </CrmCard>
-    );
+    return <CrmCard>
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-2 border-b border-crm-border pb-3">
+            <h2 className="flex items-center gap-2 text-sm font-semibold text-crm-fg"><Globe size={16} className="text-crm-fg-muted" />Publicación del vehículo</h2>
+            <span className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] ${wasPublished ? 'border-blue-500/20 bg-blue-500/10 text-blue-400' : 'border-crm-border bg-crm-surface-raised text-crm-fg-muted'}`}>{wasPublished && <CheckCircle size={11} />}{wasPublished ? 'Visible en catálogo' : 'Fuera del catálogo'}</span>
+        </div>
+        <dl className="mb-4 grid grid-cols-2 gap-4 text-xs"><div><dt className="mb-1 text-crm-fg-muted">Estado operativo</dt><dd className="m-0 capitalize text-crm-fg">{status || 'No informado'}</dd></div><div><dt className="mb-1 text-crm-fg-muted">Mercado Libre</dt><dd className="m-0 text-crm-fg">{source.publishedOnML || 'No informado'}</dd></div><div><dt className="mb-1 text-crm-fg-muted">Publicado por</dt><dd className="m-0 break-words text-crm-fg">{source.publishedBy || 'No informado'}</dd></div><div><dt className="mb-1 text-crm-fg-muted">Fotos disponibles</dt><dd className="m-0 text-crm-fg">{imageCount}</dd></div></dl>
+        {source.mlLink && /^https?:\/\//i.test(source.mlLink) && <a href={source.mlLink} target="_blank" rel="noreferrer" className="mb-4 inline-flex min-h-8 items-center text-xs text-crm-red underline">Abrir publicación de Mercado Libre</a>}
+        <label className="flex items-center justify-between gap-3 rounded-lg border border-crm-border bg-crm-bg p-3">
+            <span><span className="block text-sm font-medium text-crm-fg">Mostrar en sitio web</span><span className="block text-[11px] text-crm-fg-muted">Preferencia de visibilidad en el catálogo público</span></span>
+            <input type="checkbox" checked={visibleEnWeb} disabled={!canEdit || isSaving} onChange={event => setVisibleEnWeb(event.target.checked)} className="h-5 w-5 shrink-0 accent-crm-red focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-crm-red disabled:opacity-50" />
+        </label>
+        {!isPublishableStatus && <p className="mt-3 flex items-start gap-2 rounded-lg border border-amber-500/30 bg-amber-500/10 p-3 text-xs text-amber-500"><AlertTriangle size={15} className="shrink-0" />El estado {status || 'actual'} mantiene la unidad fuera del catálogo, aunque actives esta preferencia. La disponibilidad se gestiona desde Stock y las operaciones vinculadas.</p>}
+        {imageCount === 0 && <p className="mt-3 text-xs text-crm-fg-muted">Agregá fotos desde la sección Fotos para completar la publicación.</p>}
+        {canEdit && <div className="mt-4 flex flex-wrap items-center justify-end gap-3">{changed && <span role="status" className="text-xs text-amber-500">Cambios sin guardar</span>}<button type="button" onClick={handleSave} disabled={isSaving || !changed} className="inline-flex min-h-9 items-center gap-2 rounded-lg bg-crm-red px-3 text-xs font-semibold text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-crm-red disabled:opacity-50"><Save size={14} />{isSaving ? 'Guardando…' : 'Guardar visibilidad'}</button></div>}
+    </CrmCard>;
 }

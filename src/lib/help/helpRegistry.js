@@ -185,18 +185,19 @@ export const helpRegistry = [
         roles: ['Owner/Admin', 'Ventas', 'Administrativo'],
         summary: 'Administrá los vehículos disponibles: propios, consignaciones y 0km.',
         steps: [
-            { title: 'Inventario', body: 'Buscá por marca y modelo, moneda, precio, kilometraje y días en stock. Las variantes de mayúsculas y espacios se agrupan al buscar sin cambiar los registros originales. Elegí ARS o USD antes de filtrar por precio.' },
+            { title: 'Inventario', body: 'Buscá por marca, modelo, transmisión, moneda, precio, kilometraje y días en stock. Las variantes de mayúsculas y espacios se agrupan al buscar sin cambiar los registros originales. Elegí ARS o USD antes de filtrar por precio. El enlace conserva filtros, página y presentación al volver de una ficha.' },
             { title: 'Atención y vistas', body: 'Estancados reúne unidades con más de 90 días. A revisar identifica registros sin publicación en ML, sin foto o sin precio. Alterná Lista, Tarjetas y Tabla detallada; el orden manual del catálogo sigue disponible.' },
             { title: 'Capital e inversores', body: 'Usá esta vista para consultar el resumen patrimonial, las participaciones y el desglose de capital. Conserva las herramientas de inversión de la agencia; podés volver al Inventario sin salir de Stock.' },
-            { title: 'Cargá uno nuevo', body: 'Hacé clic en "Nuevo vehículo" y completá los datos de la unidad y el precio.' },
-            { title: 'Fotos y detalles', body: 'Entrá a la ficha técnica para subir la galería de imágenes y cargar el equipamiento.' },
+            { title: 'Cargá uno nuevo', body: 'Completá identidad, precio y propietario. Abrí Ficha técnica, Documentación, Publicación y Fotos cuando las necesites. Guardar y continuar después conserva un borrador local de tu usuario durante siete días; no incorpora la unidad al stock ni guarda archivos o autorizaciones de pago.' },
+            { title: 'Ficha de la unidad', body: 'Usá General, Costos y capital, Fotos, Documentos, Publicación, Permutas e Historial. Los costos se presentan por moneda; si faltan datos o se mezclan monedas, el margen aparece como no calculable. Editar visibilidad web no cambia el estado de una venta o reserva.' },
+            { title: 'Edición y compra', body: 'Los cambios de costo o moneda de adquisición requieren una justificación. Un pago de compra necesita una cuenta activa en la misma moneda. Las modificaciones de datos se guardan antes de subir o quitar documentos; si un archivo falla, la pantalla lo informa para reintentarlo.' },
             { title: 'Exportá el stock', body: 'Exportar todo XLSX conserva la descarga completa. Exportar vista descarga los vehículos del filtro en todas sus páginas.' }
         ],
         tips: [
             'Mantené los precios actualizados y marcá los autos reservados para evitar que otro vendedor los ofrezca.'
         ],
         keywords: ['autos', 'vehiculos', 'inventario', 'capital', 'inversores', '0km', 'usados', 'filtros', 'tarjetas', 'estancados'],
-        version: '1.2',
+        version: '1.3',
         lastReviewed: '2026-11-10',
         reviewedBy: 'Desarrollo CRM'
     },
