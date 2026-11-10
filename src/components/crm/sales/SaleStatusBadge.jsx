@@ -1,8 +1,19 @@
 import React from 'react';
 import { CheckCircle2, Clock, XCircle, FileEdit, Truck } from 'lucide-react';
 
-export default function SaleStatusBadge({ status }) {
+export const getSaleOperationalLabel = (sale) => sale.historicalOnly === true
+    ? 'Histórica'
+    : (sale.status === 'borrador' ? 'Sin activar' : null);
+
+export default function SaleStatusBadge({ status, historicalOnly = false }) {
     const getBadgeStyle = () => {
+        if (historicalOnly) {
+            return {
+                bg: 'bg-crm-surface-raised', border: 'border-crm-border',
+                text: 'text-crm-fg-muted', icon: <FileEdit size={14} className="text-crm-fg-muted" />,
+                label: 'Histórica'
+            };
+        }
         switch (status) {
             case 'borrador':
                 return {

@@ -1,3 +1,7 @@
+import { requireOperationalSale } from './src/middleware/saleOperationalGuard.js';
+import { saveSaleOperation } from './src/services/saleDraftService.js';
+import { getCashProjection } from './src/services/cashProjectionService.js';
+import { OPEN_INSTALLMENT_STATUSES, getEffectiveInstallmentDueDate, getArgentinaDateKey } from './src/utils/cashProjection.js';
 import { computeCommissionAmount, computeSaleProfit, validateCommissionPercent, parseDecimal, roundMoney } from './src/utils/saleCommercial.js';
 import { buildTradeInChain, validateTradeInLink, resolveOriginForCar } from './src/services/tradeInChainService.js';
 import AnalyticsEvent from './src/models/AnalyticsEvent.js';
@@ -2005,6 +2009,18 @@ app.post('/api/admin/dolar-blue/manual', authenticateToken, requirePermission(PE
     }
 });
 
+// Lectura de saldos y vencimientos; no genera ni concilia movimientos.
+app.get('/api/admin/finance/cash-projection', authenticateToken, requirePermission(PERMISSIONS.FINANZAS_READ), requirePermission(PERMISSIONS.CAJA_READ), async (req, res) => {
+    try {
+        await connectDB();
+        res.setHeader('Cache-Control', 'no-store, max-age=0');
+        res.json(await getCashProjection());
+    } catch (error) {
+        console.error('Error fetching cash projection:', error.message);
+        res.status(500).json({ message: 'No se pudo calcular la liquidez desde las cuentas y vencimientos registrados.' });
+    }
+});
+
 // GET Resumen de Capital Patrimonial (Stock + Caja + Cartera − Deudas)
 app.get('/api/admin/stock/capital-summary', authenticateToken, requireAnyPermission([PERMISSIONS.STOCK_READ, PERMISSIONS.FINANZAS_READ]), async (req, res) => {
     try {
@@ -2308,33 +2324,39 @@ app.get('/api/admin/cars', authenticateToken, requirePermission(PERMISSIONS.STOC
     }
 });
 
-// GET dashboard upcoming dues (vencimientos próximos)
+// Vencimientos netos, incluyendo mora y reprogramaciones, con el mismo corte de liquidez.
 app.get('/api/admin/dashboard/upcoming-dues', authenticateToken, requirePermission(PERMISSIONS.FINANZAS_READ), async (req, res) => {
     try {
         await connectDB();
-
-        const now = new Date();
-        const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0);
-
-        // Vencimientos próximos: cuotas que vencen en los próximos 7 días (o ya vencidas pero no pagadas)
-        const sevenDaysFromNow = new Date(startOfToday.getTime() + 7 * 24 * 60 * 60 * 1000);
-        sevenDaysFromNow.setHours(23, 59, 59, 999);
-
-        const query = {
-            status: { $in: ['pendiente', 'parcial'] },
-            dueDate: { $lte: sevenDaysFromNow }
-        };
-
-        const upcomingDues = await Installment.find(query)
-            .populate('clientId', 'name fullName email phone')
-            .populate('vehicleId', 'brand name model year price currency plateOrVin')
-            .sort({ dueDate: 1 })
-            .limit(15)
-            .lean();
-
-        res.json(upcomingDues);
+        const today = getArgentinaDateKey();
+        const exclusiveEnd = new Date(Date.parse(today + 'T00:00:00.000Z') + 7 * 86400000);
+        const records = await Installment.aggregate([
+            { $match: { status: { $in: OPEN_INSTALLMENT_STATUSES } } },
+            { $set: {
+                effectiveDueDate: { $cond: [
+                    { $and: ['$isRescheduled', { $ne: [{ $ifNull: ['$rescheduledDate', null] }, null] }] },
+                    '$rescheduledDate', { $ifNull: ['$originalDueDate', '$dueDate'] }
+                ] },
+                pendingAmount: { $max: [0, { $subtract: ['$amount', { $ifNull: ['$paidAmount', 0] }] }] }
+            } },
+            { $match: { effectiveDueDate: { $type: 'date', $lt: exclusiveEnd }, pendingAmount: { $gt: 0 } } },
+            { $lookup: { from: 'sales', localField: 'saleId', foreignField: '_id', as: 'linkedSale' } },
+            { $match: { $or: [
+                { saleId: null, source: { $ne: 'venta' } },
+                { linkedSale: { $elemMatch: { status: { $in: ['señado', 'confirmada', 'pendiente_entrega', 'entregada'] }, historicalOnly: { $ne: true } } } }
+            ] } },
+            { $sort: { effectiveDueDate: 1, _id: 1 } },
+            { $limit: 15 },
+            { $project: { linkedSale: 0 } }
+        ]);
+        const dues = await Installment.populate(records, [
+            { path: 'clientId', select: 'name fullName email phone' },
+            { path: 'vehicleId', select: 'brand name model year price currency plateOrVin' }
+        ]);
+        res.setHeader('Cache-Control', 'no-store, max-age=0');
+        res.json(dues.map(item => ({ ...item, effectiveDueDate: getEffectiveInstallmentDueDate(item) })));
     } catch (error) {
-        console.error('Error fetching upcoming dues:', error);
+        console.error('Error fetching upcoming dues:', error.message);
         res.status(500).json({ message: 'Error al obtener vencimientos próximos' });
     }
 });
@@ -5673,137 +5695,21 @@ app.get('/api/admin/sales/:id', authenticateToken, requirePermission(PERMISSIONS
 });
 
 
-// POST create manual sale
+// Alta y borrador comparten validación; activar compromete stock de forma atómica.
 app.post('/api/admin/sales', authenticateToken, requirePermission(PERMISSIONS.VENTAS_WRITE), async (req, res) => {
     try {
         await connectDB();
-        const {
-            vehicleId, clientId, leadId, salePrice, saleCurrency, paymentMethod, notes, salesperson, saleDate, status,
-            isManualImport, vehicleOwnerName, vehicleOwnerPhone,
-            consignationOwnerId, consignationManagerId,
-            commissionSettings, deliveryItems, installmentsCount, depositAppliedAmount, depositAppliedCurrency,
-            financingDetails
-        } = req.body;
-        const finalSalePrice = Number(salePrice);
-        const finalSaleCurrency = saleCurrency;
-        const user = req.user?.username || 'Admin';
-
-        // 1. Validaciones previas
-        if (!isManualImport && !vehicleId) throw new Error('Vehicle ID is required for standard sales');
-        if (!Number.isFinite(finalSalePrice) || finalSalePrice < 0) throw new Error('Sale price cannot be negative');
-        if (!['ARS', 'USD'].includes(finalSaleCurrency)) throw new Error('Invalid sale currency');
-
-        let vehicle = null;
-        if (vehicleId) {
-            vehicle = await Car.findById(vehicleId);
-            if (!vehicle) throw new Error('Vehicle not found');
-            if (vehicle.status !== 'Disponible') throw new Error(`Vehicle is ${vehicle.status}, only Disponible vehicles can be manually sold`);
-
-            const existingSale = await Sale.findOne({ vehicleId, status: { $ne: 'cancelada' } });
-            if (existingSale) throw new Error('There is already an active sale for this vehicle');
-        }
-
-        // 2. Creación
-        const newSale = new Sale({
-            vehicleId: vehicleId || undefined,
-            clientId: clientId || undefined,
-            leadId: leadId || undefined,
-            salePrice: finalSalePrice,
-            saleCurrency: finalSaleCurrency,
-            paymentMethod: paymentMethod || 'contado',
-            notes,
-            salesperson,
-            saleDate: saleDate || new Date(),
-            status: status || 'confirmada',
-            createdBy: user,
-
-            // Nuevos campos
-            isManualImport: !!isManualImport,
-            vehicleOwnerName,
-            vehicleOwnerPhone,
-            consignationOwnerId: consignationOwnerId || undefined,
-            consignationManagerId: consignationManagerId || undefined,
-            commissionSettings,
-            deliveryItems,
-            installmentsCount: installmentsCount || 0,
-            depositAppliedAmount: depositAppliedAmount || 0,
-            depositAppliedCurrency,
-            financingDetails: financingDetails || undefined,
-
-            saleAuditLog: [{
-                action: 'VENTA_CREADA_MANUAL',
-                details: isManualImport ? 'Venta hist├│rica (manual import) registrada' : 'Venta creada manualmente sin reserva previa',
-                user: user,
-                source: 'CRM_V2'
-            }]
-        });
-
-        const savedSale = await newSale.save();
-
+        const sale = await saveSaleOperation({ payload: req.body || {}, actor: req.user?.username || 'Admin' });
         await logAudit({
-            req,
-            action: 'VENTA_CREADA',
-            module: 'ventas',
-            entityType: 'Sale',
-            entityId: savedSale._id,
-            entityLabel: vehicle ? `Venta de ${vehicle.brand} ${vehicle.name}` : `Venta hist├│rica manual`,
-            description: `Se cre├│ una venta manual por ${finalSaleCurrency} ${finalSalePrice}.`,
-            metadata: { vehicleId: vehicle?._id, salePrice: finalSalePrice, currency: finalSaleCurrency, isManualImport }
+            req, action: sale.status === 'borrador' ? 'BORRADOR_CREADO' : 'VENTA_CREADA', module: 'ventas',
+            entityType: 'Sale', entityId: sale._id, entityLabel: 'Operación de venta',
+            description: sale.status === 'borrador' ? 'Borrador guardado sin afectar stock ni caja.' : 'Operación registrada sin acreditar caja.',
+            metadata: { status: sale.status, vehicleId: sale.vehicleId, isManualImport: sale.isManualImport }
         });
-
-        // 3. Rollback Manual Controlado (solo si hay veh├¡culo)
-        try {
-            if (vehicle) {
-                const targetCarStatus = status === 'señado' ? 'Reservado' : 'Vendido';
-                vehicle.status = targetCarStatus;
-                vehicle.auditLog.push({
-                    action: 'ESTADO',
-                    field: 'status',
-                    oldValue: 'Disponible',
-                    newValue: targetCarStatus,
-                    details: `Veh├¡culo vendido (Venta ID: ${savedSale._id})`,
-                    user: user,
-                    source: 'CRM_V2'
-                });
-                await vehicle.save();
-            }
-
-            if (leadId) {
-                const lead = await Lead.findById(leadId);
-                if (lead && lead.crmStatus !== 'convertido') {
-                    const oldStatus = lead.crmStatus;
-                    lead.crmStatus = 'convertido';
-                    lead.lastActivityAt = new Date();
-                    lead.leadAuditLog.push({
-                        action: 'VENTA_CREADA',
-                        field: 'crmStatus',
-                        oldValue: oldStatus,
-                        newValue: 'convertido',
-                        details: 'Venta cerrada manualmente',
-                        user: user,
-                        source: 'CRM_V2'
-                    });
-                    await lead.save();
-                }
-            }
-
-            res.status(201).json(savedSale);
-        } catch (innerError) {
-            console.error('Inner error during manual sale, performing manual rollback', innerError);
-            await Sale.findByIdAndDelete(savedSale._id);
-
-            if (vehicle && vehicle.status === 'Vendido') {
-                vehicle.status = 'Disponible';
-                vehicle.auditLog.pop();
-                await vehicle.save();
-            }
-
-            throw new Error(`Transaction failed, manual rollback executed: ${innerError.message}`);
-        }
-
+        res.status(201).json(sale);
     } catch (error) {
-        console.error('Error creating manual sale:', error);
-        res.status(400).json({ message: error.message });
+        console.error('Error creating sale:', error.message);
+        res.status(error.statusCode || 400).json({ message: error.message, code: error.code || 'SALE_VALIDATION_FAILED' });
     }
 });
 
@@ -5877,7 +5783,7 @@ app.post('/api/admin/reservations/:id/convert-to-sale', authenticateToken, requi
             return res.status(400).json({ error: "La reserva debe tener un veh├¡culo vinculado antes de convertirla en venta." });
         }
 
-        const existingSale = await Sale.findOne({ vehicleId, status: { $ne: 'cancelada' } }).populate('clientId', 'firstName fullName');
+        const existingSale = await Sale.findOne({ vehicleId, historicalOnly: { $ne: true }, status: { $nin: ['cancelada', 'borrador'] } }).populate('clientId', 'firstName fullName');
         if (existingSale) {
             return res.status(409).json({
                 error: 'Este veh├¡culo ya tiene una venta activa asociada.',
@@ -6135,7 +6041,7 @@ app.post('/api/admin/sales/:id/create-link-client', authenticateToken, requirePe
     }
 });
 
-app.patch('/api/admin/sales/:id/link-vehicle', authenticateToken, requirePermission(PERMISSIONS.VENTAS_WRITE), async (req, res) => {
+app.patch('/api/admin/sales/:id/link-vehicle', authenticateToken, requirePermission(PERMISSIONS.VENTAS_WRITE), requireOperationalSale({ saleParam: true }), async (req, res) => {
     try {
         await connectDB();
         const { vehicleId } = req.body;
@@ -6292,7 +6198,7 @@ app.post('/api/admin/sales/:id/change-vehicle/preview', authenticateToken, requi
 });
 
 // Ejecución atómica de cambio de vehículo en una venta con auditoría bidireccional
-app.post('/api/admin/sales/:id/change-vehicle', authenticateToken, requirePermission(PERMISSIONS.VENTAS_WRITE), async (req, res) => {
+app.post('/api/admin/sales/:id/change-vehicle', authenticateToken, requirePermission(PERMISSIONS.VENTAS_WRITE), requireOperationalSale({ saleParam: true }), async (req, res) => {
     try {
         await connectDB();
         const { id } = req.params;
@@ -6451,7 +6357,7 @@ app.post('/api/admin/sales/:id/change-vehicle', authenticateToken, requirePermis
     }
 });
 
-app.post('/api/admin/sales/:id/create-link-vehicle', authenticateToken, requirePermission(PERMISSIONS.VENTAS_WRITE), async (req, res) => {
+app.post('/api/admin/sales/:id/create-link-vehicle', authenticateToken, requirePermission(PERMISSIONS.VENTAS_WRITE), requireOperationalSale({ saleParam: true }), async (req, res) => {
     try {
         await connectDB();
         const { brand, name, plateOrVin } = req.body;
@@ -6753,7 +6659,7 @@ const buildCarFromTradeIn = ({ sale, tradeIn, tradeInIndex }) => {
 };
 
 // POST create stock car from trade-in
-app.post('/api/admin/sales/:id/trade-ins/:tradeInIndex/create-stock-car', authenticateToken, requirePermission(PERMISSIONS.VENTAS_WRITE), async (req, res) => {
+app.post('/api/admin/sales/:id/trade-ins/:tradeInIndex/create-stock-car', authenticateToken, requirePermission(PERMISSIONS.VENTAS_WRITE), requireOperationalSale({ saleParam: true }), async (req, res) => {
     let carPayload = null;
     try {
         await connectDB();
@@ -6881,6 +6787,20 @@ app.patch('/api/admin/sales/:id', authenticateToken, requirePermission(PERMISSIO
 
         const sale = await Sale.findById(req.params.id);
         if (!sale) return res.status(404).json({ message: 'Sale not found' });
+        if (sale.status === 'borrador') {
+            const saved = await saveSaleOperation({ payload: req.body || {}, saleId: sale._id, actor: req.user?.username || 'Admin' });
+            await logAudit({
+                req, action: saved.status === 'borrador' ? 'BORRADOR_ACTUALIZADO' : 'VENTA_ACTIVADA', module: 'ventas',
+                entityType: 'Sale', entityId: saved._id, entityLabel: 'Operación de venta',
+                description: saved.status === 'borrador' ? 'Borrador actualizado sin afectar stock ni caja.' : 'Operación activada desde borrador.',
+                metadata: { status: saved.status, vehicleId: saved.vehicleId }
+            });
+            return res.json(await buildPopulatedSaleResponse(saved._id, req.user));
+        }
+        if (status === 'borrador') {
+            return res.status(409).json({ message: 'Una operación activa no puede volver a borrador. Usá el circuito de anulación.', code: 'SALE_ACTIVE_TO_DRAFT_BLOCKED' });
+        }
+
 
         const user = req.user?.username || 'Admin';
         const oldStatus = sale.status;
@@ -7454,6 +7374,7 @@ app.patch('/api/admin/sales/:id', authenticateToken, requirePermission(PERMISSIO
         res.json(populatedSale);
     } catch (error) {
         console.error('Error updating sale:', error);
+        if (error.statusCode) return res.status(error.statusCode).json({ message: error.message, code: error.code });
         if (error?.name === 'ValidationError') {
             const details = Object.values(error.errors || {}).map((e) => e.message).filter(Boolean);
             return res.status(400).json({
@@ -7566,7 +7487,7 @@ app.post('/api/admin/sales/:id/installment-plan/cancel', authenticateToken, requ
 });
 
 // --- CADENAS DE PERMUTAS (vehículos recibidos en parte de pago) ---
-app.post('/api/admin/cars/:id/link-trade-in', authenticateToken, requirePermission(PERMISSIONS.VENTAS_WRITE), async (req, res) => {
+app.post('/api/admin/cars/:id/link-trade-in', authenticateToken, requirePermission(PERMISSIONS.VENTAS_WRITE), requireOperationalSale({}), async (req, res) => {
     try {
         await connectDB();
         const { saleId, tradeInId, value, currency, confirm } = req.body || {};
@@ -8094,7 +8015,7 @@ app.get('/api/admin/transactions/:id', authenticateToken, requirePermission(PERM
 });
 
 // POST admin transaction (manual only)
-app.post('/api/admin/transactions', authenticateToken, requirePermission(PERMISSIONS.FINANZAS_WRITE), async (req, res) => {
+app.post('/api/admin/transactions', authenticateToken, requirePermission(PERMISSIONS.FINANZAS_WRITE), requireOperationalSale({}), async (req, res) => {
     try {
         await connectDB();
         if (req.user && req.user.role === 'ventas') return res.status(403).json({ message: 'Sin permisos financieros' });
@@ -8240,7 +8161,7 @@ app.post('/api/admin/transactions', authenticateToken, requirePermission(PERMISS
 });
 
 // PATCH admin transaction
-app.patch('/api/admin/transactions/:id', authenticateToken, requirePermission(PERMISSIONS.FINANZAS_WRITE), async (req, res) => {
+app.patch('/api/admin/transactions/:id', authenticateToken, requirePermission(PERMISSIONS.FINANZAS_WRITE), requireOperationalSale({ transactionParam: true }), async (req, res) => {
     try {
         await connectDB();
         if (req.user && req.user.role === 'ventas') return res.status(403).json({ message: 'Sin permisos financieros' });
@@ -8570,7 +8491,7 @@ app.get('/api/admin/installments/search-for-expense', authenticateToken, require
     }
 });
 
-app.post('/api/admin/installments/manual-and-assign', authenticateToken, requirePermission(PERMISSIONS.FINANZAS_WRITE), async (req, res) => {
+app.post('/api/admin/installments/manual-and-assign', authenticateToken, requirePermission(PERMISSIONS.FINANZAS_WRITE), requireOperationalSale({}), async (req, res) => {
     try {
         await connectDB();
         if (req.user && req.user.role === 'ventas') return res.status(403).json({ message: 'Sin permisos financieros' });
@@ -8638,6 +8559,14 @@ app.get('/api/admin/installments', authenticateToken, requirePermission(PERMISSI
             .sort({ dueDate: 1, installmentNumber: 1 })
             .lean();
 
+        // Elegibilidad para resúmenes de cobranza sin cambiar saleId ni ocultar
+        // registros a las vistas de administración del endpoint existente.
+        const linkedSaleIds = [...new Set(installments.filter(inst => inst.saleId).map(inst => String(inst.saleId)))];
+        const linkedSales = linkedSaleIds.length
+            ? await Sale.find({ _id: { $in: linkedSaleIds } }).select('status historicalOnly').lean()
+            : [];
+        const linkedSaleById = new Map(linkedSales.map(sale => [String(sale._id), sale]));
+
         // Buscar transacciones asociadas
         const installmentIds = installments.map(i => i._id);
         const transactions = await Transaction.find({
@@ -8682,7 +8611,8 @@ app.get('/api/admin/installments', authenticateToken, requirePermission(PERMISSI
             financeSummary.balanceARS = financeSummary.ingresosARS - financeSummary.egresosARS;
             financeSummary.balanceUSD = financeSummary.ingresosUSD - financeSummary.egresosUSD;
 
-            return { ...inst, financeSummary };
+            const linkedSale = linkedSaleById.get(String(inst.saleId));
+            return { ...inst, financeSummary, saleStatus: linkedSale?.status ?? null, saleHistoricalOnly: linkedSale?.historicalOnly === true };
         });
 
         res.json(enrichedInstallments);
@@ -8951,7 +8881,7 @@ app.get('/api/admin/installments/:id', authenticateToken, requirePermission(PERM
     }
 });
 
-app.post('/api/admin/installments', authenticateToken, requirePermission(PERMISSIONS.FINANZAS_WRITE), async (req, res) => {
+app.post('/api/admin/installments', authenticateToken, requirePermission(PERMISSIONS.FINANZAS_WRITE), requireOperationalSale({}), async (req, res) => {
     try {
         await connectDB();
         const user = req.user ? (req.user.email || req.user.role) : 'System';
@@ -9066,7 +8996,7 @@ app.post('/api/admin/installments', authenticateToken, requirePermission(PERMISS
     }
 });
 
-app.post('/api/admin/installments/:id/pay', authenticateToken, requirePermission(PERMISSIONS.FINANZAS_WRITE), async (req, res) => {
+app.post('/api/admin/installments/:id/pay', authenticateToken, requirePermission(PERMISSIONS.FINANZAS_WRITE), requireOperationalSale({ installmentParam: true }), async (req, res) => {
     try {
         await connectDB();
         if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
@@ -9499,7 +9429,7 @@ app.get('/api/admin/installments/:id/history', authenticateToken, requirePermiss
     }
 });
 
-app.post('/api/admin/sales/:id/installments/generate', authenticateToken, requirePermission(PERMISSIONS.FINANZAS_WRITE), async (req, res) => {
+app.post('/api/admin/sales/:id/installments/generate', authenticateToken, requirePermission(PERMISSIONS.FINANZAS_WRITE), requireOperationalSale({ saleParam: true }), async (req, res) => {
     try {
         await connectDB();
         if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
@@ -9832,7 +9762,7 @@ app.get('/api/admin/notifications', authenticateToken, async (req, res) => {
 
         // 3. DOCUMENTACION / ENTREGAS / POSTVENTA
         if (canReadDocs || canReadPostventa) {
-            const activeSales = await Sale.find({ status: { $in: ['confirmada', 'pendiente_entrega', 'entregada'] } })
+            const activeSales = await Sale.find({ historicalOnly: { $ne: true }, status: { $in: ['confirmada', 'pendiente_entrega', 'entregada'] } })
                 .select('assignedTo documentationStatus deliveryStatus status postSaleStatus createdAt estimatedDeliveryDate updatedAt')
                 .lean();
 
@@ -9840,7 +9770,7 @@ app.get('/api/admin/notifications', authenticateToken, async (req, res) => {
                 if (!isOwnerAdmin && sale.assignedTo && sale.assignedTo.toString() !== req.user?.userId) return;
 
                 // Doc
-                if (canReadDocs && sale.documentationStatus !== 'completa') {
+                if (canReadDocs && sale.documentationStatus !== 'completo') {
                     rawNotifs.push({
                         type: 'documentation_pending',
                         severity: 'warning',
@@ -10087,7 +10017,7 @@ app.get('/api/admin/team-dashboard', authenticateToken, requirePermission(PERMIS
         const tasks = await CrmTask.find({ status: 'pendiente' }).select('title dueDate assignedTo priority').lean();
         const leads = await Lead.find({ crmStatus: { $in: ['nuevo', 'contactado', 'interesado', 'seguimiento'] } }).select('name crmStatus assignedTo lastActivityAt').lean();
         const reservations = await Reservation.find({ status: 'activa' }).select('status assignedTo expiresAt _id').lean();
-        const sales = await Sale.find({ status: { $in: ['confirmada', 'pendiente_entrega', 'entregada'] } }).select('status documentationStatus postSaleStatus assignedTo _id').lean();
+        const sales = await Sale.find({ historicalOnly: { $ne: true }, status: { $in: ['confirmada', 'pendiente_entrega', 'entregada'] } }).select('status documentationStatus postSaleStatus assignedTo _id').lean();
 
         // Audit Logs (recent 100 max for active users context)
         const recentLogs = await AuditLog.find({
@@ -12215,7 +12145,7 @@ app.get('/api/admin/tesoreria/dashboard', authenticateToken, requirePermission(P
         const checks = await Check.find({ status: 'en_cartera' }).lean();
 
         // Ventas / Expedientes
-        const sales = await Sale.find()
+        const sales = await Sale.find({ historicalOnly: { $ne: true } })
             .populate('vehicleId', 'brand name plateOrVin')
             .populate('clientId', 'firstName lastName fullName phone')
             .lean();
@@ -12767,7 +12697,7 @@ app.post('/api/admin/tesoreria-estrategica/incomes/:id/revert', authenticateToke
 });
 
 // 20. Cobro único con distribución inmediata o posterior (Cobrar y Distribuir)
-app.post('/api/admin/tesoreria-estrategica/incomes/collect-and-distribute', authenticateToken, requireTreasuryPrivilegedRole, verifyTreasuryStrategicAuth, async (req, res) => {
+app.post('/api/admin/tesoreria-estrategica/incomes/collect-and-distribute', authenticateToken, requireTreasuryPrivilegedRole, verifyTreasuryStrategicAuth, requireOperationalSale(), async (req, res) => {
     try {
         const result = await treasuryStrategicService.collectAndDistribute(req.body, req.user);
         res.json(result);
@@ -13723,6 +13653,7 @@ app.get('/api/admin/finance/payables', authenticateToken, requirePermission(PERM
         const { status, search } = req.query;
 
         const sales = await Sale.find({
+            historicalOnly: { $ne: true },
             status: { $in: ['confirmada', 'pendiente_entrega', 'entregada'] }
         }).populate('vehicleId', 'brand name model year plateOrVin ownerName purchasePrice purchaseCurrency price currency agencyOwned consignmentStatus').lean();
 
@@ -13787,7 +13718,7 @@ app.get('/api/admin/finance/payables', authenticateToken, requirePermission(PERM
     }
 });
 
-app.post('/api/admin/finance/payables/:id/pay', authenticateToken, requirePermission(PERMISSIONS.FINANZAS_WRITE), async (req, res) => {
+app.post('/api/admin/finance/payables/:id/pay', authenticateToken, requirePermission(PERMISSIONS.FINANZAS_WRITE), requireOperationalSale({ saleParam: true }), async (req, res) => {
     try {
         const saleId = req.params.id;
         const { accountId, amount, currency, notes } = req.body;
@@ -13906,6 +13837,7 @@ app.get('/api/admin/finance/receivables-payables', authenticateToken, requirePer
         });
 
         const salesForPayables = await Sale.find({
+            historicalOnly: { $ne: true },
             status: { $in: ['confirmada', 'pendiente_entrega', 'entregada'] }
         }).populate('vehicleId', 'ownerName').lean();
 
@@ -15393,6 +15325,7 @@ app.get('/api/admin/settlements/pending-sales/:username', authenticateToken, req
 
         // Buscamos ventas confirmadas o entregadas asignadas al vendedor que no estén ya liquidadas
         const sales = await Sale.find({
+            historicalOnly: { $ne: true },
             $or: [{ salesperson: username }, { assignedTo: user._id }],
             status: { $in: ['confirmada', 'entregada'] },
             _id: { $nin: alreadyIncludedSaleIds }
@@ -15785,6 +15718,7 @@ app.get('/api/admin/my-commissions', authenticateToken, requirePermission(PERMIS
                 .flatMap(s => s.includedSales.map(is => is.saleId.toString()));
 
             pendingSales = await Sale.find({
+            historicalOnly: { $ne: true },
                 $or: [{ salesperson: targetUsername }, { assignedTo: user?._id }],
                 status: { $in: ['confirmada', 'entregada'] },
                 _id: { $nin: alreadyIncludedSaleIds }

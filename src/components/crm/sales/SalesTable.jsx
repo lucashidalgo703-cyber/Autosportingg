@@ -1,16 +1,18 @@
 import React from 'react';
 import Link from 'next/link';
 import { ArrowRight, CarFront, Search, ShoppingCart, User, Trash2 } from 'lucide-react';
-import SaleStatusBadge from './SaleStatusBadge';
+import SaleStatusBadge, { getSaleOperationalLabel } from './SaleStatusBadge';
 import CrmButton from '../ui/CrmButton';
 import CrmTable from '../ui/CrmTable';
 import { useAuth } from '../../../context/AuthContext';
 import { hasPermission, PERMISSIONS } from '../../../utils/adminPermissions';
+import { formatSaleDate } from '../../../utils/saleCalendarDate';
 
 export default function SalesTable({ sales, onViewDetail, onDeleteSale }) {
     const { user } = useAuth();
     const canCancelSales = hasPermission(user, PERMISSIONS.VENTAS_CANCEL);
     const canViewStock = hasPermission(user, PERMISSIONS.STOCK_READ);
+    const canWriteSales = hasPermission(user, PERMISSIONS.VENTAS_WRITE);
 
     const columns = [
         {
@@ -18,7 +20,7 @@ export default function SalesTable({ sales, onViewDetail, onDeleteSale }) {
             key: 'date',
             render: (sale) => (
                 <>
-                    <span className="block text-sm text-crm-fg">{new Date(sale.saleDate || sale.createdAt).toLocaleDateString()}</span>
+                    <span className="block text-sm text-crm-fg">{formatSaleDate(sale)}</span>
                     <span className="text-[10px] uppercase text-crm-fg-muted">{sale.paymentMethod || 'contado'}</span>
                 </>
             )
@@ -27,8 +29,8 @@ export default function SalesTable({ sales, onViewDetail, onDeleteSale }) {
             label: 'Cliente / Cotizacion',
             key: 'client',
             render: (sale) => {
-                const name = sale.clientId?.fullName || sale.clientId?.firstName || sale.leadId?.name || 'Sin Nombre';
-                const phone = sale.clientId?.phone || sale.leadId?.phone || '';
+                const name = sale.clientId?.fullName || sale.clientId?.firstName || sale.leadId?.name || sale.draftData?.buyerName || 'Sin Nombre';
+                const phone = sale.clientId?.phone || sale.leadId?.phone || sale.draftData?.buyerPhone || '';
                 const hasClientLink = sale.clientId?._id || sale.leadId?._id;
                 const clientHref = sale.clientId?._id ? `/admin/clientes/${sale.clientId._id}` : (sale.leadId?._id ? `/admin/leads/${sale.leadId._id}` : '#');
 
@@ -80,7 +82,7 @@ export default function SalesTable({ sales, onViewDetail, onDeleteSale }) {
         {
             label: 'Estado',
             key: 'status',
-            render: (sale) => <SaleStatusBadge status={sale.status} />
+            render: (sale) => <SaleStatusBadge status={sale.status} historicalOnly={sale.historicalOnly} />
         },
         {
             label: 'Cobranza',
@@ -88,10 +90,12 @@ export default function SalesTable({ sales, onViewDetail, onDeleteSale }) {
             align: 'right',
             render: (sale) => (
                 <div className="flex flex-col items-end gap-1">
-                    <span className={`text-sm font-bold ${sale.status === 'cancelada' ? 'text-crm-fg-muted line-through' : 'text-emerald-300'}`}>
+                    <span className={`text-sm font-bold ${sale.status === 'cancelada' ? 'text-crm-fg-muted line-through' : getSaleOperationalLabel(sale) ? 'text-crm-fg-muted' : 'text-emerald-300'}`}>
                         {sale.saleCurrency} {(sale.salePrice || 0).toLocaleString('es-AR')}
                     </span>
-                    {sale.finance && (
+                    {getSaleOperationalLabel(sale) ? (
+                        <span className="text-[10px] font-bold uppercase text-crm-fg-muted">{getSaleOperationalLabel(sale)}</span>
+                    ) : sale.finance && (
                         <div className="flex flex-col items-end">
                             {sale.finance.collectionStatus === 'sin_cobro' && <span className="text-[10px] font-bold uppercase text-red-300">Sin Cobro</span>}
                             {sale.finance.collectionStatus === 'parcial' && <span className="text-[10px] font-bold uppercase text-amber-300">Saldo: {sale.saleCurrency} {sale.finance.pendingBalance.toLocaleString('es-AR')}</span>}
@@ -105,7 +109,9 @@ export default function SalesTable({ sales, onViewDetail, onDeleteSale }) {
         {
             label: 'Doc.',
             key: 'documentation',
-            render: (sale) => (
+            render: (sale) => getSaleOperationalLabel(sale) ? (
+                <span className="text-xs text-crm-fg-muted">{getSaleOperationalLabel(sale)}</span>
+            ) : (
                 <div className="flex flex-col gap-1">
                     <span className={`w-max rounded border px-2 py-0.5 text-[10px] font-bold uppercase ${
                         sale.documentationStatus === 'completo' ? 'border-blue-500/20 bg-blue-500/10 text-blue-300' :
@@ -129,6 +135,7 @@ export default function SalesTable({ sales, onViewDetail, onDeleteSale }) {
             label: 'Logistica',
             key: 'logistics',
             render: (sale) => {
+                if (getSaleOperationalLabel(sale)) return <span className="text-xs text-crm-fg-muted">{getSaleOperationalLabel(sale)}</span>;
                 const estimatedDate = sale.estimatedDeliveryDate ? new Date(sale.estimatedDeliveryDate) : null;
                 const isDelayed = estimatedDate && estimatedDate < new Date(new Date().setHours(0, 0, 0, 0));
                 return (
@@ -167,11 +174,11 @@ export default function SalesTable({ sales, onViewDetail, onDeleteSale }) {
                                 e.stopPropagation();
                                 onViewDetail(sale);
                             }}
-                            className="h-8 gap-1 px-3 text-xs flex-1 max-w-[120px]"
-                            title="Ver detalle de venta"
+                            className="min-h-8 h-auto gap-1 px-3 py-1 text-xs flex-1 max-w-[140px]"
+                            title={sale.status === 'borrador' && canWriteSales ? 'Continuar borrador' : 'Ver detalle de venta'}
                         >
                             <Search size={14} />
-                            Detalle
+                            {sale.status === 'borrador' && canWriteSales ? 'Continuar borrador' : 'Detalle'}
                         </CrmButton>
                         {sale.status === 'cancelada' && onDeleteSale && canCancelSales && (
                             <button

@@ -13,13 +13,13 @@ import {
     DollarSign,
     ExternalLink,
     Gauge,
-    Landmark,
     ShieldAlert,
     Star,
     TrendingUp,
 } from 'lucide-react';
 import UpcomingDuesPanel from './UpcomingDuesPanel';
 import AnnualBillingPanel from './AnnualBillingPanel';
+import CashProjectionPanel from './CashProjectionPanel';
 import MonthlyGainPanel from './MonthlyGainPanel';
 
 const monthLabel = new Intl.DateTimeFormat('es-AR', { month: 'long', year: 'numeric' }).format(new Date());
@@ -72,96 +72,6 @@ function ProgressLine({ value = 0, color = 'bg-crm-red' }) {
         </div>
     );
 }
-
-function CashProjectionCard({ label, value, detail, tone = 'neutral' }) {
-    const toneMap = {
-        neutral: 'border-crm-border bg-crm-surface-raised text-crm-fg',
-        green: 'border-emerald-500/30 bg-emerald-500/10 text-emerald-200',
-        red: 'border-red-500/30 bg-crm-red/10 text-red-200'
-    };
-
-    return (
-        <div className={`rounded-xl border p-3 ${toneMap[tone] || toneMap.neutral}`}>
-            <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-crm-fg-muted">{label}</p>
-            <p className="mt-3 text-sm font-bold leading-none">{value}</p>
-            {detail && <p className="mt-2 text-[11px] text-crm-fg-muted">{detail}</p>}
-        </div>
-    );
-}
-
-function CashProjectionPanel({ metrics, hideAmounts }) {
-    const netCashUSD = metrics.finanzas?.saldos?.USD ?? 0;
-    const netCashARS = metrics.finanzas?.saldos?.ARS ?? 0;
-
-    return (
-        <section className="rounded-xl border border-crm-border bg-crm-surface p-4">
-            <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                <div className="flex flex-wrap items-center gap-2">
-                    <h3 className="flex items-center gap-2 text-base font-semibold text-crm-fg">
-                        <Landmark size={15} className="text-amber-400" />
-                        Proyección de caja
-                    </h3>
-                    <span className="rounded-md border border-amber-500/30 bg-amber-500/15 px-2 py-0.5 text-[10px] font-semibold text-amber-300">
-                        Proyección pendiente de integración
-                    </span>
-                </div>
-                <div className="flex items-center gap-4 text-xs">
-                    <span className="text-crm-fg-muted">Cronograma en desarrollo</span>
-                    <Link href="/admin/tesoreria" className="font-semibold text-amber-300 transition hover:text-amber-200">
-                        Ver Tesorería →
-                    </Link>
-                </div>
-            </div>
-            <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-4">
-                <CashProjectionCard
-                    label="Flujo neto del mes"
-                    value={hideAmounts ? '***' : `USD ${formatCurrency(netCashUSD)}`}
-                    detail={hideAmounts ? '***' : `ARS ${formatCurrency(netCashARS)}`}
-                    tone={netCashUSD < 0 ? 'red' : netCashUSD > 0 ? 'green' : 'neutral'}
-                />
-                <CashProjectionCard
-                    label="A cobrar"
-                    value="Pendiente"
-                    detail="Cálculo dinámico en desarrollo"
-                    tone="neutral"
-                />
-                <CashProjectionCard
-                    label="A pagar"
-                    value="Pendiente"
-                    detail="Cálculo dinámico en desarrollo"
-                    tone="neutral"
-                />
-                <CashProjectionCard
-                    label="Resultado proyectado"
-                    value="Pendiente"
-                    detail="No usar margen como liquidez"
-                    tone="neutral"
-                />
-            </div>
-            <div className="mt-4 grid grid-cols-1 gap-3 lg:grid-cols-2">
-                <div className="rounded-xl border border-amber-500/20 bg-amber-500/5 p-4">
-                    <div className="mb-2 flex items-center justify-between">
-                        <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-amber-200">Entradas previstas</p>
-                        <span className="rounded-md bg-amber-500/15 px-2 py-0.5 text-[10px] font-bold text-amber-300">En desarrollo</span>
-                    </div>
-                    <p className="text-xs text-crm-fg-muted">Integración con cuotas y cobros pendientes de ventas en proceso.</p>
-                </div>
-                <div className="rounded-xl border border-amber-500/20 bg-amber-500/5 p-4">
-                    <div className="mb-2 flex items-center justify-between">
-                        <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-amber-200">Salidas previstas</p>
-                        <span className="rounded-md bg-amber-500/15 px-2 py-0.5 text-[10px] font-bold text-amber-300">En desarrollo</span>
-                    </div>
-                    <p className="text-xs text-crm-fg-muted">Integración con pagos a propietarios, comisiones y egresos programados en proceso.</p>
-                </div>
-            </div>
-            <p className="mt-4 border-t border-crm-border pt-3 text-[11px] leading-relaxed text-crm-fg-muted">
-                Módulo en desarrollo: no utilizar estos valores como saldo disponible ni proyección confirmada de liquidez hasta completar la integración con Tesorería.
-            </p>
-        </section>
-    );
-}
-
-
 
 export default function CockpitCeoSote({ metrics, canSeeFinancials = false, user, selectedDate = new Date(), onPrevMonth, onNextMonth, hideAmounts = false }) {
     const [showDetailsModal, setShowDetailsModal] = useState(false);
@@ -552,7 +462,7 @@ export default function CockpitCeoSote({ metrics, canSeeFinancials = false, user
                 </div>
             </section>
 
-            {canSeeFinancials && <CashProjectionPanel metrics={metrics} hideAmounts={hideAmounts} />}
+            {canSeeFinancials && <CashProjectionPanel hideAmounts={hideAmounts} />}
             <MonthlyGainPanel
                 gainsData={metrics.last12MonthsGains}
                 selectedDate={selectedDate}

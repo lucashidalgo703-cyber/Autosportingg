@@ -345,7 +345,7 @@ export default function GestoriaPage() {
                                             });
                                         }} className="w-full rounded-lg border border-crm-border bg-crm-bg px-4 py-2.5 text-sm text-crm-fg focus:border-crm-red focus:outline-none focus:ring-1 focus:ring-crm-red appearance-none">
                                             <option value="">Ninguno</option>
-                                            {sales.filter(s => s.status !== 'cancelada' && s.status !== 'borrador').map(s => (
+                                            {sales.filter(s => s.status !== 'cancelada' && s.status !== 'borrador' && s.historicalOnly !== true).map(s => (
                                                 <option key={s._id} value={s._id}>
                                                     {(s.clientId?.fullName || s.clientId?.firstName)} - {s.vehicleId?.brand} {s.vehicleId?.name} ({s.vehicleId?.plateOrVin})
                                                 </option>

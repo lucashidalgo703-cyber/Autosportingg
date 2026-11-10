@@ -11,13 +11,20 @@ import SaleCreateModal from '../../../components/crm/sales/SaleCreateModal';
 import CrmButton from '../../../components/crm/ui/CrmButton';
 import CrmPageHeader from '../../../components/crm/ui/CrmPageHeader';
 import ConfirmModal from '../../../components/crm/ui/ConfirmModal';
+import { useAuth } from '../../../context/AuthContext';
+import { hasPermission, PERMISSIONS } from '../../../utils/adminPermissions';
+import { formatSaleDate, saleCalendarKey } from '../../../utils/saleCalendarDate';
+import { getSaleOperationalLabel } from '../../../components/crm/sales/SaleStatusBadge';
 
 export default function VentasPage() {
     const { fetchSales, loading, error, deleteSale } = useAdminSales();
+    const { user } = useAuth();
+    const canWriteSales = hasPermission(user, PERMISSIONS.VENTAS_WRITE);
 const [allSales, setAllSales] = useState([]);
 const [isDrawerOpen, setIsDrawerOpen] = useState(false);
     const [selectedSale, setSelectedSale] = useState(null);
     const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+    const [draftToEdit, setDraftToEdit] = useState(null);
     const [confirmDeleteModal, setConfirmDeleteModal] = useState({ isOpen: false, sale: null });
 const [filters, setFilters] = useState({
         search: '',
@@ -62,13 +69,13 @@ const [filters, setFilters] = useState({
         return allSales.filter((sale) => {
             if (filters.search) {
                 const searchLower = filters.search.toLowerCase();
-                const clientName = (sale.clientId?.fullName || sale.clientId?.firstName || '').toLowerCase();
+                const clientName = (sale.clientId?.fullName || sale.clientId?.firstName || sale.draftData?.buyerName || '').toLowerCase();
                 const quoteName = (sale.leadId?.name || '').toLowerCase();
                 const vehicleBrand = (sale.vehicleId?.brand || '').toLowerCase();
                 const vehicleName = (sale.vehicleId?.name || '').toLowerCase();
                 const vehicleVin = (sale.vehicleId?.plateOrVin || '').toLowerCase();
-                const phone = (sale.clientId?.phone || sale.leadId?.phone || '').toLowerCase();
-                const dni = (sale.clientId?.dni || sale.leadId?.dni || '').toLowerCase();
+                const phone = (sale.clientId?.phone || sale.leadId?.phone || sale.draftData?.buyerPhone || '').toLowerCase();
+                const dni = (sale.clientId?.dni || sale.leadId?.dni || sale.draftData?.buyerDni || '').toLowerCase();
 
                 const matchSearch =
                     clientName.includes(searchLower) ||
@@ -91,24 +98,16 @@ const [filters, setFilters] = useState({
             if (filters.status !== 'todas' && sale.status !== filters.status) return false;
             if (filters.currency !== 'todas' && sale.saleCurrency !== filters.currency) return false;
             if (filters.paymentMethod !== 'todas' && sale.paymentMethod !== filters.paymentMethod) return false;
-            if (filters.documentationStatus && filters.documentationStatus !== 'todas' && (sale.documentationStatus || 'pendiente') !== filters.documentationStatus) return false;
-            if (filters.deliveryStatus && filters.deliveryStatus !== 'todas' && (sale.deliveryStatus || 'pendiente') !== filters.deliveryStatus) return false;
-            if (filters.collectionStatus && filters.collectionStatus !== 'todas' && (sale.finance?.collectionStatus || 'sin_cobro') !== filters.collectionStatus) return false;
+            const nonOperational = Boolean(getSaleOperationalLabel(sale));
+            if (filters.documentationStatus && filters.documentationStatus !== 'todas' && (nonOperational || (sale.documentationStatus || 'pendiente') !== filters.documentationStatus)) return false;
+            if (filters.deliveryStatus && filters.deliveryStatus !== 'todas' && (nonOperational || (sale.deliveryStatus || 'pendiente') !== filters.deliveryStatus)) return false;
+            if (filters.collectionStatus && filters.collectionStatus !== 'todas' && (nonOperational || (sale.finance?.collectionStatus || 'sin_cobro') !== filters.collectionStatus)) return false;
             if (filters.tradeInOnly && (!sale.tradeIns || sale.tradeIns.length === 0)) return false;
 
-            const saleDate = new Date(sale.saleDate || sale.createdAt);
-            if (filters.dateFrom) {
-                const from = new Date(`${filters.dateFrom}T00:00:00`);
-                if (saleDate < from) return false;
-            }
-            if (filters.dateTo) {
-                const to = new Date(`${filters.dateTo}T23:59:59`);
-                if (saleDate > to) return false;
-            }
-            if (filters.month) {
-                const saleMonth = `${saleDate.getFullYear()}-${String(saleDate.getMonth() + 1).padStart(2, '0')}`;
-                if (saleMonth !== filters.month) return false;
-            }
+            const saleDate = saleCalendarKey(sale);
+            if (filters.dateFrom && (!saleDate || saleDate < filters.dateFrom)) return false;
+            if (filters.dateTo && (!saleDate || saleDate > filters.dateTo)) return false;
+            if (filters.month && saleDate.slice(0, 7) !== filters.month) return false;
 
             return true;
         });
@@ -117,6 +116,11 @@ const [filters, setFilters] = useState({
     
 
     const handleViewDetail = (sale) => {
+        if (sale.status === 'borrador' && canWriteSales) {
+            setDraftToEdit(sale);
+            setIsCreateModalOpen(true);
+            return;
+        }
         setSelectedSale(sale);
         setIsDrawerOpen(true);
     };
@@ -144,9 +148,10 @@ const [filters, setFilters] = useState({
     
 
     const totals = useMemo(() => {
-        const activeSales = allSales.filter((sale) => ['borrador', 'confirmada', 'pendiente_entrega'].includes(sale.status));
+        const activeSales = allSales.filter((sale) => ['señado', 'confirmada', 'pendiente_entrega'].includes(sale.status));
         return {
             total: allSales.length,
+            drafts: allSales.filter((sale) => sale.status === 'borrador').length,
             active: activeSales.length,
             closed: allSales.filter((sale) => ['entregada', 'cancelada'].includes(sale.status)).length
         };
@@ -156,8 +161,8 @@ const [filters, setFilters] = useState({
         const headers = ['Fecha', 'Cliente', 'Vehiculo', 'Estado', 'Metodo', 'Moneda', 'Precio'];
 
         const rows = filteredSales.map((sale) => ([
-                new Date(sale.saleDate || sale.createdAt).toLocaleDateString('es-AR'),
-                sale.clientId?.fullName || sale.clientId?.firstName || sale.leadId?.name || '',
+                formatSaleDate(sale),
+                sale.clientId?.fullName || sale.clientId?.firstName || sale.leadId?.name || sale.draftData?.buyerName || '',
                 sale.vehicleId ? `${sale.vehicleId.brand || ''} ${sale.vehicleId.name || ''}`.trim() : '',
                 sale.status || '',
                 sale.paymentMethod || '',
@@ -183,7 +188,7 @@ const [filters, setFilters] = useState({
         <div className="mx-auto flex w-full max-w-7xl flex-col gap-5 p-4 pb-24 md:p-6">
             <CrmPageHeader
                 title="Ventas"
-                subtitle={totals ? `${totals.total} ventas · ${totals.active} en curso · ${totals.closed} cerradas` : 'Cargando métricas...'}
+                subtitle={totals ? `${totals.total} operaciones · ${totals.drafts} borradores · ${totals.active} en curso · ${totals.closed} cerradas` : 'Cargando métricas...'}
                 actions={
                     <>
                         <CrmButton
@@ -196,15 +201,18 @@ const [filters, setFilters] = useState({
                             <Download size={14} />
                             Exportar
                         </CrmButton>
-                        <CrmButton
+                        {canWriteSales && <CrmButton
                             variant="primary"
                             size="sm"
-                            onClick={() => setIsCreateModalOpen(true)}
+                            onClick={() => {
+                                setDraftToEdit(null);
+                                setIsCreateModalOpen(true);
+                            }}
                             className="h-9 shadow-[0_0_28px_rgba(239,51,41,0.45)]"
                         >
                             <Plus size={14} />
                             Nueva venta
-                        </CrmButton>
+                        </CrmButton>}
                     </>
                 }
             />
@@ -237,7 +245,11 @@ const [filters, setFilters] = useState({
 
             <SaleCreateModal
                 isOpen={isCreateModalOpen}
-                onClose={() => setIsCreateModalOpen(false)}
+                initialSale={draftToEdit}
+                onClose={() => {
+                    setIsCreateModalOpen(false);
+                    setDraftToEdit(null);
+                }}
                 onSuccess={loadData}
             />
 

@@ -49,7 +49,7 @@ export default function AdminDashboardPage() {
             {/* Page Header */}
             <div className="mb-8 flex flex-col md:flex-row md:items-center justify-between gap-4">
                 <div>
-                    <h1 className="m-0 mb-1 text-xl font-bold text-crm-fg sm:text-2xl">Hola, {displayName}</h1>
+                    <h1 className="m-0 mb-1 text-lg font-bold text-crm-fg sm:text-2xl">Hola, {displayName}</h1>
                     <p className="text-sm text-crm-fg-muted m-0">Bienvenido, {displayName} · {dashboardDate}</p>
                 </div>
                 <div className="flex items-center gap-2">

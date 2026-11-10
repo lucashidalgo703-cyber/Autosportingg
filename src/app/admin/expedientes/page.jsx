@@ -17,7 +17,7 @@ export default function ExpedientesPage() {
     }, [fetchSales]);
 
     const expedientes = sales.filter(sale => {
-        if (sale.status === 'cancelada' || sale.status === 'borrador') return false;
+        if (sale.status === 'cancelada' || sale.status === 'borrador' || sale.historicalOnly === true) return false;
         
         let matchesStatus = true;
         if (filterStatus === 'activos') {

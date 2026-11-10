@@ -13,6 +13,8 @@ import SaleStatusPanel from '../../../../components/crm/sales/detail/SaleStatusP
 import SaleAuditTimeline from '../../../../components/crm/sales/detail/SaleAuditTimeline';
 import SaleFinancePanel from '../../../../components/crm/sales/detail/SaleFinancePanel';
 import SaleInstallmentsPanel from '../../../../components/crm/sales/detail/SaleInstallmentsPanel';
+import SaleCreateModal from '../../../../components/crm/sales/SaleCreateModal';
+import CrmButton from '../../../../components/crm/ui/CrmButton';
 
 import SalePostventaPanel from '../../../../components/crm/sales/detail/SalePostventaPanel';
 import TradeInChainPanel from '../../../../components/crm/stock/TradeInChainPanel';
@@ -20,10 +22,9 @@ import CommunicationLogPanel from '../../../../components/crm/communications/Com
 import MessageTemplatePicker from '../../../../components/crm/templates/MessageTemplatePicker';
 import CrmTaskModal from '../../../../components/crm/agenda/CrmTaskModal';
 import { useAdminCrmTasks } from '../../../../hooks/useAdminCrmTasks';
-import { ShieldAlert, Target, XCircle, Info, CheckCircle } from 'lucide-react';
+import { ShieldAlert, Target, XCircle, Info, FileText } from 'lucide-react';
 import { useAuth } from '../../../../context/AuthContext';
 import { hasPermission, PERMISSIONS } from '../../../../utils/adminPermissions';
-import ConfirmModal from '../../../../components/crm/ui/ConfirmModal';
 
 export default function SaleDetailPage() {
     const { id } = useParams();
@@ -36,7 +37,7 @@ export default function SaleDetailPage() {
     const [isCancelModalOpen, setIsCancelModalOpen] = useState(false);
     const [cancelReason, setCancelReason] = useState('');
     const [isCancelling, setIsCancelling] = useState(false);
-    const [confirmActivateModal, setConfirmActivateModal] = useState(false);
+    const [isDraftModalOpen, setIsDraftModalOpen] = useState(false);
 
     useEffect(() => {
         if (id) {
@@ -160,6 +161,45 @@ export default function SaleDetailPage() {
         );
     }
 
+    if (sale.status === 'borrador') {
+        return (
+            <div className="mx-auto flex w-full max-w-7xl flex-col gap-5 p-4 pb-20 md:p-6">
+                <SaleDetailHeader
+                    sale={sale}
+                    actions={hasPermission(user, PERMISSIONS.VENTAS_WRITE) && (
+                        <CrmButton onClick={() => setIsDraftModalOpen(true)}>
+                            <FileText size={16} /> Continuar borrador
+                        </CrmButton>
+                    )}
+                />
+                <div className="rounded-xl border border-crm-border bg-crm-surface p-5">
+                    <h2 className="m-0 text-base font-bold text-crm-fg">Borrador de la operación</h2>
+                    <p className="mb-4 mt-2 text-sm text-crm-fg-muted">
+                        Podés completar los datos y guardar para continuar después. El borrador no reserva la unidad ni registra cobros, cuotas o entregas.
+                    </p>
+                    <dl className="grid gap-4 text-sm sm:grid-cols-2">
+                        <div>
+                            <dt className="text-crm-fg-muted">Comprador</dt>
+                            <dd className="m-0 mt-1 text-crm-fg">{sale.draftData?.buyerName || sale.clientId?.fullName || sale.clientId?.firstName || 'Sin completar'}</dd>
+                        </div>
+                        <div>
+                            <dt className="text-crm-fg-muted">Vehículo</dt>
+                            <dd className="m-0 mt-1 text-crm-fg">{sale.vehicleId ? `${sale.vehicleId.brand || ''} ${sale.vehicleId.name || ''}`.trim() : 'Sin asignar'}</dd>
+                        </div>
+                    </dl>
+                    {(sale.draftData?.notes || sale.notes) && <p className="mb-0 mt-4 whitespace-pre-wrap text-sm text-crm-fg-muted">{sale.draftData?.notes || sale.notes}</p>}
+                </div>
+                <SaleAuditTimeline sale={sale} />
+                <SaleCreateModal
+                    isOpen={isDraftModalOpen}
+                    initialSale={sale}
+                    onClose={() => setIsDraftModalOpen(false)}
+                    onSuccess={loadSale}
+                />
+            </div>
+        );
+    }
+
     return (
         <div className="mx-auto flex w-full max-w-7xl flex-col p-4 pb-20 md:p-6">
             
@@ -167,15 +207,6 @@ export default function SaleDetailPage() {
                 sale={sale} 
                 actions={
                     <div className="flex gap-2">
-                        {sale.status === 'borrador' && (
-                            <button
-                                onClick={() => setConfirmActivateModal(true)}
-                                className="flex items-center gap-2 rounded-lg border border-emerald-500/20 bg-emerald-500/10 px-3 py-1.5 text-xs font-bold text-emerald-300 transition-colors hover:bg-emerald-500/20"
-                            >
-                                <CheckCircle size={14} />
-                                Activar Venta
-                            </button>
-                        )}
                         {sale.status !== 'cancelada' && (['owner', 'admin'].includes(user?.role) || hasPermission(user, PERMISSIONS.VENTAS_CANCEL)) && (
                             <button
                                 onClick={() => setIsCancelModalOpen(true)}
@@ -365,16 +396,6 @@ export default function SaleDetailPage() {
                     </div>
                 </div>
             )}
-
-            <ConfirmModal
-                isOpen={confirmActivateModal}
-                onClose={() => setConfirmActivateModal(false)}
-                onConfirm={() => handleSave({ status: 'confirmada' })}
-                title="Activar Venta"
-                message="¿Estás seguro de que quieres activar esta venta? Pasará de Borrador a Activa."
-                confirmText="Activar Venta"
-                isDestructive={false}
-            />
 
         </div>
     );

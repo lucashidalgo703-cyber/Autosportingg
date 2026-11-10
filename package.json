@@ -11,7 +11,10 @@
     "check": "node --check server.js && npm run lint && node scripts/validate-codebase.js",
     "api": "node server.js",
     "test:smoke": "playwright test",
-    "test:help": "node tests/helpRegistry.test.js"
+    "test:help": "node tests/helpRegistry.test.js",
+    "test:crm-parity": "node --test tests/cashProjection.test.js tests/saleDraftForm.test.js tests/treasuryHistoricalIsolation.test.js tests/installmentCollectionStats.test.js tests/saleCalendarDate.test.js",
+    "test:crm-parity:integration": "node --test tests/integration/saleDraft.integration.test.js",
+    "preview:crm-parity": "node scripts/start-crm-parity-preview.mjs"
   },
   "dependencies": {
     "@vercel/analytics": "^1.6.1",
@@ -46,6 +49,7 @@
     "eslint": "^10.5.0",
     "eslint-config-next": "^16.2.9",
     "eslint-plugin-react-hooks": "^7.1.1",
+    "mongodb-memory-server": "^11.3.0",
     "postcss": "^8.5.15",
     "tailwindcss": "^3.4.0"
   }

@@ -49,34 +49,9 @@ import PagoEmpresasTab from '../../../components/crm/finance/tabs/PagoEmpresasTa
 import SueldosTab from '../../../components/crm/finance/tabs/SueldosTab';
 import TallerTab from '../../../components/crm/finance/tabs/TallerTab';
 import ResumenGastosTab from '../../../components/crm/finance/tabs/ResumenGastosTab';
-
-
-const FINANCE_TABS = [
-    { id: 'resumen', icon: '📊', label: 'Resumen' },
-    { id: 'movimientos', icon: '🧾', label: 'Movimientos' },
-    { id: 'resumen-gastos', icon: '📉', label: 'Resumen Gastos' },
-    { id: 'senas', icon: '🤝', label: 'Señas' },
-    { id: 'gastos-personales', icon: '👤', label: 'Gastos Personales' },
-    { id: 'sueldos', icon: '🧑‍💼', label: 'Sueldos' },
-    { id: 'taller', icon: '🔧', label: 'Taller / Mecánico' },
-    { id: 'cuotas', icon: '📆', label: 'Cuotas' },
-    { id: 'pagos', icon: '💸', label: 'Pagos Disp.' },
-    { id: 'pago-empresas', icon: '🏢', label: 'Pago Empresas' },
-    { id: 'tarjeta', icon: '💳', label: 'Tarjeta' },
-    { id: 'retiros', icon: '🏧', label: 'Retiros' },
-    { id: 'comisiones', icon: '🪙', label: 'Comisiones' },
-    { id: 'rentabilidad', icon: '📈', label: 'Rentabilidad' },
-    { id: 'cuentas', icon: '🏦', label: 'Cuentas' },
-    { id: 'cobrar-pagar', icon: '🔁', label: 'x Cobrar/Pagar' },
-    { id: 'cheques', icon: '📄', label: 'Cheques' },
-    { id: 'prestamos', icon: '🤲', label: 'Préstamos' },
-    { id: 'presupuesto', icon: '📋', label: 'Presupuesto' },
-    { id: 'recurrencias', icon: '🔄', label: 'Recurrencias' },
-    { id: 'arqueos', icon: '🔍', label: 'Arqueos' },
-    { id: 'cierre', icon: '🧮', label: 'Cierre Caja' },
-    { id: 'conciliacion', icon: '✅', label: 'Conciliación' },
-    { id: 'afip', icon: '🏛️', label: 'AFIP/IVA' }
-];
+import FinanceNavigation, { FINANCE_TABS } from '../../../components/crm/finance/FinanceNavigation';
+import CashProjectionPanel from '../../../components/crm/dashboard/CashProjectionPanel';
+import { getInstallmentCollectionStats } from '../../../utils/installmentCollectionStats';
 
 const BASE_FILTERS = {
     search: '',
@@ -131,6 +106,7 @@ function FinanzasPage() {
     const [accounts, setAccounts] = useState([]);
     const [installments, setInstallments] = useState([]);
     const [activeTab, setActiveTab] = useState('resumen');
+    const [navigationReady, setNavigationReady] = useState(false);
     const [movementMode, setMovementMode] = useState('todos');
     const [senaMode, setSenaMode] = useState('todos');
     const [senaSearch, setSenaSearch] = useState('');
@@ -245,20 +221,24 @@ function FinanzasPage() {
     }, []);
 
     useEffect(() => {
-        const params = new URLSearchParams(window.location.search);
-        const tab = params.get('tab');
-        if (tab && FINANCE_TABS.some(t => t.id === tab)) {
-            setActiveTab(tab);
-        }
+        const readNavigation = () => {
+            const tab = new URLSearchParams(window.location.search).get('tab');
+            setActiveTab(FINANCE_TABS.some((item) => item.id === tab) ? tab : 'resumen');
+            setNavigationReady(true);
+        };
+        readNavigation();
+        window.addEventListener('popstate', readNavigation);
+        return () => window.removeEventListener('popstate', readNavigation);
     }, []);
 
     useEffect(() => {
+        if (!navigationReady) return;
         const url = new URL(window.location);
         if (url.searchParams.get('tab') !== activeTab) {
             url.searchParams.set('tab', activeTab);
-            window.history.replaceState({}, '', url);
+            window.history.replaceState(window.history.state, '', url);
         }
-    }, [activeTab]);
+    }, [activeTab, navigationReady]);
 
     const metrics = useMemo(() => {
         return allTransactions.reduce((acc, tx) => {
@@ -492,30 +472,14 @@ function FinanzasPage() {
                     </div>
                 )}
 
-                <div className="mb-6 overflow-x-auto border-b border-crm-border custom-scrollbar">
-                    <nav aria-label="Pestañas de Finanzas" className="flex w-max min-w-full gap-1 pb-2">
-                        {FINANCE_TABS.map((tab) => {
-                            const active = activeTab === tab.id;
-                            return (
-                                <button
-                                    key={tab.id}
-                                    type="button"
-                                    aria-pressed={active}
-                                    onClick={() => setActiveTab(tab.id)}
-                                    className={`inline-flex shrink-0 items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium transition ${
-                                        active
-                                            ? 'bg-crm-red text-white shadow-sm'
-                                            : 'bg-transparent text-crm-fg-muted hover:bg-crm-surface-raised hover:text-crm-fg'
-                                    }`}
-                                >
-                                    <span>{tab.icon}</span>
-                                    {tab.label}
-                                </button>
-                            );
-                        })}
-                    </nav>
-                </div>
+                <FinanceNavigation activeTab={activeTab} onTabChange={setActiveTab} />
 
+                <div id="finanzas-contenido">
+                {activeTab === 'resumen' && (
+                    <div className="mb-6">
+                        <CashProjectionPanel />
+                    </div>
+                )}
                 {transactionsLoading && allTransactions.length === 0 ? (
                     <div className="flex min-h-[360px] items-center justify-center rounded-2xl border border-crm-border bg-crm-surface">
                         <div className="h-8 w-8 animate-spin rounded-full border-2 border-crm-border border-t-crm-red" />
@@ -636,6 +600,7 @@ function FinanzasPage() {
                         )}
                     </>
                 )}
+                </div>
 
                 <TransactionModal
                     isOpen={isModalOpen}
@@ -721,31 +686,7 @@ function FinanzasPage() {
 }
 
 function ResumenFinanciero({ balances, metrics, monthlyFlow, expenseCategories, onOpenAccounts, installments = [] }) {
-    const installmentStats = useMemo(() => {
-        let vencidas = 0;
-        let porVencer = 0;
-        let enFecha = 0;
-
-        const today = new Date();
-        today.setHours(0, 0, 0, 0);
-
-        installments.forEach(item => {
-            const status = String(item.status || '').toLowerCase();
-            if (status === 'pagada' || status === 'anulada') return;
-
-            const dueDate = new Date(item.dueDate);
-            if (dueDate < today) {
-                vencidas++;
-            } else {
-                const diffTime = Math.abs(dueDate - today);
-                const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-                if (diffDays <= 7) porVencer++;
-                else enFecha++;
-            }
-        });
-
-        return { vencidas, porVencer, enFecha };
-    }, [installments]);
+    const installmentStats = useMemo(() => getInstallmentCollectionStats(installments), [installments]);
 
     return (
         <div className="space-y-4">
@@ -787,9 +728,10 @@ function ResumenFinanciero({ balances, metrics, monthlyFlow, expenseCategories, 
                 <h2 className="mb-5 text-base font-black text-crm-fg">CUOTAS — ESTADO DE COBRO</h2>
                 <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
                     <DebtStatus title="Vencidas" value={installmentStats.vencidas} copy={installmentStats.vencidas === 0 ? "— sin atrasos" : "— revisar"} caption="Pendientes con fecha pasada" tone="danger" />
-                    <DebtStatus title="Por vencer" value={installmentStats.porVencer} copy={installmentStats.porVencer === 0 ? "— tranquilo" : "— próximas"} caption="Próximos 7 días" tone="warning" />
-                    <DebtStatus title="En fecha" value={installmentStats.enFecha} copy="— sin atrasos" caption="A más de 7 días — tranquilo" tone="success" />
+                    <DebtStatus title="Por vencer" value={installmentStats.porVencer} copy={installmentStats.porVencer === 0 ? "— tranquilo" : "— próximas"} caption="Desde hoy, 7 días calendario" tone="warning" />
+                    <DebtStatus title="En fecha" value={installmentStats.enFecha} copy="— sin atrasos" caption="Fuera de ese plazo" tone="success" />
                 </div>
+                {installmentStats.sinFecha > 0 && <p className="mt-3 text-xs text-crm-fg-muted">{installmentStats.sinFecha} cuota(s) con saldo pendiente sin fecha válida; revisá sus vencimientos.</p>}
             </section>
 
             <div className="flex items-center justify-end gap-2 text-xs font-black uppercase tracking-wider text-crm-fg-muted">

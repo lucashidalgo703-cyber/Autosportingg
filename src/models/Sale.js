@@ -131,6 +131,17 @@ const financingDetailsSchema = new mongoose.Schema({
     customInstallmentAmount: { type: Number, min: 0 }
 }, { _id: false });
 
+// Datos de trabajo del formulario; nunca adjuntos ni objetos arbitrarios del cliente.
+const draftDataSchema = new mongoose.Schema({
+    buyerName: { type: String, maxlength: 300 },
+    buyerPhone: { type: String, maxlength: 100 },
+    buyerEmail: { type: String, maxlength: 320 },
+    buyerDni: { type: String, maxlength: 100 },
+    mileage: { type: String, maxlength: 30 },
+    hasTradeIn: { type: Boolean },
+    notes: { type: String, maxlength: 20000 }
+}, { _id: false, strict: true });
+
 const saleSchema = new mongoose.Schema({
     reservationId: { type: mongoose.Schema.Types.ObjectId, ref: 'Reservation' },
     leadId: { type: mongoose.Schema.Types.ObjectId, ref: 'Lead' },
@@ -171,6 +182,7 @@ const saleSchema = new mongoose.Schema({
     saleExpenses: { type: [saleExpenseSchema], default: [] },
 
     notes: { type: String },
+    draftData: { type: draftDataSchema, default: undefined },
 
     documentationStatus: { 
         type: String, 
@@ -208,6 +220,9 @@ const saleSchema = new mongoose.Schema({
     
     // CARGA MANUAL Y PROPIETARIO
     isManualImport: { type: Boolean, default: false },
+    // Nuevas cargas históricas de consulta. No reclasifica importaciones legacy
+    // que pueden conservar cuotas y obligaciones vigentes.
+    historicalOnly: { type: Boolean, default: false },
     vehicleOwnerName: { type: String },
     vehicleOwnerPhone: { type: String },
     

@@ -174,15 +174,19 @@ export const helpRegistry = [
         roles: ['Owner/Admin', 'Ventas', 'Administrativo'],
         summary: 'Administrá los vehículos disponibles: propios, consignaciones y 0km.',
         steps: [
-            { title: 'Buscá vehículos', body: 'Usá los filtros por marca, modelo, año y tipo de ingreso (Propio, Consignación, Compartido).' },
-            { title: 'Cargá uno nuevo', body: 'Hacé clic en "Nuevo vehículo", ingresá la patente (se autocompleta info si está disponible) y cargá el precio.' },
+            { title: 'Inventario', body: 'La vista Inventario reúne los filtros y el listado de vehículos. Buscá por marca, modelo, año y tipo de ingreso (Propio, Consignación, Compartido).' },
+            { title: 'Capital e inversores', body: 'Usá esta vista para consultar el resumen patrimonial, las participaciones y el desglose de capital. Conserva las herramientas de inversión de la agencia; podés volver al Inventario sin salir de Stock.' },
+            { title: 'Cargá uno nuevo', body: 'Hacé clic en "Nuevo vehículo" y completá los datos de la unidad y el precio.' },
             { title: 'Fotos y detalles', body: 'Entrá a la ficha técnica para subir la galería de imágenes y cargar el equipamiento.' },
             { title: 'Exportá el stock', body: 'Usá el botón de Excel para descargar tu lista completa de autos con precios.' }
         ],
         tips: [
             'Mantené los precios actualizados y marcá los autos reservados para evitar que otro vendedor los ofrezca.'
         ],
-        keywords: ['autos', 'vehiculos', 'inventario', '0km', 'usados']
+        keywords: ['autos', 'vehiculos', 'inventario', 'capital', 'inversores', '0km', 'usados'],
+        version: '1.1',
+        lastReviewed: '2026-11-10',
+        reviewedBy: 'Desarrollo CRM'
     },
     {
         id: 'gestion-clientes',
@@ -232,16 +236,22 @@ export const helpRegistry = [
         icon: 'BadgeDollarSign',
         route: '/admin/ventas',
         roles: ['Owner/Admin', 'Administrativo'],
-        summary: 'El registro maestro de todas las operaciones cerradas en la agencia.',
+        summary: 'Guardá borradores y seguí las operaciones de la agencia hasta su entrega.',
         steps: [
-            { title: 'Listado global', body: 'Revisá todas las ventas, filtrá por estado (Señado, Vendido, Entregado) y vendedor.' },
-            { title: 'Ver detalles', body: 'Hacé clic en una venta para ver montos exactos, comisiones y autos involucrados.' },
+            { title: 'Guardá un borrador', body: 'En Nueva venta, usá "Guardar borrador" aunque todavía falten vehículo, cliente o precio. Conserva los datos cargados sin reservar la unidad, acreditar dinero en caja, convertir el lead ni crear cuotas.' },
+            { title: 'Continuá la carga', body: 'Abrí un borrador desde el listado o su ficha con "Continuar borrador". Revisá y guardá los cambios sobre la misma operación. Hasta activarlo, sus indicadores de cobranza, documentación y logística muestran "Sin activar".' },
+            { title: 'Activá la operación', body: 'Elegí una unidad disponible, completá el precio y seleccioná el estado correspondiente antes de guardar. El sistema verifica que la unidad no tenga otra operación activa. Si dejó de estar disponible, se conserva el borrador para corregirlo.' },
+            { title: 'Seguí la venta', body: 'Filtrá el listado por estado y vendedor. Abrí una operación activa para consultar sus datos y gestionar las funciones de venta según tus permisos.' },
             { title: 'Auditoría', body: 'Revisá qué usuario modificó el precio o cambió los estados de la operación.' }
         ],
         tips: [
-            'Las ventas eliminadas quedan registradas por seguridad en el historial de auditoría.'
+            'Activar una venta no registra un cobro. Registrá los ingresos por los circuitos de caja correspondientes.',
+            'La carga de venta y el borrador no adjuntan archivos. Conservá la documentación para incorporarla por el circuito documental de la agencia.'
         ],
-        keywords: ['operaciones', 'boletos', 'facturacion', 'ingresos']
+        keywords: ['operaciones', 'borrador', 'continuar', 'activar', 'boletos', 'facturacion', 'ingresos'],
+        version: '1.1',
+        lastReviewed: '2026-11-10',
+        reviewedBy: 'Desarrollo CRM'
     },
     {
         id: 'mis-ventas',
@@ -468,17 +478,23 @@ export const helpRegistry = [
         icon: 'LineChart',
         route: '/admin/finanzas',
         roles: ['Owner/Admin', 'Administrativo'],
-        summary: 'Control total de ingresos, egresos y el estado de las cuentas (cajas).',
+        summary: 'Consultá cuentas, cobros y pagos, y revisá la liquidez según los vencimientos registrados.',
         steps: [
-            { title: 'Movimientos', body: 'Registrá pagos de empresas, retiros de socios o pagos disponibles en las pestañas correspondientes.' },
+            { title: 'Elegí un grupo', body: 'La navegación se organiza en Resumen, Caja y bancos, Cobros, Pagos, Control y cierres, y Análisis y planificación. Dentro de cada grupo elegí la pestaña que necesitás; se conservan los accesos a las funciones propias de la agencia.' },
+            { title: 'Movimientos y pagos', body: 'Registrá pagos de empresas, retiros de socios o pagos disponibles en las pestañas correspondientes.' },
             { title: 'Cuentas separadas', body: 'Visualizá los saldos en ARS y USD por separado. Cada movimiento debe asignarse a una caja (banco, efectivo, etc).' },
-            { title: 'Comprobantes', body: 'Subí el ticket o transferencia PDF a cada movimiento para respaldarlo.' },
+            { title: 'Liquidez a 7, 15 y 30 días', body: 'En Resumen, el panel de liquidez parte del saldo registrado en cuentas y aplica cuotas abiertas y movimientos pendientes registrados, según su fecha. Consultá ARS y USD por separado, y revisá también los vencidos y los importes sin fecha, que se presentan aparte.' },
+            { title: 'Revisá el alcance', body: 'La proyección no presume ventas nuevas ni recupero de vencidos. No incorpora obligaciones a propietarios o comisiones sin movimiento registrado, ni reglas recurrentes sin movimiento. Los datos incompletos se señalan para revisión.' },
             { title: 'Reversión', body: 'Si te equivocás, usá la opción de reversión (requiere permisos de Admin) para anular el movimiento.' }
         ],
         tips: [
+            'El saldo registrado y la proyección pueden incluir fondos comprometidos con terceros: no equivalen a dinero libre para retirar.',
             'Hacé un arqueo de caja físico y comparalo con el sistema todos los viernes.'
         ],
-        keywords: ['caja', 'dinero', 'bancos', 'ingresos', 'egresos']
+        keywords: ['caja', 'dinero', 'bancos', 'ingresos', 'egresos', 'liquidez', 'vencimientos', 'proyeccion'],
+        version: '1.1',
+        lastReviewed: '2026-11-10',
+        reviewedBy: 'Desarrollo CRM'
     },
     {
         id: 'tesoreria-pagos',

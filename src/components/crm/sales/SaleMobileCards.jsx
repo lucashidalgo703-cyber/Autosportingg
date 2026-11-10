@@ -1,14 +1,16 @@
 import React from 'react';
 import Link from 'next/link';
 import { CarFront, ChevronRight, Search, ShoppingCart, User, Trash2 } from 'lucide-react';
-import SaleStatusBadge from './SaleStatusBadge';
+import SaleStatusBadge, { getSaleOperationalLabel } from './SaleStatusBadge';
 import { useAuth } from '../../../context/AuthContext';
 import { hasPermission, PERMISSIONS } from '../../../utils/adminPermissions';
+import { formatSaleDate } from '../../../utils/saleCalendarDate';
 
 export default function SaleMobileCards({ sales, onViewDetail, onDeleteSale }) {
     const { user } = useAuth();
     const canCancelSales = hasPermission(user, PERMISSIONS.VENTAS_CANCEL);
     const canViewStock = hasPermission(user, PERMISSIONS.STOCK_READ);
+    const canWriteSales = hasPermission(user, PERMISSIONS.VENTAS_WRITE);
 
     if (!sales || sales.length === 0) {
         return (
@@ -23,7 +25,8 @@ export default function SaleMobileCards({ sales, onViewDetail, onDeleteSale }) {
     return (
         <div className="flex flex-col gap-3 md:hidden">
             {sales.map(sale => {
-                const name = sale.clientId?.fullName || sale.clientId?.firstName || sale.leadId?.name || 'Sin Nombre';
+                const nonOperationalLabel = getSaleOperationalLabel(sale);
+                const name = sale.clientId?.fullName || sale.clientId?.firstName || sale.leadId?.name || sale.draftData?.buyerName || 'Sin Nombre';
                 const vehicleName = sale.vehicleId ? `${sale.vehicleId.brand} ${sale.vehicleId.name}` : 'Vehiculo no asignado';
                 const hasClientLink = sale.clientId?._id || sale.leadId?._id;
                 const clientHref = sale.clientId?._id ? `/admin/clientes/${sale.clientId._id}` : (sale.leadId?._id ? `/admin/leads/${sale.leadId._id}` : '#');
@@ -32,9 +35,9 @@ export default function SaleMobileCards({ sales, onViewDetail, onDeleteSale }) {
                 return (
                     <article key={sale._id} className="overflow-hidden rounded-xl border border-crm-border bg-crm-bg">
                         <div className="flex items-start justify-between gap-3 border-b border-crm-border bg-crm-surface-raised/60 px-3 py-3">
-                            <SaleStatusBadge status={sale.status} />
+                            <SaleStatusBadge status={sale.status} historicalOnly={sale.historicalOnly} />
                             <div className="flex flex-col items-end">
-                                <span className="text-xs text-crm-fg-muted">{new Date(sale.saleDate || sale.createdAt).toLocaleDateString()}</span>
+                                <span className="text-xs text-crm-fg-muted">{formatSaleDate(sale)}</span>
                                 <span className="text-[10px] uppercase text-crm-fg-muted">{sale.paymentMethod || 'contado'}</span>
                             </div>
                         </div>
@@ -70,18 +73,20 @@ export default function SaleMobileCards({ sales, onViewDetail, onDeleteSale }) {
                             <div className="flex flex-col gap-3 rounded-xl border border-crm-border bg-crm-bg p-3">
                                 <div className="flex items-center justify-between">
                                     <span className="text-[10px] uppercase text-crm-fg-muted">Precio Venta</span>
-                                    <span className={`text-sm font-bold ${sale.status === 'cancelada' ? 'text-crm-fg-muted line-through' : 'text-emerald-300'}`}>
+                                    <span className={`text-sm font-bold ${sale.status === 'cancelada' ? 'text-crm-fg-muted line-through' : nonOperationalLabel ? 'text-crm-fg-muted' : 'text-emerald-300'}`}>
                                         {sale.saleCurrency} {(sale.salePrice || 0).toLocaleString('es-AR')}
                                     </span>
                                 </div>
-                                {sale.finance && (
+                                {(nonOperationalLabel || sale.finance) && (
                                     <div className="flex items-center justify-between border-t border-crm-border pt-2">
                                         <span className="text-[10px] uppercase text-crm-fg-muted">Cobranza</span>
                                         <div className="flex flex-col items-end">
-                                            {sale.finance.collectionStatus === 'sin_cobro' && <span className="text-[10px] font-bold uppercase text-red-300">Sin Cobro</span>}
-                                            {sale.finance.collectionStatus === 'parcial' && <span className="text-[10px] font-bold uppercase text-amber-300">Saldo: {sale.saleCurrency} {sale.finance.pendingBalance.toLocaleString('es-AR')}</span>}
-                                            {sale.finance.collectionStatus === 'cobrada' && <span className="text-[10px] font-bold uppercase text-emerald-300">Cobrada</span>}
-                                            {sale.finance.collectionStatus === 'sobrecobrada' && <span className="text-[10px] font-bold uppercase text-purple-300">Sobrecobrada</span>}
+                                            {nonOperationalLabel ? <span className="text-[10px] font-bold uppercase text-crm-fg-muted">{nonOperationalLabel}</span> : <>
+                                                {sale.finance.collectionStatus === 'sin_cobro' && <span className="text-[10px] font-bold uppercase text-red-300">Sin Cobro</span>}
+                                                {sale.finance.collectionStatus === 'parcial' && <span className="text-[10px] font-bold uppercase text-amber-300">Saldo: {sale.saleCurrency} {sale.finance.pendingBalance.toLocaleString('es-AR')}</span>}
+                                                {sale.finance.collectionStatus === 'cobrada' && <span className="text-[10px] font-bold uppercase text-emerald-300">Cobrada</span>}
+                                                {sale.finance.collectionStatus === 'sobrecobrada' && <span className="text-[10px] font-bold uppercase text-purple-300">Sobrecobrada</span>}
+                                            </>}
                                         </div>
                                     </div>
                                 )}
@@ -91,22 +96,24 @@ export default function SaleMobileCards({ sales, onViewDetail, onDeleteSale }) {
                                 <div className="flex flex-col">
                                     <span className="mb-1 text-[10px] font-bold uppercase tracking-[0.08em] text-crm-fg-muted">Documentacion</span>
                                     <span className={`w-max rounded border px-2 py-0.5 text-xs font-bold uppercase ${
+                                        nonOperationalLabel ? 'border-crm-border bg-crm-bg text-crm-fg-muted' :
                                         sale.documentationStatus === 'completo' ? 'border-blue-500/20 bg-blue-500/10 text-blue-300' :
                                         sale.documentationStatus === 'parcial' ? 'border-amber-500/20 bg-amber-500/10 text-amber-300' :
                                         'border-crm-border bg-crm-bg text-crm-fg-muted'
                                     }`}>
-                                        {sale.documentationStatus || 'pendiente'}
+                                        {nonOperationalLabel || sale.documentationStatus || 'pendiente'}
                                     </span>
                                 </div>
                                 <div className="flex flex-col items-end">
                                     <span className="mb-1 text-[10px] font-bold uppercase tracking-[0.08em] text-crm-fg-muted">Entrega</span>
                                     <span className={`w-max rounded border px-2 py-0.5 text-xs font-bold uppercase ${
+                                        nonOperationalLabel ? 'border-crm-border bg-crm-bg text-crm-fg-muted' :
                                         sale.deliveryStatus === 'entregado' ? 'border-emerald-500/20 bg-emerald-500/10 text-emerald-300' :
                                         sale.deliveryStatus === 'listo_para_entregar' ? 'border-blue-500/20 bg-blue-500/10 text-blue-300' :
                                         sale.deliveryStatus === 'preparando' ? 'border-amber-500/20 bg-amber-500/10 text-amber-300' :
                                         'border-crm-border bg-crm-bg text-crm-fg-muted'
                                     }`}>
-                                        {(sale.deliveryStatus || 'pendiente').replace(/_/g, ' ')}
+                                        {nonOperationalLabel || (sale.deliveryStatus || 'pendiente').replace(/_/g, ' ')}
                                     </span>
                                 </div>
                             </div>
@@ -120,7 +127,7 @@ export default function SaleMobileCards({ sales, onViewDetail, onDeleteSale }) {
                                     className="m-0 flex flex-1 appearance-none items-center justify-center gap-2 rounded-lg border border-crm-border bg-crm-surface-raised px-3 py-2.5 text-sm font-bold text-crm-fg transition-colors hover:bg-crm-border min-h-[44px]"
                                 >
                                     <Search size={16} className="text-crm-fg-muted" />
-                                    Ver detalle
+                                    {sale.status === 'borrador' && canWriteSales ? 'Continuar borrador' : 'Ver detalle'}
                                 </button>
                                 {sale.status === 'cancelada' && onDeleteSale && canCancelSales && (
                                     <button

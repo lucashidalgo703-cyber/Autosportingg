@@ -70,6 +70,7 @@ export default function TesoreriaPage() {
     const getTabSales = (tabId) => {
         if (!data?.sales) return [];
         return data.sales.filter(s => {
+            if (s.historicalOnly === true) return false;
             const status = String(s.status).toLowerCase();
             if (tabId === 'activos') {
                 return ['señado', 'confirmada', 'pendiente_entrega'].includes(status);

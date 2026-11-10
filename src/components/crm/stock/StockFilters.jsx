@@ -55,8 +55,9 @@ export default function StockFilters({
     counts = {}
 }) {
     return (
-        <div className="flex flex-col gap-5">
-            <div className="-mx-1 flex items-center gap-6 border-b border-crm-border px-1">
+        <div className="flex min-w-0 flex-col gap-5">
+            <div className="overflow-x-auto custom-scrollbar">
+            <nav aria-label="Categorías de stock" className="flex w-max min-w-full items-center gap-6 border-b border-crm-border px-1">
                 {tabs.map(tab => {
                     const isActive = stockTab === tab.id;
 
@@ -64,8 +65,9 @@ export default function StockFilters({
                         <button
                             key={tab.id}
                             type="button"
+                            aria-pressed={isActive}
                             onClick={() => setStockTab(tab.id)}
-                            className={`m-0 inline-flex items-baseline gap-1.5 appearance-none border-0 border-b-2 bg-transparent px-1 pb-3 pt-1 text-sm font-semibold transition-colors ${
+                            className={`m-0 inline-flex min-h-10 shrink-0 items-baseline gap-1.5 whitespace-nowrap appearance-none border-0 border-b-2 bg-transparent px-1 pb-3 pt-1 text-sm font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-crm-red ${
                                 isActive
                                     ? 'border-crm-red text-crm-red'
                                     : 'border-transparent text-crm-fg-muted hover:text-crm-fg'
@@ -90,6 +92,7 @@ export default function StockFilters({
                         </button>
                     );
                 })}
+            </nav>
             </div>
 
             <div className="flex flex-wrap items-center gap-2">
@@ -100,6 +103,7 @@ export default function StockFilters({
                         <button
                             key={chip.id}
                             type="button"
+                            aria-pressed={isActive}
                             onClick={() => setFilterStatus(isActive ? '' : chip.id)}
                             className={`m-0 inline-flex h-[26px] appearance-none items-center gap-1 rounded-full border px-3 text-xs font-semibold leading-none transition-colors ${
                                 isActive ? chip.active : chip.idle
@@ -112,11 +116,12 @@ export default function StockFilters({
                 })}
             </div>
 
-            <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_162px]">
+            <div className="grid gap-3 xl:grid-cols-[minmax(0,1fr)_minmax(340px,auto)]">
                 <div className="relative">
                     <Search className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-crm-fg-muted" size={17} />
                     <input
                         type="text"
+                        aria-label="Búsqueda de stock"
                         placeholder="Buscar marca, modelo, patente, año, propietario, teléfono, consig., ubicación, notas..."
                         value={searchTerm}
                         onChange={(event) => setSearchTerm(event.target.value)}
@@ -124,8 +129,9 @@ export default function StockFilters({
                     />
                 </div>
 
-                <div className="flex gap-3">
+                <div className="grid min-w-0 grid-cols-1 gap-3 sm:grid-cols-2">
                     <select
+                        aria-label="Filtrar por publicación en Mercado Libre"
                         value={mlFilter}
                         onChange={(event) => setMlFilter(event.target.value)}
                         className="m-0 h-[38px] w-full appearance-none rounded-lg border border-crm-border bg-crm-surface px-3 text-sm text-crm-fg outline-none transition-colors focus:border-crm-red focus:ring-2 focus:ring-crm-red/20"
@@ -136,6 +142,7 @@ export default function StockFilters({
                     </select>
 
                     <select
+                    aria-label="Filtrar por marca"
                     value={brandFilter}
                     onChange={(event) => setBrandFilter(event.target.value)}
                     className="m-0 h-[38px] w-full appearance-none rounded-lg border border-crm-border bg-crm-surface px-3 text-sm text-crm-fg outline-none transition-colors focus:border-crm-red focus:ring-2 focus:ring-crm-red/20"

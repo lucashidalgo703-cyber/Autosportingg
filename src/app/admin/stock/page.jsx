@@ -45,6 +45,7 @@ export default function AdminStockPage() {
     const [debouncedSearch, setDebouncedSearch] = useState('');
     const [filterStatus, setFilterStatus] = useState('disponible');
     const [stockTab, setStockTab] = useState('stock');
+    const [stockView, setStockView] = useState('inventario');
     const [brandFilter, setBrandFilter] = useState('todas');
     const [mlFilter, setMlFilter] = useState('todas');
     const [selectedVehicleForPrint, setSelectedVehicleForPrint] = useState(null);
@@ -96,6 +97,23 @@ export default function AdminStockPage() {
     const [dolarBlue, setDolarBlue] = useState(null);
     const [isDolarLoading, setIsDolarLoading] = useState(true);
     const [isSwapping, setIsSwapping] = useState(false);
+
+    useEffect(() => {
+        const readStockView = () => {
+            setStockView(new URLSearchParams(window.location.search).get('vista') === 'capital' ? 'capital' : 'inventario');
+        };
+        readStockView();
+        window.addEventListener('popstate', readStockView);
+        return () => window.removeEventListener('popstate', readStockView);
+    }, []);
+
+    const changeStockView = (view) => {
+        setStockView(view);
+        const url = new URL(window.location.href);
+        if (view === 'capital') url.searchParams.set('vista', 'capital');
+        else url.searchParams.delete('vista');
+        window.history.replaceState(window.history.state, '', url);
+    };
 
     useEffect(() => {
         setIsDolarLoading(true);
@@ -445,6 +463,31 @@ export default function AdminStockPage() {
                     }
                 />
 
+                <nav aria-label="Vistas de Stock" className="flex flex-wrap gap-2 border-b border-crm-border pb-3">
+                    <CrmButton
+                        type="button"
+                        variant={stockView === 'inventario' ? 'primary' : 'ghost'}
+                        size="sm"
+                        aria-pressed={stockView === 'inventario'}
+                        aria-controls="stock-inventario"
+                        onClick={() => changeStockView('inventario')}
+                    >
+                        Inventario
+                    </CrmButton>
+                    <CrmButton
+                        type="button"
+                        variant={stockView === 'capital' ? 'primary' : 'ghost'}
+                        size="sm"
+                        aria-pressed={stockView === 'capital'}
+                        aria-controls="stock-capital"
+                        onClick={() => changeStockView('capital')}
+                    >
+                        Capital e inversores
+                    </CrmButton>
+                </nav>
+
+                {stockView === 'capital' && (
+                <section id="stock-capital" aria-label="Capital e inversores" className="space-y-6">
                 {/* BLOQUE DE TARJETAS COMERCIALES: EXCLUSIVAMENTE VEHÍCULOS DISPONIBLES */}
                 <div className="space-y-4">
                     {/* Tarjetas Principales: 1. Valor total disponible | 2. Mi participación | 3. Participación de inversores */}
@@ -660,8 +703,11 @@ export default function AdminStockPage() {
                     </div>
                     <CapitalSummarySection />
                 </div>
+                </section>
+                )}
 
-                <div className="flex flex-col">
+                {stockView === 'inventario' && (
+                <div id="stock-inventario" className="flex min-w-0 flex-col">
                     <StockFilters
                         searchTerm={searchTerm}
                         setSearchTerm={setSearchTerm}
@@ -772,6 +818,7 @@ export default function AdminStockPage() {
                         </>
                     )}
                 </div>
+                )}
             </div>
 
             <VehicleFormModal

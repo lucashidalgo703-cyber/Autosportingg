@@ -2,6 +2,7 @@ import React from 'react';
 import Link from 'next/link';
 import { AlertTriangle, Calendar, CarFront, ChevronRight, DollarSign, ExternalLink, Receipt, ShieldCheck, User, X } from 'lucide-react';
 import SaleStatusBadge from './SaleStatusBadge';
+import { formatSaleDate } from '../../../utils/saleCalendarDate';
 
 export default function SaleDetailDrawer({ sale, isOpen, onClose }) {
     if (!isOpen || !sale) return null;
@@ -29,7 +30,7 @@ export default function SaleDetailDrawer({ sale, isOpen, onClose }) {
                     <div>
                         <div className="mb-2 flex items-center gap-3">
                             <h2 className="m-0 text-lg font-bold tracking-tight text-crm-fg">Detalle de Venta</h2>
-                            <SaleStatusBadge status={sale.status} />
+                            <SaleStatusBadge status={sale.status} historicalOnly={sale.historicalOnly} />
                         </div>
                         <p className="m-0 max-w-[280px] truncate font-mono text-xs text-crm-fg-muted">
                             ID: {sale._id}
@@ -144,7 +145,7 @@ export default function SaleDetailDrawer({ sale, isOpen, onClose }) {
                             <div className="flex items-center justify-between">
                                 <span className="text-xs text-crm-fg-muted">Fecha de Venta</span>
                                 <span className="text-sm font-bold text-crm-fg">
-                                    {new Date(sale.saleDate || sale.createdAt).toLocaleDateString()}
+                                    {formatSaleDate(sale)}
                                 </span>
                             </div>
                             <div className="flex items-center justify-between">

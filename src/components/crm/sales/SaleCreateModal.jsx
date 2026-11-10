@@ -16,8 +16,6 @@ import {
     Key,
     Settings,
     Users,
-    Paperclip,
-    FileBadge,
     Briefcase
 } from 'lucide-react';
 import { useAdminCars } from '../../../hooks/useAdminCars';
@@ -29,7 +27,7 @@ import CrmInput from '../ui/CrmInput';
 import CrmSelect from '../ui/CrmSelect';
 import CrmTextarea from '../ui/CrmTextarea';
 import CrmModal from '../ui/CrmModal';
-const today = () => new Date().toISOString().slice(0, 10);
+import { createSaleForm, saleToForm, buildSaleCreatePayload } from '../../../utils/saleDraftForm';
 
 const FieldLabel = ({ children, required = false }) => (
     <label className="mb-1.5 block text-[11px] font-bold text-crm-fg-muted uppercase tracking-wider">
@@ -44,66 +42,30 @@ const SectionTitle = ({ icon: Icon, children, className = "" }) => (
     </h3>
 );
 
-export default function SaleCreateModal({ isOpen, onClose, onSuccess }) {
+export default function SaleCreateModal({ isOpen, onClose, onSuccess, initialSale = null }) {
     const { cars, refresh: fetchCars } = useAdminCars();
     const { clients, fetchClients } = useAdminClients();
-    const { createSale } = useAdminSales();
+    const { createSale, updateSale } = useAdminSales();
     const { users, fetchUsers } = useAdminUsers();
     const fetchCarsRef = useRef(fetchCars);
+    const submittingRef = useRef(false);
+    const statusChosenRef = useRef(false);
     
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
     const [vehicleSearch, setVehicleSearch] = useState('');
     const [isAddingDeposit, setIsAddingDeposit] = useState(false);
     
-    const [formData, setFormData] = useState({
-        manualImport: false,
-        vehicleId: '',
-        status: 'confirmada',
-        mileage: '',
-        saleCurrency: 'USD',
-        salePrice: '',
-        salesperson: '',
-        saleDate: today(),
-        
-        clientId: '',
-        buyerName: '',
-        buyerPhone: '',
-        buyerEmail: '',
-        buyerDni: '',
-        
-        vehicleOwnerName: '',
-        vehicleOwnerPhone: '',
-        
-        depositAppliedAmount: 0,
-        depositAppliedCurrency: 'USD',
-        
-        paymentMethod: '',
-        installmentsCount: '',
-        hasTradeIn: false,
-        
-        consignationOwnerId: '',
-        consignationManagerId: '',
-        
-        manualCommission: false,
-        sellerPct: 1,
-        consignationPct: 0.5,
-        extraCurrency: 'USD',
-        extraAmount: '',
-        splitCommission: false,
-        
-        deliveryItems: {
-            securityNut: false,
-            spareKey: false,
-            manuals: false,
-            vehicleCard: false
-        },
-        
-        documents: {},
-        
-        estimatedDeliveryDate: '',
-        notes: ''
-    });
+    const [formData, setFormData] = useState(createSaleForm);
+
+    useEffect(() => {
+        if (!isOpen) return;
+        setFormData(saleToForm(initialSale));
+        setVehicleSearch('');
+        setIsAddingDeposit(false);
+        setError('');
+        statusChosenRef.current = Boolean(initialSale?._id);
+    }, [isOpen, initialSale]);
 
     useEffect(() => {
         fetchCarsRef.current = fetchCars;
@@ -120,14 +82,19 @@ export default function SaleCreateModal({ isOpen, onClose, onSuccess }) {
 
     const availableCars = useMemo(() => {
         const search = vehicleSearch.trim().toLowerCase();
-        return (cars || [])
-            .filter((car) => (car.status || '').toLowerCase() === 'disponible')
+        const originalVehicle = typeof initialSale?.vehicleId === 'object' ? initialSale.vehicleId : null;
+        const options = originalVehicle?._id && !(cars || []).some((car) => car._id === originalVehicle._id)
+            ? [originalVehicle, ...(cars || [])]
+            : (cars || []);
+        return options
+            .filter((car) => (car.status || '').toLowerCase() === 'disponible' || car._id === formData.vehicleId)
             .filter((car) => {
+                if (car._id === formData.vehicleId) return true;
                 if (!search) return true;
                 return `${car.brand || ''} ${car.name || ''} ${car.model || ''} ${car.version || ''} ${car.plateOrVin || ''}`.toLowerCase().includes(search);
             })
             .slice(0, 100);
-    }, [cars, vehicleSearch]);
+    }, [cars, vehicleSearch, formData.vehicleId, initialSale]);
 
     const selectedVehicle = useMemo(
         () => (cars || []).find((car) => car._id === formData.vehicleId),
@@ -148,7 +115,26 @@ export default function SaleCreateModal({ isOpen, onClose, onSuccess }) {
     if (!isOpen) return null;
 
     const updateField = (field, value) => {
-        setFormData((prev) => ({ ...prev, [field]: value }));
+        if (field === 'status') statusChosenRef.current = true;
+        const selectedClient = field === 'clientId' && value
+            ? (clients || []).find((client) => client._id === value)
+            : null;
+        setFormData((prev) => ({
+            ...prev,
+            [field]: value,
+            ...(field === 'vehicleId' && !statusChosenRef.current
+                ? { status: value ? 'confirmada' : 'borrador' }
+                : {}),
+            ...(field === 'manualImport'
+                ? { status: value ? 'entregada' : (prev.vehicleId ? 'confirmada' : 'borrador') }
+                : {}),
+            ...(selectedClient ? {
+                buyerName: selectedClient.fullName || selectedClient.firstName || '',
+                buyerPhone: selectedClient.phone || '',
+                buyerEmail: selectedClient.email || '',
+                buyerDni: selectedClient.dni || ''
+            } : {})
+        }));
     };
 
     const updateDeliveryItem = (item, value) => {
@@ -159,79 +145,42 @@ export default function SaleCreateModal({ isOpen, onClose, onSuccess }) {
     };
 
     const resetAndClose = () => {
+        if (submittingRef.current) return;
         setLoading(false);
         setError('');
         onClose?.();
     };
 
-    const handleSubmit = async () => {
+    const handleSubmit = async (asDraft = false) => {
+        if (submittingRef.current) return;
         setError('');
-
-        if (!formData.manualImport && !formData.vehicleId) {
-            const message = 'Seleccioná un vehículo disponible del stock para crear la venta (o activá la carga manual).';
-            setError(message);
-            toast.error(message);
+        let payload;
+        try {
+            payload = buildSaleCreatePayload(formData, asDraft ? 'borrador' : formData.status);
+        } catch (err) {
+            setError(err.message);
+            toast.error(err.message);
             return;
         }
-
-        const salePrice = Number(formData.salePrice);
-        if (!Number.isFinite(salePrice) || salePrice < 0) {
-            const message = 'Ingresá un precio de venta válido.';
-            setError(message);
-            toast.error(message);
-            return;
-        }
-
+        submittingRef.current = true;
         setLoading(true);
         try {
-            const payload = {
-                isManualImport: formData.manualImport,
-                vehicleId: formData.vehicleId || undefined,
-                clientId: formData.clientId || undefined,
-                salePrice,
-                saleCurrency: formData.saleCurrency,
-                paymentMethod: formData.paymentMethod || 'contado',
-                salesperson: formData.salesperson,
-                saleDate: formData.saleDate,
-                status: formData.status,
-                
-                vehicleOwnerName: formData.vehicleOwnerName,
-                vehicleOwnerPhone: formData.vehicleOwnerPhone,
-                
-                consignationOwnerId: formData.consignationOwnerId || undefined,
-                consignationManagerId: formData.consignationManagerId || undefined,
-                
-                commissionSettings: {
-                    isManual: formData.manualCommission,
-                    sellerPct: formData.splitCommission ? 0.5 : Number(formData.sellerPct),
-                    consignationPct: formData.splitCommission ? 0.5 : Number(formData.consignationPct),
-                    extraAmount: Number(formData.extraAmount) || 0,
-                    extraCurrency: formData.extraCurrency,
-                    isSplit: formData.splitCommission
-                },
-                
-                deliveryItems: formData.deliveryItems,
-                installmentsCount: Number(formData.installmentsCount) || 0,
-                depositAppliedAmount: Number(formData.depositAppliedAmount) || 0,
-                depositAppliedCurrency: formData.depositAppliedCurrency,
-                
-                notes: [
-                    formData.buyerName ? `Comprador manual: ${formData.buyerName}` : '',
-                    formData.buyerPhone ? `Tel: ${formData.buyerPhone}` : '',
-                    formData.buyerDni ? `DNI: ${formData.buyerDni}` : '',
-                    formData.notes
-                ].filter(Boolean).join('\n')
-            };
-
-            await createSale(payload);
-            await onSuccess?.();
-            toast.success('Venta creada correctamente.');
-            resetAndClose();
+            const saved = initialSale?._id
+                ? await updateSale(initialSale._id, payload)
+                : await createSale(payload);
+            toast.success(payload.status === 'borrador' ? 'Borrador guardado.' : 'Venta guardada correctamente.');
+            onClose?.();
+            try {
+                await onSuccess?.(saved);
+            } catch {
+                toast.error('La operación se guardó. Recargá la lista para ver los cambios.');
+            }
         } catch (err) {
             const message = err.message || 'No se pudo crear la venta. Reintentá en unos segundos.';
             setError(message);
             toast.error(message);
         } finally {
+            submittingRef.current = false;
             setLoading(false);
         }
     };
@@ -240,9 +189,9 @@ export default function SaleCreateModal({ isOpen, onClose, onSuccess }) {
 
     const modalTitle = (
         <div>
-            <h2 className="m-0 text-xl font-bold text-white tracking-tight">Nueva venta</h2>
+            <h2 className="m-0 text-xl font-bold text-white tracking-tight">{initialSale?._id ? 'Continuar borrador' : 'Nueva venta'}</h2>
             <p className="m-0 mt-1 text-sm text-crm-fg-muted">
-                Se crea en estado Activa si hay vehículo del stock asignado, caso contrario Borrador. El estado se cambia después desde el detalle.
+                Podés guardar un borrador con datos incompletos. Para activar la operación, seleccioná una unidad disponible y revisá el estado.
             </p>
         </div>
     );
@@ -253,11 +202,11 @@ export default function SaleCreateModal({ isOpen, onClose, onSuccess }) {
                 Cancelar
             </CrmButton>
             <div className="flex-1 hidden sm:block"></div>
-            <CrmButton type="button" variant="secondary" onClick={() => setError('El guardado como borrador requiere soporte del endpoint actual. Usá Crear venta.')} disabled={loading} className="px-6 border-neutral-700 bg-crm-bg hover:bg-crm-surface-raised text-white">
+            <CrmButton type="button" variant="secondary" onClick={() => handleSubmit(true)} disabled={loading || formData.manualImport} className="px-6 border-neutral-700 bg-crm-bg hover:bg-crm-surface-raised text-white">
                 <FileText size={15} /> Guardar borrador
             </CrmButton>
-            <CrmButton type="button" variant="primary" onClick={handleSubmit} disabled={loading} className="px-6 bg-crm-red hover:bg-red-600 text-white">
-                <FileText size={15} /> {loading ? 'Creando...' : 'Crear venta'}
+            <CrmButton type="button" variant="primary" onClick={() => handleSubmit(false)} disabled={loading} className="px-6 bg-crm-red hover:bg-red-600 text-white">
+                <FileText size={15} /> {loading ? 'Guardando...' : (initialSale?._id ? 'Guardar cambios' : 'Crear venta')}
             </CrmButton>
         </div>
     );
@@ -312,6 +261,7 @@ export default function SaleCreateModal({ isOpen, onClose, onSuccess }) {
                                 />
                             </div>
                             <CrmSelect
+                                aria-label="Vehículo"
                                 value={formData.vehicleId}
                                 onChange={(e) => updateField('vehicleId', e.target.value)}
                                 className="h-10 bg-crm-bg text-white font-medium"
@@ -320,6 +270,7 @@ export default function SaleCreateModal({ isOpen, onClose, onSuccess }) {
                                 {availableCars.map((car) => (
                                     <option key={car._id} value={car._id}>
                                         {`${car.brand || ''} ${car.name || car.model || ''}`.trim()} {car.plateOrVin ? `- ${car.plateOrVin}` : ''}
+                                        {(car.status || '').toLowerCase() !== 'disponible' ? ' — no disponible' : ''}
                                     </option>
                                 ))}
                             </CrmSelect>
@@ -327,7 +278,7 @@ export default function SaleCreateModal({ isOpen, onClose, onSuccess }) {
 
                         <div>
                             <FieldLabel>Estado</FieldLabel>
-                            <CrmSelect value={formData.status} onChange={(e) => updateField('status', e.target.value)} className="h-10 bg-crm-bg text-white font-medium mb-2">
+                            <CrmSelect aria-label="Estado de la venta" value={formData.status} onChange={(e) => updateField('status', e.target.value)} disabled={formData.manualImport} className="h-10 bg-crm-bg text-white font-medium mb-2">
                                 <option value="borrador">Borrador</option>
                                 <option value="señado">Señada (Reserva)</option>
                                 <option value="confirmada">Activa</option>
@@ -347,13 +298,13 @@ export default function SaleCreateModal({ isOpen, onClose, onSuccess }) {
                             <FieldLabel required>Precio de Venta (al comprador)</FieldLabel>
                             <div className="flex gap-2">
                                 <div className="w-24 shrink-0">
-                                    <CrmSelect value={formData.saleCurrency} onChange={(e) => updateField('saleCurrency', e.target.value)} className="h-10 bg-crm-bg font-bold">
+                                    <CrmSelect aria-label="Moneda de venta" value={formData.saleCurrency} onChange={(e) => updateField('saleCurrency', e.target.value)} className="h-10 bg-crm-bg font-bold">
                                         <option value="USD">USD</option>
                                         <option value="ARS">ARS</option>
                                     </CrmSelect>
                                 </div>
                                 <div className="flex-1">
-                                    <CrmInput type="number" min="0" value={formData.salePrice} onChange={(e) => updateField('salePrice', e.target.value)} className="h-10 bg-crm-bg" placeholder="Ej: 38800" />
+                                    <CrmInput aria-label="Precio de venta" type="number" min="0" value={formData.salePrice} onChange={(e) => updateField('salePrice', e.target.value)} className="h-10 bg-crm-bg" placeholder="Ej: 38800" />
                                 </div>
                             </div>
                         </div>
@@ -382,7 +333,7 @@ export default function SaleCreateModal({ isOpen, onClose, onSuccess }) {
                     <div className="grid grid-cols-1 gap-5 lg:grid-cols-2 mb-8">
                         <div>
                             <FieldLabel>Cliente del CRM</FieldLabel>
-                            <CrmSelect value={formData.clientId} onChange={(e) => updateField('clientId', e.target.value)} className="h-10 bg-crm-bg">
+                            <CrmSelect aria-label="Cliente del CRM" value={formData.clientId} onChange={(e) => updateField('clientId', e.target.value)} className="h-10 bg-crm-bg">
                                 <option value="">—</option>
                                 {(clients || []).map((client) => (
                                     <option key={client._id} value={client._id}>
@@ -393,20 +344,20 @@ export default function SaleCreateModal({ isOpen, onClose, onSuccess }) {
                         </div>
                         <div>
                             <FieldLabel required>Nombre</FieldLabel>
-                            <CrmInput value={formData.buyerName} onChange={(e) => updateField('buyerName', e.target.value)} className="h-10 bg-crm-bg" />
+                            <CrmInput aria-label="Nombre del comprador" value={formData.buyerName} onChange={(e) => updateField('buyerName', e.target.value)} className="h-10 bg-crm-bg" />
                         </div>
                         <div>
                             <FieldLabel>Teléfono</FieldLabel>
-                            <CrmInput value={formData.buyerPhone} onChange={(e) => updateField('buyerPhone', e.target.value)} placeholder="+54 11 5555 5555" className="h-10 bg-crm-bg" />
+                            <CrmInput aria-label="Teléfono del comprador" value={formData.buyerPhone} onChange={(e) => updateField('buyerPhone', e.target.value)} placeholder="+54 11 5555 5555" className="h-10 bg-crm-bg" />
                         </div>
                         <div className="flex gap-5">
                             <div className="flex-1">
                                 <FieldLabel>Email</FieldLabel>
-                                <CrmInput type="email" value={formData.buyerEmail} onChange={(e) => updateField('buyerEmail', e.target.value)} className="h-10 bg-crm-bg" />
+                                <CrmInput aria-label="Email del comprador" type="email" value={formData.buyerEmail} onChange={(e) => updateField('buyerEmail', e.target.value)} className="h-10 bg-crm-bg" />
                             </div>
                             <div className="flex-1">
                                 <FieldLabel>DNI</FieldLabel>
-                                <CrmInput value={formData.buyerDni} onChange={(e) => updateField('buyerDni', e.target.value)} className="h-10 bg-crm-bg" />
+                                <CrmInput aria-label="DNI del comprador" value={formData.buyerDni} onChange={(e) => updateField('buyerDni', e.target.value)} className="h-10 bg-crm-bg" />
                             </div>
                         </div>
                     </div>
@@ -638,62 +589,9 @@ export default function SaleCreateModal({ isOpen, onClose, onSuccess }) {
                             </div>
 
                             <SectionTitle>DOCUMENTOS PARA EL EXPEDIENTE</SectionTitle>
-                            <p className="text-xs text-crm-fg-muted mb-4 -mt-3">Podés adjuntar los archivos ahora o subirlos después desde el expediente. Máx. 15 MB por archivo.</p>
-                            
-                            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-                                {['DNI Frente', 'DNI Dorso', 'Cédula Verde Frente', 'Cédula Verde Dorso'].map(doc => {
-                                    const file = formData.documents[doc];
-                                    
-                                    return (
-                                        <div key={doc} className={`relative rounded-xl border border-dashed p-4 flex flex-col items-center justify-center gap-3 ${file ? 'border-yellow-500 bg-yellow-500/10' : 'border-yellow-500/40 bg-yellow-500/5'}`}>
-                                            <span className="text-xs font-bold text-white text-center flex items-center gap-2">
-                                                <FileBadge size={14} className="text-yellow-500" /> {doc}
-                                            </span>
-                                            
-                                            {file ? (
-                                                <div className="flex flex-col items-center gap-2">
-                                                    <span className="text-[10px] text-crm-fg-muted truncate max-w-[120px]" title={file.name}>
-                                                        {file.name}
-                                                    </span>
-                                                    <button 
-                                                        type="button" 
-                                                        onClick={() => {
-                                                            const newDocs = { ...formData.documents };
-                                                            delete newDocs[doc];
-                                                            updateField('documents', newDocs);
-                                                        }}
-                                                        className="flex items-center gap-1 px-3 py-1 rounded-full bg-crm-surface text-crm-red text-[10px] font-bold hover:bg-crm-surface-raised transition-colors"
-                                                    >
-                                                        <X size={10} /> Quitar
-                                                    </button>
-                                                </div>
-                                            ) : (
-                                                <>
-                                                    <input 
-                                                        type="file" 
-                                                        id={`file-upload-${doc}`}
-                                                        className="hidden"
-                                                        accept=".jpg,.jpeg,.png,.pdf"
-                                                        onChange={(e) => {
-                                                            if (e.target.files && e.target.files[0]) {
-                                                                const newDocs = { ...formData.documents, [doc]: e.target.files[0] };
-                                                                updateField('documents', newDocs);
-                                                            }
-                                                        }}
-                                                    />
-                                                    <button 
-                                                        type="button" 
-                                                        onClick={() => document.getElementById(`file-upload-${doc}`).click()}
-                                                        className="flex items-center gap-2 px-4 py-1.5 rounded-full bg-yellow-500/10 border border-yellow-500/20 text-yellow-500 text-[11px] font-bold hover:bg-yellow-500/20 transition-colors"
-                                                    >
-                                                        <Paperclip size={12} /> Adjuntar
-                                                    </button>
-                                                </>
-                                            )}
-                                        </div>
-                                    );
-                                })}
-                            </div>
+                            <p className="mb-8 text-xs leading-5 text-crm-fg-muted">
+                                Los archivos no se adjuntan en esta carga ni al borrador. Conservá los documentos para incorporarlos al expediente.
+                            </p>
                         </>
                     )}
 

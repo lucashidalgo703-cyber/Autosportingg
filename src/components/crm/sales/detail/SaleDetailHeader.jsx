@@ -2,6 +2,7 @@ import React from 'react';
 import Link from 'next/link';
 import { ArrowLeft, Handshake } from 'lucide-react';
 import SaleStatusBadge from '../SaleStatusBadge';
+import { formatSaleDate } from '../../../../utils/saleCalendarDate';
 
 export default function SaleDetailHeader({ sale, actions }) {
     if (!sale) return null;
@@ -24,7 +25,7 @@ export default function SaleDetailHeader({ sale, actions }) {
                         <div className="min-w-0">
                             <div className="flex min-w-0 flex-wrap items-center gap-2">
                                 <h1 className="m-0 truncate text-2xl font-bold leading-tight text-crm-fg">Expediente Comercial</h1>
-                                <SaleStatusBadge status={sale.status} />
+                                <SaleStatusBadge status={sale.status} historicalOnly={sale.historicalOnly} />
                             </div>
                             <p className="m-0 mt-1 max-w-[520px] truncate font-mono text-xs text-crm-fg-muted">
                                 ID: {sale._id}
@@ -37,7 +38,7 @@ export default function SaleDetailHeader({ sale, actions }) {
                             Fecha de operacion
                         </span>
                         <span className="text-sm font-semibold text-crm-fg">
-                            {new Date(sale.saleDate || sale.createdAt).toLocaleDateString()}
+                            {formatSaleDate(sale)}
                         </span>
                     </div>
                 </div>
