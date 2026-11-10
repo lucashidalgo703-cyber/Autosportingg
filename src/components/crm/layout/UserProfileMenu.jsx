@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { Sun, Moon, User, BookOpen, LogOut } from 'lucide-react';
 import { useAuth } from '../../../context/AuthContext';
 import { useTheme } from '../../../context/ThemeContext';
+import { getCrmRoleLabel } from '../../../utils/crmNavigation';
 
 export default function UserProfileMenu() {
     const { user, logout } = useAuth();
@@ -48,9 +49,7 @@ export default function UserProfileMenu() {
 
     // Datos del usuario con fallbacks de seguridad
     const safeRole = user?.role || 'usuario';
-    const roleLabel = (safeRole === 'owner' || safeRole === 'admin') 
-        ? 'Administrador' 
-        : safeRole.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase());
+    const roleLabel = getCrmRoleLabel(safeRole);
     
     const rawEmail = user?.email || '';
     const safeEmail = rawEmail;

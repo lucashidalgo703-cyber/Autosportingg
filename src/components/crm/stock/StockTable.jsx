@@ -2,6 +2,7 @@ import React from 'react';
 import Link from 'next/link';
 import { Filter, ExternalLink, AlertTriangle, Car } from 'lucide-react';
 import CrmTable from '../ui/CrmTable';
+import { stockIsPublished } from '../../../utils/stockFilters.js';
 
 const getVehicleYear = (vehicle) => vehicle.year || vehicle['año'] || 'S/D';
 const formatNumber = (value) => Number(value || 0).toLocaleString('es-AR');
@@ -93,7 +94,10 @@ export default function StockTable({
     onClearFilters = null,
     error = null,
     onRetry = null,
-    onNewVehicle = null
+    onNewVehicle = null,
+    compact = false,
+    canReorder = true,
+    showTotals = true
 }) {
     const columns = [
         {
@@ -113,7 +117,7 @@ export default function StockTable({
                         <div className="flex items-center justify-center gap-1">
                             <button
                                 type="button"
-                                disabled={isFirstRowOnFirstPage || isSwapping}
+                                disabled={isFirstRowOnFirstPage || isSwapping || !canReorder}
                                 onClick={() => onSwap && onSwap(rowIndex, 'up')}
                                 className="flex h-7 w-7 items-center justify-center rounded-lg border border-crm-border bg-transparent text-crm-fg hover:bg-crm-surface-raised cursor-pointer transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
                                 title="Subir posición"
@@ -122,7 +126,7 @@ export default function StockTable({
                             </button>
                             <button
                                 type="button"
-                                disabled={isLastRowOnLastPage || isSwapping}
+                                disabled={isLastRowOnLastPage || isSwapping || !canReorder}
                                 onClick={() => onSwap && onSwap(rowIndex, 'down')}
                                 className="flex h-7 w-7 items-center justify-center rounded-lg border border-crm-border bg-transparent text-crm-fg hover:bg-crm-surface-raised cursor-pointer transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
                                 title="Bajar posición"
@@ -200,7 +204,7 @@ export default function StockTable({
             label: 'Mercado Libre',
             key: 'ml',
             render: (v) => {
-                const isPublished = v._original?.publishedOnML === 'Si';
+                const isPublished = stockIsPublished(v._original?.publishedOnML);
                 return (
                     <div className="flex items-center gap-2 cursor-pointer group" onClick={() => onEditML && onEditML(v)}>
                         <span className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider group-hover:ring-1 transition-all ${isPublished ? 'border-yellow-500/30 bg-yellow-500/10 text-yellow-500 ring-yellow-500/50' : 'border-crm-border text-crm-fg-muted ring-crm-border'}`}>
@@ -326,21 +330,22 @@ export default function StockTable({
                         <span className="text-[11px] text-crm-fg-muted">(Página {currentPage} de {totalPages})</span>
                     )}
                 </div>
-                <div className="flex items-center gap-1.5">
+                {showTotals && <div className="flex items-center gap-1.5">
                     <span className="text-crm-fg-muted">Valor de venta filtrado:</span>
                     <strong className="font-mono text-emerald-400">
                         {getFormattedListTotals(filteredTotalUSD, filteredTotalARS, dolarBlue)}
                     </strong>
-                </div>
+                </div>}
             </div>
 
             <CrmTable
                 data={data}
-                columns={columns}
-                emptyIcon={Filter}
-                emptyTitle="Sin resultados"
-                emptyMessage="Todavía no hay vehículos en el stock. Cargá el primero con el botón Nuevo vehículo."
-                minWidth="min-w-[1080px]"
+                columns={compact ? columns.filter(column => ['sortOrder', 'vehicle', 'price', 'owner', 'status', 'actions'].includes(column.key)) : columns}
+                emptyIcon={emptyIcon}
+                emptyTitle={emptyTitle}
+                emptyMessage={emptyMessage}
+                emptyAction={emptyAction}
+                minWidth={compact ? 'min-w-[820px]' : 'min-w-[1080px]'}
             />
         </div>
     );

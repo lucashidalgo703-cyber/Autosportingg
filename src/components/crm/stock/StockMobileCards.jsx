@@ -56,21 +56,11 @@ const getProgress = (days) => {
     return Math.min(100, Math.max(0, Math.round((safeDays / 60) * 100)));
 };
 const getListValue = (data, filteredTotalUSD, filteredTotalARS, dolarBlue) => {
-    let totalARS = 0;
-
-    if (filteredTotalUSD !== undefined && filteredTotalARS !== undefined) {
-        totalARS = filteredTotalARS + (filteredTotalUSD * (dolarBlue || 1));
-    } else {
-        const totals = data.reduce((acc, vehicle) => {
-            const currency = vehicle.moneda || 'ARS';
-            acc[currency] = (acc[currency] || 0) + Number(vehicle.precioPublicado || 0);
-            return acc;
-        }, {});
-        totalARS = (totals.ARS || 0) + ((totals.USD || 0) * (dolarBlue || 1));
-    }
-
-    if (totalARS === 0) return '--';
-    return `ARS ${formatNumber(Math.round(totalARS))}`;
+    const totals = filteredTotalUSD !== undefined && filteredTotalARS !== undefined
+        ? { USD: filteredTotalUSD, ARS: filteredTotalARS }
+        : data.reduce((acc, vehicle) => ({ ...acc, [vehicle.moneda]: (acc[vehicle.moneda] || 0) + Number(vehicle.precioPublicado || 0) }), {});
+    const values = ['USD', 'ARS'].filter(currency => Number(totals[currency]) > 0).map(currency => `${currency} ${formatNumber(Math.round(totals[currency]))}`);
+    return values.join(' + ') || 'Sin importes registrados';
 };
 
 export default function StockMobileCards({
@@ -86,7 +76,8 @@ export default function StockMobileCards({
     onClearFilters = null,
     error = null,
     onRetry = null,
-    onNewVehicle = null
+    onNewVehicle = null,
+    showTotals = true
 }) {
     const [expandedId, setExpandedId] = useState(data[0]?.id || null);
 
@@ -98,8 +89,9 @@ export default function StockMobileCards({
                 </div>
                 <h2 className="m-0 text-lg font-bold text-crm-fg">Sin resultados</h2>
                 <p className="m-0 mt-2 text-sm leading-6 text-crm-fg-muted">
-                    Todavía no hay vehículos en el stock. Cargá el primero con el botón Nuevo vehículo.
+                    {hasActiveFilters ? 'No hay vehículos que coincidan con los filtros aplicados.' : 'Todavía no hay vehículos en el stock. Cargá el primero con el botón Nuevo vehículo.'}
                 </p>
+                {hasActiveFilters && <button type="button" onClick={onClearFilters} className="mt-3 text-sm text-crm-red">Limpiar filtros</button>}
             </div>
         );
     }
@@ -108,8 +100,7 @@ export default function StockMobileCards({
         <div className="flex flex-col gap-4">
             <div className="rounded-xl border border-crm-border bg-crm-surface p-3 text-sm font-semibold text-crm-fg">
                 {totalItems || data.length} {(totalItems || data.length) === 1 ? 'vehículo' : 'vehículos'} en lista
-                <span className="mx-1 text-crm-fg-muted">·</span>
-                <span>{getListValue(data, filteredTotalUSD, filteredTotalARS, dolarBlue)}</span>
+                {showTotals && <><span className="mx-1 text-crm-fg-muted">·</span><span>{getListValue(data, filteredTotalUSD, filteredTotalARS, dolarBlue)}</span></>}
             </div>
 
             <div className="flex flex-col gap-3">

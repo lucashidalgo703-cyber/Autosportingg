@@ -1,7 +1,7 @@
 "use client";
 import React, { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
-import { useAdminClients } from '../../../../hooks/useAdminClients';
+import { useClientCommercial } from '../../../../hooks/useClientCommercial';
 import ClientDetailHeader from '../../../../components/crm/clients/ClientDetailHeader';
 import ClientInfoPanel from '../../../../components/crm/clients/ClientInfoPanel';
 import ClientActivityPanel from '../../../../components/crm/clients/ClientActivityPanel';
@@ -11,22 +11,25 @@ import ClientFormModal from '../../../../components/crm/clients/ClientFormModal'
 import CommunicationLogPanel from '../../../../components/crm/communications/CommunicationLogPanel';
 import MessageTemplatePicker from '../../../../components/crm/templates/MessageTemplatePicker';
 import { AlertCircle } from 'lucide-react';
+import { hasPermission, PERMISSIONS } from '../../../../utils/adminPermissions';
 import { useAuth } from '../../../../context/AuthContext';
 
 export default function AdminClientDetailPage() {
     const { id } = useParams();
-    const { token } = useAuth();
-    const { fetchClientById, updateClient, loading, error } = useAdminClients();
-    const [client, setClient] = useState(null);
+    const { token, user } = useAuth();
+    const { fetchClientById, updateClient, loading, error } = useClientCommercial();
+    const [clientState, setClientState] = useState({ token: null, id: null, client: null });
+    const client = clientState.token === token && clientState.id === id ? clientState.client : null;
     const [isEditModalOpen, setIsEditModalOpen] = useState(false);
     const [fetchError, setFetchError] = useState(null);
 
     const loadClient = async () => {
         try {
             const data = await fetchClientById(id);
-            setClient(data);
+            setClientState({ token, id, client: data });
+            setFetchError(null);
         } catch (err) {
-            setFetchError(err.message);
+            if (err.name !== 'AbortError') setFetchError(err.message);
         }
     };
 
@@ -34,7 +37,7 @@ export default function AdminClientDetailPage() {
         if (id) {
             loadClient();
         }
-    }, [id]);
+    }, [id, token, fetchClientById]);
 
     const handleUpdate = async (updatedData) => {
         await updateClient(id, updatedData);
@@ -91,7 +94,7 @@ export default function AdminClientDetailPage() {
         <div className="mx-auto flex w-full max-w-7xl flex-col gap-6 p-4 pb-20 md:p-6">
             <ClientDetailHeader 
                 client={client} 
-                onEdit={() => setIsEditModalOpen(true)}
+                onEdit={hasPermission(user, PERMISSIONS.CLIENTES_WRITE) ? () => setIsEditModalOpen(true) : undefined}
                 extraActions={
                     <MessageTemplatePicker 
                         category="client"
@@ -130,12 +133,12 @@ export default function AdminClientDetailPage() {
                 />
             </div>
 
-            <ClientFormModal 
+            {hasPermission(user, PERMISSIONS.CLIENTES_WRITE) && <ClientFormModal
                 isOpen={isEditModalOpen} 
                 onClose={() => setIsEditModalOpen(false)} 
                 onSave={handleUpdate}
                 client={client}
-            />
+            />}
         </div>
     );
 }

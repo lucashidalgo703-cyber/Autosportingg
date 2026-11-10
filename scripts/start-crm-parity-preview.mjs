@@ -15,6 +15,8 @@ const OWNER_EMAIL = 'owner@autosporting.test';
 const OWNER_PASSWORD = 'PreviewOwner2026!';
 const SELLER_EMAIL = 'ventas@autosporting.test';
 const SELLER_PASSWORD = 'PreviewVentas2026!';
+const READER_EMAIL = 'consulta@autosporting.test';
+const READER_PASSWORD = 'PreviewConsulta2026!';
 let replicaSet;
 let mongoose;
 let nextApp;
@@ -131,7 +133,8 @@ async function startPreview() {
     const day = (offset) => new Date(Date.parse(`${today}T00:00:00.000Z`) + offset * 86400000);
     const [owner, seller] = await AdminUser.create([
         { name: 'Administración de prueba', email: OWNER_EMAIL, passwordHash: hashPassword(OWNER_PASSWORD), role: 'owner', active: true },
-        { name: 'Ventas de prueba', email: SELLER_EMAIL, passwordHash: hashPassword(SELLER_PASSWORD), role: 'ventas', active: true }
+        { name: 'Ventas de prueba', email: SELLER_EMAIL, passwordHash: hashPassword(SELLER_PASSWORD), role: 'ventas', active: true },
+        { name: 'Consulta de prueba', email: READER_EMAIL, passwordHash: hashPassword(READER_PASSWORD), role: 'solo_lectura', active: true }
     ]);
     const [ars, usd] = await Account.create([
         { name: 'Caja de prueba ARS', type: 'Efectivo', currency: 'ARS', balance: 8500000, isActive: true },
@@ -140,6 +143,7 @@ async function startPreview() {
     const client = await Client.create({
         fullName: 'Cliente de demostración', email: 'cliente@autosporting.test', type: 'comprador',
         source: 'otro', status: 'activo', assignedTo: seller._id, createdBy: owner.name,
+        pipelineStage: 'cerrado', lastContactDate: day(-1),
         notes: 'Registro ficticio exclusivo de QA; no contactar.'
     });
     const carBase = { year: 2022, km: 35000, fuel: 'Nafta', condition: 'Muy bueno', location: 'Salón Principal', visibleEnWeb: false, color: 'Gris', images: [], expenses: [] };
@@ -150,6 +154,43 @@ async function startPreview() {
         { ...carBase, brand: 'Renault', name: 'Sandero QA consignado', price: 11000000, currency: 'ARS', purchaseCurrency: 'ARS', status: 'Disponible', agencyOwned: false, ownerName: 'Consignante de prueba', consignedBy: 'Consignante de prueba', consignmentStatus: 'publicado', plateOrVin: 'QA-CONSIGNADO', order: 3 },
         { ...carBase, brand: 'Peugeot', name: '208 QA vendido', price: 15000000, purchasePrice: 12000000, currency: 'ARS', purchaseCurrency: 'ARS', status: 'Vendido', sold: true, agencyOwned: true, plateOrVin: 'QA-VENDIDO', order: 4 }
     ]);
+    // Más de una página para comprobar filtros y totales sobre el conjunto
+    // completo. Las variantes de marca y moneda son intencionales y anónimas.
+    const extraStock = await Car.create(Array.from({ length: 28 }, (_, index) => {
+        const currency = ['USD', 'U$S', 'ARS', '$'][index % 4];
+        const dollars = ['USD', 'U$S'].includes(currency);
+        const oldDays = [5, 90, 91, 120][index % 4];
+        const isFord = index % 4 !== 3;
+        return {
+            ...carBase,
+            brand: isFord ? ['Ford', ' FORD ', 'ford'][index % 3] : 'Toyota',
+            name: isFord ? 'Focus' : 'Etios', year: 2018 + index % 7,
+            km: index % 7 === 0 ? 0 : 10000 + index * 3500,
+            price: index === 26 ? 0 : (dollars ? 9000 + index * 500 : 10000000 + index * 250000),
+            currency, purchaseCurrency: dollars ? 'USD' : 'ARS',
+            status: index % 11 === 0 ? 'Pausado' : 'Disponible',
+            agencyOwned: true, plateOrVin: `QA-ETAPA2-${String(index + 1).padStart(2, '0')}`,
+            order: index + 10, createdAt: new Date(day(-oldDays).getTime() + 3 * 3600000),
+            publishedOnML: index % 3 === 0 ? 'No' : 'Si',
+            images: index % 3 === 0 ? [] : ['/hero-autosporting.jpg'],
+            notes: 'Unidad ficticia de QA para filtros y paginación; no es una publicación comercial.'
+        };
+    }));
+    const stages = ['sin_contactar', 'contactado', 'con_pedido', 'visita', 'negociacion', 'cerrado', 'perdido'];
+    const extraClients = await Client.create(Array.from({ length: 27 }, (_, index) => ({
+        fullName: `QA Comercial ${String(index + 1).padStart(2, '0')}`,
+        email: `qa-comercial-${index + 1}@example.invalid`, type: index % 5 === 0 ? 'vendedor' : 'potencial',
+        source: index % 2 === 0 ? 'local' : 'web', status: index === 24 ? 'inactivo' : 'activo',
+        assignedTo: index % 2 === 0 ? seller._id : owner._id,
+        pipelineStage: stages[index % stages.length],
+        nextAction: index % 4 === 3 ? '' : 'Revisar consulta ficticia en QA',
+        nextActionDate: index % 4 === 3 ? null : day([-2, 0, 5][index % 3]),
+        lastContactDate: index % 7 === 0 ? null : day(-3),
+        brand: 'Ford', model: 'Focus', currency: 'USD', maxBudget: 15000 + index * 100,
+        yearFrom: 2018, yearTo: 2024, description: 'Busca un sedán de demostración.',
+        createdAt: day(-index), createdBy: owner.name,
+        notes: 'Registro ficticio de QA. No contactar; no contiene datos de una persona real.'
+    })));
     const activeSale = await Sale.create({
         vehicleId: sold._id, clientId: client._id, salePrice: 15000000, saleCurrency: 'ARS',
         status: 'confirmada', saleDate: day(-7), paymentMethod: 'financiado', salesperson: seller.name,
@@ -198,7 +239,9 @@ async function startPreview() {
     console.log(`API local: http://${HOST}:${API_PORT}`);
     console.log(`Owner ficticio: ${OWNER_EMAIL} / ${OWNER_PASSWORD}`);
     console.log(`Ventas ficticio: ${SELLER_EMAIL} / ${SELLER_PASSWORD}`);
+    console.log(`Consulta ficticia de solo lectura: ${READER_EMAIL} / ${READER_PASSWORD}`);
     console.log(`Fixture IDs: ${JSON.stringify({ owned: String(owned._id), shared: String(shared._id), consigned: String(consigned._id), sold: String(sold._id), activeSale: String(activeSale._id), draft: String(draft._id), partial: String(partial._id), rescheduled: String(rescheduled._id), overdue: String(overdue._id) })}`);
+    console.log(`Etapa 2: ${extraStock.length} unidades y ${extraClients.length} fichas comerciales ficticias adicionales para revisar segunda página y filtros.`);
     console.log('Ctrl+C cierra los servidores y elimina la réplica temporal.\n');
 }
 

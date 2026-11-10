@@ -1,7 +1,9 @@
+import { listCommercialClients, normalizeClientCommercialInput } from './src/services/clientCommercialService.js';
 import { requireOperationalSale } from './src/middleware/saleOperationalGuard.js';
 import { saveSaleOperation } from './src/services/saleDraftService.js';
 import { getCashProjection } from './src/services/cashProjectionService.js';
 import { OPEN_INSTALLMENT_STATUSES, getEffectiveInstallmentDueDate, getArgentinaDateKey } from './src/utils/cashProjection.js';
+import { buildStockQuery, buildStockPipeline, stockOptions, stockStatisticsCurrency, STOCK_FILTER_KEYS } from './src/utils/stockFilters.js';
 import { computeCommissionAmount, computeSaleProfit, validateCommissionPercent, parseDecimal, roundMoney } from './src/utils/saleCommercial.js';
 import { buildTradeInChain, validateTradeInLink, resolveOriginForCar } from './src/services/tradeInChainService.js';
 import AnalyticsEvent from './src/models/AnalyticsEvent.js';
@@ -1852,7 +1854,13 @@ app.get('/api/admin/cars/:id/linkable-expenses', authenticateToken, requirePermi
 app.get('/api/admin/cars/export', authenticateToken, requirePermission(PERMISSIONS.STOCK_READ), async (req, res) => {
     try {
         await connectDB();
-        const cars = await Car.find().sort({ createdAt: -1 }).lean();
+        const filtered = STOCK_FILTER_KEYS.some(key => Object.hasOwn(req.query, key));
+        let request;
+        try { request = filtered ? buildStockQuery(req.query) : null; }
+        catch (error) { return res.status(400).json({ message: error.message }); }
+        const cars = request
+            ? await Car.aggregate(buildStockPipeline(request.query, request.filters, false)).collation({ locale: 'es', strength: 2, numericOrdering: true })
+            : await Car.find().sort({ createdAt: -1 }).lean();
 
         // Data preparation
         const data = cars.map(car => {
@@ -1881,7 +1889,8 @@ app.get('/api/admin/cars/export', authenticateToken, requirePermission(PERMISSIO
         const buffer = xlsx.write(workbook, { type: 'buffer', bookType: 'xlsx' });
 
         res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-        res.setHeader('Content-Disposition', 'attachment; filename="stock-autosporting.xlsx"');
+        res.setHeader('Content-Disposition', `attachment; filename="stock-autosporting${filtered ? '-filtrado' : ''}.xlsx"`);
+        res.setHeader('Cache-Control', 'no-store, max-age=0');
         res.send(buffer);
     } catch (error) {
         console.error('Error exporting cars:', error);
@@ -2039,7 +2048,11 @@ app.get('/api/admin/cars', authenticateToken, requirePermission(PERMISSIONS.STOC
     try {
         await connectDB();
         res.setHeader('Cache-Control', 'no-store, max-age=0');
-        const { page = 1, limit = 20, search = '', status = '', brand = '', tab = '', ml = '' } = req.query;
+        let stockRequest;
+        try { stockRequest = buildStockQuery(req.query); }
+        catch (error) { return res.status(400).json({ message: error.message }); }
+        const { filters, query } = stockRequest;
+        const { page: parsedPage, limit: parsedLimit } = filters;
 
         // Fetch minimal info for ALL cars to calculate summary stats
         const allCarsForSummary = await Car.find({})
@@ -2083,7 +2096,7 @@ app.get('/api/admin/cars', authenticateToken, requirePermission(PERMISSIONS.STOC
 
             // Normalización de moneda: si el precio es > 200.000 pero figura como USD (ej: alta manual en pesos bajo selector USD),
             // se trata como ARS para no inflar USD con 13.8M dólares.
-            const isUSD = (c.currency === 'U$S' || c.currency === 'USD') && price <= 200000;
+            const isUSD = stockStatisticsCurrency(c.currency, price) === 'USD';
             const currency = isUSD ? 'USD' : 'ARS';
 
             if (price <= 0) {
@@ -2165,89 +2178,9 @@ app.get('/api/admin/cars', authenticateToken, requirePermission(PERMISSIONS.STOC
             }
         };
 
-        // Now build query for the current page
-        let query = {};
-
-        if (search) {
-            const words = search.trim().split(/\s+/).filter(Boolean);
-            if (words.length > 0) {
-                query.$and = words.map(word => {
-                    const escapedWord = escapeRegex(word);
-                    const regex = { $regex: escapedWord, $options: 'i' };
-                    const conditions = [
-                        { brand: regex },
-                        { name: regex },
-                        { plateOrVin: regex },
-                        { description: regex },
-                        { ownerName: regex },
-                        { ownerPhone: regex },
-                        { consignedBy: regex },
-                        { location: regex },
-                        { notes: regex },
-                        { 'investor.name': regex },
-                        { engineNumber: regex },
-                        { chassisNumber: regex }
-                    ];
-
-                    if (/^\d+$/.test(word)) {
-                        const numVal = parseInt(word);
-                        conditions.push({ year: numVal });
-                        conditions.push({ km: numVal });
-                    }
-
-                    return { $or: conditions };
-                });
-            }
-        }
-
-        if (status && status !== 'todos') {
-            const statusMap = {
-                disponible: 'Disponible',
-                senado: 'Reservado',
-                vendido_sin_confirmar: 'Pausado',
-                vendido: 'Vendido'
-            };
-            query.status = statusMap[status] || status;
-        } else {
-            // Default: do not show sold or cancelled vehicles in the stock view unless explicitly requested
-            query.status = { $nin: ['Vendido', 'Cancelado'] };
-        }
-
-        if (brand && brand !== 'todas') {
-            query.brand = brand;
-        }
-
-        if (tab && tab !== 'stock') {
-            if (tab === 'consignaciones') {
-                query.consignedBy = { $exists: true, $ne: '' };
-            } else if (tab === 'compartidos') {
-                query['investor.percentage'] = { $gt: 0 };
-            } else if (tab === 'cero_km') {
-                query.$or = [
-                    { condition: { $in: ['0km', 'nuevo', 'Nuevo', '0KM'] } },
-                    { km: 0 }
-                ];
-            }
-        }
-
-        if (ml === 'publicados') {
-            query.publishedOnML = 'Sí';
-        } else if (ml === 'no_publicados') {
-            query.publishedOnML = { $ne: 'Sí' };
-        }
-
-        const parsedLimit = parseInt(limit);
-        const parsedPage = parseInt(page);
-        const skip = (parsedPage - 1) * parsedLimit;
-
         const totalFiltered = await Car.countDocuments(query);
-        const cars = await Car.find(query)
-            .select('-auditLog')
-            .populate('consignmentSeller', 'name email')
-            .sort({ order: 1, createdAt: -1 })
-            .skip(skip)
-            .limit(parsedLimit)
-            .lean();
+        const cars = await Car.aggregate(buildStockPipeline(query, filters)).collation({ locale: 'es', strength: 2, numericOrdering: true });
+        await Car.populate(cars, { path: 'consignmentSeller', select: 'name email' });
             
         // Calculate the sum of prices, purchase costs, own share, and investor share for the filtered vehicles
         const allFilteredCars = await Car.find(query)
@@ -2270,7 +2203,7 @@ app.get('/api/admin/cars', authenticateToken, requirePermission(PERMISSIONS.STOC
             const isThirdParty = !isConsignment && c.agencyOwned === false && (!c.investor || Number(c.investor.percentage) === 0);
             const price = Math.round(Number(c.price) || 0);
             const purchasePrice = Math.round(Number(c.purchasePrice) || 0);
-            const isUSD = (c.currency === 'U$S' || c.currency === 'USD') && price <= 200000;
+            const isUSD = stockStatisticsCurrency(c.currency, price) === 'USD';
             const curr = isUSD ? 'USD' : 'ARS';
 
             if (isConsignment || isThirdParty) {
@@ -2299,7 +2232,11 @@ app.get('/api/admin/cars', authenticateToken, requirePermission(PERMISSIONS.STOC
             }
         });
 
-        const brands = await Car.distinct('brand');
+        const brands = stockOptions(await Car.distinct('brand'));
+        const modelQuery = filters.brand && filters.brand !== 'todas'
+            ? buildStockQuery({ brand: filters.brand, status: 'todos' }).query.$and.find(clause => clause.brand)
+            : {};
+        const models = stockOptions(await Car.distinct('name', modelQuery));
         res.json({
             cars,
             total: totalFiltered,
@@ -2308,6 +2245,7 @@ app.get('/api/admin/cars', authenticateToken, requirePermission(PERMISSIONS.STOC
             limit: parsedLimit,
             summary,
             brands,
+            models,
             filteredTotalUSD,
             filteredTotalARS,
             filteredCostUSD,
@@ -3166,92 +3104,19 @@ app.delete('/api/cars/:id', authenticateToken, requirePermission(PERMISSIONS.STO
 app.get('/api/admin/clients', authenticateToken, requirePermission(PERMISSIONS.CLIENTES_READ), async (req, res) => {
     try {
         await connectDB();
-        const { search, type, source, status, segment, limit = 50, page = 1 } = req.query;
-        let query = {};
-
-        if (search) {
-            const regex = new RegExp(search, 'i');
-            query.$or = [
-                { fullName: regex },
-                { phoneNormalized: regex },
-                { emailNormalized: regex },
-                { locality: regex }
-            ];
-        }
-        if (type) query.type = type;
-        if (source) query.source = source;
-        if (status) query.status = status;
-
-        const skip = (parseInt(page) - 1) * parseInt(limit);
-        const parsedLimit = parseInt(limit);
-
-        const reqUserId = req.user?.id ? new mongoose.Types.ObjectId(req.user.id) : null;
-        if (segment === 'mis-clientes' && reqUserId) {
-            query.assignedTo = reqUserId;
-        } else if (segment === 'vendieron') {
-            query.type = { $in: ['vendedor', 'ambos'] };
-        }
-
-        if (segment === 'contactados' || segment === 'sin-contactar' || segment === 'compraron') {
-            const pipeline = [];
-            if (Object.keys(query).length > 0) pipeline.push({ $match: query });
-
-            if (segment === 'contactados' || segment === 'sin-contactar') {
-                pipeline.push({ $lookup: { from: 'leads', localField: '_id', foreignField: 'clientId', as: 'relatedLeads' } });
-                if (segment === 'sin-contactar') {
-                    pipeline.push({
-                        $match: {
-                            $and: [
-                                { $or: [{ interactions: { $exists: false } }, { interactions: { $size: 0 } }] },
-                                { $or: [{ relatedLeads: { $size: 0 } }, { "relatedLeads": { $not: { $elemMatch: { crmStatus: { $ne: 'nuevo' } } } } }] }
-                            ]
-                        }
-                    });
-                } else if (segment === 'contactados') {
-                    pipeline.push({
-                        $match: {
-                            $or: [
-                                { "interactions.0": { $exists: true } },
-                                { "relatedLeads": { $elemMatch: { crmStatus: { $ne: 'nuevo' } } } }
-                            ]
-                        }
-                    });
-                }
-            } else if (segment === 'compraron') {
-                pipeline.push({ $lookup: { from: 'sales', localField: '_id', foreignField: 'clientId', as: 'relatedSales' } });
-                pipeline.push({
-                    $match: { "relatedSales": { $elemMatch: { status: { $nin: ['cancelada', 'borrador'] } } } }
-                });
-            }
-
-            const countPipeline = [...pipeline, { $count: 'total' }];
-            const countResult = await Client.aggregate(countPipeline);
-            const total = countResult.length > 0 ? countResult[0].total : 0;
-
-            pipeline.push({ $sort: { createdAt: -1 } }, { $skip: skip }, { $limit: parsedLimit }, { $project: { relatedLeads: 0, relatedSales: 0 } });
-            const clients = await Client.aggregate(pipeline);
-            return res.json({ clients, total, pages: Math.ceil(total / parsedLimit) });
-        }
-
-        const clients = await Client.find(query)
-            .sort({ createdAt: -1 })
-            .skip(skip)
-            .limit(parseInt(limit))
-            .lean();
-
-        const total = await Client.countDocuments(query);
-
-        res.json({ clients, total, pages: Math.ceil(total / limit) });
+        res.setHeader('Cache-Control', 'no-store, max-age=0');
+        res.json(await listCommercialClients(req.query, req.user));
     } catch (error) {
-        res.status(500).json({ message: error.message });
+        res.status(error.statusCode || 500).json({ message: error.message });
     }
 });
 
 // GET single client
 app.get('/api/admin/clients/:id', authenticateToken, requirePermission(PERMISSIONS.CLIENTES_READ), async (req, res) => {
     try {
-        const client = await Client.findById(req.params.id);
+        const client = await Client.findById(req.params.id).populate('assignedTo', 'name email role');
         if (!client) return res.status(404).json({ message: 'Client not found' });
+        res.setHeader('Cache-Control', 'no-store, max-age=0');
         res.json(client);
     } catch (error) {
         res.status(500).json({ message: error.message });
@@ -3358,30 +3223,11 @@ app.post('/api/admin/clients', authenticateToken, requirePermission(PERMISSIONS.
     try {
         const payload = req.body;
 
-        // Basic Validation
-        if (!payload.firstName && !payload.fullName) {
+        const sanitizedData = await normalizeClientCommercialInput(payload);
+        if (!sanitizedData.firstName && !(typeof payload.fullName === 'string' && payload.fullName.trim())) {
             return res.status(400).json({ message: 'El nombre es obligatorio.' });
         }
-        if (!payload.phone && !payload.email) {
-            return res.status(400).json({ message: 'Debe proveer un tel├®fono o un email.' });
-        }
-
-        // Sanitization using explicitly allowed fields
-        const allowedFields = [
-            'firstName', 'lastName', 'fullName', 'phone', 'email', 'dniCuit',
-            'locality', 'province', 'address', 'type', 'source', 'status', 'tags', 'notes', 'assignedTo'
-        ];
-
-        let sanitizedData = {};
-        allowedFields.forEach(field => {
-            if (payload[field] !== undefined) {
-                sanitizedData[field] = payload[field];
-            }
-        });
-
-        if (sanitizedData.assignedTo === "") {
-            sanitizedData.assignedTo = null;
-        }
+        if (sanitizedData.assignedTo) sanitizedData.assignedAt = new Date();
 
         sanitizedData.createdBy = req.user?.username || 'Admin';
         sanitizedData.clientAuditLog = [{
@@ -3419,11 +3265,8 @@ app.patch('/api/admin/clients/:id', authenticateToken, requirePermission(PERMISS
         const client = await Client.findById(req.params.id);
         if (!client) return res.status(404).json({ message: 'Client not found' });
 
-        const payload = req.body;
-        const allowedFields = [
-            'firstName', 'lastName', 'fullName', 'phone', 'email', 'dniCuit',
-            'locality', 'province', 'address', 'type', 'source', 'status', 'tags', 'notes', 'lastContactDate'
-        ];
+        const payload = await normalizeClientCommercialInput(req.body, client);
+        const allowedFields = Object.keys(payload).filter(field => field !== 'assignedTo');
 
         const user = req.user?.username || 'Admin';
         const newAuditLogs = [];
@@ -3435,16 +3278,7 @@ app.patch('/api/admin/clients/:id', authenticateToken, requirePermission(PERMISS
                 client.assignedTo = newAssigned;
                 client.assignedAt = new Date();
 
-                await logAudit({
-                    req,
-                    action: newAssigned ? 'RESPONSABLE_ASIGNADO' : 'RESPONSABLE_REMOVIDO',
-                    module: 'clientes',
-                    entityType: 'Client',
-                    entityId: client._id,
-                    entityLabel: client.fullName,
-                    description: `Se reasign├│ el cliente.`,
-                    metadata: { oldAssigned, newAssigned }
-                });
+                newAuditLogs.push({ action: newAssigned ? 'RESPONSABLE_ASIGNADO' : 'RESPONSABLE_REMOVIDO', field: 'assignedTo', oldValue: oldAssigned, newValue: newAssigned, user, source: 'CRM_V2', details: 'Responsable comercial actualizado' });
             }
         }
 
@@ -3465,13 +3299,14 @@ app.patch('/api/admin/clients/:id', authenticateToken, requirePermission(PERMISS
         });
 
         // Interactions are added separately if sent
-        if (payload.newInteraction) {
+        if (req.body.newInteraction) {
             client.interactions.push({
-                ...payload.newInteraction,
+                ...req.body.newInteraction,
                 user: user,
                 date: new Date()
             });
             client.lastContactDate = new Date();
+            newAuditLogs.push({ action: 'INTERACCION', field: 'interactions', user, source: 'CRM_V2', details: 'Interacción de cliente registrada' });
         }
 
         if (newAuditLogs.length > 0) {

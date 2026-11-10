@@ -6,7 +6,7 @@ export default function ClientBulkActionBar({ selectedIds, onClearSelection, onE
     if (!selectedIds || selectedIds.length === 0) return null;
 
     return (
-        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 bg-crm-surface border border-crm-border shadow-2xl rounded-2xl p-3 flex items-center gap-4 z-50 animate-in slide-in-from-bottom-10 fade-in duration-300">
+        <div className="fixed bottom-20 md:bottom-6 left-1/2 -translate-x-1/2 max-w-[calc(100vw-24px)] bg-crm-surface border border-crm-border shadow-2xl rounded-2xl p-3 flex flex-wrap items-center gap-2 z-50 animate-in slide-in-from-bottom-10 fade-in duration-300">
             <div className="flex items-center gap-3 px-3">
                 <div className="flex h-6 w-6 items-center justify-center rounded-full bg-crm-red/20 text-crm-red text-xs font-bold">
                     {selectedIds.length}

@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import Link from 'next/link';
 import { ChevronDown, Filter, Mail, MapPin, Phone } from 'lucide-react';
+import { formatClientNextAction } from '../../../utils/clientCommercial';
 
 const formatDate = (value) => {
     if (!value) return '--';
@@ -74,6 +75,8 @@ export default function ClientMobileCards({ clients, selectedIds = [], setSelect
                         <article key={client._id} className="overflow-hidden rounded-xl border border-crm-border bg-crm-surface">
                             <button
                                 type="button"
+                                aria-expanded={!isSelectionMode ? isExpanded : undefined}
+                                aria-label={isSelectionMode ? `Seleccionar cliente ${client.fullName}` : undefined}
                                 onClick={() => {
                                     if (isSelectionMode) toggleSelection(client._id);
                                     else setExpandedId(isExpanded ? null : client._id);
@@ -84,6 +87,7 @@ export default function ClientMobileCards({ clients, selectedIds = [], setSelect
                                     <div className="shrink-0 flex items-center justify-center pt-1">
                                         <input
                                             type="checkbox"
+                                            aria-label={`Seleccionar cliente ${client.fullName}`}
                                             checked={selectedIds.includes(client._id)}
                                             readOnly
                                             className="h-4 w-4 rounded border-crm-border bg-crm-surface text-crm-red focus:ring-crm-red"
@@ -95,6 +99,8 @@ export default function ClientMobileCards({ clients, selectedIds = [], setSelect
                                     <p className="m-0 mt-1 truncate text-xs text-crm-fg-muted">
                                         {getStatusLabel(client.status)} - {client.source || 'sin origen'}
                                     </p>
+                                    <p className="m-0 mt-1 text-xs text-crm-fg-muted">{client.assignedTo?.name || 'Sin vendedor'} · {formatClientNextAction(client)}</p>
+                                    {client.nextAction && <p className="m-0 mt-1 truncate text-xs text-crm-fg">{client.nextAction}</p>}
                                 </div>
                                 {!isSelectionMode && (
                                     <ChevronDown

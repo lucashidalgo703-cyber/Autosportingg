@@ -1,5 +1,6 @@
 import { getCarPurchasePaymentSummary } from '../../../utils/carPurchasePayment';
 import { resolveVehicleAcquisitionCost } from '../../../utils/saleCommercial';
+import { stockDays } from '../../../utils/stockFilters.js';
 
 export const mapRealCarToCRM = (car) => {
     const acq = resolveVehicleAcquisitionCost(car);
@@ -15,10 +16,7 @@ export const mapRealCarToCRM = (car) => {
     const margenEstimado = (car.price || 0) - costoTotal;
     const margenPorcentual = costoTotal > 0 ? ((margenEstimado / costoTotal) * 100).toFixed(1) : 0;
     
-    const ingresoDate = new Date(car.createdAt || Date.now());
-    const now = new Date();
-    const diffTime = Math.abs(now - ingresoDate);
-    const diasEnStock = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    const diasEnStock = stockDays(car);
     
     let alertaRotacion = "normal";
     if (diasEnStock >= 90) alertaRotacion = "+90 días";
@@ -48,7 +46,7 @@ export const mapRealCarToCRM = (car) => {
         precioMinimo: resolvedCost ? resolvedCost * 1.05 : 0,
         margenEstimado,
         margenPorcentual,
-        fechaIngreso: car.createdAt || new Date().toISOString(),
+        fechaIngreso: car.createdAt || null,
         estado: car.status ? car.status.toLowerCase() : 'disponible',
         observaciones: car.notes || 'Sin observaciones.',
         diasEnStock,

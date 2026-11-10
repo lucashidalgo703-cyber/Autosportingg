@@ -60,6 +60,24 @@ const clientSchema = new mongoose.Schema({
     
     tags: [{ type: String, trim: true }],
     notes: { type: String, default: '' },
+    pipelineStage: {
+        type: String,
+        enum: ['sin_contactar', 'contactado', 'con_pedido', 'visita', 'negociacion', 'cerrado', 'perdido',
+            'nuevo', 'cita_agendada', 'mostrando_autos', 'en_negociacion', 'propuesta_enviada', 'sin_interes'],
+        default: 'sin_contactar'
+    },
+    reason: { type: String, enum: ['lead_digital', 'entro_puerta'], default: 'lead_digital' },
+    vehicleOfInterest: { type: String, default: '' },
+    description: { type: String, default: '' },
+    brand: { type: String, default: '' },
+    model: { type: String, default: '' },
+    currency: { type: String, enum: ['ARS', 'USD'], default: 'USD' },
+    maxBudget: { type: Number, min: 0, default: null },
+    yearFrom: { type: Number, default: null },
+    yearTo: { type: Number, default: null },
+    lastContactDate: { type: Date, default: null },
+    nextAction: { type: String, default: '' },
+    nextActionDate: { type: Date, default: null },
     
     createdBy: { type: String, default: 'CRM_V2' },
     assignedTo: {

@@ -59,7 +59,7 @@ export default function ClientDetailHeader({ client, onEdit, extraActions }) {
 
                     {extraActions && extraActions}
 
-                    <CrmButton
+                    {onEdit && <CrmButton
                         type="button"
                         variant="secondary"
                         size="sm"
@@ -68,7 +68,7 @@ export default function ClientDetailHeader({ client, onEdit, extraActions }) {
                     >
                         <Edit2 size={15} />
                         Editar
-                    </CrmButton>
+                    </CrmButton>}
                 </div>
             </div>
         </div>

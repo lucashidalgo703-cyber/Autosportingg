@@ -17,6 +17,10 @@ import {
 import { useAdminLeads } from '../../../hooks/useAdminLeads';
 import { useAdminCrmTasks } from '../../../hooks/useAdminCrmTasks';
 import CrmTaskModal from '../../../components/crm/agenda/CrmTaskModal';
+import { useAuth } from '../../../context/AuthContext';
+import { useClientCommercial } from '../../../hooks/useClientCommercial';
+import { hasPermission, PERMISSIONS } from '../../../utils/adminPermissions';
+import { clientCalendarKey, getClientPipelineStage } from '../../../utils/clientCommercial';
 
 const MONTHS = [
     'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
@@ -24,7 +28,7 @@ const MONTHS = [
 ];
 
 const WEEK_DAYS = ['DOM', 'LUN', 'MAR', 'MIÉ', 'JUE', 'VIE', 'SÁB'];
-const EVENT_TYPES = ['general', 'entrega', 'documentacion', 'postventa', 'cobranza', 'lead', 'venta', 'cotizacion'];
+const EVENT_TYPES = ['general', 'entrega', 'documentacion', 'postventa', 'cobranza', 'lead', 'venta', 'cotizacion', 'cliente'];
 
 const todayStart = () => {
     const date = new Date();
@@ -95,6 +99,7 @@ const eventTypeLabel = (type) => {
         postventa: 'Seguimiento',
         lead: 'Llamada',
         cotizacion: 'Cotizacion'
+        ,cliente: 'Seguimiento de cliente'
     };
     return labels[type] || 'Otro';
 };
@@ -152,6 +157,22 @@ function EventListRow({ event, onCompleteCrmTask, onCompleteLeadTask, onEditCrmT
 }
 
 export default function AdminAgendaPage() {
+    const { token, user } = useAuth();
+    const canReadClients = hasPermission(user, PERMISSIONS.CLIENTES_READ);
+    const { fetchClientsForExport } = useClientCommercial();
+    const [clientState, setClientState] = useState({ token: null, clients: [], loading: false, error: null });
+    const [clientRetry, setClientRetry] = useState(0);
+    const visibleClientState = clientState.token === token ? clientState : { clients: [], loading: Boolean(token), error: null };
+    const errorClients = visibleClientState.error;
+    const loadingClients = visibleClientState.loading;
+    useEffect(() => {
+        const controller = new AbortController();
+        setClientState({ token, clients: [], loading: Boolean(token && canReadClients), error: null });
+        if (token && canReadClients) fetchClientsForExport({ attention: 'todos' }, controller.signal)
+            .then(clients => { if (!controller.signal.aborted) setClientState({ token, clients, loading: false, error: null }); })
+            .catch(error => { if (error.name !== 'AbortError' && !controller.signal.aborted) setClientState({ token, clients: [], loading: false, error: error.message }); });
+        return () => controller.abort();
+    }, [token, canReadClients, clientRetry, fetchClientsForExport]);
     const { leads, loading: loadingLeads, error: errorLeads, fetchLeads, updateTaskStatus } = useAdminLeads();
     const { tasks: crmTasks, loading: loadingTasks, error: errorTasks, fetchTasks, createTask: createCrmTask, updateTask: updateCrmTask } = useAdminCrmTasks();
 
@@ -347,8 +368,17 @@ export default function AdminAgendaPage() {
             });
         });
 
+        visibleClientState.clients.forEach(client => {
+            if ((client.status && client.status !== 'activo') || ['cerrado', 'perdido'].includes(getClientPipelineStage(client))) return;
+            const key = clientCalendarKey(client.nextActionDate);
+            const date = key ? parseDate(key) : null;
+            if (!date) return;
+            events.push({ id: `client-next-${client._id}`, kind: 'client-next', type: 'cliente', typeLabel: 'Seguimiento de cliente', title: client.fullName,
+                description: client.nextAction || 'Próximo paso comercial', date, time: '', priority: 'media', owner: getClientName(client.assignedTo) || 'Sin vendedor',
+                href: `/admin/clientes/${client._id}`, color: eventColorByType('cotizacion', 'media') });
+        });
         return events.sort(sortEventsAsc);
-    }, [leads, crmTasks]);
+    }, [leads, crmTasks, visibleClientState.clients]);
 
     const filteredEvents = useMemo(() => {
         return normalizedEvents.filter((event) => {
@@ -557,6 +587,7 @@ export default function AdminAgendaPage() {
                 </div>
             </div>
 
+            {canReadClients && (errorClients || loadingClients) && <div role="status" className="mb-3 rounded-lg border border-amber-500/30 bg-amber-500/10 p-3 text-sm text-amber-200">{errorClients ? 'No se pudieron cargar los próximos pasos de clientes. La agenda está incompleta.' : 'Cargando próximos pasos de clientes…'}{errorClients && <button onClick={() => setClientRetry(value => value + 1)} className="ml-3 underline">Reintentar clientes</button>}</div>}
             {errorLeads && (
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-xl border border-amber-500/30 bg-amber-500/10 p-4 text-sm text-amber-200">
                     <div className="flex items-center gap-2.5">

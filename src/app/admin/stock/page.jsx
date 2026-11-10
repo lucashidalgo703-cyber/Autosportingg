@@ -1,6 +1,6 @@
 "use client";
 import { useState, useMemo, useEffect } from 'react';
-import { Download, Eye, FileText, Plus, ExternalLink, HelpCircle, AlertCircle, CheckCircle2, Info, Calculator, Filter } from 'lucide-react';
+import { Download, FileText, Plus, ExternalLink, HelpCircle, AlertCircle, CheckCircle2, Info, Calculator, Filter } from 'lucide-react';
 
 import CrmButton from '../../../components/crm/ui/CrmButton';
 import CrmPageHeader from '../../../components/crm/ui/CrmPageHeader';
@@ -8,6 +8,7 @@ import ConfirmModal from '../../../components/crm/ui/ConfirmModal';
 import StockFilters from '../../../components/crm/stock/StockFilters';
 import StockTable from '../../../components/crm/stock/StockTable';
 import StockMobileCards from '../../../components/crm/stock/StockMobileCards';
+import StockCards from '../../../components/crm/stock/StockCards';
 import VehicleFormModal from '../../../components/VehicleFormModal';
 import StockImportModal from '../../../components/crm/stock/StockImportModal';
 import MLActionModal from '../../../components/crm/stock/MLActionModal';
@@ -25,6 +26,9 @@ import VehicleFlyerPdf from '../../../components/crm/stock/VehicleFlyerPdf';
 import CapitalSummarySection from '../../../components/crm/stock/CapitalSummarySection';
 import StockCommercialCalculator from '../../../components/crm/stock/StockCommercialCalculator';
 import StockCalculationModal from '../../../components/crm/stock/StockCalculationModal';
+import { STOCK_FILTER_KEYS } from '../../../utils/stockFilters.js';
+
+const EMPTY_STOCK_FILTERS = { model: '', currency: '', minPrice: '', maxPrice: '', minKm: '', maxKm: '', minDays: '', maxDays: '', stagnant: false, review: false, sort: 'manual' };
 
 
 function formatARS(amount) {
@@ -48,6 +52,9 @@ export default function AdminStockPage() {
     const [stockView, setStockView] = useState('inventario');
     const [brandFilter, setBrandFilter] = useState('todas');
     const [mlFilter, setMlFilter] = useState('todas');
+    const [advancedFilters, setAdvancedFilters] = useState({ ...EMPTY_STOCK_FILTERS });
+    const [debouncedFilters, setDebouncedFilters] = useState({ ...EMPTY_STOCK_FILTERS });
+    const [inventoryLayout, setInventoryLayout] = useState('list');
     const [selectedVehicleForPrint, setSelectedVehicleForPrint] = useState(null);
 
     const hasActiveFilters = Boolean(
@@ -56,7 +63,7 @@ export default function AdminStockPage() {
         (brandFilter && brandFilter !== 'todas') ||
         (mlFilter && mlFilter !== 'todas') ||
         (filterStatus && filterStatus !== 'todos' && filterStatus !== '') ||
-        (stockTab && stockTab !== 'stock')
+        (stockTab && stockTab !== 'stock') || Object.entries(advancedFilters).some(([key, value]) => key !== 'sort' && Boolean(value))
     );
 
     const handleClearFilters = () => {
@@ -66,6 +73,8 @@ export default function AdminStockPage() {
         setMlFilter('todas');
         setFilterStatus('');
         setStockTab('stock');
+        setAdvancedFilters({ ...EMPTY_STOCK_FILTERS });
+        setDebouncedFilters({ ...EMPTY_STOCK_FILTERS });
         setPageNumber(1);
     };
 
@@ -79,7 +88,7 @@ export default function AdminStockPage() {
 
     const { 
         cars, loading, error, refresh, total, pages, 
-        summary: backendSummary, brands: backendBrands, 
+        summary: backendSummary, brands: backendBrands, models: backendModels, isOffline,
         swapCars, setCars, filteredTotalUSD, filteredTotalARS,
         filteredPropioARS, filteredInversionistasARS,
         filteredPropioUSD, filteredInversionistasUSD
@@ -133,30 +142,28 @@ export default function AdminStockPage() {
     useEffect(() => {
         const handler = setTimeout(() => {
             setDebouncedSearch(searchTerm);
+            setDebouncedFilters(advancedFilters);
         }, 350);
         return () => clearTimeout(handler);
-    }, [searchTerm]);
+    }, [searchTerm, advancedFilters]);
 
     // Cuando cambian los filtros de búsqueda o estado, reiniciamos a la página 1
     useEffect(() => {
         setPageNumber(1);
-    }, [debouncedSearch, filterStatus, brandFilter, stockTab, mlFilter]);
+    }, [debouncedSearch, filterStatus, brandFilter, stockTab, mlFilter, debouncedFilters]);
+
+    const currentStockFilters = useMemo(() => ({
+        page: pageNumber, limit: 20, search: debouncedSearch, status: filterStatus,
+        brand: brandFilter, tab: stockTab, ml: mlFilter, ...debouncedFilters
+    }), [pageNumber, debouncedSearch, filterStatus, brandFilter, stockTab, mlFilter, debouncedFilters]);
 
     // Ejecuta la consulta únicamente cuando cambie la página o los filtros debounced
     useEffect(() => {
-        refresh({
-            page: pageNumber,
-            limit: 20,
-            search: debouncedSearch,
-            status: filterStatus,
-            brand: brandFilter,
-            tab: stockTab,
-            ml: mlFilter
-        });
-    }, [pageNumber, debouncedSearch, filterStatus, brandFilter, stockTab, mlFilter, refresh]);
+        refresh(currentStockFilters);
+    }, [currentStockFilters, refresh]);
 
     const handleSwap = async (index, direction) => {
-        if (isSwapping) return;
+        if (isSwapping || advancedFilters.sort !== 'manual' || isOffline) return;
 
         const targetIndex = direction === 'up' ? index - 1 : index + 1;
         const isCrossPage = targetIndex < 0 || targetIndex >= vehicles.length;
@@ -282,7 +289,8 @@ export default function AdminStockPage() {
         setIsMandateModalOpen(true);
     };
 
-    const handleExportXLSX = async () => {
+    const handleExportXLSX = async (filtered = false) => {
+        if (isOffline) { toast.error('Conectate para exportar el stock completo o la vista filtrada.'); return; }
         try {
             const token = localStorage.getItem('token');
             const API_URL = process.env.NEXT_PUBLIC_API_URL || '';
@@ -290,7 +298,12 @@ export default function AdminStockPage() {
             
             toast.loading('Generando archivo XLSX...', { id: 'export-xlsx' });
             
-            const res = await fetch(`${baseUrl}/api/admin/cars/export`, {
+            const params = new URLSearchParams();
+            if (filtered) for (const key of STOCK_FILTER_KEYS) {
+                const value = currentStockFilters[key];
+                if (value !== undefined && value !== null) params.set(key, String(value));
+            }
+            const res = await fetch(`${baseUrl}/api/admin/cars/export${filtered ? `?${params}` : ''}`, {
                 headers: {
                     'Authorization': `Bearer ${token}`
                 }
@@ -432,20 +445,17 @@ export default function AdminStockPage() {
         <div className="mx-auto w-full max-w-7xl p-4 pb-20 md:p-6 crm-no-print">
             <div className="flex flex-col gap-6">
                 <CrmPageHeader 
+                    compact
                     title="Stock"
-                    subtitle={`${total} vehículos en listado actual · ${stockSummary.disponibles} disponibles para vender (${stockSummary.total} en stock activo total)`}
+                    subtitle={isOffline ? `${total} vehículos en la instantánea disponible sin conexión` : `${total} vehículos en listado actual · ${stockSummary.disponibles} disponibles para vender (${stockSummary.total} en stock activo total)`}
                     actions={
                         <>
-                            <CrmButton variant="secondary" size="sm" className="gap-2 border-amber-500/30 bg-amber-500/10 text-amber-200 hover:bg-amber-500/15">
-                                <Eye size={14} />
-                                Vista previa
-                            </CrmButton>
                             <CrmButton variant="secondary" size="sm" className="gap-2" onClick={() => window.open('/catalogo', '_blank', 'noopener,noreferrer')}>
                                 <ExternalLink size={14} /> Tu catálogo
                             </CrmButton>
-                            <CrmButton variant="secondary" size="sm" className="gap-2" onClick={handleExportXLSX}>
+                            <CrmButton variant="secondary" size="sm" className="gap-2" onClick={() => handleExportXLSX(false)} disabled={isOffline}>
                                 <Download size={14} />
-                                Exportar XLSX
+                                Exportar todo XLSX
                             </CrmButton>
                             <CrmButton variant="secondary" size="sm" className="gap-2" onClick={() => setIsImportModalOpen(true)}>
                                 <FileText size={14} />
@@ -487,6 +497,7 @@ export default function AdminStockPage() {
                 </nav>
 
                 {stockView === 'capital' && (
+                isOffline ? <section id="stock-capital" aria-label="Capital e inversores" className="rounded-xl border border-crm-border bg-crm-surface p-5"><h2 className="m-0 text-base font-semibold text-crm-fg">Capital no disponible sin conexión</h2><p className="text-sm text-crm-fg-muted">Conectate para consultar el resumen patrimonial y las participaciones vigentes. El inventario guardado sigue disponible en la vista Inventario.</p><CrmButton type="button" variant="secondary" size="sm" onClick={() => changeStockView('inventario')}>Volver a Inventario</CrmButton></section> :
                 <section id="stock-capital" aria-label="Capital e inversores" className="space-y-6">
                 {/* BLOQUE DE TARJETAS COMERCIALES: EXCLUSIVAMENTE VEHÍCULOS DISPONIBLES */}
                 <div className="space-y-4">
@@ -719,9 +730,24 @@ export default function AdminStockPage() {
                         setBrandFilter={setBrandFilter}
                         mlFilter={mlFilter}
                         setMlFilter={setMlFilter}
+                        filters={advancedFilters}
+                        setFilters={setAdvancedFilters}
+                        modelOptions={backendModels}
+                        onClearFilters={handleClearFilters}
                         brandOptions={brandOptions}
                         counts={stockSummary}
                     />
+                    {isOffline && <p role="status" className="m-0 mt-3 rounded-lg border border-amber-500/30 px-3 py-2 text-sm text-amber-300">Sin conexión: filtros y páginas sobre la instantánea guardada. Los saldos globales y la exportación requieren conexión.</p>}
+                    {stockTab !== 'mandatos' && <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
+                        <div className="flex flex-wrap items-center gap-2"><span className="text-xs text-crm-fg-muted">{total} vehículos</span><button type="button" className="h-8 rounded-lg border border-crm-border bg-crm-surface px-3 text-xs font-medium text-crm-fg disabled:opacity-40" disabled={loading || isOffline || Boolean(error)} onClick={() => handleExportXLSX(true)}>Exportar vista XLSX</button></div>
+                        <div className="flex min-w-0 flex-wrap items-center gap-2">
+                            <label className="flex min-w-0 items-center gap-2 text-xs text-crm-fg-muted">Ordenar
+                            <select aria-label="Orden del inventario" value={advancedFilters.sort} onChange={(event) => setAdvancedFilters(previous => ({ ...previous, sort: event.target.value }))} className="h-8 min-w-0 max-w-full rounded-lg border border-crm-border bg-crm-surface px-2 text-xs text-crm-fg">
+                                <option value="manual">Orden del catálogo (manual)</option><option value="recent">Últimos ingresos</option><option value="oldest">Más antiguos</option><option value="price_asc">Precio menor (por moneda)</option><option value="price_desc">Precio mayor (por moneda)</option><option value="year_desc">Año: más nuevos</option><option value="km_asc">Menor kilometraje</option><option value="brand_model">Marca y modelo</option>
+                            </select></label>
+                            <nav aria-label="Presentación del inventario" className="flex items-center rounded-lg border border-crm-border p-0.5">{[['list', 'Lista'], ['cards', 'Tarjetas'], ['detailed', 'Tabla detallada']].map(([key, label]) => <button key={key} type="button" aria-pressed={inventoryLayout === key} onClick={() => setInventoryLayout(key)} className={`h-8 whitespace-nowrap rounded-md px-2.5 text-xs font-medium ${inventoryLayout === key ? 'bg-crm-red text-white' : 'text-crm-fg-muted hover:text-crm-fg'}`}>{label}</button>)}</nav>
+                        </div>
+                    </div>}
 
                     {error ? (
                         <div className="rounded-xl border border-crm-red/30 bg-crm-red/10 px-6 py-5 text-center mt-4">
@@ -753,7 +779,7 @@ export default function AdminStockPage() {
                         </div>
                     ) : (
                         <>
-                            <div className="hidden lg:block">
+                            {inventoryLayout === 'cards' ? <StockCards data={filteredVehicles} onPrint={handlePrint} onReserve={setReservingCar} onEditML={setMlEditingCar} onDelete={setDeletingCar} hasActiveFilters={hasActiveFilters} onClearFilters={handleClearFilters} /> : <div className="hidden lg:block">
                                 <StockTable 
                                     data={filteredVehicles} 
                                     onEditML={setMlEditingCar} 
@@ -761,6 +787,9 @@ export default function AdminStockPage() {
                                     onPrint={handlePrint} 
                                     onSwap={handleSwap} 
                                     isSwapping={isSwapping} 
+                                    compact={inventoryLayout === 'list'}
+                                    canReorder={advancedFilters.sort === 'manual' && !isOffline}
+                                    showTotals={!isOffline}
                                     currentPage={pageNumber} 
                                     totalPages={pages} 
                                     onReserve={setReservingCar}
@@ -782,9 +811,10 @@ export default function AdminStockPage() {
                                     })}
                                     onNewVehicle={() => { setEditingCar(null); setIsFormOpen(true); }}
                                 />
-                            </div>
-                            <div className="block lg:hidden">
+                            </div>}
+                            {inventoryLayout !== 'cards' && <div className="block lg:hidden">
                                 <StockMobileCards 
+                                    showTotals={!isOffline}
                                     data={filteredVehicles} 
                                     onEditML={setMlEditingCar} 
                                     onDelete={setDeletingCar} 
@@ -807,7 +837,7 @@ export default function AdminStockPage() {
                                     })}
                                     onNewVehicle={() => { setEditingCar(null); setIsFormOpen(true); }}
                                 />
-                            </div>
+                            </div>}
                             <CrmPagination
                                 currentPage={pageNumber}
                                 totalPages={pages}

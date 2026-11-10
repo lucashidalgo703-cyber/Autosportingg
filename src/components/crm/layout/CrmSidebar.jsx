@@ -2,10 +2,11 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { X, Wrench } from 'lucide-react';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../../../context/AuthContext';
 import { useTheme } from '../../../context/ThemeContext';
 import { hasPermission, PERMISSIONS } from '../../../utils/adminPermissions';
+import { getCrmRoleLabel, isNavigationActive } from '../../../utils/crmNavigation';
 
 const menuGroups = [
     {
@@ -90,24 +91,59 @@ const menuGroups = [
 export default function CrmSidebar({ isOpen, onClose }) {
     const pathname = usePathname();
     const { theme } = useTheme();
-    const [flags, setFlags] = useState({});
+    const [featureState, setFeatureState] = useState({ token: null, flags: {} });
     const { user, logout, token } = useAuth();
+    const flags = featureState.token === token ? featureState.flags : {};
+    const drawerRef = useRef(null);
+    const closeButtonRef = useRef(null);
 
     const [isCollapsed, setIsCollapsed] = useState(false);
 
     useEffect(() => {
         if (!token) return;
+        const controller = new AbortController();
+        let active = true;
         fetch('/api/admin/settings', {
-            headers: { 'Authorization': `Bearer ${token}` }
+            headers: { 'Authorization': `Bearer ${token}` }, signal: controller.signal
         })
-        .then(res => res.json())
+        .then(res => res.ok ? res.json() : null)
         .then(data => {
-            if (data.ok && data.settings?.featureFlags) {
-                setFlags(data.settings.featureFlags);
+            if (active && data?.ok && data.settings?.featureFlags) {
+                setFeatureState({ token, flags: data.settings.featureFlags });
             }
         })
-        .catch(err => console.error("Error fetching settings in sidebar:", err));
+        .catch(err => { if (err.name !== 'AbortError') console.error("Error fetching settings in sidebar:", err); });
+        return () => { active = false; controller.abort(); };
     }, [token]);
+
+    useEffect(() => {
+        if (!isOpen) return;
+        const previousFocus = document.activeElement;
+        closeButtonRef.current?.focus();
+        const trapFocus = event => {
+            if (event.key !== 'Tab' || !drawerRef.current) return;
+            const controls = [...drawerRef.current.querySelectorAll('a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex="0"]')].filter(element => element.getClientRects().length > 0);
+            const first = controls[0];
+            const last = controls.at(-1);
+            if (!first) { event.preventDefault(); return; }
+            if (!drawerRef.current.contains(document.activeElement)) {
+                event.preventDefault();
+                first.focus();
+            } else if (event.shiftKey && document.activeElement === first) {
+                event.preventDefault();
+                last.focus();
+            } else if (!event.shiftKey && document.activeElement === last) {
+                event.preventDefault();
+                first.focus();
+            }
+        };
+        document.addEventListener('keydown', trapFocus);
+        return () => {
+            document.removeEventListener('keydown', trapFocus);
+            if (previousFocus?.isConnected && previousFocus.getClientRects().length > 0) previousFocus.focus();
+            else document.getElementById('main-content')?.focus();
+        };
+    }, [isOpen]);
 
     const closeMenu = () => {
         if (typeof onClose === 'function') onClose();
@@ -157,7 +193,7 @@ export default function CrmSidebar({ isOpen, onClose }) {
 
     const renderContent = ({ showCloseButton = false, isDesktopCollapsed = false } = {}) => (
         <>
-            <div className={`flex h-[calc(3.5rem+var(--safe-top,0px))] shrink-0 items-center border-b border-crm-border px-4 pt-[var(--safe-top,0px)] md:h-14 md:pt-0 ${isDesktopCollapsed ? 'justify-center' : 'gap-3'}`}>
+            <div className={`flex h-[calc(3.5rem+var(--safe-top,0px))] shrink-0 items-center border-b border-crm-border px-3 pt-[var(--safe-top,0px)] md:h-14 md:pt-0 ${isDesktopCollapsed ? 'justify-center' : 'gap-2'}`}>
                 {!isDesktopCollapsed ? (
                     <div className="flex items-center gap-2 py-1 select-none">
                         <img
@@ -170,36 +206,41 @@ export default function CrmSidebar({ isOpen, onClose }) {
                         </span>
                     </div>
                 ) : (
-                    <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-crm-border bg-crm-surface text-sm font-bold text-white shadow-crm-red cursor-pointer" onClick={() => setIsCollapsed(!isCollapsed)}>
+                    <button type="button" aria-label="Expandir menú" aria-expanded={false} aria-controls="crm-navigation-desktop" className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-crm-border bg-crm-surface text-sm font-bold text-crm-fg shadow-crm-red focus-visible:outline focus-visible:outline-2 focus-visible:outline-crm-red" onClick={() => setIsCollapsed(false)}>
                         AS
-                    </div>
+                    </button>
                 )}
                 
                 {!isDesktopCollapsed && (
                     <button 
+                        type="button"
                         onClick={() => setIsCollapsed(!isCollapsed)}
                         className="ml-auto hidden md:flex h-7 w-7 items-center justify-center rounded border border-crm-border bg-crm-surface text-crm-fg hover:bg-crm-surface-raised transition-colors"
                         title="Colapsar menú"
+                        aria-label="Colapsar menú"
+                        aria-expanded={true}
+                        aria-controls="crm-navigation-desktop"
                     >
-                        <span className="text-xs">◀</span>
+                        <span aria-hidden="true" className="text-xs">◀</span>
                     </button>
                 )}
 
                 {showCloseButton && (
                     <button
+                        ref={closeButtonRef}
                         type="button"
                         onClick={handleClose}
                         onMouseDown={handleClose}
                         onTouchEnd={handleClose}
                         className="m-0 flex h-11 w-11 shrink-0 appearance-none items-center justify-center rounded-lg border border-crm-border bg-crm-surface text-crm-fg transition-colors active:bg-crm-surface-raised"
-                        aria-label="Cerrar menu"
+                        aria-label="Cerrar menú"
                     >
                         <X size={22} />
                     </button>
                 )}
             </div>
 
-            <nav className="flex min-h-0 flex-1 touch-pan-y flex-col gap-6 overflow-y-auto overscroll-y-contain px-3 py-4 pb-[calc(1rem+var(--safe-bottom,0px))] [-webkit-overflow-scrolling:touch] custom-scrollbar">
+            <nav aria-label="Navegación principal" className={`flex min-h-0 flex-1 touch-pan-y flex-col gap-6 overflow-y-auto overscroll-y-contain py-4 pb-[calc(1rem+var(--safe-bottom,0px))] [-webkit-overflow-scrolling:touch] custom-scrollbar ${isDesktopCollapsed ? 'px-2' : 'pl-2 pr-6'}`}>
                 {menuGroups.map((group) => {
                     const visibleItems = group.items.filter(item => hasItemPermission(item.name));
                     if (visibleItems.length === 0) return null;
@@ -214,10 +255,9 @@ export default function CrmSidebar({ isOpen, onClose }) {
                                 <div className="mb-2 h-4" />
                             )}
                             {visibleItems.map((item) => {
-                                const isSalesArea = item.path === '/admin/ventas' && (pathname.startsWith('/admin/ventas') || pathname.startsWith('/admin/reservas'));
-                                const isActive = item.path === '/admin' ? pathname === '/admin' : isSalesArea || pathname.startsWith(item.path);
+                                const isActive = isNavigationActive(pathname, item.path);
                                 const isPrivate = item.isPrivate;
-                                const baseItemClasses = "relative group flex min-h-11 items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors";
+                                const baseItemClasses = "relative group flex min-h-9 items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium leading-5 transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-crm-red";
                                 const activeClasses = isPrivate
                                     ? "bg-purple-500/15 text-purple-300 border-l-2 border-purple-500 pl-[10px]"
                                     : "bg-crm-red/10 text-crm-red border-l-2 border-crm-red pl-[10px]";
@@ -229,13 +269,15 @@ export default function CrmSidebar({ isOpen, onClose }) {
                                     <Link
                                         key={item.name}
                                         href={item.path}
+                                        aria-label={item.name}
+                                        aria-current={isActive ? 'page' : undefined}
                                         prefetch={item.prefetch === false ? false : undefined}
                                         onClick={closeMenu}
                                         title={isDesktopCollapsed ? item.name : undefined}
                                         style={{ textDecoration: 'none' }}
                                         className={`${baseItemClasses} ${isActive ? activeClasses : inactiveClasses} ${isDesktopCollapsed ? 'justify-center px-0' : ''}`}
                                     >
-                                        <span className="flex h-5 w-5 shrink-0 items-center justify-center text-base leading-none" role="img" aria-label={item.name}>
+                                        <span aria-hidden="true" className="flex h-5 w-5 shrink-0 items-center justify-center text-base leading-none">
                                             {item.icon}
                                         </span>
                                         {!isDesktopCollapsed && (
@@ -249,7 +291,7 @@ export default function CrmSidebar({ isOpen, onClose }) {
                                             </div>
                                         )}
                                         {isDesktopCollapsed && (
-                                            <div className="pointer-events-none absolute left-[3.2rem] z-[100] hidden animate-in fade-in zoom-in-95 whitespace-nowrap rounded-lg border border-crm-border bg-crm-surface px-3 py-2 text-xs font-bold text-crm-fg shadow-xl group-hover:block">
+                                            <div aria-hidden="true" className="pointer-events-none absolute left-[3.2rem] z-[100] hidden animate-in fade-in zoom-in-95 whitespace-nowrap rounded-lg border border-crm-border bg-crm-surface px-3 py-2 text-xs font-bold text-crm-fg shadow-xl group-hover:block">
                                                 {item.name}
                                             </div>
                                         )}
@@ -265,22 +307,26 @@ export default function CrmSidebar({ isOpen, onClose }) {
                 {!isDesktopCollapsed && (
                     <div className="flex flex-col mb-2">
                         <span className="text-sm font-bold text-crm-fg">{user?.displayName || user?.email?.split('@')[0] || 'Usuario'}</span>
-                        <span className="text-[10px] font-bold uppercase text-crm-red">ADMINISTRADOR</span>
+                        <span className="text-[10px] font-bold uppercase text-crm-red">{getCrmRoleLabel(user?.role)}</span>
                     </div>
                 )}
                 <button
+                    type="button"
+                    aria-label="Cerrar sesión"
                     onClick={() => logout()}
                     title={isDesktopCollapsed ? "Cerrar sesión" : undefined}
                     className={`flex items-center gap-2 text-xs font-medium text-crm-fg-muted transition-colors hover:text-crm-fg ${isDesktopCollapsed ? 'justify-center w-full' : ''}`}
                 >
-                    <span className="text-base">←</span> {!isDesktopCollapsed && "Cerrar sesión"}
+                    <span aria-hidden="true" className="text-base">←</span> {!isDesktopCollapsed && "Cerrar sesión"}
                 </button>
                 <button
+                    type="button"
+                    aria-label="Forzar recarga"
                     onClick={() => window.location.reload(true)}
                     title={isDesktopCollapsed ? "Forzar recarga" : undefined}
                     className={`flex items-center gap-2 text-xs font-medium text-crm-fg-muted transition-colors hover:text-crm-fg mt-2 ${isDesktopCollapsed ? 'justify-center w-full' : ''}`}
                 >
-                    <span className="text-base">⟳</span> {!isDesktopCollapsed && "Forzar recarga"}
+                    <span aria-hidden="true" className="text-base">⟳</span> {!isDesktopCollapsed && "Forzar recarga"}
                 </button>
 
             </div>
@@ -289,18 +335,18 @@ export default function CrmSidebar({ isOpen, onClose }) {
 
     return (
         <>
-            <aside className={`sticky top-0 hidden h-[100dvh] min-h-0 shrink-0 flex-col border-r border-crm-border bg-crm-sidebar md:flex custom-scrollbar transition-all duration-300 ${isCollapsed ? 'w-20' : 'w-64'}`}>
+            <aside id="crm-navigation-desktop" aria-label="Menú principal" className={`sticky top-0 hidden h-[100dvh] min-h-0 shrink-0 flex-col border-r border-crm-border bg-crm-sidebar md:flex custom-scrollbar transition-all duration-300 ${isCollapsed ? 'w-20' : 'w-64'}`}>
                 {renderContent({ isDesktopCollapsed: isCollapsed })}
             </aside>
 
             {isOpen && (
                 <div className="fixed inset-0 z-[100] flex bg-black/75 backdrop-blur-sm md:hidden">
-                    <aside className="flex h-[100dvh] min-h-0 w-[min(23rem,92vw)] max-w-full flex-col border-r border-crm-border bg-crm-sidebar shadow-2xl custom-scrollbar">
+                    <aside ref={drawerRef} id="crm-navigation-drawer" role="dialog" aria-modal="true" aria-label="Menú principal" className="flex h-[100dvh] min-h-0 w-[min(23rem,92vw)] max-w-full flex-col border-r border-crm-border bg-crm-sidebar shadow-2xl custom-scrollbar">
                         {renderContent({ showCloseButton: true })}
                     </aside>
                     <button
                         type="button"
-                        aria-label="Cerrar menu"
+                        aria-label="Cerrar menú"
                         className="m-0 min-w-0 flex-1 appearance-none border-0 bg-transparent p-0"
                         onClick={handleClose}
                         onTouchEnd={handleClose}

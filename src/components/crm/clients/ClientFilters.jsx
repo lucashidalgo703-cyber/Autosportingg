@@ -46,14 +46,14 @@ const typeChips = [
     { id: 'ambos', label: 'Ambos' }
 ];
 
-export default function ClientFilters({ filters, setFilters, onSearch }) {
+export default function ClientFilters({ filters, setFilters, onSearch, users = [] }) {
     const applyFilters = (nextFilters) => {
         setFilters(nextFilters);
         onSearch(nextFilters);
     };
 
     const handleReset = () => {
-        applyFilters({ search: '', segment: '', source: '', status: '', type: '' });
+        applyFilters({ ...filters, search: '', segment: '', source: '', status: '', type: '', assignedTo: '' });
     };
 
     const handleChange = (event) => {
@@ -67,7 +67,7 @@ export default function ClientFilters({ filters, setFilters, onSearch }) {
         }
     };
 
-    const hasActiveFilters = filters.search || filters.segment || filters.source || filters.status || filters.type;
+    const hasActiveFilters = filters.search || filters.segment || filters.source || filters.status || filters.type || filters.assignedTo;
 
     return (
         <div className="mb-6 flex flex-col gap-5">
@@ -133,7 +133,7 @@ export default function ClientFilters({ filters, setFilters, onSearch }) {
                 })}
             </div>
 
-            <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_180px_auto]">
+            <div className="grid gap-2 lg:grid-cols-[minmax(0,1fr)_160px_160px_auto]">
                 <div className="relative">
                     <Search className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-crm-fg-muted" size={17} />
                     <input
@@ -150,6 +150,7 @@ export default function ClientFilters({ filters, setFilters, onSearch }) {
 
                 <select
                     name="source"
+                    aria-label="Origen del cliente"
                     value={filters.source}
                     onChange={(event) => applyFilters({ ...filters, source: event.target.value })}
                     className="m-0 h-[38px] w-full appearance-none rounded-lg border border-crm-border bg-crm-surface px-3 text-sm text-crm-fg outline-none transition-colors focus:border-crm-red focus:ring-2 focus:ring-crm-red/20"
@@ -162,6 +163,10 @@ export default function ClientFilters({ filters, setFilters, onSearch }) {
                     <option value="local">Local</option>
                     <option value="mercadolibre">MercadoLibre</option>
                     <option value="otro">Otro</option>
+                </select>
+                <select aria-label="Responsable del cliente" value={filters.assignedTo || ''} onChange={event => applyFilters({ ...filters, assignedTo: event.target.value })} className="m-0 h-[38px] min-w-0 w-full rounded-lg border border-crm-border bg-crm-surface px-3 text-sm text-crm-fg">
+                    <option value="">Todos los vendedores</option>
+                    {users.map(user => <option key={user._id} value={user._id}>{user.name || user.email}</option>)}
                 </select>
 
                 <div className="flex gap-2">
