@@ -514,4 +514,139 @@ describe('Borradores de venta y caja con MongoDB transaccional', { concurrency: 
         assert.equal(byId.get(id(moved)).effectiveDueDate.slice(0, 10), dayFromToday(2).toISOString().slice(0, 10));
         assert.deepEqual(await operationalSnapshot(), baseline);
     });
+    const commercialTradeIn = (overrides = {}) => ({ _id: new mongoose.Types.ObjectId().toString(), brand:'Prueba', model:'Permuta', year:2020, mileage:10000, estimatedValue:5000, askingPrice:7000, currency:'USD', fuel:'Diesel', condition:'Usado', shouldEnterStock:true, ...overrides });
+    test('acuerdo crea señas pendientes y permutas atómicas sin generar caja; checkout stock conserva moneda y consignación', async()=>{
+        const financial = await financialSnapshot(); const row = commercialTradeIn({consigned:true});
+        const result = await call('POST','/api/admin/sales',{vehicleId:id(fixture.car),salePrice:20000,saleCurrency:'USD',depositRecords:[{amount:1000,currency:'USD',date:'2026-11-10',accountId:id(fixture.usd),status:'confirmada'}],tradeIns:[row],draftData:{buyerName:'Comprador prueba'}});
+        assert.equal(result.status,201,JSON.stringify(result.body)); assert.equal(result.body.depositRecords[0].status,'pendiente'); assert.equal(result.body.depositAppliedAmount,0);
+        const car = await models.Car.findById(result.body.tradeIns[0].linkedStockCarId).lean();
+        assert.equal(car.fuel,'Diesel');assert.equal(car.price,7000);assert.equal(car.purchasePrice,5000);assert.equal(car.agencyOwned,false);assert.equal(car.tradeInOrigin.consigned,true);assert.equal(car.visibleEnWeb,false);assert.equal(car.status,'Pausado');
+        assert.deepEqual(await financialSnapshot(),financial);
+        const detail = await call('GET','/api/admin/sales/'+result.body._id);assert.equal(detail.body.finance.netoCobrado,0);assert.equal(detail.body.finance.pendingBalance,15000);
+    });
+    test('borrador e histórico guardan acuerdo sin autoalta y checkbox off conserva permuta sin Car', async()=>{
+        const baseline = await financialSnapshot(); const count = await models.Car.countDocuments();
+        for (const mode of ['borrador','historical','off']) {
+            const result = await call('POST','/api/admin/sales',{...(mode==='historical'?{isManualImport:true}:{}),status:mode==='borrador'?'borrador':'confirmada',vehicleId:mode==='off'?id(fixture.car):null,salePrice:20000,saleCurrency:'USD',tradeIns:[commercialTradeIn({shouldEnterStock:mode!=='off'})]});
+            assert.equal(result.status,201,JSON.stringify(result.body));assert.equal(result.body.tradeIns.length,1);assert.equal(result.body.tradeIns[0].linkedStockCarId,undefined);
+        }
+        assert.equal(await models.Car.countDocuments(),count); assert.deepEqual(await financialSnapshot(),baseline);
+    });
+    test('error de cuenta o permiso y fallo posterior al alta de permuta revierten venta y stock completos', async()=>{
+        const baseline = await operationalSnapshot(); const body={vehicleId:id(fixture.car),salePrice:20000,saleCurrency:'USD',tradeIns:[commercialTradeIn()]};
+        const mismatch=await call('POST','/api/admin/sales',{...body,depositRecords:[{amount:10,currency:'USD',date:'2026-11-10',accountId:id(fixture.ars)}]}); assert.equal(mismatch.status,400,JSON.stringify(mismatch.body));
+        const noStock=await call('POST','/api/admin/sales',body,makeToken('solo_lectura',['ventas.write'])); assert.equal(noStock.status,403,JSON.stringify(noStock.body));
+        const original=models.Sale.prototype.save; models.Sale.prototype.save=async function(){throw new Error('QA injected after trade-in creation');};
+        try { assert.ok((await call('POST','/api/admin/sales',body)).status >= 400); } finally {models.Sale.prototype.save=original;}
+        assert.equal(await models.Sale.countDocuments(),0);assert.deepEqual(await operationalSnapshot(),baseline);
+    });
+    test('editor conserva estado/finanzas/permutas vinculadas; bitácora append y recordatorios roundtrip',async()=>{
+        const result=await call('POST','/api/admin/sales',{vehicleId:id(fixture.car),salePrice:20000,saleCurrency:'USD',tradeIns:[commercialTradeIn()]});assert.equal(result.status,201,JSON.stringify(result.body));
+        const sid=result.body._id; const financial=await financialSnapshot(); const linked=result.body.tradeIns[0].linkedStockCarId;
+        const edit=await call('PATCH','/api/admin/sales/'+sid+'/workspace',{draftData:{buyerName:'Nombre corregido'},managementNote:{recipient:'finanzas',text:'Revisar constancia'},reminders:[{type:'vtv',date:'2026-12-10',note:'Verificar fecha'}],reviewAsked:true,tradeIns:result.body.tradeIns});
+        assert.equal(edit.status,200,JSON.stringify(edit.body));assert.equal(edit.body.status,'confirmada');assert.equal(edit.body.managementNotes.length,1);assert.equal(edit.body.managementNotes[0].author,'qa_owner');assert.equal(edit.body.reminders[0].type,'vtv');assert.equal(edit.body.tradeIns[0].linkedStockCarId,linked);assert.ok(edit.body.reviewAskedAt);
+        assert.equal((await call('PATCH','/api/admin/sales/'+sid+'/workspace',{status:'entregada'})).status,409);assert.equal((await call('PATCH','/api/admin/sales/'+sid+'/workspace',{tradeIns:[]})).status,400);assert.deepEqual(await financialSnapshot(),financial);
+        await models.Installment.create(installmentFixture({saleId:sid,source:'venta',dueDate:new Date('2026-12-10T00:00:00Z')})); assert.equal((await call('PATCH','/api/admin/sales/'+sid+'/workspace',{salePrice:1})).status,409);
+    });
+    test('estado reserva/cierre y liquidación auditada no registran caja; lectores bloqueados',async()=>{
+        const result=await call('POST','/api/admin/sales',{vehicleId:id(fixture.car),salePrice:20000,saleCurrency:'USD'});const sid=result.body._id;const financial=await financialSnapshot();
+        assert.equal((await call('PATCH','/api/admin/sales/'+sid+'/workspace-status',{status:'entregada',reason:''})).status,400);
+        assert.equal((await call('PATCH','/api/admin/sales/'+sid+'/workspace-status',{status:'señado',reason:'Se acuerda reserva'},makeToken('solo_lectura'))).status,403);
+        const reserved=await call('PATCH','/api/admin/sales/'+sid+'/workspace-status',{status:'señado',reason:'Se acuerda reserva'});assert.equal(reserved.status,200,JSON.stringify(reserved.body));assert.equal((await models.Car.findById(fixture.car._id)).status,'Reservado');
+        const closed=await call('PATCH','/api/admin/sales/'+sid+'/workspace-status',{status:'entregada',reason:'Entrega confirmada'});assert.equal(closed.status,200,JSON.stringify(closed.body));assert.equal(closed.body.status,'entregada');assert.equal((await models.Car.findById(fixture.car._id)).status,'Vendido');
+        const settled=await call('PATCH','/api/admin/sales/'+sid+'/commission-settlement',{settled:true,note:'Liquidación declarada por el responsable'});assert.equal(settled.status,200,JSON.stringify(settled.body));assert.equal(settled.body.commissionSettlement.settled,true);assert.deepEqual(await financialSnapshot(),financial);
+    });
+    test('crear y vincular comprador es atómico, requiere Clientes.write y reintento no duplica',async()=>{
+        const sale=await models.Sale.create({status:'confirmada',salePrice:100,saleCurrency:'USD',draftData:{buyerName:'Comprador demo',buyerDni:'DEMO123'}});const path='/api/admin/sales/'+sale._id+'/create-link-client';
+        assert.equal((await call('POST',path,{},makeToken('solo_lectura',['ventas.write']))).status,403);
+        const count=await models.Client.countDocuments();const first=await call('POST',path,{});assert.equal(first.status,200,JSON.stringify(first.body));assert.equal(first.body.client.dniCuit,'DEMO123');assert.equal(first.body.client.phone,'');
+        const retry=await call('POST',path,{fullName:'No reemplazar'});assert.equal(retry.status,200);assert.equal(retry.body.client._id,first.body.client._id);assert.equal(await models.Client.countDocuments(),count+1);
+        const fresh=await models.Sale.create({status:'confirmada',salePrice:1,saleCurrency:'USD'});const original=models.Sale.updateOne;models.Sale.updateOne=()=>{throw new Error('QA link failure');};try{assert.equal((await call('POST','/api/admin/sales/'+fresh._id+'/create-link-client',{fullName:'Rollback comprador'})).status,500);}finally{models.Sale.updateOne=original;}assert.equal(await models.Client.countDocuments(),count+1);
+    });
+
+    test('conciliar seña manual aplica ingreso existente una sola vez y marca Caja Aplicada en misma transacción',async()=>{
+        const Entry=(await import('../../src/models/FinanceManualEntry.js')).default;
+        const sale=await models.Sale.create({status:'confirmada',salePrice:1000,saleCurrency:'USD',depositRecords:[{amount:100,currency:'USD',date:'2026-11-10',accountId:fixture.usd._id},{amount:100,currency:'USD',date:'2026-11-10'}]});
+        const txId=new mongoose.Types.ObjectId();const entry=await Entry.create({kind:'deposit',label:'Seña QA',status:'Recibida',amount:100,currency:'USD',date:new Date('2026-11-10'),accountId:fixture.usd._id,saleId:sale._id,transactionId:txId,createdBy:'qa_owner',idempotencyKey:crypto.randomUUID(),payloadHash:'fixture'});
+        const tx=await models.Transaction.create(transactionFixture({_id:txId,saleId:sale._id,accountId:fixture.usd._id,amount:100,currency:'USD',source:'manual',concept:'finance_manual_deposit',financeManualEntryId:entry._id}));
+        const accounts=asPlain(await models.Account.find().sort({_id:1}).lean());const txCount=await models.Transaction.countDocuments();
+        assert.equal((await call('GET','/api/admin/sales/'+sale._id)).body.finance.netoCobrado,0);
+        const path='/api/admin/sales/'+sale._id+'/deposit-records/'+sale.depositRecords[0]._id+'/confirm';
+        assert.equal((await call('PATCH',path,{transactionId:id(tx)},makeToken('solo_lectura',['ventas.write','caja.write']))).status,403);
+        const applied=await call('PATCH',path,{transactionId:id(tx)});assert.equal(applied.status,200,JSON.stringify(applied.body));assert.equal(applied.body.finance.netoCobrado,100);assert.equal(applied.body.finance.pendingBalance,900);assert.equal(applied.body.depositRecords[0].status,'confirmada');
+        const storedEntry=await Entry.findById(entry._id);assert.equal(storedEntry.status,'Aplicada');assert.equal(id(storedEntry.appliedSaleDepositId),id(sale.depositRecords[0]));assert.equal(id((await models.Transaction.findById(tx._id)).saleDepositRecordId),id(sale.depositRecords[0]));
+        assert.equal((await call('PATCH',path,{transactionId:id(tx)})).status,200);
+        assert.equal((await call('PATCH','/api/admin/sales/'+sale._id+'/deposit-records/'+sale.depositRecords[1]._id+'/confirm',{transactionId:id(tx)})).status,409);
+        assert.equal(await models.Transaction.countDocuments(),txCount);assert.deepEqual(asPlain(await models.Account.find().sort({_id:1}).lean()),accounts);
+    });
+    test('conciliación concurrente tiene un ganador y un error posterior revierte claim de ingreso',async()=>{
+        const sale=await models.Sale.create({status:'confirmada',salePrice:1000,saleCurrency:'USD',depositRecords:[{amount:100,currency:'USD',date:'2026-11-10'},{amount:100,currency:'USD',date:'2026-11-10'}]});
+        const tx=await models.Transaction.create(transactionFixture({saleId:sale._id,accountId:fixture.usd._id,amount:100,currency:'USD',source:'venta'}));
+        const path=row=>'/api/admin/sales/'+sale._id+'/deposit-records/'+row._id+'/confirm';
+        const original=models.Sale.prototype.save;models.Sale.prototype.save=async function(){throw new Error('QA confirmation rollback');};try{assert.equal((await call('PATCH',path(sale.depositRecords[0]),{transactionId:id(tx)})).status,500);}finally{models.Sale.prototype.save=original;}
+        assert.equal((await models.Transaction.findById(tx._id)).saleDepositRecordId,null);
+        const results=await Promise.all(sale.depositRecords.map(row=>call('PATCH',path(row),{transactionId:id(tx)})));assert.deepEqual(results.map(r=>r.status).sort(),[200,409]);assert.equal((await models.Sale.findById(sale._id)).depositRecords.filter(row=>row.status==='confirmada').length,1);
+    });
+
+    test('autoalta de permuta rechaza identidad del vehículo vendido aunque el claim ya lo cambió a Vendido',async()=>{
+        const before=await operationalSnapshot();
+        const result=await call('POST','/api/admin/sales',{vehicleId:id(fixture.car),salePrice:20000,saleCurrency:'USD',tradeIns:[commercialTradeIn({plate:fixture.car.plateOrVin})]});
+        assert.equal(result.status,409,JSON.stringify(result.body));assert.equal(result.body.code,'VEHICLE_IDENTITY_CONFLICT');assert.equal(await models.Sale.countDocuments(),0);assert.deepEqual(await operationalSnapshot(),before);
+    });
+
+    const buyerDeclaration=(overrides={})=>({mode:'external',amount:300,currency:'USD',date:'2026-11-10',method:'transferencia',reason:'Pago directo fuera de la agencia, informado por responsable',expectedPendingBalance:1000,idempotencyKey:crypto.randomUUID(),...overrides});
+    test('pago externo requiere ambos permisos y reintento/cambio de sesión no duplica ni acredita caja',async()=>{
+        const sale=await models.Sale.create({status:'confirmada',salePrice:1000,saleCurrency:'USD',isManualImport:true,historicalOnly:false,notes:'Legacy preservado',commissionSettings:{sellerPct:2,isManual:true}});const path='/api/admin/sales/'+sale._id+'/buyer-payments';const body={...buyerDeclaration(),salePrice:1,status:'cancelada',historicalOnly:true,depositAppliedAmount:99999};const baseline=await financialSnapshot();
+        assert.equal((await call('POST',path,body,null)).status,401);
+        assert.equal((await call('POST',path,body,makeToken('solo_lectura',['ventas.write']))).status,403);assert.equal((await call('POST',path,body,makeToken('solo_lectura',['finanzas.write']))).status,403);
+        const first=await call('POST',path,body);assert.equal(first.status,201,JSON.stringify(first.body));assert.equal(first.body.sale.finance.netoCobrado,0);assert.equal(first.body.sale.finance.externalPaid,300);assert.equal(first.body.sale.finance.pendingBalance,700);assert.equal(first.body.sale.status,'confirmada');assert.equal(first.body.sale.historicalOnly,false);assert.equal(first.body.sale.isManualImport,true);assert.equal(first.body.sale.notes,'Legacy preservado');assert.equal(first.body.sale.commissionSettings.sellerPct,2);assert.doesNotMatch(JSON.stringify(first.body),/payloadHash|idempotencyKey/);
+        const retry=await call('POST',path,body,makeToken('solo_lectura',['ventas.write','finanzas.write']));assert.equal(retry.status,200,JSON.stringify(retry.body));assert.equal(retry.body.declarationId,first.body.declarationId);assert.equal((await models.Sale.findById(sale._id)).externalBuyerPayments.length,1);
+        assert.equal((await call('PATCH','/api/admin/sales/'+sale._id+'/workspace',{salePrice:900})).status,409);assert.equal((await call('PATCH','/api/admin/sales/'+sale._id,{saleCurrency:'ARS'})).status,409);
+        assert.equal((await call('POST',path,{...body,amount:100})).status,409);assert.equal((await call('POST',path,buyerDeclaration({amount:100}))).status,409);assert.deepEqual(await financialSnapshot(),baseline);
+    });
+    test('histórico y dar por saldado toman sólo el pendiente y preservan estado, importación y ledger',async()=>{
+        for(const mode of ['historical','settled']){
+            const sale=await models.Sale.create({status:'entregada',salePrice:1000,saleCurrency:'USD',depositAppliedAmount:100,depositAppliedCurrency:'USD'});
+            await models.Transaction.create(transactionFixture({saleId:sale._id,accountId:fixture.usd._id,amount:200,currency:'USD',source:'venta'}));const baseline=await financialSnapshot();
+            const result=await call('POST','/api/admin/sales/'+sale._id+'/buyer-payments',buyerDeclaration({mode,amount:999999,expectedPendingBalance:700}));assert.equal(result.status,201,JSON.stringify(result.body));assert.equal(result.body.sale.buyerBalanceAdjustments[0].amount,700);assert.equal(result.body.sale.buyerBalanceAdjustments[0].mode,mode);assert.equal(result.body.sale.finance.netoCobrado,300);assert.equal(result.body.sale.finance.pendingBalance,0);assert.equal(result.body.sale.status,'entregada');assert.equal(result.body.sale.historicalOnly,false);assert.equal(result.body.sale.isManualImport,false);assert.equal(result.body.sale.depositAppliedAmount,100);assert.deepEqual(await financialSnapshot(),baseline);
+            assert.ok(result.body.sale.saleAuditLog.some(row=>row.action=== (mode==='historical'?'SALDO_HISTORICO_DECLARADO':'SALDO_DADO_POR_SALDADO')));
+        }
+    });
+    test('declaraciones rechazan cero/exceso/otra moneda y cuotas vigentes sin extinguir obligaciones',async()=>{
+        const sale=await models.Sale.create({status:'confirmada',salePrice:1000,saleCurrency:'USD'});const path='/api/admin/sales/'+sale._id+'/buyer-payments';
+        for(const invalid of [{amount:0},{amount:-1},{amount:1001},{currency:'ARS'},{reason:''},{method:''},{date:'2026-02-30'}])assert.equal((await call('POST',path,buyerDeclaration(invalid))).status,400,JSON.stringify(invalid));
+        const installment=await models.Installment.create(installmentFixture({saleId:sale._id,source:'venta',amount:1000,currency:'USD',dueDate:new Date('2026-12-10T00:00:00Z')}));const baseline=await financialSnapshot();
+        for(const mode of ['external','historical','settled']){const result=await call('POST',path,buyerDeclaration({mode}));assert.equal(result.status,409,JSON.stringify(result.body));assert.equal(result.body.code,'SALE_INSTALLMENT_WORKFLOW_REQUIRED');}
+        assert.equal((await models.Installment.findById(installment._id)).status,'pendiente');assert.deepEqual(await financialSnapshot(),baseline);assert.equal((await models.Sale.findById(sale._id)).externalBuyerPayments.length,0);
+        for(const overrides of [{status:'borrador'},{status:'cancelada'},{historicalOnly:true}]){const blocked=await models.Sale.create({status:'confirmada',salePrice:1000,saleCurrency:'USD',...overrides});assert.equal((await call('POST','/api/admin/sales/'+blocked._id+'/buyer-payments',buyerDeclaration())).status,409);}
+    });
+    test('CAS entre pagos externos conserva un ganador y fallo de auditoría revierte declaración completa',async()=>{
+        const sale=await models.Sale.create({status:'confirmada',salePrice:1000,saleCurrency:'USD'});const path='/api/admin/sales/'+sale._id+'/buyer-payments';const baseline=await financialSnapshot();
+        const original=models.AuditLog.create;models.AuditLog.create=()=>{throw new Error('QA buyer declaration rollback');};try{assert.equal((await call('POST',path,buyerDeclaration())).status,500);}finally{models.AuditLog.create=original;}
+        assert.equal((await models.Sale.findById(sale._id)).externalBuyerPayments.length,0);
+        const results=await Promise.all([call('POST',path,buyerDeclaration({amount:600})),call('POST',path,buyerDeclaration({amount:600}))]);assert.deepEqual(results.map(r=>r.status).sort(),[201,409]);const stored=await models.Sale.findById(sale._id);assert.equal(stored.externalBuyerPayments.length,1);assert.equal((await call('GET','/api/admin/sales/'+sale._id)).body.finance.pendingBalance,400);assert.deepEqual(await financialSnapshot(),baseline);
+    });
+
+    test('workspace server pagina y ordena globalmente con conteos/totales completos, monedas separadas y permisos',async()=>{
+        const rows=[];for(let i=0;i<25;i++)rows.push({status:i===0?'pendiente_entrega':'confirmada',salePrice:i+1,saleCurrency:i%2?'USD':'ARS',salesperson:i%2?'beta':'alpha',vehicleId:fixture.car._id,saleDate:new Date('2026-11-'+String(i+1).padStart(2,'0')+'T00:00:00Z'),draftData:{buyerName:'Actual '+String(24-i).padStart(2,'0')}});
+        rows.push({status:'borrador',salePrice:999,saleCurrency:'USD',salesperson:'alpha'},{status:'cancelada',salePrice:1000,saleCurrency:'ARS',salesperson:'beta'},{status:'entregada',historicalOnly:true,salePrice:50,saleCurrency:'USD',salesperson:'alpha'});await models.Sale.insertMany(rows);
+        const baseline=await financialSnapshot();const prefix='/api/admin/sales?workspace=1&sort=price&direction=asc&limit=20';
+        const first=await call('GET',prefix+'&page=1');const second=await call('GET',prefix+'&page=2');assert.equal(first.status,200,JSON.stringify(first.body));assert.equal(second.status,200,JSON.stringify(second.body));assert.equal(first.body.sales.length,20);assert.equal(second.body.sales.length,8);assert.equal(first.body.total,28);assert.equal(first.body.pages,2);assert.deepEqual(first.body.summary,second.body.summary);assert.deepEqual(first.body.summary.totals,{ARS:169,USD:206});assert.equal(first.body.summary.computableCount,26);assert.equal(first.body.statusCounts.confirmada,25);assert.equal(first.body.statusCounts.borrador,1);assert.equal(first.body.sellerCounts.find(row=>row.value==='').count,28);
+        const all=[...first.body.sales,...second.body.sales];assert.equal(new Set(all.map(row=>row._id)).size,28);assert.ok(all.slice(0,14).every(row=>row.saleCurrency==='ARS'));assert.equal(all[13].salePrice,1000);assert.equal(all[14].saleCurrency,'USD');assert.equal(all[14].salePrice,2);
+        const narrowed=await call('GET','/api/admin/sales?workspace=1&seller=alpha&status=confirmada&search=Actual');assert.equal(narrowed.body.total,13);assert.equal(narrowed.body.statusCounts.confirmada,13);assert.equal(narrowed.body.sellerCounts.find(row=>row.value==='').count,25);assert.deepEqual(narrowed.body.summary.totals,{ARS:169,USD:0});
+        const reader=makeToken('solo_lectura',['ventas.read']);const restricted=await call('GET',prefix,undefined,reader);assert.equal(restricted.status,200);assert.equal(restricted.body.sales.find(row=>row.vehicleId)?.vehicleId?.purchasePrice,undefined);assert.equal((await call('GET',prefix+'&export=1',undefined,reader)).status,403);const exported=await call('GET',prefix+'&export=1');assert.equal(exported.body.sales.length,28);
+        for(const suffix of ['sort=commission','sort=%24where','direction=sideways','page=1.5','limit=1000'])assert.equal((await call('GET','/api/admin/sales?workspace=1&'+suffix)).status,400,suffix);assert.deepEqual(await financialSnapshot(),baseline);
+    });
+    test('estados iniciales Reserva y Cancelada respetan stock, caja, permisos y cierre operativo separado',async()=>{
+        const baseline=await financialSnapshot();
+        const reserved=await call('POST','/api/admin/sales',{status:'señado',vehicleId:id(fixture.car),salePrice:1200,saleCurrency:'USD'});assert.equal(reserved.status,201,JSON.stringify(reserved.body));assert.equal(reserved.body.status,'señado');assert.equal((await models.Car.findById(fixture.car._id)).status,'Reservado');
+        const stock=asPlain(await models.Car.findById(fixture.car._id).lean());const lead=asPlain(await models.Lead.findById(fixture.lead._id).lean());
+        const cancelledBody={status:'cancelada',vehicleId:id(fixture.car),salePrice:1200,saleCurrency:'USD',initialCancellationReason:'Operación anterior no concretada'};
+        assert.equal((await call('POST','/api/admin/sales',{...cancelledBody,initialCancellationReason:''})).status,400);assert.equal((await call('POST','/api/admin/sales',cancelledBody,makeToken('solo_lectura',['ventas.write']))).status,403);
+        const cancelled=await call('POST','/api/admin/sales',cancelledBody);assert.equal(cancelled.status,201,JSON.stringify(cancelled.body));assert.equal(cancelled.body.status,'cancelada');assert.equal(cancelled.body.historicalOnly,false);assert.equal(cancelled.body.cancellationReason,cancelledBody.initialCancellationReason);assert.ok(cancelled.body.cancelledBy);assert.ok(cancelled.body.saleAuditLog.some(row=>row.action==='VENTA_CANCELADA_CREADA'));
+        const close=await call('POST','/api/admin/sales',{status:'entregada',vehicleId:id(fixture.car),salePrice:1200,saleCurrency:'USD'});assert.equal(close.status,409,JSON.stringify(close.body));assert.equal(close.body.code,'SALE_INITIAL_CLOSURE_WORKFLOW_REQUIRED');
+        const historical=await call('POST','/api/admin/sales',{isManualImport:true,status:'entregada',salePrice:1200,saleCurrency:'USD'});assert.equal(historical.status,201,JSON.stringify(historical.body));assert.equal(historical.body.historicalOnly,true);
+        const draft=await call('POST','/api/admin/sales',{status:'borrador',vehicleId:id(fixture.car),salePrice:1200,saleCurrency:'USD'});assert.equal(draft.status,201);assert.equal(draft.body.status,'borrador');assert.deepEqual(asPlain(await models.Car.findById(fixture.car._id).lean()),stock);assert.deepEqual(asPlain(await models.Lead.findById(fixture.lead._id).lean()),lead);assert.deepEqual(await financialSnapshot(),baseline);
+    });
+
 });

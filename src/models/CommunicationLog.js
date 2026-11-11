@@ -35,6 +35,12 @@ const communicationLogSchema = new mongoose.Schema({
         ref: "Car",
         default: null
     },
+    vehicleActivityType: { type: String, enum: ['consulta', 'oferta', 'visita'] },
+    vehicleContact: {
+        name: { type: String, maxlength: 300 },
+        phone: { type: String, maxlength: 100 },
+        dni: { type: String, maxlength: 100 }
+    },
     assignedTo: {
         type: mongoose.Schema.Types.ObjectId,
         ref: "AdminUser",
@@ -110,7 +116,7 @@ const communicationLogSchema = new mongoose.Schema({
     },
     sourceModule: {
         type: String,
-        enum: ["clientes", "leads", "ventas", "reservas", "postventa", "agenda", "mis_pendientes", "manual"],
+        enum: ["clientes", "leads", "ventas", "reservas", "postventa", "agenda", "mis_pendientes", "manual", "stock"],
         default: "manual"
     },
     isDeleted: {

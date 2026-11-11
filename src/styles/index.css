@@ -54,6 +54,15 @@
   --safe-bottom: env(safe-area-inset-bottom, 0px);
 }
 
+html:has(#crm-navigation-desktop):has([role="dialog"][aria-modal="true"]) {
+  overflow: hidden;
+}
+
+/* Reference forms use the same surface for the dialog and its controls. */
+[data-admin-shell] [role="dialog"] :is(input, select, textarea):not([type="checkbox"]):not([type="radio"]):not([type="file"]) {
+  background-color: var(--crm-surface);
+}
+
 @media (prefers-reduced-motion: reduce) {
   *, ::before, ::after {
     animation-duration: 0.01ms !important;
@@ -570,6 +579,28 @@ ul {
   }
 }
 
+/* Preserve the public button reset before the CRM baseline and utilities. */
+button {
+  background-color: transparent;
+  background-image: none;
+  border: none;
+}
+
+/* Border baseline for the CRM only: Tailwind preflight is disabled. */
+:where([data-admin-shell], [data-admin-shell] *, [data-admin-shell]::before, [data-admin-shell]::after, [data-admin-shell] *::before, [data-admin-shell] *::after) {
+  border-width: 0;
+  border-style: solid;
+  border-color: var(--crm-border);
+}
+
+/* Match the global button selector's specificity, then let utilities win. */
+:where([data-admin-shell]) button {
+  color: inherit;
+  border-width: 0;
+  border-style: solid;
+  border-color: var(--crm-border);
+}
+
 /* --- TAILWIND CSS PARA PANEL DE ADMINISTRACIÓN --- */
 @tailwind components;
 @tailwind utilities;
@@ -586,13 +617,6 @@ ul {
 }
 .border-crm-border\/40 {
   border-color: rgba(var(--crm-border-rgb), 0.4);
-}
-
-/* GLOBAL BUTTON FIX FOR MISSING TAILWIND BASE */
-button {
-  background-color: transparent;
-  background-image: none;
-  border: none;
 }
 
 /* VEHICLE FLYER PRINT AND PDF STYLES */

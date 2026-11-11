@@ -1,8 +1,9 @@
 import React from 'react';
 import Link from 'next/link';
 import { CLIENT_PIPELINE_STAGES, getClientPipelineStage, formatClientNextAction } from '../../../utils/clientCommercial';
+import { clientDetailHref } from '../../../utils/clientNavigation';
 
-export default function ClientPipelineBoard({ clients, onChangeStatus, readOnly = false, pipelineCounts = {}, busyId }) {
+export default function ClientPipelineBoard({ clients, onChangeStatus, readOnly = false, pipelineCounts = {}, busyId, returnTo }) {
     const columns = CLIENT_PIPELINE_STAGES.map(stage => ({ ...stage, title: stage.label }));
     if (clients.some(client => !columns.some(stage => stage.id === getClientPipelineStage(client)))) columns.push({ id: 'otras', title: 'Otras etapas', color: 'border-crm-border text-crm-fg-muted' });
     const getClientsByStatus = (status) => {
@@ -53,7 +54,7 @@ export default function ClientPipelineBoard({ clients, onChangeStatus, readOnly 
                                     onDragStart={(e) => handleDragStart(e, client._id)}
                                     className="bg-crm-bg border border-crm-border p-3 rounded-lg cursor-grab active:cursor-grabbing hover:border-crm-red/50 transition-colors"
                                 >
-                                    <Link href={`/admin/clientes/${client._id}`} className="text-sm font-semibold text-crm-fg no-underline hover:text-crm-red">{client.fullName}</Link>
+                                    <Link href={clientDetailHref(client._id, returnTo)} className="text-sm font-semibold text-crm-fg no-underline hover:text-crm-red">{client.fullName}</Link>
                                     <p className="text-xs text-crm-fg-muted mb-2 line-clamp-1">{client.vehicleOfInterest || 'Sin vehículo'}</p>
                                     <div className="flex justify-between items-center mt-2 pt-2 border-t border-crm-border/50">
                                         <span className="text-[10px] text-crm-fg-muted">{client.phone || client.email}</span>

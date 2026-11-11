@@ -13,6 +13,7 @@ const dailyCashCloseSchema = new mongoose.Schema({
     totalsARS: { type: Number, default: 0 },
     totalsUSD: { type: Number, default: 0 },
     notes: { type: String },
+    reopenReason: { type: String },
     createdBy: { type: String },
     closedAt: { type: Date, default: Date.now }
 }, { timestamps: true });

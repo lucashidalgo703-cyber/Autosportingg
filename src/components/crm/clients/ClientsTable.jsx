@@ -2,6 +2,7 @@ import React from 'react';
 import Link from 'next/link';
 import { ArrowRight, Filter, Mail, MapPin, Phone } from 'lucide-react';
 import { CLIENT_PIPELINE_STAGES, getClientPipelineStage, formatClientNextAction } from '../../../utils/clientCommercial';
+import { clientDetailHref } from '../../../utils/clientNavigation';
 
 const formatDate = (value) => {
     if (!value) return '--';
@@ -40,7 +41,7 @@ const getStatusColor = (status) => {
     return 'text-crm-fg-muted';
 };
 
-export default function ClientsTable({ clients, selectedIds = [], setSelectedIds }) {
+export default function ClientsTable({ clients, selectedIds = [], setSelectedIds, returnTo }) {
     if (!clients || clients.length === 0) {
         return (
             <div className="flex min-h-[320px] flex-col items-center justify-center rounded-xl border border-dashed border-crm-border bg-crm-surface px-6 py-16 text-center">
@@ -158,7 +159,7 @@ export default function ClientsTable({ clients, selectedIds = [], setSelectedIds
                                 <td className="px-3 py-2 align-middle text-xs text-crm-fg-muted"><span className="block text-crm-fg">{formatClientNextAction(client)}</span><span className="block max-w-[200px] truncate">{client.nextAction || 'Sin acción registrada'}</span><span className="mt-1 block text-[10px]">Alta {formatDate(client.createdAt)}</span></td>
                                 <td className="px-3 py-2 align-middle">
                                     <Link
-                                        href={`/admin/clientes/${client._id}`}
+                                        href={clientDetailHref(client._id, returnTo)}
                                         className="inline-flex h-8 items-center gap-2 rounded-lg border border-transparent bg-transparent px-2 text-xs font-semibold text-crm-fg no-underline transition-colors hover:bg-crm-surface-raised"
                                     >
                                         Ver ficha

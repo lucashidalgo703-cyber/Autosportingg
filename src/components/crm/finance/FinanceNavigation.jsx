@@ -16,6 +16,7 @@ export const FINANCE_GROUPS = [
     },
     {
         id: 'cobros', label: 'Cobros', tabs: [
+            { id: 'vehiculos-cobrar', icon: '🚘', label: 'Vehículos por cobrar' },
             { id: 'cuotas', icon: '📆', label: 'Cuotas' },
             { id: 'senas', icon: '🤝', label: 'Señas' }
         ]
@@ -23,14 +24,16 @@ export const FINANCE_GROUPS = [
     {
         id: 'pagos', label: 'Pagos', tabs: [
             { id: 'pagos', icon: '💸', label: 'Pagos disponibles' },
+            { id: 'cuotas-pagar', icon: '📆', label: 'Cuotas a pagar' },
+            { id: 'comisiones', icon: '🪙', label: 'Comisiones' },
+            { id: 'devoluciones-registro', icon: '↩️', label: 'Devoluciones registro' },
+            { id: 'retiros', icon: '🏧', label: 'Retiros' },
+            { id: 'tarjeta', icon: '💳', label: 'Tarjeta' },
+            { id: 'prestamos', icon: '🤲', label: 'Préstamos' },
             { id: 'pago-empresas', icon: '🏢', label: 'Pago Empresas' },
             { id: 'sueldos', icon: '🧑‍💼', label: 'Sueldos' },
             { id: 'taller', icon: '🔧', label: 'Taller / Mecánico' },
             { id: 'gastos-personales', icon: '👤', label: 'Gastos Personales' },
-            { id: 'comisiones', icon: '🪙', label: 'Comisiones' },
-            { id: 'tarjeta', icon: '💳', label: 'Tarjeta' },
-            { id: 'retiros', icon: '🏧', label: 'Retiros' },
-            { id: 'prestamos', icon: '🤲', label: 'Préstamos' }
         ]
     },
     {
@@ -38,6 +41,7 @@ export const FINANCE_GROUPS = [
             { id: 'conciliacion', icon: '✅', label: 'Conciliación' },
             { id: 'arqueos', icon: '🔍', label: 'Arqueos' },
             { id: 'cierre', icon: '🧮', label: 'Cierre de caja' },
+            { id: 'periodos', icon: '🗂️', label: 'Períodos' },
             { id: 'afip', icon: '🏛️', label: 'AFIP/IVA' }
         ]
     },

@@ -1,3 +1,5 @@
+import { assertClientContactAllowed } from '../services/clientContactPreferenceService.js';
+
 export class WhatsAppAdapter {
     static getRequiredEnvKeys() {
         return ['WHATSAPP_API_TOKEN', 'WHATSAPP_PHONE_NUMBER_ID'];
@@ -40,29 +42,34 @@ export class WhatsAppAdapter {
         return 'https://graph.facebook.com/v17.0/' + process.env.WHATSAPP_PHONE_NUMBER_ID + '/messages';
     }
 
-    static async sendPayload(payload) {
+    static async sendPayload(payload, context = {}) {
+        await assertClientContactAllowed({ ...context, to: payload.to, channel: 'whatsapp' });
         if (!this.isConfigured()) {
-            throw new Error('Integracion de WhatsApp no configurada.');
+            throw Object.assign(new Error('Integracion de WhatsApp no configurada.'), { code: 'WHATSAPP_NOT_CONFIGURED', deliveryUncertain: false });
         }
 
-        const response = await fetch(this.getApiUrl(), {
+        let response;
+        try { response = await fetch(this.getApiUrl(), {
             method: 'POST',
             headers: {
                 'Authorization': 'Bearer ' + process.env.WHATSAPP_API_TOKEN,
                 'Content-Type': 'application/json'
             },
-            body: JSON.stringify(payload)
-        });
+            body: JSON.stringify(payload),
+            signal: AbortSignal.timeout(20000)
+        }); } catch (error) { throw Object.assign(new Error('El proveedor no confirmó el resultado del envío. Revisá WhatsApp antes de reintentar.'), { code: 'WHATSAPP_DELIVERY_UNCERTAIN', deliveryUncertain: true, cause: error }); }
 
         const data = await response.json().catch(() => ({}));
         if (!response.ok) {
-            throw new Error(data.error?.message || 'Error enviando WhatsApp');
+            const uncertain = response.status >= 500 || response.status === 408;
+            throw Object.assign(new Error(uncertain ? 'El proveedor no confirmó el resultado del envío. Revisá WhatsApp antes de reintentar.' : data.error?.message || 'Error enviando WhatsApp'), { code: uncertain ? 'WHATSAPP_DELIVERY_UNCERTAIN' : 'WHATSAPP_REJECTED', statusCode: response.status, deliveryUncertain: uncertain });
         }
+        if (!data.messages?.[0]?.id) throw Object.assign(new Error('El proveedor no confirmó el identificador del mensaje. Revisá WhatsApp antes de reintentar.'), { code: 'WHATSAPP_DELIVERY_UNCERTAIN', deliveryUncertain: true });
 
         return data;
     }
 
-    static async sendMessage(to, text) {
+    static async sendMessage(to, text, context = {}) {
         const formattedTo = this.formatPhoneNumber(to);
         if (!formattedTo) {
             throw new Error('Numero de telefono invalido.');
@@ -79,10 +86,10 @@ export class WhatsAppAdapter {
             }
         };
 
-        return this.sendPayload(payload);
+        return this.sendPayload(payload, context);
     }
 
-    static async sendTemplateMessage(to, templateName, languageCode = 'es_AR', components = []) {
+    static async sendTemplateMessage(to, templateName, languageCode = 'es_AR', components = [], context = {}) {
         const formattedTo = this.formatPhoneNumber(to);
         if (!formattedTo) {
             throw new Error('Numero de telefono invalido.');
@@ -103,6 +110,6 @@ export class WhatsAppAdapter {
             }
         };
 
-        return this.sendPayload(payload);
+        return this.sendPayload(payload, context);
     }
 }

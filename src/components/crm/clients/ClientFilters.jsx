@@ -53,7 +53,7 @@ export default function ClientFilters({ filters, setFilters, onSearch, users = [
     };
 
     const handleReset = () => {
-        applyFilters({ ...filters, search: '', segment: '', source: '', status: '', type: '', assignedTo: '' });
+        applyFilters({ ...filters, search: '', segment: '', source: '', status: '', type: '', assignedTo: '', attention: 'todos', gender: '', tier: '', createdFrom: '', createdTo: '' });
     };
 
     const handleChange = (event) => {
@@ -67,7 +67,7 @@ export default function ClientFilters({ filters, setFilters, onSearch, users = [
         }
     };
 
-    const hasActiveFilters = filters.search || filters.segment || filters.source || filters.status || filters.type || filters.assignedTo;
+    const hasActiveFilters = filters.search || filters.segment || filters.source || filters.status || filters.type || filters.assignedTo || filters.gender || filters.tier || filters.createdFrom || filters.createdTo || (filters.attention && filters.attention !== 'todos');
 
     return (
         <div className="mb-6 flex flex-col gap-5">

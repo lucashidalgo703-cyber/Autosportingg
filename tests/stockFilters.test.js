@@ -54,9 +54,10 @@ test('precio nominal y moneda explícita conservan alias USD/U$S y ARS/$ sin con
     assert.equal(buildStockQuery({ currency: 'USD' }, cut).query.$and.find(item => item.currency).currency.test(' usd '), true);
 });
 
-test('estadísticas conservan importes canónicos y la regla heredada de 200k, corrigiendo solo alias de escritura', () => {
+test('estadísticas respetan la moneda explícita incluso por encima de 200k, sin inferir conversiones por magnitud', () => {
     assert.equal(stockStatisticsCurrency('USD', 200000), 'USD');
-    assert.equal(stockStatisticsCurrency('USD', 200001), 'ARS');
+    assert.equal(stockStatisticsCurrency('USD', 200001), 'USD');
+    assert.equal(stockStatisticsCurrency('EUR', 1000), null);
     assert.equal(stockStatisticsCurrency('U$S', 12000), 'USD');
     assert.equal(stockStatisticsCurrency('ARS', 12000), 'ARS');
     assert.equal(stockStatisticsCurrency('$', 12000), 'ARS');
@@ -103,4 +104,17 @@ test('búsqueda de varias palabras se aplica al mismo vehículo y conserva estad
     const cars = [vehicle({ _id: 'a', notes: 'Atender prueba', ownerName: 'Propietario QA', status: 'Pausado' }), vehicle({ _id: 'b', status: 'Vendido' })];
     assert.deepEqual(filterStockSnapshot(cars, { search: 'Ford Propietario', status: 'vendido_sin_confirmar' }, cut).map(car => car._id), ['a']);
     assert.deepEqual(filterStockSnapshot(cars, { status: 'vendido' }, cut).map(car => car._id), ['b']);
+});
+
+test('años, ubicación, responsable y origen combinados filtran la instantánea sin cambiar los registros', () => {
+    const responsible = 'a'.repeat(24);
+    const cars = [vehicle({ _id: 'a', year: 2023, agencyOwned: true, location: 'Salón QA', consignmentSeller: responsible }), vehicle({ _id: 'b', year: 2020, agencyOwned: true, location: 'Salón QA' }), vehicle({ _id: 'c', year: 2024, agencyOwned: false, ownerName: 'Consignante ficticio', location: 'Salón QA' })];
+    const before = JSON.stringify(cars);
+    assert.deepEqual(filterStockSnapshot(cars, { minYear: 2022, maxYear: 2025, location: ' salón qa ', responsible, origin: 'owned' }, cut).map(car => car._id), ['a']);
+    assert.deepEqual(filterStockSnapshot(cars, { responsible: 'unassigned', origin: 'consigned' }, cut).map(car => car._id), ['c']);
+    assert.equal(JSON.stringify(cars), before);
+});
+
+test('el año y el responsable avanzados se validan antes de consultar', () => {
+    for (const input of [{ minYear: 2022.5 }, { minYear: 2030, maxYear: 2020 }, { responsible: 'usuario' }, { origin: 'cualquiera' }]) assert.throws(() => parseStockFilters(input));
 });

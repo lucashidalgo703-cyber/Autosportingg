@@ -16,11 +16,12 @@ const clientAuditSchema = new mongoose.Schema({
 const interactionSchema = new mongoose.Schema({
     type: { 
         type: String, 
-        enum: ['llamada', 'whatsapp', 'email', 'visita', 'nota', 'otro'],
+        enum: ['llamada', 'whatsapp', 'email', 'visita', 'cita_agendada', 'cotizacion_enviada', 'nota', 'otro'],
         required: true 
     },
     date: { type: Date, default: Date.now },
     note: { type: String, required: true },
+    outboundNoReply: { type: Boolean, default: false },
     user: { type: String, default: 'CRM_V2' },
     relatedLeadId: { type: mongoose.Schema.Types.ObjectId, ref: 'Lead', default: null }
 }, { _id: false });
@@ -49,7 +50,7 @@ const clientSchema = new mongoose.Schema({
     },
     source: {
         type: String,
-        enum: ['web', 'whatsapp', 'instagram', 'referido', 'local', 'mercadolibre', 'otro'],
+        enum: ['web', 'whatsapp', 'instagram', 'facebook', 'referido', 'local', 'mercadolibre', 'otro'],
         default: 'otro'
     },
     status: {
@@ -57,6 +58,8 @@ const clientSchema = new mongoose.Schema({
         enum: ['activo', 'inactivo', 'bloqueado'],
         default: 'activo'
     },
+    doNotContact: { type: Boolean, default: false },
+    contactConfirmed: { type: Boolean, default: null },
     
     tags: [{ type: String, trim: true }],
     notes: { type: String, default: '' },
@@ -68,6 +71,17 @@ const clientSchema = new mongoose.Schema({
     },
     reason: { type: String, enum: ['lead_digital', 'entro_puerta'], default: 'lead_digital' },
     vehicleOfInterest: { type: String, default: '' },
+    interestedVehicleId: { type: mongoose.Schema.Types.ObjectId, ref: 'Car', default: null },
+    notificationRequestId: { type: mongoose.Schema.Types.ObjectId, ref: 'Pedido', default: null },
+    segment: { type: String, enum: ['regular', 'vip'], default: 'regular' },
+    gender: { type: String, enum: ['', 'mujer', 'hombre'], default: '' },
+    birthDate: { type: Date, default: null },
+    occupation: { type: String, maxlength: 300, default: '' },
+    purchaseMethod: { type: String, enum: ['', 'contado', 'financiacion'], default: '' },
+    purchaseTiming: { type: String, enum: ['', 'ahora', '1_3_meses', 'mas_adelante', 'explorando'], default: '' },
+    availableDownPayment: { type: Number, min: 0, default: null },
+    downPaymentCurrency: { type: String, enum: ['ARS', 'USD', null], default: null },
+    tradeInIntent: { type: String, enum: ['', 'si', 'no'], default: '' },
     description: { type: String, default: '' },
     brand: { type: String, default: '' },
     model: { type: String, default: '' },
@@ -113,11 +127,11 @@ clientSchema.pre('validate', function() {
     if (this.phone) {
         this.phone = normalizePhoneToWhatsApp(this.phone);
         this.phoneNormalized = this.phone.replace(/\D/g, ''); // Deja solo números
-    }
+    } else if (this.isModified('phone')) this.phoneNormalized = undefined;
     
     if (this.email) {
         this.emailNormalized = this.email.toLowerCase().trim();
-    }
+    } else if (this.isModified('email')) this.emailNormalized = undefined;
 });
 
 clientSchema.pre('save', function() {

@@ -1,6 +1,6 @@
 "use client";
 import toast from 'react-hot-toast';
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { useAdminSales } from '../../../../hooks/useAdminSales';
 import SaleDetailHeader from '../../../../components/crm/sales/detail/SaleDetailHeader';
@@ -32,26 +32,23 @@ export default function SaleDetailPage() {
     const { fetchSaleById, updateSale, previewInstallmentPlanCancel, cancelInstallmentPlan, loading, error } = useAdminSales();
     const { createTask } = useAdminCrmTasks();
     const { user, token } = useAuth();
-    const [sale, setSale] = useState(null);
+    const [saleState, setSaleState] = useState(null);
+    const sale = saleState?.token === token ? saleState.sale : null;
+    const setSale = (next) => setSaleState({ token, sale: next });
     const [isTaskModalOpen, setIsTaskModalOpen] = useState(false);
     const [isCancelModalOpen, setIsCancelModalOpen] = useState(false);
     const [cancelReason, setCancelReason] = useState('');
     const [isCancelling, setIsCancelling] = useState(false);
     const [isDraftModalOpen, setIsDraftModalOpen] = useState(false);
 
-    useEffect(() => {
-        if (id) {
-            loadSale();
-        }
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [id]);
-
-    const loadSale = async () => {
+    const loadSale = useCallback(async () => {
         const data = await fetchSaleById(id);
-        if (data) {
-            setSale(data);
-        }
-    };
+        if (data) setSaleState({ token, sale: data });
+    }, [fetchSaleById, id, token]);
+    useEffect(() => {
+        setSaleState(null); setIsTaskModalOpen(false); setIsCancelModalOpen(false); setIsDraftModalOpen(false);
+        if (id && token) loadSale();
+    }, [id, token, loadSale]);
 
     const handleSave = async (payload) => {
         const updatedSale = await updateSale(id, payload);
@@ -63,7 +60,7 @@ export default function SaleDetailPage() {
     const handleCreateTask = async (taskData) => {
         try {
             await createTask(taskData);
-            toast.error('Tarea agendada exitosamente');
+            toast.success('Tarea agendada exitosamente');
             setIsTaskModalOpen(false);
         } catch (err) {
             toast.error('Error al crear la tarea: ' + err.message);
@@ -125,7 +122,7 @@ export default function SaleDetailPage() {
             setSale(updatedSale);
             setIsCancelModalOpen(false);
             setCancelReason('');
-            toast.error('La venta ha sido anulada exitosamente.');
+            toast.success('La venta ha sido anulada exitosamente.');
         } catch (error) {
             toast.error(error.message);
         } finally {
@@ -321,7 +318,7 @@ export default function SaleDetailPage() {
             {/* Panel de Movimientos Financieros (Ancho completo) */}
             {hasPermission(user, PERMISSIONS.FINANZAS_READ) && (
                 <div className="mt-6">
-                    <SaleFinancePanel sale={sale} />
+                        <SaleFinancePanel sale={sale} onUpdated={loadSale} />
                 </div>
             )}
 

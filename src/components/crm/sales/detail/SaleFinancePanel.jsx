@@ -4,11 +4,17 @@ import { Wallet, Plus, ShieldAlert, ArrowDownRight, CheckCircle2, Lock } from 'l
 import TransactionModal from '../../finance/TransactionModal';
 import TreasuryCollectAndDistributeModal from '../../treasury/TreasuryCollectAndDistributeModal';
 import { useAdminTransactions } from '../../../../hooks/useAdminTransactions';
+import { computeSaleCollection } from '../../../../utils/saleCollection';
+import SaleBuyerCollectionModal from '../SaleBuyerCollectionModal';
+import { useAuth } from '../../../../context/AuthContext';
+import { hasPermission, PERMISSIONS } from '../../../../utils/adminPermissions';
 
-export default function SaleFinancePanel({ sale }) {
+export default function SaleFinancePanel({ sale, onUpdated }) {
+    const { user } = useAuth();
+    const [buyerCollectionOpen, setBuyerCollectionOpen] = useState(false);
     const { fetchTransactions, createTransaction, updateTransaction, loading, error } = useAdminTransactions();
     const [transactions, setTransactions] = useState([]);
-    const [financeData, setFinanceData] = useState(null);
+
     
     // Modal state
     const [isModalOpen, setIsModalOpen] = useState(false);
@@ -126,17 +132,9 @@ export default function SaleFinancePanel({ sale }) {
     };
 
     const handleSaveTransaction = async (data) => {
-        try {
-            if (selectedTx && selectedTx._id) {
-                await updateTransaction(selectedTx._id, data);
-            } else {
-                await createTransaction(data);
-            }
-            await loadData();
-            setIsModalOpen(false);
-        } catch (err) {
-            console.error(err.message);
-        }
+        const saved = selectedTx?._id ? await updateTransaction(selectedTx._id, data) : await createTransaction(data);
+        await loadData();
+        return saved;
     };
 
     const handleAnnulTransaction = async (id) => {
@@ -149,62 +147,16 @@ export default function SaleFinancePanel({ sale }) {
         }
     };
 
-    const metrics = useMemo(() => {
-        let ingresosARS = 0, egresosARS = 0;
-        let ingresosUSD = 0, egresosUSD = 0;
-        let netoCobradoPrincipal = 0;
-
-        const saleCurrency = sale.saleCurrency || 'ARS';
-        
-        let depositApplied = 0;
-        if (sale.depositAppliedCurrency === saleCurrency && sale.depositAppliedAmount) {
-            depositApplied = sale.depositAppliedAmount;
-            netoCobradoPrincipal += depositApplied;
-            if (saleCurrency === 'ARS') ingresosARS += depositApplied;
-            else ingresosUSD += depositApplied;
-        }
-
-        transactions.forEach(tx => {
-            if (tx.status === 'anulado') return;
+    const financeData = useMemo(() => {
+        const collection = computeSaleCollection(sale, transactions);
+        let ingresosARS=0, egresosARS=0, ingresosUSD=0, egresosUSD=0;
+        for (const tx of transactions) {
+            if (tx.status !== 'activo') continue;
             const amount = Number(tx.amount) || 0;
-            
-            if (tx.currency === 'ARS') {
-                if (tx.type === 'Ingreso') ingresosARS += amount;
-                else egresosARS += amount;
-            } else if (tx.currency === 'USD') {
-                if (tx.type === 'Ingreso') ingresosUSD += amount;
-                else egresosUSD += amount;
-            }
-
-            if (tx.currency === saleCurrency) {
-                if (tx.type === 'Ingreso') netoCobradoPrincipal += amount;
-                else if (tx.type === 'Egreso') netoCobradoPrincipal -= amount;
-            }
-        });
-
-        const tradeInTotal = sale.tradeInTotalAmount || 0;
-        const effectiveSalePrice = sale.salePrice - tradeInTotal;
-        const pendingBalance = effectiveSalePrice - netoCobradoPrincipal;
-        
-        let collectionStatus = 'sin_cobro';
-        if (netoCobradoPrincipal > 0 && netoCobradoPrincipal < effectiveSalePrice) collectionStatus = 'parcial';
-        else if (netoCobradoPrincipal === effectiveSalePrice) collectionStatus = 'cobrada';
-        else if (netoCobradoPrincipal > effectiveSalePrice) collectionStatus = 'sobrecobrada';
-
-        const data = {
-            ingresosARS, egresosARS, balanceARS: ingresosARS - egresosARS,
-            ingresosUSD, egresosUSD, balanceUSD: ingresosUSD - egresosUSD,
-            netoCobradoPrincipal,
-            pendingBalance,
-            collectionStatus,
-            depositApplied,
-            tradeInTotal,
-            saleCurrency,
-            salePrice: sale.salePrice,
-            effectiveSalePrice
-        };
-        setFinanceData(data);
-        return data;
+            if (tx.currency === 'ARS') { if(tx.type==='Ingreso') ingresosARS+=amount; else egresosARS+=amount; }
+            if (tx.currency === 'USD') { if(tx.type==='Ingreso') ingresosUSD+=amount; else egresosUSD+=amount; }
+        }
+        return { ...collection, netoCobradoPrincipal:collection.netoCobrado, tradeInTotal:collection.tradeInValue, effectiveSalePrice:collection.totalToCollect, saleCurrency:sale.saleCurrency, salePrice:sale.salePrice, ingresosARS,egresosARS,balanceARS:ingresosARS-egresosARS,ingresosUSD,egresosUSD,balanceUSD:ingresosUSD-egresosUSD };
     }, [transactions, sale]);
 
     const formatCurrency = (amount, currency) => {
@@ -241,6 +193,7 @@ export default function SaleFinancePanel({ sale }) {
                     </div>
                 </div>
                 <div className="flex flex-wrap items-center gap-2">
+                    {hasPermission(user, PERMISSIONS.VENTAS_WRITE) && hasPermission(user, PERMISSIONS.FINANZAS_WRITE) && <button type="button" onClick={() => setBuyerCollectionOpen(true)} className="h-9 rounded-xl border border-crm-border px-3 text-xs font-semibold text-crm-fg">Pago externo / Regularizar saldo</button>}
                     <button
                         onClick={() => handleNewTransaction('egreso', 'Gasto venta')}
                         className="h-9 px-3 rounded-xl bg-crm-surface-raised hover:bg-neutral-700 text-white font-bold text-xs transition-colors flex items-center gap-1.5"
@@ -277,6 +230,7 @@ export default function SaleFinancePanel({ sale }) {
                     Saldo pendiente estimado: {formatCurrency(financeData.pendingBalance, financeData.saleCurrency)}
                 </div>
             )}
+            {financeData && financeData.nonCashBuyerCredit > 0 && <p className="m-0 border-b border-crm-border p-4 text-xs text-crm-fg-muted">Créditos sin caja: pagos externos {formatCurrency(financeData.externalPaid, sale.saleCurrency)} · constancia histórica {formatCurrency(financeData.historicalSettled, sale.saleCurrency)} · dado por saldado {formatCurrency(financeData.writtenOff, sale.saleCurrency)}. No se suman a ingresos ni capital distribuible.</p>}
 
             {financeData && financeData.collectionStatus === 'sobrecobrada' && (
                 <div className="bg-purple-500/10 text-purple-400 p-4 border-b border-neutral-800 flex items-center gap-2 text-sm font-bold">
@@ -468,9 +422,11 @@ export default function SaleFinancePanel({ sale }) {
                 isOpen={isModalOpen}
                 onClose={() => setIsModalOpen(false)}
                 transaction={selectedTx}
+                accounts={accounts}
                 onSave={handleSaveTransaction}
                 onAnnul={handleAnnulTransaction}
             />
+            {buyerCollectionOpen && <SaleBuyerCollectionModal isOpen sale={sale} accounts={accounts} treasuryToken={treasuryToken} onClose={() => setBuyerCollectionOpen(false)} onSuccess={async () => { await loadData(); await fetchTreasurySummary(); await onUpdated?.(); }} />}
 
             <TreasuryCollectAndDistributeModal
                 isOpen={isTreasuryModalOpen}

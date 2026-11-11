@@ -8,6 +8,8 @@ const cashCountSchema = new mongoose.Schema({
     declaredBalance: { type: Number, required: true },
     difference: { type: Number, required: true },
     notes: { type: String },
+    responsible: { type: String },
+    reason: { type: String },
     countedAt: { type: Date, default: Date.now },
     createdBy: { type: String }
 }, { timestamps: true });

@@ -18,6 +18,35 @@ export function getClientPipelineStage(client) {
     return CLIENT_STAGE_ALIASES[stage] || stage;
 }
 
+const RESPONSE_TYPES = ['llamada', 'whatsapp', 'email', 'visita', 'otro'];
+const LEGACY_CONTACT_STAGES = ['contactado', 'con_pedido', 'visita', 'negociacion', 'cerrado', 'cita_agendada', 'mostrando_autos', 'en_negociacion', 'propuesta_enviada'];
+export function effectiveClientContacted(client) {
+    if (typeof client?.contactConfirmed === 'boolean') return client.contactConfirmed;
+    return Boolean(clientCalendarKey(client?.lastContactDate)) ||
+        (client?.interactions || []).some(item => RESPONSE_TYPES.includes(item.type) && item.outboundNoReply !== true) ||
+        LEGACY_CONTACT_STAGES.includes(client?.pipelineStage);
+}
+// Identical fallback for server aggregation; an explicit false preserves history
+// while removing the client from current contact counters.
+export function effectiveClientContactedExpression() {
+    return { $cond: [{ $eq: [{ $type: '$contactConfirmed' }, 'bool'] }, '$contactConfirmed', { $or: [
+        { $eq: [{ $type: '$lastContactDate' }, 'date'] },
+        { $gt: [{ $size: { $filter: { input: { $ifNull: ['$interactions', []] }, as: 'interaction', cond: { $and: [{ $in: ['$$interaction.type', RESPONSE_TYPES] }, { $ne: ['$$interaction.outboundNoReply', true] }] } } } }, 0] },
+        { $in: ['$pipelineStage', LEGACY_CONTACT_STAGES] }
+    ] }] };
+}
+export function clientContactCalendarKey(value) {
+    const key = clientCalendarKey(value);
+    if (!key) return '';
+    const date = new Date(value);
+    return String(value).length === 10 || date.toISOString().slice(11) === '00:00:00.000Z' ? key : clientTodayKey(date);
+}
+export function clientContactCalendarExpression() {
+    return { $cond: [{ $eq: [{ $type: '$lastContactDate' }, 'date'] }, {
+        $dateToString: { date: '$lastContactDate', format: '%Y-%m-%d', timezone: { $cond: [{ $eq: [{ $dateToString: { date: '$lastContactDate', format: '%H:%M:%S.%L', timezone: 'UTC' } }, '00:00:00.000'] }, 'UTC', 'America/Argentina/Buenos_Aires'] } }
+    }, null] };
+}
+
 export function clientCalendarKey(value) {
     if (!value) return '';
     const text = value instanceof Date ? (Number.isFinite(value.getTime()) ? value.toISOString() : '') : String(value);
@@ -42,13 +71,13 @@ export function formatClientNextAction(client) {
     return `${day}/${month}/${year}`;
 }
 
-// Primera atención es una equivalencia explícita de AutoSporting con Sin contactar.
-// No se deduce de ausencia de interacciones ni de la fecha de creación.
+// Contact status and pipeline are separate. Resetting contact never reopens a
+// closed operation, but an open negotiation can return to first attention.
 export function getClientPriorities(client, today = clientTodayKey()) {
     const stage = getClientPipelineStage(client);
-    const active = (!client?.status || client.status === 'activo') && !['cerrado', 'perdido'].includes(stage);
-    const first = active && stage === 'sin_contactar';
+    const active = (!client?.status || client.status === 'activo') && client?.doNotContact !== true && !['cerrado', 'perdido'].includes(stage);
+    const first = active && !effectiveClientContacted(client);
     const date = clientCalendarKey(client?.nextActionDate);
     const hasDate = client?.nextActionDate !== null && client?.nextActionDate !== undefined && client?.nextActionDate !== '';
-    return { primera: first, hoy: active && (first || Boolean(date && date <= today)), sinfecha: active && !hasDate };
+    return { primera: first, hoy: active && (first || Boolean(date && date <= today)), sinfecha: active && !first && !hasDate };
 }

@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import Link from 'next/link';
 import { ChevronDown, Filter, Mail, MapPin, Phone } from 'lucide-react';
 import { formatClientNextAction } from '../../../utils/clientCommercial';
+import { clientDetailHref } from '../../../utils/clientNavigation';
 
 const formatDate = (value) => {
     if (!value) return '--';
@@ -33,7 +34,7 @@ const getStatusLabel = (status) => {
     return status || '--';
 };
 
-export default function ClientMobileCards({ clients, selectedIds = [], setSelectedIds, isSelectionMode = false }) {
+export default function ClientMobileCards({ clients, selectedIds = [], setSelectedIds, isSelectionMode = false, returnTo }) {
     const [expandedId, setExpandedId] = useState(clients?.[0]?._id || null);
 
     const toggleSelection = (clientId) => {
@@ -130,13 +131,13 @@ export default function ClientMobileCards({ clients, selectedIds = [], setSelect
 
                                     <div className="mt-4 flex items-center gap-2 border-t border-crm-border pt-3">
                                         <Link
-                                            href={`/admin/clientes/${client._id}`}
+                                            href={clientDetailHref(client._id, returnTo)}
                                             className="inline-flex h-7 items-center justify-center rounded-lg bg-crm-red/10 px-3 text-xs font-semibold text-red-300 no-underline transition-colors hover:bg-crm-red/15"
                                         >
                                             Ver ficha
                                         </Link>
                                         <Link
-                                            href={`/admin/clientes/${client._id}`}
+                                            href={clientDetailHref(client._id, returnTo)}
                                             className="inline-flex h-7 items-center justify-center rounded-lg bg-crm-surface-raised px-3 text-xs font-semibold text-crm-fg no-underline transition-colors hover:bg-crm-border"
                                         >
                                             Editar

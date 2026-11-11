@@ -1,8 +1,9 @@
 import { getArgentinaDateKey } from './cashProjection.js';
+import { stockIsAgencyOwned, stockOwnedQuery } from './stockOwnership.js';
 const DAY_MS = 86400000;
-const STATUS_MAP = { disponible: 'Disponible', senado: 'Reservado', vendido_sin_confirmar: 'Pausado', vendido: 'Vendido' };
+const STATUS_MAP = { disponible: 'Disponible', senado: 'Reservado', vendido_sin_confirmar: 'Pausado', vendido: 'Vendido', fuera_de_venta: 'Retirado' };
 export const STOCK_SORTS = ['manual', 'recent', 'oldest', 'price_asc', 'price_desc', 'year_desc', 'km_asc', 'brand_model'];
-export const STOCK_FILTER_KEYS = ['search', 'status', 'brand', 'model', 'transmission', 'tab', 'ml', 'currency', 'minPrice', 'maxPrice', 'minKm', 'maxKm', 'minDays', 'maxDays', 'stagnant', 'review', 'sort'];
+export const STOCK_FILTER_KEYS = ['search', 'status', 'brand', 'model', 'transmission', 'tab', 'ml', 'currency', 'minPrice', 'maxPrice', 'minKm', 'maxKm', 'minDays', 'maxDays', 'minYear', 'maxYear', 'location', 'responsible', 'origin', 'stagnant', 'review', 'sort'];
 
 export const normalizeStockText = (value) => String(value ?? '').trim().replace(/\s+/g, ' ').toLocaleLowerCase('es');
 const escapeRegex = (value) => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -16,7 +17,7 @@ const number = (value, key) => {
 };
 export const stockCurrency = (value) => ['USD', 'U$S', 'US$'].includes(String(value).trim().toUpperCase()) ? 'USD' : ['ARS', '$'].includes(String(value).trim().toUpperCase()) ? 'ARS' : null;
 // Conserva la clasificación estadística previa del CRM; no cambia el precio ni la moneda guardada.
-export const stockStatisticsCurrency = (value, price) => stockCurrency(value) === 'USD' && price <= 200000 ? 'USD' : 'ARS';
+export const stockStatisticsCurrency = value => stockCurrency(value);
 export const stockIsPublished = (value) => ['si', 'sí'].includes(normalizeStockText(value));
 export const stockHasPhoto = (car) => Boolean(String(car.coverImage || '').trim() || (Array.isArray(car.images) ? car.images : []).some(image => String(image || '').trim()));
 export const stockNeedsReview = (car) => !stockIsPublished(car.publishedOnML) || !stockHasPhoto(car) || typeof car.price !== 'number' || !Number.isFinite(car.price) || car.price <= 0;
@@ -44,16 +45,19 @@ export function stockOptions(values = []) {
 
 export function parseStockFilters(input = {}) {
     const result = {};
-    for (const key of ['search', 'status', 'brand', 'model', 'transmission', 'tab', 'ml']) {
+    for (const key of ['search', 'status', 'brand', 'model', 'transmission', 'tab', 'ml', 'location', 'responsible', 'origin']) {
         if (input[key] !== null && input[key] !== undefined && typeof input[key] !== 'string') throw new Error('Los filtros de texto deben contener un valor simple.');
         result[key] = String(input[key] ?? '').trim();
         if (result[key].length > (key === 'search' ? 300 : 120)) throw new Error('El texto del filtro es demasiado largo.');
     }
     result.currency = input.currency ? stockCurrency(input.currency) : null;
     if (input.currency && !result.currency) throw new Error('Elegí una moneda válida para filtrar el stock.');
-    for (const key of ['minPrice', 'maxPrice', 'minKm', 'maxKm', 'minDays', 'maxDays']) result[key] = number(input[key], key);
-    for (const key of ['minDays', 'maxDays']) if (result[key] !== null && !Number.isInteger(result[key])) throw new Error('Los días de stock deben ser números enteros.');
-    for (const [min, max] of [['minPrice', 'maxPrice'], ['minKm', 'maxKm'], ['minDays', 'maxDays']]) {
+    for (const key of ['minPrice', 'maxPrice', 'minKm', 'maxKm', 'minDays', 'maxDays', 'minYear', 'maxYear']) result[key] = number(input[key], key);
+    for (const key of ['minDays', 'maxDays', 'minYear', 'maxYear']) if (result[key] !== null && !Number.isInteger(result[key])) throw new Error('Los días y años deben ser números enteros.');
+    for (const key of ['minYear', 'maxYear']) if (result[key] !== null && (result[key] < 1886 || result[key] > 9999)) throw new Error('Revisá el año del filtro.');
+    if (result.origin && !['owned', 'consigned', 'undefined'].includes(result.origin)) throw new Error('Elegí un origen válido.');
+    if (result.responsible && result.responsible !== 'unassigned' && !/^[a-f\d]{24}$/i.test(result.responsible)) throw new Error('Elegí un responsable válido.');
+    for (const [min, max] of [['minPrice', 'maxPrice'], ['minKm', 'maxKm'], ['minDays', 'maxDays'], ['minYear', 'maxYear']]) {
         if (result[min] !== null && result[max] !== null && result[min] > result[max]) throw new Error('El mínimo del filtro no puede superar su máximo.');
     }
     if (!result.currency && (result.minPrice !== null || result.maxPrice !== null)) throw new Error('Elegí ARS o USD antes de filtrar por precio.');
@@ -79,13 +83,23 @@ export function buildStockQuery(input = {}, asOf = new Date()) {
     if (filters.brand && filters.brand !== 'todas') clauses.push({ brand: exactTextRegex(filters.brand) });
     if (filters.model && filters.model !== 'todos') clauses.push({ name: exactTextRegex(filters.model) });
     if (filters.transmission) clauses.push({ transmission: exactTextRegex(filters.transmission) });
-    if (filters.tab === 'consignaciones') clauses.push({ consignedBy: { $exists: true, $regex: /\S/ } });
+    if (filters.location) clauses.push({ location: exactTextRegex(filters.location) });
+    // $expr evita depender de Mongoose para convertir el ID dentro de agregaciones.
+    if (filters.responsible) clauses.push(filters.responsible === 'unassigned'
+        ? { consignmentSeller: null }
+        : { $expr: { $eq: [{ $toString: '$consignmentSeller' }, filters.responsible] } });
+    const owned = stockOwnedQuery();
+    const consignor = { $or: [{ consignedBy: /\S/ }, { ownerName: /\S/ }, { 'tradeInOrigin.consigned': true }] };
+    if (filters.origin === 'owned') clauses.push(owned);
+    if (filters.origin === 'consigned') clauses.push({ $and: [{ $nor: [owned] }, consignor] });
+    if (filters.origin === 'undefined') clauses.push({ $nor: [owned, consignor] });
+    if (filters.tab === 'consignaciones') clauses.push({ $and: [{ $nor: [owned] }, consignor] });
     if (filters.tab === 'compartidos') clauses.push({ 'investor.percentage': { $gt: 0 } });
     if (filters.tab === 'cero_km') clauses.push({ $or: [{ condition: /^\s*(0\s*km|nuevo)\s*$/i }, { km: 0 }] });
     if (filters.ml === 'publicados') clauses.push({ publishedOnML: /^\s*s[ií]\s*$/i });
     if (filters.ml === 'no_publicados') clauses.push({ publishedOnML: { $not: /^\s*s[ií]\s*$/i } });
     if (filters.currency) clauses.push({ currency: filters.currency === 'USD' ? /^\s*(USD|U\$S|US\$)\s*$/i : /^\s*(ARS|\$)\s*$/i });
-    for (const [field, min, max] of [['price', 'minPrice', 'maxPrice'], ['km', 'minKm', 'maxKm']]) {
+    for (const [field, min, max] of [['price', 'minPrice', 'maxPrice'], ['km', 'minKm', 'maxKm'], ['year', 'minYear', 'maxYear']]) {
         const range = {};
         if (filters[min] !== null) range.$gte = filters[min];
         if (filters[max] !== null) range.$lte = filters[max];
@@ -142,13 +156,18 @@ export function filterStockSnapshot(cars, input = {}, asOf = new Date()) {
         if (filters.brand && filters.brand !== 'todas' && normalizeStockText(car.brand) !== normalizeStockText(filters.brand)) return false;
         if (filters.model && filters.model !== 'todos' && normalizeStockText(car.name) !== normalizeStockText(filters.model)) return false;
         if (filters.transmission && normalizeStockText(car.transmission) !== normalizeStockText(filters.transmission)) return false;
-        if (filters.tab === 'consignaciones' && !String(car.consignedBy || '').trim()) return false;
+        if (filters.location && normalizeStockText(car.location) !== normalizeStockText(filters.location)) return false;
+        const responsible = car.consignmentSeller?._id ?? car.consignmentSeller;
+        if (filters.responsible && (filters.responsible === 'unassigned' ? Boolean(responsible) : String(responsible || '') !== filters.responsible)) return false;
+        const origin = stockIsAgencyOwned(car) ? 'owned' : String(car.consignedBy || car.ownerName || '').trim() || car.tradeInOrigin?.consigned ? 'consigned' : 'undefined';
+        if (filters.origin && origin !== filters.origin) return false;
+        if (filters.tab === 'consignaciones' && origin !== 'consigned') return false;
         if (filters.tab === 'compartidos' && !(Number(car.investor?.percentage) > 0)) return false;
         if (filters.tab === 'cero_km' && !(Number(car.km) === 0 || /^\s*(0\s*km|nuevo)\s*$/i.test(car.condition || ''))) return false;
         if (filters.ml === 'publicados' && !stockIsPublished(car.publishedOnML)) return false;
         if (filters.ml === 'no_publicados' && stockIsPublished(car.publishedOnML)) return false;
         if (filters.currency && stockCurrency(car.currency) !== filters.currency) return false;
-        for (const [field, min, max] of [['price', 'minPrice', 'maxPrice'], ['km', 'minKm', 'maxKm']]) {
+        for (const [field, min, max] of [['price', 'minPrice', 'maxPrice'], ['km', 'minKm', 'maxKm'], ['year', 'minYear', 'maxYear']]) {
             const value = Number(car[field]);
             if ((filters[min] !== null || filters[max] !== null) && (typeof car[field] !== 'number' || !Number.isFinite(value))) return false;
             if (filters[min] !== null && value < filters[min]) return false;

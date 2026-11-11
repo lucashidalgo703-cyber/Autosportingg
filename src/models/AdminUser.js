@@ -44,7 +44,12 @@ const adminUserSchema = new mongoose.Schema({
     },
     lastLoginAt: {
         type: Date
-    }
+    },
+    leadAvailabilityStatus: { type: String, enum: ['available', 'paused', 'vacation', 'sick'], default: 'available' },
+    leadAvailabilityHistory: [{
+        status: { type: String, enum: ['available', 'paused', 'vacation', 'sick'] },
+        previousStatus: String, date: { type: Date, default: Date.now }, user: String
+    }]
 }, { timestamps: true });
 
 // Prevent sending passwordHash in JSON

@@ -24,6 +24,30 @@ test('global-search deep links initialize inventory search and capital links ret
     assert.equal(readStockLocation(buildStockLocation({ status: '' }).split('?')[1]).filters.status, '');
 });
 
+test('advanced commercial filters survive a detailed-view return link', () => {
+    const href = buildStockLocation({ status: '', minYear: 2018, maxYear: 2024, location: 'Salón Norte', responsible: 'unassigned', origin: 'owned', page: 2 }, 'capital', 'detailed');
+    const restored = readStockLocation(new URL(href, 'https://example.test').search);
+    assert.equal(restored.advanced.minYear, 2018);
+    assert.equal(restored.advanced.maxYear, 2024);
+    assert.equal(restored.advanced.location, 'Salón Norte');
+    assert.equal(restored.advanced.responsible, 'unassigned');
+    assert.equal(restored.advanced.origin, 'owned');
+    assert.equal(restored.view, 'capital');
+    assert.equal(restored.layout, 'detailed');
+    assert.equal(restored.filters.page, 2);
+});
+
+test('workbench views retain their own filters without turning them into inventory categories', () => {
+    const href = buildStockLocation({ search: 'Azul', tab: 'consignaciones', page: 2 }, 'demanda', 'cards', { demandDays: '180', demandSearch: 'Toyota Corolla', demandYearFrom: '2018', demandYearTo: '2025', includeImported: false, zeroDemand: true, withoutDays: '90', attentionType: 'mandate' });
+    const restored = readStockLocation(new URL(href, 'https://example.test').search);
+    assert.equal(restored.view, 'demanda'); assert.equal(restored.filters.tab, 'consignaciones'); assert.equal(restored.filters.search, 'Azul');
+    assert.equal(restored.workbench.demandDays, '180'); assert.equal(restored.workbench.includeImported, false); assert.equal(restored.workbench.zeroDemand, true); assert.equal(restored.workbench.withoutDays, '90');
+    assert.equal(restored.workbench.attentionType, 'all');
+    const today = readStockLocation('?vista=hoy&attentionType=followup&attentionResponsible=unassigned');
+    assert.equal(today.view, 'hoy'); assert.equal(today.workbench.attentionType, 'followup'); assert.equal(today.workbench.attentionResponsible, 'unassigned');
+    assert.equal(readStockLocation('?vista=demanda&demandDays=invalid').workbench.demandDays, '90');
+});
+
 test('invalid copied filters recover explicitly instead of sending malformed ranges to the API', () => {
     const restored = readStockLocation('?currency=USD&minPrice=100&maxPrice=10&pagina=4');
     assert.match(restored.error, /mínimo/);

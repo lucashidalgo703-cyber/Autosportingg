@@ -8,6 +8,8 @@ import { useAuth } from '../context/AuthContext';
 import { validateVehicleInput } from '../utils/vehicleValidation.js';
 import { vehicleDraftIdentity, readVehicleDraft, writeVehicleDraft, clearVehicleDraft } from '../utils/vehicleFormDraft.js';
 import {vehicleEditorExistingFiles, reorderVehicleEditorPhotos, removeVehicleEditorPhoto} from '../utils/vehicleEditPreservation.js';
+import VehicleReferenceFields from './crm/stock/VehicleReferenceFields';
+import {vehicleEditorDateValue,vehicleDateEditPatch} from '../utils/vehicleEditPreservation.js';
 import { compressImage } from '../utils/imageCompressor';
 
 const InputLabel = ({ children, required, htmlFor }) => (
@@ -39,14 +41,14 @@ const accountCurrency = value => {
     return code === '$' ? 'ARS' : code;
 };
 
-export default function VehicleFormModal({ isOpen, onClose, onSave, editingCar }) {
+export default function VehicleFormModal({ isOpen, onClose, onSave, editingCar, initialClient = null }) {
     const { token } = useAuth();
     const [isSaving, setIsSaving] = useState(false);
     const [fieldErrors, setFieldErrors] = useState({});
     const [draftRestored, setDraftRestored] = useState(false);
     const [draftAvailable, setDraftAvailable] = useState(null);
     const draftOwner = vehicleDraftIdentity(token);
-    const { markDirty, requestClose, closeNotice } = useVehicleFormClose({ isOpen, onClose, busy: isSaving, resetKey: editingCar?._id || token });
+    const { dirty, markDirty, requestClose, closeNotice } = useVehicleFormClose({ isOpen, onClose, busy: isSaving, resetKey: editingCar?._id || token });
     const [isDragging, setIsDragging] = useState(false);
     const [files, setFiles] = useState([]);
     const fileGeneration = useRef(0);
@@ -94,7 +96,7 @@ export default function VehicleFormModal({ isOpen, onClose, onSave, editingCar }
 
     const [formData, setFormData] = useState({
         brand: '', name: '', year: '', km: '', fuel: 'Nafta', condition: 'Muy bueno',
-        description: '', price: '', currency: 'USD', featured: false, sold: false, status: 'Disponible',
+        description: '', publicEquipment:'',publicMaintenance:'',publicPurchaseConditions:'',youtubeUrl:'',createdAt:'', price: '', currency: 'USD', featured: false, sold: false, status: 'Disponible',
         vehicleType: 'Auto', transmission: '', bodyType: '', doors: '', engine: '', version: '', documentation: {}, plateOrVin: '', color: '', purchasePrice: '', purchaseCurrency: 'USD',
         location: 'Salón Principal', owners: '1', agencyOwned: false, ownerName: '', linkedClient: '',
         ownerPhone: '', ownerEmail: '', consignedBy: '', engineNumber: '', chassisNumber: '',
@@ -118,6 +120,7 @@ export default function VehicleFormModal({ isOpen, onClose, onSave, editingCar }
             if (editingCar) {
                 setFormData({
                     ...editingCar,
+                    createdAt:vehicleEditorDateValue(editingCar.createdAt),
                     vehicleType: editingCar.vehicleType || 'Auto',
                     transmission: editingCar.transmission || '', bodyType: editingCar.bodyType || '', doors: editingCar.doors ?? '', engine: editingCar.engine || '', version: editingCar.version || '', documentation: editingCar.documentation || {},
                     condition: editingCar.condition || 'Muy bueno',
@@ -148,7 +151,7 @@ export default function VehicleFormModal({ isOpen, onClose, onSave, editingCar }
             } else {
                 setFormData({
                     brand: '', name: '', year: '', km: '', fuel: 'Nafta', condition: 'Muy bueno',
-                    description: '', price: '', currency: 'USD', featured: false, sold: false, status: 'Disponible',
+                    description: '', publicEquipment:'',publicMaintenance:'',publicPurchaseConditions:'',youtubeUrl:'',createdAt:'', price: '', currency: 'USD', featured: false, sold: false, status: 'Disponible',
                     vehicleType: 'Auto', transmission: '', bodyType: '', doors: '', engine: '', version: '', documentation: {}, plateOrVin: '', color: '', purchasePrice: '', purchaseCurrency: 'USD',
                     location: 'Salón Principal', owners: '1', agencyOwned: false, ownerName: '', linkedClient: '',
                     ownerPhone: '', ownerEmail: '', consignedBy: '', engineNumber: '', chassisNumber: '',
@@ -158,12 +161,13 @@ export default function VehicleFormModal({ isOpen, onClose, onSave, editingCar }
                     receivedAsTradeIn: false, tradeInOriginSaleId: '', tradeInOriginItemId: '',
                     tradeInOriginValue: '', tradeInOriginCurrency: 'ARS',
                     imagePosition: '50% 75%',
-                    imagePositions: []
+                    imagePositions: [],
+                    ...(initialClient?._id ? { clientId: initialClient._id, linkedClient: initialClient.fullName || '', ownerName: initialClient.fullName || '', ownerPhone: initialClient.phone || '', ownerEmail: initialClient.email || '', agencyOwned: false } : {})
                 });
                 setFiles([]);
             }
         } else { setFiles([]); }
-    }, [isOpen, editingCar, token]);
+    }, [isOpen, editingCar, token, initialClient]);
 
     useEffect(() => {
         setAvailableSales([]);
@@ -401,6 +405,7 @@ export default function VehicleFormModal({ isOpen, onClose, onSave, editingCar }
         // These are maintained by their own workflows. Sending them as multipart scalars
         // would turn nested source objects into "[object Object]" during a stock edit.
         for (const key of ['infoAuto', 'tradeInOrigin', 'purchasePaymentState', 'auditLog', 'expenses', 'documentationFiles', '__v', 'createdAt', 'updatedAt', 'draftPurchaseModality']) delete dataToSave[key];
+        Object.assign(dataToSave, editingCar ? vehicleDateEditPatch(editingCar, formData) : (formData.createdAt ? {createdAt:formData.createdAt} : {}));
         // Omit a blank acquisition amount; changing an existing amount still follows its audit flow.
         if (dataToSave.purchasePrice === '') delete dataToSave.purchasePrice;
         delete dataToSave.sold;
@@ -438,66 +443,7 @@ export default function VehicleFormModal({ isOpen, onClose, onSave, editingCar }
         toast.success('Borrador guardado. Podés continuarlo desde Nuevo vehículo.');
         onClose();
     };
-    const modalFooter = <>{closeNotice}<div className="flex flex-wrap items-center justify-end gap-2">
-        {!editingCar && <button type="button" onClick={saveForLater} disabled={isSaving} className="mr-auto rounded-lg border border-crm-border px-3 py-2 text-xs font-medium text-crm-fg disabled:opacity-40">Guardar y continuar después</button>}
-        <button type="button" onClick={requestClose} disabled={isSaving} className="rounded-lg border border-crm-border px-3 py-2 text-xs font-medium text-crm-fg disabled:opacity-40">Cancelar</button>
-        <button type="submit" form="vehicleForm" disabled={isSaving || isProcessingImages} className="rounded-lg bg-crm-red px-4 py-2 text-xs font-semibold text-white hover:bg-crm-red-hover disabled:opacity-40">{isProcessingImages ? 'Procesando fotos…' : isSaving ? 'Guardando…' : editingCar ? 'Guardar cambios' : 'Dar de alta'}</button>
-    </div></>;
-
-    return (
-        <VehicleEditorDialog
-            isOpen={isOpen}
-            onClose={requestClose}
-            title={editingCar ? 'Editar vehículo' : 'Nuevo vehículo'}
-            subtitle="Identidad, precios y propietario. Completá los datos técnicos y la publicación cuando los tengas."
-            busy={isSaving}
-            suspendKeyboard={showFramingModal}
-            footer={modalFooter}
-        >
-            <div className="p-4 sm:p-5 space-y-4">
-
-                    <form id="vehicleForm" onSubmit={handleSubmit} onChangeCapture={markDirty} className="space-y-4">
-                        <VehicleFormErrors errors={fieldErrors} prefix="vehicle-create" />
-                        {draftAvailable && <div className="rounded-xl border border-crm-border bg-crm-bg p-3 text-xs text-crm-fg"><p className="mb-2">Tenés un borrador guardado en este dispositivo el {new Date(draftAvailable.savedAt).toLocaleString('es-AR')}.</p><div className="flex gap-2"><button type="button" className="rounded-lg bg-crm-red px-3 py-2 font-semibold text-white" onClick={restoreDraft}>Continuar borrador</button><button type="button" className="rounded-lg border border-crm-border px-3 py-2" onClick={() => {clearVehicleDraft(localStorage, draftOwner); setDraftAvailable(null);}}>Descartar borrador guardado</button></div></div>}
-                        {draftRestored && <p role="status" className="rounded-lg border border-crm-border p-3 text-xs text-crm-fg-muted">Borrador recuperado. Revisá el pago de compra, volvé a vincular la venta de origen si es una permuta y seleccioná las fotos nuevamente.</p>}
-                        <fieldset disabled={isSaving} className="min-w-0 space-y-4">
-
-                        {/* 1. IDENTIDAD */}
-                        <section>
-                            <div className="flex items-center gap-2 mb-4 border-b border-crm-border pb-2">
-                                <span className="text-xs font-bold text-crm-fg uppercase tracking-widest">1. Identidad</span>
-                            </div>
-                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                                <div><InputLabel htmlFor="vehicle-create-vehicleType">Tipo de vehículo</InputLabel><SelectInput name="vehicleType" value={formData.vehicleType} onChange={handleChange} options={['Auto', 'Camioneta/SUV', 'Pick-up', 'Moto', 'Cuatriciclo', 'UTV', 'Moto de agua', 'Náutica', 'Camión', 'Otro']} /></div>
-                                <div><InputLabel htmlFor="vehicle-create-brand" required>Marca</InputLabel><TextInput name="brand" value={formData.brand} onChange={handleChange} required /></div>
-                                <div><InputLabel htmlFor="vehicle-create-name" required>Modelo / Versión</InputLabel><TextInput name="name" value={formData.name} onChange={handleChange} required /></div>
-
-                                <div><InputLabel htmlFor="vehicle-create-year" required>Año</InputLabel><TextInput name="year" value={formData.year} onChange={handleChange} type="number" min="1886" max={new Date().getFullYear() + 2} step="1" required /></div>
-                                <div><InputLabel htmlFor="vehicle-create-plateOrVin">Patente / VIN</InputLabel><TextInput name="plateOrVin" value={formData.plateOrVin} onChange={handleChange} /></div>
-                                <div><InputLabel htmlFor="vehicle-create-color">Color</InputLabel><TextInput name="color" value={formData.color} onChange={handleChange} /></div>
-                            </div>
-                        </section>
-
-                        {/* 2. PRECIO Y ESTADO */}
-                        <section>
-                            <div className="flex items-center gap-2 mb-4 border-b border-crm-border pb-2 mt-6">
-                                <span className="text-xs font-bold text-crm-fg uppercase tracking-widest">2. Precio y Estado</span>
-                            </div>
-                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                                <div><InputLabel htmlFor="vehicle-create-km" required>Kilómetros</InputLabel><TextInput name="km" value={formData.km} onChange={handleChange} type="number" min="0" step="1" required /></div>
-                                <div><InputLabel htmlFor="vehicle-create-price" required>Precio de venta</InputLabel><TextInput name="price" value={formData.price} onChange={handleChange} type="number" min="0" step="0.01" required /></div>
-                                <div><InputLabel htmlFor="vehicle-create-currency">Moneda venta</InputLabel><SelectInput name="currency" value={formData.currency} onChange={handleChange} options={['USD', 'ARS']} /></div>
-
-                                <div><InputLabel htmlFor="vehicle-create-purchaseCurrency">Moneda compra / toma</InputLabel><SelectInput name="purchaseCurrency" value={formData.purchaseCurrency} onChange={handleChange} options={['USD', 'ARS']} /></div>
-                                <div><InputLabel htmlFor="vehicle-create-purchasePrice">Precio compra / toma (opcional)</InputLabel><TextInput name="purchasePrice" value={formData.purchasePrice} onChange={handleChange} type="text" placeholder="0" /></div>
-                                <div><InputLabel htmlFor="vehicle-create-condition" required>Condición</InputLabel><SelectInput name="condition" value={formData.condition} onChange={handleChange} options={['0 km', 'Excelente', 'Muy bueno', 'Bueno', 'Regular']} /></div>
-                                <div><InputLabel htmlFor="vehicle-create-status">Estado inicial</InputLabel><SelectInput name="status" value={formData.status} onChange={handleChange} options={['Disponible', 'Pausado']} disabled={Boolean(editingCar && ['Reservado', 'Vendido'].includes(editingCar.status))} /></div>
-
-                                <div><InputLabel htmlFor="vehicle-create-location" required>Ubicación</InputLabel><SelectInput name="location" value={formData.location} onChange={handleChange} options={['Salón Principal', 'Depósito', 'Con cliente', 'Taller Mecánico', 'Taller Chapa y Pintura', 'Otra']} /></div>
-                            </div>
-
-                            {editingCar && ['Reservado','Vendido'].includes(editingCar.status) && <p className="mt-2 text-xs text-crm-fg-muted">El estado se gestiona desde la reserva o venta vinculada.</p>}
-                            {editingCar && (Math.abs((parseArgentineMoney(formData.purchasePrice) || 0) - (parseArgentineMoney(editingCar.purchasePrice ?? editingCar.precioCompra ?? 0) || 0)) > 0.001 || String(formData.purchaseCurrency || '').replace('U$S','USD') !== String(editingCar.purchaseCurrency || 'USD').replace('U$S','USD')) && (
+    const ownCostContents = <div className="space-y-4">{editingCar && (Math.abs((parseArgentineMoney(formData.purchasePrice) || 0) - (parseArgentineMoney(editingCar.purchasePrice ?? editingCar.precioCompra ?? 0) || 0)) > 0.001 || String(formData.purchaseCurrency || '').replace('U$S','USD') !== String(editingCar.purchaseCurrency || 'USD').replace('U$S','USD')) && (
                                 <div className="mt-4 flex flex-col gap-3 rounded-xl border border-amber-500/40 bg-amber-500/10 p-3.5">
                                     <div className="flex items-center justify-between text-xs">
                                         <span className="font-bold text-amber-300">Justificación obligatoria por cambio de costo</span>
@@ -530,25 +476,7 @@ export default function VehicleFormModal({ isOpen, onClose, onSave, editingCar }
                                         </div>
                                     </div>
                                 </div>
-                            )}
-                        </section>
-
-                        {/* 3. PROPIETARIO */}
-                        <section>
-                            <div className="flex items-center gap-2 mb-4 border-b border-crm-border pb-2 mt-6">
-                                <span className="text-xs font-bold text-crm-fg uppercase tracking-widest">3. Propietario y Origen</span>
-                            </div>
-
-                            <div className="bg-crm-surface border border-crm-border rounded-xl p-4 mb-4 flex flex-col gap-4">
-                                <label className="flex items-center gap-3 cursor-pointer">
-                                    <input id="vehicle-create-agencyOwned" type="checkbox" name="agencyOwned" checked={formData.agencyOwned} onChange={handleChange} className="w-4 h-4 rounded border-gray-600 text-red-500 focus:ring-red-500 bg-crm-surface-raised" />
-                                    <div>
-                                        <span className="text-xs font-bold text-crm-fg block">Vehículo propio de la agencia</span>
-                                        <span className="text-[10px] text-crm-fg-muted">El auto es de la agencia, no consignado por un tercero.</span>
-                                    </div>
-                                </label>
-
-{formData.agencyOwned && !formData.receivedAsTradeIn && !editingCar && (
+                            )}{formData.agencyOwned && !formData.receivedAsTradeIn && !editingCar && (
                                     <div className="border-t border-crm-border pt-4 mt-2 space-y-4">
                                         <div>
                                             <span className="text-xs font-bold text-emerald-400 uppercase tracking-widest block mb-1">
@@ -730,10 +658,7 @@ export default function VehicleFormModal({ isOpen, onClose, onSave, editingCar }
                                             </div>
                                         )}
                                     </div>
-                                )}
-
-
-                                {!editingCar && (
+                                )}{!editingCar && (
                                     <div className="border-t border-crm-border pt-3">
                                         <label className="flex items-center gap-3 cursor-pointer">
                                             <input id="vehicle-create-receivedAsTradeIn" type="checkbox" name="receivedAsTradeIn" checked={formData.receivedAsTradeIn} onChange={handleChange} className="w-4 h-4 rounded border-gray-600 text-purple-500 focus:ring-purple-500 bg-crm-surface-raised" />
@@ -818,18 +743,6 @@ export default function VehicleFormModal({ isOpen, onClose, onSave, editingCar }
                                     </div>
                                 )}
 
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                    <div><InputLabel htmlFor="vehicle-create-ownerName">Nombre / Razón Social</InputLabel><TextInput name="ownerName" value={formData.ownerName} onChange={handleChange} /></div>
-                                    <div><InputLabel htmlFor="vehicle-create-ownerPhone">Teléfono</InputLabel><TextInput name="ownerPhone" value={formData.ownerPhone} onChange={handleChange} /></div>
-                                    <div><InputLabel htmlFor="vehicle-create-ownerEmail">Email</InputLabel><TextInput name="ownerEmail" value={formData.ownerEmail} onChange={handleChange} type="email" /></div>
-                                    <div><InputLabel htmlFor="vehicle-create-consignedBy">Consignado por</InputLabel><TextInput name="consignedBy" value={formData.consignedBy} onChange={handleChange} placeholder="Nombre del responsable" /></div>
-                                </div>
-                            </div>
-                        </section>
-
-                        {/* 4. INVERSIÓN COMPARTIDA */}
-                        <VehicleFormSection title="Inversión Compartida" initiallyOpen={Boolean(formData.isSharedInvestment)}>
-
                             <div className="bg-crm-surface border border-crm-border rounded-xl p-4 flex flex-col gap-4">
                                 <label className="flex items-center gap-3 cursor-pointer">
                                     <input id="vehicle-create-isSharedInvestment" type="checkbox" name="isSharedInvestment" checked={formData.isSharedInvestment} onChange={handleChange} className="w-4 h-4 rounded border-gray-600 text-blue-500 focus:ring-blue-500 bg-crm-surface-raised" />
@@ -867,59 +780,16 @@ export default function VehicleFormModal({ isOpen, onClose, onSave, editingCar }
                                     </div>
                                 )}
                             </div>
-                        </VehicleFormSection>
-
-<VehicleFormSection title="Ficha técnica"><div className="grid grid-cols-1 gap-3 sm:grid-cols-2 md:grid-cols-3">
-    <div><InputLabel htmlFor="vehicle-create-transmission">Transmisión</InputLabel><SelectInput name="transmission" value={formData.transmission} onChange={handleChange} options={['', 'Manual', 'Automática']} /></div>
-    <div><InputLabel htmlFor="vehicle-create-bodyType">Carrocería</InputLabel><SelectInput name="bodyType" value={formData.bodyType} onChange={handleChange} options={['', 'SUV', 'Sedán', 'Hatchback', 'Pick-up', 'Coupé', 'Cabriolet', 'Familiar', 'Utilitario', 'Otro']} /></div>
-    <div><InputLabel htmlFor="vehicle-create-doors">Puertas</InputLabel><TextInput name="doors" type="number" min="0" max="12" step="1" value={formData.doors} onChange={handleChange} /></div>
-    <div><InputLabel htmlFor="vehicle-create-engine">Motor / Cilindrada</InputLabel><TextInput name="engine" value={formData.engine} onChange={handleChange} /></div>
-    <div><InputLabel htmlFor="vehicle-create-version">Versión</InputLabel><TextInput name="version" value={formData.version} onChange={handleChange} /></div>
-    <div><InputLabel htmlFor="vehicle-create-engineNumber">Nº Motor</InputLabel><TextInput name="engineNumber" value={formData.engineNumber} onChange={handleChange} /></div>
-<div><InputLabel htmlFor="vehicle-create-chassisNumber">Nº Chasis</InputLabel><TextInput name="chassisNumber" value={formData.chassisNumber} onChange={handleChange} /></div>
-<div><InputLabel htmlFor="vehicle-create-fuel">Combustible</InputLabel><SelectInput name="fuel" value={formData.fuel} onChange={handleChange} options={['Nafta', 'Diésel', 'GNC', 'Híbrido', 'Eléctrico']} /></div>
-</div></VehicleFormSection>
-                        {/* 5. DOCUMENTACIÓN */}
-                        <VehicleFormSection title="Documentación">
-
-                            <p className="mb-3 text-xs text-crm-fg-muted">Los archivos registrales se adjuntan desde la ficha después del alta. Podés indicar su estado ahora.</p>
-                            <div className="mb-4 grid grid-cols-1 gap-3 sm:grid-cols-2">{[['tituloAutomotor','Título automotor'],['cedulaVerde','Cédula verde / azul'],['verificacionPolicial','Verificación policial'],['informeDominio','Informe de dominio'],['formulario08','Formulario 08'],['libreDeudaPatentes','Libre deuda de patentes']].map(([key,label]) => <div key={key}><label htmlFor={'vehicle-create-doc-' + key} className="mb-1.5 block text-xs text-crm-fg-muted">{label}</label><select id={'vehicle-create-doc-' + key} className="w-full rounded-lg border border-crm-border bg-crm-bg px-3 py-2 text-xs text-crm-fg" value={formData.documentation?.[key] || 'pendiente'} onChange={event => setFormData(previous => ({...previous, documentation: {...previous.documentation, [key]: event.target.value}}))}><option value="pendiente">Pendiente</option><option value="recibido">Recibido</option><option value="no aplica">No aplica</option></select></div>)}</div>
-                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                                <div><InputLabel htmlFor="vehicle-create-hasManuals">Manuales</InputLabel><SelectInput name="hasManuals" value={formData.hasManuals} onChange={handleChange} options={['No', 'Sí', 'Parcial']} /></div>
-                                <div><InputLabel htmlFor="vehicle-create-hasDuplicateKeys">Duplicado de llaves</InputLabel><SelectInput name="hasDuplicateKeys" value={formData.hasDuplicateKeys} onChange={handleChange} options={['No', 'Sí', 'Parcial']} /></div>
-                                <div><InputLabel htmlFor="vehicle-create-hasOfficialServices">Servicios oficiales</InputLabel><SelectInput name="hasOfficialServices" value={formData.hasOfficialServices} onChange={handleChange} options={['No', 'Sí', 'Parcial']} /></div>
-                            </div>
-                        </VehicleFormSection>
-
-                        {/* 6. PUBLICACIÓN */}
-                        <VehicleFormSection title="Publicación">
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-                                <div>
-                                    <InputLabel>Visible en Web (Catálogo)</InputLabel>
-                                    <label className="flex items-center gap-3 cursor-pointer mt-2">
-                                        <input id="vehicle-create-visibleEnWeb" type="checkbox" name="visibleEnWeb" checked={formData.visibleEnWeb} onChange={handleChange} className="w-4 h-4 rounded border-gray-600 text-red-500 focus:ring-red-500 bg-crm-surface-raised" />
-                                        <span className="text-xs font-bold text-crm-fg">Mostrar en sitio web</span>
-                                    </label>
-                                </div>
-                                <div><InputLabel htmlFor="vehicle-create-publishedOnML">¿Publicado en MercadoLibre?</InputLabel><SelectInput name="publishedOnML" value={formData.publishedOnML} onChange={handleChange} options={['No', 'Sí']} /></div>
-                                <div><InputLabel htmlFor="vehicle-create-publishedBy">Publicado por</InputLabel><TextInput name="publishedBy" value={formData.publishedBy} onChange={handleChange} placeholder="Ej: Richi, Lucia..." /></div>
-                            </div>
-                            {!formData.visibleEnWeb || formData.status !== 'Disponible' ? (
-                                <div className="mb-4 bg-yellow-500/10 border border-yellow-500/20 text-yellow-500 p-3 rounded-lg text-xs flex gap-2 items-start">
-                                    <span>⚠️</span>
-                                    <span>Este vehículo está oculto del catálogo. Para publicarlo, cambiá estado a Disponible y activá Visible en web.</span>
-                                </div>
-                            ) : null}
-                            <div className="mb-4">
-                                <InputLabel htmlFor="vehicle-create-mlLink">Link de MercadoLibre</InputLabel>
-                                <TextInput name="mlLink" value={formData.mlLink} onChange={handleChange} placeholder="https://articulo.mercadolibre.com.ar/..." />
-                            </div>
-                        </VehicleFormSection>
-
-                        {/* 7. FOTOS Y NOTAS */}
-                        <VehicleFormSection title="Fotos y Notas">
+                        </div>;
+    const movePhoto = (from,to) => {
+        markDirty();
+        const arranged=reorderVehicleEditorPhotos(files,formData.imagePositions,formData.imagePosition,from,to);
+        setFiles(arranged.files);setFormData(previous=>({...previous,imagePositions:arranged.imagePositions,imagePosition:arranged.imagePosition}));
+    };
+    const photoContents = <div className="space-y-3">
                             <div className="flex items-center justify-between mb-4 border-b border-crm-border pb-2 mt-6">
-                                <span className="text-xs font-bold text-crm-fg uppercase tracking-widest">7. Fotos y Notas</span>
+                                <span className="text-xs font-semibold text-crm-fg">Fotos del vehículo</span>
+                                <button type="button" onClick={()=>document.getElementById('vehicle-create-images')?.click()} className="rounded-lg border border-crm-border px-3 py-2 text-xs font-semibold text-crm-fg">Agregar fotos</button>
                                 {files.length > 0 && (
                                     <button
                                         type="button"
@@ -935,13 +805,7 @@ export default function VehicleFormModal({ isOpen, onClose, onSave, editingCar }
                                     </button>
                                 )}
                             </div>
-                            <div className="mb-6">
-                                <InputLabel htmlFor="vehicle-create-notes">Notas Internas</InputLabel>
-                                <textarea id="vehicle-create-notes"
-                                    name="notes" value={formData.notes} onChange={handleChange} rows="3" placeholder="Observaciones privadas sobre el vehículo..."
-                                    className="h-9 w-full bg-crm-surface border border-crm-border rounded-lg px-3 py-2 text-sm text-crm-fg placeholder-gray-600 focus:border-red-500 focus:outline-none transition-colors resize-none"
-                                />
-                            </div>
+
                             <div
                                 onDragOver={(e) => { e.preventDefault(); setIsDragging(true); }}
                                 onDragLeave={(e) => { e.preventDefault(); setIsDragging(false); }}
@@ -955,7 +819,7 @@ export default function VehicleFormModal({ isOpen, onClose, onSave, editingCar }
                             >
                                 <input
                                     type="file" multiple accept="image/png, image/jpeg, image/jpg, image/webp"
-                                    id="vehicle-create-images" aria-label="Agregar fotos del vehículo" className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-20"
+                                    id="vehicle-create-images" aria-label="Agregar fotos del vehículo" hidden
                                     onChange={(e) => { if (e.target.files) addFiles(e.target.files); }}
                                 />
 
@@ -965,7 +829,7 @@ export default function VehicleFormModal({ isOpen, onClose, onSave, editingCar }
                                             <Upload size={18} />
                                         </div>
                                         <p className="text-gray-300 text-xs font-medium">Arrastra imágenes aquí</p>
-                                        <p className="text-gray-600 text-[10px] mt-1">o haz clic para explorar</p>
+                                        <p className="text-crm-fg-muted text-xs mt-1">o usá Agregar fotos</p>
                                     </div>
                                 ) : (
                                     <div className="flex gap-4 px-4 overflow-x-auto w-full items-center justify-start h-full z-10 custom-scrollbar py-2">
@@ -980,7 +844,7 @@ export default function VehicleFormModal({ isOpen, onClose, onSave, editingCar }
                                                     ${i === 0 ? 'border-red-500 ring-1 ring-red-500/50' : 'border-crm-border'}
                                                 `}
                                             >
-                                                <img src={file.preview} className="w-full h-full object-cover" />
+                                                <img src={file.preview} alt={'Foto '+(i+1)+' del vehículo'} className="w-full h-full object-cover" />
                                                 {i === 0 && (
                                                     <div className="absolute top-0 left-0 w-full bg-red-500/90 text-crm-fg text-[8px] font-bold text-center py-0.5 tracking-wider uppercase z-20">Portada</div>
                                                 )}
@@ -999,18 +863,52 @@ export default function VehicleFormModal({ isOpen, onClose, onSave, editingCar }
                                                 <button
                                                     type="button"
                                                     aria-label={`Quitar foto ${i + 1}`} onClick={(e) => { e.stopPropagation(); handleRemovePhoto(i); }}
-                                                    className="absolute top-1 right-1 bg-red-500 hover:bg-red-600 text-crm-fg p-1 rounded-full z-20 opacity-0 group-hover:opacity-100 transition-opacity"
+                                                    className="absolute top-1 right-1 bg-red-500 hover:bg-red-600 text-crm-fg p-1 rounded-full z-30 sm:opacity-0 sm:group-hover:opacity-100 focus-visible:opacity-100 transition-opacity"
                                                 >
                                                     <X size={10} />
                                                 </button>
+                                                <div className="absolute bottom-1 right-1 z-30 flex gap-1">
+                                                    <button type="button" aria-label={'Mover foto '+(i+1)+' a la izquierda'} disabled={i === 0} onClick={event=>{event.stopPropagation();movePhoto(i,i-1);}} className="rounded border border-white/20 bg-black/80 px-1.5 py-0.5 text-xs text-white disabled:opacity-30">←</button>
+                                                    <button type="button" aria-label={'Mover foto '+(i+1)+' a la derecha'} disabled={i === files.length-1} onClick={event=>{event.stopPropagation();movePhoto(i,i+1);}} className="rounded border border-white/20 bg-black/80 px-1.5 py-0.5 text-xs text-white disabled:opacity-30">→</button>
+                                                </div>
                                             </div>
                                         ))}
                                     </div>
                                 )}
                             </div>
-                        </VehicleFormSection>
+                        </div>;
+    const documentContents = <div>
 
-                        </fieldset>
+                            <p className="mb-3 text-xs text-crm-fg-muted">Los archivos registrales se adjuntan desde la ficha después del alta. Podés indicar su estado ahora.</p>
+                            <div className="mb-4 grid grid-cols-1 gap-3 sm:grid-cols-2">{[['tituloAutomotor','Título automotor'],['cedulaVerde','Cédula verde / azul'],['verificacionPolicial','Verificación policial'],['informeDominio','Informe de dominio'],['formulario08','Formulario 08'],['libreDeudaPatentes','Libre deuda de patentes']].map(([key,label]) => <div key={key}><label htmlFor={'vehicle-create-doc-' + key} className="mb-1.5 block text-xs text-crm-fg-muted">{label}</label><select id={'vehicle-create-doc-' + key} className="w-full rounded-lg border border-crm-border bg-crm-bg px-3 py-2 text-xs text-crm-fg" value={formData.documentation?.[key] || 'pendiente'} onChange={event => setFormData(previous => ({...previous, documentation: {...previous.documentation, [key]: event.target.value}}))}><option value="pendiente">Pendiente</option><option value="recibido">Recibido</option><option value="no aplica">No aplica</option></select></div>)}</div>
+
+                        </div>;
+    const modalFooter = <>{closeNotice}<div className="flex flex-wrap items-center justify-end gap-2"><span className="mr-auto text-xs text-crm-fg-muted">{dirty ? 'Cambios sin guardar' : 'Sin cambios'}</span>
+        {!editingCar && <button type="button" onClick={saveForLater} disabled={isSaving} className="mr-auto rounded-lg border border-crm-border px-3 py-2 text-xs font-medium text-crm-fg disabled:opacity-40">Guardar y continuar después</button>}
+        <button type="button" onClick={requestClose} disabled={isSaving} className="rounded-lg border border-crm-border px-3 py-2 text-xs font-medium text-crm-fg disabled:opacity-40">Cancelar</button>
+        <button type="submit" form="vehicleForm" disabled={isSaving || isProcessingImages} className="rounded-lg bg-crm-red px-4 py-2 text-xs font-semibold text-white hover:bg-crm-red-hover disabled:opacity-40">{isProcessingImages ? 'Procesando fotos…' : isSaving ? 'Guardando…' : editingCar ? 'Guardar cambios' : 'Dar de alta'}</button>
+    </div></>;
+
+    return (
+        <VehicleEditorDialog
+            isOpen={isOpen}
+            onClose={requestClose}
+            title={editingCar ? 'Editar — '+[formData.brand,formData.name,formData.year].filter(Boolean).join(' ') : 'Nuevo vehículo'}
+            subtitle="Fotos y datos complementarios se abren por sección."
+            busy={isSaving}
+            suspendKeyboard={showFramingModal}
+            footer={modalFooter}
+        >
+            <div className="p-4 sm:p-5 space-y-4">
+
+                    <form id="vehicleForm" onSubmit={handleSubmit} onChangeCapture={markDirty} className="space-y-4">
+                        {formData.clientId && <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-crm-border bg-crm-bg p-3 text-xs text-crm-fg-muted"><span>Propietario vinculado: {formData.linkedClient || formData.ownerName || 'Cliente de la agencia'}</span><button type="button" className="text-crm-red" onClick={() => { setFormData(previous => ({ ...previous, clientId: null, linkedClient: '' })); markDirty(); }}>Quitar vínculo</button></div>}
+                        <VehicleFormErrors errors={fieldErrors} prefix="vehicle-create" />
+                        {draftAvailable && <div className="rounded-xl border border-crm-border bg-crm-bg p-3 text-xs text-crm-fg"><p className="mb-2">Tenés un borrador guardado en este dispositivo el {new Date(draftAvailable.savedAt).toLocaleString('es-AR')}.</p><div className="flex gap-2"><button type="button" className="rounded-lg bg-crm-red px-3 py-2 font-semibold text-white" onClick={restoreDraft}>Continuar borrador</button><button type="button" className="rounded-lg border border-crm-border px-3 py-2" onClick={() => {clearVehicleDraft(localStorage, draftOwner); setDraftAvailable(null);}}>Descartar borrador guardado</button></div></div>}
+                        {draftRestored && <p role="status" className="rounded-lg border border-crm-border p-3 text-xs text-crm-fg-muted">Borrador recuperado. Revisá el pago de compra, volvé a vincular la venta de origen si es una permuta y seleccioná las fotos nuevamente.</p>}
+                        <fieldset disabled={isSaving} className="min-w-0 space-y-4">
+<VehicleReferenceFields data={formData} onChange={handleChange} prefix="vehicle-create" isEditing={Boolean(editingCar)} lockedStatus={Boolean(editingCar && ['Reservado','Vendido'].includes(editingCar.status))} costs={ownCostContents} documents={documentContents} photos={photoContents} />
+</fieldset>
                     </form>
             </div>
 

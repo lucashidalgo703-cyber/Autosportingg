@@ -37,7 +37,7 @@ describe('Agenda comercial de clientes con persistencia real', { concurrency: fa
         mongoose = (await import('mongoose')).default; mongoose.set('autoCreate', false);
         jwt = (await import('jsonwebtoken')).default;
         const app = (await import('../../server.js')).default;
-        models = Object.fromEntries(await Promise.all(['Client', 'Lead', 'Sale', 'AdminUser', 'AuditLog', 'CrmTask'].map(async name => [name, (await import(`../../src/models/${name}.js`)).default])));
+        models = Object.fromEntries(await Promise.all(['Client', 'Lead', 'Sale', 'AdminUser', 'AuditLog', 'CrmTask', 'Car', 'SavedStockView'].map(async name => [name, (await import(`../../src/models/${name}.js`)).default])));
         await (await import('../../src/config/db.js')).default();
         assert.equal(mongoose.connection.host, '127.0.0.1'); assert.equal(mongoose.connection.name, dbName);
         await Promise.all(Object.values(models).map(Model => Model.createCollection()));
@@ -102,7 +102,8 @@ describe('Agenda comercial de clientes con persistencia real', { concurrency: fa
         assert.equal((await call('GET', '/api/admin/clients?search=.*')).body.total, 1);
         assert.equal((await call('GET', '/api/admin/clients?search=QA-123')).body.total, 1);
         assert.equal((await call('GET', '/api/admin/clients?search=especial')).body.total, 1);
-        assert.equal((await call('GET', '/api/admin/clients?segment=sin-contactar')).body.total, 2);
+        assert.equal((await call('GET', '/api/admin/clients?segment=sin-contactar')).body.total, 0);
+        assert.equal((await call('GET', '/api/admin/clients?segment=contactados')).body.total, 2);
         const compatible = await call('GET', '/api/admin/clients?limit=1000'); assert.equal(compatible.status, 200); assert.equal(compatible.body.total, 2); assert.match(compatible.headers.get('cache-control'), /no-store/);
     });
     test('lectura no edita etapas ni datos y sin sesión o permiso no entrega clientes', async () => {
@@ -119,5 +120,46 @@ describe('Agenda comercial de clientes con persistencia real', { concurrency: fa
             const result = await call('PATCH', `/api/admin/clients/${client._id}`, input); assert.equal(result.status, 400, JSON.stringify(input));
         }
         assert.equal(JSON.stringify(await models.Client.findById(client._id).lean()), before);
+    });
+    test('las búsquedas guardadas son personales y preservan filtros y presentación entre consultas', async () => {
+        const own = token('admin', ['stock.read']);
+        const other = token('admin', ['stock.read'], new mongoose.Types.ObjectId());
+        const saved = await call('POST', '/api/admin/stock-views', { name: 'Automáticos QA', filters: { transmission: 'Automática', minYear: 2020, maxYear: 2026, responsible: String(seller._id), origin: 'owned', vista: 'inventario', presentacion: 'cards', secret: 'no guardar' } }, own);
+        assert.equal(saved.status, 201, JSON.stringify(saved.body));
+        assert.equal(saved.body.filters.presentacion, 'cards'); assert.equal(saved.body.filters.minYear, 2020); assert.equal(saved.body.filters.secret, undefined);
+        assert.equal((await call('GET', '/api/admin/stock-views', undefined, other)).body.views.length, 0);
+        assert.equal((await call('DELETE', '/api/admin/stock-views/' + saved.body._id, undefined, other)).status, 404);
+        const loaded = await call('GET', '/api/admin/stock-views', undefined, own); assert.equal(loaded.body.views.length, 1);
+        assert.equal((await call('POST', '/api/admin/stock-views', { name: ' automáticos qa ', filters: { minYear: 2022, presentacion: 'detailed' } }, own)).status, 201);
+        assert.equal(await models.SavedStockView.countDocuments(), 1);
+        assert.equal((await call('POST', '/api/admin/stock-views', { name: 'Inválida', filters: { minYear: 2022.5 } }, own)).status, 400);
+        assert.equal((await call('GET', '/api/admin/stock-views', undefined, token('administrativo', ['clientes.read']))).status, 403);
+        assert.equal((await call('DELETE', '/api/admin/stock-views/' + saved.body._id, undefined, own)).status, 200);
+        assert.equal(await models.SavedStockView.countDocuments(), 0);
+    });
+    test('ordena el conjunto antes de paginar y no expone conteos de ventas sin permiso', async () => {
+        const [a, z] = await models.Client.create([payload({ fullName: 'Alfa QA', firstName: 'Alfa', gender: 'mujer', segment: 'vip' }), payload({ fullName: 'Zulu QA', firstName: 'Zulu', gender: 'hombre', segment: 'regular' })]);
+        await models.Sale.create({ clientId: a._id, status: 'entregada', salePrice: 1000, saleCurrency: 'USD' });
+        const sorted = await call('GET', '/api/admin/clients?sort=name_desc&limit=1');
+        assert.equal(sorted.body.clients[0]._id, String(z._id)); assert.equal(sorted.body.total, 2);
+        const filtered = await call('GET', '/api/admin/clients?gender=mujer&tier=vip');
+        assert.equal(filtered.body.total, 1); assert.equal(filtered.body.clients[0].operationsCount, 1);
+        const limited = await call('GET', '/api/admin/clients?gender=mujer', undefined, token('admin', ['clientes.read']));
+        assert.equal(limited.body.clients[0].operationsCount, undefined);
+    });
+    test('contactar no retrocede etapas y los intentos sin respuesta no se convierten en contactos', async () => {
+        const first = await models.Client.create(payload({ pipelineStage: 'sin_contactar' }));
+        assert.equal((await call('GET', '/api/admin/clients?attention=sinfecha')).body.total, 0);
+        const missed = await call('PATCH', '/api/admin/clients/' + first._id, { newInteraction: { type: 'llamada', note: 'No respondió en QA', outboundNoReply: true } });
+        assert.equal(missed.body.lastContactDate, null); assert.equal(missed.body.pipelineStage, 'sin_contactar');
+        assert.equal((await call('GET', '/api/admin/clients?segment=sin-contactar')).body.total, 1);
+        assert.equal((await call('GET', '/api/admin/clients?segment=contactados')).body.total, 0);
+        const contacted = await call('PATCH', '/api/admin/clients/' + first._id, { newInteraction: { type: 'otro', note: 'Contacto confirmado desde directorio', outboundNoReply: false } });
+        assert.equal(contacted.body.pipelineStage, 'contactado'); assert.ok(contacted.body.lastContactDate);
+        assert.equal((await call('GET', '/api/admin/clients?segment=contactados')).body.total, 1);
+        assert.equal((await call('GET', '/api/admin/clients?segment=sin-contactar')).body.total, 0);
+        await models.Client.updateOne({ _id: first._id }, { $set: { pipelineStage: 'negociacion' } });
+        const advanced = await call('PATCH', '/api/admin/clients/' + first._id, { newInteraction: { type: 'otro', note: 'Nuevo contacto confirmado' } });
+        assert.equal(advanced.body.pipelineStage, 'negociacion');
     });
 });

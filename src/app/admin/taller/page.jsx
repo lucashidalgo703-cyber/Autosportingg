@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Wrench, Settings, Plus, RefreshCw } from 'lucide-react';
 import PermissionGuard from '../../../components/crm/layout/PermissionGuard';
-import { PERMISSIONS } from '../../../utils/adminPermissions';
+import { PERMISSIONS, hasPermission } from '../../../utils/adminPermissions';
 import { useAuth } from '../../../context/AuthContext';
 import { workshopFetch } from '../../../utils/workshopApiClient';
 import WorkshopOrdersView from '../../../components/crm/workshop/WorkshopOrdersView';
@@ -12,7 +12,7 @@ import WorkshopOrderModal from '../../../components/crm/workshop/WorkshopOrderMo
 import toast from 'react-hot-toast';
 
 export default function WorkshopPage() {
-    const { token } = useAuth();
+    const { token, user } = useAuth();
     const [activeTab, setActiveTab] = useState('ing_taller'); // Ing. x taller activa por defecto
     const [orders, setOrders] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -21,6 +21,21 @@ export default function WorkshopPage() {
     // Modals
     const [isConfigOpen, setIsConfigOpen] = useState(false);
     const [isCreateOpen, setIsCreateOpen] = useState(false);
+    const [initialClient, setInitialClient] = useState(null);
+    const canPrefill = hasPermission(user, PERMISSIONS.CLIENTES_READ) && hasPermission(user, PERMISSIONS.TALLER_WRITE);
+    useEffect(() => {
+        setInitialClient(null); setIsCreateOpen(false);
+        if (!token || !canPrefill) return;
+        const query = new URLSearchParams(window.location.search), clientId = query.get('cliente');
+        if (query.get('crear') !== 'orden' || !/^[a-f\d]{24}$/i.test(clientId || '')) return;
+        const controller = new AbortController();
+        fetch('/api/admin/clients/' + clientId, { headers: { Authorization: 'Bearer ' + token }, cache: 'no-store', signal: controller.signal }).then(async response => { const data = await response.json(); if (!response.ok) throw new Error(data.message || 'No se pudo recuperar el cliente.'); return data; }).then(client => {
+            if (controller.signal.aborted) return;
+            setInitialClient({ _id: client._id, fullName: client.fullName || [client.firstName, client.lastName].filter(Boolean).join(' '), phone: client.phone || '' }); setIsCreateOpen(true);
+            query.delete('crear'); query.delete('cliente'); window.history.replaceState(null, '', '/admin/taller' + (query.size ? '?' + query : ''));
+        }).catch(error => { if (!controller.signal.aborted) toast.error(error.message); });
+        return () => controller.abort();
+    }, [token, canPrefill]);
 
     // Fetch all orders for counts and data
     const fetchAllOrders = useCallback(async () => {
@@ -189,7 +204,8 @@ export default function WorkshopPage() {
 
             <WorkshopOrderModal 
                 isOpen={isCreateOpen}
-                onClose={() => setIsCreateOpen(false)}
+                initialClient={initialClient}
+                onClose={() => { setIsCreateOpen(false); setInitialClient(null); }}
                 onSuccess={handleRefresh}
             />
         </PermissionGuard>

@@ -18,7 +18,7 @@ export function useAdminTransactions() {
         const contentType = response.headers.get("content-type") || "";
         if (contentType.includes("application/json")) {
             const data = await response.json().catch(() => ({}));
-            return data.message || data.error || `Error ${response.status}`;
+            return Object.assign(new Error(data.message || data.error || `Error ${response.status}`), {errors:data.errors,code:data.code,status:response.status});
         }
         const text = await response.text().catch(() => "");
         return text || `Error ${response.status}`;
@@ -41,7 +41,7 @@ export function useAdminTransactions() {
             
             if (!response.ok) {
                 const message = await parseErrorResponse(response);
-                throw new Error(message);
+                throw message instanceof Error ? message : new Error(message);
             }
             
             return await parseResponseSafe(response);
@@ -64,7 +64,7 @@ export function useAdminTransactions() {
             
             if (!response.ok) {
                 const message = await parseErrorResponse(response);
-                throw new Error(message);
+                throw message instanceof Error ? message : new Error(message);
             }
             
             return await parseResponseSafe(response);
@@ -89,7 +89,7 @@ export function useAdminTransactions() {
             
             if (!response.ok) {
                 const message = await parseErrorResponse(response);
-                throw new Error(message);
+                throw message instanceof Error ? message : new Error(message);
             }
             
             return await parseResponseSafe(response);
@@ -114,7 +114,7 @@ export function useAdminTransactions() {
             
             if (!response.ok) {
                 const message = await parseErrorResponse(response);
-                throw new Error(message);
+                throw message instanceof Error ? message : new Error(message);
             }
             
             return await parseResponseSafe(response);
@@ -137,7 +137,7 @@ export function useAdminTransactions() {
             });
             if (!response.ok) {
                 const message = await parseErrorResponse(response);
-                throw new Error(message);
+                throw message instanceof Error ? message : new Error(message);
             }
             return await parseResponseSafe(response);
         } catch (err) {
@@ -160,7 +160,7 @@ export function useAdminTransactions() {
             });
             if (!response.ok) {
                 const message = await parseErrorResponse(response);
-                throw new Error(message);
+                throw message instanceof Error ? message : new Error(message);
             }
             return await parseResponseSafe(response);
         } catch (err) {
@@ -183,7 +183,7 @@ export function useAdminTransactions() {
             });
             if (!response.ok) {
                 const message = await parseErrorResponse(response);
-                throw new Error(message);
+                throw message instanceof Error ? message : new Error(message);
             }
             return await parseResponseSafe(response);
         } catch (err) {
@@ -204,7 +204,7 @@ export function useAdminTransactions() {
             });
             if (!response.ok) {
                 const message = await parseErrorResponse(response);
-                throw new Error(message);
+                throw message instanceof Error ? message : new Error(message);
             }
             const blob = await response.blob();
             const url = window.URL.createObjectURL(blob);
@@ -233,7 +233,7 @@ export function useAdminTransactions() {
             });
             if (!response.ok) {
                 const message = await parseErrorResponse(response);
-                throw new Error(message);
+                throw message instanceof Error ? message : new Error(message);
             }
             return await parseResponseSafe(response);
         } catch (err) {

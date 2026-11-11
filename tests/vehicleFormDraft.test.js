@@ -80,3 +80,10 @@ test('clear after a successful create removes only that user draft', () => {
     assert.equal(readVehicleDraft(store,'user-a',NOW),null);
     assert.equal(readVehicleDraft(store,'user-b',NOW).values.brand,'B');
 });
+
+test('draft roundtrip retains public catalog fields, description, optional owners and commercial entry date', () => {
+    const store=storage();
+    const values={description:'Descripción de prueba',publicEquipment:'Equipamiento verificado',publicMaintenance:'Mantenimiento informado',publicPurchaseConditions:'Condiciones declaradas',youtubeUrl:'https://youtu.be/demo',owners:2,createdAt:'2026-11-10'};
+    writeVehicleDraft(store,'user-a',values,NOW);
+    assert.deepEqual(readVehicleDraft(store,'user-a',NOW).values,values);
+});

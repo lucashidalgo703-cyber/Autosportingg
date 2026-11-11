@@ -1,202 +1,56 @@
-import React from 'react';
+"use client";
+import React, { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
-import { AlertTriangle, Calendar, CarFront, ChevronRight, DollarSign, ExternalLink, Receipt, ShieldCheck, User, X } from 'lucide-react';
-import SaleStatusBadge from './SaleStatusBadge';
+import { ExternalLink, FileText, ReceiptText } from 'lucide-react';
+import CrmModal from '../ui/CrmModal';
+import CrmButton from '../ui/CrmButton';
+import CrmSelect from '../ui/CrmSelect';
+import CrmTextarea from '../ui/CrmTextarea';
+import { useAuth } from '../../../context/AuthContext';
+import { hasPermission, PERMISSIONS } from '../../../utils/adminPermissions';
+import { useAdminSales } from '../../../hooks/useAdminSales';
+import { getSaleBuyer, formatSaleDeliveryDate } from '../../../utils/salePresentation';
 import { formatSaleDate } from '../../../utils/saleCalendarDate';
-
-export default function SaleDetailDrawer({ sale, isOpen, onClose }) {
-    if (!isOpen || !sale) return null;
-
-    const vehicleName = sale.vehicleId ? `${sale.vehicleId.brand} ${sale.vehicleId.name}` : 'Vehiculo no asignado';
-    const vehicleVin = sale.vehicleId?.plateOrVin || '';
-    const clientName = sale.clientId?.fullName || sale.clientId?.firstName || sale.leadId?.name || 'Sin Nombre';
-    const clientPhone = sale.clientId?.phone || sale.leadId?.phone || 'Sin telefono';
-
-    const hasClientLink = sale.clientId?._id || sale.leadId?._id;
-    const clientHref = sale.clientId?._id ? `/admin/clientes/${sale.clientId._id}` : (sale.leadId?._id ? `/admin/leads/${sale.leadId._id}` : '#');
-    const vehicleHref = sale.vehicleId?._id ? `/admin/stock/${sale.vehicleId._id}` : '#';
-
-    return (
-        <div className="fixed inset-0 z-50 flex justify-end">
-            <button
-                type="button"
-                aria-label="Cerrar detalle"
-                className="absolute inset-0 m-0 appearance-none border-0 bg-black/80 p-0 backdrop-blur-sm"
-                onClick={onClose}
-            />
-
-            <div className="relative flex h-full w-full max-w-md flex-col overflow-hidden border-l border-crm-border bg-crm-surface shadow-2xl animate-slide-in-right">
-                <div className="flex items-start justify-between border-b border-crm-border bg-crm-topbar p-5">
-                    <div>
-                        <div className="mb-2 flex items-center gap-3">
-                            <h2 className="m-0 text-lg font-bold tracking-tight text-crm-fg">Detalle de Venta</h2>
-                            <SaleStatusBadge status={sale.status} historicalOnly={sale.historicalOnly} />
-                        </div>
-                        <p className="m-0 max-w-[280px] truncate font-mono text-xs text-crm-fg-muted">
-                            ID: {sale._id}
-                        </p>
-                    </div>
-                    <button
-                        type="button"
-                        onClick={onClose}
-                        className="m-0 flex h-9 w-9 appearance-none items-center justify-center rounded-lg border border-transparent bg-transparent text-crm-fg-muted transition-colors hover:bg-crm-surface hover:text-crm-fg"
-                    >
-                        <X size={20} />
-                    </button>
-                </div>
-
-                <div className="flex-1 space-y-5 overflow-y-auto p-5 custom-scrollbar">
-                    <div className="flex items-start gap-3 rounded-xl border border-crm-red/20 bg-crm-red/10 p-3">
-                        <ShieldCheck size={18} className="mt-0.5 shrink-0 text-crm-red" />
-                        <div className="text-xs leading-5 text-red-100/80">
-                            <span className="mb-0.5 block font-bold text-red-200">Vista de solo lectura</span>
-                            La edicion y cancelacion de ventas se gestionan desde la ficha completa.
-                        </div>
-                    </div>
-
-                    <section>
-                        <h3 className="mb-3 flex items-center gap-2 text-xs font-bold uppercase tracking-[0.08em] text-crm-fg-muted">
-                            <DollarSign size={14} />
-                            Resumen Comercial
-                        </h3>
-                        <div className="space-y-4 rounded-xl border border-crm-border bg-crm-bg p-4">
-                            <div className="flex items-center justify-between border-b border-crm-border pb-4">
-                                <span className="text-sm text-crm-fg-muted">Precio Final</span>
-                                <span className={`text-lg font-black ${sale.status === 'cancelada' ? 'text-crm-fg-muted line-through' : 'text-emerald-300'}`}>
-                                    {sale.saleCurrency} {(sale.salePrice || 0).toLocaleString('es-AR')}
-                                </span>
-                            </div>
-                            <div className="flex items-center justify-between">
-                                <span className="text-sm text-crm-fg-muted">Metodo de Pago</span>
-                                <span className="text-sm font-bold uppercase text-crm-fg">{sale.paymentMethod}</span>
-                            </div>
-                            <div className="flex items-center justify-between">
-                                <span className="text-sm text-crm-fg-muted">Sena Aplicada</span>
-                                <span className="text-sm font-bold text-crm-fg">
-                                    {sale.depositAppliedAmount > 0
-                                        ? `${sale.depositAppliedCurrency} ${sale.depositAppliedAmount.toLocaleString('es-AR')}`
-                                        : 'No aplicada'
-                                    }
-                                </span>
-                            </div>
-                        </div>
-                    </section>
-
-                    <section>
-                        <h3 className="mb-3 flex items-center gap-2 text-xs font-bold uppercase tracking-[0.08em] text-crm-fg-muted">
-                            <Receipt size={14} />
-                            Entidades Relacionadas
-                        </h3>
-                        <div className="space-y-3">
-                            <div className="flex items-center justify-between rounded-xl border border-crm-border bg-crm-bg p-3">
-                                <div className="flex min-w-0 items-center gap-3">
-                                    <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-crm-border bg-crm-surface">
-                                        <CarFront size={14} className="text-crm-fg-muted" />
-                                    </div>
-                                    <div className="flex min-w-0 flex-col">
-                                        <span className="text-[10px] font-bold uppercase text-crm-fg-muted">Vehiculo</span>
-                                        <span className="truncate text-sm font-bold text-crm-fg">{vehicleName}</span>
-                                        {vehicleVin && <span className="mt-0.5 font-mono text-[10px] text-crm-fg-muted">{vehicleVin}</span>}
-                                    </div>
-                                </div>
-                                {sale.vehicleId && (
-                                    <Link href={vehicleHref} className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-crm-border bg-crm-surface text-crm-fg no-underline transition-colors hover:bg-crm-surface-raised">
-                                        <ChevronRight size={16} />
-                                    </Link>
-                                )}
-                            </div>
-
-                            {sale.clientId ? (
-                                <div className="flex items-center justify-between rounded-xl border border-crm-border bg-crm-bg p-3">
-                                    <div className="flex min-w-0 items-center gap-3">
-                                        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-crm-border bg-crm-surface">
-                                            <User size={14} className="text-crm-fg-muted" />
-                                        </div>
-                                        <div className="flex min-w-0 flex-col">
-                                            <span className="text-[10px] font-bold uppercase text-crm-fg-muted">Cliente Oficial</span>
-                                            <span className="truncate text-sm font-bold text-crm-fg">{clientName}</span>
-                                            <span className="mt-0.5 text-[10px] text-crm-fg-muted">{clientPhone}</span>
-                                        </div>
-                                    </div>
-                                    {hasClientLink && (
-                                        <Link href={clientHref} className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-crm-border bg-crm-surface text-crm-fg no-underline transition-colors hover:bg-crm-surface-raised">
-                                            <ChevronRight size={16} />
-                                        </Link>
-                                    )}
-                                </div>
-                            ) : (
-                                <div className="flex flex-col items-center gap-2 rounded-xl border border-crm-red/20 bg-crm-red/10 p-3 text-center">
-                                    <AlertTriangle size={20} className="text-red-300" />
-                                    <div>
-                                        <span className="block text-sm font-bold text-red-300">Venta sin cliente vinculado</span>
-                                        <span className="text-xs text-red-100/70">Abre la ficha completa para vincular un cliente oficial.</span>
-                                    </div>
-                                </div>
-                            )}
-                        </div>
-                    </section>
-
-                    <section>
-                        <h3 className="mb-3 flex items-center gap-2 text-xs font-bold uppercase tracking-[0.08em] text-crm-fg-muted">
-                            <Calendar size={14} />
-                            Registro y Auditoria
-                        </h3>
-                        <div className="space-y-4 rounded-xl border border-crm-border bg-crm-bg p-4">
-                            <div className="flex items-center justify-between">
-                                <span className="text-xs text-crm-fg-muted">Fecha de Venta</span>
-                                <span className="text-sm font-bold text-crm-fg">
-                                    {formatSaleDate(sale)}
-                                </span>
-                            </div>
-                            <div className="flex items-center justify-between">
-                                <span className="text-xs text-crm-fg-muted">Vendedor Asignado</span>
-                                <span className="text-sm font-bold text-crm-fg">{sale.salesperson || 'N/A'}</span>
-                            </div>
-
-                            {sale.notes && (
-                                <div className="border-t border-crm-border pt-4">
-                                    <span className="mb-2 block text-xs text-crm-fg-muted">Notas:</span>
-                                    <p className="m-0 whitespace-pre-wrap rounded-lg border border-crm-border bg-crm-surface p-3 text-sm text-crm-fg-muted">
-                                        {sale.notes}
-                                    </p>
-                                </div>
-                            )}
-
-                            {sale.saleAuditLog && sale.saleAuditLog.length > 0 && (
-                                <div className="border-t border-crm-border pt-4">
-                                    <span className="mb-2 block text-xs text-crm-fg-muted">Historial de Auditoria:</span>
-                                    <div className="space-y-2">
-                                        {sale.saleAuditLog.map((log, idx) => (
-                                            <div key={idx} className="flex gap-2 text-xs">
-                                                <div className="mt-1 flex flex-col items-center">
-                                                    <div className="h-1.5 w-1.5 rounded-full bg-crm-red" />
-                                                    {idx !== sale.saleAuditLog.length - 1 && <div className="my-1 h-full w-px bg-crm-border" />}
-                                                </div>
-                                                <div className="flex-1 pb-2">
-                                                    <span className="block text-crm-fg">{log.action}</span>
-                                                    <span className="text-[10px] text-crm-fg-muted">
-                                                        {new Date(log.date).toLocaleString()} por {log.user}
-                                                    </span>
-                                                </div>
-                                            </div>
-                                        ))}
-                                    </div>
-                                </div>
-                            )}
-                        </div>
-                    </section>
-                </div>
-
-                <div className="border-t border-crm-border bg-crm-topbar p-5">
-                    <Link
-                        href={`/admin/ventas/${sale._id}`}
-                        className="flex w-full items-center justify-center gap-2 rounded-lg bg-crm-red px-4 py-3 font-bold text-white no-underline transition-colors hover:bg-crm-red-hover"
-                    >
-                        <ExternalLink size={18} />
-                        Abrir ficha completa
-                    </Link>
-                </div>
-            </div>
-        </div>
-    );
+import { saleTradeInComposition } from '../../../utils/saleWorkspace';
+import { salePdfValues } from '../../../utils/salesWorkbench';
+import SaleStatusBadge from './SaleStatusBadge';
+import FinanceDocumentModal from '../finance/FinanceDocumentModal';
+import SaleDocumentsPanel from './SaleDocumentsPanel';
+import SaleDepositReconciliationPanel from './SaleDepositReconciliationPanel';
+const money=(amount,currency)=>`${currency||''} ${Number(amount||0).toLocaleString('es-AR',{maximumFractionDigits:2})}`;
+const Block=({title,children})=><section className="space-y-2"><h3 className="m-0 text-[11px] font-semibold uppercase tracking-wider text-crm-fg-muted">{title}</h3><div className="overflow-hidden rounded-[10px] border border-crm-border">{children}</div></section>;
+const Row=({label,children})=><div className="grid grid-cols-[minmax(110px,1fr)_minmax(0,1.4fr)] gap-4 border-b border-crm-border px-4 py-3 text-xs last:border-b-0"><span className="text-crm-fg-muted">{label}</span><div className="min-w-0 text-right text-crm-fg">{children||'Sin informar'}</div></div>;
+export default function SaleDetailDrawer({isOpen,onClose,sale:initial,onEdit,onDelete,onUpdated}){
+ const {token,user}=useAuth(); const {salesRequest}=useAdminSales(); const session=useRef(token);session.current=token;
+ const [record,setRecord]=useState(null);const [error,setError]=useState('');const [busy,setBusy]=useState(false);const [action,setAction]=useState('');const [reason,setReason]=useState('');const [nextStatus,setNextStatus]=useState('entregada');const [reviewUrl,setReviewUrl]=useState('');const [pdf,setPdf]=useState('');
+ const id=initial?._id;
+ useEffect(()=>{if(!isOpen||!id||!token)return;let disposed=false;setRecord(null);setError('');setAction('');setReason(''); const controller=new AbortController(); Promise.allSettled([salesRequest(`/api/admin/sales/${id}`,{signal:controller.signal}).then(data=>{if(!disposed)setRecord(data);}),salesRequest('/api/admin/sales-review-config',{signal:controller.signal}).then(data=>{if(!disposed)setReviewUrl(data.googleReviewsUrl||'');})]).then(results=>{if(!disposed&&results[0].status==='rejected'&&results[0].reason.name!=='AbortError')setError(results[0].reason.message);});return()=>{disposed=true;controller.abort();};},[isOpen,id,token,salesRequest]);
+ const sale=record;const canWrite=hasPermission(user,PERMISSIONS.VENTAS_WRITE);const canCancel=hasPermission(user,PERMISSIONS.VENTAS_CANCEL);const canStock=hasPermission(user,PERMISSIONS.STOCK_READ);const canClient=hasPermission(user,PERMISSIONS.CLIENTES_READ); const operational=sale&&!sale.historicalOnly&&!['borrador','cancelada'].includes(sale.status);
+ const mutate=async()=>{if(busy||!sale)return;const captured=token;setBusy(true);setError('');try{const data=action==='commission'?await salesRequest(`/api/admin/sales/${id}/commission-settlement`,{method:'PATCH',body:JSON.stringify({settled:true,note:reason})}):await salesRequest(`/api/admin/sales/${id}/workspace-status`,{method:'PATCH',body:JSON.stringify({status:nextStatus==='caida'?'cancelada':nextStatus,cancellationKind:nextStatus==='caida'?'caida':'cancelada',reason})});if(session.current!==captured)return;setRecord(data);setAction('');setReason('');onUpdated?.(data);}catch(err){if(err.name!=='AbortError'&&session.current===captured)setError(err.message);}finally{if(session.current===captured)setBusy(false);}};
+ if(!isOpen||!id)return null;
+ const buyer=getSaleBuyer(sale||initial||{});const car=sale?.vehicleId; const composition=sale? saleTradeInComposition(sale):null; const commission=sale?.commissionSettings||{};
+ return <>
+  <CrmModal isOpen={isOpen} onClose={()=>{if(!busy)onClose?.();}} title={buyer.name||'Detalle de venta'} maxWidth="max-w-[672px]" fullScreenOnMobile fullHeightOnDesktop bodyClassName="p-0" footer={<div className="flex flex-wrap items-center justify-end gap-2"><CrmButton variant="secondary" size="sm" disabled={busy} onClick={onClose}>Cerrar</CrmButton>{operational&&canWrite&&<CrmButton variant="secondary" size="sm" onClick={()=>{setAction('status');setReason('');}}>Cambiar status</CrmButton>}{sale&&canWrite&&sale.status!=='cancelada'&&<CrmButton size="sm" onClick={()=>onEdit?.(sale)}>Editar</CrmButton>}{sale?.status==='cancelada'&&canCancel&&<CrmButton size="sm" variant="danger" onClick={()=>onDelete?.(sale)}>Eliminar</CrmButton>}</div>}>
+   <div className="space-y-5 p-5 sm:p-6">
+    {error&&<div role="alert" className="rounded-lg border border-red-500/20 bg-red-500/10 p-3 text-sm text-red-200">{error}</div>}
+    {!sale?<p className="text-sm text-crm-fg-muted">Cargando venta…</p>:<>
+     <div className="flex flex-wrap items-center gap-2"><SaleStatusBadge status={sale.cancellationKind==='caida'?'caida':sale.status} historicalOnly={sale.historicalOnly}/>{!sale.historicalOnly&&sale.status!=='borrador'&&<Link href={`/admin/expedientes?search=${encodeURIComponent(id)}`} className="rounded-full border border-crm-border px-2.5 py-1 text-xs text-crm-fg no-underline">Expediente</Link>}<span className="flex-1"/><Link href={`/admin/ventas/${id}`} className="inline-flex items-center gap-1 text-xs text-crm-red no-underline">Ficha CRM <ExternalLink size={12}/></Link></div>
+     <div className="flex flex-wrap gap-2"><CrmButton size="sm" variant="secondary" onClick={()=>setPdf('boleto')}><FileText size={13}/>Boleto</CrmButton><CrmButton size="sm" variant="secondary" onClick={()=>setPdf('recibo')}><ReceiptText size={13}/>Recibo</CrmButton>{['Reseña comprador','Reseña ex dueño'].map(label=><CrmButton key={label} size="sm" variant="secondary" disabled={!reviewUrl} title={reviewUrl?'Abrir enlace configurado; no envía mensajes':'Configurá el enlace de Google Reviews'} onClick={()=>window.open(reviewUrl,'_blank','noopener,noreferrer')}>{label}</CrmButton>)}</div>
+     <Block title="Vehículo"><Row label="Unidad">{car?`${car.brand||''} ${car.name||''}`:'Sin vehículo'}</Row><Row label="Patente / Año">{[car?.plateOrVin,car?.year].filter(Boolean).join(' · ')}</Row><Row label="Kilometraje">{sale.draftData?.mileage||car?.km||'Sin informar'}</Row><Row label="Propietario">{car?.ownerName||sale.vehicleOwnerName}</Row>{canStock&&car?._id&&<Row label="Stock"><Link className="text-crm-red" href={`/admin/stock/${car._id}`}>Abrir vehículo</Link></Row>}</Block>
+     <Block title="Comprador"><Row label="Nombre">{buyer.name}</Row><Row label="DNI">{buyer.dni}</Row><Row label="Teléfono">{buyer.phone}</Row><Row label="Email">{buyer.email}</Row>{buyer.clientId&&canClient&&<Row label="Cliente CRM"><Link href={`/admin/clientes/${buyer.clientId}`} className="text-crm-red">Abrir ficha del cliente</Link></Row>}</Block>
+     <Block title="Financiero"><Row label="Precio de venta"><strong>{money(sale.salePrice,sale.saleCurrency)}</strong></Row><Row label="Seña aplicada anterior">{money(sale.depositAppliedAmount,sale.depositAppliedCurrency||sale.saleCurrency)}</Row><Row label="Señas declaradas pendientes">{['USD','ARS'].map(currency=><div key={currency}>{money((sale.depositRecords||[]).filter(r=>r.status==='pendiente'&&r.currency===currency).reduce((sum,r)=>sum+Number(r.amount||0),0),currency)}</div>)}</Row><Row label="Permutas">{['USD','ARS'].filter(currency=>composition.totals[currency]>0).map(currency=><div key={currency}>{money(composition.totals[currency],currency)}</div>)}{!sale.tradeIns?.length&&'Sin permuta'}{composition.unresolved>0&&<span className="block text-amber-300">Moneda distinta sin cotización; no se descuenta nominalmente.</span>}</Row><Row label="Cobros confirmados">{sale.finance?money(sale.finance.netoCobrado,sale.saleCurrency):'Consultar ficha financiera'}</Row><Row label="Pagos externos (sin caja)">{money(sale.finance?.externalPaid,sale.saleCurrency)}</Row><Row label="Constancia histórica (sin caja)">{money(sale.finance?.historicalSettled,sale.saleCurrency)}</Row><Row label="Dado por saldado (sin cobro)">{money(sale.finance?.writtenOff,sale.saleCurrency)}</Row><Row label="Saldo de cobranza">{sale.finance?money(sale.finance.pendingBalance,sale.saleCurrency):'Consultar ficha financiera'}</Row><Row label="Pago / Cuotas">{sale.paymentMethod} · {sale.financingDetails?.installmentsCount||sale.installmentsCount||'Sin plan'}</Row><Row label="Fecha de venta">{formatSaleDate(sale)}</Row><Row label="Entrega estimada">{formatSaleDeliveryDate(sale.estimatedDeliveryDate)}</Row><Row label="Entrega real">{formatSaleDeliveryDate(sale.actualDeliveryDate,true)}</Row><Row label="Consignación">{sale.consignationOwnerId?.name||sale.consignationOwnerId?.username||(sale.consignationOwnerId?'Responsable asignado':'Sin asignar')}</Row></Block>
+     <p className="m-0 text-xs leading-5 text-crm-fg-muted">La composición distingue acuerdo comercial y cobros. Guardar señas, cambiar estado o declarar una comisión liquidada no registra movimientos de caja.</p>
+     <SaleDepositReconciliationPanel sale={sale} onUpdated={updated => { setRecord(updated); onUpdated?.(updated); }} />
+     <Block title="Comisión"><Row label="Vendedor">{commission.sellerPct??1}% · {money(Number(sale.salePrice||0)*Number(commission.sellerPct??1)/100,sale.saleCurrency)}</Row><Row label="Consignación">{commission.consignationPct??0.5}%</Row><Row label="Extra">{money(commission.extraAmount,commission.extraCurrency||sale.saleCurrency)}</Row><Row label="Estado"><span className={sale.commissionSettlement?.settled?'text-emerald-300':'text-amber-300'}>{sale.commissionSettlement?.settled?'Liquidada · declaración manual':'Pendiente de liquidación'}</span>{operational&&canWrite&&!sale.commissionSettlement?.settled&&<CrmButton size="sm" variant="secondary" className="mt-2" onClick={()=>{setAction('commission');setReason('');}}>Marcar liquidada</CrmButton>}</Row>{sale.commissionSettlement?.settled&&<Row label="Constancia">{sale.commissionSettlement.note} · {sale.commissionSettlement.settledBy}</Row>}</Block>
+     <section><h3 className="mb-3 text-[11px] font-semibold uppercase tracking-wider text-crm-fg-muted">Historial de estados</h3><div className="space-y-3 border-l border-crm-border pl-4">{(sale.saleAuditLog||[]).filter(row=>row.field==='status'||/CREAD|ACTIVAD|ANULAD/.test(row.action)).slice().reverse().map((row,i)=><div key={i} className="text-xs"><p className="m-0 text-crm-fg">{row.details||row.action}</p><p className="mb-0 mt-1 text-[11px] text-crm-fg-muted">{new Date(row.date).toLocaleString('es-AR')} · {row.user}</p></div>)}</div></section>
+     {(sale.reminders||[]).length>0&&<Block title="Recordatorios">{sale.reminders.map(row=><Row key={row._id} label={row.type}>{formatSaleDeliveryDate(row.date)} · {row.note||'Sin nota'}</Row>)}</Block>}
+     <details className="rounded-[10px] border border-crm-border p-4"><summary className="cursor-pointer text-xs font-medium">Documentación privada</summary><div className="mt-3"><SaleDocumentsPanel saleId={id}/></div></details>
+     {(sale.managementNotes||[]).length>0&&<details className="rounded-[10px] border border-crm-border p-4"><summary className="cursor-pointer text-xs font-medium">Bitácora de Gestoría / Finanzas</summary>{sale.managementNotes.map(row=><p key={row._id} className="text-xs text-crm-fg-muted">{row.recipient}: {row.text} · {row.author} · {new Date(row.date).toLocaleString('es-AR')}</p>)}</details>}
+     {(sale.draftData?.notes||sale.notes)&&<p className="whitespace-pre-wrap text-xs leading-5 text-crm-fg-muted">{sale.draftData?.notes||sale.notes}</p>}
+    </>}
+   </div>
+  </CrmModal>
+  {action&&<CrmModal isOpen onClose={()=>{if(!busy)setAction('');}} title={action==='commission'?'Marcar comisión liquidada':'Cambiar status'} maxWidth="max-w-lg" fullScreenOnMobile footer={<div className="flex justify-end gap-2"><CrmButton variant="secondary" disabled={busy} onClick={()=>setAction('')}>Cancelar</CrmButton><CrmButton disabled={busy||!reason.trim()} onClick={mutate}>{busy?'Guardando…':'Guardar'}</CrmButton></div>}><div className="space-y-4 p-5">{error&&<p role="alert" className="text-sm text-red-300">{error}</p>}{action==='status'&&<CrmSelect aria-label="Nuevo estado" value={nextStatus} onChange={e=>setNextStatus(e.target.value)}>{sale?.status!=='entregada'&&<><option value="señado">Reserva</option><option value="confirmada">Activa</option><option value="entregada">Cerrada</option></>}{canCancel&&<><option value="caida">Caída</option><option value="cancelada">Cancelada</option></>}</CrmSelect>}<CrmTextarea aria-label="Motivo" placeholder={action==='commission'?'Constancia de la liquidación manual':'Motivo del cambio'} value={reason} onChange={e=>setReason(e.target.value)} /><p className="text-xs leading-5 text-crm-fg-muted">{action==='commission'?'Esta declaración registra autor y fecha. No paga ni crea un egreso de caja.':'El cambio queda auditado. Cancelar no revierte cuotas ni caja ni libera la unidad automáticamente; revisá sus obligaciones en la ficha CRM.'}</p></div></CrmModal>}
+  {pdf&&sale&&<FinanceDocumentModal isOpen onClose={()=>setPdf('')} documentKind={pdf} initialValues={salePdfValues(sale)}/>}
+ </>;
 }

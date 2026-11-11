@@ -1,3 +1,4 @@
+import {vehicleDisplayCurrency} from './vehicleFinancialDisplay.js';
 /**
  * Utilidades para el cálculo y conciliación patrimonial del pago de compra de unidades.
  * Soporta adquisiciones propias directas y adquisiciones en co-inversión / a medias con empresas asociadas.
@@ -48,7 +49,7 @@ export function getCarPurchasePaymentSummary(car) {
 
     const cost = Number(car.purchasePrice ?? car.precioCompra ?? state.totalCost ?? 0);
     const rawCurrency = car.purchaseCurrency || car.monedaCompra || car.currency || car.moneda;
-    const currency = ((rawCurrency === 'USD' || rawCurrency === 'U$S') && cost > 200000) ? 'ARS' : (rawCurrency === 'ARS' ? 'ARS' : (rawCurrency || 'USD'));
+    const currency = vehicleDisplayCurrency(rawCurrency) || rawCurrency || null;
 
     const partnerPercentage = isSharedInvestment 
         ? Math.min(99, Math.max(1, Number(state.partnerPercentage || car.investor?.percentage || 50)))

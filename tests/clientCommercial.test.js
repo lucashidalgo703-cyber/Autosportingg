@@ -13,7 +13,8 @@ test('las etapas anteriores siguen visibles mediante equivalencias, sin modifica
 });
 test('primera atención equivale a Sin contactar y hoy incluye vencidos y hoy, no los futuros', () => {
     const today = '2026-11-10';
-    assert.deepEqual(getClientPriorities({ pipelineStage: 'nuevo' }, today), { primera: true, hoy: true, sinfecha: true });
+    assert.deepEqual(getClientPriorities({ pipelineStage: 'nuevo' }, today), { primera: true, hoy: true, sinfecha: false });
+    assert.equal(getClientPriorities({ pipelineStage: 'contactado' }, today).sinfecha, true);
     assert.equal(getClientPriorities({ pipelineStage: 'contactado', nextActionDate: '2026-11-09' }, today).hoy, true);
     assert.equal(getClientPriorities({ pipelineStage: 'contactado', nextActionDate: '2026-11-10' }, today).hoy, true);
     assert.equal(getClientPriorities({ pipelineStage: 'contactado', nextActionDate: '2026-11-11' }, today).hoy, false);

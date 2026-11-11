@@ -16,11 +16,12 @@ export function vehicleDraftIdentity(token, now = Date.now()) {
 function safeValues(values) {
     const result = {};
     for (const [key, value] of Object.entries(values || {})) {
+        if (['publicEquipment','publicMaintenance','publicPurchaseConditions','youtubeUrl','createdAt'].includes(key) && typeof value === 'string') { result[key] = value.slice(0,key === 'youtubeUrl' ? 2048 : 5000); continue; }
         if (key === 'draftPurchaseModality' && ['pagar_ahora', 'pendiente', 'pago_parcial', 'ya_pagado_historico'].includes(value)) { result[key] = value; continue; }
         if (!FIELDS.has(key)) continue;
         if (key === 'documentation' && value && typeof value === 'object' && !Array.isArray(value)) {
             result.documentation = Object.fromEntries(Object.entries(value).filter(([name, status]) => ['tituloAutomotor', 'cedulaVerde', 'verificacionPolicial', 'informeDominio', 'formulario08', 'libreDeudaPatentes'].includes(name) && ['recibido', 'pendiente', 'no aplica'].includes(status)));
-        } else if (typeof value === 'string') result[key] = value.slice(0, 10000);
+        } else if (typeof value === 'string') result[key] = value.slice(0, ['description','notes'].includes(key) ? 20000 : 10000);
         else if (typeof value === 'boolean' || (typeof value === 'number' && Number.isFinite(value))) result[key] = value;
     }
     return result;

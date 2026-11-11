@@ -126,11 +126,15 @@ async function startPreview() {
     const { default: Installment } = await import('../src/models/Installment.js');
     const { default: Transaction } = await import('../src/models/Transaction.js');
     const { default: CrmSettings } = await import('../src/models/CrmSettings.js');
+    const { default: CrmTask } = await import('../src/models/CrmTask.js');
+    const { default: CommunicationLog } = await import('../src/models/CommunicationLog.js');
+    const { default: Pedido } = await import('../src/models/Pedido.js');
     const { getArgentinaDateKey } = await import('../src/utils/cashProjection.js');
     await connectDB();
 
     const today = getArgentinaDateKey();
     const day = (offset) => new Date(Date.parse(`${today}T00:00:00.000Z`) + offset * 86400000);
+    const intakeDay = (offset) => new Date(day(offset).getTime() + 3 * 3600000);
     const [owner, seller] = await AdminUser.create([
         { name: 'Administración de prueba', email: OWNER_EMAIL, passwordHash: hashPassword(OWNER_PASSWORD), role: 'owner', active: true },
         { name: 'Ventas de prueba', email: SELLER_EMAIL, passwordHash: hashPassword(SELLER_PASSWORD), role: 'ventas', active: true },
@@ -150,11 +154,81 @@ async function startPreview() {
     const [owned, shared, consigned, sold] = await Car.create([
         { ...carBase, brand: 'Toyota', name: 'Corolla QA propio', price: 18000000, purchasePrice: 14500000, currency: 'ARS', purchaseCurrency: 'ARS', status: 'Disponible', agencyOwned: true, plateOrVin: 'QA-PROPIO', order: 1,
             transmission: 'Automática', bodyType: 'Sedán', doors: 4, engine: '1.8', version: 'QA CVT', color: 'Gris', expenses: [{concept:'Preparación ficticia en otra moneda', amount:300, currency:'USD'}],
+            consignmentSeller: seller._id,
+            publicEquipment: 'Equipamiento ficticio de QA: ABS, control de estabilidad y cámara de retroceso.',
+            publicMaintenance: 'Mantenimiento de demostración informado para revisar el editor. No corresponde a una unidad real.',
+            publicPurchaseConditions: 'Condiciones ficticias de QA. Esta unidad no está publicada ni se ofrece a la venta.',
+            inspection: {
+                mechanic: { status: 'ok', note: 'Evaluación mecánica ficticia registrada en QA.' },
+                frontSuspension: { status: 'observacion', note: 'Observación de prueba para revisar el detalle.' },
+                brakes: { status: 'ok', note: 'Revisión ficticia sin observaciones.' },
+                bodyPaint: { status: 'revisar', note: 'Revisar panel de demostración; no es un diagnóstico real.' },
+                interior: { status: 'sin_evaluar', note: '' },
+                tiresPercent: 75, service: 'Service informado ficticio a los 30.000 km.', keyCount: 2,
+                singleOwner: false, verifiedKm: true, titleInHand: true, vtvValid: null, noDebts: null, transferReady: false,
+                documentationNotes: 'Documentación ficticia pendiente de revisión.', generalNotes: 'Peritaje de demostración, sin fotos ni constancias reales.',
+                updatedAt: intakeDay(-1), updatedBy: owner.name
+            },
+            auditLog: [{ action: 'PERITAJE', field: 'inspection', details: 'Peritaje ficticio inicial de la vista previa.', user: owner.name, date: intakeDay(-1), source: 'QA_LOCAL' }],
             images: ['/hero-autosporting.jpg', '/logo-header-white-red.png'], coverImage: '/hero-autosporting.jpg', imagePositions: ['50% 25%', '50% 80%'], imagePosition: '50% 25%' },
         { ...carBase, brand: 'Ford', name: 'Focus QA compartido', price: 15000, purchasePrice: 12000, currency: 'USD', purchaseCurrency: 'USD', status: 'Disponible', agencyOwned: true, plateOrVin: 'QA-COMPARTIDO', investor: { name: 'Inversor de prueba', percentage: 50 }, order: 2,
             purchasePaymentState: { modality: 'ya_pagado_historico', status: 'conciliacion_pendiente', isSharedInvestment: true, partnerCompany: 'Inversor de prueba', partnerPercentage: 50 } },
-        { ...carBase, brand: 'Renault', name: 'Sandero QA consignado', price: 11000000, currency: 'ARS', purchaseCurrency: 'ARS', status: 'Disponible', agencyOwned: false, ownerName: 'Consignante de prueba', consignedBy: 'Consignante de prueba', consignmentStatus: 'publicado', plateOrVin: 'QA-CONSIGNADO', order: 3 },
+        { ...carBase, brand: 'Renault', name: 'Sandero QA consignado', price: 11000000, currency: 'ARS', purchaseCurrency: 'ARS', status: 'Disponible', agencyOwned: false, ownerName: 'Consignante de prueba', consignedBy: 'Consignante de prueba', consignmentSeller: seller._id, consignmentStatus: 'publicado', plateOrVin: 'QA-CONSIGNADO', order: 3 },
         { ...carBase, brand: 'Peugeot', name: '208 QA vendido', price: 15000000, purchasePrice: 12000000, currency: 'ARS', purchaseCurrency: 'ARS', status: 'Vendido', sold: true, agencyOwned: true, plateOrVin: 'QA-VENDIDO', order: 4 }
+    ]);
+    // Casos completos y anónimos de la ficha comercial. Los identificadores
+    // alfabéticos y teléfonos en cero son datos de prueba, nunca personas reales.
+    const [firstContactClient, followedClient, blockedClient] = await Client.create([
+        {
+            fullName: 'QA Ficha - Primera atención', phone: '0000000000', email: 'qa-primera@example.invalid', dniCuit: 'QA-SIN-DNI-001',
+            type: 'potencial', source: 'web', reason: 'lead_digital', status: 'activo', pipelineStage: 'sin_contactar',
+            assignedTo: seller._id, assignedAt: intakeDay(0), createdAt: intakeDay(0), createdBy: owner.name,
+            interestedVehicleId: owned._id, vehicleOfInterest: `${owned.brand} ${owned.name}`, brand: owned.brand, model: owned.name,
+            description: 'Consulta ficticia por la unidad exacta de stock; busca un sedán automático para uso diario.',
+            currency: 'ARS', maxBudget: 19000000, yearFrom: 2020, yearTo: 2024,
+            segment: 'regular', gender: 'mujer', birthDate: new Date('1990-02-28T00:00:00.000Z'), occupation: 'Ocupación ficticia de QA',
+            purchaseMethod: 'financiacion', purchaseTiming: '1_3_meses', availableDownPayment: 6000000, downPaymentCurrency: 'ARS', tradeInIntent: 'si',
+            locality: 'Localidad ficticia QA', province: 'Provincia ficticia QA', nextAction: 'Realizar el primer contacto de demostración',
+            nextActionDate: day(0), lastContactDate: null,
+            interactions: [{ type: 'llamada', note: 'Intento ficticio sin respuesta; el cliente sigue sin contactar.', outboundNoReply: true, date: intakeDay(0), user: seller.name }],
+            clientAuditLog: [{ action: 'CREACION', details: 'Ficha ficticia creada para QA.', date: intakeDay(0), user: owner.name }, { action: 'RESPONSABLE_ASIGNADO', field: 'assignedTo', newValue: String(seller._id), details: 'Responsable ficticio asignado para revisar el historial.', date: intakeDay(0), user: owner.name }],
+            notes: 'DATOS FICTICIOS. No contactar: teléfono de ceros y correo reservado .invalid.'
+        },
+        {
+            fullName: 'QA Ficha - Contactado con seguimiento', phone: '0000000001', email: 'qa-seguimiento@example.invalid', dniCuit: 'QA-SIN-DNI-002',
+            type: 'potencial', source: 'local', reason: 'entro_puerta', status: 'activo', pipelineStage: 'visita',
+            assignedTo: seller._id, assignedAt: intakeDay(-2), createdAt: intakeDay(-2), createdBy: owner.name,
+            interestedVehicleId: consigned._id, vehicleOfInterest: `${consigned.brand} ${consigned.name}`, brand: consigned.brand, model: consigned.name,
+            description: 'Perfil ficticio que ya respondió y quiere visitar la unidad consignada.', currency: 'ARS', maxBudget: 12000000, yearFrom: 2021, yearTo: 2024,
+            segment: 'vip', purchaseMethod: 'contado', purchaseTiming: 'ahora', availableDownPayment: 0, downPaymentCurrency: 'ARS', tradeInIntent: 'no',
+            nextAction: 'Coordinar día y horario de la visita ficticia', nextActionDate: day(1), lastContactDate: day(-1),
+            interactions: [{ type: 'whatsapp', note: 'Respondió en el caso de demostración y pidió ver la unidad.', outboundNoReply: false, date: intakeDay(-1), user: seller.name }, { type: 'cita_agendada', note: 'Visita ficticia pendiente de confirmación. Agendar no registra una nueva respuesta.', outboundNoReply: false, date: intakeDay(0), user: seller.name }],
+            clientAuditLog: [{ action: 'CREACION', details: 'Ficha de demostración con contacto y próximo paso.', date: intakeDay(-2), user: owner.name }, { action: 'INTERACCION', field: 'interactions', details: 'Respuesta ficticia guardada; etapa de visita.', date: intakeDay(-1), user: seller.name }],
+            notes: 'DATOS FICTICIOS de QA; no corresponde a una persona real.'
+        },
+        {
+            fullName: 'QA Ficha - No contactar', email: 'qa-sin-contacto@example.invalid', phone: '0000000002',
+            type: 'potencial', source: 'facebook', reason: 'lead_digital', status: 'activo', pipelineStage: 'contactado', doNotContact: true,
+            assignedTo: seller._id, createdAt: intakeDay(-3), createdBy: owner.name,
+            description: 'Caso ficticio para comprobar accesos de contacto deshabilitados.',
+            clientAuditLog: [{ action: 'ACTUALIZACION', field: 'doNotContact', oldValue: false, newValue: true, details: 'Preferencia ficticia de no recibir contactos.', date: intakeDay(0), user: owner.name }],
+            notes: 'Registro ficticio de QA con preferencia No contactar activa.'
+        }
+    ]);
+    const matchingRequest = await Pedido.create({
+        clientId: firstContactClient._id, clientName: firstContactClient.fullName, clientPhone: firstContactClient.phone,
+        requestedBrand: owned.brand, requestedModel: owned.name, yearRange: '2020-2024', budget: 19000000, currency: 'ARS', status: 'Buscando',
+        assignedTo: seller._id, createdBy: owner._id, nextActionDate: day(1),
+        notes: 'Pedido manual ficticio de QA. No activa el aviso de la ficha ni envía mensajes.'
+    });
+    const [vehicleFollowUp] = await CrmTask.create([
+        { title: 'QA - Revisar documentación del Corolla', description: 'Seguimiento ficticio del vehículo para revisar ficha y agenda.', type: 'general', source: 'stock', status: 'pendiente', vehicleId: owned._id, dueDate: day(1), assignedTo: seller._id, responsibleText: 'Gestoría ficticia', user: owner.name, auditLog: [{ action: 'SEGUIMIENTO_CREADO', user: owner.name, date: intakeDay(0) }] },
+        { title: 'QA - Confirmar visita del cliente', description: followedClient.nextAction, type: 'lead', source: 'agenda', status: 'pendiente', clientId: followedClient._id, vehicleId: consigned._id, dueDate: day(1), dueTime: '10:00', assignedTo: seller._id, user: seller.name }
+    ]);
+    await CommunicationLog.create([
+        { entityType: 'vehicle', entityId: owned._id, vehicleId: owned._id, clientId: firstContactClient._id, vehicleActivityType: 'consulta', createdBy: seller._id, assignedTo: seller._id, channel: 'web', direction: 'inbound', outcome: 'interested', title: 'QA - Consulta por Corolla', notes: 'Consulta ficticia vinculada a un cliente real del seed; no se envió ningún mensaje.', contactDate: intakeDay(0), sourceModule: 'stock' },
+        { entityType: 'vehicle', entityId: consigned._id, vehicleId: consigned._id, clientId: followedClient._id, vehicleActivityType: 'oferta', createdBy: seller._id, assignedTo: seller._id, channel: 'in_person', direction: 'internal', outcome: 'interested', title: 'QA - Oferta informada', notes: 'Oferta ficticia para revisar la actividad comercial de una unidad consignada.', contactDate: intakeDay(-1), sourceModule: 'stock' },
+        { entityType: 'client', entityId: followedClient._id, clientId: followedClient._id, vehicleId: consigned._id, vehicleActivityType: 'visita', createdBy: seller._id, assignedTo: seller._id, channel: 'phone', direction: 'internal', outcome: 'requested_visit', title: 'QA - Próxima visita', notes: 'Nota ficticia para comprobar conversación e historial del cliente y del vehículo.', contactDate: intakeDay(0), nextActionDate: day(1), sourceModule: 'clientes' }
     ]);
     // Más de una página para comprobar filtros y totales sobre el conjunto
     // completo. Las variantes de marca y moneda son intencionales y anónimas.
@@ -228,8 +302,9 @@ async function startPreview() {
     ]);
     await CrmSettings.create({ agencyName: 'AutoSporting QA aislada', commercialEmail: OWNER_EMAIL, cockpitMonthlyTargetUSD: 10000, assistantConfig: { enabled: false }, infoAutoConfig: { enabled: false }, dailySummary: { enabled: false }, updatedBy: owner._id });
 
+    if (process.env.CRM_PARITY_DEV === '1') process.env.NODE_ENV = 'development';
     const next = (await import('next')).default;
-    nextApp = next({ dev: false, dir: ROOT, hostname: HOST, port: FRONTEND_PORT });
+    nextApp = next({ dev: process.env.CRM_PARITY_DEV === '1', dir: ROOT, hostname: HOST, port: FRONTEND_PORT });
     await nextApp.prepare();
     const handleNext = nextApp.getRequestHandler();
     const nextApiPrefixes = ['/api/admin/pedidos', '/api/admin/infracciones', '/api/admin/telefonos', '/api-gestoria'];
@@ -253,6 +328,7 @@ async function startPreview() {
     console.log(`Consulta ficticia de solo lectura: ${READER_EMAIL} / ${READER_PASSWORD}`);
     console.log(`Fixture IDs: ${JSON.stringify({ owned: String(owned._id), shared: String(shared._id), consigned: String(consigned._id), sold: String(sold._id), legacyTradeIn: String(legacyTradeIn._id), activeSale: String(activeSale._id), draft: String(draft._id), partial: String(partial._id), rescheduled: String(rescheduled._id), overdue: String(overdue._id) })}`);
     console.log(`Etapa 2: ${extraStock.length} unidades y ${extraClients.length} fichas comerciales ficticias adicionales para revisar segunda página y filtros.`);
+    console.log(`QA fichas comerciales: ${JSON.stringify({ firstContactClient: String(firstContactClient._id), followedClient: String(followedClient._id), blockedClient: String(blockedClient._id), matchingRequest: String(matchingRequest._id), vehicleFollowUp: String(vehicleFollowUp._id) })}`);
     console.log('Ctrl+C cierra los servidores y elimina la réplica temporal.\n');
 }
 

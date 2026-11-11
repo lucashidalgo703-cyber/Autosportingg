@@ -1,4 +1,5 @@
 import nodemailer from 'nodemailer';
+import { assertClientContactAllowed } from '../services/clientContactPreferenceService.js';
 
 export class EmailAdapter {
     static hasOAuthConfig() {
@@ -75,7 +76,8 @@ export class EmailAdapter {
         throw new Error('Integracion de Correo no configurada.');
     }
 
-    static async sendEmail(to, subject, html, attachments = []) {
+    static async sendEmail(to, subject, html, attachments = [], context = {}) {
+        await assertClientContactAllowed({ ...context, to, channel: 'email' });
         if (!this.isConfigured()) {
             throw new Error('Integracion de Correo no configurada.');
         }

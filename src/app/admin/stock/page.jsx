@@ -29,10 +29,17 @@ import StockCalculationModal from '../../../components/crm/stock/StockCalculatio
 import { STOCK_FILTER_KEYS } from '../../../utils/stockFilters.js';
 import { useAuth } from '../../../context/AuthContext';
 import { hasPermission, PERMISSIONS } from '../../../utils/adminPermissions';
-import { buildStockLocation, readStockLocation } from '../../../utils/stockNavigation.js';
+import { buildStockLocation, readStockLocation, STOCK_WORKBENCH_DEFAULTS } from '../../../utils/stockNavigation.js';
 import { canReserveVehicle } from '../../../utils/vehicleDetail.js';
+import StockCommercialList from '../../../components/crm/stock/StockCommercialList';
+import VehicleQuickDrawer from '../../../components/crm/stock/VehicleQuickDrawer';
+import VehicleDetailDialog from '../../../components/crm/stock/VehicleDetailDialog';
+import VehicleComparisonDialog from '../../../components/crm/stock/VehicleComparisonDialog';
+import StockOverviewStrip from '../../../components/crm/stock/StockOverviewStrip';
+import StockAttentionView from '../../../components/crm/stock/StockAttentionView';
+import StockDemandView from '../../../components/crm/stock/StockDemandView';
 
-const EMPTY_STOCK_FILTERS = { model: '', transmission: '', currency: '', minPrice: '', maxPrice: '', minKm: '', maxKm: '', minDays: '', maxDays: '', stagnant: false, review: false, sort: 'manual' };
+const EMPTY_STOCK_FILTERS = { model: '', transmission: '', currency: '', minPrice: '', maxPrice: '', minKm: '', maxKm: '', minDays: '', maxDays: '', minYear: '', maxYear: '', location: '', responsible: '', origin: '', stagnant: false, review: false, sort: 'manual' };
 
 
 function formatARS(amount) {
@@ -48,13 +55,17 @@ function formatUSD(amount) {
 }
 
 export default function AdminStockPage() {
-    const { user } = useAuth();
+    const { user, token } = useAuth();
     const [pageNumber, setPageNumber] = useState(1);
     const [searchTerm, setSearchTerm] = useState('');
     const [debouncedSearch, setDebouncedSearch] = useState('');
     const [filterStatus, setFilterStatus] = useState('disponible');
     const [stockTab, setStockTab] = useState('stock');
     const [stockView, setStockView] = useState('inventario');
+    const [workbenchFilters, setWorkbenchFilters] = useState({ ...STOCK_WORKBENCH_DEFAULTS });
+    const [browserOnline, setBrowserOnline] = useState(true);
+    const [initialVehicleClient, setInitialVehicleClient] = useState(null), [prefillClientId, setPrefillClientId] = useState(null);
+    const prefillRequest = useRef(null);
     const [brandFilter, setBrandFilter] = useState('todas');
     const [mlFilter, setMlFilter] = useState('todas');
     const [advancedFilters, setAdvancedFilters] = useState({ ...EMPTY_STOCK_FILTERS });
@@ -64,6 +75,13 @@ export default function AdminStockPage() {
     const [navigationRevision, setNavigationRevision] = useState(0);
     const skipPageResetRef = useRef(false);
     const [selectedVehicleForPrint, setSelectedVehicleForPrint] = useState(null);
+    const [quickVehicle, setQuickVehicle] = useState(null);
+    const [detailConfig, setDetailConfig] = useState(null);
+    const [comparison, setComparison] = useState([]);
+    const [isComparisonOpen, setIsComparisonOpen] = useState(false);
+    const [savedViews, setSavedViews] = useState([]);
+    const [viewUsers, setViewUsers] = useState([]);
+    const [commercialSummaries, setCommercialSummaries] = useState({});
 
     const hasActiveFilters = Boolean(
         searchTerm.trim() ||
@@ -96,11 +114,12 @@ export default function AdminStockPage() {
 
     const { 
         cars, loading, error, refresh, total, pages, 
-        summary: backendSummary, brands: backendBrands, models: backendModels, isOffline,
+        summary: backendSummary, brands: backendBrands, models: backendModels, isOffline: snapshotOffline,
         swapCars, setCars, filteredTotalUSD, filteredTotalARS,
         filteredPropioARS, filteredInversionistasARS,
         filteredPropioUSD, filteredInversionistasUSD
     } = useAdminCars();
+    const isOffline = snapshotOffline || !browserOnline;
     const canWriteStock = hasPermission(user, PERMISSIONS.STOCK_WRITE) && !isOffline;
     const canReserve = hasPermission(user, PERMISSIONS.RESERVAS_WRITE) && !isOffline;
     const [showCalculationModal, setShowCalculationModal] = useState(false);
@@ -112,16 +131,75 @@ export default function AdminStockPage() {
     const [deletingCar, setDeletingCar] = useState(null);
     const [reservingCar, setReservingCar] = useState(null);
     const [confirmDeleteMandate, setConfirmDeleteMandate] = useState({ isOpen: false, mandate: null });
-    const { mandates, fetchMandates, deleteMandate } = useAdminMandates();
+    const { mandates, fetchMandates, deleteMandate, loading: mandatesLoading, error: mandatesError } = useAdminMandates();
     const [dolarBlue, setDolarBlue] = useState(null);
     const [isDolarLoading, setIsDolarLoading] = useState(true);
     const [isSwapping, setIsSwapping] = useState(false);
+
+    useEffect(() => {
+        setQuickVehicle(null); setDetailConfig(null); setComparison([]); setIsComparisonOpen(false); setSavedViews([]); setViewUsers([]); setIsFormOpen(false); setEditingCar(null); setMlEditingCar(null); setDeletingCar(null); setReservingCar(null); setInitialVehicleClient(null); setPrefillClientId(null); setConfirmDeleteMandate({ isOpen: false, mandate: null }); prefillRequest.current?.abort();
+        if (!token) return;
+        const controller = new AbortController();
+        Promise.allSettled([
+            fetch('/api/admin/stock-views', { headers: { Authorization: `Bearer ${token}` }, cache: 'no-store', signal: controller.signal }).then(async response => { if (!response.ok) return; const data = await response.json(); if (!controller.signal.aborted) setSavedViews(data.views || []); }),
+            fetch('/api/admin/users/active', { headers: { Authorization: `Bearer ${token}` }, cache: 'no-store', signal: controller.signal }).then(async response => { if (!response.ok) return; const data = await response.json(); if (!controller.signal.aborted) setViewUsers(Array.isArray(data) ? data : []); })
+        ]);
+        return () => controller.abort();
+    }, [token]);
+
+    useEffect(() => { const update = () => setBrowserOnline(navigator.onLine); update(); window.addEventListener('online', update); window.addEventListener('offline', update); return () => { window.removeEventListener('online', update); window.removeEventListener('offline', update); }; }, []);
+    const canReadClients = hasPermission(user, PERMISSIONS.CLIENTES_READ);
+    useEffect(() => {
+        if (!prefillClientId || !token) return;
+        if (!canWriteStock || !canReadClients) { toast.error(isOffline ? 'Reconectate para cargar una consignación desde la ficha del cliente.' : 'Necesitás permisos de edición de Stock y consulta de Clientes.'); setPrefillClientId(null); return; }
+        const controller = new AbortController(); prefillRequest.current = controller;
+        const base = process.env.NODE_ENV === 'production' ? '' : process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+        fetch(`${base}/api/admin/clients/${prefillClientId}`, { headers: { Authorization: `Bearer ${token}` }, signal: controller.signal, cache: 'no-store' }).then(async response => { const client = await response.json(); if (!response.ok) throw new Error(client.message || 'No se pudo cargar el cliente.'); return client; }).then(client => {
+            if (controller.signal.aborted || localStorage.getItem('token') !== token) return;
+            setEditingCar(null); setInitialVehicleClient({ _id: client._id, fullName: client.fullName, phone: client.phone || '', email: client.email || '' }); setIsFormOpen(true); setPrefillClientId(null);
+        }).catch(failure => { if (!controller.signal.aborted) { toast.error(failure.message); setPrefillClientId(null); } });
+        return () => controller.abort();
+    }, [prefillClientId, token, canWriteStock, canReadClients, isOffline]);
+
+    const openVehicleDetail = (vehicle, section = 'resumen', activityTab, initialAction) => {
+        setQuickVehicle(null); setDetailConfig({ vehicle, section, activityTab, initialAction });
+    };
+    const openWorkbenchVehicle = (car, section = 'resumen', activityTab) => openVehicleDetail(mapRealCarToCRM(car), section, activityTab);
+    const toggleComparison = vehicle => {
+        if (comparison.some(item => item.id === vehicle.id)) setComparison(previous => previous.filter(item => item.id !== vehicle.id));
+        else if (comparison.length >= 4) toast('Podés comparar hasta cuatro vehículos.');
+        else setComparison(previous => [...previous, vehicle]);
+    };
+
+    const saveStockView = async name => {
+        const response = await fetch('/api/admin/stock-views', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }, body: JSON.stringify({ name, filters: { ...currentStockFilters, ...advancedFilters, search: searchTerm, page: 1, vista: stockView, presentacion: inventoryLayout } }) });
+        const data = await response.json().catch(() => ({}));
+        if (!response.ok) throw new Error(data.message || 'No se pudo guardar la búsqueda.');
+        if (localStorage.getItem('token') !== token) return;
+        setSavedViews(previous => [data, ...previous.filter(view => view._id !== data._id)]); toast.success('Vista guardada para tu usuario');
+    };
+    const deleteStockView = async view => {
+        const response = await fetch(`/api/admin/stock-views/${view._id}`, { method: 'DELETE', headers: { Authorization: `Bearer ${token}` } });
+        if (!response.ok) { const data = await response.json().catch(() => ({})); throw new Error(data.message || 'No se pudo eliminar la búsqueda.'); }
+        if (localStorage.getItem('token') === token) setSavedViews(previous => previous.filter(item => item._id !== view._id));
+    };
+    const applyStockView = view => {
+        const stored = view.filters || {};
+        setStockView(stored.vista === 'capital' ? 'capital' : 'inventario');
+        setInventoryLayout(['list', 'cards', 'detailed'].includes(stored.presentacion) ? stored.presentacion : 'list');
+        setSearchTerm(stored.search || ''); setDebouncedSearch(stored.search || ''); setFilterStatus(stored.status || ''); setBrandFilter(stored.brand || 'todas'); setMlFilter(stored.ml || 'todas'); setStockTab(stored.tab || 'stock');
+        const advanced = Object.fromEntries(Object.keys(EMPTY_STOCK_FILTERS).map(key => [key, stored[key] ?? EMPTY_STOCK_FILTERS[key]]));
+        setAdvancedFilters(advanced); setDebouncedFilters(advanced); setPageNumber(1);
+    };
 
     useEffect(() => {
         const readLocation = () => {
             const saved = readStockLocation(window.location.search);
             skipPageResetRef.current = true;
             setStockView(saved.view);
+            setWorkbenchFilters(saved.workbench);
+            const query = new URLSearchParams(window.location.search);
+            if (query.get('crear') === 'consignacion' && /^[a-f\d]{24}$/i.test(query.get('cliente') || '')) setPrefillClientId(query.get('cliente'));
             setInventoryLayout(saved.layout);
             setSearchTerm(saved.filters.search);
             setDebouncedSearch(saved.filters.search);
@@ -182,23 +260,23 @@ export default function AdminStockPage() {
 
     // Ejecuta la consulta únicamente cuando cambie la página o los filtros debounced
     useEffect(() => {
-        if (navigationReady) refresh(currentStockFilters);
-    }, [currentStockFilters, refresh, navigationReady]);
+        if (navigationReady && !['hoy', 'demanda'].includes(stockView)) refresh(currentStockFilters);
+    }, [currentStockFilters, refresh, navigationReady, stockView]);
 
     const stockReturnTo = useMemo(() => {
-        try { return buildStockLocation(currentStockFilters, stockView, inventoryLayout); }
+        try { return buildStockLocation(currentStockFilters, stockView, inventoryLayout, workbenchFilters); }
         catch { return '/admin/stock'; }
-    }, [currentStockFilters, stockView, inventoryLayout]);
+    }, [currentStockFilters, stockView, inventoryLayout, workbenchFilters]);
 
     useEffect(() => {
         if (!navigationReady) return;
         try {
-            const location = buildStockLocation(currentStockFilters, stockView, inventoryLayout);
+            const location = buildStockLocation(currentStockFilters, stockView, inventoryLayout, workbenchFilters);
             if (location !== window.location.pathname + window.location.search) {
                 window.history.replaceState(window.history.state, '', location);
             }
         } catch { /* El formulario conserva el rango inválido para corregirlo. */ }
-    }, [currentStockFilters, stockView, inventoryLayout, navigationReady]);
+    }, [currentStockFilters, stockView, inventoryLayout, navigationReady, workbenchFilters]);
 
     const handleSwap = async (index, direction) => {
         if (!canWriteStock || isSwapping || advancedFilters.sort !== 'manual' || isOffline) return;
@@ -260,6 +338,16 @@ export default function AdminStockPage() {
         return cars.map(mapRealCarToCRM);
     }, [cars]);
 
+    useEffect(() => {
+        setCommercialSummaries({});
+        if (!token || isOffline || !vehicles.length || inventoryLayout !== 'list') return;
+        const controller = new AbortController();
+        const ids = vehicles.map(vehicle => vehicle.id).filter(Boolean).join(',');
+        fetch(`/api/admin/stock/commercial-summary?${new URLSearchParams({ ids })}`, { headers: { Authorization: `Bearer ${token}` }, signal: controller.signal, cache: 'no-store' })
+            .then(async response => { if (!response.ok) return; const data = await response.json(); if (!controller.signal.aborted) setCommercialSummaries(data.summaries || {}); }).catch(() => {});
+        return () => controller.abort();
+    }, [vehicles, token, isOffline, inventoryLayout]);
+
     // Los indicadores globales provienen exclusivamente del backendSummary calculado sobre la colección completa
     // Nunca deben recalcularse sobre los 20 vehículos de la página actual ni sobre el subconjunto filtrado
     const stockSummary = useMemo(() => {
@@ -319,6 +407,7 @@ export default function AdminStockPage() {
     }, [mandates, searchTerm]);
 
     const handleNewVehicle = () => {
+        setInitialVehicleClient(null);
         if (!canWriteStock) return;
         setEditingCar(null);
         setIsFormOpen(true);
@@ -464,6 +553,7 @@ export default function AdminStockPage() {
             toast.success(isEditing ? 'Vehículo actualizado' : 'Vehículo creado exitosamente');
             setIsFormOpen(false);
             setEditingCar(null);
+            setInitialVehicleClient(null);
             if (typeof refresh === 'function') {
                 refresh();
             } else {
@@ -480,7 +570,7 @@ export default function AdminStockPage() {
         }
     };
 
-    if (loading && cars.length === 0) {
+    if (!navigationReady || loading && cars.length === 0 && !['hoy', 'demanda'].includes(stockView)) {
         return (
             <div className="mx-auto flex min-h-[50vh] w-full max-w-7xl items-center justify-center p-4 md:p-6">
                 <div className="flex flex-col items-center gap-3">
@@ -494,12 +584,12 @@ export default function AdminStockPage() {
 
 
     return (
-        <div className="mx-auto w-full max-w-7xl p-4 pb-20 md:p-6 crm-no-print">
+        <div className="mx-auto w-full max-w-7xl p-4 pb-20 md:pb-4 crm-no-print">
             <div className="flex flex-col gap-6">
                 <CrmPageHeader 
                     compact
                     title="Stock"
-                    subtitle={isOffline ? `${total} vehículos en la instantánea disponible sin conexión` : `${total} vehículos en listado actual · ${stockSummary.disponibles} disponibles para vender (${stockSummary.total} en stock activo total)`}
+                    subtitle={['hoy', 'demanda'].includes(stockView) ? 'Inventario, preparación y atención comercial' : isOffline ? `${total} vehículos en la instantánea disponible sin conexión` : `${total} vehículos en listado actual · ${stockSummary.disponibles} disponibles para vender (${stockSummary.total} en stock activo total)`}
                     actions={
                         <>
                             <CrmButton variant="secondary" size="sm" className="gap-2" onClick={() => window.open('/catalogo', '_blank', 'noopener,noreferrer')}>
@@ -525,28 +615,20 @@ export default function AdminStockPage() {
                     }
                 />
 
-                <nav aria-label="Vistas de Stock" className="flex flex-wrap gap-2 border-b border-crm-border pb-3">
-                    <CrmButton
-                        type="button"
-                        variant={stockView === 'inventario' ? 'primary' : 'ghost'}
-                        size="sm"
-                        aria-pressed={stockView === 'inventario'}
-                        aria-controls="stock-inventario"
-                        onClick={() => changeStockView('inventario')}
-                    >
-                        Inventario
-                    </CrmButton>
-                    <CrmButton
-                        type="button"
-                        variant={stockView === 'capital' ? 'primary' : 'ghost'}
-                        size="sm"
-                        aria-pressed={stockView === 'capital'}
-                        aria-controls="stock-capital"
-                        onClick={() => changeStockView('capital')}
-                    >
-                        Capital e inversores
-                    </CrmButton>
+                <nav aria-label="Vistas de Stock" className="flex flex-wrap gap-x-5 gap-y-1 border-b border-crm-border">
+                    {[
+                        { id: 'stock', label: 'Stock general', view: 'inventario' }, { id: 'hoy', label: 'Para resolver hoy', view: 'hoy' },
+                        { id: 'consignaciones', label: 'Consignaciones', view: 'inventario' }, { id: 'cero_km', label: '0 km', view: 'inventario' },
+                        { id: 'mandatos', label: 'Mandatos', view: 'inventario' }, { id: 'demanda', label: 'Demanda', view: 'demanda' },
+                        { id: 'compartidos', label: 'Compartidos', view: 'inventario' }, { id: 'capital', label: 'Capital e inversores', view: 'capital' }
+                    ].map(item => {
+                        const active = item.view === 'inventario' ? stockView === 'inventario' && stockTab === item.id : stockView === item.view;
+                        return <button key={item.id} type="button" aria-pressed={active} onClick={() => { setStockView(item.view); if (item.view === 'inventario') { setStockTab(item.id); setPageNumber(1); } }} className={'inline-flex min-h-10 items-center border-0 border-b-2 bg-transparent px-1 text-xs font-semibold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-crm-red ' + (active ? 'border-crm-red text-crm-red' : 'border-transparent text-crm-fg-muted hover:text-crm-fg')}>{item.label}</button>;
+                    })}
                 </nav>
+                {stockView !== 'capital' && <StockOverviewStrip key={token || 'signed-out'} />}
+                {stockView === 'hoy' && <StockAttentionView filters={workbenchFilters} onChange={patch => setWorkbenchFilters(previous => ({ ...previous, ...patch }))} onOpenVehicle={openWorkbenchVehicle} onOpenMandates={() => { setStockView('inventario'); setStockTab('mandatos'); setPageNumber(1); }} />}
+                {stockView === 'demanda' && <StockDemandView filters={workbenchFilters} onChange={patch => setWorkbenchFilters(previous => ({ ...previous, ...patch }))} onOpenVehicle={openWorkbenchVehicle} />}
 
                 {stockView === 'capital' && (
                 isOffline ? <section id="stock-capital" aria-label="Capital e inversores" className="rounded-xl border border-crm-border bg-crm-surface p-5"><h2 className="m-0 text-base font-semibold text-crm-fg">Capital no disponible sin conexión</h2><p className="text-sm text-crm-fg-muted">Conectate para consultar el resumen patrimonial y las participaciones vigentes. El inventario guardado sigue disponible en la vista Inventario.</p><CrmButton type="button" variant="secondary" size="sm" onClick={() => changeStockView('inventario')}>Volver a Inventario</CrmButton></section> :
@@ -772,6 +854,12 @@ export default function AdminStockPage() {
                 {stockView === 'inventario' && (
                 <div id="stock-inventario" className="flex min-w-0 flex-col">
                     <StockFilters
+                        showTabs={false}
+                            savedViews={savedViews}
+                            onSaveView={saveStockView}
+                            onApplyView={applyStockView}
+                            onDeleteView={deleteStockView}
+                            users={viewUsers}
                         searchTerm={searchTerm}
                         setSearchTerm={setSearchTerm}
                         filterStatus={filterStatus}
@@ -801,29 +889,22 @@ export default function AdminStockPage() {
                         </div>
                     </div>}
 
-                    {error ? (
+                    {(stockTab === 'mandatos' ? mandatesError : error) ? (
                         <div className="rounded-xl border border-crm-red/30 bg-crm-red/10 px-6 py-5 text-center mt-4">
                             <p className="m-0 text-sm font-bold text-crm-red">Error de conexión</p>
-                            <p className="m-0 mt-2 text-sm text-crm-fg-muted">{error}</p>
+                            <p className="m-0 mt-2 text-sm text-crm-fg-muted">{stockTab === 'mandatos' ? mandatesError : error}</p>
                             <CrmButton 
                                 variant="secondary" 
                                 size="sm" 
                                 className="mt-4 gap-2 border-crm-red/30 bg-crm-red/10 text-crm-red hover:bg-crm-red/15" 
-                                onClick={() => refresh({
-                                    page: pageNumber,
-                                    limit: 20,
-                                    search: debouncedSearch,
-                                    status: filterStatus,
-                                    brand: brandFilter,
-                                    tab: stockTab,
-                                    ml: mlFilter
-                                })}
+                                onClick={() => stockTab === 'mandatos' ? fetchMandates() : refresh(currentStockFilters)}
                             >
                                 Reintentar
                             </CrmButton>
                         </div>
                     ) : stockTab === 'mandatos' ? (
                         <div className="mt-4">
+                            {mandatesLoading && <p role="status" className="text-xs text-crm-fg-muted">Actualizando mandatos…</p>}
                             <MandateTable 
                                 data={filteredMandates} 
                                 onDelete={canWriteStock ? (m) => setConfirmDeleteMandate({ isOpen: true, mandate: m }) : undefined}
@@ -831,7 +912,7 @@ export default function AdminStockPage() {
                         </div>
                     ) : (
                         <>
-                            {inventoryLayout === 'cards' ? <StockCards data={filteredVehicles} returnTo={stockReturnTo} onPrint={handlePrint} onReserve={canReserve ? setReservingCar : undefined} onEditML={canWriteStock ? setMlEditingCar : undefined} onDelete={canWriteStock ? setDeletingCar : undefined} hasActiveFilters={hasActiveFilters} onClearFilters={handleClearFilters} /> : <div className="hidden lg:block">
+                            {inventoryLayout === 'list' ? <StockCommercialList data={filteredVehicles} summaries={commercialSummaries} onQuickView={setQuickVehicle} onOpenDetail={openVehicleDetail} onInspect={vehicle => openVehicleDetail(vehicle, 'documentacion', undefined, 'inspection')} onEditML={canWriteStock ? setMlEditingCar : undefined} onReserve={canReserve ? setReservingCar : undefined} onPrint={handlePrint} compareIds={comparison.map(vehicle => vehicle.id)} onToggleCompare={toggleComparison} hasActiveFilters={hasActiveFilters} onClearFilters={handleClearFilters} /> : inventoryLayout === 'cards' ? <StockCards data={filteredVehicles} returnTo={stockReturnTo} onPrint={handlePrint} onReserve={canReserve ? setReservingCar : undefined} onEditML={canWriteStock ? setMlEditingCar : undefined} onDelete={canWriteStock ? setDeletingCar : undefined} hasActiveFilters={hasActiveFilters} onClearFilters={handleClearFilters} /> : <div className="hidden lg:block">
                                 <StockTable 
                                     data={filteredVehicles} 
                                     returnTo={stockReturnTo}
@@ -841,7 +922,7 @@ export default function AdminStockPage() {
                                     onPrint={handlePrint} 
                                     onSwap={handleSwap} 
                                     isSwapping={isSwapping} 
-                                    compact={inventoryLayout === 'list'}
+                                    compact={false}
                                     canReorder={canWriteStock && advancedFilters.sort === 'manual'}
                                     showTotals={!isOffline}
                                     currentPage={pageNumber} 
@@ -854,19 +935,11 @@ export default function AdminStockPage() {
                                     hasActiveFilters={hasActiveFilters}
                                     onClearFilters={handleClearFilters}
                                     error={error}
-                                    onRetry={() => refresh({
-                                        page: pageNumber,
-                                        limit: 20,
-                                        search: debouncedSearch,
-                                        status: filterStatus,
-                                        brand: brandFilter,
-                                        tab: stockTab,
-                                        ml: mlFilter
-                                    })}
+                                    onRetry={() => refresh(currentStockFilters)}
                                     onNewVehicle={canWriteStock ? handleNewVehicle : undefined}
                                 />
                             </div>}
-                            {inventoryLayout !== 'cards' && <div className="block lg:hidden">
+                            {inventoryLayout === 'detailed' && <div className="block lg:hidden">
                                 <StockMobileCards 
                                     returnTo={stockReturnTo}
                                     showTotals={!isOffline}
@@ -882,15 +955,7 @@ export default function AdminStockPage() {
                                     hasActiveFilters={hasActiveFilters}
                                     onClearFilters={handleClearFilters}
                                     error={error}
-                                    onRetry={() => refresh({
-                                        page: pageNumber,
-                                        limit: 20,
-                                        search: debouncedSearch,
-                                        status: filterStatus,
-                                        brand: brandFilter,
-                                        tab: stockTab,
-                                        ml: mlFilter
-                                    })}
+                                    onRetry={() => refresh(currentStockFilters)}
                                     onNewVehicle={canWriteStock ? handleNewVehicle : undefined}
                                 />
                             </div>}
@@ -907,9 +972,14 @@ export default function AdminStockPage() {
                 )}
             </div>
 
+            {comparison.length > 0 && <div className="sticky bottom-16 z-20 flex flex-wrap items-center justify-between gap-2 rounded-xl border border-crm-border bg-crm-surface p-3 shadow-lg md:bottom-3"><span className="text-xs text-crm-fg">{comparison.length} vehículos seleccionados</span><div className="flex items-center gap-2"><button type="button" disabled={comparison.length < 2} onClick={() => setIsComparisonOpen(true)} className="min-h-8 rounded-lg bg-crm-red px-3 text-xs font-semibold text-white disabled:opacity-40">Comparar</button><button type="button" onClick={() => setComparison([])} className="min-h-8 px-2 text-xs text-crm-fg-muted">Limpiar selección</button></div></div>}
+            {quickVehicle && <VehicleQuickDrawer key={`${token}:${quickVehicle.id}`} vehicle={vehicles.find(vehicle => vehicle.id === quickVehicle.id) || quickVehicle} onClose={() => setQuickVehicle(null)} onOpenDetail={(section, activityTab) => openVehicleDetail(quickVehicle, section, activityTab)} onInspect={() => openVehicleDetail(quickVehicle, 'documentacion', undefined, 'inspection')} onPause={() => openVehicleDetail(quickVehicle, 'resumen', undefined, 'pause')} onDelete={() => { setDeletingCar(quickVehicle); setQuickVehicle(null); }} />}
+            {detailConfig && <VehicleDetailDialog key={`${token}:${detailConfig.vehicle.id}`} vehicle={detailConfig.vehicle} initialSection={detailConfig.section} initialAction={detailConfig.initialAction} activityTab={detailConfig.activityTab} onClose={() => setDetailConfig(null)} onVehicleChanged={() => refresh()} />}
+            <VehicleComparisonDialog isOpen={isComparisonOpen} vehicles={comparison} onClose={() => setIsComparisonOpen(false)} />
             <VehicleFormModal
                 isOpen={isFormOpen && canWriteStock}
-                onClose={() => { setIsFormOpen(false); setEditingCar(null); }}
+                initialClient={initialVehicleClient}
+                onClose={() => { setIsFormOpen(false); setEditingCar(null); setInitialVehicleClient(null); }}
                 onSave={handleSaveVehicle}
                 editingCar={editingCar}
             />

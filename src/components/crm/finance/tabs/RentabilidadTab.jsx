@@ -2,39 +2,26 @@ import React, { useState, useEffect } from 'react';
 import toast from 'react-hot-toast';
 import { parseResponseSafe } from '../../../../utils/apiHelper';
 import { PieChart, Loader2 } from 'lucide-react';
+import {useFinanceResource} from '../../../../hooks/useFinanceResource';
+import {useRef,useCallback} from 'react';
 
 export default function RentabilidadTab() {
+    const {request,token}=useFinanceResource(); const generation=useRef(0); const [error,setError]=useState('');
     const [period, setPeriod] = useState(() => new Date().toISOString().slice(0, 7));
     const [currency, setCurrency] = useState('USD');
     const [data, setData] = useState(null);
     const [loading, setLoading] = useState(false);
 
-    const fetchData = async () => {
-        setLoading(true);
-        try {
-            const token = localStorage.getItem('token');
-            const res = await fetch(`/api/admin/finance/profitability?period=${period}`, {
-                headers: { Authorization: `Bearer ${token}` }
-            });
-            setData(await parseResponseSafe(res));
-        } catch (error) {
-            toast.error('Error cargando rentabilidad: ' + error.message);
-        } finally {
-            setLoading(false);
-        }
-    };
-
-    useEffect(() => {
-        fetchData();
-    }, [period]);
+    const fetchData=useCallback(async()=>{const current=++generation.current;setLoading(true);setError('');setData(null);try{const result=await request('/api/admin/finance/profitability?period='+period);if(current===generation.current)setData(result);}catch(error){if(current===generation.current&&error.name!=='AbortError')setError(error.message);}finally{if(current===generation.current)setLoading(false);}},[request,period]);
+    useEffect(()=>{void fetchData();return()=>{generation.current++;};},[fetchData,token]);
 
     const formatMoney = (amount) => {
-        return `${currency === 'USD' ? 'USD' : 'ARS'} ${Number(amount || 0).toLocaleString('es-AR')}`;
+        return `${currency === 'USD' ? 'USD' : 'ARS'} ${(amount===null||amount===undefined?'—':Number(amount).toLocaleString('es-AR'))}`;
     };
 
-    const income = data ? (currency === 'USD' ? data.totalsUSD.ingresos : data.totalsARS.ingresos) : 0;
-    const expense = data ? (currency === 'USD' ? data.totalsUSD.egresos : data.totalsARS.egresos) : 0;
-    const net = data ? (currency === 'USD' ? data.neto.USD : data.neto.ARS) : 0;
+    const income = data ? (currency === 'USD' ? data.totalsUSD.ingresos : data.totalsARS.ingresos) : null;
+    const expense = data ? (currency === 'USD' ? data.totalsUSD.egresos : data.totalsARS.egresos) : null;
+    const net = data ? (currency === 'USD' ? data.neto.USD : data.neto.ARS) : null;
 
     const categories = data?.categories?.[currency] || {};
     const catKeys = Object.keys(categories);
@@ -42,18 +29,20 @@ export default function RentabilidadTab() {
     const expenseCats = catKeys.filter(k => categories[k].egresos > 0);
 
     return (
-        <div className="space-y-6">
+        <div className="space-y-6">{error&&<p role="alert" className="text-sm text-red-300">{error} <button type="button" onClick={fetchData} className="underline">Reintentar</button></p>}
             <div className="rounded-xl border border-crm-border bg-crm-bg p-4 flex flex-col md:flex-row md:items-center justify-between gap-4">
                 <p className="text-sm font-bold text-crm-fg-muted">Rentabilidad del área Finanzas / Gestoría — ingresos y egresos operativos.</p>
 
                 <div className="flex items-center gap-2">
                     <input
+                        aria-label="Periodo de rentabilidad"
                         type="month"
                         value={period}
                         onChange={(e) => setPeriod(e.target.value)}
                         className="h-9 rounded-lg border border-crm-border bg-crm-surface px-3 text-xs font-bold text-crm-fg outline-none transition focus:border-crm-red"
                     />
                     <select
+                        aria-label="Moneda de rentabilidad"
                         value={currency}
                         onChange={(e) => setCurrency(e.target.value)}
                         className="h-9 rounded-lg border border-crm-border bg-crm-surface px-3 text-xs font-bold text-crm-fg outline-none transition focus:border-crm-red"
@@ -141,6 +130,7 @@ export default function RentabilidadTab() {
                 </>
             )}
 
+            {data&&<div className="grid gap-3 sm:grid-cols-2"><div className="rounded-xl border border-crm-border p-4 text-sm">Señas activas en el periodo: {data.activeReservations.count} · USD {Number(data.activeReservations.totalUSD).toLocaleString('es-AR')} · ARS {Number(data.activeReservations.totalARS).toLocaleString('es-AR')}</div><div className="rounded-xl border border-crm-border p-4 text-sm">Cuotas pendientes en el periodo: {data.pendingInstallments.count} · USD {Number(data.pendingInstallments.totalUSD).toLocaleString('es-AR')} · ARS {Number(data.pendingInstallments.totalARS).toLocaleString('es-AR')}</div></div>}
             <p className="text-xs font-bold text-crm-fg-subtle italic">Nota: La rentabilidad integral por venta de vehículo se muestra en el módulo de Reportes.</p>
         </div>
     );

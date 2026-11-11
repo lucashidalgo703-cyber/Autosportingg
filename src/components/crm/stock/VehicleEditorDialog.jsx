@@ -13,6 +13,7 @@ export function useVehicleFormClose({ isOpen, onClose, busy = false, resetKey })
         return () => window.removeEventListener('beforeunload', warn);
     }, [isOpen, dirty]);
     return {
+        dirty,
         markDirty: () => setDirty(true),
         requestClose: () => {
             if (busy) return;
@@ -66,7 +67,7 @@ export function VehicleFormSection({ title, children, initiallyOpen = false, id 
     );
 }
 
-export default function VehicleEditorDialog({ isOpen, onClose, title, subtitle, footer, children, busy = false, suspendKeyboard = false }) {
+export default function VehicleEditorDialog({ isOpen, onClose, title, subtitle, footer, children, busy = false, suspendKeyboard = false, closeLabel = 'Cerrar formulario de vehículo' }) {
     const panel = useRef(null);
     const titleId = useId();
     const subtitleId = useId();
@@ -102,11 +103,11 @@ export default function VehicleEditorDialog({ isOpen, onClose, title, subtitle, 
     }, [isOpen]);
     if (!isOpen) return null;
     return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-2 backdrop-blur-sm sm:p-5">
-            <div ref={panel} role="dialog" aria-modal="true" aria-labelledby={titleId} aria-describedby={subtitle ? subtitleId : undefined} aria-busy={busy || undefined} tabIndex={-1} className="flex max-h-[94dvh] w-full max-w-3xl flex-col overflow-hidden rounded-2xl border border-crm-border bg-crm-surface text-crm-fg shadow-2xl">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-0 backdrop-blur-sm md:p-5">
+            <div ref={panel} role="dialog" aria-modal="true" aria-labelledby={titleId} aria-describedby={subtitle ? subtitleId : undefined} aria-busy={busy || undefined} tabIndex={-1} className="flex h-dvh max-h-dvh w-full max-w-4xl flex-col overflow-hidden border-crm-border bg-crm-surface text-crm-fg shadow-2xl md:h-auto md:max-h-[calc(100dvh-64px)] md:rounded-2xl md:border">
                 <header className="flex shrink-0 items-start justify-between gap-3 border-b border-crm-border px-4 py-3 sm:px-5">
                     <div className="min-w-0"><h2 id={titleId} className="m-0 text-base font-semibold leading-5 text-crm-fg">{title}</h2>{subtitle && <p id={subtitleId} className="mb-0 mt-1 text-xs leading-5 text-crm-fg-muted">{subtitle}</p>}</div>
-                    <button type="button" aria-label="Cerrar formulario de vehículo" disabled={busy} onClick={onClose} className="-mr-1 shrink-0 rounded-lg p-2 text-crm-fg-muted hover:bg-crm-surface-raised hover:text-crm-fg disabled:opacity-40"><X size={18} /></button>
+                    <button type="button" aria-label={closeLabel} disabled={busy} onClick={onClose} className="-mr-1 shrink-0 rounded-lg p-2 text-crm-fg-muted hover:bg-crm-surface-raised hover:text-crm-fg disabled:opacity-40"><X size={18} /></button>
                 </header>
                 <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain custom-scrollbar" onInvalidCapture={event => { let ancestor = event.target.parentElement; while (ancestor && ancestor !== panel.current) { if (ancestor.tagName === 'DETAILS') ancestor.open = true; ancestor = ancestor.parentElement; } }}>{children}</div>
                 {footer && <footer className="shrink-0 border-t border-crm-border bg-crm-surface px-4 py-3 sm:px-5">{footer}</footer>}

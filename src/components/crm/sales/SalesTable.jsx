@@ -1,233 +1,26 @@
 import React from 'react';
 import Link from 'next/link';
-import { ArrowRight, CarFront, Search, ShoppingCart, User, Trash2 } from 'lucide-react';
-import SaleStatusBadge, { getSaleOperationalLabel } from './SaleStatusBadge';
-import CrmButton from '../ui/CrmButton';
+import { Eye, FileText, ReceiptText, Trash2, ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-react';
+import SaleStatusBadge from './SaleStatusBadge';
 import CrmTable from '../ui/CrmTable';
 import { useAuth } from '../../../context/AuthContext';
 import { hasPermission, PERMISSIONS } from '../../../utils/adminPermissions';
 import { formatSaleDate } from '../../../utils/saleCalendarDate';
-
-export default function SalesTable({ sales, onViewDetail, onDeleteSale }) {
-    const { user } = useAuth();
-    const canCancelSales = hasPermission(user, PERMISSIONS.VENTAS_CANCEL);
-    const canViewStock = hasPermission(user, PERMISSIONS.STOCK_READ);
-    const canWriteSales = hasPermission(user, PERMISSIONS.VENTAS_WRITE);
-
-    const columns = [
-        {
-            label: 'Fecha',
-            key: 'date',
-            render: (sale) => (
-                <>
-                    <span className="block text-sm text-crm-fg">{formatSaleDate(sale)}</span>
-                    <span className="text-[10px] uppercase text-crm-fg-muted">{sale.paymentMethod || 'contado'}</span>
-                </>
-            )
-        },
-        {
-            label: 'Cliente / Cotizacion',
-            key: 'client',
-            render: (sale) => {
-                const name = sale.clientId?.fullName || sale.clientId?.firstName || sale.leadId?.name || sale.draftData?.buyerName || 'Sin Nombre';
-                const phone = sale.clientId?.phone || sale.leadId?.phone || sale.draftData?.buyerPhone || '';
-                const hasClientLink = sale.clientId?._id || sale.leadId?._id;
-                const clientHref = sale.clientId?._id ? `/admin/clientes/${sale.clientId._id}` : (sale.leadId?._id ? `/admin/leads/${sale.leadId._id}` : '#');
-
-                return (
-                    <div className="flex flex-col">
-                        {hasClientLink ? (
-                            <Link href={clientHref} className="flex max-w-[190px] items-center gap-2 truncate text-sm font-bold text-crm-fg no-underline transition-colors hover:text-crm-red">
-                                <User size={13} className="shrink-0 text-crm-fg-muted" />
-                                {name}
-                            </Link>
-                        ) : (
-                            <span className="flex max-w-[190px] items-center gap-2 truncate text-sm font-bold text-crm-fg">
-                                <User size={13} className="shrink-0 text-crm-fg-muted" />
-                                {name}
-                            </span>
-                        )}
-                        {phone && <span className="mt-0.5 text-xs text-crm-fg-muted">{phone}</span>}
-                    </div>
-                );
-            }
-        },
-        {
-            label: 'Vehiculo',
-            key: 'vehicle',
-            render: (sale) => {
-                const vehicleName = sale.vehicleId ? `${sale.vehicleId.brand} ${sale.vehicleId.name}` : 'Vehiculo no asignado';
-                const vehicleVin = sale.vehicleId?.plateOrVin || '';
-                const vehicleHref = sale.vehicleId?._id ? `/admin/stock/${sale.vehicleId._id}` : '#';
-
-                return (
-                    <div className="flex flex-col">
-                        {sale.vehicleId ? (
-                            <Link href={vehicleHref} className="flex max-w-[190px] items-center gap-2 truncate text-sm font-bold text-crm-fg no-underline transition-colors hover:text-crm-red">
-                                <CarFront size={14} className="shrink-0 text-crm-red" />
-                                {vehicleName}
-                            </Link>
-                        ) : (
-                            <span className="text-sm font-bold text-crm-fg-muted">N/A</span>
-                        )}
-                        {vehicleVin && (
-                            <span className="mt-1 w-max rounded border border-crm-border bg-crm-bg px-1.5 py-0.5 font-mono text-[10px] uppercase text-crm-fg-muted">
-                                {vehicleVin}
-                            </span>
-                        )}
-                    </div>
-                );
-            }
-        },
-        {
-            label: 'Estado',
-            key: 'status',
-            render: (sale) => <SaleStatusBadge status={sale.status} historicalOnly={sale.historicalOnly} />
-        },
-        {
-            label: 'Cobranza',
-            key: 'collection',
-            align: 'right',
-            render: (sale) => (
-                <div className="flex flex-col items-end gap-1">
-                    <span className={`text-sm font-bold ${sale.status === 'cancelada' ? 'text-crm-fg-muted line-through' : getSaleOperationalLabel(sale) ? 'text-crm-fg-muted' : 'text-emerald-300'}`}>
-                        {sale.saleCurrency} {(sale.salePrice || 0).toLocaleString('es-AR')}
-                    </span>
-                    {getSaleOperationalLabel(sale) ? (
-                        <span className="text-[10px] font-bold uppercase text-crm-fg-muted">{getSaleOperationalLabel(sale)}</span>
-                    ) : sale.finance && (
-                        <div className="flex flex-col items-end">
-                            {sale.finance.collectionStatus === 'sin_cobro' && <span className="text-[10px] font-bold uppercase text-red-300">Sin Cobro</span>}
-                            {sale.finance.collectionStatus === 'parcial' && <span className="text-[10px] font-bold uppercase text-amber-300">Saldo: {sale.saleCurrency} {sale.finance.pendingBalance.toLocaleString('es-AR')}</span>}
-                            {sale.finance.collectionStatus === 'cobrada' && <span className="text-[10px] font-bold uppercase text-emerald-300">Cobrada</span>}
-                            {sale.finance.collectionStatus === 'sobrecobrada' && <span className="text-[10px] font-bold uppercase text-purple-300">Sobrecobrada</span>}
-                        </div>
-                    )}
-                </div>
-            )
-        },
-        {
-            label: 'Doc.',
-            key: 'documentation',
-            render: (sale) => getSaleOperationalLabel(sale) ? (
-                <span className="text-xs text-crm-fg-muted">{getSaleOperationalLabel(sale)}</span>
-            ) : (
-                <div className="flex flex-col gap-1">
-                    <span className={`w-max rounded border px-2 py-0.5 text-[10px] font-bold uppercase ${
-                        sale.documentationStatus === 'completo' ? 'border-blue-500/20 bg-blue-500/10 text-blue-300' :
-                        sale.documentationStatus === 'parcial' ? 'border-amber-500/20 bg-amber-500/10 text-amber-300' :
-                        'border-crm-border bg-crm-bg text-crm-fg-muted'
-                    }`}>
-                        Doc: {sale.documentationStatus || 'pendiente'}
-                    </span>
-                    <span className={`w-max rounded border px-2 py-0.5 text-[10px] font-bold uppercase ${
-                        sale.deliveryStatus === 'entregado' ? 'border-emerald-500/20 bg-emerald-500/10 text-emerald-300' :
-                        sale.deliveryStatus === 'listo_para_entregar' ? 'border-blue-500/20 bg-blue-500/10 text-blue-300' :
-                        sale.deliveryStatus === 'preparando' ? 'border-amber-500/20 bg-amber-500/10 text-amber-300' :
-                        'border-crm-border bg-crm-bg text-crm-fg-muted'
-                    }`}>
-                        Ent: {(sale.deliveryStatus || 'pendiente').replace(/_/g, ' ')}
-                    </span>
-                </div>
-            )
-        },
-        {
-            label: 'Logistica',
-            key: 'logistics',
-            render: (sale) => {
-                if (getSaleOperationalLabel(sale)) return <span className="text-xs text-crm-fg-muted">{getSaleOperationalLabel(sale)}</span>;
-                const estimatedDate = sale.estimatedDeliveryDate ? new Date(sale.estimatedDeliveryDate) : null;
-                const isDelayed = estimatedDate && estimatedDate < new Date(new Date().setHours(0, 0, 0, 0));
-                return (
-                    <div className="flex flex-col">
-                        {sale.deliveryStatus === 'entregado' ? (
-                            <>
-                                <span className="text-[10px] font-bold uppercase text-emerald-300">Entregado</span>
-                                <span className="text-xs text-crm-fg">{sale.actualDeliveryDate ? new Date(sale.actualDeliveryDate).toLocaleDateString() : 'N/A'}</span>
-                            </>
-                        ) : estimatedDate ? (
-                            <>
-                                <span className="text-[10px] font-bold uppercase text-crm-fg-muted">Estimada</span>
-                                <span className={`text-xs font-bold ${isDelayed ? 'text-red-300' : 'text-crm-fg'}`}>
-                                    {estimatedDate.toLocaleDateString()}
-                                </span>
-                                {isDelayed && <span className="mt-0.5 text-[10px] font-bold uppercase text-red-300">Demorada</span>}
-                            </>
-                        ) : (
-                            <span className="text-xs text-crm-fg-muted">Sin programar</span>
-                        )}
-                    </div>
-                );
-            }
-        },
-        {
-            label: 'Acciones',
-            key: 'actions',
-            align: 'center',
-            render: (sale) => (
-                <div className="flex flex-col items-center justify-center gap-2">
-                    <div className="flex items-center gap-2 w-full justify-center">
-                        <CrmButton
-                            variant="secondary"
-                            size="sm"
-                            onClick={(e) => {
-                                e.stopPropagation();
-                                onViewDetail(sale);
-                            }}
-                            className="min-h-8 h-auto gap-1 px-3 py-1 text-xs flex-1 max-w-[140px]"
-                            title={sale.status === 'borrador' && canWriteSales ? 'Continuar borrador' : 'Ver detalle de venta'}
-                        >
-                            <Search size={14} />
-                            {sale.status === 'borrador' && canWriteSales ? 'Continuar borrador' : 'Detalle'}
-                        </CrmButton>
-                        {sale.status === 'cancelada' && onDeleteSale && canCancelSales && (
-                            <button
-                                onClick={(e) => {
-                                    e.stopPropagation();
-                                    onDeleteSale(sale);
-                                }}
-                                className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-crm-red/20 bg-crm-red/10 text-crm-red transition-colors hover:bg-crm-red/20"
-                                title="Eliminar venta cancelada"
-                            >
-                                <Trash2 size={14} />
-                            </button>
-                        )}
-                    </div>
-                    {canViewStock && (
-                        sale.vehicleId?._id ? (
-                            <Link href={`/admin/stock/${sale.vehicleId._id}`} passHref legacyBehavior>
-                                <a 
-                                    className="flex h-8 w-full max-w-[120px] items-center justify-center gap-1 rounded-md border border-crm-border bg-crm-bg px-2 text-xs font-bold text-crm-fg transition-colors hover:border-blue-500/30 hover:bg-blue-500/10 hover:text-blue-400"
-                                    title="Abrir ficha del vehículo en Stock"
-                                    onClick={(e) => e.stopPropagation()}
-                                >
-                                    <CarFront size={13} />
-                                    Ver en Stock
-                                </a>
-                            </Link>
-                        ) : (
-                            <div 
-                                className="flex h-8 w-full max-w-[120px] items-center justify-center gap-1 rounded-md border border-crm-border/50 bg-crm-bg/50 px-2 text-[11px] font-bold text-crm-fg-muted/50 cursor-not-allowed"
-                                title="Esta venta no tiene un vehículo vinculado al stock"
-                            >
-                                <CarFront size={13} />
-                                Sin vínculo
-                            </div>
-                        )
-                    )}
-                </div>
-            )
-        }
-    ];
-
-    return (
-        <CrmTable 
-            columns={columns} 
-            data={sales} 
-            emptyIcon={ShoppingCart}
-            emptyTitle="Sin resultados"
-            emptyMessage="Todavía no hay ventas cargadas. Podés crear una desde el botón de arriba."
-            minWidth="min-w-[1120px]"
-        />
-    );
+import { getSaleBuyer } from '../../../utils/salePresentation';
+import { SALE_PAYMENT_LABELS } from '../../../utils/salesWorkbench';
+export default function SalesTable({ sales, onViewDetail, onDeleteSale, onDocument, sort = 'date', direction = 'desc', onSort }) {
+ const {user}=useAuth(); const canClient=hasPermission(user,PERMISSIONS.CLIENTES_READ); const canStock=hasPermission(user,PERMISSIONS.STOCK_READ); const canDelete=hasPermission(user,PERMISSIONS.VENTAS_CANCEL);
+ const columns=[
+  {key:'date',label:'Fecha',render:s=><span className="whitespace-nowrap text-xs">{formatSaleDate(s)}</span>},
+  {key:'vehicle',label:'Vehículo',render:s=><div className="min-w-[145px]">{canStock&&s.vehicleId?._id?<Link className="text-sm font-medium text-crm-fg no-underline hover:text-crm-red" href={`/admin/stock/${s.vehicleId._id}`}>{s.vehicleId.brand} {s.vehicleId.name}</Link>:<span className="text-sm">{s.vehicleId?`${s.vehicleId.brand||''} ${s.vehicleId.name||''}`:'Sin asignar'}</span>}<span className="mt-1 block text-[11px] text-crm-fg-muted">{s.vehicleId?.plateOrVin||'Sin patente'}{s.tradeIns?.length?' · Con permuta':''}</span></div>},
+  {key:'buyer',label:'Comprador',render:s=>{const buyer=getSaleBuyer(s);return <div className="min-w-[130px]">{canClient&&buyer.clientId?<Link className="text-sm text-crm-fg no-underline hover:text-crm-red" href={`/admin/clientes/${buyer.clientId}`}>{buyer.name||'Sin comprador'}</Link>:<span className="text-sm">{buyer.name||'Sin comprador'}</span>}<span className="mt-1 block text-[11px] text-crm-fg-muted">{buyer.phone||'Sin teléfono'}</span></div>;}},
+  {key:'seller',label:'Vendedor',render:s=><span className="text-xs">{s.salesperson||'Sin asignar'}</span>},
+  {key:'price',label:'Precio',align:'right',render:s=><div><span className="whitespace-nowrap text-sm font-semibold">{typeof s.salePrice === 'number' && Number.isFinite(s.salePrice) && s.salePrice >= 0 ? `${s.saleCurrency || 'Moneda sin informar'} ${s.salePrice.toLocaleString('es-AR')}` : 'Importe sin validar'}</span><span className="mt-1 block text-[10px] capitalize text-crm-fg-muted">{SALE_PAYMENT_LABELS[s.paymentMethod]||'Sin informar'}</span></div>},
+  {key:'commission',label:'Comisión',render:s=><div className="min-w-[100px]"><span className="text-xs">{s.commissionSettings?.sellerPct??1}% vendedor</span><span className={`mt-1 block text-[10px] ${s.commissionSettlement?.settled?'text-emerald-300':'text-amber-300'}`}>{s.commissionSettlement?.settled?'Liquidada':'Sin liquidar'}</span></div>},
+  {key:'status',label:'Status',render:s=><SaleStatusBadge status={s.cancellationKind==='caida'?'caida':s.status} historicalOnly={s.historicalOnly}/>},
+  {key:'actions',label:'Acciones',render:s=><div className="flex gap-1">{[[Eye,'Ver detalle',()=>onViewDetail(s)],[FileText,'Boleto PDF',()=>onDocument?.(s,'boleto')],[ReceiptText,'Recibo PDF',()=>onDocument?.(s,'recibo')]].map(([Icon,label,action])=><button key={label} type="button" title={label} aria-label={label} onClick={e=>{e.stopPropagation();action();}} className="rounded-md border border-crm-border p-2 text-crm-fg-muted hover:bg-crm-surface-raised"><Icon size={14}/></button>)}{canDelete&&s.status==='cancelada'&&<button type="button" aria-label="Eliminar venta cancelada" title="Eliminar venta cancelada" onClick={e=>{e.stopPropagation();onDeleteSale?.(s);}} className="rounded-md border border-red-500/20 p-2 text-red-300"><Trash2 size={14}/></button>}</div>}
+ ];
+ const sortable = new Set(['date','vehicle','buyer','seller','price','status']);
+ const headers = columns.map(column => sortable.has(column.key) && onSort ? { ...column, label: <button type="button" className="inline-flex items-center gap-1.5 bg-transparent text-inherit" onClick={() => onSort(column.key)} title={column.key === 'price' ? 'Ordenar por importe dentro de ARS y USD; no convierte monedas' : `Ordenar por ${column.label}`} aria-label={`Ordenar por ${column.label}`} aria-pressed={sort === column.key}>{column.label}{sort === column.key ? direction === 'asc' ? <ArrowUp size={12}/> : <ArrowDown size={12}/> : <ArrowUpDown size={12}/>}</button> } : column);
+ return <CrmTable columns={headers} data={sales} emptyMessage="No hay ventas con estos filtros." onRowClick={onViewDetail}/>;
 }

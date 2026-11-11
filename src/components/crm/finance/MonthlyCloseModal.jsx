@@ -1,26 +1,15 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
+import {useAuth} from '../../../context/AuthContext';
 import toast from 'react-hot-toast';
 import { Loader2, X } from 'lucide-react';
 import CrmModal from '../ui/CrmModal';
 
 export default function MonthlyCloseModal({ isOpen, onClose, fetchMonthlyClose }) {
+    const {token}=useAuth(); const generation=useRef(0),loader=useRef(fetchMonthlyClose);loader.current=fetchMonthlyClose; const [error,setError]=useState(''),[attempt,setAttempt]=useState(0);
     const [data, setData] = useState([]);
     const [loading, setLoading] = useState(true);
 
-    useEffect(() => {
-        if (isOpen) {
-            setLoading(true);
-            fetchMonthlyClose()
-                .then(res => {
-                    setData(res || []);
-                    setLoading(false);
-                })
-                .catch(err => {
-                    toast.error(err.message || 'Error cargando cierres mensuales');
-                    setLoading(false);
-                });
-        }
-    }, [isOpen, fetchMonthlyClose]);
+    useEffect(()=>{const current=++generation.current;if(isOpen){setData([]);setLoading(true);setError('');loader.current().then(result=>{if(current===generation.current&&localStorage.getItem('token')===token)setData(result||[]);}).catch(error=>{if(current===generation.current)setError(error.message||'No se pudo consultar.');}).finally(()=>{if(current===generation.current)setLoading(false);});}return()=>{generation.current++;};},[isOpen,token,attempt]);
 
     const formatMoney = (amount, currency = 'ARS') => {
         return `${currency === 'USD' ? 'USD' : '$'} ${Number(amount || 0).toLocaleString('es-AR')}`;
@@ -29,8 +18,8 @@ export default function MonthlyCloseModal({ isOpen, onClose, fetchMonthlyClose }
     if (!isOpen) return null;
 
     return (
-        <CrmModal isOpen={isOpen} onClose={onClose} title="Cierres Mensuales" maxWidth="max-w-4xl">
-            <div className="p-5">
+        <CrmModal isOpen={isOpen} onClose={onClose} title="Resumen mensual de movimientos" maxWidth="max-w-4xl">
+            <div className="p-5"><p className="mb-4 text-xs text-crm-fg-muted">Resumen calculado de movimientos activos por mes; incluye transferencias internas y mantiene las monedas separadas. Los snapshots inmutables están en Cierre de caja.</p>{error&&<p role="alert" className="text-sm text-red-300">{error} <button type="button" onClick={()=>setAttempt(value=>value+1)} className="underline">Reintentar</button></p>}
                 {loading ? (
                     <div className="flex min-h-[200px] items-center justify-center">
                         <Loader2 className="animate-spin text-crm-red" size={32} />

@@ -166,6 +166,35 @@ describe('Stock: filtros, páginas y exportación sobre MongoDB descartable', { 
         assert.equal(all.length, 27, 'Exportar todo conserva vendidos e incluye nombres literales distintos');
     });
 
+    test('capital global y filtrado reconocen permuta propia legacy y separan costo por su moneda real', async () => {
+        await Car.deleteMany({});
+        const fixture = { brand: 'Capital QA', name: 'Unidad ficticia', year: 2022, km: 100, fuel: 'Nafta', condition: 'Usado', status: 'Disponible', currency: 'USD', agencyOwned: false };
+        const legacy = await Car.create({ ...fixture, plateOrVin: 'LEGACY-OWN', price: 10000, purchasePrice: 0, purchaseCurrency: 'ARS', tradeInOrigin: { saleId: new mongoose.Types.ObjectId(), value: 7000, currency: 'USD' } });
+        await Car.create({ ...fixture, plateOrVin: 'SHARED', price: 20000, purchasePrice: 2000000, purchaseCurrency: 'ARS', investor: { name: 'Inversor ficticio', percentage: 25 } });
+        await Car.create({ ...fixture, plateOrVin: 'CONSIGNED', price: 12000, ownerName: 'Propietario ficticio', tradeInOrigin: { saleId: new mongoose.Types.ObjectId(), value: 8000, currency: 'USD', consigned: true, agencyOwned: false } });
+        await Car.create({ ...fixture, plateOrVin: 'THIRD-PARTY', price: 5000, purchasePrice: 3000 });
+        const result = await listing();
+        assert.equal(result.summary.valorTotalUSD, 30000); assert.equal(result.summary.valorActivoUSD, 25000); assert.equal(result.summary.valorActivoInversionistasUSD, 5000);
+        assert.equal(result.summary.capitalInvertidoUSD, 7000); assert.equal(result.summary.capitalInvertidoARS, 1500000); assert.equal(result.summary.capitalInvertidoInversionistasARS, 500000);
+        assert.equal(result.summary.costoTotalARS, 2000000); assert.equal(result.summary.costoTotalUSD, 7000); assert.equal(result.summary.consignaciones, 2); assert.equal(result.summary.consignacionesSoloCount, 1); assert.equal(result.summary.tercerosCount, 1); assert.equal(result.summary.disponiblesComputadosCount, 2);
+        assert.equal(result.filteredTotalUSD, 30000); assert.equal(result.filteredPropioUSD, 25000); assert.equal(result.filteredInversionistasUSD, 5000); assert.equal(result.filteredCostUSD, 7000); assert.equal(result.filteredCostARS, 2000000); assert.equal(result.filteredConsignacionesUSD, 17000);
+        const owned = await listing({ origin: 'owned' }); assert.deepEqual(idList(owned.cars), [String(legacy._id)]); assert.equal(owned.filteredCostUSD, 7000); assert.equal(owned.filteredCostARS, 0);
+        const consigned = await listing({ origin: 'consigned' }); assert.equal(consigned.total, 1); assert.equal(consigned.filteredTotalUSD, 0); assert.equal(consigned.filteredCostUSD, 0);
+    });
+
+    test('capital patrimonial excluye consignadas y terceros sin borrar participaciones de permuta propia e inversor', async () => {
+        await Car.deleteMany({});
+        const fixture = { brand: 'Capital QA', name: 'Unidad ficticia', year: 2022, km: 100, fuel: 'Nafta', condition: 'Usado', status: 'Disponible', currency: 'ARS', purchaseCurrency: 'ARS', agencyOwned: false };
+        const own = await Car.create({ ...fixture, price: 10000, purchasePrice: 0, tradeInOrigin: { saleId: new mongoose.Types.ObjectId(), value: 7000, currency: 'ARS' } });
+        const shared = await Car.create({ ...fixture, price: 20000, purchasePrice: 12000, investor: { name: 'Inversor ficticio', percentage: 25 } });
+        await Car.create({ ...fixture, price: 90000, purchasePrice: 60000, tradeInOrigin: { saleId: new mongoose.Types.ObjectId(), consigned: true, agencyOwned: false } });
+        await Car.create({ ...fixture, price: 50000, purchasePrice: 30000 });
+        const response = await get('/api/admin/stock/capital-summary'); assert.equal(response.status, 200); const { data } = await response.json();
+        assert.equal(data.componentes.stockPropioCosto.monto, 16000); assert.equal(data.componentes.stockPropioCosto.subtotalInversionistas, 3000); assert.equal(data.componentes.stockPropioCosto.unidadesTotal, 2);
+        assert.deepEqual(new Set(data.componentes.stockPropioCosto.items.map(item => item.id)), new Set([String(own._id), String(shared._id)]));
+        assert.equal(data.totales.stockPropioPublicado, 25000); assert.equal(data.totales.stockInversionistasPublicado, 5000); assert.equal(data.totales.consignacionesTotalPublicado, 140000);
+    });
+
     test('consultar, filtrar, ordenar y exportar no modifica unidades ni orden del catálogo', async () => {
         const before = plain(await Car.find().sort({ _id: 1 }).lean());
         await listing({ review: 'true', sort: 'price_desc' });

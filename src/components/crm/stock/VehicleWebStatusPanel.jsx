@@ -5,7 +5,7 @@ import toast from 'react-hot-toast';
 import CrmCard from '../ui/CrmCard';
 import { getVehicleOperationalStatus } from '../../../utils/vehicleDetail';
 
-export default function VehicleWebStatusPanel({ vehicle, onSaveComplete, canEdit = false }) {
+export default function VehicleWebStatusPanel({ vehicle, onSaveComplete, canEdit = false, onEditPhotos }) {
     const [visibleEnWeb, setVisibleEnWeb] = useState(vehicle?.visibleEnWeb !== false);
     const [isSaving, setIsSaving] = useState(false);
     const status = getVehicleOperationalStatus(vehicle);
@@ -46,7 +46,7 @@ export default function VehicleWebStatusPanel({ vehicle, onSaveComplete, canEdit
             <input type="checkbox" checked={visibleEnWeb} disabled={!canEdit || isSaving} onChange={event => setVisibleEnWeb(event.target.checked)} className="h-5 w-5 shrink-0 accent-crm-red focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-crm-red disabled:opacity-50" />
         </label>
         {!isPublishableStatus && <p className="mt-3 flex items-start gap-2 rounded-lg border border-amber-500/30 bg-amber-500/10 p-3 text-xs text-amber-500"><AlertTriangle size={15} className="shrink-0" />El estado {status || 'actual'} mantiene la unidad fuera del catálogo, aunque actives esta preferencia. La disponibilidad se gestiona desde Stock y las operaciones vinculadas.</p>}
-        {imageCount === 0 && <p className="mt-3 text-xs text-crm-fg-muted">Agregá fotos desde la sección Fotos para completar la publicación.</p>}
+        {imageCount === 0 && <p className="mt-3 text-xs text-crm-fg-muted">Agregá fotos desde Resumen para completar la publicación.{canEdit && onEditPhotos && <button type="button" onClick={onEditPhotos} className="ml-2 min-h-8 text-crm-red underline">Agregar fotos</button>}</p>}
         {canEdit && <div className="mt-4 flex flex-wrap items-center justify-end gap-3">{changed && <span role="status" className="text-xs text-amber-500">Cambios sin guardar</span>}<button type="button" onClick={handleSave} disabled={isSaving || !changed} className="inline-flex min-h-9 items-center gap-2 rounded-lg bg-crm-red px-3 text-xs font-semibold text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-crm-red disabled:opacity-50"><Save size={14} />{isSaving ? 'Guardando…' : 'Guardar visibilidad'}</button></div>}
     </CrmCard>;
 }

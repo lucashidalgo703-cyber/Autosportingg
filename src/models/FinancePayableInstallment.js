@@ -1,0 +1,3 @@
+import mongoose from 'mongoose';
+const schema=new mongoose.Schema({planId:{type:mongoose.Schema.Types.ObjectId,ref:'FinancePayablePlan',required:true,index:true},number:{type:Number,required:true},amount:{type:Number,required:true,min:0.01},paidAmount:{type:Number,default:0,min:0},currency:{type:String,enum:['ARS','USD'],required:true},dueDate:{type:String,required:true},notes:String,payments:[{transactionId:{type:mongoose.Schema.Types.ObjectId,ref:'Transaction'},amount:Number,date:String,accountId:{type:mongoose.Schema.Types.ObjectId,ref:'Account'}}]},{timestamps:true});
+export default mongoose.models.FinancePayableInstallment||mongoose.model('FinancePayableInstallment',schema);

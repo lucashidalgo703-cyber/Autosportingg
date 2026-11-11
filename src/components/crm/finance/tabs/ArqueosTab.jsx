@@ -1,201 +1,31 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import { Plus } from 'lucide-react';
-import toast from 'react-hot-toast';
-import { useFinanceCashCounts } from '../../../../hooks/useFinanceCashCounts';
-
-function CashCountModal({ isOpen, onClose, onSubmit, isSubmitting, accounts = [] }) {
-    const [accountId, setAccountId] = useState('');
-    const [declaredBalance, setDeclaredBalance] = useState('');
-    const [notes, setNotes] = useState('');
-
-    useEffect(() => {
-        if (isOpen) {
-            setAccountId('');
-            setDeclaredBalance('');
-            setNotes('');
-        }
-    }, [isOpen]);
-
-    const selectedAccount = accounts.find(a => a._id === accountId);
-    const difference = selectedAccount && declaredBalance !== ''
-        ? Number(declaredBalance) - selectedAccount.balance
-        : 0;
-
-    const handleSubmit = (e) => {
-        e.preventDefault();
-        if (!accountId) return toast.error('Selecciona una cuenta');
-        if (declaredBalance === '') return toast.error('Ingresa el saldo físico contado');
-
-        onSubmit({
-            accountId,
-            declaredBalance: Number(declaredBalance),
-            notes
-        });
-    };
-
-    if (!isOpen) return null;
-
-    return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
-            <div className="w-full max-w-md rounded-2xl border border-crm-border bg-crm-surface p-6 shadow-xl">
-                <div className="mb-6 flex items-center justify-between">
-                    <h3 className="text-lg font-black text-crm-fg">Nuevo Arqueo</h3>
-                </div>
-
-                <form onSubmit={handleSubmit} className="space-y-4">
-                    <div className="space-y-2">
-                        <label className="text-xs font-black uppercase text-crm-fg-muted">Cuenta a Arquear</label>
-                        <select required value={accountId} onChange={(e) => setAccountId(e.target.value)} className="w-full rounded-lg border border-crm-border bg-crm-bg px-3 py-2 text-sm text-crm-fg focus:border-crm-red focus:outline-none">
-                            <option value="">Seleccionar cuenta...</option>
-                            {accounts.filter(a => a.isActive !== false).map(acc => (
-                                <option key={acc._id} value={acc._id}>{acc.name} ({acc.currency})</option>
-                            ))}
-                        </select>
-                    </div>
-
-                    {selectedAccount && (
-                        <div className="rounded-lg bg-crm-surface-raised p-3 border border-crm-border space-y-1">
-                            <p className="text-xs font-black text-crm-fg-muted uppercase">Saldo en Sistema</p>
-                            <p className="text-lg font-bold text-crm-fg">
-                                {selectedAccount.currency === 'USD' ? 'USD' : '$'} {selectedAccount.balance.toLocaleString('es-AR')}
-                            </p>
-                        </div>
-                    )}
-
-                    <div className="space-y-2">
-                        <label className="text-xs font-black uppercase text-crm-fg-muted">Saldo Físico Declarado</label>
-                        <input type="number" required step="0.01" value={declaredBalance} onChange={(e) => setDeclaredBalance(e.target.value)} className="w-full rounded-lg border border-crm-border bg-crm-bg px-3 py-2 text-sm text-crm-fg focus:border-crm-red focus:outline-none" placeholder="Dinero real en la caja..." />
-                    </div>
-
-                    {selectedAccount && declaredBalance !== '' && (
-                        <div className="flex items-center justify-between pt-2">
-                            <span className="text-xs font-black text-crm-fg-muted uppercase">Diferencia:</span>
-                            <span className={`text-sm font-bold ${difference > 0 ? 'text-green-500' : difference < 0 ? 'text-crm-red' : 'text-crm-fg'}`}>
-                                {difference > 0 ? '+' : ''}{difference.toLocaleString('es-AR')} {selectedAccount.currency}
-                            </span>
-                        </div>
-                    )}
-
-                    <div className="space-y-2">
-                        <label className="text-xs font-black uppercase text-crm-fg-muted">Notas (Opcional)</label>
-                        <input type="text" value={notes} onChange={(e) => setNotes(e.target.value)} className="w-full rounded-lg border border-crm-border bg-crm-bg px-3 py-2 text-sm text-crm-fg focus:border-crm-red focus:outline-none" placeholder="Ej: Faltó dar un vuelto..." />
-                    </div>
-
-                    <div className="mt-6 flex justify-end gap-3 pt-4 border-t border-crm-border">
-                        <button type="button" onClick={onClose} className="rounded-lg px-4 py-2 text-sm font-black text-crm-fg-muted hover:bg-crm-bg transition" disabled={isSubmitting}>Cancelar</button>
-                        <button type="submit" disabled={isSubmitting} className="inline-flex items-center gap-2 rounded-lg bg-crm-red-gradient px-4 py-2 text-sm font-black text-white shadow-crm-shadow-red transition hover:opacity-95 disabled:opacity-50">
-                            {isSubmitting ? 'Guardando...' : 'Confirmar Arqueo'}
-                        </button>
-                    </div>
-                </form>
-            </div>
-        </div>
-    );
+"use client";
+import {useCallback,useEffect,useRef,useState} from 'react';
+import {useAuth} from '../../../../context/AuthContext';
+import {hasPermission,PERMISSIONS} from '../../../../utils/adminPermissions';
+import {getArgentinaDateKey,getBusinessDateKey} from '../../../../utils/cashProjection';
+import VehicleEditorDialog,{useVehicleFormClose,VehicleFormErrors} from '../../stock/VehicleEditorDialog';
+import FinanceField from '../FinanceField';
+const base=()=>process.env.NODE_ENV==='production'?'':process.env.NEXT_PUBLIC_API_URL||'http://localhost:3001';
+const money=(amount,currency)=>currency+' '+(amount==null?'—':Number(amount).toLocaleString('es-AR',{maximumFractionDigits:2}));
+function CashCountModal({entry,accounts,onClose,onSaved}){
+ const {token,user}=useAuth(),[values,setValues]=useState({accountId:typeof entry?.accountId==='object'?entry.accountId._id:entry?.accountId||'',date:getBusinessDateKey(entry?.countedAt)||getArgentinaDateKey(new Date()),responsible:entry?.responsible||user?.username||user?.name||'',declaredBalance:entry?.declaredBalance??'',reason:entry?.reason||'',notes:entry?.notes||''}),[snapshot,setSnapshot]=useState(null),[errors,setErrors]=useState({}),[busy,setBusy]=useState(false),[loading,setLoading]=useState(false);
+ const generation=useRef(0),pending=useRef(null),session=useRef(token);session.current=token;const {markDirty,requestClose,closeNotice}=useVehicleFormClose({isOpen:true,onClose,busy});
+ useEffect(()=>{const revision=++generation.current,controller=new AbortController();pending.current?.abort();pending.current=controller;setSnapshot(null);setErrors({});if(!values.accountId||!values.date)return;
+  const same=entry&&String(typeof entry.accountId==='object'?entry.accountId._id:entry.accountId)===values.accountId&&getBusinessDateKey(entry.countedAt)===values.date;
+  if(same){setSnapshot({systemBalance:entry.systemBalance,currency:entry.currency,preserved:true});setLoading(false);return;}
+  setLoading(true);fetch(base()+'/api/admin/finance/cash-counts/book-balance?'+new URLSearchParams({accountId:values.accountId,date:values.date}),{headers:{Authorization:'Bearer '+token},signal:controller.signal}).then(async response=>{const data=await response.json();if(!response.ok)throw Error(data.message||'No se pudo leer el saldo a esa fecha.');if(revision===generation.current&&session.current===token&&localStorage.getItem('token')===token)setSnapshot(data);}).catch(error=>{if(revision===generation.current&&error.name!=='AbortError')setErrors({form:error.message});}).finally(()=>{if(revision===generation.current)setLoading(false);});
+  return()=>controller.abort();
+ },[values.accountId,values.date,token]);
+ useEffect(()=>()=>{generation.current++;pending.current?.abort();},[]);
+ const change=(name,value)=>{markDirty();setValues(previous=>({...previous,[name]:value}));};
+ const submit=async event=>{event.preventDefault();if(busy||loading)return;const e={};if(!snapshot)e.accountId='Consultá una cuenta y fecha válidas.';if(values.declaredBalance===''||!Number.isFinite(Number(values.declaredBalance)))e.declaredBalance='Ingresá el saldo físico contado.';if(!values.responsible.trim())e.responsible='Completá el responsable.';setErrors(e);if(Object.keys(e).length)return;const captured=token,revision=generation.current;setBusy(true);try{const response=await fetch(base()+'/api/admin/finance/cash-counts'+(entry?._id?'/'+entry._id:''),{method:entry?._id?'PATCH':'POST',headers:{Authorization:'Bearer '+captured,'Content-Type':'application/json'},signal:pending.current?.signal,body:JSON.stringify({...values,countedAt:values.date,currency:snapshot.currency,declaredBalance:Number(values.declaredBalance)})});const data=await response.json();if(!response.ok)throw Error(data.message||'No se pudo guardar el arqueo.');if(revision!==generation.current||session.current!==captured||localStorage.getItem('token')!==captured)return;await onSaved(data);onClose();}catch(error){if(revision===generation.current&&error.name!=='AbortError')setErrors({form:error.message});}finally{if(revision===generation.current)setBusy(false);}};
+ const field=(name,label,props={})=><FinanceField key={name} name={name} label={label} value={values[name]} onChange={change} disabled={busy} {...props}/>;
+ return <VehicleEditorDialog isOpen onClose={requestClose} busy={busy} title={entry?'Editar arqueo':'Nuevo arqueo'} subtitle="Compará el saldo registrado con el conteo físico. Guardar no ajusta cuentas ni crea movimientos." closeLabel="Cerrar arqueo" footer={<div className="flex justify-end gap-2"><button type="button" disabled={busy} onClick={requestClose} className="rounded-lg border border-crm-border px-3 py-2 text-sm">Cancelar</button><button type="submit" form="finance-count" disabled={busy||loading||!snapshot} className="rounded-lg bg-crm-red px-3 py-2 text-sm font-semibold text-white">{busy?'Guardando…':'Guardar arqueo'}</button></div>}><form id="finance-count" onSubmit={submit} className="space-y-4 p-4 sm:p-5">{closeNotice}<VehicleFormErrors errors={errors} prefix="finance"/><div className="grid grid-cols-1 gap-3 sm:grid-cols-2">{field('date','Fecha *',{type:'date'})}{field('responsible','Responsable *')}{field('accountId','Cuenta *',{options:[{value:'',label:'Elegí una cuenta'},...accounts.filter(account=>account.isActive!==false).map(account=>({value:account._id,label:account.name+' · '+account.currency}))]})}{field('declaredBalance','Saldo físico contado *',{type:'number',step:'any'})}{field('reason','Motivo de diferencia',{wide:true})}{field('notes','Notas',{type:'textarea',wide:true})}</div><div className="rounded-xl border border-crm-border bg-crm-bg p-4 text-sm"><p className="m-0 text-crm-fg-muted">Saldo registrado al cierre de la fecha: {loading?'Consultando…':money(snapshot?.systemBalance,snapshot?.currency||'')}</p><p className="mb-0 mt-2 font-semibold">Diferencia: {snapshot&&values.declaredBalance!==''?money(Number(values.declaredBalance)-snapshot.systemBalance,snapshot.currency):'—'}</p>{snapshot?.preserved&&<p className="mb-0 mt-2 text-xs text-amber-300">Se conserva el saldo tomado en el arqueo original mientras cuenta, moneda y fecha coincidan.</p>}</div></form></VehicleEditorDialog>;
 }
-
-export default function ArqueosTab({ accounts = [] }) {
-    const { fetchCashCounts, createCashCount, loading } = useFinanceCashCounts();
-    const [counts, setCounts] = useState([]);
-
-    const [isModalOpen, setIsModalOpen] = useState(false);
-    const [isSubmitting, setIsSubmitting] = useState(false);
-
-    const loadData = useCallback(async () => {
-        try {
-            const data = await fetchCashCounts();
-            setCounts(data);
-        } catch (err) {
-            toast.error(err.message || 'Error al cargar arqueos');
-        }
-    }, [fetchCashCounts]);
-
-    useEffect(() => {
-        loadData();
-    }, [loadData]);
-
-    const handleSave = async (payload) => {
-        setIsSubmitting(true);
-        try {
-            await createCashCount(payload);
-            toast.success('Arqueo registrado');
-            setIsModalOpen(false);
-            loadData();
-        } catch (err) {
-            toast.error(err.message || 'Error al guardar arqueo');
-        } finally {
-            setIsSubmitting(false);
-        }
-    };
-
-    const formatMoney = (amount, currency = 'USD') => {
-        return `${currency === 'USD' ? 'USD' : '$'} ${Number(amount || 0).toLocaleString('es-AR')}`;
-    };
-
-    return (
-        <div className="space-y-4">
-            <section className="rounded-2xl border border-crm-border bg-crm-surface p-4">
-                <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-                    <div>
-                        <h2 className="text-lg font-black text-crm-fg">Arqueos de Caja</h2>
-                        <p className="text-sm text-crm-fg-muted">Registra el conteo físico de dinero de tus cuentas operativas.</p>
-                    </div>
-                    <button onClick={() => setIsModalOpen(true)} className="inline-flex h-9 items-center gap-1.5 rounded-lg bg-crm-red-gradient px-4 text-xs font-black text-white shadow-crm-shadow-red transition hover:opacity-95">
-                        <Plus size={14} /> Nuevo Arqueo
-                    </button>
-                </div>
-            </section>
-
-            <section className="rounded-2xl border border-crm-border bg-crm-surface overflow-hidden">
-                <div className="overflow-x-auto custom-scrollbar">
-                    <table className="w-full text-left border-collapse whitespace-nowrap">
-                        <thead className="bg-crm-surface-raised border-b border-crm-border">
-                            <tr>
-                                <th className="px-4 py-3 text-[10px] font-black uppercase tracking-wider text-crm-fg-muted">Fecha</th>
-                                <th className="px-4 py-3 text-[10px] font-black uppercase tracking-wider text-crm-fg-muted">Cuenta</th>
-                                <th className="px-4 py-3 text-[10px] font-black uppercase tracking-wider text-crm-fg-muted">Sistema</th>
-                                <th className="px-4 py-3 text-[10px] font-black uppercase tracking-wider text-crm-fg-muted">Físico</th>
-                                <th className="px-4 py-3 text-[10px] font-black uppercase tracking-wider text-crm-fg-muted">Diferencia</th>
-                                <th className="px-4 py-3 text-[10px] font-black uppercase tracking-wider text-crm-fg-muted">Usuario / Notas</th>
-                            </tr>
-                        </thead>
-                        <tbody className="divide-y divide-crm-border">
-                            {loading ? (
-                                <tr><td colSpan={6} className="p-8 text-center text-sm text-crm-fg-muted">Cargando...</td></tr>
-                            ) : counts.length === 0 ? (
-                                <tr>
-                                    <td colSpan={6} className="p-8 text-center">
-                                        <div className="flex flex-col items-center justify-center gap-3">
-                                            <span className="text-2xl text-crm-fg-muted">🧾</span>
-                                            <h4 className="font-bold text-crm-fg">Sin arqueos</h4>
-                                            <p className="text-sm text-crm-fg-muted">No hay registros de arqueo de caja.</p>
-                                        </div>
-                                    </td>
-                                </tr>
-                            ) : (
-                                counts.map(c => (
-                                    <tr key={c._id} className="hover:bg-crm-surface-raised transition-colors">
-                                        <td className="px-4 py-3 text-sm text-crm-fg">{new Date(c.countedAt).toLocaleString('es-AR')}</td>
-                                        <td className="px-4 py-3 text-sm font-bold text-crm-fg">{c.accountName}</td>
-                                        <td className="px-4 py-3 text-sm text-crm-fg">{formatMoney(c.systemBalance, c.currency)}</td>
-                                        <td className="px-4 py-3 text-sm text-crm-fg">{formatMoney(c.declaredBalance, c.currency)}</td>
-                                        <td className="px-4 py-3 text-sm font-bold">
-                                            <span className={c.difference > 0 ? 'text-green-500' : c.difference < 0 ? 'text-crm-red' : 'text-crm-fg-muted'}>
-                                                {c.difference > 0 ? '+' : ''}{formatMoney(c.difference, c.currency)}
-                                            </span>
-                                        </td>
-                                        <td className="px-4 py-3">
-                                            <p className="text-sm font-bold text-crm-fg">{c.createdBy || 'Sistema'}</p>
-                                            {c.notes && <p className="text-xs text-crm-fg-muted max-w-[200px] truncate" title={c.notes}>{c.notes}</p>}
-                                        </td>
-                                    </tr>
-                                ))
-                            )}
-                        </tbody>
-                    </table>
-                </div>
-            </section>
-
-            <CashCountModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} onSubmit={handleSave} isSubmitting={isSubmitting} accounts={accounts} />
-        </div>
-    );
+export default function ArqueosTab({accounts=[]}){
+ const {token,user}=useAuth(),[state,setState]=useState({items:[],loading:true,error:''}),[editing,setEditing]=useState(null),generation=useRef(0),pending=useRef(null);
+ const canWrite=hasPermission(user,PERMISSIONS.FINANZAS_WRITE);
+ const load=useCallback(async()=>{const revision=++generation.current,controller=new AbortController();pending.current?.abort();pending.current=controller;setState(previous=>({...previous,loading:true,error:''}));try{const response=await fetch(base()+'/api/admin/finance/cash-counts',{headers:{Authorization:'Bearer '+token},signal:controller.signal});const data=await response.json();if(!response.ok)throw Error(data.message||'No se pudieron leer los arqueos.');if(revision===generation.current&&localStorage.getItem('token')===token)setState({items:Array.isArray(data)?data:[],loading:false,error:''});}catch(error){if(revision===generation.current&&error.name!=='AbortError')setState({items:[],loading:false,error:error.message});}},[token]);
+ useEffect(()=>{setEditing(null);setState({items:[],loading:true,error:''});void load();return()=>{generation.current++;pending.current?.abort();};},[load]);
+ return <div className="space-y-4"><div className="flex items-center justify-between gap-3"><div><h2 className="m-0 text-base font-semibold">Arqueos</h2><p className="mb-0 mt-1 text-xs text-crm-fg-muted">Control del saldo físico por cuenta y fecha.</p></div>{canWrite&&<button type="button" onClick={()=>setEditing({})} className="rounded-lg bg-crm-red px-3 py-2 text-xs font-semibold text-white">Nuevo arqueo</button>}</div>{state.error&&<p role="alert" className="text-sm text-red-300">{state.error} <button type="button" onClick={load} className="underline">Reintentar</button></p>}{state.loading?<p role="status" className="text-xs text-crm-fg-muted">Consultando arqueos…</p>:<div className="overflow-x-auto rounded-xl border border-crm-border"><table className="w-full whitespace-nowrap text-left text-sm"><thead className="bg-crm-surface text-xs text-crm-fg-muted"><tr>{['Fecha','Cuenta','Responsable','Registrado','Físico','Diferencia',''].map((label,index)=><th key={index} className="px-4 py-3 font-medium">{label}</th>)}</tr></thead><tbody>{state.items.map(item=><tr key={item._id} className="border-t border-crm-border"><td className="px-4 py-3">{getBusinessDateKey(item.countedAt)}</td><td className="px-4 py-3">{item.accountName||item.accountId?.name}</td><td className="px-4 py-3">{item.responsible||item.createdBy}</td><td className="px-4 py-3">{money(item.systemBalance,item.currency)}</td><td className="px-4 py-3">{money(item.declaredBalance,item.currency)}</td><td className="px-4 py-3">{money(item.difference,item.currency)}</td><td className="px-4 py-3">{canWrite&&<button type="button" onClick={()=>setEditing(item)} className="underline">Editar</button>}</td></tr>)}</tbody></table>{!state.items.length&&!state.error&&<p className="p-6 text-center text-sm text-crm-fg-muted">No hay arqueos registrados.</p>}</div>}{editing&&<CashCountModal key={token+':'+(editing._id||'new')} entry={editing._id?editing:null} accounts={accounts} onClose={()=>setEditing(null)} onSaved={load}/>}</div>;
 }

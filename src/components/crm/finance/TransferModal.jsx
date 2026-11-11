@@ -1,155 +1,17 @@
-import React, { useState, useEffect } from 'react';
-import toast from 'react-hot-toast';
-import { Loader2 } from 'lucide-react';
-import CrmModal from '../ui/CrmModal';
-
-export default function TransferModal({ isOpen, onClose, accounts, onSubmit, isSubmitting }) {
-    const [formData, setFormData] = useState({
-        sourceAccountId: '',
-        destAccountId: '',
-        amount: '',
-        currency: 'ARS',
-        exchangeRate: '',
-        destAmount: '',
-        notes: ''
-    });
-
-    const sourceAccount = accounts.find(a => a._id === formData.sourceAccountId);
-    const destAccount = accounts.find(a => a._id === formData.destAccountId);
-    const isConversion = sourceAccount && destAccount && sourceAccount.currency !== destAccount.currency;
-
-    // Recalculate destAmount when amount or rate changes
-    useEffect(() => {
-        if (isConversion && formData.amount && formData.exchangeRate) {
-            const amt = Number(formData.amount);
-            const rate = Number(formData.exchangeRate);
-            if (!isNaN(amt) && !isNaN(rate)) {
-                // If converting from USD to ARS: destAmount = USD * rate
-                // If converting from ARS to USD: destAmount = ARS / rate
-                let calculated = amt;
-                if (sourceAccount.currency === 'USD' && destAccount.currency === 'ARS') {
-                    calculated = amt * rate;
-                } else if (sourceAccount.currency === 'ARS' && destAccount.currency === 'USD') {
-                    calculated = amt / rate;
-                }
-                setFormData(prev => ({ ...prev, destAmount: calculated.toFixed(2) }));
-            }
-        }
-    }, [formData.amount, formData.exchangeRate, isConversion, sourceAccount?.currency, destAccount?.currency]);
-
-    if (!isOpen) return null;
-
-    const handleFormSubmit = () => {
-        const payload = {
-            ...formData,
-            currency: sourceAccount ? sourceAccount.currency : formData.currency,
-            exchangeRate: isConversion ? Number(formData.exchangeRate) : undefined,
-            destAmount: isConversion ? Number(formData.destAmount) : undefined
-        };
-        onSubmit(payload);
-    };
-
-    return (
-        <CrmModal isOpen={isOpen} onClose={onClose} title="Nueva Transferencia" maxWidth="max-w-md">
-            <div className="space-y-4 p-5">
-                <div>
-                    <label className="mb-1 block text-[11px] font-black uppercase tracking-wider text-crm-fg-subtle">Cuenta Origen</label>
-                    <select
-                        value={formData.sourceAccountId}
-                        onChange={e => setFormData({ ...formData, sourceAccountId: e.target.value, destAccountId: '' })}
-                        className="h-10 w-full rounded-xl border border-crm-border bg-crm-bg px-3 text-sm font-medium text-crm-fg outline-none transition focus:border-crm-red"
-                    >
-                        <option value="">Seleccione origen...</option>
-                        {accounts.filter(a => a.isActive !== false).map(a => (
-                            <option key={a._id} value={a._id}>{a.name} ({a.currency} {a.balance?.toLocaleString('es-AR')})</option>
-                        ))}
-                    </select>
-                </div>
-                <div>
-                    <label className="mb-1 block text-[11px] font-black uppercase tracking-wider text-crm-fg-subtle">Cuenta Destino</label>
-                    <select
-                        value={formData.destAccountId}
-                        onChange={e => setFormData({ ...formData, destAccountId: e.target.value })}
-                        disabled={!formData.sourceAccountId}
-                        className="h-10 w-full rounded-xl border border-crm-border bg-crm-bg px-3 text-sm font-medium text-crm-fg outline-none transition focus:border-crm-red disabled:opacity-50"
-                    >
-                        <option value="">Seleccione destino...</option>
-                        {accounts.filter(a => a.isActive !== false && a._id !== formData.sourceAccountId).map(a => (
-                            <option key={a._id} value={a._id}>{a.name} ({a.currency} {a.balance?.toLocaleString('es-AR')})</option>
-                        ))}
-                    </select>
-                </div>
-                <div>
-                    <label className="mb-1 block text-[11px] font-black uppercase tracking-wider text-crm-fg-subtle">
-                        Monto a debitar {sourceAccount && `(${sourceAccount.currency})`}
-                    </label>
-                    <input
-                        type="number"
-                        value={formData.amount}
-                        onChange={e => setFormData({ ...formData, amount: e.target.value })}
-                        className="h-10 w-full rounded-xl border border-crm-border bg-crm-bg px-3 text-sm font-medium text-crm-fg outline-none transition focus:border-crm-red"
-                        placeholder="0"
-                    />
-                </div>
-
-                {isConversion && (
-                    <div className="p-3 bg-crm-surface rounded-xl border border-crm-border space-y-3">
-                        <p className="text-[10px] font-bold text-yellow-500 uppercase tracking-widest">Conversión de Moneda Detectada</p>
-                        <div className="grid grid-cols-2 gap-3">
-                            <div>
-                                <label className="mb-1 block text-[10px] font-black uppercase tracking-wider text-crm-fg-muted">Cotización *</label>
-                                <input
-                                    type="number"
-                                    step="any"
-                                    value={formData.exchangeRate}
-                                    onChange={e => setFormData({ ...formData, exchangeRate: e.target.value })}
-                                    className="h-9 w-full rounded-lg border border-crm-border bg-crm-bg px-3 text-xs font-medium text-crm-fg outline-none focus:border-crm-red"
-                                    placeholder="Ej: 1100"
-                                />
-                            </div>
-                            <div>
-                                <label className="mb-1 block text-[10px] font-black uppercase tracking-wider text-crm-fg-muted">Monto Acreditar ({destAccount.currency}) *</label>
-                                <input
-                                    type="number"
-                                    step="any"
-                                    value={formData.destAmount}
-                                    onChange={e => setFormData({ ...formData, destAmount: e.target.value })}
-                                    className="h-9 w-full rounded-lg border border-crm-border bg-crm-bg px-3 text-xs font-medium text-crm-fg outline-none focus:border-crm-red"
-                                    placeholder="0"
-                                />
-                            </div>
-                        </div>
-                    </div>
-                )}
-
-                <div>
-                    <label className="mb-1 block text-[11px] font-black uppercase tracking-wider text-crm-fg-subtle">Notas (Opcional)</label>
-                    <input
-                        type="text"
-                        value={formData.notes}
-                        onChange={e => setFormData({ ...formData, notes: e.target.value })}
-                        className="h-10 w-full rounded-xl border border-crm-border bg-crm-bg px-3 text-sm font-medium text-crm-fg outline-none transition focus:border-crm-red"
-                        placeholder="Motivo de la transferencia..."
-                    />
-                </div>
-                <div className="flex justify-end gap-2 pt-4">
-                    <button
-                        onClick={onClose}
-                        type="button"
-                        className="h-10 rounded-xl px-4 text-sm font-bold text-crm-fg-muted hover:bg-crm-surface-raised transition"
-                    >
-                        Cancelar
-                    </button>
-                    <button
-                        onClick={handleFormSubmit}
-                        disabled={!formData.sourceAccountId || !formData.destAccountId || !formData.amount || (isConversion && (!formData.exchangeRate || !formData.destAmount)) || isSubmitting}
-                        className="flex h-10 items-center justify-center gap-2 rounded-xl bg-crm-red-gradient px-6 text-sm font-black text-white shadow-crm-shadow-red transition hover:opacity-95 disabled:opacity-50"
-                    >
-                        {isSubmitting && <Loader2 size={16} className="animate-spin" />}
-                        Transferir
-                    </button>
-                </div>
-            </div>
-        </CrmModal>
-    );
+"use client";
+import {useEffect,useRef,useState} from 'react';
+import {useAuth} from '../../../context/AuthContext';
+import VehicleEditorDialog,{useVehicleFormClose,VehicleFormErrors} from '../stock/VehicleEditorDialog';
+import FinanceField from './FinanceField';
+import {validateFinanceTransfer} from '../../../utils/financeWorkbench';
+const blank=()=>({sourceAccountId:'',destAccountId:'',amount:'',currency:'ARS',exchangeRate:'',destAmount:'',notes:''});
+export default function TransferModal({isOpen,onClose,accounts=[],onSubmit,isSubmitting=false}){
+ const {token}=useAuth(),[values,setValues]=useState(blank),[errors,setErrors]=useState({}),[busy,setBusy]=useState(false),key=useRef(''),generation=useRef(0),session=useRef({token,isOpen});session.current={token,isOpen};
+ const {markDirty,requestClose,closeNotice}=useVehicleFormClose({isOpen,onClose,busy:busy||isSubmitting,resetKey:token});
+ useEffect(()=>{generation.current++;if(isOpen){setValues(blank());setErrors({});setBusy(false);key.current=crypto.randomUUID();}return()=>{generation.current++;};},[isOpen,token]);
+ const source=accounts.find(a=>String(a._id)===values.sourceAccountId),destination=accounts.find(a=>String(a._id)===values.destAccountId),conversion=source&&destination&&source.currency!==destination.currency;
+ const change=(name,value)=>{markDirty();setValues(previous=>{const next={...previous,[name]:value};if(name==='sourceAccountId'){next.destAccountId='';next.exchangeRate='';next.destAmount='';}if(name==='destAccountId'){next.exchangeRate='';next.destAmount='';}if(['amount','exchangeRate'].includes(name)&&conversion){const amount=Number(next.amount),rate=Number(next.exchangeRate),calculated=source.currency==='USD'?amount*rate:amount/rate;next.destAmount=Number.isFinite(calculated)&&rate>0?calculated.toFixed(2):'';}return next;});setErrors({});};
+ const submit=async event=>{event.preventDefault();if(busy||isSubmitting)return;const checked=validateFinanceTransfer(values,accounts);setErrors(checked.errors);if(Object.keys(checked.errors).length)return;const captured=token,revision=generation.current;setBusy(true);try{await onSubmit({...checked.values,idempotencyKey:key.current});if(session.current.token===captured&&localStorage.getItem('token')===captured&&session.current.isOpen&&generation.current===revision)onClose();}catch(error){if(generation.current===revision)setErrors(Object.keys(error.errors||{}).length?error.errors:{form:error.message});}finally{if(generation.current===revision)setBusy(false);}};
+ const field=(name,label,props={})=><FinanceField name={name} label={label} value={values[name]} onChange={change} disabled={busy||isSubmitting} {...props}/>;
+ return <VehicleEditorDialog isOpen={isOpen} onClose={requestClose} title="Nueva transferencia" subtitle="Débito y crédito se registran juntos. La conversión requiere una cotización explícita." closeLabel="Cerrar transferencia" busy={busy||isSubmitting} footer={<div className="flex justify-end gap-2"><button type="button" onClick={requestClose} disabled={busy||isSubmitting} className="rounded-lg border border-crm-border px-3 py-2 text-sm">Cancelar</button><button type="submit" form="finance-transfer" disabled={busy||isSubmitting} className="rounded-lg bg-crm-red px-3 py-2 text-sm font-semibold text-white">{busy||isSubmitting?'Transfiriendo…':'Transferir'}</button></div>}><form id="finance-transfer" onSubmit={submit} className="space-y-4 p-4 sm:p-5">{closeNotice}<VehicleFormErrors errors={errors} prefix="finance"/><div className="grid grid-cols-1 gap-3 sm:grid-cols-2">{field('sourceAccountId','Cuenta de origen *',{options:[{value:'',label:'Elegí una cuenta'},...accounts.filter(a=>a.isActive!==false).map(a=>({value:String(a._id),label:a.name+' · '+a.currency}))]})}{field('destAccountId','Cuenta de destino *',{options:[{value:'',label:'Elegí una cuenta'},...accounts.filter(a=>a.isActive!==false&&String(a._id)!==values.sourceAccountId).map(a=>({value:String(a._id),label:a.name+' · '+a.currency}))]})}{field('amount','Monto a debitar'+(source?' · '+source.currency:''),{type:'number',min:0,step:'any'})}{conversion&&<>{field('exchangeRate','Cotización · ARS por USD *',{type:'number',min:0,step:'any'})}{field('destAmount','Monto a acreditar · '+destination.currency+' *',{type:'number',min:0,step:'any'})}</>}{field('notes','Notas',{type:'textarea',wide:true})}</div>{conversion&&<p className="text-xs text-amber-300">Revisá ambos importes y la cotización antes de confirmar. Los saldos se mantienen en la moneda de cada cuenta.</p>}</form></VehicleEditorDialog>;
 }

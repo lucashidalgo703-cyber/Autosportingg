@@ -81,7 +81,7 @@ export default function CrmPageHeader({
         <div className={`flex flex-col gap-4 border-b border-crm-border pb-5 mb-5 ${compact ? 'xl:flex-row xl:items-center xl:justify-between' : 'lg:flex-row lg:items-start lg:justify-between'}`}>
             <div className={`flex items-center gap-3 ${compact ? 'min-w-0' : ''}`}>
                 <div className={compact ? 'min-w-0' : undefined}>
-                    <h1 className={`m-0 text-crm-fg ${compact ? 'text-xl font-semibold leading-7' : 'text-[26px] font-bold leading-tight'}`}>{title}</h1>
+                    <h1 className="m-0 text-2xl font-bold leading-8 text-crm-fg">{title}</h1>
                     {subtitle && (
                         <p className="m-0 mt-1 text-sm font-medium text-crm-fg-muted">
                             {subtitle}

@@ -1,12 +1,16 @@
 "use client";
-import { useState, useEffect, useRef } from 'react';
-import { X, Save, AlertTriangle, HelpCircle, FileText, Upload, Eye, Trash2, Edit, RefreshCw, TrendingDown, TrendingUp } from 'lucide-react';
+import { useState, useEffect, useRef, useMemo } from 'react';
+import { X, Save, Sliders, AlertTriangle, HelpCircle, FileText, Upload, Eye, Trash2, Edit, RefreshCw, TrendingDown, TrendingUp } from 'lucide-react';
 import Link from 'next/link';
 import toast from 'react-hot-toast';
 import { parseArgentineMoney } from '../../../utils/saleCommercial';
 import { validateVehicleInput } from '../../../utils/vehicleValidation.js';
 import {vehicleAcquisitionEditPatch, vehicleDateEditPatch, vehicleEditorDateValue} from '../../../utils/vehicleEditPreservation.js';
 import { useAuth } from '../../../context/AuthContext';
+import VehicleReferenceFields from './VehicleReferenceFields';
+import VehicleImageFramingModal from './VehicleImageFramingModal';
+import {compressImage} from '../../../utils/imageCompressor';
+import {vehicleEditorExistingFiles,reorderVehicleEditorPhotos,removeVehicleEditorPhoto} from '../../../utils/vehicleEditPreservation.js';
 import VehicleEditorDialog, {useVehicleFormClose, VehicleFormSection, VehicleFormErrors, revealVehicleField} from './VehicleEditorDialog';
 
 export default function VehicleEditModal({ isOpen, onClose, onSave, vehicleData }) {
@@ -23,7 +27,22 @@ export default function VehicleEditModal({ isOpen, onClose, onSave, vehicleData 
     const vehicleId = vehicleData?._original?._id || vehicleData?.id;
     const existingPurchase = vehicleData?._original?.purchasePrice ?? vehicleData?.tradeInOrigin?.value;
     const hasKnownPurchase = existingPurchase !== undefined && existingPurchase !== null && existingPurchase !== '';
-    const { markDirty, requestClose, closeNotice } = useVehicleFormClose({isOpen, onClose, busy: isSaving, resetKey: vehicleId});
+    const { dirty, markDirty, requestClose, closeNotice } = useVehicleFormClose({isOpen, onClose, busy: isSaving, resetKey: vehicleId});
+
+
+    const editingCar = vehicleData?._original || null;
+    const [files,setFiles] = useState([]);
+    const [isDragging,setIsDragging] = useState(false);
+    const [draggedIndex,setDraggedIndex] = useState(null);
+    const [showFramingModal,setShowFramingModal] = useState(false);
+    const [framingInitialIndex,setFramingInitialIndex] = useState(0);
+    const [isProcessingImages,setIsProcessingImages] = useState(false);
+    const fileGeneration = editSession;
+    const fileJobCount = useRef(0);
+    const previewUrls = useRef(new Set());
+    const framingVehicle = useMemo(() => ({...editingCar,brand:formData.brand,name:formData.name,year:formData.year,km:formData.km,imagePosition:formData.imagePosition,imagePositions:formData.imagePositions}), [editingCar,formData.brand,formData.name,formData.year,formData.km,formData.imagePosition,formData.imagePositions]);
+    useEffect(() => { const current = new Set(files.filter(file => !file.isExisting && file.preview?.startsWith('blob:')).map(file => file.preview)); for(const url of previewUrls.current)if(!current.has(url))URL.revokeObjectURL(url); previewUrls.current=current; },[files]);
+    useEffect(() => () => {for(const url of previewUrls.current)URL.revokeObjectURL(url);},[]);
 
     const docFieldsConfig = [
         { key: 'tituloAutomotor', label: 'Título Automotor' },
@@ -40,11 +59,14 @@ export default function VehicleEditModal({ isOpen, onClose, onSave, vehicleData 
             setDocFiles({});
             setFieldErrors({});
             setIsSaving(false);
+            setIsProcessingImages(false); fileJobCount.current=0; setFiles(vehicleEditorExistingFiles(vehicleData._original || {}));
             // Flatten the nested structure for the form.
             setFormData({
                 brand: vehicleData.marca || '',
                 name: vehicleData.modelo || '',
                 description: vehicleData._original?.description || '',
+                publicEquipment:vehicleData._original?.publicEquipment || '',publicMaintenance:vehicleData._original?.publicMaintenance || '',publicPurchaseConditions:vehicleData._original?.publicPurchaseConditions || '',youtubeUrl:vehicleData._original?.youtubeUrl || '',
+                imagePosition:vehicleData._original?.imagePosition || '50% 75%',imagePositions:vehicleData._original?.imagePositions || [],
                 version: vehicleData._original?.version || '',
                 vehicleType: vehicleData._original?.vehicleType || 'Auto',
                 color: vehicleData._original?.color || '',
@@ -196,9 +218,77 @@ export default function VehicleEditModal({ isOpen, onClose, onSave, vehicleData 
         }));
     };
 
+const handleDragStart = (index) => setDraggedIndex(index);
+const handleDragOver = (e) => e.preventDefault();
+const handleDropSort = (index) => {
+        markDirty();
+        if (draggedIndex === null) return;
+        const arranged = reorderVehicleEditorPhotos(files, formData.imagePositions, formData.imagePosition, draggedIndex, index);
+        setFiles(arranged.files);
+        setFormData(previous => ({...previous, imagePositions:arranged.imagePositions, imagePosition:arranged.imagePosition}));
+        setDraggedIndex(null);
+    };
+const handleRemovePhoto = index => {
+        markDirty();
+        const arranged = removeVehicleEditorPhoto(files, formData.imagePositions, formData.imagePosition, index);
+        setFiles(arranged.files);
+        setFormData(previous => ({...previous, imagePositions:arranged.imagePositions, imagePosition:arranged.imagePosition}));
+    };
+const onDropFiles = (e) => {
+        e.preventDefault();
+        setIsDragging(false);
+        const droppedFiles = Array.from(e.dataTransfer.files).filter(file => file.type.startsWith('image/'));
+        addFiles(droppedFiles);
+    };
+const addFiles = async (newFilesRaw) => {
+        markDirty();
+        const incoming = Array.from(newFilesRaw).filter(file => ['image/jpeg','image/png','image/webp'].includes(file.type));
+        const room = Math.max(0,20-files.length);
+        if (incoming.length > room) toast.error('Máximo 20 imágenes.');
+        const fileList = incoming.slice(0,room);
+        if (!fileList.length) return;
+        const generation = fileGeneration.current;
+        fileJobCount.current += 1;
+        setIsProcessingImages(true);
+        const loadingToast = toast.loading("Comprimiendo imágenes...");
+
+        try {
+            const compressedFiles = await Promise.all(
+                fileList.map(async (file) => {
+                    try {
+                        const compressed = await compressImage(file);
+                        return Object.assign(compressed, { preview: URL.createObjectURL(compressed) });
+                    } catch (e) {
+                        console.error("Compression error:", e);
+                        return Object.assign(file, { preview: URL.createObjectURL(file) });
+                    }
+                })
+            );
+
+            toast.dismiss(loadingToast);
+            if (generation !== fileGeneration.current) {
+                compressedFiles.forEach(file => URL.revokeObjectURL(file.preview));
+                return;
+            }
+            setFiles(previous => {
+                if (generation !== fileGeneration.current) { compressedFiles.forEach(file => URL.revokeObjectURL(file.preview)); return previous; }
+                const roomNow = Math.max(0, 20 - previous.length);
+                compressedFiles.slice(roomNow).forEach(file => URL.revokeObjectURL(file.preview));
+                return [...previous, ...compressedFiles.slice(0, roomNow)];
+            });
+        } catch (error) {
+            toast.dismiss(loadingToast);
+            if (generation === fileGeneration.current) toast.error("Error al procesar las imágenes");
+        } finally {
+            if (generation === fileGeneration.current) {
+                fileJobCount.current = Math.max(0, fileJobCount.current - 1);
+                setIsProcessingImages(fileJobCount.current > 0);
+            }
+        }
+    };
     const handleSubmit = async (e) => {
         e.preventDefault();
-        if (isSaving) return;
+        if (isSaving || isProcessingImages) return;
         const savingSession = editSession.current;
         const savingToken = authToken;
         const assertSaveSession = () => {
@@ -257,6 +347,8 @@ export default function VehicleEditModal({ isOpen, onClose, onSave, vehicleData 
                 brand: formData.brand,
                 name: formData.name,
                 description: formData.description,
+                publicEquipment:formData.publicEquipment,publicMaintenance:formData.publicMaintenance,publicPurchaseConditions:formData.publicPurchaseConditions,youtubeUrl:formData.youtubeUrl,
+                imagePosition:formData.imagePosition,imagePositions:formData.imagePositions,
                 version: formData.version,
                 vehicleType: formData.vehicleType,
                 color: formData.color,
@@ -316,7 +408,7 @@ export default function VehicleEditModal({ isOpen, onClose, onSave, vehicleData 
             if (Object.keys(finalValidation.errors).length) { setFieldErrors(finalValidation.errors); revealVehicleField(Object.keys(finalValidation.errors)[0], 'vehicle-edit'); return; }
             // Validate and save the unit before changing files; a rejected unit update must not delete documents.
             assertSaveSession();
-            await onSave(payload);
+            await onSave(payload,files);
             assertSaveSession();
             const docsToUpload = Object.keys(docFiles).filter(key => docFiles[key] instanceof File);
             const token = savingToken;
@@ -397,158 +489,88 @@ export default function VehicleEditModal({ isOpen, onClose, onSave, vehicleData 
 
     const isVisibleWarning = !formData.visibleEnWeb;
 
-    const footer = <>{closeNotice}<div className="flex flex-wrap items-center justify-end gap-2"><Link href="/admin/ayuda?tema=stock" target="_blank" rel="noreferrer" className="mr-auto text-xs text-crm-fg-muted underline">Ayuda de Stock</Link><button type="button" onClick={requestClose} disabled={isSaving} className="rounded-lg border border-crm-border px-3 py-2 text-xs text-crm-fg disabled:opacity-40">Cancelar</button><button type="submit" form="vehicleEditForm" disabled={isSaving} className="flex items-center gap-2 rounded-lg bg-crm-red px-4 py-2 text-xs font-semibold text-white disabled:opacity-40"><Save size={14}/>{isSaving ? 'Guardando…' : 'Guardar cambios'}</button></div></>;
-    return <VehicleEditorDialog isOpen={isOpen} onClose={requestClose} title="Editar vehículo" subtitle={[vehicleData?.marca,vehicleData?.modelo,vehicleData?.año].filter(Boolean).join(' · ')} busy={isSaving} footer={footer}>
-        <form id="vehicleEditForm" onSubmit={handleSubmit} onChangeCapture={markDirty}>
-            <fieldset disabled={isSaving} className="min-w-0">
-                <div className="px-4 pt-4 sm:px-5"><VehicleFormErrors errors={fieldErrors} prefix="vehicle-edit" /></div>
-                    {/* Contenido con scroll independiente sin superposición */}
-                    <div className="p-4 sm:p-5 space-y-4">
-                        <div className="grid grid-cols-1 gap-4">
+    const ownCostContents = <div className="space-y-4">{hasPurchasePriceChanged && (
+                                <div className="flex flex-col gap-3 rounded-xl border border-amber-500/40 bg-amber-500/10 p-3.5">
+                                    <div className="flex items-center justify-between text-xs">
+                                        <span className="font-bold text-amber-300">Justificación obligatoria por cambio de costo</span>
+                                        <span className="text-crm-fg-muted">
+                                            Anterior: {formData.purchaseCurrency} {initialPurchasePrice.toLocaleString('es-AR')} → Nuevo: {formData.purchaseCurrency} {currentPurchasePrice.toLocaleString('es-AR')}
+                                        </span>
+                                    </div>
 
-                        {/* DATOS PÚBLICOS */}
-                        <div className="flex flex-col gap-4">
-                            <h3 className="text-crm-red font-semibold flex items-center gap-2 border-b border-crm-border pb-2">
-                                Identidad y precio de venta
-                            </h3>
+                                    <div className="flex flex-col gap-1.5">
+                                        <label htmlFor="vehicle-edit-purchasePriceChangeType" className="text-[11px] font-semibold uppercase tracking-wider text-crm-fg-muted">Tipo de modificación *</label>
+                                        <select id="vehicle-edit-purchasePriceChangeType"
+                                            name="purchasePriceChangeType"
+                                            value={formData.purchasePriceChangeType || 'correccion_precio'}
+                                            onChange={handleChange}
+                                            className="rounded-lg border border-crm-border bg-crm-bg px-3 py-2 text-xs text-crm-fg focus:border-crm-red focus:outline-none"
+                                        >
+                                            <option value="correccion_precio">Corrección del precio de compra / valor de toma acordado</option>
+                                            <option value="gasto_adicional">Gasto adicional del vehículo (taller, gestoría, traslado, alistamiento)</option>
+                                        </select>
+                                        <p className="m-0 text-[11px] text-crm-fg-muted">
+                                            {formData.purchasePriceChangeType === 'gasto_adicional'
+                                                ? `Se mantendrá el costo base original (${formData.purchaseCurrency} ${initialPurchasePrice.toLocaleString('es-AR')}) y se sumará únicamente la diferencia (${formData.purchaseCurrency} ${Math.max(0, currentPurchasePrice - initialPurchasePrice).toLocaleString('es-AR')}) como gasto del vehículo, sin duplicar costos.`
+                                                : 'Se corregirá el valor base de compra/toma sin generar un gasto adicional ni un egreso duplicado.'}
+                                        </p>
+                                    </div>
 
-                            <div className="grid grid-cols-2 gap-4">
-                                <div className="flex flex-col gap-1.5">
-                                    <label htmlFor="vehicle-edit-brand" className="text-xs font-medium text-crm-fg-muted uppercase tracking-wider">Marca *</label>
-                                    <input id="vehicle-edit-brand" type="text" required name="brand" value={formData.brand} onChange={handleChange} className="bg-crm-bg border border-crm-border text-crm-fg rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-crm-red focus:ring-1 focus:ring-crm-red" />
+                                    {formData.purchasePriceChangeType === 'gasto_adicional' && (
+                                        <div className="flex flex-col gap-1.5">
+                                            <label htmlFor="vehicle-edit-purchasePriceExpenseConcept" className="text-[11px] font-semibold uppercase tracking-wider text-crm-fg-muted">Concepto del gasto adicional</label>
+                                            <input id="vehicle-edit-purchasePriceExpenseConcept"
+                                                type="text"
+                                                name="purchasePriceExpenseConcept"
+                                                value={formData.purchasePriceExpenseConcept || ''}
+                                                onChange={handleChange}
+                                                placeholder="Ej: Reparación tren delantero / Gestoría / Chapista"
+                                                className="rounded-lg border border-crm-border bg-crm-bg px-3 py-2 text-xs text-crm-fg focus:border-crm-red focus:outline-none"
+                                            />
+                                        </div>
+                                    )}
+
+                                    <div className="flex flex-col gap-1.5">
+                                        <label htmlFor="vehicle-edit-purchasePriceJustification" className="text-[11px] font-semibold uppercase tracking-wider text-crm-fg-muted">Motivo / Justificación para el Historial Interno *</label>
+                                        <input id="vehicle-edit-purchasePriceJustification"
+                                            type="text"
+                                            required
+                                            name="purchasePriceJustification"
+                                            value={formData.purchasePriceJustification || ''}
+                                            onChange={handleChange}
+                                            placeholder="Explicá por qué se modifica el valor de compra/toma..."
+                                            className="rounded-lg border border-crm-border bg-crm-bg px-3 py-2 text-xs text-crm-fg focus:border-crm-red focus:outline-none"
+                                        />
+                                    </div>
                                 </div>
-                                <div className="flex flex-col gap-1.5">
-                                    <label htmlFor="vehicle-edit-name" className="text-xs font-medium text-crm-fg-muted uppercase tracking-wider">Modelo *</label>
-                                    <input id="vehicle-edit-name" type="text" required name="name" value={formData.name} onChange={handleChange} className="bg-crm-bg border border-crm-border text-crm-fg rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-crm-red focus:ring-1 focus:ring-crm-red" />
-                                </div>
-                            </div>
-
-                            <div className="flex flex-col gap-1.5">
-                                <label htmlFor="vehicle-edit-description" className="text-xs font-medium text-crm-fg-muted uppercase tracking-wider">Versión / Descripción Corta</label>
-                                <input id="vehicle-edit-description" type="text" name="description" value={formData.description} onChange={handleChange} placeholder="Ej. 1.4 TSI Highline" className="bg-crm-bg border border-crm-border text-crm-fg rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-crm-red focus:ring-1 focus:ring-crm-red" />
-                            </div>
-
-                            <div className="grid grid-cols-2 gap-4">
-                                <div className="flex flex-col gap-1.5">
-                                    <label htmlFor="vehicle-edit-year" className="text-xs font-medium text-crm-fg-muted uppercase tracking-wider">Año *</label>
-                                    <input id="vehicle-edit-year" type="number" required min="1886" max={new Date().getFullYear() + 2} name="year" value={formData.year} onChange={handleChange} className="bg-crm-bg border border-crm-border text-crm-fg rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-crm-red focus:ring-1 focus:ring-crm-red" />
-                                </div>
-                                <div className="flex flex-col gap-1.5">
-                                    <label htmlFor="vehicle-edit-km" className="text-xs font-medium text-crm-fg-muted uppercase tracking-wider">Kilometraje *</label>
-                                    <input id="vehicle-edit-km" type="number" required min="0" name="km" value={formData.km} onChange={handleChange} className="bg-crm-bg border border-crm-border text-crm-fg rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-crm-red focus:ring-1 focus:ring-crm-red" />
-                                </div>
-                            </div>
-
-                            <div className="grid grid-cols-2 gap-4">
-                                <div className="flex flex-col gap-1.5">
-                                    <label htmlFor="vehicle-edit-fuel" className="text-xs font-medium text-crm-fg-muted uppercase tracking-wider">Combustible</label>
-                                    <select id="vehicle-edit-fuel" name="fuel" value={formData.fuel} onChange={handleChange} className="bg-crm-bg border border-crm-border text-crm-fg rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-crm-red focus:ring-1 focus:ring-crm-red">
-                                        {!['Nafta','Diésel','GNC','Híbrido','Eléctrico'].includes(formData.fuel) && <option value={formData.fuel}>{formData.fuel}</option>}
-                                        <option value="Nafta">Nafta</option>
-                                        <option value="Diésel">Diésel</option>
-                                        <option value="GNC">GNC</option>
-                                        <option value="Híbrido">Híbrido</option>
-                                        <option value="Eléctrico">Eléctrico</option>
-                                    </select>
-                                </div>
-                                <div className="flex flex-col gap-1.5">
-                                    <label htmlFor="vehicle-edit-condition" className="text-xs font-medium text-crm-fg-muted uppercase tracking-wider">Condición</label>
-                                    <select id="vehicle-edit-condition" name="condition" value={formData.condition} onChange={handleChange} className="bg-crm-bg border border-crm-border text-crm-fg rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-crm-red focus:ring-1 focus:ring-crm-red">
-                                        {!['Usado','0km','Nuevo'].includes(formData.condition) && <option value={formData.condition}>{formData.condition}</option>}
-                                        <option value="Usado">Usado</option>
-                                        <option value="0km">0km</option>
-                                        <option value="Nuevo">Nuevo</option>
-                                    </select>
-                                </div>
-                            </div>
-
-<div className="grid grid-cols-1 gap-3 sm:grid-cols-2"><div className="flex flex-col gap-1.5"><label htmlFor="vehicle-edit-vehicleType" className="text-xs text-crm-fg-muted">Tipo de vehículo</label><input id="vehicle-edit-vehicleType" type="text" name="vehicleType" value={formData.vehicleType ?? ''} onChange={handleChange} className="w-full rounded-lg border border-crm-border bg-crm-bg px-3 py-2 text-sm text-crm-fg" /></div>
-<div className="flex flex-col gap-1.5"><label htmlFor="vehicle-edit-color" className="text-xs text-crm-fg-muted">Color</label><input id="vehicle-edit-color" type="text" name="color" value={formData.color ?? ''} onChange={handleChange} className="w-full rounded-lg border border-crm-border bg-crm-bg px-3 py-2 text-sm text-crm-fg" /></div>
-
-
-
-</div>
-                            <div className="grid grid-cols-[1fr_80px] gap-4">
-                                <div className="flex flex-col gap-1.5">
-                                    <label htmlFor="vehicle-edit-price" className="text-xs font-medium text-crm-fg-muted uppercase tracking-wider">Precio Publicado *</label>
-                                    <input id="vehicle-edit-price" type="number" required min="0" name="price" value={formData.price} onChange={handleChange} className="bg-crm-bg border border-crm-border text-crm-fg rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-crm-red focus:ring-1 focus:ring-crm-red" />
-                                </div>
-                                <div className="flex flex-col gap-1.5">
-                                    <label htmlFor="vehicle-edit-currency" className="text-xs font-medium text-crm-fg-muted uppercase tracking-wider">Moneda</label>
-                                    <select id="vehicle-edit-currency" name="currency" value={formData.currency} onChange={handleChange} className="bg-crm-bg border border-crm-border text-crm-fg rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-crm-red focus:ring-1 focus:ring-crm-red">
-                                        <option value="USD">USD</option>
-                                        <option value="U$S">U$S</option>
-                                        <option value="ARS">ARS</option>
-                                        <option value="$">$</option>
-                                    </select>
-                                </div>
-                            </div>
-
-                            <div className="flex flex-col gap-3 mt-2 bg-crm-surface-raised p-4 rounded-lg border border-crm-border">
-                                <label className="flex items-center gap-3 cursor-pointer group">
-                                    <input id="vehicle-edit-visibleEnWeb" type="checkbox" name="visibleEnWeb" checked={formData.visibleEnWeb} onChange={handleChange} className="w-5 h-5 rounded border-crm-red text-crm-red focus:ring-crm-red bg-crm-bg cursor-pointer" />
+                            )}<div className="flex flex-col gap-3 p-4 bg-crm-surface-raised border border-crm-border rounded-lg">
+                                <label className="flex items-center gap-3 cursor-pointer group w-fit">
+                                    <input id="vehicle-edit-isSharedInvestment" type="checkbox" name="isSharedInvestment" checked={formData.isSharedInvestment} onChange={handleChange} className="w-5 h-5 rounded border-blue-500 text-blue-500 focus:ring-blue-500 bg-crm-bg cursor-pointer" />
                                     <div className="flex flex-col">
-                                        <span className="text-crm-fg font-medium group-hover:text-crm-red transition-colors">Visible en Catálogo Público</span>
-                                        <span className="text-xs text-crm-fg-muted">Si desmarcas, el auto se ocultará del sitio web.</span>
+                                        <span className="text-crm-fg font-medium group-hover:text-blue-400 transition-colors text-sm">Vehículo con inversión compartida</span>
+                                        <span className="text-[10px] text-crm-fg-muted">El auto fue comprado a medias con un inversionista.</span>
                                     </div>
                                 </label>
-                                {isVisibleWarning && (
-                                    <div className="flex items-start gap-2 p-2 bg-[#EAB308]/10 border border-[#EAB308]/30 rounded mt-1">
-                                        <AlertTriangle size={14} className="text-[#EAB308] mt-0.5 shrink-0" />
-                                        <p className="text-xs text-[#EAB308]">El vehículo no aparecerá en Autosportingg.com.</p>
+
+                                {formData.isSharedInvestment && (
+                                    <div className="grid grid-cols-2 gap-4 mt-2 p-3 bg-blue-500/10 border border-blue-500/20 rounded-lg">
+                                        <div className="flex flex-col gap-1.5">
+                                            <label htmlFor="vehicle-edit-investorName" className="text-xs font-medium text-crm-fg-muted uppercase tracking-wider">Nombre del Inversor *</label>
+                                            <input id="vehicle-edit-investorName" list="edit-companies-datalist" type="text" name="investorName" value={formData.investorName || ''} onChange={handleChange} required={formData.isSharedInvestment} placeholder="Seleccionar empresa o nombre..." className="bg-crm-bg border border-crm-border text-crm-fg rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500" />
+                                            <datalist id="edit-companies-datalist">
+                                                <option value="LHIVER" />
+                                                <option value="AUTOTERRA" />
+                                                <option value="AKAR" />
+                                                <option value="ALWAYS SAS" />
+                                            </datalist>
+                                        </div>
+                                        <div className="flex flex-col gap-1.5">
+                                            <label htmlFor="vehicle-edit-investorPercentage" className="text-xs font-medium text-crm-fg-muted uppercase tracking-wider">Porcentaje (%) *</label>
+                                            <input id="vehicle-edit-investorPercentage" type="number" name="investorPercentage" value={formData.investorPercentage || ''} onChange={handleChange} required={formData.isSharedInvestment} min="1" max="100" className="bg-crm-bg border border-crm-border text-crm-fg rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500" />
+                                        </div>
                                     </div>
                                 )}
-                            </div>
-
-                        </div>
-
-                        {/* DATOS INTERNOS */}
-                        <VehicleFormSection title="Costos, propiedad e InfoAuto" initiallyOpen>
-                        <div className="flex flex-col gap-4">
-                            <h3 className="text-crm-fg-muted font-semibold flex items-center gap-2 border-b border-crm-border pb-2">
-                                Datos internos de AutoSporting
-                            </h3>
-<div className="grid grid-cols-1 gap-3 sm:grid-cols-2"><div className="flex flex-col gap-1.5"><label htmlFor="vehicle-edit-ownerName" className="text-xs text-crm-fg-muted">Nombre del propietario</label><input id="vehicle-edit-ownerName" type="text" name="ownerName" value={formData.ownerName ?? ''} onChange={handleChange} className="w-full rounded-lg border border-crm-border bg-crm-bg px-3 py-2 text-sm text-crm-fg" /></div>
-<div className="flex flex-col gap-1.5"><label htmlFor="vehicle-edit-ownerPhone" className="text-xs text-crm-fg-muted">Teléfono del propietario</label><input id="vehicle-edit-ownerPhone" type="text" name="ownerPhone" value={formData.ownerPhone ?? ''} onChange={handleChange} className="w-full rounded-lg border border-crm-border bg-crm-bg px-3 py-2 text-sm text-crm-fg" /></div>
-<div className="flex flex-col gap-1.5"><label htmlFor="vehicle-edit-ownerEmail" className="text-xs text-crm-fg-muted">Email del propietario</label><input id="vehicle-edit-ownerEmail" type="email" name="ownerEmail" value={formData.ownerEmail ?? ''} onChange={handleChange} className="w-full rounded-lg border border-crm-border bg-crm-bg px-3 py-2 text-sm text-crm-fg" /></div>
-<div className="flex flex-col gap-1.5"><label htmlFor="vehicle-edit-linkedClient" className="text-xs text-crm-fg-muted">Cliente vinculado (referencia)</label><input id="vehicle-edit-linkedClient" type="text" name="linkedClient" value={formData.linkedClient ?? ''} onChange={handleChange} className="w-full rounded-lg border border-crm-border bg-crm-bg px-3 py-2 text-sm text-crm-fg" /></div></div>
-
-                            <div className="grid grid-cols-[1fr_80px] gap-4">
-                                <div className="flex flex-col gap-1.5">
-                                    <label htmlFor="vehicle-edit-purchasePrice" className="text-xs font-medium text-crm-fg-muted uppercase tracking-wider flex items-center justify-between">
-                                        <span>{isTradeIn ? 'Valor de Toma Acordado' : 'Costo de Compra / Toma'}</span>
-                                        {isTradeIn && (
-                                            <span className="text-[10px] text-purple-400 bg-purple-500/10 px-1.5 py-0.5 rounded border border-purple-500/30">
-                                                Permuta
-                                            </span>
-                                        )}
-                                    </label>
-                                    <input id="vehicle-edit-purchasePrice"
-                                        type="text"
-                                        inputMode="decimal"
-                                        name="purchasePrice"
-                                        value={formData.purchasePrice}
-                                        onChange={handleChange}
-                                        placeholder="0"
-                                        className="bg-crm-bg border border-crm-border text-crm-fg rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-crm-red focus:ring-1 focus:ring-crm-red font-mono"
-                                    />
-                                    {Number.isFinite(currentPurchasePrice) && currentPurchasePrice > 0 && (
-                                        <span className="text-[10px] text-crm-fg-muted">
-                                            Interpretado: {formData.purchaseCurrency} {currentPurchasePrice.toLocaleString('es-AR')}
-                                        </span>
-                                    )}
-                                </div>
-                                <div className="flex flex-col gap-1.5">
-                                    <label htmlFor="vehicle-edit-purchaseCurrency" className="text-xs font-medium text-crm-fg-muted uppercase tracking-wider">Moneda</label>
-                                    <select id="vehicle-edit-purchaseCurrency" name="purchaseCurrency" value={formData.purchaseCurrency} onChange={handleChange} className="bg-crm-bg border border-crm-border text-crm-fg rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-crm-red focus:ring-1 focus:ring-crm-red">
-                                        <option value="USD">USD</option>
-                                        <option value="ARS">ARS</option>
-                                    </select>
-                                </div>
-                            </div>
-
-                            {/* RECUADRO OFICIAL INFOAUTO */}
-                            <VehicleFormSection title="Referencia InfoAuto">
+                            </div><VehicleFormSection title="Referencia InfoAuto">
                                 <div className="flex items-center justify-between border-b border-blue-500/20 pb-2.5">
                                     <div className="flex items-center gap-2">
                                         <span className="flex h-6 w-6 items-center justify-center rounded-md bg-blue-500/20 text-blue-400 font-bold text-xs">
@@ -721,178 +743,105 @@ export default function VehicleEditModal({ isOpen, onClose, onSave, vehicleData 
                                         </div>
                                     </div>
                                 )}
-                            </VehicleFormSection>
-
-                            {hasPurchasePriceChanged && (
-                                <div className="flex flex-col gap-3 rounded-xl border border-amber-500/40 bg-amber-500/10 p-3.5">
-                                    <div className="flex items-center justify-between text-xs">
-                                        <span className="font-bold text-amber-300">Justificación obligatoria por cambio de costo</span>
-                                        <span className="text-crm-fg-muted">
-                                            Anterior: {formData.purchaseCurrency} {initialPurchasePrice.toLocaleString('es-AR')} → Nuevo: {formData.purchaseCurrency} {currentPurchasePrice.toLocaleString('es-AR')}
-                                        </span>
-                                    </div>
-
-                                    <div className="flex flex-col gap-1.5">
-                                        <label htmlFor="vehicle-edit-purchasePriceChangeType" className="text-[11px] font-semibold uppercase tracking-wider text-crm-fg-muted">Tipo de modificación *</label>
-                                        <select id="vehicle-edit-purchasePriceChangeType"
-                                            name="purchasePriceChangeType"
-                                            value={formData.purchasePriceChangeType || 'correccion_precio'}
-                                            onChange={handleChange}
-                                            className="rounded-lg border border-crm-border bg-crm-bg px-3 py-2 text-xs text-crm-fg focus:border-crm-red focus:outline-none"
-                                        >
-                                            <option value="correccion_precio">Corrección del precio de compra / valor de toma acordado</option>
-                                            <option value="gasto_adicional">Gasto adicional del vehículo (taller, gestoría, traslado, alistamiento)</option>
-                                        </select>
-                                        <p className="m-0 text-[11px] text-crm-fg-muted">
-                                            {formData.purchasePriceChangeType === 'gasto_adicional'
-                                                ? `Se mantendrá el costo base original (${formData.purchaseCurrency} ${initialPurchasePrice.toLocaleString('es-AR')}) y se sumará únicamente la diferencia (${formData.purchaseCurrency} ${Math.max(0, currentPurchasePrice - initialPurchasePrice).toLocaleString('es-AR')}) como gasto del vehículo, sin duplicar costos.`
-                                                : 'Se corregirá el valor base de compra/toma sin generar un gasto adicional ni un egreso duplicado.'}
-                                        </p>
-                                    </div>
-
-                                    {formData.purchasePriceChangeType === 'gasto_adicional' && (
-                                        <div className="flex flex-col gap-1.5">
-                                            <label htmlFor="vehicle-edit-purchasePriceExpenseConcept" className="text-[11px] font-semibold uppercase tracking-wider text-crm-fg-muted">Concepto del gasto adicional</label>
-                                            <input id="vehicle-edit-purchasePriceExpenseConcept"
-                                                type="text"
-                                                name="purchasePriceExpenseConcept"
-                                                value={formData.purchasePriceExpenseConcept || ''}
-                                                onChange={handleChange}
-                                                placeholder="Ej: Reparación tren delantero / Gestoría / Chapista"
-                                                className="rounded-lg border border-crm-border bg-crm-bg px-3 py-2 text-xs text-crm-fg focus:border-crm-red focus:outline-none"
-                                            />
-                                        </div>
-                                    )}
-
-                                    <div className="flex flex-col gap-1.5">
-                                        <label htmlFor="vehicle-edit-purchasePriceJustification" className="text-[11px] font-semibold uppercase tracking-wider text-crm-fg-muted">Motivo / Justificación para el Historial Interno *</label>
-                                        <input id="vehicle-edit-purchasePriceJustification"
-                                            type="text"
-                                            required
-                                            name="purchasePriceJustification"
-                                            value={formData.purchasePriceJustification || ''}
-                                            onChange={handleChange}
-                                            placeholder="Explicá por qué se modifica el valor de compra/toma..."
-                                            className="rounded-lg border border-crm-border bg-crm-bg px-3 py-2 text-xs text-crm-fg focus:border-crm-red focus:outline-none"
-                                        />
-                                    </div>
-                                </div>
-                            )}
-
-                            <div className="grid grid-cols-2 gap-4">
-                                <div className="flex flex-col gap-1.5">
-                                    <label className="text-xs font-medium text-crm-fg-muted uppercase tracking-wider">Origen del Vehículo</label>
-                                    <select
-                                        value={formData.agencyOwned ? 'propio' : (formData.consignedBy ? 'consignación' : 'tercero')}
-                                        onChange={handleOrigenChange}
-                                        className="bg-crm-bg border border-crm-border text-crm-fg rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-crm-red focus:ring-1 focus:ring-crm-red"
+                            </VehicleFormSection></div>;
+    const movePhoto = (from,to) => {
+        markDirty();
+        const arranged=reorderVehicleEditorPhotos(files,formData.imagePositions,formData.imagePosition,from,to);
+        setFiles(arranged.files);setFormData(previous=>({...previous,imagePositions:arranged.imagePositions,imagePosition:arranged.imagePosition}));
+    };
+    const photoContents = <div className="space-y-3">
+                            <div className="flex items-center justify-between mb-4 border-b border-crm-border pb-2 mt-6">
+                                <span className="text-xs font-semibold text-crm-fg">Fotos del vehículo</span>
+                                <button type="button" onClick={()=>document.getElementById('vehicle-edit-images')?.click()} className="rounded-lg border border-crm-border px-3 py-2 text-xs font-semibold text-crm-fg">Agregar fotos</button>
+                                {files.length > 0 && (
+                                    <button
+                                        type="button"
+                                        onClick={() => {
+                                            setFramingInitialIndex(0);
+                                            markDirty(); setShowFramingModal(true);
+                                        }}
+                                        className="text-xs font-semibold px-2.5 py-1 rounded-lg bg-crm-surface hover:bg-crm-border text-crm-fg transition-colors flex items-center gap-1.5 border border-crm-border hover:border-red-500 cursor-pointer"
+                                        title="Ajustar cómo se encuadra la foto en catálogo y ficha"
                                     >
-                                        <option value="propio">Propio (Agencia)</option>
-                                        <option value="consignación">Consignación</option>
-                                        <option value="tercero">Tercero</option>
-                                    </select>
-                                </div>
-                                {!formData.agencyOwned && (
-                                    <div className="flex flex-col gap-1.5">
-                                        <label htmlFor="vehicle-edit-consignedBy" className="text-xs font-medium text-crm-fg-muted uppercase tracking-wider">Consignado Por</label>
-                                        <input id="vehicle-edit-consignedBy" type="text" name="consignedBy" value={formData.consignedBy} onChange={handleChange} placeholder="Nombre del dueño" className="bg-crm-bg border border-crm-border text-crm-fg rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-crm-red focus:ring-1 focus:ring-crm-red" />
-                                    </div>
+                                        <Sliders size={12} className="text-red-500" />
+                                        Ajustar encuadre
+                                    </button>
                                 )}
                             </div>
 
-                            <div className="flex flex-col gap-3 p-4 bg-crm-surface-raised border border-crm-border rounded-lg">
-                                <label className="flex items-center gap-3 cursor-pointer group w-fit">
-                                    <input id="vehicle-edit-isSharedInvestment" type="checkbox" name="isSharedInvestment" checked={formData.isSharedInvestment} onChange={handleChange} className="w-5 h-5 rounded border-blue-500 text-blue-500 focus:ring-blue-500 bg-crm-bg cursor-pointer" />
-                                    <div className="flex flex-col">
-                                        <span className="text-crm-fg font-medium group-hover:text-blue-400 transition-colors text-sm">Vehículo con inversión compartida</span>
-                                        <span className="text-[10px] text-crm-fg-muted">El auto fue comprado a medias con un inversionista.</span>
-                                    </div>
-                                </label>
-
-                                {formData.isSharedInvestment && (
-                                    <div className="grid grid-cols-2 gap-4 mt-2 p-3 bg-blue-500/10 border border-blue-500/20 rounded-lg">
-                                        <div className="flex flex-col gap-1.5">
-                                            <label htmlFor="vehicle-edit-investorName" className="text-xs font-medium text-crm-fg-muted uppercase tracking-wider">Nombre del Inversor *</label>
-                                            <input id="vehicle-edit-investorName" list="edit-companies-datalist" type="text" name="investorName" value={formData.investorName || ''} onChange={handleChange} required={formData.isSharedInvestment} placeholder="Seleccionar empresa o nombre..." className="bg-crm-bg border border-crm-border text-crm-fg rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500" />
-                                            <datalist id="edit-companies-datalist">
-                                                <option value="LHIVER" />
-                                                <option value="AUTOTERRA" />
-                                                <option value="AKAR" />
-                                                <option value="ALWAYS SAS" />
-                                            </datalist>
-                                        </div>
-                                        <div className="flex flex-col gap-1.5">
-                                            <label htmlFor="vehicle-edit-investorPercentage" className="text-xs font-medium text-crm-fg-muted uppercase tracking-wider">Porcentaje (%) *</label>
-                                            <input id="vehicle-edit-investorPercentage" type="number" name="investorPercentage" value={formData.investorPercentage || ''} onChange={handleChange} required={formData.isSharedInvestment} min="1" max="100" className="bg-crm-bg border border-crm-border text-crm-fg rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500" />
-                                        </div>
-                                    </div>
-                                )}
-                            </div>
-
-                            <div className="grid grid-cols-2 gap-4">
-                                <div className="flex flex-col gap-1.5">
-                                    <label htmlFor="vehicle-edit-plateOrVin" className="text-xs font-medium text-crm-fg-muted uppercase tracking-wider">Dominio / VIN</label>
-                                    <input id="vehicle-edit-plateOrVin" type="text" name="plateOrVin" value={formData.plateOrVin} onChange={handleChange} placeholder="Ej. AE 123 CD" className="bg-crm-bg border border-crm-border text-crm-fg rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-crm-red focus:ring-1 focus:ring-crm-red uppercase" />
-                                </div>
-                                <div className="flex flex-col gap-1.5">
-                                    <label htmlFor="vehicle-edit-location" className="text-xs font-medium text-crm-fg-muted uppercase tracking-wider">Ubicación Física</label>
-                                    <input id="vehicle-edit-location" type="text" name="location" value={formData.location} onChange={handleChange} placeholder="Ej. Salón, Taller" className="bg-crm-bg border border-crm-border text-crm-fg rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-crm-red focus:ring-1 focus:ring-crm-red" />
-                                </div>
-                            </div>
-
-                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                                <div className="flex flex-col gap-1.5">
-                                    <label htmlFor="vehicle-edit-status" className="text-xs font-medium text-crm-fg-muted uppercase tracking-wider">Estado Operativo</label>
-                                    <select id="vehicle-edit-status" aria-describedby="vehicle-edit-state-help" name="status" disabled={['Reservado','Vendido'].includes(vehicleData?._original?.status)} value={formData.status} onChange={handleChange} className="bg-crm-bg border border-crm-border text-crm-fg rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-crm-red focus:ring-1 focus:ring-crm-red">
-                                        <option value="Disponible">Disponible</option>
-                                        <option value="Reservado">Reservado</option>
-                                        <option value="Vendido">Vendido</option>
-                                        <option value="Pausado">Pausado</option>
-                                    </select>
-                                </div>
-                                <div className="flex flex-col gap-1.5">
-                                    <p id="vehicle-edit-state-help" className="text-xs text-crm-fg-muted">Las reservas y ventas vinculadas controlan el estado operativo.</p>
-                                    <label htmlFor="vehicle-edit-createdAt" className="text-xs font-medium text-crm-fg-muted uppercase tracking-wider">Fecha Ingreso</label>
-                                    <input id="vehicle-edit-createdAt" type="date" name="createdAt" value={formData.createdAt} onChange={handleChange} className="bg-crm-bg border border-crm-border text-crm-fg rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-crm-red focus:ring-1 focus:ring-crm-red appearance-none" style={{colorScheme: 'dark'}} />
-                                </div>
-                                <div className="flex flex-col gap-1.5">
-                                    <label htmlFor="vehicle-edit-soldAt" className="text-xs font-medium text-crm-fg-muted uppercase tracking-wider">Fecha Venta</label>
-                                    <input id="vehicle-edit-soldAt" type="date" name="soldAt" value={formData.soldAt} onChange={handleChange} disabled={formData.status !== 'Vendido'} className="bg-crm-bg border border-crm-border text-crm-fg rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-crm-red focus:ring-1 focus:ring-crm-red appearance-none disabled:opacity-50" style={{colorScheme: 'dark'}} />
-                                </div>
-                            </div>
-
-                            <div className="flex flex-col gap-1.5 flex-1">
-                                <label htmlFor="vehicle-edit-notes" className="text-xs font-medium text-crm-fg-muted uppercase tracking-wider">Observaciones Internas</label>
-                                <textarea id="vehicle-edit-notes"
-                                    name="notes"
-                                    value={formData.notes}
-                                    onChange={handleChange}
-                                    placeholder="Detalles, reparaciones pendientes, historial..."
-                                    className="bg-crm-bg border border-crm-border text-crm-fg rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-crm-red focus:ring-1 focus:ring-crm-red resize-none flex-1 min-h-[100px]"
+                            <div
+                                onDragOver={(e) => { e.preventDefault(); setIsDragging(true); }}
+                                onDragLeave={(e) => { e.preventDefault(); setIsDragging(false); }}
+                                onDrop={onDropFiles}
+                                className={`
+                                    relative cursor-pointer transition-all duration-300
+                                    border border-dashed rounded-xl flex flex-col items-center justify-center
+                                    ${files.length > 0 ? 'h-32 border-crm-border bg-crm-surface' : 'h-48 bg-crm-surface'}
+                                    ${isDragging ? 'border-red-500 bg-red-500/5' : 'border-crm-border hover:border-white/20'}
+                                `}
+                            >
+                                <input
+                                    type="file" multiple accept="image/png, image/jpeg, image/jpg, image/webp"
+                                    id="vehicle-edit-images" aria-label="Agregar fotos del vehículo" hidden
+                                    onChange={(e) => { if (e.target.files) addFiles(e.target.files); }}
                                 />
+
+                                {files.length === 0 ? (
+                                    <div className="text-center pointer-events-none z-10">
+                                        <div className={`w-10 h-10 rounded-full flex items-center justify-center mx-auto mb-3 transition-colors ${isDragging ? 'bg-red-500 text-crm-fg' : 'bg-crm-surface-raised text-crm-fg-muted'}`}>
+                                            <Upload size={18} />
+                                        </div>
+                                        <p className="text-gray-300 text-xs font-medium">Arrastra imágenes aquí</p>
+                                        <p className="text-crm-fg-muted text-xs mt-1">o usá Agregar fotos</p>
+                                    </div>
+                                ) : (
+                                    <div className="flex gap-4 px-4 overflow-x-auto w-full items-center justify-start h-full z-10 custom-scrollbar py-2">
+                                        {files.map((file, i) => (
+                                            <div
+                                                key={i} draggable
+                                                onDragStart={() => handleDragStart(i)}
+                                                onDragOver={handleDragOver}
+                                                onDrop={() => handleDropSort(i)}
+                                                className={`
+                                                    flex-shrink-0 relative w-28 h-20 rounded-lg overflow-hidden border shadow-sm group cursor-grab active:cursor-grabbing
+                                                    ${i === 0 ? 'border-red-500 ring-1 ring-red-500/50' : 'border-crm-border'}
+                                                `}
+                                            >
+                                                <img src={file.preview} alt={'Foto '+(i+1)+' del vehículo'} className="w-full h-full object-cover" />
+                                                {i === 0 && (
+                                                    <div className="absolute top-0 left-0 w-full bg-red-500/90 text-crm-fg text-[8px] font-bold text-center py-0.5 tracking-wider uppercase z-20">Portada</div>
+                                                )}
+                                                <button
+                                                    type="button"
+                                                    title={`Ajustar encuadre de foto #${i + 1}`}
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        setFramingInitialIndex(i);
+                                                        markDirty(); setShowFramingModal(true);
+                                                    }}
+                                                    className="absolute bottom-1 left-1 bg-black/80 hover:bg-red-600 text-crm-fg p-1 rounded z-30 shadow transition-colors flex items-center justify-center cursor-pointer border border-white/20"
+                                                >
+                                                    <Sliders size={10} />
+                                                </button>
+                                                <button
+                                                    type="button"
+                                                    aria-label={`Quitar foto ${i + 1}`} onClick={(e) => { e.stopPropagation(); handleRemovePhoto(i); }}
+                                                    className="absolute top-1 right-1 bg-red-500 hover:bg-red-600 text-crm-fg p-1 rounded-full z-30 sm:opacity-0 sm:group-hover:opacity-100 focus-visible:opacity-100 transition-opacity"
+                                                >
+                                                    <X size={10} />
+                                                </button>
+                                                <div className="absolute bottom-1 right-1 z-30 flex gap-1">
+                                                    <button type="button" aria-label={'Mover foto '+(i+1)+' a la izquierda'} disabled={i === 0} onClick={event=>{event.stopPropagation();movePhoto(i,i-1);}} className="rounded border border-white/20 bg-black/80 px-1.5 py-0.5 text-xs text-white disabled:opacity-30">←</button>
+                                                    <button type="button" aria-label={'Mover foto '+(i+1)+' a la derecha'} disabled={i === files.length-1} onClick={event=>{event.stopPropagation();movePhoto(i,i+1);}} className="rounded border border-white/20 bg-black/80 px-1.5 py-0.5 text-xs text-white disabled:opacity-30">→</button>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
                             </div>
+                        </div>;
+    const documentContents = <div>
 
-                        </div>
-                        </VehicleFormSection>
-                    </div>
-
-<VehicleFormSection title="Ficha técnica"><div className="grid grid-cols-1 gap-3 sm:grid-cols-2 md:grid-cols-3"><div><label htmlFor="vehicle-edit-version" className="mb-1.5 block text-xs text-crm-fg-muted">Versión</label><input id="vehicle-edit-version" name="version" type="text"  value={formData.version ?? ''} onChange={handleChange} className="w-full rounded-lg border border-crm-border bg-crm-bg px-3 py-2 text-sm text-crm-fg" /></div>
-<div><label htmlFor="vehicle-edit-transmission" className="mb-1.5 block text-xs text-crm-fg-muted">Transmisión</label><select id="vehicle-edit-transmission" name="transmission" value={formData.transmission ?? ''} onChange={handleChange} className="h-9 w-full rounded-lg border border-crm-border bg-crm-bg px-3 py-2 text-sm text-crm-fg"><option value="">Sin especificar</option>{["Manual","Automática"].includes(formData.transmission) ? null : formData.transmission && <option value={formData.transmission}>{formData.transmission}</option>}<option value="Manual">Manual</option><option value="Automática">Automática</option></select></div>
-<div><label htmlFor="vehicle-edit-bodyType" className="mb-1.5 block text-xs text-crm-fg-muted">Carrocería</label><select id="vehicle-edit-bodyType" name="bodyType" value={formData.bodyType ?? ''} onChange={handleChange} className="h-9 w-full rounded-lg border border-crm-border bg-crm-bg px-3 py-2 text-sm text-crm-fg"><option value="">Sin especificar</option>{["SUV","Sedán","Hatchback","Pick-up","Coupé","Cabriolet","Familiar","Utilitario","Otro"].includes(formData.bodyType) ? null : formData.bodyType && <option value={formData.bodyType}>{formData.bodyType}</option>}<option value="SUV">SUV</option><option value="Sedán">Sedán</option><option value="Hatchback">Hatchback</option><option value="Pick-up">Pick-up</option><option value="Coupé">Coupé</option><option value="Cabriolet">Cabriolet</option><option value="Familiar">Familiar</option><option value="Utilitario">Utilitario</option><option value="Otro">Otro</option></select></div>
-<div><label htmlFor="vehicle-edit-doors" className="mb-1.5 block text-xs text-crm-fg-muted">Puertas</label><input id="vehicle-edit-doors" name="doors" type="number" min="0" step="1" value={formData.doors ?? ''} onChange={handleChange} className="w-full rounded-lg border border-crm-border bg-crm-bg px-3 py-2 text-sm text-crm-fg" /></div>
-<div><label htmlFor="vehicle-edit-engine" className="mb-1.5 block text-xs text-crm-fg-muted">Motor / Cilindrada</label><input id="vehicle-edit-engine" name="engine" type="text"  value={formData.engine ?? ''} onChange={handleChange} className="w-full rounded-lg border border-crm-border bg-crm-bg px-3 py-2 text-sm text-crm-fg" /></div>
-<div><label htmlFor="vehicle-edit-engineNumber" className="mb-1.5 block text-xs text-crm-fg-muted">Nº motor</label><input id="vehicle-edit-engineNumber" name="engineNumber" type="text"  value={formData.engineNumber ?? ''} onChange={handleChange} className="w-full rounded-lg border border-crm-border bg-crm-bg px-3 py-2 text-sm text-crm-fg" /></div>
-<div><label htmlFor="vehicle-edit-chassisNumber" className="mb-1.5 block text-xs text-crm-fg-muted">Nº chasis</label><input id="vehicle-edit-chassisNumber" name="chassisNumber" type="text"  value={formData.chassisNumber ?? ''} onChange={handleChange} className="w-full rounded-lg border border-crm-border bg-crm-bg px-3 py-2 text-sm text-crm-fg" /></div>
-<div><label htmlFor="vehicle-edit-owners" className="mb-1.5 block text-xs text-crm-fg-muted">Cantidad de dueños</label><input id="vehicle-edit-owners" name="owners" type="number" min="1" step="1" value={formData.owners ?? ''} onChange={handleChange} className="w-full rounded-lg border border-crm-border bg-crm-bg px-3 py-2 text-sm text-crm-fg" /></div></div></VehicleFormSection>
-<VehicleFormSection title="Publicación y equipamiento"><div className="grid grid-cols-1 gap-3 sm:grid-cols-2"><div><label htmlFor="vehicle-edit-hasManuals" className="mb-1.5 block text-xs text-crm-fg-muted">Manuales</label><select id="vehicle-edit-hasManuals" name="hasManuals" value={formData.hasManuals ?? 'No'} onChange={handleChange} className="w-full rounded-lg border border-crm-border bg-crm-bg px-3 py-2 text-sm text-crm-fg"><option value="No">No</option><option value="Sí">Sí</option><option value="Parcial">Parcial</option></select></div>
-<div><label htmlFor="vehicle-edit-hasDuplicateKeys" className="mb-1.5 block text-xs text-crm-fg-muted">Duplicado de llaves</label><select id="vehicle-edit-hasDuplicateKeys" name="hasDuplicateKeys" value={formData.hasDuplicateKeys ?? 'No'} onChange={handleChange} className="w-full rounded-lg border border-crm-border bg-crm-bg px-3 py-2 text-sm text-crm-fg"><option value="No">No</option><option value="Sí">Sí</option><option value="Parcial">Parcial</option></select></div>
-<div><label htmlFor="vehicle-edit-hasOfficialServices" className="mb-1.5 block text-xs text-crm-fg-muted">Servicios oficiales</label><select id="vehicle-edit-hasOfficialServices" name="hasOfficialServices" value={formData.hasOfficialServices ?? 'No'} onChange={handleChange} className="w-full rounded-lg border border-crm-border bg-crm-bg px-3 py-2 text-sm text-crm-fg"><option value="No">No</option><option value="Sí">Sí</option><option value="Parcial">Parcial</option></select></div>
-<div><label htmlFor="vehicle-edit-publishedOnML" className="mb-1.5 block text-xs text-crm-fg-muted">Publicado en Mercado Libre</label><select id="vehicle-edit-publishedOnML" name="publishedOnML" value={formData.publishedOnML ?? 'No'} onChange={handleChange} className="w-full rounded-lg border border-crm-border bg-crm-bg px-3 py-2 text-sm text-crm-fg"><option value="No">No</option><option value="Sí">Sí</option><option value="Parcial">Parcial</option></select></div><div><label htmlFor="vehicle-edit-publishedBy" className="mb-1.5 block text-xs text-crm-fg-muted">Publicado por</label><input id="vehicle-edit-publishedBy" name="publishedBy" value={formData.publishedBy ?? ''} onChange={handleChange} className="w-full rounded-lg border border-crm-border bg-crm-bg px-3 py-2 text-sm text-crm-fg" /></div><div><label htmlFor="vehicle-edit-mlLink" className="mb-1.5 block text-xs text-crm-fg-muted">Link Mercado Libre</label><input id="vehicle-edit-mlLink" name="mlLink" value={formData.mlLink ?? ''} onChange={handleChange} className="w-full rounded-lg border border-crm-border bg-crm-bg px-3 py-2 text-sm text-crm-fg" /></div></div></VehicleFormSection>
-                    {/* DOCUMENTACIÓN REGISTRAL */}
-                        <VehicleFormSection title="Documentación registral">
-                            <h3 className="text-crm-fg-muted font-semibold flex items-center gap-2 border-b border-crm-border pb-2 mb-4">
-                                <FileText size={16} /> Documentación Registral (Archivos)
-                            </h3>
                             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                                 {docFieldsConfig.map(field => {
                                     const existingUrl = vehicleData?._original?.documentationFiles?.[field.key] || vehicleData?.documentationFiles?.[field.key];
@@ -935,11 +884,35 @@ export default function VehicleEditModal({ isOpen, onClose, onSave, vehicleData 
                                     );
                                 })}
                             </div>
-                        </VehicleFormSection>
-                    </div>
-
-
-            </fieldset>
+                        </div>;
+    const footer = <>{closeNotice}<div className="flex flex-wrap items-center justify-end gap-2"><span className="mr-auto text-xs text-crm-fg-muted">{dirty ? 'Cambios sin guardar' : 'Sin cambios'}</span><Link href="/admin/ayuda?tema=stock" target="_blank" rel="noreferrer" className="mr-auto text-xs text-crm-fg-muted underline">Ayuda de Stock</Link><button type="button" onClick={requestClose} disabled={isSaving} className="rounded-lg border border-crm-border px-3 py-2 text-xs text-crm-fg disabled:opacity-40">Cancelar</button><button type="submit" form="vehicleEditForm" disabled={isSaving || isProcessingImages} className="flex items-center gap-2 rounded-lg bg-crm-red px-4 py-2 text-xs font-semibold text-white disabled:opacity-40"><Save size={14}/>{isProcessingImages ? 'Procesando fotos…' : isSaving ? 'Guardando…' : 'Guardar'}</button></div></>;
+    return <VehicleEditorDialog isOpen={isOpen} onClose={requestClose} title={'Editar — '+[formData.brand,formData.name,formData.year].filter(Boolean).join(' ')} subtitle="Fotos y datos complementarios se abren por sección." busy={isSaving} suspendKeyboard={showFramingModal} footer={footer}>
+        <form id="vehicleEditForm" onSubmit={handleSubmit} onChangeCapture={markDirty}>
+            <fieldset disabled={isSaving} className="min-w-0">
+<div className="p-4 sm:p-5 space-y-4"><VehicleFormErrors errors={fieldErrors} prefix="vehicle-edit"/><VehicleReferenceFields data={formData} onChange={handleChange} prefix="vehicle-edit" isEditing lockedStatus={['Reservado','Vendido'].includes(vehicleData?._original?.status)} costs={ownCostContents} documents={documentContents} photos={photoContents}/></div>
+</fieldset>
         </form>
+<VehicleImageFramingModal
+                isOpen={showFramingModal}
+                onClose={() => setShowFramingModal(false)}
+                vehicle={framingVehicle}
+                images={files}
+                initialIndex={framingInitialIndex}
+                currentPosition={formData.imagePosition || '50% 75%'}
+                onPositionSaved={(newPos) => {
+                    setFormData(prev => ({ ...prev, imagePosition: newPos }));
+                }}
+                onPositionsSaved={(newPositions, coverPos) => {
+                    setFormData(prev => ({ ...prev, imagePositions: newPositions, imagePosition: coverPos }));
+                }}
+                onCropComplete={(croppedFile, cropIndex) => {
+                    setFiles(prev => {
+                        const updated = [...prev];
+                        updated[cropIndex] = croppedFile;
+                        return updated;
+                    });
+                    toast.success(`Foto #${cropIndex + 1} reemplazada con el recorte 4:3`);
+                }}
+            />
     </VehicleEditorDialog>;
 }

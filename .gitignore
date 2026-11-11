@@ -27,3 +27,6 @@ dist-ssr
 
 .vercel
 .env*
+
+# Generated local OCR runtime/models; recreated by prepare-ocr-assets.mjs.
+/public/ocr/

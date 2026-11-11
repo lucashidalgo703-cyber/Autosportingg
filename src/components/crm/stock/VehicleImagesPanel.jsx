@@ -21,7 +21,7 @@ const readUploadError = async (res, fallback) => {
     }
 };
 
-export default function VehicleImagesPanel({ vehicle, onSaveComplete, canEdit = false }) {
+export default function VehicleImagesPanel({ vehicle, onSaveComplete, canEdit = false, onDirtyChange, onBusyChange }) {
     const [isDragging, setIsDragging] = useState(false);
     const [files, setFiles] = useState(() => (vehicle?.fotos || vehicle?.images || []).map((url, index) => ({
         preview: url, isExisting: true, url,
@@ -40,6 +40,8 @@ export default function VehicleImagesPanel({ vehicle, onSaveComplete, canEdit = 
         return !file.isExisting || file.url !== serverImages[index] || file.position !== serverPosition;
     });
     const isBusy = isSaving || isCompressing;
+    useEffect(() => { onDirtyChange?.(hasChanges || isBusy); }, [hasChanges, isBusy, onDirtyChange]);
+    useEffect(() => { onBusyChange?.(isBusy); return () => onBusyChange?.(false); }, [isBusy, onBusyChange]);
     const framingVehicle = useMemo(() => ({
         // No id: the framing dialog stages changes until Guardar imágenes.
         brand: vehicle?.marca || vehicle?._original?.brand,

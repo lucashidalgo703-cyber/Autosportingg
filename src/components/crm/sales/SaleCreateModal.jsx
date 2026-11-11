@@ -1,617 +1,152 @@
 "use client";
 import React, { useEffect, useMemo, useRef, useState } from 'react';
+import Link from 'next/link';
 import toast from 'react-hot-toast';
-import {
-    CalendarDays,
-    CarFront,
-    CheckSquare,
-    DollarSign,
-    FileText,
-    HandCoins,
-    Plus,
-    Search,
-    Tags,
-    User,
-    X,
-    Key,
-    Settings,
-    Users,
-    Briefcase
-} from 'lucide-react';
-import { useAdminCars } from '../../../hooks/useAdminCars';
-import { useAdminClients } from '../../../hooks/useAdminClients';
+import { FileText, ExternalLink } from 'lucide-react';
 import { useAdminSales } from '../../../hooks/useAdminSales';
-import { useAdminUsers } from '../../../hooks/useAdminUsers';
+import { useAuth } from '../../../context/AuthContext';
+import { hasPermission, PERMISSIONS } from '../../../utils/adminPermissions';
 import CrmButton from '../ui/CrmButton';
 import CrmInput from '../ui/CrmInput';
 import CrmSelect from '../ui/CrmSelect';
 import CrmTextarea from '../ui/CrmTextarea';
 import CrmModal from '../ui/CrmModal';
 import { createSaleForm, saleToForm, buildSaleCreatePayload } from '../../../utils/saleDraftForm';
-
-const FieldLabel = ({ children, required = false }) => (
-    <label className="mb-1.5 block text-[11px] font-bold text-crm-fg-muted uppercase tracking-wider">
-        {children}{required && <span className="text-crm-red"> *</span>}
-    </label>
-);
-
-const SectionTitle = ({ icon: Icon, children, className = "" }) => (
-    <h3 className={`m-0 mb-4 flex items-center gap-2 text-[11px] font-bold uppercase tracking-[0.08em] text-crm-fg-muted ${className}`}>
-        {Icon && <Icon size={14} className="text-crm-fg-muted" />}
-        {children}
-    </h3>
-);
+import { SALE_PAYMENT_LABELS } from '../../../utils/salesWorkbench';
+import { saleTradeInComposition } from '../../../utils/saleWorkspace';
+import { uploadSaleDocument } from '../../../utils/saleDocuments';
+import { SaleField, SaleCheck, SaleDepositEditor, SaleTradeInEditor, SaleReminderEditor, SaleTopDocumentInputs, createSaleTradeInRow } from './SaleAgreementEditors';
+import SaleDocumentsPanel from './SaleDocumentsPanel';
+const Section = ({ title, children }) => <section className="space-y-4"><h3 className="m-0 text-xs font-semibold uppercase tracking-wider text-crm-fg-muted">{title}</h3>{children}</section>;
+const optionsWith = (rows, original) => original?._id && !rows.some(row => row._id === original._id) ? [original, ...rows] : rows;
 
 export default function SaleCreateModal({ isOpen, onClose, onSuccess, initialSale = null }) {
-    const { cars, refresh: fetchCars } = useAdminCars();
-    const { clients, fetchClients } = useAdminClients();
-    const { createSale, updateSale } = useAdminSales();
-    const { users, fetchUsers } = useAdminUsers();
-    const fetchCarsRef = useRef(fetchCars);
-    const submittingRef = useRef(false);
-    const statusChosenRef = useRef(false);
-    
+    const { token, user } = useAuth();
+    const { createSale, updateSale, salesRequest } = useAdminSales();
+    const current = useRef({ token, isOpen }); current.current = { token, isOpen };
+    const busy = useRef(false);
+    const statusChosen = useRef(false);
+    const [form, setForm] = useState(createSaleForm);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
-    const [vehicleSearch, setVehicleSearch] = useState('');
-    const [isAddingDeposit, setIsAddingDeposit] = useState(false);
-    
-    const [formData, setFormData] = useState(createSaleForm);
-
+    const [fields, setFields] = useState({});
+    const [cars, setCars] = useState([]); const [clients, setClients] = useState([]); const [users, setUsers] = useState([]); const [accounts, setAccounts] = useState([]);
+    const [vehicleSearch, setVehicleSearch] = useState(''); const [clientSearch, setClientSearch] = useState('');
+    const [stockSearch, setStockSearch] = useState(''); const [tradeStock, setTradeStock] = useState([]);
+    const [files, setFiles] = useState({}); const [savedRecord, setSavedRecord] = useState(null);
+    const canStock = hasPermission(user, PERMISSIONS.STOCK_READ); const canEnterStock = hasPermission(user, PERMISSIONS.STOCK_WRITE);
+    const canClients = hasPermission(user, PERMISSIONS.CLIENTES_READ); const canAccounts = hasPermission(user, PERMISSIONS.CAJA_READ);
+    const canCancel = hasPermission(user, PERMISSIONS.VENTAS_CANCEL);
+    const canDocuments = hasPermission(user, PERMISSIONS.DOCUMENTACION_WRITE) && hasPermission(user, PERMISSIONS.VENTAS_WRITE);
+    const editingActive = Boolean(initialSale?._id && initialSale.status !== 'borrador');
     useEffect(() => {
         if (!isOpen) return;
-        setFormData(saleToForm(initialSale));
-        setVehicleSearch('');
-        setIsAddingDeposit(false);
-        setError('');
-        statusChosenRef.current = Boolean(initialSale?._id);
-    }, [isOpen, initialSale]);
-
+        statusChosen.current = Boolean(initialSale?._id);
+        setForm(saleToForm(initialSale)); setError(''); setFields({}); setFiles({}); setSavedRecord(null); setVehicleSearch(''); setClientSearch(''); setStockSearch('');
+    }, [isOpen, initialSale, token]);
     useEffect(() => {
-        fetchCarsRef.current = fetchCars;
-    }, [fetchCars]);
-
+        if (!isOpen || !token) return;
+        let cancelled = false;
+        const controller = new AbortController();
+        const timer = setTimeout(async () => {
+            const jobs = [salesRequest('/api/admin/users/active', { signal: controller.signal }).then(data => { if (!cancelled) setUsers(Array.isArray(data) ? data : data.users || []); })];
+            if (canStock) jobs.push(salesRequest(`/api/admin/cars?limit=50&status=disponible&search=${encodeURIComponent(vehicleSearch)}`, { signal: controller.signal }).then(data => { if (!cancelled) setCars(data.cars || (Array.isArray(data) ? data : [])); }));
+            if (canClients) jobs.push(salesRequest(`/api/admin/clients?limit=50&search=${encodeURIComponent(clientSearch)}`, { signal: controller.signal }).then(data => { if (!cancelled) setClients(data.clients || []); }));
+            if (canAccounts) jobs.push(salesRequest('/api/admin/accounts', { signal: controller.signal }).then(data => { if (!cancelled) setAccounts(Array.isArray(data) ? data : data.accounts || []); }));
+            const results = await Promise.allSettled(jobs);
+            if (!cancelled && results.some(result => result.status === 'rejected' && result.reason?.name !== 'AbortError')) setError('No se pudieron cargar algunas opciones. Reintentá la búsqueda antes de guardar.');
+        }, 250);
+        return () => { cancelled = true; clearTimeout(timer); controller.abort(); };
+    }, [isOpen, token, salesRequest, canStock, canClients, canAccounts, vehicleSearch, clientSearch]);
     useEffect(() => {
-        if (isOpen) {
-            fetchClients({ limit: 80 });
-            fetchUsers();
-            fetchCarsRef.current({ limit: 200, status: 'disponible' });
-            setError('');
-        }
-    }, [fetchClients, fetchUsers, isOpen]);
-
-    const availableCars = useMemo(() => {
-        const search = vehicleSearch.trim().toLowerCase();
-        const originalVehicle = typeof initialSale?.vehicleId === 'object' ? initialSale.vehicleId : null;
-        const options = originalVehicle?._id && !(cars || []).some((car) => car._id === originalVehicle._id)
-            ? [originalVehicle, ...(cars || [])]
-            : (cars || []);
-        return options
-            .filter((car) => (car.status || '').toLowerCase() === 'disponible' || car._id === formData.vehicleId)
-            .filter((car) => {
-                if (car._id === formData.vehicleId) return true;
-                if (!search) return true;
-                return `${car.brand || ''} ${car.name || ''} ${car.model || ''} ${car.version || ''} ${car.plateOrVin || ''}`.toLowerCase().includes(search);
-            })
-            .slice(0, 100);
-    }, [cars, vehicleSearch, formData.vehicleId, initialSale]);
-
-    const selectedVehicle = useMemo(
-        () => (cars || []).find((car) => car._id === formData.vehicleId),
-        [cars, formData.vehicleId]
-    );
-
-    // Si la comisión está compartida (split), forzamos los valores
-    useEffect(() => {
-        if (formData.splitCommission) {
-            setFormData(prev => ({
-                ...prev,
-                sellerPct: 0.5,
-                consignationPct: 0.5
-            }));
-        }
-    }, [formData.splitCommission]);
-
-    if (!isOpen) return null;
-
-    const updateField = (field, value) => {
-        if (field === 'status') statusChosenRef.current = true;
-        const selectedClient = field === 'clientId' && value
-            ? (clients || []).find((client) => client._id === value)
-            : null;
-        setFormData((prev) => ({
-            ...prev,
-            [field]: value,
-            ...(field === 'vehicleId' && !statusChosenRef.current
-                ? { status: value ? 'confirmada' : 'borrador' }
-                : {}),
-            ...(field === 'manualImport'
-                ? { status: value ? 'entregada' : (prev.vehicleId ? 'confirmada' : 'borrador') }
-                : {}),
-            ...(selectedClient ? {
-                buyerName: selectedClient.fullName || selectedClient.firstName || '',
-                buyerPhone: selectedClient.phone || '',
-                buyerEmail: selectedClient.email || '',
-                buyerDni: selectedClient.dni || ''
-            } : {})
-        }));
+        if (!isOpen || !token || !canStock || !form.hasTradeIn) return;
+        let cancelled = false; const controller = new AbortController();
+        const timer = setTimeout(() => salesRequest(`/api/admin/cars?limit=50&search=${encodeURIComponent(stockSearch)}`, { signal: controller.signal }).then(data => { if (!cancelled) setTradeStock(data.cars || []); }).catch(err => { if (!cancelled && err.name !== 'AbortError') setError(err.message); }), 250);
+        return () => { cancelled = true; clearTimeout(timer); controller.abort(); };
+    }, [isOpen, token, salesRequest, canStock, form.hasTradeIn, stockSearch]);
+    const availableCars = useMemo(() => optionsWith(cars, typeof initialSale?.vehicleId === 'object' ? initialSale.vehicleId : null), [cars, initialSale]);
+    const availableClients = useMemo(() => optionsWith(clients, typeof initialSale?.clientId === 'object' ? initialSale.clientId : null), [clients, initialSale]);
+    const vehicle = availableCars.find(car => car._id === form.vehicleId);
+    const set = (key, value) => {
+        if (key === 'status') statusChosen.current = true;
+        if (key === 'manualImport') statusChosen.current = false;
+        setForm(previous => ({ ...previous, [key]: value, ...(key === 'hasTradeIn' && value && !previous.tradeIns?.length ? { tradeIns: [createSaleTradeInRow()] } : {}), ...(key === 'vehicleId' && !editingActive && !statusChosen.current ? { status: value ? 'confirmada' : 'borrador' } : {}), ...(key === 'manualImport' ? { status: value ? 'entregada' : (previous.vehicleId ? 'confirmada' : 'borrador') } : {}) }));
     };
-
-    const updateDeliveryItem = (item, value) => {
-        setFormData(prev => ({
-            ...prev,
-            deliveryItems: { ...prev.deliveryItems, [item]: value }
-        }));
+    const chooseClient = value => { const client = availableClients.find(row => row._id === value); setForm(previous => ({ ...previous, clientId: value, ...(client ? { buyerName: client.fullName || '', buyerPhone: client.phone || '', buyerEmail: client.email || '', buyerDni: client.dniCuit || '' } : {}) })); };
+    const onFile = (scope, file) => {
+        if (!canDocuments) { setError('Necesitás permiso de Documentación para adjuntar archivos.'); return; }
+        if (file.size > 15 * 1024 * 1024) { setError('Cada archivo debe pesar como máximo 15 MB.'); return; }
+        const key = `${scope.slot}${scope.depositId || scope.tradeInId ? `:${scope.depositId || scope.tradeInId}` : ''}`;
+        setFiles(previous => ({ ...previous, [key]: { ...scope, file } }));
     };
-
-    const resetAndClose = () => {
-        if (submittingRef.current) return;
-        setLoading(false);
-        setError('');
-        onClose?.();
-    };
-
-    const handleSubmit = async (asDraft = false) => {
-        if (submittingRef.current) return;
-        setError('');
-        let payload;
+    const fileNames = Object.fromEntries(Object.entries(files).map(([key, entry]) => [key, entry.file]));
+    const close = () => { if (!busy.current) onClose?.(); };
+    const finish = async (saved, closeAfter = true) => { try { await onSuccess?.(saved); } catch { toast.error('La venta se guardó. Actualizá la lista para ver los cambios.'); } if (closeAfter) onClose?.(); };
+    const save = async asDraft => {
+        if (busy.current) return;
+        const captured = token; busy.current = true; setLoading(true); setError(''); setFields({});
+        let saved = savedRecord;
         try {
-            payload = buildSaleCreatePayload(formData, asDraft ? 'borrador' : formData.status);
-        } catch (err) {
-            setError(err.message);
-            toast.error(err.message);
-            return;
-        }
-        submittingRef.current = true;
-        setLoading(true);
-        try {
-            const saved = initialSale?._id
-                ? await updateSale(initialSale._id, payload)
-                : await createSale(payload);
-            toast.success(payload.status === 'borrador' ? 'Borrador guardado.' : 'Venta guardada correctamente.');
-            onClose?.();
-            try {
-                await onSuccess?.(saved);
-            } catch {
-                toast.error('La operación se guardó. Recargá la lista para ver los cambios.');
+            if (!saved) {
+                const payload = buildSaleCreatePayload(form, editingActive ? initialSale.status : (asDraft ? 'borrador' : form.status));
+                if (!canEnterStock && payload.tradeIns.some(row => row.shouldEnterStock && !row.linkedStockCarId) && payload.status !== 'borrador' && !form.manualImport) throw new Error('Necesitás permiso de edición de Stock para ingresar una permuta. Podés guardar un borrador o desmarcar su ingreso.');
+                saved = initialSale?._id ? (editingActive ? await salesRequest(`/api/admin/sales/${initialSale._id}/workspace`, { method: 'PATCH', body: JSON.stringify(payload) }) : await updateSale(initialSale._id, payload)) : await createSale(payload);
+                if (current.current.token !== captured || !current.current.isOpen) return;
+                setSavedRecord(saved);
             }
+            for (const [key, entry] of Object.entries(files)) {
+                if (entry.depositId && !(saved.depositRecords || []).some(row => row._id === entry.depositId) || entry.tradeInId && !(saved.tradeIns || []).some(row => row._id === entry.tradeInId)) { setFiles(previous => { const next = { ...previous }; delete next[key]; return next; }); continue; }
+                await uploadSaleDocument({ saleId: saved._id, token: captured, ...entry });
+                if (current.current.token !== captured || !current.current.isOpen) return;
+                setFiles(previous => { const next = { ...previous }; delete next[key]; return next; });
+            }
+            toast.success(saved.status === 'borrador' ? 'Borrador guardado.' : 'Venta guardada.');
+            await finish(saved);
         } catch (err) {
-            const message = err.message || 'No se pudo crear la venta. Reintentá en unos segundos.';
-            setError(message);
-            toast.error(message);
-        } finally {
-            submittingRef.current = false;
-            setLoading(false);
-        }
+            if (current.current.token !== captured || err.name === 'AbortError') return;
+            setError(saved ? `La venta ya se guardó. Quedaron archivos pendientes: ${err.message}. Reintentá los adjuntos sin crear otra venta.` : err.message);
+            setFields(err.errors || {});
+        } finally { busy.current = false; if (current.current.token === captured) setLoading(false); }
     };
-
-    const noVehicleSelected = !formData.vehicleId || formData.vehicleId === '';
-
-    const modalTitle = (
-        <div>
-            <h2 className="m-0 text-xl font-bold text-white tracking-tight">{initialSale?._id ? 'Continuar borrador' : 'Nueva venta'}</h2>
-            <p className="m-0 mt-1 text-sm text-crm-fg-muted">
-                Podés guardar un borrador con datos incompletos. Para activar la operación, seleccioná una unidad disponible y revisá el estado.
-            </p>
+    if (!isOpen) return null;
+    const disabled = loading || Boolean(savedRecord);
+    const composition = saleTradeInComposition({ salePrice: Number(form.salePrice), saleCurrency: form.saleCurrency, tradeIns: form.hasTradeIn ? form.tradeIns : [], exchangeRate: Number(form.exchangeRate), depositAppliedAmount: form.depositAppliedAmount, depositAppliedCurrency: form.depositAppliedCurrency });
+    return <CrmModal isOpen={isOpen} onClose={close} title={initialSale?._id ? (editingActive ? 'Editar venta' : 'Continuar borrador') : 'Nueva venta'} maxWidth="max-w-4xl" fullScreenOnMobile fullHeightOnDesktop bodyClassName="p-0" footer={<div className="flex flex-wrap items-center justify-end gap-2"><CrmButton variant="secondary" disabled={loading} onClick={close}>Cancelar</CrmButton>{savedRecord ? <><CrmButton variant="secondary" disabled={loading} onClick={() => finish(savedRecord)}>Cerrar · venta guardada</CrmButton><CrmButton disabled={loading || !Object.keys(files).length} onClick={() => save(false)}>{loading ? 'Subiendo…' : 'Reintentar archivos'}</CrmButton></> : <>{!editingActive && !form.manualImport && <CrmButton variant="secondary" disabled={loading} onClick={() => save(true)}>Guardar borrador</CrmButton>}<CrmButton disabled={loading} onClick={() => save(false)}><FileText size={14} />{loading ? 'Guardando…' : initialSale?._id ? 'Guardar cambios' : 'Crear venta'}</CrmButton></>}</div>}>
+        <div className="space-y-7 p-5 sm:p-6">
+            {error && <div role="alert" className="rounded-lg border border-red-500/25 bg-red-500/10 p-3 text-sm text-red-200">{error}{Object.keys(fields).length > 0 && <ul className="mb-0 mt-2 list-disc pl-4">{Object.entries(fields).map(([key, message]) => <li key={key}>{typeof message === 'string' ? message : message.message || key}</li>)}</ul>}</div>}
+            {!editingActive && <div className="rounded-xl border border-crm-border p-4"><SaleCheck checked={form.manualImport} onChange={v => set('manualImport', v)} disabled={disabled}>Carga manual · venta histórica</SaleCheck><p className="mb-0 mt-2 text-xs leading-5 text-crm-fg-muted">Carga simplificada cerrada, sin abrir expediente, modificar stock, generar cuotas ni registrar caja.</p></div>}
+            <fieldset disabled={disabled} className="m-0 min-w-0 space-y-7 border-0 p-0 disabled:opacity-60">
+            <Section title="Datos de la operación"><div className="grid gap-4 sm:grid-cols-2">
+                <SaleField label="Vehículo"><div className="space-y-2">{!editingActive && canStock && <CrmInput aria-label="Buscar vehículo" placeholder="Buscar marca, modelo, patente…" value={vehicleSearch} onChange={e => setVehicleSearch(e.target.value)} />}<CrmSelect aria-label="Vehículo" value={form.vehicleId} disabled={editingActive} onChange={e => set('vehicleId', e.target.value)}><option value="">Sin vehículo asignado</option>{availableCars.map(car => <option key={car._id} value={car._id}>{car.brand} {car.name} · {car.plateOrVin}</option>)}</CrmSelect>{editingActive && <span className="block text-xs text-crm-fg-muted">Para cambiar la unidad, usá el circuito de cambio en la ficha CRM.</span>}</div></SaleField>
+                <SaleField label="Status">{editingActive ? <CrmInput readOnly value={{ confirmada: 'Activa', señado: 'Reserva', pendiente_entrega: 'Pendiente de entrega', entregada: 'Cerrada', cancelada: 'Cancelada' }[form.status] || form.status} /> : <CrmSelect aria-label="Estado inicial de la venta" value={form.status} disabled={form.manualImport} onChange={event => set('status', event.target.value)}><option value="borrador">Borrador</option><option value="confirmada">Activa</option><option value="señado">Reserva</option><option value="entregada">Cerrada</option><option value="cancelada" disabled={!canCancel}>Cancelada{!canCancel ? " · requiere permiso" : ""}</option></CrmSelect>}<span className="mt-2 block text-xs">{editingActive ? 'Los cambios de estado se realizan desde el detalle.' : 'Por defecto según vehículo; podés elegir otro estado inicial. El cierre operativo requiere el circuito de entrega.'}</span>{!editingActive && !form.manualImport && form.status === 'entregada' && <span className="mt-2 block text-xs text-amber-300">Para una operación actual, creala Activa y cerrala desde su ficha. Para una venta anterior, activá Carga manual histórica.</span>}</SaleField>
+                {!editingActive && form.status === 'cancelada' && <div className="sm:col-span-2"><SaleField label="Motivo de la cancelación inicial"><CrmTextarea value={form.initialCancellationReason} onChange={event => set('initialCancellationReason', event.target.value)} /></SaleField></div>}
+                <SaleField label="Kilometraje del vehículo"><CrmInput type="number" min="0" value={form.mileage} onChange={e => set('mileage', e.target.value)} /></SaleField><div />
+                <SaleField label="Precio de venta al comprador"><div className="flex gap-2"><CrmSelect aria-label="Moneda de venta" value={form.saleCurrency} onChange={e => set('saleCurrency', e.target.value)} className="!w-24 shrink-0"><option>USD</option><option>ARS</option></CrmSelect><CrmInput aria-label="Precio de venta" type="number" min="0" step="any" value={form.salePrice} onChange={e => set('salePrice', e.target.value)} /></div></SaleField>
+                <SaleField label="Vendedor que cerró la venta"><CrmSelect value={form.salesperson} onChange={e => set('salesperson', e.target.value)}><option value="">Sin asignar</option>{form.salesperson && !users.some(u => u.username === form.salesperson) && <option value={form.salesperson}>{form.salesperson}</option>}{users.map(u => <option key={u._id} value={u.username}>{u.name || u.username}</option>)}</CrmSelect></SaleField>
+                <SaleField label="Fecha de venta"><CrmInput type="date" value={form.saleDate} onChange={e => set('saleDate', e.target.value)} /></SaleField>
+            </div></Section>
+            <Section title="Comprador"><div className="grid gap-4 sm:grid-cols-2">
+                <SaleField label="Cliente del CRM"><div className="space-y-2">{canClients && !editingActive && <CrmInput placeholder="Buscar cliente, DNI o teléfono…" value={clientSearch} onChange={e => setClientSearch(e.target.value)} />}<CrmSelect value={form.clientId} disabled={editingActive} onChange={e => chooseClient(e.target.value)}><option value="">Datos manuales · sin crear cliente</option>{availableClients.map(client => <option key={client._id} value={client._id}>{client.fullName}</option>)}</CrmSelect>{canClients && form.clientId && <Link href={`/admin/clientes/${form.clientId}`} className="inline-flex items-center gap-1 text-crm-red">Abrir cliente <ExternalLink size={12} /></Link>}</div></SaleField>
+                {Object.entries({ buyerName: 'Nombre', buyerPhone: 'Teléfono', buyerEmail: 'Email', buyerDni: 'DNI' }).map(([key, label]) => <SaleField key={key} label={label}><CrmInput aria-label={`${label} del comprador`} value={form[key]} onChange={e => set(key, e.target.value)} /></SaleField>)}
+            </div><p className="m-0 text-xs text-crm-fg-muted">Estos datos describen el comprador de la operación. Editarlos no modifica su ficha de cliente vinculada.</p></Section>
+            <Section title="Propietario del vehículo"><div className="grid gap-4 sm:grid-cols-2"><SaleField label="Nombre"><CrmInput value={vehicle ? vehicle.ownerName || 'Sin informar en Stock' : form.vehicleOwnerName} readOnly={Boolean(form.vehicleId)} onChange={e => set('vehicleOwnerName', e.target.value)} /></SaleField><SaleField label="Teléfono"><CrmInput value={vehicle ? vehicle.ownerPhone || '' : form.vehicleOwnerPhone} readOnly={Boolean(form.vehicleId)} onChange={e => set('vehicleOwnerPhone', e.target.value)} /></SaleField></div>{form.vehicleId && <p className="m-0 text-xs text-crm-fg-muted">Los datos del propietario se editan desde Stock.</p>}</Section>
+            {!form.manualImport && <>
+                <SaleDepositEditor rows={form.depositRecords} onChange={v => set('depositRecords', v)} accounts={accounts} files={fileNames} onFile={onFile} legacy={{ amount: form.depositAppliedAmount, currency: form.depositAppliedCurrency }} disabled={disabled} />
+                {!canAccounts && <p className="text-xs text-crm-fg-muted">Sin permiso de Caja: podés declarar la seña sin elegir cuenta; Tesorería definirá el destino.</p>}
+                <Section title="Pago"><div className="grid gap-4 sm:grid-cols-2"><SaleField label="Método de pago"><CrmSelect value={form.paymentMethod} onChange={e => set('paymentMethod', e.target.value)}><option value="">Seleccionar</option>{Object.entries(SALE_PAYMENT_LABELS).map(([value,label]) => <option value={value} key={value}>{label}</option>)}</CrmSelect></SaleField><SaleField label="Cantidad de cuotas acordadas"><CrmSelect value={form.installmentsCount} onChange={e => set('installmentsCount', e.target.value)} disabled={editingActive || !['financiado', 'mixto'].includes(form.paymentMethod)}><option value="">Sin definir</option>{[3, 6, 12, 18, 24, 36, 48].map(value => <option key={value} value={value}>{value} cuotas</option>)}</CrmSelect></SaleField></div><p className="m-0 text-xs text-crm-fg-muted">El plan de cuotas se configura y confirma desde la ficha financiera.</p></Section>
+                <Section title="Permuta"><SaleCheck checked={form.hasTradeIn} onChange={v => set('hasTradeIn', v)}>Incluir vehículo en parte de pago</SaleCheck>{form.hasTradeIn ? <><SaleTradeInEditor rows={form.tradeIns} onChange={v => set('tradeIns', v)} stockOptions={tradeStock} onSearch={setStockSearch} canStock={canStock} files={fileNames} onFile={onFile} disabled={disabled} /><SaleField label="Cotización acordada · ARS por USD (opcional)"><CrmInput type="number" min="0.01" step="any" value={form.exchangeRate} onChange={e => set('exchangeRate', e.target.value)} /></SaleField><p className="m-0 text-xs text-crm-fg-muted">Tomas: USD {composition.totals.USD.toLocaleString('es-AR')} · ARS {composition.totals.ARS.toLocaleString('es-AR')}. {composition.unresolved ? 'Hay monedas diferentes sin cotización: esos importes no se restan del saldo.' : `Crédito de permuta: ${form.saleCurrency} ${composition.credit.toLocaleString('es-AR')}.`}</p></> : <p className="rounded-xl border border-crm-border p-4 text-xs text-crm-fg-muted">Sin permuta.</p>}</Section>
+                <Section title="Consignación"><div className="grid gap-4 sm:grid-cols-2">{[['consignationOwnerId', 'Responsable de la consignación'], ['consignationManagerId', 'Gestor asignado']].map(([key, label]) => <SaleField key={key} label={label}><CrmSelect value={form[key]} onChange={e => set(key, e.target.value)}><option value="">Sin asignar</option>{users.map(u => <option key={u._id} value={u._id}>{u.name || u.username}</option>)}</CrmSelect></SaleField>)}</div></Section>
+                <Section title="Comisión"><div className="space-y-4 rounded-xl border border-amber-500/25 p-4"><SaleCheck checked={form.manualCommission} onChange={v => set('manualCommission', v)}>Carga manual de comisión</SaleCheck><div className="grid gap-3 sm:grid-cols-3"><SaleField label="% vendedor"><CrmInput type="number" min="0" max="100" step="any" disabled={!form.manualCommission || form.splitCommission} value={form.splitCommission ? 0.5 : form.manualCommission ? form.sellerPct : 1} onChange={e => set('sellerPct', e.target.value)} /></SaleField><SaleField label="% consignación"><CrmInput type="number" min="0" max="100" step="any" disabled={!form.manualCommission || form.splitCommission} value={form.splitCommission ? 0.5 : form.manualCommission ? form.consignationPct : 0.5} onChange={e => set('consignationPct', e.target.value)} /></SaleField><SaleField label="Extra al cliente"><div className="flex gap-2"><CrmSelect value={form.extraCurrency} onChange={e => set('extraCurrency', e.target.value)} className="!w-24 shrink-0"><option>USD</option><option>ARS</option></CrmSelect><CrmInput type="number" min="0" step="any" disabled={form.commissionMode === 'percent'} value={form.extraAmount} onChange={e => set('extraAmount', e.target.value)} /></div></SaleField></div>{form.commissionMode === 'percent' && <p className="text-xs text-crm-fg-muted">Extra de comisión vigente: {form.commissionPercent}% del precio. Se conserva este cálculo; podés editar su modalidad desde la ficha CRM.</p>}<SaleCheck checked={form.splitCommission} onChange={v => set('splitCommission', v)}>Comisión compartida 50/50 · 0,5% cada vendedor</SaleCheck><p className="m-0 text-xs text-crm-fg-muted">Regla fija: vendedor 1% y consignación 0,5%, salvo carga manual. La liquidación no genera caja automáticamente.</p></div></Section>
+                <Section title="Ítems de entrega"><div className="grid gap-3 sm:grid-cols-2">{Object.entries({ securityNut: 'Tuerca de seguridad', spareKey: 'Duplicado de llave', manuals: 'Manuales', vehicleCard: 'Cédula' }).map(([key, label]) => <SaleCheck key={key} checked={form.deliveryItems[key]} onChange={v => set('deliveryItems', { ...form.deliveryItems, [key]: v })}>{label}</SaleCheck>)}</div></Section>
+                <Section title="Documentos para el expediente">{canDocuments ? <><SaleTopDocumentInputs files={fileNames} onFile={onFile} disabled={disabled} />{initialSale?._id && <SaleDocumentsPanel saleId={initialSale._id} />}</> : <p className="text-xs text-crm-fg-muted">Necesitás permiso de Documentación para adjuntar archivos.</p>}<p className="m-0 text-xs text-crm-fg-muted">Los archivos se suben de forma privada después de guardar la venta. Si falla una carga, podés reintentar sin duplicar la operación.</p></Section>
+                <SaleField label="Fecha de entrega estimada"><CrmInput type="date" value={form.estimatedDeliveryDate} onChange={e => set('estimatedDeliveryDate', e.target.value)} className="sm:max-w-xs" /></SaleField>
+                <SaleReminderEditor rows={form.reminders} onChange={v => set('reminders', v)} baseDate={form.estimatedDeliveryDate} disabled={disabled} />
+                <SaleCheck checked={form.reviewAsked} onChange={v => set('reviewAsked', v)}>Reseña solicitada · registro manual, sin envío</SaleCheck>
+                {editingActive && <Section title="Bitácora · agregar gestión"><div className="grid gap-3 sm:grid-cols-[160px_1fr]"><CrmSelect value={form.managementNote.recipient} onChange={e => set('managementNote', { ...form.managementNote, recipient: e.target.value })}><option value="gestoria">Gestoría</option><option value="finanzas">Finanzas</option></CrmSelect><CrmTextarea placeholder="Escribí una gestión para agregar al historial" value={form.managementNote.text} onChange={e => set('managementNote', { ...form.managementNote, text: e.target.value })} /></div><p className="m-0 text-xs text-crm-fg-muted">Se agrega con autor y fecha. No modifica saldos ni envía notificaciones.</p></Section>}
+            </>}
+            <SaleField label="Notas generales"><CrmTextarea value={form.notes} onChange={e => set('notes', e.target.value)} className="min-h-24" /></SaleField>
+            {editingActive && <details className="rounded-xl border border-crm-border p-4"><summary className="cursor-pointer text-sm">Historial de la venta</summary><div className="mt-3 space-y-2">{[...(initialSale.managementNotes || []).map(row => ({ ...row, details: `${row.recipient}: ${row.text}`, user: row.author })), ...(initialSale.saleAuditLog || [])].sort((a, b) => new Date(b.date) - new Date(a.date)).map((row, i) => <p className="text-xs text-crm-fg-muted" key={i}>{row.details || row.action} · {row.user} · {new Date(row.date).toLocaleString('es-AR')}</p>)}</div></details>}
+            </fieldset>
         </div>
-    );
-
-    const modalFooter = (
-        <div className="flex flex-col-reverse gap-3 sm:flex-row sm:justify-start">
-            <CrmButton type="button" variant="secondary" onClick={resetAndClose} disabled={loading} className="px-6 border-neutral-700 bg-transparent hover:bg-crm-surface-raised">
-                Cancelar
-            </CrmButton>
-            <div className="flex-1 hidden sm:block"></div>
-            <CrmButton type="button" variant="secondary" onClick={() => handleSubmit(true)} disabled={loading || formData.manualImport} className="px-6 border-neutral-700 bg-crm-bg hover:bg-crm-surface-raised text-white">
-                <FileText size={15} /> Guardar borrador
-            </CrmButton>
-            <CrmButton type="button" variant="primary" onClick={() => handleSubmit(false)} disabled={loading} className="px-6 bg-crm-red hover:bg-red-600 text-white">
-                <FileText size={15} /> {loading ? 'Guardando...' : (initialSale?._id ? 'Guardar cambios' : 'Crear venta')}
-            </CrmButton>
-        </div>
-    );
-
-    return (
-        <CrmModal
-            isOpen={isOpen}
-            onClose={resetAndClose}
-            title={modalTitle}
-            maxWidth="max-w-4xl"
-            footer={modalFooter}
-        >
-            <div className="px-6 py-6">
-                    {error && (
-                        <div className="mb-6 rounded-xl border border-crm-red/30 bg-crm-red/10 px-4 py-3 text-sm font-semibold text-red-300 flex items-center gap-2">
-                            <X size={16} className="text-red-400" /> {error}
-                        </div>
-                    )}
-
-                    {/* Carga manual toggle */}
-                    <div className="mb-8">
-                        <label className="flex items-start gap-4 rounded-xl border border-neutral-700 bg-crm-surface p-4 cursor-pointer hover:border-neutral-600 transition-colors">
-                            <input
-                                type="checkbox"
-                                checked={formData.manualImport}
-                                onChange={(e) => updateField('manualImport', e.target.checked)}
-                                className="mt-1 h-4 w-4 rounded border-crm-border bg-crm-surface text-crm-red focus:ring-crm-red cursor-pointer"
-                            />
-                            <div>
-                                <span className="block text-sm text-white font-semibold">
-                                    <FileText size={14} className="inline mr-2 text-crm-fg-muted relative -top-0.5" />
-                                    Carga manual <span className="text-crm-fg-muted font-normal">(venta vieja importada desde Excel)</span>
-                                </span>
-                                <span className="mt-1 block text-xs leading-5 text-crm-fg-muted">
-                                    Form simplificado para registrar ventas históricas. Se oculta seña, permuta, comisiones detalladas, comprador completo, consignación, financiación y entrega. La venta nace en estado <span className="font-bold text-white">Cerrada</span> y <span className="italic">no</span> abre expediente ni notifica a Gestoría/Tesorería.
-                                </span>
-                            </div>
-                        </label>
-                    </div>
-
-                    <SectionTitle>DATOS DE LA OPERACIÓN</SectionTitle>
-                    <div className="grid grid-cols-1 gap-5 lg:grid-cols-2 mb-8">
-                        <div>
-                            <FieldLabel required={!formData.manualImport}>Vehículo</FieldLabel>
-                            <div className="relative mb-2">
-                                <Search className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-crm-fg-muted" size={16} />
-                                <CrmInput
-                                    value={vehicleSearch}
-                                    onChange={(e) => setVehicleSearch(e.target.value)}
-                                    placeholder="Buscar marca, modelo, patente..."
-                                    className="h-10 bg-crm-bg pl-10"
-                                />
-                            </div>
-                            <CrmSelect
-                                aria-label="Vehículo"
-                                value={formData.vehicleId}
-                                onChange={(e) => updateField('vehicleId', e.target.value)}
-                                className="h-10 bg-crm-bg text-white font-medium"
-                            >
-                                <option value="">— Sin vehículo asignado —</option>
-                                {availableCars.map((car) => (
-                                    <option key={car._id} value={car._id}>
-                                        {`${car.brand || ''} ${car.name || car.model || ''}`.trim()} {car.plateOrVin ? `- ${car.plateOrVin}` : ''}
-                                        {(car.status || '').toLowerCase() !== 'disponible' ? ' — no disponible' : ''}
-                                    </option>
-                                ))}
-                            </CrmSelect>
-                        </div>
-
-                        <div>
-                            <FieldLabel>Estado</FieldLabel>
-                            <CrmSelect aria-label="Estado de la venta" value={formData.status} onChange={(e) => updateField('status', e.target.value)} disabled={formData.manualImport} className="h-10 bg-crm-bg text-white font-medium mb-2">
-                                <option value="borrador">Borrador</option>
-                                <option value="señado">Señada (Reserva)</option>
-                                <option value="confirmada">Activa</option>
-                                <option value="entregada">Cerrada</option>
-                            </CrmSelect>
-                            <p className="m-0 text-xs text-crm-fg-muted">Por default según vehículo. Cambialo si la venta arranca en otro estado.</p>
-                        </div>
-
-                        <div>
-                            <FieldLabel>Kilometraje del vehículo</FieldLabel>
-                            <CrmInput type="number" min="0" value={formData.mileage} onChange={(e) => updateField('mileage', e.target.value)} className="h-10 bg-crm-bg mb-2" placeholder="Ej: 45000" />
-                            <p className="m-0 text-xs text-crm-fg-muted">Km del auto vendido al momento de la operación.</p>
-                        </div>
-                        <div className="hidden lg:block"></div>
-
-                        <div>
-                            <FieldLabel required>Precio de Venta (al comprador)</FieldLabel>
-                            <div className="flex gap-2">
-                                <div className="w-24 shrink-0">
-                                    <CrmSelect aria-label="Moneda de venta" value={formData.saleCurrency} onChange={(e) => updateField('saleCurrency', e.target.value)} className="h-10 bg-crm-bg font-bold">
-                                        <option value="USD">USD</option>
-                                        <option value="ARS">ARS</option>
-                                    </CrmSelect>
-                                </div>
-                                <div className="flex-1">
-                                    <CrmInput aria-label="Precio de venta" type="number" min="0" value={formData.salePrice} onChange={(e) => updateField('salePrice', e.target.value)} className="h-10 bg-crm-bg" placeholder="Ej: 38800" />
-                                </div>
-                            </div>
-                        </div>
-
-                        <div>
-                            <FieldLabel required>Vendedor (cerró la venta)</FieldLabel>
-                            <CrmSelect value={formData.salesperson} onChange={(e) => updateField('salesperson', e.target.value)} className="h-10 bg-crm-bg">
-                                <option value="">—</option>
-                                {users.map(u => (
-                                    <option key={u._id} value={u.username}>{u.name || u.username}</option>
-                                ))}
-                                <option value="admin">Equipo AutoSporting</option>
-                            </CrmSelect>
-                        </div>
-
-                        <div>
-                            <FieldLabel>Fecha de cierre</FieldLabel>
-                            <div className="relative">
-                                <CalendarDays className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-crm-fg-muted" size={16} />
-                                <CrmInput type="date" value={formData.saleDate} onChange={(e) => updateField('saleDate', e.target.value)} className="h-10 bg-crm-bg pr-10" />
-                            </div>
-                        </div>
-                    </div>
-
-                    <SectionTitle>COMPRADOR</SectionTitle>
-                    <div className="grid grid-cols-1 gap-5 lg:grid-cols-2 mb-8">
-                        <div>
-                            <FieldLabel>Cliente del CRM</FieldLabel>
-                            <CrmSelect aria-label="Cliente del CRM" value={formData.clientId} onChange={(e) => updateField('clientId', e.target.value)} className="h-10 bg-crm-bg">
-                                <option value="">—</option>
-                                {(clients || []).map((client) => (
-                                    <option key={client._id} value={client._id}>
-                                        {client.fullName || client.firstName || client.email || 'Cliente sin nombre'}
-                                    </option>
-                                ))}
-                            </CrmSelect>
-                        </div>
-                        <div>
-                            <FieldLabel required>Nombre</FieldLabel>
-                            <CrmInput aria-label="Nombre del comprador" value={formData.buyerName} onChange={(e) => updateField('buyerName', e.target.value)} className="h-10 bg-crm-bg" />
-                        </div>
-                        <div>
-                            <FieldLabel>Teléfono</FieldLabel>
-                            <CrmInput aria-label="Teléfono del comprador" value={formData.buyerPhone} onChange={(e) => updateField('buyerPhone', e.target.value)} placeholder="+54 11 5555 5555" className="h-10 bg-crm-bg" />
-                        </div>
-                        <div className="flex gap-5">
-                            <div className="flex-1">
-                                <FieldLabel>Email</FieldLabel>
-                                <CrmInput aria-label="Email del comprador" type="email" value={formData.buyerEmail} onChange={(e) => updateField('buyerEmail', e.target.value)} className="h-10 bg-crm-bg" />
-                            </div>
-                            <div className="flex-1">
-                                <FieldLabel>DNI</FieldLabel>
-                                <CrmInput aria-label="DNI del comprador" value={formData.buyerDni} onChange={(e) => updateField('buyerDni', e.target.value)} className="h-10 bg-crm-bg" />
-                            </div>
-                        </div>
-                    </div>
-
-                    <SectionTitle className="text-yellow-500" icon={() => <Key size={14} className="text-yellow-500" />}>
-                        PROPIETARIO DEL VEHÍCULO
-                    </SectionTitle>
-                    <p className="text-xs text-crm-fg-muted mb-4 -mt-3">Sin vehículo del stock linkeado — cargá los datos del propietario a mano (ventas históricas / vehículo libre).</p>
-                    <div className="grid grid-cols-1 gap-5 lg:grid-cols-2 mb-8">
-                        <div>
-                            <FieldLabel>Nombre</FieldLabel>
-                            <CrmInput 
-                                value={noVehicleSelected ? formData.vehicleOwnerName : ''} 
-                                onChange={(e) => updateField('vehicleOwnerName', e.target.value)} 
-                                disabled={!noVehicleSelected}
-                                placeholder="— s/d —"
-                                className="h-10 bg-crm-bg disabled:opacity-50" 
-                            />
-                        </div>
-                        <div>
-                            <FieldLabel>Teléfono</FieldLabel>
-                            <CrmInput 
-                                value={noVehicleSelected ? formData.vehicleOwnerPhone : ''} 
-                                onChange={(e) => updateField('vehicleOwnerPhone', e.target.value)} 
-                                disabled={!noVehicleSelected}
-                                placeholder="— s/d —"
-                                className="h-10 bg-crm-bg disabled:opacity-50" 
-                            />
-                        </div>
-                    </div>
-
-                    {!formData.manualImport && (
-                        <>
-                            <SectionTitle>PAGO</SectionTitle>
-                            
-                            <div className="mb-6 rounded-xl border border-yellow-500/20 bg-yellow-500/5 p-5">
-                                <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
-                                    <div>
-                                        <p className="m-0 text-sm font-bold text-yellow-500 flex items-center gap-2">
-                                            <DollarSign size={16} /> Seña / adelanto ({formData.depositAppliedAmount > 0 ? '1' : '0'})
-                                        </p>
-                                        <p className="m-0 mt-1 text-xs text-crm-fg-muted max-w-[80%]">Cargá cada pago a cuenta con su monto, moneda y fecha, y adjuntá el comprobante. El total se acredita como seña en la liquidación del expediente — lo ven Tesorería y Gestoría.</p>
-                                    </div>
-                                    <button 
-                                        type="button" 
-                                        onClick={() => setIsAddingDeposit(!isAddingDeposit)} 
-                                        className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-bold transition-colors border ${isAddingDeposit ? 'bg-transparent text-crm-fg-muted hover:text-white border-neutral-700' : 'bg-yellow-500/10 text-yellow-500 hover:bg-yellow-500/20 border-yellow-500/20'}`}
-                                    >
-                                        {isAddingDeposit ? <X size={14} /> : <Plus size={14} />} 
-                                        {isAddingDeposit ? 'Cancelar seña' : 'Agregar seña'}
-                                    </button>
-                                </div>
-                                
-                                {isAddingDeposit ? (
-                                    <div className="rounded-lg border border-yellow-500/20 bg-black/20 p-4">
-                                        <div className="flex gap-4 items-end">
-                                            <div className="w-1/3">
-                                                <FieldLabel>Moneda</FieldLabel>
-                                                <CrmSelect value={formData.depositAppliedCurrency} onChange={(e) => updateField('depositAppliedCurrency', e.target.value)} className="h-10 bg-crm-bg border-yellow-500/20 focus:border-yellow-500 text-yellow-500 font-bold">
-                                                    <option value="USD">USD</option>
-                                                    <option value="ARS">ARS</option>
-                                                </CrmSelect>
-                                            </div>
-                                            <div className="flex-1">
-                                                <FieldLabel>Monto de la seña</FieldLabel>
-                                                <CrmInput type="number" min="0" value={formData.depositAppliedAmount || ''} onChange={(e) => updateField('depositAppliedAmount', e.target.value)} placeholder="Ej: 1000" className="h-10 bg-crm-bg border-yellow-500/20 focus:border-yellow-500 text-yellow-500 font-bold" />
-                                            </div>
-                                            <button type="button" onClick={() => setIsAddingDeposit(false)} className="h-10 px-4 bg-yellow-500 text-black font-bold text-sm rounded-lg hover:bg-yellow-400 transition-colors">Guardar</button>
-                                        </div>
-                                    </div>
-                                ) : formData.depositAppliedAmount > 0 ? (
-                                    <div className="rounded-lg border border-dashed border-yellow-500/40 p-4 flex justify-between items-center bg-yellow-500/10">
-                                        <span className="text-sm text-yellow-500 font-bold flex items-center gap-2">
-                                            <CheckSquare size={16} className="text-yellow-500" />
-                                            Seña registrada: {formData.depositAppliedCurrency} {Number(formData.depositAppliedAmount).toLocaleString()}
-                                        </span>
-                                        <button type="button" onClick={() => updateField('depositAppliedAmount', 0)} className="text-xs text-crm-red hover:text-red-400 font-medium">Eliminar</button>
-                                    </div>
-                                ) : (
-                                    <div className="rounded-lg border border-dashed border-yellow-500/20 p-4 text-center">
-                                        <span className="text-xs text-crm-fg-muted font-medium">Sin seña registrada. Si el cliente abonó algo a cuenta, agregalo con el botón de arriba.</span>
-                                    </div>
-                                )}
-                            </div>
-
-                            <div className="grid grid-cols-1 gap-5 lg:grid-cols-2 mb-8">
-                                <div>
-                                    <FieldLabel>Método de pago</FieldLabel>
-                                    <CrmSelect value={formData.paymentMethod} onChange={(e) => updateField('paymentMethod', e.target.value)} className="h-10 bg-crm-bg">
-                                        <option value="">—</option>
-                                        <option value="contado">Contado</option>
-                                        <option value="financiado">Financiado</option>
-                                        <option value="mixto">Mixto</option>
-                                        <option value="leasing">Leasing</option>
-                                        <option value="permuta">Permuta</option>
-                                        <option value="criptomonedas">Criptomonedas</option>
-                                        <option value="otro">Otro</option>
-                                    </CrmSelect>
-                                </div>
-                                <div>
-                                    <FieldLabel>Cantidad de cuotas</FieldLabel>
-                                    <CrmSelect 
-                                        value={formData.installmentsCount || 6} 
-                                        onChange={(e) => updateField('installmentsCount', Number(e.target.value))} 
-                                        disabled={formData.paymentMethod !== 'financiado'} 
-                                        className="h-10 bg-crm-bg disabled:opacity-50"
-                                    >
-                                        <option value="3">3 cuotas</option>
-                                        <option value="6">6 cuotas</option>
-                                        <option value="12">12 cuotas</option>
-                                        <option value="18">18 cuotas</option>
-                                        <option value="24">24 cuotas</option>
-                                        <option value="36">36 cuotas</option>
-                                        <option value="48">48 cuotas</option>
-                                    </CrmSelect>
-                                    <p className="m-0 mt-2 text-xs text-crm-fg-muted">Solo si el método de pago es Financiado</p>
-                                </div>
-                            </div>
-
-                            <div className="flex items-center justify-between mb-3">
-                                <SectionTitle className="!mb-0">PERMUTA</SectionTitle>
-                                <label className="flex items-center gap-2 cursor-pointer">
-                                    <input type="checkbox" checked={formData.hasTradeIn} onChange={(e) => updateField('hasTradeIn', e.target.checked)} className="h-4 w-4 rounded border-neutral-600 bg-crm-bg text-crm-red" />
-                                    <span className="text-xs font-bold text-crm-fg-muted">Incluir vehículo en permuta</span>
-                                </label>
-                            </div>
-                            <div className="rounded-xl border border-neutral-800 bg-crm-bg p-4 mb-8">
-                                <span className="text-xs text-crm-fg-muted">Sin permuta. Activá el toggle si el comprador entrega un auto en parte de pago.</span>
-                            </div>
-
-                            <SectionTitle className="text-yellow-500" icon={() => <Briefcase size={14} className="text-yellow-500" />}>CONSIGNACIÓN</SectionTitle>
-                            <p className="text-xs text-crm-fg-muted mb-4 -mt-3">Elegí quién es el responsable. Él completará el precio y las observaciones directamente en el expediente.</p>
-                            <div className="grid grid-cols-1 gap-5 mb-8">
-                                <div>
-                                    <FieldLabel>Responsable de la consignación</FieldLabel>
-                                    <CrmSelect value={formData.consignationOwnerId} onChange={(e) => updateField('consignationOwnerId', e.target.value)} className="h-10 bg-crm-bg">
-                                        <option value="">— Seleccioná responsable —</option>
-                                        {users.map(u => (
-                                            <option key={u._id} value={u._id}>{u.name || u.username}</option>
-                                        ))}
-                                    </CrmSelect>
-                                </div>
-                                <div>
-                                    <FieldLabel>Gestor asignado (quién va a llevar el trámite)</FieldLabel>
-                                    <CrmSelect value={formData.consignationManagerId} onChange={(e) => updateField('consignationManagerId', e.target.value)} className="h-10 bg-crm-bg">
-                                        <option value="">— Sin asignar (lo define admin/gestoría) —</option>
-                                        {users.map(u => (
-                                            <option key={u._id} value={u._id}>{u.name || u.username}</option>
-                                        ))}
-                                    </CrmSelect>
-                                </div>
-                            </div>
-
-                            <SectionTitle>COMISIÓN</SectionTitle>
-                            
-                            <div className="rounded-xl border border-yellow-500/30 bg-crm-surface p-5 mb-8">
-                                <label className="flex items-start gap-3 cursor-pointer mb-6">
-                                    <input type="checkbox" checked={formData.manualCommission} onChange={(e) => updateField('manualCommission', e.target.checked)} className="mt-1 h-4 w-4 rounded border-neutral-600 bg-crm-bg text-yellow-500" />
-                                    <div>
-                                        <span className="block text-sm font-bold text-white flex items-center gap-2">
-                                            <Settings size={14} /> Carga manual de comisión
-                                        </span>
-                                        <span className="text-xs text-crm-fg-muted">Activá para editar libremente los % de comisión, salteando la regla fija.</span>
-                                    </div>
-                                </label>
-
-                                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-                                    <div>
-                                        <FieldLabel>% vendedor</FieldLabel>
-                                        <CrmInput type="number" step="any" value={formData.sellerPct} onChange={(e) => updateField('sellerPct', e.target.value)} disabled={!formData.manualCommission || formData.splitCommission} className="h-10 bg-crm-bg disabled:opacity-50" />
-                                        <p className="m-0 mt-1 text-[10px] text-crm-fg-muted">Fijo 1% — sin selección manual</p>
-                                    </div>
-                                    <div>
-                                        <FieldLabel>% consignación</FieldLabel>
-                                        <CrmInput type="number" step="any" value={formData.consignationPct} onChange={(e) => updateField('consignationPct', e.target.value)} disabled={!formData.manualCommission || formData.splitCommission} className="h-10 bg-crm-bg disabled:opacity-50" />
-                                        <p className="m-0 mt-1 text-[10px] text-crm-fg-muted">Fijo — se calcula automático en el panel verde.</p>
-                                    </div>
-                                    <div>
-                                        <FieldLabel>Extra cobrado al cliente (bruto)</FieldLabel>
-                                        <div className="flex gap-2">
-                                            <div className="w-24 shrink-0">
-                                                <CrmSelect value={formData.extraCurrency} onChange={(e) => updateField('extraCurrency', e.target.value)} disabled={!formData.manualCommission} className="h-10 bg-crm-bg disabled:opacity-50">
-                                                    <option value="USD">USD</option>
-                                                    <option value="ARS">ARS</option>
-                                                </CrmSelect>
-                                            </div>
-                                            <div className="flex-1">
-                                                <CrmInput type="number" step="any" value={formData.extraAmount} onChange={(e) => updateField('extraAmount', e.target.value)} disabled={!formData.manualCommission} placeholder="Monto fijo" className="h-10 bg-crm-bg disabled:opacity-50" />
-                                            </div>
-                                        </div>
-                                        <p className="m-0 mt-1 text-[10px] text-crm-fg-muted leading-tight">Recargo a favor de la agencia (ej. gestión de transferencia). De acá se liquida la parte del vendedor según el % de abajo.</p>
-                                    </div>
-                                </div>
-
-                                <label className="flex items-start gap-3 rounded-lg border border-neutral-700 bg-crm-bg p-4 cursor-pointer">
-                                    <input type="checkbox" checked={formData.splitCommission} onChange={(e) => updateField('splitCommission', e.target.checked)} className="mt-1 h-4 w-4 rounded border-neutral-600 bg-crm-surface text-yellow-500" />
-                                    <div>
-                                        <span className="block text-sm font-bold text-white flex items-center gap-2">
-                                            <Users size={14} className="text-yellow-500" /> Vendedor compartido (split comisión 50/50)
-                                        </span>
-                                        <span className="text-xs text-crm-fg-muted">Activá esto si la comisión se reparte con otro vendedor — ambos pasan automáticamente a 0.5% cada uno (no editable).</span>
-                                    </div>
-                                </label>
-                            </div>
-
-                            <SectionTitle>ITEMS QUE SE ENTREGAN CON EL VEHÍCULO</SectionTitle>
-                            <p className="text-xs text-crm-fg-muted mb-4 -mt-3">Marcá los que correspondan al cargar la operación. Sirve para el checklist de entrega y como conformidad para el comprador.</p>
-                            
-                            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-                                <label className="flex items-center gap-3 rounded-xl border border-neutral-800 bg-crm-surface p-4 cursor-pointer hover:border-neutral-700 transition-colors">
-                                    <input type="checkbox" checked={formData.deliveryItems.securityNut} onChange={(e) => updateDeliveryItem('securityNut', e.target.checked)} className="h-4 w-4 rounded border-neutral-600 bg-crm-bg text-crm-red" />
-                                    <div>
-                                        <span className="text-sm font-bold text-white block">🔩 Tuerca de<br/>seguridad</span>
-                                        <span className="text-[10px] text-crm-fg-muted">si corresponde</span>
-                                    </div>
-                                </label>
-                                <label className="flex items-center gap-3 rounded-xl border border-neutral-800 bg-crm-surface p-4 cursor-pointer hover:border-neutral-700 transition-colors">
-                                    <input type="checkbox" checked={formData.deliveryItems.spareKey} onChange={(e) => updateDeliveryItem('spareKey', e.target.checked)} className="h-4 w-4 rounded border-neutral-600 bg-crm-bg text-crm-red" />
-                                    <span className="text-sm font-bold text-white">🔑 Duplicado de llave</span>
-                                </label>
-                                <label className="flex items-center gap-3 rounded-xl border border-neutral-800 bg-crm-surface p-4 cursor-pointer hover:border-neutral-700 transition-colors">
-                                    <input type="checkbox" checked={formData.deliveryItems.manuals} onChange={(e) => updateDeliveryItem('manuals', e.target.checked)} className="h-4 w-4 rounded border-neutral-600 bg-crm-bg text-crm-red" />
-                                    <span className="text-sm font-bold text-white">📘 Manuales</span>
-                                </label>
-                                <label className="flex items-center gap-3 rounded-xl border border-neutral-800 bg-crm-surface p-4 cursor-pointer hover:border-neutral-700 transition-colors">
-                                    <input type="checkbox" checked={formData.deliveryItems.vehicleCard} onChange={(e) => updateDeliveryItem('vehicleCard', e.target.checked)} className="h-4 w-4 rounded border-neutral-600 bg-crm-bg text-crm-red" />
-                                    <span className="text-sm font-bold text-white">🪪 Cédula</span>
-                                </label>
-                            </div>
-
-                            <SectionTitle>DOCUMENTOS PARA EL EXPEDIENTE</SectionTitle>
-                            <p className="mb-8 text-xs leading-5 text-crm-fg-muted">
-                                Los archivos no se adjuntan en esta carga ni al borrador. Conservá los documentos para incorporarlos al expediente.
-                            </p>
-                        </>
-                    )}
-
-                    <div className="grid grid-cols-1 gap-5 mb-4">
-                        {!formData.manualImport && (
-                            <div>
-                                <FieldLabel>Fecha de entrega</FieldLabel>
-                                <div className="relative lg:w-1/3">
-                                    <CalendarDays className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-crm-fg-muted" size={16} />
-                                    <CrmInput type="date" value={formData.estimatedDeliveryDate} onChange={(e) => updateField('estimatedDeliveryDate', e.target.value)} className="h-10 bg-crm-bg pr-10" />
-                                </div>
-                            </div>
-                        )}
-                        <div>
-                            <FieldLabel>Notas generales</FieldLabel>
-                            <CrmTextarea value={formData.notes} onChange={(e) => updateField('notes', e.target.value)} className="min-h-[100px] bg-crm-bg" />
-                        </div>
-                    </div>
-
-            </div>
-        </CrmModal>
-    );
+    </CrmModal>;
 }

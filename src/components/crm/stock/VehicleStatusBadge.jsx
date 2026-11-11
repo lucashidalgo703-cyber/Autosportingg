@@ -20,7 +20,11 @@ export default function VehicleStatusBadge({ status }) {
             break;
         case 'pausado':
             variant = 'danger';
-            label = 'Pausado';
+            label = 'Vendido sin confirmar';
+            break;
+        case 'retirado':
+            variant = 'default';
+            label = 'Fuera de venta';
             break;
         default:
             variant = 'default';

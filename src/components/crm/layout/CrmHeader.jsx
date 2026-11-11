@@ -194,7 +194,7 @@ function CrmHeaderSession({ onMenuClick, isMenuOpen = false }) {
     };
 
     const searchInput = (
-        <div className="relative flex items-center w-full" ref={searchRef}>
+        <div className="relative flex w-full min-w-0 items-center" ref={searchRef}>
             <Search size={16} className="pointer-events-none absolute left-3 text-crm-fg-muted" />
             <input
                 ref={searchInputRef}
@@ -215,7 +215,7 @@ function CrmHeaderSession({ onMenuClick, isMenuOpen = false }) {
                     if (searchQuery.trim().length >= 2) { searchDismissedRef.current = false; setShowSearchDropdown(true); }
                 }}
                 placeholder="Buscar clientes, vehículos, ventas…"
-                className="m-0 h-10 w-full appearance-none rounded-lg border border-crm-border bg-crm-surface py-2 pl-9 pr-9 text-base text-crm-fg placeholder:text-crm-fg-subtle transition-all focus:border-crm-red focus:outline-none focus:ring-1 focus:ring-crm-red md:h-9 md:text-sm"
+                className="m-0 h-10 w-full min-w-0 appearance-none rounded-lg border border-crm-border bg-crm-surface py-2 pl-9 pr-9 text-base text-crm-fg placeholder:text-crm-fg-subtle transition-all focus:border-crm-red focus:outline-none focus:ring-1 focus:ring-crm-red md:h-9 md:text-sm"
             />
             {isSearching && (
                 <div className="absolute right-3">
@@ -272,9 +272,9 @@ function CrmHeaderSession({ onMenuClick, isMenuOpen = false }) {
     );
 
     return (
-        <header className="sticky top-0 z-30 flex flex-col border-b border-crm-border bg-crm-topbar/95 pt-[var(--safe-top,0px)] backdrop-blur">
-            <div className="flex h-14 items-center justify-between gap-2 px-3 md:gap-4 md:px-6">
-                <div className="flex min-w-0 flex-1 items-center gap-3 xl:flex-none md:gap-4">
+        <header className="sticky top-0 z-30 flex w-full min-w-0 flex-col border-b border-crm-border bg-crm-topbar/95 pt-[var(--safe-top,0px)] backdrop-blur">
+            <div className="flex h-14 w-full min-w-0 items-center gap-2 px-3 md:gap-3 md:px-4 2xl:px-6">
+                <div className="flex min-w-0 flex-1 items-center gap-2 md:gap-3 xl:basis-44 xl:grow-0 xl:shrink min-[1440px]:basis-64 2xl:basis-80">
                     <button
                         type="button"
                         onClick={onMenuClick}
@@ -286,29 +286,31 @@ function CrmHeaderSession({ onMenuClick, isMenuOpen = false }) {
                         <Menu size={22} />
                     </button>
 
-                    <div className="flex-1 min-w-0 xl:w-80 xl:flex-none">
+                    <div className="min-w-0 flex-1">
                         {searchInput}
                     </div>
                 </div>
 
-                <div className="hidden flex-1 items-center justify-center gap-6 xl:flex">
+                <div className="hidden min-w-0 flex-1 items-center xl:flex">
+                    <div role="region" aria-label="Resumen comercial" tabIndex={(canSeeFinancials&&!summaryData.accountsError)||canSeeSales||canSeeStock||summaryData.subscription?.enabled||summaryData.subscription?.planLabel ? 0 : -1} className="flex w-full min-w-0 items-center gap-2 overflow-x-auto overscroll-x-contain whitespace-nowrap rounded-lg py-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden focus-visible:outline focus-visible:outline-2 focus-visible:outline-crm-red">
                     {canSeeFinancials && !summaryData.accountsError && (
-                        <div className="flex items-center gap-3 rounded-full bg-crm-surface-raised px-3 py-1.5 text-xs font-semibold text-crm-fg-muted shadow-sm">
-                            <span className="flex items-center gap-1" title="Caja Fuerte USD"><DollarSign size={13} className="text-emerald-400"/> USD {summaryData.usd === null ? '—' : formatCurrency(summaryData.usd)}</span>
+                        <div className="flex shrink-0 items-center gap-2 rounded-lg bg-crm-surface-raised px-2 py-1.5 text-[11px] font-semibold text-crm-fg-muted shadow-sm">
+                            <span className="flex shrink-0 items-center gap-1 tabular-nums" title="Saldo registrado en cuentas USD"><DollarSign size={13} className="text-emerald-400"/> USD {summaryData.usd === null ? '—' : formatCurrency(summaryData.usd)}</span>
                             <span className="h-3 w-px bg-crm-border"></span>
-                            <span className="flex items-center gap-1" title="Caja Fuerte ARS">ARS {summaryData.ars === null ? '—' : formatCurrency(summaryData.ars)}</span>
+                            <span className="flex shrink-0 items-center gap-1 tabular-nums" title="Saldo registrado en cuentas ARS">ARS {summaryData.ars === null ? '—' : formatCurrency(summaryData.ars)}</span>
                         </div>
                     )}
-                    <div className="flex items-center gap-4 text-xs font-semibold text-crm-fg-muted">
-                        {canSeeSales && <span className="flex items-center gap-1.5 rounded-full bg-crm-surface-raised px-3 py-1.5 shadow-sm" title="Ventas del mes"><ShoppingCart size={13} className="text-amber-400"/> {summaryData.sales ?? '—'} ventas</span>}
-                        {canSeeStock && <span className="flex items-center gap-1.5 rounded-full bg-crm-surface-raised px-3 py-1.5 shadow-sm" title="Stock disponible"><Car size={13} className="text-blue-400"/> {summaryData.stock ?? '—'} disponibles</span>}
+                    <div className="flex shrink-0 items-center gap-2 text-[11px] font-semibold text-crm-fg-muted">
+                        {canSeeSales && <span className="flex shrink-0 items-center gap-1 rounded-lg bg-crm-surface-raised px-2 py-1.5 shadow-sm tabular-nums" title="Ventas del mes"><ShoppingCart size={13} className="text-amber-400"/> {summaryData.sales ?? '—'} ventas</span>}
+                        {canSeeStock && <span className="flex shrink-0 items-center gap-1 rounded-lg bg-crm-surface-raised px-2 py-1.5 shadow-sm tabular-nums" title="Stock disponible"><Car size={13} className="text-blue-400"/> Stock {summaryData.stock ?? '—'}</span>}
                         {(summaryData.subscription?.enabled || summaryData.subscription?.planLabel) && (
-                            <span className="flex items-center gap-1.5 rounded-full bg-crm-surface-raised px-3 py-1.5 shadow-sm" title="Plan actual"><Star size={13} className="text-violet-400"/> {summaryData.subscription?.planLabel || 'Premium'}</span>
+                            <span className="flex shrink-0 items-center gap-1 rounded-lg bg-crm-surface-raised px-2 py-1.5 shadow-sm" title={'Plan actual: '+(summaryData.subscription?.planLabel || 'Premium')}><Star size={13} className="shrink-0 text-violet-400"/> <span className="max-w-32 truncate">{summaryData.subscription?.planLabel || 'Premium'}</span></span>
                         )}
+                    </div>
                     </div>
                 </div>
 
-                <div className="relative flex shrink-0 items-center gap-1 md:gap-2" ref={dropdownRef}>
+                <div className="relative ml-auto flex min-w-fit shrink-0 items-center gap-1 md:gap-1.5" ref={dropdownRef}>
                     <OfflineSyncControl />
 
                     <button type="button" onClick={toggleTheme} aria-label={theme === 'dark' ? 'Cambiar a modo día' : 'Cambiar a modo noche'} title={theme === 'dark' ? 'Cambiar a modo día' : 'Cambiar a modo noche'} className="hidden h-9 w-9 shrink-0 items-center justify-center rounded-lg text-crm-fg-muted transition-colors hover:bg-crm-surface hover:text-crm-fg focus-visible:outline focus-visible:outline-2 focus-visible:outline-crm-red md:flex">
@@ -380,7 +382,7 @@ function CrmHeaderSession({ onMenuClick, isMenuOpen = false }) {
                         </div>
                     )}
 
-                    <div className="ml-2">
+                    <div className="shrink-0 md:ml-1">
                         <UserProfileMenu />
                     </div>
                 </div>

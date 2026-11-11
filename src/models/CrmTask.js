@@ -34,7 +34,7 @@ const crmTaskSchema = new mongoose.Schema({
 
     source: { 
         type: String, 
-        enum: ['cobranzas', 'agenda', 'ventas', 'leads', 'manual', 'documentacion', 'entrega', 'postventa'], 
+        enum: ['cobranzas', 'agenda', 'ventas', 'leads', 'manual', 'documentacion', 'entrega', 'postventa', 'stock'],
         default: 'manual' 
     },
 
@@ -43,7 +43,13 @@ const crmTaskSchema = new mongoose.Schema({
     user: { type: String, default: 'CRM_V2' },
 
     assignedTo: { type: mongoose.Schema.Types.ObjectId, ref: 'AdminUser', default: null },
-    assignedAt: { type: Date }
+    assignedAt: { type: Date },
+    responsibleText: { type: String, maxlength: 300 },
+    resolutionNote: { type: String, maxlength: 5000 },
+    auditLog: [{
+        action: String, date: { type: Date, default: Date.now }, user: String,
+        changes: mongoose.Schema.Types.Mixed
+    }]
 });
 
 const CrmTask = mongoose.models.CrmTask || mongoose.model('CrmTask', crmTaskSchema);

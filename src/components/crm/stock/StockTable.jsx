@@ -19,7 +19,7 @@ const formatDate = (value) => {
     return date.toISOString().slice(0, 10);
 };
 const getLocation = (vehicle) => {
-    return vehicle._original?.location || vehicle._original?.ubicacion || vehicle._original?.showroom || 'Salón Principal';
+    return vehicle._original?.location || vehicle._original?.ubicacion || vehicle._original?.showroom || 'Sin ubicación';
 };
 const getOwner = (vehicle) => {
     if (vehicle.origen === 'propio') {
@@ -52,6 +52,7 @@ const getStatusLabel = (status) => {
     if (normalized === 'reservado') return '⚠️ Señado';
     if (normalized === 'vendido') return '⛔ Vendido';
     if (normalized === 'pausado') return '⏳ Vendido sin confirmar';
+    if (normalized === 'retirado') return '○ Fuera de venta';
     return status || '--';
 };
 const getProgress = (days) => {

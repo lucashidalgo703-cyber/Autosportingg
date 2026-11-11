@@ -1,12 +1,15 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { FileText, Plus, Search, Edit2, AlertCircle, CheckCircle2, XCircle } from 'lucide-react';
 import toast from 'react-hot-toast';
+import {useAuth} from '../../../../context/AuthContext';
+import {hasPermission,PERMISSIONS} from '../../../../utils/adminPermissions';
 import { useAdminChecks } from '../../../../hooks/useAdminChecks';
 import CrmBadge from '../../ui/CrmBadge';
 import CheckModal from '../modals/CheckModal';
 import ConfirmModal from '../../ui/ConfirmModal';
 
-export default function ChequesTab({ accounts }) {
+export default function ChequesTab({ accounts=[] }) {
+    const {user,token}=useAuth(); const revision=useRef(0),pending=useRef(null); const [readError,setReadError]=useState(''); const canWrite=hasPermission(user,PERMISSIONS.FINANZAS_WRITE);
     const { fetchChecks, createCheck, updateCheck, annulCheck, loading } = useAdminChecks();
 
     const [subTab, setSubTab] = useState('a_cobrar');
@@ -27,27 +30,28 @@ export default function ChequesTab({ accounts }) {
     const [confirmConfig, setConfirmConfig] = useState({ isOpen: false, title: '', message: '', onConfirm: null });
 
     const loadChecks = async () => {
+        const current=++revision.current,controller=new AbortController();pending.current?.abort();pending.current=controller;setReadError('');
         try {
             const data = await fetchChecks({
                 direction: subTab === 'a_cobrar' ? 'recibido' : 'emitido',
                 status: statusFilter,
                 month: monthFilter,
                 search: searchTerm
-            });
-            setChecks(data);
+            },{signal:controller.signal});
+            if(current===revision.current&&localStorage.getItem('token')===token)setChecks(data);
         } catch (err) {
-            toast.error(err.message || 'Error cargando cheques');
+            if(current===revision.current&&err.name!=='AbortError'){setChecks([]);setReadError(err.message||'No se pudieron consultar los cheques.');}
         }
     };
 
     useEffect(() => {
-        loadChecks();
-    }, [subTab, statusFilter, monthFilter, searchTerm]);
+        void loadChecks();return()=>{revision.current++;pending.current?.abort();};
+    }, [subTab, statusFilter, monthFilter, searchTerm,token]);
 
     const stats = useMemo(() => {
-        let totalPendiente = 0;
+        let totalPendiente = {ARS:0,USD:0};
         let vencidos = 0;
-        let esteMes = 0;
+        let esteMes = {ARS:0,USD:0};
 
         const now = new Date();
         const currentMonth = now.getMonth();
@@ -55,11 +59,11 @@ export default function ChequesTab({ accounts }) {
 
         checks.forEach(c => {
             if (c.status !== 'anulado' && c.status !== 'depositado' && c.status !== 'cobrado') {
-                totalPendiente += Number(c.amount || 0);
+                if(Object.hasOwn(totalPendiente,c.currency))totalPendiente[c.currency] += Number(c.amount || 0);
                 const due = new Date(c.dueDate);
                 if (due < now) vencidos++;
                 if (due.getMonth() === currentMonth && due.getFullYear() === currentYear) {
-                    esteMes += Number(c.amount || 0);
+                    if(Object.hasOwn(esteMes,c.currency))esteMes[c.currency] += Number(c.amount || 0);
                 }
             }
         });
@@ -80,7 +84,7 @@ export default function ChequesTab({ accounts }) {
             setIsCheckModalOpen(false);
             loadChecks();
         } catch (err) {
-            toast.error(err.message || 'Error guardando cheque');
+            toast.error(err.message || 'Error guardando cheque'); throw err;
         } finally {
             setIsSubmitting(false);
         }
@@ -147,17 +151,17 @@ export default function ChequesTab({ accounts }) {
     };
 
     return (
-        <div className="space-y-4">
+        <div className="space-y-4">{readError&&<p role="alert" className="text-sm text-red-300">{readError} <button type="button" onClick={loadChecks} className="underline">Reintentar</button></p>}
             <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
                 <div className="rounded-xl border border-crm-border bg-crm-bg p-4">
                     <h3 className="text-[11px] font-black uppercase tracking-wider text-crm-fg-subtle">
                         {subTab === 'a_cobrar' ? 'A COBRAR ESTE MES' : 'A PAGAR ESTE MES'}
                     </h3>
-                    <p className="mt-2 text-xl font-black text-crm-fg">{formatMoney(stats.esteMes)}</p>
+                    <p className="mt-2 text-base font-semibold text-crm-fg">{formatMoney(stats.esteMes.USD,'USD')} · {formatMoney(stats.esteMes.ARS,'ARS')}</p>
                 </div>
                 <div className="rounded-xl border border-crm-border bg-crm-bg p-4">
                     <h3 className="text-[11px] font-black uppercase tracking-wider text-crm-fg-subtle">TOTAL PENDIENTE</h3>
-                    <p className="mt-2 text-xl font-black text-crm-fg">{formatMoney(stats.totalPendiente)}</p>
+                    <p className="mt-2 text-base font-semibold text-crm-fg">{formatMoney(stats.totalPendiente.USD,'USD')} · {formatMoney(stats.totalPendiente.ARS,'ARS')}</p>
                 </div>
                 <div className="rounded-xl border border-crm-border bg-crm-bg p-4">
                     <h3 className="text-[11px] font-black uppercase tracking-wider text-crm-fg-subtle">VENCIDOS SIN RESOLVER</h3>
@@ -215,6 +219,7 @@ export default function ChequesTab({ accounts }) {
                         <option value="anulado">Anulado</option>
                     </select>
                     <button
+                        disabled={!canWrite}
                         onClick={() => {
                             setModalMode('create');
                             setSelectedCheck({ direction: subTab === 'a_cobrar' ? 'recibido' : 'emitido' });
@@ -290,7 +295,7 @@ export default function ChequesTab({ accounts }) {
                                         <td className="px-4 py-3 text-center">
                                             <div className="flex items-center justify-center gap-2">
                                                 <button
-                                                    onClick={() => {
+                                                    disabled={!canWrite} onClick={() => {
                                                         setSelectedCheck(check);
                                                         setModalMode('edit');
                                                         setIsCheckModalOpen(true);
@@ -303,7 +308,7 @@ export default function ChequesTab({ accounts }) {
 
                                                 {check.status === 'en_cartera' && subTab === 'a_cobrar' && (
                                                     <button
-                                                        onClick={() => {
+                                                        disabled={!canWrite} onClick={() => {
                                                             setSelectedCheck({ ...check, status: 'depositado' });
                                                             setModalMode('edit');
                                                             setIsCheckModalOpen(true);
@@ -331,7 +336,7 @@ export default function ChequesTab({ accounts }) {
 
                                                 {check.status !== 'anulado' && check.status !== 'rechazado' && !check.transactionId && (
                                                     <button
-                                                        onClick={() => handleAnnul(check)}
+                                                        disabled={!canWrite} onClick={() => handleAnnul(check)}
                                                         className="w-7 h-7 flex items-center justify-center rounded bg-red-500/10 text-red-500 hover:bg-red-500/20 transition-colors"
                                                         title="Anular"
                                                     >

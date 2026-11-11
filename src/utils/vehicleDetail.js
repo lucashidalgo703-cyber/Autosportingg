@@ -1,19 +1,26 @@
 export const VEHICLE_DETAIL_SECTIONS = [
-    { id: 'general', label: 'General' },
-    { id: 'costos', label: 'Costos y capital' },
-    { id: 'fotos', label: 'Fotos' },
-    { id: 'documentos', label: 'Documentos' },
-    { id: 'publicacion', label: 'Publicación' },
-    { id: 'permutas', label: 'Permutas' },
-    { id: 'historial', label: 'Historial' }
+    { id: 'resumen', label: 'Resumen' },
+    { id: 'actividad', label: 'Actividad comercial' },
+    { id: 'publicaciones', label: 'Publicaciones' },
+    { id: 'documentacion', label: 'Documentación' },
+    { id: 'gastos', label: 'Gastos y margen' },
+    { id: 'precios', label: 'Precios e historial' },
+    { id: 'portal', label: 'Portal del propietario' }
 ];
 
 export function getVehicleDetailSection(value) {
-    return VEHICLE_DETAIL_SECTIONS.some(section => section.id === value) ? value : 'general';
+    const aliases = { general: 'resumen', costos: 'gastos', fotos: 'resumen', documentos: 'documentacion', publicacion: 'publicaciones', permutas: 'gastos', historial: 'precios' };
+    const resolved = aliases[value] || value;
+    return VEHICLE_DETAIL_SECTIONS.some(section => section.id === resolved) ? resolved : 'resumen';
 }
 
 export function getVehicleOperationalStatus(vehicle) {
     return String(vehicle?._original?.status || vehicle?.estado || vehicle?.status || '').trim().toLowerCase();
+}
+
+export function getVehicleStatusLabel(vehicleOrStatus) {
+    const status = typeof vehicleOrStatus === 'string' ? vehicleOrStatus.trim().toLowerCase() : getVehicleOperationalStatus(vehicleOrStatus);
+    return ({ disponible: 'Disponible', reservado: 'Señado', pausado: 'Vendido sin confirmar', vendido: 'Vendido', retirado: 'Fuera de venta' })[status] || status || 'Sin estado informado';
 }
 
 export function canReserveVehicle(vehicle, activeReservation) {

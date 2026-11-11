@@ -1,138 +1,14 @@
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { CreditCard, Search, DollarSign, AlertCircle } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useFinancePayables } from '../../../../hooks/useFinancePayables';
 import CrmBadge from '../../ui/CrmBadge';
-
-function OwnerPaymentModal({ isOpen, onClose, onSubmit, accounts = [], isSubmitting }) {
-    const [amount, setAmount] = useState('');
-    const [currency, setCurrency] = useState('USD');
-    const [accountId, setAccountId] = useState('');
-    const [notes, setNotes] = useState('');
-
-    useEffect(() => {
-        if (!isOpen) {
-            setAmount('');
-            setCurrency('USD');
-            setAccountId('');
-            setNotes('');
-        }
-    }, [isOpen]);
-
-    const handleSubmit = (e) => {
-        e.preventDefault();
-        if (!amount || Number(amount) <= 0) {
-            return toast.error('El monto debe ser mayor a 0');
-        }
-        if (!accountId) {
-            return toast.error('Debe seleccionar una cuenta');
-        }
-        onSubmit({
-            amount: Number(amount),
-            currency,
-            accountId,
-            notes
-        });
-    };
-
-    if (!isOpen) return null;
-
-    const filteredAccounts = accounts.filter(a => a.currency === currency && a.isActive !== false);
-
-    return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
-            <div className="w-full max-w-md rounded-2xl border border-crm-border bg-crm-surface p-6 shadow-xl">
-                <div className="mb-6 flex items-center justify-between">
-                    <h3 className="text-lg font-black text-crm-fg">Registrar Pago a Propietario</h3>
-                </div>
-
-                <form onSubmit={handleSubmit} className="space-y-4">
-                    <div className="grid grid-cols-2 gap-4">
-                        <div className="space-y-2">
-                            <label className="text-xs font-black uppercase text-crm-fg-muted">Monto</label>
-                            <input
-                                type="number"
-                                required
-                                min="0.01"
-                                step="0.01"
-                                value={amount}
-                                onChange={(e) => setAmount(e.target.value)}
-                                className="w-full rounded-lg border border-crm-border bg-crm-bg px-3 py-2 text-sm text-crm-fg focus:border-crm-red focus:outline-none"
-                                placeholder="Ej: 5000"
-                            />
-                        </div>
-                        <div className="space-y-2">
-                            <label className="text-xs font-black uppercase text-crm-fg-muted">Moneda</label>
-                            <select
-                                value={currency}
-                                onChange={(e) => {
-                                    setCurrency(e.target.value);
-                                    setAccountId('');
-                                }}
-                                className="w-full rounded-lg border border-crm-border bg-crm-bg px-3 py-2 text-sm text-crm-fg focus:border-crm-red focus:outline-none"
-                            >
-                                <option value="ARS">ARS</option>
-                                <option value="USD">USD</option>
-                            </select>
-                        </div>
-                    </div>
-
-                    <div className="space-y-2">
-                        <label className="text-xs font-black uppercase text-crm-fg-muted">Cuenta Origen</label>
-                        <select
-                            required
-                            value={accountId}
-                            onChange={(e) => setAccountId(e.target.value)}
-                            className="w-full rounded-lg border border-crm-border bg-crm-bg px-3 py-2 text-sm text-crm-fg focus:border-crm-red focus:outline-none"
-                        >
-                            <option value="">Seleccionar cuenta...</option>
-                            {filteredAccounts.map(acc => (
-                                <option key={acc._id} value={acc._id}>
-                                    {acc.name} ({acc.currency})
-                                </option>
-                            ))}
-                        </select>
-                        {filteredAccounts.length === 0 && (
-                            <p className="text-xs text-crm-red flex items-center gap-1 mt-1">
-                                <AlertCircle size={12} /> No hay cuentas activas en {currency}
-                            </p>
-                        )}
-                    </div>
-
-                    <div className="space-y-2">
-                        <label className="text-xs font-black uppercase text-crm-fg-muted">Notas (Opcional)</label>
-                        <textarea
-                            value={notes}
-                            onChange={(e) => setNotes(e.target.value)}
-                            className="w-full rounded-lg border border-crm-border bg-crm-bg px-3 py-2 text-sm text-crm-fg focus:border-crm-red focus:outline-none min-h-[80px]"
-                            placeholder="Detalles del pago..."
-                        />
-                    </div>
-
-                    <div className="mt-6 flex justify-end gap-3 pt-4 border-t border-crm-border">
-                        <button
-                            type="button"
-                            onClick={onClose}
-                            className="rounded-lg px-4 py-2 text-sm font-black text-crm-fg-muted hover:bg-crm-bg transition"
-                            disabled={isSubmitting}
-                        >
-                            Cancelar
-                        </button>
-                        <button
-                            type="submit"
-                            disabled={isSubmitting}
-                            className="inline-flex items-center gap-2 rounded-lg bg-crm-red-gradient px-4 py-2 text-sm font-black text-white shadow-crm-shadow-red transition hover:opacity-95 disabled:opacity-50"
-                        >
-                            {isSubmitting ? 'Procesando...' : 'Confirmar Pago'}
-                        </button>
-                    </div>
-                </form>
-            </div>
-        </div>
-    );
-}
+import OwnerPaymentModal from '../modals/OwnerPaymentModal';
+import {useAuth} from '../../../../context/AuthContext';
+import {hasPermission,PERMISSIONS} from '../../../../utils/adminPermissions';
 
 export default function PagosDisponiblesTab({ accounts = [] }) {
+    const {token,user}=useAuth(); const canWrite=hasPermission(user,PERMISSIONS.FINANZAS_WRITE); const revision=useRef(0); const [loadError,setLoadError]=useState('');
     const { fetchPayables, registerOwnerPayment, loading } = useFinancePayables();
     const [payables, setPayables] = useState([]);
     const [searchTerm, setSearchTerm] = useState('');
@@ -143,16 +19,17 @@ export default function PagosDisponiblesTab({ accounts = [] }) {
     const [isSubmitting, setIsSubmitting] = useState(false);
 
     const loadData = useCallback(async () => {
+        const current=++revision.current; setLoadError('');
         try {
             const data = await fetchPayables({ status: statusFilter, search: searchTerm });
-            setPayables(data);
+            if(current===revision.current&&localStorage.getItem('token')===token)setPayables(data);
         } catch (err) {
-            toast.error(err.message || 'Error al cargar pagos');
+            if(current===revision.current&&err.name!=='AbortError'){setPayables([]);setLoadError(err.message||'No se pudieron consultar los pagos.');}
         }
-    }, [fetchPayables, statusFilter, searchTerm]);
+    }, [fetchPayables, statusFilter, searchTerm,token]);
 
     useEffect(() => {
-        loadData();
+        void loadData(); return()=>{revision.current++;};
     }, [loadData]);
 
     const handlePaymentSubmit = async (payload) => {
@@ -164,7 +41,7 @@ export default function PagosDisponiblesTab({ accounts = [] }) {
             setIsModalOpen(false);
             loadData();
         } catch (err) {
-            toast.error(err.message || 'Error al registrar pago');
+            toast.error(err.message || 'Error al registrar pago'); throw err;
         } finally {
             setIsSubmitting(false);
         }
@@ -189,15 +66,15 @@ export default function PagosDisponiblesTab({ accounts = [] }) {
     }, [payables]);
 
     return (
-        <div className="space-y-4">
+        <div className="space-y-4">{loadError&&<p role="alert" className="text-sm text-red-300">{loadError} <button type="button" onClick={loadData} className="underline">Reintentar</button></p>}
             <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                 <div className="rounded-xl border border-crm-border bg-crm-bg p-4">
                     <h3 className="text-[11px] font-black uppercase tracking-wider text-crm-fg-subtle">⏳ VENTAS PENDIENTES DE PAGO</h3>
-                    <p className="mt-2 text-xl font-black text-crm-fg">{metrics.pendientes}</p>
+                    <p className="mt-2 text-xl font-black text-crm-fg">{loadError?'—':metrics.pendientes}</p>
                 </div>
                 <div className="rounded-xl border border-crm-border bg-crm-bg p-4">
                     <h3 className="text-[11px] font-black uppercase tracking-wider text-crm-fg-subtle">✅ YA ABONADO A PROPIETARIOS</h3>
-                    <p className="mt-2 text-xl font-black text-crm-fg">{formatMoney(metrics.abonadoUSD, 'USD')} / {formatMoney(metrics.abonadoARS, 'ARS')}</p>
+                    <p className="mt-2 text-xl font-black text-crm-fg">{loadError?'—':formatMoney(metrics.abonadoUSD, 'USD')+' / '+formatMoney(metrics.abonadoARS, 'ARS')}</p>
                 </div>
             </div>
 
@@ -293,7 +170,7 @@ export default function PagosDisponiblesTab({ accounts = [] }) {
                                         </td>
                                         <td className="px-4 py-3 text-center">
                                             <button
-                                                onClick={() => {
+                                                disabled={!canWrite} onClick={() => {
                                                     setSelectedSaleId(p.saleId);
                                                     setIsModalOpen(true);
                                                 }}

@@ -3,7 +3,9 @@ import CrmModal from '../ui/CrmModal';
 import { toast } from 'react-hot-toast';
 import { Camera } from 'lucide-react';
 
-export default function MandateStockModal({ isOpen, onClose, onSave }) {
+export default function MandateStockModal({ isOpen, onClose, onSave, initialVehicle }) {
+    const initialVehicleRef = React.useRef(initialVehicle);
+    React.useEffect(() => { initialVehicleRef.current = initialVehicle; }, [initialVehicle]);
     const [formData, setFormData] = useState({
         clientName: '',
         dniCuit: '',
@@ -38,6 +40,12 @@ export default function MandateStockModal({ isOpen, onClose, onSave }) {
     // Resets form on open/close
     React.useEffect(() => {
         if (isOpen) {
+            const vehicle = initialVehicleRef.current;
+            if (vehicle) {
+                const source = vehicle._original || {};
+                setFormData(previous => ({ ...previous, clientName: source.ownerName || '', dniCuit: '', address: '', phone: source.ownerPhone || '', email: source.ownerEmail || '', brand: vehicle.marca || '', model: vehicle.modelo || '', year: vehicle.año || '', color: vehicle.color || '', plate: vehicle.dominio === 'S/D' ? '' : vehicle.dominio || '', mileage: vehicle.kilometraje ?? '', bodyType: source.bodyType || '', engineNumber: source.engineNumber || '', chassisNumber: source.chassisNumber || '', value: vehicle.precioPublicado || '', currency: vehicle.moneda || 'USD', linkedCarId: vehicle.id, createCar: false, mandateDate: new Date().toISOString().split('T')[0] }));
+                return;
+            }
             setFormData(prev => ({
                 ...prev,
                 mandateDate: new Date().toISOString().split('T')[0]
@@ -78,11 +86,12 @@ export default function MandateStockModal({ isOpen, onClose, onSave }) {
                 <input
                     type="checkbox"
                     name="createCar"
+                    disabled={Boolean(initialVehicle)}
                     checked={formData.createCar}
                     onChange={handleChange}
                     className="rounded border-crm-border bg-crm-bg text-crm-red focus:ring-crm-red"
                 />
-                Agregar también este vehículo al stock
+                {initialVehicle ? 'Vinculado al vehículo existente' : 'Agregar también este vehículo al stock'}
             </label>
             <div className="flex gap-3">
                 <button

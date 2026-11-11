@@ -5,6 +5,7 @@ import SaleStatusBadge, { getSaleOperationalLabel } from './SaleStatusBadge';
 import { useAuth } from '../../../context/AuthContext';
 import { hasPermission, PERMISSIONS } from '../../../utils/adminPermissions';
 import { formatSaleDate } from '../../../utils/saleCalendarDate';
+import { getSaleBuyer } from '../../../utils/salePresentation';
 
 export default function SaleMobileCards({ sales, onViewDetail, onDeleteSale }) {
     const { user } = useAuth();
@@ -26,7 +27,7 @@ export default function SaleMobileCards({ sales, onViewDetail, onDeleteSale }) {
         <div className="flex flex-col gap-3 md:hidden">
             {sales.map(sale => {
                 const nonOperationalLabel = getSaleOperationalLabel(sale);
-                const name = sale.clientId?.fullName || sale.clientId?.firstName || sale.leadId?.name || sale.draftData?.buyerName || 'Sin Nombre';
+                const name = getSaleBuyer(sale).name || 'Sin comprador';
                 const vehicleName = sale.vehicleId ? `${sale.vehicleId.brand} ${sale.vehicleId.name}` : 'Vehiculo no asignado';
                 const hasClientLink = sale.clientId?._id || sale.leadId?._id;
                 const clientHref = sale.clientId?._id ? `/admin/clientes/${sale.clientId._id}` : (sale.leadId?._id ? `/admin/leads/${sale.leadId._id}` : '#');

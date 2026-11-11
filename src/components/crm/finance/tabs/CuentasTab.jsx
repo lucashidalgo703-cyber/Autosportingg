@@ -3,9 +3,12 @@ import toast from 'react-hot-toast';
 import { Plus, Trash2, Edit2, Loader2, X, History, AlertTriangle } from 'lucide-react';
 import AccountMovementsModal from '../AccountMovementsModal';
 import ConfirmModal from '../../ui/ConfirmModal';
-import CrmModal from '../../ui/CrmModal';
+import AccountFormModal from '../modals/AccountFormModal';
+import {useAuth} from '../../../../context/AuthContext';
+import {hasPermission,PERMISSIONS} from '../../../../utils/adminPermissions';
 
 export default function CuentasTab({ balances, accounts = [], fetchAccounts, createAccount, updateAccount, deleteAccount, recalculateBalances }) {
+    const {user}=useAuth(); const canWrite=hasPermission(user,PERMISSIONS.CAJA_WRITE);
     const [isFormOpen, setIsFormOpen] = useState(false);
     const [editingAccount, setEditingAccount] = useState(null);
     const [isConfirmOpen, setIsConfirmOpen] = useState(false);
@@ -82,8 +85,8 @@ export default function CuentasTab({ balances, accounts = [], fetchAccounts, cre
                     <h2 className="text-base font-black text-crm-fg">Cuentas y Fondos</h2>
                 </div>
                 <div className="flex flex-wrap items-center gap-2 border-t border-crm-border pt-4 mt-4">
-                    <button onClick={handleRecalculate} className="h-9 rounded-lg border border-crm-border bg-crm-bg px-3 text-xs font-bold text-crm-fg-muted hover:text-crm-fg transition">Resetear saldos</button>
-                    <button onClick={() => handleOpenForm(null)} className="inline-flex h-9 items-center gap-1.5 rounded-lg bg-crm-red-gradient px-4 text-xs font-black text-white shadow-crm-shadow-red transition hover:opacity-95 ml-auto">
+                    <button disabled={!canWrite||isLoadingPreview} onClick={handleRecalculate} className="h-9 rounded-lg border border-crm-border bg-crm-bg px-3 text-xs font-bold text-crm-fg-muted hover:text-crm-fg transition">Revisar diferencias de saldo</button>
+                    <button disabled={!canWrite} onClick={() => handleOpenForm(null)} className="inline-flex h-9 items-center gap-1.5 rounded-lg bg-crm-red-gradient px-4 text-xs font-black text-white shadow-crm-shadow-red transition hover:opacity-95 ml-auto">
                         <Plus size={14} /> Nueva Cuenta
                     </button>
                 </div>
@@ -122,8 +125,8 @@ export default function CuentasTab({ balances, accounts = [], fetchAccounts, cre
                                 Historial
                             </button>
                             <div className="flex items-center gap-1">
-                                <button onClick={() => handleOpenForm(account)} title="Editar cuenta" className="p-2 text-crm-fg-muted hover:text-white transition-colors"><Edit2 size={16}/></button>
-                                <button onClick={() => handleDeleteClick(account)} title="Desactivar cuenta" className="p-2 text-crm-fg-muted hover:text-crm-red transition-colors"><Trash2 size={16}/></button>
+                                <button disabled={!canWrite} onClick={() => handleOpenForm(account)} title="Editar cuenta" className="p-2 text-crm-fg-muted hover:text-white transition-colors"><Edit2 size={16}/></button>
+                                <button disabled={!canWrite} onClick={() => handleDeleteClick(account)} title="Desactivar cuenta" className="p-2 text-crm-fg-muted hover:text-crm-red transition-colors"><Trash2 size={16}/></button>
                             </div>
                         </div>
                     </div>
@@ -148,7 +151,7 @@ export default function CuentasTab({ balances, accounts = [], fetchAccounts, cre
                             if(fetchAccounts) fetchAccounts();
                             setIsFormOpen(false);
                         } catch (err) {
-                            toast.error(err.message || 'Error guardando cuenta');
+                            toast.error(err.message || 'Error guardando cuenta'); throw err;
                         } finally {
                             setIsSubmitting(false);
                         }
@@ -247,99 +250,5 @@ export default function CuentasTab({ balances, accounts = [], fetchAccounts, cre
                 />
             )}
         </div>
-    );
-}
-
-function AccountFormModal({ isOpen, onClose, account, onSubmit, isSubmitting }) {
-    const [formData, setFormData] = useState({
-        name: account?.name || '',
-        type: account?.type || 'Efectivo',
-        currency: account?.currency || 'ARS',
-        openingBalance: account?.balance || 0,
-        isActive: account?.isActive !== false
-    });
-
-    if (!isOpen) return null;
-
-    return (
-        <CrmModal isOpen={isOpen} onClose={onClose} title={account ? 'Editar Cuenta' : 'Nueva Cuenta'} maxWidth="max-w-md">
-            <div className="space-y-4 p-5">
-                <div>
-                    <label className="mb-1 block text-[11px] font-black uppercase tracking-wider text-crm-fg-subtle">Nombre de la cuenta</label>
-                    <input
-                        type="text"
-                        value={formData.name}
-                        onChange={e => setFormData({ ...formData, name: e.target.value })}
-                        className="h-10 w-full rounded-xl border border-crm-border bg-crm-bg px-3 text-sm font-medium text-crm-fg outline-none transition focus:border-crm-red"
-                        placeholder="Ej. Caja Fuerte, Banco Galicia..."
-                    />
-                </div>
-                <div className="grid grid-cols-2 gap-3">
-                    <div>
-                        <label className="mb-1 block text-[11px] font-black uppercase tracking-wider text-crm-fg-subtle">Tipo</label>
-                        <select
-                            value={formData.type}
-                            onChange={e => setFormData({ ...formData, type: e.target.value })}
-                            className="h-10 w-full rounded-xl border border-crm-border bg-crm-bg px-3 text-sm font-medium text-crm-fg outline-none transition focus:border-crm-red"
-                        >
-                            <option value="Efectivo">Efectivo</option>
-                            <option value="Banco">Banco</option>
-                            <option value="Tarjeta">Tarjeta</option>
-                            <option value="Billetera">Billetera</option>
-                        </select>
-                    </div>
-                    <div>
-                        <label className="mb-1 block text-[11px] font-black uppercase tracking-wider text-crm-fg-subtle">Moneda</label>
-                        <select
-                            value={formData.currency}
-                            onChange={e => setFormData({ ...formData, currency: e.target.value })}
-                            disabled={!!account}
-                            className="h-10 w-full rounded-xl border border-crm-border bg-crm-bg px-3 text-sm font-medium text-crm-fg outline-none transition focus:border-crm-red disabled:opacity-50 disabled:cursor-not-allowed"
-                        >
-                            <option value="ARS">Pesos (ARS)</option>
-                            <option value="USD">Dólares (USD)</option>
-                        </select>
-                    </div>
-                </div>
-                <div>
-                    <label className="mb-1 block text-[11px] font-black uppercase tracking-wider text-crm-fg-subtle">{account ? 'Saldo Actual (Ajuste)' : 'Saldo Inicial'}</label>
-                    <input
-                        type="number"
-                        value={formData.openingBalance}
-                        onChange={e => setFormData({ ...formData, openingBalance: Number(e.target.value) })}
-                        className="h-10 w-full rounded-xl border border-crm-border bg-crm-bg px-3 text-sm font-medium text-crm-fg outline-none transition focus:border-crm-red"
-                        placeholder="Ej. 100000"
-                    />
-                </div>
-                {account && (
-                    <label className="flex items-center gap-2 mt-4 cursor-pointer">
-                        <input
-                            type="checkbox"
-                            checked={formData.isActive}
-                            onChange={e => setFormData({ ...formData, isActive: e.target.checked })}
-                            className="accent-crm-red w-4 h-4"
-                        />
-                        <span className="text-sm font-medium text-crm-fg">Cuenta Activa</span>
-                    </label>
-                )}
-                <div className="flex justify-end gap-2 pt-4">
-                    <button
-                        onClick={onClose}
-                        type="button"
-                        className="h-10 rounded-xl px-4 text-sm font-bold text-crm-fg-muted hover:bg-crm-surface-raised transition"
-                    >
-                        Cancelar
-                    </button>
-                    <button
-                        onClick={() => onSubmit(formData)}
-                        disabled={!formData.name || isSubmitting}
-                        className="flex h-10 items-center justify-center gap-2 rounded-xl bg-crm-red-gradient px-6 text-sm font-black text-white shadow-crm-shadow-red transition hover:opacity-95 disabled:opacity-50"
-                    >
-                        {isSubmitting && <Loader2 size={16} className="animate-spin" />}
-                        {account ? 'Guardar Cambios' : 'Crear Cuenta'}
-                    </button>
-                </div>
-            </div>
-        </CrmModal>
     );
 }

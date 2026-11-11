@@ -1,4 +1,5 @@
 import { parseArgentineMoney } from './saleCommercial.js';
+import { clientCalendarKey } from './clientCommercial.js';
 
 // Shared by the vehicle forms and the API. This module has no browser or database dependencies.
 const REQUIRED_TEXT = { brand: 'La marca', name: 'El modelo', fuel: 'El combustible', condition: 'La condición' };
@@ -9,6 +10,7 @@ const TEXT_LIMITS = {
     ownerName: 300, ownerPhone: 100, ownerEmail: 320, linkedClient: 300,
     consignedBy: 300, location: 300, description: 20000, notes: 20000,
     publishedBy: 300, mlLink: 2000,
+    publicEquipment: 5000, publicMaintenance: 5000, publicPurchaseConditions: 5000, youtubeUrl: 2048,
 };
 const BOOL_FIELDS = ['agencyOwned', 'visibleEnWeb', 'featured', 'sold'];
 const CURRENCY_ALIASES = { USD: 'USD', 'U$S': 'USD', 'US$': 'USD', ARS: 'ARS', '$': 'ARS' };
@@ -56,6 +58,12 @@ export function validateVehicleInput(input, { partial = false, now = new Date() 
     }
     const values = { ...input };
     const errors = {};
+    if (own(input, 'createdAt') && input.createdAt !== '' && input.createdAt !== null) {
+        const date = typeof input.createdAt === 'string' ? clientCalendarKey(input.createdAt) : '';
+        if (!date) errors.createdAt = 'Ingresá una fecha de ingreso válida.';
+        // Keep existing timestamps intact and return a serializable string for FormData.
+        else values.createdAt = input.createdAt.length === 10 ? `${date}T03:00:00.000Z` : input.createdAt;
+    }
     for (const [key, limit] of Object.entries(TEXT_LIMITS)) {
         if (!own(input, key)) {
             if (!partial && REQUIRED_TEXT[key]) errors[key] = `Completá ${REQUIRED_TEXT[key].toLowerCase()}.`;
@@ -66,6 +74,17 @@ export function validateVehicleInput(input, { partial = false, now = new Date() 
         values[key] = input[key].trim();
         if (REQUIRED_TEXT[key] && !values[key]) errors[key] = `Completá ${REQUIRED_TEXT[key].toLowerCase()}.`;
         else if (values[key].length > limit) errors[key] = `Este campo no puede superar ${limit} caracteres.`;
+    }
+    if (own(input, 'clientId')) {
+        if (blank(input.clientId)) values.clientId = null;
+        else if (typeof input.clientId === 'string' && /^[a-f\d]{24}$/i.test(input.clientId)) values.clientId = input.clientId;
+        else errors.clientId = 'Elegí un cliente válido como propietario.';
+    }
+    if (values.youtubeUrl) {
+        try {
+            const url = new URL(values.youtubeUrl);
+            if (url.protocol !== 'https:' || url.username || url.password || !['youtube.com', 'www.youtube.com', 'm.youtube.com', 'youtu.be'].includes(url.hostname) || url.port) throw new Error();
+        } catch { errors.youtubeUrl = 'Ingresá un enlace HTTPS válido de YouTube.'; }
     }
     for (const key of BOOL_FIELDS) {
         if (!own(input, key)) continue;
@@ -108,7 +127,7 @@ export function validateVehicleInput(input, { partial = false, now = new Date() 
         if (!Number.isSafeInteger(value) || value < rule.min || value > rule.max) errors[key] = `${rule.label} debe ser un entero entre ${rule.min} y ${rule.max}.`;
         else values[key] = value;
     }
-    if (own(input, 'status') && !['Disponible', 'Pausado', 'Reservado', 'Vendido'].includes(input.status)) errors.status = 'Elegí un estado válido del vehículo.';
+    if (own(input, 'status') && !['Disponible', 'Pausado', 'Reservado', 'Vendido', 'Retirado'].includes(input.status)) errors.status = 'Elegí un estado válido del vehículo.';
     if (own(input, 'investor')) {
         let investor = input.investor;
         if (typeof investor === 'string') { try { investor = JSON.parse(investor); } catch { investor = null; } }

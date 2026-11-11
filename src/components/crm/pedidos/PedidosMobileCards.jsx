@@ -1,8 +1,10 @@
 import React, { useState } from 'react';
 import { Car, User, DollarSign, Calendar, Edit2, Trash2, ChevronDown } from 'lucide-react';
+import { useContactPermissions } from '../../../hooks/useContactPermissions';
 
 export default function PedidosMobileCards({ data, onEdit, onDelete }) {
     const [expandedId, setExpandedId] = useState(data[0]?._id || null);
+    const contact = useContactPermissions('pedido', data.map(pedido => pedido._id));
 
     const getStatusColor = (status) => {
         switch (status) {
@@ -68,7 +70,7 @@ export default function PedidosMobileCards({ data, onEdit, onDelete }) {
                                     </div>
                                     <div className="flex items-center gap-2">
                                         <span className="text-xs">📱</span>
-                                        <a href={`https://wa.me/${(pedido.clientId?.phone || pedido.clientPhone || '').replace(/\D/g, '')}`} target="_blank" rel="noreferrer" className="hover:text-crm-red transition-colors">{pedido.clientId?.phone || pedido.clientPhone || '--'}</a>
+                                        {contact.canContact(pedido._id) ? <a href={`https://wa.me/${(pedido.clientId?.phone || pedido.clientPhone || '').replace(/\D/g, '')}`} target="_blank" rel="noreferrer" className="hover:text-crm-red transition-colors">{pedido.clientId?.phone || pedido.clientPhone || '--'}</a> : <span title={contact.error || 'Contacto no habilitado según la preferencia actual del cliente.'}>{pedido.clientId?.phone || pedido.clientPhone || '--'} <span className="text-[10px] text-crm-fg-muted">· {contact.loading ? 'Verificando contacto' : 'Contacto no habilitado'}</span></span>}
                                     </div>
                                     <div className="flex items-center gap-2">
                                         <Calendar size={14} className="text-crm-fg opacity-70" />

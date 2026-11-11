@@ -1,11 +1,11 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { useAuth } from '../context/AuthContext';
 
-const empty = { clients: [], total: 0, totalPages: 1, summary: null, priorityCounts: null, pipelineCounts: {} };
+const empty = { clients: [], total: 0, totalPages: 1, summary: null, priorityCounts: null, pipelineCounts: {}, contactCounts: null, contactMonths: [] };
 const getBase = () => process.env.NODE_ENV === 'production' ? '' : process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
 const queryFor = filters => {
     const query = new URLSearchParams();
-    for (const key of ['search', 'type', 'source', 'status', 'segment', 'attention', 'assignedTo', 'page', 'limit']) {
+    for (const key of ['search', 'type', 'source', 'status', 'segment', 'attention', 'assignedTo', 'gender', 'tier', 'sort', 'createdFrom', 'createdTo', 'followups', 'page', 'limit']) {
         if (filters[key] !== undefined && filters[key] !== '') query.set(key, filters[key]);
     }
     return query.toString();
@@ -30,7 +30,11 @@ export function useClientCommercial() {
         });
         const data = await response.json().catch(() => ({}));
         if (session.current !== token) throw new DOMException('La sesión cambió.', 'AbortError');
-        if (!response.ok) throw new Error(data.message || (response.status === 401 ? 'No autorizado' : 'No se pudo completar la operación de clientes.'));
+        if (!response.ok) {
+            const error = new Error(data.message || data.error || (response.status === 401 ? 'No autorizado' : 'No se pudo completar la operación de clientes.'));
+            error.data = data; error.errors = data.errors; error.status = response.status;
+            throw error;
+        }
         return data;
     }, [token]);
 
@@ -44,6 +48,7 @@ export function useClientCommercial() {
             if (!pending.signal.aborted && session.current === token) setState({
                 clients: data.clients || [], total: data.total || 0, totalPages: data.pages || 1,
                 summary: data.summary, priorityCounts: data.priorityCounts, pipelineCounts: data.pipelineCounts || {},
+                contactCounts: data.contactCounts || null, contactMonths: data.contactMonths || [],
                 session: token, loading: false, error: null
             });
         } catch (error) {

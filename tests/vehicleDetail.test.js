@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { canReserveVehicle, getVehicleOperationalStatus, getVehicleReservationInitialData, getVehicleDetailSection } from '../src/utils/vehicleDetail.js';
+import { canReserveVehicle, getVehicleOperationalStatus, getVehicleReservationInitialData, getVehicleDetailSection, getVehicleStatusLabel } from '../src/utils/vehicleDetail.js';
 
 test('mapped vehicles use their actual operative status when raw status is absent', () => {
     assert.equal(getVehicleOperationalStatus({ estado: 'reservado' }), 'reservado');
@@ -30,9 +30,21 @@ test('empty optional vehicle identity fields do not become literal undefined in 
     assert.equal(initial.vehicleId, 'car-2');
 });
 
-test('invalid and old detail section links fall back to a visible General section', () => {
-    assert.equal(getVehicleDetailSection('costos'), 'costos');
-    assert.equal(getVehicleDetailSection('permutas'), 'permutas');
-    assert.equal(getVehicleDetailSection('unknown'), 'general');
-    assert.equal(getVehicleDetailSection(null), 'general');
+test('legacy section links retain their content within the commercial detail sections', () => {
+    assert.equal(getVehicleDetailSection('costos'), 'gastos');
+    assert.equal(getVehicleDetailSection('permutas'), 'gastos');
+    assert.equal(getVehicleDetailSection('fotos'), 'resumen');
+    assert.equal(getVehicleDetailSection('documentos'), 'documentacion');
+    assert.equal(getVehicleDetailSection('publicacion'), 'publicaciones');
+    assert.equal(getVehicleDetailSection('historial'), 'precios');
+    assert.equal(getVehicleDetailSection('actividad'), 'actividad');
+    assert.equal(getVehicleDetailSection('unknown'), 'resumen');
+    assert.equal(getVehicleDetailSection(null), 'resumen');
+});
+
+test('withdrawn availability is distinct from an unconfirmed sale and cannot be reserved', () => {
+    assert.equal(getVehicleStatusLabel('Retirado'), 'Fuera de venta');
+    assert.equal(getVehicleStatusLabel('Pausado'), 'Vendido sin confirmar');
+    assert.equal(canReserveVehicle({ estado: 'retirado' }), false);
+    assert.equal(canReserveVehicle({ estado: 'pausado' }), false);
 });

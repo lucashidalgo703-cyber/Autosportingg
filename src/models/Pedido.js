@@ -1,6 +1,8 @@
 import mongoose from 'mongoose';
 
 const PedidoSchema = new mongoose.Schema({
+    source: { type: String, enum: ['manual', 'client_profile'], default: 'manual' },
+    demandValidated: { type: Boolean, default: null },
     clientId: {
         type: mongoose.Schema.Types.ObjectId,
         ref: 'Client'
