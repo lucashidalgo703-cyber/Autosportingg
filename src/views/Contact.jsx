@@ -137,7 +137,7 @@ const Contact = () => {
                                     </div>
                                     <div>
                                         <h3>Ubicación</h3>
-                                        <p>Av. Hipólito Yrigoyen 2289<br/>Comodoro Rivadavia, Chubut</p>
+                                        <p>Av. Roca 116<br/>Comodoro Rivadavia, Chubut</p>
                                     </div>
                                 </div>
                                 <div className="info-block">
@@ -164,7 +164,7 @@ const Contact = () => {
                                     </div>
                                     <div>
                                         <h3>Horario de Atención</h3>
-                                        <p>Lunes a Viernes: 09:00 - 18:00 hs<br/>Sábados: 09:00 - 13:00 hs</p>
+                                        <p>Lunes a Viernes: 09:30 - 19:00 hs<br/>Sábados: 10:15 - 14:00 hs</p>
                                     </div>
                                 </div>
                             </div>

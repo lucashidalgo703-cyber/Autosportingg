@@ -76,6 +76,7 @@ export default function RootLayout({ children }) {
                             "telephone": "+5492974045378",
                             "address": {
                                 "@type": "PostalAddress",
+                                "streetAddress": "Av. Roca 116",
                                 "addressLocality": "Comodoro Rivadavia",
                                 "addressRegion": "Chubut",
                                 "addressCountry": "AR"
@@ -85,21 +86,21 @@ export default function RootLayout({ children }) {
                             "logo": "https://autosportingg.com/logo-header-final-user.png",
                             "geo": {
                                 "@type": "GeoCoordinates",
-                                "latitude": "-45.864130",
-                                "longitude": "-67.496560"
+                                "latitude": "-45.884224",
+                                "longitude": "-67.5193567"
                             },
                             "openingHoursSpecification": [
                                 {
                                     "@type": "OpeningHoursSpecification",
                                     "dayOfWeek": ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"],
-                                    "opens": "09:00",
+                                    "opens": "09:30",
                                     "closes": "19:00"
                                 },
                                 {
                                     "@type": "OpeningHoursSpecification",
                                     "dayOfWeek": "Saturday",
-                                    "opens": "09:00",
-                                    "closes": "13:00"
+                                    "opens": "10:15",
+                                    "closes": "14:00"
                                 }
                             ]
                         })

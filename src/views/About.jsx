@@ -72,7 +72,7 @@ const About = () => {
                             </p>
                             <div className="flex items-center gap-3 text-[var(--c-ivory)] font-semibold">
                                 <MapPin className="text-[var(--c-accent-red)]" />
-                                Av. Hipólito Yrigoyen 2289, Comodoro Rivadavia
+                                Av. Roca 116, Comodoro Rivadavia
                             </div>
                         </motion.div>
                     </div>
