@@ -1,15 +1,11 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef } from 'react';
 import { FileUp, FileSpreadsheet, CheckCircle2, XCircle, FilePlus, AlertTriangle } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useFinanceReconciliation } from '../../../../hooks/useFinanceReconciliation';
 import CrmBadge from '../../ui/CrmBadge';
 import ConfirmModal from '../../ui/ConfirmModal';
-import {useAuth} from '../../../../context/AuthContext';
-import {hasPermission,PERMISSIONS} from '../../../../utils/adminPermissions';
 
 export default function ConciliacionTab({ accounts = [] }) {
-    const {token,user}=useAuth();const canWrite=hasPermission(user,PERMISSIONS.FINANZAS_WRITE);const [error,setError]=useState('');
-    useEffect(()=>{setAccountId('');setReconciliation(null);setDecisions({});setIsConfirmOpen(false);setError('');},[token]);
     const { uploadReconciliation, confirmReconciliation, loading } = useFinanceReconciliation();
 
     const [accountId, setAccountId] = useState('');
@@ -20,8 +16,7 @@ export default function ConciliacionTab({ accounts = [] }) {
 
     const handleFileChange = async (e) => {
         const file = e.target.files[0];
-        if (!file || !canWrite || loading) return;
-        setError('');
+        if (!file) return;
 
         if (!accountId) {
             toast.error('Seleccioná una cuenta primero');
@@ -46,7 +41,7 @@ export default function ConciliacionTab({ accounts = [] }) {
 
             toast.success('Archivo parseado correctamente');
         } catch (err) {
-            if(err.name!=='AbortError')setError(err.message||'No se pudo consultar el extracto.');
+            toast.error(err.message || 'Error al subir archivo');
         } finally {
             if (fileInputRef.current) fileInputRef.current.value = '';
         }
@@ -67,7 +62,7 @@ export default function ConciliacionTab({ accounts = [] }) {
     };
 
     const handleConfirmRequest = () => {
-        if (!reconciliation || !canWrite || loading) return;
+        if (!reconciliation) return;
 
         const decisionsArray = Object.entries(decisions).map(([index, dec]) => ({
             index: Number(index),
@@ -94,7 +89,7 @@ export default function ConciliacionTab({ accounts = [] }) {
             setReconciliation(res);
             toast.success('Conciliación confirmada con éxito');
         } catch (err) {
-            if(err.name!=='AbortError')setError(err.message||'No se pudo confirmar.');
+            toast.error(err.message || 'Error al confirmar');
             if (err.reconciliation) setReconciliation(err.reconciliation);
         }
     };
@@ -107,18 +102,17 @@ export default function ConciliacionTab({ accounts = [] }) {
     const isConfirmed = reconciliation?.status === 'confirmado';
 
     return (
-        <div className="space-y-4">{error&&<p role="alert" className="text-sm text-red-300">{error}</p>}
+        <div className="space-y-4">
             <div className="rounded-xl border border-crm-border bg-crm-bg p-4">
-                <p className="text-sm font-bold text-crm-fg-muted">Conciliación bancaria: cotejá el CSV de hasta 3 MB (fecha, descripción, monto con signo). Las coincidencias son propuestas por importe menor a 1 y fecha ±3 días; no se ajusta caja al cargarlo. Sólo las filas elegidas expresamente como Crear movimiento generan un asiento al confirmar.</p>
+                <p className="text-sm font-bold text-crm-fg-muted">Conciliación bancaria: cotejá tus movimientos del sistema contra el extracto de tu banco.</p>
             </div>
 
             {!reconciliation || reconciliation.status === 'pendiente' ? (
                 <section className="rounded-2xl border border-crm-border bg-crm-surface p-4">
                     <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
                         <div className="flex items-center gap-3">
-                            <label htmlFor="reconciliation-account" className="text-xs font-medium text-crm-fg-muted">Cuenta:</label>
+                            <label className="text-[11px] font-bold uppercase tracking-wider text-crm-fg-muted">Cuenta:</label>
                             <select
-                                id="reconciliation-account"
                                 value={accountId}
                                 onChange={(e) => setAccountId(e.target.value)}
                                 className="rounded-lg border border-crm-border bg-crm-bg px-3 py-1.5 text-sm text-crm-fg focus:border-crm-red focus:outline-none"
@@ -140,7 +134,7 @@ export default function ConciliacionTab({ accounts = [] }) {
                                 className="hidden"
                                 ref={fileInputRef}
                                 onChange={handleFileChange}
-                                disabled={loading || !accountId || !canWrite}
+                                disabled={loading || !accountId}
                             />
                             {!reconciliation && (
                                 <button
@@ -267,7 +261,7 @@ export default function ConciliacionTab({ accounts = [] }) {
                         </button>
                         <button
                             onClick={handleConfirmRequest}
-                            disabled={loading || hasMissingCategories || !canWrite}
+                            disabled={loading || hasMissingCategories}
                             className="inline-flex items-center gap-2 rounded-lg bg-crm-red-gradient px-4 py-2 text-sm font-black text-white shadow-crm-shadow-red transition hover:opacity-95 disabled:opacity-50"
                         >
                             {loading ? 'Confirmando...' : 'Confirmar Conciliación'}

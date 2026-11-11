@@ -11,11 +11,8 @@ const normalizeKeyPart = (value, fallback) => String(value || fallback)
     .replace(/[^a-z0-9_-]+/g, '_')
     .slice(0, 64);
 
-const availabilityFilter = { $nin: ['paused', 'vacation', 'sick'] };
-const getEligibleUsers = async (excludedIds = []) => {
+const getEligibleUsers = async () => {
     const sellers = await AdminUser.find({
-        _id: { $nin: excludedIds },
-        leadAvailabilityStatus: availabilityFilter,
         active: { $ne: false },
         role: 'ventas'
     }).select('_id name email role createdAt').sort({ createdAt: 1, _id: 1 }).lean();
@@ -25,8 +22,6 @@ const getEligibleUsers = async (excludedIds = []) => {
     // Agencias chicas pueden operar sin un usuario con rol "ventas". En ese
     // caso evitamos perder el lead y usamos responsables administrativos.
     return AdminUser.find({
-        _id: { $nin: excludedIds },
-        leadAvailabilityStatus: availabilityFilter,
         active: { $ne: false },
         role: { $in: ['owner', 'admin'] }
     }).select('_id name email role createdAt').sort({ createdAt: 1, _id: 1 }).lean();
@@ -59,14 +54,13 @@ export async function getNextLeadAssignee({ source, sourceDetail }) {
                 if (activeParticipantIds.length > 0) {
                     candidates = await AdminUser.find({
                         _id: { $in: activeParticipantIds },
-                        leadAvailabilityStatus: availabilityFilter,
                         active: { $ne: false }
                     }).select('_id name email role createdAt').sort({ _id: 1 }).lean();
                 }
             }
 
             if (candidates.length === 0 && rule.fallbackUser) {
-                const fallback = await AdminUser.findOne({ _id: rule.fallbackUser, leadAvailabilityStatus: availabilityFilter }).select('_id name email role createdAt active').lean();
+                const fallback = await AdminUser.findById(rule.fallbackUser).select('_id name email role createdAt').lean();
                 if (fallback && fallback.active !== false) {
                     candidates = [fallback];
                     fallbackUsed = true;
@@ -77,7 +71,7 @@ export async function getNextLeadAssignee({ source, sourceDetail }) {
 
     // Fallback global si no hay reglas o fallaron
     if (candidates.length === 0) {
-        candidates = await getEligibleUsers(rule?.pausedParticipants || []);
+        candidates = await getEligibleUsers();
         fallbackUsed = true;
     }
 

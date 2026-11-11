@@ -5,11 +5,9 @@ import { useAdminCars } from '../../../hooks/useAdminCars';
 import Link from 'next/link';
 import ConsignationKanban from '../../../components/crm/consignaciones/ConsignationKanban';
 import toast from 'react-hot-toast';
-import { useContactPermissions } from '../../../hooks/useContactPermissions';
 
 export default function ConsignacionesPage() {
     const { cars, loading, error, refresh: fetchCars } = useAdminCars();
-    const contact = useContactPermissions('car', cars.map(car => car._id));
     const [search, setSearch] = useState('');
     const [viewMode, setViewMode] = useState('pipeline'); // 'lista' or 'pipeline'
     const [isModalOpen, setIsModalOpen] = useState(false);
@@ -221,12 +219,12 @@ export default function ConsignacionesPage() {
                                 </div>
                                 <div className="flex items-center gap-2">
                                     <Phone size={14} className="text-crm-fg opacity-70 shrink-0" />
-                                    {car.ownerPhone && contact.canContact(car._id) ? (
+                                    {car.ownerPhone ? (
                                         <a href={`https://wa.me/${car.ownerPhone.replace(/\D/g, '')}`} target="_blank" rel="noreferrer" className="hover:text-crm-red transition-colors">
                                             {car.ownerPhone}
                                         </a>
                                     ) : (
-                                        <span title={contact.error || 'Contacto no habilitado según la preferencia actual del cliente.'}>{car.ownerPhone ? `${car.ownerPhone} · ${contact.loading ? 'Verificando contacto' : 'Contacto no habilitado'}` : 'No registrado'}</span>
+                                        <span>No registrado</span>
                                     )}
                                 </div>
                                 {car.consignedBy && (

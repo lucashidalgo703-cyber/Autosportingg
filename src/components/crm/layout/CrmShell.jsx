@@ -1,5 +1,5 @@
 "use client";
-import { useCallback, useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { usePathname } from 'next/navigation';
 import CrmSidebar from './CrmSidebar';
 import CrmHeader from './CrmHeader';
@@ -9,45 +9,53 @@ export default function CrmShell({ children }) {
     const [isSidebarOpen, setSidebarOpen] = useState(false);
     const pathname = usePathname();
 
-    const closeSidebar = useCallback(() => setSidebarOpen(false), []);
+    const restorePageScroll = () => {
+        if (typeof document === 'undefined') return;
+        document.body.style.overflow = '';
+        document.body.style.overflowY = 'auto';
+        document.documentElement.style.overflowY = 'auto';
+    };
+
+    const closeSidebar = () => {
+        restorePageScroll();
+        setSidebarOpen(false);
+    };
 
     useEffect(() => {
-        closeSidebar();
-    }, [pathname, closeSidebar]);
-
-    useEffect(() => {
-        if (!isSidebarOpen) return;
-
         const previousBodyOverflow = document.body.style.overflow;
         const previousBodyOverflowY = document.body.style.overflowY;
         const previousHtmlOverflowY = document.documentElement.style.overflowY;
-        document.body.style.overflow = 'hidden';
-        document.documentElement.style.overflowY = 'hidden';
-        const desktop = window.matchMedia('(min-width: 768px)');
-        const handleResize = () => { if (desktop.matches) closeSidebar(); };
-        handleResize();
+
+        restorePageScroll();
+
+        return () => {
+            document.body.style.overflow = previousBodyOverflow;
+            document.body.style.overflowY = previousBodyOverflowY;
+            document.documentElement.style.overflowY = previousHtmlOverflowY;
+        };
+    }, []);
+
+    useEffect(() => {
+        closeSidebar();
+    }, [pathname]);
+
+    useEffect(() => {
+        if (!isSidebarOpen) return;
 
         const handleEscape = (event) => {
             if (event.key === 'Escape') closeSidebar();
         };
 
         window.addEventListener('keydown', handleEscape);
-        desktop.addEventListener('change', handleResize);
-        return () => {
-            window.removeEventListener('keydown', handleEscape);
-            desktop.removeEventListener('change', handleResize);
-            document.body.style.overflow = previousBodyOverflow;
-            document.body.style.overflowY = previousBodyOverflowY;
-            document.documentElement.style.overflowY = previousHtmlOverflowY;
-        };
-    }, [isSidebarOpen, closeSidebar]);
+        return () => window.removeEventListener('keydown', handleEscape);
+    }, [isSidebarOpen]);
 
     return (
-        <div data-admin-shell className="m-0 flex min-h-[100dvh] w-full max-w-full overflow-x-clip bg-crm-bg p-0 font-sans text-crm-fg">
+        <div data-admin-shell className="m-0 flex min-h-[100dvh] w-full max-w-full overflow-x-hidden bg-crm-bg p-0 font-sans text-crm-fg">
             <CrmSidebar isOpen={isSidebarOpen} onClose={closeSidebar} />
-            <div className="flex min-w-0 max-w-full flex-1 flex-col overflow-x-clip">
-                <CrmHeader onMenuClick={() => setSidebarOpen(true)} isMenuOpen={isSidebarOpen} />
-                <main id="main-content" tabIndex={-1} className="min-w-0 flex-1 touch-pan-y overflow-x-clip pb-[calc(4.25rem+var(--safe-bottom,0px))] md:pb-0 outline-none">
+            <div className="flex min-w-0 max-w-full flex-1 flex-col overflow-x-hidden">
+                <CrmHeader onMenuClick={() => setSidebarOpen(true)} />
+                <main id="main-content" tabIndex={-1} className="min-w-0 flex-1 touch-pan-y overflow-x-hidden pb-[calc(5.25rem+var(--safe-bottom,0px))] md:pb-0 outline-none">
                     {children}
                 </main>
                 <CrmBottomNav isHidden={isSidebarOpen} />

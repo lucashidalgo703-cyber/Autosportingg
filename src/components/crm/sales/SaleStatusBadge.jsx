@@ -1,19 +1,8 @@
 import React from 'react';
 import { CheckCircle2, Clock, XCircle, FileEdit, Truck } from 'lucide-react';
 
-export const getSaleOperationalLabel = (sale) => sale.historicalOnly === true
-    ? 'Histórica'
-    : (sale.status === 'borrador' ? 'Sin activar' : null);
-
-export default function SaleStatusBadge({ status, historicalOnly = false }) {
+export default function SaleStatusBadge({ status }) {
     const getBadgeStyle = () => {
-        if (historicalOnly) {
-            return {
-                bg: 'bg-crm-surface-raised', border: 'border-crm-border',
-                text: 'text-crm-fg-muted', icon: <FileEdit size={14} className="text-crm-fg-muted" />,
-                label: 'Histórica'
-            };
-        }
         switch (status) {
             case 'borrador':
                 return {
@@ -29,7 +18,7 @@ export default function SaleStatusBadge({ status, historicalOnly = false }) {
                     border: 'border-blue-500/20',
                     text: 'text-blue-400',
                     icon: <CheckCircle2 size={14} className="text-blue-500" />,
-                    label: 'Activa'
+                    label: 'Confirmada'
                 };
             case 'pendiente_entrega':
                 return {
@@ -45,7 +34,7 @@ export default function SaleStatusBadge({ status, historicalOnly = false }) {
                     border: 'border-green-500/20',
                     text: 'text-green-400',
                     icon: <Truck size={14} className="text-green-500" />,
-                    label: 'Cerrada'
+                    label: 'Entregada'
                 };
             case 'cancelada':
                 return {
@@ -55,10 +44,6 @@ export default function SaleStatusBadge({ status, historicalOnly = false }) {
                     icon: <XCircle size={14} className="text-crm-red" />,
                     label: 'Cancelada'
                 };
-            case 'señado':
-                return { bg: 'bg-amber-500/10', border: 'border-amber-500/20', text: 'text-amber-300', icon: <Clock size={14} />, label: 'Reserva' };
-            case 'caida':
-                return { bg: 'bg-red-500/10', border: 'border-red-500/20', text: 'text-red-300', icon: <XCircle size={14} />, label: 'Caída' };
             default:
                 return {
                     bg: 'bg-crm-surface-raised',

@@ -20,11 +20,6 @@ export default function AdminLayoutClient({ children }) {
     // Para todo el resto de /admin/* usamos el nuevo CrmShell
     return (
         <ProtectedRoute>
-            <style jsx global>{`
-                [data-admin-shell].font-sans {
-                    font-family: var(--font-main, 'Inter', system-ui, -apple-system, sans-serif);
-                }
-            `}</style>
             <CrmShell>
                 {children}
             </CrmShell>

@@ -200,29 +200,32 @@ export function getOfflineSnapshot(userId, customStorage) {
 }
 
 /**
- * Obtiene solo el snapshot del usuario de la sesión actual. El JWT identifica
- * el namespace; su autenticación sigue a cargo de AuthContext y del servidor.
- * No se infiere una sesión a partir de otros datos guardados en el dispositivo.
+ * Obtiene el snapshot offline del usuario autenticado actual leyendo el JWT de localStorage.
  */
 export function getActiveOfflineSnapshot(customStorage) {
+    const storage = getStorage(customStorage);
+    if (!storage) return null;
     try {
-        const storage = getStorage(customStorage);
-        if (!storage) return null;
         const token = storage.getItem('token');
-        if (typeof token !== 'string') return null;
-        const parts = token.split('.');
-        if (parts.length !== 3 || parts.some(part => !part)) return null;
-        const base64 = parts[1].replace(/-/g, '+').replace(/_/g, '/');
-        const bytes = Uint8Array.from(atob(base64), char => char.charCodeAt(0));
-        const decoded = JSON.parse(new TextDecoder('utf-8', { fatal: true }).decode(bytes));
-        if (!decoded || typeof decoded !== 'object' || Array.isArray(decoded)) return null;
-        if (decoded.exp !== undefined && (!Number.isFinite(decoded.exp) || decoded.exp * 1000 <= Date.now())) return null;
-        const uid = decoded.id || decoded.userId || decoded._id || decoded.username;
-        if (typeof uid !== 'string' || !uid.trim()) return null;
-        const snapshot = readNamespaceBundle(uid, storage);
-        // Namespace sanitization can map different strings to the same key.
-        // Check the stored owner too, rather than exposing a colliding bundle.
-        return snapshot?.userId === uid ? snapshot : null;
+        if (token) {
+            const parts = token.split('.');
+            if (parts.length === 3) {
+                const base64 = parts[1].replace(/-/g, '+').replace(/_/g, '/');
+                const decoded = JSON.parse(atob(base64));
+                const uid = decoded?.id || decoded?._id || decoded?.username;
+                if (uid) {
+                    const snap = readNamespaceBundle(uid, storage);
+                    if (snap) return snap;
+                }
+            }
+        }
+        for (let i = 0; i < storage.length; i++) {
+            const k = storage.key(i);
+            if (k && k.startsWith(STORAGE_PREFIX)) {
+                const raw = storage.getItem(k);
+                if (raw) return JSON.parse(raw);
+            }
+        }
     } catch {}
     return null;
 }

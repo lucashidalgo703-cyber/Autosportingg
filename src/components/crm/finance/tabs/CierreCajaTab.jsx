@@ -1,20 +1,142 @@
-"use client";
-import {useCallback,useEffect,useRef,useState} from 'react';
-import {useAuth} from '../../../../context/AuthContext';
-import {hasPermission,PERMISSIONS} from '../../../../utils/adminPermissions';
-import VehicleEditorDialog,{useVehicleFormClose,VehicleFormErrors} from '../../stock/VehicleEditorDialog';
-import FinanceField from '../FinanceField';
-const base=()=>process.env.NODE_ENV==='production'?'':process.env.NEXT_PUBLIC_API_URL||'http://localhost:3001';
-const money=(value,currency)=>currency+' '+Number(value).toLocaleString('es-AR',{maximumFractionDigits:2});
-export default function CierreCajaTab(){
- const {token,user}=useAuth(),[state,setState]=useState({items:[],loading:true,error:''}),[dialog,setDialog]=useState(false),[force,setForce]=useState(false),[values,setValues]=useState({notes:'',reopenReason:''}),[busy,setBusy]=useState(false),[errors,setErrors]=useState({});
- const generation=useRef(0),pending=useRef(null),session=useRef(token);session.current=token;const canWrite=hasPermission(user,PERMISSIONS.FINANZAS_WRITE);
- const {markDirty,requestClose,closeNotice}=useVehicleFormClose({isOpen:dialog,onClose:()=>setDialog(false),busy,resetKey:token});
- const current=(captured,revision)=>generation.current===revision&&session.current===captured&&localStorage.getItem('token')===captured;
- const load=useCallback(async()=>{const revision=++generation.current,controller=new AbortController();pending.current?.abort();pending.current=controller;setState(previous=>({...previous,loading:true,error:''}));try{const response=await fetch(base()+'/api/admin/finance/daily-closes',{headers:{Authorization:'Bearer '+token},signal:controller.signal});const data=await response.json();if(!response.ok)throw Error(data.message||'No se pudieron consultar los cierres.');if(current(token,revision))setState({items:Array.isArray(data)?data:[],loading:false,error:''});}catch(error){if(current(token,revision)&&error.name!=='AbortError')setState({items:[],loading:false,error:error.message});}},[token]);
- useEffect(()=>{setState({items:[],loading:true,error:''});setDialog(false);void load();return()=>{generation.current++;pending.current?.abort();};},[load]);
- const open=()=>{setValues({notes:'',reopenReason:''});setForce(false);setErrors({});setDialog(true);};
- const submit=async event=>{event.preventDefault();if(busy||!canWrite)return;if(force&&!values.reopenReason.trim()){setErrors({reopenReason:'Completá el motivo del nuevo cierre.'});return;}const captured=token,revision=generation.current;setBusy(true);setErrors({});try{const response=await fetch(base()+'/api/admin/finance/daily-closes',{method:'POST',headers:{Authorization:'Bearer '+captured,'Content-Type':'application/json'},signal:pending.current?.signal,body:JSON.stringify({...values,force})});const data=await response.json();if(!current(captured,revision))return;if(!response.ok){if(response.status===409&&data.latestClose){setForce(true);setErrors({form:data.message});return;}throw Object.assign(Error(data.message||'No se pudo cerrar.'),{errors:data.errors});}setDialog(false);await load();}catch(error){if(current(captured,revision)&&error.name!=='AbortError')setErrors(error.errors||{form:error.message});}finally{if(session.current===captured)setBusy(false);}};
- const exportXlsx=async()=>{if(busy||state.loading||state.error)return;const captured=token,revision=generation.current;setBusy(true);try{const XLSX=await import('xlsx');if(!current(captured,revision))return;const rows=state.items.flatMap(close=>(close.accountSnapshots.length?close.accountSnapshots:[{}]).map(account=>({Fecha:close.date,Versión:close.sequence,Cuenta:account.name||'',Tipo:account.type||'',Moneda:account.currency||'',Saldo:account.balance??'',TotalARS:close.totalsARS,TotalUSD:close.totalsUSD,Responsable:close.createdBy||'',CerradoEn:close.closedAt,MotivoNuevaVersión:close.reopenReason||'',Notas:close.notes||''})));const workbook=XLSX.utils.book_new();XLSX.utils.book_append_sheet(workbook,XLSX.utils.json_to_sheet(rows),'Cierres de caja');XLSX.writeFile(workbook,'AutoSporting_cierres_caja.xlsx');}catch(error){setState(previous=>({...previous,error:'No se pudo exportar: '+error.message}));}finally{if(session.current===captured)setBusy(false);}};
- return <div className="space-y-4"><section className="flex flex-wrap items-start justify-between gap-3 rounded-2xl border border-crm-border bg-crm-surface p-4"><div><h2 className="m-0 text-base font-semibold">Cierre de caja</h2><p className="mb-0 mt-1 max-w-xl text-xs leading-5 text-crm-fg-muted">Foto de los saldos registrados por cuenta del día actual. Las nuevas versiones conservan el cierre anterior y requieren motivo. No ajusta dinero ni concilia automáticamente.</p></div><div className="flex flex-wrap gap-2"><button type="button" disabled={busy||state.loading||Boolean(state.error)} onClick={exportXlsx} className="rounded-lg border border-crm-border px-3 py-2 text-xs disabled:opacity-50">Exportar XLSX</button>{canWrite&&<button type="button" disabled={busy} onClick={open} className="rounded-lg bg-crm-red px-3 py-2 text-xs font-semibold text-white">Cerrar día actual</button>}</div></section>{state.error&&<p role="alert" className="text-sm text-red-300">{state.error} <button type="button" onClick={load} className="underline">Reintentar consulta</button></p>}{state.loading?<p role="status" className="text-xs text-crm-fg-muted">Consultando cierres…</p>:<section className="space-y-3">{state.items.map(close=><details key={close._id} className="rounded-xl border border-crm-border bg-crm-surface"><summary className="cursor-pointer p-4 text-sm"><span className="font-semibold">{close.date} · Versión {close.sequence}</span><span className="ml-3 text-crm-fg-muted">{money(close.totalsUSD,'USD')} · {money(close.totalsARS,'ARS')} · {close.createdBy}</span></summary><div className="space-y-2 border-t border-crm-border p-4"><p className="m-0 text-xs text-crm-fg-muted">Guardado: {new Date(close.closedAt).toLocaleString('es-AR')}{close.reopenReason?' · Motivo: '+close.reopenReason:''}</p>{close.notes&&<p className="m-0 whitespace-pre-wrap text-xs text-crm-fg-muted">{close.notes}</p>}{close.accountSnapshots.map((account,index)=><div key={index} className="flex justify-between gap-3 rounded-lg bg-crm-bg p-3 text-sm"><span>{account.name} · {account.type}</span><span className="font-semibold">{money(account.balance,account.currency)}</span></div>)}</div></details>)}{!state.items.length&&!state.error&&<p className="rounded-xl border border-dashed border-crm-border p-8 text-center text-sm text-crm-fg-muted">Todavía no hay cierres.</p>}</section>}<VehicleEditorDialog isOpen={dialog} onClose={requestClose} title={force?'Nueva versión del cierre':'Cerrar día actual'} subtitle="Se guardan los saldos actuales de las cuentas activas, sin modificar movimientos." closeLabel="Cerrar formulario de cierre" busy={busy} footer={<div className="flex justify-end gap-2"><button type="button" disabled={busy} onClick={requestClose} className="rounded-lg border border-crm-border px-3 py-2 text-sm">Cancelar</button><button type="submit" form="finance-close" disabled={busy} className="rounded-lg bg-crm-red px-3 py-2 text-sm font-semibold text-white">{busy?'Guardando…':force?'Guardar nueva versión':'Guardar cierre'}</button></div>}><form id="finance-close" onSubmit={submit} className="space-y-4 p-4 sm:p-5">{closeNotice}<VehicleFormErrors errors={errors} prefix="finance"/>{force&&<FinanceField name="reopenReason" label="Motivo de la nueva versión *" value={values.reopenReason} onChange={(name,value)=>{markDirty();setValues(previous=>({...previous,[name]:value}));}} disabled={busy}/>}<FinanceField name="notes" label="Notas" type="textarea" value={values.notes} onChange={(name,value)=>{markDirty();setValues(previous=>({...previous,[name]:value}));}} disabled={busy}/></form></VehicleEditorDialog></div>;
+import React, { useState, useEffect, useCallback } from 'react';
+import { Lock, DownloadCloud } from 'lucide-react';
+import toast from 'react-hot-toast';
+import { useFinanceDailyCloses } from '../../../../hooks/useFinanceDailyCloses';
+import ConfirmModal from '../../ui/ConfirmModal';
+
+export default function CierreCajaTab() {
+    const { fetchDailyCloses, createDailyClose, exportDailyCloses, loading } = useFinanceDailyCloses();
+    const [closes, setCloses] = useState([]);
+
+    const [isSubmitting, setIsSubmitting] = useState(false);
+    const [notes, setNotes] = useState('');
+    const [confirmCloseModal, setConfirmCloseModal] = useState({ isOpen: false, force: false });
+
+    const loadData = useCallback(async () => {
+        try {
+            const data = await fetchDailyCloses();
+            setCloses(data);
+        } catch (err) {
+            toast.error(err.message || 'Error al cargar cierres');
+        }
+    }, [fetchDailyCloses]);
+
+    useEffect(() => {
+        loadData();
+    }, [loadData]);
+
+    const handleCloseDay = (force = false) => {
+        setConfirmCloseModal({ isOpen: true, force });
+    };
+
+    const confirmCloseDay = async () => {
+        const { force } = confirmCloseModal;
+        setIsSubmitting(true);
+        try {
+            await createDailyClose({ notes, force });
+            toast.success('Cierre diario generado correctamente');
+            setNotes('');
+            loadData();
+            setConfirmCloseModal({ isOpen: false, force: false });
+        } catch (err) {
+            if (err.status === 409) {
+                setConfirmCloseModal({ isOpen: true, force: true });
+            } else {
+                toast.error(err.message || 'Error al generar cierre');
+            }
+        } finally {
+            setIsSubmitting(false);
+        }
+    };
+
+    const handleExport = async () => {
+        try {
+            await exportDailyCloses();
+            toast.success('CSV Exportado');
+        } catch (err) {
+            toast.error(err.message || 'Error al exportar');
+        }
+    };
+
+    const formatMoney = (amount, currency = 'USD') => {
+        return `${currency === 'USD' ? 'USD' : '$'} ${Number(amount || 0).toLocaleString('es-AR')}`;
+    };
+
+    return (
+        <div className="space-y-4">
+            <section className="rounded-2xl border border-crm-border bg-crm-surface p-4">
+                <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+                    <div className="max-w-md">
+                        <h2 className="text-lg font-black text-crm-fg">Cierre de Caja</h2>
+                        <p className="text-sm text-crm-fg-muted mb-3">Genera una foto instantánea e inmutable de los saldos de todas las cuentas al final del día. Esto es vital para auditorías.</p>
+                        <input type="text" value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Notas opcionales sobre el cierre..." className="w-full rounded-lg border border-crm-border bg-crm-bg px-3 py-2 text-sm text-crm-fg focus:border-crm-red focus:outline-none" />
+                    </div>
+                    <div className="flex gap-2 shrink-0 pt-2 md:pt-0">
+                        <button onClick={handleExport} disabled={loading} className="inline-flex h-9 items-center gap-1.5 rounded-lg bg-crm-surface-raised px-4 text-xs font-black text-crm-fg border border-crm-border transition hover:bg-crm-bg disabled:opacity-50">
+                            <DownloadCloud size={14} /> Exportar CSV
+                        </button>
+                        <button onClick={() => handleCloseDay(false)} disabled={isSubmitting} className="inline-flex h-9 items-center gap-1.5 rounded-lg bg-crm-red-gradient px-4 text-xs font-black text-white shadow-crm-shadow-red transition hover:opacity-95 disabled:opacity-50">
+                            <Lock size={14} /> {isSubmitting ? 'Cerrando...' : 'Cerrar Día Actual'}
+                        </button>
+                    </div>
+                </div>
+            </section>
+
+            <section className="rounded-2xl border border-crm-border bg-crm-surface overflow-hidden">
+                <div className="overflow-x-auto custom-scrollbar">
+                    <table className="w-full text-left border-collapse whitespace-nowrap">
+                        <thead className="bg-crm-surface-raised border-b border-crm-border">
+                            <tr>
+                                <th className="px-4 py-3 text-[10px] font-black uppercase tracking-wider text-crm-fg-muted">Fecha</th>
+                                <th className="px-4 py-3 text-[10px] font-black uppercase tracking-wider text-crm-fg-muted">Secuencia</th>
+                                <th className="px-4 py-3 text-[10px] font-black uppercase tracking-wider text-crm-fg-muted">Total ARS</th>
+                                <th className="px-4 py-3 text-[10px] font-black uppercase tracking-wider text-crm-fg-muted">Total USD</th>
+                                <th className="px-4 py-3 text-[10px] font-black uppercase tracking-wider text-crm-fg-muted">Usuario</th>
+                                <th className="px-4 py-3 text-[10px] font-black uppercase tracking-wider text-crm-fg-muted">Cerrado En</th>
+                            </tr>
+                        </thead>
+                        <tbody className="divide-y divide-crm-border">
+                            {loading && closes.length === 0 ? (
+                                <tr><td colSpan={6} className="p-8 text-center text-sm text-crm-fg-muted">Cargando...</td></tr>
+                            ) : closes.length === 0 ? (
+                                <tr>
+                                    <td colSpan={6} className="p-8 text-center">
+                                        <div className="flex flex-col items-center justify-center gap-3">
+                                            <span className="text-2xl text-crm-fg-muted">🔒</span>
+                                            <h4 className="font-bold text-crm-fg">Sin cierres</h4>
+                                            <p className="text-sm text-crm-fg-muted">Aún no se ha realizado ningún cierre de caja.</p>
+                                        </div>
+                                    </td>
+                                </tr>
+                            ) : (
+                                closes.map(c => (
+                                    <tr key={c._id} className="hover:bg-crm-surface-raised transition-colors">
+                                        <td className="px-4 py-3 text-sm font-bold text-crm-fg">{c.date}</td>
+                                        <td className="px-4 py-3 text-sm text-crm-fg-muted">#{c.sequence}</td>
+                                        <td className="px-4 py-3 text-sm font-bold text-crm-fg">{formatMoney(c.totalsARS, 'ARS')}</td>
+                                        <td className="px-4 py-3 text-sm font-bold text-crm-fg">{formatMoney(c.totalsUSD, 'USD')}</td>
+                                        <td className="px-4 py-3 text-sm text-crm-fg">
+                                            {c.createdBy || 'Sistema'}
+                                            {c.notes && <span className="block text-xs text-crm-fg-muted truncate max-w-[150px]" title={c.notes}>{c.notes}</span>}
+                                        </td>
+                                        <td className="px-4 py-3 text-sm text-crm-fg-muted">{new Date(c.closedAt).toLocaleString('es-AR')}</td>
+                                    </tr>
+                                ))
+                            )}
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+
+            <ConfirmModal
+                isOpen={confirmCloseModal.isOpen}
+                onClose={() => setConfirmCloseModal({ isOpen: false, force: false })}
+                onConfirm={confirmCloseDay}
+                title="Generar Cierre Diario"
+                message={confirmCloseModal.force ? "Ya existe un cierre para el día de hoy. ¿Querés forzar la creación de un nuevo cierre (Secuencia mayor) para el mismo día?" : "¿Seguro que querés generar el cierre del día actual? Esto guardará una foto inmutable de todos los saldos actuales."}
+                confirmText={confirmCloseModal.force ? "Forzar Cierre" : "Cerrar Día"}
+                isDestructive={false}
+            />
+        </div>
+    );
 }

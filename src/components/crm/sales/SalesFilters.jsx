@@ -1,21 +1,159 @@
 import React from 'react';
-import { RefreshCcw } from 'lucide-react';
+import { CalendarDays, RefreshCcw, Search } from 'lucide-react';
 import CrmInput from '../ui/CrmInput';
 import CrmSelect from '../ui/CrmSelect';
-import CrmButton from '../ui/CrmButton';
-import { SALE_FILTER_DEFAULTS, SALE_STATUS_TABS, SALE_PAYMENT_LABELS, salesQuickPeriod } from '../../../utils/salesWorkbench';
-export default function SalesFilters({ filters, setFilters, onRefresh, loading, sellers = [], statusCounts = {}, countsReady = false }) {
- const set = (key, value) => setFilters(previous => ({ ...previous, [key]: value }));
- return <div className="space-y-4">
-  <div className="flex flex-wrap items-center gap-2"><span className="mr-1 text-xs text-crm-fg-muted">Vendedor</span>{(sellers.length ? sellers : [{value:'',label:'General',count:0}]).map(({value,label,count}) => <button type="button" key={value} onClick={() => set('seller',value)} className={`rounded-full border px-3 py-1.5 text-xs font-medium ${filters.seller === value ? 'border-crm-red bg-crm-red text-white' : 'border-crm-border bg-crm-surface text-crm-fg-muted'}`}>{label} <span className="ml-1 tabular-nums opacity-75">{countsReady ? count : '…'}</span></button>)}</div>
-  <div role="tablist" aria-label="Estado de ventas" className="flex gap-6 overflow-x-auto border-b border-crm-border">{SALE_STATUS_TABS.map(([value,label]) => <button key={value} type="button" role="tab" aria-selected={filters.status === value} onClick={() => set('status',value)} className={`shrink-0 border-0 border-b-2 bg-transparent px-0 pb-3 pt-1 text-sm font-medium ${filters.status === value ? 'border-crm-red text-crm-red' : 'border-transparent text-crm-fg-muted'}`}>{label} <span className="ml-1 text-xs tabular-nums opacity-75">{countsReady ? statusCounts[value] || 0 : '…'}</span></button>)}</div>
-  <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-[minmax(200px,1fr)_165px_145px_145px_150px]">
-   <CrmInput aria-label="Buscar venta" placeholder="Buscar venta, comprador, patente o vendedor…" value={filters.search} onChange={e => set('search',e.target.value)} />
-   <CrmSelect aria-label="Método de pago" value={filters.paymentMethod} onChange={e => set('paymentMethod',e.target.value)}><option value="todas">Todos los pagos</option>{Object.entries(SALE_PAYMENT_LABELS).map(([value,label]) => <option value={value} key={value}>{label}</option>)}</CrmSelect>
-   <CrmInput aria-label="Desde" type="date" value={filters.dateFrom} onChange={e => set('dateFrom',e.target.value)} /><CrmInput aria-label="Hasta" type="date" value={filters.dateTo} onChange={e => set('dateTo',e.target.value)} />
-   <label className="flex items-center gap-2 text-xs text-crm-fg"><input type="checkbox" className="accent-red-500" checked={filters.tradeInOnly} onChange={e => set('tradeInOnly',e.target.checked)} />Sólo con permuta</label>
-  </div>
-  <div className="flex flex-wrap items-center gap-2">{[['all','Todo'],['month','Este mes'],['previous','Mes pasado'],['year','Este año']].map(([key,label]) => <CrmButton size="sm" variant="secondary" key={key} onClick={() => setFilters(previous => ({...previous,...salesQuickPeriod(key)}))}>{label}</CrmButton>)}<span className="flex-1"/><CrmButton variant="ghost" size="sm" onClick={() => setFilters({...SALE_FILTER_DEFAULTS})}>Limpiar</CrmButton><CrmButton variant="secondary" size="sm" disabled={loading} onClick={onRefresh}><RefreshCcw size={14} className={loading?'animate-spin':''}/>Actualizar</CrmButton></div>
-  <details><summary className="cursor-pointer text-xs text-crm-fg-muted">Más filtros de AutoSporting</summary><div className="mt-3 grid gap-3 sm:grid-cols-4"><CrmSelect aria-label="Moneda" value={filters.currency} onChange={e=>set('currency',e.target.value)}><option value="todas">Todas las monedas</option><option>ARS</option><option>USD</option></CrmSelect><CrmSelect aria-label="Documentación" value={filters.documentationStatus} onChange={e=>set('documentationStatus',e.target.value)}><option value="todas">Toda documentación</option>{['pendiente','parcial','completo'].map(v=><option key={v}>{v}</option>)}</CrmSelect><CrmSelect aria-label="Entrega" value={filters.deliveryStatus} onChange={e=>set('deliveryStatus',e.target.value)}><option value="todas">Todas las entregas</option>{['pendiente','preparando','listo_para_entregar','entregado'].map(v=><option key={v}>{v}</option>)}</CrmSelect><CrmSelect aria-label="Cobranza" value={filters.collectionStatus} onChange={e=>set('collectionStatus',e.target.value)}><option value="todas">Toda cobranza</option>{['sin_cobro','parcial','cobrada','sobrecobrada'].map(v=><option key={v}>{v}</option>)}</CrmSelect></div></details>
- </div>;
+import { CrmIconButton } from '../ui/CrmButton';
+
+export default function SalesFilters({ filters, setFilters, onRefresh, loading }) {
+    const statusTabs = [
+        { label: 'Todas', value: 'todas' },
+        { label: 'Borradores', value: 'borrador' },
+        { label: 'Activas', value: 'confirmada' },
+        { label: 'Reservas', value: 'señado' },
+        { label: 'Cerradas', value: 'entregada' },
+        { label: 'Caídas', value: 'caida' },
+        { label: 'Canceladas', value: 'cancelada' }
+    ];
+
+    const handleClear = () => {
+        setFilters({
+            search: '',
+            seller: '',
+            status: 'todas',
+            currency: 'todas',
+            paymentMethod: 'todas',
+            documentationStatus: 'todas',
+            deliveryStatus: 'todas',
+            collectionStatus: 'todas',
+            dateFrom: '',
+            dateTo: '',
+            month: '',
+            tradeInOnly: false
+        });
+    };
+
+    return (
+        <div className="space-y-4">
+            <div className="flex gap-8 overflow-x-auto border-b border-crm-border">
+                {statusTabs.map((tab) => {
+                    const active = filters.status === tab.value;
+                    return (
+                        <button
+                            key={tab.value}
+                            type="button"
+                            onClick={() => setFilters({ ...filters, status: tab.value })}
+                            className={`m-0 shrink-0 appearance-none border-0 border-b-2 bg-transparent px-0 pb-3 pt-2 text-sm font-bold transition-colors ${
+                                active
+                                    ? 'border-crm-red text-crm-red'
+                                    : 'border-transparent text-crm-fg-muted hover:text-crm-fg'
+                            }`}
+                        >
+                            {tab.label}
+                        </button>
+                    );
+                })}
+            </div>
+
+            <div className="grid grid-cols-1 gap-3 xl:grid-cols-[minmax(260px,1.35fr)_minmax(190px,0.7fr)_200px_146px_146px_200px]">
+                <div className="relative self-end">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-crm-fg-muted" size={17} />
+                    <CrmInput
+                        type="text"
+                        placeholder="Comprador, vehículo, DNI, teléfono..."
+                        className="h-11 bg-crm-surface pl-10 text-sm w-full"
+                        value={filters.search}
+                        onChange={(e) => setFilters({ ...filters, search: e.target.value })}
+                    />
+                </div>
+
+                <div className="relative self-end">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-crm-fg-muted" size={17} />
+                    <CrmInput
+                        type="text"
+                        placeholder="Buscar vendedor..."
+                        className="h-11 bg-crm-surface pl-10 text-sm w-full"
+                        value={filters.seller}
+                        onChange={(e) => setFilters({ ...filters, seller: e.target.value })}
+                    />
+                </div>
+
+                <CrmSelect
+                    className="h-11 bg-crm-surface text-sm font-semibold self-end"
+                    value={filters.paymentMethod}
+                    onChange={(e) => setFilters({ ...filters, paymentMethod: e.target.value })}
+                >
+                    <option value="todas">Todos los métodos</option>
+                    <option value="contado">Contado</option>
+                    <option value="financiado">Financiado</option>
+                    <option value="mixto">Mixto</option>
+                    <option value="otro">Otro</option>
+                </CrmSelect>
+
+                <div>
+                    <label className="mb-1 block text-[10px] font-bold uppercase tracking-[0.08em] text-crm-fg-muted">Desde</label>
+                    <CrmInput
+                        type="date"
+                        className="h-11 bg-crm-surface text-sm"
+                        value={filters.dateFrom}
+                        onChange={(e) => setFilters({ ...filters, dateFrom: e.target.value })}
+                    />
+                </div>
+
+                <div>
+                    <label className="mb-1 block text-[10px] font-bold uppercase tracking-[0.08em] text-crm-fg-muted">Hasta</label>
+                    <CrmInput
+                        type="date"
+                        className="h-11 bg-crm-surface text-sm"
+                        value={filters.dateTo}
+                        onChange={(e) => setFilters({ ...filters, dateTo: e.target.value })}
+                    />
+                </div>
+
+                <label className="flex h-11 items-center gap-2 self-end rounded-lg border border-crm-border bg-crm-surface px-3 text-sm font-semibold text-crm-fg">
+                    <input
+                        type="checkbox"
+                        checked={filters.tradeInOnly}
+                        onChange={(e) => setFilters({ ...filters, tradeInOnly: e.target.checked })}
+                        className="h-4 w-4 rounded border-crm-border bg-crm-bg text-crm-red focus:ring-crm-red"
+                    />
+                    Solo con permuta
+                </label>
+            </div>
+
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+                <label className="flex items-center gap-3 text-sm font-semibold text-crm-fg-muted">
+                    Mes:
+                    <span className="relative block">
+                        <CalendarDays className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-crm-fg-muted" size={15} />
+                        <CrmInput
+                            type="month"
+                            className="h-10 w-[170px] bg-crm-surface pr-9 text-sm"
+                            value={filters.month}
+                            onChange={(e) => setFilters({ ...filters, month: e.target.value })}
+                        />
+                    </span>
+                </label>
+
+                <div className="flex gap-2 sm:ml-auto">
+                    <CrmIconButton
+                        onClick={handleClear}
+                        title="Limpiar filtros"
+                        className="shrink-0 bg-crm-surface"
+                    >
+                        <RefreshCcw size={16} className="text-crm-fg-muted" />
+                    </CrmIconButton>
+                    {onRefresh && (
+                        <CrmIconButton
+                            onClick={onRefresh}
+                            title="Actualizar ventas"
+                            disabled={loading}
+                            className="shrink-0 bg-crm-surface"
+                        >
+                            <RefreshCcw size={16} className={loading ? 'animate-spin text-crm-red' : 'text-crm-fg-muted'} />
+                        </CrmIconButton>
+                    )}
+                </div>
+            </div>
+        </div>
+    );
 }

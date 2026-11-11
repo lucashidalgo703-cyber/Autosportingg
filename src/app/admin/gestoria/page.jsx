@@ -6,13 +6,8 @@ import { useGestoria } from '../../../hooks/useGestoria';
 import { useAdminSales } from '../../../hooks/useAdminSales';
 import CrmButton from '../../../components/crm/ui/CrmButton';
 import ConfirmModal from '../../../components/crm/ui/ConfirmModal';
-import RegistryRefundOriginModal from '../../../components/crm/finance/RegistryRefundOriginModal';
-import { useAuth } from '../../../context/AuthContext';
-import { hasPermission, PERMISSIONS } from '../../../utils/adminPermissions';
 
 export default function GestoriaPage() {
-    const { user, token } = useAuth();
-    const [registryRefundSource, setRegistryRefundSource] = useState(null);
     const { tramites, loading, error, fetchTramites, createTramite, updateTramite, deleteTramite } = useGestoria();
     const { sales, fetchSales } = useAdminSales();
     const [search, setSearch] = useState('');
@@ -290,8 +285,6 @@ export default function GestoriaPage() {
                                 </button>
                             </div>
 
-                            {hasPermission(user, PERMISSIONS.GESTORIA_READ) && hasPermission(user, PERMISSIONS.GESTORIA_WRITE) && ['Transferencia Ingreso', 'Transferencia Egreso'].includes(tramite.type) && ['Transferido', 'Finalizado'].includes(tramite.status) && <CrmButton variant="secondary" size="sm" className="mt-3" onClick={() => setRegistryRefundSource(tramite)}>Informar devolución del Registro</CrmButton>}
-
                             {tramite.notes && (
                                 <div className="mt-4 rounded-lg bg-crm-bg p-3 text-xs italic text-crm-fg-muted border border-crm-border/50">
                                     {tramite.notes}
@@ -307,7 +300,6 @@ export default function GestoriaPage() {
                 </div>
             )}
 
-            {registryRefundSource && <RegistryRefundOriginModal key={`${token}:${registryRefundSource._id}`} tramite={registryRefundSource} onClose={() => setRegistryRefundSource(null)} />}
             {isModalOpen && (
                 <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 overflow-y-auto">
                     <div className="w-full max-w-2xl rounded-2xl border border-crm-border bg-crm-surface shadow-2xl my-auto">
@@ -353,7 +345,7 @@ export default function GestoriaPage() {
                                             });
                                         }} className="w-full rounded-lg border border-crm-border bg-crm-bg px-4 py-2.5 text-sm text-crm-fg focus:border-crm-red focus:outline-none focus:ring-1 focus:ring-crm-red appearance-none">
                                             <option value="">Ninguno</option>
-                                            {sales.filter(s => s.status !== 'cancelada' && s.status !== 'borrador' && s.historicalOnly !== true).map(s => (
+                                            {sales.filter(s => s.status !== 'cancelada' && s.status !== 'borrador').map(s => (
                                                 <option key={s._id} value={s._id}>
                                                     {(s.clientId?.fullName || s.clientId?.firstName)} - {s.vehicleId?.brand} {s.vehicleId?.name} ({s.vehicleId?.plateOrVin})
                                                 </option>

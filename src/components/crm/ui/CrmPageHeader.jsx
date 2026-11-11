@@ -43,8 +43,7 @@ const ROUTE_HELP_MAP = {
 export default function CrmPageHeader({ 
     title, 
     subtitle, 
-    actions,
-    compact = false
+    actions 
 }) {
     const pathname = usePathname();
     const router = useRouter();
@@ -78,10 +77,10 @@ export default function CrmPageHeader({
     };
 
     return (
-        <div className={`flex flex-col gap-4 border-b border-crm-border pb-5 mb-5 ${compact ? 'xl:flex-row xl:items-center xl:justify-between' : 'lg:flex-row lg:items-start lg:justify-between'}`}>
-            <div className={`flex items-center gap-3 ${compact ? 'min-w-0' : ''}`}>
-                <div className={compact ? 'min-w-0' : undefined}>
-                    <h1 className="m-0 text-2xl font-bold leading-8 text-crm-fg">{title}</h1>
+        <div className="flex flex-col gap-4 border-b border-crm-border pb-5 lg:flex-row lg:items-start lg:justify-between mb-5">
+            <div className="flex items-center gap-3">
+                <div>
+                    <h1 className="m-0 text-[26px] font-bold leading-tight text-crm-fg">{title}</h1>
                     {subtitle && (
                         <p className="m-0 mt-1 text-sm font-medium text-crm-fg-muted">
                             {subtitle}
@@ -99,7 +98,7 @@ export default function CrmPageHeader({
             </div>
 
             {actions && (
-                <div className={`flex flex-wrap items-center gap-2 ${compact ? 'xl:shrink-0 xl:flex-nowrap xl:justify-end' : 'lg:justify-end'}`}>
+                <div className="flex flex-wrap items-center gap-2 lg:justify-end">
                     {actions}
                 </div>
             )}

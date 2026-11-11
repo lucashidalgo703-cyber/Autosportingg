@@ -2,7 +2,6 @@ import { useEffect, useState } from 'react';
 import CrmCard from '../ui/CrmCard';
 import { Calendar, AlertCircle, Clock, DollarSign } from 'lucide-react';
 import { hasPermission, PERMISSIONS } from '../../../utils/adminPermissions';
-import { getUpcomingInstallmentPresentation } from '../../../utils/cashProjection';
 
 export function formatVehicleLabel(vehicle) {
     if (!vehicle) return null;
@@ -39,19 +38,14 @@ export default function UpcomingDuesPanel({ user, hideAmounts }) {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
 
-    const hasFinanzasRead = ['owner', 'admin'].includes(user?.role) || hasPermission(user, PERMISSIONS.FINANZAS_READ);
-    const sessionKey = user?.id || user?._id || user?.username;
+    const hasFinanzasRead = hasPermission(user, PERMISSIONS.FINANZAS_READ);
 
     useEffect(() => {
-        setDues([]);
-        setError(null);
         if (!hasFinanzasRead) {
             setLoading(false);
             return;
         }
 
-        const controller = new AbortController();
-        setLoading(true);
         const fetchUpcomingDues = async () => {
             try {
                 const token = localStorage.getItem('token');
@@ -60,11 +54,8 @@ export default function UpcomingDuesPanel({ user, hideAmounts }) {
                 const res = await fetch('/api/admin/dashboard/upcoming-dues', {
                     headers: {
                         'Authorization': `Bearer ${token}`
-                    },
-                    cache: 'no-store',
-                    signal: controller.signal
+                    }
                 });
-                if (controller.signal.aborted) return;
 
                 if (res.status === 403) {
                     setError('Sin permisos para ver vencimientos');
@@ -76,28 +67,24 @@ export default function UpcomingDuesPanel({ user, hideAmounts }) {
                 }
 
                 const data = await res.json();
-                if (!Array.isArray(data)) throw new Error('Respuesta de vencimientos incompleta');
-                if (!controller.signal.aborted) setDues(data);
+                setDues(Array.isArray(data) ? data : []);
             } catch (err) {
-                if (controller.signal.aborted) return;
                 console.error('Error fetching upcoming dues:', err);
                 setError('No se pudieron cargar los vencimientos próximos');
             } finally {
-                if (!controller.signal.aborted) setLoading(false);
+                setLoading(false);
             }
         };
 
         fetchUpcomingDues();
-        return () => controller.abort();
-    }, [hasFinanzasRead, sessionKey]);
+    }, [hasFinanzasRead]);
 
     if (!hasFinanzasRead) {
         return null; // Don't render anything if the user has no permissions, matching the pattern
     }
 
     const formatCurrency = (amount, currency) => {
-        if (!['ARS', 'USD'].includes(currency)) return 'Moneda pendiente';
-        if (amount === undefined || amount === null || !Number.isFinite(amount)) return `${currency === 'USD' ? 'u$s' : '$'} —`;
+        if (amount === undefined || amount === null) return '';
         const formatted = new Intl.NumberFormat('es-AR', {
             minimumFractionDigits: 0,
             maximumFractionDigits: 2
@@ -105,11 +92,38 @@ export default function UpcomingDuesPanel({ user, hideAmounts }) {
         return `${currency === 'USD' ? 'u$s' : '$'} ${formatted}`;
     };
 
-    const getBadgeClasses = (days) => days === null ? 'bg-crm-surface text-crm-fg-muted border border-crm-border'
-        : days < 0 ? 'bg-red-500/10 text-red-500 border border-red-500/20'
-            : days === 0 ? 'bg-orange-500/10 text-orange-500 border border-orange-500/20 font-bold'
-                : days === 1 ? 'bg-yellow-500/10 text-yellow-500 border border-yellow-500/20 font-semibold'
-                    : 'bg-blue-500/10 text-blue-500 border border-blue-500/20';
+    const getDueDateBadge = (dueDateString) => {
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        const dueDate = new Date(dueDateString);
+        dueDate.setHours(0, 0, 0, 0);
+
+        const diffTime = dueDate.getTime() - today.getTime();
+        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+        if (diffDays < 0) {
+            const days = Math.abs(diffDays);
+            return {
+                label: `Vencido hace ${days} ${days === 1 ? 'día' : 'días'}`,
+                classes: "bg-red-500/10 text-red-500 border border-red-500/20"
+            };
+        } else if (diffDays === 0) {
+            return {
+                label: "Vence hoy",
+                classes: "bg-orange-500/10 text-orange-500 border border-orange-500/20 font-bold"
+            };
+        } else if (diffDays === 1) {
+            return {
+                label: "Vence mañana",
+                classes: "bg-yellow-500/10 text-yellow-500 border border-yellow-500/20 font-semibold"
+            };
+        } else {
+            return {
+                label: `Vence en ${diffDays} días`,
+                classes: "bg-blue-500/10 text-blue-500 border border-blue-500/20"
+            };
+        }
+    };
 
     return (
         <CrmCard className="h-full">
@@ -142,10 +156,10 @@ export default function UpcomingDuesPanel({ user, hideAmounts }) {
             ) : (
                 <div className="overflow-y-auto max-h-[400px] pr-2 custom-scrollbar space-y-3">
                     {dues.map((due) => {
-                        const presentation = getUpcomingInstallmentPresentation(due);
+                        const badge = getDueDateBadge(due.dueDate);
                         const clientName = due.clientId?.fullName || due.clientId?.name || due.customerName || 'Cliente no especificado';
                         const vehicleLabel = formatVehicleLabel(due.vehicleId);
-                        const remaining = presentation.pendingAmount;
+                        const remaining = due.amount - (due.paidAmount || 0);
 
                         return (
                             <div 
@@ -174,15 +188,15 @@ export default function UpcomingDuesPanel({ user, hideAmounts }) {
                                     )}
                                 </div>
                                 <div className="flex sm:flex-col items-start sm:items-end justify-between sm:justify-center gap-2 border-t border-crm-border sm:border-t-0 pt-2 sm:pt-0 shrink-0">
-                                    <span className={`text-[10px] px-2 py-0.5 rounded-full ${getBadgeClasses(presentation.daysUntilDue)}`}>
-                                        {presentation.badgeLabel}
+                                    <span className={`text-[10px] px-2 py-0.5 rounded-full ${badge.classes}`}>
+                                        {badge.label}
                                     </span>
                                     <div className="text-right">
                                         <p className="text-sm font-bold text-white">
                                             {hideAmounts ? '*****' : formatCurrency(remaining, due.currency)}
                                         </p>
                                         <p className="text-[10px] text-crm-fg-subtle">
-                                            Vence: {presentation.dueDateLabel}
+                                            Vence: {new Date(due.dueDate).toLocaleDateString('es-AR')}
                                         </p>
                                     </div>
                                 </div>

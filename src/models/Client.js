@@ -16,12 +16,11 @@ const clientAuditSchema = new mongoose.Schema({
 const interactionSchema = new mongoose.Schema({
     type: { 
         type: String, 
-        enum: ['llamada', 'whatsapp', 'email', 'visita', 'cita_agendada', 'cotizacion_enviada', 'nota', 'otro'],
+        enum: ['llamada', 'whatsapp', 'email', 'visita', 'nota', 'otro'],
         required: true 
     },
     date: { type: Date, default: Date.now },
     note: { type: String, required: true },
-    outboundNoReply: { type: Boolean, default: false },
     user: { type: String, default: 'CRM_V2' },
     relatedLeadId: { type: mongoose.Schema.Types.ObjectId, ref: 'Lead', default: null }
 }, { _id: false });
@@ -50,7 +49,7 @@ const clientSchema = new mongoose.Schema({
     },
     source: {
         type: String,
-        enum: ['web', 'whatsapp', 'instagram', 'facebook', 'referido', 'local', 'mercadolibre', 'otro'],
+        enum: ['web', 'whatsapp', 'instagram', 'referido', 'local', 'mercadolibre', 'otro'],
         default: 'otro'
     },
     status: {
@@ -58,40 +57,9 @@ const clientSchema = new mongoose.Schema({
         enum: ['activo', 'inactivo', 'bloqueado'],
         default: 'activo'
     },
-    doNotContact: { type: Boolean, default: false },
-    contactConfirmed: { type: Boolean, default: null },
     
     tags: [{ type: String, trim: true }],
     notes: { type: String, default: '' },
-    pipelineStage: {
-        type: String,
-        enum: ['sin_contactar', 'contactado', 'con_pedido', 'visita', 'negociacion', 'cerrado', 'perdido',
-            'nuevo', 'cita_agendada', 'mostrando_autos', 'en_negociacion', 'propuesta_enviada', 'sin_interes'],
-        default: 'sin_contactar'
-    },
-    reason: { type: String, enum: ['lead_digital', 'entro_puerta'], default: 'lead_digital' },
-    vehicleOfInterest: { type: String, default: '' },
-    interestedVehicleId: { type: mongoose.Schema.Types.ObjectId, ref: 'Car', default: null },
-    notificationRequestId: { type: mongoose.Schema.Types.ObjectId, ref: 'Pedido', default: null },
-    segment: { type: String, enum: ['regular', 'vip'], default: 'regular' },
-    gender: { type: String, enum: ['', 'mujer', 'hombre'], default: '' },
-    birthDate: { type: Date, default: null },
-    occupation: { type: String, maxlength: 300, default: '' },
-    purchaseMethod: { type: String, enum: ['', 'contado', 'financiacion'], default: '' },
-    purchaseTiming: { type: String, enum: ['', 'ahora', '1_3_meses', 'mas_adelante', 'explorando'], default: '' },
-    availableDownPayment: { type: Number, min: 0, default: null },
-    downPaymentCurrency: { type: String, enum: ['ARS', 'USD', null], default: null },
-    tradeInIntent: { type: String, enum: ['', 'si', 'no'], default: '' },
-    description: { type: String, default: '' },
-    brand: { type: String, default: '' },
-    model: { type: String, default: '' },
-    currency: { type: String, enum: ['ARS', 'USD'], default: 'USD' },
-    maxBudget: { type: Number, min: 0, default: null },
-    yearFrom: { type: Number, default: null },
-    yearTo: { type: Number, default: null },
-    lastContactDate: { type: Date, default: null },
-    nextAction: { type: String, default: '' },
-    nextActionDate: { type: Date, default: null },
     
     createdBy: { type: String, default: 'CRM_V2' },
     assignedTo: {
@@ -127,11 +95,11 @@ clientSchema.pre('validate', function() {
     if (this.phone) {
         this.phone = normalizePhoneToWhatsApp(this.phone);
         this.phoneNormalized = this.phone.replace(/\D/g, ''); // Deja solo números
-    } else if (this.isModified('phone')) this.phoneNormalized = undefined;
+    }
     
     if (this.email) {
         this.emailNormalized = this.email.toLowerCase().trim();
-    } else if (this.isModified('email')) this.emailNormalized = undefined;
+    }
 });
 
 clientSchema.pre('save', function() {

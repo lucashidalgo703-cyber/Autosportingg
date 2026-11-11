@@ -1,8 +1,6 @@
 import React, { useState } from 'react';
 import Link from 'next/link';
 import { ChevronDown, Filter, Mail, MapPin, Phone } from 'lucide-react';
-import { formatClientNextAction } from '../../../utils/clientCommercial';
-import { clientDetailHref } from '../../../utils/clientNavigation';
 
 const formatDate = (value) => {
     if (!value) return '--';
@@ -34,7 +32,7 @@ const getStatusLabel = (status) => {
     return status || '--';
 };
 
-export default function ClientMobileCards({ clients, selectedIds = [], setSelectedIds, isSelectionMode = false, returnTo }) {
+export default function ClientMobileCards({ clients, selectedIds = [], setSelectedIds, isSelectionMode = false }) {
     const [expandedId, setExpandedId] = useState(clients?.[0]?._id || null);
 
     const toggleSelection = (clientId) => {
@@ -76,8 +74,6 @@ export default function ClientMobileCards({ clients, selectedIds = [], setSelect
                         <article key={client._id} className="overflow-hidden rounded-xl border border-crm-border bg-crm-surface">
                             <button
                                 type="button"
-                                aria-expanded={!isSelectionMode ? isExpanded : undefined}
-                                aria-label={isSelectionMode ? `Seleccionar cliente ${client.fullName}` : undefined}
                                 onClick={() => {
                                     if (isSelectionMode) toggleSelection(client._id);
                                     else setExpandedId(isExpanded ? null : client._id);
@@ -88,7 +84,6 @@ export default function ClientMobileCards({ clients, selectedIds = [], setSelect
                                     <div className="shrink-0 flex items-center justify-center pt-1">
                                         <input
                                             type="checkbox"
-                                            aria-label={`Seleccionar cliente ${client.fullName}`}
                                             checked={selectedIds.includes(client._id)}
                                             readOnly
                                             className="h-4 w-4 rounded border-crm-border bg-crm-surface text-crm-red focus:ring-crm-red"
@@ -100,8 +95,6 @@ export default function ClientMobileCards({ clients, selectedIds = [], setSelect
                                     <p className="m-0 mt-1 truncate text-xs text-crm-fg-muted">
                                         {getStatusLabel(client.status)} - {client.source || 'sin origen'}
                                     </p>
-                                    <p className="m-0 mt-1 text-xs text-crm-fg-muted">{client.assignedTo?.name || 'Sin vendedor'} · {formatClientNextAction(client)}</p>
-                                    {client.nextAction && <p className="m-0 mt-1 truncate text-xs text-crm-fg">{client.nextAction}</p>}
                                 </div>
                                 {!isSelectionMode && (
                                     <ChevronDown
@@ -131,13 +124,13 @@ export default function ClientMobileCards({ clients, selectedIds = [], setSelect
 
                                     <div className="mt-4 flex items-center gap-2 border-t border-crm-border pt-3">
                                         <Link
-                                            href={clientDetailHref(client._id, returnTo)}
+                                            href={`/admin/clientes/${client._id}`}
                                             className="inline-flex h-7 items-center justify-center rounded-lg bg-crm-red/10 px-3 text-xs font-semibold text-red-300 no-underline transition-colors hover:bg-crm-red/15"
                                         >
                                             Ver ficha
                                         </Link>
                                         <Link
-                                            href={clientDetailHref(client._id, returnTo)}
+                                            href={`/admin/clientes/${client._id}`}
                                             className="inline-flex h-7 items-center justify-center rounded-lg bg-crm-surface-raised px-3 text-xs font-semibold text-crm-fg no-underline transition-colors hover:bg-crm-border"
                                         >
                                             Editar

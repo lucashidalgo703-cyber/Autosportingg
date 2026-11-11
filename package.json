@@ -11,16 +11,9 @@
     "check": "node --check server.js && npm run lint && node scripts/validate-codebase.js",
     "api": "node server.js",
     "test:smoke": "playwright test",
-    "test:help": "node tests/helpRegistry.test.js",
-    "test:crm-parity": "node --test tests/cashProjection.test.js tests/saleDraftForm.test.js tests/treasuryHistoricalIsolation.test.js tests/installmentCollectionStats.test.js tests/saleCalendarDate.test.js tests/crmNavigation.test.js tests/stockFilters.test.js tests/clientCommercial.test.js tests/offlineSnapshotIsolation.test.js tests/stockNavigation.test.js tests/vehicleDetail.test.js tests/vehicleFinancialDisplay.test.js tests/vehicleFormDraft.test.js tests/vehicleValidation.test.js tests/vehicleEditPreservation.test.js tests/vehicleCommercial.test.js tests/clientInsights.test.js tests/clientFormDraft.test.js tests/clientMatchingRequest.test.js tests/clientNavigation.test.js tests/npsResponse.test.js tests/npsContext.test.js tests/clientContactStatus.test.js tests/clientSpreadsheet.test.js tests/clientDocumentText.test.js tests/clientOcrEngine.test.js tests/stockWorkbench.test.js tests/uploadPrivateFiles.test.js tests/downloadPrivateFile.test.js tests/saleDocuments.test.js tests/financeAuxiliary.test.js tests/capitalSummary.test.js tests/capitalSummaryView.test.js tests/salePresentation.test.js tests/saleWorkspace.test.js tests/saleCollection.test.js tests/registryRefundRequest.test.js tests/financeWorkbench.test.js tests/payablePromissoryDraft.test.js tests/stockCommercialCalculator.test.js tests/salesWorkbench.test.js tests/expedienteWorkspace.test.js tests/expedienteNavigation.test.js tests/expedienteDocuments.test.js tests/expedienteAdministration.test.js",
-    "test:crm-parity:integration": "node --test --test-concurrency=1 tests/integration/saleDraft.integration.test.js tests/integration/stockFilters.integration.test.js tests/integration/clientCommercial.integration.test.js tests/integration/vehicleWrite.integration.test.js tests/integration/vehicleCommercial.integration.test.js tests/integration/clientMatchingRequest.integration.test.js tests/integration/npsPrivacy.integration.test.js tests/integration/clientSpreadsheet.integration.test.js tests/integration/clientSpreadsheetApi.integration.test.js tests/integration/clientDocuments.integration.test.js tests/integration/clientDocumentsApi.integration.test.js tests/integration/stockWorkbench.integration.test.js tests/integration/privateUploads.integration.test.js tests/integration/financeIntegrity.integration.test.js tests/integration/financeCoreApi.integration.test.js tests/integration/registryRefund.integration.test.js tests/integration/financePeriods.integration.test.js tests/integration/expedientes.integration.test.js",
-    "preview:crm-parity": "node scripts/start-crm-parity-preview.mjs",
-    "predev": "node scripts/prepare-ocr-assets.mjs",
-    "prebuild": "node scripts/prepare-ocr-assets.mjs"
+    "test:help": "node tests/helpRegistry.test.js"
   },
   "dependencies": {
-    "@tesseract.js-data/eng": "^1.0.0",
-    "@tesseract.js-data/spa": "^1.0.0",
     "@vercel/analytics": "^1.6.1",
     "cloudinary": "^2.9.0",
     "cors": "^2.8.6",
@@ -32,21 +25,18 @@
     "firebase": "^12.8.0",
     "framer-motion": "^12.38.0",
     "jsonwebtoken": "^9.0.3",
-    "jspdf": "^4.2.1",
     "lucide-react": "^0.562.0",
     "mongoose": "^9.1.5",
     "multer": "^1.4.5-lts.1",
     "multer-storage-cloudinary": "^4.0.0",
     "next": "^16.2.2",
     "nodemailer": "^9.0.0",
-    "pdfjs-dist": "^6.5.438",
     "qrcode": "^1.5.4",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "react-hot-toast": "^2.6.0",
     "recharts": "^3.10.1",
     "speakeasy": "^2.0.0",
-    "tesseract.js": "^7.0.0",
     "xlsx": "^0.18.5"
   },
   "devDependencies": {
@@ -56,7 +46,6 @@
     "eslint": "^10.5.0",
     "eslint-config-next": "^16.2.9",
     "eslint-plugin-react-hooks": "^7.1.1",
-    "mongodb-memory-server": "^11.3.0",
     "postcss": "^8.5.15",
     "tailwindcss": "^3.4.0"
   }

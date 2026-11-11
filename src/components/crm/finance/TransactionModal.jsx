@@ -1,61 +1,636 @@
-"use client";
-import {useEffect,useRef,useState} from 'react';
-import {useAuth} from '../../../context/AuthContext';
-import {hasPermission,PERMISSIONS} from '../../../utils/adminPermissions';
-import {getArgentinaDateKey,getBusinessDateKey} from '../../../utils/cashProjection';
-import VehicleEditorDialog,{useVehicleFormClose,VehicleFormSection,VehicleFormErrors} from '../stock/VehicleEditorDialog';
-import FinanceField from './FinanceField';
-import FinanceDocumentsPanel from './FinanceDocumentsPanel';
-import ExpenseQuotaAssignmentModal from './modals/ExpenseQuotaAssignmentModal';
+import React, { useState, useEffect } from 'react';
+import { X, Save, AlertTriangle, Trash2 } from 'lucide-react';
 import ConfirmModal from '../ui/ConfirmModal';
-import {uploadPrivateFiles} from '../../../utils/uploadPrivateFiles';
-const base=()=>process.env.NODE_ENV==='production'?'':process.env.NEXT_PUBLIC_API_URL||'http://localhost:3001';
-const id=value=>typeof value==='object'?value?._id||'':value||'';
-const blank=()=>({type:'ingreso',currency:'ARS',amount:'',concept:'',category:'',paymentMethod:'efectivo',status:'activo',date:getArgentinaDateKey(new Date()),notes:'',accountId:'',saleId:'',reservationId:'',clientId:'',vehicleId:'',installmentId:'',payeeCompany:'',targetUser:'',beneficiary:'',dueDate:''});
-const categories=['Venta','Seña','Servicios','Bonificación','Otros','Sueldos','Taller','Gastos Personales','Comisiones','Pago Empresas','Pago a Proveedor','Retiros','AFIP/IVA','Mantenimiento','Gastos Varios','Cuotas','Tarjeta'];
-export default function TransactionModal({isOpen,onClose,transaction,onSave,onAnnul,initialData=null,accounts=[]}){
- const {token,user}=useAuth();const [values,setValues]=useState(blank),[errors,setErrors]=useState({}),[busy,setBusy]=useState(false),[options,setOptions]=useState({}),[optionError,setOptionError]=useState(''),[files,setFiles]=useState([]),[progress,setProgress]=useState(0),[saved,setSaved]=useState(null),[assign,setAssign]=useState(false),[confirmAnnul,setConfirmAnnul]=useState(false);
- const generation=useRef(0),active=useRef({token,isOpen}),controller=useRef(null),operationKey=useRef(''),uploadKey=useRef('');active.current={token,isOpen};
- const current=(captured,revision)=>active.current.isOpen&&active.current.token===captured&&localStorage.getItem('token')===captured&&generation.current===revision;
- const canWrite=hasPermission(user,PERMISSIONS.FINANZAS_WRITE),annulled=transaction?.status==='anulado',manual=Boolean(transaction?.financeManualEntryId||transaction?.financePayableInstallmentId),locked=annulled||manual||Boolean(saved),identity=transaction?._id||'new';
- const {markDirty,requestClose,closeNotice}=useVehicleFormClose({isOpen,onClose,busy,resetKey:identity+':'+token});
- useEffect(()=>{
-  const revision=++generation.current,pending=new AbortController();controller.current=pending;if(!isOpen)return;
-  const source=transaction||initialData||{},next={...blank(),...Object.fromEntries(Object.keys(blank()).filter(key=>source[key]!==undefined).map(key=>[key,source[key]]))};
-  next.type=String(next.type).toLowerCase();next.status=next.status==='pagada'?'activo':next.status;next.date=getBusinessDateKey(source.date)||next.date;next.dueDate=getBusinessDateKey(source.dueDate)||'';
-  for(const key of ['accountId','saleId','reservationId','clientId','vehicleId','installmentId'])next[key]=id(next[key]);
-  setValues(next);setSaved(null);setFiles([]);setErrors({});setBusy(false);setOptions({});setOptionError('');setAssign(false);operationKey.current=crypto.randomUUID();uploadKey.current=crypto.randomUUID();
-  const endpoints=[['sales','/api/admin/sales?limit=100',PERMISSIONS.VENTAS_READ],['reservations','/api/admin/reservations?limit=100',PERMISSIONS.RESERVAS_READ],['clients','/api/admin/clients?limit=100',PERMISSIONS.CLIENTES_READ],['cars','/api/admin/cars',PERMISSIONS.STOCK_READ],['users','/api/admin/users/active',PERMISSIONS.USUARIOS_READ]];
-  void Promise.allSettled(endpoints.filter(([, ,permission])=>permission&&hasPermission(user,permission)).map(async([key,path])=>{
-   const response=await fetch(base()+path,{headers:{Authorization:'Bearer '+token},signal:pending.signal});const data=await response.json();if(!response.ok)throw Error('No se pudo consultar '+key+'.');
-   if(current(token,revision))setOptions(previous=>({...previous,[key]:Array.isArray(data)?data:data[key]||data.clients||data.cars||data.sales||data.reservations||data.users||[]}));
-  })).then(results=>{if(current(token,revision)&&results.some(result=>result.status==='rejected'))setOptionError('Alguno de los vínculos no pudo consultarse. Se conserva la selección existente.');});
-  return ()=>{generation.current++;pending.abort();};
- },[isOpen,identity,token]);
- const change=(name,value)=>{markDirty();setValues(previous=>({...previous,[name]:value,...(name==='currency'?{accountId:''}:{})}));setErrors(previous=>({...previous,[name]:undefined}));};
- const compatible=accounts.filter(account=>account.isActive!==false&&account.currency===values.currency);
- const validate=()=>{const e={};if(!Number.isFinite(Number(values.amount))||Number(values.amount)<=0)e.amount='Ingresá un importe mayor a cero.';if(!values.concept.trim())e.concept='Completá la descripción.';if(!values.category.trim())e.category='Elegí una categoría.';if(!getBusinessDateKey(values.date))e.date='Elegí una fecha válida.';if(!compatible.some(account=>String(account._id)===values.accountId))e.accountId='Elegí una caja activa en '+values.currency+'.';setErrors(e);return !Object.keys(e).length;};
- const persist=async(assignAfter=false)=>{
-  if(busy||!canWrite||annulled)return;
-  if(!saved&&!manual&&!validate())return;
-  const captured=token,revision=generation.current;setBusy(true);setErrors({});
-  try{
-   let record=saved;
-   if(!record){const payload=manual?{notes:values.notes}:{...values,amount:Number(values.amount),status:assignAfter&&!transaction?'pendiente':values.status,idempotencyKey:operationKey.current};if(!transaction&&!manual)for(const key of ['saleId','reservationId','clientId','vehicleId','installmentId','payeeCompany','targetUser','beneficiary','dueDate'])if(!payload[key])delete payload[key];record=await onSave(payload);if(!current(captured,revision))return;if(!record?._id)throw Error('No se pudo confirmar el movimiento.');setSaved(record);}
-   if(files.length){await uploadPrivateFiles({basePath:base()+'/api/admin/transactions/'+record._id+'/document-uploads',files,token:captured,signal:controller.current.signal,uploadId:uploadKey.current,onProgress:data=>{if(current(captured,revision))setProgress(data.percent);}});if(!current(captured,revision))return;setFiles([]);}
-   if(assignAfter){setAssign(true);return;}
-   onClose();
-  }catch(error){if(current(captured,revision)&&error.name!=='AbortError')setErrors(Object.keys(error.errors||{}).length?error.errors:{form:error.message});}finally{if(current(captured,revision))setBusy(false);}
- };
- const field=(name,label,props={})=><FinanceField key={name} name={name} label={label} value={values[name]} onChange={change} disabled={busy||locked||!canWrite} {...props}/>;
- const link=(key,label,items,labeler)=>{const selected=values[key];return field(key,label,{options:[{value:'',label:'Sin vínculo'},...(selected&&!items.some(item=>String(item._id)===selected)?[{value:selected,label:'Vínculo actual · '+selected}]:[]),...items.map(item=>({value:String(item._id),label:labeler(item)}))]});};
- return <><VehicleEditorDialog isOpen={isOpen} onClose={requestClose} title={transaction?'Detalle de movimiento':'Nuevo movimiento'} subtitle="Los movimientos activos modifican el saldo de la caja seleccionada." closeLabel="Cerrar movimiento" busy={busy} suspendKeyboard={assign||confirmAnnul} footer={<div className="flex flex-wrap items-center justify-between gap-2"><span className="text-xs text-crm-fg-muted">{saved?'Movimiento guardado · adjuntos pendientes si falló la carga':annulled?'Anulado · sin efecto en caja':manual?'Registro de origen protegido':'Guardá para registrar en caja'}</span><div className="flex gap-2"><button type="button" className="rounded-lg border border-crm-border px-3 py-2 text-sm" disabled={busy} onClick={requestClose}>Cerrar</button>{transaction&&!annulled&&!transaction.financePayableInstallmentId&&canWrite&&<button type="button" disabled={busy} onClick={()=>setConfirmAnnul(true)} className="rounded-lg border border-red-500/40 px-3 py-2 text-sm text-red-300">Anular</button>}{!annulled&&canWrite&&<button type="button" disabled={busy} onClick={()=>persist()} className="rounded-lg bg-crm-red px-3 py-2 text-sm font-semibold text-white">{busy?'Guardando'+(progress?' '+progress+'%':'')+'…':saved?'Reintentar adjuntos / finalizar':'Guardar movimiento'}</button>}</div></div>}>
-  <form onSubmit={event=>{event.preventDefault();void persist();}} className="space-y-5 p-4 sm:p-5">{closeNotice}<VehicleFormErrors errors={errors} prefix="finance"/>{optionError&&<p role="status" className="text-xs text-amber-300">{optionError}</p>}{manual&&<p className="text-xs text-amber-300">Seña o pago manual vinculado: editá su registro de origen para conservar importes y cuenta. Aquí podés cambiar sus notas.</p>}
-   <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">{field('type','Tipo',{options:[{value:'ingreso',label:'Ingreso'},{value:'egreso',label:'Egreso'}]})}{field('amount','Monto *',{type:'number',step:'any',min:0})}{field('currency','Moneda',{options:['ARS','USD']})}{field('date','Fecha *',{type:'date'})}{field('concept','Descripción *',{wide:true})}{field('category','Categoría *',{options:[{value:'',label:'Elegí una categoría'},...(!categories.includes(values.category)&&values.category?[values.category]:[]),...categories]})}{field('paymentMethod','Forma de pago',{options:['efectivo','transferencia','deposito','cheque','tarjeta','otro','dolares','mixto',...(!['efectivo','transferencia','deposito','cheque','tarjeta','otro','dolares','mixto'].includes(values.paymentMethod)?[values.paymentMethod]:[])]})}{field('accountId','Caja *',{options:[{value:'',label:compatible.length?'Elegí una caja':'Creá una desde Cuentas'},...(values.accountId&&!compatible.some(a=>String(a._id)===values.accountId)?[{value:values.accountId,label:'Cuenta actual · revisar disponibilidad'}]:[]),...compatible.map(account=>({value:String(account._id),label:account.name+' · '+account.currency}))],disabled:busy||locked||!canWrite||!compatible.length})}{field('status','Estado',{options:[{value:'activo',label:'Activo · afecta caja'},{value:'pendiente',label:'Pendiente · sin efecto en caja'}]})}
-   {link('saleId','Venta vinculada',options.sales||[],sale=>sale.customerName||sale.buyerName||sale._id)}{values.saleId&&<a href={'/admin/ventas/'+values.saleId} target="_blank" rel="noreferrer" className="self-end py-2 text-xs underline">Abrir venta</a>}
-   </div><VehicleFormSection title="Vínculos y datos propios de AutoSporting"><div className="grid grid-cols-1 gap-3 sm:grid-cols-2">{link('reservationId','Reserva',options.reservations||[],item=>item.customerName||item._id)}{link('clientId','Cliente',options.clients||[],item=>item.fullName||item._id)}{link('vehicleId','Vehículo',options.cars||[],item=>[item.brand,item.name,item.plateOrVin].filter(Boolean).join(' '))}{field('installmentId','ID cuota vinculada')}{field('payeeCompany','Empresa',{options:[{value:'',label:'Sin empresa'},'LHIVER','AUTOTERRA','AKAR','ALWAYS SAS']})}{field('targetUser','Usuario / vendedor',{options:[{value:'',label:'Sin asignar'},...(values.targetUser&&!((options.users||[]).some(item=>item.name===values.targetUser))?[values.targetUser]:[]),...(options.users||[]).map(item=>item.name||item.username)]})}{field('beneficiary','Beneficiario / destinatario')}{field('dueDate','Vencimiento de obligación',{type:'date'})}</div>{values.type==='egreso'&&!annulled&&!manual&&canWrite&&<button type="button" disabled={busy} onClick={()=>persist(true)} className="mt-3 rounded-lg border border-purple-500/40 px-3 py-2 text-xs text-purple-300">{transaction||saved?'Asignar cuotas para cubrir este pago':'Guardar pendiente y asignar cuotas'}</button>}</VehicleFormSection>
-   <FinanceField name="notes" label="Notas" type="textarea" value={values.notes} onChange={change} disabled={busy||annulled||!canWrite||Boolean(saved)}/>
-   {transaction?<VehicleFormSection title="Comprobantes privados"><FinanceDocumentsPanel transactionId={transaction._id}/></VehicleFormSection>:<section className="space-y-2"><label htmlFor="finance-proofs" className="text-xs text-crm-fg-muted">Comprobantes · hasta 5 archivos de 15 MB</label><input id="finance-proofs" type="file" multiple disabled={busy||!canWrite} onChange={event=>{const next=Array.from(event.target.files||[]);event.target.value='';if(next.length>5||next.some(file=>!file.size||file.size>15*1024*1024)){setErrors({files:'Seleccioná hasta 5 archivos de 15 MB.'});return;}markDirty();uploadKey.current=crypto.randomUUID();setFiles(next);}} className="block w-full text-xs"/>{files.map((file,index)=><p key={index} className="m-0 break-all text-xs text-crm-fg-muted">{file.name}</p>)}<p className="text-xs text-crm-fg-muted">Los archivos se cargan de forma privada después de confirmar el movimiento. Si falla la carga podés reintentar sin registrar otro movimiento.</p></section>}
-  </form>
- </VehicleEditorDialog><ConfirmModal isOpen={confirmAnnul} onClose={()=>setConfirmAnnul(false)} onConfirm={async()=>{if(busy)return;setBusy(true);try{await onAnnul(transaction._id);setConfirmAnnul(false);}catch(error){setErrors({form:error.message});}finally{setBusy(false);}}} title="Anular movimiento" message="Se revierte su efecto en la cuenta y queda registrado en la auditoría." confirmText="Anular" isDestructive/><ExpenseQuotaAssignmentModal isOpen={assign} onClose={()=>setAssign(false)} expense={saved||transaction} onUpdated={()=>{}}/></>;
+import ExpenseQuotaAssignmentModal from './modals/ExpenseQuotaAssignmentModal';
+import { Layers } from 'lucide-react';
+
+export default function TransactionModal({ isOpen, onClose, transaction, onSave, onAnnul, initialData = null }) {
+    const isEdit = !!transaction;
+    const isAnnulled = transaction?.status === 'anulado';
+
+    const [formData, setFormData] = useState({
+        type: 'ingreso',
+        currency: 'ARS',
+        amount: '',
+        concept: '',
+        category: '',
+        paymentMethod: 'efectivo',
+        status: 'pagada',
+        date: new Date().toISOString().split('T')[0],
+        notes: '',
+        saleId: '',
+        reservationId: '',
+        clientId: '',
+        vehicleId: '',
+        installmentId: '',
+        beneficiary: '',
+        dueDate: ''
+    });
+
+    const [errors, setErrors] = useState({});
+    const [confirmAnnulModal, setConfirmAnnulModal] = useState(false);
+    const [isAssignModalOpen, setIsAssignModalOpen] = useState(false);
+    const [savedExpenseForAssign, setSavedExpenseForAssign] = useState(null);
+    
+    // Data for selects
+    const [salesOptions, setSalesOptions] = useState([]);
+    const [resOptions, setResOptions] = useState([]);
+    const [clientOptions, setClientOptions] = useState([]);
+    const [carOptions, setCarOptions] = useState([]);
+    const [userOptions, setUserOptions] = useState([]);
+
+    const getAuthHeaders = () => {
+        const token = localStorage.getItem('token');
+        return {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+        };
+    };
+
+    useEffect(() => {
+        const fetchOptions = async () => {
+            try {
+                const headers = getAuthHeaders();
+                // We fetch the basics to populate dropdowns
+                const [salesRes, resRes, clientsRes, carsRes, usersRes] = await Promise.all([
+                    fetch('/api/admin/sales?limit=100', { headers }),
+                    fetch('/api/admin/reservations?limit=100', { headers }),
+                    fetch('/api/admin/clients?limit=100', { headers }),
+                    fetch('/api/cars', { headers }), // Or /api/admin/stock depending on what exists, we use public /api/cars for now since it returns all visible
+                    fetch('/api/admin/users/active', { headers })
+                ]);
+                
+                if (salesRes.ok) {
+                    const data = await salesRes.json();
+                    setSalesOptions(Array.isArray(data) ? data : []);
+                }
+                if (resRes.ok) {
+                    const data = await resRes.json();
+                    setResOptions(Array.isArray(data) ? data : []);
+                }
+                if (clientsRes.ok) {
+                    const data = await clientsRes.json();
+                    setClientOptions(data.clients || []);
+                }
+                if (carsRes.ok) {
+                    const data = await carsRes.json();
+                    setCarOptions(Array.isArray(data) ? data : (data.cars || []));
+                }
+                if (usersRes.ok) {
+                    const data = await usersRes.json();
+                    setUserOptions(Array.isArray(data) ? data : (data.users || []));
+                }
+            } catch (err) {
+                console.error("Error fetching options for transaction modal", err);
+            }
+        };
+        
+        if (isOpen && !isAnnulled) {
+            fetchOptions();
+        }
+    }, [isOpen, isAnnulled]);
+
+    useEffect(() => {
+        if (isOpen && transaction) {
+            setFormData({
+                type: transaction.type?.toLowerCase() || 'ingreso',
+                currency: transaction.currency || 'ARS',
+                amount: transaction.amount || '',
+                concept: transaction.concept || transaction.description || '',
+                category: transaction.category || '',
+                paymentMethod: transaction.paymentMethod || 'efectivo',
+                status: transaction.status || 'pagada',
+                date: transaction.date ? new Date(transaction.date).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
+                notes: transaction.notes || '',
+                saleId: transaction.saleId || '',
+                reservationId: transaction.reservationId || '',
+                clientId: transaction.clientId || '',
+                vehicleId: transaction.vehicleId || '',
+                installmentId: transaction.installmentId || '',
+                payeeCompany: transaction.payeeCompany || '',
+                targetUser: transaction.targetUser || transaction.createdBy || '',
+                beneficiary: transaction.beneficiary || '',
+                dueDate: transaction.dueDate ? new Date(transaction.dueDate).toISOString().split('T')[0] : ''
+            });
+        } else if (isOpen) {
+            // Default initial state or props if provided from SaleFinancePanel
+            setFormData({
+                type: 'ingreso',
+                currency: 'ARS',
+                amount: '',
+                concept: '',
+                category: '',
+                paymentMethod: 'efectivo',
+                status: 'activo',
+                date: new Date().toISOString().split('T')[0],
+                notes: '',
+                saleId: '',
+                reservationId: '',
+                clientId: '',
+                vehicleId: '',
+                installmentId: '',
+                payeeCompany: '',
+                targetUser: '',
+                beneficiary: '',
+                dueDate: '',
+                ...(initialData || {})
+            });
+        }
+        setErrors({});
+    }, [isOpen, transaction, initialData]);
+
+    if (!isOpen) return null;
+
+    const validate = () => {
+        const newErrors = {};
+        if (!formData.amount || formData.amount < 0) newErrors.amount = 'Monto inválido';
+        if (!formData.concept.trim()) newErrors.concept = 'Requerido';
+        if (!formData.category.trim()) newErrors.category = 'Requerido';
+        setErrors(newErrors);
+        return Object.keys(newErrors).length === 0;
+    };
+
+    const handleSubmit = (e) => {
+        e.preventDefault();
+        if (isAnnulled) return;
+        if (validate()) {
+            const dataToSave = {
+                ...formData,
+                amount: Number(formData.amount)
+            };
+            // Limpiar vacíos
+            if (!dataToSave.saleId) delete dataToSave.saleId;
+            if (!dataToSave.reservationId) delete dataToSave.reservationId;
+            if (!dataToSave.clientId) delete dataToSave.clientId;
+            if (!dataToSave.vehicleId) delete dataToSave.vehicleId;
+            if (!dataToSave.installmentId) delete dataToSave.installmentId;
+            if (!dataToSave.payeeCompany) delete dataToSave.payeeCompany;
+            if (!dataToSave.targetUser) delete dataToSave.targetUser;
+            if (!dataToSave.beneficiary) delete dataToSave.beneficiary;
+            if (!dataToSave.dueDate) delete dataToSave.dueDate;
+            
+            onSave(dataToSave);
+        }
+    };
+
+    const handleAnnul = () => {
+        setConfirmAnnulModal(true);
+    };
+
+    const confirmAnnul = () => {
+        onAnnul(transaction._id);
+        setConfirmAnnulModal(false);
+    };
+
+    return (
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+            <div className="bg-crm-bg border border-neutral-800 rounded-2xl w-full max-w-2xl overflow-hidden flex flex-col max-h-[90vh]">
+                
+                {/* Header */}
+                <div className="flex justify-between items-center p-6 border-b border-neutral-800 bg-neutral-900/50 shrink-0">
+                    <div>
+                        <h2 className="text-xl font-bold text-white flex items-center gap-3">
+                            {isEdit ? 'Detalle de Movimiento' : 'Nuevo Movimiento Manual'}
+                            {formData.installmentId && (
+                                <span className="bg-purple-500/20 text-purple-400 text-[10px] px-2 py-1 rounded-md font-bold uppercase tracking-wider border border-purple-500/30">
+                                    Vinculado a Cuota
+                                </span>
+                            )}
+                        </h2>
+                        {isEdit && <span className="text-sm text-neutral-500 mt-1 block">ID: {transaction._id}</span>}
+                    </div>
+                    <button onClick={onClose} className="p-2 hover:bg-crm-surface-raised rounded-xl text-neutral-400 hover:text-white transition-colors">
+                        <X size={20} />
+                    </button>
+                </div>
+
+                {isAnnulled && (
+                    <div className="bg-crm-red/10 border-b border-red-500/20 p-4 flex items-center gap-3">
+                        <AlertTriangle className="text-crm-red shrink-0" size={20} />
+                        <div>
+                            <span className="font-bold text-crm-red block">Movimiento Anulado</span>
+                            <p className="text-xs text-red-400">Este movimiento fue anulado y ya no se contabiliza en el balance.</p>
+                        </div>
+                    </div>
+                )}
+
+                {/* Form */}
+                <div className="p-6 overflow-y-auto flex-1">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        
+                                <div>
+                                    <label className="block text-xs font-bold text-neutral-500 uppercase tracking-wider mb-2">Tipo de Movimiento</label>
+                                    <div className="flex gap-2">
+                                        <button
+                                            type="button"
+                                            onClick={() => setFormData({ ...formData, type: 'ingreso' })}
+                                            disabled={initialData?.isCommission || isAnnulled}
+                                            className={`flex-1 py-2.5 rounded-xl text-sm font-bold transition-colors border ${formData.type === 'ingreso' ? 'bg-green-500/20 text-green-400 border-green-500/30' : 'bg-black/40 text-neutral-400 border-neutral-800 hover:border-neutral-700'} ${(initialData?.isCommission || isAnnulled) ? 'opacity-30 cursor-not-allowed' : ''}`}
+                                        >
+                                            Ingreso
+                                        </button>
+                                        <button
+                                            type="button"
+                                            onClick={() => setFormData({ ...formData, type: 'egreso' })}
+                                            disabled={isAnnulled}
+                                            className={`flex-1 py-2.5 rounded-xl text-sm font-bold transition-colors border ${formData.type === 'egreso' ? 'bg-crm-red/20 text-red-400 border-red-500/30' : 'bg-black/40 text-neutral-400 border-neutral-800 hover:border-neutral-700'} ${isAnnulled ? 'opacity-30 cursor-not-allowed' : ''}`}
+                                        >
+                                            Egreso
+                                        </button>
+                                    </div>
+                                </div>
+
+                                <div>
+                                    <label className="block text-xs font-bold text-neutral-500 uppercase tracking-wider mb-2">Moneda</label>
+                                    <div className="flex gap-2">
+                                        <button
+                                            type="button"
+                                            onClick={() => setFormData({ ...formData, currency: 'ARS' })}
+                                            disabled={isAnnulled}
+                                            className={`flex-1 py-2.5 rounded-xl text-sm font-bold transition-colors border ${formData.currency === 'ARS' ? 'bg-blue-500/20 text-blue-400 border-blue-500/30' : 'bg-black/40 text-neutral-400 border-neutral-800 hover:border-neutral-700'} ${isAnnulled ? 'opacity-30 cursor-not-allowed' : ''}`}
+                                        >
+                                            ARS
+                                        </button>
+                                        <button
+                                            type="button"
+                                            onClick={() => setFormData({ ...formData, currency: 'USD' })}
+                                            disabled={isAnnulled}
+                                            className={`flex-1 py-2.5 rounded-xl text-sm font-bold transition-colors border ${formData.currency === 'USD' ? 'bg-green-500/20 text-green-400 border-green-500/30' : 'bg-black/40 text-neutral-400 border-neutral-800 hover:border-neutral-700'} ${isAnnulled ? 'opacity-30 cursor-not-allowed' : ''}`}
+                                        >
+                                            USD
+                                        </button>
+                                    </div>
+                                </div>
+
+                        {(initialData?.isCommission || (isEdit && transaction.category === 'Comisiones')) && (
+                            <div className="col-span-1 md:col-span-2">
+                                <label className="block text-xs font-bold text-neutral-500 uppercase tracking-wider mb-2">Vendedor / Usuario</label>
+                                <select
+                                    className="w-full bg-black/40 border border-neutral-800 rounded-xl py-2.5 px-4 text-sm text-neutral-300 focus:outline-none focus:border-neutral-600 transition-colors"
+                                    value={formData.targetUser}
+                                    onChange={(e) => setFormData({ ...formData, targetUser: e.target.value })}
+                                    disabled={isAnnulled}
+                                >
+                                    <option value="">-- Seleccionar Vendedor --</option>
+                                    {userOptions.map(u => (
+                                        <option key={u._id || u.email} value={u.name}>
+                                            {u.name} ({u.role})
+                                        </option>
+                                    ))}
+                                </select>
+                            </div>
+                        )}
+
+                        <div>
+                            <label className="block text-xs font-bold text-neutral-500 uppercase tracking-wider mb-2">Monto {formData.currency}</label>
+                            <div className="relative">
+                                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-500 font-bold">$</span>
+                                <input
+                                    type="number"
+                                    min="0"
+                                    step="any"
+                                    className={`w-full bg-black/40 border ${errors.amount ? 'border-red-500/50 focus:border-red-500' : 'border-neutral-800 focus:border-neutral-600'} rounded-xl py-2.5 pl-8 pr-4 text-sm text-white focus:outline-none transition-colors`}
+                                    value={formData.amount}
+                                    onChange={(e) => setFormData({ ...formData, amount: e.target.value })}
+                                    disabled={isAnnulled || (isEdit && transaction.status === 'anulado')}
+                                />
+                            </div>
+                            {errors.amount && <span className="text-xs text-crm-red mt-1 block">{errors.amount}</span>}
+                        </div>
+
+                        <div>
+                            <label className="block text-xs font-bold text-neutral-500 uppercase tracking-wider mb-2">Fecha</label>
+                            <input
+                                type="date"
+                                className="w-full bg-black/40 border border-neutral-800 rounded-xl py-2.5 px-4 text-sm text-white focus:outline-none focus:border-neutral-600 transition-colors"
+                                value={formData.date}
+                                onChange={(e) => setFormData({ ...formData, date: e.target.value })}
+                                disabled={isAnnulled}
+                            />
+                        </div>
+
+                        <div className="col-span-1 md:col-span-2">
+                            <label className="block text-xs font-bold text-neutral-500 uppercase tracking-wider mb-2">Concepto</label>
+                            <input
+                                type="text"
+                                placeholder="Ej: Pago servicio de limpieza"
+                                className={`w-full bg-black/40 border ${errors.concept ? 'border-red-500/50 focus:border-red-500' : 'border-neutral-800 focus:border-neutral-600'} rounded-xl py-2.5 px-4 text-sm text-white focus:outline-none transition-colors`}
+                                value={formData.concept}
+                                onChange={(e) => setFormData({ ...formData, concept: e.target.value })}
+                                disabled={isAnnulled}
+                            />
+                            {errors.concept && <span className="text-xs text-crm-red mt-1 block">{errors.concept}</span>}
+                        </div>
+
+                        {formData.type === 'egreso' && (
+                            <>
+                                <div>
+                                    <label className="block text-xs font-bold text-neutral-500 uppercase tracking-wider mb-2">Beneficiario / Destinatario</label>
+                                    <input
+                                        type="text"
+                                        placeholder="Ej: Empleado, Propietario, Proveedor..."
+                                        className="w-full bg-black/40 border border-neutral-800 rounded-xl py-2.5 px-4 text-sm text-white focus:outline-none focus:border-neutral-600 transition-colors"
+                                        value={formData.beneficiary || ''}
+                                        onChange={(e) => setFormData({ ...formData, beneficiary: e.target.value })}
+                                        disabled={isAnnulled}
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-xs font-bold text-neutral-500 uppercase tracking-wider mb-2">Fecha de Vencimiento de Obligación</label>
+                                    <input
+                                        type="date"
+                                        className="w-full bg-black/40 border border-neutral-800 rounded-xl py-2.5 px-4 text-sm text-white focus:outline-none focus:border-neutral-600 transition-colors"
+                                        value={formData.dueDate || ''}
+                                        onChange={(e) => setFormData({ ...formData, dueDate: e.target.value })}
+                                        disabled={isAnnulled}
+                                    />
+                                </div>
+                                <div className="col-span-1 md:col-span-2 p-4 rounded-xl border border-purple-500/30 bg-purple-950/20 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                                    <div className="flex items-center gap-3">
+                                        <div className="h-9 w-9 rounded-lg bg-purple-500/20 border border-purple-500/30 flex items-center justify-center text-purple-400 shrink-0">
+                                            <Layers size={18} />
+                                        </div>
+                                        <div>
+                                            <span className="text-xs font-bold text-white block">Asignar cuota para cubrir este pago</span>
+                                            <p className="text-[11px] text-neutral-400">
+                                                Reserva cobros previstos de cuotas o cargá una cuota manual sin salir de esta pantalla.
+                                            </p>
+                                        </div>
+                                    </div>
+                                    <button
+                                        type="button"
+                                        onClick={async () => {
+                                            if (isEdit && transaction) {
+                                                setSavedExpenseForAssign(transaction);
+                                                setIsAssignModalOpen(true);
+                                            } else {
+                                                if (!formData.amount || formData.amount < 0 || !formData.concept.trim() || !formData.category.trim()) {
+                                                    validate();
+                                                    return;
+                                                }
+                                                const dataToSave = {
+                                                    ...formData,
+                                                    amount: Number(formData.amount),
+                                                    status: 'pendiente'
+                                                };
+                                                if (!dataToSave.beneficiary) delete dataToSave.beneficiary;
+                                                if (!dataToSave.dueDate) delete dataToSave.dueDate;
+                                                const res = await onSave(dataToSave);
+                                                if (res && res._id) {
+                                                    setSavedExpenseForAssign(res);
+                                                    setIsAssignModalOpen(true);
+                                                }
+                                            }
+                                        }}
+                                        className="px-4 py-2 rounded-xl bg-purple-600 hover:bg-purple-500 text-white font-bold text-xs transition flex items-center gap-1.5 shrink-0 shadow-lg shadow-purple-600/20"
+                                    >
+                                        <Layers size={14} />
+                                        {isEdit ? 'Gestionar Asignaciones' : 'Guardar y Asignar Cuotas'}
+                                    </button>
+                                </div>
+                            </>
+                        )}
+
+                        <div>
+                            <label className="block text-xs font-bold text-neutral-500 uppercase tracking-wider mb-2">Categoría</label>
+                            <select
+                                className={`w-full bg-black/40 border ${errors.category && !formData.category ? 'border-red-500/50 focus:border-red-500' : 'border-neutral-800 focus:border-neutral-600'} rounded-xl py-2.5 px-4 text-sm text-neutral-300 focus:outline-none focus:border-neutral-600 transition-colors appearance-none cursor-pointer`}
+                                value={(formData.category !== '' && !['Sueldos', 'Taller', 'Gastos Personales', 'Comisiones', 'Pago Empresas', 'Pago a Proveedor', 'Retiros', 'AFIP/IVA', 'Mantenimiento', 'Gastos Varios', 'Seña', 'Cuotas', 'Tarjeta'].includes(formData.category)) ? 'Otro' : formData.category}
+                                onChange={(e) => {
+                                    if (e.target.value === 'Otro') {
+                                        setFormData({ ...formData, category: 'Otra Categoría' });
+                                    } else {
+                                        setFormData({ ...formData, category: e.target.value });
+                                    }
+                                }}
+                                disabled={isAnnulled}
+                            >
+                                <option value="">-- Seleccionar Categoría --</option>
+                                <option value="Sueldos">Sueldos</option>
+                                <option value="Taller">Taller / Mecánico</option>
+                                <option value="Gastos Personales">Gastos Personales</option>
+                                <option value="Comisiones">Comisiones</option>
+                                <option value="Pago Empresas">Pago Empresas</option>
+                                <option value="Pago a Proveedor">Pago a Proveedor</option>
+                                <option value="Retiros">Retiros</option>
+                                <option value="AFIP/IVA">AFIP / IVA</option>
+                                <option value="Mantenimiento">Mantenimiento</option>
+                                <option value="Gastos Varios">Gastos Varios</option>
+                                <option value="Seña">Seña</option>
+                                <option value="Cuotas">Cuotas</option>
+                                <option value="Tarjeta">Tarjeta</option>
+                                <option value="Otro">Otra (Especificar)...</option>
+                            </select>
+                            
+                            {(formData.category !== '' && !['Sueldos', 'Taller', 'Gastos Personales', 'Comisiones', 'Pago Empresas', 'Pago a Proveedor', 'Retiros', 'AFIP/IVA', 'Mantenimiento', 'Gastos Varios', 'Seña', 'Cuotas', 'Tarjeta'].includes(formData.category)) && (
+                                <input
+                                    type="text"
+                                    placeholder="Especifique la categoría..."
+                                    className={`w-full bg-black/40 border ${errors.category ? 'border-red-500/50 focus:border-red-500' : 'border-neutral-800 focus:border-neutral-600'} rounded-xl py-2.5 px-4 text-sm text-white focus:outline-none transition-colors mt-2`}
+                                    value={formData.category === 'Otra Categoría' ? '' : formData.category}
+                                    onChange={(e) => setFormData({ ...formData, category: e.target.value })}
+                                    disabled={isAnnulled}
+                                    autoFocus
+                                />
+                            )}
+                            {errors.category && <span className="text-xs text-crm-red mt-1 block">{errors.category}</span>}
+                        </div>
+
+                        {(formData.category === 'Pago Empresas' || formData.category === 'Pago a Proveedor' || formData.payeeCompany) && (
+                            <div>
+                                <label className="block text-xs font-bold text-neutral-500 uppercase tracking-wider mb-2">Empresa Receptora</label>
+                                <select
+                                    className="w-full bg-black/40 border border-neutral-800 rounded-xl py-2.5 px-4 text-sm text-neutral-300 focus:outline-none focus:border-neutral-600 transition-colors appearance-none cursor-pointer"
+                                    value={formData.payeeCompany || ''}
+                                    onChange={(e) => setFormData({ ...formData, payeeCompany: e.target.value })}
+                                    disabled={isAnnulled}
+                                >
+                                    <option value="">Seleccionar empresa...</option>
+                                    <option value="LHIVER">LHIVER</option>
+                                    <option value="AUTOTERRA">AUTOTERRA</option>
+                                    <option value="AKAR">AKAR</option>
+                                    <option value="ALWAYS SAS">ALWAYS SAS</option>
+                                </select>
+                            </div>
+                        )}
+
+                        <div>
+                            <label className="block text-xs font-bold text-neutral-500 uppercase tracking-wider mb-2">Método de Pago</label>
+                            <select
+                                className="w-full bg-black/40 border border-neutral-800 rounded-xl py-2.5 px-4 text-sm text-neutral-300 focus:outline-none focus:border-neutral-600 transition-colors appearance-none cursor-pointer"
+                                value={formData.paymentMethod}
+                                onChange={(e) => setFormData({ ...formData, paymentMethod: e.target.value })}
+                                disabled={isAnnulled}
+                            >
+                                <option value="efectivo">Efectivo</option>
+                                <option value="transferencia">Transferencia</option>
+                                <option value="transferencia BANCO GALICIA">Transferencia BANCO GALICIA</option>
+                                <option value="transferencia BANCO SANTANDER">Transferencia BANCO SANTANDER</option>
+                                <option value="transferencia BANCO NACION">Transferencia BANCO NACION</option>
+                                <option value="tarjeta">Tarjeta</option>
+                                <option value="cheque">Cheque</option>
+                                <option value="otro">Otro</option>
+                            </select>
+                        </div>
+
+                        <div>
+                            <label className="block text-xs font-bold text-neutral-500 uppercase tracking-wider mb-2">Estado del Movimiento</label>
+                            <select
+                                className="w-full bg-black/40 border border-neutral-800 rounded-xl py-2.5 px-4 text-sm text-neutral-300 focus:outline-none focus:border-neutral-600 transition-colors appearance-none cursor-pointer"
+                                value={formData.status === 'pagada' ? 'activo' : formData.status}
+                                onChange={(e) => setFormData({ ...formData, status: e.target.value })}
+                                disabled={isAnnulled}
+                            >
+                                <option value="activo">Pagada / Completada</option>
+                                <option value="pendiente">Pendiente</option>
+                            </select>
+                        </div>
+
+                        <div className="col-span-1 md:col-span-2">
+                            <label className="block text-xs font-bold text-neutral-500 uppercase tracking-wider mb-2">Notas (Opcional)</label>
+                            <textarea
+                                rows={3}
+                                className="w-full bg-black/40 border border-neutral-800 rounded-xl py-3 px-4 text-sm text-white focus:outline-none focus:border-neutral-600 transition-colors resize-none"
+                                value={formData.notes}
+                                onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
+                                disabled={isAnnulled}
+                            />
+                        </div>
+
+                        {/* Vinculación Opcional */}
+                        <div className="col-span-1 md:col-span-2 mt-4 pt-4 border-t border-neutral-800">
+                            <h3 className="text-sm font-bold text-neutral-400 mb-4 uppercase tracking-wider">Vinculación Opcional</h3>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                
+                                <div>
+                                    <label className="block text-xs font-bold text-neutral-500 mb-1">Venta Asociada</label>
+                                    <select
+                                        className="w-full bg-black/40 border border-neutral-800 rounded-xl py-2 px-3 text-sm text-neutral-300 focus:outline-none focus:border-neutral-600 transition-colors"
+                                        value={formData.saleId}
+                                        onChange={(e) => setFormData({ ...formData, saleId: e.target.value })}
+                                        disabled={isAnnulled}
+                                    >
+                                        <option value="">-- Sin vincular --</option>
+                                        {salesOptions.map(sale => (
+                                            <option key={sale._id} value={sale._id}>
+                                                {sale.vehicleId?.brand} {sale.vehicleId?.name} - {sale.clientId?.fullName || 'Consumidor Final'} ({new Date(sale.saleDate).toLocaleDateString()})
+                                            </option>
+                                        ))}
+                                    </select>
+                                </div>
+
+                                <div>
+                                    <label className="block text-xs font-bold text-neutral-500 mb-1">Reserva Asociada</label>
+                                    <select
+                                        className="w-full bg-black/40 border border-neutral-800 rounded-xl py-2 px-3 text-sm text-neutral-300 focus:outline-none focus:border-neutral-600 transition-colors"
+                                        value={formData.reservationId}
+                                        onChange={(e) => setFormData({ ...formData, reservationId: e.target.value })}
+                                        disabled={isAnnulled}
+                                    >
+                                        <option value="">-- Sin vincular --</option>
+                                        {resOptions.map(res => (
+                                            <option key={res._id} value={res._id}>
+                                                {res.vehicleId?.brand} {res.vehicleId?.name} - Seña: {res.depositCurrency} {res.depositAmount}
+                                            </option>
+                                        ))}
+                                    </select>
+                                </div>
+
+                                <div>
+                                    <label className="block text-xs font-bold text-neutral-500 mb-1">Cliente Asociado</label>
+                                    <select
+                                        className="w-full bg-black/40 border border-neutral-800 rounded-xl py-2 px-3 text-sm text-neutral-300 focus:outline-none focus:border-neutral-600 transition-colors"
+                                        value={formData.clientId}
+                                        onChange={(e) => setFormData({ ...formData, clientId: e.target.value })}
+                                        disabled={isAnnulled}
+                                    >
+                                        <option value="">-- Sin vincular --</option>
+                                        {clientOptions.map(c => (
+                                            <option key={c._id} value={c._id}>
+                                                {c.fullName || `${c.firstName} ${c.lastName}`} - {c.phone}
+                                            </option>
+                                        ))}
+                                    </select>
+                                </div>
+
+                                <div>
+                                    <label className="block text-xs font-bold text-neutral-500 mb-1">Vehículo Asociado</label>
+                                    <select
+                                        className="w-full bg-black/40 border border-neutral-800 rounded-xl py-2 px-3 text-sm text-neutral-300 focus:outline-none focus:border-neutral-600 transition-colors"
+                                        value={formData.vehicleId}
+                                        onChange={(e) => setFormData({ ...formData, vehicleId: e.target.value })}
+                                        disabled={isAnnulled}
+                                    >
+                                        <option value="">-- Sin vincular --</option>
+                                        {carOptions.map(c => (
+                                            <option key={c._id} value={c._id}>
+                                                {c.brand} {c.name} {c.plateOrVin ? `(${c.plateOrVin})` : ''}
+                                            </option>
+                                        ))}
+                                    </select>
+                                </div>
+
+                            </div>
+                        </div>
+
+                    </div>
+                </div>
+
+                {/* Footer */}
+                <div className="p-4 border-t border-neutral-800 bg-neutral-900/50 flex justify-between shrink-0">
+                    {isEdit && !isAnnulled ? (
+                        <button
+                            type="button"
+                            onClick={handleAnnul}
+                            className="px-4 py-2 rounded-xl bg-crm-red/10 hover:bg-crm-red/20 text-crm-red font-bold text-sm transition-colors flex items-center gap-2 border border-red-500/20"
+                        >
+                            <Trash2 size={16} />
+                            Anular Movimiento
+                        </button>
+                    ) : (
+                        <div></div>
+                    )}
+                    
+                    {!isAnnulled && (
+                        <div className="flex gap-3">
+                            <button
+                                type="button"
+                                onClick={onClose}
+                                className="px-4 py-2 rounded-xl bg-crm-surface-raised hover:bg-neutral-700 text-white font-bold text-sm transition-colors"
+                            >
+                                Cancelar
+                            </button>
+                            <button
+                                onClick={handleSubmit}
+                                className="px-6 py-2 rounded-xl bg-blue-500 hover:bg-blue-600 text-white font-bold text-sm transition-colors flex items-center gap-2 shadow-lg shadow-blue-500/20"
+                            >
+                                <Save size={16} />
+                                {isEdit ? 'Guardar Cambios' : 'Registrar Movimiento'}
+                            </button>
+                        </div>
+                    )}
+                </div>
+
+            </div>
+
+            <ConfirmModal
+                isOpen={confirmAnnulModal}
+                onClose={() => setConfirmAnnulModal(false)}
+                onConfirm={confirmAnnul}
+                title="Anular Movimiento"
+                message="¿Estás seguro de anular este movimiento? Esta acción registrará el cambio en la auditoría."
+                confirmText="Anular"
+                isDestructive={true}
+            />
+
+            <ExpenseQuotaAssignmentModal
+                isOpen={isAssignModalOpen}
+                onClose={() => setIsAssignModalOpen(false)}
+                expense={savedExpenseForAssign || transaction}
+                onUpdated={() => {
+                    // Refresh data if needed
+                }}
+            />
+        </div>
+    );
 }

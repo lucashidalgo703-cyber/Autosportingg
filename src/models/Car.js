@@ -1,48 +1,13 @@
 import mongoose from 'mongoose';
 
-const inspectionCategorySchema = new mongoose.Schema({
-    status: { type: String, enum: ['ok', 'observacion', 'revisar', 'sin_evaluar'] },
-    note: { type: String, maxlength: 5000 }
-}, { _id: false });
-const vehicleInspectionSchema = new mongoose.Schema({
-    mechanic: inspectionCategorySchema,
-    frontSuspension: inspectionCategorySchema,
-    brakes: inspectionCategorySchema,
-    bodyPaint: inspectionCategorySchema,
-    interior: inspectionCategorySchema,
-    tiresPercent: { type: Number, min: 0, max: 100 },
-    service: { type: String, maxlength: 5000 },
-    keyCount: { type: Number, min: 0, validate: value => value === null || Number.isInteger(value) },
-    singleOwner: Boolean,
-    verifiedKm: Boolean,
-    titleInHand: Boolean,
-    vtvValid: Boolean,
-    noDebts: Boolean,
-    transferReady: Boolean,
-    documentationNotes: { type: String, maxlength: 5000 },
-    generalNotes: { type: String, maxlength: 5000 },
-    updatedAt: Date,
-    updatedBy: String
-}, { _id: false });
-
 const carSchema = new mongoose.Schema({
     brand: { type: String, required: true },
     name: { type: String, required: true },
     year: { type: Number, required: true },
     km: { type: Number, required: true },
     fuel: { type: String, required: true },
-    transmission: { type: String, trim: true },
-    bodyType: { type: String, trim: true },
-    doors: { type: Number, min: 0, max: 12 },
-    engine: { type: String, trim: true },
-    version: { type: String, trim: true },
     condition: { type: String, required: true },
     description: { type: String }, // Free text description
-    publicEquipment: { type: String, trim: true, maxlength: 5000 },
-    publicMaintenance: { type: String, trim: true, maxlength: 5000 },
-    publicPurchaseConditions: { type: String, trim: true, maxlength: 5000 },
-    youtubeUrl: { type: String, trim: true, maxlength: 2048 },
-    inspection: { type: vehicleInspectionSchema, default: undefined },
     price: { type: Number, required: true },
     currency: { type: String, required: true }, // '$' or 'U$S'
     
@@ -88,8 +53,6 @@ const carSchema = new mongoose.Schema({
 
     // Recibido en parte de pago: venta de origen y valor de toma acordado (opcional; ausente = compra normal)
     tradeInOrigin: {
-        consigned: { type: Boolean },
-        agencyOwned: { type: Boolean },
         saleId: { type: mongoose.Schema.Types.ObjectId, ref: 'Sale' },
         tradeInId: { type: mongoose.Schema.Types.ObjectId },
         value: { type: Number, min: 0 },
@@ -180,9 +143,7 @@ const carSchema = new mongoose.Schema({
     featured: { type: Boolean, default: false },
     sold: { type: Boolean, default: false },
     soldAt: { type: Date },
-    status: { type: String, enum: ['Disponible', 'Vendido', 'Reservado', 'Pausado', 'Retirado'], default: 'Disponible' },
-    withdrawnAt: { type: Date, default: null },
-    withdrawalReason: { type: String, maxlength: 1000 },
+    status: { type: String, enum: ['Disponible', 'Vendido', 'Reservado', 'Pausado'], default: 'Disponible' },
     
     // Phase 2.4: Visibility and Expenses
     visibleEnWeb: { type: Boolean, default: true },

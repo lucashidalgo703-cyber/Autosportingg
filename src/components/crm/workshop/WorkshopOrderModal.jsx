@@ -24,7 +24,7 @@ const SectionTitle = ({ children }) => (
     </h3>
 );
 
-export default function WorkshopOrderModal({ isOpen, onClose, onSuccess, initialClient = null }) {
+export default function WorkshopOrderModal({ isOpen, onClose, onSuccess }) {
     const { token } = useAuth();
 
     const [loading, setLoading] = useState(false);
@@ -217,9 +217,9 @@ export default function WorkshopOrderModal({ isOpen, onClose, onSuccess, initial
             setWhenDate('');
             setOrderType('Cliente Externo (de la calle)');
             setCurrency('USD');
-            setClientName(initialClient?.fullName || '');
-            setClientPhone(initialClient?.phone || '');
-            setSelectedClientId(initialClient?._id || '');
+            setClientName('');
+            setClientPhone('');
+            setSelectedClientId('');
             setBrand('');
             setModel('');
             setPlate('');
@@ -234,7 +234,7 @@ export default function WorkshopOrderModal({ isOpen, onClose, onSuccess, initial
             setStockVehicles([]);
             setSelectedStockVehicleId('');
         }
-    }, [isOpen, fetchDropdownData, initialClient]);
+    }, [isOpen, fetchDropdownData]);
 
     // Cleanup previews on unmount
     useEffect(() => {

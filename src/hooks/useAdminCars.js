@@ -1,10 +1,9 @@
 "use client";
 import { parseResponseSafe } from '../utils/apiHelper';
-import { useState, useCallback, useRef, useEffect } from 'react';
+import { useState, useCallback, useRef } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { getActiveOfflineSnapshot } from '../services/offlineSyncService';
 import toast from 'react-hot-toast';
-import { buildStockQuery, filterStockSnapshot, parseStockFilters, stockOptions, normalizeStockText, STOCK_FILTER_KEYS } from '../utils/stockFilters.js';
 
 export const useAdminCars = () => {
     const [cars, setCars] = useState([]);
@@ -15,8 +14,6 @@ export const useAdminCars = () => {
     const [page, setPage] = useState(1);
     const [summary, setSummary] = useState(null);
     const [brands, setBrands] = useState([]);
-    const [models, setModels] = useState([]);
-    const [isOffline, setIsOffline] = useState(false);
     const [filteredTotalUSD, setFilteredTotalUSD] = useState(0);
     const [filteredTotalARS, setFilteredTotalARS] = useState(0);
     const [filteredCostUSD, setFilteredCostUSD] = useState(0);
@@ -26,48 +23,41 @@ export const useAdminCars = () => {
     const [filteredPropioUSD, setFilteredPropioUSD] = useState(0);
     const [filteredInversionistasUSD, setFilteredInversionistasUSD] = useState(0);
 
-    const { logout, user } = useAuth();
-    const sessionKey = String(user?._id || user?.id || user?.username || user?.email || '');
+    const { logout } = useAuth();
     const activeRequestIdRef = useRef(0);
     const lastFiltersRef = useRef({ page: 1, limit: 20 });
-
-    const clearFinancialData = useCallback(() => {
-        setSummary(null);
-        setFilteredTotalUSD(0); setFilteredTotalARS(0);
-        setFilteredCostUSD(0); setFilteredCostARS(0);
-        setFilteredPropioARS(0); setFilteredInversionistasARS(0);
-        setFilteredPropioUSD(0); setFilteredInversionistasUSD(0);
-    }, []);
-
-    useEffect(() => {
-        activeRequestIdRef.current++;
-        setCars([]); setBrands([]); setModels([]);
-        setTotal(0); setPages(0); setPage(1); setIsOffline(false);
-        clearFinancialData();
-    }, [sessionKey, clearFinancialData]);
 
     const applyOfflineFallback = useCallback((filters = {}) => {
         const snap = getActiveOfflineSnapshot();
         const cachedVehicles = snap?.data?.vehicles;
         if (!Array.isArray(cachedVehicles)) return null;
 
-        const effective = parseStockFilters(filters);
-        const filtered = filterStockSnapshot(cachedVehicles, effective);
-        const page = effective.page;
-        const paged = filtered.slice((page - 1) * effective.limit, page * effective.limit);
-        const uniqueBrands = stockOptions(cachedVehicles.map(v => v.brand));
-        const modelOptions = stockOptions(cachedVehicles.filter(v => !effective.brand || effective.brand === 'todas' || normalizeStockText(v.brand) === normalizeStockText(effective.brand)).map(v => v.name));
-        setCars(paged);
+        let filtered = [...cachedVehicles];
+        if (filters.status && filters.status !== 'todos') {
+            const st = String(filters.status).toLowerCase();
+            filtered = filtered.filter(v => String(v.status || 'disponible').toLowerCase() === st);
+        }
+        if (filters.brand && filters.brand !== 'todas') {
+            filtered = filtered.filter(v => String(v.brand || '').toLowerCase() === String(filters.brand).toLowerCase());
+        }
+        if (filters.search) {
+            const q = String(filters.search).toLowerCase().trim();
+            filtered = filtered.filter(v =>
+                String(v.brand || '').toLowerCase().includes(q) ||
+                String(v.name || '').toLowerCase().includes(q) ||
+                String(v.plateOrVin || '').toLowerCase().includes(q)
+            );
+        }
+
+        const uniqueBrands = Array.from(new Set(cachedVehicles.map(v => v.brand).filter(Boolean))).sort();
+        setCars(filtered);
         setTotal(filtered.length);
-        setPages(Math.max(1, Math.ceil(filtered.length / effective.limit)));
-        setPage(page);
+        setPages(Math.max(1, Math.ceil(filtered.length / (Number(filters.limit) || 20))));
+        setPage(Number(filters.page) || 1);
         setBrands(uniqueBrands);
-        setModels(modelOptions);
-        setIsOffline(true);
-        clearFinancialData();
         setError(null);
-        return { cars: paged, total: filtered.length, pages: Math.max(1, Math.ceil(filtered.length / effective.limit)), page, brands: uniqueBrands, models: modelOptions, offline: true };
-    }, [clearFinancialData]);
+        return { cars: filtered, total: filtered.length, pages: 1, page: 1, brands: uniqueBrands, offline: true };
+    }, []);
 
     const fetchCars = useCallback(async (incomingFilters) => {
         const requestId = ++activeRequestIdRef.current;
@@ -82,16 +72,10 @@ export const useAdminCars = () => {
         try {
             setLoading(true);
             setError(null);
-            // Un filtro inválido no es un fallo de conexión ni habilita fallback offline.
-            try { buildStockQuery(effectiveFilters); }
-            catch (error) { throw Object.assign(error, { status: 400 }); }
 
             if (typeof window !== 'undefined' && navigator.onLine === false) {
-                setIsOffline(true);
-                clearFinancialData();
                 const offlineResult = applyOfflineFallback(effectiveFilters);
                 if (offlineResult) return offlineResult;
-                throw new Error('No hay una instantánea autorizada de stock disponible sin conexión.');
             }
 
             const API_URL = process.env.NEXT_PUBLIC_API_URL;
@@ -106,10 +90,11 @@ export const useAdminCars = () => {
             queryParams.append('t', String(Date.now()));
             if (effectiveFilters.page) queryParams.append('page', String(effectiveFilters.page));
             if (effectiveFilters.limit) queryParams.append('limit', String(effectiveFilters.limit));
-            for (const key of STOCK_FILTER_KEYS) {
-                const value = effectiveFilters[key];
-                if (value !== undefined && value !== null && value !== '') queryParams.append(key, String(value));
-            }
+            if (effectiveFilters.search) queryParams.append('search', String(effectiveFilters.search));
+            if (effectiveFilters.status) queryParams.append('status', String(effectiveFilters.status));
+            if (effectiveFilters.brand) queryParams.append('brand', String(effectiveFilters.brand));
+            if (effectiveFilters.tab) queryParams.append('tab', String(effectiveFilters.tab));
+            if (effectiveFilters.ml) queryParams.append('ml', String(effectiveFilters.ml));
 
             const endpoint = `${baseUrl}/api/admin/cars?${queryParams.toString()}`;
             const headers = {
@@ -153,7 +138,7 @@ export const useAdminCars = () => {
                     }
                 } catch (_) {}
 
-                throw Object.assign(new Error(errorMessage), { status: response.status });
+                throw new Error(errorMessage);
             }
 
             const data = await parseResponseSafe(response);
@@ -172,8 +157,6 @@ export const useAdminCars = () => {
                     setSummary(data.summary);
                 }
                 setBrands(data.brands || []);
-                setModels(data.models || []);
-                setIsOffline(false);
                 setFilteredTotalUSD(data.filteredTotalUSD || 0);
                 setFilteredTotalARS(data.filteredTotalARS || 0);
                 setFilteredCostUSD(data.filteredCostUSD || 0);
@@ -197,11 +180,7 @@ export const useAdminCars = () => {
             }
         } catch (err) {
             if (requestId !== activeRequestIdRef.current) return;
-            if (!err.status || err.status === 503) {
-                setIsOffline(true);
-                clearFinancialData();
-            }
-            const offlineResult = !err.status || err.status === 503 ? applyOfflineFallback(effectiveFilters) : null;
+            const offlineResult = applyOfflineFallback(effectiveFilters);
             if (offlineResult) return offlineResult;
             console.error("Error fetching admin cars:", err);
             setError(err.message);
@@ -211,7 +190,7 @@ export const useAdminCars = () => {
                 setLoading(false);
             }
         }
-    }, [logout, applyOfflineFallback, sessionKey, clearFinancialData]);
+    }, [logout, applyOfflineFallback]);
 
     const deleteCar = async (id) => {
         try {
@@ -290,8 +269,6 @@ export const useAdminCars = () => {
         page,
         summary,
         brands,
-        models,
-        isOffline,
         swapCars,
         filteredTotalUSD,
         filteredTotalARS,

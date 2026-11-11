@@ -1,43 +1,4 @@
-import { normalizeSalesWorkbenchQuery, buildSalesWorkbench } from './src/utils/salesWorkbench.js';
-import { declareSaleBuyerPayment } from './src/services/saleBuyerCollectionService.js';
-import { registerRegistryRefundRoutes } from './src/routes/registryRefundRoutes.js';
-import { getNpsConfig, clientNpsHistory, generateNpsLink, recordManualNps, sendNps, retryNps, verifyNpsDelivery, npsDashboard, readPublicNps, submitPublicNps } from './src/services/npsService.js';
-import { listCommercialClients, normalizeClientCommercialInput } from './src/services/clientCommercialService.js';
-import { getClientInsights } from './src/services/clientInsightsService.js';
-import { getContactPermissions } from './src/services/contactPermissionsService.js';
-import { listFinanceManualEntries, createFinanceManualEntry, updateFinanceManualEntry } from './src/services/financeManualService.js';
-import { getStockAttention, getStockDemand, getStockOverview } from './src/services/stockWorkbenchService.js';
-import { changeVehicleSaleAvailability, readOwnerPortal, createOwnerPortal, revokeOwnerPortal, getPublicOwnerPortal, submitOwnerPortalRequest, resolveOwnerPortalRequest } from './src/services/vehicleLifecycleService.js';
-import { readVehicleInspection, updateVehicleInspection, getVehicleCommercialContext, getVehicleCommercialSummaries, createVehicleActivity, saveVehicleFollowUp } from './src/services/vehicleCommercialService.js';
-import SavedStockView from './src/models/SavedStockView.js';
-import { saveStockView, stockViewOwner } from './src/services/savedStockViewsService.js';
-import { isClientContactBlocked } from './src/services/clientContactPreferenceService.js';
-import { getClientMatchingRequest, setClientMatchingRequest } from './src/services/clientMatchingRequestService.js';
-import { previewClientImport, commitClientImport } from './src/services/clientSpreadsheetService.js';
-import { listClientDocuments, uploadClientDocuments, findCommittedClientDocumentUpload, readClientDocument, setClientDocumentDeleted, clientDocumentDisposition, CLIENT_DOCUMENT_MAX_BYTES } from './src/services/clientDocumentService.js';
-import { stagePrivateUpload, assemblePrivateUpload, cleanupPrivateUpload, privateUploadManifestHash } from './src/services/privateUploadService.js';
-import { registerSaleDocumentRoutes } from './src/routes/saleDocumentRoutes.js';
-import {registerExpedienteRoutes} from './src/routes/expedienteRoutes.js';
-import { sendPrivateDocument } from './src/utils/privateDocumentTransport.js';
-import {registerFinanceDocumentRoutes} from './src/services/registerFinanceDocumentRoutes.js';
-import {registerFinancePayablePlanRoutes} from './src/services/registerFinancePayablePlanRoutes.js';
-import {registerFinancePeriodRoutes} from './src/services/registerFinancePeriodRoutes.js';
-import FinanceManualEntry from './src/models/FinanceManualEntry.js';
-import {financeCalendarKey} from './src/utils/financeWorkbench.js';
-import { requireOperationalSale } from './src/middleware/saleOperationalGuard.js';
-import { saveSaleOperation } from './src/services/saleDraftService.js';
-import { saveSaleWorkspace, changeSaleWorkspaceStatus, confirmSaleDeposit } from './src/services/saleWorkspaceService.js';
-import { saleTradeInComposition } from './src/utils/saleWorkspace.js';
-import { computeSaleCollection } from './src/utils/saleCollection.js';
-import { createAndLinkSaleClient } from './src/services/saleClientLinkService.js';
-import { getCashProjection } from './src/services/cashProjectionService.js';
-import { OPEN_INSTALLMENT_STATUSES, getEffectiveInstallmentDueDate, getArgentinaDateKey } from './src/utils/cashProjection.js';
-import { buildStockQuery, buildStockPipeline, stockOptions, stockStatisticsCurrency, STOCK_FILTER_KEYS } from './src/utils/stockFilters.js';
-import { stockCapitalOwnership } from './src/utils/stockOwnership.js';
-import { getVehicleFinancialDisplay } from './src/utils/vehicleFinancialDisplay.js';
-import { validateVehicleInput, resolveVehicleImageOrder } from './src/utils/vehicleValidation.js';
-import { findVehicleIdentityConflict, findVehicleStateConflict, findVehiclePurchasePaymentError } from './src/services/vehicleWriteValidationService.js';
-import { computeCommissionAmount, computeSaleProfit, validateCommissionPercent, parseDecimal, roundMoney, normalizeCurrency } from './src/utils/saleCommercial.js';
+import { computeCommissionAmount, computeSaleProfit, validateCommissionPercent, parseDecimal, roundMoney } from './src/utils/saleCommercial.js';
 import { buildTradeInChain, validateTradeInLink, resolveOriginForCar } from './src/services/tradeInChainService.js';
 import AnalyticsEvent from './src/models/AnalyticsEvent.js';
 import CustomerVehicle from './src/models/CustomerVehicle.js';
@@ -930,8 +891,6 @@ app.get('/api/admin/audit-logs', authenticateToken, requirePermission(PERMISSION
     }
 });
 
-const PUBLIC_CAR_FIELDS = 'brand name version year km price currency fuel fuelType transmission bodyType doors engine condition vehicleType type category status featured coverImage images imagePosition imagePositions publicEquipment publicMaintenance publicPurchaseConditions youtubeUrl';
-
 // GET public cars (Sanitized & Optimized)
 app.get('/api/public/cars', async (req, res) => {
     try {
@@ -945,7 +904,7 @@ app.get('/api/public/cars', async (req, res) => {
             visibleEnWeb: { $ne: false },
             status: { $nin: [/^vendido$/i, /^reservado$/i, /^pausado$/i, /^cancelado$/i, /^eliminado$/i] }
         })
-            .select(PUBLIC_CAR_FIELDS)
+            .select('brand name year km price currency fuel fuelType transmission condition vehicleType type category status featured coverImage images imagePosition imagePositions')
             .sort({ order: 1, createdAt: -1 })
             .lean();
         res.json(cars);
@@ -965,7 +924,7 @@ app.get('/api/public/cars/:id', async (req, res) => {
             visibleEnWeb: { $ne: false },
             status: { $nin: [/^vendido$/i, /^reservado$/i, /^pausado$/i, /^cancelado$/i, /^eliminado$/i] }
         })
-            .select(`${PUBLIC_CAR_FIELDS} description`)
+            .select('-purchasePrice -purchaseCurrency -ownerName -ownerEmail -ownerPhone -linkedClient -consignedBy -notes -agencyOwned -engineNumber -chassisNumber -location -hasManuals -hasDuplicateKeys -hasOfficialServices -publishedOnML -publishedBy -mlLink -plateOrVin -expenses -visibleEnWeb -createdAt -updatedAt -__v -order -owners -auditLog')
             .lean();
 
         if (!car) {
@@ -981,14 +940,7 @@ app.get('/api/public/cars/:id', async (req, res) => {
 app.post('/api/cars', authenticateToken, requirePermission(PERMISSIONS.STOCK_WRITE), upload.array('images', 20), async (req, res) => {
     try {
         await connectDB();
-        if (req.body.status === 'Retirado') return res.status(400).json({ message: 'Ingresá la unidad y usá Retirar de venta para registrar el motivo y comprobar sus operaciones.' });
-        const { values: carData, errors } = validateVehicleInput(req.body);
-        if (Object.keys(errors).length > 0) return res.status(400).json({ message: Object.values(errors)[0], code: 'VEHICLE_VALIDATION', errors });
-        if (carData.clientId && !await Client.exists({ _id: carData.clientId })) return res.status(400).json({ message: 'El cliente propietario ya no está disponible.' });
-        // These values are derived by the audited purchase/trade-in workflows, never by the form payload.
-        for (const key of ['_id', '__v', 'purchasePaymentState', 'tradeInOrigin', 'updatedAt', 'inspection']) delete carData[key];
-        const identityConflict = await findVehicleIdentityConflict(carData);
-        if (identityConflict) return res.status(409).json(identityConflict);
+        const carData = { ...req.body };
         const user = req.user ? (req.user.username || req.user.email || req.user.role) : 'System';
 
         if (req.files && req.files.length > 0) {
@@ -1001,21 +953,16 @@ app.post('/api/cars', authenticateToken, requirePermission(PERMISSIONS.STOCK_WRI
         let takenValue = null;
         let takenCurrency = null;
 
-        if (isTradeIn && !carData.tradeInOriginSaleId) return res.status(400).json({ message: 'Seleccioná la venta de origen de la permuta.', code: 'VEHICLE_VALIDATION', errors: { tradeInOriginSaleId: 'Seleccioná una venta de origen válida.' } });
-
         if (isTradeIn && carData.tradeInOriginSaleId) {
             if (!mongoose.isValidObjectId(carData.tradeInOriginSaleId)) {
                 return res.status(400).json({ message: 'Seleccioná una venta de origen válida para el vehículo recibido en parte de pago.' });
             }
-            originSale = await Sale.findById(carData.tradeInOriginSaleId).select('vehicleId status tradeIns saleCurrency historicalOnly').lean();
+            originSale = await Sale.findById(carData.tradeInOriginSaleId).select('vehicleId status tradeIns saleCurrency').lean();
             if (!originSale) {
                 return res.status(404).json({ message: 'La venta de origen seleccionada no existe.' });
             }
             if (originSale.status === 'cancelada') {
                 return res.status(409).json({ message: 'La venta de origen está anulada y no puede vincularse.' });
-            }
-            if (originSale.status === 'borrador' || originSale.historicalOnly === true) {
-                return res.status(409).json({ message: 'Un borrador o una carga solo histórica no puede incorporar una permuta al stock.', code: 'SALE_NOT_OPERATIONAL', errors: { tradeInOriginSaleId: 'Elegí una venta operativa como origen de la permuta.' } });
             }
             if (!originSale.vehicleId) {
                 return res.status(409).json({ message: 'La venta de origen no tiene un vehículo principal vinculado.' });
@@ -1057,9 +1004,10 @@ app.post('/api/cars', authenticateToken, requirePermission(PERMISSIONS.STOCK_WRI
         delete carData.tradeInOriginValue;
         delete carData.tradeInOriginCurrency;
 
-        const purchasePayment = carData.purchasePayment;
-        const paymentError = await findVehiclePurchasePaymentError(carData);
-        if (paymentError) return res.status(400).json(paymentError);
+        let purchasePayment = carData.purchasePayment;
+        if (typeof purchasePayment === 'string') {
+            try { purchasePayment = JSON.parse(purchasePayment); } catch (_) { purchasePayment = null; }
+        }
         delete carData.purchasePayment;
 
         if (typeof carData.investor === 'string') {
@@ -1900,13 +1848,7 @@ app.get('/api/admin/cars/:id/linkable-expenses', authenticateToken, requirePermi
 app.get('/api/admin/cars/export', authenticateToken, requirePermission(PERMISSIONS.STOCK_READ), async (req, res) => {
     try {
         await connectDB();
-        const filtered = STOCK_FILTER_KEYS.some(key => Object.hasOwn(req.query, key));
-        let request;
-        try { request = filtered ? buildStockQuery(req.query) : null; }
-        catch (error) { return res.status(400).json({ message: error.message }); }
-        const cars = request
-            ? await Car.aggregate(buildStockPipeline(request.query, request.filters, false)).collation({ locale: 'es', strength: 2, numericOrdering: true })
-            : await Car.find().sort({ createdAt: -1 }).lean();
+        const cars = await Car.find().sort({ createdAt: -1 }).lean();
 
         // Data preparation
         const data = cars.map(car => {
@@ -1918,11 +1860,6 @@ app.get('/api/admin/cars/export', authenticateToken, requirePermission(PERMISSIO
                 'Año': car.year || '',
                 'Kilometraje': car.km || 0,
                 'Combustible': car.fuel || '',
-                'Transmisión': car.transmission || '',
-                'Carrocería': car.bodyType || '',
-                'Puertas': car.doors ?? '',
-                'Motor/Cilindrada': car.engine || '',
-                'Versión': car.version || '',
                 'Dominio': car.plateOrVin || '',
                 'Precio Publicado': car.price || 0,
                 'Moneda': car.currency || '',
@@ -1940,8 +1877,7 @@ app.get('/api/admin/cars/export', authenticateToken, requirePermission(PERMISSIO
         const buffer = xlsx.write(workbook, { type: 'buffer', bookType: 'xlsx' });
 
         res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-        res.setHeader('Content-Disposition', `attachment; filename="stock-autosporting${filtered ? '-filtrado' : ''}.xlsx"`);
-        res.setHeader('Cache-Control', 'no-store, max-age=0');
+        res.setHeader('Content-Disposition', 'attachment; filename="stock-autosporting.xlsx"');
         res.send(buffer);
     } catch (error) {
         console.error('Error exporting cars:', error);
@@ -2069,20 +2005,8 @@ app.post('/api/admin/dolar-blue/manual', authenticateToken, requirePermission(PE
     }
 });
 
-// Lectura de saldos y vencimientos; no genera ni concilia movimientos.
-app.get('/api/admin/finance/cash-projection', authenticateToken, requirePermission(PERMISSIONS.FINANZAS_READ), requirePermission(PERMISSIONS.CAJA_READ), async (req, res) => {
-    try {
-        await connectDB();
-        res.setHeader('Cache-Control', 'no-store, max-age=0');
-        res.json(await getCashProjection());
-    } catch (error) {
-        console.error('Error fetching cash projection:', error.message);
-        res.status(500).json({ message: 'No se pudo calcular la liquidez desde las cuentas y vencimientos registrados.' });
-    }
-});
-
 // GET Resumen de Capital Patrimonial (Stock + Caja + Cartera − Deudas)
-app.get('/api/admin/stock/capital-summary', authenticateToken, requirePermission(PERMISSIONS.STOCK_READ), requirePermission(PERMISSIONS.FINANZAS_READ), async (req, res) => {
+app.get('/api/admin/stock/capital-summary', authenticateToken, requireAnyPermission([PERMISSIONS.STOCK_READ, PERMISSIONS.FINANZAS_READ]), async (req, res) => {
     try {
         await connectDB();
         res.setHeader('Cache-Control', 'no-store, max-age=0');
@@ -2099,15 +2023,11 @@ app.get('/api/admin/cars', authenticateToken, requirePermission(PERMISSIONS.STOC
     try {
         await connectDB();
         res.setHeader('Cache-Control', 'no-store, max-age=0');
-        let stockRequest;
-        try { stockRequest = buildStockQuery(req.query); }
-        catch (error) { return res.status(400).json({ message: error.message }); }
-        const { filters, query } = stockRequest;
-        const { page: parsedPage, limit: parsedLimit } = filters;
+        const { page = 1, limit = 20, search = '', status = '', brand = '', tab = '', ml = '' } = req.query;
 
         // Fetch minimal info for ALL cars to calculate summary stats
         const allCarsForSummary = await Car.find({})
-            .select('status currency purchaseCurrency price purchasePrice tradeInOrigin investor.percentage agencyOwned consignedBy ownerName km condition sold visibleEnWeb')
+            .select('status currency purchaseCurrency price purchasePrice investor.percentage agencyOwned consignedBy km condition sold visibleEnWeb')
             .lean();
 
         // Calculate summary using robust normalization
@@ -2120,7 +2040,7 @@ app.get('/api/admin/cars', authenticateToken, requirePermission(PERMISSIONS.STOC
         const disponibles = stockCars.filter(c => (c.status || '').toLowerCase().trim() === 'disponible');
         const reservados = stockCars.filter(c => (c.status || '').toLowerCase().trim() === 'reservado');
         const pausados = stockCars.filter(c => (c.status || '').toLowerCase().trim() === 'pausado');
-        const sinEstado = stockCars.filter(c => !['disponible', 'reservado', 'pausado', 'retirado'].includes((c.status || '').toLowerCase().trim()));
+        const sinEstado = stockCars.filter(c => !['disponible', 'reservado', 'pausado'].includes((c.status || '').toLowerCase().trim()));
 
         // REGLA DEFINITIVA: Las tarjetas comerciales principales suman ÚNICAMENTE vehículos DISPONIBLES.
         // Se excluyen reservados, pausados, sin estado, vendidos y cancelados.
@@ -2131,8 +2051,6 @@ app.get('/api/admin/cars', authenticateToken, requirePermission(PERMISSIONS.STOC
         let valorPropioARS = 0;
         let valorInversionistasUSD = 0;
         let valorInversionistasARS = 0;
-        const acquisitionCosts = { ARS: { own: 0, investor: 0 }, USD: { own: 0, investor: 0 } };
-        let missingCostCount = 0;
 
         let consignacionesCount = 0;
         let consignacionesValorUSD = 0;
@@ -2141,14 +2059,16 @@ app.get('/api/admin/cars', authenticateToken, requirePermission(PERMISSIONS.STOC
 
         let missingPriceCount = 0;
         let provisionalPriceCount = 0;
-        let unknownCurrencyCount = 0;
 
         disponibles.forEach(c => {
-            const { isConsignment, isThirdParty, ownPct: agencyPct } = stockCapitalOwnership(c);
+            const isConsignment = Boolean(c.consignedBy && String(c.consignedBy).trim() !== '');
+            const isThirdParty = !isConsignment && c.agencyOwned === false && (!c.investor || Number(c.investor.percentage) === 0);
             const price = Math.round(Number(c.price) || 0);
 
-            const currency = stockStatisticsCurrency(c.currency);
-            if (!currency) unknownCurrencyCount++;
+            // Normalización de moneda: si el precio es > 200.000 pero figura como USD (ej: alta manual en pesos bajo selector USD),
+            // se trata como ARS para no inflar USD con 13.8M dólares.
+            const isUSD = (c.currency === 'U$S' || c.currency === 'USD') && price <= 200000;
+            const currency = isUSD ? 'USD' : 'ARS';
 
             if (price <= 0) {
                 missingPriceCount++;
@@ -2160,18 +2080,14 @@ app.get('/api/admin/cars', authenticateToken, requirePermission(PERMISSIONS.STOC
                 if (isConsignment) consignacionesCount++;
                 if (isThirdParty) tercerosCount++;
                 if (currency === 'USD') consignacionesValorUSD += price;
-                else if (currency === 'ARS') consignacionesValorARS += price;
+                else consignacionesValorARS += price;
                 return;
             }
 
             // Propio y Compartido
-            const acquisition = getVehicleFinancialDisplay(c).purchase;
-            if (acquisition.hasCost && acquisition.currency) {
-                const cost = Math.round(acquisition.amount);
-                const ownCost = Math.round(cost * (agencyPct / 100));
-                acquisitionCosts[acquisition.currency].own += ownCost;
-                acquisitionCosts[acquisition.currency].investor += cost - ownCost;
-            } else missingCostCount++;
+            const isShared = c.investor && Number(c.investor.percentage) > 0;
+            const invPct = isShared ? Math.min(100, Math.max(0, Number(c.investor.percentage) || 0)) : 0;
+            const agencyPct = Math.max(0, 100 - invPct);
 
             // Reglas exactas:
             // Propio (invPct 0): 100% AutoSporting, 0% Inversor
@@ -2184,7 +2100,7 @@ app.get('/api/admin/cars', authenticateToken, requirePermission(PERMISSIONS.STOC
                 valorTotalUSD += price;
                 valorPropioUSD += contribPropio;
                 valorInversionistasUSD += contribInv;
-            } else if (currency === 'ARS') {
+            } else {
                 valorTotalARS += price;
                 valorPropioARS += contribPropio;
                 valorInversionistasARS += contribInv;
@@ -2193,7 +2109,6 @@ app.get('/api/admin/cars', authenticateToken, requirePermission(PERMISSIONS.STOC
 
         const summary = {
             total: totalCarsCount,
-            unknownCurrencyCount,
             totalStock: totalCarsCount,
             disponibles: disponibles.length,
             reservados: reservados.length,
@@ -2217,12 +2132,6 @@ app.get('/api/admin/cars', authenticateToken, requirePermission(PERMISSIONS.STOC
             valorActivoARS: Math.round(valorPropioARS),
             valorActivoInversionistasUSD: Math.round(valorInversionistasUSD),
             valorActivoInversionistasARS: Math.round(valorInversionistasARS),
-            capitalInvertidoARS: acquisitionCosts.ARS.own,
-            capitalInvertidoUSD: acquisitionCosts.USD.own,
-            capitalInvertidoInversionistasARS: acquisitionCosts.ARS.investor,
-            capitalInvertidoInversionistasUSD: acquisitionCosts.USD.investor,
-            costoTotalARS: acquisitionCosts.ARS.own + acquisitionCosts.ARS.investor,
-            costoTotalUSD: acquisitionCosts.USD.own + acquisitionCosts.USD.investor,
             // Campos explícitos de disponibles
             disponiblesTotalARS: Math.round(valorTotalARS),
             disponiblesPropioARS: Math.round(valorPropioARS),
@@ -2235,19 +2144,98 @@ app.get('/api/admin/cars', authenticateToken, requirePermission(PERMISSIONS.STOC
             // Inconsistencias
             inconsistencias: {
                 missingPriceCount,
-                missingCostCount,
                 provisionalPriceCount,
                 sinEstadoCount: sinEstado.length
             }
         };
 
+        // Now build query for the current page
+        let query = {};
+
+        if (search) {
+            const words = search.trim().split(/\s+/).filter(Boolean);
+            if (words.length > 0) {
+                query.$and = words.map(word => {
+                    const escapedWord = escapeRegex(word);
+                    const regex = { $regex: escapedWord, $options: 'i' };
+                    const conditions = [
+                        { brand: regex },
+                        { name: regex },
+                        { plateOrVin: regex },
+                        { description: regex },
+                        { ownerName: regex },
+                        { ownerPhone: regex },
+                        { consignedBy: regex },
+                        { location: regex },
+                        { notes: regex },
+                        { 'investor.name': regex },
+                        { engineNumber: regex },
+                        { chassisNumber: regex }
+                    ];
+
+                    if (/^\d+$/.test(word)) {
+                        const numVal = parseInt(word);
+                        conditions.push({ year: numVal });
+                        conditions.push({ km: numVal });
+                    }
+
+                    return { $or: conditions };
+                });
+            }
+        }
+
+        if (status && status !== 'todos') {
+            const statusMap = {
+                disponible: 'Disponible',
+                senado: 'Reservado',
+                vendido_sin_confirmar: 'Pausado',
+                vendido: 'Vendido'
+            };
+            query.status = statusMap[status] || status;
+        } else {
+            // Default: do not show sold or cancelled vehicles in the stock view unless explicitly requested
+            query.status = { $nin: ['Vendido', 'Cancelado'] };
+        }
+
+        if (brand && brand !== 'todas') {
+            query.brand = brand;
+        }
+
+        if (tab && tab !== 'stock') {
+            if (tab === 'consignaciones') {
+                query.consignedBy = { $exists: true, $ne: '' };
+            } else if (tab === 'compartidos') {
+                query['investor.percentage'] = { $gt: 0 };
+            } else if (tab === 'cero_km') {
+                query.$or = [
+                    { condition: { $in: ['0km', 'nuevo', 'Nuevo', '0KM'] } },
+                    { km: 0 }
+                ];
+            }
+        }
+
+        if (ml === 'publicados') {
+            query.publishedOnML = 'Sí';
+        } else if (ml === 'no_publicados') {
+            query.publishedOnML = { $ne: 'Sí' };
+        }
+
+        const parsedLimit = parseInt(limit);
+        const parsedPage = parseInt(page);
+        const skip = (parsedPage - 1) * parsedLimit;
+
         const totalFiltered = await Car.countDocuments(query);
-        const cars = await Car.aggregate(buildStockPipeline(query, filters)).collation({ locale: 'es', strength: 2, numericOrdering: true });
-        await Car.populate(cars, { path: 'consignmentSeller', select: 'name email' });
+        const cars = await Car.find(query)
+            .select('-auditLog')
+            .populate('consignmentSeller', 'name email')
+            .sort({ order: 1, createdAt: -1 })
+            .skip(skip)
+            .limit(parsedLimit)
+            .lean();
             
         // Calculate the sum of prices, purchase costs, own share, and investor share for the filtered vehicles
         const allFilteredCars = await Car.find(query)
-            .select('price purchasePrice purchaseCurrency tradeInOrigin currency consignedBy ownerName investor agencyOwned')
+            .select('price purchasePrice currency consignedBy investor agencyOwned')
             .lean();
 
         let filteredTotalUSD = 0;
@@ -2262,39 +2250,40 @@ app.get('/api/admin/cars', authenticateToken, requirePermission(PERMISSIONS.STOC
         let filteredConsignacionesUSD = 0;
 
         allFilteredCars.forEach(c => {
-            const { isConsignment, isThirdParty, ownPct } = stockCapitalOwnership(c);
+            const isConsignment = Boolean(c.consignedBy && String(c.consignedBy).trim() !== '');
+            const isThirdParty = !isConsignment && c.agencyOwned === false && (!c.investor || Number(c.investor.percentage) === 0);
             const price = Math.round(Number(c.price) || 0);
-            const curr = stockStatisticsCurrency(c.currency);
+            const purchasePrice = Math.round(Number(c.purchasePrice) || 0);
+            const isUSD = (c.currency === 'U$S' || c.currency === 'USD') && price <= 200000;
+            const curr = isUSD ? 'USD' : 'ARS';
 
             if (isConsignment || isThirdParty) {
                 if (curr === 'USD') filteredConsignacionesUSD += price;
-                else if (curr === 'ARS') filteredConsignacionesARS += price;
+                else filteredConsignacionesARS += price;
                 return;
             }
 
-            const acquisition = getVehicleFinancialDisplay(c).purchase;
-            if (acquisition.hasCost && acquisition.currency === 'USD') filteredCostUSD += Math.round(acquisition.amount);
-            if (acquisition.hasCost && acquisition.currency === 'ARS') filteredCostARS += Math.round(acquisition.amount);
+            const isShared = c.investor && Number(c.investor.percentage) > 0;
+            const invPct = isShared ? Math.min(100, Math.max(0, Number(c.investor.percentage) || 0)) : 0;
+            const ownPct = Math.max(0, 100 - invPct);
 
             const contribPropio = Math.round(price * (ownPct / 100));
             const contribInv = price - contribPropio;
 
             if (curr === 'USD') {
                 filteredTotalUSD += price;
+                filteredCostUSD += purchasePrice;
                 filteredPropioUSD += contribPropio;
                 filteredInversionistasUSD += contribInv;
-            } else if (curr === 'ARS') {
+            } else {
                 filteredTotalARS += price;
+                filteredCostARS += purchasePrice;
                 filteredPropioARS += contribPropio;
                 filteredInversionistasARS += contribInv;
             }
         });
 
-        const brands = stockOptions(await Car.distinct('brand'));
-        const modelQuery = filters.brand && filters.brand !== 'todas'
-            ? buildStockQuery({ brand: filters.brand, status: 'todos' }).query.$and.find(clause => clause.brand)
-            : {};
-        const models = stockOptions(await Car.distinct('name', modelQuery));
+        const brands = await Car.distinct('brand');
         res.json({
             cars,
             total: totalFiltered,
@@ -2303,7 +2292,6 @@ app.get('/api/admin/cars', authenticateToken, requirePermission(PERMISSIONS.STOC
             limit: parsedLimit,
             summary,
             brands,
-            models,
             filteredTotalUSD,
             filteredTotalARS,
             filteredCostUSD,
@@ -2320,39 +2308,33 @@ app.get('/api/admin/cars', authenticateToken, requirePermission(PERMISSIONS.STOC
     }
 });
 
-// Vencimientos netos, incluyendo mora y reprogramaciones, con el mismo corte de liquidez.
+// GET dashboard upcoming dues (vencimientos próximos)
 app.get('/api/admin/dashboard/upcoming-dues', authenticateToken, requirePermission(PERMISSIONS.FINANZAS_READ), async (req, res) => {
     try {
         await connectDB();
-        const today = getArgentinaDateKey();
-        const exclusiveEnd = new Date(Date.parse(today + 'T00:00:00.000Z') + 7 * 86400000);
-        const records = await Installment.aggregate([
-            { $match: { status: { $in: OPEN_INSTALLMENT_STATUSES } } },
-            { $set: {
-                effectiveDueDate: { $cond: [
-                    { $and: ['$isRescheduled', { $ne: [{ $ifNull: ['$rescheduledDate', null] }, null] }] },
-                    '$rescheduledDate', { $ifNull: ['$originalDueDate', '$dueDate'] }
-                ] },
-                pendingAmount: { $max: [0, { $subtract: ['$amount', { $ifNull: ['$paidAmount', 0] }] }] }
-            } },
-            { $match: { effectiveDueDate: { $type: 'date', $lt: exclusiveEnd }, pendingAmount: { $gt: 0 } } },
-            { $lookup: { from: 'sales', localField: 'saleId', foreignField: '_id', as: 'linkedSale' } },
-            { $match: { $or: [
-                { saleId: null, source: { $ne: 'venta' } },
-                { linkedSale: { $elemMatch: { status: { $in: ['señado', 'confirmada', 'pendiente_entrega', 'entregada'] }, historicalOnly: { $ne: true } } } }
-            ] } },
-            { $sort: { effectiveDueDate: 1, _id: 1 } },
-            { $limit: 15 },
-            { $project: { linkedSale: 0 } }
-        ]);
-        const dues = await Installment.populate(records, [
-            { path: 'clientId', select: 'name fullName email phone' },
-            { path: 'vehicleId', select: 'brand name model year price currency plateOrVin' }
-        ]);
-        res.setHeader('Cache-Control', 'no-store, max-age=0');
-        res.json(dues.map(item => ({ ...item, effectiveDueDate: getEffectiveInstallmentDueDate(item) })));
+
+        const now = new Date();
+        const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0);
+
+        // Vencimientos próximos: cuotas que vencen en los próximos 7 días (o ya vencidas pero no pagadas)
+        const sevenDaysFromNow = new Date(startOfToday.getTime() + 7 * 24 * 60 * 60 * 1000);
+        sevenDaysFromNow.setHours(23, 59, 59, 999);
+
+        const query = {
+            status: { $in: ['pendiente', 'parcial'] },
+            dueDate: { $lte: sevenDaysFromNow }
+        };
+
+        const upcomingDues = await Installment.find(query)
+            .populate('clientId', 'name fullName email phone')
+            .populate('vehicleId', 'brand name model year price currency plateOrVin')
+            .sort({ dueDate: 1 })
+            .limit(15)
+            .lean();
+
+        res.json(upcomingDues);
     } catch (error) {
-        console.error('Error fetching upcoming dues:', error.message);
+        console.error('Error fetching upcoming dues:', error);
         res.status(500).json({ message: 'Error al obtener vencimientos próximos' });
     }
 });
@@ -2369,93 +2351,6 @@ app.get('/api/admin/cars/:id', authenticateToken, requirePermission(PERMISSIONS.
 });
 
 // POST append internal note to a car
-const vehicleCommercialFailure = (res, error) => res.status(error.statusCode || 500).json({
-    message: error.statusCode ? error.message : 'No se pudo completar la operación del vehículo.',
-    code: error.code || 'VEHICLE_COMMERCIAL_ERROR', ...(error.errors ? { errors: error.errors } : {})
-});
-app.get('/api/admin/stock/commercial-summary', authenticateToken, requirePermission(PERMISSIONS.STOCK_READ), async (req, res) => {
-    try { await connectDB(); res.setHeader('Cache-Control', 'no-store'); res.json(await getVehicleCommercialSummaries(req.query.ids, req.user)); }
-    catch (error) { vehicleCommercialFailure(res, error); }
-});
-app.get('/api/admin/contact-permissions', authenticateToken, async (req, res) => {
-    try { await connectDB(); res.setHeader('Cache-Control', 'no-store'); res.json(await getContactPermissions(req.query.entity, String(req.query.ids || '').split(','), req.user)); }
-    catch (error) { vehicleCommercialFailure(res, error); }
-});
-app.get('/api/admin/clients/:id/vehicles', authenticateToken, requirePermission(PERMISSIONS.CLIENTES_READ), requirePermission(PERMISSIONS.STOCK_READ), async (req, res) => {
-    try {
-        await connectDB(); if (!mongoose.isValidObjectId(req.params.id)) return res.status(400).json({ message: 'El cliente no es válido.' });
-        if (!await Client.exists({ _id: req.params.id })) return res.status(404).json({ message: 'Cliente no encontrado.' });
-        const vehicles = await Car.find({ $or: [{ clientId: req.params.id }, { linkedClient: req.params.id }] }).select('_id brand name year plateOrVin status createdAt').sort({ createdAt: -1 }).lean();
-        res.setHeader('Cache-Control', 'no-store'); res.json({ vehicles, total: vehicles.length });
-    } catch (error) { vehicleCommercialFailure(res, error); }
-});
-app.get('/api/admin/stock/attention', authenticateToken, requirePermission(PERMISSIONS.STOCK_READ), async (req, res) => {
-    try { await connectDB(); res.setHeader('Cache-Control', 'no-store'); res.json(await getStockAttention(req.query, req.user)); } catch (error) { vehicleCommercialFailure(res, error); }
-});
-app.get('/api/admin/stock/overview', authenticateToken, requirePermission(PERMISSIONS.STOCK_READ), async (req, res) => {
-    try { await connectDB(); res.setHeader('Cache-Control', 'no-store'); res.json(await getStockOverview()); } catch (error) { vehicleCommercialFailure(res, error); }
-});
-app.get('/api/admin/stock/demand', authenticateToken, requirePermission(PERMISSIONS.STOCK_READ), async (req, res) => {
-    try { await connectDB(); res.setHeader('Cache-Control', 'no-store'); res.json(await getStockDemand(req.query, req.user)); } catch (error) { vehicleCommercialFailure(res, error); }
-});
-app.post('/api/admin/cars/:id/availability', authenticateToken, requirePermission(PERMISSIONS.STOCK_WRITE), async (req, res) => {
-    try { await connectDB(); res.json(await changeVehicleSaleAvailability(req.params.id, req.body, req.user)); } catch (error) { vehicleCommercialFailure(res, error); }
-});
-app.get('/api/admin/cars/:id/owner-portal', authenticateToken, requirePermission(PERMISSIONS.STOCK_READ), async (req, res) => {
-    try { await connectDB(); res.setHeader('Cache-Control', 'no-store'); res.json(await readOwnerPortal(req.params.id)); } catch (error) { vehicleCommercialFailure(res, error); }
-});
-app.post('/api/admin/cars/:id/owner-portal', authenticateToken, requirePermission(PERMISSIONS.STOCK_WRITE), async (req, res) => {
-    try { if (req.body.consentConfirmed !== true) return res.status(400).json({ message: 'Confirmá qué información compartirá el enlace del propietario.' }); await connectDB(); res.setHeader('Cache-Control', 'no-store'); res.status(201).json(await createOwnerPortal(req.params.id, req.user)); } catch (error) { vehicleCommercialFailure(res, error); }
-});
-app.delete('/api/admin/cars/:id/owner-portal', authenticateToken, requirePermission(PERMISSIONS.STOCK_WRITE), async (req, res) => {
-    try { await connectDB(); res.json(await revokeOwnerPortal(req.params.id, req.user)); } catch (error) { vehicleCommercialFailure(res, error); }
-});
-app.patch('/api/admin/cars/:id/owner-portal/requests/:requestId', authenticateToken, requirePermission(PERMISSIONS.STOCK_WRITE), async (req, res) => {
-    try { await connectDB(); res.json(await resolveOwnerPortalRequest(req.params.id, req.params.requestId, req.body, req.user)); } catch (error) { vehicleCommercialFailure(res, error); }
-});
-app.get('/api/public/owner-portal/:token', async (req, res) => {
-    try { await connectDB(); res.setHeader('Cache-Control', 'no-store'); res.setHeader('Referrer-Policy', 'no-referrer'); res.json(await getPublicOwnerPortal(req.params.token)); } catch (error) { vehicleCommercialFailure(res, error); }
-});
-app.post('/api/public/owner-portal/:token/requests', async (req, res) => {
-    try { await connectDB(); res.setHeader('Cache-Control', 'no-store'); res.status(201).json(await submitOwnerPortalRequest(req.params.token, req.body)); } catch (error) { vehicleCommercialFailure(res, error); }
-});
-app.get('/api/admin/cars/:id/inspection', authenticateToken, requirePermission(PERMISSIONS.STOCK_READ), async (req, res) => {
-    try { await connectDB(); res.setHeader('Cache-Control', 'no-store'); res.json(await readVehicleInspection(req.params.id)); }
-    catch (error) { vehicleCommercialFailure(res, error); }
-});
-app.patch('/api/admin/cars/:id/inspection', authenticateToken, requirePermission(PERMISSIONS.STOCK_WRITE), async (req, res) => {
-    try {
-        await connectDB(); const result = await updateVehicleInspection(req.params.id, req.body, req.user);
-        await logAudit({ req, action: 'PERITAJE_ACTUALIZADO', module: 'stock', entityType: 'Car', entityId: req.params.id, description: 'Se actualizó el peritaje del vehículo.' });
-        res.json(result);
-    } catch (error) { vehicleCommercialFailure(res, error); }
-});
-app.get('/api/admin/cars/:id/commercial-context', authenticateToken, requirePermission(PERMISSIONS.STOCK_READ), async (req, res) => {
-    try { await connectDB(); res.setHeader('Cache-Control', 'no-store'); res.json(await getVehicleCommercialContext(req.params.id, req.user)); }
-    catch (error) { vehicleCommercialFailure(res, error); }
-});
-app.post('/api/admin/cars/:id/activities', authenticateToken, requirePermission(PERMISSIONS.STOCK_WRITE), requirePermission(PERMISSIONS.COMMUNICATIONLOGS_WRITE), async (req, res) => {
-    try {
-        await connectDB(); const activity = await createVehicleActivity(req.params.id, req.body, req.user);
-        await logAudit({ req, action: 'ACTIVIDAD_VEHICULO_CREADA', module: 'stock', entityType: 'CommunicationLog', entityId: activity._id, description: 'Se registró una actividad comercial del vehículo.', metadata: { vehicleId: req.params.id, activity: activity.activity } });
-        res.status(201).json(activity);
-    } catch (error) { vehicleCommercialFailure(res, error); }
-});
-app.post('/api/admin/cars/:id/follow-ups', authenticateToken, requirePermission(PERMISSIONS.STOCK_WRITE), requirePermission(PERMISSIONS.AGENDA_WRITE), async (req, res) => {
-    try {
-        await connectDB(); const task = await saveVehicleFollowUp(req.params.id, null, req.body, req.user);
-        await logAudit({ req, action: 'SEGUIMIENTO_VEHICULO_CREADO', module: 'stock', entityType: 'CrmTask', entityId: task._id, description: 'Se creó un seguimiento del vehículo.', metadata: { vehicleId: req.params.id } });
-        res.status(201).json(task);
-    } catch (error) { vehicleCommercialFailure(res, error); }
-});
-app.patch('/api/admin/cars/:id/follow-ups/:taskId', authenticateToken, requirePermission(PERMISSIONS.STOCK_WRITE), requirePermission(PERMISSIONS.AGENDA_WRITE), async (req, res) => {
-    try {
-        await connectDB(); const task = await saveVehicleFollowUp(req.params.id, req.params.taskId, req.body, req.user);
-        await logAudit({ req, action: 'SEGUIMIENTO_VEHICULO_EDITADO', module: 'stock', entityType: 'CrmTask', entityId: task._id, description: 'Se actualizó un seguimiento del vehículo.', metadata: { vehicleId: req.params.id } });
-        res.json(task);
-    } catch (error) { vehicleCommercialFailure(res, error); }
-});
-
 app.post('/api/admin/cars/:id/notes', authenticateToken, requirePermission(PERMISSIONS.STOCK_WRITE), async (req, res) => {
     try {
         await connectDB();
@@ -2693,29 +2588,6 @@ app.patch('/api/admin/cars/:id', authenticateToken, requirePermission(PERMISSION
         if (!car) {
             return res.status(404).json({ message: 'Car not found' });
         }
-        if (Object.hasOwn(updates, 'status') && updates.status !== car.status && (updates.status === 'Retirado' || car.status === 'Retirado')) return res.status(409).json({ message: 'Usá Retirar de venta o Volver a poner en venta para cambiar este estado con su motivo y controles.' });
-
-        const validation = validateVehicleInput(updates, { partial: true });
-        if (Object.keys(validation.errors).length > 0) return res.status(400).json({ message: Object.values(validation.errors)[0], code: 'VEHICLE_VALIDATION', errors: validation.errors });
-        updates = validation.values;
-        if (updates.clientId && !await Client.exists({ _id: updates.clientId })) return res.status(400).json({ message: 'El cliente propietario ya no está disponible.' });
-        const identityConflict = await findVehicleIdentityConflict(updates, car);
-        if (identityConflict) return res.status(409).json(identityConflict);
-        const stateConflict = await findVehicleStateConflict(updates, car);
-        if (stateConflict) return res.status(409).json(stateConflict);
-        let nextImages;
-        try {
-            if (updates.imageOrder !== undefined || req.files?.length || updates.images !== undefined) {
-                nextImages = resolveVehicleImageOrder({
-                    existing: Array.isArray(car.images) && car.images.length ? car.images : (car.coverImage ? [car.coverImage] : []),
-                    uploaded: (req.files || []).map(file => file.path),
-                    order: updates.imageOrder,
-                    images: updates.images,
-                });
-            }
-        } catch (error) {
-            return res.status(400).json({ message: error.message, code: 'VEHICLE_VALIDATION', errors: { images: error.message } });
-        }
 
         const newAuditLogs = [];
         const {
@@ -2726,7 +2598,6 @@ app.patch('/api/admin/cars/:id', authenticateToken, requirePermission(PERMISSION
             expenses,
             documentation,
             images,
-            imageOrder,
             purchasePriceChangeType,
             purchasePriceJustification,
             purchasePriceExpenseConcept,
@@ -2737,10 +2608,6 @@ app.patch('/api/admin/cars/:id', authenticateToken, requirePermission(PERMISSION
         const oldPurchaseCurrency = car.purchaseCurrency || (car.currency === 'U$S' || car.currency === 'USD' ? 'USD' : 'ARS');
         const oldPrice = car.price !== undefined && car.price !== null ? Number(car.price) : 0;
         const oldStatus = car.status;
-
-        for (const key of Object.keys(otherUpdates)) {
-            if (['__v', 'purchasePaymentState', 'tradeInOrigin', 'updatedAt', 'inspection'].includes(key) || (!Object.hasOwn(Car.schema.paths, key) && !Object.hasOwn(Car.schema.nested, key))) delete otherUpdates[key];
-        }
 
         const incomingPurchasePriceProvided = otherUpdates.purchasePrice !== undefined && otherUpdates.purchasePrice !== null && String(otherUpdates.purchasePrice).trim() !== '';
         const parsedIncomingPurchasePrice = incomingPurchasePriceProvided ? parseDecimal(otherUpdates.purchasePrice) : NaN;
@@ -2754,16 +2621,7 @@ app.patch('/api/admin/cars/:id', authenticateToken, requirePermission(PERMISSION
         const nextPurchasePrice = incomingPurchasePriceProvided ? roundMoney(parsedIncomingPurchasePrice) : oldPurchasePrice;
         const nextPurchaseCurrency = otherUpdates.purchaseCurrency || oldPurchaseCurrency;
 
-        const purchaseCurrencyChanged = otherUpdates.purchaseCurrency !== undefined && normalizeCurrency(nextPurchaseCurrency) !== normalizeCurrency(oldPurchaseCurrency);
-        const purchasePriceChanged = (incomingPurchasePriceProvided && Math.abs(nextPurchasePrice - oldPurchasePrice) > 0.001) || purchaseCurrencyChanged;
-        const operativeStateChanged = (otherUpdates.status !== undefined && otherUpdates.status !== oldStatus) || (otherUpdates.sold !== undefined && otherUpdates.sold !== Boolean(car.sold));
-        if (operativeStateChanged && purchasePriceChanged) {
-            const message = 'Guardá la corrección del costo y el cambio de estado por separado para conservar la trazabilidad de la operación.';
-            return res.status(409).json({ message, code: 'VEHICLE_SEPARATE_COST_AND_STATE', errors: { status: message } });
-        }
-        // Metadata/state edits must not overwrite a stock claim made by a sale while this request was running.
-        // Acquisition corrections retain their existing separate workflow; the early guard above avoids late partial failures.
-        if (operativeStateChanged) car.$where = { $or: [{ status: oldStatus }, { status: { $exists: false } }] };
+        const purchasePriceChanged = incomingPurchasePriceProvided && Math.abs(nextPurchasePrice - oldPurchasePrice) > 0.001;
 
         if (purchasePriceChanged) {
             const cleanJustification = String(purchasePriceJustification || '').trim();
@@ -2781,7 +2639,6 @@ app.patch('/api/admin/cars/:id', authenticateToken, requirePermission(PERMISSION
             }
 
             if (cleanChangeType === 'gasto_adicional') {
-                if (purchaseCurrencyChanged) return res.status(400).json({ message: 'Un gasto adicional no cambia la moneda del costo base. Usá una corrección de compra/toma para cambiarla.', code: 'VEHICLE_VALIDATION', errors: { purchaseCurrency: 'La moneda del costo base debe conservarse al agregar un gasto.' } });
                 const diffAmount = nextPurchasePrice - oldPurchasePrice;
                 if (diffAmount <= 0) {
                     return res.status(400).json({
@@ -2909,7 +2766,7 @@ app.patch('/api/admin/cars/:id', authenticateToken, requirePermission(PERMISSION
             }
         }
 
-        if ((otherUpdates.price !== undefined && Math.abs(Number(otherUpdates.price) - oldPrice) > 0.001) || (otherUpdates.currency !== undefined && normalizeCurrency(otherUpdates.currency) !== normalizeCurrency(car.currency))) {
+        if (otherUpdates.price !== undefined && Math.abs(Number(otherUpdates.price) - oldPrice) > 0.001) {
             newAuditLogs.push({
                 action: 'PRECIO',
                 field: 'price',
@@ -2961,24 +2818,13 @@ app.patch('/api/admin/cars/:id', authenticateToken, requirePermission(PERMISSION
             delete otherUpdates.infoAuto;
         }
 
-        const metadataLabels = {
-            brand: 'Marca', name: 'Modelo', version: 'Versión', year: 'Año', km: 'Kilometraje', fuel: 'Combustible', transmission: 'Transmisión', bodyType: 'Carrocería', doors: 'Cantidad de puertas', engine: 'Motor/cilindrada', condition: 'Condición', description: 'Descripción pública', vehicleType: 'Tipo de vehículo', plateOrVin: 'Patente/VIN', color: 'Color', location: 'Ubicación', owners: 'Cantidad de dueños', agencyOwned: 'Propiedad de la agencia', ownerName: 'Nombre del propietario', ownerPhone: 'Teléfono del propietario', ownerEmail: 'Email del propietario', linkedClient: 'Cliente vinculado', clientId: 'Cliente vinculado', consignedBy: 'Responsable de consignación', engineNumber: 'Número de motor', chassisNumber: 'Número de chasis', hasManuals: 'Manuales', hasDuplicateKeys: 'Duplicado de llaves', hasOfficialServices: 'Servicios oficiales', publishedOnML: 'Publicación en Mercado Libre', publishedBy: 'Responsable de publicación', mlLink: 'Enlace de Mercado Libre', notes: 'Observaciones internas', visibleEnWeb: 'Visibilidad en el catálogo', investor: 'Participación del inversor',
-        };
         Object.keys(otherUpdates).forEach(key => {
-            const oldValue = car[key]?.toObject ? car[key].toObject() : car[key];
-            const newValue = otherUpdates[key];
-            if (metadataLabels[key] && JSON.stringify(oldValue) !== JSON.stringify(newValue)) newAuditLogs.push({
-                action: key === 'visibleEnWeb' ? 'VISIBILIDAD' : 'EDICION', field: key, oldValue, newValue,
-                details: `Se actualizó ${metadataLabels[key].toLowerCase()}.`, user, source: 'CRM_V2',
-            });
             car[key] = otherUpdates[key];
         });
 
-        if (nextImages) {
-            const oldImages = [...(car.images || [])];
-            car.images = nextImages;
-            car.coverImage = nextImages[0] || '';
-            if (JSON.stringify(oldImages) !== JSON.stringify(nextImages)) newAuditLogs.push({ action: 'EDICION', field: 'images', oldValue: oldImages, newValue: nextImages, details: `Imágenes actualizadas. Total: ${nextImages.length}`, user, source: 'CRM_V2' });
+        if (req.files && req.files.length > 0) {
+            const newImages = req.files.map(file => file.path);
+            updates.images = [...(car.images || []), ...newImages];
         }
 
         if (documentation) {
@@ -3099,7 +2945,6 @@ app.patch('/api/admin/cars/:id', authenticateToken, requirePermission(PERMISSION
 
         res.json(updatedCar);
     } catch (error) {
-        if (error.name === 'DocumentNotFoundError' || error.name === 'VersionError') return res.status(409).json({ message: 'El vehículo cambió durante la edición. Actualizá la ficha antes de guardar.', code: 'VEHICLE_STATE_CONFLICT', errors: { status: 'Actualizá la ficha para consultar los datos vigentes.' } });
         console.error("PATCH error:", error);
         res.status(400).json({ message: error.message });
     }
@@ -3299,149 +3144,221 @@ app.delete('/api/cars/:id', authenticateToken, requirePermission(PERMISSIONS.STO
 app.get('/api/admin/clients', authenticateToken, requirePermission(PERMISSIONS.CLIENTES_READ), async (req, res) => {
     try {
         await connectDB();
-        res.setHeader('Cache-Control', 'no-store, max-age=0');
-        res.json(await listCommercialClients(req.query, req.user));
+        const { search, type, source, status, segment, limit = 50, page = 1 } = req.query;
+        let query = {};
+
+        if (search) {
+            const regex = new RegExp(search, 'i');
+            query.$or = [
+                { fullName: regex },
+                { phoneNormalized: regex },
+                { emailNormalized: regex },
+                { locality: regex }
+            ];
+        }
+        if (type) query.type = type;
+        if (source) query.source = source;
+        if (status) query.status = status;
+
+        const skip = (parseInt(page) - 1) * parseInt(limit);
+        const parsedLimit = parseInt(limit);
+
+        const reqUserId = req.user?.id ? new mongoose.Types.ObjectId(req.user.id) : null;
+        if (segment === 'mis-clientes' && reqUserId) {
+            query.assignedTo = reqUserId;
+        } else if (segment === 'vendieron') {
+            query.type = { $in: ['vendedor', 'ambos'] };
+        }
+
+        if (segment === 'contactados' || segment === 'sin-contactar' || segment === 'compraron') {
+            const pipeline = [];
+            if (Object.keys(query).length > 0) pipeline.push({ $match: query });
+
+            if (segment === 'contactados' || segment === 'sin-contactar') {
+                pipeline.push({ $lookup: { from: 'leads', localField: '_id', foreignField: 'clientId', as: 'relatedLeads' } });
+                if (segment === 'sin-contactar') {
+                    pipeline.push({
+                        $match: {
+                            $and: [
+                                { $or: [{ interactions: { $exists: false } }, { interactions: { $size: 0 } }] },
+                                { $or: [{ relatedLeads: { $size: 0 } }, { "relatedLeads": { $not: { $elemMatch: { crmStatus: { $ne: 'nuevo' } } } } }] }
+                            ]
+                        }
+                    });
+                } else if (segment === 'contactados') {
+                    pipeline.push({
+                        $match: {
+                            $or: [
+                                { "interactions.0": { $exists: true } },
+                                { "relatedLeads": { $elemMatch: { crmStatus: { $ne: 'nuevo' } } } }
+                            ]
+                        }
+                    });
+                }
+            } else if (segment === 'compraron') {
+                pipeline.push({ $lookup: { from: 'sales', localField: '_id', foreignField: 'clientId', as: 'relatedSales' } });
+                pipeline.push({
+                    $match: { "relatedSales": { $elemMatch: { status: { $nin: ['cancelada', 'borrador'] } } } }
+                });
+            }
+
+            const countPipeline = [...pipeline, { $count: 'total' }];
+            const countResult = await Client.aggregate(countPipeline);
+            const total = countResult.length > 0 ? countResult[0].total : 0;
+
+            pipeline.push({ $sort: { createdAt: -1 } }, { $skip: skip }, { $limit: parsedLimit }, { $project: { relatedLeads: 0, relatedSales: 0 } });
+            const clients = await Client.aggregate(pipeline);
+            return res.json({ clients, total, pages: Math.ceil(total / parsedLimit) });
+        }
+
+        const clients = await Client.find(query)
+            .sort({ createdAt: -1 })
+            .skip(skip)
+            .limit(parseInt(limit))
+            .lean();
+
+        const total = await Client.countDocuments(query);
+
+        res.json({ clients, total, pages: Math.ceil(total / limit) });
     } catch (error) {
-        res.status(error.statusCode || 500).json({ message: error.message });
+        res.status(500).json({ message: error.message });
     }
 });
 
 // GET single client
 app.get('/api/admin/clients/:id', authenticateToken, requirePermission(PERMISSIONS.CLIENTES_READ), async (req, res) => {
     try {
-        const client = await Client.findById(req.params.id).populate('assignedTo', 'name email role');
+        const client = await Client.findById(req.params.id);
         if (!client) return res.status(404).json({ message: 'Client not found' });
-        res.setHeader('Cache-Control', 'no-store, max-age=0');
         res.json(client);
     } catch (error) {
         res.status(500).json({ message: error.message });
     }
 });
 
-// Agency fields used by independently generated receipts/contracts; no settings secrets.
-registerFinanceDocumentRoutes(app,{authenticateToken,readPermission:requirePermission(PERMISSIONS.FINANZAS_READ),writePermission:requirePermission(PERMISSIONS.FINANZAS_WRITE),connectDB});
-registerFinancePayablePlanRoutes(app,{authenticateToken,readPermission:requirePermission(PERMISSIONS.FINANZAS_READ),writePermission:requirePermission(PERMISSIONS.FINANZAS_WRITE),connectDB});
-registerFinancePeriodRoutes(app,{authenticateToken,readPermission:requirePermission(PERMISSIONS.FINANZAS_READ),writePermission:requirePermission(PERMISSIONS.FINANZAS_WRITE),connectDB});
-app.get('/api/admin/finance/document-issuer', authenticateToken, async (req,res) => {
-    if(!hasPermission(req.user,PERMISSIONS.FINANZAS_READ) && !hasPermission(req.user,PERMISSIONS.VENTAS_READ))return res.status(403).json({message:'Necesitás permiso de consulta de Finanzas o Ventas.'});
-    try {await connectDB();const settings=await CrmSettings.findOne().select('agencyName address mainPhone').lean();res.setHeader('Cache-Control','private, no-store');res.json({issuer:{name:settings?.agencyName || 'AutoSporting',address:settings?.address || '',phone:settings?.mainPhone || '',dni:''}});}
-    catch {res.status(500).json({message:'No se pudo consultar el emisor.'});}
-});
-
-// Private client documents: metadata only, bounded memory upload and attachment download.
-const privateClientUploadConfig = { maxFiles: 5, maxBytes: CLIENT_DOCUMENT_MAX_BYTES };
-const privateClientUploadFailure = (res,error) => res.status(error.statusCode || 500).json({message:error.statusCode ? error.message : 'No se pudo guardar la carga privada. Podés reintentar con los mismos archivos.',code:error.code || 'PRIVATE_UPLOAD_ERROR'});
-app.post('/api/admin/clients/:clientId/document-uploads/:uploadId/chunks', authenticateToken, requirePermission(PERMISSIONS.CLIENTES_READ), requirePermission(PERMISSIONS.CLIENTES_WRITE), requirePermission(PERMISSIONS.DOCUMENTACION_READ), requirePermission(PERMISSIONS.DOCUMENTACION_WRITE), async(req,res) => {
-    try { await connectDB(); if(!mongoose.isValidObjectId(req.params.clientId))return res.status(400).json({message:'El cliente no es válido.',code:'PRIVATE_UPLOAD_SCOPE'}); if(!await Client.exists({_id:req.params.clientId}))return res.status(404).json({message:'El cliente no existe.',code:'PRIVATE_UPLOAD_SCOPE'}); res.setHeader('Cache-Control','private, no-store'); res.json(await stagePrivateUpload({actorId:String(req.user.id || req.user.userId),entityId:'client:'+req.params.clientId,uploadId:req.params.uploadId,payload:req.body,config:privateClientUploadConfig})); }
-    catch(error){privateClientUploadFailure(res,error);}
-});
-app.post('/api/admin/clients/:clientId/document-uploads/:uploadId/commit', authenticateToken, requirePermission(PERMISSIONS.CLIENTES_READ), requirePermission(PERMISSIONS.CLIENTES_WRITE), requirePermission(PERMISSIONS.DOCUMENTACION_READ), requirePermission(PERMISSIONS.DOCUMENTACION_WRITE), async(req,res) => {
-    try {
-        await connectDB(); const uploadId=req.params.uploadId.toLowerCase();
-        if(!/^[a-f\d]{8}-[a-f\d]{4}-[1-5][a-f\d]{3}-[89ab][a-f\d]{3}-[a-f\d]{12}$/i.test(uploadId))return res.status(400).json({message:'La identificación de carga debe ser un UUID válido.',code:'PRIVATE_UPLOAD_VALIDATION'});
-        res.setHeader('Cache-Control','private, no-store');
-        const expectedHash=req.body.manifest===undefined ? null : privateUploadManifestHash(req.body.manifest,privateClientUploadConfig);
-        const previous=await findCommittedClientDocumentUpload(req.params.clientId,uploadId,req.user,req.body.manifest);
-        if(previous)return res.status(201).json(previous);
-        const scope={actorId:String(req.user.id || req.user.userId),entityId:'client:'+req.params.clientId,uploadId};
-        const assembled=await assemblePrivateUpload({...scope,config:privateClientUploadConfig});
-        if(expectedHash && expectedHash!==assembled.manifestHash)return res.status(409).json({message:'El manifiesto de archivos no coincide con la carga.',code:'PRIVATE_UPLOAD_CONFLICT'});
-        const result=await uploadClientDocuments(req.params.clientId,assembled.files,uploadId,req.user);
-        await cleanupPrivateUpload(scope).catch(()=>{});res.status(201).json(result);
-    }catch(error){privateClientUploadFailure(res,error);}
-});
-app.get('/api/admin/clients/:clientId/documents', authenticateToken, requirePermission(PERMISSIONS.CLIENTES_READ), requirePermission(PERMISSIONS.DOCUMENTACION_READ), async (req,res) => {
-    try { await connectDB(); res.setHeader('Cache-Control','private, no-store'); res.json(await listClientDocuments(req.params.clientId)); }
-    catch(error) { res.status(error.statusCode || 500).json({message:error.statusCode ? error.message : 'No se pudieron consultar los archivos.'}); }
-});
-const clientDocumentUpload = multer({storage:multer.memoryStorage(),limits:{files:5,fileSize:CLIENT_DOCUMENT_MAX_BYTES,fields:0,parts:6}}).array('files',5);
-app.post('/api/admin/clients/:clientId/documents', authenticateToken, requirePermission(PERMISSIONS.CLIENTES_READ), requirePermission(PERMISSIONS.CLIENTES_WRITE), requirePermission(PERMISSIONS.DOCUMENTACION_READ), requirePermission(PERMISSIONS.DOCUMENTACION_WRITE), (req,res) => {
-    clientDocumentUpload(req,res,async error => {
-        if(error) return res.status(400).json({message:error.code==='LIMIT_FILE_SIZE' ? 'Cada archivo admite hasta 5 MB.' : 'Seleccioná hasta 5 archivos; no se admiten campos extra.'});
-        try { await connectDB(); res.setHeader('Cache-Control','private, no-store'); res.status(201).json(await uploadClientDocuments(req.params.clientId,req.files,req.headers['x-upload-id'],req.user)); }
-        catch(failure) { res.status(failure.statusCode || 500).json({message:failure.statusCode ? failure.message : 'No se pudieron guardar los archivos. Podés reintentar la misma carga.'}); }
-    });
-});
-app.get('/api/admin/clients/:clientId/documents/:documentId', authenticateToken, requirePermission(PERMISSIONS.CLIENTES_READ), requirePermission(PERMISSIONS.DOCUMENTACION_READ), async (req,res) => {
-    try {
-        await connectDB(); const file=await readClientDocument(req.params.clientId,req.params.documentId,req.user);
-        sendPrivateDocument(res,file,req.headers.range,clientDocumentDisposition(file.metadata.filename));
-    } catch(error) { res.status(error.statusCode || 500).json({message:error.statusCode ? error.message : 'No se pudo descargar el archivo.'}); }
-});
-app.patch('/api/admin/clients/:clientId/documents/:documentId', authenticateToken, requirePermission(PERMISSIONS.CLIENTES_READ), requirePermission(PERMISSIONS.CLIENTES_WRITE), requirePermission(PERMISSIONS.DOCUMENTACION_READ), requirePermission(PERMISSIONS.DOCUMENTACION_WRITE), async (req,res) => {
-    try { await connectDB(); res.setHeader('Cache-Control','private, no-store'); res.json(await setClientDocumentDeleted(req.params.clientId,req.params.documentId,req.body.deleted,req.user)); }
-    catch(error) { res.status(error.statusCode || 500).json({message:error.statusCode ? error.message : 'No se pudo actualizar el archivo.'}); }
-});
-
-// POST validate import: preview only; uses the same contract again at commit.
-app.post('/api/admin/clients/validate-import', authenticateToken, requirePermission(PERMISSIONS.CLIENTES_READ), requirePermission(PERMISSIONS.CLIENTES_WRITE), async (req, res) => {
+// POST validate import
+app.post('/api/admin/clients/validate-import', authenticateToken, requirePermission(PERMISSIONS.CLIENTES_WRITE), async (req, res) => {
     try {
         await connectDB();
-        const result=await previewClientImport(req.body.rows,req.body);
-        res.setHeader('Cache-Control','no-store');
-        res.json(result);
-    } catch(error) {
-        res.status(error.statusCode || 400).json({message:error.statusCode ? error.message : 'No se pudo validar la importación.'});
+        const { rows } = req.body;
+        if (!Array.isArray(rows)) return res.status(400).json({ message: 'Rows must be an array' });
+
+        const results = [];
+        for (const row of rows) {
+            let status = 'valid';
+            let message = 'Listo para importar';
+            let existingClient = null;
+
+            // Normalize fields for check
+            const phoneNormalized = row.phone ? String(row.phone).replace(/\D/g, '') : '';
+            const emailNormalized = row.email ? String(row.email).toLowerCase().trim() : '';
+            const dniCuit = row.dni ? String(row.dni).trim() : '';
+
+            // Check duplicates
+            const orConditions = [];
+            if (phoneNormalized) orConditions.push({ phoneNormalized });
+            if (emailNormalized) orConditions.push({ emailNormalized });
+            if (dniCuit) orConditions.push({ dniCuit });
+
+            if (orConditions.length > 0) {
+                existingClient = await Client.findOne({ $or: orConditions }).lean();
+            }
+
+            if (existingClient) {
+                status = 'duplicate';
+                message = 'Cliente duplicado (coincide teléfono, email o DNI)';
+            } else if (!row.firstName && !row.fullName) {
+                status = 'error';
+                message = 'Falta el nombre/apellido';
+            } else if (!phoneNormalized && !emailNormalized) {
+                status = 'error';
+                message = 'Debe tener teléfono o email';
+            }
+
+            results.push({ ...row, _importStatus: status, _importMessage: message, _duplicateId: existingClient?._id });
+        }
+
+        res.json({ results });
+    } catch (error) {
+        res.status(500).json({ message: error.message });
     }
 });
 
-// POST bulk: atomic, explicit duplicate policy, optimistic preview and idempotent retries.
-app.post('/api/admin/clients/bulk', authenticateToken, requirePermission(PERMISSIONS.CLIENTES_READ), requirePermission(PERMISSIONS.CLIENTES_WRITE), async (req, res) => {
+// POST bulk insert clients
+app.post('/api/admin/clients/bulk', authenticateToken, requirePermission(PERMISSIONS.CLIENTES_WRITE), async (req, res) => {
     try {
         await connectDB();
-        const result=await commitClientImport(req.body.rows || req.body.clients,req.body,req.user);
-        res.json(result);
-    } catch(error) {
-        res.status(error.statusCode || 500).json({
-            message:error.statusCode ? error.message : 'No se pudo aplicar la importación. Validá el archivo antes de reintentar.',
-            ...(error.results ? {results:error.results,previewToken:error.previewToken,unknownHeaders:error.unknownHeaders} : {}),
-            ...(error.unknownHeaders && !error.results ? {unknownHeaders:error.unknownHeaders} : {})
+        const { clients } = req.body;
+        if (!Array.isArray(clients)) return res.status(400).json({ message: 'Clients must be an array' });
+
+        const toInsert = clients.map(clientData => {
+            const client = new Client({
+                firstName: clientData.firstName || '',
+                lastName: clientData.lastName || '',
+                fullName: clientData.fullName || `${clientData.firstName || ''} ${clientData.lastName || ''}`.trim(),
+                phone: clientData.phone || '',
+                email: clientData.email || '',
+                dniCuit: clientData.dni || '',
+                locality: clientData.locality || '',
+                type: clientData.type || 'potencial',
+                source: clientData.source || 'otro',
+                notes: clientData.notes || 'Importado via Excel',
+                createdBy: req.user?.id || 'CRM_V2'
+            });
+
+            client.clientAuditLog.push({
+                action: 'CREACION',
+                details: 'Cliente importado masivamente',
+                user: req.user?.id || 'CRM_V2'
+            });
+
+            return client;
         });
+
+        const inserted = await Client.insertMany(toInsert);
+
+        await logAudit({
+            req,
+            action: 'IMPORTACION_MASIVA',
+            module: 'clientes',
+            entityType: 'Client',
+            description: `Se importaron ${inserted.length} clientes masivamente.`
+        });
+
+        res.json({ ok: true, count: inserted.length });
+    } catch (error) {
+        res.status(500).json({ message: error.message });
     }
 });
 
 // POST new client
-app.get('/api/admin/clients-insights', authenticateToken, requirePermission(PERMISSIONS.CLIENTES_READ), async (req, res) => {
-    try {
-        await connectDB(); res.setHeader('Cache-Control', 'no-store');
-        res.json(await getClientInsights(req.query.period, req.user));
-    } catch (error) {
-        if (!error.statusCode) console.error('Client insights error:', error.message);
-        res.status(error.statusCode || 500).json({ message: error.statusCode ? error.message : 'No se pudieron cargar las estadísticas de clientes.' });
-    }
-});
-
 app.post('/api/admin/clients', authenticateToken, requirePermission(PERMISSIONS.CLIENTES_WRITE), async (req, res) => {
     try {
         const payload = req.body;
 
-        const sanitizedData = await normalizeClientCommercialInput(payload);
-        if (!sanitizedData.firstName && !(typeof payload.fullName === 'string' && payload.fullName.trim())) {
+        // Basic Validation
+        if (!payload.firstName && !payload.fullName) {
             return res.status(400).json({ message: 'El nombre es obligatorio.' });
         }
-        if (sanitizedData.assignedTo) sanitizedData.assignedAt = new Date();
+        if (!payload.phone && !payload.email) {
+            return res.status(400).json({ message: 'Debe proveer un tel├®fono o un email.' });
+        }
 
-        // La rotación se solicita expresamente desde los botones de captación.
-        // Las altas legacy y la elección manual conservan su comportamiento.
-        let clientAssignment = null;
-        if (payload.autoAssign === true && !sanitizedData.assignedTo) {
-            const validated = new Client(sanitizedData);
-            await validated.validate();
-            if (sanitizedData.interestedVehicleId) {
-                const vehicle = await Car.findById(sanitizedData.interestedVehicleId).select('consignmentSeller').lean();
-                if (vehicle?.consignmentSeller && await AdminUser.exists({ _id: vehicle.consignmentSeller, active: true, leadAvailabilityStatus: { $nin: ['paused', 'vacation', 'sick'] } })) {
-                    sanitizedData.assignedTo = vehicle.consignmentSeller;
-                    clientAssignment = 'Responsable de la unidad de interés';
-                }
+        // Sanitization using explicitly allowed fields
+        const allowedFields = [
+            'firstName', 'lastName', 'fullName', 'phone', 'email', 'dniCuit',
+            'locality', 'province', 'address', 'type', 'source', 'status', 'tags', 'notes', 'assignedTo'
+        ];
+
+        let sanitizedData = {};
+        allowedFields.forEach(field => {
+            if (payload[field] !== undefined) {
+                sanitizedData[field] = payload[field];
             }
-            if (!sanitizedData.assignedTo) {
-                const assignment = await getNextLeadAssignee({ source: sanitizedData.reason === 'entro_puerta' ? 'client_walk_in' : 'client_digital', sourceDetail: 'crm' });
-                if (assignment?.user?._id) {
-                    sanitizedData.assignedTo = assignment.user._id;
-                    clientAssignment = `Rotación de ${sanitizedData.reason === 'entro_puerta' ? 'atención en el local' : 'consultas digitales'}`;
-                }
-            }
-            if (sanitizedData.assignedTo) sanitizedData.assignedAt = new Date();
+        });
+
+        if (sanitizedData.assignedTo === "") {
+            sanitizedData.assignedTo = null;
         }
 
         sanitizedData.createdBy = req.user?.username || 'Admin';
@@ -3452,7 +3369,6 @@ app.post('/api/admin/clients', authenticateToken, requirePermission(PERMISSIONS.
             source: 'CRM_V2',
             details: 'Cliente creado desde CRM'
         }];
-        if (clientAssignment) sanitizedData.clientAuditLog.push({ action: 'RESPONSABLE_ASIGNADO', field: 'assignedTo', newValue: String(sanitizedData.assignedTo), user: sanitizedData.createdBy, details: clientAssignment, source: 'CRM_V2' });
 
         const newClient = new Client(sanitizedData);
         const savedClient = await newClient.save();
@@ -3481,12 +3397,11 @@ app.patch('/api/admin/clients/:id', authenticateToken, requirePermission(PERMISS
         const client = await Client.findById(req.params.id);
         if (!client) return res.status(404).json({ message: 'Client not found' });
 
-        const payload = await normalizeClientCommercialInput(req.body, client);
-        if (req.body.newInteraction) {
-            const interaction = req.body.newInteraction;
-            if (!interaction || typeof interaction !== 'object' || !['llamada', 'whatsapp', 'email', 'visita', 'cita_agendada', 'cotizacion_enviada', 'nota', 'otro'].includes(interaction.type) || typeof interaction.note !== 'string' || !interaction.note.trim() || interaction.note.length > 10000 || (interaction.outboundNoReply !== undefined && typeof interaction.outboundNoReply !== 'boolean')) return res.status(400).json({ message: 'Revisá el tipo y el resultado de la gestión.' });
-        }
-        const allowedFields = Object.keys(payload).filter(field => field !== 'assignedTo');
+        const payload = req.body;
+        const allowedFields = [
+            'firstName', 'lastName', 'fullName', 'phone', 'email', 'dniCuit',
+            'locality', 'province', 'address', 'type', 'source', 'status', 'tags', 'notes', 'lastContactDate'
+        ];
 
         const user = req.user?.username || 'Admin';
         const newAuditLogs = [];
@@ -3498,7 +3413,16 @@ app.patch('/api/admin/clients/:id', authenticateToken, requirePermission(PERMISS
                 client.assignedTo = newAssigned;
                 client.assignedAt = new Date();
 
-                newAuditLogs.push({ action: newAssigned ? 'RESPONSABLE_ASIGNADO' : 'RESPONSABLE_REMOVIDO', field: 'assignedTo', oldValue: oldAssigned, newValue: newAssigned, user, source: 'CRM_V2', details: 'Responsable comercial actualizado' });
+                await logAudit({
+                    req,
+                    action: newAssigned ? 'RESPONSABLE_ASIGNADO' : 'RESPONSABLE_REMOVIDO',
+                    module: 'clientes',
+                    entityType: 'Client',
+                    entityId: client._id,
+                    entityLabel: client.fullName,
+                    description: `Se reasign├│ el cliente.`,
+                    metadata: { oldAssigned, newAssigned }
+                });
             }
         }
 
@@ -3519,34 +3443,20 @@ app.patch('/api/admin/clients/:id', authenticateToken, requirePermission(PERMISS
         });
 
         // Interactions are added separately if sent
-        if (req.body.newInteraction) {
+        if (payload.newInteraction) {
             client.interactions.push({
-                type: req.body.newInteraction.type,
-                note: req.body.newInteraction.note.trim(),
-                outboundNoReply: req.body.newInteraction.outboundNoReply === true,
+                ...payload.newInteraction,
                 user: user,
                 date: new Date()
             });
-            const contacted = !req.body.newInteraction.outboundNoReply && ['llamada', 'whatsapp', 'email', 'visita', 'otro'].includes(req.body.newInteraction.type);
-            if (contacted) {
-                client.contactConfirmed = true;
-                client.lastContactDate = new Date();
-                if (['sin_contactar', 'nuevo', ''].includes(client.pipelineStage || '')) client.pipelineStage = 'contactado';
-            }
-            newAuditLogs.push({ action: 'INTERACCION', field: 'interactions', user, source: 'CRM_V2', details: 'Interacción de cliente registrada' });
+            client.lastContactDate = new Date();
         }
 
         if (newAuditLogs.length > 0) {
             client.clientAuditLog.push(...newAuditLogs);
         }
 
-        const updatedClient = await mongoose.connection.transaction(async session => {
-            const saved = await client.save({ session });
-            // createdAt is immutable to ordinary Mongoose updates. This explicitly
-            // authorized commercial correction shares the profile/audit transaction.
-            if (Object.hasOwn(payload, 'createdAt')) await Client.collection.updateOne({ _id: saved._id }, { $set: { createdAt: payload.createdAt } }, { session });
-            return Client.findById(saved._id).session(session);
-        });
+        const updatedClient = await client.save();
 
         if (newAuditLogs.length > 0) {
             await logAudit({
@@ -4469,27 +4379,24 @@ app.get('/api/admin/accounts/:id/movements', authenticateToken, requirePermissio
         if (!account) return res.status(404).json({ ok: false, message: 'Cuenta no encontrada' });
 
         const { from, to, type } = req.query;
-        if((from&&!/^\d{4}-\d{2}-\d{2}$/.test(String(from)))||(to&&!/^\d{4}-\d{2}-\d{2}$/.test(String(to)))||from&&!financeCalendarKey(from)||to&&!financeCalendarKey(to))return res.status(400).json({ok:false,message:'Fechas de filtro inválidas.'});
-        if(type&&!['todos','ingreso','egreso'].includes(type))return res.status(400).json({ok:false,message:'Tipo de movimiento inválido.'});
         let query = {
             accountId: account._id,
-            status: { $nin: ['anulado','pendiente'] }
+            status: { $ne: 'anulado' }
         };
 
         if (from || to) {
             query.date = {};
             if (from) query.date.$gte = new Date(from);
-            if (to) query.date.$lte = new Date(to+'T23:59:59.999-03:00');
+            if (to) query.date.$lte = new Date(new Date(to).setHours(23, 59, 59, 999));
         }
 
         if (type && type !== 'todos') {
             query.type = new RegExp(`^${type}$`, 'i');
         }
 
-        const records = await Transaction.find(query)
+        const transactions = await Transaction.find(query)
             .sort({ date: -1, createdAt: -1 })
             .lean();
-        const transactions=records.filter(item=>{const key=financeCalendarKey(item.date);return (!from||key>=from)&&(!to||key<=to);});
 
         let totalIngresos = 0;
         let totalEgresosOperativos = 0;
@@ -4789,7 +4696,6 @@ app.delete('/api/transactions/:id', authenticateToken, requirePermission(PERMISS
     try {
         const tx = await Transaction.findById(req.params.id);
         if (!tx) return res.status(404).json({ message: 'Transacción no encontrada' });
-        if(tx.financePayableInstallmentId)return res.status(409).json({message:'Este pago corresponde a una cuota de acreedor. Revisá el plan de origen para conservar la conciliación.'});
         const oldStatus = tx.status;
 
         const account = await Account.findById(tx.accountId);
@@ -4822,67 +4728,6 @@ app.delete('/api/transactions/:id', authenticateToken, requirePermission(PERMISS
 });
 
 // --- RESERVATIONS ROUTES ---
-
-app.get('/api/admin/clients/:id/request', authenticateToken, requirePermission(PERMISSIONS.CLIENTES_READ), requirePermission(PERMISSIONS.PEDIDOS_READ), async (req, res) => {
-    try { await connectDB(); res.json(await getClientMatchingRequest(req.params.id)); }
-    catch (error) { res.status(error.statusCode || 400).json({ message: error.message, errors: error.errors }); }
-});
-app.post('/api/admin/clients/:id/request', authenticateToken, requirePermission(PERMISSIONS.CLIENTES_WRITE), requirePermission(PERMISSIONS.PEDIDOS_WRITE), async (req, res) => {
-    try { await connectDB(); res.json(await setClientMatchingRequest(req.params.id, req.body.enabled, req.user)); }
-    catch (error) { res.status(error.statusCode || 400).json({ message: error.message, errors: error.errors }); }
-});
-
-app.get('/api/admin/team-availability', authenticateToken, requirePermission(PERMISSIONS.CLIENTES_READ), async (req, res) => {
-    try {
-        await connectDB();
-        const actorId = String(req.user.id || req.user.userId || '');
-        const canManage = hasPermission(req.user, PERMISSIONS.USUARIOS_WRITE);
-        const users = await AdminUser.find({ active: true }).select('name role leadAvailabilityStatus leadAvailabilityHistory').sort({ name: 1 }).lean();
-        res.json({ users: users.map(user => ({ _id: user._id, name: user.name, role: user.role, status: user.leadAvailabilityStatus || 'available', canEdit: canManage || String(user._id) === actorId, history: canManage || String(user._id) === actorId ? (user.leadAvailabilityHistory || []).slice(-20).reverse() : undefined })) });
-    } catch { res.status(500).json({ message: 'No se pudo consultar la disponibilidad del equipo.' }); }
-});
-app.patch('/api/admin/team-availability/:id', authenticateToken, requirePermission(PERMISSIONS.CLIENTES_WRITE), async (req, res) => {
-    try {
-        await connectDB();
-        const actorId = String(req.user.id || req.user.userId || '');
-        if (actorId !== req.params.id && !hasPermission(req.user, PERMISSIONS.USUARIOS_WRITE)) return res.status(403).json({ message: 'Solo podés cambiar tu propia disponibilidad.' });
-        if (!mongoose.isValidObjectId(req.params.id) || !['available', 'paused', 'vacation', 'sick'].includes(req.body.status)) return res.status(400).json({ message: 'Revisá el usuario y su estado.' });
-        const user = await AdminUser.findById(req.params.id);
-        if (!user?.active) return res.status(404).json({ message: 'No se encontró el integrante activo.' });
-        const previousStatus = user.leadAvailabilityStatus || 'available';
-        if (previousStatus !== req.body.status) {
-            user.leadAvailabilityStatus = req.body.status;
-            user.leadAvailabilityHistory.push({ previousStatus, status: req.body.status, date: new Date(), user: req.user.username || actorId });
-            await user.save();
-            await logAudit({ req, module: 'clientes', action: 'DISPONIBILIDAD_ACTUALIZADA', entityType: 'AdminUser', entityId: user._id, description: 'Disponibilidad para asignación comercial actualizada.', metadata: { previousStatus, status: req.body.status } });
-        }
-        res.json({ _id: user._id, name: user.name, status: user.leadAvailabilityStatus, history: user.leadAvailabilityHistory.slice(-20).reverse() });
-    } catch { res.status(500).json({ message: 'No se pudo guardar la disponibilidad.' }); }
-});
-
-// Búsquedas personales: se guardan por identidad autenticada, sin modificar stock.
-app.get('/api/admin/stock-views', authenticateToken, requirePermission(PERMISSIONS.STOCK_READ), async (req, res) => {
-    try {
-        await connectDB();
-        const views = await SavedStockView.find({ userId: stockViewOwner(req.user) }).select('name filters updatedAt').sort({ name: 1 }).lean();
-        res.json({ views });
-    } catch (error) { res.status(error.statusCode || 400).json({ message: error.message }); }
-});
-app.post('/api/admin/stock-views', authenticateToken, requirePermission(PERMISSIONS.STOCK_READ), async (req, res) => {
-    try {
-        await connectDB();
-        res.status(201).json(await saveStockView(req.user, req.body));
-    } catch (error) { res.status(error.statusCode || 400).json({ message: error.message }); }
-});
-app.delete('/api/admin/stock-views/:id', authenticateToken, requirePermission(PERMISSIONS.STOCK_READ), async (req, res) => {
-    try {
-        await connectDB();
-        if (!mongoose.isValidObjectId(req.params.id)) return res.status(400).json({ message: 'La vista no es válida.' });
-        const deleted = await SavedStockView.findOneAndDelete({ _id: req.params.id, userId: stockViewOwner(req.user) });
-        if (!deleted) return res.status(404).json({ message: 'No se encontró esa búsqueda en tu sesión.' });
-        res.json({ success: true });
-    } catch (error) { res.status(error.statusCode || 400).json({ message: error.message }); }
-});
 
 // GET all reservations
 app.get('/api/admin/reservations', authenticateToken, requirePermission(PERMISSIONS.RESERVAS_READ), async (req, res) => {
@@ -5420,7 +5265,7 @@ async function buildPopulatedSaleResponse(saleId, reqUser) {
     const sale = await Sale.findById(saleId)
         .populate({
             path: 'clientId',
-            select: 'firstName lastName fullName phone email dniCuit documentNumber'
+            select: 'firstName lastName fullName phone email documentNumber'
         })
         .populate('leadId')
         .populate('vehicleId')
@@ -5437,10 +5282,46 @@ async function buildPopulatedSaleResponse(saleId, reqUser) {
         module: 'crm_v2'
     }).lean();
 
+    let netoCobrado = 0;
+    let depositApplied = 0;
+    if (sale.depositAppliedCurrency === sale.saleCurrency && sale.depositAppliedAmount) {
+        depositApplied = sale.depositAppliedAmount;
+        netoCobrado += depositApplied;
+    }
+
+    transactions.forEach(tx => {
+        if (tx.currency === sale.saleCurrency) {
+            if (tx.type === 'Ingreso') netoCobrado += tx.amount;
+            else if (tx.type === 'Egreso') netoCobrado -= tx.amount;
+        }
+    });
+
+    const tradeInValue = sale.tradeInTotalAmount || 0;
+    const totalToCollect = Math.max(0, sale.salePrice - tradeInValue);
+    const pendingBalance = totalToCollect - netoCobrado;
+
+    let collectionStatus = 'sin_cobro';
+    if (netoCobrado >= totalToCollect) {
+        collectionStatus = netoCobrado > totalToCollect && totalToCollect > 0 ? 'sobrecobrada' : 'cobrada';
+    } else if (netoCobrado > 0) {
+        collectionStatus = 'parcial';
+    }
+
+    if (totalToCollect === 0 && netoCobrado === 0) {
+        collectionStatus = 'cobrada';
+    }
+
     const saleObj = sale.toObject();
+    saleObj.finance = {
+        netoCobrado,
+        pendingBalance,
+        collectionStatus,
+        depositApplied,
+        tradeInValue,
+        totalToCollect
+    };
+
     const allowCostAndProfit = canViewSaleCostAndProfit(reqUser);
-    saleObj.commercialComposition = saleTradeInComposition(saleObj);
-    saleObj.finance = computeSaleCollection(saleObj, transactions);
     saleObj.canViewCostAndProfit = allowCostAndProfit;
 
     if (allowCostAndProfit) {
@@ -5477,27 +5358,21 @@ async function buildPopulatedSaleResponse(saleId, reqUser) {
 }
 
 // GET all sales
-registerSaleDocumentRoutes(app, { authenticateToken, requirePermission, connectDB });
-registerExpedienteRoutes(app,{authenticateToken,requirePermission,connectDB});
 app.get('/api/admin/sales', authenticateToken, requirePermission(PERMISSIONS.VENTAS_READ), async (req, res) => {
     try {
         await connectDB();
-        const workspace = req.query.workspace === '1';
-        const workspaceQuery = workspace ? normalizeSalesWorkbenchQuery(req.query) : null;
-        const exportAll = workspace && req.query.export === '1';
-        if (exportAll && !hasPermission(req.user, PERMISSIONS.REPORTES_EXPORT) && !hasPermission(req.user, PERMISSIONS.EXPORTS_READ)) return res.status(403).json({ message: 'No tenés permiso de exportación.' });
         const { vehicleId, clientId, leadId, status } = req.query;
         let query = {};
 
         if (vehicleId) query.vehicleId = vehicleId;
         if (clientId) query.clientId = clientId;
         if (leadId) query.leadId = leadId;
-        if (status && !workspace) query.status = status;
+        if (status) query.status = status;
 
         const sales = await Sale.find(query)
             .populate({
                 path: 'clientId',
-                select: 'firstName lastName fullName phone email dniCuit documentNumber'
+                select: 'firstName lastName fullName phone email documentNumber'
             })
             .populate({
                 path: 'leadId',
@@ -5571,7 +5446,44 @@ app.get('/api/admin/sales', authenticateToken, requirePermission(PERMISSIONS.VEN
 
         const salesWithFinance = sales.map(sale => {
             const saleTxs = txsBySale[String(sale._id)] || [];
-            sale.finance = computeSaleCollection(sale, saleTxs);
+            let netoCobrado = 0;
+
+            let depositApplied = 0;
+            if (sale.depositAppliedCurrency === sale.saleCurrency && sale.depositAppliedAmount) {
+                depositApplied = sale.depositAppliedAmount;
+                netoCobrado += depositApplied;
+            }
+
+            saleTxs.forEach(tx => {
+                if (tx.currency === sale.saleCurrency) {
+                    if (tx.type === 'Ingreso') netoCobrado += tx.amount;
+                    else if (tx.type === 'Egreso') netoCobrado -= tx.amount;
+                }
+            });
+
+            const tradeInValue = sale.tradeInTotalAmount || 0;
+            const totalToCollect = Math.max(0, sale.salePrice - tradeInValue);
+            const pendingBalance = totalToCollect - netoCobrado;
+
+            let collectionStatus = 'sin_cobro';
+            if (netoCobrado >= totalToCollect) {
+                collectionStatus = netoCobrado > totalToCollect && totalToCollect > 0 ? 'sobrecobrada' : 'cobrada';
+            } else if (netoCobrado > 0) {
+                collectionStatus = 'parcial';
+            }
+
+            if (totalToCollect === 0 && netoCobrado === 0) {
+                collectionStatus = 'cobrada';
+            }
+
+            sale.finance = {
+                netoCobrado,
+                pendingBalance,
+                collectionStatus,
+                depositApplied,
+                tradeInValue,
+                totalToCollect
+            };
             sale.canViewCostAndProfit = allowCostAndProfit;
 
             if (allowCostAndProfit) {
@@ -5603,14 +5515,10 @@ app.get('/api/admin/sales', authenticateToken, requirePermission(PERMISSIONS.VEN
             return sale;
         });
 
-        if (workspace) {
-            const sellers = await AdminUser.find({ active: true }).select('_id username name').lean();
-            return res.json(buildSalesWorkbench(salesWithFinance, workspaceQuery, sellers, { exportAll }));
-        }
         res.json(salesWithFinance);
     } catch (error) {
         console.error('Error fetching sales:', error);
-        res.status(error.statusCode || 500).json({ message: error.message, code: error.code });
+        res.status(500).json({ message: error.message });
     }
 });
 
@@ -5667,7 +5575,7 @@ app.get('/api/admin/sales/search-for-installments', authenticateToken, requirePe
         }
 
         const sales = await Sale.find(filter)
-            .populate('clientId', 'firstName lastName fullName phone email dniCuit documentNumber')
+            .populate('clientId', 'firstName lastName fullName phone documentNumber')
             .populate('vehicleId', 'brand name model year plateOrVin')
             .sort({ saleDate: -1, createdAt: -1 })
             .limit(Number(limit) || 20)
@@ -5765,21 +5673,137 @@ app.get('/api/admin/sales/:id', authenticateToken, requirePermission(PERMISSIONS
 });
 
 
-// Alta y borrador comparten validación; activar compromete stock de forma atómica.
+// POST create manual sale
 app.post('/api/admin/sales', authenticateToken, requirePermission(PERMISSIONS.VENTAS_WRITE), async (req, res) => {
     try {
         await connectDB();
-        const sale = await saveSaleOperation({ payload: req.body || {}, actor: req.user?.username || 'Admin', canWriteStock: hasPermission(req.user, PERMISSIONS.STOCK_WRITE), canCancel: hasPermission(req.user, PERMISSIONS.VENTAS_CANCEL) });
-        await logAudit({
-            req, action: sale.status === 'borrador' ? 'BORRADOR_CREADO' : 'VENTA_CREADA', module: 'ventas',
-            entityType: 'Sale', entityId: sale._id, entityLabel: 'Operación de venta',
-            description: sale.status === 'borrador' ? 'Borrador guardado sin afectar stock ni caja.' : 'Operación registrada sin acreditar caja.',
-            metadata: { status: sale.status, vehicleId: sale.vehicleId, isManualImport: sale.isManualImport }
+        const {
+            vehicleId, clientId, leadId, salePrice, saleCurrency, paymentMethod, notes, salesperson, saleDate, status,
+            isManualImport, vehicleOwnerName, vehicleOwnerPhone,
+            consignationOwnerId, consignationManagerId,
+            commissionSettings, deliveryItems, installmentsCount, depositAppliedAmount, depositAppliedCurrency,
+            financingDetails
+        } = req.body;
+        const finalSalePrice = Number(salePrice);
+        const finalSaleCurrency = saleCurrency;
+        const user = req.user?.username || 'Admin';
+
+        // 1. Validaciones previas
+        if (!isManualImport && !vehicleId) throw new Error('Vehicle ID is required for standard sales');
+        if (!Number.isFinite(finalSalePrice) || finalSalePrice < 0) throw new Error('Sale price cannot be negative');
+        if (!['ARS', 'USD'].includes(finalSaleCurrency)) throw new Error('Invalid sale currency');
+
+        let vehicle = null;
+        if (vehicleId) {
+            vehicle = await Car.findById(vehicleId);
+            if (!vehicle) throw new Error('Vehicle not found');
+            if (vehicle.status !== 'Disponible') throw new Error(`Vehicle is ${vehicle.status}, only Disponible vehicles can be manually sold`);
+
+            const existingSale = await Sale.findOne({ vehicleId, status: { $ne: 'cancelada' } });
+            if (existingSale) throw new Error('There is already an active sale for this vehicle');
+        }
+
+        // 2. Creación
+        const newSale = new Sale({
+            vehicleId: vehicleId || undefined,
+            clientId: clientId || undefined,
+            leadId: leadId || undefined,
+            salePrice: finalSalePrice,
+            saleCurrency: finalSaleCurrency,
+            paymentMethod: paymentMethod || 'contado',
+            notes,
+            salesperson,
+            saleDate: saleDate || new Date(),
+            status: status || 'confirmada',
+            createdBy: user,
+
+            // Nuevos campos
+            isManualImport: !!isManualImport,
+            vehicleOwnerName,
+            vehicleOwnerPhone,
+            consignationOwnerId: consignationOwnerId || undefined,
+            consignationManagerId: consignationManagerId || undefined,
+            commissionSettings,
+            deliveryItems,
+            installmentsCount: installmentsCount || 0,
+            depositAppliedAmount: depositAppliedAmount || 0,
+            depositAppliedCurrency,
+            financingDetails: financingDetails || undefined,
+
+            saleAuditLog: [{
+                action: 'VENTA_CREADA_MANUAL',
+                details: isManualImport ? 'Venta hist├│rica (manual import) registrada' : 'Venta creada manualmente sin reserva previa',
+                user: user,
+                source: 'CRM_V2'
+            }]
         });
-        res.status(201).json(sale);
+
+        const savedSale = await newSale.save();
+
+        await logAudit({
+            req,
+            action: 'VENTA_CREADA',
+            module: 'ventas',
+            entityType: 'Sale',
+            entityId: savedSale._id,
+            entityLabel: vehicle ? `Venta de ${vehicle.brand} ${vehicle.name}` : `Venta hist├│rica manual`,
+            description: `Se cre├│ una venta manual por ${finalSaleCurrency} ${finalSalePrice}.`,
+            metadata: { vehicleId: vehicle?._id, salePrice: finalSalePrice, currency: finalSaleCurrency, isManualImport }
+        });
+
+        // 3. Rollback Manual Controlado (solo si hay veh├¡culo)
+        try {
+            if (vehicle) {
+                const targetCarStatus = status === 'señado' ? 'Reservado' : 'Vendido';
+                vehicle.status = targetCarStatus;
+                vehicle.auditLog.push({
+                    action: 'ESTADO',
+                    field: 'status',
+                    oldValue: 'Disponible',
+                    newValue: targetCarStatus,
+                    details: `Veh├¡culo vendido (Venta ID: ${savedSale._id})`,
+                    user: user,
+                    source: 'CRM_V2'
+                });
+                await vehicle.save();
+            }
+
+            if (leadId) {
+                const lead = await Lead.findById(leadId);
+                if (lead && lead.crmStatus !== 'convertido') {
+                    const oldStatus = lead.crmStatus;
+                    lead.crmStatus = 'convertido';
+                    lead.lastActivityAt = new Date();
+                    lead.leadAuditLog.push({
+                        action: 'VENTA_CREADA',
+                        field: 'crmStatus',
+                        oldValue: oldStatus,
+                        newValue: 'convertido',
+                        details: 'Venta cerrada manualmente',
+                        user: user,
+                        source: 'CRM_V2'
+                    });
+                    await lead.save();
+                }
+            }
+
+            res.status(201).json(savedSale);
+        } catch (innerError) {
+            console.error('Inner error during manual sale, performing manual rollback', innerError);
+            await Sale.findByIdAndDelete(savedSale._id);
+
+            if (vehicle && vehicle.status === 'Vendido') {
+                vehicle.status = 'Disponible';
+                vehicle.auditLog.pop();
+                await vehicle.save();
+            }
+
+            throw new Error(`Transaction failed, manual rollback executed: ${innerError.message}`);
+        }
+
     } catch (error) {
-        console.error('Error creating sale:', error.message);
-        res.status(error.statusCode || 400).json({ message: error.message, code: error.code || 'SALE_VALIDATION_FAILED' });
+        console.error('Error creating manual sale:', error);
+        res.status(400).json({ message: error.message });
     }
 });
 
@@ -5853,7 +5877,7 @@ app.post('/api/admin/reservations/:id/convert-to-sale', authenticateToken, requi
             return res.status(400).json({ error: "La reserva debe tener un veh├¡culo vinculado antes de convertirla en venta." });
         }
 
-        const existingSale = await Sale.findOne({ vehicleId, historicalOnly: { $ne: true }, status: { $nin: ['cancelada', 'borrador'] } }).populate('clientId', 'firstName fullName');
+        const existingSale = await Sale.findOne({ vehicleId, status: { $ne: 'cancelada' } }).populate('clientId', 'firstName fullName');
         if (existingSale) {
             return res.status(409).json({
                 error: 'Este veh├¡culo ya tiene una venta activa asociada.',
@@ -6045,18 +6069,73 @@ app.patch('/api/admin/sales/:id/link-client', authenticateToken, requirePermissi
 });
 
 // POST create and link client to sale
-app.post('/api/admin/sales/:id/create-link-client', authenticateToken, requirePermission(PERMISSIONS.VENTAS_WRITE), requirePermission(PERMISSIONS.CLIENTES_WRITE), async (req, res) => {
+app.post('/api/admin/sales/:id/create-link-client', authenticateToken, requirePermission(PERMISSIONS.VENTAS_WRITE), async (req, res) => {
     try {
         await connectDB();
-        const result = await createAndLinkSaleClient({ saleId: req.params.id, payload: req.body, actor: req.user?.username || 'Admin', canWriteStock: hasPermission(req.user, PERMISSIONS.STOCK_WRITE), canCancel: hasPermission(req.user, PERMISSIONS.VENTAS_CANCEL) });
-        if (result.created) await logAudit({ req, action: 'VENTA_CLIENTE_CREADO_Y_VINCULADO', module: 'ventas', entityType: 'Sale', entityId: result.saleId, entityLabel: 'Venta', description: 'Comprador creado y vinculado explícitamente desde la venta.', metadata: { clientId: result.client._id } });
-        res.json({ ok: true, sale: await buildPopulatedSaleResponse(result.saleId, req.user), client: result.client });
-    } catch (error) {
-        res.status(error.statusCode || 500).json({ message: error.statusCode ? error.message : 'No se pudo crear y vincular el cliente.', code: error.code, errors: error.errors });
+        const saleId = req.params.id;
+        const sale = await Sale.findById(saleId);
+        if (!sale) return res.status(404).json({ error: 'Venta no encontrada' });
+
+        const user = req.user?.username || 'Admin';
+
+        // Extract data from the sale itself if it exists, or from req.body
+        const fullName = req.body.fullName || sale.buyerName || sale.vehicleOwnerName || 'Cliente de Venta Histórica';
+        const phone = req.body.phone || sale.buyerPhone || '0000000000';
+        const email = req.body.email || sale.buyerEmail || '';
+        const dni = req.body.dni || sale.buyerDni || '';
+
+        // Create the new client
+                const newClient = new Client({
+            firstName: fullName.split(' ')[0],
+            lastName: fullName.split(' ').slice(1).join(' '),
+            fullName: fullName,
+            phone: phone,
+            email: email,
+            dniCuit: dni,
+            source: 'otro',
+            type: 'comprador',
+            status: 'activo'
+        });
+
+        await newClient.save();
+
+        const oldClient = sale.clientId ? sale.clientId.toString() : null;
+        sale.clientId = newClient._id;
+        sale.updatedBy = user;
+
+        if (!sale.saleAuditLog) sale.saleAuditLog = [];
+        sale.saleAuditLog.push({
+            action: 'CLIENTE_CREADO_Y_VINCULADO',
+            field: 'clientId',
+            oldValue: oldClient,
+            newValue: newClient._id.toString(),
+            details: `Cliente creado manualmente desde la venta y vinculado: ${fullName}`,
+            user: user,
+            source: 'CRM_V2'
+        });
+
+        await sale.save();
+
+        await logAudit({
+            req,
+            action: 'VENTA_CLIENTE_CREADO_Y_VINCULADO',
+            module: 'ventas',
+            entityType: 'Sale',
+            entityId: sale._id,
+            entityLabel: 'Venta',
+            description: `Se creó y vinculó el cliente ${fullName} a la venta.`,
+            metadata: { clientId: newClient._id }
+        });
+
+        const populatedSale = await buildPopulatedSaleResponse(sale._id, req.user);
+        res.json({ ok: true, sale: populatedSale, client: newClient });
+    } catch (err) {
+        console.error("Error creating and linking client:", err);
+        res.status(500).json({ error: 'Error interno del servidor al crear y vincular cliente' });
     }
 });
 
-app.patch('/api/admin/sales/:id/link-vehicle', authenticateToken, requirePermission(PERMISSIONS.VENTAS_WRITE), requireOperationalSale({ saleParam: true }), async (req, res) => {
+app.patch('/api/admin/sales/:id/link-vehicle', authenticateToken, requirePermission(PERMISSIONS.VENTAS_WRITE), async (req, res) => {
     try {
         await connectDB();
         const { vehicleId } = req.body;
@@ -6213,7 +6292,7 @@ app.post('/api/admin/sales/:id/change-vehicle/preview', authenticateToken, requi
 });
 
 // Ejecución atómica de cambio de vehículo en una venta con auditoría bidireccional
-app.post('/api/admin/sales/:id/change-vehicle', authenticateToken, requirePermission(PERMISSIONS.VENTAS_WRITE), requireOperationalSale({ saleParam: true }), async (req, res) => {
+app.post('/api/admin/sales/:id/change-vehicle', authenticateToken, requirePermission(PERMISSIONS.VENTAS_WRITE), async (req, res) => {
     try {
         await connectDB();
         const { id } = req.params;
@@ -6372,7 +6451,7 @@ app.post('/api/admin/sales/:id/change-vehicle', authenticateToken, requirePermis
     }
 });
 
-app.post('/api/admin/sales/:id/create-link-vehicle', authenticateToken, requirePermission(PERMISSIONS.VENTAS_WRITE), requireOperationalSale({ saleParam: true }), async (req, res) => {
+app.post('/api/admin/sales/:id/create-link-vehicle', authenticateToken, requirePermission(PERMISSIONS.VENTAS_WRITE), async (req, res) => {
     try {
         await connectDB();
         const { brand, name, plateOrVin } = req.body;
@@ -6598,60 +6677,183 @@ app.patch('/api/admin/sales/:id/cancel', authenticateToken, requirePermission(PE
 
 // PATCH update trade-ins for a sale
 app.patch('/api/admin/sales/:id/trade-ins', authenticateToken, requirePermission(PERMISSIONS.VENTAS_WRITE), async (req, res) => {
-    try { await connectDB(); const sale = await saveSaleWorkspace({ saleId:req.params.id, payload:{tradeIns:req.body.tradeIns}, actor:req.user.username||'Admin', canWriteStock:hasPermission(req.user,PERMISSIONS.STOCK_WRITE) }); res.json(await buildPopulatedSaleResponse(sale._id,req.user)); }
-    catch(error) { res.status(error.statusCode||500).json({message:error.statusCode?error.message:'No se pudieron guardar las permutas.',code:error.code,errors:error.errors}); }
+    try {
+        await connectDB();
+        const { tradeIns, tradeInTotalAmount, balanceAfterTradeIn, paymentBreakdown } = req.body;
+
+        const sale = await Sale.findById(req.params.id);
+        if (!sale) return res.status(404).json({ error: 'Sale not found' });
+
+        const user = req.user?.username || 'Admin';
+
+        // Solo permitir editar si no est├í cancelada
+        if (sale.status === 'cancelada') {
+            return res.status(400).json({ error: 'No se puede editar una venta anulada.' });
+        }
+
+        sale.tradeIns = Array.isArray(tradeIns) ? tradeIns.map(normalizeTradeInVehicle).filter(Boolean) : [];
+        if (tradeInTotalAmount !== undefined) sale.tradeInTotalAmount = tradeInTotalAmount;
+        if (balanceAfterTradeIn !== undefined) sale.balanceAfterTradeIn = balanceAfterTradeIn;
+        if (paymentBreakdown !== undefined) sale.paymentBreakdown = paymentBreakdown;
+
+        if (!sale.saleAuditLog) sale.saleAuditLog = [];
+        sale.saleAuditLog.push({
+            action: 'VEHICULOS_RECIBIDOS_ACTUALIZADOS',
+            field: 'tradeIns',
+            details: `Se actualizaron los veh├¡culos recibidos en parte de pago. Valor total tomado: ${tradeInTotalAmount}`,
+            user: user,
+            source: 'CRM_V2'
+        });
+
+        await logAudit({
+            req,
+            action: 'VEHICULOS_RECIBIDOS_ACTUALIZADOS',
+            module: 'ventas',
+            entityType: 'Sale',
+            entityId: sale._id,
+            entityLabel: 'Venta',
+            description: `Se actualizaron los veh├¡culos en parte de pago de la venta ${sale._id}.`,
+            metadata: { tradeInTotalAmount, count: tradeIns?.length || 0 }
+        });
+
+        await sale.save();
+
+        const populatedSale = await buildPopulatedSaleResponse(sale._id, req.user);
+        res.json(populatedSale);
+    } catch (error) {
+        console.error('Error updating trade-ins:', error);
+        res.status(500).json({ error: error.message });
+    }
 });
+
+const buildCarFromTradeIn = ({ sale, tradeIn, tradeInIndex }) => {
+    const year = Number(tradeIn.year);
+    const mileage = Number(tradeIn.mileage || 0);
+    const estimatedValue = Number(tradeIn.estimatedValue || 0);
+    const name = `${tradeIn.brand} ${tradeIn.model} ${tradeIn.version || ""} ${tradeIn.year || ""}`.trim();
+
+    if (!name) throw new Error("El nombre del veh├¡culo generado qued├│ vac├¡o.");
+
+    return {
+        name,
+        brand: tradeIn.brand,
+        year: isNaN(year) ? new Date().getFullYear() : year,
+        km: isNaN(mileage) ? 0 : mileage,
+        fuel: 'Nafta', // Default allowed
+        condition: 'Usado', // Default allowed
+        price: isNaN(estimatedValue) ? 0 : estimatedValue,
+        currency: tradeIn.currency === 'USD' ? 'U$S' : '$',
+        status: 'Pausado', // Valid enum value
+        visibleEnWeb: false,
+        plateOrVin: tradeIn.plate || '',
+        purchasePrice: isNaN(estimatedValue) ? 0 : estimatedValue,
+        purchaseCurrency: tradeIn.currency === 'USD' ? 'USD' : 'ARS',
+        notes: `Veh├¡culo ingresado como parte de pago de venta ${sale._id}. \nEstado documental: ${tradeIn.documentationStatus}. \nObservaciones: ${tradeIn.conditionNotes || ''} ${tradeIn.mechanicalNotes || ''}`
+    };
+};
 
 // POST create stock car from trade-in
-app.post('/api/admin/sales/:id/trade-ins/:tradeInIndex/create-stock-car', authenticateToken, requirePermission(PERMISSIONS.VENTAS_WRITE), requirePermission(PERMISSIONS.STOCK_WRITE), requireOperationalSale({saleParam:true}), async (req,res)=>{
-    try { await connectDB(); const sale=await Sale.findById(req.params.id); const index=Number(req.params.tradeInIndex); if(!sale||!Number.isInteger(index)||index<0||!sale.tradeIns[index]) return res.status(404).json({message:'Permuta no encontrada.'});
-        const rows=sale.tradeIns.map(row=>row.toObject()); rows[index].shouldEnterStock=true;
-        const saved=await saveSaleWorkspace({saleId:sale._id,payload:{tradeIns:rows},actor:req.user.username||'Admin',canWriteStock:true});
-        const car=await Car.findById(saved.tradeIns[index].linkedStockCarId);res.json({sale:await buildPopulatedSaleResponse(saved._id,req.user),car:car?._id?{_id:car._id,brand:car.brand,name:car.name,status:car.status}:null});
-    }catch(error){res.status(error.statusCode||500).json({message:error.statusCode?error.message:'No se pudo ingresar la permuta al Stock.',code:error.code,errors:error.errors});}
-});
-
-registerRegistryRefundRoutes(app, { authenticateToken, requirePermission });
-
-app.get('/api/admin/sales-review-config', authenticateToken, requirePermission(PERMISSIONS.VENTAS_READ), async (req, res) => {
-    try { await connectDB(); const settings = await CrmSettings.findOne().select('googleReviewsUrl').lean(); const url = settings?.googleReviewsUrl || ''; res.json({ googleReviewsUrl: url.startsWith('https://') ? url : '' }); } catch { res.status(500).json({message:'No se pudo cargar la configuración de reseñas.'}); }
-});
-app.post('/api/admin/sales/:id/buyer-payments', authenticateToken, requirePermission(PERMISSIONS.VENTAS_WRITE), requirePermission(PERMISSIONS.FINANZAS_WRITE), async (req,res)=>{
-    try {await connectDB();const result=await declareSaleBuyerPayment({saleId:req.params.id,payload:req.body||{},actor:req.user});res.status(result.replayed?200:201).json({...result,sale:await buildPopulatedSaleResponse(result.saleId,req.user)});}
-    catch(error){res.status(error.statusCode||500).json({message:error.statusCode?error.message:'No se pudo registrar la declaración del comprador.',code:error.code,errors:error.errors});}
-});
-app.patch('/api/admin/sales/:id/deposit-records/:depositId/confirm', authenticateToken, requirePermission(PERMISSIONS.VENTAS_WRITE), requirePermission(PERMISSIONS.CAJA_WRITE), requirePermission(PERMISSIONS.FINANZAS_WRITE), async (req,res)=>{
-    try {await connectDB();const sale=await confirmSaleDeposit({saleId:req.params.id,depositId:req.params.depositId,transactionId:req.body.transactionId,actor:req.user.username||'Admin'});res.json(await buildPopulatedSaleResponse(sale._id,req.user));}
-    catch(error){res.status(error.statusCode||500).json({message:error.statusCode?error.message:'No se pudo conciliar la seña.',code:error.code,errors:error.errors});}
-});
-app.patch('/api/admin/sales/:id/workspace-status', authenticateToken, requirePermission(PERMISSIONS.VENTAS_WRITE), async (req, res) => {
-    try { await connectDB(); const sale = await changeSaleWorkspaceStatus({ saleId: req.params.id, ...req.body, actor: req.user.username || 'Admin', role: req.user.role, canCancel: hasPermission(req.user, PERMISSIONS.VENTAS_CANCEL) }); res.json(await buildPopulatedSaleResponse(sale._id, req.user)); }
-    catch(error) { res.status(error.statusCode || 500).json({message:error.statusCode ? error.message : 'No se pudo cambiar el estado.', errors:error.errors, code:error.code}); }
-});
-// Commercial editor, intentionally separate from status/collection workflows.
-app.patch('/api/admin/sales/:id/workspace', authenticateToken, requirePermission(PERMISSIONS.VENTAS_WRITE), async (req, res) => {
+app.post('/api/admin/sales/:id/trade-ins/:tradeInIndex/create-stock-car', authenticateToken, requirePermission(PERMISSIONS.VENTAS_WRITE), async (req, res) => {
+    let carPayload = null;
     try {
         await connectDB();
-        const sale = await saveSaleWorkspace({ saleId: req.params.id, payload: req.body || {}, actor: req.user?.username || 'Admin', canWriteStock: hasPermission(req.user, PERMISSIONS.STOCK_WRITE), canCancel: hasPermission(req.user, PERMISSIONS.VENTAS_CANCEL) });
-        res.json(await buildPopulatedSaleResponse(sale._id, req.user));
-    } catch (error) { res.status(error.statusCode || (error.name === 'ValidationError' ? 400 : 500)).json({ message: error.statusCode ? error.message : 'No se pudo guardar la ficha comercial.', code: error.code, errors: error.errors }); }
-});
+        const { id, tradeInIndex } = req.params;
+        const index = parseInt(tradeInIndex, 10);
 
-app.patch('/api/admin/sales/:id/commission-settlement', authenticateToken, requirePermission(PERMISSIONS.VENTAS_WRITE), async (req, res) => {
-    try {
-        await connectDB();
-        if (req.body.settled !== true || typeof req.body.note !== 'string' || !req.body.note.trim() || req.body.note.length > 5000) return res.status(400).json({ message: 'Indicá el motivo de la declaración de liquidación.', errors: { note: 'Escribí una constancia.' } });
-        const sale = await Sale.findOneAndUpdate({ _id: req.params.id, status: { $nin: ['borrador', 'cancelada'] }, historicalOnly: { $ne: true }, 'commissionSettlement.settled': { $ne: true } }, { $set: { commissionSettlement: { settled: true, settledAt: new Date(), settledBy: req.user.username, note: req.body.note.trim() } }, $inc: { __v: 1 }, $push: { saleAuditLog: { action: 'COMISION_DECLARADA_LIQUIDADA', details: req.body.note.trim() + ' (declaración manual, sin movimiento de caja)', user: req.user.username, source: 'CRM_V2' } } }, { new: true, runValidators: true });
-        if (!sale) return res.status(409).json({ message: 'La venta no admite esta declaración o ya fue liquidada.' });
-        res.json(await buildPopulatedSaleResponse(sale._id, req.user));
-    } catch { res.status(500).json({ message: 'No se pudo guardar la declaración.' }); }
+        const sale = await Sale.findById(id).populate('clientId', 'firstName fullName');
+        if (!sale) return res.status(404).json({ error: 'Sale not found' });
+
+        if (!sale.tradeIns || !sale.tradeIns[index]) {
+            return res.status(404).json({ error: 'Veh├¡culo recibido no encontrado en ese ├¡ndice.' });
+        }
+
+        const tradeIn = sale.tradeIns[index];
+
+        if (tradeIn.linkedStockCarId) {
+            return res.status(400).json({ error: 'Este veh├¡culo ya ha sido ingresado al stock.' });
+        }
+
+        const user = req.user?.username || 'Admin';
+
+        if (!tradeIn.brand || !tradeIn.model || !tradeIn.estimatedValue) {
+            return res.status(400).json({ error: "Faltan datos obligatorios para ingresar el veh├¡culo al stock." });
+        }
+
+        // Crear nuevo Car en stock usando mapper seguro
+        carPayload = buildCarFromTradeIn({ sale, tradeIn, tradeInIndex: index });
+        carPayload.tradeInOrigin = {
+            saleId: sale._id,
+            tradeInId: tradeIn._id,
+            value: Number(tradeIn.estimatedValue) || 0,
+            currency: tradeIn.currency === 'USD' ? 'USD' : 'ARS',
+            linkedAt: new Date(),
+            linkedBy: user,
+            source: 'sale_flow'
+        };
+        const newCar = new Car(carPayload);
+        const savedCar = await newCar.save();
+
+        // Actualizar el tradeIn en la venta de forma segura sin ownerDocument
+        const now = new Date();
+        await Sale.updateOne(
+            { _id: sale._id },
+            {
+                $set: {
+                    [`tradeIns.${index}.linkedStockCarId`]: savedCar._id,
+                    [`tradeIns.${index}.shouldEnterStock`]: true,
+                    [`tradeIns.${index}.enteredStockAt`]: now
+                },
+                $push: {
+                    saleAuditLog: {
+                        action: 'VEHICULO_RECIBIDO_INGRESADO_A_STOCK',
+                        field: 'tradeIns',
+                        details: `Veh├¡culo ${tradeIn.brand} ${tradeIn.model} ingresado a stock con ID ${savedCar._id}`,
+                        user: user,
+                        source: 'CRM_V2',
+                        date: now
+                    }
+                }
+            },
+            { runValidators: false }
+        );
+
+        try {
+            await logAudit({
+                req,
+                action: 'VEHICULO_RECIBIDO_INGRESADO_A_STOCK',
+                module: 'ventas',
+                entityType: 'Sale',
+                entityId: sale._id,
+                entityLabel: 'Venta',
+                description: `Se ingres├│ el veh├¡culo recibido ${tradeIn.brand} ${tradeIn.model} al stock de AutoSporting.`,
+                metadata: { stockCarId: savedCar._id, tradeInIndex: index }
+            });
+        } catch (auditErr) {
+            console.error("Error logging audit for create-stock-car:", auditErr);
+        }
+
+        const populatedSale = await buildPopulatedSaleResponse(sale._id, req.user);
+
+        res.json({ sale: populatedSale, car: savedCar });
+    } catch (error) {
+        console.error("Error creating stock car from trade-in:", {
+            error: error.message,
+            validationErrors: error.errors,
+            payload: carPayload,
+            saleId: req.params.id,
+            tradeInIndex: req.params.tradeInIndex,
+        });
+        res.status(500).json({
+            error: 'No se pudo ingresar el veh├¡culo al stock. Revis├í los datos del veh├¡culo recibido.',
+            details: error.message
+        });
+    }
 });
 
 // PATCH update sale
 app.patch('/api/admin/sales/:id', authenticateToken, requirePermission(PERMISSIONS.VENTAS_WRITE), async (req, res) => {
     try {
         await connectDB();
-        if(Object.hasOwn(req.body||{},'expedienteStatus')||Object.hasOwn(req.body||{},'expediente'))return res.status(409).json({message:'Gestioná el estado documental desde Expedientes para conservar sus controles e historial.',code:'EXPEDIENTE_WORKFLOW_REQUIRED'});
         const {
             status,
             paymentMethod,
@@ -6679,23 +6881,6 @@ app.patch('/api/admin/sales/:id', authenticateToken, requirePermission(PERMISSIO
 
         const sale = await Sale.findById(req.params.id);
         if (!sale) return res.status(404).json({ message: 'Sale not found' });
-        if (sale.status === 'borrador') {
-            const saved = await saveSaleOperation({ payload: req.body || {}, saleId: sale._id, actor: req.user?.username || 'Admin', canWriteStock: hasPermission(req.user, PERMISSIONS.STOCK_WRITE), canCancel: hasPermission(req.user, PERMISSIONS.VENTAS_CANCEL) });
-            await logAudit({
-                req, action: saved.status === 'borrador' ? 'BORRADOR_ACTUALIZADO' : 'VENTA_ACTIVADA', module: 'ventas',
-                entityType: 'Sale', entityId: saved._id, entityLabel: 'Operación de venta',
-                description: saved.status === 'borrador' ? 'Borrador actualizado sin afectar stock ni caja.' : 'Operación activada desde borrador.',
-                metadata: { status: saved.status, vehicleId: saved.vehicleId }
-            });
-            return res.json(await buildPopulatedSaleResponse(saved._id, req.user));
-        }
-        if (status === 'borrador') {
-            return res.status(409).json({ message: 'Una operación activa no puede volver a borrador. Usá el circuito de anulación.', code: 'SALE_ACTIVE_TO_DRAFT_BLOCKED' });
-        }
-
-
-        const hasBuyerCredits = Boolean(sale.externalBuyerPayments?.length || sale.buyerBalanceAdjustments?.length);
-        if (hasBuyerCredits && ((salePrice !== undefined && Number(salePrice) !== Number(sale.salePrice)) || (saleCurrency !== undefined && saleCurrency !== sale.saleCurrency))) return res.status(409).json({message:'La venta tiene créditos del comprador auditados. Conservá precio y moneda.',code:'SALE_BUYER_CREDITS_PROTECTED'});
 
         const user = req.user?.username || 'Admin';
         const oldStatus = sale.status;
@@ -6947,7 +7132,6 @@ app.patch('/api/admin/sales/:id', authenticateToken, requirePermission(PERMISSIO
                 };
 
                 // Actualizar precio de venta al total de la operación y plazo
-                if (hasBuyerCredits && Number(totalOperationPrice) !== Number(sale.salePrice)) return res.status(409).json({message:'La financiación cambiaría el precio de una venta con créditos auditados.',code:'SALE_BUYER_CREDITS_PROTECTED'});
                 sale.salePrice = totalOperationPrice;
                 sale.installmentsCount = planActive ? installmentsCount : 0;
 
@@ -7270,7 +7454,6 @@ app.patch('/api/admin/sales/:id', authenticateToken, requirePermission(PERMISSIO
         res.json(populatedSale);
     } catch (error) {
         console.error('Error updating sale:', error);
-        if (error.statusCode) return res.status(error.statusCode).json({ message: error.message, code: error.code });
         if (error?.name === 'ValidationError') {
             const details = Object.values(error.errors || {}).map((e) => e.message).filter(Boolean);
             return res.status(400).json({
@@ -7383,7 +7566,7 @@ app.post('/api/admin/sales/:id/installment-plan/cancel', authenticateToken, requ
 });
 
 // --- CADENAS DE PERMUTAS (vehículos recibidos en parte de pago) ---
-app.post('/api/admin/cars/:id/link-trade-in', authenticateToken, requirePermission(PERMISSIONS.VENTAS_WRITE), requireOperationalSale({}), async (req, res) => {
+app.post('/api/admin/cars/:id/link-trade-in', authenticateToken, requirePermission(PERMISSIONS.VENTAS_WRITE), async (req, res) => {
     try {
         await connectDB();
         const { saleId, tradeInId, value, currency, confirm } = req.body || {};
@@ -7587,20 +7770,6 @@ app.get('/api/admin/transactions', authenticateToken, requirePermission(PERMISSI
 });
 
 // GET consolidated finance deposits / senas
-for (const [path, kind] of [['manual-deposits', 'deposit'], ['manual-payables', 'payable']]) {
-    app.get(`/api/admin/finance/${path}`, authenticateToken, requirePermission(PERMISSIONS.FINANZAS_READ), async (req, res) => {
-        try { await connectDB(); res.set('Cache-Control', 'no-store'); res.json(await listFinanceManualEntries(kind)); }
-        catch (error) { res.status(error.statusCode || 500).json({ message: error.message }); }
-    });
-    app.post(`/api/admin/finance/${path}`, authenticateToken, requirePermission(PERMISSIONS.FINANZAS_WRITE), async (req, res) => {
-        try { await connectDB(); res.status(201).json(await createFinanceManualEntry(kind, req.body, req.user, req.get('X-Idempotency-Key') || req.body.idempotencyKey)); }
-        catch (error) { res.status(error.statusCode || 500).json({ message: error.message }); }
-    });
-    app.patch(`/api/admin/finance/${path}/:id`, authenticateToken, requirePermission(PERMISSIONS.FINANZAS_WRITE), async (req, res) => {
-        try { await connectDB(); res.json(await updateFinanceManualEntry(kind, req.params.id, req.body, req.user)); }
-        catch (error) { res.status(error.statusCode || 500).json({ message: error.message }); }
-    });
-}
 app.get('/api/admin/finance/deposits', authenticateToken, requirePermission(PERMISSIONS.FINANZAS_READ), async (req, res) => {
     try {
         await connectDB();
@@ -7619,7 +7788,6 @@ app.get('/api/admin/finance/deposits', authenticateToken, requirePermission(PERM
                 .lean(),
             Transaction.find({
                 module: 'crm_v2',
-                financeManualEntryId: null,
                 status: { $ne: 'anulado' },
                 $or: [
                     { category: /se├▒a|sena|reserva/i },
@@ -7773,13 +7941,12 @@ app.get('/api/admin/transactions/export', authenticateToken, requirePermission(P
 app.get('/api/admin/transactions/monthly-close', authenticateToken, requirePermission(PERMISSIONS.FINANZAS_READ), async (req, res) => {
     try {
         await connectDB();
-        const transactions = await Transaction.find({ module: 'crm_v2', status: { $nin: ['anulado','pendiente'] } });
+        const transactions = await Transaction.find({ module: 'crm_v2', status: { $ne: 'anulado' } });
 
         const aggregated = {};
         transactions.forEach(tx => {
-            const dateKey=financeCalendarKey(tx.date || tx.createdAt);
-            if(!dateKey||!['ARS','USD'].includes(tx.currency)||!Number.isFinite(Number(tx.amount))||!['ingreso','egreso'].includes(String(tx.type).toLowerCase()))return;
-            const key=dateKey.slice(0,7);
+            const d = new Date(tx.date || tx.createdAt);
+            const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
             if (!aggregated[key]) {
                 aggregated[key] = {
                     period: key,
@@ -7817,7 +7984,6 @@ app.post('/api/admin/transactions/bulk-annul', authenticateToken, requirePermiss
         }
 
         let annulledCount = 0;
-        if(await Transaction.exists({_id:{$in:ids},financePayableInstallmentId:{$ne:null}}))return res.status(409).json({message:'La selección incluye pagos de cuotas a acreedores. Revisá sus planes de origen antes de anular.'});
         for (const id of ids) {
             const tx = await Transaction.findOne({ _id: id, module: 'crm_v2' });
             if (tx && tx.status !== 'anulado') {
@@ -7860,7 +8026,6 @@ app.delete('/api/admin/transactions/:id', authenticateToken, requirePermission(P
         await connectDB();
         const tx = await Transaction.findOne({ _id: req.params.id, module: 'crm_v2' });
         if (!tx) return res.status(404).json({ message: 'Transacción no encontrada' });
-        if(tx.financePayableInstallmentId)return res.status(409).json({message:'Este movimiento paga una cuota a un acreedor. Su reversión debe conciliarse desde el plan de origen.'});
         if (tx.status === 'anulado') return res.status(400).json({ message: 'La transacción ya está anulada' });
 
         const oldStatus = tx.status;
@@ -7929,7 +8094,7 @@ app.get('/api/admin/transactions/:id', authenticateToken, requirePermission(PERM
 });
 
 // POST admin transaction (manual only)
-app.post('/api/admin/transactions', authenticateToken, requirePermission(PERMISSIONS.FINANZAS_WRITE), requireOperationalSale({}), async (req, res) => {
+app.post('/api/admin/transactions', authenticateToken, requirePermission(PERMISSIONS.FINANZAS_WRITE), async (req, res) => {
     try {
         await connectDB();
         if (req.user && req.user.role === 'ventas') return res.status(403).json({ message: 'Sin permisos financieros' });
@@ -7948,7 +8113,7 @@ app.post('/api/admin/transactions', authenticateToken, requirePermission(PERMISS
         // Validations
         if (!normalizedTypeLower || !['ingreso', 'egreso'].includes(normalizedTypeLower)) return res.status(400).json({ message: 'Type is required and must be ingreso/egreso' });
         if (!currency || !['ARS', 'USD'].includes(currency)) return res.status(400).json({ message: 'Currency is required and must be ARS/USD' });
-        if (amount === undefined || !Number.isFinite(Number(amount)) || Number(amount) < 0) return res.status(400).json({ message: 'Amount is required and must be finite and >= 0' });
+        if (amount === undefined || amount < 0) return res.status(400).json({ message: 'Amount is required and must be >= 0' });
         if (!concept) return res.status(400).json({ message: 'Concept is required' });
         if (!category) return res.status(400).json({ message: 'Category is required' });
 
@@ -7976,11 +8141,10 @@ app.post('/api/admin/transactions', authenticateToken, requirePermission(PERMISS
 
         // Resolve accountId safely
         let account = null;
-        if (Object.hasOwn(req.body, 'accountId')) {
-            if (!mongoose.isValidObjectId(explicitAccountId)) return res.status(400).json({message:'Elegí una cuenta válida.',errors:{accountId:'Elegí una cuenta activa de la misma moneda.'}});
+        if (explicitAccountId && mongoose.isValidObjectId(explicitAccountId)) {
             account = await Account.findById(explicitAccountId);
-            if (!account || account.isActive === false || account.currency !== currency) return res.status(400).json({message:'La cuenta debe estar activa y usar la moneda del movimiento.',errors:{accountId:'Elegí una cuenta activa de la misma moneda.'}});
-        } else {
+        }
+        if (!account) {
             account = await getOrCreateCrmV2Account(currency);
         }
 
@@ -8076,7 +8240,7 @@ app.post('/api/admin/transactions', authenticateToken, requirePermission(PERMISS
 });
 
 // PATCH admin transaction
-app.patch('/api/admin/transactions/:id', authenticateToken, requirePermission(PERMISSIONS.FINANZAS_WRITE), requireOperationalSale({ transactionParam: true }), async (req, res) => {
+app.patch('/api/admin/transactions/:id', authenticateToken, requirePermission(PERMISSIONS.FINANZAS_WRITE), async (req, res) => {
     try {
         await connectDB();
         if (req.user && req.user.role === 'ventas') return res.status(403).json({ message: 'Sin permisos financieros' });
@@ -8084,18 +8248,6 @@ app.patch('/api/admin/transactions/:id', authenticateToken, requirePermission(PE
 
         const tx = await Transaction.findOne({ _id: req.params.id, module: 'crm_v2' });
         if (!tx) return res.status(404).json({ message: 'Transaction not found' });
-        if(tx.financePayableInstallmentId && Object.keys(req.body).some(field=>field!=='notes'))return res.status(409).json({message:'Este movimiento paga una cuota a un acreedor; sólo podés editar notas sin desalinear el plan de origen.'});
-
-        if (tx.financeManualEntryId && ['amount','currency','type','accountId','date','clientId','saleId','concept','status'].some(field => Object.hasOwn(req.body,field) && String(req.body[field] ?? '') !== String(tx[field] ?? ''))) return res.status(409).json({message:'Este movimiento corresponde a una seña o pago manual. Gestioná el registro de origen para conservar la trazabilidad; sólo podés editar sus notas aquí.'});
-        const effectiveCurrency = currency === undefined ? tx.currency : currency;
-        let explicitUpdatedAccount = null;
-        if (Object.hasOwn(req.body,'accountId')) {
-            if (!mongoose.isValidObjectId(req.body.accountId)) return res.status(400).json({message:'Elegí una cuenta válida.',errors:{accountId:'Cuenta inválida.'}});
-            explicitUpdatedAccount = await Account.findById(req.body.accountId);
-            if (!explicitUpdatedAccount || explicitUpdatedAccount.isActive === false || explicitUpdatedAccount.currency !== effectiveCurrency) return res.status(400).json({message:'La cuenta debe estar activa y usar la moneda del movimiento.',errors:{accountId:'Elegí una cuenta activa de la misma moneda.'}});
-        }
-        if (amount !== undefined && (!Number.isFinite(Number(amount)) || Number(amount) < 0)) return res.status(400).json({message:'Importe inválido.'});
-        if (!['ARS','USD'].includes(effectiveCurrency)) return res.status(400).json({message:'Moneda inválida.'});
 
         const user = req.user?.username || 'Admin';
         let hasChanges = false;
@@ -8182,8 +8334,7 @@ app.patch('/api/admin/transactions/:id', authenticateToken, requirePermission(PE
             oldStatus !== incomingStatus ||
             oldType !== incomingType ||
             oldAmount !== incomingAmount ||
-            oldCurrency !== incomingCurrency ||
-            (explicitUpdatedAccount && String(explicitUpdatedAccount._id) !== String(oldAccountId));
+            oldCurrency !== incomingCurrency;
 
         if (financialChanged) {
             // 1. Revert old effect if it was activo
@@ -8223,12 +8374,8 @@ app.patch('/api/admin/transactions/:id', authenticateToken, requirePermission(PE
             
             if (currency !== undefined && incomingCurrency !== oldCurrency) {
                 tx.currency = incomingCurrency;
-                const newAccount = explicitUpdatedAccount || await getOrCreateCrmV2Account(incomingCurrency);
+                const newAccount = await getOrCreateCrmV2Account(incomingCurrency);
                 tx.accountId = newAccount._id;
-                hasChanges = true;
-            }
-            if (explicitUpdatedAccount && String(tx.accountId) !== String(explicitUpdatedAccount._id)) {
-                tx.accountId = explicitUpdatedAccount._id;
                 hasChanges = true;
             }
             
@@ -8423,7 +8570,7 @@ app.get('/api/admin/installments/search-for-expense', authenticateToken, require
     }
 });
 
-app.post('/api/admin/installments/manual-and-assign', authenticateToken, requirePermission(PERMISSIONS.FINANZAS_WRITE), requireOperationalSale({}), async (req, res) => {
+app.post('/api/admin/installments/manual-and-assign', authenticateToken, requirePermission(PERMISSIONS.FINANZAS_WRITE), async (req, res) => {
     try {
         await connectDB();
         if (req.user && req.user.role === 'ventas') return res.status(403).json({ message: 'Sin permisos financieros' });
@@ -8491,14 +8638,6 @@ app.get('/api/admin/installments', authenticateToken, requirePermission(PERMISSI
             .sort({ dueDate: 1, installmentNumber: 1 })
             .lean();
 
-        // Elegibilidad para resúmenes de cobranza sin cambiar saleId ni ocultar
-        // registros a las vistas de administración del endpoint existente.
-        const linkedSaleIds = [...new Set(installments.filter(inst => inst.saleId).map(inst => String(inst.saleId)))];
-        const linkedSales = linkedSaleIds.length
-            ? await Sale.find({ _id: { $in: linkedSaleIds } }).select('status historicalOnly').lean()
-            : [];
-        const linkedSaleById = new Map(linkedSales.map(sale => [String(sale._id), sale]));
-
         // Buscar transacciones asociadas
         const installmentIds = installments.map(i => i._id);
         const transactions = await Transaction.find({
@@ -8543,8 +8682,7 @@ app.get('/api/admin/installments', authenticateToken, requirePermission(PERMISSI
             financeSummary.balanceARS = financeSummary.ingresosARS - financeSummary.egresosARS;
             financeSummary.balanceUSD = financeSummary.ingresosUSD - financeSummary.egresosUSD;
 
-            const linkedSale = linkedSaleById.get(String(inst.saleId));
-            return { ...inst, financeSummary, saleStatus: linkedSale?.status ?? null, saleHistoricalOnly: linkedSale?.historicalOnly === true };
+            return { ...inst, financeSummary };
         });
 
         res.json(enrichedInstallments);
@@ -8813,7 +8951,7 @@ app.get('/api/admin/installments/:id', authenticateToken, requirePermission(PERM
     }
 });
 
-app.post('/api/admin/installments', authenticateToken, requirePermission(PERMISSIONS.FINANZAS_WRITE), requireOperationalSale({}), async (req, res) => {
+app.post('/api/admin/installments', authenticateToken, requirePermission(PERMISSIONS.FINANZAS_WRITE), async (req, res) => {
     try {
         await connectDB();
         const user = req.user ? (req.user.email || req.user.role) : 'System';
@@ -8928,7 +9066,7 @@ app.post('/api/admin/installments', authenticateToken, requirePermission(PERMISS
     }
 });
 
-app.post('/api/admin/installments/:id/pay', authenticateToken, requirePermission(PERMISSIONS.FINANZAS_WRITE), requireOperationalSale({ installmentParam: true }), async (req, res) => {
+app.post('/api/admin/installments/:id/pay', authenticateToken, requirePermission(PERMISSIONS.FINANZAS_WRITE), async (req, res) => {
     try {
         await connectDB();
         if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
@@ -9361,7 +9499,7 @@ app.get('/api/admin/installments/:id/history', authenticateToken, requirePermiss
     }
 });
 
-app.post('/api/admin/sales/:id/installments/generate', authenticateToken, requirePermission(PERMISSIONS.FINANZAS_WRITE), requireOperationalSale({ saleParam: true }), async (req, res) => {
+app.post('/api/admin/sales/:id/installments/generate', authenticateToken, requirePermission(PERMISSIONS.FINANZAS_WRITE), async (req, res) => {
     try {
         await connectDB();
         if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
@@ -9694,7 +9832,7 @@ app.get('/api/admin/notifications', authenticateToken, async (req, res) => {
 
         // 3. DOCUMENTACION / ENTREGAS / POSTVENTA
         if (canReadDocs || canReadPostventa) {
-            const activeSales = await Sale.find({ historicalOnly: { $ne: true }, status: { $in: ['confirmada', 'pendiente_entrega', 'entregada'] } })
+            const activeSales = await Sale.find({ status: { $in: ['confirmada', 'pendiente_entrega', 'entregada'] } })
                 .select('assignedTo documentationStatus deliveryStatus status postSaleStatus createdAt estimatedDeliveryDate updatedAt')
                 .lean();
 
@@ -9702,7 +9840,7 @@ app.get('/api/admin/notifications', authenticateToken, async (req, res) => {
                 if (!isOwnerAdmin && sale.assignedTo && sale.assignedTo.toString() !== req.user?.userId) return;
 
                 // Doc
-                if (canReadDocs && sale.documentationStatus !== 'completo') {
+                if (canReadDocs && sale.documentationStatus !== 'completa') {
                     rawNotifs.push({
                         type: 'documentation_pending',
                         severity: 'warning',
@@ -9949,7 +10087,7 @@ app.get('/api/admin/team-dashboard', authenticateToken, requirePermission(PERMIS
         const tasks = await CrmTask.find({ status: 'pendiente' }).select('title dueDate assignedTo priority').lean();
         const leads = await Lead.find({ crmStatus: { $in: ['nuevo', 'contactado', 'interesado', 'seguimiento'] } }).select('name crmStatus assignedTo lastActivityAt').lean();
         const reservations = await Reservation.find({ status: 'activa' }).select('status assignedTo expiresAt _id').lean();
-        const sales = await Sale.find({ historicalOnly: { $ne: true }, status: { $in: ['confirmada', 'pendiente_entrega', 'entregada'] } }).select('status documentationStatus postSaleStatus assignedTo _id').lean();
+        const sales = await Sale.find({ status: { $in: ['confirmada', 'pendiente_entrega', 'entregada'] } }).select('status documentationStatus postSaleStatus assignedTo _id').lean();
 
         // Audit Logs (recent 100 max for active users context)
         const recentLogs = await AuditLog.find({
@@ -11747,13 +11885,8 @@ app.delete('/api/admin/personal-transactions/:id', authenticateToken, async (req
 app.get('/api/admin/quotes', authenticateToken, requireAnyPermission([PERMISSIONS.COTIZACIONES_READ]), async (req, res) => {
     try {
         await connectDB();
-        const { search, status, sellerId, clientId, dateFrom, dateTo, limit = 50, page = 1 } = req.query;
+        const { search, status, sellerId, dateFrom, dateTo, limit = 50, page = 1 } = req.query;
         let query = {};
-
-        if (clientId) {
-            if (!mongoose.isValidObjectId(clientId)) return res.status(400).json({ message: 'El cliente de la cotización no es válido.' });
-            query.clientId = clientId;
-        }
 
         if (status) query.status = status;
         if (sellerId) query.assignedTo = sellerId;
@@ -12031,10 +12164,6 @@ app.post('/api/admin/cars/bulk', authenticateToken, requirePermission(PERMISSION
             return res.status(400).json({ message: 'No hay autos para importar.' });
         }
 
-        if (cars.some(car => car.status === 'Retirado')) {
-            return res.status(400).json({ message: 'Importá las unidades con su estado operativo y usá “Retirar de venta” desde la ficha para registrar el motivo.' });
-        }
-
         const toInsert = cars.map(car => ({
             ...car,
             auditLog: [{
@@ -12086,7 +12215,7 @@ app.get('/api/admin/tesoreria/dashboard', authenticateToken, requirePermission(P
         const checks = await Check.find({ status: 'en_cartera' }).lean();
 
         // Ventas / Expedientes
-        const sales = await Sale.find({ historicalOnly: { $ne: true } })
+        const sales = await Sale.find()
             .populate('vehicleId', 'brand name plateOrVin')
             .populate('clientId', 'firstName lastName fullName phone')
             .lean();
@@ -12102,16 +12231,125 @@ app.get('/api/admin/tesoreria/dashboard', authenticateToken, requirePermission(P
 app.post('/api/admin/tesoreria/transfer', authenticateToken, requirePermission(PERMISSIONS.CAJA_WRITE), async (req, res) => {
     try {
         await connectDB();
-        const {transferFinanceFunds}=await import('./src/services/financeTransferService.js');
-        const result=await transferFinanceFunds(req.body,{
-            actorId:req.user.id||req.user.userId,user:req.user.username||'Admin',
-            idempotencyKey:req.body.idempotencyKey||req.headers['x-idempotency-key']
+
+        // Support both naming conventions for compatibility
+        const sourceId = req.body.sourceAccountId || req.body.fromAccountId;
+        const destId = req.body.destAccountId || req.body.toAccountId;
+        const { amount, currency, concept, date, notes } = req.body;
+
+        if (!sourceId || !destId || !amount || !currency) {
+            return res.status(400).json({ message: 'Faltan datos de transferencia' });
+        }
+        if (sourceId === destId) {
+            return res.status(400).json({ message: 'Origen y destino deben ser diferentes' });
+        }
+
+        const [fromAccount, toAccount] = await Promise.all([
+            Account.findById(sourceId),
+            Account.findById(destId)
+        ]);
+
+        if (!fromAccount || !toAccount) {
+            return res.status(404).json({ message: 'Cuentas no encontradas' });
+        }
+
+        const isConversion = fromAccount.currency !== toAccount.currency;
+        const txAmount = Number(amount);
+        if (txAmount <= 0) return res.status(400).json({ message: 'Monto inválido' });
+
+        let destAmount = txAmount;
+        let rate = req.body.exchangeRate ? Number(req.body.exchangeRate) : 1;
+
+        if (isConversion) {
+            if (!req.body.exchangeRate) {
+                return res.status(400).json({ message: 'Se requiere la cotización para transferencias multimonedas (conversión)' });
+            }
+            if (!req.body.destAmount) {
+                return res.status(400).json({ message: 'Se requiere el monto de destino para transferencias multimonedas (conversión)' });
+            }
+            destAmount = Number(req.body.destAmount);
+            if (destAmount <= 0) return res.status(400).json({ message: 'Monto de destino inválido' });
+        } else {
+            if (fromAccount.currency !== currency || toAccount.currency !== currency) {
+                return res.status(400).json({ message: 'Las monedas de las cuentas no coinciden con la transferencia' });
+            }
+        }
+
+        const txDate = date ? new Date(date) : new Date();
+
+        // Egreso
+        const egreso = new Transaction({
+            type: 'Egreso',
+            amount: txAmount,
+            currency: fromAccount.currency,
+            description: `Transferencia enviada a ${toAccount.name}${isConversion ? ` (Conv. a ${toAccount.currency} @ ${rate})` : ''}`,
+            category: 'Transferencia Interna',
+            accountId: sourceId,
+            concept: concept || 'Transferencia entre cuentas',
+            notes: notes || '',
+            module: 'crm_v2',
+            source: 'manual',
+            paymentMethod: 'otro',
+            date: txDate,
+            createdBy: req.user?.username || 'Admin',
+            status: 'activo',
+            exchangeRate: isConversion ? rate : undefined,
+            conversionDate: isConversion ? txDate : undefined,
+            transactionAuditLog: [{ action: 'CREACION', details: 'Transferencia saliente', user: req.user?.username || 'Admin' }]
         });
-        if(!result.replayed)await logAudit({req,action:'TRANSFERENCIA_INTERNA',module:'finanzas',entityType:'Transaction',description:'Transferencia interna registrada en ambas cuentas.'});
-        res.json({message:'Transferencia exitosa',...result});
-    } catch(error) {
-        console.error('POST /api/admin/tesoreria/transfer error:',error);
-        res.status(error.status||500).json({message:error.message,errors:error.errors||{}});
+        await egreso.save();
+        fromAccount.balance -= txAmount;
+        await fromAccount.save();
+
+        // Ingreso
+        const ingreso = new Transaction({
+            type: 'Ingreso',
+            amount: destAmount,
+            currency: toAccount.currency,
+            description: `Transferencia recibida de ${fromAccount.name}${isConversion ? ` (Conv. de ${fromAccount.currency} @ ${rate})` : ''}`,
+            category: 'Transferencia Interna',
+            accountId: destId,
+            concept: concept || 'Transferencia entre cuentas',
+            notes: notes || '',
+            module: 'crm_v2',
+            source: 'manual',
+            paymentMethod: 'otro',
+            date: txDate,
+            createdBy: req.user?.username || 'Admin',
+            status: 'activo',
+            exchangeRate: isConversion ? rate : undefined,
+            conversionDate: isConversion ? txDate : undefined,
+            transactionAuditLog: [{ action: 'CREACION', details: 'Transferencia entrante', user: req.user?.username || 'Admin' }]
+        });
+        await ingreso.save();
+        toAccount.balance += destAmount;
+        await toAccount.save();
+
+        const populatedEgreso = await Transaction.findById(egreso._id).populate('accountId');
+        const populatedIngreso = await Transaction.findById(ingreso._id).populate('accountId');
+
+        try {
+            if (typeof logAudit === 'function') {
+                await logAudit({
+                    req,
+                    action: 'TRANSFERENCIA_INTERNA',
+                    module: 'finanzas',
+                    entityId: null,
+                    entityType: 'Transaction',
+                    description: `Transferencia de ${currency} ${amount} desde ${fromAccount.name} a ${toAccount.name}`
+                });
+            }
+        } catch (auditErr) {
+            console.error('Audit log error on transfer:', auditErr);
+        }
+
+        res.json({
+            message: 'Transferencia exitosa',
+            transactions: [populatedEgreso, populatedIngreso]
+        });
+    } catch (error) {
+        console.error('POST /api/admin/tesoreria/transfer error:', error);
+        res.status(500).json({ message: error.message });
     }
 });
 
@@ -12482,7 +12720,7 @@ app.get('/api/admin/tesoreria-estrategica/sales/:saleId/summary', authenticateTo
 });
 
 // 19d. Resumen de venta para panel de detalle de venta (acceso desde Ventas)
-app.get('/api/admin/sales/:saleId/treasury-summary', authenticateToken, requirePermission(PERMISSIONS.VENTAS_READ), requirePermission(PERMISSIONS.FINANZAS_READ), async (req, res) => {
+app.get('/api/admin/sales/:saleId/treasury-summary', authenticateToken, async (req, res) => {
     try {
         const summary = await treasuryStrategicService.getSaleTreasurySummary(req.params.saleId);
         res.json(summary);
@@ -12529,7 +12767,7 @@ app.post('/api/admin/tesoreria-estrategica/incomes/:id/revert', authenticateToke
 });
 
 // 20. Cobro único con distribución inmediata o posterior (Cobrar y Distribuir)
-app.post('/api/admin/tesoreria-estrategica/incomes/collect-and-distribute', authenticateToken, requireTreasuryPrivilegedRole, verifyTreasuryStrategicAuth, requireOperationalSale(), async (req, res) => {
+app.post('/api/admin/tesoreria-estrategica/incomes/collect-and-distribute', authenticateToken, requireTreasuryPrivilegedRole, verifyTreasuryStrategicAuth, async (req, res) => {
     try {
         const result = await treasuryStrategicService.collectAndDistribute(req.body, req.user);
         res.json(result);
@@ -13331,8 +13569,7 @@ app.get('/api/admin/checks', authenticateToken, requirePermission(PERMISSIONS.FI
 
 app.post('/api/admin/checks', authenticateToken, requirePermission(PERMISSIONS.FINANZAS_WRITE), async (req, res) => {
     try {
-        if (['depositado','cobrado'].includes(req.body.status)) return res.status(400).json({message:'Creá el cheque en cartera y luego registrá su cobro o depósito para generar el movimiento correcto.'});
-        if (!req.body.amount || !Number.isFinite(Number(req.body.amount)) || req.body.amount <= 0) {
+        if (!req.body.amount || req.body.amount <= 0) {
             return res.status(400).json({ message: 'El monto debe ser mayor a 0' });
         }
         if (req.body.direction && !['recibido', 'emitido'].includes(req.body.direction)) {
@@ -13364,10 +13601,6 @@ app.patch('/api/admin/checks/:id', authenticateToken, requirePermission(PERMISSI
         }
         const existingCheck = await Check.findById(req.params.id);
         if (!existingCheck) return res.status(404).json({ message: 'Cheque no encontrado' });
-        if (req.body.amount !== undefined && (!Number.isFinite(Number(req.body.amount)) || Number(req.body.amount)<=0)) return res.status(400).json({message:'El importe debe ser mayor a cero.'});
-        const changedTerms=['amount','currency','direction','accountId'].some(field=>Object.hasOwn(req.body,field)&&String(req.body[field]??'')!==String(existingCheck[field]??''));
-        if(existingCheck.transactionId && changedTerms)return res.status(409).json({message:'El cheque ya fue imputado en caja. Sus términos monetarios quedan protegidos.'});
-        if(!existingCheck.transactionId && ['depositado','cobrado'].includes(req.body.status) && ['amount','currency','direction'].some(field=>Object.hasOwn(req.body,field)&&String(req.body[field]??'')!==String(existingCheck[field]??'')))return res.status(409).json({message:'Guardá los cambios de importe, moneda o dirección antes de registrar el cobro o depósito.'});
 
         if (existingCheck.transactionId && req.body.status && req.body.status !== existingCheck.status) {
             return res.status(409).json({ message: 'No se puede cambiar el estado de un cheque ya imputado en caja.' });
@@ -13388,7 +13621,7 @@ app.patch('/api/admin/checks/:id', authenticateToken, requirePermission(PERMISSI
                 return res.status(400).json({ message: 'Debe especificar una cuenta para depositar/cobrar el cheque' });
             }
             const account = await Account.findById(checkAccountId);
-            if (!account || account.isActive === false) return res.status(404).json({ message: 'Cuenta no encontrada o inactiva' });
+            if (!account) return res.status(404).json({ message: 'Cuenta no encontrada' });
             if (account.currency !== existingCheck.currency) {
                 return res.status(400).json({ message: 'Moneda de la cuenta no coincide con la moneda del cheque' });
             }
@@ -13490,7 +13723,6 @@ app.get('/api/admin/finance/payables', authenticateToken, requirePermission(PERM
         const { status, search } = req.query;
 
         const sales = await Sale.find({
-            historicalOnly: { $ne: true },
             status: { $in: ['confirmada', 'pendiente_entrega', 'entregada'] }
         }).populate('vehicleId', 'brand name model year plateOrVin ownerName purchasePrice purchaseCurrency price currency agencyOwned consignmentStatus').lean();
 
@@ -13555,7 +13787,7 @@ app.get('/api/admin/finance/payables', authenticateToken, requirePermission(PERM
     }
 });
 
-app.post('/api/admin/finance/payables/:id/pay', authenticateToken, requirePermission(PERMISSIONS.FINANZAS_WRITE), requireOperationalSale({ saleParam: true }), async (req, res) => {
+app.post('/api/admin/finance/payables/:id/pay', authenticateToken, requirePermission(PERMISSIONS.FINANZAS_WRITE), async (req, res) => {
     try {
         const saleId = req.params.id;
         const { accountId, amount, currency, notes } = req.body;
@@ -13674,7 +13906,6 @@ app.get('/api/admin/finance/receivables-payables', authenticateToken, requirePer
         });
 
         const salesForPayables = await Sale.find({
-            historicalOnly: { $ne: true },
             status: { $in: ['confirmada', 'pendiente_entrega', 'entregada'] }
         }).populate('vehicleId', 'ownerName').lean();
 
@@ -14323,14 +14554,38 @@ app.get('/api/admin/finance/cash-counts', authenticateToken, requirePermission(P
     }
 });
 
-app.get('/api/admin/finance/cash-counts/book-balance',authenticateToken,requirePermission(PERMISSIONS.FINANZAS_READ),async(req,res)=>{
- try{await connectDB();const {financeBookBalance}=await import('./src/services/financeCashCountService.js');res.json(await financeBookBalance(req.query.accountId,req.query.date));}catch(error){res.status(error.status||500).json({message:error.message});}
+app.post('/api/admin/finance/cash-counts', authenticateToken, requirePermission(PERMISSIONS.FINANZAS_WRITE), async (req, res) => {
+    try {
+        const { accountId, declaredBalance, notes } = req.body;
+        const user = req.user ? (req.user.username || req.user.email || req.user.role) : 'System';
+
+        if (!accountId) return res.status(400).json({ message: 'Cuenta requerida' });
+        const parsedDeclared = Number(declaredBalance);
+        if (!Number.isFinite(parsedDeclared)) return res.status(400).json({ message: 'Saldo declarado inválido' });
+
+        const account = await Account.findById(accountId);
+        if (!account || account.isActive === false) return res.status(404).json({ message: 'Cuenta no encontrada o inactiva' });
+
+        const systemBalance = account.balance;
+        const difference = parsedDeclared - systemBalance;
+
+        const cashCount = new CashCount({
+            accountId,
+            accountName: account.name,
+            currency: account.currency,
+            systemBalance,
+            declaredBalance: parsedDeclared,
+            difference,
+            notes,
+            createdBy: user
+        });
+
+        await cashCount.save();
+        res.status(201).json(cashCount);
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
 });
-const saveCashCountHandler=async(req,res)=>{
- try{await connectDB();const {saveFinanceCashCount}=await import('./src/services/financeCashCountService.js');res.status(req.params.id?200:201).json(await saveFinanceCashCount(req.body,{id:req.params.id,actor:req.user}));}catch(error){res.status(error.status||500).json({message:error.message});}
-};
-app.post('/api/admin/finance/cash-counts',authenticateToken,requirePermission(PERMISSIONS.FINANZAS_WRITE),saveCashCountHandler);
-app.patch('/api/admin/finance/cash-counts/:id',authenticateToken,requirePermission(PERMISSIONS.FINANZAS_WRITE),saveCashCountHandler);
 
 app.get('/api/admin/finance/daily-closes', authenticateToken, requirePermission(PERMISSIONS.FINANZAS_READ), async (req, res) => {
     try {
@@ -14341,9 +14596,71 @@ app.get('/api/admin/finance/daily-closes', authenticateToken, requirePermission(
     }
 });
 
-app.post('/api/admin/finance/daily-closes', authenticateToken, requirePermission(PERMISSIONS.FINANZAS_WRITE), async (req,res)=>{
- try{await connectDB();const {createFinanceDailyClose}=await import('./src/services/financeDailyCloseService.js');res.status(201).json(await createFinanceDailyClose(req.body,req.user));}
- catch(error){res.status(error.status||500).json({message:error.message,errors:error.errors,latestClose:error.latestClose});}
+app.post('/api/admin/finance/daily-closes', authenticateToken, requirePermission(PERMISSIONS.FINANZAS_WRITE), async (req, res) => {
+    try {
+        const { notes, force } = req.body;
+        const user = req.user ? (req.user.username || req.user.email || req.user.role) : 'System';
+
+        function getArgentinaDateString(date = new Date()) {
+            const parts = new Intl.DateTimeFormat('en-US', {
+                timeZone: 'America/Argentina/Buenos_Aires',
+                year: 'numeric',
+                month: '2-digit',
+                day: '2-digit'
+            }).formatToParts(date);
+
+            const map = Object.fromEntries(parts.map(part => [part.type, part.value]));
+            return `${map.year}-${map.month}-${map.day}`;
+        }
+
+        const dateStr = getArgentinaDateString();
+
+        const existingCloses = await DailyCashClose.find({ date: dateStr }).sort({ sequence: -1 });
+
+        let sequence = 1;
+        if (existingCloses.length > 0) {
+            if (force !== true) {
+                return res.status(409).json({
+                    message: 'Ya existe un cierre para el día de hoy',
+                    latestClose: existingCloses[0]
+                });
+            }
+            sequence = existingCloses[0].sequence + 1;
+        }
+
+        const accounts = await Account.find({ isActive: { $ne: false } }).lean();
+        let totalsARS = 0;
+        let totalsUSD = 0;
+        const accountSnapshots = [];
+
+        for (const acc of accounts) {
+            accountSnapshots.push({
+                accountId: acc._id,
+                name: acc.name,
+                currency: acc.currency,
+                balance: acc.balance,
+                type: acc.type
+            });
+
+            if (acc.currency === 'ARS') totalsARS += acc.balance;
+            if (acc.currency === 'USD') totalsUSD += acc.balance;
+        }
+
+        const close = new DailyCashClose({
+            date: dateStr,
+            sequence,
+            accountSnapshots,
+            totalsARS,
+            totalsUSD,
+            notes,
+            createdBy: user
+        });
+
+        await close.save();
+        res.status(201).json(close);
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
 });
 
 app.get('/api/admin/finance/daily-closes/export', authenticateToken, requirePermission(PERMISSIONS.FINANZAS_READ), async (req, res) => {
@@ -14869,26 +15186,84 @@ app.patch('/api/admin/transactions/:id/fiscal', authenticateToken, requirePermis
 
 // --- LIQUIDACIONES Y COMISIONES ---
 
-app.get('/api/admin/finance/profitability',authenticateToken,requirePermission(PERMISSIONS.FINANZAS_READ),async(req,res)=>{
- try{
-  await connectDB();const period=String(req.query.period||'');
-  if(!/^\d{4}-(0[1-9]|1[0-2])$/.test(period))return res.status(400).json({message:'Periodo inválido.'});
-  const [year,month]=period.split('-').map(Number),startDate=new Date(period+'-01T00:00:00Z'),nextMonth=new Date(Date.UTC(year,month,1)).toISOString().slice(0,10),endDate=new Date(nextMonth+'T00:00:00-03:00');
-  const [transactions,reservations,manualDeposits,installments]=await Promise.all([
-   Transaction.find({date:{$gte:startDate,$lt:endDate},status:'activo',module:'crm_v2'}).lean(),
-   Reservation.find({status:'activa',depositDate:{$gte:startDate,$lt:endDate}}).select('depositAmount depositCurrency depositDate').lean(),
-   FinanceManualEntry.find({kind:'deposit',status:'Recibida',date:{$gte:startDate,$lt:endDate}}).populate('transactionId','status').lean(),
-   Installment.find({status:{$in:['pendiente','vencida','parcial','reprogramada']},dueDate:{$gte:startDate,$lt:endDate}}).select('amount paidAmount currency dueDate').lean()
-  ]);
-  const {financeAreaProfitability}=await import('./src/utils/financeAreaProfitability.js');
-  const active=manualDeposits.filter(row=>(!row.transactionId||row.transactionId.status!=='anulado')&&financeCalendarKey(row.date)?.slice(0,7)===period);
-  const reservationRows=reservations.filter(row=>financeCalendarKey(row.depositDate)?.slice(0,7)===period);
-  const activeReservations={count:reservationRows.length+active.length,totalARS:0,totalUSD:0};
-  for(const row of [...reservationRows.map(item=>({amount:item.depositAmount,currency:item.depositCurrency})),...active])if(['ARS','USD'].includes(row.currency))activeReservations['total'+row.currency]+=Number(row.amount||0);
-  const dueItems=installments.filter(row=>financeCalendarKey(row.dueDate)?.slice(0,7)===period),pendingInstallments={count:dueItems.length,totalARS:0,totalUSD:0};
-  for(const item of dueItems)if(['ARS','USD'].includes(item.currency))pendingInstallments['total'+item.currency]+=Math.max(0,Number(item.amount||0)-Number(item.paidAmount||0));
-  res.json({...financeAreaProfitability(transactions.filter(row=>financeCalendarKey(row.date)?.slice(0,7)===period)),activeReservations,pendingInstallments,scope:'Finanzas / Gestoría: multas, transferencias, gestoría, honorarios, servicios, trámites y verificaciones.'});
- }catch(error){res.status(500).json({message:'No se pudo calcular la rentabilidad del área.'});}
+app.get('/api/admin/finance/profitability', authenticateToken, requirePermission(PERMISSIONS.FINANZAS_READ), async (req, res) => {
+    try {
+        await connectDB();
+        const { period } = req.query; // YYYY-MM
+        if (!period || !/^\d{4}-\d{2}$/.test(period)) {
+            return res.status(400).json({ message: 'Periodo inválido' });
+        }
+
+        const [year, month] = period.split('-');
+        const startDate = new Date(year, month - 1, 1);
+        const endDate = new Date(year, month, 0, 23, 59, 59, 999);
+
+        // 1. Transacciones (ingresos/egresos operativos, excluyendo reportes)
+        const txs = await Transaction.find({
+            date: { $gte: startDate, $lte: endDate },
+            status: 'activo',
+            module: 'crm_v2'
+        }).lean();
+
+        const categories = { ARS: {}, USD: {} };
+        const neto = { ARS: 0, USD: 0 };
+        const totalsARS = { ingresos: 0, egresos: 0 };
+        const totalsUSD = { ingresos: 0, egresos: 0 };
+
+        for (const tx of txs) {
+            const cur = tx.currency;
+            if (!categories[cur][tx.category]) {
+                categories[cur][tx.category] = { ingresos: 0, egresos: 0 };
+            }
+            if (tx.type === 'Ingreso') {
+                categories[cur][tx.category].ingresos += tx.amount;
+                neto[cur] += tx.amount;
+                if(cur==='ARS') totalsARS.ingresos += tx.amount;
+                else totalsUSD.ingresos += tx.amount;
+            } else {
+                categories[cur][tx.category].egresos += tx.amount;
+                neto[cur] -= tx.amount;
+                if(cur==='ARS') totalsARS.egresos += tx.amount;
+                else totalsUSD.egresos += tx.amount;
+            }
+        }
+
+        // 2. Señas activas
+        const reservations = await Reservation.find({
+            reservationDate: { $gte: startDate, $lte: endDate },
+            status: 'vigente'
+        }).lean();
+
+        const activeReservations = {
+            count: reservations.length,
+            totalARS: reservations.filter(r => r.currency === 'ARS').reduce((acc, r) => acc + r.amount, 0),
+            totalUSD: reservations.filter(r => r.currency === 'USD').reduce((acc, r) => acc + r.amount, 0),
+        };
+
+        // 3. Cuotas Pendientes
+        const installments = await Installment.find({
+            dueDate: { $gte: startDate, $lte: endDate },
+            status: 'pendiente'
+        }).lean();
+
+        const pendingInstallments = {
+            count: installments.length,
+            totalARS: installments.filter(r => r.currency === 'ARS').reduce((acc, r) => acc + r.amount, 0),
+            totalUSD: installments.filter(r => r.currency === 'USD').reduce((acc, r) => acc + r.amount, 0),
+        };
+
+        res.json({
+            neto,
+            categories,
+            totalsARS,
+            totalsUSD,
+            activeReservations,
+            pendingInstallments
+        });
+
+    } catch (err) {
+        res.status(500).json({ message: err.message });
+    }
 });
 
 app.get('/api/admin/finance/seller-commissions', authenticateToken, requirePermission(PERMISSIONS.FINANZAS_READ), async (req, res) => {
@@ -15018,7 +15393,6 @@ app.get('/api/admin/settlements/pending-sales/:username', authenticateToken, req
 
         // Buscamos ventas confirmadas o entregadas asignadas al vendedor que no estén ya liquidadas
         const sales = await Sale.find({
-            historicalOnly: { $ne: true },
             $or: [{ salesperson: username }, { assignedTo: user._id }],
             status: { $in: ['confirmada', 'entregada'] },
             _id: { $nin: alreadyIncludedSaleIds }
@@ -15411,7 +15785,6 @@ app.get('/api/admin/my-commissions', authenticateToken, requirePermission(PERMIS
                 .flatMap(s => s.includedSales.map(is => is.saleId.toString()));
 
             pendingSales = await Sale.find({
-            historicalOnly: { $ne: true },
                 $or: [{ salesperson: targetUsername }, { assignedTo: user?._id }],
                 status: { $in: ['confirmada', 'entregada'] },
                 _id: { $nin: alreadyIncludedSaleIds }
@@ -15759,7 +16132,6 @@ app.get('/api/admin/whatsapp/templates', authenticateToken, requirePermission(PE
 app.post('/api/admin/whatsapp/send', authenticateToken, requirePermission(PERMISSIONS.WHATSAPP_WRITE), async (req, res) => {
     try {
         const { to, text, clientId, leadId, wasAiAssisted, suggestedMessage, templateName, templateLanguage } = req.body;
-        if (await isClientContactBlocked({ clientId, leadId, to, channel: 'whatsapp' })) return res.status(409).json({ message: 'Este cliente pidió no recibir contactos. No se enviará el mensaje.', code: 'CLIENT_DO_NOT_CONTACT' });
 
         if (!clientId && !leadId) {
             return res.status(400).json({ message: 'Se requiere especificar a qué cliente o lead pertenece el mensaje' });
@@ -15806,9 +16178,9 @@ app.post('/api/admin/whatsapp/send', authenticateToken, requirePermission(PERMIS
         // Enviamos el mensaje
         let result;
         if (templateName) {
-            result = await WhatsAppAdapter.sendTemplateMessage(to, templateName, templateLanguage || 'es_AR', [], { clientId, leadId });
+            result = await WhatsAppAdapter.sendTemplateMessage(to, templateName, templateLanguage || 'es_AR', []);
         } else {
-            result = await WhatsAppAdapter.sendMessage(to, text, { clientId, leadId });
+            result = await WhatsAppAdapter.sendMessage(to, text);
         }
         const externalId = result?.messages?.[0]?.id || null;
 
@@ -15990,46 +16362,197 @@ app.get('/api/admin/emails/config', authenticateToken, requirePermission(PERMISS
 
 
 // --- NPS (Net Promoter Score) ---
-const npsFailure = (res, error) => res.status(error.statusCode || 500).json({ message: error.statusCode ? error.message : 'No se pudo completar la operación NPS. Reintentá la misma solicitud.', code: error.code || 'NPS_ERROR', ...(error.surveyId ? { surveyId: error.surveyId } : {}) });
-app.get('/api/admin/nps/config', authenticateToken, requireAnyPermission([PERMISSIONS.NPS_READ, PERMISSIONS.NPS_WRITE]), async (req, res) => {
-    try { await connectDB(); res.setHeader('Cache-Control', 'no-store'); res.json(await getNpsConfig(req.query.clientId, req.user)); } catch (error) { npsFailure(res, error); }
-});
-app.get('/api/admin/clients/:id/nps', authenticateToken, requirePermission(PERMISSIONS.NPS_READ), async (req, res) => {
-    try { await connectDB(); res.setHeader('Cache-Control', 'no-store'); res.json(await clientNpsHistory(req.params.id, req.user)); } catch (error) { npsFailure(res, error); }
-});
+
 app.post('/api/admin/nps/generate', authenticateToken, requirePermission(PERMISSIONS.NPS_WRITE), async (req, res) => {
-    try { await connectDB(); res.status(201).json(await generateNpsLink(req.body, req.user)); } catch (error) { npsFailure(res, error); }
+    try {
+        const { clientId, saleId } = req.body;
+
+        if (!clientId) {
+            return res.status(400).json({ message: 'Client ID is required' });
+        }
+
+        const token = crypto.randomBytes(32).toString('hex');
+        const expiresAt = new Date();
+        expiresAt.setDate(expiresAt.getDate() + 7); // Expira en 7 dias
+
+        const survey = new NpsSurvey({
+            token,
+            client: clientId,
+            sale: saleId || null,
+            seller: req.user.userId,
+            expiresAt,
+            generatedBy: req.user.userId
+        });
+
+        await survey.save();
+
+        res.status(201).json({
+            message: 'Survey generated',
+            survey,
+            url: `${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'}/encuesta/${token}`
+        });
+    } catch (error) {
+        console.error('NPS Generate Error:', error);
+        res.status(500).json({ message: error.message });
+    }
 });
+
+
 app.post('/api/admin/nps/manual', authenticateToken, requirePermission(PERMISSIONS.NPS_WRITE), async (req, res) => {
-    try { await connectDB(); res.status(201).json(await recordManualNps(req.body, req.user)); } catch (error) { npsFailure(res, error); }
+    try {
+        await connectDB();
+        const { clientId, score, comment = '', callDate } = req.body;
+        const numericScore = Number(score);
+
+        if (!clientId) return res.status(400).json({ message: 'Cliente requerido' });
+        if (!Number.isFinite(numericScore) || numericScore < 0 || numericScore > 10) {
+            return res.status(400).json({ message: 'El puntaje debe estar entre 0 y 10' });
+        }
+
+        const client = await Client.findById(clientId).select('_id').lean();
+        if (!client) return res.status(404).json({ message: 'Cliente no encontrado' });
+
+        const responseDate = callDate ? new Date(callDate) : new Date();
+        if (Number.isNaN(responseDate.getTime())) {
+            return res.status(400).json({ message: 'Fecha de llamada invalida' });
+        }
+
+        const expiresAt = new Date(responseDate);
+        expiresAt.setDate(expiresAt.getDate() + 7);
+        const generatedBy = req.user.userId || req.user.id;
+        const token = 'manual-' + crypto.randomBytes(16).toString('hex');
+
+        const survey = new NpsSurvey({
+            token,
+            client: clientId,
+            seller: generatedBy,
+            status: 'completed',
+            expiresAt,
+            generatedBy
+        });
+        await survey.save();
+
+        try {
+            const npsResponse = new NpsResponse({
+                survey: survey._id,
+                score: numericScore,
+                comment: comment.toString().slice(0, 1000),
+                followUpStatus: numericScore <= 6 ? 'pending' : 'resolved',
+                createdAt: responseDate,
+                updatedAt: responseDate
+            });
+            await npsResponse.save();
+            res.status(201).json({ survey, response: npsResponse });
+        } catch (responseError) {
+            await NpsSurvey.deleteOne({ _id: survey._id });
+            throw responseError;
+        }
+    } catch (error) {
+        console.error('NPS Manual Error:', error);
+        res.status(500).json({ message: error.message || 'Error al registrar llamada NPS' });
+    }
 });
-app.post('/api/admin/nps/send', authenticateToken, requirePermission(PERMISSIONS.NPS_WRITE), requirePermission(PERMISSIONS.WHATSAPP_WRITE), async (req, res) => {
-    try { await connectDB(); res.json(await sendNps(req.body, req.user)); } catch (error) { npsFailure(res, error); }
-});
-app.post('/api/admin/nps/surveys/:id/retry', authenticateToken, requirePermission(PERMISSIONS.NPS_WRITE), requirePermission(PERMISSIONS.WHATSAPP_WRITE), async (req, res) => {
-    try { await connectDB(); res.json(await retryNps(req.params.id, req.body, req.user)); } catch (error) { npsFailure(res, error); }
-});
-app.patch('/api/admin/nps/surveys/:id/verify', authenticateToken, requirePermission(PERMISSIONS.NPS_WRITE), requirePermission(PERMISSIONS.WHATSAPP_WRITE), async (req, res) => {
-    try { await connectDB(); res.json(await verifyNpsDelivery(req.params.id, req.body, req.user)); } catch (error) { npsFailure(res, error); }
-});
+
 app.get('/api/admin/nps/dashboard', authenticateToken, requirePermission(PERMISSIONS.NPS_READ), async (req, res) => {
-    try { await connectDB(); res.setHeader('Cache-Control', 'no-store, max-age=0'); res.json(await npsDashboard(req.query, req.user)); } catch (error) { npsFailure(res, error); }
+    try {
+        const responses = await NpsResponse.find()
+            .populate({
+                path: 'survey',
+                populate: { path: 'client sale seller' }
+            })
+            .sort({ createdAt: -1 })
+            .lean();
+
+        let promoters = 0;
+        let passives = 0;
+        let detractors = 0;
+        const recentResponses = [];
+        const actionRequired = [];
+
+        responses.forEach(r => {
+            if (r.classification === 'promoter') promoters++;
+            else if (r.classification === 'passive') passives++;
+            else if (r.classification === 'detractor') detractors++;
+
+            if (recentResponses.length < 20) {
+                recentResponses.push(r);
+            }
+
+            if (r.classification === 'detractor' && r.followUpStatus === 'pending') {
+                actionRequired.push(r);
+            }
+        });
+
+        const total = promoters + passives + detractors;
+        const npsScore = total > 0 ? Math.round(((promoters / total) - (detractors / total)) * 100) : 0;
+
+        res.json({
+            metrics: { total, promoters, passives, detractors, npsScore },
+            recentResponses,
+            actionRequired
+        });
+    } catch (error) {
+        console.error('NPS Dashboard Error:', error);
+        res.status(500).json({ message: error.message });
+    }
 });
+
 app.patch('/api/admin/nps/follow-up/:id', authenticateToken, requirePermission(PERMISSIONS.NPS_WRITE), async (req, res) => {
     try {
-        const { status, notes = '', responsible = '' } = req.body;
-        if (!mongoose.isValidObjectId(req.params.id) || !['pending', 'in_progress', 'resolved'].includes(status) || typeof notes !== 'string' || notes.length > 5000 || typeof responsible !== 'string' || responsible.length > 300) return res.status(400).json({ message: 'Revisá el estado, la nota y el responsable del seguimiento.' });
-        const response = await NpsResponse.findByIdAndUpdate(req.params.id, { followUpStatus: status, followUpNotes: notes, responsible }, { new: true, runValidators: true }).select('_id survey score classification comment followUpStatus followUpNotes responsible createdAt updatedAt');
-        if (!response) return res.status(404).json({ message: 'Respuesta no encontrada.' });
+        const { status, notes, responsible } = req.body;
+        const response = await NpsResponse.findByIdAndUpdate(
+            req.params.id,
+            { followUpStatus: status, followUpNotes: notes, responsible: responsible },
+            { new: true }
+        );
+
+        if (!response) return res.status(404).json({ message: 'Response not found' });
+
         await logAudit({ req, action: 'UPDATE', module: 'Nps', entityType: 'NpsResponse', entityId: response._id, metadata: { status, notes, responsible } });
+
         res.json(response);
-    } catch (error) { npsFailure(res, error); }
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
 });
+
 app.get('/api/public/nps/:token', async (req, res) => {
-    try { await connectDB(); res.setHeader('Cache-Control', 'no-store, max-age=0'); res.json(await readPublicNps(req.params.token)); } catch (error) { npsFailure(res, error); }
+    try {
+        const survey = await NpsSurvey.findOne({ token: req.params.token });
+
+        if (!survey) return res.status(404).json({ message: 'Encuesta no encontrada' });
+        if (survey.status === 'completed') return res.status(400).json({ message: 'La encuesta ya fue completada', code: 'ALREADY_COMPLETED' });
+        if (new Date() > new Date(survey.expiresAt) || survey.status === 'expired') return res.status(400).json({ message: 'La encuesta ha expirado', code: 'EXPIRED' });
+
+        res.json({ valid: true, expiresAt: survey.expiresAt });
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
 });
+
 app.post('/api/public/nps/:token', async (req, res) => {
-    try { await connectDB(); res.status(201).json(await submitPublicNps(req.params.token, req.body)); } catch (error) { npsFailure(res, error); }
+    try {
+        const { score, comment } = req.body;
+
+        if (score === undefined || score < 0 || score > 10) return res.status(400).json({ message: 'Calificación inválida' });
+
+        const survey = await NpsSurvey.findOne({ token: req.params.token });
+
+        if (!survey) return res.status(404).json({ message: 'Encuesta no encontrada' });
+        if (survey.status === 'completed') return res.status(400).json({ message: 'La encuesta ya fue completada' });
+        if (new Date() > new Date(survey.expiresAt)) return res.status(400).json({ message: 'La encuesta ha expirado' });
+
+        const npsResponse = new NpsResponse({ survey: survey._id, score, comment });
+        await npsResponse.save();
+
+        survey.status = 'completed';
+        await survey.save();
+
+        res.status(201).json({ message: 'Gracias por tu respuesta' });
+    } catch (error) {
+        console.error('NPS Submit Error:', error);
+        res.status(500).json({ message: 'Error interno del servidor' });
+    }
 });
 
 
@@ -16217,7 +16740,7 @@ app.delete('/api/admin/clients/:id', authenticateToken, requirePermission(PERMIS
             entityType: 'Client',
             entityId: client._id,
             snapshot: client.toObject(),
-            deletedBy: req.user.userId || req.user.id,
+            deletedBy: req.user.userId,
             expiresAt
         });
 
@@ -16893,7 +17416,6 @@ app.post('/api/webhooks/whatsapp', async (req, res) => {
 app.post('/api/admin/emails/send', authenticateToken, requirePermission(PERMISSIONS.CORREOS_WRITE), async (req, res) => {
     try {
         const { to, subject, html, clientId, leadId, attachments } = req.body;
-        if (await isClientContactBlocked({ clientId, leadId, to, channel: 'email' })) return res.status(409).json({ message: 'Este cliente pidió no recibir contactos. No se enviará el correo.', code: 'CLIENT_DO_NOT_CONTACT' });
 
         if (!clientId && !leadId) {
             return res.status(400).json({ message: 'Se requiere un clientId o leadId para enviar un correo y registrarlo correctamente.' });
@@ -16926,7 +17448,7 @@ app.post('/api/admin/emails/send', authenticateToken, requirePermission(PERMISSI
             }
         }
 
-        const info = await EmailAdapter.sendEmail(to, subject, html, validAttachments, { clientId, leadId });
+        const info = await EmailAdapter.sendEmail(to, subject, html, validAttachments);
 
         const log = new CommunicationLog({
             entityType,

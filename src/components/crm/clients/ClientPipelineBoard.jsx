@@ -1,39 +1,45 @@
 import React from 'react';
-import Link from 'next/link';
-import { CLIENT_PIPELINE_STAGES, getClientPipelineStage, formatClientNextAction } from '../../../utils/clientCommercial';
-import { clientDetailHref } from '../../../utils/clientNavigation';
 
-export default function ClientPipelineBoard({ clients, onChangeStatus, readOnly = false, pipelineCounts = {}, busyId, returnTo }) {
-    const columns = CLIENT_PIPELINE_STAGES.map(stage => ({ ...stage, title: stage.label }));
-    if (clients.some(client => !columns.some(stage => stage.id === getClientPipelineStage(client)))) columns.push({ id: 'otras', title: 'Otras etapas', color: 'border-crm-border text-crm-fg-muted' });
+const columns = [
+    { id: 'nuevo', title: 'Nuevo', color: 'border-blue-500/50 bg-blue-500/10 text-blue-300' },
+    { id: 'contactado', title: 'Contactado', color: 'border-cyan-500/50 bg-cyan-500/10 text-cyan-300' },
+    { id: 'cita_agendada', title: 'Cita agendada', color: 'border-purple-500/50 bg-purple-500/10 text-purple-300' },
+    { id: 'mostrando_autos', title: 'Mostrando autos', color: 'border-orange-500/50 bg-orange-500/10 text-orange-300' },
+    { id: 'en_negociacion', title: 'En negociación', color: 'border-yellow-500/50 bg-yellow-500/10 text-yellow-300' },
+    { id: 'propuesta_enviada', title: 'Propuesta enviada', color: 'border-indigo-500/50 bg-indigo-500/10 text-indigo-300' },
+    { id: 'cerrado', title: 'Cerrado', color: 'border-emerald-500/50 bg-emerald-500/10 text-emerald-300' },
+    { id: 'sin_interes', title: 'Sin interés', color: 'border-red-500/50 bg-red-500/10 text-red-300' }
+];
+
+export default function ClientPipelineBoard({ clients, onChangeStatus }) {
     const getClientsByStatus = (status) => {
-        return clients.filter(c => status === 'otras' ? !CLIENT_PIPELINE_STAGES.some(stage => stage.id === getClientPipelineStage(c)) : getClientPipelineStage(c) === status);
+        return clients.filter(c => (c.pipelineStage || 'nuevo') === status);
     };
 
     const handleDragStart = (e, clientId) => {
-        if (!readOnly && !busyId) e.dataTransfer.setData('clientId', clientId);
+        e.dataTransfer.setData('clientId', clientId);
     };
 
     const handleDrop = (e, status) => {
         e.preventDefault();
         const clientId = e.dataTransfer.getData('clientId');
-        if (!readOnly && !busyId && status !== 'otras' && clientId && onChangeStatus) {
+        if (clientId && onChangeStatus) {
             onChangeStatus(clientId, status);
         }
     };
 
     const handleDragOver = (e) => {
-        if (!readOnly && !busyId) e.preventDefault();
+        e.preventDefault();
     };
 
     return (
-        <div aria-label="Pipeline de clientes" className="w-full min-w-0 overflow-x-auto custom-scrollbar pb-4 flex gap-3">
+        <div className="w-full overflow-x-auto custom-scrollbar pb-4 flex gap-4 min-w-max">
             {columns.map(col => {
                 const columnClients = getClientsByStatus(col.id);
                 return (
                     <div 
                         key={col.id} 
-                        className="w-64 flex-shrink-0 flex flex-col gap-3 bg-crm-surface/50 rounded-xl p-3 border border-crm-border"
+                        className="w-72 flex-shrink-0 flex flex-col gap-3 bg-crm-surface/50 rounded-xl p-3 border border-crm-border"
                         onDrop={(e) => handleDrop(e, col.id)}
                         onDragOver={handleDragOver}
                     >
@@ -42,7 +48,7 @@ export default function ClientPipelineBoard({ clients, onChangeStatus, readOnly 
                                 {col.title}
                             </span>
                             <span className="text-xs text-crm-fg-muted bg-crm-bg px-2 py-0.5 rounded-full border border-crm-border">
-                                {pipelineCounts[col.id] != null && pipelineCounts[col.id] !== columnClients.length ? `${columnClients.length} / ${pipelineCounts[col.id]}` : columnClients.length}
+                                {columnClients.length}
                             </span>
                         </div>
                         
@@ -50,11 +56,11 @@ export default function ClientPipelineBoard({ clients, onChangeStatus, readOnly 
                             {columnClients.map(client => (
                                 <div 
                                     key={client._id}
-                                    draggable={!readOnly && !busyId}
+                                    draggable
                                     onDragStart={(e) => handleDragStart(e, client._id)}
                                     className="bg-crm-bg border border-crm-border p-3 rounded-lg cursor-grab active:cursor-grabbing hover:border-crm-red/50 transition-colors"
                                 >
-                                    <Link href={clientDetailHref(client._id, returnTo)} className="text-sm font-semibold text-crm-fg no-underline hover:text-crm-red">{client.fullName}</Link>
+                                    <p className="text-sm font-bold text-crm-fg mb-1">{client.firstName} {client.lastName}</p>
                                     <p className="text-xs text-crm-fg-muted mb-2 line-clamp-1">{client.vehicleOfInterest || 'Sin vehículo'}</p>
                                     <div className="flex justify-between items-center mt-2 pt-2 border-t border-crm-border/50">
                                         <span className="text-[10px] text-crm-fg-muted">{client.phone || client.email}</span>
@@ -62,12 +68,6 @@ export default function ClientPipelineBoard({ clients, onChangeStatus, readOnly 
                                             {client.reason === 'entro_puerta' ? 'Local' : 'Digital'}
                                         </span>
                                     </div>
-                                    <p className="my-2 text-xs text-crm-fg-muted">{client.assignedTo?.name || 'Sin vendedor'} · {formatClientNextAction(client)}</p>
-                                    {client.nextAction && <p className="my-2 text-xs text-crm-fg-muted">{client.nextAction}</p>}
-                                    {!readOnly && <select aria-label={`Etapa de ${client.fullName}`} value={getClientPipelineStage(client)} disabled={Boolean(busyId)} onChange={event => onChangeStatus(client._id, event.target.value)} className="w-full rounded border border-crm-border bg-crm-surface px-2 py-1.5 text-xs text-crm-fg">
-                                        {col.id === 'otras' && <option value={getClientPipelineStage(client)}>Etapa a revisar</option>}
-                                        {CLIENT_PIPELINE_STAGES.map(stage => <option key={stage.id} value={stage.id}>{stage.label}</option>)}
-                                    </select>}
                                 </div>
                             ))}
                         </div>

@@ -24,7 +24,6 @@ import {
 } from 'lucide-react';
 import UpcomingDuesPanel from './UpcomingDuesPanel';
 import AnnualBillingPanel from './AnnualBillingPanel';
-import CashProjectionPanel from './CashProjectionPanel';
 
 const toneClasses = {
     green: 'bg-emerald-500/15 text-emerald-400',
@@ -90,6 +89,96 @@ function KpiCard({ label, value, detail, icon: Icon, tone = 'green', href, onCli
     }
 
     return <div className={className}>{content}</div>;
+}
+
+function CashProjectionCard({ label, value, detail, tone = 'neutral' }) {
+    const colorMap = {
+        neutral: 'bg-crm-surface-raised border-crm-border text-crm-fg',
+        green: 'bg-emerald-500/10 border-emerald-500/30 text-emerald-200',
+        red: 'bg-crm-red/10 border-red-500/30 text-red-200'
+    };
+
+    return (
+        <div className={`rounded-xl border p-3 ${colorMap[tone] || colorMap.neutral}`}>
+            <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-crm-fg-muted">
+                {label}
+            </p>
+            <p className="mt-3 text-sm font-bold leading-none">{value}</p>
+            {detail && <p className="mt-2 text-[11px] text-crm-fg-muted">{detail}</p>}
+        </div>
+    );
+}
+
+function CashProjectionPanel({ metrics, hideAmounts }) {
+    const netCashUSD = metrics.finanzas?.saldos?.USD ?? 0;
+    const netCashARS = metrics.finanzas?.saldos?.ARS ?? 0;
+
+    return (
+        <section className="rounded-xl border border-crm-border bg-crm-surface p-4">
+            <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                <div className="flex flex-wrap items-center gap-2">
+                    <h3 className="flex items-center gap-2 text-base font-semibold text-crm-fg">
+                        <Landmark size={15} className="text-amber-400" />
+                        Proyección de caja
+                    </h3>
+                    <span className="rounded-md border border-amber-500/30 bg-amber-500/15 px-2 py-0.5 text-[10px] font-semibold text-amber-300">
+                        Proyección pendiente de integración
+                    </span>
+                </div>
+                <div className="flex items-center gap-4 text-xs">
+                    <span className="text-crm-fg-muted">Cronograma en desarrollo</span>
+                    <Link href="/admin/tesoreria" className="font-semibold text-amber-300 transition hover:text-amber-200">
+                        Ver Tesorería →
+                    </Link>
+                </div>
+            </div>
+            <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-4">
+                <CashProjectionCard
+                    label="Flujo neto del mes"
+                    value={hideAmounts ? '***' : `USD ${formatCurrency(netCashUSD)}`}
+                    detail={hideAmounts ? '***' : `ARS ${formatCurrency(netCashARS)}`}
+                    tone={netCashUSD < 0 ? 'red' : netCashUSD > 0 ? 'green' : 'neutral'}
+                />
+                <CashProjectionCard
+                    label="A cobrar"
+                    value="Pendiente"
+                    detail="Cálculo dinámico en desarrollo"
+                    tone="neutral"
+                />
+                <CashProjectionCard
+                    label="A pagar"
+                    value="Pendiente"
+                    detail="Cálculo dinámico en desarrollo"
+                    tone="neutral"
+                />
+                <CashProjectionCard
+                    label="Resultado proyectado"
+                    value="Pendiente"
+                    detail="No usar margen como liquidez"
+                    tone="neutral"
+                />
+            </div>
+            <div className="mt-4 grid grid-cols-1 gap-3 lg:grid-cols-2">
+                <div className="rounded-xl border border-amber-500/20 bg-amber-500/5 p-4">
+                    <div className="mb-2 flex items-center justify-between">
+                        <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-amber-200">Entradas previstas</p>
+                        <span className="rounded-md bg-amber-500/15 px-2 py-0.5 text-[10px] font-bold text-amber-300">En desarrollo</span>
+                    </div>
+                    <p className="text-xs text-crm-fg-muted">Integración con cuotas y cobros pendientes de ventas en proceso.</p>
+                </div>
+                <div className="rounded-xl border border-amber-500/20 bg-amber-500/5 p-4">
+                    <div className="mb-2 flex items-center justify-between">
+                        <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-amber-200">Salidas previstas</p>
+                        <span className="rounded-md bg-amber-500/15 px-2 py-0.5 text-[10px] font-bold text-amber-300">En desarrollo</span>
+                    </div>
+                    <p className="text-xs text-crm-fg-muted">Integración con pagos a propietarios, comisiones y egresos programados en proceso.</p>
+                </div>
+            </div>
+            <p className="mt-4 border-t border-crm-border pt-3 text-[11px] leading-relaxed text-crm-fg-muted">
+                Módulo en desarrollo: no utilizar estos valores como saldo disponible ni proyección confirmada de liquidez hasta completar la integración con Tesorería.
+            </p>
+        </section>
+    );
 }
 
 function Panel({ title, subtitle, href, icon: Icon, children, className = '' }) {
@@ -666,7 +755,7 @@ export default function GeneralDashboardSote({ metrics, canSeeFinancials = false
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-5">
                 {compactCards.map((card) => <KpiCard key={card.label} {...card} compact />)}
             </div>
-            {canSeeFinancials && <CashProjectionPanel hideAmounts={hideAmounts} />}
+            {canSeeFinancials && <CashProjectionPanel metrics={metrics} hideAmounts={hideAmounts} />}
             <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
                 <StockOverviewPanel counts={counts} />
                 <MonthlySalesPanel selectedDate={selectedDate} historicalSales={metrics.historicalSalesARS} />

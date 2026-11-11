@@ -1,16 +1,6 @@
 "use client";
 
-import React, { useEffect, useMemo, useRef, useState } from 'react';
-import {useAuth} from '../../../context/AuthContext';
-import {useFinanceWorkspace} from '../../../hooks/useFinanceWorkspace';
-import {buildFinanceOverview,financeCalendarKey} from '../../../utils/financeWorkbench';
-import FinanceOverview from '../../../components/crm/finance/FinanceOverview';
-import FinanceDocumentModal from '../../../components/crm/finance/FinanceDocumentModal';
-import ManualFinanceEntries from '../../../components/crm/finance/ManualFinanceEntries';
-import VehicleReceivablesTab from '../../../components/crm/finance/tabs/VehicleReceivablesTab';
-import PayableInstallmentsTab from '../../../components/crm/finance/PayableInstallmentsTab';
-import RegistryRefundTab from '../../../components/crm/finance/RegistryRefundTab';
-import FinancePeriodsTab from '../../../components/crm/finance/FinancePeriodsTab';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
     AlertTriangle,
     CalendarDays,
@@ -34,7 +24,7 @@ import ConfirmModal from '../../../components/crm/ui/ConfirmModal';
 import PersonalFinanceTab from '../../../components/crm/finance/PersonalFinanceTab';
 import CuotasFinancieras from '../../../components/crm/finance/CuotasFinancieras';
 import PermissionGuard from '../../../components/crm/layout/PermissionGuard';
-import { PERMISSIONS,hasPermission } from '../../../utils/adminPermissions';
+import { PERMISSIONS } from '../../../utils/adminPermissions';
 import { useAdminInstallments } from '../../../hooks/useAdminInstallments';
 import CrmPageHeader from '../../../components/crm/ui/CrmPageHeader';
 import InstallmentModal from '../../../components/crm/installments/InstallmentModal';
@@ -59,10 +49,34 @@ import PagoEmpresasTab from '../../../components/crm/finance/tabs/PagoEmpresasTa
 import SueldosTab from '../../../components/crm/finance/tabs/SueldosTab';
 import TallerTab from '../../../components/crm/finance/tabs/TallerTab';
 import ResumenGastosTab from '../../../components/crm/finance/tabs/ResumenGastosTab';
-import FinanceNavigation, { FINANCE_TABS } from '../../../components/crm/finance/FinanceNavigation';
-import CashProjectionPanel from '../../../components/crm/dashboard/CashProjectionPanel';
-import { getInstallmentCollectionStats } from '../../../utils/installmentCollectionStats';
-import {getArgentinaDateKey} from '../../../utils/cashProjection';
+
+
+const FINANCE_TABS = [
+    { id: 'resumen', icon: '📊', label: 'Resumen' },
+    { id: 'movimientos', icon: '🧾', label: 'Movimientos' },
+    { id: 'resumen-gastos', icon: '📉', label: 'Resumen Gastos' },
+    { id: 'senas', icon: '🤝', label: 'Señas' },
+    { id: 'gastos-personales', icon: '👤', label: 'Gastos Personales' },
+    { id: 'sueldos', icon: '🧑‍💼', label: 'Sueldos' },
+    { id: 'taller', icon: '🔧', label: 'Taller / Mecánico' },
+    { id: 'cuotas', icon: '📆', label: 'Cuotas' },
+    { id: 'pagos', icon: '💸', label: 'Pagos Disp.' },
+    { id: 'pago-empresas', icon: '🏢', label: 'Pago Empresas' },
+    { id: 'tarjeta', icon: '💳', label: 'Tarjeta' },
+    { id: 'retiros', icon: '🏧', label: 'Retiros' },
+    { id: 'comisiones', icon: '🪙', label: 'Comisiones' },
+    { id: 'rentabilidad', icon: '📈', label: 'Rentabilidad' },
+    { id: 'cuentas', icon: '🏦', label: 'Cuentas' },
+    { id: 'cobrar-pagar', icon: '🔁', label: 'x Cobrar/Pagar' },
+    { id: 'cheques', icon: '📄', label: 'Cheques' },
+    { id: 'prestamos', icon: '🤲', label: 'Préstamos' },
+    { id: 'presupuesto', icon: '📋', label: 'Presupuesto' },
+    { id: 'recurrencias', icon: '🔄', label: 'Recurrencias' },
+    { id: 'arqueos', icon: '🔍', label: 'Arqueos' },
+    { id: 'cierre', icon: '🧮', label: 'Cierre Caja' },
+    { id: 'conciliacion', icon: '✅', label: 'Conciliación' },
+    { id: 'afip', icon: '🏛️', label: 'AFIP/IVA' }
+];
 
 const BASE_FILTERS = {
     search: '',
@@ -70,7 +84,6 @@ const BASE_FILTERS = {
     paymentMethod: 'todas',
     status: 'todos',
     linkedTo: 'todas',
-    accountId: '',
     startDate: '',
     endDate: ''
 };
@@ -93,7 +106,7 @@ const isExpense = (tx) => normalizeType(tx) === 'egreso';
 
 const getAmount = (tx) => Number(tx?.amount || 0);
 
-const dateInputValue = (date) => getArgentinaDateKey(date);
+const dateInputValue = (date) => date.toISOString().split('T')[0];
 
 const formatDate = (date) => {
     if (!date) return '-';
@@ -101,8 +114,7 @@ const formatDate = (date) => {
 };
 
 const formatMoney = (amount, currency = 'ARS') => {
-    if(amount===null || amount===undefined || amount==='' || !Number.isFinite(Number(amount)))return currency+' —';
-    const value = Number(amount).toLocaleString('es-AR');
+    const value = Number(amount || 0).toLocaleString('es-AR');
     return `${currency} ${value}`;
 };
 
@@ -112,23 +124,18 @@ const isSenaTransaction = (tx) => {
 };
 
 function FinanzasPage() {
-    const {token}=useAuth();
-    const [documentKind,setDocumentKind]=useState(null);
-    const pageToken=useRef(token);pageToken.current=token;
-    const {data:financeData,errors:dataErrors,loading:workspaceLoading,reload:loadData}=useFinanceWorkspace();
     const { fetchTransactions, createTransaction, updateTransaction, annulTransaction, bulkAnnulTransactions, transferFunds, exportTransactions, fetchMonthlyClose, loading: transactionsLoading, error: transactionsError } = useAdminTransactions();
     const { fetchInstallments, createInstallment, loading: installmentsLoading, payInstallment } = useAdminInstallments();
     const { fetchAccounts, createAccount, updateAccount, deleteAccount, recalculateBalances, loading: accountsLoading } = useAdminAccounts();
-    const allTransactions=financeData.transactions || [];
-    const accounts=financeData.accounts || [];
-    const installments=financeData.installments || [];
+    const [allTransactions, setAllTransactions] = useState([]);
+    const [accounts, setAccounts] = useState([]);
+    const [installments, setInstallments] = useState([]);
     const [activeTab, setActiveTab] = useState('resumen');
-    const [navigationReady, setNavigationReady] = useState(false);
     const [movementMode, setMovementMode] = useState('todos');
     const [senaMode, setSenaMode] = useState('todos');
     const [senaSearch, setSenaSearch] = useState('');
-    const financeDeposits=financeData.deposits || EMPTY_DEPOSIT_DATA;
-    const depositsLoading=workspaceLoading;
+    const [financeDeposits, setFinanceDeposits] = useState(EMPTY_DEPOSIT_DATA);
+    const [depositsLoading, setDepositsLoading] = useState(false);
     const [filters, setFilters] = useState(BASE_FILTERS);
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [selectedTx, setSelectedTx] = useState(null);
@@ -141,8 +148,33 @@ function FinanzasPage() {
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [isInstallmentModalOpen, setIsInstallmentModalOpen] = useState(false);
     const [selectedInstallmentForPay, setSelectedInstallmentForPay] = useState(null);
-    useEffect(()=>{setIsModalOpen(false);setSelectedTx(null);setModalPreset(null);setIsTransferOpen(false);setDocumentKind(null);setIsMonthlyCloseOpen(false);setAssignModalExpense(null);setIsInstallmentModalOpen(false);setSelectedInstallmentForPay(null);setIsConfirmOpen(false);setIsSubmitting(false);},[token]);
 
+    const fetchFinanceDeposits = async () => {
+        const token = localStorage.getItem('token');
+        if (!token) return EMPTY_DEPOSIT_DATA;
+
+        setDepositsLoading(true);
+        try {
+            const response = await fetch('/api/admin/finance/deposits', {
+                headers: {
+                    'Content-Type': 'application/json',
+                    Authorization: `Bearer ${token}`
+                }
+            });
+
+            if (!response.ok) return EMPTY_DEPOSIT_DATA;
+            const data = await response.json();
+            return {
+                items: Array.isArray(data.items) ? data.items : [],
+                summary: data.summary || EMPTY_DEPOSIT_DATA.summary
+            };
+        } catch (err) {
+            console.error('Error loading finance deposits:', err);
+            return EMPTY_DEPOSIT_DATA;
+        } finally {
+            setDepositsLoading(false);
+        }
+    };
 
     const handleDeleteTransaction = (tx) => {
         setConfirmAction({
@@ -185,43 +217,81 @@ function FinanzasPage() {
         try {
             await transferFunds(data);
             toast.success('Transferencia exitosa');
-            await loadData();
+            setIsTransferOpen(false);
+            loadData();
         } catch (err) {
             toast.error(err.message || 'Error al transferir');
-            throw err;
         } finally {
             setIsSubmitting(false);
         }
     };
 
+    const loadData = async () => {
+        const [transactionsData, depositsData, installmentsData, accountsData] = await Promise.all([
+            fetchTransactions(),
+            fetchFinanceDeposits(),
+            fetchInstallments(),
+            fetchAccounts()
+        ]);
+        setAllTransactions(transactionsData || []);
+        setFinanceDeposits(depositsData || EMPTY_DEPOSIT_DATA);
+        setInstallments(installmentsData || []);
+        setAccounts(accountsData || []);
+    };
 
     useEffect(() => {
-        const readNavigation = () => {
-            const tab = new URLSearchParams(window.location.search).get('tab');
-            setActiveTab(FINANCE_TABS.some((item) => item.id === tab) ? tab : 'resumen');
-            setNavigationReady(true);
-        };
-        readNavigation();
-        window.addEventListener('popstate', readNavigation);
-        return () => window.removeEventListener('popstate', readNavigation);
+        loadData();
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
     useEffect(() => {
-        if (!navigationReady) return;
+        const params = new URLSearchParams(window.location.search);
+        const tab = params.get('tab');
+        if (tab && FINANCE_TABS.some(t => t.id === tab)) {
+            setActiveTab(tab);
+        }
+    }, []);
+
+    useEffect(() => {
         const url = new URL(window.location);
         if (url.searchParams.get('tab') !== activeTab) {
             url.searchParams.set('tab', activeTab);
-            window.history.replaceState(window.history.state, '', url);
+            window.history.replaceState({}, '', url);
         }
-    }, [activeTab, navigationReady]);
+    }, [activeTab]);
 
-    const overview=useMemo(()=>buildFinanceOverview({accounts:financeData.accounts,transactions:financeData.transactions}),[financeData.accounts,financeData.transactions]);
-    const metrics=overview.activity || {ARS:{income:0,expense:0},USD:{income:0,expense:0}};
-    const balances=overview.balances || {ARS:null,USD:null};
+    const metrics = useMemo(() => {
+        return allTransactions.reduce((acc, tx) => {
+            if (tx.status === 'anulado' || tx.status === 'pendiente') return acc;
+            const currency = tx.currency === 'USD' ? 'USD' : 'ARS';
+            const amount = getAmount(tx);
+
+            if (isIncome(tx)) {
+                acc[currency].income += amount;
+            }
+            if (isExpense(tx)) {
+                acc[currency].expense += amount;
+            }
+
+            return acc;
+        }, {
+            ARS: { income: 0, expense: 0 },
+            USD: { income: 0, expense: 0 }
+        });
+    }, [allTransactions]);
+
+    const balances = useMemo(() => {
+        const arsAccs = accounts.filter(a => a.currency === 'ARS' && a.isActive !== false);
+        const usdAccs = accounts.filter(a => a.currency === 'USD' && a.isActive !== false);
+        return {
+            ARS: arsAccs.reduce((sum, a) => sum + (a.balance || 0), 0),
+            USD: usdAccs.reduce((sum, a) => sum + (a.balance || 0), 0)
+        };
+    }, [accounts]);
 
     const filteredTransactions = useMemo(() => {
         return allTransactions.filter((tx) => {
-            const text = `${tx.concept || tx.description || ''} ${tx.category || ''} ${tx.notes || ''} ${tx.targetUser||tx.createdBy||''} ${tx.vehicleId?.brand||''} ${tx.vehicleId?.name||''} ${tx.vehicleId?.plateOrVin||''}`.toLowerCase();
+            const text = `${tx.concept || tx.description || ''} ${tx.category || ''} ${tx.notes || ''}`.toLowerCase();
             const mode = movementMode;
 
             if (mode === 'ingreso' && !isIncome(tx)) return false;
@@ -230,12 +300,10 @@ function FinanzasPage() {
 
             if (filters.search && !text.includes(filters.search.toLowerCase())) return false;
             if (filters.currency !== 'todas' && tx.currency !== filters.currency) return false;
-            if(filters.accountId && String(tx.accountId?._id||tx.accountId||'')!==filters.accountId)return false;
             if (filters.paymentMethod !== 'todas' && tx.paymentMethod !== filters.paymentMethod) return false;
             if (filters.status !== 'todos' && tx.status !== filters.status) return false;
 
             if (filters.linkedTo !== 'todas') {
-                if(filters.linkedTo==='no_account' && tx.accountId)return false;
                 if (filters.linkedTo === 'unlinked' && (tx.saleId || tx.reservationId || tx.clientId || tx.vehicleId || tx.installmentId)) return false;
                 if (filters.linkedTo === 'sale' && !tx.saleId) return false;
                 if (filters.linkedTo === 'reservation' && !tx.reservationId) return false;
@@ -244,9 +312,11 @@ function FinanzasPage() {
                 if (filters.linkedTo === 'installment' && !tx.installmentId) return false;
             }
 
-            if (filters.startDate || filters.endDate) {
-                const txDate=financeCalendarKey(tx.date||tx.createdAt);
-                if(!txDate || filters.startDate&&txDate<filters.startDate || filters.endDate&&txDate>filters.endDate)return false;
+            if (filters.startDate && filters.endDate) {
+                const txDate = new Date(tx.date || tx.createdAt).setHours(0, 0, 0, 0);
+                const start = new Date(filters.startDate).setHours(0, 0, 0, 0);
+                const end = new Date(filters.endDate).setHours(0, 0, 0, 0);
+                if (txDate < start || txDate > end) return false;
             }
 
             return true;
@@ -264,6 +334,29 @@ function FinanzasPage() {
 
     const senaTotals = financeDeposits.summary || EMPTY_DEPOSIT_DATA.summary;
 
+    const monthlyFlow = useMemo(() => {
+        const currentMonth = new Date().toLocaleDateString('es-AR', { month: 'short', year: '2-digit' });
+        return {
+            label: currentMonth,
+            income: metrics.USD.income,
+            expense: metrics.USD.expense,
+            max: Math.max(metrics.USD.income, metrics.USD.expense, 1)
+        };
+    }, [metrics]);
+
+    const expenseCategories = useMemo(() => {
+        const categories = allTransactions.reduce((acc, tx) => {
+            if (tx.status === 'anulado' || !isExpense(tx) || tx.currency !== 'USD') return acc;
+            const key = tx.category || 'Sin categoría';
+            acc[key] = (acc[key] || 0) + getAmount(tx);
+            return acc;
+        }, {});
+
+        return Object.entries(categories)
+            .map(([category, amount]) => ({ category, amount }))
+            .sort((a, b) => b.amount - a.amount)
+            .slice(0, 4);
+    }, [allTransactions]);
 
     const handleQuickRange = (range) => {
         const now = new Date();
@@ -346,37 +439,35 @@ function FinanzasPage() {
                 toast.success('Movimiento registrado correctamente');
             }
             await loadData();
+            closeModal();
             return saved;
         } catch (err) {
             console.error(err.message);
             toast.error(err.message || 'Error al registrar el movimiento');
-            throw err;
         }
     };
 
     const handleAnnulTransaction = async (id) => {
         try {
-            await annulTransaction(id);
+            await updateTransaction(id, { status: 'anulado' });
             await loadData();
             closeModal();
         } catch (err) {
             console.error(err.message);
-            throw err;
         }
     };
 
     return (
         <PermissionGuard permission={PERMISSIONS.FINANZAS_READ}>
-            <div className="mx-auto w-full max-w-7xl p-4 pb-24 md:pb-4">
+            <div className="mx-auto w-full max-w-7xl p-4 pb-24 md:p-8">
                 <CrmPageHeader
-                    compact
                     title="Administración Financiera"
                     subtitle="Movimientos, saldos por caja, comisiones, presupuestos y cierres."
                     actions={
                         <>
                             <button
                                 type="button"
-                                onClick={() => setDocumentKind('recibo')}
+                                onClick={() => openTransactionModal({ type: 'ingreso', concept: 'Nuevo recibo', category: 'Recibo', paymentMethod: 'efectivo' })}
                                 className="inline-flex h-10 items-center gap-2 rounded-xl border border-crm-border bg-crm-surface px-4 text-sm font-bold text-crm-fg transition hover:bg-crm-surface-raised"
                             >
                                 <ReceiptText size={16} />
@@ -384,11 +475,11 @@ function FinanzasPage() {
                             </button>
                             <button
                                 type="button"
-                                onClick={() => setDocumentKind('boleto')}
+                                onClick={() => openTransactionModal({ type: 'egreso', concept: 'Comisión', category: 'Comisiones', paymentMethod: 'transferencia', isCommission: true })}
                                 className="inline-flex h-10 items-center gap-2 rounded-xl bg-crm-red-gradient px-4 text-sm font-black text-white shadow-crm-shadow-red transition hover:opacity-95"
                             >
                                 <Plus size={16} />
-                                Nuevo Boleto
+                                Nueva Comisión
                             </button>
                         </>
                     }
@@ -401,28 +492,49 @@ function FinanzasPage() {
                     </div>
                 )}
 
-                <FinanceNavigation activeTab={activeTab} onTabChange={setActiveTab} />
+                <div className="mb-6 overflow-x-auto border-b border-crm-border custom-scrollbar">
+                    <nav aria-label="Pestañas de Finanzas" className="flex w-max min-w-full gap-1 pb-2">
+                        {FINANCE_TABS.map((tab) => {
+                            const active = activeTab === tab.id;
+                            return (
+                                <button
+                                    key={tab.id}
+                                    type="button"
+                                    aria-pressed={active}
+                                    onClick={() => setActiveTab(tab.id)}
+                                    className={`inline-flex shrink-0 items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium transition ${
+                                        active
+                                            ? 'bg-crm-red text-white shadow-sm'
+                                            : 'bg-transparent text-crm-fg-muted hover:bg-crm-surface-raised hover:text-crm-fg'
+                                    }`}
+                                >
+                                    <span>{tab.icon}</span>
+                                    {tab.label}
+                                </button>
+                            );
+                        })}
+                    </nav>
+                </div>
 
-                {Object.keys(dataErrors).length>0 && <div role="alert" className="mb-4 space-y-1 rounded-lg border border-amber-500/30 bg-amber-500/5 p-3 text-xs text-amber-200">{Object.entries(dataErrors).map(([source,message])=><p key={source} className="m-0">{message}</p>)}<button type="button" onClick={loadData} className="mt-2 underline">Reintentar consultas</button></div>}
-                <div id="finanzas-contenido" key={'finance-content:' + (token || 'sin-sesion')}>
-                {activeTab === 'resumen' && (
-                    <div className="mb-6">
-                        <CashProjectionPanel />
-                    </div>
-                )}
-                {workspaceLoading && allTransactions.length === 0 ? (
+                {transactionsLoading && allTransactions.length === 0 ? (
                     <div className="flex min-h-[360px] items-center justify-center rounded-2xl border border-crm-border bg-crm-surface">
                         <div className="h-8 w-8 animate-spin rounded-full border-2 border-crm-border border-t-crm-red" />
                     </div>
                 ) : (
                     <>
                         {activeTab === 'resumen' && (
-                            <FinanceOverview overview={overview} installments={financeData.installments} onOpenAccounts={()=>setActiveTab('cuentas')} onOpenMovements={()=>{setMovementMode('todos');setFilters({...BASE_FILTERS,linkedTo:'no_account'});setActiveTab('movimientos');}}/>
+                            <ResumenFinanciero
+                                balances={balances}
+                                metrics={metrics}
+                                monthlyFlow={monthlyFlow}
+                                expenseCategories={expenseCategories}
+                                installments={installments}
+                                onOpenAccounts={() => setActiveTab('cuentas')}
+                            />
                         )}
 
                         {activeTab === 'movimientos' && (
                             <MovimientosFinancieros
-                                accounts={accounts}
                                 filteredTransactions={filteredTransactions}
                                 filters={filters}
                                 movementMode={movementMode}
@@ -442,9 +554,18 @@ function FinanzasPage() {
                             />
                         )}
 
-                        {activeTab === 'vehiculos-cobrar'&&<VehicleReceivablesTab accounts={accounts} onChanged={loadData}/>}
                         {activeTab === 'senas' && (
-                            <ManualFinanceEntries kind="deposit" accounts={accounts} legacyItems={financeDeposits.items} onLegacyEdit={handleEditDeposit} onChanged={loadData}/>
+                            <SenasFinancieras
+                                depositsLoading={depositsLoading}
+                                senaItems={senaItems}
+                                senaMode={senaMode}
+                                senaSearch={senaSearch}
+                                senaTotals={senaTotals}
+                                onChangeMode={setSenaMode}
+                                onChangeSearch={setSenaSearch}
+                                onEdit={handleEditDeposit}
+                                onNew={() => openTransactionModal({ type: 'ingreso', currency: 'USD', concept: 'Seña recibida', category: 'Seña', paymentMethod: 'efectivo', notes: '[SENA_FINANZAS]' })}
+                            />
                         )}
 
                         {activeTab === 'gastos-personales' && (
@@ -461,14 +582,12 @@ function FinanzasPage() {
                             />
                         )}
 
-                        {activeTab === 'pagos' && <ManualFinanceEntries kind="payable" accounts={accounts} onChanged={loadData}><PagosDisponiblesTab accounts={accounts}/></ManualFinanceEntries>}
-                        {activeTab === 'cuotas-pagar'&&<PayableInstallmentsTab accounts={accounts} onUpdated={loadData}/>}
-                        {activeTab === 'devoluciones-registro'&&<RegistryRefundTab onUpdated={loadData}/>}
+                        {activeTab === 'pagos' && <PagosDisponiblesTab accounts={accounts} />}
                         {activeTab === 'tarjeta' && <TarjetaTab accounts={accounts} />}
                         {activeTab === 'retiros' && <RetirosTab accounts={accounts} />}
                         {activeTab === 'comisiones' && <ComisionesTab allTransactions={allTransactions} openTransactionModal={openTransactionModal} handleEditTransaction={handleEditTransaction} />}
                         {activeTab === 'rentabilidad' && <RentabilidadTab metrics={metrics} />}
-                        {activeTab === 'cuentas' && <CuentasTab balances={balances} accounts={accounts} fetchAccounts={loadData} createAccount={createAccount} updateAccount={updateAccount} deleteAccount={deleteAccount} recalculateBalances={recalculateBalances} />}
+                        {activeTab === 'cuentas' && <CuentasTab balances={balances} accounts={accounts} fetchAccounts={fetchAccounts} createAccount={createAccount} updateAccount={updateAccount} deleteAccount={deleteAccount} recalculateBalances={recalculateBalances} />}
                         {activeTab === 'cobrar-pagar' && <XCobrarPagarTab installments={installments} />}
                         {activeTab === 'cheques' && <ChequesTab accounts={accounts} />}
                         {activeTab === 'prestamos' && <PrestamosTab accounts={accounts} />}
@@ -476,7 +595,6 @@ function FinanzasPage() {
                         {activeTab === 'recurrencias' && <RecurrenciasTab accounts={accounts} />}
                         {activeTab === 'arqueos' && <ArqueosTab accounts={accounts} />}
                         {activeTab === 'cierre' && <CierreCajaTab />}
-                        {activeTab === 'periodos' && <FinancePeriodsTab />}
                         {activeTab === 'conciliacion' && <ConciliacionTab accounts={accounts} />}
                         {activeTab === 'afip' && <AfipIvaTab />}
                         {activeTab === 'sueldos' && (
@@ -518,12 +636,8 @@ function FinanzasPage() {
                         )}
                     </>
                 )}
-                </div>
 
-                {documentKind&&<FinanceDocumentModal key={token+':'+documentKind} documentKind={documentKind} onClose={()=>setDocumentKind(null)}/>}
                 <TransactionModal
-                    key={'transaction-modal:' + (token || 'sin-sesion')}
-                    accounts={accounts}
                     isOpen={isModalOpen}
                     onClose={closeModal}
                     transaction={selectedTx}
@@ -607,7 +721,31 @@ function FinanzasPage() {
 }
 
 function ResumenFinanciero({ balances, metrics, monthlyFlow, expenseCategories, onOpenAccounts, installments = [] }) {
-    const installmentStats = useMemo(() => getInstallmentCollectionStats(installments), [installments]);
+    const installmentStats = useMemo(() => {
+        let vencidas = 0;
+        let porVencer = 0;
+        let enFecha = 0;
+
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+
+        installments.forEach(item => {
+            const status = String(item.status || '').toLowerCase();
+            if (status === 'pagada' || status === 'anulada') return;
+
+            const dueDate = new Date(item.dueDate);
+            if (dueDate < today) {
+                vencidas++;
+            } else {
+                const diffTime = Math.abs(dueDate - today);
+                const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+                if (diffDays <= 7) porVencer++;
+                else enFecha++;
+            }
+        });
+
+        return { vencidas, porVencer, enFecha };
+    }, [installments]);
 
     return (
         <div className="space-y-4">
@@ -649,10 +787,9 @@ function ResumenFinanciero({ balances, metrics, monthlyFlow, expenseCategories, 
                 <h2 className="mb-5 text-base font-black text-crm-fg">CUOTAS — ESTADO DE COBRO</h2>
                 <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
                     <DebtStatus title="Vencidas" value={installmentStats.vencidas} copy={installmentStats.vencidas === 0 ? "— sin atrasos" : "— revisar"} caption="Pendientes con fecha pasada" tone="danger" />
-                    <DebtStatus title="Por vencer" value={installmentStats.porVencer} copy={installmentStats.porVencer === 0 ? "— tranquilo" : "— próximas"} caption="Desde hoy, 7 días calendario" tone="warning" />
-                    <DebtStatus title="En fecha" value={installmentStats.enFecha} copy="— sin atrasos" caption="Fuera de ese plazo" tone="success" />
+                    <DebtStatus title="Por vencer" value={installmentStats.porVencer} copy={installmentStats.porVencer === 0 ? "— tranquilo" : "— próximas"} caption="Próximos 7 días" tone="warning" />
+                    <DebtStatus title="En fecha" value={installmentStats.enFecha} copy="— sin atrasos" caption="A más de 7 días — tranquilo" tone="success" />
                 </div>
-                {installmentStats.sinFecha > 0 && <p className="mt-3 text-xs text-crm-fg-muted">{installmentStats.sinFecha} cuota(s) con saldo pendiente sin fecha válida; revisá sus vencimientos.</p>}
             </section>
 
             <div className="flex items-center justify-end gap-2 text-xs font-black uppercase tracking-wider text-crm-fg-muted">
@@ -714,7 +851,6 @@ function ColoredCard({ label, amount, currency, tone }) {
 }
 
 function MovimientosFinancieros({
-    accounts=[],
     filteredTransactions,
     filters,
     movementMode,
@@ -732,10 +868,9 @@ function MovimientosFinancieros({
     onQuickRange,
     setMovementMode
 }) {
-    const {user}=useAuth();const canWrite=hasPermission(user,PERMISSIONS.FINANZAS_WRITE),canTransfer=hasPermission(user,PERMISSIONS.CAJA_WRITE);
     const summary = filteredTransactions.reduce((acc, tx) => {
-        const currency = tx.currency;
-        if (!['ARS','USD'].includes(currency)||!Number.isFinite(Number(tx.amount))||['anulado','pendiente'].includes(tx.status)) return acc;
+        const currency = tx.currency === 'USD' ? 'USD' : 'ARS';
+        if (tx.status === 'anulado') return acc;
         if (isIncome(tx)) acc[currency].income += getAmount(tx);
         if (isExpense(tx)) acc[currency].expense += getAmount(tx);
         return acc;
@@ -776,8 +911,7 @@ function MovimientosFinancieros({
                         <input
                             value={filters.search}
                             onChange={(event) => onChangeFilters({ ...filters, search: event.target.value })}
-                            aria-label="Buscar movimientos"
-                            placeholder="Buscar descripción, categoría, notas o usuario"
+                            placeholder="Buscar (descripción, vehículo, vendedor)"
                             className="h-10 w-full rounded-xl border border-crm-border bg-crm-bg pl-10 pr-3 text-sm font-medium text-crm-fg outline-none transition focus:border-crm-red"
                         />
                     </div>
@@ -785,12 +919,12 @@ function MovimientosFinancieros({
 
                 {/* FILA 2 */}
                 <div className="flex flex-wrap items-center gap-2 border-t border-crm-border pt-4">
-                    <button type="button" disabled={!canWrite} onClick={onBulkAnnul} className="inline-flex h-9 items-center px-3 rounded-lg border border-crm-red text-crm-red text-xs font-bold hover:bg-crm-red/10 transition disabled:opacity-40">Anular filtrados ({filteredTransactions.length})</button>
-                    <button type="button" onClick={onMonthlyClose} className="inline-flex h-9 items-center px-3 rounded-lg border border-crm-border bg-crm-bg text-xs font-bold text-crm-fg hover:bg-crm-surface-raised transition">Resumen mensual</button>
-                    <button type="button" disabled={!canTransfer} onClick={onTransfer} className="inline-flex h-9 items-center px-3 rounded-lg border border-crm-border bg-crm-bg text-xs font-bold text-crm-fg hover:bg-crm-surface-raised transition disabled:opacity-40">Transferencia</button>
+                    <button type="button" onClick={onBulkAnnul} className="inline-flex h-9 items-center px-3 rounded-lg border border-crm-red text-crm-red text-xs font-bold hover:bg-crm-red/10 transition">Borrar todos ({filteredTransactions.length})</button>
+                    <button type="button" onClick={onMonthlyClose} className="inline-flex h-9 items-center px-3 rounded-lg border border-crm-border bg-crm-bg text-xs font-bold text-crm-fg hover:bg-crm-surface-raised transition">Cierres mensuales</button>
+                    <button type="button" onClick={onTransfer} className="inline-flex h-9 items-center px-3 rounded-lg border border-crm-border bg-crm-bg text-xs font-bold text-crm-fg hover:bg-crm-surface-raised transition">Transferencia</button>
                     <button type="button" onClick={onExport} className="inline-flex h-9 items-center px-3 rounded-lg border border-crm-border bg-crm-bg text-xs font-bold text-crm-fg hover:bg-crm-surface-raised transition">Exportar CSV</button>
-                    <button type="button" disabled={!canWrite} onClick={onNew} className="inline-flex h-9 items-center gap-1.5 rounded-lg bg-crm-red text-white px-4 text-xs font-black shadow-crm-shadow-red hover:opacity-95 transition ml-auto disabled:opacity-40">
-                        <Plus size={14} /> Nuevo movimiento
+                    <button type="button" onClick={onNew} className="inline-flex h-9 items-center gap-1.5 rounded-lg bg-crm-red text-white px-4 text-xs font-black shadow-crm-shadow-red hover:opacity-95 transition ml-auto">
+                        <Plus size={14} /> Registrar
                     </button>
                 </div>
 
@@ -817,7 +951,6 @@ function MovimientosFinancieros({
                     <div className="flex items-center gap-2 ml-2">
                         <input
                             type="date"
-                            aria-label="Desde fecha"
                             value={filters.startDate}
                             onChange={(event) => onChangeFilters({ ...filters, startDate: event.target.value })}
                             className="h-8 rounded-lg border border-crm-border bg-crm-bg px-2 text-xs font-bold text-crm-fg outline-none focus:border-crm-red"
@@ -825,7 +958,6 @@ function MovimientosFinancieros({
                         <span className="text-crm-fg-subtle">-</span>
                         <input
                             type="date"
-                            aria-label="Hasta fecha"
                             value={filters.endDate}
                             onChange={(event) => onChangeFilters({ ...filters, endDate: event.target.value })}
                             className="h-8 rounded-lg border border-crm-border bg-crm-bg px-2 text-xs font-bold text-crm-fg outline-none focus:border-crm-red"
@@ -839,15 +971,12 @@ function MovimientosFinancieros({
 
                 {/* FILA 4 */}
                 <div className="flex flex-wrap items-center gap-3 border-t border-crm-border pt-4">
-                    <span className="text-xs font-medium text-crm-fg-muted">Moneda:</span>
+                    <span className="text-xs font-black text-crm-fg-muted">💼 CAJA:</span>
                     <SelectLike value={filters.currency} onChange={(value) => onChangeFilters({ ...filters, currency: value })}>
-                        <option value="todas">Todas las monedas</option>
-                        <option value="ARS">ARS</option>
-                        <option value="USD">USD</option>
+                        <option value="todas">Todas las cajas</option>
+                        <option value="ARS">Caja ARS — {formatMoney(metrics.ARS.income - metrics.ARS.expense, 'ARS')}</option>
+                        <option value="USD">Caja USD — {formatMoney(metrics.USD.income - metrics.USD.expense, 'USD')}</option>
                     </SelectLike>
-                    <label className="flex items-center gap-2 text-xs text-crm-fg-muted">Caja<select value={filters.accountId||''} onChange={event=>onChangeFilters({...filters,accountId:event.target.value})} className="h-9 rounded-lg border border-crm-border bg-crm-bg px-3 text-sm"><option value="">Todas las cuentas</option>{accounts.map(account=><option key={account._id} value={account._id}>{account.name} · {account.currency}{account.isActive===false?' · Inactiva':''}</option>)}</select></label>
-                    <label className="flex items-center gap-2 text-xs text-crm-fg-muted">Vínculo<select value={filters.linkedTo} onChange={event=>onChangeFilters({...filters,linkedTo:event.target.value})} className="h-9 rounded-lg border border-crm-border bg-crm-bg px-3 text-sm">{[['todas','Todos'],['no_account','Sin caja'],['unlinked','Sin vínculos'],['sale','Venta'],['reservation','Reserva'],['client','Cliente'],['vehicle','Vehículo'],['installment','Cuota']].map(([value,label])=><option key={value} value={value}>{label}</option>)}</select></label>
-                    <button type="button" onClick={onClearFilters} className="ml-auto rounded-lg border border-crm-border px-3 py-2 text-xs">Limpiar filtros</button>
                 </div>
             </section>
 
@@ -881,7 +1010,7 @@ function MovimientosFinancieros({
                                                 {tx.notes && <span className="block text-[10px] font-medium text-crm-fg-subtle mt-0.5">{tx.notes}</span>}
                                             </td>
                                             <td className="px-4 py-3 text-xs font-bold text-crm-fg-muted">{tx.category || '-'}</td>
-                                            <td className="px-4 py-3 text-xs font-medium text-crm-fg-muted">{tx.accountId?.name||accounts.find(account=>String(account._id)===String(tx.accountId?._id||tx.accountId))?.name||'Sin caja'}<span className="block text-[10px]">{tx.status==='pendiente'?'Pendiente · sin efecto en saldo':isVoid?'Anulado':tx.currency||'Moneda sin registrar'}</span></td>
+                                            <td className="px-4 py-3 text-xs font-bold text-crm-fg-muted">{tx.currency || 'ARS'}</td>
                                             <td className="px-4 py-3">
                                                 <span className={`inline-flex rounded border px-2 py-0.5 text-[10px] font-black uppercase tracking-wider ${
                                                     income ? 'border-crm-success/20 bg-crm-success/10 text-crm-success' : 'border-crm-red/20 bg-crm-red/10 text-crm-red'
@@ -894,7 +1023,7 @@ function MovimientosFinancieros({
                                             </td>
                                             <td className="px-4 py-3 text-center">
                                                 <div className="flex items-center justify-center gap-2">
-                                                    {!income && !isVoid && canWrite && !tx.financePayableInstallmentId && (
+                                                    {!income && !isVoid && (
                                                         <button
                                                             type="button"
                                                             onClick={() => onAssignQuota && onAssignQuota(tx)}
@@ -906,7 +1035,7 @@ function MovimientosFinancieros({
                                                         </button>
                                                     )}
                                                     <button onClick={() => onEdit(tx)} className="text-[11px] font-bold text-crm-fg-muted hover:text-crm-red transition">Editar</button>
-                                                    {!isVoid && canWrite && !tx.financePayableInstallmentId && (
+                                                    {!isVoid && (
                                                         <button onClick={() => onDelete(tx)} className="text-[11px] font-bold text-crm-fg-muted hover:text-crm-red transition">Anular</button>
                                                     )}
                                                 </div>

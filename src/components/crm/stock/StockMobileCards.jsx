@@ -1,7 +1,6 @@
 "use client";
 import { useState } from 'react';
 import Link from 'next/link';
-import { vehicleDetailHref } from '../../../utils/stockNavigation.js';
 import { ChevronDown, Filter, AlertTriangle, Car } from 'lucide-react';
 
 const getVehicleYear = (vehicle) => vehicle.year || vehicle['año'] || 'S/D';
@@ -17,7 +16,7 @@ const formatDate = (value) => {
     return date.toISOString().slice(0, 10);
 };
 const getLocation = (vehicle) => {
-    return vehicle._original?.location || vehicle._original?.ubicacion || vehicle._original?.showroom || 'Sin ubicación';
+    return vehicle._original?.location || vehicle._original?.ubicacion || vehicle._original?.showroom || 'Salón Principal';
 };
 const getOwner = (vehicle) => {
     if (vehicle.origen === 'propio') {
@@ -50,7 +49,6 @@ const getStatusLabel = (status) => {
     if (normalized === 'reservado') return '⚠️ Señado';
     if (normalized === 'vendido') return '⛔ Vendido';
     if (normalized === 'pausado') return '⏳ Vendido sin confirmar';
-    if (normalized === 'retirado') return '○ Fuera de venta';
     return status || '--';
 };
 const getProgress = (days) => {
@@ -58,11 +56,21 @@ const getProgress = (days) => {
     return Math.min(100, Math.max(0, Math.round((safeDays / 60) * 100)));
 };
 const getListValue = (data, filteredTotalUSD, filteredTotalARS, dolarBlue) => {
-    const totals = filteredTotalUSD !== undefined && filteredTotalARS !== undefined
-        ? { USD: filteredTotalUSD, ARS: filteredTotalARS }
-        : data.reduce((acc, vehicle) => ({ ...acc, [vehicle.moneda]: (acc[vehicle.moneda] || 0) + Number(vehicle.precioPublicado || 0) }), {});
-    const values = ['USD', 'ARS'].filter(currency => Number(totals[currency]) > 0).map(currency => `${currency} ${formatNumber(Math.round(totals[currency]))}`);
-    return values.join(' + ') || 'Sin importes registrados';
+    let totalARS = 0;
+
+    if (filteredTotalUSD !== undefined && filteredTotalARS !== undefined) {
+        totalARS = filteredTotalARS + (filteredTotalUSD * (dolarBlue || 1));
+    } else {
+        const totals = data.reduce((acc, vehicle) => {
+            const currency = vehicle.moneda || 'ARS';
+            acc[currency] = (acc[currency] || 0) + Number(vehicle.precioPublicado || 0);
+            return acc;
+        }, {});
+        totalARS = (totals.ARS || 0) + ((totals.USD || 0) * (dolarBlue || 1));
+    }
+
+    if (totalARS === 0) return '--';
+    return `ARS ${formatNumber(Math.round(totalARS))}`;
 };
 
 export default function StockMobileCards({
@@ -78,10 +86,7 @@ export default function StockMobileCards({
     onClearFilters = null,
     error = null,
     onRetry = null,
-    onNewVehicle = null,
-    showTotals = true,
-    canEdit = false,
-    returnTo = '/admin/stock'
+    onNewVehicle = null
 }) {
     const [expandedId, setExpandedId] = useState(data[0]?.id || null);
 
@@ -93,9 +98,8 @@ export default function StockMobileCards({
                 </div>
                 <h2 className="m-0 text-lg font-bold text-crm-fg">Sin resultados</h2>
                 <p className="m-0 mt-2 text-sm leading-6 text-crm-fg-muted">
-                    {hasActiveFilters ? 'No hay vehículos que coincidan con los filtros aplicados.' : 'Todavía no hay vehículos en el stock. Cargá el primero con el botón Nuevo vehículo.'}
+                    Todavía no hay vehículos en el stock. Cargá el primero con el botón Nuevo vehículo.
                 </p>
-                {hasActiveFilters && <button type="button" onClick={onClearFilters} className="mt-3 text-sm text-crm-red">Limpiar filtros</button>}
             </div>
         );
     }
@@ -104,7 +108,8 @@ export default function StockMobileCards({
         <div className="flex flex-col gap-4">
             <div className="rounded-xl border border-crm-border bg-crm-surface p-3 text-sm font-semibold text-crm-fg">
                 {totalItems || data.length} {(totalItems || data.length) === 1 ? 'vehículo' : 'vehículos'} en lista
-                {showTotals && <><span className="mx-1 text-crm-fg-muted">·</span><span>{getListValue(data, filteredTotalUSD, filteredTotalARS, dolarBlue)}</span></>}
+                <span className="mx-1 text-crm-fg-muted">·</span>
+                <span>{getListValue(data, filteredTotalUSD, filteredTotalARS, dolarBlue)}</span>
             </div>
 
             <div className="flex flex-col gap-3">
@@ -160,35 +165,35 @@ export default function StockMobileCards({
 
                                     <div className="mt-4 flex items-center gap-2 border-t border-crm-border pt-3">
                                         <Link
-                                            href={vehicleDetailHref(vehicle.id, returnTo)}
+                                            href={`/admin/stock/${vehicle.id}`}
                                             className="inline-flex h-7 items-center justify-center rounded-lg bg-crm-red/10 px-3 text-xs font-semibold text-red-300 no-underline transition-colors hover:bg-crm-red/15"
                                         >
                                             Ver detalle
                                         </Link>
-                                        {canEdit && <Link
-                                            href={vehicleDetailHref(vehicle.id, returnTo, true)}
+                                        <Link
+                                            href={`/admin/stock/${vehicle.id}`}
                                             className="inline-flex h-7 items-center justify-center rounded-lg bg-crm-surface-raised px-3 text-xs font-semibold text-crm-fg no-underline transition-colors hover:bg-crm-border"
                                         >
                                             Editar
-                                        </Link>}
+                                        </Link>
                                         <button
                                             onClick={() => onPrint && onPrint(vehicle)}
                                             className="inline-flex h-7 items-center justify-center rounded-lg bg-blue-500/10 px-3 text-xs font-semibold text-blue-400 transition-colors hover:bg-blue-500/20 ml-2 cursor-pointer"
                                         >
                                             Imprimir
                                         </button>
-                                        {onEditML && <button
+                                        <button
                                             onClick={() => onEditML && onEditML(vehicle)}
                                             className="inline-flex h-7 items-center justify-center rounded-lg border border-yellow-500/30 bg-yellow-500/10 px-3 text-xs font-semibold text-yellow-500 transition-colors hover:bg-yellow-500/20 ml-auto"
                                         >
                                             ML
-                                        </button>}
-                                        {onDelete && <button
+                                        </button>
+                                        <button
                                             onClick={() => onDelete && onDelete(vehicle)}
                                             className="inline-flex h-7 items-center justify-center rounded-lg bg-crm-red/10 px-3 text-xs font-semibold text-crm-red transition-colors hover:bg-crm-red/20 ml-2"
                                         >
                                             Eliminar
-                                        </button>}
+                                        </button>
                                     </div>
                                 </div>
                             )}

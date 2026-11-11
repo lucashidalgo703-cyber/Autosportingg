@@ -56,10 +56,6 @@ const transactionSchema = new mongoose.Schema({
     installmentId: { type: mongoose.Schema.Types.ObjectId, ref: 'Installment' },
     installmentPaidAmountApplied: { type: Number, default: 0 },
     receiptReference: { type: String },
-    financeManualEntryId: { type: mongoose.Schema.Types.ObjectId, ref: 'FinanceManualEntry', default: null },
-    financePayableInstallmentId: { type: mongoose.Schema.Types.ObjectId, ref: 'FinancePayableInstallment', default: null },
-    saleDepositRecordId: { type: mongoose.Schema.Types.ObjectId, default: null },
-    registryRefundId: { type: mongoose.Schema.Types.ObjectId, ref: 'RegistryRefund', default: null },
     paymentSplits: [{
         accountId: { type: mongoose.Schema.Types.ObjectId, ref: 'Account' },
         accountName: { type: String },

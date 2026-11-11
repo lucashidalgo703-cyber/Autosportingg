@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Activity, ShieldCheck, Truck, Save, CalendarDays, CheckCircle, CheckSquare, AlertTriangle } from 'lucide-react';
 import ConfirmModal from '../../ui/ConfirmModal';
-import { formatSaleDeliveryDate } from '../../../../utils/salePresentation';
 
 export default function SaleStatusPanel({ sale, onSave }) {
     const [docStatus, setDocStatus] = useState('pendiente');
@@ -285,7 +284,7 @@ export default function SaleStatusPanel({ sale, onSave }) {
                             Fecha Real
                         </label>
                         <div className="w-full bg-crm-surface-raised/50 border border-neutral-800 rounded-xl py-2 px-3 text-xs text-neutral-400">
-                            {formatSaleDeliveryDate(sale.actualDeliveryDate, true, 'Pendiente')}
+                            {sale.actualDeliveryDate ? new Date(sale.actualDeliveryDate).toLocaleDateString() : 'Pendiente'}
                         </div>
                     </div>
                 </div>

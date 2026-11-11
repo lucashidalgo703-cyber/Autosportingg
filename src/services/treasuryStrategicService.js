@@ -789,7 +789,6 @@ export async function getTreasuryDashboardData() {
     const warrantyCutoff = new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000);
     const eligibleWarrantySales = await Sale.find({
         status: { $in: ['confirmada', 'pendiente_entrega', 'entregada'] },
-        historicalOnly: { $ne: true },
         saleDate: { $gte: warrantyCutoff }
     }).select('_id vehicleId saleDate').lean();
     const uniqueWarrantyVehiclesCount = new Set(
@@ -1075,8 +1074,7 @@ export async function getTreasuryDashboardData() {
     // ESTADO DE RECUPERACIÓN DE INVERSIÓN Y EXTRA DE REINVERSIÓN POR OPERACIÓN
     // -------------------------------------------------------------
     const recentSalesDocs = await Sale.find({
-        status: { $in: ['confirmada', 'pendiente_entrega', 'entregada'] },
-        historicalOnly: { $ne: true }
+        status: { $in: ['confirmada', 'pendiente_entrega', 'entregada'] }
     })
         .populate('vehicleId')
         .populate('clientId', 'firstName lastName fullName')
@@ -1862,15 +1860,14 @@ export async function searchSalesForCollection(query = {}) {
             .populate('vehicleId')
             .populate('clientId')
             .lean();
-        if (!saleDoc || saleDoc.historicalOnly === true || ['cancelada', 'borrador'].includes(saleDoc.status)) return [];
+        if (!saleDoc) return [];
         const state = await loadSaleOperationRecoveryState(saleDoc, cfg);
         return state ? [state] : [];
     }
 
     const trimmed = String(q || '').trim();
     const filter = {
-        status: { $nin: ['cancelada', 'borrador'] },
-        historicalOnly: { $ne: true }
+        status: { $nin: ['cancelada', 'borrador'] }
     };
 
     let sales = [];
@@ -2175,9 +2172,6 @@ export async function collectAndDistribute(payload, user) {
         if (payAmount > pendingInst + 0.01) {
             throw new Error(`El importe (${cleanCurrency} ${payAmount.toLocaleString('es-AR')}) supera el saldo pendiente de la cuota #${linkedInstallment.installmentNumber} (${cleanCurrency} ${pendingInst.toLocaleString('es-AR')}).`);
         }
-        if (resolvedSaleId && linkedInstallment.saleId && String(resolvedSaleId) !== String(linkedInstallment.saleId)) {
-            throw new Error('La cuota no pertenece a la venta seleccionada.');
-        }
         if (!resolvedSaleId && linkedInstallment.saleId) {
             resolvedSaleId = linkedInstallment.saleId;
         }
@@ -2193,13 +2187,6 @@ export async function collectAndDistribute(payload, user) {
     if (!saleDoc) {
         throw new Error('Venta vinculada no encontrada.');
     }
-    if (saleDoc.status === 'borrador') {
-        throw new Error('Activá el borrador antes de registrar un cobro.');
-    }
-    if (saleDoc.historicalOnly === true) {
-        throw new Error('La carga histórica es solo de consulta y no admite nuevos cobros.');
-    }
-
 
     const saleCurrency = saleDoc.saleCurrency === 'USD' ? 'USD' : 'ARS';
     if (saleCurrency !== cleanCurrency) {
@@ -2947,7 +2934,7 @@ export async function distributeSingleIncome(payload, user) {
         }
         const vehId = tx.vehicleId?._id || tx.vehicleId || tx.carId || null;
         if (!tx.saleId && vehId) {
-            const activeSale = await Sale.findOne({ vehicleId: vehId, status: { $nin: ['cancelada', 'borrador'] }, historicalOnly: { $ne: true } }).sort({ saleDate: -1 }).select('_id').lean();
+            const activeSale = await Sale.findOne({ vehicleId: vehId, status: { $ne: 'cancelada' } }).sort({ saleDate: -1 }).select('_id').lean();
             if (activeSale) tx.saleId = activeSale._id;
         }
     }
@@ -3699,7 +3686,6 @@ export async function calculateSuggestedAllocation(query = {}, user) {
     const warrantyCutoff = new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000);
     const eligibleSales = await Sale.find({
         status: { $in: ['confirmada', 'pendiente_entrega', 'entregada'] },
-        historicalOnly: { $ne: true },
         saleDate: { $gte: warrantyCutoff }
     }).populate('vehicleId', 'brand name year').lean();
 
@@ -3992,7 +3978,7 @@ export async function registerCollectionForTreasury(tx, options = {}) {
         }
         const vehId = (tx.vehicleId && typeof tx.vehicleId === 'object' ? tx.vehicleId._id : tx.vehicleId) || tx.carId || null;
         if (!tx.saleId && vehId) {
-            const activeSale = await Sale.findOne({ vehicleId: vehId, status: { $nin: ['cancelada', 'borrador'] }, historicalOnly: { $ne: true } }).sort({ saleDate: -1 }).select('_id').lean();
+            const activeSale = await Sale.findOne({ vehicleId: vehId, status: { $ne: 'cancelada' } }).sort({ saleDate: -1 }).select('_id').lean();
             if (activeSale) tx.saleId = activeSale._id;
         }
     }

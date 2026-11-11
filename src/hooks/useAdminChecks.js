@@ -11,7 +11,7 @@ export function useAdminChecks() {
         return token ? { 'Authorization': `Bearer ${token}` } : {};
     };
 
-    const fetchChecks = useCallback(async (filters = {}, options = {}) => {
+    const fetchChecks = useCallback(async (filters = {}) => {
         setLoading(true);
         setError(null);
         try {
@@ -22,7 +22,7 @@ export function useAdminChecks() {
             if (filters.search) queryParams.append('search', filters.search);
 
             const res = await fetch(`/api/admin/checks?${queryParams.toString()}`, {
-                headers: getAuthHeaders(), signal: options.signal
+                headers: getAuthHeaders()
             });
 
             const data = await parseResponseSafe(res);

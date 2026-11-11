@@ -15,7 +15,7 @@ export default function SaleTradeInPanel({ sale, onUpdate }) {
     const [formData, setFormData] = useState({
         brand: '', model: '', version: '', year: new Date().getFullYear(),
         plate: '', mileage: 0, estimatedValue: 0, currency: 'ARS',
-        ownerName: '', ownerDni: '', conditionNotes: '', mechanicalNotes: '',
+        ownerName: '', ownerDocument: '', conditionNotes: '', mechanicalNotes: '',
         documentationStatus: 'pendiente', transferStatus: 'pendiente',
         hasDebt: false, debtAmount: 0, hasLien: false
     });
@@ -30,7 +30,7 @@ export default function SaleTradeInPanel({ sale, onUpdate }) {
         setFormData({
             brand: '', model: '', version: '', year: new Date().getFullYear(),
             plate: '', mileage: 0, estimatedValue: 0, currency: 'ARS',
-            ownerName: '', ownerDni: '', conditionNotes: '', mechanicalNotes: '',
+            ownerName: '', ownerDocument: '', conditionNotes: '', mechanicalNotes: '',
             documentationStatus: 'pendiente', transferStatus: 'pendiente',
             hasDebt: false, debtAmount: 0, hasLien: false
         });
@@ -62,7 +62,7 @@ export default function SaleTradeInPanel({ sale, onUpdate }) {
     };
 
     const handleSave = async () => {
-        if (!formData.brand || !formData.model || !formData.year || !Number.isFinite(Number(formData.estimatedValue)) || Number(formData.estimatedValue) < 0) {
+        if (!formData.brand || !formData.model || !formData.year || !formData.estimatedValue) {
             setError('Marca, modelo, año y valor tomado son obligatorios.');
             return;
         }
@@ -72,12 +72,12 @@ export default function SaleTradeInPanel({ sale, onUpdate }) {
 
         try {
             const newTradeIns = [...(sale.tradeIns || [])];
-
+            
             const yearNum = formData.year ? Number(formData.year) : undefined;
             const estValueNum = Number(formData.estimatedValue) || 0;
             const mileageNum = formData.mileage ? Number(formData.mileage) : undefined;
             const debtNum = formData.debtAmount ? Number(formData.debtAmount) : 0;
-
+            
             const normalizedData = {
                 ...formData,
                 year: isNaN(yearNum) ? undefined : yearNum,
@@ -92,7 +92,8 @@ export default function SaleTradeInPanel({ sale, onUpdate }) {
                 newTradeIns.push({ ...normalizedData, receivedAt: new Date(), receivedBy: user?.username });
             }
 
-
+            const totalAmount = newTradeIns.reduce((sum, t) => sum + (Number(t.estimatedValue) || 0), 0);
+            const balance = (sale.salePrice || 0) - (sale.depositAppliedAmount || 0) - totalAmount;
 
             const res = await fetch(`/api/admin/sales/${sale._id}/trade-ins`, {
                 method: 'PATCH',
@@ -101,13 +102,15 @@ export default function SaleTradeInPanel({ sale, onUpdate }) {
                     'Content-Type': 'application/json'
                 },
                 body: JSON.stringify({
-                    tradeIns: newTradeIns
+                    tradeIns: newTradeIns,
+                    tradeInTotalAmount: totalAmount,
+                    balanceAfterTradeIn: balance
                 })
             });
 
             if (!res.ok) {
                 const data = await res.json().catch(() => ({}));
-                let errorMsg = data.message || data.error || 'Error al guardar el vehículo en parte de pago';
+                let errorMsg = data.error || 'Error al guardar el vehículo en parte de pago';
                 if (errorMsg.includes('validation failed') || errorMsg.includes('Cast to Number failed')) {
                     errorMsg = 'No se pudo guardar el vehículo recibido. Revisá año y valor tomado.';
                 }
@@ -125,7 +128,7 @@ export default function SaleTradeInPanel({ sale, onUpdate }) {
 
     const handleEnterStock = (index) => {
         setStockError(null);
-
+        
         const tradeIn = sale.tradeIns[index];
         if (!tradeIn.brand || !tradeIn.model || !tradeIn.year || !tradeIn.estimatedValue || !tradeIn.currency) {
             setStockError('Completá marca, modelo, año, valor tomado y moneda antes de ingresar al stock.');
@@ -174,7 +177,7 @@ export default function SaleTradeInPanel({ sale, onUpdate }) {
                     <h3 className="text-sm font-bold text-white uppercase tracking-wider">Permuta / Vehículo Recibido</h3>
                 </div>
                 {hasWritePermission && sale.status !== 'cancelada' && !isEditing && (
-                    <button
+                    <button 
                         onClick={handleAddClick}
                         className="text-[10px] bg-crm-surface-raised hover:bg-neutral-700 text-white px-2 py-1 rounded transition-colors flex items-center gap-1 font-bold uppercase tracking-wider border border-neutral-700"
                     >
@@ -183,7 +186,7 @@ export default function SaleTradeInPanel({ sale, onUpdate }) {
                     </button>
                 )}
             </div>
-
+            
             <div className="p-5 flex-1 overflow-y-auto custom-scrollbar">
                 {isEditing ? (
                     <div className="space-y-4">
@@ -193,7 +196,7 @@ export default function SaleTradeInPanel({ sale, onUpdate }) {
                                 <span>{error}</span>
                             </div>
                         )}
-
+                        
                         <div className="grid grid-cols-2 gap-3">
                             <div>
                                 <label className="block text-[10px] font-bold text-neutral-500 uppercase tracking-wider mb-1">Marca *</label>
@@ -252,13 +255,13 @@ export default function SaleTradeInPanel({ sale, onUpdate }) {
                         </div>
 
                         <div className="flex justify-end gap-2 mt-4 pt-4 border-t border-neutral-800">
-                            <button
+                            <button 
                                 onClick={() => setIsEditing(false)}
                                 className="px-3 py-1.5 bg-transparent text-neutral-400 hover:text-white text-xs font-bold rounded"
                             >
                                 Cancelar
                             </button>
-                            <button
+                            <button 
                                 onClick={handleSave}
                                 disabled={isSaving}
                                 className="px-4 py-1.5 bg-purple-600 hover:bg-purple-500 text-white text-xs font-bold rounded transition-colors disabled:opacity-50"
@@ -287,7 +290,7 @@ export default function SaleTradeInPanel({ sale, onUpdate }) {
                                         <span className="text-[10px] text-neutral-500 uppercase font-bold tracking-wider">Valor Tomado</span>
                                     </div>
                                 </div>
-
+                                
                                 <div className="flex flex-wrap gap-2 mb-3">
                                     <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider ${tradeIn.documentationStatus === 'completo' ? 'bg-green-500/10 text-green-400 border border-green-500/20' : 'bg-orange-500/10 text-orange-400 border border-orange-500/20'}`}>
                                         Doc: {tradeIn.documentationStatus}
@@ -304,7 +307,7 @@ export default function SaleTradeInPanel({ sale, onUpdate }) {
                                             En Stock
                                         </Link>
                                     ) : (
-                                        <button
+                                        <button 
                                             onClick={() => handleEnterStock(index)}
                                             disabled={enteringStockIndex === index || sale.status === 'cancelada' || !hasWritePermission}
                                             className="text-[10px] font-bold text-neutral-400 hover:text-white uppercase tracking-wider transition-colors disabled:opacity-50 flex items-center gap-1"
@@ -313,9 +316,9 @@ export default function SaleTradeInPanel({ sale, onUpdate }) {
                                             {enteringStockIndex === index ? 'Ingresando...' : 'Ingresar a Stock'}
                                         </button>
                                     )}
-
+                                    
                                     {hasWritePermission && sale.status !== 'cancelada' && (
-                                        <button
+                                        <button 
                                             onClick={() => handleEditClick(index)}
                                             className="text-xs text-neutral-500 hover:text-white transition-colors"
                                             title="Editar"
@@ -326,7 +329,7 @@ export default function SaleTradeInPanel({ sale, onUpdate }) {
                                 </div>
                             </div>
                         ))}
-
+                        
                         <div className="bg-crm-surface border border-neutral-800 rounded-xl p-3 flex justify-between items-center mt-4">
                             <span className="text-xs font-bold text-neutral-400 uppercase tracking-wider">Saldo / Diferencia</span>
                             <span className="text-lg font-black text-white">

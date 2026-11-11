@@ -41,7 +41,7 @@ const npsResponseSchema = new mongoose.Schema({
 });
 
 // Middleware to calculate classification automatically before save
-npsResponseSchema.pre('validate', function() {
+npsResponseSchema.pre('validate', function(next) {
     if (this.score >= 9) {
         this.classification = 'promoter';
     } else if (this.score >= 7) {
@@ -49,6 +49,7 @@ npsResponseSchema.pre('validate', function() {
     } else {
         this.classification = 'detractor';
     }
+    next();
 });
 
 const NpsResponse = mongoose.models.NpsResponse || mongoose.model('NpsResponse', npsResponseSchema);

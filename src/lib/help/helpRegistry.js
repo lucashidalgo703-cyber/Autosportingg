@@ -29,23 +29,18 @@ export const helpRegistry = [
         title: 'Cómo moverte por el sistema',
         category: 'primeros-pasos',
         icon: 'Compass',
-        route: '/admin',
+        route: '/admin/dashboard',
         roles: ['Owner/Admin', 'Ventas', 'Administrativo', 'Gestoría', 'Recepción', 'Taller', 'Solo lectura'],
-        summary: 'Usá el menú, los accesos del celular y la búsqueda global para moverte por AutoSporting.',
+        summary: 'Conocé la barra lateral, los atajos de teclado y el panel superior para navegar rápido.',
         steps: [
-            { title: 'Menú principal', body: 'En escritorio podés colapsar el menú para ganar espacio. En el celular, abrilo desde el botón superior; Ventas, Calendario y los módulos propios siguen disponibles allí.' },
-            { title: 'Accesos del celular', body: 'La barra inferior ofrece Dashboard, Stock, Clientes, Finanzas y Mi Espacio según tus permisos.' },
-            { title: 'Búsqueda y teclado', body: 'El buscador superior consulta clientes, vehículos y ventas. Recorré sus resultados con Tab y abrilos con Enter; Escape cierra los resultados, las notificaciones o el menú móvil.' },
-            { title: 'Tema y sesión', body: 'Cambiá entre modo día y noche desde la barra superior en escritorio o desde tu perfil. El rol mostrado corresponde a tu sesión.' }
+            { title: 'Barra lateral', body: 'Usá el menú izquierdo para acceder a todos los módulos. Podés colapsarlo para tener más espacio.' },
+            { title: 'Buscador superior', body: 'El menú superior tiene accesos rápidos a tu perfil, notificaciones y ayuda.' },
+            { title: 'Filtros rápidos', body: 'En cada tabla vas a encontrar filtros para buscar por fecha, estado o nombre.' }
         ],
         tips: [
-            'En el menú móvil, Tab permanece dentro del panel; al cerrarlo, el foco vuelve al botón que lo abrió.',
-            'Los accesos visibles no reemplazan los permisos de cada operación.'
+            'Guardá en favoritos de tu navegador las pantallas que más uses.'
         ],
-        keywords: ['menu', 'sidebar', 'navegar', 'buscar', 'movil', 'teclado', 'tema'],
-        version: '1.1',
-        lastReviewed: '2026-11-10',
-        reviewedBy: 'Desarrollo CRM'
+        keywords: ['menu', 'sidebar', 'navegar', 'buscar']
     },
     {
         id: 'roles-permisos',
@@ -57,17 +52,14 @@ export const helpRegistry = [
         roles: ['Owner/Admin'],
         summary: 'Descubrí qué puede ver y hacer cada usuario según su puesto en la agencia.',
         steps: [
-            { title: 'Roles principales', body: 'El rol define qué módulos y acciones tenés disponibles. La asignación de un cliente indica quién hace su seguimiento.' },
+            { title: 'Roles principales', body: 'Los vendedores solo ven sus propios clientes. Los administradores tienen acceso global.' },
             { title: 'Permisos especiales', body: 'Configurá quién puede borrar ventas, aprobar descuentos o exportar reportes.' },
             { title: 'Asignar permisos', body: 'Desde Configuración > Usuarios, elegí el usuario y cambiá su rol desde el selector.' }
         ],
         tips: [
             'No des permisos de Owner a usuarios que solo necesitan cargar datos.'
         ],
-        keywords: ['seguridad', 'vendedor', 'admin', 'accesos'],
-        version: '1.1',
-        lastReviewed: '2026-11-10',
-        reviewedBy: 'Desarrollo CRM'
+        keywords: ['seguridad', 'vendedor', 'admin', 'accesos']
     },
     {
         id: 'app-celular',
@@ -80,16 +72,13 @@ export const helpRegistry = [
         summary: 'Cómo adaptar la pantalla y usar las funciones clave desde tu móvil.',
         steps: [
             { title: 'Acceso móvil', body: 'Abrí el navegador de tu celular, ingresá al CRM y logueate. La interfaz se ajusta sola.' },
-            { title: 'Menú inferior', body: 'Tenés accesos a Dashboard, Stock, Clientes, Finanzas y Mi Espacio según tus permisos. El botón de arriba abre el menú completo, incluidas Ventas y Calendario.' },
+            { title: 'Menú inferior', body: 'Vas a notar que el menú pasa a ser un botón en la barra superior o un menú inferior flotante.' },
             { title: 'Tablas', body: 'Deslizá hacia la derecha para ver columnas ocultas en las tablas de clientes o stock.' }
         ],
         tips: [
             'Ideal para subir fotos del stock directamente desde la cámara del celu.'
         ],
-        keywords: ['movil', 'responsive', 'celular', 'app'],
-        version: '1.1',
-        lastReviewed: '2026-11-10',
-        reviewedBy: 'Desarrollo CRM'
+        keywords: ['movil', 'responsive', 'celular', 'app']
     },
 
     // ---------------------------------------------------------
@@ -185,21 +174,15 @@ export const helpRegistry = [
         roles: ['Owner/Admin', 'Ventas', 'Administrativo'],
         summary: 'Administrá los vehículos disponibles: propios, consignaciones y 0km.',
         steps: [
-            { title: 'Inventario', body: 'Buscá por marca, modelo, transmisión, moneda, precio, kilometraje y días en stock. Las variantes de mayúsculas y espacios se agrupan al buscar sin cambiar los registros originales. Elegí ARS o USD antes de filtrar por precio. El enlace conserva filtros, página y presentación al volver de una ficha.' },
-            { title: 'Atención y vistas', body: 'Estancados reúne unidades con más de 90 días. A revisar identifica registros sin publicación en ML, sin foto o sin precio. Alterná Lista, Tarjetas y Tabla detallada; el orden manual del catálogo sigue disponible.' },
-            { title: 'Capital e inversores', body: 'Usá esta vista para consultar el resumen patrimonial, las participaciones y el desglose de capital. Conserva las herramientas de inversión de la agencia; podés volver al Inventario sin salir de Stock.' },
-            { title: 'Cargá uno nuevo', body: 'Completá identidad, precio y propietario. Abrí Ficha técnica, Documentación, Publicación y Fotos cuando las necesites. Guardar y continuar después conserva un borrador local de tu usuario durante siete días; no incorpora la unidad al stock ni guarda archivos o autorizaciones de pago.' },
-            { title: 'Ficha de la unidad', body: 'Usá General, Costos y capital, Fotos, Documentos, Publicación, Permutas e Historial. Los costos se presentan por moneda; si faltan datos o se mezclan monedas, el margen aparece como no calculable. Editar visibilidad web no cambia el estado de una venta o reserva.' },
-            { title: 'Edición y compra', body: 'Los cambios de costo o moneda de adquisición requieren una justificación. Un pago de compra necesita una cuenta activa en la misma moneda. Las modificaciones de datos se guardan antes de subir o quitar documentos; si un archivo falla, la pantalla lo informa para reintentarlo.' },
-            { title: 'Exportá el stock', body: 'Exportar todo XLSX conserva la descarga completa. Exportar vista descarga los vehículos del filtro en todas sus páginas.' }
+            { title: 'Buscá vehículos', body: 'Usá los filtros por marca, modelo, año y tipo de ingreso (Propio, Consignación, Compartido).' },
+            { title: 'Cargá uno nuevo', body: 'Hacé clic en "Nuevo vehículo", ingresá la patente (se autocompleta info si está disponible) y cargá el precio.' },
+            { title: 'Fotos y detalles', body: 'Entrá a la ficha técnica para subir la galería de imágenes y cargar el equipamiento.' },
+            { title: 'Exportá el stock', body: 'Usá el botón de Excel para descargar tu lista completa de autos con precios.' }
         ],
         tips: [
             'Mantené los precios actualizados y marcá los autos reservados para evitar que otro vendedor los ofrezca.'
         ],
-        keywords: ['autos', 'vehiculos', 'inventario', 'capital', 'inversores', '0km', 'usados', 'filtros', 'tarjetas', 'estancados'],
-        version: '1.3',
-        lastReviewed: '2026-11-10',
-        reviewedBy: 'Desarrollo CRM'
+        keywords: ['autos', 'vehiculos', 'inventario', '0km', 'usados']
     },
     {
         id: 'gestion-clientes',
@@ -209,23 +192,17 @@ export const helpRegistry = [
         icon: 'Users',
         route: '/admin/clientes',
         roles: ['Owner/Admin', 'Ventas', 'Administrativo', 'Gestoría'],
-        summary: 'Organizá tus clientes por prioridad, responsable y próximo paso, conservando su historia comercial.',
+        summary: 'Mantené tu cartera de contactos al día y registrá todas sus interacciones.',
         steps: [
-            { title: 'Alta de cliente', body: 'Hacé clic en Nuevo cliente. Registrá su nombre y completá el contacto, lo que busca y el vendedor asignado del equipo.' },
-            { title: 'Prioridades', body: 'Para atender hoy reúne primera atención y próximos pasos vencidos o de hoy. Primera atención corresponde a Sin contactar. Sin próxima fecha muestra fichas comerciales activas sin fecha; Cerrado y Perdido quedan fuera de los pendientes.' },
-            { title: 'Próximo paso', body: 'Anotá la próxima acción y su fecha desde la ficha o el formulario. La fecha aparece en la agenda sin crear otra tarea.' },
-            { title: 'Pipeline', body: 'Usá las siete etapas comerciales para seguir cada oportunidad. Con permiso de edición podés cambiar la etapa; el cambio queda guardado en la ficha.' },
+            { title: 'Alta de cliente', body: 'Desde la grilla, hacé clic en "Nuevo Cliente". Cargá nombre, teléfono y correo.' },
             { title: 'Historial', body: 'Entrá a la ficha del cliente para ver todo: llamadas, ventas previas y notas.' },
-            { title: 'Páginas y exportación', body: 'Los contadores corresponden al conjunto filtrado. El pipeline indica cuántas tarjetas ves y cuántas hay en total. Exportar XLSX recorre todas las páginas del filtro, o descarga las fichas seleccionadas.' },
-            { title: 'Coincidencias', body: 'Revisá las posibles coincidencias de teléfono o email antes de crear otra ficha. No se fusionan automáticamente.' }
+            { title: 'Vehículo de interés', body: 'Asignale qué auto está buscando para poder filtrarlo luego.' },
+            { title: 'Duplicados', body: 'El sistema te va a avisar si intentás cargar un DNI o celular que ya existe.' }
         ],
         tips: [
             'Cargá el DNI para que Gestoría pueda hacer los trámites más rápido luego de la venta.'
         ],
-        keywords: ['contactos', 'agenda', 'compradores', 'pipeline', 'prioridades', 'proximo paso', 'responsable'],
-        version: '1.1',
-        lastReviewed: '2026-11-10',
-        reviewedBy: 'Desarrollo CRM'
+        keywords: ['contactos', 'agenda', 'compradores']
     },
     {
         id: 'cotizaciones',
@@ -255,22 +232,16 @@ export const helpRegistry = [
         icon: 'BadgeDollarSign',
         route: '/admin/ventas',
         roles: ['Owner/Admin', 'Administrativo'],
-        summary: 'Guardá borradores y seguí las operaciones de la agencia hasta su entrega.',
+        summary: 'El registro maestro de todas las operaciones cerradas en la agencia.',
         steps: [
-            { title: 'Guardá un borrador', body: 'En Nueva venta, usá "Guardar borrador" aunque todavía falten vehículo, cliente o precio. Conserva los datos cargados sin reservar la unidad, acreditar dinero en caja, convertir el lead ni crear cuotas.' },
-            { title: 'Continuá la carga', body: 'Abrí un borrador desde el listado o su ficha con "Continuar borrador". Revisá y guardá los cambios sobre la misma operación. Hasta activarlo, sus indicadores de cobranza, documentación y logística muestran "Sin activar".' },
-            { title: 'Activá la operación', body: 'Elegí una unidad disponible, completá el precio y seleccioná el estado correspondiente antes de guardar. El sistema verifica que la unidad no tenga otra operación activa. Si dejó de estar disponible, se conserva el borrador para corregirlo.' },
-            { title: 'Seguí la venta', body: 'Filtrá el listado por estado y vendedor. Abrí una operación activa para consultar sus datos y gestionar las funciones de venta según tus permisos.' },
+            { title: 'Listado global', body: 'Revisá todas las ventas, filtrá por estado (Señado, Vendido, Entregado) y vendedor.' },
+            { title: 'Ver detalles', body: 'Hacé clic en una venta para ver montos exactos, comisiones y autos involucrados.' },
             { title: 'Auditoría', body: 'Revisá qué usuario modificó el precio o cambió los estados de la operación.' }
         ],
         tips: [
-            'Activar una venta no registra un cobro. Registrá los ingresos por los circuitos de caja correspondientes.',
-            'La carga de venta y el borrador no adjuntan archivos. Conservá la documentación para incorporarla por el circuito documental de la agencia.'
+            'Las ventas eliminadas quedan registradas por seguridad en el historial de auditoría.'
         ],
-        keywords: ['operaciones', 'borrador', 'continuar', 'activar', 'boletos', 'facturacion', 'ingresos'],
-        version: '1.1',
-        lastReviewed: '2026-11-10',
-        reviewedBy: 'Desarrollo CRM'
+        keywords: ['operaciones', 'boletos', 'facturacion', 'ingresos']
     },
     {
         id: 'mis-ventas',
@@ -497,23 +468,17 @@ export const helpRegistry = [
         icon: 'LineChart',
         route: '/admin/finanzas',
         roles: ['Owner/Admin', 'Administrativo'],
-        summary: 'Consultá cuentas, cobros y pagos, y revisá la liquidez según los vencimientos registrados.',
+        summary: 'Control total de ingresos, egresos y el estado de las cuentas (cajas).',
         steps: [
-            { title: 'Elegí un grupo', body: 'La navegación se organiza en Resumen, Caja y bancos, Cobros, Pagos, Control y cierres, y Análisis y planificación. Dentro de cada grupo elegí la pestaña que necesitás; se conservan los accesos a las funciones propias de la agencia.' },
-            { title: 'Movimientos y pagos', body: 'Registrá pagos de empresas, retiros de socios o pagos disponibles en las pestañas correspondientes.' },
+            { title: 'Movimientos', body: 'Registrá pagos de empresas, retiros de socios o pagos disponibles en las pestañas correspondientes.' },
             { title: 'Cuentas separadas', body: 'Visualizá los saldos en ARS y USD por separado. Cada movimiento debe asignarse a una caja (banco, efectivo, etc).' },
-            { title: 'Liquidez a 7, 15 y 30 días', body: 'En Resumen, el panel de liquidez parte del saldo registrado en cuentas y aplica cuotas abiertas y movimientos pendientes registrados, según su fecha. Consultá ARS y USD por separado, y revisá también los vencidos y los importes sin fecha, que se presentan aparte.' },
-            { title: 'Revisá el alcance', body: 'La proyección no presume ventas nuevas ni recupero de vencidos. No incorpora obligaciones a propietarios o comisiones sin movimiento registrado, ni reglas recurrentes sin movimiento. Los datos incompletos se señalan para revisión.' },
+            { title: 'Comprobantes', body: 'Subí el ticket o transferencia PDF a cada movimiento para respaldarlo.' },
             { title: 'Reversión', body: 'Si te equivocás, usá la opción de reversión (requiere permisos de Admin) para anular el movimiento.' }
         ],
         tips: [
-            'El saldo registrado y la proyección pueden incluir fondos comprometidos con terceros: no equivalen a dinero libre para retirar.',
             'Hacé un arqueo de caja físico y comparalo con el sistema todos los viernes.'
         ],
-        keywords: ['caja', 'dinero', 'bancos', 'ingresos', 'egresos', 'liquidez', 'vencimientos', 'proyeccion'],
-        version: '1.1',
-        lastReviewed: '2026-11-10',
-        reviewedBy: 'Desarrollo CRM'
+        keywords: ['caja', 'dinero', 'bancos', 'ingresos', 'egresos']
     },
     {
         id: 'tesoreria-pagos',

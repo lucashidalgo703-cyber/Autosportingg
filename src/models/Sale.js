@@ -1,5 +1,4 @@
 import mongoose from 'mongoose';
-import {expedienteSchema} from './expedienteSchema.js';
 
 const saleExpenseSchema = new mongoose.Schema({
     description: { type: String, required: true },
@@ -86,11 +85,6 @@ const tradeInVehicleSchema = new mongoose.Schema({
     color: { type: String },
     vin: { type: String },
     engineNumber: { type: String },
-    fuel: { type: String },
-    condition: { type: String },
-    location: { type: String },
-    askingPrice: { type: Number, min: 0 },
-    consigned: { type: Boolean, default: false },
     ownerName: { type: String },
     ownerDni: { type: String },
     estimatedValue: { type: Number, required: true, min: 0, set: safeNumberSetter },
@@ -105,7 +99,6 @@ const tradeInVehicleSchema = new mongoose.Schema({
     receivedAt: { type: Date },
     receivedBy: { type: String },
     linkedStockCarId: { type: mongoose.Schema.Types.ObjectId, ref: 'Car' },
-    existingStockCarId: { type: mongoose.Schema.Types.ObjectId, ref: 'Car' },
     shouldEnterStock: { type: Boolean, default: false },
     enteredStockAt: { type: Date }
 });
@@ -138,17 +131,6 @@ const financingDetailsSchema = new mongoose.Schema({
     customInstallmentAmount: { type: Number, min: 0 }
 }, { _id: false });
 
-// Datos de trabajo del formulario; nunca adjuntos ni objetos arbitrarios del cliente.
-const draftDataSchema = new mongoose.Schema({
-    buyerName: { type: String, maxlength: 300 },
-    buyerPhone: { type: String, maxlength: 100 },
-    buyerEmail: { type: String, maxlength: 320 },
-    buyerDni: { type: String, maxlength: 100 },
-    mileage: { type: String, maxlength: 30 },
-    hasTradeIn: { type: Boolean },
-    notes: { type: String, maxlength: 20000 }
-}, { _id: false, strict: true });
-
 const saleSchema = new mongoose.Schema({
     reservationId: { type: mongoose.Schema.Types.ObjectId, ref: 'Reservation' },
     leadId: { type: mongoose.Schema.Types.ObjectId, ref: 'Lead' },
@@ -170,40 +152,6 @@ const saleSchema = new mongoose.Schema({
 
     depositAppliedAmount: { type: Number, default: 0, min: 0 },
     depositAppliedCurrency: { type: String, enum: ['ARS', 'USD'] },
-    // Declaraciones comerciales fuera de caja. Son créditos del comprador,
-    // nunca ingresos bancarios ni dinero disponible para distribuir.
-    externalBuyerPayments: [{
-        amount: { type: Number, required: true, min: 0.01, immutable: true },
-        currency: { type: String, enum: ['ARS', 'USD'], required: true, immutable: true },
-        date: { type: Date, required: true, immutable: true },
-        method: { type: String, maxlength: 100, immutable: true },
-        notes: { type: String, maxlength: 5000, required: true, immutable: true },
-        author: { type: String, required: true, immutable: true }, authorId: { type: String, required: true, immutable: true },
-        declaredAt: { type: Date, default: Date.now, immutable: true },
-        idempotencyKey: { type: String, required: true, select: false }, payloadHash: { type: String, required: true, select: false }
-    }],
-    buyerBalanceAdjustments: [{
-        mode: { type: String, enum: ['historical', 'settled'], required: true, immutable: true },
-        amount: { type: Number, required: true, min: 0.01, immutable: true },
-        currency: { type: String, enum: ['ARS', 'USD'], required: true, immutable: true },
-        date: { type: Date, required: true, immutable: true }, reason: { type: String, required: true, maxlength: 5000, immutable: true },
-        author: { type: String, required: true, immutable: true }, authorId: { type: String, required: true, immutable: true },
-        declaredAt: { type: Date, default: Date.now, immutable: true },
-        idempotencyKey: { type: String, required: true, select: false }, payloadHash: { type: String, required: true, select: false }
-    }],
-    // Declaraciones comerciales pendientes. Nunca acreditan caja ni sustituyen
-    // depositAppliedAmount legacy; la confirmación corresponde a Tesorería.
-    depositRecords: [{
-        amount: { type: Number, required: true, min: 0.01 },
-        currency: { type: String, enum: ['ARS', 'USD'], required: true },
-        date: { type: Date, required: true },
-        accountId: { type: mongoose.Schema.Types.ObjectId, ref: 'Account' },
-        notes: { type: String, maxlength: 5000 },
-        transactionId: { type: mongoose.Schema.Types.ObjectId, ref: 'Transaction' },
-        confirmedAt: Date,
-        confirmedBy: String,
-        status: { type: String, enum: ['pendiente', 'confirmada', 'rechazada'], default: 'pendiente' }
-    }],
     
     paymentMethod: { 
         type: String, 
@@ -223,7 +171,6 @@ const saleSchema = new mongoose.Schema({
     saleExpenses: { type: [saleExpenseSchema], default: [] },
 
     notes: { type: String },
-    draftData: { type: draftDataSchema, default: undefined },
 
     documentationStatus: { 
         type: String, 
@@ -239,7 +186,6 @@ const saleSchema = new mongoose.Schema({
     },
     expedienteResponsible: { type: mongoose.Schema.Types.ObjectId, ref: 'AdminUser' },
     expedienteDueDate: { type: Date },
-    expediente: { type: expedienteSchema, default: undefined },
 
     deliveryStatus: { 
         type: String, 
@@ -262,9 +208,6 @@ const saleSchema = new mongoose.Schema({
     
     // CARGA MANUAL Y PROPIETARIO
     isManualImport: { type: Boolean, default: false },
-    // Nuevas cargas históricas de consulta. No reclasifica importaciones legacy
-    // que pueden conservar cuotas y obligaciones vigentes.
-    historicalOnly: { type: Boolean, default: false },
     vehicleOwnerName: { type: String },
     vehicleOwnerPhone: { type: String },
     
@@ -325,12 +268,6 @@ const saleSchema = new mongoose.Schema({
 
     vehicleChangeHistory: { type: [vehicleChangeHistorySchema], default: [] },
     saleAuditLog: { type: [saleAuditSchema], default: [] }
-    ,managementNotes: [{ recipient: { type: String, enum: ['gestoria', 'finanzas'], required: true }, text: { type: String, required: true, maxlength: 5000 }, date: { type: Date, default: Date.now }, author: String }]
-    ,reminders: [{ type: { type: String, enum: ['llamada', 'postentrega', 'vtv', 'service', 'seguro', 'patente', 'garantia', 'cumple', 'otro'], required: true }, date: { type: Date, required: true }, note: { type: String, maxlength: 5000 }, completed: { type: Boolean, default: false } }]
-    ,reviewAsked: { type: Boolean, default: false }
-    ,reviewAskedAt: Date
-    ,commissionSettlement: { settled: { type: Boolean, default: false }, settledAt: Date, settledBy: String, note: String }
-    ,cancellationKind: { type: String, enum: ['cancelada', 'caida'] }
 }, {
     timestamps: true
 });

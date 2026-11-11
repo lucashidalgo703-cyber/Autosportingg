@@ -18,7 +18,7 @@ export function useAdminAccounts() {
         const contentType = response.headers.get("content-type") || "";
         if (contentType.includes("application/json")) {
             const data = await response.json().catch(() => ({}));
-            return Object.assign(new Error(data.message || data.error || `Error ${response.status}`), {errors:data.errors,code:data.code,status:response.status});
+            return data.message || data.error || `Error ${response.status}`;
         }
         const text = await response.text().catch(() => "");
         return text || `Error ${response.status}`;
@@ -41,7 +41,7 @@ export function useAdminAccounts() {
 
             if (!response.ok) {
                 const message = await parseErrorResponse(response);
-                throw message instanceof Error ? message : new Error(message);
+                throw new Error(message);
             }
 
             return await parseResponseSafe(response);
@@ -66,7 +66,7 @@ export function useAdminAccounts() {
 
             if (!response.ok) {
                 const message = await parseErrorResponse(response);
-                throw message instanceof Error ? message : new Error(message);
+                throw new Error(message);
             }
 
             return await parseResponseSafe(response);
@@ -90,7 +90,7 @@ export function useAdminAccounts() {
 
             if (!response.ok) {
                 const message = await parseErrorResponse(response);
-                throw message instanceof Error ? message : new Error(message);
+                throw new Error(message);
             }
 
             return await parseResponseSafe(response);
@@ -113,7 +113,7 @@ export function useAdminAccounts() {
 
             if (!response.ok) {
                 const message = await parseErrorResponse(response);
-                throw message instanceof Error ? message : new Error(message);
+                throw new Error(message);
             }
 
             return await parseResponseSafe(response);
@@ -136,7 +136,7 @@ export function useAdminAccounts() {
 
             if (!response.ok) {
                 const message = await parseErrorResponse(response);
-                throw message instanceof Error ? message : new Error(message);
+                throw new Error(message);
             }
 
             return await parseResponseSafe(response);

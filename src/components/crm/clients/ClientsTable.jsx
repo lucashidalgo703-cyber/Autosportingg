@@ -1,8 +1,6 @@
 import React from 'react';
 import Link from 'next/link';
 import { ArrowRight, Filter, Mail, MapPin, Phone } from 'lucide-react';
-import { CLIENT_PIPELINE_STAGES, getClientPipelineStage, formatClientNextAction } from '../../../utils/clientCommercial';
-import { clientDetailHref } from '../../../utils/clientNavigation';
 
 const formatDate = (value) => {
     if (!value) return '--';
@@ -41,7 +39,7 @@ const getStatusColor = (status) => {
     return 'text-crm-fg-muted';
 };
 
-export default function ClientsTable({ clients, selectedIds = [], setSelectedIds, returnTo }) {
+export default function ClientsTable({ clients, selectedIds = [], setSelectedIds }) {
     if (!clients || clients.length === 0) {
         return (
             <div className="flex min-h-[320px] flex-col items-center justify-center rounded-xl border border-dashed border-crm-border bg-crm-surface px-6 py-16 text-center">
@@ -92,7 +90,6 @@ export default function ClientsTable({ clients, selectedIds = [], setSelectedIds
                             <th className="px-3 py-2 text-center w-[40px]">
                                 <input 
                                     type="checkbox" 
-                                    aria-label="Seleccionar todos los clientes de esta página"
                                     className="cursor-pointer accent-crm-red"
                                     checked={isAllVisibleSelected}
                                     onChange={handleSelectAll}
@@ -104,7 +101,7 @@ export default function ClientsTable({ clients, selectedIds = [], setSelectedIds
                             <th className="px-3 py-2 font-semibold">Estado</th>
                             <th className="px-3 py-2 font-semibold">Origen</th>
                             <th className="px-3 py-2 font-semibold">Ubicacion</th>
-                            <th className="px-3 py-2 font-semibold">Próximo paso</th>
+                            <th className="px-3 py-2 font-semibold">Alta</th>
                             <th className="px-3 py-2 font-semibold">Acciones</th>
                         </tr>
                     </thead>
@@ -116,7 +113,6 @@ export default function ClientsTable({ clients, selectedIds = [], setSelectedIds
                                     <td className="px-3 py-2 align-middle text-center">
                                         <input 
                                             type="checkbox" 
-                                            aria-label={`Seleccionar cliente ${client.fullName}`}
                                             className="cursor-pointer accent-crm-red"
                                             checked={isSelected}
                                             onChange={(e) => handleSelectRow(e, client._id)}
@@ -125,7 +121,6 @@ export default function ClientsTable({ clients, selectedIds = [], setSelectedIds
                                     <td className="px-3 py-2 align-middle">
                                         <div className="font-semibold leading-5 text-crm-fg">{client.fullName}</div>
                                     <div className="mt-0.5 text-xs text-crm-fg-muted">{client.dniCuit ? `Doc: ${client.dniCuit}` : 'Sin documento'}</div>
-                                    <div className="mt-1 text-xs text-crm-fg-muted">{CLIENT_PIPELINE_STAGES.find(stage => stage.id === getClientPipelineStage(client))?.label || 'Etapa a revisar'} · {client.assignedTo?.name || 'Sin vendedor'}</div>
                                 </td>
                                 <td className="px-3 py-2 align-middle">
                                     <div className="flex flex-col gap-1 text-xs text-crm-fg-muted">
@@ -156,10 +151,10 @@ export default function ClientsTable({ clients, selectedIds = [], setSelectedIds
                                         <span className="truncate">{[client.locality, client.province].filter(Boolean).join(', ') || '--'}</span>
                                     </div>
                                 </td>
-                                <td className="px-3 py-2 align-middle text-xs text-crm-fg-muted"><span className="block text-crm-fg">{formatClientNextAction(client)}</span><span className="block max-w-[200px] truncate">{client.nextAction || 'Sin acción registrada'}</span><span className="mt-1 block text-[10px]">Alta {formatDate(client.createdAt)}</span></td>
+                                <td className="px-3 py-2 align-middle text-xs text-crm-fg-muted">{formatDate(client.createdAt)}</td>
                                 <td className="px-3 py-2 align-middle">
                                     <Link
-                                        href={clientDetailHref(client._id, returnTo)}
+                                        href={`/admin/clientes/${client._id}`}
                                         className="inline-flex h-8 items-center gap-2 rounded-lg border border-transparent bg-transparent px-2 text-xs font-semibold text-crm-fg no-underline transition-colors hover:bg-crm-surface-raised"
                                     >
                                         Ver ficha

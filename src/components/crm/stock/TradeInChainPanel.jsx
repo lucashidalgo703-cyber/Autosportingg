@@ -4,8 +4,6 @@ import Link from 'next/link';
 import { GitBranch, Link2, Unlink, ArrowRight, AlertTriangle, CheckCircle2, Clock, DollarSign, Info, RefreshCw } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { parseArgentineMoney } from '../../../utils/saleCommercial';
-import { useAuth } from '../../../context/AuthContext';
-import { hasPermission, PERMISSIONS } from '../../../utils/adminPermissions';
 
 const formatCurrency = (amount, currency = 'ARS') => {
     const num = Number(amount) || 0;
@@ -28,8 +26,6 @@ const renderCurrencyBag = (bag, emptyText = '—') => {
 };
 
 export default function TradeInChainPanel({ carId, saleId, onUpdated }) {
-    const { user } = useAuth();
-    const canEditOrigin = hasPermission(user, PERMISSIONS.VENTAS_WRITE);
     const [chain, setChain] = useState(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
@@ -104,7 +100,6 @@ export default function TradeInChainPanel({ carId, saleId, onUpdated }) {
     }, [fetchChain]);
 
     const openLinkModal = async () => {
-        if (!canEditOrigin) return;
         setLinkError(null);
         setLinkForm({ saleId: '', tradeInId: '', value: '', currency: 'ARS', confirm: false });
         setIsLinkModalOpen(true);
@@ -152,7 +147,6 @@ export default function TradeInChainPanel({ carId, saleId, onUpdated }) {
 
     const handleSubmitLink = async (e) => {
         e.preventDefault();
-        if (!canEditOrigin) return;
         setLinkError(null);
         const targetCarId = carId || chain?.requestedCarId;
         if (!targetCarId) return;
@@ -270,7 +264,7 @@ export default function TradeInChainPanel({ carId, saleId, onUpdated }) {
                 </div>
 
                 <div className="flex items-center gap-2">
-                    {canEditOrigin && targetCarId && !hasOriginLink && (
+                    {targetCarId && !hasOriginLink && (
                         <button
                             type="button"
                             onClick={openLinkModal}
@@ -280,7 +274,7 @@ export default function TradeInChainPanel({ carId, saleId, onUpdated }) {
                             Vincular a venta de origen
                         </button>
                     )}
-                    {canEditOrigin && targetCarId && hasOriginLink && (
+                    {targetCarId && hasOriginLink && (
                         <button
                             type="button"
                             onClick={() => setIsUnlinkModalOpen(true)}

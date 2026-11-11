@@ -2,9 +2,6 @@ import React from 'react';
 import Link from 'next/link';
 import { Filter, ExternalLink, AlertTriangle, Car } from 'lucide-react';
 import CrmTable from '../ui/CrmTable';
-import { stockIsPublished } from '../../../utils/stockFilters.js';
-import { vehicleDetailHref } from '../../../utils/stockNavigation.js';
-import { canReserveVehicle } from '../../../utils/vehicleDetail.js';
 
 const getVehicleYear = (vehicle) => vehicle.year || vehicle['año'] || 'S/D';
 const formatNumber = (value) => Number(value || 0).toLocaleString('es-AR');
@@ -19,7 +16,7 @@ const formatDate = (value) => {
     return date.toISOString().slice(0, 10);
 };
 const getLocation = (vehicle) => {
-    return vehicle._original?.location || vehicle._original?.ubicacion || vehicle._original?.showroom || 'Sin ubicación';
+    return vehicle._original?.location || vehicle._original?.ubicacion || vehicle._original?.showroom || 'Salón Principal';
 };
 const getOwner = (vehicle) => {
     if (vehicle.origen === 'propio') {
@@ -52,7 +49,6 @@ const getStatusLabel = (status) => {
     if (normalized === 'reservado') return '⚠️ Señado';
     if (normalized === 'vendido') return '⛔ Vendido';
     if (normalized === 'pausado') return '⏳ Vendido sin confirmar';
-    if (normalized === 'retirado') return '○ Fuera de venta';
     return status || '--';
 };
 const getProgress = (days) => {
@@ -97,12 +93,7 @@ export default function StockTable({
     onClearFilters = null,
     error = null,
     onRetry = null,
-    onNewVehicle = null,
-    compact = false,
-    canReorder = true,
-    showTotals = true,
-    canEdit = false,
-    returnTo = '/admin/stock'
+    onNewVehicle = null
 }) {
     const columns = [
         {
@@ -122,7 +113,7 @@ export default function StockTable({
                         <div className="flex items-center justify-center gap-1">
                             <button
                                 type="button"
-                                disabled={isFirstRowOnFirstPage || isSwapping || !canReorder}
+                                disabled={isFirstRowOnFirstPage || isSwapping}
                                 onClick={() => onSwap && onSwap(rowIndex, 'up')}
                                 className="flex h-7 w-7 items-center justify-center rounded-lg border border-crm-border bg-transparent text-crm-fg hover:bg-crm-surface-raised cursor-pointer transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
                                 title="Subir posición"
@@ -131,7 +122,7 @@ export default function StockTable({
                             </button>
                             <button
                                 type="button"
-                                disabled={isLastRowOnLastPage || isSwapping || !canReorder}
+                                disabled={isLastRowOnLastPage || isSwapping}
                                 onClick={() => onSwap && onSwap(rowIndex, 'down')}
                                 className="flex h-7 w-7 items-center justify-center rounded-lg border border-crm-border bg-transparent text-crm-fg hover:bg-crm-surface-raised cursor-pointer transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
                                 title="Bajar posición"
@@ -151,9 +142,9 @@ export default function StockTable({
                 const progress = getProgress(days);
                 return (
                     <>
-                        <Link href={vehicleDetailHref(vehicle.id, returnTo)} className="font-medium leading-5 text-crm-fg hover:text-crm-red focus-visible:outline focus-visible:outline-2 focus-visible:outline-crm-red">
+                        <div className="font-medium leading-5 text-crm-fg">
                             {vehicle.marca} {vehicle.modelo}
-                        </Link>
+                        </div>
                         <div className="mt-0.5 text-xs text-crm-fg-muted">{vehicle.color}</div>
                         <div className="mt-2">
                             <div className="flex items-center justify-between gap-2 text-xs text-crm-fg">
@@ -206,9 +197,10 @@ export default function StockTable({
         },
         {
             label: 'Mercado Libre',
+            label: 'Mercado Libre',
             key: 'ml',
             render: (v) => {
-                const isPublished = stockIsPublished(v._original?.publishedOnML);
+                const isPublished = v._original?.publishedOnML === 'Si';
                 return (
                     <div className="flex items-center gap-2 cursor-pointer group" onClick={() => onEditML && onEditML(v)}>
                         <span className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider group-hover:ring-1 transition-all ${isPublished ? 'border-yellow-500/30 bg-yellow-500/10 text-yellow-500 ring-yellow-500/50' : 'border-crm-border text-crm-fg-muted ring-crm-border'}`}>
@@ -240,12 +232,12 @@ export default function StockTable({
             key: 'actions',
             render: (vehicle) => (
                 <div className="flex items-center gap-2">
-                    {canEdit && <Link
-                        href={vehicleDetailHref(vehicle.id, returnTo, true)}
+                    <Link
+                        href={`/admin/stock/${vehicle.id}`}
                         className="inline-flex h-8 items-center rounded-lg border border-transparent bg-transparent px-2 text-xs font-semibold text-crm-fg no-underline transition-colors hover:bg-crm-surface-raised"
                     >
                         Editar
-                    </Link>}
+                    </Link>
                     <button
                         type="button"
                         onClick={() => onPrint && onPrint(vehicle)}
@@ -253,21 +245,20 @@ export default function StockTable({
                     >
                         Imprimir
                     </button>
-                    {onReserve && <button
+                    <button
                         type="button"
                         onClick={() => onReserve && onReserve(vehicle)}
-                        disabled={!canReserveVehicle(vehicle)}
                         className="m-0 h-8 appearance-none rounded-lg border border-transparent bg-transparent px-2 text-xs font-semibold text-crm-fg transition-colors hover:bg-crm-surface-raised cursor-pointer"
                     >
                         Señar
-                    </button>}
-                    {onDelete && <button
+                    </button>
+                    <button
                         type="button"
                         onClick={() => onDelete && onDelete(vehicle)}
                         className="m-0 h-8 appearance-none rounded-lg border border-transparent bg-transparent px-2 text-xs font-semibold text-crm-red transition-colors hover:bg-crm-red/10 cursor-pointer"
                     >
                         Eliminar
-                    </button>}
+                    </button>
                 </div>
             )
         }
@@ -335,22 +326,21 @@ export default function StockTable({
                         <span className="text-[11px] text-crm-fg-muted">(Página {currentPage} de {totalPages})</span>
                     )}
                 </div>
-                {showTotals && <div className="flex items-center gap-1.5">
+                <div className="flex items-center gap-1.5">
                     <span className="text-crm-fg-muted">Valor de venta filtrado:</span>
                     <strong className="font-mono text-emerald-400">
                         {getFormattedListTotals(filteredTotalUSD, filteredTotalARS, dolarBlue)}
                     </strong>
-                </div>}
+                </div>
             </div>
 
             <CrmTable
                 data={data}
-                columns={compact ? columns.filter(column => ['sortOrder', 'vehicle', 'price', 'owner', 'status', 'actions'].includes(column.key)) : columns}
-                emptyIcon={emptyIcon}
-                emptyTitle={emptyTitle}
-                emptyMessage={emptyMessage}
-                emptyAction={emptyAction}
-                minWidth={compact ? 'min-w-[820px]' : 'min-w-[1080px]'}
+                columns={columns}
+                emptyIcon={Filter}
+                emptyTitle="Sin resultados"
+                emptyMessage="Todavía no hay vehículos en el stock. Cargá el primero con el botón Nuevo vehículo."
+                minWidth="min-w-[1080px]"
             />
         </div>
     );

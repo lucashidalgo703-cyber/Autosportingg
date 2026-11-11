@@ -1,5 +1,0 @@
-export const FINANCE_CONTROL='h-9 w-full min-w-0 rounded-lg border border-crm-border bg-crm-bg px-3 text-sm text-crm-fg outline-none focus:border-crm-red disabled:opacity-50';
-export default function FinanceField({name,label,value,onChange,options,type='text',wide=false,children,...props}){
- const id='finance-'+name;
- return <label htmlFor={id} className={'block min-w-0 text-xs text-crm-fg-muted '+(wide?'sm:col-span-2':'')}>{label}{options?<select id={id} value={value??''} onChange={event=>onChange(name,event.target.value)} className={FINANCE_CONTROL+' mt-1'} {...props}>{options.map(option=>{const val=typeof option==='object'?option.value:option;return <option key={val} value={val}>{typeof option==='object'?option.label:option}</option>;})}</select>:type==='textarea'?<textarea id={id} value={value??''} onChange={event=>onChange(name,event.target.value)} rows={3} className={FINANCE_CONTROL+' mt-1 h-auto py-2'} {...props}/>:<input id={id} type={type} value={value??''} onChange={event=>onChange(name,event.target.value)} className={FINANCE_CONTROL+' mt-1'} {...props}/>} {children}</label>;
-}

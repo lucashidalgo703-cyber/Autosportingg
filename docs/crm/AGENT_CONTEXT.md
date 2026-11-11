@@ -8,12 +8,6 @@ Si vas a trabajar en cualquier tarea relacionada con el CRM en este repositorio,
 2. `/docs/crm/CRM_AUTOSPORTING_ANALISIS_COMPLETO.md`
 3. `/docs/crm/CRM_AUTOSPORTING_PROMPT_FINAL_ANTIGRAVITY.md`
 
-Para Clientes y Stock, consultar también la [revisión fiel del 10/11/2026](REVISION_FIEL_CLIENTES_STOCK_2026-11-10.md): distingue el cierre histórico de la ampliación actual, incluyendo importación/OCR local, documentos privados por partes, NPS contextual, retiro de venta, portal del propietario y Capital separado por moneda. Las ausencias del corte inicial no describen la implementación posterior. Consultar sus contratos, permisos, configuración y límites vigentes; no interpretar este registro como confirmación de despliegue o QA global final.
-
-Para Ventas y devoluciones de aranceles del Registro, consultar la [revisión de Ventas y Registro](REVISION_FIEL_VENTAS_REGISTRO_2026-11-10.md): contratos de señas/permutas, autoridad de estados, conciliación explícita y caja manual, pruebas y límites de la implementación local.
-
-Para Finanzas, consultar la [revisión de Finanzas](REVISION_FIEL_FINANZAS_2026-11-10.md): movimientos, cuentas, documentos privados, cuotas por pagar, instrumentos y formularios auxiliares; resultados locales y límites. La opción elegida por el usuario es iniciar períodos de gestión conservando saldos y obligaciones: Control → Períodos guarda resúmenes inmutables sin borrar ni ocultar movimientos ni alterar Tesorería.
-
 ## Directrices Operativas
 
 * **Contexto:** El CRM pertenece a AutoSporting (agencia de autos).

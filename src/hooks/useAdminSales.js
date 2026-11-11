@@ -1,69 +1,188 @@
-import { useState, useCallback, useEffect, useRef } from 'react';
-import { useAuth } from '../context/AuthContext';
-import { mergeSaleResponse } from '../utils/salePresentation';
-import { salesWorkbenchQuery } from '../utils/salesWorkbench';
+import { parseResponseSafe } from '../utils/apiHelper';
+import { useState, useCallback } from 'react';
 
-const base = () => typeof window !== 'undefined' ? window.location.origin : '';
-const empty = { sales: [], loading: false, error: null };
+const getAuthHeader = () => {
+    const token = localStorage.getItem('token');
+    return {
+        'Content-Type': 'application/json',
+        ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+    };
+};
+
+const getBaseUrl = () => {
+    if (typeof window !== 'undefined') {
+        return window.location.origin;
+    }
+    return '';
+};
 
 export function useAdminSales() {
-    const { token } = useAuth();
-    const session = useRef(token); session.current = token;
-    const revision = useRef(0);
-    const cache = useRef({ token, records: new Map() });
-    if (cache.current.token !== token) cache.current = { token, records: new Map() };
-    const [state, setState] = useState({ ...empty, token });
-    useEffect(() => { revision.current++; setState({ ...empty, token }); }, [token]);
+    const [sales, setSales] = useState([]);
+    const [loading, setLoading] = useState(false);
+    const [error, setError] = useState(null);
 
-    const request = useCallback(async (path, options = {}) => {
-        if (!token) throw new Error('Tu sesión ya no está disponible.');
-        const response = await fetch(`${base()}${path}`, { ...options, cache: 'no-store', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}`, ...options.headers } });
-        const json = (response.headers.get('content-type') || '').includes('application/json');
-        const data = json ? await response.json().catch(() => ({})) : {};
-        if (session.current !== token || localStorage.getItem('token') !== token) throw new DOMException('La sesión cambió.', 'AbortError');
-        if (!response.ok) {
-            const error = new Error(data?.message || data?.error || 'No se pudo completar la operación de ventas.');
-            error.code = data?.code; error.errors = data?.errors; error.data = data; error.status = response.status;
-            throw error;
-        }
-        if (!json) throw new Error('El servidor no devolvió datos de la venta. Actualizá la vista y reintentá.');
-        return data;
-    }, [token]);
-
-    const read = useCallback(async (path, fallback) => {
-        const readRevision = ++revision.current;
-        setState(previous => ({ ...(previous.token === token ? previous : empty), token, loading: true, error: null }));
+    const fetchSales = useCallback(async (filters = {}) => {
+        setLoading(true);
+        setError(null);
         try {
-            const data = await request(path);
-            if (session.current !== token || readRevision !== revision.current) return fallback;
-            const records = Array.isArray(data) ? data : data?._id ? [data] : [];
-            for (const record of records) cache.current.records.set(record._id, record);
-            setState(previous => ({ ...(previous.token === token ? previous : empty), token, ...(Array.isArray(data) ? { sales: data } : {}), loading: false, error: null }));
-            return data;
-        } catch (error) {
-            if (session.current === token && readRevision === revision.current) setState(previous => ({ ...(previous.token === token ? previous : empty), token, loading: false, error: error.name === 'AbortError' ? null : error.message }));
-            return fallback;
-        }
-    }, [request, token]);
+            const queryParams = new URLSearchParams();
+            if (filters?.vehicleId) queryParams.append('vehicleId', filters.vehicleId);
+            if (filters?.clientId) queryParams.append('clientId', filters.clientId);
+            if (filters?.leadId) queryParams.append('leadId', filters.leadId);
+            if (filters?.status) queryParams.append('status', filters.status);
 
-    const fetchSales = useCallback((filters = {}) => {
-        const query = new URLSearchParams();
-        for (const key of ['vehicleId', 'clientId', 'leadId', 'status']) if (filters[key]) query.set(key, filters[key]);
-        return read(`/api/admin/sales?${query}`, []);
-    }, [read]);
-    const fetchSaleById = useCallback(id => read(`/api/admin/sales/${encodeURIComponent(id)}`, null), [read]);
-    const fetchSalesWorkspace = useCallback((filters, { page = 1, limit = 20, exportAll = false, signal } = {}) => request(`/api/admin/sales?${salesWorkbenchQuery(filters, { page, limit, exportAll })}`, { signal }), [request]);
-    const updateSale = useCallback(async (id, payload) => {
-        const data = await request(`/api/admin/sales/${encodeURIComponent(id)}`, { method: 'PATCH', body: JSON.stringify(payload) });
-        const merged = mergeSaleResponse(cache.current.records.get(id), data);
-        cache.current.records.set(id, merged);
-        setState(previous => previous.token === token ? { ...previous, sales: previous.sales.map(sale => sale._id === id ? merged : sale) } : previous);
-        return merged;
-    }, [request, token]);
-    const createSale = useCallback(payload => request('/api/admin/sales', { method: 'POST', body: JSON.stringify(payload) }), [request]);
-    const deleteSale = useCallback(id => request(`/api/admin/sales/${encodeURIComponent(id)}`, { method: 'DELETE' }), [request]);
-    const previewInstallmentPlanCancel = useCallback(id => request(`/api/admin/sales/${encodeURIComponent(id)}/installment-plan/cancel-preview`), [request]);
-    const cancelInstallmentPlan = useCallback((id, { reason, installmentIds }) => request(`/api/admin/sales/${encodeURIComponent(id)}/installment-plan/cancel`, { method: 'POST', body: JSON.stringify({ reason, installmentIds, confirm: true }) }), [request]);
-    const visible = state.token === token ? state : { ...empty, loading: Boolean(token) };
-    return { ...visible, salesRequest: request, fetchSalesWorkspace, fetchSales, fetchSaleById, updateSale, createSale, deleteSale, previewInstallmentPlanCancel, cancelInstallmentPlan };
+            const res = await fetch(`${getBaseUrl()}/api/admin/sales?${queryParams.toString()}`, {
+                headers: getAuthHeader()
+            });
+
+            if (!res.ok) {
+                const errData = await res.json().catch(() => ({}));
+                console.error("Fetch sales error:", errData);
+                throw new Error('No se pudieron cargar las ventas. Reintentá en unos segundos o verificá la conexión.');
+            }
+
+            const data = await parseResponseSafe(res);
+            setSales(data);
+            return data;
+        } catch (err) {
+            console.error("Sales hook catch:", err);
+            setError(err.message === 'Failed to fetch' ? 'No se pudieron cargar las ventas. Reintentá en unos segundos o verificá la conexión.' : err.message);
+            return [];
+        } finally {
+            setLoading(false);
+        }
+    }, []);
+
+    const fetchSaleById = useCallback(async (id) => {
+        setLoading(true);
+        setError(null);
+        try {
+            const res = await fetch(`${getBaseUrl()}/api/admin/sales/${id}`, {
+                headers: getAuthHeader()
+            });
+
+            if (!res.ok) {
+                const errData = await res.json().catch(() => ({}));
+                console.error("Fetch sale details error:", errData);
+                throw new Error('No se pudo cargar la venta. Reintentá en unos segundos o verificá la conexión.');
+            }
+
+            return await parseResponseSafe(res);
+        } catch (err) {
+            setError(err.message);
+            return null;
+        } finally {
+            setLoading(false);
+        }
+    }, []);
+
+    const updateSale = async (id, payload) => {
+        try {
+            const res = await fetch(`${getBaseUrl()}/api/admin/sales/${id}`, {
+                method: 'PATCH',
+                headers: getAuthHeader(),
+                body: JSON.stringify(payload)
+            });
+
+            if (!res.ok) {
+                const errData = await res.json().catch(() => ({}));
+                const apiError = new Error(errData.message || 'Error al actualizar la venta');
+                apiError.code = errData.code;
+                throw apiError;
+            }
+
+            const updatedSale = await parseResponseSafe(res);
+            let finalSale = updatedSale;
+            setSales(prev => prev.map(s => {
+                if (s._id !== id) return s;
+                const merged = { ...s, ...updatedSale };
+                // Keep populated objects if the update returned plain string IDs
+                if (updatedSale.clientId && typeof updatedSale.clientId === 'string' && s.clientId && typeof s.clientId === 'object') {
+                    merged.clientId = s.clientId;
+                }
+                if (updatedSale.vehicleId && typeof updatedSale.vehicleId === 'string' && s.vehicleId && typeof s.vehicleId === 'object') {
+                    merged.vehicleId = s.vehicleId;
+                }
+                if (updatedSale.leadId && typeof updatedSale.leadId === 'string' && s.leadId && typeof s.leadId === 'object') {
+                    merged.leadId = s.leadId;
+                }
+                if (updatedSale.reservationId && typeof updatedSale.reservationId === 'string' && s.reservationId && typeof s.reservationId === 'object') {
+                    merged.reservationId = s.reservationId;
+                }
+                finalSale = merged;
+                return merged;
+            }));
+            return finalSale;
+        } catch (err) {
+            throw err;
+        }
+    };
+
+    const createSale = async (payload) => {
+        try {
+            const res = await fetch(`${getBaseUrl()}/api/admin/sales`, {
+                method: 'POST',
+                headers: getAuthHeader(),
+                body: JSON.stringify(payload)
+            });
+
+            if (!res.ok) {
+                const errData = await res.json().catch(() => ({}));
+                throw new Error(errData.message || 'Error al crear la venta');
+            }
+
+            return await parseResponseSafe(res);
+        } catch (err) {
+            throw err;
+        }
+    };
+
+    const deleteSale = async (id) => {
+        try {
+            const res = await fetch(`${getBaseUrl()}/api/admin/sales/${id}`, {
+                method: 'DELETE',
+                headers: getAuthHeader()
+            });
+
+            if (!res.ok) {
+                const errData = await res.json().catch(() => ({}));
+                throw new Error(errData.error || 'Error al eliminar la venta');
+            }
+
+            return await parseResponseSafe(res);
+        } catch (err) {
+            throw err;
+        }
+    };
+
+    const previewInstallmentPlanCancel = async (id) => {
+        const res = await fetch(`${getBaseUrl()}/api/admin/sales/${id}/installment-plan/cancel-preview`, { headers: getAuthHeader() });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(data.message || 'No se pudo obtener la vista previa del plan.');
+        return data;
+    };
+
+    const cancelInstallmentPlan = async (id, { reason, installmentIds }) => {
+        const res = await fetch(`${getBaseUrl()}/api/admin/sales/${id}/installment-plan/cancel`, {
+            method: 'POST',
+            headers: getAuthHeader(),
+            body: JSON.stringify({ reason, installmentIds, confirm: true })
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(data.message || 'No se pudo cancelar el plan de cuotas.');
+        return data;
+    };
+
+    return {
+        sales,
+        loading,
+        error,
+        fetchSales,
+        fetchSaleById,
+        updateSale,
+        createSale,
+        deleteSale,
+        previewInstallmentPlanCancel,
+        cancelInstallmentPlan
+    };
 }

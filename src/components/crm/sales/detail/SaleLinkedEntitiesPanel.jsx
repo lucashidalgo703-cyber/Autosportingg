@@ -2,13 +2,8 @@ import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { Link2, CarFront, User, CalendarClock, ChevronRight, AlertTriangle, Search, Handshake, RefreshCw } from 'lucide-react';
 import SaleChangeVehicleModal from './SaleChangeVehicleModal';
-import { getSaleBuyer } from '../../../../utils/salePresentation';
-import { useAuth } from '../../../../context/AuthContext';
-import { hasPermission, PERMISSIONS } from '../../../../utils/adminPermissions';
 
 export default function SaleLinkedEntitiesPanel({ sale, onUpdate }) {
-    const { user } = useAuth();
-    const canWrite = hasPermission(user, PERMISSIONS.VENTAS_WRITE);
     const [clientSearch, setClientSearch] = useState('');
     const [clientSearchResults, setClientSearchResults] = useState([]);
     const [searchingClient, setSearchingClient] = useState(false);
@@ -25,9 +20,9 @@ export default function SaleLinkedEntitiesPanel({ sale, onUpdate }) {
 
     // Manual Client State
     const [isManualClientMode, setIsManualClientMode] = useState(false);
-    const [manualClientName, setManualClientName] = useState(() => getSaleBuyer(sale).name);
-    const [manualClientDNI, setManualClientDNI] = useState(() => getSaleBuyer(sale).dni);
-    const [manualClientPhone, setManualClientPhone] = useState(() => getSaleBuyer(sale).phone);
+    const [manualClientName, setManualClientName] = useState(sale?.buyerName || sale?.vehicleOwnerName || '');
+    const [manualClientDNI, setManualClientDNI] = useState(sale?.buyerDni || '');
+    const [manualClientPhone, setManualClientPhone] = useState(sale?.buyerPhone || '');
 
     const [isLinking, setIsLinking] = useState(false);
     const [error, setError] = useState(null);
@@ -123,13 +118,13 @@ export default function SaleLinkedEntitiesPanel({ sale, onUpdate }) {
                 },
                 body: JSON.stringify({
                     fullName: manualClientName,
-                    dniCuit: manualClientDNI,
+                    dni: manualClientDNI,
                     phone: manualClientPhone
                 })
             });
             if (!res.ok) {
                 const data = await res.json();
-                throw new Error(data.message || data.error || 'Error al crear y vincular cliente');
+                throw new Error(data.error || 'Error al crear y vincular cliente');
             }
             if (onUpdate) onUpdate();
             else window.location.reload();
@@ -230,14 +225,14 @@ export default function SaleLinkedEntitiesPanel({ sale, onUpdate }) {
     const vehicleVin = sale.vehicleId?.plateOrVin || '';
     const vehicleHref = sale.vehicleId?._id ? `/admin/stock/${sale.vehicleId._id}` : '#';
 
-    const clientName = getSaleBuyer(sale).name || 'Sin nombre';
-    const clientPhone = getSaleBuyer(sale).phone || 'Sin teléfono';
-    const clientEmail = getSaleBuyer(sale).email;
+    const clientName = sale.clientId?.fullName || sale.clientId?.firstName || sale.leadId?.name || 'Sin Nombre';
+    const clientPhone = sale.clientId?.phone || sale.leadId?.phone || 'Sin teléfono';
+    const clientEmail = sale.clientId?.email || sale.leadId?.email || '';
     const hasClientLink = sale.clientId?._id || sale.leadId?._id;
     const clientHref = sale.clientId?._id ? `/admin/clientes/${sale.clientId._id}` : (sale.leadId?._id ? `/admin/leads/${sale.leadId._id}` : '#');
 
     return (
-        <fieldset disabled={!canWrite} className="m-0 min-w-0 p-0 bg-neutral-900 border border-neutral-800 rounded-2xl overflow-hidden flex flex-col h-full">
+        <div className="bg-neutral-900 border border-neutral-800 rounded-2xl overflow-hidden flex flex-col h-full">
             <div className="p-4 border-b border-neutral-800 flex items-center gap-2 bg-crm-surface">
                 <Link2 size={16} className="text-blue-500" />
                 <h3 className="text-sm font-bold text-white uppercase tracking-wider">Entidades Vinculadas</h3>
@@ -576,6 +571,6 @@ export default function SaleLinkedEntitiesPanel({ sale, onUpdate }) {
                     else window.location.reload();
                 }}
             />
-        </fieldset>
+        </div>
     );
 }

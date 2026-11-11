@@ -3,8 +3,6 @@ import {
     resolveVehicleAcquisitionCost,
     roundMoney
 } from '../utils/saleCommercial.js';
-import { stockCapitalOwnership } from '../utils/stockOwnership.js';
-import { saleNonCashBuyerCredits } from '../utils/saleCollection.js';
 
 /**
  * Calcula el estado de inversión real, capital propio vs terceros, costos pendientes,
@@ -44,19 +42,18 @@ export function computeOperationRecoveryState({
     let thirdPartyOwner = null;
 
     if (resolvedVehicle) {
-        const ownership = stockCapitalOwnership(resolvedVehicle);
         const invPct = Number(
             (resolvedVehicle.investor && resolvedVehicle.investor.percentage > 0 ? resolvedVehicle.investor.percentage : 0) ||
             (resolvedVehicle.jointOwnership && resolvedVehicle.jointOwnership.hasPartner && resolvedVehicle.jointOwnership.partnerPercentage > 0
                 ? resolvedVehicle.jointOwnership.partnerPercentage
                 : 0)
         );
-        if (ownership.isConsignment) {
-            isConsignment = true;
-            thirdPartyOwner = resolvedVehicle.consignedBy || resolvedVehicle.ownerName || 'Comitente';
-        } else if (invPct > 0) {
+        if (invPct > 0) {
             partnerPct = Math.min(100, Math.max(0, invPct));
             thirdPartyOwner = resolvedVehicle.investor?.name || resolvedVehicle.jointOwnership?.partnerName || 'Socio Inversor';
+        } else if (resolvedVehicle.consignedBy || (resolvedVehicle.agencyOwned === false && resolvedVehicle.ownerName)) {
+            isConsignment = true;
+            thirdPartyOwner = resolvedVehicle.consignedBy || resolvedVehicle.ownerName || 'Comitente';
         }
     } else if (sale && (sale.vehicleOwnerName || sale.ownerName || sale.consignationOwnerId)) {
         isConsignment = true;
@@ -74,13 +71,12 @@ export function computeOperationRecoveryState({
     );
 
     // Dinero efectivamente cobrado (NUNCA incluye permutas; evita duplicar seña si ya hay transacción de ingreso por seña)
-    const confirmedDepositIds = new Set((sale?.depositRecords || []).filter(row => row.status === 'confirmada' && row.transactionId).map(row => String(row.transactionId)));
-    const incomeTxs = activeTxs.filter((t) => t.type === 'Ingreso' && ((!t.financeManualEntryId && t.concept !== 'finance_manual_deposit') || confirmedDepositIds.has(String(t._id))));
+    const incomeTxs = activeTxs.filter((t) => t.type === 'Ingreso');
     let incomeTxsSum = 0;
     let hasDepositTx = false;
     for (const t of incomeTxs) {
         incomeTxsSum = roundMoney(incomeTxsSum + Number(t.amount || 0));
-        if (confirmedDepositIds.has(String(t._id)) || t.source === 'reserva' || /seña|reserva/i.test(t.concept || t.description || '')) {
+        if (t.source === 'reserva' || /seña|reserva/i.test(t.concept || t.description || '')) {
             hasDepositTx = true;
         }
     }
@@ -152,8 +148,7 @@ export function computeOperationRecoveryState({
     }
 
     const expectedCashTotal = roundMoney(Math.max(0, agreedPrice - tradeInCapitalInVehicles));
-    const nonCashBuyerCredits = saleNonCashBuyerCredits(sale || {});
-    const pendingSaleBalance = roundMoney(Math.max(0, expectedCashTotal - effectivelyCollectedCash - nonCashBuyerCredits.nonCashBuyerCredit));
+    const pendingSaleBalance = roundMoney(Math.max(0, expectedCashTotal - effectivelyCollectedCash));
 
     // Si la ganancia no es calculable (falta vehículo, falta compra/toma o falta tipo de cambio)
     if (!profitability.calculable) {
@@ -167,7 +162,6 @@ export function computeOperationRecoveryState({
             expectedCashTotal,
             pendingSaleBalance,
             effectivelyCollectedCash,
-            ...nonCashBuyerCredits,
             tradeInCapitalInVehicles,
             alreadyReservedPendingCosts,
             alreadyDistributedMargin,
@@ -328,7 +322,6 @@ export function computeOperationRecoveryState({
         isConsignment,
         thirdPartyOwner,
         effectivelyCollectedCash,
-        ...nonCashBuyerCredits,
         totalOwnCashCollectedEstimate,
         tradeInCapitalInVehicles,
         ownTradeInCapitalShare,
