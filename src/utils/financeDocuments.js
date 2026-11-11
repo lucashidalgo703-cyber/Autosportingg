@@ -3,7 +3,7 @@ import {financeCurrency} from './financeWorkbench.js';
 import {parseArgentineMoney} from './saleCommercial.js';
 export function newFinanceDocument(initial={},now=new Date()){
  return {date:getArgentinaDateKey(now),city:'',number:'',concept:'',amount:'',currency:'ARS',paymentMethod:'Contado',paymentOther:'',tradeIns:[],balancePaymentMethod:'Contado',balancePaymentOther:'',notes:'',...initial,
- buyer:{name:'',dni:'',phone:'',address:'',...initial.buyer},vehicle:{brand:'',type:'',model:'',engine:'',chassis:'',plate:'',km:'',...initial.vehicle},signer:{name:'',dni:'',...initial.signer},issuer:{name:'AutoSporting',address:'',phone:'',dni:'',...initial.issuer},financing:{entity:'',installments:'',amount:'',currency:'ARS',installmentAmount:'',installmentCurrency:'ARS',notes:'',...initial.financing}};
+ buyer:{name:'',dni:'',phone:'',address:'',...initial.buyer},...(initial.seller?{seller:{name:'',dni:'',phone:'',address:'',...initial.seller}}:{}),vehicle:{brand:'',type:'',model:'',engine:'',chassis:'',plate:'',km:'',...initial.vehicle},signer:{name:'',dni:'',...initial.signer},issuer:{name:'AutoSporting',address:'',phone:'',dni:'',...initial.issuer},financing:{entity:'',installments:'',amount:'',currency:'ARS',installmentAmount:'',installmentCurrency:'ARS',notes:'',...initial.financing}};
 }
 export function financeDocumentBalance(values){
  const currency=financeCurrency(values.currency),amount=parseArgentineMoney(values.amount),totals={ARS:0,USD:0},issues=[];
@@ -47,6 +47,7 @@ export async function createFinanceDocumentPdf(values,kind){
  line('Fecha',getBusinessDateKey(values.date).split('-').reverse().join('/'));line('Ciudad',values.city);if(kind==='recibo')line('N° de recibo',values.number);
  section(kind==='boleto' ? 'Comprador' : 'Recibí de');
  for(const [key,label]of [['name','Nombre'],['dni','DNI / CUIT'],['phone','Teléfono'],['address','Domicilio']])line(label,values.buyer[key]);
+ if(kind==='boleto'&&values.seller){section('Vendedor');for(const [key,label]of [['name','Nombre'],['dni','DNI / CUIT'],['phone','Teléfono'],['address','Domicilio']])line(label,values.seller[key]);}
  section('Importe');line('Monto',values.currency+' '+parseArgentineMoney(values.amount).toLocaleString('es-AR',{maximumFractionDigits:2}));
  if(kind==='recibo'){line('Concepto',values.concept);line('Forma de pago',values.paymentOther || values.paymentMethod);}
  else{

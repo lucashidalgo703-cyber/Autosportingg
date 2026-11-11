@@ -6,17 +6,19 @@ import {parseClientDocumentText,clientDocumentOcrPatch,CLIENT_DOCUMENT_FIELD_LAB
 import {extractClientDocumentText} from '../../../utils/clientOcrRuntime';
 const button='inline-flex items-center gap-2 rounded-lg border border-crm-border px-3 py-2 text-xs text-crm-fg disabled:opacity-40';
 const field='h-9 w-full rounded-lg border border-crm-border bg-crm-bg px-3 text-sm text-crm-fg';
-export default function ClientOcrControl({isOpen=true,recordKey='new',onApply,disabled=false,summaryLabel,compactButton=false}){
+export default function ClientOcrControl({isOpen=true,recordKey='new',onApply,disabled=false,summaryLabel,compactButton=false,allowedFields}){
  const {token}=useAuth();
+ const allowedKey=allowedFields===undefined?'*':JSON.stringify([...new Set(Array.isArray(allowedFields)?allowedFields:[])].sort());
+ const limitProposals=values=>allowedKey==='*'?values:clientDocumentOcrPatch(values,Array.isArray(allowedFields)?allowedFields:[]);
  const [file,setFile]=useState(null),[text,setText]=useState(''),[proposals,setProposals]=useState({}),[selected,setSelected]=useState([]);
  const [busy,setBusy]=useState(false),[progress,setProgress]=useState(null),[error,setError]=useState(''),[message,setMessage]=useState('');
- const input=useRef(null),controller=useRef(null),generation=useRef(0),active=useRef({token,recordKey,isOpen}),proposalScope=useRef(null);
- active.current={token,recordKey,isOpen};
- const current=(captured,key,revision)=>active.current.isOpen && active.current.token===captured && active.current.recordKey===key && generation.current===revision && localStorage.getItem('token')===captured;
+ const input=useRef(null),controller=useRef(null),generation=useRef(0),active=useRef({token,recordKey,isOpen,allowedKey}),proposalScope=useRef(null);
+ active.current={token,recordKey,isOpen,allowedKey};
+ const current=(captured,key,revision,fieldsKey=allowedKey)=>active.current.isOpen && active.current.token===captured && active.current.recordKey===key && active.current.allowedKey===fieldsKey && generation.current===revision && localStorage.getItem('token')===captured;
  useEffect(()=>{
   generation.current++;controller.current?.abort();setFile(null);setText('');setProposals({});setSelected([]);setBusy(false);setProgress(null);setError('');setMessage('');
   return ()=>{generation.current++;controller.current?.abort();};
- },[token,recordKey,isOpen]);
+ },[token,recordKey,isOpen,allowedKey]);
  const choose=event=>{
   const chosen=event.target.files?.[0];event.target.value='';
   if(!chosen)return;
@@ -32,14 +34,14 @@ export default function ClientOcrControl({isOpen=true,recordKey='new',onApply,di
    if(!current(captured,key,revision))return;
    setText(result.text);
    if(!result.text.trim()){setMessage('No se reconoció texto. Podés intentar otra imagen o completar los datos manualmente.');return;}
-   const values=parseClientDocumentText(result.text);proposalScope.current={token:captured,key,revision};setProposals(values);setSelected(Object.keys(values));
-   setMessage((result.method==='text' ? 'Texto del PDF leído.' : result.method==='mixed' ? 'PDF leído con texto y OCR local.' : 'Texto reconocido localmente.')+(result.truncated ? ' Se procesaron solo las primeras 3 páginas.' : '')+' Revisá y elegí los campos antes de aplicarlos.');
+   const values=limitProposals(parseClientDocumentText(result.text));proposalScope.current={token:captured,key,revision,allowedKey};setProposals(values);setSelected(Object.keys(values));
+   setMessage((result.method==='text' ? 'Texto del PDF leído.' : result.method==='mixed' ? 'PDF leído con texto y OCR local.' : 'Texto reconocido localmente.')+(result.truncated ? ' Se procesaron solo las primeras 3 páginas.' : '')+(Object.keys(values).length?' Revisá y elegí los campos antes de aplicarlos.':' No se reconocieron campos compatibles para completar esta ficha.'));
   }catch(failure){if(current(captured,key,revision) && failure.name!=='AbortError')setError('No se pudo leer el archivo. '+(failure.message || 'Probá otra imagen o completá los campos manualmente.'));}
   finally{if(current(captured,key,revision)){setBusy(false);setProgress(null);}}
  };
- const prepare=()=>{const values=parseClientDocumentText(text);proposalScope.current={token,key:recordKey,revision:generation.current};setProposals(values);setSelected(Object.keys(values));setMessage(Object.keys(values).length ? 'Propuesta preparada para revisar.' : 'No se reconocieron rótulos de datos. Podés completar o corregir el formulario manualmente.');};
+ const prepare=()=>{const values=limitProposals(parseClientDocumentText(text));proposalScope.current={token,key:recordKey,revision:generation.current,allowedKey};setProposals(values);setSelected(Object.keys(values));setMessage(Object.keys(values).length ? 'Propuesta preparada para revisar.' : 'No se reconocieron campos compatibles. Podés completar o corregir el formulario manualmente.');};
  const apply=()=>{
-  if(disabled || busy || !proposalScope.current || !current(proposalScope.current.token,proposalScope.current.key,proposalScope.current.revision))return;
+  if(disabled || busy || !proposalScope.current || !current(proposalScope.current.token,proposalScope.current.key,proposalScope.current.revision,proposalScope.current.allowedKey))return;
   const patch=clientDocumentOcrPatch(proposals,selected);if(!Object.keys(patch).length){setMessage('Elegí al menos un campo con un valor válido antes de aplicar.');return;}
   onApply?.(patch);setProposals({});setSelected([]);setText('');setFile(null);setMessage('Campos aplicados al formulario. Revisalos y usá Guardar para enviarlos.');
  };

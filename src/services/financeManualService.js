@@ -14,6 +14,7 @@ const validId=value=>/^[a-f\d]{24}$/i.test(String(value||''));
 const text=(value,max)=>{if(typeof value!=='string'&&value!=null)fail(400,'El texto no es válido.');const result=String(value||'').trim();if(result.length>max)fail(400,'El texto supera el límite permitido.');return result;};
 let setup;
 const prepare=()=>setup||=Promise.all([Entry.createCollection(),Transaction.createCollection(),AuditLog.createCollection()]).then(()=>Entry.createIndexes()).catch(error=>{setup=null;throw error;});
+export const prepareFinanceManualStorage=prepare;
 function normalize(kind,payload){
  if(!['deposit','payable'].includes(kind))fail(400,'Fuente financiera no válida.');
  const allowed=kind==='deposit'?['Recibida','Aplicada','Devuelta']:['Pendiente','Disponible','Pagado'];
@@ -40,13 +41,15 @@ async function postLedger(entry,actor,session){
 async function audit(entry,actor,action,session){await AuditLog.create([{userId:actorId(actor),userName:actorName(actor),userRole:actor?.role,action,module:'finanzas',entityType:'FinanceManualEntry',entityId:String(entry._id),description:entry.label,metadata:{kind:entry.kind,status:entry.status,transactionId:entry.transactionId||null}}],{session});}
 const view=entry=>{const result=entry.toObject?entry.toObject():{...entry};delete result.payloadHash;delete result.idempotencyKey;const transactionStatus=result.transactionId?.status||(result.transactionId?'activo':null);if(result.transactionId?._id)result.transactionId=result.transactionId._id;return {...result,source:'manual',transactionStatus,affectsCash:Boolean(result.transactionId)&&transactionStatus==='activo'};};
 export async function listFinanceManualEntries(kind){if(!['deposit','payable'].includes(kind))fail(400,'Fuente no válida.');return {items:(await Entry.find({kind}).populate('transactionId','status').sort({date:-1,createdAt:-1}).limit(2000).lean()).map(view)};}
-export async function createFinanceManualEntry(kind,payload,actor,key){
+export async function createFinanceManualEntry(kind,payload,actor,key,options={}){
  const data=normalize(kind,payload),owner=actorId(actor);if(!owner||!/^[\w-]{8,120}$/.test(String(key||'')))fail(400,'La operación requiere un identificador de reintento válido.');
  const payloadHash=crypto.createHash('sha256').update(JSON.stringify(data)).digest('hex');await prepare();let result,replayed=false;
- const run=async()=>mongoose.connection.transaction(async session=>{
+ const perform=async session=>{
   const existing=await Entry.findOne({createdBy:owner,idempotencyKey:key}).session(session);if(existing){if(existing.payloadHash!==payloadHash)fail(409,'El identificador ya se usó con otros datos.');result=existing;replayed=true;return;}
   await checkLinks(data,session);const entry=new Entry({...data,createdBy:owner,updatedBy:actorName(actor),idempotencyKey:key,payloadHash});await postLedger(entry,actor,session);await entry.save({session});await audit(entry,actor,'CREACION_MANUAL',session);result=entry;
- });
+ };
+ if(options.session){await perform(options.session);return {item:view(result),replayed};}
+ const run=async()=>mongoose.connection.transaction(perform);
  try{await run();}catch(error){if(error.code!==11000)throw error;const existing=await Entry.findOne({createdBy:owner,idempotencyKey:key});if(!existing||existing.payloadHash!==payloadHash)fail(409,'El identificador ya se usó con otros datos.');result=existing;replayed=true;}
  return {item:view(result),replayed};
 }

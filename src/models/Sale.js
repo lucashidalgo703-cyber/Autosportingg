@@ -1,4 +1,5 @@
 import mongoose from 'mongoose';
+import {expedienteSchema} from './expedienteSchema.js';
 
 const saleExpenseSchema = new mongoose.Schema({
     description: { type: String, required: true },
@@ -238,6 +239,7 @@ const saleSchema = new mongoose.Schema({
     },
     expedienteResponsible: { type: mongoose.Schema.Types.ObjectId, ref: 'AdminUser' },
     expedienteDueDate: { type: Date },
+    expediente: { type: expedienteSchema, default: undefined },
 
     deliveryStatus: { 
         type: String, 

@@ -129,6 +129,11 @@ async function startPreview() {
     const { default: CrmTask } = await import('../src/models/CrmTask.js');
     const { default: CommunicationLog } = await import('../src/models/CommunicationLog.js');
     const { default: Pedido } = await import('../src/models/Pedido.js');
+    const { default: Gestoria } = await import('../src/models/Gestoria.js');
+    const { default: SaleDocument } = await import('../src/models/SaleDocument.js');
+    const { default: AuditLog } = await import('../src/models/AuditLog.js');
+    const { commitSaleDocument } = await import('../src/services/saleDocumentService.js');
+    const { EXPEDIENTE_DOCUMENT_CATALOGUE } = await import('../src/utils/expedienteWorkspace.js');
     const { getArgentinaDateKey } = await import('../src/utils/cashProjection.js');
     await connectDB();
 
@@ -271,10 +276,52 @@ async function startPreview() {
     const activeSale = await Sale.create({
         vehicleId: sold._id, clientId: client._id, salePrice: 15000000, saleCurrency: 'ARS',
         status: 'confirmada', saleDate: day(-7), paymentMethod: 'financiado', salesperson: seller.name,
+        assignedTo: seller._id, expedienteResponsible: owner._id, expedienteDueDate: day(4),
         installmentsCount: 3, createdBy: owner.name, documentationStatus: 'pendiente', expedienteStatus: 'en_proceso',
         financingDetails: { hasFinancing: true, financedBalance: 15000000, totalFinancedWithInterest: 15000000, installmentsCount: 3, installmentAmount: 5000000, lastInstallmentAmount: 5000000, totalOperationPrice: 15000000, downPayment: 0 },
-        commissionSettings: { mode: 'fixed', extraAmount: 0, extraCurrency: 'ARS' }, notes: 'Venta ficticia para revisar cuotas y caja.'
+        commissionSettings: { mode: 'fixed', extraAmount: 0, extraCurrency: 'ARS' }, notes: 'Venta ficticia para revisar cuotas y caja.',
+        expediente: {
+            title: 'Expediente QA - Peugeot 208 / Cliente de demostración', openedAt: day(-7).toISOString().slice(0, 10), priority: 'high',
+            externalGestor: { name: 'Gestoría externa ficticia QA', phone: '0000000003' },
+            parties: {
+                seller: { fullName: 'Parte vendedora ficticia QA', dniCuit: 'QA-SIN-DNI-VENDEDOR', phone: '0000000004', email: 'qa-vendedor@example.invalid', birthDate: '1980-04-16', occupation: 'Ocupación ficticia de QA' },
+                buyer: { fullName: client.fullName, dniCuit: 'QA-SIN-DNI-COMPRADOR', phone: '0000000005', email: 'qa-comprador@example.invalid', birthDate: '1992-09-12', occupation: 'Ocupación ficticia de QA', clientId: client._id }
+            },
+            documents: {
+                seller: EXPEDIENTE_DOCUMENT_CATALOGUE.seller.map((row, index) => ({ ...row, required: true, status: index < 3 ? 'recibido' : row.key === 'police_verification' ? 'agencia' : 'pendiente', notes: row.key === 'police_verification' ? 'Solicitud ficticia a la agencia; permanece pendiente.' : '', custom: false, updatedAt: intakeDay(-1), updatedBy: owner.name })),
+                buyer: EXPEDIENTE_DOCUMENT_CATALOGUE.buyer.map((row, index) => ({ ...row, required: true, status: index < 3 ? 'recibido' : 'pendiente', custom: false, updatedAt: intakeDay(-1), updatedBy: owner.name })),
+                procedure: EXPEDIENTE_DOCUMENT_CATALOGUE.procedure.map(row => ({ ...row, status: ['transferred_title', 'registry_fee', 'registration_deposit'].includes(row.key) ? 'recibido' : 'pendiente', custom: false }))
+            },
+            confirmations: { buyer: { confirmed: true, confirmedAt: intakeDay(-1), confirmedBy: owner.name, note: 'Confirmación manual ficticia de QA; no corresponde a una entrega real.' }, consignment: { confirmed: false } },
+            registrationAccounts: [{ bank: 'Banco ficticio de QA', cbuAlias: 'alias.ficticio.sin.validez', holder: 'Registro ficticio QA', amount: 35000, currency: 'ARS', notes: 'Declaración de cuenta; no transfiere fondos.' }],
+            registrationDeposit: { amount: 35000, currency: 'ARS', notes: 'Depósito declarado de demostración; no registra movimiento de caja.' },
+            milestones: { sellerDocsSigned: true, duplicateDelivered: false, procedureComplete: false, papersDelivered: false }, refundDeclared: false,
+            expenses: {
+                seller: [{ concept: 'Informe ficticio a cargo del vendedor', amount: 20000, currency: 'ARS', status: 'pending', accountId: ars._id, notes: 'Declaración ficticia pendiente; sin egreso.', createdAt: intakeDay(-1), createdBy: owner.name }],
+                buyer: [{ concept: 'Gestión ficticia a cargo del comprador', amount: 45, currency: 'USD', status: 'retained', accountId: usd._id, notes: 'Retención declarada; no modifica el saldo canónico de la venta ni caja.', createdAt: intakeDay(-1), createdBy: owner.name }]
+            },
+            tasks: [{ title: 'QA - Verificar el 08 firmado antes de avanzar', dueDate: day(1).toISOString().slice(0, 10), responsibleId: owner._id, completed: false, createdAt: intakeDay(-1), createdBy: owner.name }],
+            generalNotes: [{ text: 'Expediente enteramente ficticio para recorrer las doce secciones. Los documentos adjuntos llevan la marca SIN VALIDEZ.', date: intakeDay(-1), author: owner.name, authorId: String(owner._id) }]
+        },
+        managementNotes: [{ recipient: 'gestoria', text: 'Nota compartida ficticia: revisar documentación pendiente.', date: intakeDay(-1), author: owner.name }, { recipient: 'finanzas', text: 'Nota financiera ficticia: los gastos declarados aún no registran pagos.', date: intakeDay(-1), author: owner.name }]
     });
+    const expedienteGestoria = await Gestoria.create({ title: 'QA - Transferencia del Peugeot 208', type: 'Transferencia Egreso', saleId: activeSale._id, vehicleId: sold._id, vehiclePlate: sold.plateOrVin, clientId: client._id, status: 'Documentación', gestorName: 'Gestoría ficticia QA', startDate: day(-7), estimatedEndDate: day(4), notes: 'Trámite ficticio para revisar el vínculo desde Expedientes. Sin gastos ni cobros registrados.', createdBy: owner._id });
+    activeSale.expediente.linkedGestoriaId = expedienteGestoria._id;
+    await activeSale.save();
+    // PDFs válidos, privados y marcados como ficticios; pasan por el servicio
+    // de documentos existente. No representan un pago ni una transferencia real.
+    await Promise.all([SaleDocument.createCollection(), AuditLog.createCollection()]);
+    const { jsPDF } = await import('jspdf');
+    const qaActor = { id: String(owner._id), username: owner.name, role: owner.role };
+    const expedienteProofs = [];
+    for (const [documentKey, label] of [['transferred_title', 'Título transferido'], ['registry_fee', 'Arancel del registro'], ['registration_deposit', 'Depósito declarado al registro']]) {
+        const pdf = new jsPDF();
+        pdf.setFontSize(18); pdf.text('QA FICTICIA - SIN VALIDEZ', 20, 25);
+        pdf.setFontSize(13); pdf.text(label, 20, 42);
+        pdf.setFontSize(10); pdf.text('Documento de demostración de AutoSporting. No acredita pagos,', 20, 58); pdf.text('propiedad, transferencia ni trámites reales.', 20, 65);
+        const proof = await commitSaleDocument(String(activeSale._id), [{ originalname: `qa-sin-validez-${documentKey}.pdf`, buffer: Buffer.from(pdf.output('arraybuffer')) }], crypto.randomUUID(), qaActor, { slot: 'expediente_document', party: 'procedure', documentKey, attachmentId: crypto.randomUUID() });
+        expedienteProofs.push({ key: documentKey, id: proof.document._id });
+    }
     const legacyTradeIn = await Car.create({
         ...carBase, brand: 'Volkswagen', name: 'Permuta QA legado', plateOrVin: 'QA-PERMUTA-LEGADO',
         price: 11000, currency: 'USD', purchasePrice: 0, purchaseCurrency: 'USD',
@@ -329,6 +376,7 @@ async function startPreview() {
     console.log(`Fixture IDs: ${JSON.stringify({ owned: String(owned._id), shared: String(shared._id), consigned: String(consigned._id), sold: String(sold._id), legacyTradeIn: String(legacyTradeIn._id), activeSale: String(activeSale._id), draft: String(draft._id), partial: String(partial._id), rescheduled: String(rescheduled._id), overdue: String(overdue._id) })}`);
     console.log(`Etapa 2: ${extraStock.length} unidades y ${extraClients.length} fichas comerciales ficticias adicionales para revisar segunda página y filtros.`);
     console.log(`QA fichas comerciales: ${JSON.stringify({ firstContactClient: String(firstContactClient._id), followedClient: String(followedClient._id), blockedClient: String(blockedClient._id), matchingRequest: String(matchingRequest._id), vehicleFollowUp: String(vehicleFollowUp._id) })}`);
+    console.log(`QA expediente: ${JSON.stringify({ saleId: String(activeSale._id), gestoriaId: String(expedienteGestoria._id), url: `/admin/expedientes?saleId=${activeSale._id}`, proofs: expedienteProofs })}`);
     console.log('Ctrl+C cierra los servidores y elimina la réplica temporal.\n');
 }
 

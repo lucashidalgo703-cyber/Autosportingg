@@ -34,7 +34,7 @@ export async function uploadPrivateFiles({ basePath, files, token, signal, uploa
         const file = manifest[fileIndex];
         for (let partIndex = 0; partIndex < file.partCount; partIndex++) {
             const chunk = new Uint8Array(await files[fileIndex].slice(partIndex * PRIVATE_UPLOAD_CHUNK_BYTES, Math.min((partIndex + 1) * PRIVATE_UPLOAD_CHUNK_BYTES, file.fileSize)).arrayBuffer());
-            await request(`${basePath}/${uploadId}/chunks`, { ...file, partIndex, chunkSha256: await hash(chunk), data: base64(chunk) });
+            await request(`${basePath}/${uploadId}/chunks`, { ...file, partIndex, chunkSha256: await hash(chunk), data: base64(chunk),...(metadata===undefined?{}:{metadata}) });
             uploadedBytes += chunk.length; onProgress?.({ uploadedBytes, totalBytes, percent: totalBytes ? Math.round(uploadedBytes / totalBytes * 100) : 100, fileIndex, fileCount: files.length });
         }
     }

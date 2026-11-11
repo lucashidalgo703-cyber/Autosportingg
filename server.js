@@ -17,6 +17,7 @@ import { previewClientImport, commitClientImport } from './src/services/clientSp
 import { listClientDocuments, uploadClientDocuments, findCommittedClientDocumentUpload, readClientDocument, setClientDocumentDeleted, clientDocumentDisposition, CLIENT_DOCUMENT_MAX_BYTES } from './src/services/clientDocumentService.js';
 import { stagePrivateUpload, assemblePrivateUpload, cleanupPrivateUpload, privateUploadManifestHash } from './src/services/privateUploadService.js';
 import { registerSaleDocumentRoutes } from './src/routes/saleDocumentRoutes.js';
+import {registerExpedienteRoutes} from './src/routes/expedienteRoutes.js';
 import { sendPrivateDocument } from './src/utils/privateDocumentTransport.js';
 import {registerFinanceDocumentRoutes} from './src/services/registerFinanceDocumentRoutes.js';
 import {registerFinancePayablePlanRoutes} from './src/services/registerFinancePayablePlanRoutes.js';
@@ -5477,6 +5478,7 @@ async function buildPopulatedSaleResponse(saleId, reqUser) {
 
 // GET all sales
 registerSaleDocumentRoutes(app, { authenticateToken, requirePermission, connectDB });
+registerExpedienteRoutes(app,{authenticateToken,requirePermission,connectDB});
 app.get('/api/admin/sales', authenticateToken, requirePermission(PERMISSIONS.VENTAS_READ), async (req, res) => {
     try {
         await connectDB();
@@ -6649,6 +6651,7 @@ app.patch('/api/admin/sales/:id/commission-settlement', authenticateToken, requi
 app.patch('/api/admin/sales/:id', authenticateToken, requirePermission(PERMISSIONS.VENTAS_WRITE), async (req, res) => {
     try {
         await connectDB();
+        if(Object.hasOwn(req.body||{},'expedienteStatus')||Object.hasOwn(req.body||{},'expediente'))return res.status(409).json({message:'Gestioná el estado documental desde Expedientes para conservar sus controles e historial.',code:'EXPEDIENTE_WORKFLOW_REQUIRED'});
         const {
             status,
             paymentMethod,
@@ -12479,7 +12482,7 @@ app.get('/api/admin/tesoreria-estrategica/sales/:saleId/summary', authenticateTo
 });
 
 // 19d. Resumen de venta para panel de detalle de venta (acceso desde Ventas)
-app.get('/api/admin/sales/:saleId/treasury-summary', authenticateToken, async (req, res) => {
+app.get('/api/admin/sales/:saleId/treasury-summary', authenticateToken, requirePermission(PERMISSIONS.VENTAS_READ), requirePermission(PERMISSIONS.FINANZAS_READ), async (req, res) => {
     try {
         const summary = await treasuryStrategicService.getSaleTreasurySummary(req.params.saleId);
         res.json(summary);

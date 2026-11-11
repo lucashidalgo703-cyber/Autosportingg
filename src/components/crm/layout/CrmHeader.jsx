@@ -128,6 +128,7 @@ function CrmHeaderSession({ onMenuClick, isMenuOpen = false }) {
         if (!token) return;
         const controller = new AbortController();
         let active = true;
+        let summaryRevision = 0;
         const readJson = async url => {
             try {
                 const response = await fetch(url, { headers: { Authorization: `Bearer ${token}` }, cache: 'no-store', signal: controller.signal });
@@ -135,13 +136,14 @@ function CrmHeaderSession({ onMenuClick, isMenuOpen = false }) {
             } catch { return null; }
         };
         const fetchSummary = async () => {
+            const revision = ++summaryRevision;
             const [accounts, carsData, salesData, subscription] = await Promise.all([
                 canSeeFinancials ? readJson('/api/admin/accounts') : null,
                 canSeeStock ? readJson('/api/admin/cars?limit=1') : null,
                 canSeeSales ? readJson('/api/admin/sales') : null,
                 readJson('/api/admin/company/subscription-summary')
             ]);
-            if (!active) return;
+            if (!active || revision !== summaryRevision) return;
             const balances = Array.isArray(accounts) ? buildCashProjection({ accounts }).openingBalances : { ARS: null, USD: null };
             const salesArray = Array.isArray(salesData) ? salesData : salesData?.sales;
             const currentMonth = getArgentinaDateKey().slice(0, 7);
@@ -150,7 +152,8 @@ function CrmHeaderSession({ onMenuClick, isMenuOpen = false }) {
         };
         fetchSummary();
         const interval = setInterval(fetchSummary, 300000);
-        return () => { active = false; clearInterval(interval); controller.abort(); };
+        window.addEventListener('account-balance-updated', fetchSummary);
+        return () => { active = false; clearInterval(interval); window.removeEventListener('account-balance-updated', fetchSummary); controller.abort(); };
     }, [token, canSeeFinancials, canSeeStock, canSeeSales]);
 
     const unreadCount = notifications.filter(n => !n.read).length;

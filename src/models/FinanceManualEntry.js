@@ -7,6 +7,7 @@ const schema=new mongoose.Schema({
  clientName:{type:String,maxlength:300},clientPhone:{type:String,maxlength:100},notes:{type:String,maxlength:5000},
  transactionId:{type:mongoose.Schema.Types.ObjectId,ref:'Transaction',default:null},
  appliedSaleDepositId:{type:mongoose.Schema.Types.ObjectId,default:null},
+ expedienteExpenseId:{type:mongoose.Schema.Types.ObjectId,default:null},expedienteSaleId:{type:mongoose.Schema.Types.ObjectId,ref:'Sale',default:null},expedienteParty:{type:String,enum:['seller','buyer']},
  createdBy:{type:String,required:true},updatedBy:String,idempotencyKey:{type:String,required:true},payloadHash:{type:String,required:true}
 },{timestamps:true,optimisticConcurrency:true});
 schema.index({createdBy:1,idempotencyKey:1},{unique:true});

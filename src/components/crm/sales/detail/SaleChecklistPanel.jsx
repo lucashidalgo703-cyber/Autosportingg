@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { CheckSquare, Save } from 'lucide-react';
+import { CheckSquare, Save, AlertTriangle } from 'lucide-react';
 
 const DEFAULT_DOC_CHECKLIST = [
     { key: 'dni', label: 'DNI / datos del comprador verificados' },
