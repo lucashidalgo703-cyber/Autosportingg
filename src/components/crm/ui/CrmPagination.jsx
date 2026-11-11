@@ -2,7 +2,7 @@ import React from 'react';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import CrmButton from './CrmButton';
 
-export default function CrmPagination({ currentPage, totalPages, totalItems, onPageChange, limit = 20 }) {
+export default function CrmPagination({ currentPage, totalPages, totalItems, onPageChange, limit = 20, disabled = false }) {
     if (totalPages <= 1) return null;
 
     return (
@@ -18,7 +18,7 @@ export default function CrmPagination({ currentPage, totalPages, totalItems, onP
                     variant="secondary"
                     size="sm"
                     onClick={() => onPageChange(currentPage - 1)}
-                    disabled={currentPage <= 1}
+                    disabled={disabled || currentPage <= 1}
                 >
                     <ChevronLeft size={16} />
                     <span>Anterior</span>
@@ -32,7 +32,7 @@ export default function CrmPagination({ currentPage, totalPages, totalItems, onP
                     variant="secondary"
                     size="sm"
                     onClick={() => onPageChange(currentPage + 1)}
-                    disabled={currentPage >= totalPages}
+                    disabled={disabled || currentPage >= totalPages}
                 >
                     <span>Siguiente</span>
                     <ChevronRight size={16} />

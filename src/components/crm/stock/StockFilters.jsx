@@ -51,12 +51,15 @@ export default function StockFilters({
     setBrandFilter,
     mlFilter,
     setMlFilter,
+    catalogFilter = 'all',
+    setCatalogFilter,
+    disabled = false,
     brandOptions = [],
     counts = {}
 }) {
     return (
         <div className="flex flex-col gap-5">
-            <div className="-mx-1 flex items-center gap-6 border-b border-crm-border px-1">
+            <div className="-mx-1 flex flex-wrap items-center gap-x-6 gap-y-2 border-b border-crm-border px-1">
                 {tabs.map(tab => {
                     const isActive = stockTab === tab.id;
 
@@ -64,6 +67,7 @@ export default function StockFilters({
                         <button
                             key={tab.id}
                             type="button"
+                            disabled={disabled}
                             onClick={() => setStockTab(tab.id)}
                             className={`m-0 inline-flex items-baseline gap-1.5 appearance-none border-0 border-b-2 bg-transparent px-1 pb-3 pt-1 text-sm font-semibold transition-colors ${
                                 isActive
@@ -100,6 +104,7 @@ export default function StockFilters({
                         <button
                             key={chip.id}
                             type="button"
+                            disabled={disabled}
                             onClick={() => setFilterStatus(isActive ? '' : chip.id)}
                             className={`m-0 inline-flex h-[26px] appearance-none items-center gap-1 rounded-full border px-3 text-xs font-semibold leading-none transition-colors ${
                                 isActive ? chip.active : chip.idle
@@ -112,23 +117,38 @@ export default function StockFilters({
                 })}
             </div>
 
-            <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_162px]">
+            <div className="grid gap-3 xl:grid-cols-[minmax(240px,1fr)_minmax(0,660px)]">
                 <div className="relative">
                     <Search className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-crm-fg-muted" size={17} />
                     <input
                         type="text"
+                        disabled={disabled}
                         placeholder="Buscar marca, modelo, patente, año, propietario, teléfono, consig., ubicación, notas..."
                         value={searchTerm}
                         onChange={(event) => setSearchTerm(event.target.value)}
-                        className="m-0 h-[38px] w-full appearance-none rounded-lg border border-crm-border bg-crm-surface py-2 pl-9 pr-3 text-sm text-crm-fg outline-none transition-colors placeholder:text-crm-fg-muted focus:border-crm-red focus:ring-2 focus:ring-crm-red/20"
+                        className="m-0 h-[38px] min-w-0 w-full appearance-none rounded-lg border border-crm-border bg-crm-surface py-2 pl-9 pr-3 text-sm text-crm-fg outline-none transition-colors placeholder:text-crm-fg-muted focus:border-crm-red focus:ring-2 focus:ring-crm-red/20"
                     />
                 </div>
 
-                <div className="flex gap-3">
+                <div className="grid min-w-0 grid-cols-[repeat(auto-fit,minmax(min(100%,210px),1fr))] gap-3">
                     <select
+                        aria-label="Publicación en catálogo web"
+                        value={catalogFilter}
+                        onChange={(event) => setCatalogFilter(event.target.value)}
+                        disabled={disabled}
+                        className="m-0 h-[38px] min-w-0 w-full appearance-none rounded-lg border border-crm-border bg-crm-surface px-3 text-sm text-crm-fg outline-none transition-colors focus:border-crm-red focus:ring-2 focus:ring-crm-red/20"
+                    >
+                        <option value="all">Catálogo web: Todos</option>
+                        <option value="published">Catálogo web: Publicados</option>
+                        <option value="unpublished">Catálogo web: No publicados</option>
+                    </select>
+
+                    <select
+                        aria-label="Publicación en Mercado Libre"
+                        disabled={disabled}
                         value={mlFilter}
                         onChange={(event) => setMlFilter(event.target.value)}
-                        className="m-0 h-[38px] w-full appearance-none rounded-lg border border-crm-border bg-crm-surface px-3 text-sm text-crm-fg outline-none transition-colors focus:border-crm-red focus:ring-2 focus:ring-crm-red/20"
+                        className="m-0 h-[38px] min-w-0 w-full appearance-none rounded-lg border border-crm-border bg-crm-surface px-3 text-sm text-crm-fg outline-none transition-colors focus:border-crm-red focus:ring-2 focus:ring-crm-red/20"
                     >
                         <option value="todas">Mercado Libre: Todos</option>
                         <option value="publicados">Mercado Libre: Publicados</option>
@@ -136,9 +156,11 @@ export default function StockFilters({
                     </select>
 
                     <select
+                    aria-label="Marca del vehículo"
+                    disabled={disabled}
                     value={brandFilter}
                     onChange={(event) => setBrandFilter(event.target.value)}
-                    className="m-0 h-[38px] w-full appearance-none rounded-lg border border-crm-border bg-crm-surface px-3 text-sm text-crm-fg outline-none transition-colors focus:border-crm-red focus:ring-2 focus:ring-crm-red/20"
+                    className="m-0 h-[38px] min-w-0 w-full appearance-none rounded-lg border border-crm-border bg-crm-surface px-3 text-sm text-crm-fg outline-none transition-colors focus:border-crm-red focus:ring-2 focus:ring-crm-red/20"
                 >
                     <option value="todas">Todas las marcas</option>
                     {brandOptions.map(brand => (

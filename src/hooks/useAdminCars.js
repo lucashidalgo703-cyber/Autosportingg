@@ -5,6 +5,14 @@ import { useAuth } from '../context/AuthContext';
 import { getActiveOfflineSnapshot } from '../services/offlineSyncService';
 import toast from 'react-hot-toast';
 
+const adminCarsQuery = (filters = {}) => {
+    const query = new URLSearchParams({ t: String(Date.now()) });
+    for (const key of ['page', 'limit', 'search', 'status', 'brand', 'tab', 'ml', 'catalog']) {
+        if (filters[key]) query.append(key, String(filters[key]));
+    }
+    return query.toString();
+};
+
 export const useAdminCars = () => {
     const [cars, setCars] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -49,6 +57,13 @@ export const useAdminCars = () => {
             );
         }
 
+        if (filters.catalog === 'published' || filters.catalog === 'unpublished') {
+            filtered = filtered.filter(vehicle => {
+                const published = vehicle.visibleEnWeb !== false && !/^(vendido|reservado|pausado|cancelado|eliminado)$/i.test(String(vehicle.status || ''));
+                return filters.catalog === 'published' ? published : !published;
+            });
+        }
+
         const uniqueBrands = Array.from(new Set(cachedVehicles.map(v => v.brand).filter(Boolean))).sort();
         setCars(filtered);
         setTotal(filtered.length);
@@ -86,17 +101,7 @@ export const useAdminCars = () => {
                 throw new Error('No admin token found');
             }
 
-            const queryParams = new URLSearchParams();
-            queryParams.append('t', String(Date.now()));
-            if (effectiveFilters.page) queryParams.append('page', String(effectiveFilters.page));
-            if (effectiveFilters.limit) queryParams.append('limit', String(effectiveFilters.limit));
-            if (effectiveFilters.search) queryParams.append('search', String(effectiveFilters.search));
-            if (effectiveFilters.status) queryParams.append('status', String(effectiveFilters.status));
-            if (effectiveFilters.brand) queryParams.append('brand', String(effectiveFilters.brand));
-            if (effectiveFilters.tab) queryParams.append('tab', String(effectiveFilters.tab));
-            if (effectiveFilters.ml) queryParams.append('ml', String(effectiveFilters.ml));
-
-            const endpoint = `${baseUrl}/api/admin/cars?${queryParams.toString()}`;
+            const endpoint = `${baseUrl}/api/admin/cars?${adminCarsQuery(effectiveFilters)}`;
             const headers = {
                 'Authorization': `Bearer ${token}`
             };
@@ -223,20 +228,41 @@ export const useAdminCars = () => {
         }
     };
 
-    const swapCars = async (id1, id2, direction) => {
+    const swapCars = async (id1, id2, direction, context) => {
         try {
             const API_URL = process.env.NEXT_PUBLIC_API_URL;
             const baseUrl = process.env.NODE_ENV === 'production' ? '' : (API_URL || 'http://localhost:3001');
             const endpoint = `${baseUrl}/api/cars/reorder/swap`;
 
             const token = localStorage.getItem('token');
+            let targetId = id2;
+            if (!targetId && context) {
+                const nextPage = Number(context.page) + (direction === 'up' ? -1 : 1);
+                if (!['up', 'down'].includes(direction) || !Number.isInteger(nextPage) || nextPage < 1) {
+                    throw new Error('No hay una página anterior disponible para este movimiento.');
+                }
+                const neighborResponse = await fetch(`${baseUrl}/api/admin/cars?${adminCarsQuery({ ...context, page: nextPage })}`, {
+                    headers: { Authorization: `Bearer ${token}` },
+                    cache: 'no-store'
+                });
+                const neighborData = await parseResponseSafe(neighborResponse);
+                if (!neighborResponse.ok) throw new Error(neighborData?.message || 'No se pudo consultar el vehículo vecino. Reintentá el movimiento.');
+                const neighbors = Array.isArray(neighborData?.cars) ? neighborData.cars : [];
+                const neighbor = direction === 'up' ? neighbors[neighbors.length - 1] : neighbors[0];
+                targetId = neighbor?._id || neighbor?.id;
+                if (!targetId || String(targetId) === String(id1)) {
+                    throw new Error('La lista cambió y no se pudo encontrar el vehículo vecino. Actualizá el listado antes de ordenar.');
+                }
+            }
+            if (context && ['page', 'limit', 'search', 'status', 'brand', 'tab', 'ml', 'catalog'].some(key => String(lastFiltersRef.current[key] ?? '') !== String(context[key] ?? ''))) throw new Error('Los filtros cambiaron. Reintentá el movimiento con el listado actualizado.');
+            if (!token || localStorage.getItem('token') !== token) throw new Error('La sesión cambió. Actualizá el listado antes de ordenar.');
             const res = await fetch(endpoint, {
                 method: 'PUT',
                 headers: {
                     'Content-Type': 'application/json',
                     'Authorization': `Bearer ${token}`
                 },
-                body: JSON.stringify({ id1, id2, direction })
+                body: JSON.stringify({ id1, id2: targetId, ...(targetId ? {} : { direction }) })
             });
 
             if (!res.ok) {

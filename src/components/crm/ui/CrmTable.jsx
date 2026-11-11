@@ -9,7 +9,8 @@ export default function CrmTable({
     emptyMessage = 'No se encontraron datos para mostrar.',
     emptyAction = null,
     onRowClick = null,
-    minWidth = 'min-w-[1120px]'
+    minWidth = 'min-w-[1120px]',
+    tableClassName = ''
 }) {
     if (loading && (!data || data.length === 0)) {
         return (
@@ -42,7 +43,7 @@ export default function CrmTable({
     return (
         <div className="hidden overflow-hidden rounded-[var(--crm-radius)] border border-crm-border bg-crm-surface md:block shadow-[var(--crm-shadow-card)]">
             <div className="overflow-x-auto">
-                <table className={`w-full ${minWidth} border-collapse text-left`}>
+                <table className={`w-full ${minWidth} border-collapse text-left ${tableClassName}`}>
                     <thead className="bg-crm-bg text-[10px] uppercase tracking-[0.08em] text-crm-fg-muted">
                         <tr>
                             {columns.map((col, index) => (

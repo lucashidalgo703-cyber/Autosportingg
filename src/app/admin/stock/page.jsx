@@ -47,6 +47,7 @@ export default function AdminStockPage() {
     const [stockTab, setStockTab] = useState('stock');
     const [brandFilter, setBrandFilter] = useState('todas');
     const [mlFilter, setMlFilter] = useState('todas');
+    const [catalogFilter, setCatalogFilter] = useState('all');
     const [selectedVehicleForPrint, setSelectedVehicleForPrint] = useState(null);
 
     const hasActiveFilters = Boolean(
@@ -54,6 +55,7 @@ export default function AdminStockPage() {
         debouncedSearch.trim() ||
         (brandFilter && brandFilter !== 'todas') ||
         (mlFilter && mlFilter !== 'todas') ||
+        catalogFilter !== 'all' ||
         (filterStatus && filterStatus !== 'todos' && filterStatus !== '') ||
         (stockTab && stockTab !== 'stock')
     );
@@ -63,6 +65,7 @@ export default function AdminStockPage() {
         setDebouncedSearch('');
         setBrandFilter('todas');
         setMlFilter('todas');
+        setCatalogFilter('all');
         setFilterStatus('');
         setStockTab('stock');
         setPageNumber(1);
@@ -122,7 +125,7 @@ export default function AdminStockPage() {
     // Cuando cambian los filtros de búsqueda o estado, reiniciamos a la página 1
     useEffect(() => {
         setPageNumber(1);
-    }, [debouncedSearch, filterStatus, brandFilter, stockTab, mlFilter]);
+    }, [debouncedSearch, filterStatus, brandFilter, stockTab, mlFilter, catalogFilter]);
 
     // Ejecuta la consulta únicamente cuando cambie la página o los filtros debounced
     useEffect(() => {
@@ -133,12 +136,13 @@ export default function AdminStockPage() {
             status: filterStatus,
             brand: brandFilter,
             tab: stockTab,
-            ml: mlFilter
+            ml: mlFilter,
+            catalog: catalogFilter
         });
-    }, [pageNumber, debouncedSearch, filterStatus, brandFilter, stockTab, mlFilter, refresh]);
+    }, [pageNumber, debouncedSearch, filterStatus, brandFilter, stockTab, mlFilter, catalogFilter, refresh]);
 
     const handleSwap = async (index, direction) => {
-        if (isSwapping) return;
+        if (isSwapping || loading) return;
 
         const targetIndex = direction === 'up' ? index - 1 : index + 1;
         const isCrossPage = targetIndex < 0 || targetIndex >= vehicles.length;
@@ -169,8 +173,17 @@ export default function AdminStockPage() {
                     setCars(originalCars);
                 }
             } else {
-                // Cross-page swap using direction parameter
-                const success = await swapCars(currentId, undefined, direction);
+                // Consulta el vecino de la página filtrada para no intercambiar con una unidad oculta.
+                const success = await swapCars(currentId, undefined, direction, {
+                    page: pageNumber,
+                    limit: 20,
+                    search: debouncedSearch,
+                    status: filterStatus,
+                    brand: brandFilter,
+                    tab: stockTab,
+                    ml: mlFilter,
+                    catalog: catalogFilter
+                });
                 if (!success) {
                     // Fail fallback
                 }
@@ -187,7 +200,8 @@ export default function AdminStockPage() {
                 status: filterStatus,
                 brand: brandFilter,
                 tab: stockTab,
-                ml: mlFilter
+                ml: mlFilter,
+                catalog: catalogFilter
             });
         }
     };
@@ -399,7 +413,7 @@ export default function AdminStockPage() {
 
     if (loading && cars.length === 0) {
         return (
-            <div className="mx-auto flex min-h-[50vh] w-full max-w-7xl items-center justify-center p-4 md:p-6">
+            <div className="flex min-h-[50vh] w-full items-center justify-center p-4 md:p-6">
                 <div className="flex flex-col items-center gap-3">
                     <div className="h-8 w-8 animate-spin rounded-full border-2 border-crm-border border-b-crm-red" />
                     <span className="text-sm text-crm-fg-muted">Cargando stock real...</span>
@@ -411,7 +425,7 @@ export default function AdminStockPage() {
 
 
     return (
-        <div className="mx-auto w-full max-w-7xl p-4 pb-20 md:p-6 crm-no-print">
+        <div className="w-full min-w-0 p-3 pb-20 sm:p-4 xl:p-5 2xl:p-6 crm-no-print">
             <div className="flex flex-col gap-6">
                 <CrmPageHeader 
                     title="Stock"
@@ -577,7 +591,7 @@ export default function AdminStockPage() {
                     </div>
 
                     {/* Subtotal del Filtro Actual (Identificado aparte para no confundirse con el total disponible) */}
-                    {(searchTerm || (brandFilter && brandFilter !== 'todas') || (filterStatus && filterStatus !== 'todos' && filterStatus !== 'disponible') || (stockTab && stockTab !== 'stock')) && (
+                    {(searchTerm || catalogFilter !== 'all' || (mlFilter && mlFilter !== 'todas') || (brandFilter && brandFilter !== 'todas') || (filterStatus && filterStatus !== 'todos' && filterStatus !== 'disponible') || (stockTab && stockTab !== 'stock')) && (
                         <div className="rounded-xl border border-blue-500/30 bg-blue-500/10 p-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs animate-in fade-in">
                             <div className="flex items-center gap-2 text-blue-300">
                                 <Filter size={15} className="shrink-0 text-blue-400" />
@@ -673,6 +687,9 @@ export default function AdminStockPage() {
                         setBrandFilter={setBrandFilter}
                         mlFilter={mlFilter}
                         setMlFilter={setMlFilter}
+                        catalogFilter={catalogFilter}
+                        setCatalogFilter={setCatalogFilter}
+                        disabled={isSwapping}
                         brandOptions={brandOptions}
                         counts={stockSummary}
                     />
@@ -692,7 +709,8 @@ export default function AdminStockPage() {
                                     status: filterStatus,
                                     brand: brandFilter,
                                     tab: stockTab,
-                                    ml: mlFilter
+                                    ml: mlFilter,
+                                    catalog: catalogFilter
                                 })}
                             >
                                 Reintentar
@@ -714,7 +732,7 @@ export default function AdminStockPage() {
                                     onDelete={setDeletingCar} 
                                     onPrint={handlePrint} 
                                     onSwap={handleSwap} 
-                                    isSwapping={isSwapping} 
+                                    isSwapping={isSwapping || loading}
                                     currentPage={pageNumber} 
                                     totalPages={pages} 
                                     onReserve={setReservingCar}
@@ -732,7 +750,8 @@ export default function AdminStockPage() {
                                         status: filterStatus,
                                         brand: brandFilter,
                                         tab: stockTab,
-                                        ml: mlFilter
+                                        ml: mlFilter,
+                                        catalog: catalogFilter
                                     })}
                                     onNewVehicle={() => { setEditingCar(null); setIsFormOpen(true); }}
                                 />
@@ -757,12 +776,14 @@ export default function AdminStockPage() {
                                         status: filterStatus,
                                         brand: brandFilter,
                                         tab: stockTab,
-                                        ml: mlFilter
+                                        ml: mlFilter,
+                                        catalog: catalogFilter
                                     })}
                                     onNewVehicle={() => { setEditingCar(null); setIsFormOpen(true); }}
                                 />
                             </div>
                             <CrmPagination
+                                disabled={isSwapping}
                                 currentPage={pageNumber}
                                 totalPages={pages}
                                 totalItems={total}

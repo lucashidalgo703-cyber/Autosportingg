@@ -891,6 +891,11 @@ app.get('/api/admin/audit-logs', authenticateToken, requirePermission(PERMISSION
     }
 });
 
+const publicCatalogQuery = () => ({
+    visibleEnWeb: { $ne: false },
+    status: { $nin: [/^vendido$/i, /^reservado$/i, /^pausado$/i, /^cancelado$/i, /^eliminado$/i] }
+});
+
 // GET public cars (Sanitized & Optimized)
 app.get('/api/public/cars', async (req, res) => {
     try {
@@ -900,10 +905,7 @@ app.get('/api/public/cars', async (req, res) => {
         res.setHeader('Cache-Control', 'public, s-maxage=15, stale-while-revalidate=30');
         // Only return visible/public cars. We use $ne: false so existing cars without the field are still visible.
         // We exclude specifically 'Vendido', 'Reservado', 'Pausado', 'Cancelado', 'Eliminado'
-        const cars = await Car.find({
-            visibleEnWeb: { $ne: false },
-            status: { $nin: [/^vendido$/i, /^reservado$/i, /^pausado$/i, /^cancelado$/i, /^eliminado$/i] }
-        })
+        const cars = await Car.find(publicCatalogQuery())
             .select('brand name year km price currency fuel fuelType transmission condition vehicleType type category status featured coverImage images imagePosition imagePositions')
             .sort({ order: 1, createdAt: -1 })
             .lean();
@@ -2021,9 +2023,12 @@ app.get('/api/admin/stock/capital-summary', authenticateToken, requireAnyPermiss
 // GET all cars for Admin (Protected, Full Data)
 app.get('/api/admin/cars', authenticateToken, requirePermission(PERMISSIONS.STOCK_READ), async (req, res) => {
     try {
+        const { page = 1, limit = 20, search = '', status = '', brand = '', tab = '', ml = '', catalog = 'all' } = req.query;
+        if (!['all', 'published', 'unpublished'].includes(catalog)) {
+            return res.status(400).json({ message: 'El filtro de publicación en el catálogo no es válido.' });
+        }
         await connectDB();
         res.setHeader('Cache-Control', 'no-store, max-age=0');
-        const { page = 1, limit = 20, search = '', status = '', brand = '', tab = '', ml = '' } = req.query;
 
         // Fetch minimal info for ALL cars to calculate summary stats
         const allCarsForSummary = await Car.find({})
@@ -2218,6 +2223,12 @@ app.get('/api/admin/cars', authenticateToken, requirePermission(PERMISSIONS.STOC
             query.publishedOnML = 'Sí';
         } else if (ml === 'no_publicados') {
             query.publishedOnML = { $ne: 'Sí' };
+        }
+
+        if (catalog === 'published') {
+            query.$and = [...(query.$and || []), publicCatalogQuery()];
+        } else if (catalog === 'unpublished') {
+            query.$nor = [publicCatalogQuery()];
         }
 
         const parsedLimit = parseInt(limit);

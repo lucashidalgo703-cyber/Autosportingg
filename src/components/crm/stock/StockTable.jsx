@@ -20,25 +20,25 @@ const getLocation = (vehicle) => {
 };
 const getOwner = (vehicle) => {
     if (vehicle.origen === 'propio') {
-        return <span className="text-green-500 font-medium bg-green-500/10 px-2 py-0.5 rounded">Propio</span>;
+        return <span className="inline-block max-w-full text-green-500 font-medium bg-green-500/10 px-2 py-0.5 rounded">Propio</span>;
     }
     if (vehicle.origen === 'compartido') {
         const investorPct = Number(vehicle.investor?.percentage) || 0;
         if (investorPct === 100) {
-            return <span className="text-purple-400 font-medium bg-purple-500/10 px-2 py-0.5 rounded whitespace-nowrap">Inversionista 100% — participación propia 0%</span>;
+            return <span className="inline-block max-w-full text-purple-400 font-medium bg-purple-500/10 px-2 py-0.5 rounded whitespace-normal leading-4">Inversionista 100% — participación propia 0%</span>;
         }
         if (investorPct === 50) {
-            return <span className="text-blue-400 font-medium bg-blue-500/10 px-2 py-0.5 rounded whitespace-nowrap">Compartido (50%)</span>;
+            return <span className="inline-block max-w-full text-blue-400 font-medium bg-blue-500/10 px-2 py-0.5 rounded whitespace-normal leading-4">Compartido (50%)</span>;
         }
-        return <span className="text-blue-400 font-medium bg-blue-500/10 px-2 py-0.5 rounded whitespace-nowrap">Compartido ({investorPct}%)</span>;
+        return <span className="inline-block max-w-full text-blue-400 font-medium bg-blue-500/10 px-2 py-0.5 rounded whitespace-normal leading-4">Compartido ({investorPct}%)</span>;
     }
     if (vehicle.origen === 'tercero') {
-        return <span className="text-gray-400 font-medium bg-gray-500/10 px-2 py-0.5 rounded">Tercero</span>;
+        return <span className="inline-block max-w-full text-gray-400 font-medium bg-gray-500/10 px-2 py-0.5 rounded">Tercero</span>;
     }
     const owner = vehicle._original?.consignedBy;
     const ownerName = typeof owner === 'string' ? owner : (owner?.name || owner?.fullName || owner?.phone || '');
     return (
-        <span className="text-amber-500 font-medium bg-amber-500/10 px-2 py-0.5 rounded">
+        <span className="inline-block max-w-full text-amber-500 font-medium bg-amber-500/10 px-2 py-0.5 rounded">
             Consigna {ownerName ? `(${ownerName})` : ''}
         </span>
     );
@@ -99,23 +99,23 @@ export default function StockTable({
         {
             label: 'Orden',
             key: 'sortOrder',
-            width: '80px',
+            width: '7%',
             align: 'center',
             render: (vehicle, rowIndex) => {
                 const isFirstRowOnFirstPage = currentPage === 1 && rowIndex === 0;
                 const isLastRowOnLastPage = currentPage === totalPages && rowIndex === data.length - 1;
 
                 return (
-                    <div className="flex items-center justify-center gap-2">
-                        <span className="text-xs font-bold text-crm-fg-muted min-w-[20px] text-right">
+                    <div className="flex flex-col items-center justify-center gap-1">
+                        <span className="inline-block max-w-full text-xs font-bold text-crm-fg-muted min-w-[20px] text-right">
                             {(currentPage - 1) * 20 + rowIndex + 1}
                         </span>
-                        <div className="flex items-center justify-center gap-1">
+                        <div className="flex items-center justify-center gap-0.5">
                             <button
                                 type="button"
                                 disabled={isFirstRowOnFirstPage || isSwapping}
                                 onClick={() => onSwap && onSwap(rowIndex, 'up')}
-                                className="flex h-7 w-7 items-center justify-center rounded-lg border border-crm-border bg-transparent text-crm-fg hover:bg-crm-surface-raised cursor-pointer transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+                                className="flex h-6 w-6 items-center justify-center rounded-lg border border-crm-border bg-transparent text-crm-fg hover:bg-crm-surface-raised cursor-pointer transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
                                 title="Subir posición"
                             >
                                 ▲
@@ -124,7 +124,7 @@ export default function StockTable({
                                 type="button"
                                 disabled={isLastRowOnLastPage || isSwapping}
                                 onClick={() => onSwap && onSwap(rowIndex, 'down')}
-                                className="flex h-7 w-7 items-center justify-center rounded-lg border border-crm-border bg-transparent text-crm-fg hover:bg-crm-surface-raised cursor-pointer transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+                                className="flex h-6 w-6 items-center justify-center rounded-lg border border-crm-border bg-transparent text-crm-fg hover:bg-crm-surface-raised cursor-pointer transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
                                 title="Bajar posición"
                             >
                                 ▼
@@ -137,12 +137,13 @@ export default function StockTable({
         {
             label: 'Vehículo',
             key: 'vehicle',
+            width: '13%',
             render: (vehicle) => {
                 const days = Number(vehicle.diasEnStock || 0);
                 const progress = getProgress(days);
                 return (
                     <>
-                        <div className="font-medium leading-5 text-crm-fg">
+                        <div className="font-medium text-[13px] leading-5 text-crm-fg">
                             {vehicle.marca} {vehicle.modelo}
                         </div>
                         <div className="mt-0.5 text-xs text-crm-fg-muted">{vehicle.color}</div>
@@ -165,45 +166,51 @@ export default function StockTable({
         {
             label: 'Año',
             key: 'year',
+            width: '5%',
             render: (v) => getVehicleYear(v)
         },
         {
             label: 'Patente / VIN',
             key: 'plate',
-            cellClassName: 'font-mono text-xs',
+            width: '7%',
+            cellClassName: 'font-mono text-[11px] [overflow-wrap:anywhere]',
             render: (v) => v.dominio || '--'
         },
         {
             label: 'KM',
             key: 'km',
-            render: (v) => `${formatNumber(v.kilometraje)} km`
+            width: '6%',
+            render: (v) => <><span className="block">{formatNumber(v.kilometraje)}</span><span className="inline-block max-w-full text-[10px] text-crm-fg-muted">km</span></>
         },
         {
             label: 'Precio',
             key: 'price',
+            width: '9%',
             cellClassName: 'font-semibold',
-            render: (v) => formatMoney(v.moneda, v.precioPublicado)
+            render: (v) => <span className="block leading-5">{formatMoney(v.moneda, v.precioPublicado)}</span>
         },
         {
             label: 'Origen',
             key: 'owner',
+            width: '11%',
             cellClassName: 'text-xs',
             render: (v) => getOwner(v)
         },
         {
             label: 'Estado',
             key: 'status',
+            width: '8%',
             render: (v) => getStatusLabel(v.estado)
         },
         {
             label: 'Mercado Libre',
-            label: 'Mercado Libre',
             key: 'ml',
+            width: '7%',
             render: (v) => {
                 const isPublished = v._original?.publishedOnML === 'Si';
                 return (
-                    <div className="flex items-center gap-2 cursor-pointer group" onClick={() => onEditML && onEditML(v)}>
-                        <span className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider group-hover:ring-1 transition-all ${isPublished ? 'border-yellow-500/30 bg-yellow-500/10 text-yellow-500 ring-yellow-500/50' : 'border-crm-border text-crm-fg-muted ring-crm-border'}`}>
+                    <div className="flex flex-wrap items-center gap-1 cursor-pointer group" onClick={() => onEditML && onEditML(v)}>
+                        <span className={`inline-flex items-center rounded-full border max-w-full px-1.5 py-0.5 text-[9px] font-bold uppercase leading-4 group-hover:ring-1 transition-all ${isPublished ? 'border-yellow-500/30 bg-yellow-500/10 text-yellow-500 ring-yellow-500/50' : 'border-crm-border text-crm-fg-muted ring-crm-border'}`}>
                             {isPublished ? 'Publicado' : 'No Pub.'}
                         </span>
                         {isPublished && v._original?.mlLink && (
@@ -218,44 +225,47 @@ export default function StockTable({
         {
             label: 'Ubicación',
             key: 'location',
+            width: '8%',
             cellClassName: 'text-xs text-crm-fg-muted',
             render: (v) => getLocation(v)
         },
         {
             label: 'Ingreso',
             key: 'date',
+            width: '6%',
             cellClassName: 'text-xs text-crm-fg-muted',
             render: (v) => formatDate(v.fechaIngreso)
         },
         {
             label: 'Acciones',
             key: 'actions',
+            width: '13%',
             render: (vehicle) => (
-                <div className="flex items-center gap-2">
+                <div className="grid grid-cols-2 items-center gap-1">
                     <Link
                         href={`/admin/stock/${vehicle.id}`}
-                        className="inline-flex h-8 items-center rounded-lg border border-transparent bg-transparent px-2 text-xs font-semibold text-crm-fg no-underline transition-colors hover:bg-crm-surface-raised"
+                        className="inline-flex h-8 items-center justify-center rounded-lg border border-transparent bg-transparent px-1 text-[11px] font-semibold text-crm-fg no-underline transition-colors hover:bg-crm-surface-raised"
                     >
                         Editar
                     </Link>
                     <button
                         type="button"
                         onClick={() => onPrint && onPrint(vehicle)}
-                        className="m-0 h-8 appearance-none rounded-lg border border-transparent bg-transparent px-2 text-xs font-semibold text-blue-400 hover:text-blue-300 hover:bg-crm-surface-raised cursor-pointer"
+                        className="m-0 h-8 appearance-none rounded-lg border border-transparent bg-transparent px-1 text-[11px] font-semibold text-blue-400 hover:text-blue-300 hover:bg-crm-surface-raised cursor-pointer"
                     >
                         Imprimir
                     </button>
                     <button
                         type="button"
                         onClick={() => onReserve && onReserve(vehicle)}
-                        className="m-0 h-8 appearance-none rounded-lg border border-transparent bg-transparent px-2 text-xs font-semibold text-crm-fg transition-colors hover:bg-crm-surface-raised cursor-pointer"
+                        className="m-0 h-8 appearance-none rounded-lg border border-transparent bg-transparent px-1 text-[11px] font-semibold text-crm-fg transition-colors hover:bg-crm-surface-raised cursor-pointer"
                     >
                         Señar
                     </button>
                     <button
                         type="button"
                         onClick={() => onDelete && onDelete(vehicle)}
-                        className="m-0 h-8 appearance-none rounded-lg border border-transparent bg-transparent px-2 text-xs font-semibold text-crm-red transition-colors hover:bg-crm-red/10 cursor-pointer"
+                        className="m-0 h-8 appearance-none rounded-lg border border-transparent bg-transparent px-1 text-[11px] font-semibold text-crm-red transition-colors hover:bg-crm-red/10 cursor-pointer"
                     >
                         Eliminar
                     </button>
@@ -320,14 +330,14 @@ export default function StockTable({
         <div className="flex flex-col gap-4">
             <div className="rounded-xl border border-crm-border bg-crm-surface p-3 text-xs font-semibold text-crm-fg flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                 <div className="flex items-center gap-2">
-                    <span className="text-crm-fg-muted">Resultado filtrado:</span>
+                    <span className="inline-block max-w-full text-crm-fg-muted">Resultado filtrado:</span>
                     <strong className="text-white font-bold">{totalItems !== undefined ? totalItems : data.length} {(totalItems !== undefined ? totalItems : data.length) === 1 ? 'vehículo' : 'vehículos'}</strong>
                     {totalPages > 1 && (
-                        <span className="text-[11px] text-crm-fg-muted">(Página {currentPage} de {totalPages})</span>
+                        <span className="inline-block max-w-full text-[11px] text-crm-fg-muted">(Página {currentPage} de {totalPages})</span>
                     )}
                 </div>
                 <div className="flex items-center gap-1.5">
-                    <span className="text-crm-fg-muted">Valor de venta filtrado:</span>
+                    <span className="inline-block max-w-full text-crm-fg-muted">Valor de venta filtrado:</span>
                     <strong className="font-mono text-emerald-400">
                         {getFormattedListTotals(filteredTotalUSD, filteredTotalARS, dolarBlue)}
                     </strong>
@@ -337,10 +347,12 @@ export default function StockTable({
             <CrmTable
                 data={data}
                 columns={columns}
-                emptyIcon={Filter}
-                emptyTitle="Sin resultados"
-                emptyMessage="Todavía no hay vehículos en el stock. Cargá el primero con el botón Nuevo vehículo."
-                minWidth="min-w-[1080px]"
+                emptyIcon={emptyIcon}
+                emptyTitle={emptyTitle}
+                emptyMessage={emptyMessage}
+                emptyAction={emptyAction}
+                minWidth="min-w-[960px]"
+                tableClassName="table-fixed [&_th]:px-2 [&_th]:break-words [&_th]:tracking-normal [&_td]:px-2 [&_td]:break-words [&_td]:text-xs"
             />
         </div>
     );
