@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { X, Upload, Plus, ArrowLeft, ArrowRight, Star, Scan, CheckCircle2, DollarSign, Sliders } from 'lucide-react';
 import VehicleImageFramingModal from './crm/stock/VehicleImageFramingModal';
 import toast from 'react-hot-toast';
@@ -29,12 +29,24 @@ const SelectInput = ({ name, value, onChange, options }) => (
     </select>
 );
 
-export default function VehicleFormModal({ isOpen, onClose, onSave, editingCar }) {
+export default function VehicleFormModal({ isOpen, onClose, onSave, editingCar, saving = false }) {
     const [isDragging, setIsDragging] = useState(false);
     const [files, setFiles] = useState([]);
     const [draggedIndex, setDraggedIndex] = useState(null);
     const [showFramingModal, setShowFramingModal] = useState(false);
     const [framingInitialIndex, setFramingInitialIndex] = useState(0);
+    const [preparingImages, setPreparingImages] = useState(0);
+    const imagePreparationSession = useRef(0);
+    const imageActionsDisabled = saving || preparingImages > 0;
+    const editingVehicleId = editingCar?._id || editingCar?.id;
+
+    useEffect(() => {
+        const session = ++imagePreparationSession.current;
+        setPreparingImages(0);
+        return () => {
+            if (imagePreparationSession.current === session) imagePreparationSession.current++;
+        };
+    }, [isOpen, editingVehicleId]);
 
     const [availableSales, setAvailableSales] = useState([]);
     const [loadingSales, setLoadingSales] = useState(false);
@@ -222,10 +234,12 @@ export default function VehicleFormModal({ isOpen, onClose, onSave, editingCar }
         });
     };
 
-    const handleDragStart = (index) => setDraggedIndex(index);
+    const handleDragStart = (index) => {
+        if (!imageActionsDisabled) setDraggedIndex(index);
+    };
     const handleDragOver = (e) => e.preventDefault();
     const handleDropSort = (index) => {
-        if (draggedIndex === null) return;
+        if (imageActionsDisabled || draggedIndex === null) return;
         const newFiles = [...files];
         const draggedItem = newFiles.splice(draggedIndex, 1)[0];
         newFiles.splice(index, 0, draggedItem);
@@ -236,43 +250,52 @@ export default function VehicleFormModal({ isOpen, onClose, onSave, editingCar }
     const onDropFiles = (e) => {
         e.preventDefault();
         setIsDragging(false);
+        if (imageActionsDisabled) return;
         const droppedFiles = Array.from(e.dataTransfer.files).filter(file => file.type.startsWith('image/'));
         addFiles(droppedFiles);
     };
 
     const addFiles = async (newFilesRaw) => {
+        if (imageActionsDisabled || !isOpen) return;
+        const session = imagePreparationSession.current;
         const fileList = Array.from(newFilesRaw);
-        const loadingToast = toast.loading("Comprimiendo imágenes...");
+        setPreparingImages(count => count + 1);
+        const loadingToast = toast.loading("Preparando imágenes...");
 
         try {
-            const compressedFiles = await Promise.all(
-                fileList.map(async (file) => {
-                    try {
-                        const compressed = await compressImage(file);
-                        return Object.assign(compressed, { preview: URL.createObjectURL(compressed) });
-                    } catch (e) {
-                        console.error("Compression error:", e);
-                        return Object.assign(file, { preview: URL.createObjectURL(file) });
-                    }
-                })
-            );
+            const compressedFiles = [];
+            for (const file of fileList) {
+                try {
+                    const compressed = await compressImage(file);
+                    if (imagePreparationSession.current !== session) return;
+                    compressedFiles.push(Object.assign(compressed, { preview: URL.createObjectURL(compressed) }));
+                } catch (error) {
+                    console.error('Image preparation error:', error);
+                    if (imagePreparationSession.current === session) toast.error(`No se pudo preparar ${file.name}: ${error.message}`);
+                }
+            }
 
             toast.dismiss(loadingToast);
 
+            if (imagePreparationSession.current !== session) return;
             if (files.length + compressedFiles.length > 20) {
                 toast.error("Máximo 20 imágenes.");
-                setFiles(prev => [...prev, ...compressedFiles.slice(0, 20 - files.length)]);
+                setFiles(prev => imagePreparationSession.current === session ? [...prev, ...compressedFiles.slice(0, Math.max(0, 20 - prev.length))] : prev);
             } else {
-                setFiles(prev => [...prev, ...compressedFiles]);
+                setFiles(prev => imagePreparationSession.current === session ? [...prev, ...compressedFiles].slice(0, 20) : prev);
             }
         } catch (error) {
             toast.dismiss(loadingToast);
-            toast.error("Error al procesar las imágenes");
+            if (imagePreparationSession.current === session) toast.error("Error al procesar las imágenes");
+        } finally {
+            toast.dismiss(loadingToast);
+            if (imagePreparationSession.current === session) setPreparingImages(count => Math.max(0, count - 1));
         }
     };
 
     const handleSubmit = (e) => {
         e.preventDefault();
+        if (saving || preparingImages > 0) return;
         
         if (formData.receivedAsTradeIn) {
             if (!formData.tradeInOriginSaleId) {
@@ -355,11 +378,11 @@ export default function VehicleFormModal({ isOpen, onClose, onSave, editingCar }
 
     const modalFooter = (
         <div className="flex justify-end gap-3 w-full">
-            <button type="button" onClick={onClose} className="px-5 py-2 rounded-lg text-xs font-medium text-white bg-crm-surface-raised hover:bg-crm-surface-raised border border-crm-border transition-colors">
+            <button type="button" onClick={onClose} disabled={saving} className="px-5 py-2 rounded-lg text-xs font-medium text-white bg-crm-surface-raised hover:bg-crm-surface-raised border border-crm-border transition-colors disabled:opacity-50">
                 Cancelar
             </button>
-            <button type="submit" form="vehicleForm" className="px-6 py-2 rounded-lg text-xs font-bold text-white bg-crm-red hover:bg-crm-red-hover shadow-[0_0_15px_rgba(230,48,39,0.3)] transition-all flex items-center gap-2">
-                {editingCar ? 'Guardar cambios' : 'Dar de alta'}
+            <button type="submit" form="vehicleForm" disabled={saving || preparingImages > 0} className="px-6 py-2 rounded-lg text-xs font-bold text-white bg-crm-red hover:bg-crm-red-hover shadow-[0_0_15px_rgba(230,48,39,0.3)] transition-all flex items-center gap-2 disabled:opacity-50">
+                {saving ? 'Guardando...' : preparingImages > 0 ? 'Preparando fotos...' : editingCar ? 'Guardar cambios' : 'Dar de alta'}
             </button>
         </div>
     );
@@ -375,6 +398,7 @@ export default function VehicleFormModal({ isOpen, onClose, onSave, editingCar }
             <div className="p-6 space-y-8">
                     
                     <form id="vehicleForm" onSubmit={handleSubmit} className="space-y-8">
+                        <fieldset disabled={saving} className="m-0 min-w-0 space-y-8 border-0 p-0">
                         
                         {/* 1. IDENTIDAD */}
                         <section>
@@ -851,6 +875,7 @@ export default function VehicleFormModal({ isOpen, onClose, onSave, editingCar }
                                 {files.length > 0 && (
                                     <button
                                         type="button"
+                                        disabled={imageActionsDisabled}
                                         onClick={() => {
                                             setFramingInitialIndex(0);
                                             setShowFramingModal(true);
@@ -871,7 +896,7 @@ export default function VehicleFormModal({ isOpen, onClose, onSave, editingCar }
                                 />
                             </div>
                             <div
-                                onDragOver={(e) => { e.preventDefault(); setIsDragging(true); }}
+                                onDragOver={(e) => { e.preventDefault(); if (!imageActionsDisabled) setIsDragging(true); }}
                                 onDragLeave={(e) => { e.preventDefault(); setIsDragging(false); }}
                                 onDrop={onDropFiles}
                                 className={`
@@ -883,6 +908,7 @@ export default function VehicleFormModal({ isOpen, onClose, onSave, editingCar }
                             >
                                 <input
                                     type="file" multiple accept="image/png, image/jpeg, image/jpg, image/webp"
+                                    disabled={imageActionsDisabled}
                                     className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-20"
                                     onChange={(e) => { if (e.target.files) addFiles(e.target.files); }}
                                 />
@@ -899,7 +925,7 @@ export default function VehicleFormModal({ isOpen, onClose, onSave, editingCar }
                                     <div className="flex gap-4 px-4 overflow-x-auto w-full items-center justify-start h-full z-10 custom-scrollbar py-2">
                                         {files.map((file, i) => (
                                             <div
-                                                key={i} draggable
+                                                key={i} draggable={!imageActionsDisabled}
                                                 onDragStart={() => handleDragStart(i)}
                                                 onDragOver={handleDragOver}
                                                 onDrop={() => handleDropSort(i)}
@@ -915,6 +941,7 @@ export default function VehicleFormModal({ isOpen, onClose, onSave, editingCar }
                                                 <button
                                                     type="button"
                                                     title={`Ajustar encuadre de foto #${i + 1}`}
+                                                    disabled={imageActionsDisabled}
                                                     onClick={(e) => {
                                                         e.stopPropagation();
                                                         setFramingInitialIndex(i);
@@ -926,6 +953,7 @@ export default function VehicleFormModal({ isOpen, onClose, onSave, editingCar }
                                                 </button>
                                                 <button
                                                     type="button"
+                                                    disabled={imageActionsDisabled}
                                                     onClick={(e) => { e.stopPropagation(); setFiles(files.filter((_, idx) => idx !== i)); }}
                                                     className="absolute top-1 right-1 bg-red-500 hover:bg-red-600 text-white p-1 rounded-full z-20 opacity-0 group-hover:opacity-100 transition-opacity"
                                                 >
@@ -938,6 +966,7 @@ export default function VehicleFormModal({ isOpen, onClose, onSave, editingCar }
                             </div>
                         </section>
 
+                        </fieldset>
                     </form>
             </div>
 
@@ -954,13 +983,28 @@ export default function VehicleFormModal({ isOpen, onClose, onSave, editingCar }
                 onPositionsSaved={(newPositions, coverPos) => {
                     setFormData(prev => ({ ...prev, imagePositions: newPositions, imagePosition: coverPos }));
                 }}
-                onCropComplete={(croppedFile, cropIndex) => {
-                    setFiles(prev => {
-                        const updated = [...prev];
-                        updated[cropIndex] = croppedFile;
-                        return updated;
-                    });
-                    toast.success(`Foto #${cropIndex + 1} reemplazada con el recorte 4:3`);
+                onCropComplete={async (croppedFile, cropIndex) => {
+                    if (imageActionsDisabled || !isOpen) return;
+                    const session = imagePreparationSession.current;
+                    const sourceFile = files[cropIndex];
+                    setPreparingImages(count => count + 1);
+                    try {
+                        const prepared = await compressImage(croppedFile);
+                        if (imagePreparationSession.current !== session) return;
+                        if (!prepared.preview) prepared.preview = URL.createObjectURL(prepared);
+                        setFiles(prev => {
+                            if (imagePreparationSession.current !== session) return prev;
+                            const targetIndex = prev.indexOf(sourceFile);
+                            if (targetIndex < 0) return prev;
+                            const updated = [...prev];
+                            updated[targetIndex] = prepared;
+                            return updated;
+                        });
+                    } catch (error) {
+                        if (imagePreparationSession.current === session) toast.error(`No se pudo preparar el recorte: ${error.message}`);
+                    } finally {
+                        if (imagePreparationSession.current === session) setPreparingImages(count => Math.max(0, count - 1));
+                    }
                 }}
             />
         </CrmModal>

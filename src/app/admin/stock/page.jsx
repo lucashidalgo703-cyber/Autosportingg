@@ -1,5 +1,5 @@
 "use client";
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, useRef } from 'react';
 import { Download, Eye, FileText, Plus, ExternalLink, HelpCircle, AlertCircle, CheckCircle2, Info, Calculator, Filter } from 'lucide-react';
 
 import CrmButton from '../../../components/crm/ui/CrmButton';
@@ -25,6 +25,7 @@ import VehicleFlyerPdf from '../../../components/crm/stock/VehicleFlyerPdf';
 import CapitalSummarySection from '../../../components/crm/stock/CapitalSummarySection';
 import StockCommercialCalculator from '../../../components/crm/stock/StockCommercialCalculator';
 import StockCalculationModal from '../../../components/crm/stock/StockCalculationModal';
+import { prepareVehicleImageOrder } from '../../../services/vehicleImageUpload';
 
 
 function formatARS(amount) {
@@ -88,6 +89,9 @@ export default function AdminStockPage() {
     } = useAdminCars();
     const [showCalculationModal, setShowCalculationModal] = useState(false);
     const [isFormOpen, setIsFormOpen] = useState(false);
+    const [isSavingVehicle, setIsSavingVehicle] = useState(false);
+    const savingVehicleRef = useRef(false);
+    const imageUploadCache = useRef(new WeakMap());
     const [isImportModalOpen, setIsImportModalOpen] = useState(false);
     const [isMandateModalOpen, setIsMandateModalOpen] = useState(false);
     const [editingCar, setEditingCar] = useState(null);
@@ -320,6 +324,10 @@ export default function AdminStockPage() {
     };
 
     const handleSaveVehicle = async (formData, files) => {
+        if (savingVehicleRef.current) return;
+        savingVehicleRef.current = true;
+        setIsSavingVehicle(true);
+        const saveToastId = 'save-vehicle-with-photos';
         try {
             // Normalización de marcas
             if (formData.brand) {
@@ -355,33 +363,22 @@ export default function AdminStockPage() {
             
             // Append scalar fields
             Object.keys(formData).forEach(key => {
-                if (key !== '_id' && key !== 'images' && key !== 'createdAt' && key !== 'updatedAt' && formData[key] !== undefined) {
+                if (key !== '_id' && key !== 'images' && key !== 'imageOrder' && key !== 'createdAt' && key !== 'updatedAt' && formData[key] !== undefined) {
                     payload.append(key, formData[key]);
                 }
             });
 
-            // Handle images and imageOrder for PUT
-            let imageOrder = [];
-            let newFileIndex = 0;
-
-            if (files && files.length > 0) {
-                files.forEach((file) => {
-                    if (file.isExisting) {
-                        imageOrder.push(file.url);
-                    } else {
-                        // Es un archivo nuevo File
-                        payload.append('images', file);
-                        imageOrder.push(`__new__${newFileIndex}`);
-                        newFileIndex++;
-                    }
+            toast.loading(isEditing ? 'Actualizando vehículo...' : 'Creando vehículo...', { id: saveToastId });
+            if (Array.isArray(files)) {
+                const imageOrder = await prepareVehicleImageOrder(files, {
+                    token,
+                    baseUrl,
+                    cache: imageUploadCache.current,
+                    onProgress: (index, count) => toast.loading(`Subiendo foto ${index} de ${count}...`, { id: saveToastId })
                 });
-            }
-            
-            if (isEditing) {
                 payload.append('imageOrder', JSON.stringify(imageOrder));
             }
-
-            const loadingToast = toast.loading(isEditing ? 'Actualizando vehículo...' : 'Creando vehículo...');
+            toast.loading(isEditing ? 'Guardando cambios del vehículo...' : 'Guardando vehículo...', { id: saveToastId });
 
             const res = await fetch(endpoint, {
                 method,
@@ -389,7 +386,7 @@ export default function AdminStockPage() {
                 body: payload
             });
 
-            toast.dismiss(loadingToast);
+            toast.dismiss(saveToastId);
 
             if (!res.ok) {
                 const errData = await res.json().catch(()=>({}));
@@ -397,6 +394,7 @@ export default function AdminStockPage() {
             }
 
             toast.success(isEditing ? 'Vehículo actualizado' : 'Vehículo creado exitosamente');
+            imageUploadCache.current = new WeakMap();
             setIsFormOpen(false);
             setEditingCar(null);
             if (typeof refresh === 'function') {
@@ -408,6 +406,10 @@ export default function AdminStockPage() {
         } catch (error) {
             console.error("Save vehicle error:", error);
             toast.error(error.message || 'Error al guardar el vehículo');
+        } finally {
+            toast.dismiss(saveToastId);
+            savingVehicleRef.current = false;
+            setIsSavingVehicle(false);
         }
     };
 
@@ -797,9 +799,10 @@ export default function AdminStockPage() {
 
             <VehicleFormModal
                 isOpen={isFormOpen}
-                onClose={() => { setIsFormOpen(false); setEditingCar(null); }}
+                onClose={() => { if (!savingVehicleRef.current) { setIsFormOpen(false); setEditingCar(null); } }}
                 onSave={handleSaveVehicle}
                 editingCar={editingCar}
+                saving={isSavingVehicle}
             />
 
             <MandateStockModal

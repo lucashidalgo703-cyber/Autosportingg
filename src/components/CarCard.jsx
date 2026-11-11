@@ -1,30 +1,34 @@
 "use client";
 import { ArrowRight, Heart } from 'lucide-react';
 import Link from 'next/link';
-import { getOptimizedImageUrl } from '../lib/cloudinaryUtils';
-import Image from 'next/image';
+import { getCatalogImageProps } from '../lib/cloudinaryUtils';
+import { CATALOG_IMAGE_SIZES } from '../lib/vehicleImageSizes';
 import { useFavorites } from '../context/FavoritesContext';
 import { resolveImagePosition } from '../lib/formatters';
 
-const CarCard = ({ car }) => {
+const CarCard = ({ car, sizes = CATALOG_IMAGE_SIZES }) => {
   const { isFavorite, toggleFavorite } = useFavorites();
 
   if (!car) return null;
 
   const carId = car._id || car.id;
   const isFav = isFavorite ? isFavorite(carId) : false;
+  const imageSource = car.coverImage || (car.images && car.images[0]) || car.image;
+  const imageProps = getCatalogImageProps(typeof imageSource === 'string' && imageSource ? imageSource : '/placeholder.png');
 
   return (
     <Link href={`/auto/${car._id || car.id}`} className="car-card group">
       <div className="card-image-wrapper">
-        <Image
-          src={getOptimizedImageUrl(car.coverImage || (car.images && car.images[0]) || car.image, 600) || '/placeholder.png'}
+        <img
+          {...imageProps}
           alt={car.name || 'Auto'}
-          fill
-          sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
+          width={1600}
+          height={1200}
+          sizes={imageProps.srcSet ? sizes : undefined}
+          loading="lazy"
+          decoding="async"
           className="card-image"
           style={{ objectFit: 'cover', objectPosition: resolveImagePosition(car.imagePositions?.[0] || car.imagePosition, '50% 75%') }}
-          unoptimized
         />
         {car.status && car.status !== 'Disponible' && (
           <div className={`status-badge ${car.status === 'Vendido' ? 'status-vendido' : 'status-senado'}`}>
@@ -123,6 +127,8 @@ const CarCard = ({ car }) => {
                 }
 
                 .card-image {
+                    position: absolute;
+                    inset: 0;
                     width: 100%;
                     height: 100%;
                     object-fit: cover;

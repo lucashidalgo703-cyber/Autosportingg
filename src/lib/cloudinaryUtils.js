@@ -36,3 +36,70 @@ export const getBlurPlaceholder = (url) => {
 
     return url;
 };
+
+export const CATALOG_IMAGE_WIDTHS = Object.freeze([640, 960, 1280, 1600]);
+
+// Only replace delivery options produced by our image helpers. Crops, effects,
+// named transformations and signatures must retain their original URL.
+const isCatalogDeliveryToken = token => (
+    token === 'f_auto'
+    || token === 'c_limit'
+    || /^w_[1-9]\d*$/.test(token)
+    || /^q_(?:auto(?::(?:best|good|eco|low))?|[1-9]\d?|100)$/.test(token)
+);
+
+const getCatalogSource = url => {
+    if (typeof url !== 'string' || !url || /\s/.test(url)) return null;
+
+    let parsed;
+    try {
+        parsed = new URL(url);
+    } catch {
+        return null;
+    }
+
+    if (parsed.protocol !== 'https:' || parsed.hostname !== 'res.cloudinary.com'
+        || parsed.username || parsed.password || parsed.port || parsed.search || parsed.hash) return null;
+
+    // Work with the original path rather than decoding/re-encoding public IDs.
+    const match = /^(https:\/\/[^/]+\/[^/]+\/image\/upload\/)([^?#]+)$/.exec(url);
+    if (!match) return null;
+    const segments = match[2].split('/');
+    if (segments.some(segment => !segment || ['.', '..'].includes(segment.replace(/%2e/gi, '.')))) return null;
+    let start = 0;
+
+    while (start < segments.length) {
+        const segment = segments[start];
+        if (/^v\d+$/.test(segment)) break;
+        if (segment.split(',').every(isCatalogDeliveryToken)) {
+            start++;
+            continue;
+        }
+        // Before a version/public ID, these may identify a transformation or
+        // a signed URL. Prefer a safe single-source image if ambiguous.
+        if (!segment || segment.includes(',') || segment.includes('_') || segment.startsWith('s--')) return null;
+        break;
+    }
+
+    const asset = segments.slice(start);
+    if (!asset.length || !asset.at(-1) || (/^v\d+$/.test(asset[0]) && asset.length < 2)) return null;
+    return { prefix: match[1], asset: asset.join('/') };
+};
+
+/**
+ * Responsive catalog delivery without a second image optimizer. Each URL caps
+ * the requested width (c_limit), preserving aspect ratio and avoiding upscale.
+ * Original/specially edited URLs remain unchanged when they cannot be safely
+ * recognized. Callers supply sizes for their actual layout.
+ */
+export const getCatalogImageProps = url => {
+    const fallback = { src: typeof url === 'string' ? url : '' };
+    const source = getCatalogSource(url);
+    if (!source) return fallback;
+
+    const atWidth = width => `${source.prefix}f_auto,q_auto:best,w_${width},c_limit/${source.asset}`;
+    return {
+        src: atWidth(960),
+        srcSet: CATALOG_IMAGE_WIDTHS.map(width => `${atWidth(width)} ${width}w`).join(', ')
+    };
+};

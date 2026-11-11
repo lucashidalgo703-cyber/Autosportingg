@@ -1,11 +1,11 @@
 "use client";
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Upload, X, Save, Image as ImageIcon, Sliders } from 'lucide-react';
 import VehicleImageFramingModal from './VehicleImageFramingModal';
 import toast from 'react-hot-toast';
 import CrmCard from '../ui/CrmCard';
 
-import { compressImage } from '../../../utils/imageCompressor';
+import { compressImage, VEHICLE_IMAGE_MAX_BYTES } from '../../../utils/imageCompressor';
 
 const readUploadError = async (res, fallback) => {
     try {
@@ -28,14 +28,28 @@ export default function VehicleImagesPanel({ vehicle, onSaveComplete }) {
     );
     const [draggedIndex, setDraggedIndex] = useState(null);
     const [isSaving, setIsSaving] = useState(false);
+    const [preparingImages, setPreparingImages] = useState(0);
     const [showFramingModal, setShowFramingModal] = useState(false);
     const [framingInitialIndex, setFramingInitialIndex] = useState(0);
     const [currentImagePosition, setCurrentImagePosition] = useState(vehicle?.imagePosition || '50% 75%');
+    const imagePreparationSession = useRef(0);
+    const imageActionsDisabled = isSaving || preparingImages > 0;
+    const vehicleId = vehicle?.id || vehicle?._id;
 
-    const handleDragStart = (index) => setDraggedIndex(index);
+    useEffect(() => {
+        const session = ++imagePreparationSession.current;
+        setPreparingImages(0);
+        return () => {
+            if (imagePreparationSession.current === session) imagePreparationSession.current++;
+        };
+    }, [vehicleId]);
+
+    const handleDragStart = (index) => {
+        if (!imageActionsDisabled) setDraggedIndex(index);
+    };
     const handleDragOver = (e) => e.preventDefault();
     const handleDropSort = (index) => {
-        if (draggedIndex === null) return;
+        if (imageActionsDisabled || draggedIndex === null) return;
         const newFiles = [...files];
         const draggedItem = newFiles.splice(draggedIndex, 1)[0];
         newFiles.splice(index, 0, draggedItem);
@@ -46,41 +60,49 @@ export default function VehicleImagesPanel({ vehicle, onSaveComplete }) {
     const onDropFiles = (e) => {
         e.preventDefault();
         setIsDragging(false);
+        if (imageActionsDisabled) return;
         const droppedFiles = Array.from(e.dataTransfer.files).filter(file => file.type.startsWith('image/'));
         addFiles(droppedFiles);
     };
 
     const addFiles = async (newFilesRaw) => {
+        if (imageActionsDisabled) return;
+        const session = imagePreparationSession.current;
         const rawFilesArray = Array.from(newFilesRaw);
         const processedFiles = [];
-
-        toast.loading("Comprimiendo imágenes...", { id: 'compressing' });
-
-        for (const file of rawFilesArray) {
-            try {
-                const compressedFile = await compressImage(file, 1280, 0.72);
-                if (compressedFile.size > 900 * 1024) {
-                    toast.error(`La imagen ${file.name} sigue pesando más de 900KB comprimida. Intenta con otra.`, { duration: 5000 });
-                    continue;
+        setPreparingImages(count => count + 1);
+        const loadingToast = toast.loading('Preparando imágenes...');
+        try {
+            for (const file of rawFilesArray) {
+                try {
+                    const compressedFile = await compressImage(file);
+                    if (imagePreparationSession.current !== session) return;
+                    if (compressedFile.size > VEHICLE_IMAGE_MAX_BYTES) {
+                        toast.error(`La imagen ${file.name} supera el límite de carga. Elegí otra copia.`, { duration: 5000 });
+                        continue;
+                    }
+                    compressedFile.preview = URL.createObjectURL(compressedFile);
+                    processedFiles.push(compressedFile);
+                } catch (err) {
+                    console.error('Error preparing image', err);
+                    if (imagePreparationSession.current === session) toast.error(`No se pudo preparar ${file.name}: ${err.message}`);
                 }
-                compressedFile.preview = URL.createObjectURL(compressedFile);
-                processedFiles.push(compressedFile);
-            } catch (err) {
-                console.error("Error compressing image", err);
-                toast.error(`Error procesando ${file.name}`);
             }
+            if (imagePreparationSession.current !== session) return;
+            setFiles(prev => {
+                if (imagePreparationSession.current !== session) return prev;
+                const combined = [...prev, ...processedFiles];
+                if (combined.length > 20) {
+                    toast.error('Máximo 20 imágenes en total.');
+                    return combined.slice(0, 20);
+                }
+                return combined;
+            });
+        } finally {
+            toast.dismiss(loadingToast);
+            if (imagePreparationSession.current === session) setPreparingImages(count => Math.max(0, count - 1));
+            else processedFiles.forEach(file => URL.revokeObjectURL(file.preview));
         }
-
-        toast.dismiss('compressing');
-
-        setFiles(prev => {
-            const combined = [...prev, ...processedFiles];
-            if (combined.length > 20) {
-                toast.error("Máximo 20 imágenes en total.");
-                return combined.slice(0, 20);
-            }
-            return combined;
-        });
     };
 
     const uploadSingleImage = async ({ file, index, total, baseUrl, token }) => {
@@ -123,6 +145,7 @@ export default function VehicleImagesPanel({ vehicle, onSaveComplete }) {
     };
 
     const handleSaveImages = async () => {
+        if (imageActionsDisabled) return;
         try {
             setIsSaving(true);
             const newFiles = files.filter(f => !f.isExisting);
@@ -197,6 +220,7 @@ export default function VehicleImagesPanel({ vehicle, onSaveComplete }) {
                     {files.length > 0 && (
                         <button
                             type="button"
+                            disabled={imageActionsDisabled}
                             onClick={() => {
                                 setFramingInitialIndex(0);
                                 setShowFramingModal(true);
@@ -213,7 +237,7 @@ export default function VehicleImagesPanel({ vehicle, onSaveComplete }) {
             </div>
 
             <div
-                onDragOver={(e) => { e.preventDefault(); setIsDragging(true); }}
+                onDragOver={(e) => { e.preventDefault(); if (!imageActionsDisabled) setIsDragging(true); }}
                 onDragLeave={(e) => { e.preventDefault(); setIsDragging(false); }}
                 onDrop={onDropFiles}
                 className={`
@@ -227,6 +251,7 @@ export default function VehicleImagesPanel({ vehicle, onSaveComplete }) {
                     <label className="relative w-full h-full flex flex-col items-center justify-center cursor-pointer py-8">
                         <input
                             type="file" multiple accept="image/png, image/jpeg, image/jpg, image/webp"
+                            disabled={imageActionsDisabled}
                             className="hidden"
                             onChange={(e) => { if (e.target.files) addFiles(e.target.files); }}
                         />
@@ -240,7 +265,7 @@ export default function VehicleImagesPanel({ vehicle, onSaveComplete }) {
                     <div className="flex gap-3 overflow-x-auto w-full items-center justify-start custom-scrollbar py-1">
                         {files.map((file, i) => (
                             <div
-                                key={i} draggable
+                                key={i} draggable={!imageActionsDisabled}
                                 onDragStart={() => handleDragStart(i)}
                                 onDragOver={handleDragOver}
                                 onDrop={() => handleDropSort(i)}
@@ -258,6 +283,7 @@ export default function VehicleImagesPanel({ vehicle, onSaveComplete }) {
                                 <button
                                     type="button"
                                     title={`Ajustar encuadre de foto #${i + 1}`}
+                                    disabled={imageActionsDisabled}
                                     onClick={(e) => {
                                         e.stopPropagation();
                                         setFramingInitialIndex(i);
@@ -270,6 +296,7 @@ export default function VehicleImagesPanel({ vehicle, onSaveComplete }) {
                                 <button
                                     type="button"
                                     title="Eliminar imagen"
+                                    disabled={imageActionsDisabled}
                                     onClick={(e) => {
                                         e.stopPropagation();
                                         e.preventDefault();
@@ -286,6 +313,7 @@ export default function VehicleImagesPanel({ vehicle, onSaveComplete }) {
                             <label className="flex-shrink-0 w-28 h-20 rounded-lg border-2 border-dashed border-crm-border hover:border-crm-red flex flex-col items-center justify-center cursor-pointer transition-colors bg-crm-surface-raised/30 hover:bg-crm-surface-raised/60 group">
                                 <input
                                     type="file" multiple accept="image/png, image/jpeg, image/jpg, image/webp"
+                                    disabled={imageActionsDisabled}
                                     className="hidden"
                                     onChange={(e) => { if (e.target.files) addFiles(e.target.files); }}
                                 />
@@ -300,11 +328,11 @@ export default function VehicleImagesPanel({ vehicle, onSaveComplete }) {
             <div className="flex justify-end">
                 <button
                     onClick={handleSaveImages}
-                    disabled={isSaving}
+                    disabled={isSaving || preparingImages > 0}
                     className="bg-crm-red hover:bg-red-600 text-white text-xs font-bold px-4 py-2 rounded-lg transition-colors flex items-center gap-2 disabled:opacity-50"
                 >
                     {isSaving ? <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-white"></div> : <Save size={14} />}
-                    Guardar Imágenes
+                    {preparingImages > 0 ? 'Preparando fotos...' : 'Guardar Imágenes'}
                 </button>
             </div>
 
@@ -327,13 +355,31 @@ export default function VehicleImagesPanel({ vehicle, onSaveComplete }) {
                     }
                     if (onSaveComplete) onSaveComplete();
                 }}
-                onCropComplete={(croppedFile, cropIndex) => {
-                    setFiles(prev => {
-                        const updated = [...prev];
-                        updated[cropIndex] = croppedFile;
-                        return updated;
-                    });
-                    toast.success(`Foto #${cropIndex + 1} reemplazada con el recorte 4:3`);
+                onCropComplete={async (croppedFile, cropIndex) => {
+                    if (imageActionsDisabled) return;
+                    const session = imagePreparationSession.current;
+                    const sourceFile = files[cropIndex];
+                    setPreparingImages(count => count + 1);
+                    try {
+                        const prepared = await compressImage(croppedFile);
+                        if (imagePreparationSession.current !== session) {
+                            if (croppedFile.preview) URL.revokeObjectURL(croppedFile.preview);
+                            return;
+                        }
+                        if (!prepared.preview) prepared.preview = URL.createObjectURL(prepared);
+                        setFiles(prev => {
+                            if (imagePreparationSession.current !== session) return prev;
+                            const targetIndex = prev.indexOf(sourceFile);
+                            if (targetIndex < 0) return prev;
+                            const updated = [...prev];
+                            updated[targetIndex] = prepared;
+                            return updated;
+                        });
+                    } catch (error) {
+                        if (imagePreparationSession.current === session) toast.error(`No se pudo preparar el recorte: ${error.message}`);
+                    } finally {
+                        if (imagePreparationSession.current === session) setPreparingImages(count => Math.max(0, count - 1));
+                    }
                 }}
             />
         </CrmCard>

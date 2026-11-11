@@ -1,4 +1,5 @@
 import { computeCommissionAmount, computeSaleProfit, validateCommissionPercent, parseDecimal, roundMoney } from './src/utils/saleCommercial.js';
+import { resolveCarImageUpdate } from './src/utils/carImageOrder.js';
 import { buildTradeInChain, validateTradeInLink, resolveOriginForCar } from './src/services/tradeInChainService.js';
 import AnalyticsEvent from './src/models/AnalyticsEvent.js';
 import CustomerVehicle from './src/models/CustomerVehicle.js';
@@ -941,12 +942,21 @@ app.get('/api/public/cars/:id', async (req, res) => {
 // POST create new car (Protected)
 app.post('/api/cars', authenticateToken, requirePermission(PERMISSIONS.STOCK_WRITE), upload.array('images', 20), async (req, res) => {
     try {
+        const imageUpdate = resolveCarImageUpdate({
+            body: req.body,
+            files: req.files,
+            cloudName: process.env.CLOUDINARY_CLOUD_NAME || ''
+        });
+        if (imageUpdate.error) return res.status(400).json({ message: imageUpdate.error });
+
         await connectDB();
         const carData = { ...req.body };
         const user = req.user ? (req.user.username || req.user.email || req.user.role) : 'System';
 
-        if (req.files && req.files.length > 0) {
-            carData.images = req.files.map(file => file.path);
+        delete carData.imageOrder;
+        if (imageUpdate.provided) {
+            carData.images = imageUpdate.images;
+            carData.coverImage = imageUpdate.coverImage;
         }
 
         const isTradeIn = carData.receivedAsTradeIn === true || carData.receivedAsTradeIn === 'true' || Boolean(carData.tradeInOriginSaleId);
@@ -2600,6 +2610,15 @@ app.patch('/api/admin/cars/:id', authenticateToken, requirePermission(PERMISSION
             return res.status(404).json({ message: 'Car not found' });
         }
 
+        const imageUpdate = resolveCarImageUpdate({
+            body: updates,
+            files: req.files,
+            existingImages: car.images || [],
+            existingCoverImage: car.coverImage || '',
+            cloudName: process.env.CLOUDINARY_CLOUD_NAME || ''
+        });
+        if (imageUpdate.error) return res.status(400).json({ message: imageUpdate.error });
+
         const newAuditLogs = [];
         const {
             _id,
@@ -2609,6 +2628,7 @@ app.patch('/api/admin/cars/:id', authenticateToken, requirePermission(PERMISSION
             expenses,
             documentation,
             images,
+            imageOrder,
             purchasePriceChangeType,
             purchasePriceJustification,
             purchasePriceExpenseConcept,
@@ -2833,9 +2853,9 @@ app.patch('/api/admin/cars/:id', authenticateToken, requirePermission(PERMISSION
             car[key] = otherUpdates[key];
         });
 
-        if (req.files && req.files.length > 0) {
-            const newImages = req.files.map(file => file.path);
-            updates.images = [...(car.images || []), ...newImages];
+        if (imageUpdate.provided) {
+            car.images = imageUpdate.images;
+            car.coverImage = imageUpdate.coverImage;
         }
 
         if (documentation) {

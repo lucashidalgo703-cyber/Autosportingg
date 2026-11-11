@@ -2,6 +2,7 @@ import React, { useCallback, useEffect } from 'react';
 import useEmblaCarousel from 'embla-carousel-react';
 import AutoScroll from 'embla-carousel-auto-scroll';
 import CarCard from './CarCard';
+import { CAROUSEL_IMAGE_SIZES } from '../lib/vehicleImageSizes';
 
 const CarCarousel = ({ cars }) => {
     const [emblaRef, emblaApi] = useEmblaCarousel({
@@ -30,7 +31,7 @@ const CarCarousel = ({ cars }) => {
                 <div className="flex touch-pan-y" style={{ marginLeft: '-2rem' }}>
                     {displayCars.map((car, index) => (
                         <div className="min-w-0 carousel-item" key={`${car._id || car.id}-${index}`}>
-                            <CarCard car={car} />
+                            <CarCard car={car} sizes={CAROUSEL_IMAGE_SIZES} />
                         </div>
                     ))}
                 </div>

@@ -3,6 +3,7 @@ import { useMemo } from 'react';
 import Link from 'next/link';
 import { ArrowLeft, Car } from 'lucide-react';
 import CarCard from '../components/CarCard';
+import { FAVORITE_IMAGE_SIZES } from '../lib/vehicleImageSizes';
 import { useCars } from '../hooks/useCars';
 import { useFavorites } from '../context/FavoritesContext';
 
@@ -33,7 +34,7 @@ const Favorites = () => {
             ) : favoriteCars.length > 0 ? (
                 <div className="cars-grid">
                     {favoriteCars.map(car => (
-                        <CarCard key={car._id || car.id} car={car} />
+                        <CarCard key={car._id || car.id} car={car} sizes={FAVORITE_IMAGE_SIZES} />
                     ))}
                 </div>
             ) : (
