@@ -4,10 +4,10 @@ import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { ArrowLeft, Calendar, Gauge, Fuel, Maximize2, X, ChevronLeft, ChevronRight, Heart, Share2, Copy } from 'lucide-react';
 import { useCars } from '../hooks/useCars';
-import { getOptimizedImageUrl, getBlurPlaceholder } from '../lib/cloudinaryUtils';
+import { getGalleryImageProps } from '../lib/cloudinaryUtils';
+import { DETAIL_IMAGE_SIZES, DETAIL_THUMBNAIL_SIZES, LIGHTBOX_IMAGE_SIZES } from '../lib/vehicleImageSizes';
 import { resolveImagePosition, resolveImagePositionByIndex } from '../lib/formatters';
 import { useFavorites } from '../context/FavoritesContext';
-import Image from 'next/image';
 import { motion, AnimatePresence } from 'framer-motion';
 
 const CarDetail = () => {
@@ -109,16 +109,19 @@ const CarDetail = () => {
         // Deduplicate in case there are only 2 images
         const uniqueToPreload = [...new Set(imagesToPreload)];
 
+        const variant = showLightbox ? 'lightbox' : 'main';
+        const sizes = showLightbox ? LIGHTBOX_IMAGE_SIZES : DETAIL_IMAGE_SIZES;
         uniqueToPreload.forEach(imgUrl => {
+            const imageProps = getGalleryImageProps(imgUrl, variant);
             const preloader = new window.Image();
-            preloader.src = getOptimizedImageUrl(imgUrl, 1200); // Same resolution as main container
-
-            // If lightbox might be opened, also warm up the 1600px version
-            const lightboxPreloader = new window.Image();
-            lightboxPreloader.src = getOptimizedImageUrl(imgUrl, 1600);
+            preloader.decoding = 'async';
+            preloader.fetchPriority = 'low';
+            preloader.sizes = sizes;
+            if (imageProps.srcSet) preloader.srcset = imageProps.srcSet;
+            preloader.src = imageProps.src;
         });
 
-    }, [activeImage, car]);
+    }, [activeImage, car, showLightbox]);
 
     if (loading) {
         return (
@@ -159,14 +162,17 @@ const CarDetail = () => {
                                 >
                                     <div className="w-full h-full flex items-center justify-center">
                                         {currentImg ? (
-                                            <Image
+                                            <img
+                                                {...getGalleryImageProps(currentImg)}
                                                 alt={car.name}
-                                                fill
-                                                priority
-                                                className="object-cover w-full h-full fade-in"
+                                                width={1600}
+                                                height={1200}
+                                                sizes={DETAIL_IMAGE_SIZES}
+                                                loading="eager"
+                                                fetchPriority="high"
+                                                decoding="async"
+                                                className="absolute inset-0 object-cover w-full h-full fade-in"
                                                 style={{ objectFit: 'cover', objectPosition: resolveImagePositionByIndex(car, car.images && currentImg ? Math.max(0, car.images.indexOf(currentImg)) : 0, '50% 68%') }}
-                                                src={getOptimizedImageUrl(currentImg, 1200)}
-                                                unoptimized
                                             />
                                         ) : (
                                             <div className="text-neutral-600 flex flex-col items-center gap-2">
@@ -189,6 +195,7 @@ const CarDetail = () => {
                                 {car.images && car.images.length > 1 && (
                                     <>
                                         <button
+                                            aria-label="Foto anterior"
                                             className="absolute top-1/2 left-2 -translate-y-1/2 bg-black/50 text-white p-2 rounded-full hover:bg-black/70 transition-colors z-10"
                                             onClick={(e) => {
                                                 e.stopPropagation();
@@ -198,6 +205,7 @@ const CarDetail = () => {
                                             <ChevronLeft size={24} />
                                         </button>
                                         <button
+                                            aria-label="Foto siguiente"
                                             className="absolute top-1/2 right-2 -translate-y-1/2 bg-black/50 text-white p-2 rounded-full hover:bg-black/70 transition-colors z-10"
                                             onClick={(e) => {
                                                 e.stopPropagation();
@@ -239,13 +247,16 @@ const CarDetail = () => {
                                         }}
                                     >
                                         <div className="w-full h-full flex items-center justify-center">
-                                            <Image
-                                                src={getOptimizedImageUrl(img, 400)}
+                                            <img
+                                                {...getGalleryImageProps(img, 'thumbnail')}
                                                 alt={`${car.name} view ${index + 2}`}
-                                                fill
-                                                className={`object-cover w-full h-full transition duration-300 ${isLast && remainingCount > 0 ? 'blur-sm' : ''}`}
+                                                width={960}
+                                                height={720}
+                                                sizes={DETAIL_THUMBNAIL_SIZES}
+                                                loading="lazy"
+                                                decoding="async"
+                                                className="absolute inset-0 object-cover w-full h-full transition duration-300"
                                                 style={{ objectFit: 'cover', objectPosition: resolveImagePositionByIndex(car, index + 1, '50% 68%') }}
-                                                unoptimized
                                             />
                                         </div>
 
@@ -373,30 +384,33 @@ const CarDetail = () => {
             {/* Lightbox Modal */}
             {showLightbox && (activeImage || car.coverImage || (car.images && car.images.length > 0)) && (
                 <div className="lightbox-overlay" onClick={() => setShowLightbox(false)}>
-                    <button className="lightbox-close">
+                    <button className="lightbox-close" aria-label="Cerrar galería">
                         <X size={32} />
                     </button>
 
                     {car.images && car.images.length > 1 && (
-                        <button className="lightbox-nav prev" onClick={handlePrev}>
+                        <button className="lightbox-nav prev" aria-label="Foto anterior" onClick={handlePrev}>
                             <ChevronLeft size={48} />
                         </button>
                     )}
 
-                    <Image
-                        src={getOptimizedImageUrl(activeImage || car.coverImage || (car.images && car.images[0]), 1600)}
+                    <img
+                        {...getGalleryImageProps(currentImg, 'lightbox')}
                         alt={car.name}
                         width={1600}
                         height={1200}
+                        sizes={LIGHTBOX_IMAGE_SIZES}
+                        loading="eager"
+                        fetchPriority="high"
+                        decoding="async"
                         className="lightbox-img fade-in"
                         key={activeImage}
                         onClick={(e) => e.stopPropagation()}
-                        unoptimized
                         style={{ objectFit: 'contain', width: 'auto', height: 'auto', maxWidth: '95%', maxHeight: '95%' }}
                     />
 
                     {car.images && car.images.length > 1 && (
-                        <button className="lightbox-nav next" onClick={handleNext}>
+                        <button className="lightbox-nav next" aria-label="Foto siguiente" onClick={handleNext}>
                             <ChevronRight size={48} />
                         </button>
                     )}
@@ -512,7 +526,6 @@ const CarDetail = () => {
                 .group:hover .group-hover\\:opacity-100 { opacity: 1; }
                 
                 .cursor-zoom-in { cursor: zoom-in; }
-                .blur-sm { filter: blur(4px); }
                 .border-neutral-600 { border-color: #525252; }
                 .bg-color-bg-secondary { background-color: #1a1a1a; }
                 .px-3 { padding-left: 0.75rem; padding-right: 0.75rem; }

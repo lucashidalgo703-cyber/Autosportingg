@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { CATALOG_IMAGE_WIDTHS, getCatalogImageProps, getOptimizedImageUrl, getBlurPlaceholder } from '../src/lib/cloudinaryUtils.js';
+import { CATALOG_IMAGE_WIDTHS, getCatalogImageProps, getGalleryImageProps, getOptimizedImageUrl, getBlurPlaceholder } from '../src/lib/cloudinaryUtils.js';
 
 const prefix = 'https://res.cloudinary.com/autosporting/image/upload/';
 const asset = 'v1794422423/autosporting-cars/foto%20frente%2C%20azul.webp';
@@ -68,4 +68,29 @@ assert.deepEqual(getCatalogImageProps({ url: original }), { src: '' });
 // Adding the catalog API must not alter existing gallery/placeholder behavior.
 assert.equal(getOptimizedImageUrl(original, 600), prefix + 'f_auto,q_auto,w_600,c_limit/' + asset);
 assert.equal(getBlurPlaceholder(original), prefix + 'f_auto,q_10,w_40,c_limit,e_blur:1000/' + asset);
-console.log('PASS catalog images: responsive limits, legacy variants, encoded IDs and safe fallback for signed/edited/external URLs.');
+
+const galleryCases = [
+    ['main', 1600, [640, 960, 1280, 1600, 1920, 2560]],
+    ['thumbnail', 480, [320, 480, 640, 960]],
+    ['lightbox', 1920, [640, 960, 1280, 1600, 1920, 2560, 3200, 3840]]
+];
+for (const [variant, defaultWidth, widths] of galleryCases) {
+    const gallery = getGalleryImageProps(original, variant);
+    assert.equal(gallery.src, `${prefix}f_auto,q_auto:best,w_${defaultWidth},c_limit/${asset}`);
+    assert.equal(gallery.srcSet, widths.map(width => `${prefix}f_auto,q_auto:best,w_${width},c_limit/${asset} ${width}w`).join(', '));
+    for (const oldWidth of [400, 1200, 1600]) {
+        const reduced = prefix + `f_auto,q_auto,w_${oldWidth},c_limit/` + asset;
+        assert.deepEqual(getGalleryImageProps(reduced, variant), gallery, 'Recover the master instead of stacking an old width limit');
+    }
+    for (const url of unchanged) assert.deepEqual(getGalleryImageProps(url, variant), { src: url });
+    assert.deepEqual(getGalleryImageProps(null, variant), { src: '' });
+    assert.ok(getGalleryImageProps(prefix + folderAsset, variant).src.endsWith('/' + folderAsset));
+}
+assert.deepEqual(getGalleryImageProps(original), getGalleryImageProps(original, 'main'));
+for (const unknownVariant of ['unknown', '__proto__', 'constructor', null]) {
+    assert.deepEqual(getGalleryImageProps(original, unknownVariant), getGalleryImageProps(original, 'main'));
+}
+// Gallery presets must not change catalog candidates or its fallback URL.
+assert.deepEqual(getCatalogImageProps(original), props);
+assert.equal(getCatalogImageProps(original).srcSet.split(', ').length, 4);
+console.log('PASS catalog and gallery images: responsive limits, independent variants, legacy masters, encoded IDs and safe fallbacks.');
