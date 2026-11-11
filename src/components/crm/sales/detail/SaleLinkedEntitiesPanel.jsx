@@ -232,25 +232,25 @@ export default function SaleLinkedEntitiesPanel({ sale, onUpdate }) {
     const clientHref = sale.clientId?._id ? `/admin/clientes/${sale.clientId._id}` : (sale.leadId?._id ? `/admin/leads/${sale.leadId._id}` : '#');
 
     return (
-        <div className="bg-neutral-900 border border-neutral-800 rounded-2xl overflow-hidden flex flex-col h-full">
-            <div className="p-4 border-b border-neutral-800 flex items-center gap-2 bg-crm-surface">
+        <div className="flex min-w-0 flex-col overflow-hidden rounded-xl border border-crm-border bg-crm-surface shadow-sm">
+            <div className="flex items-center gap-2 border-b border-crm-border bg-crm-surface-raised px-4 py-3">
                 <Link2 size={16} className="text-blue-500" />
                 <h3 className="text-sm font-bold text-white uppercase tracking-wider">Entidades Vinculadas</h3>
             </div>
             
-            <div className="p-5 space-y-4 flex-1">
+            <div className="space-y-3 p-4">
                 
                 {/* Vehicle */}
                 {sale.vehicleId ? (
-                    <div className="bg-black/30 border border-neutral-800/50 rounded-xl p-4 flex justify-between items-center group hover:bg-crm-surface-raised transition-colors">
-                        <div className="flex items-center gap-4">
-                            <div className="w-10 h-10 rounded-xl bg-crm-surface-raised flex items-center justify-center border border-neutral-700">
-                                <CarFront size={18} className="text-neutral-400" />
+                    <div className="bg-crm-surface-raised border border-crm-border rounded-xl p-3 flex flex-wrap justify-between items-center gap-3 group hover:bg-crm-surface-raised transition-colors">
+                        <div className="flex min-w-0 items-center gap-3">
+                            <div className="h-9 w-9 shrink-0 rounded-lg bg-crm-surface-raised flex items-center justify-center border border-crm-border-strong">
+                                <CarFront size={18} className="text-crm-fg-muted" />
                             </div>
-                            <div className="flex flex-col">
-                                <span className="text-[10px] text-neutral-500 uppercase font-bold tracking-wider mb-0.5">Vehículo</span>
-                                <span className="text-sm font-bold text-white">{vehicleName}</span>
-                                {vehicleVin && <span className="text-[10px] text-neutral-500 font-mono mt-1">{vehicleVin}</span>}
+                            <div className="flex min-w-0 flex-col">
+                                <span className="text-[10px] text-crm-fg-muted uppercase font-bold tracking-wider mb-0.5">Vehículo</span>
+                                <span className="break-words text-sm font-bold text-crm-fg">{vehicleName}</span>
+                                {vehicleVin && <span className="text-[10px] text-crm-fg-muted font-mono mt-1">{vehicleVin}</span>}
                             </div>
                         </div>
                         <div className="flex items-center gap-2">
@@ -258,14 +258,14 @@ export default function SaleLinkedEntitiesPanel({ sale, onUpdate }) {
                                 <button
                                     type="button"
                                     onClick={() => setIsChangeVehicleModalOpen(true)}
-                                    className="px-2.5 py-1.5 rounded-lg bg-neutral-800 hover:bg-neutral-700 text-neutral-300 hover:text-white text-xs font-semibold flex items-center gap-1.5 transition-colors border border-neutral-700 shadow-sm"
+                                    className="px-2.5 py-1.5 rounded-lg bg-neutral-800 hover:bg-neutral-700 text-crm-fg hover:text-white text-xs font-semibold flex items-center gap-1.5 transition-colors border border-crm-border-strong shadow-sm"
                                     title="Cambiar vehículo de la venta"
                                 >
                                     <RefreshCw size={13} className="text-blue-400" />
                                     <span>Cambiar</span>
                                 </button>
                             )}
-                            <Link href={vehicleHref} className="w-10 h-10 rounded-xl bg-crm-surface-raised hover:bg-neutral-700 text-white flex items-center justify-center transition-colors shadow-sm">
+                            <Link href={vehicleHref} className="h-9 w-9 shrink-0 rounded-lg bg-crm-surface-raised hover:bg-neutral-700 text-white flex items-center justify-center transition-colors shadow-sm">
                                 <ChevronRight size={18} />
                             </Link>
                         </div>
@@ -283,16 +283,16 @@ export default function SaleLinkedEntitiesPanel({ sale, onUpdate }) {
                         {error && <div className="text-xs text-red-400 font-bold">{error}</div>}
 
                         {/* Tabs for Vehicle Linking */}
-                        <div className="flex gap-2 p-1 bg-black/40 rounded-lg">
+                        <div className="flex gap-2 p-1 bg-crm-bg rounded-lg">
                             <button
                                 onClick={() => setIsManualVehicleMode(false)}
-                                className={`flex-1 py-1.5 text-[11px] font-bold rounded-md transition-colors ${!isManualVehicleMode ? 'bg-crm-red text-white shadow-sm' : 'text-neutral-400 hover:text-white'}`}
+                                className={`flex-1 py-1.5 text-[11px] font-bold rounded-md transition-colors ${!isManualVehicleMode ? 'bg-crm-red text-white shadow-sm' : 'text-crm-fg-muted hover:text-white'}`}
                             >
                                 Buscar en Stock
                             </button>
                             <button
                                 onClick={() => setIsManualVehicleMode(true)}
-                                className={`flex-1 py-1.5 text-[11px] font-bold rounded-md transition-colors ${isManualVehicleMode ? 'bg-crm-red text-white shadow-sm' : 'text-neutral-400 hover:text-white'}`}
+                                className={`flex-1 py-1.5 text-[11px] font-bold rounded-md transition-colors ${isManualVehicleMode ? 'bg-crm-red text-white shadow-sm' : 'text-crm-fg-muted hover:text-white'}`}
                             >
                                 Cargar Manual
                             </button>
@@ -301,11 +301,11 @@ export default function SaleLinkedEntitiesPanel({ sale, onUpdate }) {
                         {!isManualVehicleMode ? (
                             <>
                                 <div className="relative">
-                                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-500" size={14} />
+                                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-crm-fg-muted" size={14} />
                                     <input
                                         type="text"
                                         placeholder="Buscar vehículo por marca, modelo, patente o VIN..."
-                                        className="w-full bg-black/40 border border-neutral-800 rounded-lg py-2 pl-9 pr-3 text-xs text-white focus:outline-none focus:border-crm-red/50 transition-colors"
+                                        className="w-full bg-crm-bg border border-crm-border rounded-lg py-2 pl-9 pr-3 text-xs text-white focus:outline-none focus:border-crm-red/50 transition-colors"
                                         value={vehicleSearch}
                                         onChange={(e) => setVehicleSearch(e.target.value)}
                                         disabled={isLinking}
@@ -313,12 +313,12 @@ export default function SaleLinkedEntitiesPanel({ sale, onUpdate }) {
                                 </div>
 
                                 {vehicleSearchResults.length > 0 && (
-                                    <div className="space-y-2 max-h-40 overflow-y-auto custom-scrollbar bg-crm-bg rounded-lg p-2 border border-neutral-800">
+                                    <div className="space-y-2 max-h-40 overflow-y-auto custom-scrollbar bg-crm-bg rounded-lg p-2 border border-crm-border">
                                         {vehicleSearchResults.map(car => (
-                                            <div key={car._id} className="flex items-center justify-between bg-black/40 p-2 rounded-lg">
-                                                <div className="flex flex-col">
+                                            <div key={car._id} className="flex items-center justify-between bg-crm-bg p-2 rounded-lg">
+                                                <div className="flex min-w-0 flex-col">
                                                     <span className="text-[11px] font-bold text-white">{car.brand} {car.name}</span>
-                                                    <span className="text-[10px] text-neutral-500 font-mono">{car.plateOrVin}</span>
+                                                    <span className="text-[10px] text-crm-fg-muted font-mono">{car.plateOrVin}</span>
                                                 </div>
                                                 <button 
                                                     onClick={() => handleLinkVehicle(car._id)}
@@ -332,17 +332,17 @@ export default function SaleLinkedEntitiesPanel({ sale, onUpdate }) {
                                     </div>
                                 )}
                                 {vehicleSearch.length > 2 && vehicleSearchResults.length === 0 && !searchingVehicle && (
-                                    <div className="text-[10px] text-neutral-500 text-center">No se encontraron vehículos.</div>
+                                    <div className="text-[10px] text-crm-fg-muted text-center">No se encontraron vehículos.</div>
                                 )}
                             </>
                         ) : (
-                            <div className="space-y-3 bg-black/20 p-3 rounded-xl border border-neutral-800/50">
-                                <div className="grid grid-cols-2 gap-3">
+                            <div className="space-y-3 bg-crm-surface-raised p-3 rounded-xl border border-crm-border">
+                                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                                     <div>
-                                        <label className="text-[10px] font-bold text-neutral-500 uppercase tracking-wider mb-1 block">Marca *</label>
+                                        <label className="text-[10px] font-bold text-crm-fg-muted uppercase tracking-wider mb-1 block">Marca *</label>
                                         <input
                                             type="text"
-                                            className="w-full bg-black/40 border border-neutral-800 rounded-lg py-1.5 px-3 text-xs text-white focus:outline-none focus:border-crm-red/50 transition-colors"
+                                            className="w-full bg-crm-bg border border-crm-border rounded-lg py-1.5 px-3 text-xs text-white focus:outline-none focus:border-crm-red/50 transition-colors"
                                             placeholder="Ej: Toyota"
                                             value={manualBrand}
                                             onChange={(e) => setManualBrand(e.target.value)}
@@ -350,10 +350,10 @@ export default function SaleLinkedEntitiesPanel({ sale, onUpdate }) {
                                         />
                                     </div>
                                     <div>
-                                        <label className="text-[10px] font-bold text-neutral-500 uppercase tracking-wider mb-1 block">Modelo *</label>
+                                        <label className="text-[10px] font-bold text-crm-fg-muted uppercase tracking-wider mb-1 block">Modelo *</label>
                                         <input
                                             type="text"
-                                            className="w-full bg-black/40 border border-neutral-800 rounded-lg py-1.5 px-3 text-xs text-white focus:outline-none focus:border-crm-red/50 transition-colors"
+                                            className="w-full bg-crm-bg border border-crm-border rounded-lg py-1.5 px-3 text-xs text-white focus:outline-none focus:border-crm-red/50 transition-colors"
                                             placeholder="Ej: Hilux SRV"
                                             value={manualModel}
                                             onChange={(e) => setManualModel(e.target.value)}
@@ -362,10 +362,10 @@ export default function SaleLinkedEntitiesPanel({ sale, onUpdate }) {
                                     </div>
                                 </div>
                                 <div>
-                                    <label className="text-[10px] font-bold text-neutral-500 uppercase tracking-wider mb-1 block">Patente (Opcional)</label>
+                                    <label className="text-[10px] font-bold text-crm-fg-muted uppercase tracking-wider mb-1 block">Patente (Opcional)</label>
                                     <input
                                         type="text"
-                                        className="w-full bg-black/40 border border-neutral-800 rounded-lg py-1.5 px-3 text-xs text-white focus:outline-none focus:border-crm-red/50 transition-colors uppercase"
+                                        className="w-full bg-crm-bg border border-crm-border rounded-lg py-1.5 px-3 text-xs text-white focus:outline-none focus:border-crm-red/50 transition-colors uppercase"
                                         placeholder="Ej: AB123CD"
                                         value={manualPlate}
                                         onChange={(e) => setManualPlate(e.target.value.toUpperCase())}
@@ -387,29 +387,29 @@ export default function SaleLinkedEntitiesPanel({ sale, onUpdate }) {
 
                 {/* Client / Lead */}
                 {sale.clientId ? (
-                    <div className="bg-black/30 border border-neutral-800/50 rounded-xl p-4 flex justify-between items-center group hover:bg-crm-surface-raised transition-colors">
-                        <div className="flex items-center gap-4">
-                            <div className="w-10 h-10 rounded-xl bg-crm-surface-raised flex items-center justify-center border border-neutral-700">
-                                <User size={18} className="text-neutral-400" />
+                    <div className="bg-crm-surface-raised border border-crm-border rounded-xl p-3 flex flex-wrap justify-between items-center gap-3 group hover:bg-crm-surface-raised transition-colors">
+                        <div className="flex min-w-0 items-center gap-3">
+                            <div className="h-9 w-9 shrink-0 rounded-lg bg-crm-surface-raised flex items-center justify-center border border-crm-border-strong">
+                                <User size={18} className="text-crm-fg-muted" />
                             </div>
-                            <div className="flex flex-col">
-                                <span className="text-[10px] text-neutral-500 uppercase font-bold tracking-wider mb-0.5">
+                            <div className="flex min-w-0 flex-col">
+                                <span className="text-[10px] text-crm-fg-muted uppercase font-bold tracking-wider mb-0.5">
                                     Cliente Oficial
                                 </span>
-                                <span className="text-sm font-bold text-white">{clientName}</span>
+                                <span className="break-words text-sm font-bold text-crm-fg">{clientName}</span>
                                 <div className="flex items-center gap-2 mt-1">
-                                    <span className="text-[10px] text-neutral-400">{clientPhone}</span>
+                                    <span className="text-[10px] text-crm-fg-muted">{clientPhone}</span>
                                     {clientEmail && (
                                         <>
                                             <span className="w-1 h-1 bg-neutral-700 rounded-full"></span>
-                                            <span className="text-[10px] text-neutral-400 truncate max-w-[150px]">{clientEmail}</span>
+                                            <span className="text-[10px] text-crm-fg-muted truncate max-w-[150px]">{clientEmail}</span>
                                         </>
                                     )}
                                 </div>
                             </div>
                         </div>
                         {hasClientLink && (
-                            <Link href={clientHref} className="w-10 h-10 rounded-xl bg-crm-surface-raised hover:bg-neutral-700 text-white flex items-center justify-center transition-colors shadow-sm">
+                            <Link href={clientHref} className="h-9 w-9 shrink-0 rounded-lg bg-crm-surface-raised hover:bg-neutral-700 text-white flex items-center justify-center transition-colors shadow-sm">
                                 <ChevronRight size={18} />
                             </Link>
                         )}
@@ -438,16 +438,16 @@ export default function SaleLinkedEntitiesPanel({ sale, onUpdate }) {
                         )}
 
                         {/* Tabs for Client Linking */}
-                        <div className="flex gap-2 p-1 bg-black/40 rounded-lg">
+                        <div className="flex gap-2 p-1 bg-crm-bg rounded-lg">
                             <button
                                 onClick={() => setIsManualClientMode(false)}
-                                className={`flex-1 py-1.5 text-[11px] font-bold rounded-md transition-colors ${!isManualClientMode ? 'bg-crm-red text-white shadow-sm' : 'text-neutral-400 hover:text-white'}`}
+                                className={`flex-1 py-1.5 text-[11px] font-bold rounded-md transition-colors ${!isManualClientMode ? 'bg-crm-red text-white shadow-sm' : 'text-crm-fg-muted hover:text-white'}`}
                             >
                                 Buscar Existente
                             </button>
                             <button
                                 onClick={() => setIsManualClientMode(true)}
-                                className={`flex-1 py-1.5 text-[11px] font-bold rounded-md transition-colors ${isManualClientMode ? 'bg-crm-red text-white shadow-sm' : 'text-neutral-400 hover:text-white'}`}
+                                className={`flex-1 py-1.5 text-[11px] font-bold rounded-md transition-colors ${isManualClientMode ? 'bg-crm-red text-white shadow-sm' : 'text-crm-fg-muted hover:text-white'}`}
                             >
                                 Cargar Manual
                             </button>
@@ -456,11 +456,11 @@ export default function SaleLinkedEntitiesPanel({ sale, onUpdate }) {
                         {!isManualClientMode ? (
                             <>
                                 <div className="relative mt-2">
-                                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-500" size={14} />
+                                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-crm-fg-muted" size={14} />
                                     <input
                                         type="text"
                                         placeholder="Buscar cliente por DNI, nombre..."
-                                        className="w-full bg-black/40 border border-neutral-800 rounded-lg py-2 pl-9 pr-3 text-xs text-white focus:outline-none focus:border-crm-red/50 transition-colors"
+                                        className="w-full bg-crm-bg border border-crm-border rounded-lg py-2 pl-9 pr-3 text-xs text-white focus:outline-none focus:border-crm-red/50 transition-colors"
                                         value={clientSearch}
                                         onChange={(e) => setClientSearch(e.target.value)}
                                         disabled={isLinking}
@@ -468,12 +468,12 @@ export default function SaleLinkedEntitiesPanel({ sale, onUpdate }) {
                                 </div>
 
                                 {clientSearchResults.length > 0 && (
-                                    <div className="space-y-2 max-h-40 overflow-y-auto custom-scrollbar bg-crm-bg rounded-lg p-2 border border-neutral-800">
+                                    <div className="space-y-2 max-h-40 overflow-y-auto custom-scrollbar bg-crm-bg rounded-lg p-2 border border-crm-border">
                                         {clientSearchResults.map(client => (
-                                            <div key={client._id} className="flex items-center justify-between bg-black/40 p-2 rounded-lg">
-                                                <div className="flex flex-col">
+                                            <div key={client._id} className="flex items-center justify-between bg-crm-bg p-2 rounded-lg">
+                                                <div className="flex min-w-0 flex-col">
                                                     <span className="text-[11px] font-bold text-white">{client.fullName || client.firstName}</span>
-                                                    <span className="text-[10px] text-neutral-500">{client.phone}</span>
+                                                    <span className="text-[10px] text-crm-fg-muted">{client.phone}</span>
                                                 </div>
                                                 <button 
                                                     onClick={() => handleLinkClient(client._id)}
@@ -487,17 +487,17 @@ export default function SaleLinkedEntitiesPanel({ sale, onUpdate }) {
                                     </div>
                                 )}
                                 {clientSearch.length > 2 && clientSearchResults.length === 0 && !searchingClient && (
-                                    <div className="text-[10px] text-neutral-500 text-center">No se encontraron clientes.</div>
+                                    <div className="text-[10px] text-crm-fg-muted text-center">No se encontraron clientes.</div>
                                 )}
                             </>
                         ) : (
-                            <div className="space-y-3 bg-black/20 p-3 rounded-xl border border-neutral-800/50 mt-2">
+                            <div className="space-y-3 bg-crm-surface-raised p-3 rounded-xl border border-crm-border mt-2">
                                 <div className="grid grid-cols-1 gap-3">
                                     <div>
-                                        <label className="text-[10px] font-bold text-neutral-500 uppercase tracking-wider mb-1 block">Nombre Completo *</label>
+                                        <label className="text-[10px] font-bold text-crm-fg-muted uppercase tracking-wider mb-1 block">Nombre Completo *</label>
                                         <input
                                             type="text"
-                                            className="w-full bg-black/40 border border-neutral-800 rounded-lg py-1.5 px-3 text-xs text-white focus:outline-none focus:border-crm-red/50 transition-colors"
+                                            className="w-full bg-crm-bg border border-crm-border rounded-lg py-1.5 px-3 text-xs text-white focus:outline-none focus:border-crm-red/50 transition-colors"
                                             placeholder="Ej: Juan Pérez"
                                             value={manualClientName}
                                             onChange={(e) => setManualClientName(e.target.value)}
@@ -505,12 +505,12 @@ export default function SaleLinkedEntitiesPanel({ sale, onUpdate }) {
                                         />
                                     </div>
                                 </div>
-                                <div className="grid grid-cols-2 gap-3">
+                                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                                     <div>
-                                        <label className="text-[10px] font-bold text-neutral-500 uppercase tracking-wider mb-1 block">DNI *</label>
+                                        <label className="text-[10px] font-bold text-crm-fg-muted uppercase tracking-wider mb-1 block">DNI *</label>
                                         <input
                                             type="text"
-                                            className="w-full bg-black/40 border border-neutral-800 rounded-lg py-1.5 px-3 text-xs text-white focus:outline-none focus:border-crm-red/50 transition-colors"
+                                            className="w-full bg-crm-bg border border-crm-border rounded-lg py-1.5 px-3 text-xs text-white focus:outline-none focus:border-crm-red/50 transition-colors"
                                             placeholder="Ej: 35123456"
                                             value={manualClientDNI}
                                             onChange={(e) => setManualClientDNI(e.target.value)}
@@ -518,10 +518,10 @@ export default function SaleLinkedEntitiesPanel({ sale, onUpdate }) {
                                         />
                                     </div>
                                     <div>
-                                        <label className="text-[10px] font-bold text-neutral-500 uppercase tracking-wider mb-1 block">Teléfono</label>
+                                        <label className="text-[10px] font-bold text-crm-fg-muted uppercase tracking-wider mb-1 block">Teléfono</label>
                                         <input
                                             type="text"
-                                            className="w-full bg-black/40 border border-neutral-800 rounded-lg py-1.5 px-3 text-xs text-white focus:outline-none focus:border-crm-red/50 transition-colors"
+                                            className="w-full bg-crm-bg border border-crm-border rounded-lg py-1.5 px-3 text-xs text-white focus:outline-none focus:border-crm-red/50 transition-colors"
                                             placeholder="Ej: 2974000000"
                                             value={manualClientPhone}
                                             onChange={(e) => setManualClientPhone(e.target.value)}
@@ -544,17 +544,17 @@ export default function SaleLinkedEntitiesPanel({ sale, onUpdate }) {
 
                 {/* Reservation */}
                 {sale.reservationId && (
-                    <div className="bg-black/30 border border-neutral-800/50 rounded-xl p-4 flex justify-between items-center group hover:bg-crm-surface-raised transition-colors">
-                        <div className="flex items-center gap-4">
-                            <div className="w-10 h-10 rounded-xl bg-crm-surface-raised flex items-center justify-center border border-neutral-700">
-                                <CalendarClock size={18} className="text-neutral-400" />
+                    <div className="bg-crm-surface-raised border border-crm-border rounded-xl p-3 flex flex-wrap justify-between items-center gap-3 group hover:bg-crm-surface-raised transition-colors">
+                        <div className="flex min-w-0 items-center gap-3">
+                            <div className="h-9 w-9 shrink-0 rounded-lg bg-crm-surface-raised flex items-center justify-center border border-crm-border-strong">
+                                <CalendarClock size={18} className="text-crm-fg-muted" />
                             </div>
-                            <div className="flex flex-col">
-                                <span className="text-[10px] text-neutral-500 uppercase font-bold tracking-wider mb-0.5">Reserva Previa</span>
-                                <span className="text-sm font-bold text-white">Convertida Exitosamente</span>
+                            <div className="flex min-w-0 flex-col">
+                                <span className="text-[10px] text-crm-fg-muted uppercase font-bold tracking-wider mb-0.5">Reserva Previa</span>
+                                <span className="break-words text-sm font-bold text-crm-fg">Convertida Exitosamente</span>
                             </div>
                         </div>
-                        <Link href="/admin/reservas" className="w-10 h-10 rounded-xl bg-crm-surface-raised hover:bg-neutral-700 text-white flex items-center justify-center transition-colors shadow-sm">
+                        <Link href="/admin/reservas" className="h-9 w-9 shrink-0 rounded-lg bg-crm-surface-raised hover:bg-neutral-700 text-white flex items-center justify-center transition-colors shadow-sm">
                             <ChevronRight size={18} />
                         </Link>
                     </div>

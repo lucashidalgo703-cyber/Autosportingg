@@ -11,7 +11,8 @@ export default function CommunicationLogPanel({
     saleId = null, 
     reservationId = null, 
     vehicleId = null,
-    assignedTo = null 
+    assignedTo = null,
+    compact = false
 }) {
     const [logs, setLogs] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -51,8 +52,8 @@ export default function CommunicationLogPanel({
     };
 
     return (
-        <div className="bg-crm-bg border border-crm-border rounded-xl overflow-hidden flex flex-col h-full">
-            <div className="p-4 border-b border-crm-border bg-crm-surface-raised flex justify-between items-center shrink-0">
+        <div className={'border border-crm-border overflow-hidden flex flex-col ' + (compact ? 'rounded-2xl bg-crm-surface' : 'rounded-xl bg-crm-bg h-full')}>
+            <div className={'border-b border-crm-border bg-crm-surface-raised flex justify-between items-center shrink-0 ' + (compact ? 'flex-wrap gap-3 px-4 py-3' : 'p-4')}>
                 <h3 className="font-bold text-white uppercase text-sm flex items-center gap-2">
                     <MessageCircle size={18} className="text-crm-red" />
                     Historial de Contacto
@@ -74,7 +75,7 @@ export default function CommunicationLogPanel({
                 </div>
             </div>
 
-            <div className="p-4 flex-1 overflow-y-auto bg-crm-bg min-h-[300px] max-h-[500px] custom-scrollbar">
+            <div className={'p-4 overflow-y-auto custom-scrollbar ' + (compact ? 'bg-crm-surface max-h-[400px]' : 'flex-1 bg-crm-bg min-h-[300px] max-h-[500px]')}>
                 {error ? (
                     <div className="flex flex-col items-center justify-center h-full text-center p-4">
                         <div className="bg-red-900/20 text-red-400 p-4 rounded-xl border border-red-900/50 flex flex-col items-center gap-3 w-full max-w-sm">
@@ -96,7 +97,7 @@ export default function CommunicationLogPanel({
                         <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-crm-red"></div>
                     </div>
                 ) : logs.length === 0 ? (
-                    <div className="h-full flex flex-col items-center justify-center text-center p-6 text-crm-fg-muted">
+                    <div className={'flex flex-col items-center justify-center text-center text-crm-fg-muted ' + (compact ? 'gap-1 py-2' : 'h-full p-6')}>
                         <MessageCircle size={32} className="mb-2 text-crm-border" />
                         <p className="text-sm">No hay interacciones registradas aún.</p>
                         <p className="text-xs mt-1">Registrá la primera llamada, WhatsApp o reunión.</p>

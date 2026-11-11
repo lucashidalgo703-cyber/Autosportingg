@@ -170,8 +170,8 @@ export default function SaleTradeInPanel({ sale, onUpdate }) {
     };
 
     return (
-        <div className="bg-neutral-900 border border-neutral-800 rounded-2xl overflow-hidden flex flex-col h-full">
-            <div className="p-4 border-b border-neutral-800 flex items-center justify-between bg-crm-surface">
+        <div className="flex min-w-0 flex-col overflow-hidden rounded-xl border border-crm-border bg-crm-surface shadow-sm">
+            <div className="flex flex-wrap items-center justify-between gap-3 border-b border-crm-border bg-crm-surface-raised px-4 py-3">
                 <div className="flex items-center gap-2">
                     <CarFront size={16} className="text-purple-500" />
                     <h3 className="text-sm font-bold text-white uppercase tracking-wider">Permuta / Vehículo Recibido</h3>
@@ -179,7 +179,7 @@ export default function SaleTradeInPanel({ sale, onUpdate }) {
                 {hasWritePermission && sale.status !== 'cancelada' && !isEditing && (
                     <button 
                         onClick={handleAddClick}
-                        className="text-[10px] bg-crm-surface-raised hover:bg-neutral-700 text-white px-2 py-1 rounded transition-colors flex items-center gap-1 font-bold uppercase tracking-wider border border-neutral-700"
+                        className="text-[10px] bg-crm-surface-raised hover:bg-neutral-700 text-white px-2 py-1 rounded transition-colors flex items-center gap-1 font-bold uppercase tracking-wider border border-crm-border-strong"
                     >
                         <Plus size={10} />
                         Agregar
@@ -187,7 +187,7 @@ export default function SaleTradeInPanel({ sale, onUpdate }) {
                 )}
             </div>
             
-            <div className="p-5 flex-1 overflow-y-auto custom-scrollbar">
+            <div className="p-4">
                 {isEditing ? (
                     <div className="space-y-4">
                         {error && (
@@ -197,56 +197,56 @@ export default function SaleTradeInPanel({ sale, onUpdate }) {
                             </div>
                         )}
                         
-                        <div className="grid grid-cols-2 gap-3">
+                        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                             <div>
-                                <label className="block text-[10px] font-bold text-neutral-500 uppercase tracking-wider mb-1">Marca *</label>
-                                <input type="text" name="brand" value={formData.brand} onChange={handleChange} className="w-full bg-black/40 border border-neutral-800 rounded p-2 text-sm text-white focus:outline-none focus:border-purple-500" />
+                                <label className="block text-[10px] font-bold text-crm-fg-muted uppercase tracking-wider mb-1">Marca *</label>
+                                <input type="text" name="brand" value={formData.brand} onChange={handleChange} className="w-full bg-crm-bg border border-crm-border rounded p-2 text-sm text-white focus:outline-none focus:border-purple-500" />
                             </div>
                             <div>
-                                <label className="block text-[10px] font-bold text-neutral-500 uppercase tracking-wider mb-1">Modelo *</label>
-                                <input type="text" name="model" value={formData.model} onChange={handleChange} className="w-full bg-black/40 border border-neutral-800 rounded p-2 text-sm text-white focus:outline-none focus:border-purple-500" />
+                                <label className="block text-[10px] font-bold text-crm-fg-muted uppercase tracking-wider mb-1">Modelo *</label>
+                                <input type="text" name="model" value={formData.model} onChange={handleChange} className="w-full bg-crm-bg border border-crm-border rounded p-2 text-sm text-white focus:outline-none focus:border-purple-500" />
                             </div>
                             <div>
-                                <label className="block text-[10px] font-bold text-neutral-500 uppercase tracking-wider mb-1">Versión</label>
-                                <input type="text" name="version" value={formData.version} onChange={handleChange} className="w-full bg-black/40 border border-neutral-800 rounded p-2 text-sm text-white focus:outline-none focus:border-purple-500" />
+                                <label className="block text-[10px] font-bold text-crm-fg-muted uppercase tracking-wider mb-1">Versión</label>
+                                <input type="text" name="version" value={formData.version} onChange={handleChange} className="w-full bg-crm-bg border border-crm-border rounded p-2 text-sm text-white focus:outline-none focus:border-purple-500" />
                             </div>
                             <div>
-                                <label className="block text-[10px] font-bold text-neutral-500 uppercase tracking-wider mb-1">Año *</label>
-                                <input type="number" name="year" value={formData.year} onChange={handleChange} className="w-full bg-black/40 border border-neutral-800 rounded p-2 text-sm text-white focus:outline-none focus:border-purple-500" />
+                                <label className="block text-[10px] font-bold text-crm-fg-muted uppercase tracking-wider mb-1">Año *</label>
+                                <input type="number" name="year" value={formData.year} onChange={handleChange} className="w-full bg-crm-bg border border-crm-border rounded p-2 text-sm text-white focus:outline-none focus:border-purple-500" />
                             </div>
                             <div>
-                                <label className="block text-[10px] font-bold text-neutral-500 uppercase tracking-wider mb-1">Patente / Dominio</label>
-                                <input type="text" name="plate" value={formData.plate} onChange={handleChange} className="w-full bg-black/40 border border-neutral-800 rounded p-2 text-sm text-white focus:outline-none focus:border-purple-500" />
+                                <label className="block text-[10px] font-bold text-crm-fg-muted uppercase tracking-wider mb-1">Patente / Dominio</label>
+                                <input type="text" name="plate" value={formData.plate} onChange={handleChange} className="w-full bg-crm-bg border border-crm-border rounded p-2 text-sm text-white focus:outline-none focus:border-purple-500" />
                             </div>
                             <div>
-                                <label className="block text-[10px] font-bold text-neutral-500 uppercase tracking-wider mb-1">Kilómetros</label>
-                                <input type="number" name="mileage" value={formData.mileage} onChange={handleChange} className="w-full bg-black/40 border border-neutral-800 rounded p-2 text-sm text-white focus:outline-none focus:border-purple-500" />
+                                <label className="block text-[10px] font-bold text-crm-fg-muted uppercase tracking-wider mb-1">Kilómetros</label>
+                                <input type="number" name="mileage" value={formData.mileage} onChange={handleChange} className="w-full bg-crm-bg border border-crm-border rounded p-2 text-sm text-white focus:outline-none focus:border-purple-500" />
                             </div>
                         </div>
 
                         <div className="bg-purple-500/5 border border-purple-500/20 rounded-xl p-3">
                             <label className="block text-[10px] font-bold text-purple-400 uppercase tracking-wider mb-1">Valor Tomado *</label>
                             <div className="flex gap-2">
-                                <select name="currency" value={formData.currency} onChange={handleChange} className="w-24 bg-black/60 border border-purple-500/30 rounded p-2 text-sm text-white focus:outline-none focus:border-purple-500">
+                                <select name="currency" value={formData.currency} onChange={handleChange} className="w-24 bg-crm-bg border border-purple-500/30 rounded p-2 text-sm text-white focus:outline-none focus:border-purple-500">
                                     <option value="ARS">ARS</option>
                                     <option value="USD">USD</option>
                                 </select>
-                                <input type="number" name="estimatedValue" value={formData.estimatedValue} onChange={handleChange} className="flex-1 bg-black/60 border border-purple-500/30 rounded p-2 text-sm text-white focus:outline-none focus:border-purple-500 font-bold" />
+                                <input type="number" name="estimatedValue" value={formData.estimatedValue} onChange={handleChange} className="min-w-0 flex-1 bg-crm-bg border border-purple-500/30 rounded p-2 text-sm text-white focus:outline-none focus:border-purple-500 font-bold" />
                             </div>
                         </div>
 
-                        <div className="grid grid-cols-2 gap-3">
+                        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                             <div>
-                                <label className="block text-[10px] font-bold text-neutral-500 uppercase tracking-wider mb-1">Doc. Status</label>
-                                <select name="documentationStatus" value={formData.documentationStatus} onChange={handleChange} className="w-full bg-black/40 border border-neutral-800 rounded p-2 text-sm text-white focus:outline-none focus:border-purple-500">
+                                <label className="block text-[10px] font-bold text-crm-fg-muted uppercase tracking-wider mb-1">Doc. Status</label>
+                                <select name="documentationStatus" value={formData.documentationStatus} onChange={handleChange} className="w-full bg-crm-bg border border-crm-border rounded p-2 text-sm text-white focus:outline-none focus:border-purple-500">
                                     <option value="pendiente">Pendiente</option>
                                     <option value="parcial">Parcial</option>
                                     <option value="completo">Completa</option>
                                 </select>
                             </div>
                             <div>
-                                <label className="block text-[10px] font-bold text-neutral-500 uppercase tracking-wider mb-1">Transferencia</label>
-                                <select name="transferStatus" value={formData.transferStatus} onChange={handleChange} className="w-full bg-black/40 border border-neutral-800 rounded p-2 text-sm text-white focus:outline-none focus:border-purple-500">
+                                <label className="block text-[10px] font-bold text-crm-fg-muted uppercase tracking-wider mb-1">Transferencia</label>
+                                <select name="transferStatus" value={formData.transferStatus} onChange={handleChange} className="w-full bg-crm-bg border border-crm-border rounded p-2 text-sm text-white focus:outline-none focus:border-purple-500">
                                     <option value="pendiente">Pendiente</option>
                                     <option value="en_tramite">En trámite</option>
                                     <option value="transferido">Transferido</option>
@@ -254,10 +254,10 @@ export default function SaleTradeInPanel({ sale, onUpdate }) {
                             </div>
                         </div>
 
-                        <div className="flex justify-end gap-2 mt-4 pt-4 border-t border-neutral-800">
+                        <div className="flex justify-end gap-2 mt-4 pt-4 border-t border-crm-border">
                             <button 
                                 onClick={() => setIsEditing(false)}
-                                className="px-3 py-1.5 bg-transparent text-neutral-400 hover:text-white text-xs font-bold rounded"
+                                className="px-3 py-1.5 bg-transparent text-crm-fg-muted hover:text-white text-xs font-bold rounded"
                             >
                                 Cancelar
                             </button>
@@ -279,15 +279,15 @@ export default function SaleTradeInPanel({ sale, onUpdate }) {
                             </div>
                         )}
                         {sale.tradeIns.map((tradeIn, index) => (
-                            <div key={index} className="bg-black/30 border border-neutral-800 rounded-xl p-4">
-                                <div className="flex justify-between items-start mb-3">
+                            <div key={index} className="bg-crm-bg border border-crm-border rounded-xl p-4">
+                                <div className="flex flex-wrap justify-between items-start gap-3 mb-3">
                                     <div>
                                         <h4 className="text-white font-bold">{tradeIn.brand} {tradeIn.model} {tradeIn.version}</h4>
-                                        <p className="text-xs text-neutral-400 mt-0.5">Año: {tradeIn.year} • Patente: {tradeIn.plate || 'S/D'} • Km: {tradeIn.mileage?.toLocaleString('es-AR') || 0}</p>
+                                        <p className="text-xs text-crm-fg-muted mt-0.5">Año: {tradeIn.year} • Patente: {tradeIn.plate || 'S/D'} • Km: {tradeIn.mileage?.toLocaleString('es-AR') || 0}</p>
                                     </div>
                                     <div className="text-right">
                                         <span className="text-sm font-black text-purple-400 block">{tradeIn.currency} {tradeIn.estimatedValue?.toLocaleString('es-AR')}</span>
-                                        <span className="text-[10px] text-neutral-500 uppercase font-bold tracking-wider">Valor Tomado</span>
+                                        <span className="text-[10px] text-crm-fg-muted uppercase font-bold tracking-wider">Valor Tomado</span>
                                     </div>
                                 </div>
                                 
@@ -295,12 +295,12 @@ export default function SaleTradeInPanel({ sale, onUpdate }) {
                                     <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider ${tradeIn.documentationStatus === 'completo' ? 'bg-green-500/10 text-green-400 border border-green-500/20' : 'bg-orange-500/10 text-orange-400 border border-orange-500/20'}`}>
                                         Doc: {tradeIn.documentationStatus}
                                     </span>
-                                    <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider ${tradeIn.transferStatus === 'transferido' ? 'bg-blue-500/10 text-blue-400 border border-blue-500/20' : 'bg-crm-surface-raised text-neutral-400 border border-neutral-700'}`}>
+                                    <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider ${tradeIn.transferStatus === 'transferido' ? 'bg-blue-500/10 text-blue-400 border border-blue-500/20' : 'bg-crm-surface-raised text-crm-fg-muted border border-crm-border-strong'}`}>
                                         Transf: {tradeIn.transferStatus.replace('_', ' ')}
                                     </span>
                                 </div>
 
-                                <div className="flex items-center justify-between mt-3 pt-3 border-t border-neutral-800">
+                                <div className="flex items-center justify-between mt-3 pt-3 border-t border-crm-border">
                                     {tradeIn.linkedStockCarId ? (
                                         <Link href={`/admin/stock/${tradeIn.linkedStockCarId}`} className="text-xs font-bold text-blue-400 hover:text-blue-300 flex items-center gap-1 transition-colors">
                                             <CheckCircle2 size={12} />
@@ -310,7 +310,7 @@ export default function SaleTradeInPanel({ sale, onUpdate }) {
                                         <button 
                                             onClick={() => handleEnterStock(index)}
                                             disabled={enteringStockIndex === index || sale.status === 'cancelada' || !hasWritePermission}
-                                            className="text-[10px] font-bold text-neutral-400 hover:text-white uppercase tracking-wider transition-colors disabled:opacity-50 flex items-center gap-1"
+                                            className="text-[10px] font-bold text-crm-fg-muted hover:text-white uppercase tracking-wider transition-colors disabled:opacity-50 flex items-center gap-1"
                                         >
                                             <ArrowRight size={12} />
                                             {enteringStockIndex === index ? 'Ingresando...' : 'Ingresar a Stock'}
@@ -320,7 +320,7 @@ export default function SaleTradeInPanel({ sale, onUpdate }) {
                                     {hasWritePermission && sale.status !== 'cancelada' && (
                                         <button 
                                             onClick={() => handleEditClick(index)}
-                                            className="text-xs text-neutral-500 hover:text-white transition-colors"
+                                            className="text-xs text-crm-fg-muted hover:text-white transition-colors"
                                             title="Editar"
                                         >
                                             <Edit2 size={14} />
@@ -330,15 +330,15 @@ export default function SaleTradeInPanel({ sale, onUpdate }) {
                             </div>
                         ))}
                         
-                        <div className="bg-crm-surface border border-neutral-800 rounded-xl p-3 flex justify-between items-center mt-4">
-                            <span className="text-xs font-bold text-neutral-400 uppercase tracking-wider">Saldo / Diferencia</span>
+                        <div className="bg-crm-surface border border-crm-border rounded-xl p-3 flex justify-between items-center mt-4">
+                            <span className="text-xs font-bold text-crm-fg-muted uppercase tracking-wider">Saldo / Diferencia</span>
                             <span className="text-lg font-black text-white">
                                 {sale.saleCurrency} {sale.balanceAfterTradeIn?.toLocaleString('es-AR')}
                             </span>
                         </div>
                     </div>
                 ) : (
-                    <div className="h-full flex flex-col items-center justify-center text-center p-6 text-neutral-500">
+                    <div className="flex flex-col items-center justify-center gap-1 rounded-lg border border-dashed border-crm-border bg-crm-bg px-4 py-4 text-center text-crm-fg-muted">
                         <CarFront size={32} className="mb-3 opacity-20" />
                         <p className="text-sm font-medium mb-1">Sin permutas registradas</p>
                         <p className="text-xs">No se entregaron vehículos en parte de pago para esta venta.</p>

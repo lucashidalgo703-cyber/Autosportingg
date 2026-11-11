@@ -33,17 +33,17 @@ export default function SaleNotesPanel({ sale, onSave, onCreateTask }) {
     if (!sale) return null;
 
     return (
-        <div className="bg-neutral-900 border border-neutral-800 rounded-2xl overflow-hidden flex flex-col h-full">
-            <div className="p-4 border-b border-neutral-800 flex justify-between items-center bg-crm-surface">
+        <div className="min-w-0 overflow-hidden rounded-2xl border border-crm-border bg-crm-surface shadow-sm">
+            <div className="flex flex-wrap items-center justify-between gap-3 border-b border-crm-border bg-crm-surface-raised/50 p-4">
                 <div className="flex items-center gap-2">
                     <AlignLeft size={16} className="text-blue-500" />
-                    <h3 className="text-sm font-bold text-white uppercase tracking-wider">Notas Comerciales</h3>
+                    <h3 className="m-0 text-sm font-semibold text-crm-fg">Notas Comerciales</h3>
                 </div>
-                <div className="flex gap-2 items-center">
+                <div className="flex flex-wrap items-center gap-2">
                     {onCreateTask && (
                         <button
                             onClick={onCreateTask}
-                            className="h-8 px-3 rounded-lg bg-blue-500/10 hover:bg-crm-red-hover/20 text-blue-400 border border-blue-500/20 font-bold text-xs flex items-center justify-center transition-colors"
+                            className="h-8 px-3 rounded-lg bg-blue-500/10 hover:bg-blue-500/20 text-blue-400 border border-blue-500/20 font-bold text-xs flex items-center justify-center transition-colors"
                         >
                             Crear seguimiento
                         </button>
@@ -65,14 +65,15 @@ export default function SaleNotesPanel({ sale, onSave, onCreateTask }) {
                 </div>
             </div>
             
-            <div className="p-4 flex-1 flex flex-col">
+            <div className="space-y-3 p-4">
                 <textarea
+                    rows={4}
                     value={notes}
                     onChange={handleChange}
                     placeholder="Escribe notas operativas o recordatorios comerciales aquí..."
-                    className="flex-1 w-full bg-black/30 border border-neutral-800 rounded-xl p-4 text-sm text-white focus:outline-none focus:border-crm-red/50 transition-colors resize-none custom-scrollbar min-h-[150px]"
+                    className="min-h-[112px] w-full resize-y rounded-xl border border-crm-border bg-crm-surface-raised/40 p-3 text-sm leading-5 text-crm-fg outline-none transition-colors placeholder:text-crm-fg-muted focus:border-crm-red/50 custom-scrollbar"
                 ></textarea>
-                <p className="text-[10px] text-neutral-500 mt-3 flex items-center justify-between">
+                <p className="m-0 flex flex-wrap items-center justify-between gap-2 text-[11px] leading-4 text-crm-fg-muted">
                     <span>Estas notas son visibles para todo el equipo comercial.</span>
                     {hasChanges && <span className="text-blue-400">Hay cambios sin guardar</span>}
                 </p>

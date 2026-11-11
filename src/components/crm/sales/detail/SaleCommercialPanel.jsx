@@ -385,9 +385,9 @@ export default function SaleCommercialPanel({ sale, onSave, planActions }) {
     const hasExistingFinancing = Boolean(sale.financingDetails?.hasFinancing);
 
     return (
-        <div className="flex h-full flex-col overflow-hidden rounded-xl border border-crm-border bg-crm-surface">
+        <div className="flex min-w-0 flex-col overflow-hidden rounded-xl border border-crm-border bg-crm-surface shadow-sm">
             {/* Header del Panel */}
-            <div className="flex items-center justify-between border-b border-crm-border bg-crm-topbar p-4">
+            <div className="flex flex-wrap items-center justify-between gap-3 border-b border-crm-border bg-crm-surface-raised px-4 py-3">
                 <div className="flex items-center gap-2">
                     <DollarSign size={16} className="text-emerald-300" />
                     <h3 className="m-0 text-sm font-bold uppercase tracking-[0.08em] text-crm-fg">Condiciones Comerciales</h3>
@@ -395,7 +395,7 @@ export default function SaleCommercialPanel({ sale, onSave, planActions }) {
                 {canEdit && !isEditing && (
                     <button
                         onClick={handleEditClick}
-                        className="flex items-center gap-2 rounded-lg border border-neutral-700 bg-crm-bg px-3 py-1.5 text-xs font-bold text-crm-fg transition-colors hover:bg-crm-surface-raised"
+                        className="flex items-center gap-2 rounded-lg border border-crm-border-strong bg-crm-bg px-3 py-1.5 text-xs font-bold text-crm-fg transition-colors hover:bg-crm-surface-raised"
                     >
                         <Edit2 size={12} />
                         Editar
@@ -406,7 +406,7 @@ export default function SaleCommercialPanel({ sale, onSave, planActions }) {
                         <button
                             onClick={handleCancel}
                             disabled={isSaving}
-                            className="flex items-center gap-1 rounded-lg border border-neutral-700 bg-crm-bg px-2 py-1 text-xs font-bold text-crm-fg-muted transition-colors hover:text-white disabled:opacity-50"
+                            className="flex items-center gap-1 rounded-lg border border-crm-border-strong bg-crm-bg px-2 py-1 text-xs font-bold text-crm-fg-muted transition-colors hover:text-white disabled:opacity-50"
                         >
                             <X size={14} />
                             Cancelar
@@ -423,7 +423,7 @@ export default function SaleCommercialPanel({ sale, onSave, planActions }) {
                 )}
             </div>
 
-            <div className="flex flex-1 flex-col gap-5 p-5">
+            <div className="flex flex-col gap-4 p-4">
                 {planCancel && (
                     <div className="flex flex-col gap-3 rounded-xl border border-amber-500/40 bg-amber-500/10 p-4 text-xs">
                         <div className="flex items-center gap-2 font-bold text-amber-300">
@@ -457,7 +457,7 @@ export default function SaleCommercialPanel({ sale, onSave, planActions }) {
                             </>
                         )}
                         <div className="flex justify-end gap-2">
-                            <button type="button" onClick={() => setPlanCancel(null)} disabled={planCancel.busy} className="rounded-lg border border-neutral-700 bg-crm-bg px-3 py-1.5 font-bold text-crm-fg-muted">
+                            <button type="button" onClick={() => setPlanCancel(null)} disabled={planCancel.busy} className="rounded-lg border border-crm-border-strong bg-crm-bg px-3 py-1.5 font-bold text-crm-fg-muted">
                                 Cerrar
                             </button>
                             {!planCancel.preview.blocked && (
@@ -469,7 +469,7 @@ export default function SaleCommercialPanel({ sale, onSave, planActions }) {
                     </div>
                 )}
                 {/* SELECTOR DE MÉTODO DE PAGO */}
-                <div className="rounded-xl border border-crm-border bg-crm-bg p-3">
+                <div className="rounded-xl border border-crm-border bg-crm-surface-raised p-3">
                     <span className="mb-2 block text-[10px] font-bold uppercase tracking-[0.08em] text-crm-fg-muted">Método de Pago</span>
                     {isEditing ? (
                         <CrmSelect 
@@ -495,7 +495,7 @@ export default function SaleCommercialPanel({ sale, onSave, planActions }) {
 
                 {/* ===== CASO: MÉTODO CONTADO (O NO FINANCIADO) ===== */}
                 {((isEditing && !isEditFinanced) || (!isEditing && !isSaleFinanced)) && (
-                    <div className={`flex flex-col gap-2 rounded-xl border p-4 ${isEditing ? 'border-emerald-500/30 bg-emerald-500/5' : 'border-crm-border bg-crm-bg items-center justify-between flex-row'}`}>
+                    <div className={`flex gap-2 rounded-xl border p-4 ${isEditing ? 'flex-col border-emerald-500/30 bg-emerald-500/5' : 'flex-wrap items-center justify-between border-crm-border bg-crm-surface-raised'}`}>
                         <span className="text-sm font-bold text-crm-fg-muted">Precio al Contado</span>
                         {isEditing ? (
                             <div className="flex gap-2 w-full mt-1">
@@ -509,7 +509,7 @@ export default function SaleCommercialPanel({ sale, onSave, planActions }) {
                                         <option value="USD">USD</option>
                                     </CrmSelect>
                                 </div>
-                                <div className="flex-1">
+                                <div className="min-w-0 flex-1">
                                     <CrmInput 
                                         type="number" 
                                         min="0" 
@@ -553,7 +553,7 @@ export default function SaleCommercialPanel({ sale, onSave, planActions }) {
                                         <option value="USD">USD</option>
                                     </CrmSelect>
                                 </div>
-                                <div className="flex-1">
+                                <div className="min-w-0 flex-1">
                                     <CrmInput 
                                         type="number" 
                                         min="1" 
@@ -586,17 +586,17 @@ export default function SaleCommercialPanel({ sale, onSave, planActions }) {
 
                             {/* Revisión de Seña Existente */}
                             {sale.depositAppliedAmount > 0 && (
-                                <div className="mt-2 flex items-start gap-2 rounded-lg border border-neutral-700 bg-crm-bg/80 p-2 text-xs">
+                                <div className="mt-2 flex items-start gap-2 rounded-lg border border-crm-border-strong bg-crm-bg/80 p-2 text-xs">
                                     <input 
                                         type="checkbox"
                                         id="includesDeposit"
                                         checked={editForm.includesDeposit}
                                         onChange={(e) => setEditForm({...editForm, includesDeposit: e.target.checked})}
-                                        className="mt-0.5 rounded border-neutral-700 text-purple-600 focus:ring-0"
+                                        className="mt-0.5 rounded border-crm-border-strong text-purple-600 focus:ring-0"
                                     />
                                     <label htmlFor="includesDeposit" className="cursor-pointer text-crm-fg-muted leading-tight">
                                         La seña de <strong className="text-white">{formatMoney(sale.depositAppliedAmount, sale.depositAppliedCurrency || editForm.saleCurrency)}</strong> ya está incluida en la entrega inicial.
-                                        <span className="block text-[10px] text-neutral-400 mt-0.5">
+                                        <span className="block text-[10px] text-crm-fg-muted mt-0.5">
                                             (Evita contabilizarla dos veces contra el precio del vehículo).
                                         </span>
                                     </label>
@@ -612,7 +612,7 @@ export default function SaleCommercialPanel({ sale, onSave, planActions }) {
                         </div>
 
                         {/* Saldo Financiado Calculado */}
-                        <div className="flex items-center justify-between rounded-lg border border-neutral-800 bg-crm-bg p-2.5">
+                        <div className="flex items-center justify-between rounded-lg border border-crm-border bg-crm-surface-raised p-2.5">
                             <span className="text-xs font-bold text-crm-fg-muted">Saldo a financiar</span>
                             <span className="text-sm font-bold text-white">
                                 {formatMoney(liveFinancing.financedBalance, editForm.saleCurrency)}
@@ -620,9 +620,9 @@ export default function SaleCommercialPanel({ sale, onSave, planActions }) {
                         </div>
 
                         {/* Selector de Modalidad: Por Valor de Cuota o Por % de Interés */}
-                        <div className="flex items-center justify-between border-t border-neutral-800/80 pt-2">
+                        <div className="flex items-center justify-between border-t border-crm-border pt-2">
                             <span className="text-xs font-bold text-crm-fg-muted">Cargar plan según:</span>
-                            <div className="flex rounded-lg border border-neutral-800 bg-crm-bg p-0.5">
+                            <div className="flex rounded-lg border border-crm-border bg-crm-bg p-0.5">
                                 <button
                                     type="button"
                                     onClick={() => {
@@ -661,7 +661,7 @@ export default function SaleCommercialPanel({ sale, onSave, planActions }) {
                         </div>
 
                         {/* Cantidad de Cuotas y Cuota / Interés */}
-                        <div className="grid grid-cols-2 gap-3">
+                        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                             <div>
                                 <label className="mb-1 block text-xs font-bold text-crm-fg-muted">
                                     Cantidad de cuotas *
@@ -732,9 +732,9 @@ export default function SaleCommercialPanel({ sale, onSave, planActions }) {
                         </p>
 
                         {/* RESULTADOS EN VIVO DE LA FINANCIACIÓN */}
-                        <div className="rounded-xl border border-neutral-700 bg-crm-bg p-3 flex flex-col gap-2">
+                        <div className="rounded-xl border border-crm-border-strong bg-crm-surface-raised p-3 flex flex-col gap-2">
                             <div className="flex items-center justify-between">
-                                <span className="text-[10px] font-bold uppercase tracking-[0.08em] text-neutral-400">
+                                <span className="text-[10px] font-bold uppercase tracking-[0.08em] text-crm-fg-muted">
                                     Previsualización de Cálculos
                                 </span>
                                 {editForm.calculationMode === 'by_installment' && (
@@ -751,7 +751,7 @@ export default function SaleCommercialPanel({ sale, onSave, planActions }) {
                                 <span className="text-crm-fg-muted">Total a cobrar en cuotas:</span>
                                 <span className="font-bold text-purple-300">{formatMoney(liveFinancing.totalFinancedWithInterest, editForm.saleCurrency)}</span>
                             </div>
-                            <div className="flex justify-between text-xs border-t border-neutral-800 pt-1.5">
+                            <div className="flex justify-between text-xs border-t border-crm-border pt-1.5">
                                 <span className="text-crm-fg-muted">Valor de cada cuota:</span>
                                 <span className="font-bold text-white">
                                     {liveFinancing.installmentsCount} cuotas de {formatMoney(liveFinancing.installmentAmount, editForm.saleCurrency)}
@@ -762,7 +762,7 @@ export default function SaleCommercialPanel({ sale, onSave, planActions }) {
                                     )}
                                 </span>
                             </div>
-                            <div className="flex justify-between text-xs border-t border-neutral-800 pt-1.5">
+                            <div className="flex justify-between text-xs border-t border-crm-border pt-1.5">
                                 <span className="font-bold text-crm-fg">Precio Total de la Operación:</span>
                                 <span className="font-black text-emerald-400 text-sm">
                                     {formatMoney(liveFinancing.totalOperationPrice, editForm.saleCurrency)}
@@ -777,11 +777,11 @@ export default function SaleCommercialPanel({ sale, onSave, planActions }) {
                                 id="syncInstallmentPlan"
                                 checked={editForm.syncInstallmentPlan}
                                 onChange={(e) => setEditForm({...editForm, syncInstallmentPlan: e.target.checked})}
-                                className="mt-0.5 rounded border-neutral-700 text-purple-600 focus:ring-0"
+                                className="mt-0.5 rounded border-crm-border-strong text-purple-600 focus:ring-0"
                             />
                             <label htmlFor="syncInstallmentPlan" className="cursor-pointer text-crm-fg-muted leading-tight">
                                 Sincronizar automáticamente el cronograma operativo de {liveFinancing.installmentsCount} cuotas.
-                                <span className="block text-[10px] text-neutral-400 mt-0.5">
+                                <span className="block text-[10px] text-crm-fg-muted mt-0.5">
                                     No genera ingresos de caja ni marca cuotas como pagadas. Si ya hay pagos registrados, se preserva el historial.
                                 </span>
                             </label>
@@ -819,8 +819,8 @@ export default function SaleCommercialPanel({ sale, onSave, planActions }) {
                                 </div>
 
                                 {/* DISTINCIÓN CLARA: PRECIO AL CONTADO VS TOTAL FINANCIADO */}
-                                <div className="grid grid-cols-2 gap-3">
-                                    <div className="rounded-xl border border-neutral-700 bg-crm-bg p-3">
+                                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                                    <div className="rounded-xl border border-crm-border-strong bg-crm-surface-raised p-3">
                                         <span className="block text-[10px] font-bold uppercase tracking-[0.08em] text-crm-fg-muted mb-1">
                                             Precio al Contado
                                         </span>
@@ -840,7 +840,7 @@ export default function SaleCommercialPanel({ sale, onSave, planActions }) {
                                 </div>
 
                                 {/* DETALLE COMPLETO DE CONDICIONES */}
-                                <div className="flex flex-col gap-2 rounded-xl border border-neutral-800 bg-crm-bg p-3.5 text-xs">
+                                <div className="flex flex-col gap-2 rounded-xl border border-crm-border bg-crm-surface-raised p-3.5 text-xs">
                                     <div className="flex items-center justify-between">
                                         <span className="text-crm-fg-muted">Entrega inicial:</span>
                                         <div className="text-right">
@@ -855,14 +855,14 @@ export default function SaleCommercialPanel({ sale, onSave, planActions }) {
                                         </div>
                                     </div>
 
-                                    <div className="flex items-center justify-between border-t border-neutral-800/60 pt-2">
+                                    <div className="flex items-center justify-between border-t border-crm-border pt-2">
                                         <span className="text-crm-fg-muted">Saldo financiado:</span>
                                         <span className="font-bold text-white">
                                             {formatMoney(sale.financingDetails.financedBalance, sale.saleCurrency || 'ARS')}
                                         </span>
                                     </div>
 
-                                    <div className="flex items-center justify-between border-t border-neutral-800/60 pt-2">
+                                    <div className="flex items-center justify-between border-t border-crm-border pt-2">
                                         <span className="text-crm-fg-muted">
                                             Interés aplicado ({sale.financingDetails.interestRate}%):
                                         </span>
@@ -870,20 +870,20 @@ export default function SaleCommercialPanel({ sale, onSave, planActions }) {
                                             <span className="font-bold text-purple-300">
                                                 {formatMoney(sale.financingDetails.interestAmount, sale.saleCurrency || 'ARS')}
                                             </span>
-                                            <span className="block text-[9px] text-neutral-400">
+                                            <span className="block text-[9px] text-crm-fg-muted">
                                                 (Total sobre saldo financiado; no es tasa mensual)
                                             </span>
                                         </div>
                                     </div>
 
-                                    <div className="flex items-center justify-between border-t border-neutral-800/60 pt-2">
+                                    <div className="flex items-center justify-between border-t border-crm-border pt-2">
                                         <span className="text-crm-fg-muted">Total a cobrar en cuotas:</span>
                                         <span className="font-bold text-purple-300">
                                             {formatMoney(sale.financingDetails.totalFinancedWithInterest, sale.saleCurrency || 'ARS')}
                                         </span>
                                     </div>
 
-                                    <div className="flex items-center justify-between border-t border-neutral-800/60 pt-2 bg-neutral-900/40 -mx-3.5 px-3.5 py-1.5 rounded">
+                                    <div className="flex items-center justify-between border-t border-crm-border pt-2 bg-crm-surface-raised -mx-3.5 px-3.5 py-1.5 rounded">
                                         <span className="font-semibold text-crm-fg">Cuotas y valor:</span>
                                         <div className="text-right">
                                             <span className="font-black text-white">
@@ -897,7 +897,7 @@ export default function SaleCommercialPanel({ sale, onSave, planActions }) {
                                         </div>
                                     </div>
 
-                                    <div className="flex items-center justify-between border-t border-neutral-700 pt-2.5 mt-1">
+                                    <div className="flex items-center justify-between border-t border-crm-border-strong pt-2.5 mt-1">
                                         <span className="font-bold text-emerald-300">Precio total de la operación:</span>
                                         <span className="text-base font-black text-emerald-400">
                                             {formatMoney(sale.financingDetails.totalOperationPrice, sale.saleCurrency || 'ARS')}
@@ -911,7 +911,7 @@ export default function SaleCommercialPanel({ sale, onSave, planActions }) {
 
                 {/* SEÑA APLICADA (INFORMACIÓN INDEPENDIENTE) */}
                 <div className="grid grid-cols-1 gap-3">
-                    <div className="rounded-xl border border-crm-border bg-crm-bg p-3">
+                    <div className="rounded-xl border border-crm-border bg-crm-surface-raised p-3">
                         <span className="mb-2 block text-[10px] font-bold uppercase tracking-[0.08em] text-crm-fg-muted">Seña Registrada</span>
                         {isEditing ? (
                             <div className="flex gap-2">
@@ -925,7 +925,7 @@ export default function SaleCommercialPanel({ sale, onSave, planActions }) {
                                         <option value="USD">USD</option>
                                     </CrmSelect>
                                 </div>
-                                <div className="flex-1">
+                                <div className="min-w-0 flex-1">
                                     <CrmInput 
                                         type="number" 
                                         min="0" 
@@ -949,11 +949,11 @@ export default function SaleCommercialPanel({ sale, onSave, planActions }) {
                 </div>
 
                 {/* COMISIÓN */}
-                <div className="rounded-xl border border-crm-border bg-crm-bg p-3">
+                <div className="rounded-xl border border-crm-border bg-crm-surface-raised p-3">
                     <div className="mb-2 flex items-center justify-between gap-2">
                         <span className="block text-[10px] font-bold uppercase tracking-[0.08em] text-crm-fg-muted">Comisión</span>
                         {isEditing && (
-                            <div className="flex rounded-lg border border-neutral-800 bg-crm-surface p-0.5">
+                            <div className="flex rounded-lg border border-crm-border bg-crm-surface p-0.5">
                                 {[['fixed', 'Importe fijo'], ['percent', 'Porcentaje']].map(([mode, label]) => (
                                     <button
                                         key={mode}
@@ -1016,7 +1016,7 @@ export default function SaleCommercialPanel({ sale, onSave, planActions }) {
                                     <option value="USD">USD</option>
                                 </CrmSelect>
                             </div>
-                            <div className="flex-1">
+                            <div className="min-w-0 flex-1">
                                 <CrmInput
                                     type="number"
                                     step="any"
@@ -1062,7 +1062,7 @@ export default function SaleCommercialPanel({ sale, onSave, planActions }) {
                 </div>
 
                 {/* GASTOS DE LA VENTA */}
-                <div className="rounded-xl border border-crm-border bg-crm-bg p-3">
+                <div className="rounded-xl border border-crm-border bg-crm-surface-raised p-3">
                     <div className="mb-2 flex items-center justify-between">
                         <span className="text-[10px] font-bold uppercase tracking-[0.08em] text-crm-fg-muted">Gastos de Venta</span>
                         {isEditing && (
@@ -1111,7 +1111,7 @@ export default function SaleCommercialPanel({ sale, onSave, planActions }) {
                                                 setEditForm({...editForm, saleExpenses: newExpenses});
                                             }}
                                             placeholder="Descripción (ej. Transferencia, Patentes)"
-                                            className="h-8 flex-1 bg-crm-bg px-2 text-xs font-bold"
+                                            className="h-8 min-w-0 flex-1 bg-crm-bg px-2 text-xs font-bold"
                                         />
                                         <button 
                                             onClick={() => {
@@ -1145,7 +1145,7 @@ export default function SaleCommercialPanel({ sale, onSave, planActions }) {
                                                 newExpenses[i].amount = e.target.value;
                                                 setEditForm({...editForm, saleExpenses: newExpenses});
                                             }} 
-                                            className="h-8 flex-1 bg-crm-bg px-2 text-xs font-bold text-right" 
+                                            className="h-8 min-w-0 flex-1 bg-crm-bg px-2 text-xs font-bold text-right"
                                         />
                                         <CrmSelect
                                             value={exp.status}
@@ -1276,7 +1276,7 @@ export default function SaleCommercialPanel({ sale, onSave, planActions }) {
                                 </span>
                             </div>
                             {liveProfit.calculable && liveProfit.investorPercentage > 0 && (
-                                <div className="mt-1 flex flex-col gap-0.5 rounded-lg border border-white/10 bg-black/20 px-2.5 py-1.5 text-[11px]">
+                                <div className="mt-1 flex flex-col gap-0.5 rounded-lg border border-white/10 bg-crm-surface-raised px-2.5 py-1.5 text-[11px]">
                                     <div className="flex justify-between">
                                         <span>Participación socio ({liveProfit.investorPercentage}%)</span>
                                         <span className="font-bold text-amber-200">{formatMoney(liveProfit.partnerNetProfit, liveProfit.currency)}</span>
@@ -1360,13 +1360,13 @@ export default function SaleCommercialPanel({ sale, onSave, planActions }) {
                         )}
                     </div>
                 ) : (
-                    <div className="flex flex-col gap-1 rounded-xl border border-crm-border bg-crm-bg/60 p-3 mt-2 text-xs text-crm-fg-muted">
+                    <div className="flex flex-col gap-1 rounded-xl border border-crm-border bg-crm-surface-raised p-3 mt-2 text-xs text-crm-fg-muted">
                         <span className="font-bold text-crm-fg-secondary">Costos y ganancia restringidos</span>
                         <span>Tu perfil no cuenta con permisos financieros para visualizar costos de adquisición ni márgenes de ganancia.</span>
                     </div>
                 )}
 
-                <div className="mt-auto flex items-start gap-3 rounded-xl border border-blue-500/20 bg-blue-500/10 p-3 mt-4">
+                <div className="mt-1 flex items-start gap-2 rounded-xl border border-blue-500/20 bg-blue-500/10 p-3">
                     <Info size={16} className="mt-0.5 shrink-0 text-blue-300" />
                     <p className="m-0 text-xs leading-5 text-blue-100/80">
                         Los cobros, facturación, cuotas y comisiones se gestionan en los módulos financieros. Esta vista es exclusivamente comercial.

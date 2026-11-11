@@ -10,44 +10,44 @@ export default function SaleAuditTimeline({ sale }) {
     const sortedLog = [...auditLog].sort((a, b) => new Date(b.date) - new Date(a.date));
 
     return (
-        <div className="bg-neutral-900 border border-neutral-800 rounded-2xl overflow-hidden flex flex-col h-full">
-            <div className="p-4 border-b border-neutral-800 flex items-center gap-2 bg-crm-surface">
-                <History size={16} className="text-neutral-500" />
-                <h3 className="text-sm font-bold text-white uppercase tracking-wider">Historial de Auditoría</h3>
+        <div className="min-w-0 overflow-hidden rounded-2xl border border-crm-border bg-crm-surface shadow-sm">
+            <div className="flex items-center gap-2 border-b border-crm-border bg-crm-surface-raised/50 p-4">
+                <History size={16} className="text-crm-fg-muted" />
+                <h3 className="m-0 text-sm font-semibold text-crm-fg">Historial de Auditoría</h3>
             </div>
             
-            <div className="p-5 flex-1 overflow-y-auto custom-scrollbar">
+            <div className="max-h-[28rem] overflow-y-auto overscroll-contain p-4 custom-scrollbar">
                 {sortedLog.length === 0 ? (
-                    <div className="h-full flex items-center justify-center text-sm text-neutral-500">
+                    <div className="rounded-lg bg-crm-surface-raised/40 p-3 text-sm text-crm-fg-muted">
                         No hay registros de auditoría
                     </div>
                 ) : (
-                    <div className="space-y-4">
+                    <div className="space-y-3">
                         {sortedLog.map((log, idx) => (
-                            <div key={idx} className="flex gap-4">
+                            <div key={idx} className="flex gap-3">
                                 <div className="flex flex-col items-center mt-1">
-                                    <div className="w-2 h-2 rounded-full bg-neutral-600 ring-4 ring-neutral-900 z-10"></div>
+                                    <div className="z-10 h-2 w-2 rounded-full bg-crm-red/60 ring-4 ring-crm-surface"></div>
                                     {idx !== sortedLog.length - 1 && (
                                         <div className="w-px h-full bg-crm-surface-raised my-1 -mb-4"></div>
                                     )}
                                 </div>
-                                <div className="flex-1 bg-black/20 border border-neutral-800/50 rounded-xl p-3 pb-3">
-                                    <div className="flex justify-between items-start mb-1">
-                                        <span className="text-xs font-bold text-white bg-crm-surface-raised px-2 py-0.5 rounded uppercase tracking-wider">
+                                <div className="min-w-0 flex-1 rounded-xl border border-crm-border bg-crm-surface-raised/40 p-3">
+                                    <div className="mb-1 flex flex-wrap items-start justify-between gap-2">
+                                        <span className="max-w-full break-words rounded bg-crm-surface-raised px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-crm-fg">
                                             {log.action}
                                         </span>
-                                        <span className="text-[10px] text-neutral-500 text-right">
+                                        <span className="text-[11px] text-crm-fg-muted">
                                             {new Date(log.date).toLocaleString('es-AR')}
                                         </span>
                                     </div>
-                                    <p className="text-sm text-neutral-300 mt-2">{log.details}</p>
-                                    <div className="flex justify-between items-center mt-3 pt-3 border-t border-neutral-800/50">
-                                        <span className="text-[10px] text-neutral-500 flex items-center gap-1">
+                                    <p className="mb-0 mt-2 break-words text-xs leading-5 text-crm-fg">{log.details}</p>
+                                    <div className="mt-2 flex flex-wrap items-center justify-between gap-2 border-t border-crm-border pt-2">
+                                        <span className="flex items-center gap-1 text-[10px] text-crm-fg-muted">
                                             <span className="w-1.5 h-1.5 rounded-full bg-blue-500/50"></span>
                                             {log.user}
                                         </span>
                                         {log.field && (
-                                            <span className="text-[10px] text-neutral-600 font-mono">
+                                            <span className="break-all font-mono text-[10px] text-crm-fg-muted">
                                                 Campo: {log.field}
                                             </span>
                                         )}

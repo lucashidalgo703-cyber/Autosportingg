@@ -20,7 +20,7 @@ import CommunicationLogPanel from '../../../../components/crm/communications/Com
 import MessageTemplatePicker from '../../../../components/crm/templates/MessageTemplatePicker';
 import CrmTaskModal from '../../../../components/crm/agenda/CrmTaskModal';
 import { useAdminCrmTasks } from '../../../../hooks/useAdminCrmTasks';
-import { ShieldAlert, Target, XCircle, Info, CheckCircle } from 'lucide-react';
+import { ShieldAlert, Target, XCircle, Info, CheckCircle, Handshake, ClipboardCheck, Wallet, MessagesSquare } from 'lucide-react';
 import { useAuth } from '../../../../context/AuthContext';
 import { hasPermission, PERMISSIONS } from '../../../../utils/adminPermissions';
 import ConfirmModal from '../../../../components/crm/ui/ConfirmModal';
@@ -37,6 +37,24 @@ export default function SaleDetailPage() {
     const [cancelReason, setCancelReason] = useState('');
     const [isCancelling, setIsCancelling] = useState(false);
     const [confirmActivateModal, setConfirmActivateModal] = useState(false);
+    const [activeSection, setActiveSection] = useState('operation');
+    const sections = [
+        { id: 'operation', label: 'Operación', description: 'Datos y condiciones', icon: Handshake },
+        { id: 'documents', label: 'Documentación y entrega', description: 'Papeles y pendientes', icon: ClipboardCheck },
+        ...(hasPermission(user, PERMISSIONS.FINANZAS_READ) || hasPermission(user, PERMISSIONS.CUOTAS_READ)
+            ? [{ id: 'collections', label: 'Cobros y cuotas', description: 'Movimientos y plan de pagos', icon: Wallet }] : []),
+        { id: 'followup', label: 'Seguimiento', description: 'Notas, contacto e historial', icon: MessagesSquare }
+    ];
+    const selectedSection = sections.some(section => section.id === activeSection) ? activeSection : 'operation';
+    const handleSectionKey = (event, index) => {
+        const offset = event.key === 'ArrowRight' ? 1 : event.key === 'ArrowLeft' ? -1 : 0;
+        if (!offset && !['Home', 'End'].includes(event.key)) return;
+        event.preventDefault();
+        const nextIndex = event.key === 'Home' ? 0 : event.key === 'End' ? sections.length - 1 : (index + offset + sections.length) % sections.length;
+        const next = sections[nextIndex].id;
+        setActiveSection(next);
+        document.getElementById('sale-section-tab-' + next)?.focus();
+    };
 
     useEffect(() => {
         if (id) {
@@ -161,12 +179,12 @@ export default function SaleDetailPage() {
     }
 
     return (
-        <div className="mx-auto flex w-full max-w-7xl flex-col p-4 pb-20 md:p-6">
+        <div className="mx-auto flex w-full max-w-[1680px] min-w-0 flex-col gap-4 p-3 pb-20 sm:p-4 xl:p-5 2xl:p-6">
             
             <SaleDetailHeader 
                 sale={sale} 
                 actions={
-                    <div className="flex gap-2">
+                    <div className="flex w-full flex-wrap gap-2 lg:justify-end">
                         {sale.status === 'borrador' && (
                             <button
                                 onClick={() => setConfirmActivateModal(true)}
@@ -207,99 +225,63 @@ export default function SaleDetailPage() {
                 }
             />
 
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                
-                {/* Columna Izquierda: Entidades y Resumen Comercial */}
-                <div className="flex flex-col gap-6 lg:col-span-1">
-                    <div className="h-auto">
-                        <SaleLinkedEntitiesPanel sale={sale} onUpdate={loadSale} />
+            <nav aria-label="Apartados del expediente comercial" role="tablist" className={'grid grid-cols-2 gap-2 rounded-2xl border border-crm-border bg-crm-surface p-2 ' + (sections.length === 4 ? 'lg:grid-cols-4' : 'lg:grid-cols-3')}>
+                {sections.map(({ id: sectionId, label, description, icon: Icon }, index) => (
+                    <button key={sectionId} type="button" role="tab" id={'sale-section-tab-' + sectionId} aria-controls={'sale-section-' + sectionId} aria-selected={selectedSection === sectionId} tabIndex={selectedSection === sectionId ? 0 : -1} onClick={() => setActiveSection(sectionId)} onKeyDown={event => handleSectionKey(event, index)} className={'flex min-w-0 items-center gap-2.5 rounded-xl border px-3 py-3 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-crm-red ' + (sections.length === 3 && index === 2 ? 'col-span-2 lg:col-span-1 ' : '') + (selectedSection === sectionId ? 'border-crm-red bg-crm-surface-raised text-crm-fg' : 'border-transparent text-crm-fg-muted hover:bg-crm-surface-raised')}>
+                        <Icon size={18} className={'shrink-0 ' + (selectedSection === sectionId ? 'text-crm-red' : 'text-crm-fg-muted')}/>
+                        <span className="min-w-0"><span className="block text-xs font-bold sm:text-sm">{label}</span><span className="mt-0.5 hidden text-[11px] font-normal leading-4 text-crm-fg-muted sm:block">{description}</span></span>
+                    </button>
+                ))}
+            </nav>
+
+            <section role="tabpanel" id="sale-section-operation" aria-labelledby="sale-section-tab-operation" hidden={selectedSection !== 'operation'} className="min-w-0 outline-none">
+                <div className="grid items-start gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(0,1.25fr)]">
+                    <div className="min-w-0 space-y-4">
+                        <SaleLinkedEntitiesPanel sale={sale} onUpdate={loadSale}/>
+                        <SaleStatusPanel sale={sale} onSave={handleSave}/>
+                        <SaleTradeInPanel sale={sale} onUpdate={loadSale}/>
                     </div>
-                    <div className="h-auto">
-                        <SaleCommercialPanel
-                            sale={sale}
-                            onSave={handleSave}
-                            planActions={{
-                                preview: () => previewInstallmentPlanCancel(id),
-                                cancel: async (args) => { const r = await cancelInstallmentPlan(id, args); await loadSale(); return r; }
-                            }}
-                        />
-                    </div>
-                    <div className="h-auto">
-                        <SaleTradeInPanel sale={sale} onUpdate={loadSale} />
-                    </div>
-                    <div className="h-[300px]">
-                        <SaleStatusPanel sale={sale} onSave={handleSave} />
+                    <div className="min-w-0">
+                        <SaleCommercialPanel sale={sale} onSave={handleSave} planActions={{
+                            preview: () => previewInstallmentPlanCancel(id),
+                            cancel: async (args) => { const r = await cancelInstallmentPlan(id, args); await loadSale(); return r; }
+                        }}/>
                     </div>
                 </div>
+            </section>
 
-                {/* Columna Central: Checklists */}
-                <div className="flex flex-col gap-6 lg:col-span-1">
-                    <div className="h-[400px]">
-                        <SaleChecklistPanel 
-                            sale={sale} 
-                            type="documentation" 
-                            onSave={handleSave} 
-                        />
-                    </div>
-                    <div className="h-[400px]">
-                        <SaleChecklistPanel 
-                            sale={sale} 
-                            type="delivery" 
-                            onSave={handleSave} 
-                        />
-                    </div>
+            <section role="tabpanel" id="sale-section-documents" aria-labelledby="sale-section-tab-documents" hidden={selectedSection !== 'documents'} className="min-w-0 outline-none">
+                <div className="grid items-start gap-4 lg:grid-cols-2">
+                    <SaleChecklistPanel sale={sale} type="documentation" onSave={handleSave}/>
+                    <SaleChecklistPanel sale={sale} type="delivery" onSave={handleSave}/>
                 </div>
+            </section>
 
-                {/* Columna Derecha: Notas y Auditoría */}
-                <div className="flex flex-col gap-6 lg:col-span-1">
-                    <div className="h-[300px]">
-                        <SaleNotesPanel sale={sale} onSave={handleSave} onCreateTask={() => setIsTaskModalOpen(true)} />
+            {(hasPermission(user, PERMISSIONS.FINANZAS_READ) || hasPermission(user, PERMISSIONS.CUOTAS_READ)) && (
+                <section role="tabpanel" id="sale-section-collections" aria-labelledby="sale-section-tab-collections" hidden={selectedSection !== 'collections'} className="min-w-0 outline-none">
+                    <div className="grid items-start gap-4 2xl:grid-cols-2">
+                        {hasPermission(user, PERMISSIONS.FINANZAS_READ) && <div className="min-w-0"><SaleFinancePanel sale={sale}/></div>}
+                        {hasPermission(user, PERMISSIONS.CUOTAS_READ) && <div className="min-w-0"><SaleInstallmentsPanel sale={sale} saleFinanceData={sale.finance}/></div>}
                     </div>
-                    <div className="h-[500px]">
-                        <SaleAuditTimeline sale={sale} />
-                    </div>
-                </div>
-
-            </div>
-
-            {/* Historial de permutas y rentabilidad acumulada (Ancho completo) */}
-            <div className="mt-6">
-                <TradeInChainPanel
-                    saleId={sale._id}
-                    carId={sale.vehicleId?._id || sale.vehicleId || null}
-                    onUpdated={loadSale}
-                />
-            </div>
-
-            {/* Panel de Comunicaciones (Ancho completo) */}
-            <div className="mt-6 h-[500px]">
-                <CommunicationLogPanel 
-                    entityType="sale" 
-                    entityId={sale._id} 
-                    clientId={sale.clientId?._id || sale.clientId}
-                    vehicleId={sale.vehicleId?._id || sale.vehicleId}
-                    assignedTo={sale.assignedTo?._id || sale.assignedTo}
-                />
-            </div>
-
-            {/* Panel de Postventa (Ancho completo) */}
-            <div className="mt-6">
-                <SalePostventaPanel sale={sale} />
-            </div>
-
-            {/* Panel de Movimientos Financieros (Ancho completo) */}
-            {hasPermission(user, PERMISSIONS.FINANZAS_READ) && (
-                <div className="mt-6">
-                    <SaleFinancePanel sale={sale} />
-                </div>
+                </section>
             )}
 
-            {/* Panel de Cuotas Manuales (Ancho completo) */}
-            {hasPermission(user, PERMISSIONS.CUOTAS_READ) && (
-                <div className="mt-6">
-                    <SaleInstallmentsPanel sale={sale} saleFinanceData={sale.finance} />
+            <section role="tabpanel" id="sale-section-followup" aria-labelledby="sale-section-tab-followup" hidden={selectedSection !== 'followup'} className="min-w-0 space-y-4 outline-none">
+                <div className="grid items-start gap-4 xl:grid-cols-2">
+                    <div className="min-w-0 space-y-4">
+                        <SaleNotesPanel sale={sale} onSave={handleSave} onCreateTask={() => setIsTaskModalOpen(true)}/>
+                        <SalePostventaPanel sale={sale}/>
+                    </div>
+                    <div className="min-w-0 space-y-4">
+                        <CommunicationLogPanel compact entityType="sale" entityId={sale._id} clientId={sale.clientId?._id || sale.clientId} vehicleId={sale.vehicleId?._id || sale.vehicleId} assignedTo={sale.assignedTo?._id || sale.assignedTo}/>
+                        <SaleAuditTimeline sale={sale}/>
+                    </div>
                 </div>
-            )}
+                <details className="group rounded-2xl border border-crm-border bg-crm-surface">
+                    <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-4 py-3 text-sm font-semibold text-crm-fg marker:content-none"><span>Cadena de permutas y rentabilidad</span><span className="text-xs font-normal text-crm-fg-muted group-open:hidden">Ver historial</span><span className="hidden text-xs font-normal text-crm-fg-muted group-open:inline">Ocultar historial</span></summary>
+                    <div className="min-w-0 border-t border-crm-border p-3"><TradeInChainPanel saleId={sale._id} carId={sale.vehicleId?._id || sale.vehicleId || null} onUpdated={loadSale}/></div>
+                </details>
+            </section>
 
             <CrmTaskModal 
                 isOpen={isTaskModalOpen}

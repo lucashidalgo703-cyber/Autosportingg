@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { CheckSquare, Save } from 'lucide-react';
+import { CheckSquare, Save, AlertTriangle } from 'lucide-react';
 
 const DEFAULT_DOC_CHECKLIST = [
     { key: 'dni', label: 'DNI / datos del comprador verificados' },
@@ -85,8 +85,8 @@ export default function SaleChecklistPanel({ sale, type, onSave }) {
     const progress = checklist.length > 0 ? (completedCount / checklist.length) * 100 : 0;
 
     return (
-        <div className="bg-neutral-900 border border-neutral-800 rounded-2xl overflow-hidden flex flex-col h-full">
-            <div className="p-4 border-b border-neutral-800 flex justify-between items-center bg-crm-surface">
+        <div className="flex min-w-0 flex-col overflow-hidden rounded-xl border border-crm-border bg-crm-surface shadow-sm">
+            <div className="flex flex-wrap items-center justify-between gap-3 border-b border-crm-border bg-crm-surface-raised px-4 py-3">
                 <div className="flex items-center gap-2">
                     <CheckSquare size={16} className={isDoc ? "text-purple-500" : "text-green-500"} />
                     <h3 className="text-sm font-bold text-white uppercase tracking-wider">{title}</h3>
@@ -107,7 +107,7 @@ export default function SaleChecklistPanel({ sale, type, onSave }) {
                 )}
             </div>
 
-            <div className="p-5 flex-1 flex flex-col gap-4">
+            <div className="flex flex-col gap-3 p-4">
                 
                 {saveError && (
                     <div className="bg-crm-red/10 border border-red-500/20 rounded-xl p-3 flex gap-3 items-start">
@@ -125,20 +125,20 @@ export default function SaleChecklistPanel({ sale, type, onSave }) {
                         style={{ width: `${progress}%` }}
                     ></div>
                 </div>
-                <div className="flex justify-between items-center text-xs text-neutral-400 font-bold uppercase tracking-wider">
+                <div className="flex justify-between items-center text-xs text-crm-fg-muted font-bold uppercase tracking-wider">
                     <span>Progreso</span>
                     <span>{completedCount} / {checklist.length}</span>
                 </div>
 
                 {/* Items */}
-                <div className="flex-1 overflow-y-auto custom-scrollbar space-y-2 pr-2">
+                <div className="space-y-2">
                     {checklist.map(item => (
                         <label 
                             key={item.key} 
-                            className={`flex items-start gap-3 p-3 rounded-xl border cursor-pointer transition-colors group ${
+                            className={`flex items-start gap-3 px-3 py-2.5 rounded-lg border cursor-pointer transition-colors group ${
                                 item.completed 
-                                    ? 'bg-black/40 border-neutral-800/80 opacity-60' 
-                                    : 'bg-crm-surface-raised/30 border-neutral-700 hover:bg-crm-surface-raised'
+                                    ? 'bg-crm-bg border-crm-border opacity-60'
+                                    : 'bg-crm-surface-raised/30 border-crm-border-strong hover:bg-crm-surface-raised'
                             }`}
                         >
                             <input 
@@ -151,7 +151,7 @@ export default function SaleChecklistPanel({ sale, type, onSave }) {
                             <div className={`w-5 h-5 rounded flex items-center justify-center shrink-0 border mt-0.5 transition-colors ${
                                 item.completed 
                                     ? (isDoc ? 'bg-purple-500 border-purple-500' : 'bg-green-500 border-green-500') 
-                                    : (sale.status === 'cancelada' ? 'bg-crm-surface-raised/50 border-neutral-700' : 'bg-black/50 border-neutral-600 group-hover:border-neutral-500')
+                                    : (sale.status === 'cancelada' ? 'bg-crm-surface-raised/50 border-crm-border-strong' : 'bg-crm-bg border-neutral-600 group-hover:border-neutral-500')
                             }`}>
                                 {item.completed && <CheckSquare size={12} className="text-white opacity-0" />}
                                 {item.completed && (
@@ -161,7 +161,7 @@ export default function SaleChecklistPanel({ sale, type, onSave }) {
                                 )}
                             </div>
                             <div className="flex flex-col">
-                                <span className={`text-sm font-medium transition-colors ${item.completed ? 'text-neutral-500 line-through' : 'text-neutral-200'}`}>
+                                <span className={`text-sm font-medium transition-colors ${item.completed ? 'text-crm-fg-muted line-through' : 'text-crm-fg'}`}>
                                     {item.label}
                                 </span>
                             </div>

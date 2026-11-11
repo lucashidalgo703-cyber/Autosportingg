@@ -226,30 +226,30 @@ export default function SaleFinancePanel({ sale }) {
     };
 
     return (
-        <div className="bg-crm-surface border border-neutral-800 rounded-2xl overflow-hidden mt-6">
-            <div className="p-6 border-b border-neutral-800 flex flex-col lg:flex-row lg:justify-between lg:items-center gap-4">
+        <div className="min-w-0 overflow-hidden rounded-2xl border border-crm-border bg-crm-surface shadow-sm">
+            <div className="flex flex-col gap-3 border-b border-crm-border bg-crm-surface-raised/50 p-4">
                 <div className="flex items-center gap-3">
                     <div className="w-10 h-10 rounded-xl bg-blue-500/10 flex items-center justify-center border border-blue-500/20">
                         <Wallet size={20} className="text-blue-500" />
                     </div>
                     <div>
-                        <h2 className="text-lg font-bold text-white flex items-center gap-3">
+                        <h2 className="m-0 flex flex-wrap items-center gap-2 text-base font-semibold text-crm-fg">
                             Movimientos financieros
                             {financeData && renderStatusBadge(financeData.collectionStatus)}
                         </h2>
-                        <p className="text-xs text-neutral-500 mt-0.5">Estos movimientos son registros manuales vinculados. No representan un plan de cuotas ni una conciliación automática.</p>
+                        <p className="text-xs text-crm-fg-muted mt-0.5">Estos movimientos son registros manuales vinculados. No representan un plan de cuotas ni una conciliación automática.</p>
                     </div>
                 </div>
                 <div className="flex flex-wrap items-center gap-2">
                     <button
                         onClick={() => handleNewTransaction('egreso', 'Gasto venta')}
-                        className="h-9 px-3 rounded-xl bg-crm-surface-raised hover:bg-neutral-700 text-white font-bold text-xs transition-colors flex items-center gap-1.5"
+                        className="h-9 px-3 rounded-xl bg-crm-surface-raised hover:bg-crm-surface-raised text-white font-bold text-xs transition-colors flex items-center gap-1.5"
                     >
                         <span>Egreso vinculado</span>
                     </button>
                     <button
                         onClick={() => handleNewTransaction('ingreso', 'Cobro venta')}
-                        className="h-9 px-3 rounded-xl border border-neutral-700 bg-crm-surface text-neutral-300 hover:text-white font-bold text-xs transition-colors flex items-center gap-1.5"
+                        className="h-9 px-3 rounded-xl border border-crm-border bg-crm-surface text-crm-fg hover:text-white font-bold text-xs transition-colors flex items-center gap-1.5"
                     >
                         <Plus size={14} />
                         <span>Cobro manual simple</span>
@@ -266,29 +266,29 @@ export default function SaleFinancePanel({ sale }) {
             </div>
 
             {error && (
-                <div className="bg-crm-red/10 text-red-400 p-4 border-b border-neutral-800 flex items-center gap-2 text-sm">
+                <div className="bg-crm-red/10 text-red-400 p-4 border-b border-crm-border flex items-center gap-2 text-sm">
                     <ShieldAlert size={16} />
                     {error}
                 </div>
             )}
 
             {financeData && financeData.pendingBalance > 0 && (
-                <div className="bg-yellow-500/10 text-yellow-500 p-4 border-b border-neutral-800 flex items-center gap-2 text-sm font-bold">
+                <div className="bg-yellow-500/10 text-yellow-500 p-4 border-b border-crm-border flex items-center gap-2 text-sm font-bold">
                     Saldo pendiente estimado: {formatCurrency(financeData.pendingBalance, financeData.saleCurrency)}
                 </div>
             )}
 
             {financeData && financeData.collectionStatus === 'sobrecobrada' && (
-                <div className="bg-purple-500/10 text-purple-400 p-4 border-b border-neutral-800 flex items-center gap-2 text-sm font-bold">
+                <div className="bg-purple-500/10 text-purple-400 p-4 border-b border-crm-border flex items-center gap-2 text-sm font-bold">
                     <ShieldAlert size={16} />
                     Hay más movimientos ingresados que el precio de venta. Revisar conciliación manual.
                 </div>
             )}
 
-            <div className="p-6">
+            <div className="p-4">
                 {/* Métricas de Tesorería Estratégica para la Venta (Sección 3 y 9) */}
                 {treasurySummary && (
-                    <div className="mb-6 bg-purple-950/20 border border-purple-500/30 rounded-xl p-4">
+                    <div className="mb-4 bg-purple-950/20 border border-purple-500/30 rounded-xl p-4">
                         <div className="flex items-center justify-between mb-3 border-b border-purple-500/20 pb-2">
                             <span className="text-xs font-black uppercase tracking-wider text-purple-300 flex items-center gap-1.5">
                                 <ArrowDownRight size={14} /> Tesorería Estratégica: Estado de Recupero y Margen
@@ -297,63 +297,63 @@ export default function SaleFinancePanel({ sale }) {
                                 {treasurySummary.reinvestmentExtraConfigured ? `Extra Reinversión: ${treasurySummary.reinvestmentExtraPct}%` : 'Sin extra reinv.'}
                             </span>
                         </div>
-                        <div className={`grid grid-cols-2 ${treasurySummary.reinvestmentExtraConfigured ? 'sm:grid-cols-5' : 'sm:grid-cols-4'} gap-3 text-xs`}>
+                        <div className={`grid grid-cols-2 ${treasurySummary.reinvestmentExtraConfigured ? '2xl:grid-cols-3' : '2xl:grid-cols-2'} gap-3 text-xs`}>
                             <div>
-                                <span className="text-[10px] text-neutral-400 block uppercase">Efectivo Cobrado</span>
+                                <span className="text-[10px] text-crm-fg-muted block uppercase">Efectivo Cobrado</span>
                                 <strong className="font-mono text-emerald-400">{formatCurrency(treasurySummary.effectivelyCollectedCash || 0, sale.saleCurrency)}</strong>
                             </div>
                             <div>
-                                <span className="text-[10px] text-neutral-400 block uppercase">Capital Recuperado (Stock)</span>
+                                <span className="text-[10px] text-crm-fg-muted block uppercase">Capital Recuperado (Stock)</span>
                                 <strong className="font-mono text-cyan-300">{formatCurrency(treasurySummary.alreadyRecoveredCapital || 0, sale.saleCurrency)}</strong>
                                 {treasurySummary.remainingCapitalToRecover > 0 && (
-                                    <span className="text-[9px] text-neutral-500 block">Pend: {formatCurrency(treasurySummary.remainingCapitalToRecover, sale.saleCurrency)}</span>
+                                    <span className="text-[9px] text-crm-fg-muted block">Pend: {formatCurrency(treasurySummary.remainingCapitalToRecover, sale.saleCurrency)}</span>
                                 )}
                             </div>
                             {treasurySummary.reinvestmentExtraConfigured && (
                                 <div>
-                                    <span className="text-[10px] text-neutral-400 block uppercase">Extra Reinv. (Stock)</span>
+                                    <span className="text-[10px] text-crm-fg-muted block uppercase">Extra Reinv. (Stock)</span>
                                     <strong className="font-mono text-emerald-300">{formatCurrency(treasurySummary.alreadyAllocatedExtraReinvestment || 0, sale.saleCurrency)}</strong>
                                     {treasurySummary.remainingReinvestmentExtraToReserve > 0 && (
-                                        <span className="text-[9px] text-neutral-500 block">Pend: {formatCurrency(treasurySummary.remainingReinvestmentExtraToReserve, sale.saleCurrency)}</span>
+                                        <span className="text-[9px] text-crm-fg-muted block">Pend: {formatCurrency(treasurySummary.remainingReinvestmentExtraToReserve, sale.saleCurrency)}</span>
                                     )}
                                 </div>
                             )}
                             <div>
-                                <span className="text-[10px] text-neutral-400 block uppercase">Margen ya Distribuido</span>
+                                <span className="text-[10px] text-crm-fg-muted block uppercase">Margen ya Distribuido</span>
                                 <strong className="font-mono text-purple-300">{formatCurrency(treasurySummary.alreadyDistributedMargin || 0, sale.saleCurrency)}</strong>
                             </div>
                             <div>
-                                <span className="text-[10px] text-neutral-400 block uppercase">Margen Cobrado Disponible</span>
+                                <span className="text-[10px] text-crm-fg-muted block uppercase">Margen Cobrado Disponible</span>
                                 <strong className="font-mono text-emerald-300">{formatCurrency(treasurySummary.availableMarginCollectedTotal || 0, sale.saleCurrency)}</strong>
                             </div>
                         </div>
                     </div>
                 )}
 
-                <div className="mb-6 bg-crm-surface-raised/30 rounded-xl p-5 border border-neutral-800">
-                    <h3 className="text-sm font-bold text-neutral-400 mb-4 uppercase tracking-wider">Estado de cobranza</h3>
-                    <div className="grid grid-cols-2 lg:grid-cols-6 gap-4">
+                <div className="mb-4 bg-crm-surface-raised/40 rounded-xl p-4 border border-crm-border">
+                    <h3 className="text-sm font-bold text-crm-fg-muted mb-4 uppercase tracking-wider">Estado de cobranza</h3>
+                    <div className="grid grid-cols-2 gap-3 2xl:grid-cols-3">
                         <div>
-                            <div className="text-[10px] text-neutral-500 uppercase font-bold mb-1">Precio Venta</div>
+                            <div className="text-[10px] text-crm-fg-muted uppercase font-bold mb-1">Precio Venta</div>
                             <div className="text-sm font-bold text-white">{formatCurrency(sale.salePrice, sale.saleCurrency)}</div>
                         </div>
                         <div>
-                            <div className="text-[10px] text-neutral-500 uppercase font-bold mb-1">Permuta</div>
+                            <div className="text-[10px] text-crm-fg-muted uppercase font-bold mb-1">Permuta</div>
                             <div className="text-sm font-bold text-purple-400">
                                 {financeData?.tradeInTotal > 0 ? `-${formatCurrency(financeData.tradeInTotal, sale.saleCurrency)}` : '$0'}
                             </div>
                         </div>
                         <div>
-                            <div className="text-[10px] text-neutral-500 uppercase font-bold mb-1">Seña Aplicada</div>
-                            <div className="text-sm font-bold text-neutral-300">{formatCurrency(financeData?.depositApplied || 0, sale.saleCurrency)}</div>
+                            <div className="text-[10px] text-crm-fg-muted uppercase font-bold mb-1">Seña Aplicada</div>
+                            <div className="text-sm font-bold text-crm-fg">{formatCurrency(financeData?.depositApplied || 0, sale.saleCurrency)}</div>
                         </div>
                         <div>
-                            <div className="text-[10px] text-neutral-500 uppercase font-bold mb-1">Neto Cobrado</div>
+                            <div className="text-[10px] text-crm-fg-muted uppercase font-bold mb-1">Neto Cobrado</div>
                             <div className="text-sm font-bold text-green-400">{formatCurrency(financeData?.netoCobradoPrincipal || 0, sale.saleCurrency)}</div>
                         </div>
                         <div className="col-span-2">
-                            <div className="text-[10px] text-neutral-500 uppercase font-bold mb-1">Saldo Pendiente</div>
-                            <div className={`text-sm font-bold ${financeData?.pendingBalance > 0 ? 'text-yellow-400' : 'text-neutral-500'}`}>
+                            <div className="text-[10px] text-crm-fg-muted uppercase font-bold mb-1">Saldo Pendiente</div>
+                            <div className={`text-sm font-bold ${financeData?.pendingBalance > 0 ? 'text-yellow-400' : 'text-crm-fg-muted'}`}>
                                 {formatCurrency(financeData?.pendingBalance || 0, sale.saleCurrency)}
                             </div>
                         </div>
@@ -361,18 +361,18 @@ export default function SaleFinancePanel({ sale }) {
                 </div>
 
                 {financeData && ((financeData.saleCurrency === 'ARS' && (financeData.ingresosUSD > 0 || financeData.egresosUSD > 0)) || (financeData.saleCurrency === 'USD' && (financeData.ingresosARS > 0 || financeData.egresosARS > 0))) && (
-                    <div className="mb-6 bg-crm-bg rounded-xl p-5 border border-neutral-800 border-dashed">
-                        <h3 className="text-xs font-bold text-neutral-400 mb-2 uppercase tracking-wider">Movimientos en otra moneda no aplicados al saldo</h3>
+                    <div className="mb-4 bg-crm-bg rounded-xl p-4 border border-crm-border border-dashed">
+                        <h3 className="text-xs font-bold text-crm-fg-muted mb-2 uppercase tracking-wider">Movimientos en otra moneda no aplicados al saldo</h3>
                         <div className="flex gap-6">
                             {financeData.saleCurrency === 'ARS' ? (
                                 <>
-                                    <div><span className="text-[10px] text-neutral-500 uppercase">Ingresos USD: </span><span className="text-sm text-green-400 font-bold">{formatCurrency(financeData.ingresosUSD, 'USD')}</span></div>
-                                    <div><span className="text-[10px] text-neutral-500 uppercase">Egresos USD: </span><span className="text-sm text-red-400 font-bold">{formatCurrency(financeData.egresosUSD, 'USD')}</span></div>
+                                    <div><span className="text-[10px] text-crm-fg-muted uppercase">Ingresos USD: </span><span className="text-sm text-green-400 font-bold">{formatCurrency(financeData.ingresosUSD, 'USD')}</span></div>
+                                    <div><span className="text-[10px] text-crm-fg-muted uppercase">Egresos USD: </span><span className="text-sm text-red-400 font-bold">{formatCurrency(financeData.egresosUSD, 'USD')}</span></div>
                                 </>
                             ) : (
                                 <>
-                                    <div><span className="text-[10px] text-neutral-500 uppercase">Ingresos ARS: </span><span className="text-sm text-green-400 font-bold">{formatCurrency(financeData.ingresosARS, 'ARS')}</span></div>
-                                    <div><span className="text-[10px] text-neutral-500 uppercase">Egresos ARS: </span><span className="text-sm text-red-400 font-bold">{formatCurrency(financeData.egresosARS, 'ARS')}</span></div>
+                                    <div><span className="text-[10px] text-crm-fg-muted uppercase">Ingresos ARS: </span><span className="text-sm text-green-400 font-bold">{formatCurrency(financeData.ingresosARS, 'ARS')}</span></div>
+                                    <div><span className="text-[10px] text-crm-fg-muted uppercase">Egresos ARS: </span><span className="text-sm text-red-400 font-bold">{formatCurrency(financeData.egresosARS, 'ARS')}</span></div>
                                 </>
                             )}
                         </div>
@@ -381,34 +381,34 @@ export default function SaleFinancePanel({ sale }) {
 
 
                 {loading ? (
-                    <div className="text-center py-8 text-neutral-500">Cargando movimientos...</div>
+                    <div className="rounded-lg py-5 text-center text-sm text-crm-fg-muted">Cargando movimientos...</div>
                 ) : transactions.length === 0 ? (
-                    <div className="text-center py-8 text-neutral-500 bg-crm-surface-raised/20 rounded-xl border border-neutral-800 border-dashed">
+                    <div className="rounded-lg py-5 text-center text-sm text-crm-fg-muted bg-crm-surface-raised/40 rounded-xl border border-crm-border border-dashed">
                         No hay movimientos manuales vinculados a esta venta.
                     </div>
                 ) : (
-                    <div className="overflow-x-auto">
+                    <div className="max-h-[28rem] overflow-auto overscroll-contain">
                         <table className="w-full text-left border-collapse">
                             <thead>
-                                <tr className="border-b border-neutral-800 bg-crm-surface-raised/20">
-                                    <th className="py-3 px-4 text-[10px] font-bold text-neutral-500 uppercase tracking-wider">Fecha</th>
-                                    <th className="py-3 px-4 text-[10px] font-bold text-neutral-500 uppercase tracking-wider">Concepto</th>
-                                    <th className="py-3 px-4 text-[10px] font-bold text-neutral-500 uppercase tracking-wider text-right">Monto</th>
-                                    <th className="py-3 px-4 text-[10px] font-bold text-neutral-500 uppercase tracking-wider text-center">Estado</th>
-                                    <th className="py-3 px-4 text-[10px] font-bold text-neutral-500 uppercase tracking-wider text-right">Acción</th>
+                                <tr className="border-b border-crm-border bg-crm-surface-raised/40">
+                                    <th className="px-3 py-2.5 text-[10px] font-bold text-crm-fg-muted uppercase tracking-wider">Fecha</th>
+                                    <th className="px-3 py-2.5 text-[10px] font-bold text-crm-fg-muted uppercase tracking-wider">Concepto</th>
+                                    <th className="px-3 py-2.5 text-[10px] font-bold text-crm-fg-muted uppercase tracking-wider text-right">Monto</th>
+                                    <th className="px-3 py-2.5 text-[10px] font-bold text-crm-fg-muted uppercase tracking-wider text-center">Estado</th>
+                                    <th className="px-3 py-2.5 text-[10px] font-bold text-crm-fg-muted uppercase tracking-wider text-right">Acción</th>
                                 </tr>
                             </thead>
                             <tbody>
                                 {transactions.map(tx => (
-                                    <tr key={tx._id} className="border-b border-neutral-800/50 hover:bg-crm-surface-raised/30 transition-colors">
-                                        <td className="py-3 px-4">
-                                            <div className="text-sm text-neutral-300">
+                                    <tr key={tx._id} className="border-b border-crm-border hover:bg-crm-surface-raised/40 transition-colors">
+                                        <td className="px-3 py-2.5">
+                                            <div className="text-sm text-crm-fg">
                                                 {new Date(tx.date || tx.createdAt).toLocaleDateString('es-AR')}
                                             </div>
                                         </td>
-                                        <td className="py-3 px-4">
+                                        <td className="px-3 py-2.5">
                                             <div className="text-sm font-bold text-white">{tx.concept}</div>
-                                            <div className="text-xs text-neutral-500 capitalize">
+                                            <div className="text-xs text-crm-fg-muted capitalize">
                                                 {tx.paymentMethod} {tx.account?.name ? `· ${tx.account.name}` : ''}
                                                 {tx.recordedBy?.name && ` · Registró: ${tx.recordedBy.name}`}
                                             </div>
@@ -425,19 +425,19 @@ export default function SaleFinancePanel({ sale }) {
                                                         </span>
                                                     )}
                                                     {tx.treasuryBreakdown.schemeUsed && (
-                                                        <span className="rounded bg-neutral-800 text-neutral-400 px-1 py-0.2 uppercase">
+                                                        <span className="rounded bg-neutral-800 text-crm-fg-muted px-1 py-0.2 uppercase">
                                                             {tx.treasuryBreakdown.schemeUsed.replace('_', ' ')}
                                                         </span>
                                                     )}
                                                 </div>
                                             )}
                                         </td>
-                                        <td className="py-3 px-4 text-right">
+                                        <td className="px-3 py-2.5 text-right">
                                             <div className={`text-sm font-bold ${tx.type === 'Ingreso' ? 'text-green-400' : 'text-red-400'} ${tx.status === 'anulado' ? 'line-through opacity-50' : ''}`}>
                                                 {tx.type === 'Ingreso' ? '+' : '-'}{formatCurrency(tx.amount, tx.currency)}
                                             </div>
                                         </td>
-                                        <td className="py-3 px-4 text-center">
+                                        <td className="px-3 py-2.5 text-center">
                                             {tx.status === 'anulado' ? (
                                                 <span className="text-[10px] font-bold uppercase tracking-wider text-red-400 bg-red-400/10 px-2 py-1 rounded-md border border-red-400/20">
                                                     Anulado
@@ -448,7 +448,7 @@ export default function SaleFinancePanel({ sale }) {
                                                 </span>
                                             )}
                                         </td>
-                                        <td className="py-3 px-4 text-right">
+                                        <td className="px-3 py-2.5 text-right">
                                             <button 
                                                 onClick={() => handleEditTransaction(tx)}
                                                 className="text-xs font-bold text-blue-400 hover:text-blue-300 transition-colors"

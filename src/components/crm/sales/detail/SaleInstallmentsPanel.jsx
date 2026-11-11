@@ -234,14 +234,14 @@ export default function SaleInstallmentsPanel({ sale, saleFinanceData }) {
     };
 
     return (
-        <div className="bg-crm-surface border border-neutral-800 rounded-2xl overflow-hidden mt-6">
-            <div className="p-6 border-b border-neutral-800 flex flex-col lg:flex-row lg:justify-between lg:items-center gap-4">
+        <div className="min-w-0 overflow-hidden rounded-2xl border border-crm-border bg-crm-surface shadow-sm">
+            <div className="flex flex-col gap-3 border-b border-crm-border bg-crm-surface-raised/50 p-4">
                 <div className="flex items-center gap-3">
                     <div className="w-10 h-10 rounded-xl bg-purple-500/10 flex items-center justify-center border border-purple-500/20">
                         <Landmark size={20} className="text-purple-500" />
                     </div>
                     <div>
-                        <h2 className="text-lg font-bold text-white flex items-center gap-3">
+                        <h2 className="m-0 flex flex-wrap items-center gap-2 text-base font-semibold text-crm-fg">
                             Plan de Cuotas
                             {sale?.financingDetails?.hasFinancing && (
                                 <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-purple-500/20 text-purple-300 border border-purple-500/30">
@@ -249,12 +249,12 @@ export default function SaleInstallmentsPanel({ sale, saleFinanceData }) {
                                 </span>
                             )}
                         </h2>
-                        <p className="text-xs text-neutral-500 mt-0.5">
+                        <p className="text-xs text-crm-fg-muted mt-0.5">
                             Este plan es operativo. No registra cobros reales ni movimientos de caja automáticamente.
                         </p>
                     </div>
                 </div>
-                <div className="flex gap-2">
+                <div className="flex flex-wrap gap-2">
                     {installments.length > 0 && (
                         <button
                             onClick={handleDeletePlan}
@@ -266,7 +266,7 @@ export default function SaleInstallmentsPanel({ sale, saleFinanceData }) {
                     )}
                     <button
                         onClick={() => setIsGenerateModalOpen(true)}
-                        className="h-9 px-4 rounded-xl bg-crm-surface-raised hover:bg-neutral-700 text-white font-bold text-sm transition-colors flex items-center gap-2"
+                        className="h-9 px-4 rounded-xl bg-crm-surface-raised hover:bg-crm-surface-raised text-white font-bold text-sm transition-colors flex items-center gap-2"
                     >
                         <Settings2 size={16} />
                         <span className="hidden sm:inline">Generar Plan</span>
@@ -282,33 +282,33 @@ export default function SaleInstallmentsPanel({ sale, saleFinanceData }) {
             </div>
 
             {error && (
-                <div className="bg-crm-red/10 text-red-400 p-4 border-b border-neutral-800 text-sm">
+                <div className="bg-crm-red/10 text-red-400 p-4 border-b border-crm-border text-sm">
                     {error}
                 </div>
             )}
 
-            <div className="p-6">
+            <div className="p-4">
                 
                 {/* Metrics */}
                 {installments.length > 0 && (
-                    <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-                        <div className="bg-crm-surface-raised/30 rounded-xl p-4 border border-neutral-800">
-                            <div className="text-[10px] text-neutral-500 uppercase font-bold mb-1">Pdte. ARS</div>
+                    <div className="grid grid-cols-2 gap-3 2xl:grid-cols-4 mb-4">
+                        <div className="bg-crm-surface-raised/40 rounded-xl p-4 border border-crm-border">
+                            <div className="text-[10px] text-crm-fg-muted uppercase font-bold mb-1">Pdte. ARS</div>
                             <div className="text-sm font-bold text-white">{formatCurrency(metrics.pendienteARS, 'ARS')}</div>
                         </div>
-                        <div className="bg-crm-surface-raised/30 rounded-xl p-4 border border-neutral-800">
-                            <div className="text-[10px] text-neutral-500 uppercase font-bold mb-1">Vencido ARS</div>
-                            <div className={`text-sm font-bold ${metrics.vencidoARS > 0 ? 'text-red-400' : 'text-neutral-500'}`}>
+                        <div className="bg-crm-surface-raised/40 rounded-xl p-4 border border-crm-border">
+                            <div className="text-[10px] text-crm-fg-muted uppercase font-bold mb-1">Vencido ARS</div>
+                            <div className={`text-sm font-bold ${metrics.vencidoARS > 0 ? 'text-red-400' : 'text-crm-fg-muted'}`}>
                                 {formatCurrency(metrics.vencidoARS, 'ARS')}
                             </div>
                         </div>
-                        <div className="bg-crm-surface-raised/30 rounded-xl p-4 border border-neutral-800">
-                            <div className="text-[10px] text-neutral-500 uppercase font-bold mb-1">Pdte. USD</div>
+                        <div className="bg-crm-surface-raised/40 rounded-xl p-4 border border-crm-border">
+                            <div className="text-[10px] text-crm-fg-muted uppercase font-bold mb-1">Pdte. USD</div>
                             <div className="text-sm font-bold text-white">{formatCurrency(metrics.pendienteUSD, 'USD')}</div>
                         </div>
-                        <div className="bg-crm-surface-raised/30 rounded-xl p-4 border border-neutral-800">
-                            <div className="text-[10px] text-neutral-500 uppercase font-bold mb-1">Vencido USD</div>
-                            <div className={`text-sm font-bold ${metrics.vencidoUSD > 0 ? 'text-red-400' : 'text-neutral-500'}`}>
+                        <div className="bg-crm-surface-raised/40 rounded-xl p-4 border border-crm-border">
+                            <div className="text-[10px] text-crm-fg-muted uppercase font-bold mb-1">Vencido USD</div>
+                            <div className={`text-sm font-bold ${metrics.vencidoUSD > 0 ? 'text-red-400' : 'text-crm-fg-muted'}`}>
                                 {formatCurrency(metrics.vencidoUSD, 'USD')}
                             </div>
                         </div>
@@ -316,23 +316,23 @@ export default function SaleInstallmentsPanel({ sale, saleFinanceData }) {
                 )}
 
                 {loading ? (
-                    <div className="text-center py-8 text-neutral-500">Cargando cuotas...</div>
+                    <div className="rounded-lg py-5 text-center text-sm text-crm-fg-muted">Cargando cuotas...</div>
                 ) : installments.length === 0 ? (
-                    <div className="text-center py-8 text-neutral-500 bg-crm-surface-raised/20 rounded-xl border border-neutral-800 border-dashed">
+                    <div className="rounded-lg py-5 text-center text-sm text-crm-fg-muted bg-crm-surface-raised/40 rounded-xl border border-crm-border border-dashed">
                         No hay cuotas registradas para esta venta.
                     </div>
                 ) : (
-                    <div className="overflow-x-auto">
+                    <div className="max-h-[28rem] overflow-auto overscroll-contain">
                         <table className="w-full text-left border-collapse">
                             <thead>
-                                <tr className="border-b border-neutral-800 bg-crm-surface-raised/20">
-                                    <th className="py-3 px-4 text-[10px] font-bold text-neutral-500 uppercase tracking-wider">Cuota</th>
-                                    <th className="py-3 px-4 text-[10px] font-bold text-neutral-500 uppercase tracking-wider">Vencimiento</th>
-                                    <th className="py-3 px-4 text-[10px] font-bold text-neutral-500 uppercase tracking-wider text-right">Importe</th>
-                                    <th className="py-3 px-4 text-[10px] font-bold text-neutral-500 uppercase tracking-wider text-right">Cobrado</th>
-                                    <th className="py-3 px-4 text-[10px] font-bold text-neutral-500 uppercase tracking-wider text-right">Saldo</th>
-                                    <th className="py-3 px-4 text-[10px] font-bold text-neutral-500 uppercase tracking-wider text-center">Estado</th>
-                                    <th className="py-3 px-4 text-[10px] font-bold text-neutral-500 uppercase tracking-wider text-right">Acción</th>
+                                <tr className="border-b border-crm-border bg-crm-surface-raised/40">
+                                    <th className="px-3 py-2.5 text-[10px] font-bold text-crm-fg-muted uppercase tracking-wider">Cuota</th>
+                                    <th className="px-3 py-2.5 text-[10px] font-bold text-crm-fg-muted uppercase tracking-wider">Vencimiento</th>
+                                    <th className="px-3 py-2.5 text-[10px] font-bold text-crm-fg-muted uppercase tracking-wider text-right">Importe</th>
+                                    <th className="px-3 py-2.5 text-[10px] font-bold text-crm-fg-muted uppercase tracking-wider text-right">Cobrado</th>
+                                    <th className="px-3 py-2.5 text-[10px] font-bold text-crm-fg-muted uppercase tracking-wider text-right">Saldo</th>
+                                    <th className="px-3 py-2.5 text-[10px] font-bold text-crm-fg-muted uppercase tracking-wider text-center">Estado</th>
+                                    <th className="px-3 py-2.5 text-[10px] font-bold text-crm-fg-muted uppercase tracking-wider text-right">Acción</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -355,37 +355,37 @@ export default function SaleInstallmentsPanel({ sale, saleFinanceData }) {
                                     const hasWarning = isPaidVisual && saldoCuota > 0;
 
                                     return (
-                                        <tr key={inst._id} className="border-b border-neutral-800/50 hover:bg-crm-surface-raised/30 transition-colors">
-                                            <td className="py-3 px-4">
+                                        <tr key={inst._id} className="border-b border-crm-border hover:bg-crm-surface-raised/40 transition-colors">
+                                            <td className="px-3 py-2.5">
                                                 <div className="text-sm font-bold text-white">Nº {inst.installmentNumber}</div>
                                                 {finStatus !== 'Sin cobro' && (
                                                     <div className="text-[10px] text-green-400 mt-0.5">{finStatus}</div>
                                                 )}
                                             </td>
-                                            <td className="py-3 px-4">
+                                            <td className="px-3 py-2.5">
                                                 <div className="flex items-center gap-1.5">
-                                                    <Calendar size={12} className={isOverdue ? "text-red-400" : "text-neutral-500"} />
-                                                    <span className={`text-sm ${isOverdue ? 'font-bold text-red-400' : 'text-neutral-300'}`}>
+                                                    <Calendar size={12} className={isOverdue ? "text-red-400" : "text-crm-fg-muted"} />
+                                                    <span className={`text-sm ${isOverdue ? 'font-bold text-red-400' : 'text-crm-fg'}`}>
                                                         {new Date(inst.dueDate).toLocaleDateString('es-AR')}
                                                     </span>
                                                 </div>
                                             </td>
-                                            <td className="py-3 px-4 text-right">
+                                            <td className="px-3 py-2.5 text-right">
                                                 <div className={`text-sm font-bold ${inst.status === 'anulada' ? 'line-through opacity-50' : 'text-white'}`}>
                                                     {formatCurrency(inst.amount, inst.currency)}
                                                 </div>
                                             </td>
-                                            <td className="py-3 px-4 text-right">
-                                                <div className={`text-sm ${balanceCuota > 0 ? 'text-green-400 font-bold' : 'text-neutral-500'}`}>
+                                            <td className="px-3 py-2.5 text-right">
+                                                <div className={`text-sm ${balanceCuota > 0 ? 'text-green-400 font-bold' : 'text-crm-fg-muted'}`}>
                                                     {balanceCuota > 0 ? formatCurrency(balanceCuota, inst.currency) : '-'}
                                                 </div>
                                             </td>
-                                            <td className="py-3 px-4 text-right">
-                                                <div className={`text-sm font-bold ${saldoCuota <= 0 ? 'text-neutral-500' : 'text-orange-400'}`}>
+                                            <td className="px-3 py-2.5 text-right">
+                                                <div className={`text-sm font-bold ${saldoCuota <= 0 ? 'text-crm-fg-muted' : 'text-orange-400'}`}>
                                                     {saldoCuota > 0 ? formatCurrency(saldoCuota, inst.currency) : '0'}
                                                 </div>
                                             </td>
-                                            <td className="py-3 px-4 text-center">
+                                            <td className="px-3 py-2.5 text-center">
                                                 <div className="flex flex-col items-center gap-1">
                                                     <InstallmentStatusBadge status={inst.status} dueDate={inst.dueDate} />
                                                     {hasWarning && (
@@ -395,7 +395,7 @@ export default function SaleInstallmentsPanel({ sale, saleFinanceData }) {
                                                     )}
                                                 </div>
                                             </td>
-                                            <td className="py-3 px-4 text-right">
+                                            <td className="px-3 py-2.5 text-right">
                                                 <div className="flex items-center justify-end gap-3">
                                                     {inst.status !== 'anulada' && (
                                                         <div className="flex items-center gap-2">
@@ -408,7 +408,7 @@ export default function SaleInstallmentsPanel({ sale, saleFinanceData }) {
                                                             </button>
                                                             <button 
                                                                 onClick={() => handleRegisterPayment(inst)}
-                                                                className="text-[11px] font-medium text-neutral-400 hover:text-white transition-colors"
+                                                                className="text-[11px] font-medium text-crm-fg-muted hover:text-white transition-colors"
                                                                 title="Cobro manual clásico"
                                                             >
                                                                 Manual

@@ -104,8 +104,8 @@ export default function SaleStatusPanel({ sale, onSave }) {
     const delSteps = ['pendiente', 'preparando', 'listo_para_entregar', 'entregado'];
 
     return (
-        <div className="bg-neutral-900 border border-neutral-800 rounded-2xl overflow-hidden flex flex-col h-full">
-            <div className="p-4 border-b border-neutral-800 flex justify-between items-center bg-crm-surface">
+        <div className="flex min-w-0 flex-col overflow-hidden rounded-xl border border-crm-border bg-crm-surface shadow-sm">
+            <div className="flex flex-wrap items-center justify-between gap-3 border-b border-crm-border bg-crm-surface-raised px-4 py-3">
                 <div className="flex items-center gap-2">
                     <Activity size={16} className="text-orange-500" />
                     <h3 className="text-sm font-bold text-white uppercase tracking-wider">Estados Operativos</h3>
@@ -126,7 +126,7 @@ export default function SaleStatusPanel({ sale, onSave }) {
                 )}
             </div>
 
-            <div className="p-5 flex-1 flex flex-col gap-6 overflow-y-auto custom-scrollbar">
+            <div className="flex flex-col gap-4 p-4">
                 
                 {/* Warning */}
                 <div className="bg-orange-500/10 border border-orange-500/20 rounded-xl p-3 flex gap-3 items-start">
@@ -173,7 +173,7 @@ export default function SaleStatusPanel({ sale, onSave }) {
                 {/* Documentation Status */}
                 <div className="flex flex-col gap-3">
                     <div className="flex justify-between items-end">
-                        <label className="text-[10px] font-bold text-neutral-500 uppercase tracking-wider flex items-center gap-1.5">
+                        <label className="text-[10px] font-bold text-crm-fg-muted uppercase tracking-wider flex items-center gap-1.5">
                             <ShieldCheck size={14} />
                             Documentación
                         </label>
@@ -194,7 +194,7 @@ export default function SaleStatusPanel({ sale, onSave }) {
                         <div className="absolute top-1/2 left-0 w-full h-0.5 bg-crm-surface-raised -translate-y-1/2 z-0"></div>
                         <div className="absolute top-1/2 left-0 h-0.5 bg-purple-500 -translate-y-1/2 z-0 transition-all duration-500" style={{ width: `${(docSteps.indexOf(docStatus) / (docSteps.length - 1)) * 100}%` }}></div>
                         {docSteps.map((step, idx) => (
-                            <div key={step} className={`w-3 h-3 rounded-full z-10 border-2 transition-colors ${docSteps.indexOf(docStatus) >= idx ? 'bg-purple-500 border-purple-500' : 'bg-neutral-900 border-neutral-700'}`} title={step}></div>
+                            <div key={step} className={`w-3 h-3 rounded-full z-10 border-2 transition-colors ${docSteps.indexOf(docStatus) >= idx ? 'bg-purple-500 border-purple-500' : 'bg-crm-surface border-crm-border-strong'}`} title={step}></div>
                         ))}
                     </div>
 
@@ -202,7 +202,7 @@ export default function SaleStatusPanel({ sale, onSave }) {
                         value={docStatus}
                         onChange={handleDocChange}
                         disabled={sale.status === 'cancelada'}
-                        className="w-full bg-black/40 border border-neutral-800 rounded-xl py-2 px-3 text-sm text-white focus:outline-none focus:border-neutral-600 transition-colors appearance-none cursor-pointer font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+                        className="w-full bg-crm-bg border border-crm-border rounded-xl py-2 px-3 text-sm text-white focus:outline-none focus:border-neutral-600 transition-colors appearance-none cursor-pointer font-medium disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                         <option value="pendiente">Pendiente (Incompleto)</option>
                         <option value="parcial">Parcial (En proceso)</option>
@@ -213,7 +213,7 @@ export default function SaleStatusPanel({ sale, onSave }) {
                 {/* Delivery Status */}
                 <div className="flex flex-col gap-3">
                     <div className="flex justify-between items-end">
-                        <label className="text-[10px] font-bold text-neutral-500 uppercase tracking-wider flex items-center gap-1.5">
+                        <label className="text-[10px] font-bold text-crm-fg-muted uppercase tracking-wider flex items-center gap-1.5">
                             <Truck size={14} />
                             Logística y Entrega
                         </label>
@@ -245,7 +245,7 @@ export default function SaleStatusPanel({ sale, onSave }) {
                         <div className="absolute top-1/2 left-0 w-full h-0.5 bg-crm-surface-raised -translate-y-1/2 z-0"></div>
                         <div className="absolute top-1/2 left-0 h-0.5 bg-green-500 -translate-y-1/2 z-0 transition-all duration-500" style={{ width: `${(delSteps.indexOf(delStatus) / (delSteps.length - 1)) * 100}%` }}></div>
                         {delSteps.map((step, idx) => (
-                            <div key={step} className={`w-3 h-3 rounded-full z-10 border-2 transition-colors ${delSteps.indexOf(delStatus) >= idx ? 'bg-green-500 border-green-500' : 'bg-neutral-900 border-neutral-700'}`} title={step.replace(/_/g, ' ')}></div>
+                            <div key={step} className={`w-3 h-3 rounded-full z-10 border-2 transition-colors ${delSteps.indexOf(delStatus) >= idx ? 'bg-green-500 border-green-500' : 'bg-crm-surface border-crm-border-strong'}`} title={step.replace(/_/g, ' ')}></div>
                         ))}
                     </div>
 
@@ -253,7 +253,7 @@ export default function SaleStatusPanel({ sale, onSave }) {
                         value={delStatus}
                         onChange={handleDelChange}
                         disabled={sale.status === 'cancelada'}
-                        className="w-full bg-black/40 border border-neutral-800 rounded-xl py-2 px-3 text-sm text-white focus:outline-none focus:border-neutral-600 transition-colors appearance-none cursor-pointer font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+                        className="w-full bg-crm-bg border border-crm-border rounded-xl py-2 px-3 text-sm text-white focus:outline-none focus:border-neutral-600 transition-colors appearance-none cursor-pointer font-medium disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                         <option value="pendiente">Pendiente</option>
                         <option value="preparando">Preparando Vehículo</option>
@@ -263,9 +263,9 @@ export default function SaleStatusPanel({ sale, onSave }) {
                 </div>
 
                 {/* Dates */}
-                <div className="grid grid-cols-2 gap-3 mt-auto">
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                     <div className="flex flex-col gap-2">
-                        <label className="text-[10px] font-bold text-neutral-500 uppercase tracking-wider flex items-center gap-1.5">
+                        <label className="text-[10px] font-bold text-crm-fg-muted uppercase tracking-wider flex items-center gap-1.5">
                             <CalendarDays size={12} />
                             Fecha Estimada
                         </label>
@@ -273,17 +273,17 @@ export default function SaleStatusPanel({ sale, onSave }) {
                             type="date"
                             value={estDate}
                             onChange={handleEstDateChange}
-                            className="w-full bg-black/40 border border-neutral-800 rounded-xl py-2 px-3 text-xs text-white focus:outline-none focus:border-neutral-600 transition-colors"
+                            className="w-full bg-crm-bg border border-crm-border rounded-xl py-2 px-3 text-xs text-white focus:outline-none focus:border-neutral-600 transition-colors"
                             style={{ colorScheme: 'dark' }}
                         />
                     </div>
 
                     <div className="flex flex-col gap-2">
-                        <label className="text-[10px] font-bold text-neutral-500 uppercase tracking-wider flex items-center gap-1.5">
+                        <label className="text-[10px] font-bold text-crm-fg-muted uppercase tracking-wider flex items-center gap-1.5">
                             <CalendarDays size={12} />
                             Fecha Real
                         </label>
-                        <div className="w-full bg-crm-surface-raised/50 border border-neutral-800 rounded-xl py-2 px-3 text-xs text-neutral-400">
+                        <div className="w-full bg-crm-surface-raised/50 border border-crm-border rounded-xl py-2 px-3 text-xs text-crm-fg-muted">
                             {sale.actualDeliveryDate ? new Date(sale.actualDeliveryDate).toLocaleDateString() : 'Pendiente'}
                         </div>
                     </div>
