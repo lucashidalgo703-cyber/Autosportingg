@@ -5,6 +5,7 @@ import { getCatalogImageProps } from '../lib/cloudinaryUtils';
 import { CATALOG_IMAGE_SIZES } from '../lib/vehicleImageSizes';
 import { useFavorites } from '../context/FavoritesContext';
 import { resolveImagePosition } from '../lib/formatters';
+import VehiclePhoto from './VehiclePhoto';
 
 const CarCard = ({ car, sizes = CATALOG_IMAGE_SIZES }) => {
   const { isFavorite, toggleFavorite } = useFavorites();
@@ -19,7 +20,7 @@ const CarCard = ({ car, sizes = CATALOG_IMAGE_SIZES }) => {
   return (
     <Link href={`/auto/${car._id || car.id}`} className="car-card group">
       <div className="card-image-wrapper">
-        <img
+        <VehiclePhoto
           {...imageProps}
           alt={car.name || 'Auto'}
           width={1600}

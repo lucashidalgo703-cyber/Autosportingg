@@ -37,11 +37,6 @@ export const getBlurPlaceholder = (url) => {
     return url;
 };
 
-export const CATALOG_IMAGE_WIDTHS = Object.freeze([640, 960, 1280, 1600]);
-export const GALLERY_IMAGE_WIDTHS = Object.freeze([640, 960, 1280, 1600, 1920, 2560]);
-export const GALLERY_THUMBNAIL_WIDTHS = Object.freeze([320, 480, 640, 960]);
-export const GALLERY_LIGHTBOX_WIDTHS = Object.freeze([640, 960, 1280, 1600, 1920, 2560, 3200, 3840]);
-
 // Only replace delivery options produced by our image helpers. Crops, effects,
 // named transformations and signatures must retain their original URL.
 const isCatalogDeliveryToken = token => (
@@ -90,40 +85,22 @@ const getCatalogSource = url => {
 };
 
 /**
- * Responsive catalog delivery without a second image optimizer. Each URL caps
- * the requested width (c_limit), preserving aspect ratio and avoiding upscale.
- * Original/specially edited URLs remain unchanged when they cannot be safely
- * recognized. Callers supply sizes for their actual layout.
+ * Deliver the stored master without another resize or lossy encoding. Known
+ * delivery-only variants recover that same URL, sharing the browser cache
+ * across cards and gallery images. Edited/signed/ambiguous URLs remain intact.
  */
-const getResponsiveImageProps = (url, widths, defaultWidth) => {
+const getMasterImageProps = url => {
     const fallback = { src: typeof url === 'string' ? url : '' };
     const source = getCatalogSource(url);
     if (!source) return fallback;
 
-    const atWidth = width => `${source.prefix}f_auto,q_auto:best,w_${width},c_limit/${source.asset}`;
-    return {
-        src: atWidth(defaultWidth),
-        srcSet: widths.map(width => `${atWidth(width)} ${width}w`).join(', ')
-    };
+    return { src: source.prefix + source.asset };
 };
 
-export const getCatalogImageProps = url => getResponsiveImageProps(url, CATALOG_IMAGE_WIDTHS, 960);
-
-const GALLERY_VARIANTS = Object.freeze({
-    main: { widths: GALLERY_IMAGE_WIDTHS, defaultWidth: 1600 },
-    thumbnail: { widths: GALLERY_THUMBNAIL_WIDTHS, defaultWidth: 480 },
-    lightbox: { widths: GALLERY_LIGHTBOX_WIDTHS, defaultWidth: 1920 }
-});
+export const getCatalogImageProps = url => getMasterImageProps(url);
 
 /**
- * Gallery delivery keeps the same safe master URL resolution as the catalog.
- * Main and thumbnail images avoid fetching full-screen files, while lightbox
- * candidates cover high-density screens up to 3840px. c_limit never upscales a
- * smaller source. Callers must supply sizes for each gallery layout.
+ * Existing callers may still pass a gallery variant; every variant now uses
+ * the same master to preserve all available pixels without another encoding.
  */
-export const getGalleryImageProps = (url, variant = 'main') => {
-    const selected = Object.prototype.hasOwnProperty.call(GALLERY_VARIANTS, variant)
-        ? GALLERY_VARIANTS[variant]
-        : GALLERY_VARIANTS.main;
-    return getResponsiveImageProps(url, selected.widths, selected.defaultWidth);
-};
+export const getGalleryImageProps = url => getMasterImageProps(url);

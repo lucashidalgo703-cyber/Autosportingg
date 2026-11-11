@@ -9,6 +9,7 @@ import { DETAIL_IMAGE_SIZES, DETAIL_THUMBNAIL_SIZES, LIGHTBOX_IMAGE_SIZES } from
 import { resolveImagePosition, resolveImagePositionByIndex } from '../lib/formatters';
 import { useFavorites } from '../context/FavoritesContext';
 import { motion, AnimatePresence } from 'framer-motion';
+import VehiclePhoto from '../components/VehiclePhoto';
 
 const CarDetail = () => {
     const { id } = useParams();
@@ -162,7 +163,7 @@ const CarDetail = () => {
                                 >
                                     <div className="w-full h-full flex items-center justify-center">
                                         {currentImg ? (
-                                            <img
+                                            <VehiclePhoto
                                                 {...getGalleryImageProps(currentImg)}
                                                 alt={car.name}
                                                 width={1600}
@@ -247,7 +248,7 @@ const CarDetail = () => {
                                         }}
                                     >
                                         <div className="w-full h-full flex items-center justify-center">
-                                            <img
+                                            <VehiclePhoto
                                                 {...getGalleryImageProps(img, 'thumbnail')}
                                                 alt={`${car.name} view ${index + 2}`}
                                                 width={960}
@@ -394,7 +395,7 @@ const CarDetail = () => {
                         </button>
                     )}
 
-                    <img
+                    <VehiclePhoto
                         {...getGalleryImageProps(currentImg, 'lightbox')}
                         alt={car.name}
                         width={1600}
