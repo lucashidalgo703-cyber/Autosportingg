@@ -75,21 +75,54 @@ const CarDetail = () => {
         }
     }, [car]);
 
+    const navigateImage = React.useCallback((direction) => {
+        const images = car?.images;
+        if (!Array.isArray(images) || images.length < 2) return;
+
+        setActiveImage(previousImage => {
+            const currentIndex = images.indexOf(previousImage || car.coverImage || images[0]);
+            if (currentIndex === -1) {
+                return direction > 0 ? images[0] : images[images.length - 1];
+            }
+            return images[(currentIndex + direction + images.length) % images.length];
+        });
+    }, [car]);
+
     const handleNext = (e) => {
         e.stopPropagation();
-        if (!car.images) return;
-        const currentIndex = car.images.indexOf(activeImage || car.coverImage || (car.images && car.images[0]));
-        const nextIndex = (currentIndex + 1) % car.images.length;
-        setActiveImage(car.images[nextIndex]);
+        navigateImage(1);
     };
 
     const handlePrev = (e) => {
         e.stopPropagation();
-        if (!car.images) return;
-        const currentIndex = car.images.indexOf(activeImage || car.coverImage || (car.images && car.images[0]));
-        const prevIndex = (currentIndex - 1 + car.images.length) % car.images.length;
-        setActiveImage(car.images[prevIndex]);
+        navigateImage(-1);
     };
+
+    React.useEffect(() => {
+        if (loading || !car) return;
+
+        const handleKeyDown = (event) => {
+            if (event.defaultPrevented || event.isComposing || event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) return;
+
+            const target = event.target;
+            if (target instanceof HTMLElement && (target.isContentEditable || target.closest('input, textarea, select, [role="textbox"], [role="combobox"], [role="slider"], [role="spinbutton"]'))) return;
+
+            if (event.key === 'Escape' && showLightbox) {
+                event.preventDefault();
+                setShowLightbox(false);
+                return;
+            }
+
+            if (!Array.isArray(car.images) || car.images.length < 2) return;
+            if (event.key === 'ArrowLeft' || event.key === 'ArrowRight') {
+                event.preventDefault();
+                navigateImage(event.key === 'ArrowRight' ? 1 : -1);
+            }
+        };
+
+        window.addEventListener('keydown', handleKeyDown);
+        return () => window.removeEventListener('keydown', handleKeyDown);
+    }, [car, loading, navigateImage, showLightbox]);
 
     // Preload next and previous images dynamically
     React.useEffect(() => {
