@@ -7,9 +7,17 @@ import { useAdminSales } from '../../../hooks/useAdminSales';
 import CrmButton from '../../../components/crm/ui/CrmButton';
 import ConfirmModal from '../../../components/crm/ui/ConfirmModal';
 import BuyerPortalAccessPanel from '../../../components/buyer-portal/BuyerPortalAccessPanel';
+import GestoriaStatusEmailNotice from '../../../components/buyer-portal/GestoriaStatusEmailNotice';
+import { useAuth } from '../../../context/AuthContext';
+import { hasPermission, PERMISSIONS } from '../../../utils/adminPermissions';
+
+const statusToast = { id: 'gestoria-status-email' };
 
 export default function GestoriaPage() {
-    const { tramites, loading, error, fetchTramites, createTramite, updateTramite, deleteTramite } = useGestoria();
+    const { user } = useAuth();
+    const canReadEmailHistory = hasPermission(user, PERMISSIONS.GESTORIA_READ);
+    const canRetryEmail = hasPermission(user, PERMISSIONS.GESTORIA_WRITE);
+    const { tramites, loading, error, fetchTramites, createTramite, updateTramite, deleteTramite, retryStatusEmail, fetchStatusEmail } = useGestoria();
     const { sales, fetchSales } = useAdminSales();
     const [search, setSearch] = useState('');
     const [isModalOpen, setIsModalOpen] = useState(false);
@@ -23,6 +31,11 @@ export default function GestoriaPage() {
     const [confirmDeleteModal, setConfirmDeleteModal] = useState({ isOpen: false, id: null });
     const [clients, setClients] = useState([]);
     const [isUploading, setIsUploading] = useState(false);
+    const [isSaving, setIsSaving] = useState(false);
+    const [emailNotice, setEmailNotice] = useState(null);
+    const [retryingEmail, setRetryingEmail] = useState(false);
+    const [retryError, setRetryError] = useState('');
+    const [modalEmailHistory, setModalEmailHistory] = useState(null);
 
     const handleFileUpload = async (e) => {
         const files = Array.from(e.target.files);
@@ -92,6 +105,18 @@ export default function GestoriaPage() {
         }
     }, [fetchTramites, fetchSales]);
 
+    const editingId = editingTramite?._id;
+    useEffect(() => {
+        if (!isModalOpen || !editingId || !canReadEmailHistory) return;
+        let active = true;
+        fetchStatusEmail(editingId).then(notification => {
+            if (active) setModalEmailHistory({ tramiteId: editingId, notification });
+        }).catch(() => {
+            if (active) setModalEmailHistory({ tramiteId: editingId, error: 'No se pudo consultar el último aviso por correo. Podés seguir editando el trámite.' });
+        });
+        return () => { active = false; };
+    }, [isModalOpen, editingId, fetchStatusEmail, canReadEmailHistory]);
+
     const filteredTramites = tramites.filter(t => 
         t.title?.toLowerCase().includes(search.toLowerCase()) || 
         t.type?.toLowerCase().includes(search.toLowerCase()) ||
@@ -100,6 +125,8 @@ export default function GestoriaPage() {
     );
 
     const handleOpenModal = (tramite = null) => {
+        setModalEmailHistory(null);
+        setRetryError('');
         if (tramite) {
             setEditingTramite(tramite);
             setFormData({ 
@@ -134,17 +161,42 @@ export default function GestoriaPage() {
 
     const handleSubmit = async (e) => {
         e.preventDefault();
+        if (isSaving) return;
+        setIsSaving(true);
         try {
             if (editingTramite) {
-                await updateTramite(editingTramite._id, formData);
+                const result = await updateTramite(editingTramite._id, formData);
+                const notification = result.emailNotification;
+                if (notification && notification.status !== 'not_needed') {
+                    setEmailNotice({ tramiteId: editingTramite._id, notification });
+                    setRetryError('');
+                    if (notification.status === 'sent') toast.success('Estado actualizado y aviso enviado al cliente', statusToast);
+                    else if (['delivery_uncertain', 'confirmation_pending'].includes(notification.reason)) toast('Estado actualizado. Falta confirmar el resultado del aviso.', statusToast);
+                    else if (notification.status === 'failed') toast.error('Estado actualizado. No se pudo enviar el aviso al cliente.', statusToast);
+                    else if (notification.status === 'pending') toast.success('Estado actualizado. El aviso al cliente está pendiente.', statusToast);
+                    else toast.success('Estado actualizado. Revisá el aviso de correo.', statusToast);
+                } else toast.success('Trámite actualizado', statusToast);
             } else {
                 await createTramite(formData);
+                toast.success('Trámite creado', statusToast);
             }
             handleCloseModal();
             fetchTramites();
         } catch (err) {
-            toast.error(err.message);
-        }
+            toast.error(err.message, statusToast);
+        } finally { setIsSaving(false); }
+    };
+
+    const handleRetryEmail = async (source) => {
+        if (retryingEmail || !canRetryEmail || !source?.notification?.id) return;
+        setRetryingEmail(true); setRetryError('');
+        try {
+            const notification = await retryStatusEmail(source.tramiteId, source.notification.id);
+            setEmailNotice({ tramiteId: source.tramiteId, notification });
+            setModalEmailHistory(previous => previous?.tramiteId === source.tramiteId ? { ...previous, notification } : previous);
+            if (notification.status === 'sent') toast.success('Aviso enviado al cliente', statusToast);
+        } catch (err) { setRetryError(err.message); }
+        finally { setRetryingEmail(false); }
     };
 
     const handleDelete = (id) => {
@@ -210,6 +262,8 @@ export default function GestoriaPage() {
                     {error}
                 </div>
             )}
+
+            <GestoriaStatusEmailNotice notification={emailNotice?.notification} retrying={retryingEmail} retryError={retryError} onRetry={canRetryEmail ? () => handleRetryEmail(emailNotice) : undefined}/>
 
             {loading && tramites.length === 0 ? (
                 <div className="flex h-64 items-center justify-center rounded-xl border border-crm-border bg-crm-surface">
@@ -310,6 +364,9 @@ export default function GestoriaPage() {
                         </div>
                         <form onSubmit={handleSubmit} className="p-6 space-y-6">
                             <BuyerPortalAccessPanel key={formData.saleId || 'unlinked'} saleId={formData.saleId}/>
+                            {editingId && canReadEmailHistory && <div className="min-w-0 space-y-2" aria-label="Último aviso por correo">
+                                {!modalEmailHistory ? <p role="status" className="text-xs text-crm-fg-muted">Consultando el último aviso por correo…</p> : modalEmailHistory.error ? <p role="alert" className="text-xs text-amber-300">{modalEmailHistory.error}</p> : <GestoriaStatusEmailNotice notification={modalEmailHistory.notification} historical retrying={retryingEmail} retryError={retryError} onRetry={canRetryEmail ? () => handleRetryEmail(modalEmailHistory) : undefined}/>}
+                            </div>}
                             
                             <div className="space-y-4">
                                 <h3 className="text-sm font-bold text-crm-red border-b border-crm-border/50 pb-2 uppercase tracking-wider">Identificación del Trámite</h3>
@@ -420,6 +477,7 @@ export default function GestoriaPage() {
                                             <option value="Finalizado">Finalizado</option>
                                             <option value="Cancelado">Cancelado</option>
                                         </select>
+                                        <p className="mt-2 text-xs leading-relaxed text-crm-fg-muted">Al cambiar el estado se avisa por correo al comprador registrado.</p>
                                     </div>
                                     <div>
                                         <label className="mb-1.5 block text-xs font-bold uppercase tracking-wider text-crm-fg-muted">Observaciones</label>
@@ -477,8 +535,8 @@ export default function GestoriaPage() {
                             </div>
 
                             <div className="pt-4 flex justify-end gap-3 border-t border-crm-border">
-                                <CrmButton type="button" variant="secondary" onClick={handleCloseModal}>Cancelar</CrmButton>
-                                <CrmButton type="submit" variant="primary">Guardar Trámite</CrmButton>
+                                <CrmButton type="button" variant="secondary" onClick={handleCloseModal} disabled={isSaving}>Cancelar</CrmButton>
+                                <CrmButton type="submit" variant="primary" disabled={isSaving}>{isSaving ? 'Guardando…' : 'Guardar Trámite'}</CrmButton>
                             </div>
                         </form>
                     </div>

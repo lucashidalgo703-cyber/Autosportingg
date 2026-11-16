@@ -99,6 +99,26 @@ export function useGestoria() {
         }
     };
 
+    const retryStatusEmail = async (tramiteId, notificationId) => {
+        const res = await fetch(`${getBaseUrl()}/api-gestoria/${encodeURIComponent(tramiteId)}/notifications/${encodeURIComponent(notificationId)}/retry`, {
+            method: 'POST',
+            headers: getAuthHeader(),
+            body: JSON.stringify({})
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(data.error || 'No se pudo reintentar el aviso. El estado del trámite sigue guardado.');
+        return data.emailNotification || data;
+    };
+
+    const fetchStatusEmail = useCallback(async (tramiteId) => {
+        const res = await fetch(`${getBaseUrl()}/api-gestoria/${encodeURIComponent(tramiteId)}/notifications`, {
+            headers: getAuthHeader(), cache: 'no-store'
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(data.error || 'No se pudo consultar el estado del aviso por correo.');
+        return data.emailNotification || null;
+    }, []);
+
     return {
         tramites,
         loading,
@@ -106,6 +126,8 @@ export function useGestoria() {
         fetchTramites,
         createTramite,
         updateTramite,
-        deleteTramite
+        deleteTramite,
+        retryStatusEmail,
+        fetchStatusEmail
     };
 }

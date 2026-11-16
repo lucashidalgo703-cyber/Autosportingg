@@ -4,6 +4,7 @@ import Gestoria from '../../../models/Gestoria';
 import { withAdminAuth } from '../../../utils/nextAdminAuth';
 import { PERMISSIONS } from '../../../utils/adminPermissions';
 import TrashRecord from '../../../models/TrashRecord';
+import { updateGestoria } from '../../../services/gestoriaStatusService.js';
 
 export const PUT = withAdminAuth(PERMISSIONS.GESTORIA_WRITE, async (request, { params }) => {
     try {
@@ -12,30 +13,10 @@ export const PUT = withAdminAuth(PERMISSIONS.GESTORIA_WRITE, async (request, { p
         const id = resolvedParams.id;
         const body = await request.json();
         
-        ['vehicleId', 'clientId', 'sellerId', 'saleId', 'createdBy'].forEach(field => {
-            if (body[field] === '') body[field] = null;
-        });
-        
-        const existingTramite = await Gestoria.findById(id);
-        if (!existingTramite) {
-            return NextResponse.json({ error: 'Trámite no encontrado' }, { status: 404 });
-        }
-
-        if (body.status && existingTramite.status !== body.status) {
-            body.auditLog = existingTramite.auditLog || [];
-            body.auditLog.push({
-                action: 'CAMBIO_ESTADO',
-                details: `Estado cambió de ${existingTramite.status} a ${body.status}`,
-                date: new Date(),
-                user: request.user?.name || request.user?.email || 'Usuario Desconocido'
-            });
-        }
-
-        const updatedTramite = await Gestoria.findByIdAndUpdate(id, body, { new: true, runValidators: true });
-        
-        return NextResponse.json(updatedTramite);
+        const result = await updateGestoria(request.user, id, body);
+        return NextResponse.json({ ...result.tramite, emailNotification: result.notification });
     } catch (error) {
-        return NextResponse.json({ error: error.message }, { status: 400 });
+        return NextResponse.json({ error: error.status ? error.message : 'No se pudo actualizar el trámite.' }, { status: error.status || 400 });
     }
 });
 

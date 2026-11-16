@@ -113,6 +113,17 @@ export async function portalConfiguration(user, saleId) {
         canVerify, verificationChannel: 'email', maskedDestination: email ? maskEmail(email) : null,
         preview: await portalData(sale, { mode: portal?.mode || (sale.tradeIns?.length ? 'with_trade_in' : 'without_trade_in') }) };
 }
+// Internal mail delivery only: reuse a live link without creating access or
+// changing its generation, expiry, verification or remembered sessions.
+export async function notificationPortalUrl(sale, expectedGeneration) {
+    if (!sale?._id || sale.status === 'cancelada') return null;
+    const portal = await BuyerPortal.findOne({ _id: sale._id, enabled: true, expiresAt: { $gt: new Date() } }).lean();
+    if (!portal || expectedGeneration !== undefined && portal.generation !== expectedGeneration) return null;
+    try {
+        const token = decrypt(portal.encryptedToken, linkContext(String(sale._id))).toString();
+        return /^[A-Za-z0-9_-]{43}$/.test(token) && hash(token) === portal.tokenHash ? '/portal/' + token : null;
+    } catch { return null; }
+}
 export async function updatePortalTracking(user, saleId, input) {
     await adminSale(user, saleId, true);
     if (typeof input.actionRequired !== 'boolean' || typeof input.latestUpdate !== 'string' || typeof input.nextStep !== 'string'

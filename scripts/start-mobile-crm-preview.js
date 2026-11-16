@@ -7,13 +7,20 @@ const env = await bootIsolatedReplica({ listen: false });
 const { seedMobileCrm, localPassword } = await import('../tests/fixtures/mobileCrmFixtures.js');
 const fixtures = await seedMobileCrm(env.models);
 let buyerPortalFixtures = null;
+let smtpSink;
 if (process.env.LOCAL_BUYER_PORTAL_FIXTURES === 'true') {
     process.env.BUYER_PORTAL_DOCUMENT_KEY = 'exclusivamente-fixture-local-no-usar-en-produccion-2026';
     const { seedBuyerPortalFixtures } = await import('../tests/fixtures/buyerPortalFixtures.js');
     const { createBuyerPortalIndexes } = await import('../src/services/buyerPortalService.js');
     const { EmailAdapter } = await import('../src/lib/emailAdapter.js');
     await createBuyerPortalIndexes();
+    const { createGestoriaNotificationIndexes } = await import('../src/services/gestoriaStatusService.js');
+    await createGestoriaNotificationIndexes();
     buyerPortalFixtures = { ...await seedBuyerPortalFixtures(env.models, fixtures), adminSessionToken: fixtures.sessions[0].token };
+    const { startLocalSmtpSink } = await import('../tests/fixtures/localSmtpSink.js');
+    smtpSink = await startLocalSmtpSink(env.mailbox, [process.env.SECURITY_ALERT_EMAIL, buyerPortalFixtures.buyerOneEmail, buyerPortalFixtures.buyerTwoEmail]);
+    process.env.SMTP_PORT = String(smtpSink.port);
+    process.env.NEXT_PUBLIC_BASE_URL = `http://${host}:${port}`;
     EmailAdapter.sendEmail = async (to, subject, html) => {
         if (![process.env.SECURITY_ALERT_EMAIL, buyerPortalFixtures.buyerOneEmail, buyerPortalFixtures.buyerTwoEmail].includes(to)) throw new Error('Destinatario no ficticio bloqueado.');
         env.mailbox.push({ to, subject, html });
@@ -57,6 +64,7 @@ const stop = async () => {
     server.closeAllConnections();
     await new Promise(resolve => server.close(resolve));
     await nextApp.close();
+    if (smtpSink) await smtpSink.stop();
     await env.stop();
     process.exit(0);
 };

@@ -48,6 +48,8 @@ const GestoriaSchema = new mongoose.Schema({
         enum: ['Pendiente', 'Documentación', 'Presentado', 'Observado', 'Transferido', 'Finalizado', 'Cancelado'],
         default: 'Pendiente'
     },
+    // Increased only by an actual status transition; also identifies its email.
+    statusRevision: { type: Number, default: 0, min: 0 },
     cost: {
         type: Number,
         default: 0 // Costo real

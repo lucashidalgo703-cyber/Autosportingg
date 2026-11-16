@@ -89,6 +89,7 @@ export class EmailAdapter {
             to,
             subject,
             ...(typeof messageOptions.text === 'string' ? { text: messageOptions.text } : {}),
+            ...(typeof messageOptions.messageId === 'string' && messageOptions.messageId.length <= 200 && !/[\r\n]/.test(messageOptions.messageId) ? { messageId: messageOptions.messageId } : {}),
             html,
             attachments
         };
