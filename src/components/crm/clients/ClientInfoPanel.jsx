@@ -5,19 +5,19 @@ export default function ClientInfoPanel({ client }) {
     if (!client) return null;
 
     const InfoItem = ({ icon: Icon, label, value }) => (
-        <div className="rounded-xl border border-crm-border bg-crm-bg p-4">
+        <div className="min-w-0 rounded-xl border border-crm-border bg-crm-bg p-4">
             <div className="mb-1 flex items-center gap-2 text-crm-fg-muted">
-                <Icon size={14} />
+                <Icon size={14} className="shrink-0" />
                 <span className="text-[11px] font-bold uppercase tracking-[0.08em]">{label}</span>
             </div>
-            <div className="text-sm font-semibold text-crm-fg">
+            <div className="min-w-0 max-w-full whitespace-normal text-sm font-semibold text-crm-fg [overflow-wrap:anywhere]">
                 {value || <span className="font-normal italic text-crm-fg-subtle">No especificado</span>}
             </div>
         </div>
     );
 
     return (
-        <div className="flex h-full flex-col rounded-xl border border-crm-border bg-crm-surface p-5">
+        <div className="flex h-full min-w-0 flex-col rounded-xl border border-crm-border bg-crm-surface p-5">
             <h3 className="m-0 mb-5 flex items-center gap-2 text-lg font-bold text-crm-fg">
                 <FileText size={19} className="text-crm-red" />
                 Datos del cliente
