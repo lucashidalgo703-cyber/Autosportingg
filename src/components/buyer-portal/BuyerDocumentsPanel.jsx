@@ -6,10 +6,10 @@ import { hasPermission, PERMISSIONS } from '../../utils/adminPermissions';
 import PrivateAttachment from './PrivateAttachment';
 import { documentRequirements, documentStatus, portalDate, portalRequest, vehicleLabel } from './portalClient';
 
-export default function BuyerDocumentsPanel({ saleId, tradeInId, carId }) {
+export default function BuyerDocumentsPanel({ saleId, tradeInId, carId, initiallyOpen = false, readOnly = false, title = 'Documentación entregada por el cliente' }) {
     const { token, user } = useAuth();
-    const canReview = hasPermission(user, PERMISSIONS.VENTAS_WRITE) && (hasPermission(user, PERMISSIONS.DOCUMENTACION_WRITE) || hasPermission(user, PERMISSIONS.STOCK_WRITE));
-    const [open, setOpen] = useState(false);
+    const canReview = !readOnly && hasPermission(user, PERMISSIONS.VENTAS_WRITE) && (hasPermission(user, PERMISSIONS.DOCUMENTACION_WRITE) || hasPermission(user, PERMISSIONS.STOCK_WRITE));
+    const [open, setOpen] = useState(initiallyOpen);
     const [data, setData] = useState(null);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
@@ -58,7 +58,7 @@ export default function BuyerDocumentsPanel({ saleId, tradeInId, carId }) {
         {entry.history?.length > 0 && <details className="text-xs text-neutral-400"><summary className="cursor-pointer">Historial de revisión</summary><ul className="mt-2 space-y-1">{entry.history.map((item, index) => <li key={item.id || index}>{portalDate(item.at || item.date)} · {documentStatus(item.status)}{item.reason ? ` · ${item.reason}` : ''}</li>)}</ul></details>}
     </article>;
     return <details className="min-w-0 rounded-xl border border-crm-border bg-crm-surface" open={open} onToggle={event => setOpen(event.currentTarget.open)}>
-        <summary className="flex min-h-12 cursor-pointer items-center gap-2 px-4 py-3 text-sm font-bold text-crm-fg"><FileCheck2 size={17} className="shrink-0 text-blue-400"/>Documentación entregada por el cliente</summary>
+        <summary className="flex min-h-12 cursor-pointer items-center gap-2 px-4 py-3 text-sm font-bold text-crm-fg"><FileCheck2 size={17} className="shrink-0 text-blue-400"/>{title}</summary>
         {open && <div className="min-w-0 space-y-4 border-t border-crm-border p-3 sm:p-4">
             <p className="text-xs leading-relaxed text-crm-fg-muted">Legajo de la unidad recibida, conservado desde el preingreso. Una copia digital, su revisión y la recepción física del original son estados distintos.</p>
             {data?.vehicles?.length > 1 && <label className="block text-sm text-crm-fg-muted">Unidad del legajo<select value={selectedVehicle} onChange={event => setSelectedVehicle(event.target.value)} className="mt-1 min-h-11 w-full rounded-lg border border-crm-border bg-crm-bg p-2 text-crm-fg"><option value="">Seleccionar unidad</option>{data.vehicles.map(vehicle => <option key={`${vehicle.saleId}:${vehicle.tradeInId || vehicle.id}`} value={`${vehicle.saleId}:${vehicle.tradeInId || vehicle.id}`}>{vehicleLabel(vehicle)} · {vehicle.plate || 'Sin patente'}</option>)}</select></label>}
@@ -66,7 +66,8 @@ export default function BuyerDocumentsPanel({ saleId, tradeInId, carId }) {
             {loading && <p role="status" className="text-sm text-crm-fg-muted">Cargando legajo privado…</p>}
             {error && <p role="alert" className="text-sm text-red-300">{error}</p>}
             {notice && <p role="status" className="text-sm text-emerald-300">{notice}</p>}
-            {data && !loading && <><p className="text-xs text-crm-fg-muted">{groups.filter(group => group.complete).length} de 6 requisitos con copia digital completa · {entries.filter(entry => entry.isCurrent !== false).length} archivos vigentes</p><div className="space-y-3">{requirements.map(requirement => {
+            {data && !loading && !contextTradeInId && <p className="text-sm text-crm-fg-muted">Esta operación todavía no tiene un legajo de vehículo recibido para mostrar.</p>}
+            {data && !loading && contextTradeInId && <><p className="text-xs text-crm-fg-muted">{groups.filter(group => group.complete).length} de 6 requisitos con copia digital completa · {entries.filter(entry => entry.isCurrent !== false).length} archivos vigentes</p><div className="space-y-3">{requirements.map(requirement => {
                 const group = groups.find(item => item.key === requirement.key);
                 const current = (group?.entries || []).filter(entry => entry.isCurrent !== false);
                 const previous = (group?.entries || []).filter(entry => entry.isCurrent === false);

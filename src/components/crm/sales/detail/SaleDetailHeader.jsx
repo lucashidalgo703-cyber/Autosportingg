@@ -2,11 +2,14 @@ import React from 'react';
 import Link from 'next/link';
 import { ArrowLeft, Handshake, CarFront, UserRound, CalendarDays } from 'lucide-react';
 import SaleStatusBadge from '../SaleStatusBadge';
+import { crmReturnLabel, crmReturnPath } from '../../../../utils/crmReturnNavigation';
 
-export default function SaleDetailHeader({ sale, actions }) {
+export default function SaleDetailHeader({ sale, actions, returnTo }) {
     if (!sale) return null;
     const vehicleName = [sale.vehicleId?.brand || sale.vehicleId?.make, sale.vehicleId?.name || sale.vehicleId?.model].filter(Boolean).join(' ') || 'Vehículo por vincular';
     const buyerName = sale.clientId?.fullName || sale.buyerName || 'Comprador por vincular';
+    const backHref = crmReturnPath(returnTo) || '/admin/ventas';
+    const backLabel = crmReturnLabel(backHref);
 
     return (
         <div className="rounded-2xl border border-crm-border bg-gradient-to-br from-crm-surface-raised to-crm-surface p-4 shadow-[var(--crm-shadow-card)] sm:p-5">
@@ -14,9 +17,10 @@ export default function SaleDetailHeader({ sale, actions }) {
                 <div className="min-w-0">
                     <div className="flex items-start gap-3">
                         <Link
-                            href="/admin/ventas"
+                            href={backHref}
                             className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-crm-border bg-crm-surface text-crm-fg-muted no-underline transition-colors hover:bg-crm-surface-raised hover:text-crm-fg"
-                            title="Volver a Ventas"
+                            title={backLabel}
+                            aria-label={backLabel}
                         >
                             <ArrowLeft size={18} />
                         </Link>

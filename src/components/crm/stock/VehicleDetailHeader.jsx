@@ -3,17 +3,19 @@ import Link from 'next/link';
 import { ArrowLeft, Lock } from 'lucide-react';
 import VehicleStatusBadge from './VehicleStatusBadge';
 import VehicleRotationAlert from './VehicleRotationAlert';
+import { crmReturnLabel, crmReturnPath } from '../../../utils/crmReturnNavigation';
 
-export default function VehicleDetailHeader({ vehicle, activeReservation }) {
+export default function VehicleDetailHeader({ vehicle, activeReservation, returnTo }) {
+    const backHref = crmReturnPath(returnTo) || '/admin/stock';
     return (
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-crm-surface p-6 rounded-xl border border-crm-border">
             <div className="flex flex-col gap-2">
                 <Link 
-                    href="/admin/stock"
+                    href={backHref}
                     className="flex items-center gap-2 text-sm text-crm-fg-muted hover:text-white transition-colors w-fit mb-2"
                 >
                     <ArrowLeft size={16} />
-                    Volver al Stock
+                    {crmReturnLabel(backHref)}
                 </Link>
                 <h1 className="text-2xl md:text-3xl font-bold text-white m-0">
                     {vehicle.marca} {vehicle.modelo} <span className="font-light text-crm-fg-muted">| {vehicle.año}</span>

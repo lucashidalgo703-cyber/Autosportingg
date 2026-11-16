@@ -100,21 +100,22 @@ try {
         assert.match(await requirementForm.getByLabel('Elegir foto o PDF', { exact: true }).getAttribute('accept'), /application\/pdf/);
     }
     await buyer.screenshot({ path: path.join(output, 'portal-carga-por-requisito.png'), fullPage: true });
-    async function upload(requirementKey, description, number, side) {
+    async function upload(requirementKey, number, side) {
         const form = buyer.locator(`[data-upload-requirement="${requirementKey}"]`);
         await form.getByLabel('Elegir foto o PDF', { exact: true }).setInputFiles({ name: 'documento-ficticio.png', mimeType: 'image/png', buffer: png });
         if (requirementKey === 'registration_cards') { await form.getByLabel('Número de cédula', { exact: true }).fill(String(number)); await form.getByLabel('Lado', { exact: true }).selectOption(side); }
-        else { await form.getByLabel('Número de página o PDF', { exact: true }).fill(String(number)); await form.getByLabel('Fecha de emisión', { exact: true }).fill(new Date().toISOString().slice(0, 10)); }
-        await form.getByLabel('Descripción de esta foto o PDF', { exact: true }).fill(description);
+        else { await form.getByLabel('Número de página o PDF', { exact: true }).fill(String(number)); }
+        assert.equal(await form.getByLabel('Descripción de esta foto o PDF', { exact: true }).count(), 0);
+        assert.equal(await form.getByLabel('Fecha de emisión', { exact: true }).count(), 0);
         const saved = responseFor(buyer, response => response.url().endsWith('/documents') && response.request().method() === 'POST');
         await form.getByRole('button', { name: 'Guardar este archivo', exact: true }).click();
         assert.ok([200, 201].includes((await saved).status()));
         await form.getByRole('status').filter({ hasText: 'Carga guardada:' }).waitFor();
     }
-    await upload('registration_cards', 'Cédula 1 · Frente', 1, 'front');
-    await upload('registration_cards', 'Cédula 1 · Dorso', 1, 'back');
-    await upload('police_check', 'Formulario 12 · Página 1', 1);
-    await upload('police_check', 'Formulario 12 · Página 2', 2);
+    await upload('registration_cards', 1, 'front');
+    await upload('registration_cards', 1, 'back');
+    await upload('police_check', 1);
+    await upload('police_check', 2);
     console.log('ok - cuatro fotos individuales guardadas');
     assert.equal(await buyer.locator('[data-document-entry]').count(), 4);
     await buyer.waitForFunction(() => {
@@ -153,7 +154,6 @@ try {
     const replacementForm = buyer.locator('[data-upload-requirement="registration_cards"]');
     await replacementForm.getByLabel('Elegir foto o PDF', { exact: true }).setInputFiles({ name: 'frente-corregido.png', mimeType: 'image/png', buffer: png });
     await replacementForm.getByLabel('Nueva foto o reemplazo', { exact: true }).selectOption(frontId);
-    await replacementForm.getByLabel('Descripción de esta foto o PDF', { exact: true }).fill('Cédula 1 · Frente corregido');
     const replaced = responseFor(buyer, response => response.url().endsWith('/documents') && response.request().method() === 'POST');
     await replacementForm.getByRole('button', { name: 'Guardar este archivo', exact: true }).click();
     assert.ok([200, 201].includes((await replaced).status()));

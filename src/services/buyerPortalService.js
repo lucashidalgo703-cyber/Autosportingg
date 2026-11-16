@@ -57,6 +57,17 @@ export async function adminSale(user, saleId, write = false) {
     if (!sale || (user.role === 'ventas' && !isMySaleOrReservation(sale, user))) fail('No encontré la venta.', 404);
     return sale;
 }
+async function adminDocumentSale(user, saleId) {
+    if (!validId(saleId)) fail('No encontré la venta.', 404);
+    const salesAccess = hasPermission(user, PERMISSIONS.VENTAS_READ);
+    if (!salesAccess && !hasPermission(user, PERMISSIONS.GESTORIA_READ)) fail('No tenés permiso para consultar esta documentación.', 403);
+    const sale = await Sale.findById(saleId).lean();
+    if (!sale || user.role === 'ventas' && !isMySaleOrReservation(sale, user)) fail('No encontré la venta.', 404);
+    // Gestoría can consult the legajo of its linked operations. A read-only
+    // document viewer does not grant access to unrelated commercial records.
+    if (!salesAccess && !await Gestoria.exists({ saleId: sale._id })) fail('No encontré documentación de este trámite.', 404);
+    return sale;
+}
 async function livePortal(token) {
     if (!/^[A-Za-z0-9_-]{43}$/.test(token || '')) fail('El enlace no está disponible o venció.', 404);
     const portal = await BuyerPortal.findOne({ tokenHash: hash(token), enabled: true, expiresAt: { $gt: new Date() } }).lean();
@@ -237,7 +248,6 @@ function groupsFor(docs, originals, tradeInId) {
         const entries = docs.filter(doc => idOf(doc.tradeInId) === tradeInId && doc.requirementKey === item.key).map(entryDto);
         const current = entries.filter(entry => entry.isCurrent);
         let complete = current.length > 0 && current.every(entry => entry.status !== 'correction_requested');
-        if (item.requiresIssuedAt && current.some(entry => !entry.issuedAt)) complete = false;
         if (item.key === 'registration_cards') {
             const slots = [...new Set(current.filter(entry => !(entry.mimeType === 'application/pdf' && entry.side === 'other')).map(entry => entry.slot.replace(/-(front|back)$/, '')))];
             complete = complete && slots.every(slot => current.some(entry => entry.slot === slot + '-front') && current.some(entry => entry.slot === slot + '-back'));
@@ -255,7 +265,7 @@ export async function adminDocuments(user, query) {
         saleId = String(sale._id);
         tradeInId = String(sale.tradeIns.find(item => idOf(item.linkedStockCarId) === query.carId)._id);
     }
-    const sale = await adminSale(user, saleId);
+    const sale = await adminDocumentSale(user, saleId);
     const selected = tradeInId ? tradeInFor(sale, tradeInId) : sale.tradeIns?.[0];
     if (!selected) return { saleId, groups: [], requirements: BUYER_REQUIREMENTS, vehicles: [] };
     const data = await portalData(sale, { mode: 'with_trade_in' });
@@ -302,9 +312,14 @@ export async function uploadBuyerDocument(context, input, file) {
     tradeInFor(sale, input.tradeInId);
     const req = requirement(input.requirementKey);
     if (!req || !/^[a-zA-Z0-9_-]{8,128}$/.test(input.requestId || '') || !/^[a-zA-Z0-9_-]{1,80}$/.test(input.slot || '')
-        || !['front', 'back', 'page', 'other'].includes(input.side) || !clean(input.description, 180)) fail('Completá el requisito y la descripción de esta foto o PDF.');
+        || !['front', 'back', 'page', 'other'].includes(input.side)) fail('Revisá el requisito y el archivo que querés cargar.');
     if (!file?.buffer?.length || file.buffer.length > 3 * 1024 * 1024) fail('Cada archivo admite hasta 3 MB.', 413);
     const mimeType = fileType(file.buffer);
+    const number = input.slot.match(/(?:^|-)(\d+)(?:-(?:front|back|complete))?$/)?.[1] || '1';
+    const automaticDescription = mimeType === 'application/pdf' ? `${req.label} · PDF completo`
+        : req.key === 'registration_cards' ? `Cédula ${number} · ${input.side === 'back' ? 'Dorso' : 'Frente'}`
+        : `${req.label} · Página ${number}`;
+    const description = clean(input.description, 180) || automaticDescription;
     if (req.key === 'registration_cards' && mimeType !== 'application/pdf' && !['front', 'back'].includes(input.side)) fail('Identificá frente o dorso de la cédula.');
     if (req.key === 'registration_cards' && ['front', 'back'].includes(input.side) && !input.slot.endsWith('-' + input.side)) fail('Identificá cada cédula y su lado en la misma posición.');
     let issuedAt;
@@ -314,7 +329,6 @@ export async function uploadBuyerDocument(context, input, file) {
             || new Date(value + 'T15:00:00Z').toISOString().slice(0, 10) !== value || value > new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Argentina/Buenos_Aires' }).format(new Date())) fail('Ingresá una fecha de emisión válida, hasta hoy.');
         issuedAt = new Date(value + 'T15:00:00Z');
     }
-    if (req.requiresIssuedAt && !issuedAt) fail('Indicá la fecha de emisión de este documento.');
     await storageReady();
     const fileHash = crypto.createHash('sha256').update(file.buffer).digest('hex');
     const previousRequest = await BuyerPortalDocument.findOne({ saleId: sale._id, requestId: input.requestId }).lean();
@@ -360,7 +374,7 @@ export async function uploadBuyerDocument(context, input, file) {
                 old.isCurrent = false; await old.save({ session });
             }
             const [doc] = await BuyerPortalDocument.create([{ _id: id, saleId: sale._id, tradeInId: input.tradeInId,
-                requirementKey: input.requirementKey, slot: input.slot, description: clean(input.description, 180), side: input.side, issuedAt,
+                requirementKey: input.requirementKey, slot: input.slot, description, side: input.side, issuedAt,
                 fileName: clean(file.originalname?.replace(/[\r\n/\\"<>]/g, '_'), 180) || 'documento', mimeType,
                 byteLength: file.buffer.length, fileHash, encryptedFile: encrypt(file.buffer, fileContext(id)), requestId: input.requestId,
                 version: old ? old.version + 1 : 1, replacesId: old?._id, history: [{ status: 'received', at: new Date(), by: 'buyer' }] }], { session });
@@ -382,7 +396,7 @@ export async function documentAccess(id, context, adminUser) {
     if (!doc) fail('No encontré el archivo.', 404);
     let claims;
     if (adminUser) {
-        await adminSale(adminUser, String(doc.saleId));
+        await adminDocumentSale(adminUser, String(doc.saleId));
         if (!adminUser.sid) fail('Iniciá sesión nuevamente.', 401);
         claims = { actor: 'admin', userId: adminUser.id, sessionId: hash(adminUser.sid) };
     } else {
@@ -416,7 +430,7 @@ export async function readPrivateDocument(id, access) {
         const session = await LoginSession.findOne({ _id: claims.sessionId, userId: claims.userId, revokedAt: null, expiresAt: { $gt: new Date() } }).lean();
         const user = session ? await AdminUser.findById(claims.userId).lean() : null;
         if (!user?.active || session.credentialFingerprint !== credentialFingerprint(user)) fail('La sesión fue revocada.', 401);
-        await adminSale({ ...user, id: String(user._id) }, idOf(doc.saleId));
+        await adminDocumentSale({ ...user, id: String(user._id) }, idOf(doc.saleId));
     } else fail('Archivo no disponible.', 401);
     return { buffer: decrypt(doc.encryptedFile, fileContext(id)), mimeType: doc.mimeType, fileName: doc.fileName };
 }

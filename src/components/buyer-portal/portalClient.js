@@ -50,9 +50,9 @@ export async function portalRequest(url, { token, body, method = 'GET' } = {}) {
 
 export const documentRequirements = [
     { key: 'title', label: 'CAT o título del automotor', guidance: 'Adelantá una foto o el PDF del título. Para modelos anteriores a 2016, la guía de AutoSporting pide presentar el título de propiedad original.' },
-    { key: 'domain_report', label: 'Informe de estado de dominio', guidance: 'Subí el informe completo y su fecha de emisión. Según nuestra guía, su validez estimada es de 30 días.', requiresIssuedAt: true },
+    { key: 'domain_report', label: 'Informe de estado de dominio', guidance: 'Subí el informe completo. Gestoría revisa su vigencia.' },
     { key: 'traffic_report', label: 'SUATS – Informe de infracciones de tránsito', guidance: 'Subí una foto o el PDF completo, actualizado al momento de la operación.' },
-    { key: 'police_check', label: 'Formulario 12 – Verificación policial', guidance: 'Incluí la verificación de chasis y motor y su fecha de emisión. Según nuestra guía, su validez estimada es de 150 días hábiles.', requiresIssuedAt: true },
+    { key: 'police_check', label: 'Formulario 12 – Verificación policial', guidance: 'Subí la verificación de chasis y motor. Gestoría revisa su vigencia.' },
     { key: 'registration_cards', label: 'Cédulas del automotor', guidance: 'Podés entregar varias cédulas del propietario o autorizadas. Identificá el frente y el dorso de cada una.' },
     { key: 'municipal_clearance', label: 'Libre deuda municipal y de infracciones', guidance: 'La guía de AutoSporting pide gestionarlo dentro de las 24 horas previas a la entrega. Los demás documentos se pueden adelantar.' }
 ];

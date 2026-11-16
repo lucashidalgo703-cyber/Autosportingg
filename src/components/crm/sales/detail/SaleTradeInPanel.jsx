@@ -5,8 +5,9 @@ import { useAuth } from '../../../../context/AuthContext';
 import { hasPermission, PERMISSIONS } from '../../../../utils/adminPermissions';
 import ConfirmModal from '../../ui/ConfirmModal';
 import BuyerDocumentsPanel from '../../../buyer-portal/BuyerDocumentsPanel';
+import { withCrmReturn } from '../../../../utils/crmReturnNavigation';
 
-export default function SaleTradeInPanel({ sale, onUpdate }) {
+export default function SaleTradeInPanel({ sale, onUpdate, returnTo }) {
     const { user, token } = useAuth();
     const [isEditing, setIsEditing] = useState(false);
     const [isSaving, setIsSaving] = useState(false);
@@ -305,7 +306,7 @@ export default function SaleTradeInPanel({ sale, onUpdate }) {
 
                                 <div className="flex items-center justify-between mt-3 pt-3 border-t border-crm-border">
                                     {tradeIn.linkedStockCarId ? (
-                                        <Link href={`/admin/stock/${tradeIn.linkedStockCarId}`} className="text-xs font-bold text-blue-400 hover:text-blue-300 flex items-center gap-1 transition-colors">
+                                        <Link href={withCrmReturn(`/admin/stock/${tradeIn.linkedStockCarId}`, returnTo)} className="text-xs font-bold text-blue-400 hover:text-blue-300 flex items-center gap-1 transition-colors">
                                             <CheckCircle2 size={12} />
                                             En Stock
                                         </Link>

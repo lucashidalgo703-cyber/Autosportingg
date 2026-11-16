@@ -4,7 +4,7 @@ import { useParams } from 'next/navigation';
 import { LockKeyhole } from 'lucide-react';
 import BuyerPortalView from '../../../components/buyer-portal/BuyerPortalView';
 import BuyerPortalBrand from '../../../components/buyer-portal/BuyerPortalBrand';
-import { portalDate, portalRequest } from '../../../components/buyer-portal/portalClient';
+import { portalRequest } from '../../../components/buyer-portal/portalClient';
 
 export default function BuyerPortalPage() {
     const { token: linkToken } = useParams();
@@ -122,13 +122,11 @@ export default function BuyerPortalPage() {
         } finally { setBusy(false); }
     };
     const remaining = Math.max(0, Math.ceil((resendAt - clock) / 1000));
-    return <main id="main-content" className="min-h-screen bg-neutral-950 px-3 py-8 text-white sm:px-5">
+    return <main id="main-content" className="min-h-screen bg-neutral-950 px-3 py-8 uppercase text-white sm:px-5 [&_button]:uppercase [&_select]:uppercase [&_input]:uppercase [&_textarea]:uppercase">
         <div className="mx-auto w-full max-w-3xl">
             {loading ? <p role="status" className="py-12 text-center text-neutral-400">Abriendo tu portal privado…</p> : data ? <>
                 {error && <p role="alert" className="mb-3 rounded-xl border border-red-500/30 bg-red-500/10 p-3 text-sm text-red-200">{error}</p>}
                 <BuyerPortalView data={data} onUpload={upload} requestAccess={requestAccess} onRefresh={() => { void refresh().catch(() => {}); }}/>
-                {sessionExpiresAt && <p className="mt-4 text-xs text-neutral-400">Acceso guardado en este navegador hasta el {portalDate(sessionExpiresAt)}.</p>}
-                <p className="mt-3 text-xs leading-relaxed text-neutral-400">Para que AutoSporting pueda acompañarte, registramos cuándo abrís este portal, el tipo de navegador y sistema operativo, y una ubicación aproximada si está disponible. Estos datos se conservan por un máximo de 30 días desde que verificás tu correo.</p>
                 <button type="button" onClick={logout} disabled={busy} className="mt-3 min-h-11 rounded-lg border border-solid border-neutral-700 px-3 text-sm text-neutral-300 disabled:opacity-50">{busy ? 'Cerrando acceso…' : 'Salir y olvidar este dispositivo'}</button>
             </> : <section className="mx-auto max-w-md space-y-5 rounded-2xl border border-neutral-700 bg-neutral-900 p-5 sm:p-7">
                 <BuyerPortalBrand/>
@@ -136,7 +134,6 @@ export default function BuyerPortalPage() {
                 <h1 className="text-2xl font-extrabold text-white">{fatal ? 'Este enlace no está disponible' : 'Verificá tu acceso'}</h1>
                 {!fatal && <><p className="text-sm text-neutral-300">Para consultar tu operación, enviaremos un código a la casilla que tenés registrada en AutoSporting.</p><p className="break-all text-sm font-semibold text-white">{info?.maskedDestination || 'Correo registrado del comprador'}</p>
                     <p className="text-sm text-neutral-400">Después de verificar el código, este navegador recordará tu acceso hasta por 30 días, mientras el enlace siga vigente.</p>
-                    <p className="text-xs leading-relaxed text-neutral-400">Al abrir el portal verificado, AutoSporting podrá ver la fecha de acceso, el tipo de navegador y sistema operativo y una ubicación aproximada si está disponible. Se conservan por un máximo de 30 días desde que verificás tu correo.</p>
                     {challenge ? <form onSubmit={verify} className="space-y-4"><label className="block space-y-2 text-sm text-neutral-300">Código de 6 dígitos<input autoComplete="one-time-code" inputMode="numeric" pattern="[0-9]{6}" maxLength={6} value={code} onChange={event => setCode(event.target.value.replace(/\D/g, '').slice(0, 6))} className="min-h-12 w-full rounded-xl border border-neutral-700 bg-neutral-950 p-3 text-center font-mono text-2xl tracking-[0.3em] text-white" required disabled={busy}/></label><button type="submit" disabled={busy || code.length !== 6} className="min-h-11 w-full rounded-xl bg-red-600 px-4 font-bold text-white disabled:opacity-50">{busy ? 'Verificando…' : 'Verificar y abrir mi portal'}</button><button type="button" onClick={sendCode} disabled={busy || remaining > 0} className="min-h-11 w-full rounded-xl border border-neutral-700 px-3 text-sm text-neutral-300 disabled:opacity-50">{remaining ? `Reenviar código en ${remaining} s` : 'Reenviar código'}</button></form> : <button type="button" onClick={sendCode} disabled={busy} className="min-h-11 w-full rounded-xl bg-red-600 px-4 font-bold text-white disabled:opacity-50">{busy ? 'Enviando código…' : 'Enviar código a mi correo'}</button>}
                     <p className="text-xs leading-relaxed text-neutral-400">Si esa casilla ya no te corresponde, pedile a AutoSporting que revise tus datos antes de continuar.</p>
                 </>}

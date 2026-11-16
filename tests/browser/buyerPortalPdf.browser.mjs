@@ -48,23 +48,31 @@ try {
     await page.getByLabel('Código de 6 dígitos', { exact: true }).fill(code);
     await page.getByRole('button', { name: 'Verificar y abrir mi portal', exact: true }).click();
     await page.getByRole('heading', { name: 'El vehículo que entrego', exact: true }).waitFor();
+    const restored = await page.request.get(base + '/api/buyer-portal/' + configuration.url.split('/').at(-1) + '/session');
+    assert.equal(restored.status(), 200);
+    const initialData = await restored.json();
+    const uploadedIds = [];
     for (const key of ['title', 'domain_report', 'traffic_report', 'police_check', 'registration_cards', 'municipal_clearance']) {
         const group = page.locator(`[data-requirement="${key}"]`);
         const form = group.locator('[data-upload-requirement]');
-        const description = `${key} · PDF completo`;
         const before = await group.locator('[data-document-entry][data-document-current="true"]').count();
-        const existing = group.locator('[data-document-entry][data-document-current="true"]').filter({ has: page.getByText(description, { exact: true }) });
-        const replacesId = await existing.count() ? await existing.first().getAttribute('data-document-entry') : '';
+        const existing = initialData.tradeIns[0].groups.find(item => item.key === key)?.entries?.find(entry => entry.isCurrent !== false && entry.mimeType === 'application/pdf');
+        const replacesId = existing?.id || '';
         await form.getByLabel('Elegir foto o PDF', { exact: true }).setInputFiles({ name: `${key}-ficticio-completo.pdf`, mimeType: 'application/pdf', buffer: pdf });
         if (replacesId) await form.getByLabel('Nueva foto o reemplazo', { exact: true }).selectOption(replacesId);
-        await form.getByLabel('Descripción de esta foto o PDF', { exact: true }).fill(description);
-        if (['domain_report', 'police_check'].includes(key)) await form.getByLabel('Fecha de emisión', { exact: true }).fill(new Date().toISOString().slice(0, 10));
+        assert.equal(await form.getByLabel('Descripción de esta foto o PDF', { exact: true }).count(), 0);
+        assert.equal(await form.getByLabel('Fecha de emisión', { exact: true }).count(), 0);
         const upload = page.waitForResponse(response => response.url().endsWith('/documents') && response.request().method() === 'POST'); upload.catch(() => {});
         await form.getByRole('button', { name: 'Guardar este archivo', exact: true }).click();
-        assert.ok([200, 201].includes((await upload).status()));
+        const saved = await upload;
+        assert.ok([200, 201].includes(saved.status()));
+        const entry = (await saved.json()).entry;
+        assert.ok(entry.description, 'the stored file retains an automatic internal label');
+        assert.equal(Boolean(entry.issuedAt), false, 'buyer PDF uploads require no issuance date');
+        uploadedIds.push(entry.id);
         await form.getByRole('status').filter({ hasText: 'Carga guardada:' }).waitFor();
         assert.equal(await group.locator('[data-document-entry][data-document-current="true"]').count(), before + (replacesId ? 0 : 1));
-        const frame = group.locator('[data-document-entry][data-document-current="true"]').getByTitle(`Vista previa de ${description}`, { exact: true });
+        const frame = group.locator(`[data-document-entry="${entry.id}"][data-document-current="true"] iframe`);
         await frame.waitFor();
         const signedUrl = await frame.getAttribute('src');
         const fetched = await page.request.get(new URL(signedUrl, base).href);
@@ -75,8 +83,8 @@ try {
     }
     await page.reload({ waitUntil: 'domcontentloaded' });
     await page.getByRole('heading', { name: 'El vehículo que entrego', exact: true }).waitFor();
-    for (const key of ['title', 'domain_report', 'traffic_report', 'police_check', 'registration_cards', 'municipal_clearance']) {
-        await page.locator(`[data-requirement="${key}"] [data-document-entry][data-document-current="true"]`).getByTitle(`Vista previa de ${key} · PDF completo`, { exact: true }).waitFor();
+    for (const id of uploadedIds) {
+        await page.locator(`[data-document-entry="${id}"][data-document-current="true"] iframe`).waitFor();
     }
     assert.equal(await page.locator('[data-document-entry][data-document-current="true"] iframe').count(), 6);
     assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth + 2), false);

@@ -2,8 +2,9 @@ import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { Link2, CarFront, User, CalendarClock, ChevronRight, AlertTriangle, Search, Handshake, RefreshCw } from 'lucide-react';
 import SaleChangeVehicleModal from './SaleChangeVehicleModal';
+import { withCrmReturn } from '../../../../utils/crmReturnNavigation';
 
-export default function SaleLinkedEntitiesPanel({ sale, onUpdate }) {
+export default function SaleLinkedEntitiesPanel({ sale, onUpdate, returnTo }) {
     const [clientSearch, setClientSearch] = useState('');
     const [clientSearchResults, setClientSearchResults] = useState([]);
     const [searchingClient, setSearchingClient] = useState(false);
@@ -223,7 +224,7 @@ export default function SaleLinkedEntitiesPanel({ sale, onUpdate }) {
 
     const vehicleName = sale.vehicleId ? `${sale.vehicleId.brand} ${sale.vehicleId.name}` : 'Vehículo no asignado';
     const vehicleVin = sale.vehicleId?.plateOrVin || '';
-    const vehicleHref = sale.vehicleId?._id ? `/admin/stock/${sale.vehicleId._id}` : '#';
+    const vehicleHref = sale.vehicleId?._id ? withCrmReturn(`/admin/stock/${sale.vehicleId._id}`, returnTo) : '#';
 
     const clientName = sale.clientId?.fullName || sale.clientId?.firstName || sale.leadId?.name || 'Sin Nombre';
     const clientPhone = sale.clientId?.phone || sale.leadId?.phone || 'Sin teléfono';

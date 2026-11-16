@@ -1,7 +1,7 @@
 "use client";
 import toast from 'react-hot-toast';
 import React, { useEffect, useState } from 'react';
-import { useParams, useRouter } from 'next/navigation';
+import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import { useAdminSales } from '../../../../hooks/useAdminSales';
 import SaleDetailHeader from '../../../../components/crm/sales/detail/SaleDetailHeader';
 import SaleCommercialPanel from '../../../../components/crm/sales/detail/SaleCommercialPanel';
@@ -25,10 +25,14 @@ import { ShieldAlert, Target, XCircle, Info, CheckCircle, Handshake, ClipboardCh
 import { useAuth } from '../../../../context/AuthContext';
 import { hasPermission, PERMISSIONS } from '../../../../utils/adminPermissions';
 import ConfirmModal from '../../../../components/crm/ui/ConfirmModal';
+import { crmReturnLabel, crmReturnPath } from '../../../../utils/crmReturnNavigation';
 
 export default function SaleDetailPage() {
     const { id } = useParams();
     const router = useRouter();
+    const searchParams = useSearchParams();
+    const returnTo = crmReturnPath(searchParams.get('returnTo'));
+    const backHref = returnTo || '/admin/ventas';
     const { fetchSaleById, updateSale, previewInstallmentPlanCancel, cancelInstallmentPlan, loading, error } = useAdminSales();
     const { createTask } = useAdminCrmTasks();
     const { user, token } = useAuth();
@@ -170,10 +174,10 @@ export default function SaleDetailPage() {
                         <p>{error || 'Venta no encontrada'}</p>
                     </div>
                     <button 
-                        onClick={() => router.push('/admin/ventas')}
+                        onClick={() => router.push(backHref)}
                         className="mt-4 rounded-lg border border-crm-border bg-crm-surface px-6 py-2 text-crm-fg transition-colors hover:bg-crm-surface-raised"
                     >
-                        Volver a Ventas
+                        {crmReturnLabel(backHref)}
                     </button>
                 </div>
             </div>
@@ -185,6 +189,7 @@ export default function SaleDetailPage() {
             
             <SaleDetailHeader 
                 sale={sale} 
+                returnTo={returnTo}
                 actions={
                     <div className="flex w-full flex-wrap gap-2 lg:justify-end">
                         {sale.status === 'borrador' && (
@@ -239,9 +244,9 @@ export default function SaleDetailPage() {
             <section role="tabpanel" id="sale-section-operation" aria-labelledby="sale-section-tab-operation" hidden={selectedSection !== 'operation'} className="min-w-0 outline-none">
                 <div className="grid items-start gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(0,1.25fr)]">
                     <div className="min-w-0 space-y-4">
-                        <SaleLinkedEntitiesPanel sale={sale} onUpdate={loadSale}/>
+                        <SaleLinkedEntitiesPanel sale={sale} onUpdate={loadSale} returnTo={returnTo}/>
                         <SaleStatusPanel sale={sale} onSave={handleSave}/>
-                        <SaleTradeInPanel sale={sale} onUpdate={loadSale}/>
+                        <SaleTradeInPanel sale={sale} onUpdate={loadSale} returnTo={returnTo}/>
                     </div>
                     <div className="min-w-0">
                         <SaleCommercialPanel sale={sale} onSave={handleSave} planActions={{

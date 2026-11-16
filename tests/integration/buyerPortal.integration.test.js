@@ -98,14 +98,18 @@ try {
     await test('four individual images persist on the correct pre-entry vehicle and complete two of six requirements', async () => {
         const before = await env.models.Car.countDocuments();
         const requests = [
-            { slot: 'cedula-1-front', side: 'front', description: 'Cédula 1 · Frente' },
-            { slot: 'cedula-1-back', side: 'back', description: 'Cédula 1 · Dorso' },
-            { key: 'police_check', slot: 'police-page-1', side: 'page', description: 'Formulario 12 · Página 1', issuedAt: '2026-11-16' },
-            { key: 'police_check', slot: 'police-page-2', side: 'page', description: 'Formulario 12 · Página 2', issuedAt: '2026-11-16' }
+            { slot: 'cedula-1-front', side: 'front' },
+            { slot: 'cedula-1-back', side: 'back' },
+            { key: 'police_check', slot: 'police-page-1', side: 'page' },
+            { key: 'police_check', slot: 'police-page-2', side: 'page' }
         ];
         const docs = [];
         for (const request of requests) { const result = await upload(request); status(result, 200); docs.push(result.json.entry); }
         [firstDoc, cardBack, policeOne, policeTwo] = docs;
+        assert.equal(firstDoc.description, 'Cédula 1 · Frente');
+        assert.equal(cardBack.description, 'Cédula 1 · Dorso');
+        assert.ok(docs.every(doc => typeof doc.description === 'string' && doc.description.length > 0));
+        assert.ok(docs.every(doc => !doc.issuedAt), 'the buyer no longer needs to declare issuance dates');
         const data = await pub(withToken, 'GET', '/session', undefined, buyerOne); status(data, 200);
         assert.equal(data.json.tradeIns[0].id, tid); assert.equal(data.json.tradeIns[0].carId, null);
         assert.deepEqual(data.json.progress, { completed: 2, total: 6 });
@@ -135,13 +139,18 @@ try {
         assert.deepEqual(data.json.progress, { completed: 2, total: 6 });
         assert.equal(data.json.tradeIns[0].groups.find(group => group.key === 'title').originalReceived, true);
     });
-    await test('simultaneous retries create one file; untrusted types, missing issuance dates and cross-sale replacements fail', async () => {
+    await test('simultaneous retries create one file; dates and descriptions are optional while invalid supplied dates and cross-sale replacements fail', async () => {
         const requestId = crypto.randomUUID(), input = { requestId, slot: 'traffic-page-1', side: 'page', description: 'SUATS · Página 1', key: 'traffic_report' };
         const [a, b] = await Promise.all([upload(input), upload(input)]); status(a, 200); status(b, 200);
         assert.equal(a.json.entry.id, b.json.entry.id);
         assert.equal(await BuyerPortalDocument.countDocuments({ saleId: sid, requestId }), 1);
         status(await upload({ key: 'title', slot: 'bad', side: 'page', description: 'archivo', buffer: Buffer.from('<svg onload="alert(1)">') }), 400);
-        status(await upload({ key: 'domain_report', slot: 'domain-1', side: 'page', description: 'Informe sin fecha' }), 400);
+        const domain = await upload({ key: 'domain_report', slot: 'domain-1', side: 'page' }); status(domain, 200);
+        assert.ok(domain.json.entry.description);
+        assert.equal(Boolean(domain.json.entry.issuedAt), false);
+        status(await upload({ key: 'domain_report', slot: 'domain-bad-date', side: 'page', issuedAt: '2026-99-99' }), 400);
+        const optionalData = await pub(withToken, 'GET', '/session', undefined, buyerOne); status(optionalData, 200);
+        assert.equal(optionalData.json.tradeIns[0].groups.find(group => group.key === 'domain_report').complete, true);
         status(await upload({ key: 'formulario08', slot: '08', side: 'page', description: '08' }), 400);
         status(await upload({ link: withoutToken, session: buyerTwo, slot: 'cedula-1-front', side: 'front', description: 'intento de otra venta' }), 403);
         status(await pub(withoutToken, 'POST', '/documents/' + cardBack.id + '/access', {}, buyerTwo), 404);
@@ -169,7 +178,7 @@ try {
         assert.notEqual(renewed.json.url.split('/').at(-1), withToken);
         withToken = renewed.json.url.split('/').at(-1);
         buyerOne = await login(withToken, portalFixture.buyerOneEmail);
-        assert.equal((await pub(withToken, 'GET', '/session', undefined, buyerOne)).json.tradeIns[0].groups.flatMap(group => group.entries).length, 6);
+        assert.equal((await pub(withToken, 'GET', '/session', undefined, buyerOne)).json.tradeIns[0].groups.flatMap(group => group.entries).length, 7);
         status(await env.call('POST', '/api/logout', {}, fixture.sessions[0].token), 204);
         assert.equal((await fetch(env.base + adminAccess.json.url)).status, 401);
     });
@@ -179,7 +188,7 @@ try {
         const carId = String(received.json.car._id);
         const legajo = await admin('GET', '/documents?carId=' + carId, undefined, session.token); status(legajo, 200);
         assert.equal(legajo.json.saleId, sid); assert.equal(legajo.json.tradeInId, tid);
-        assert.equal(legajo.json.groups.flatMap(group => group.entries).length, 6);
+        assert.equal(legajo.json.groups.flatMap(group => group.entries).length, 7);
         await env.models.Sale.updateOne({ _id: sid }, { $set: { deliveryStatus: 'listo_para_entregar' } });
         await env.models.Gestoria.updateOne({ saleId: sid }, { $set: { status: 'Transferido' } });
         const updated = await pub(withToken, 'GET', '/session', undefined, buyerOne); status(updated, 200);

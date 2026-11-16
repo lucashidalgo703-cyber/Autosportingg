@@ -2,7 +2,7 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { ArrowLeft } from 'lucide-react';
-import { useParams, useRouter } from 'next/navigation';
+import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import toast from 'react-hot-toast';
 
 import { mapRealCarToCRM } from '../../../../components/crm/stock/vehicleAdapter';
@@ -25,10 +25,13 @@ import { useAdminReservations } from '../../../../hooks/useAdminReservations';
 import VehicleFlyerPdf from '../../../../components/crm/stock/VehicleFlyerPdf';
 import TradeInChainPanel from '../../../../components/crm/stock/TradeInChainPanel';
 import { getActiveOfflineSnapshot } from '../../../../services/offlineSyncService';
+import { crmReturnLabel, crmReturnPath } from '../../../../utils/crmReturnNavigation';
 
 export default function VehicleDetailPage() {
     const params = useParams();
     const router = useRouter();
+    const searchParams = useSearchParams();
+    const returnTo = crmReturnPath(searchParams.get('returnTo'));
     const [vehicle, setVehicle] = useState(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
@@ -207,11 +210,11 @@ export default function VehicleDetailPage() {
                     <p className="text-crm-fg-muted text-sm">El vehículo con ID "{params.id}" no existe en la base de datos de demostración.</p>
                 </div>
                 <Link 
-                    href="/admin/stock"
+                    href={returnTo || '/admin/stock'}
                     className="flex items-center gap-2 px-4 py-2 bg-crm-red text-white rounded-lg hover:bg-crm-red-hover transition-colors font-medium text-sm"
                 >
                     <ArrowLeft size={16} />
-                    Volver al Stock
+                    {crmReturnLabel(returnTo || '/admin/stock')}
                 </Link>
             </div>
         );
@@ -220,7 +223,7 @@ export default function VehicleDetailPage() {
     return (
         <>
                 <div className="flex flex-col gap-6 crm-no-print">
-                    <VehicleDetailHeader vehicle={vehicle} activeReservation={activeReservation} />
+                    <VehicleDetailHeader vehicle={vehicle} activeReservation={activeReservation} returnTo={returnTo} />
                     
                     <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                         {/* Columna Principal (2/3) */}

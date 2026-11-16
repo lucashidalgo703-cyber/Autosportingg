@@ -8,6 +8,8 @@ import CrmButton from '../../../components/crm/ui/CrmButton';
 import ConfirmModal from '../../../components/crm/ui/ConfirmModal';
 import BuyerPortalAccessPanel from '../../../components/buyer-portal/BuyerPortalAccessPanel';
 import GestoriaStatusEmailNotice from '../../../components/buyer-portal/GestoriaStatusEmailNotice';
+import BuyerDocumentsPanel from '../../../components/buyer-portal/BuyerDocumentsPanel';
+import { withCrmReturn } from '../../../utils/crmReturnNavigation';
 import { useAuth } from '../../../context/AuthContext';
 import { hasPermission, PERMISSIONS } from '../../../utils/adminPermissions';
 
@@ -22,6 +24,23 @@ export default function GestoriaPage() {
     const [search, setSearch] = useState('');
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [editingTramite, setEditingTramite] = useState(null);
+    const [documentsSaleId, setDocumentsSaleId] = useState('');
+    useEffect(() => {
+        if (!documentsSaleId) return;
+        const previousFocus = document.activeElement;
+        const previousOverflow = document.body.style.overflow;
+        document.body.style.overflow = 'hidden';
+        const handleKey = event => {
+            if (event.key === 'Escape') { event.preventDefault(); setDocumentsSaleId(''); }
+            if (event.key !== 'Tab') return;
+            const controls = [...document.querySelectorAll('[data-gestoria-buyer-documents] a[href], [data-gestoria-buyer-documents] button:not([disabled]), [data-gestoria-buyer-documents] select:not([disabled])')].filter(element => element.offsetParent !== null);
+            const first = controls[0], last = controls.at(-1);
+            if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last?.focus(); }
+            else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first?.focus(); }
+        };
+        document.addEventListener('keydown', handleKey);
+        return () => { document.body.style.overflow = previousOverflow; document.removeEventListener('keydown', handleKey); previousFocus?.focus?.(); };
+    }, [documentsSaleId]);
     const [printModal, setPrintModal] = useState({ isOpen: false, type: '', tramite: null });
     const [formData, setFormData] = useState({
         title: '', type: 'Transferencia Ingreso', vehiclePlate: '', gestorName: '',
@@ -322,11 +341,14 @@ export default function GestoriaPage() {
                                     )}
                                 </div>
                                 {tramite.saleId && (
-                                    <div className="col-span-full mt-2 pt-2 border-t border-crm-border flex items-center justify-between">
+                                    <div className="col-span-full mt-2 space-y-3 border-t border-crm-border pt-2">
+                                        <div className="flex flex-wrap items-center justify-between gap-2">
                                         <span className="text-xs text-crm-fg-muted">Expediente Vinculado:</span>
-                                        <a href={`/admin/ventas/${tramite.saleId}`} className="text-xs font-bold text-crm-red hover:text-red-400 uppercase">
+                                        <a href={withCrmReturn(`/admin/ventas/${tramite.saleId}`, '/admin/gestoria')} className="inline-flex min-h-11 items-center text-xs font-bold text-crm-red hover:text-red-400 uppercase">
                                             Ir al Expediente
                                         </a>
+                                        </div>
+                                        {hasPermission(user, PERMISSIONS.GESTORIA_READ) && <button type="button" onClick={() => setDocumentsSaleId(String(tramite.saleId?._id || tramite.saleId))} className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-lg border border-solid border-blue-400/30 bg-blue-500/10 px-3 text-xs font-bold text-blue-300"><FileSignature size={16}/>Ver documentación del cliente</button>}
                                     </div>
                                 )}
                             </div>
@@ -364,6 +386,7 @@ export default function GestoriaPage() {
                         </div>
                         <form onSubmit={handleSubmit} className="p-6 space-y-6">
                             <BuyerPortalAccessPanel key={formData.saleId || 'unlinked'} saleId={formData.saleId}/>
+                            {formData.saleId && hasPermission(user, PERMISSIONS.GESTORIA_READ) && <button type="button" onClick={() => setDocumentsSaleId(formData.saleId)} className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-xl border border-solid border-blue-400/30 bg-blue-500/10 px-4 text-sm font-bold text-blue-300"><FileSignature size={17}/>Ver documentación del cliente</button>}
                             {editingId && canReadEmailHistory && <div className="min-w-0 space-y-2" aria-label="Último aviso por correo">
                                 {!modalEmailHistory ? <p role="status" className="text-xs text-crm-fg-muted">Consultando el último aviso por correo…</p> : modalEmailHistory.error ? <p role="alert" className="text-xs text-amber-300">{modalEmailHistory.error}</p> : <GestoriaStatusEmailNotice notification={modalEmailHistory.notification} historical retrying={retryingEmail} retryError={retryError} onRetry={canRetryEmail ? () => handleRetryEmail(modalEmailHistory) : undefined}/>}
                             </div>}
@@ -542,6 +565,13 @@ export default function GestoriaPage() {
                     </div>
                 </div>
             )}
+
+            {documentsSaleId && <div className="fixed inset-0 z-[120] overflow-y-auto bg-black/85 p-3 sm:p-6" role="dialog" aria-modal="true" aria-labelledby="gestoria-documents-title" data-gestoria-buyer-documents>
+                <div className="mx-auto w-full max-w-4xl space-y-3 rounded-2xl border border-solid border-crm-border bg-crm-surface p-3 sm:p-5">
+                    <div className="flex items-center justify-between gap-3"><h2 id="gestoria-documents-title" className="text-lg font-bold text-crm-fg">Documentación del cliente</h2><button type="button" autoFocus onClick={() => setDocumentsSaleId('')} aria-label="Cerrar documentación del cliente" className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-lg border border-solid border-crm-border text-crm-fg"><X size={20}/></button></div>
+                    <BuyerDocumentsPanel key={documentsSaleId} saleId={documentsSaleId} initiallyOpen readOnly title="Archivos del vehículo recibido"/>
+                </div>
+            </div>}
 
             <ConfirmModal
                 isOpen={confirmDeleteModal.isOpen}

@@ -1,6 +1,6 @@
 "use client";
 import { useRef, useState } from 'react';
-import { Camera, CarFront, CheckCircle2, FileUp, RefreshCw } from 'lucide-react';
+import { Camera, CarFront, FileUp, RefreshCw } from 'lucide-react';
 import PrivateAttachment from './PrivateAttachment';
 import BuyerPortalBrand from './BuyerPortalBrand';
 import BuyerProcedureTimeline from './BuyerProcedureTimeline';
@@ -13,18 +13,16 @@ const procedureLabels = { pendiente: 'Pendiente', en_proceso: 'En proceso', obse
 function VehiclePhoto({ vehicle }) {
     const [failedSource, setFailedSource] = useState('');
     const source = vehicle?.image;
-    return <div className="flex aspect-[16/9] w-full items-center justify-center overflow-hidden rounded-xl bg-neutral-950" data-portal-vehicle-photo>
-        {source && source !== failedSource ? <img src={source} alt={`Foto de ${vehicleLabel(vehicle)}`} referrerPolicy="no-referrer" className="h-full w-full object-cover" onError={() => setFailedSource(source)} /> : <div className="flex flex-col items-center gap-2 p-4 text-center text-neutral-500"><CarFront size={36} aria-hidden="true"/><p className="text-xs">Foto del vehículo no disponible</p></div>}
+    return <div className="flex min-h-40 w-full items-center justify-center overflow-hidden rounded-xl bg-neutral-950" data-portal-vehicle-photo>
+        {source && source !== failedSource ? <img src={source} alt={`Foto de ${vehicleLabel(vehicle)}`} referrerPolicy="no-referrer" className="block h-auto max-h-[26rem] w-full object-contain" onError={() => setFailedSource(source)} /> : <div className="flex flex-col items-center gap-2 p-4 text-center text-neutral-500"><CarFront size={36} aria-hidden="true"/><p className="text-xs">Foto del vehículo no disponible</p></div>}
     </div>;
 }
 
 function UploadForm({ tradeIn, requirement, onUpload, preview }) {
     const requirementKey = requirement.key;
     const [optionsOpen, setOptionsOpen] = useState(false);
-    const [description, setDescription] = useState('');
     const [side, setSide] = useState('front');
     const [number, setNumber] = useState('1');
-    const [issuedAt, setIssuedAt] = useState('');
     const [replacesId, setReplacesId] = useState('');
     const [selectedFile, setSelectedFile] = useState(null);
     const [requestId, setRequestId] = useState('');
@@ -36,7 +34,7 @@ function UploadForm({ tradeIn, requirement, onUpload, preview }) {
     const entries = (tradeIn.groups || []).find(group => group.key === requirementKey)?.entries || [];
     const replaced = entries.find(entry => entry.id === replacesId);
     const card = requirementKey === 'registration_cards';
-    const generatedDescription = selectedFile?.type === 'application/pdf' ? `${requirement?.label} · PDF completo` : card ? `Cédula ${number} · ${side === 'back' ? 'Dorso' : 'Frente'}` : `${requirement?.label} · Página ${number}`;
+    const generatedDescription = replaced?.description || (selectedFile?.type === 'application/pdf' ? `${requirement?.label} · PDF completo` : card ? `Cédula ${number} · ${side === 'back' ? 'Dorso' : 'Frente'}` : `${requirement?.label} · Página ${number}`);
     const chooseFile = file => {
         setSelectedFile(file || null);
         setRequestId(file ? crypto.randomUUID() : '');
@@ -54,15 +52,14 @@ function UploadForm({ tradeIn, requirement, onUpload, preview }) {
             form.set('file', file);
             form.set('tradeInId', tradeIn.id);
             form.set('requirementKey', requirementKey);
-            form.set('description', description.trim() || generatedDescription);
+            form.set('description', generatedDescription);
             form.set('side', replaced?.side || (file.type === 'application/pdf' ? 'other' : card ? side : 'page'));
             form.set('slot', replaced?.slot || (file.type === 'application/pdf' ? (card ? `cedula-${number}-complete` : `${requirementKey}-pdf-${number}`) : card ? `cedula-${number}-${side}` : `${requirementKey}-page-${number}`));
             form.set('requestId', requestId);
-            if (issuedAt) form.set('issuedAt', issuedAt);
             if (replacesId) form.set('replacesId', replacesId);
             await onUpload(form);
-            setMessage(`Carga guardada: ${description.trim() || generatedDescription}.`);
-            setSelectedFile(null); setRequestId(''); setDescription(''); setReplacesId('');
+            setMessage('Carga guardada: archivo recibido.');
+            setSelectedFile(null); setRequestId(''); setReplacesId('');
             if (fileRef.current) fileRef.current.value = '';
             if (cameraRef.current) cameraRef.current.value = '';
             if (card && side === 'front') setSide('back');
@@ -71,7 +68,6 @@ function UploadForm({ tradeIn, requirement, onUpload, preview }) {
         finally { setSaving(false); }
     };
     return <form onSubmit={save} className="min-w-0 space-y-3 border-t border-neutral-800 pt-3" aria-label={`Cargar ${requirement.label} de ${tradeIn.plate || vehicleLabel(tradeIn)}`} data-upload-requirement={requirementKey}>
-        {requirementKey === 'title' && Number(tradeIn.year) < 2016 && <p className="text-sm font-semibold text-amber-200">Por el año de esta unidad, presentá también el título de propiedad original.</p>}
         <fieldset disabled={saving || preview} className="min-w-0 space-y-3 border-0 p-0 disabled:opacity-70">
             <div className="flex flex-wrap gap-2">
                 <button type="button" onClick={() => cameraRef.current?.click()} className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-solid border-neutral-600 bg-neutral-800 px-3 text-sm font-semibold text-white hover:bg-neutral-700"><Camera size={17}/>Sacar foto</button>
@@ -82,10 +78,8 @@ function UploadForm({ tradeIn, requirement, onUpload, preview }) {
             <p className="break-all text-xs text-neutral-400">{selectedFile ? `Seleccionado: ${selectedFile.name}` : 'Podés cargar fotos o un PDF. Guardá cada archivo por separado; tu avance se conserva.'}</p>
             {!optionsOpen && <button type="button" onClick={() => setOptionsOpen(true)} className="min-h-10 text-left text-xs font-semibold text-neutral-300 underline underline-offset-4">Opciones de carga{entries.some(entry => entry.isCurrent !== false) ? ' o reemplazo' : ''}</button>}
             {optionsOpen && <div className="min-w-0 space-y-3 rounded-xl bg-neutral-900 p-3">
-                {entries.some(entry => entry.isCurrent !== false) && <label className="block space-y-1 text-sm text-neutral-300">Nueva foto o reemplazo<select aria-label="Nueva foto o reemplazo" className={input} value={replacesId} onChange={event => { const entry = entries.find(item => item.id === event.target.value); setReplacesId(event.target.value); setDescription(entry?.description || ''); setIssuedAt(entry?.issuedAt?.slice(0, 10) || ''); }}><option value="">Agregar otro archivo</option>{entries.filter(entry => entry.isCurrent !== false).map(entry => <option key={entry.id} value={entry.id}>Reemplazar: {entry.description} ({documentStatus(entry.status)})</option>)}</select></label>}
-                {!replacesId && <div className="grid grid-cols-2 gap-3"><label className="block space-y-1 text-sm text-neutral-300">{card ? 'Número de cédula' : 'Número de página o PDF'}<input className={input} type="number" inputMode="numeric" min="1" max="99" required value={number} onChange={event => setNumber(event.target.value)} /></label>{card && <label className="block space-y-1 text-sm text-neutral-300">Lado<select aria-label="Lado" className={input} value={side} onChange={event => setSide(event.target.value)}><option value="front">Frente</option><option value="back">Dorso</option></select></label>}</div>}
-                <label className="block space-y-1 text-sm text-neutral-300">Descripción de esta foto o PDF<input className={input} maxLength={180} value={description} placeholder={generatedDescription} onChange={event => setDescription(event.target.value)} /></label>
-                {requirement.requiresIssuedAt && <label className="block space-y-1 text-sm text-neutral-300">Fecha de emisión<input className={input} type="date" value={issuedAt} onChange={event => setIssuedAt(event.target.value)} max={new Date().toLocaleDateString('en-CA')} required /></label>}
+                {entries.some(entry => entry.isCurrent !== false) && <label className="block space-y-1 text-sm text-neutral-300">Nueva foto o reemplazo<select aria-label="Nueva foto o reemplazo" className={input} value={replacesId} onChange={event => setReplacesId(event.target.value)}><option value="">Agregar otro archivo</option>{entries.filter(entry => entry.isCurrent !== false).map((entry, index) => <option key={entry.id} value={entry.id}>Reemplazar: {attachmentLabel(entry, requirementKey, index)} ({documentStatus(entry.status)})</option>)}</select></label>}
+                {!replacesId && <div className={card ? 'grid grid-cols-2 gap-3' : 'grid gap-3'}><label className="block space-y-1 text-sm text-neutral-300">{card ? 'Número de cédula' : 'Número de página o PDF'}<input className={input} type="number" inputMode="numeric" min="1" max="99" required value={number} onChange={event => setNumber(event.target.value)} /></label>{card && <label className="block space-y-1 text-sm text-neutral-300">Lado<select aria-label="Lado" className={input} value={side} onChange={event => setSide(event.target.value)}><option value="front">Frente</option><option value="back">Dorso</option></select></label>}</div>}
                 <p className="text-xs text-neutral-400">Fotos JPG, PNG o WebP y PDF; máximo 3 MiB luego de preparar la foto.</p>
                 <button type="submit" disabled={!selectedFile || saving || preview} className="min-h-11 rounded-xl bg-red-600 px-4 py-2 text-sm font-bold text-white disabled:cursor-not-allowed disabled:opacity-50">{saving ? 'Guardando archivo…' : 'Guardar este archivo'}</button>
             </div>}
@@ -95,21 +89,26 @@ function UploadForm({ tradeIn, requirement, onUpload, preview }) {
     </form>;
 }
 
+function attachmentLabel(entry, requirementKey, index) {
+    const card = String(entry.slot || '').match(/^cedula-(\d+)-(front|back|complete)$/);
+    if (requirementKey === 'registration_cards' && card) return `Cédula ${card[1]} · ${card[2] === 'back' ? 'Dorso' : card[2] === 'front' ? 'Frente' : 'PDF completo'}`;
+    const number = String(entry.slot || '').match(/-(?:page|pdf)-(\d+)$/)?.[1] || index + 1;
+    return entry.mimeType === 'application/pdf' ? `PDF ${number}` : `Página ${number}`;
+}
+
 function RequirementGroup({ tradeIn, requirement, group, requestAccess, onUpload, preview }) {
     const entries = group?.entries || [];
     const current = entries.filter(entry => entry.isCurrent !== false);
     const historical = entries.filter(entry => entry.isCurrent === false);
-    const renderEntry = entry => <article key={entry.id} data-document-entry={entry.id} data-document-current={entry.isCurrent !== false} className="min-w-0 space-y-2 rounded-xl border border-neutral-700 bg-neutral-950 p-3">
-        <PrivateAttachment entry={entry} requestAccess={requestAccess}/>
-        <p className="text-sm font-semibold text-white">{entry.description || entry.fileName}</p>
+    const renderEntry = (entry, index) => <article key={entry.id} data-document-entry={entry.id} data-document-current={entry.isCurrent !== false} className="min-w-0 space-y-2 rounded-xl border border-neutral-700 bg-neutral-950 p-3">
+        <PrivateAttachment entry={{ ...entry, description: attachmentLabel(entry, requirement.key, index) }} requestAccess={requestAccess}/>
+        <p className="text-sm font-semibold text-white">{attachmentLabel(entry, requirement.key, index)}</p>
         <p className="text-xs text-neutral-400">{portalDate(entry.createdAt)} · {entry.origin === 'buyer' ? 'Portal del comprador' : entry.origin} · Versión {entry.version || 1}</p>
         <p className={`text-xs font-semibold ${entry.status === 'correction_requested' ? 'text-amber-200' : entry.status === 'reviewed' ? 'text-emerald-300' : 'text-neutral-300'}`}>{entry.isCurrent === false ? 'Versión anterior' : documentStatus(entry.status)}</p>
-        {entry.issuedAt && <p className="text-xs text-neutral-400">Emitido: {new Date(entry.issuedAt).toLocaleDateString('es-AR', { timeZone: 'UTC' })}</p>}
         {entry.correctionReason && <p className="rounded-lg border border-amber-500/30 bg-amber-500/10 p-2 text-sm text-amber-200">Corregir esta imagen: {entry.correctionReason}</p>}
     </article>;
     return <section className="space-y-3 rounded-2xl border border-neutral-700 p-4" data-requirement={requirement.key}>
         <div className="flex flex-wrap items-start justify-between gap-2"><h4 className="font-bold text-white">{requirement.label}</h4><span className="text-xs text-neutral-300">{group?.complete ? 'Copia digital completa' : current.length ? 'Copia digital recibida' : 'Sin archivos'} · {current.length} {current.length === 1 ? 'archivo' : 'archivos'}</span></div>
-        <p className="text-sm text-neutral-400">{requirement.guidance}</p>
         {group?.originalReceived && <p className="text-xs font-semibold text-emerald-300">Original recibido por AutoSporting</p>}
         {current.length > 0 && <div className="grid min-w-0 gap-3 sm:grid-cols-2">{current.map(renderEntry)}</div>}
         <UploadForm tradeIn={tradeIn} requirement={requirement} onUpload={onUpload} preview={preview}/>
@@ -121,7 +120,7 @@ export default function BuyerPortalView({ data, onUpload, onRefresh, requestAcce
     const requirements = data?.requirements?.length ? data.requirements : documentRequirements;
     if (!data) return null;
     const procedures = data.procedures?.length ? data.procedures : [{ id: 'commercial', type: 'Trámite de tu vehículo', status: data.procedureStatus }];
-    return <div className="min-w-0 space-y-5 rounded-2xl bg-neutral-950 p-4 text-white sm:p-6" data-buyer-portal-view>
+    return <div className="min-w-0 space-y-5 rounded-2xl bg-neutral-950 p-4 text-white uppercase sm:p-6 [&_button]:uppercase [&_select]:uppercase" data-buyer-portal-view>
         <header className="space-y-2 border-b border-neutral-800 pb-5"><BuyerPortalBrand/><h1 className="text-2xl font-extrabold text-white">Tu compra, paso a paso</h1><p className="text-sm text-neutral-400">Consultá el avance de tu operación{data.mode === 'with_trade_in' ? ' y adelantá la documentación del vehículo que entregás' : ''}.</p></header>
         <section className="space-y-4 rounded-2xl border border-neutral-700 bg-neutral-900 p-4" aria-label="Seguimiento de mi compra">
             <VehiclePhoto vehicle={data.purchasedVehicle}/>
@@ -136,6 +135,6 @@ export default function BuyerPortalView({ data, onUpload, onRefresh, requestAcce
             {preview && <p className="rounded-xl border border-neutral-700 bg-neutral-900 p-3 text-sm text-neutral-300">Vista previa: el comprador podrá cargar fotos y PDF en cada requisito después de verificar su identidad.</p>}
             <div className="space-y-3">{requirements.map(requirement => <RequirementGroup key={requirement.key} tradeIn={tradeIn} onUpload={onUpload} preview={preview} requirement={requirement} group={(tradeIn.groups || []).find(group => group.key === requirement.key)} requestAccess={requestAccess}/>)}</div>
         </section>)}{!data.tradeIns?.length && <p className="rounded-xl border border-amber-500/30 p-4 text-sm text-amber-200">AutoSporting está completando la identificación del vehículo que entregás.</p>}</section>}
-        <footer className="flex flex-wrap items-center justify-between gap-3 border-t border-neutral-800 pt-4 text-xs text-neutral-400"><span className="inline-flex items-center gap-2"><CheckCircle2 size={15}/>Tu información se conserva de forma privada.</span>{onRefresh && <button type="button" onClick={onRefresh} className="inline-flex min-h-10 items-center gap-2 rounded-lg border border-neutral-700 px-3 text-sm text-neutral-300"><RefreshCw size={14}/>Actualizar avance</button>}</footer>
+        {onRefresh && <footer className="flex flex-wrap items-center gap-3 border-t border-neutral-800 pt-4 text-xs text-neutral-400"><button type="button" onClick={onRefresh} className="inline-flex min-h-10 items-center gap-2 rounded-lg border border-neutral-700 px-3 text-sm text-neutral-300"><RefreshCw size={14}/>Actualizar avance</button></footer>}
     </div>;
 }
