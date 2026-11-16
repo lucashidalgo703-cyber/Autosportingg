@@ -6,6 +6,7 @@ import { useGestoria } from '../../../hooks/useGestoria';
 import { useAdminSales } from '../../../hooks/useAdminSales';
 import CrmButton from '../../../components/crm/ui/CrmButton';
 import ConfirmModal from '../../../components/crm/ui/ConfirmModal';
+import BuyerPortalAccessPanel from '../../../components/buyer-portal/BuyerPortalAccessPanel';
 
 export default function GestoriaPage() {
     const { tramites, loading, error, fetchTramites, createTramite, updateTramite, deleteTramite } = useGestoria();
@@ -233,7 +234,7 @@ export default function GestoriaPage() {
                                     </div>
                                 </div>
                                 <div className="flex gap-2">
-                                    <button onClick={() => handleOpenModal(tramite)} className="text-crm-fg-muted hover:text-crm-fg transition-colors">
+                                    <button type="button" aria-label={`Editar trámite ${tramite.title}`} onClick={() => handleOpenModal(tramite)} className="inline-flex min-h-11 min-w-11 items-center justify-center text-crm-fg-muted hover:text-crm-fg transition-colors">
                                         <Edit2 size={16} />
                                     </button>
                                     <button onClick={() => handleDelete(tramite._id)} className="text-crm-fg-muted hover:text-crm-red transition-colors">
@@ -301,13 +302,14 @@ export default function GestoriaPage() {
             )}
 
             {isModalOpen && (
-                <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 overflow-y-auto">
+                <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 overflow-y-auto" role="dialog" aria-modal="true" aria-labelledby="gestoria-edit-title">
                     <div className="w-full max-w-2xl rounded-2xl border border-crm-border bg-crm-surface shadow-2xl my-auto">
                         <div className="flex items-center justify-between border-b border-crm-border px-6 py-4 sticky top-0 bg-crm-surface z-10 rounded-t-2xl">
-                            <h2 className="text-lg font-bold text-white">{editingTramite ? 'Editar Trámite' : 'Nuevo Trámite'}</h2>
-                            <button type="button" onClick={handleCloseModal} className="text-crm-fg-muted hover:text-white text-2xl leading-none">&times;</button>
+                            <h2 id="gestoria-edit-title" className="text-lg font-bold text-white">{editingTramite ? 'Editar Trámite' : 'Nuevo Trámite'}</h2>
+                            <button type="button" aria-label="Cerrar trámite" onClick={handleCloseModal} className="inline-flex min-h-11 min-w-11 items-center justify-center text-crm-fg-muted hover:text-white text-2xl leading-none">&times;</button>
                         </div>
                         <form onSubmit={handleSubmit} className="p-6 space-y-6">
+                            <BuyerPortalAccessPanel key={formData.saleId || 'unlinked'} saleId={formData.saleId}/>
                             
                             <div className="space-y-4">
                                 <h3 className="text-sm font-bold text-crm-red border-b border-crm-border/50 pb-2 uppercase tracking-wider">Identificación del Trámite</h3>

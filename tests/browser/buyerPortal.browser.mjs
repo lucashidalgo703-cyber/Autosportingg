@@ -89,7 +89,7 @@ try {
     assert.equal(await buyer.locator('meta[name=robots]').getAttribute('content').then(value => value.includes('noindex')), true);
     assert.equal(await buyer.locator('script[src*="/_vercel/insights"]').count(), 0);
     assert.equal(await buyer.getByText(/NOTA.*INTERNA PRIVADA/).count(), 0);
-    await buyer.getByText('Presentado', { exact: true }).waitFor();
+    await buyer.locator('[data-procedure-status="Presentado"] [aria-current="step"][data-stage="presentado"]').waitFor();
     await buyer.getByRole('heading', { name: 'El vehículo que entrego', exact: true }).waitFor();
     assert.equal(await buyer.locator('[data-upload-requirement]').count(), 6);
     for (const key of ['title', 'domain_report', 'traffic_report', 'police_check', 'registration_cards', 'municipal_clearance']) {

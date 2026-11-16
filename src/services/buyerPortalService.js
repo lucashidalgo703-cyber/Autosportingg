@@ -412,9 +412,22 @@ export async function readPrivateDocument(id, access) {
 export async function createBuyerPortalIndexes() {
     for (const model of [BuyerPortal, BuyerPortalChallenge, BuyerPortalSession, BuyerPortalDocument, BuyerPortalOriginal, BuyerPortalRate]) await model.createIndexes();
 }
+function catalogCover(car) {
+    const value = car.coverImage || car.images?.[0];
+    if (typeof value !== 'string' || value.length > 2000) return null;
+    // Match the catalogue's chosen cover, without admitting arbitrary trackers
+    // or private API URLs into the buyer's portal.
+    if (/^\/(?!\/)[\w/-]+\.(?:jpe?g|png|webp|avif)$/i.test(value)) return value;
+    try {
+        const url = new URL(value);
+        if (url.protocol === 'https:' && ['res.cloudinary.com', 'images.unsplash.com'].includes(url.hostname)
+            && !url.username && !url.password && !url.port) return url.href;
+    } catch {}
+    return null;
+}
 export async function portalData(sale, portal) {
-    const car = sale.vehicleId ? await Car.findById(sale.vehicleId).select('brand name year plateOrVin').lean() : null;
-    const procedures = await Gestoria.find({ saleId: sale._id }).select('status updatedAt estimatedEndDate').sort({ updatedAt: -1 }).lean();
+    const car = sale.vehicleId ? await Car.findById(sale.vehicleId).select('brand name year plateOrVin coverImage images').lean() : null;
+    const procedures = await Gestoria.find({ saleId: sale._id }).select('type status updatedAt').sort({ updatedAt: -1, _id: 1 }).lean();
     const publicUpdate = sale.clientPortalUpdate || {};
     const proceduresStatus = procedures.length ? procedures.map(item => item.status).join(' · ') : (sale.expedienteStatus || 'pendiente');
     const showTradeIns = portal.mode === 'with_trade_in';
@@ -426,8 +439,9 @@ export async function portalData(sale, portal) {
         brand: item.brand, model: item.model, year: item.year, plate: item.plate || 'Sin patente',
         groups: groupsFor(docs, originals, String(item._id)) })) : [];
     return { saleId: String(sale._id), mode: portal.mode,
-        purchasedVehicle: car ? { brand: car.brand, model: car.name, year: car.year, plate: car.plateOrVin || 'Sin patente' } : null,
+        purchasedVehicle: car ? { brand: car.brand, model: car.name, year: car.year, plate: car.plateOrVin || 'Sin patente', image: catalogCover(car) } : null,
         operationStatus: sale.status, deliveryStatus: sale.deliveryStatus, procedureStatus: proceduresStatus,
+        procedures: procedures.map(item => ({ id: String(item._id), title: item.type || 'Trámite de la operación', type: item.type, status: item.status, updatedAt: item.updatedAt })),
         latestUpdate: publicUpdate.latestUpdate || 'Podés consultar aquí el estado actual de tu operación.',
         nextStep: publicUpdate.nextStep || (sale.deliveryStatus === 'entregado' ? 'Operación entregada. Contactanos si necesitás ayuda.' : procedures.some(item => item.status === 'Observado') ? 'La agencia está revisando una observación del trámite.' : 'La agencia te avisará cuando haya un próximo paso.'),
         actionRequired: publicUpdate.actionRequired === true, updatedAt: publicUpdate.updatedAt || procedures[0]?.updatedAt || sale.updatedAt,

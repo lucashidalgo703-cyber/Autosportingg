@@ -1,0 +1,59 @@
+.track {
+    background: #404040;
+    border-radius: 999px;
+    inset: 22px auto 20px 19px;
+    width: 3px;
+    overflow: hidden;
+    position: absolute;
+}
+
+.progress {
+    background: #ef4444;
+    border-radius: inherit;
+    height: var(--procedure-progress);
+    width: 100%;
+    position: relative;
+    transition: height 650ms ease, width 650ms ease;
+}
+
+.moving::after {
+    animation: travelVertical 2400ms ease-in-out infinite;
+    background: linear-gradient(transparent, #fecaca, transparent);
+    content: '';
+    height: 45%;
+    top: -45%;
+    left: 0;
+    position: absolute;
+    width: 100%;
+}
+
+.steps { display: flex; flex-direction: column; gap: 12px; list-style: none; margin: 0; padding: 0; position: relative; }
+.step { align-items: center; display: flex; gap: 12px; min-width: 0; }
+
+@media (min-width: 640px) {
+    .track { height: 3px; inset: 21px calc(50% / var(--step-count)) auto; width: auto; }
+    .progress { height: 100%; width: var(--procedure-progress); }
+    .steps { display: grid; gap: 0; grid-template-columns: repeat(var(--step-count), minmax(0, 1fr)); }
+    .step { flex-direction: column; gap: 8px; padding: 0 2px; text-align: center; }
+    .moving::after { animation-name: travelHorizontal; background: linear-gradient(90deg, transparent, #fecaca, transparent); height: 100%; top: 0; left: -45%; width: 45%; }
+}
+
+.active {
+    animation: pulse 2200ms ease-in-out infinite;
+}
+
+@keyframes travelHorizontal {
+    to { left: 110%; }
+}
+@keyframes travelVertical {
+    to { top: 110%; }
+}
+
+@keyframes pulse {
+    50% { box-shadow: 0 0 0 6px rgb(239 68 68 / 14%); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .progress { transition: none; }
+    .moving::after, .active { animation: none; }
+}

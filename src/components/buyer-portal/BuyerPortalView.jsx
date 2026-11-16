@@ -1,13 +1,22 @@
 "use client";
 import { useRef, useState } from 'react';
-import { Camera, CheckCircle2, FileUp, RefreshCw } from 'lucide-react';
+import { Camera, CarFront, CheckCircle2, FileUp, RefreshCw } from 'lucide-react';
 import PrivateAttachment from './PrivateAttachment';
 import BuyerPortalBrand from './BuyerPortalBrand';
+import BuyerProcedureTimeline from './BuyerProcedureTimeline';
 import { documentRequirements, documentStatus, portalDate, prepareBuyerFile, vehicleLabel } from './portalClient';
 
 const input = 'min-h-11 w-full rounded-xl border border-neutral-700 bg-neutral-950 px-3 py-2 text-sm text-white focus:border-red-400 focus:outline-none';
 const operationLabels = { borrador: 'Preparando la operación', señado: 'Seña registrada', confirmada: 'Operación confirmada', pendiente_entrega: 'Pendiente de entrega', entregada: 'Vehículo entregado', cancelada: 'Operación cancelada' };
 const procedureLabels = { pendiente: 'Pendiente', en_proceso: 'En proceso', observado: 'Con observaciones', listo: 'Listo', transferido: 'Transferido', finalizado: 'Finalizado', entregado: 'Entregado', cancelado: 'Cancelado' };
+
+function VehiclePhoto({ vehicle }) {
+    const [failedSource, setFailedSource] = useState('');
+    const source = vehicle?.image;
+    return <div className="flex aspect-[16/9] w-full items-center justify-center overflow-hidden rounded-xl bg-neutral-950" data-portal-vehicle-photo>
+        {source && source !== failedSource ? <img src={source} alt={`Foto de ${vehicleLabel(vehicle)}`} referrerPolicy="no-referrer" className="h-full w-full object-cover" onError={() => setFailedSource(source)} /> : <div className="flex flex-col items-center gap-2 p-4 text-center text-neutral-500"><CarFront size={36} aria-hidden="true"/><p className="text-xs">Foto del vehículo no disponible</p></div>}
+    </div>;
+}
 
 function UploadForm({ tradeIn, requirement, onUpload, preview }) {
     const requirementKey = requirement.key;
@@ -111,11 +120,14 @@ function RequirementGroup({ tradeIn, requirement, group, requestAccess, onUpload
 export default function BuyerPortalView({ data, onUpload, onRefresh, requestAccess, preview = false }) {
     const requirements = data?.requirements?.length ? data.requirements : documentRequirements;
     if (!data) return null;
+    const procedures = data.procedures?.length ? data.procedures : [{ id: 'commercial', type: 'Trámite de tu vehículo', status: data.procedureStatus }];
     return <div className="min-w-0 space-y-5 rounded-2xl bg-neutral-950 p-4 text-white sm:p-6" data-buyer-portal-view>
         <header className="space-y-2 border-b border-neutral-800 pb-5"><BuyerPortalBrand/><h1 className="text-2xl font-extrabold text-white">Tu compra, paso a paso</h1><p className="text-sm text-neutral-400">Consultá el avance de tu operación{data.mode === 'with_trade_in' ? ' y adelantá la documentación del vehículo que entregás' : ''}.</p></header>
         <section className="space-y-4 rounded-2xl border border-neutral-700 bg-neutral-900 p-4" aria-label="Seguimiento de mi compra">
+            <VehiclePhoto vehicle={data.purchasedVehicle}/>
             <div><h2 className="text-lg font-bold text-white">Mi próximo vehículo</h2><p className="mt-2 text-base font-semibold text-white">{vehicleLabel(data.purchasedVehicle)}</p><p className="text-sm text-neutral-400">Patente: {data.purchasedVehicle?.plate || 'Por confirmar'}</p></div>
             <dl className="grid gap-4 sm:grid-cols-2"><div><dt className="text-xs text-neutral-400">Estado de la operación</dt><dd className="mt-1 text-sm font-semibold text-white">{operationLabels[data.operationStatus] || data.operationStatus || 'Por confirmar'}</dd></div><div><dt className="text-xs text-neutral-400">Estado del trámite</dt><dd className="mt-1 text-sm font-semibold text-white">{procedureLabels[data.procedureStatus] || data.procedureStatus || 'Por confirmar'}</dd></div></dl>
+            <div className="min-w-0 space-y-3">{procedures.map((procedure, index) => <BuyerProcedureTimeline key={procedure.id || index} procedure={procedure}/>)}</div>
             <div className="space-y-3 border-t border-neutral-700 pt-4"><div><h3 className="text-sm font-semibold text-white">Última novedad</h3><p className="mt-1 whitespace-pre-wrap text-sm text-neutral-300">{data.latestUpdate || 'Todavía no hay una novedad para mostrar.'}</p></div><div><h3 className="text-sm font-semibold text-white">Próximo paso</h3><p className="mt-1 whitespace-pre-wrap text-sm text-neutral-300">{data.nextStep || 'AutoSporting te informará el próximo paso.'}</p></div><p className={`rounded-xl p-3 text-sm ${data.actionRequired ? 'border border-amber-500/30 bg-amber-500/10 text-amber-200' : 'border border-emerald-500/20 bg-emerald-500/5 text-emerald-300'}`}>{data.actionRequired ? 'Tenés una acción pendiente. Revisá el próximo paso indicado arriba.' : 'Por ahora no tenés que realizar ninguna acción adicional.'}</p></div>
             {data.updatedAt && <p className="text-xs text-neutral-500">Actualizado: {portalDate(data.updatedAt)}</p>}
         </section>

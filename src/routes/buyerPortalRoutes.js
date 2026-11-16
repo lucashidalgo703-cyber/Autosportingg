@@ -3,6 +3,7 @@ import multer from 'multer';
 import connectDB from '../config/db.js';
 import * as portal from '../services/buyerPortalService.js';
 import { gptRequestQuota } from '../services/gptExpenseOAuthService.js';
+import { buyerPortalAccessHistory, recordBuyerPortalView } from '../services/buyerPortalAccessService.js';
 
 const bearer = req => req.headers.authorization?.startsWith('Bearer ') ? req.headers.authorization.slice(7) : '';
 const sessionCookie = 'autosporting_buyer_session';
@@ -38,6 +39,7 @@ const headers = (_req, res, next) => {
 export function createAdminBuyerPortalRouter({ authenticate }) {
     const router = Router(); router.use(headers, authenticate);
     router.get('/sales/:id', endpoint(req => portal.portalConfiguration(req.user, req.params.id)));
+    router.get('/sales/:id/access', endpoint(req => buyerPortalAccessHistory(req.user, req.params.id)));
     router.put('/sales/:id', endpoint(req => portal.configurePortal(req.user, req.params.id, req.body)));
     router.delete('/sales/:id', endpoint(req => portal.revokePortal(req.user, req.params.id)));
     router.patch('/sales/:id/tracking', endpoint(req => portal.updatePortalTracking(req.user, req.params.id, req.body)));
@@ -87,8 +89,13 @@ export function createBuyerPortalRouter() {
             next();
         } catch (error) { res.status(error.status || 503).json({ message: error.status ? error.message : 'No se pudo validar el acceso.' }); }
     };
-    router.get('/:token/session', authenticated, endpoint(async req => ({ ...await portal.portalData(req.buyer.sale, req.buyer.portal),
-        sessionExpiresAt: new Date(req.buyer.session.exp * 1000) })));
+    router.get('/:token/session', authenticated, endpoint(async req => {
+        const data = await portal.portalData(req.buyer.sale, req.buyer.portal);
+        // Operational access history is best effort and contains no credential,
+        // raw IP or user-agent. A telemetry failure must not block the buyer.
+        try { await recordBuyerPortalView(req.buyer, req); } catch {}
+        return { ...data, sessionExpiresAt: new Date(req.buyer.session.exp * 1000) };
+    }));
     const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 3 * 1024 * 1024, files: 1, fields: 15, parts: 17, fieldSize: 3000 } }).single('file');
     router.post('/:token/documents', authenticated, (req, res) => upload(req, res, error => {
         if (error) return res.status(error.code === 'LIMIT_FILE_SIZE' ? 413 : 400).json({ message: 'Subí un archivo de hasta 3 MB por vez.' });

@@ -26,6 +26,13 @@ const sessionSchema = new mongoose.Schema({
     generation: { type: Number, required: true },
     contactHash: { type: String, required: true },
     uploadSequence: { type: Number, default: 0 },
+    // Access history shares the session TTL; no IP, raw user agent or device ID.
+    firstViewedAt: Date,
+    lastViewedAt: Date,
+    lastCountedViewAt: Date,
+    viewCount: { type: Number, default: 0 },
+    device: new mongoose.Schema({ browser: String, os: String, type: String }, { _id: false }),
+    approximateLocation: { country: String, region: String, city: String },
     expiresAt: { type: Date, required: true },
     revokedAt: { type: Date, default: null }
 }, { timestamps: true });

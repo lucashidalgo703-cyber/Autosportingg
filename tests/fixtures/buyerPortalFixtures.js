@@ -7,6 +7,7 @@ export async function seedBuyerPortalFixtures(models, fixture) {
     const otherSold = await Car.create({ brand: 'Fiat', name: 'Cronos vendido portal prueba', year: 2022,
         km: 50000, fuel: 'Nafta', condition: 'Usado', price: 17000000, currency: 'ARS', purchasePrice: 14000000,
         purchaseCurrency: 'ARS', agencyOwned: true, status: 'Vendido', sold: true, plateOrVin: 'PT002AA', visibleEnWeb: false });
+    await Car.updateOne({ _id: fixture.cars[4]._id }, { $set: { coverImage: '/hero-autosporting.jpg', images: ['/hero-autosporting.jpg'] } });
     const common = { salePrice: 25000000, saleCurrency: 'ARS', status: 'confirmada', salesperson: fixture.users[1].name,
         assignedTo: fixture.users[1]._id, createdBy: fixture.users[0].name,
         clientPortalUpdate: { latestUpdate: 'Recibimos tu operación de prueba.', nextStep: 'La agencia está preparando la entrega.', actionRequired: false, updatedAt: new Date() } };
