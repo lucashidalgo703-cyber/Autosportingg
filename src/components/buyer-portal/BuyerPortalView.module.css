@@ -1,0 +1,111 @@
+.page {
+    background: radial-gradient(ellipse 85% 34rem at 0 0, rgb(230 48 39 / 16%), transparent 75%),
+        radial-gradient(ellipse 65% 38rem at 100% 38%, rgb(230 48 39 / 7%), transparent 75%), #202126;
+    color: #f8f9fa;
+}
+
+.view { background: transparent; color: #f8f9fa; }
+
+.view .intro,
+.view .purchase,
+.view .tradeIn,
+.page .gate {
+    border: 1px solid #55515a;
+    border-radius: 20px;
+    background: linear-gradient(135deg, #343239, #292a30 70%);
+    box-shadow: 0 12px 32px rgb(0 0 0 / 14%);
+}
+
+.view .intro {
+    border-top: 3px solid #e63027;
+    padding: 24px 20px;
+    background: radial-gradient(ellipse at 50% 0, rgb(230 48 39 / 17%), transparent 80%), #2a2a2f;
+}
+
+.view .intro h1 { margin-top: 20px; }
+.view .intro p { line-height: 1.6; }
+.view .purchase { border-top: 3px solid #e63027; }
+.view .vehiclePhoto { border: 1px solid #55515a; background: #202126; }
+
+.view .statusTile {
+    padding: 14px;
+    border: 1px solid #605057;
+    border-radius: 12px;
+    background: linear-gradient(135deg, rgb(230 48 39 / 12%), rgb(255 255 255 / 3%));
+}
+
+.view .updates { border-top: 1px solid #5a5157; }
+.view .updateItem { border-left: 3px solid #e63027; padding-left: 12px; }
+.view .tradeIn { border-top: 3px solid #e63027; }
+.view .tradeIn > header { padding: 4px 4px 12px; }
+
+.view .requirement {
+    border: 1px solid #62565b;
+    border-left: 4px solid #e63027;
+    border-radius: 16px;
+    background: linear-gradient(125deg, #353139, #2a2a2f 65%);
+    box-shadow: 0 6px 18px rgb(0 0 0 / 12%);
+}
+
+.view .requirementHeading { display: flex; align-items: center; gap: 12px; min-width: 0; }
+.view .requirementHeading h4 { min-width: 0; overflow-wrap: anywhere; }
+.view .stepNumber {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    width: 38px;
+    height: 38px;
+    border: 1px solid #f06b64;
+    border-radius: 12px;
+    background: linear-gradient(145deg, #d52c24, #b9241d);
+    box-shadow: 0 4px 12px rgb(230 48 39 / 18%);
+    color: #fff;
+    font-size: 13px;
+    font-weight: 800;
+    font-variant-numeric: tabular-nums;
+}
+
+.view .requirementStatus {
+    display: inline-block;
+    border: 1px solid #665b60;
+    border-radius: 8px;
+    padding: 6px 8px;
+    background: rgb(255 255 255 / 5%);
+    color: #f0e7e9;
+    line-height: 1.5;
+}
+
+.view .attachment { border: 1px solid #565159; background: #222328; }
+.view .uploadForm { border-top: 1px solid #5c5359; }
+.view .uploadButton {
+    border: 1px solid #8c4d4c;
+    background: linear-gradient(135deg, #60312f, #452c30);
+    color: #fff;
+}
+.view .uploadButton:hover { background: #713631; border-color: #e63027; }
+.view .uploadOptions { border: 1px solid #5a5157; background: #232429; }
+.view .uploadInput { border: 1px solid #6b6066; background: #1c1c1f; }
+.view .uploadInput:focus { border-color: #ff918a; outline: 2px solid rgb(255 145 138 / 30%); outline-offset: 2px; }
+.view .saveButton { background: #d52c24; border: 1px solid #f06b64; }
+.view .saveButton:hover:not(:disabled) { background: #c42620; }
+.view .footer { border-top: 1px solid #55515a; }
+.view .refreshButton,
+.page .logoutButton { border: 1px solid #665b60; background: #303036; color: #f8f9fa; }
+.view .refreshButton:hover,
+.page .logoutButton:hover:not(:disabled) { background: #40363c; border-color: #e63027; }
+.view .uploadButton:focus-visible,
+.view .saveButton:focus-visible,
+.view .refreshButton:focus-visible,
+.page .logoutButton:focus-visible { outline: 2px solid #ff918a; outline-offset: 3px; }
+
+.view :global([data-procedure-timeline]) { border-color: #66565d; background: #25252b; }
+.view :global(.text-neutral-400) { color: #c1bec6; }
+.view :global(.text-neutral-500) { color: #afabb5; }
+
+@media (max-width: 639px) {
+    .view .slotFields { grid-template-columns: minmax(0, 1fr); }
+    .view .intro { padding: 20px 14px; }
+    .view .requirementHeading { gap: 10px; }
+    .view .stepNumber { width: 34px; height: 34px; border-radius: 10px; }
+}

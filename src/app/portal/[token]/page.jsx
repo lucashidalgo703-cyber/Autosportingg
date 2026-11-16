@@ -5,6 +5,7 @@ import { LockKeyhole } from 'lucide-react';
 import BuyerPortalView from '../../../components/buyer-portal/BuyerPortalView';
 import BuyerPortalBrand from '../../../components/buyer-portal/BuyerPortalBrand';
 import { portalRequest } from '../../../components/buyer-portal/portalClient';
+import styles from '../../../components/buyer-portal/BuyerPortalView.module.css';
 
 export default function BuyerPortalPage() {
     const { token: linkToken } = useParams();
@@ -122,13 +123,13 @@ export default function BuyerPortalPage() {
         } finally { setBusy(false); }
     };
     const remaining = Math.max(0, Math.ceil((resendAt - clock) / 1000));
-    return <main id="main-content" className="min-h-screen bg-neutral-950 px-3 py-8 uppercase text-white sm:px-5 [&_button]:uppercase [&_select]:uppercase [&_input]:uppercase [&_textarea]:uppercase">
+    return <main id="main-content" className={`${styles.page} min-h-screen px-3 py-8 uppercase text-white sm:px-5 [&_button]:uppercase [&_select]:uppercase [&_input]:uppercase [&_textarea]:uppercase`}>
         <div className="mx-auto w-full max-w-3xl">
             {loading ? <p role="status" className="py-12 text-center text-neutral-400">Abriendo tu portal privado…</p> : data ? <>
                 {error && <p role="alert" className="mb-3 rounded-xl border border-red-500/30 bg-red-500/10 p-3 text-sm text-red-200">{error}</p>}
                 <BuyerPortalView data={data} onUpload={upload} requestAccess={requestAccess} onRefresh={() => { void refresh().catch(() => {}); }}/>
-                <button type="button" onClick={logout} disabled={busy} className="mt-3 min-h-11 rounded-lg border border-solid border-neutral-700 px-3 text-sm text-neutral-300 disabled:opacity-50">{busy ? 'Cerrando acceso…' : 'Salir y olvidar este dispositivo'}</button>
-            </> : <section className="mx-auto max-w-md space-y-5 rounded-2xl border border-neutral-700 bg-neutral-900 p-5 sm:p-7">
+                <button type="button" onClick={logout} disabled={busy} className={`${styles.logoutButton} mt-3 min-h-11 rounded-lg border border-solid border-neutral-700 px-3 text-sm text-neutral-300 disabled:opacity-50`}>{busy ? 'Cerrando acceso…' : 'Salir y olvidar este dispositivo'}</button>
+            </> : <section className={`${styles.gate} mx-auto max-w-md space-y-5 rounded-2xl border border-neutral-700 bg-neutral-900 p-5 sm:p-7`}>
                 <BuyerPortalBrand/>
                 <LockKeyhole size={30} className="text-red-400"/>
                 <h1 className="text-2xl font-extrabold text-white">{fatal ? 'Este enlace no está disponible' : 'Verificá tu acceso'}</h1>
