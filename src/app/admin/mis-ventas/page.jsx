@@ -21,7 +21,7 @@ import { isMySaleOrReservation } from '../../../utils/saleOwnership';
 
 export default function MisVentasPage() {
     const { user } = useAuth();
-    const { fetchSales, loading, error, deleteSale } = useAdminSales();
+    const { fetchSales, fetchSaleById, loading, error, deleteSale } = useAdminSales();
     const {
         fetchReservations,
         deleteReservation,
@@ -410,6 +410,10 @@ export default function MisVentasPage() {
                 isOpen={isCreateModalOpen}
                 onClose={() => setIsCreateModalOpen(false)}
                 onSuccess={loadData}
+                onViewSale={async (id) => {
+                    const sale = await fetchSaleById(id);
+                    if (sale) handleViewDetail(sale);
+                }}
             />
 
             <SaleDetailDrawer

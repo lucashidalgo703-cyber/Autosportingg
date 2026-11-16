@@ -173,11 +173,11 @@ const DEFAULT_CATEGORY_RULES = [
     { category: 'Inversión', boxKey: 'crecimiento', notes: 'Inversiones estratégicas' }
 ];
 
-export async function ensureDefaultBoxes() {
+export async function ensureDefaultBoxes(options = {}) {
     for (const def of DEFAULT_BOXES) {
-        const exists = await TreasuryBox.findOne({ key: def.key });
+        const exists = await TreasuryBox.findOne({ key: def.key }).session(options.session || null);
         if (!exists) {
-            await TreasuryBox.create({
+            await new TreasuryBox({
                 key: def.key,
                 name: def.name,
                 description: def.description,
@@ -196,22 +196,22 @@ export async function ensureDefaultBoxes() {
                     reason: 'Inicialización de caja estratégica',
                     user: 'Sistema'
                 }]
-            });
+            }).save({ session: options.session });
         }
     }
 }
 
-async function ensureDefaultCategoryRules() {
+async function ensureDefaultCategoryRules(options = {}) {
     for (const def of DEFAULT_CATEGORY_RULES) {
-        const exists = await TreasuryCategoryRule.findOne({ category: def.category });
+        const exists = await TreasuryCategoryRule.findOne({ category: def.category }).session(options.session || null);
         if (!exists) {
-            await TreasuryCategoryRule.create({
+            await new TreasuryCategoryRule({
                 category: def.category,
                 boxKey: def.boxKey,
                 notes: def.notes,
                 isDefault: true,
                 updatedBy: 'Sistema'
-            });
+            }).save({ session: options.session });
         }
     }
 }
@@ -2835,6 +2835,10 @@ export async function bulkCategorizeExpenses(payload, user) {
     const { updates = [] } = payload; // [{ transactionId, category, boxKey }]
     const userName = user?.name || user?.email || 'Admin';
     let count = 0;
+    const guardedIds = Array.isArray(updates) ? updates.map(item => item?.transactionId).filter(id => mongoose.isValidObjectId(id)) : [];
+    if (guardedIds.length && await Transaction.exists({ _id: { $in: guardedIds }, module: 'crm_v2', idempotencyKey: /^(crm|gpt)-expense:/ })) {
+        throw Object.assign(new Error('La selección incluye gastos vinculados a cuentas y unidades. Corregilos desde Finanzas para actualizar todo junto.'), { status: 409 });
+    }
 
     for (const item of updates) {
         if (!item.transactionId) continue;
@@ -3229,6 +3233,9 @@ export async function annulCollectionAndReverse(txOrId, options = {}) {
     if (!tx) {
         throw new Error('Transacción de cobro no encontrada.');
     }
+    if (tx.module === 'crm_v2' && /^(crm|gpt)-expense:/.test(tx.idempotencyKey || '')) {
+        throw Object.assign(new Error('Este movimiento es un gasto vinculado. Anulalo desde Finanzas para revertir su cuenta y costo de unidad.'), { status: 409 });
+    }
     if (tx.status === 'anulado') {
         return { ok: true, alreadyAnnulled: true, message: 'El cobro ya se encontraba anulado.' };
     }
@@ -3316,6 +3323,9 @@ export async function reclassifyExpense(payload, user) {
     const tx = await Transaction.findById(transactionId);
     if (!tx || tx.type !== 'Egreso') {
         throw new Error('Gasto no encontrado.');
+    }
+    if (tx.module === 'crm_v2' && /^(crm|gpt)-expense:/.test(tx.idempotencyKey || '')) {
+        throw Object.assign(new Error('Este gasto está vinculado a su cuenta y costo de unidad. Corregilo desde Finanzas para actualizar todo junto.'), { status: 409 });
     }
 
     const oldBoxKey = tx.treasuryBoxKey;
@@ -3431,13 +3441,13 @@ export async function syncExpenseWithTreasury(tx, options = {}) {
     if (tx.category === 'compra_vehiculo' || tx.category === 'Pago compra vehículo' || tx.category === 'Pago Empresas') return;
     if (tx.isTreasuryExpenseSynced) return;
 
-    await ensureDefaultBoxes();
-    await ensureDefaultCategoryRules();
+    await ensureDefaultBoxes(options);
+    await ensureDefaultCategoryRules(options);
 
     // 1. Si no tiene treasuryBoxKey asignada, buscar en reglas de categorías o mapeo canónico
     if (!tx.treasuryBoxKey && tx.category) {
         const cleanCat = tx.category.trim();
-        const rule = await TreasuryCategoryRule.findOne({ category: cleanCat });
+        const rule = await TreasuryCategoryRule.findOne({ category: cleanCat }).session(options.session || null);
         const resolvedKey = (rule && rule.boxKey) || CANONICAL_EXPENSE_BOX_MAP[cleanCat.toLowerCase()] || null;
         if (resolvedKey) {
             tx.treasuryBoxKey = resolvedKey;
@@ -3447,10 +3457,12 @@ export async function syncExpenseWithTreasury(tx, options = {}) {
     const boxKey = tx.treasuryBoxKey;
     if (!boxKey) return;
 
-    const box = await TreasuryBox.findOne({ key: boxKey });
+    const box = await TreasuryBox.findOne({ key: boxKey }).session(options.session || null);
     if (!box) return;
 
-    const amt = roundMoney(Number(tx.amount || 0));
+    const nominalAmount = roundMoney(Number(tx.amount || 0));
+    const amt = options.reapplyLinkedExpense && Number.isFinite(options.linkedExpenseDebitCap) && ['activo', 'Completado'].includes(tx.status)
+        ? Math.min(nominalAmount, Math.max(0, roundMoney(options.linkedExpenseDebitCap))) : nominalAmount;
     const curr = tx.currency === 'USD' ? 'USD' : 'ARS';
     const isActivo = tx.status === 'activo' || tx.status === 'Completado';
     const isPendiente = tx.status === 'pendiente';
@@ -3459,7 +3471,7 @@ export async function syncExpenseWithTreasury(tx, options = {}) {
         // Idempotencia: no volver a descontar si este gasto ya fue sincronizado como pagado
         const alreadyDiscounted = Boolean(
             tx.isTreasuryExpenseSynced ||
-            (box.history || []).some(h => h.sourceExpenseId && String(h.sourceExpenseId) === String(tx._id) && h.type === 'egreso_finanzas')
+            (!options.reapplyLinkedExpense && (box.history || []).some(h => h.sourceExpenseId && String(h.sourceExpenseId) === String(tx._id) && h.type === 'egreso_finanzas'))
         );
         if (alreadyDiscounted) return;
 
@@ -3476,13 +3488,13 @@ export async function syncExpenseWithTreasury(tx, options = {}) {
                 user: options.user || tx.createdBy || 'Sistema',
                 sourceExpenseId: tx._id
             });
-            await box.save();
+            await box.save({ session: options.session });
             tx.isTreasuryExpenseSynced = true;
-            await tx.save();
+            await tx.save({ session: options.session });
         } else if (isPendiente) {
             if (curr === 'USD') box.pendingCommitmentsUSD = roundMoney((box.pendingCommitmentsUSD || 0) + amt);
             else box.pendingCommitmentsARS = roundMoney((box.pendingCommitmentsARS || 0) + amt);
-            await box.save();
+            await box.save({ session: options.session });
         }
     } else if (options.statusChanged) {
         if (options.oldStatus === 'pendiente' && isActivo) {
@@ -3504,13 +3516,13 @@ export async function syncExpenseWithTreasury(tx, options = {}) {
                 user: options.user || 'Sistema',
                 sourceExpenseId: tx._id
             });
-            await box.save();
+            await box.save({ session: options.session });
             tx.isTreasuryExpenseSynced = true;
-            await tx.save();
+            await tx.save({ session: options.session });
         } else if (options.oldStatus === 'pendiente' && !isActivo && !isPendiente) {
             if (curr === 'USD') box.pendingCommitmentsUSD = roundMoney(Math.max(0, (box.pendingCommitmentsUSD || 0) - amt));
             else box.pendingCommitmentsARS = roundMoney(Math.max(0, (box.pendingCommitmentsARS || 0) - amt));
-            await box.save();
+            await box.save({ session: options.session });
         } else if (options.oldStatus !== 'activo' && isActivo) {
             if (tx.isTreasuryExpenseSynced) return;
             if (curr === 'USD') box.balanceUSD = roundMoney(Math.max(0, (box.balanceUSD || 0) - amt));
@@ -3525,9 +3537,9 @@ export async function syncExpenseWithTreasury(tx, options = {}) {
                 user: options.user || 'Sistema',
                 sourceExpenseId: tx._id
             });
-            await box.save();
+            await box.save({ session: options.session });
             tx.isTreasuryExpenseSynced = true;
-            await tx.save();
+            await tx.save({ session: options.session });
         } else if ((options.oldStatus === 'activo' || options.oldStatus === 'Completado') && !isActivo) {
             // Revertir efecto en caja una sola vez si se anuló o volvió a pendiente
             if (curr === 'USD') {
@@ -3547,9 +3559,9 @@ export async function syncExpenseWithTreasury(tx, options = {}) {
                 user: options.user || 'Sistema',
                 sourceExpenseId: tx._id
             });
-            await box.save();
+            await box.save({ session: options.session });
             tx.isTreasuryExpenseSynced = false;
-            await tx.save();
+            await tx.save({ session: options.session });
         }
     }
 }

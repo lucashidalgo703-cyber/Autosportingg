@@ -118,6 +118,21 @@ export function useAdminSales() {
         }
     };
 
+    const fetchSalespeople = useCallback(async () => {
+        const res = await fetch(`${getBaseUrl()}/api/admin/users/active`, { headers: getAuthHeader() });
+        const data = await parseResponseSafe(res);
+        if (!res.ok) throw new Error(data.message || 'No se pudo cargar el equipo.');
+        return data;
+    }, []);
+
+    const fetchVehicleOptions = useCallback(async ({ q = '', page = 1, limit = 20, signal } = {}) => {
+        const params = new URLSearchParams({ q, page: String(page), limit: String(limit) });
+        const res = await fetch(`${getBaseUrl()}/api/admin/sales/vehicle-options?${params}`, { headers: getAuthHeader(), signal });
+        const data = await parseResponseSafe(res);
+        if (!res.ok) throw new Error(data.message || 'No se pudo buscar el stock.');
+        return data;
+    }, []);
+
     const createSale = async (payload) => {
         try {
             const res = await fetch(`${getBaseUrl()}/api/admin/sales`, {
@@ -128,7 +143,10 @@ export function useAdminSales() {
 
             if (!res.ok) {
                 const errData = await res.json().catch(() => ({}));
-                throw new Error(errData.message || 'Error al crear la venta');
+                const error = new Error(errData.message || 'Error al crear la venta');
+                error.activeSaleId = errData.activeSaleId;
+                  error.status = res.status;
+                throw error;
             }
 
             return await parseResponseSafe(res);
@@ -178,6 +196,8 @@ export function useAdminSales() {
         loading,
         error,
         fetchSales,
+        fetchVehicleOptions,
+        fetchSalespeople,
         fetchSaleById,
         updateSale,
         createSale,

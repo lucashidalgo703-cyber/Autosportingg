@@ -1,6 +1,6 @@
 import AuditLog from '../models/AuditLog.js';
 
-const logAudit = async ({ req, action, module, entityType, entityId, entityLabel, description, metadata, strict = false }) => {
+const logAudit = async ({ req, action, module, entityType, entityId, entityLabel, description, metadata, strict = false, session = null }) => {
     if (!action || !module) {
         throw new Error('Action and module are required for audit logs');
     }
@@ -45,7 +45,7 @@ const logAudit = async ({ req, action, module, entityType, entityId, entityLabel
     });
 
     try {
-        await logEntry.save();
+        await logEntry.save({ session });
         return true;
     } catch (error) {
         console.error('Error interno registrando auditoría:', error.message);

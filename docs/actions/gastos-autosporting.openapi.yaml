@@ -1,0 +1,273 @@
+openapi: 3.1.0
+info:
+  title: Gastos AutoSporting
+  version: 1.0.0
+  description: >-
+    Gastos privados con la sesión y los permisos vigentes del CRM. Consultar contexto,
+    preparar y corregir un borrador; mostrar su resumen y confirmar expresamente su versión.
+    Una confirmación repetida devuelve el mismo movimiento. Reemplazar el host de prueba
+    por el HTTPS del entorno aislado antes de importar esta acción.
+servers:
+  - url: https://STAGING_HOST/api/gpt
+security:
+  - crmOAuth: [expenses.write]
+paths:
+  /expenses/context:
+    get:
+      operationId: getExpenseContext
+      summary: Consultar cuentas, categorías, unidades y fecha argentina reales
+      x-openai-isConsequential: false
+      parameters:
+        - {name: vehicleQuery, in: query, schema: {type: string, maxLength: 180}, description: 'Modelo, marca, versión, año o patente; combinar palabras para precisar.'}
+        - {name: accountQuery, in: query, schema: {type: string, maxLength: 120}}
+        - {name: currency, in: query, schema: {type: string, enum: [ARS, USD]}}
+        - {name: paymentMethod, in: query, schema: {$ref: '#/components/schemas/PaymentMethod'}}
+        - {name: page, in: query, schema: {type: integer, minimum: 1, default: 1}, description: Página de vehículos; buscar considera todo el inventario.}
+        - {name: accountPage, in: query, schema: {type: integer, minimum: 1, default: 1}}
+        - {name: limit, in: query, schema: {type: integer, minimum: 1, maximum: 50, default: 20}}
+      responses:
+        '200':
+          description: Contexto permitido para el usuario; nunca inventar identificadores.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  todayArgentina: {type: string, format: date}
+                  currencies: {type: array, items: {type: string}}
+                  kinds: {type: array, items: {type: string}}
+                  paymentMethods: {type: array, items: {$ref: '#/components/schemas/PaymentMethod'}}
+                  accounts: {type: array, items: {$ref: '#/components/schemas/Account'}}
+                  accountPagination: {$ref: '#/components/schemas/Pagination'}
+                  categories: {type: array, items: {type: string}}
+                  vehicles: {type: array, items: {$ref: '#/components/schemas/Vehicle'}}
+                  vehiclePagination: {$ref: '#/components/schemas/Pagination'}
+                  cardTiming: {type: array, items: {type: object, properties: {value: {type: string}, label: {type: string}}}}
+        '401': {$ref: '#/components/responses/Failure'}
+        '403': {$ref: '#/components/responses/Failure'}
+  /expenses/drafts:
+    post:
+      operationId: prepareExpenseDraft
+      summary: Preparar un borrador sin registrar ni debitar el gasto
+      x-openai-isConsequential: false
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [requestId, expense]
+              additionalProperties: false
+              properties:
+                requestId:
+                  type: string
+                  pattern: '^[a-zA-Z0-9_-]{8,128}$'
+                  description: UUID nuevo por gasto; reutilizar el mismo si se reintenta esta llamada.
+                expense: {$ref: '#/components/schemas/ExpenseInput'}
+      responses:
+        '201':
+          description: Borrador o resultado previo del mismo requestId.
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - {$ref: '#/components/schemas/Draft'}
+                  - {$ref: '#/components/schemas/Movement'}
+        '400': {$ref: '#/components/responses/Failure'}
+        '401': {$ref: '#/components/responses/Failure'}
+        '403': {$ref: '#/components/responses/Failure'}
+  /expenses/drafts/{draftId}:
+    parameters:
+      - {$ref: '#/components/parameters/DraftId'}
+    get:
+      operationId: getExpenseDraft
+      summary: Recuperar un borrador propio o el resultado de una confirmación previa
+      x-openai-isConsequential: false
+      responses:
+        '200':
+          description: Borrador o movimiento confirmado. Usar tras un timeout antes de crear otro.
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - {$ref: '#/components/schemas/Draft'}
+                  - {$ref: '#/components/schemas/Movement'}
+        '401': {$ref: '#/components/responses/Failure'}
+        '403': {$ref: '#/components/responses/Failure'}
+        '404': {$ref: '#/components/responses/Failure'}
+        '410': {$ref: '#/components/responses/Failure'}
+    patch:
+      operationId: correctExpenseDraft
+      summary: Corregir solo los datos indicados y obtener una nueva versión para revisar
+      x-openai-isConsequential: false
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [version, expense]
+              additionalProperties: false
+              properties:
+                version: {type: integer, minimum: 1, description: Última versión leída del borrador.}
+                expense: {$ref: '#/components/schemas/ExpenseInput'}
+      responses:
+        '200':
+          description: Resumen corregido; la versión anterior ya no puede confirmarse.
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/Draft'}
+        '400': {$ref: '#/components/responses/Failure'}
+        '403': {$ref: '#/components/responses/Failure'}
+        '404': {$ref: '#/components/responses/Failure'}
+        '409': {$ref: '#/components/responses/Failure'}
+        '410': {$ref: '#/components/responses/Failure'}
+  /expenses/drafts/{draftId}/confirm:
+    parameters:
+      - {$ref: '#/components/parameters/DraftId'}
+    post:
+      operationId: confirmExpenseDraft
+      summary: Registrar exactamente una vez el gasto que el usuario acaba de revisar y confirmar
+      x-openai-isConsequential: true
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [version, confirmed]
+              additionalProperties: false
+              properties:
+                version: {type: integer, minimum: 1, description: Versión exacta del último resumen mostrado y confirmado.}
+                confirmed: {type: boolean, enum: [true], description: Solo true después de la confirmación expresa del usuario.}
+      responses:
+        '200':
+          description: Movimiento creado o el mismo movimiento en un reintento.
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/Movement'}
+        '400': {$ref: '#/components/responses/Failure'}
+        '401': {$ref: '#/components/responses/Failure'}
+        '403': {$ref: '#/components/responses/Failure'}
+        '404': {$ref: '#/components/responses/Failure'}
+        '409': {$ref: '#/components/responses/Failure'}
+        '410': {$ref: '#/components/responses/Failure'}
+        '422': {$ref: '#/components/responses/Failure'}
+        '503': {$ref: '#/components/responses/Failure'}
+components:
+  securitySchemes:
+    crmOAuth:
+      type: oauth2
+      flows:
+        authorizationCode:
+          authorizationUrl: https://STAGING_HOST/gpt/autorizar
+          tokenUrl: https://STAGING_HOST/api/gpt/oauth/token
+          scopes:
+            expenses.write: Consultar referencias y preparar/confirmar gastos propios con los permisos actuales del CRM
+  parameters:
+    DraftId:
+      name: draftId
+      in: path
+      required: true
+      schema: {type: string, pattern: '^[a-fA-F0-9]{24}$'}
+  responses:
+    Failure:
+      description: Solicitud rechazada; no crear otro gasto para reintentar una confirmación.
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              error: {type: string}
+              message: {type: string}
+              details: {type: object, additionalProperties: true}
+  schemas:
+    PaymentMethod:
+      type: string
+      enum: [efectivo, transferencia, tarjeta, cheque, deposito, dolares, otro]
+    ExpenseInput:
+      type: object
+      additionalProperties: false
+      description: >-
+        Puede estar incompleto para resolver únicamente los datos faltantes. No inventar cuentas,
+        categorías ni vehículos. En PATCH enviar solo los campos corregidos; null limpia un campo.
+      properties:
+        kind: {type: [string, 'null'], enum: [operational, workshop, vehicle, card, null]}
+        amount: {type: [number, 'null'], exclusiveMinimum: 0, maximum: 1000000000000, multipleOf: 0.01}
+        currency: {type: [string, 'null'], enum: [ARS, USD, null]}
+        date: {type: [string, 'null'], format: date, description: Fecha argentina; por omisión hoy.}
+        concept: {type: [string, 'null'], maxLength: 300}
+        paymentMethod:
+          type: [string, 'null']
+          enum: [efectivo, transferencia, tarjeta, cheque, deposito, dolares, otro, null]
+        accountId: {type: [string, 'null'], description: ID de la cuenta real elegida en el CRM.}
+        accountQuery: {type: [string, 'null'], maxLength: 120, description: Nombre o banco mencionado para reducir candidatos.}
+        vehicleId: {type: [string, 'null'], description: ID de la unidad real elegida. Obligatorio para workshop o vehicle.}
+        vehicleQuery: {type: [string, 'null'], maxLength: 180, description: Modelo/versión/año/patente mencionados.}
+        category: {type: [string, 'null'], maxLength: 300, description: Valor exacto de las categorías del contexto.}
+        notes: {type: [string, 'null'], maxLength: 1500}
+        cardTiming:
+          type: [string, 'null']
+          enum: [paid, deferred, null]
+          description: 'Solo tarjeta: paid = ya pagado, un débito; deferred = pendiente, sin débito hasta completar el pago en Finanzas.'
+        dueDate: {type: [string, 'null'], format: date, description: Vencimiento opcional de tarjeta pendiente.}
+    Account:
+      type: object
+      properties:
+        id: {type: string}
+        name: {type: string}
+        type: {type: string}
+        currency: {type: string}
+    Vehicle:
+      type: object
+      properties:
+        id: {type: string}
+        brand: {type: string}
+        model: {type: string}
+        year: {type: integer}
+        plate: {type: string}
+        status: {type: string}
+        label: {type: string, description: Modelo, año y patente para distinguir coincidencias.}
+    Pagination:
+      type: object
+      properties:
+        page: {type: integer}
+        limit: {type: integer}
+        total: {type: integer}
+        hasMore: {type: boolean}
+    MissingField:
+      type: object
+      properties:
+        field: {type: string}
+        question: {type: string}
+        total: {type: integer}
+        candidates: {type: array, items: {type: object, additionalProperties: true}}
+    Draft:
+      type: object
+      properties:
+        draftId: {type: string}
+        version: {type: integer}
+        status: {type: string, enum: [draft]}
+        expiresAt: {type: string, format: date-time}
+        payload: {$ref: '#/components/schemas/ExpenseInput'}
+        summary: {type: string}
+        readyToConfirm: {type: boolean}
+        missingFields: {type: array, items: {$ref: '#/components/schemas/MissingField'}}
+        nextQuestion:
+          oneOf:
+            - {$ref: '#/components/schemas/MissingField'}
+            - {type: 'null'}
+    Movement:
+      type: object
+      properties:
+        draftId: {type: string}
+        version: {type: integer}
+        status: {type: string, enum: [confirmed]}
+        movementId: {type: string}
+        movementNumber: {type: string, description: Identificador completo y existente del movimiento en el CRM.}
+        movementStatus: {type: string, enum: [activo, pendiente]}
+        summary: {type: string}
+        url: {type: string, format: uri, description: Abre el movimiento exacto en Finanzas; requiere sesión CRM vigente.}
+        vehicleUrl: {type: [string, 'null']}
+        accountDebited: {type: boolean}
+        duplicate: {type: boolean, description: true si ese gasto ya existía; no volver a cargarlo.}

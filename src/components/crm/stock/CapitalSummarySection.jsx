@@ -8,16 +8,13 @@ import CrmButton from '../ui/CrmButton';
 import CapitalBreakdownModal from './CapitalBreakdownModal';
 import StockAuditTableModal from './StockAuditTableModal';
 import ContrastCasesModal from './ContrastCasesModal';
-
-function formatARS(val) {
-    if (val === undefined || val === null || isNaN(val)) return '$0';
-    return '$' + Math.round(val).toLocaleString('es-AR');
-}
+import { capitalSummaryCurrencyView, formatCapitalAmount } from '../../../utils/capitalSummaryView';
 
 export default function CapitalSummarySection({ initialSummary = null }) {
     const [summary, setSummary] = useState(initialSummary);
     const [loading, setLoading] = useState(!initialSummary);
     const [error, setError] = useState(null);
+    const [currency, setCurrency] = useState('ARS');
     const [valuationScenario, setValuationScenario] = useState('costo'); // 'costo' | 'publicado'
 
     // Modales
@@ -80,7 +77,9 @@ export default function CapitalSummarySection({ initialSummary = null }) {
 
     if (!summary) return null;
 
-    const { componentes, totales, auditoriaIndicadores } = summary;
+    const { componentes, totales } = capitalSummaryCurrencyView(summary, currency);
+    const { auditoriaIndicadores } = summary;
+    const formatAmount = amount => formatCapitalAmount(amount, currency);
 
     // Calcular valores según el escenario de valuación activo
     const stockMonto = valuationScenario === 'costo' 
@@ -113,6 +112,15 @@ export default function CapitalSummarySection({ initialSummary = null }) {
                         </p>
                     </div>
 
+                    <label className="flex flex-col gap-1 text-xs text-crm-fg-muted">
+                        Moneda del resumen
+                        <select aria-label="Moneda del resumen patrimonial" value={currency} onChange={event => setCurrency(event.target.value)} className="rounded-lg border border-crm-border bg-crm-bg px-3 py-2 text-crm-fg">
+                            <option value="ARS">ARS · pesos</option>
+                            <option value="USD">USD · dólares</option>
+                        </select>
+                        Importes en {currency}, sin conversión ni suma con otras monedas.
+                    </label>
+
                     {/* Botones de Acción */}
                     <div className="flex flex-wrap items-center gap-2 shrink-0">
                         <CrmButton 
@@ -122,7 +130,7 @@ export default function CapitalSummarySection({ initialSummary = null }) {
                             className="gap-1.5 text-xs border-crm-border hover:bg-crm-surface/80"
                         >
                             <Table size={13} className="text-blue-400" />
-                            Auditoría de Vehículos ({auditoriaIndicadores?.totalStockActivo || 34})
+                            Auditoría de Vehículos ({auditoriaIndicadores?.totalStockActivo ?? 0})
                         </CrmButton>
 
                         <CrmButton 
@@ -179,7 +187,7 @@ export default function CapitalSummarySection({ initialSummary = null }) {
                     <div className="flex items-center gap-3 bg-crm-bg/80 px-3 py-1.5 rounded-lg border border-crm-border text-[11px]">
                         <span className="text-crm-fg-subtle">Efectivo en mano disponible:</span>
                         <span className="font-mono font-bold text-emerald-400 text-xs">
-                            {formatARS(totales.efectivoDisponible)}
+                            {formatAmount(totales.efectivoDisponible)}
                         </span>
                     </div>
                 </div>
@@ -201,7 +209,7 @@ export default function CapitalSummarySection({ initialSummary = null }) {
                         onClick={() => setSelectedComponentKey('stockPropioCosto')}
                         className="text-[11px] font-semibold text-amber-300 hover:text-white underline shrink-0"
                     >
-                        Ver las 9 unidades
+                        Ver las {componentes.stockPropioCosto.unidadesSinCosto || 0} unidades
                     </button>
                 </div>
             )}
@@ -226,7 +234,7 @@ export default function CapitalSummarySection({ initialSummary = null }) {
                             {valuationScenario === 'costo' ? 'Stock propio a costo' : 'Stock propio publicado'}
                         </div>
                         <div className="text-lg md:text-xl font-extrabold text-white tracking-tight">
-                            {formatARS(stockMonto)}
+                            {formatAmount(stockMonto)}
                         </div>
                         <p className="text-[11px] text-crm-fg-muted line-clamp-2">
                             {valuationScenario === 'costo' 
@@ -260,7 +268,7 @@ export default function CapitalSummarySection({ initialSummary = null }) {
                             Efectivo conciliado
                         </div>
                         <div className="text-lg md:text-xl font-extrabold text-emerald-400 tracking-tight">
-                            {formatARS(componentes.efectivoPropio.monto)}
+                            {formatAmount(componentes.efectivoPropio.monto)}
                         </div>
                         <p className="text-[11px] text-crm-fg-muted line-clamp-2">
                             Caja y bancos reales. Excluye asignaciones internas duplicadas.
@@ -290,7 +298,7 @@ export default function CapitalSummarySection({ initialSummary = null }) {
                             Cartera propia
                         </div>
                         <div className="text-lg md:text-xl font-extrabold text-white tracking-tight">
-                            {formatARS(componentes.carteraPropia.monto)}
+                            {formatAmount(componentes.carteraPropia.monto)}
                         </div>
                         <p className="text-[11px] text-crm-fg-muted line-clamp-2">
                             Cuotas por cobrar netas de la cuota de inversionistas.
@@ -298,7 +306,7 @@ export default function CapitalSummarySection({ initialSummary = null }) {
                     </div>
                     <div className="mt-3 pt-2.5 border-t border-crm-border/60 text-[10px] text-crm-fg-subtle flex justify-between">
                         <span>{componentes.carteraPropia.cuotasCount} cuotas</span>
-                        <span className="text-crm-fg-subtle font-mono">Nom: {formatARS(componentes.carteraPropia.montoTotalNominal)}</span>
+                        <span className="text-crm-fg-subtle font-mono">Nom: {formatAmount(componentes.carteraPropia.montoTotalNominal)}</span>
                     </div>
                 </div>
 
@@ -320,7 +328,7 @@ export default function CapitalSummarySection({ initialSummary = null }) {
                             Otros créditos
                         </div>
                         <div className="text-lg md:text-xl font-extrabold text-crm-fg-muted tracking-tight">
-                            {formatARS(componentes.otrosCreditos.monto)}
+                            {formatAmount(componentes.otrosCreditos.monto)}
                         </div>
                         <p className="text-[11px] text-crm-fg-muted line-clamp-2">
                             Anticipos a socios verificados pendientes de reintegro.
@@ -350,7 +358,7 @@ export default function CapitalSummarySection({ initialSummary = null }) {
                             Deudas y obligaciones
                         </div>
                         <div className="text-lg md:text-xl font-extrabold text-rose-300 tracking-tight">
-                            {formatARS(componentes.deudasPropia.monto)}
+                            {formatAmount(componentes.deudasPropia.monto)}
                         </div>
                         <p className="text-[11px] text-crm-fg-muted line-clamp-2">
                             Obligaciones pendientes documentadas. Descontadas 1 sola vez.
@@ -385,7 +393,7 @@ export default function CapitalSummarySection({ initialSummary = null }) {
                             Capital propio estimado
                         </div>
                         <div className="text-xl md:text-2xl font-black text-white tracking-tight">
-                            {formatARS(capitalTotalCalculado)}
+                            {formatAmount(capitalTotalCalculado)}
                         </div>
                         <p className="text-[11px] text-crm-fg-muted line-clamp-2">
                             {valuationScenario === 'costo'
@@ -395,7 +403,7 @@ export default function CapitalSummarySection({ initialSummary = null }) {
                     </div>
                     <div className="mt-3 pt-2.5 border-t border-crm-border/60 text-[10px] text-crm-fg-subtle flex justify-between">
                         <span>Corte: {new Date(summary.cutoffDate).toLocaleDateString('es-AR')}</span>
-                        <span className="text-emerald-400 font-semibold">Conciliado</span>
+                        <span className="text-emerald-400 font-semibold">{summary.conciliacionStatus === 'completa' ? 'Conciliado' : 'Datos pendientes'}</span>
                     </div>
                 </div>
             </div>
@@ -407,9 +415,9 @@ export default function CapitalSummarySection({ initialSummary = null }) {
                         Separación metodológica de valuaciones:
                     </span>
                     <p className="text-crm-fg-muted leading-relaxed">
-                        • <strong>Capital propio a costo ({formatARS(totales.capitalPropioCosto)}):</strong> Valuación conservadora obligatoria. No anticipa ganancias no realizadas.
+                        • <strong>Capital propio a costo ({formatAmount(totales.capitalPropioCosto)}):</strong> Valuación conservadora obligatoria. No anticipa ganancias no realizadas.
                         <br />
-                        • <strong>Escenario a precios publicados ({formatARS(totales.capitalPropioPublicado)}):</strong> Estimación comercial de vidriera. La diferencia de <strong>+{formatARS(totales.margenComercialPotencial)}</strong> representa margen potencial sujeto a negociación y costos de venta; <em>no constituye ganancia cobrada ni dinero en caja</em>.
+                        • <strong>Escenario a precios publicados ({formatAmount(totales.capitalPropioPublicado)}):</strong> Estimación comercial de vidriera. La diferencia de <strong>+{formatAmount(totales.margenComercialPotencial)}</strong> representa margen potencial sujeto a negociación y costos de venta; <em>no constituye ganancia cobrada ni dinero en caja</em>.
                     </p>
                 </div>
             </div>
@@ -422,6 +430,7 @@ export default function CapitalSummarySection({ initialSummary = null }) {
                     componentKey={selectedComponentKey}
                     componentData={componentes[selectedComponentKey]}
                     totals={totales}
+                    displayCurrency={currency}
                 />
             )}
 

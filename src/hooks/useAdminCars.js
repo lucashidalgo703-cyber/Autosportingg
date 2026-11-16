@@ -1,13 +1,15 @@
 "use client";
 import { parseResponseSafe } from '../utils/apiHelper';
-import { useState, useCallback, useRef } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { getActiveOfflineSnapshot } from '../services/offlineSyncService';
 import toast from 'react-hot-toast';
+import { filterStockVehicles, summarizeStock, isActiveStock, isAvailableStock } from '../utils/inventoryStock';
+import { hasPermission, PERMISSIONS } from '../utils/adminPermissions';
 
 const adminCarsQuery = (filters = {}) => {
     const query = new URLSearchParams({ t: String(Date.now()) });
-    for (const key of ['page', 'limit', 'search', 'status', 'brand', 'tab', 'ml', 'catalog']) {
+    for (const key of ['page', 'limit', 'search', 'status', 'brand', 'tab', 'ml', 'catalog', 'ownership']) {
         if (filters[key]) query.append(key, String(filters[key]));
     }
     return query.toString();
@@ -31,7 +33,9 @@ export const useAdminCars = () => {
     const [filteredPropioUSD, setFilteredPropioUSD] = useState(0);
     const [filteredInversionistasUSD, setFilteredInversionistasUSD] = useState(0);
 
-    const { logout } = useAuth();
+    const [filteredMetrics, setFilteredMetrics] = useState(null);
+    const [financialAccess, setFinancialAccess] = useState(false);
+    const { logout, user } = useAuth();
     const activeRequestIdRef = useRef(0);
     const lastFiltersRef = useRef({ page: 1, limit: 20 });
 
@@ -40,39 +44,36 @@ export const useAdminCars = () => {
         const cachedVehicles = snap?.data?.vehicles;
         if (!Array.isArray(cachedVehicles)) return null;
 
-        let filtered = [...cachedVehicles];
-        if (filters.status && filters.status !== 'todos') {
-            const st = String(filters.status).toLowerCase();
-            filtered = filtered.filter(v => String(v.status || 'disponible').toLowerCase() === st);
-        }
-        if (filters.brand && filters.brand !== 'todas') {
-            filtered = filtered.filter(v => String(v.brand || '').toLowerCase() === String(filters.brand).toLowerCase());
-        }
-        if (filters.search) {
-            const q = String(filters.search).toLowerCase().trim();
-            filtered = filtered.filter(v =>
-                String(v.brand || '').toLowerCase().includes(q) ||
-                String(v.name || '').toLowerCase().includes(q) ||
-                String(v.plateOrVin || '').toLowerCase().includes(q)
-            );
-        }
-
-        if (filters.catalog === 'published' || filters.catalog === 'unpublished') {
-            filtered = filtered.filter(vehicle => {
-                const published = vehicle.visibleEnWeb !== false && !/^(vendido|reservado|pausado|cancelado|eliminado)$/i.test(String(vehicle.status || ''));
-                return filters.catalog === 'published' ? published : !published;
-            });
-        }
-
+        const filtered = filterStockVehicles(cachedVehicles, filters);
+        const limit = Math.max(1, Number(filters.limit) || 20);
+        const currentPage = Math.max(1, Number(filters.page) || 1);
+        const pageCars = filtered.slice((currentPage - 1) * limit, currentPage * limit);
         const uniqueBrands = Array.from(new Set(cachedVehicles.map(v => v.brand).filter(Boolean))).sort();
-        setCars(filtered);
+        const metrics = summarizeStock(filtered);
+        const canRead = hasPermission(user, PERMISSIONS.FINANZAS_READ);
+        setCars(pageCars);
         setTotal(filtered.length);
-        setPages(Math.max(1, Math.ceil(filtered.length / (Number(filters.limit) || 20))));
-        setPage(Number(filters.page) || 1);
+        setPages(Math.ceil(filtered.length / limit));
+        setPage(currentPage);
         setBrands(uniqueBrands);
+        setFinancialAccess(canRead);
+        setFilteredMetrics(metrics);
+        setFilteredTotalARS(metrics.asking.ARS);
+        setFilteredTotalUSD(metrics.asking.USD);
+        setFilteredCostARS(canRead ? metrics.cost.ARS : 0);
+        setFilteredCostUSD(canRead ? metrics.cost.USD : 0);
+        setFilteredPropioARS(canRead ? metrics.ownAsking.ARS : 0);
+        setFilteredPropioUSD(canRead ? metrics.ownAsking.USD : 0);
+        setFilteredInversionistasARS(canRead ? metrics.investorAsking.ARS : 0);
+        setFilteredInversionistasUSD(canRead ? metrics.investorAsking.USD : 0);
+        const active = cachedVehicles.filter(isActiveStock);
+        const available = cachedVehicles.filter(isAvailableStock);
+        setSummary({ inventoryCount: cachedVehicles.length, total: active.length, disponibles: available.length,
+            vendidos: cachedVehicles.length - active.length,
+            ...(canRead ? { activeMetrics: summarizeStock(active), availableMetrics: summarizeStock(available) } : {}) });
         setError(null);
-        return { cars: filtered, total: filtered.length, pages: 1, page: 1, brands: uniqueBrands, offline: true };
-    }, []);
+        return { cars: pageCars, total: filtered.length, pages: Math.ceil(filtered.length / limit), page: currentPage, brands: uniqueBrands, offline: true };
+    }, [user]);
 
     const fetchCars = useCallback(async (incomingFilters) => {
         const requestId = ++activeRequestIdRef.current;
@@ -143,7 +144,7 @@ export const useAdminCars = () => {
                     }
                 } catch (_) {}
 
-                throw new Error(errorMessage);
+                throw Object.assign(new Error(errorMessage), { status: response.status });
             }
 
             const data = await parseResponseSafe(response);
@@ -155,6 +156,8 @@ export const useAdminCars = () => {
 
             if (data && data.cars) {
                 setCars(data.cars);
+                setFilteredMetrics(data.filteredMetrics || null);
+                setFinancialAccess(data.financialAccess === true);
                 setTotal(data.total || 0);
                 setPages(data.pages || 0);
                 setPage(data.page || 1);
@@ -173,6 +176,8 @@ export const useAdminCars = () => {
                 return data;
             } else {
                 setCars(Array.isArray(data) ? data : []);
+                setFilteredMetrics(null);
+                setFinancialAccess(false);
                 setFilteredTotalUSD(0);
                 setFilteredTotalARS(0);
                 setFilteredCostUSD(0);
@@ -185,8 +190,10 @@ export const useAdminCars = () => {
             }
         } catch (err) {
             if (requestId !== activeRequestIdRef.current) return;
-            const offlineResult = applyOfflineFallback(effectiveFilters);
-            if (offlineResult) return offlineResult;
+            if (![401, 403].includes(err.status)) {
+                const offlineResult = applyOfflineFallback(effectiveFilters);
+                if (offlineResult) return offlineResult;
+            }
             console.error("Error fetching admin cars:", err);
             setError(err.message);
             return { cars: [] };
@@ -196,6 +203,21 @@ export const useAdminCars = () => {
             }
         }
     }, [logout, applyOfflineFallback]);
+
+    useEffect(() => {
+        const onStockChanged = () => fetchCars();
+        const onStorageChanged = (event) => {
+            if (event.key === 'crm:stock-changed' && event.newValue !== event.oldValue) {
+                fetchCars();
+            }
+        };
+        window.addEventListener('crm:stock-changed', onStockChanged);
+        window.addEventListener('storage', onStorageChanged);
+        return () => {
+            window.removeEventListener('crm:stock-changed', onStockChanged);
+            window.removeEventListener('storage', onStorageChanged);
+        };
+    }, [fetchCars]);
 
     const deleteCar = async (id) => {
         try {
@@ -254,7 +276,7 @@ export const useAdminCars = () => {
                     throw new Error('La lista cambió y no se pudo encontrar el vehículo vecino. Actualizá el listado antes de ordenar.');
                 }
             }
-            if (context && ['page', 'limit', 'search', 'status', 'brand', 'tab', 'ml', 'catalog'].some(key => String(lastFiltersRef.current[key] ?? '') !== String(context[key] ?? ''))) throw new Error('Los filtros cambiaron. Reintentá el movimiento con el listado actualizado.');
+            if (context && ['page', 'limit', 'search', 'status', 'brand', 'tab', 'ml', 'catalog', 'ownership'].some(key => String(lastFiltersRef.current[key] ?? '') !== String(context[key] ?? ''))) throw new Error('Los filtros cambiaron. Reintentá el movimiento con el listado actualizado.');
             if (!token || localStorage.getItem('token') !== token) throw new Error('La sesión cambió. Actualizá el listado antes de ordenar.');
             const res = await fetch(endpoint, {
                 method: 'PUT',
@@ -296,6 +318,8 @@ export const useAdminCars = () => {
         summary,
         brands,
         swapCars,
+        filteredMetrics,
+        financialAccess,
         filteredTotalUSD,
         filteredTotalARS,
         filteredCostUSD,

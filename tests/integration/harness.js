@@ -1,13 +1,16 @@
 // Arranque común de pruebas de integración: servidor Express real + MongoDB EN MEMORIA (nunca producción).
 import crypto from 'node:crypto';
 import path from 'node:path';
+import fs from 'node:fs';
 import { once } from 'node:events';
 
 export async function boot() {
-    const { MongoMemoryServer } = await import('mongodb-memory-server');
-    const mongod = await MongoMemoryServer.create({
-        binary: { downloadDir: path.resolve('node_modules/.cache/mongodb-binaries') },
-        instance: { launchTimeout: 60000 }
+    const { MongoMemoryReplSet } = await import('mongodb-memory-server');
+    const cacheDir = path.resolve('node_modules/.cache/mongodb-binaries');
+    const cachedBinary = path.join(cacheDir, 'mongod-x64-win32-8.2.6.exe');
+    const mongod = await MongoMemoryReplSet.create({
+        binary: { downloadDir: cacheDir, ...(process.platform === 'win32' && fs.existsSync(cachedBinary) ? { systemBinary: cachedBinary } : {}) },
+        instanceOpts: [{ launchTimeout: 60000 }], replSet: { count: 1, storageEngine: 'wiredTiger' }
     });
     process.env.MONGODB_URI = mongod.getUri('autosporting_test');
     process.env.JWT_SECRET = crypto.randomBytes(24).toString('hex');
@@ -24,6 +27,12 @@ export async function boot() {
     const { default: LoginSession } = await import('../../src/models/LoginSession.js');
     const { credentialFingerprint } = await import('../../src/services/emailLoginService.js');
     await connectDB();
+    // Transactions require pre-existing collections; only disposable local data is touched.
+    const models = Object.values(mongoose.models);
+    for (let i = 0; i < models.length; i += 10) {
+        await Promise.all(models.slice(i, i + 10).map(model => model.createCollection()));
+    }
+
 
     const server = app.listen(0, '127.0.0.1');
     await once(server, 'listening');

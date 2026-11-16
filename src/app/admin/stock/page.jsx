@@ -1,6 +1,6 @@
 "use client";
 import { useState, useMemo, useEffect, useRef } from 'react';
-import { Download, Eye, FileText, Plus, ExternalLink, HelpCircle, AlertCircle, CheckCircle2, Info, Calculator, Filter } from 'lucide-react';
+import { Download, FileText, Plus, ExternalLink } from 'lucide-react';
 
 import CrmButton from '../../../components/crm/ui/CrmButton';
 import CrmPageHeader from '../../../components/crm/ui/CrmPageHeader';
@@ -19,32 +19,20 @@ import { useAdminCars } from '../../../hooks/useAdminCars';
 import { useAdminMandates } from '../../../hooks/useAdminMandates';
 import { mapRealCarToCRM } from '../../../components/crm/stock/vehicleAdapter';
 import toast from 'react-hot-toast';
-import Link from 'next/link';
 import CrmPagination from '../../../components/crm/ui/CrmPagination';
 import VehicleFlyerPdf from '../../../components/crm/stock/VehicleFlyerPdf';
-import CapitalSummarySection from '../../../components/crm/stock/CapitalSummarySection';
-import StockCommercialCalculator from '../../../components/crm/stock/StockCommercialCalculator';
-import StockCalculationModal from '../../../components/crm/stock/StockCalculationModal';
+import { useAuth } from '../../../context/AuthContext';
+import { hasPermission, PERMISSIONS } from '../../../utils/adminPermissions';
+import { formatStockMoney } from '../../../utils/inventoryStock';
 import { prepareVehicleImageOrder } from '../../../services/vehicleImageUpload';
 
-
-function formatARS(amount) {
-    return new Intl.NumberFormat('es-AR', {
-        style: 'currency',
-        currency: 'ARS',
-        maximumFractionDigits: 0
-    }).format(Math.round(amount || 0));
-}
-
-function formatUSD(amount) {
-    return `USD ${new Intl.NumberFormat('es-AR', { maximumFractionDigits: 0 }).format(Math.round(amount || 0))}`;
-}
 
 export default function AdminStockPage() {
     const [pageNumber, setPageNumber] = useState(1);
     const [searchTerm, setSearchTerm] = useState('');
     const [debouncedSearch, setDebouncedSearch] = useState('');
-    const [filterStatus, setFilterStatus] = useState('disponible');
+    const [filterStatus, setFilterStatus] = useState('todos');
+    const [ownershipFilter, setOwnershipFilter] = useState('todos');
     const [stockTab, setStockTab] = useState('stock');
     const [brandFilter, setBrandFilter] = useState('todas');
     const [mlFilter, setMlFilter] = useState('todas');
@@ -58,6 +46,7 @@ export default function AdminStockPage() {
         (mlFilter && mlFilter !== 'todas') ||
         catalogFilter !== 'all' ||
         (filterStatus && filterStatus !== 'todos' && filterStatus !== '') ||
+        ownershipFilter !== 'todos' ||
         (stockTab && stockTab !== 'stock')
     );
 
@@ -67,7 +56,8 @@ export default function AdminStockPage() {
         setBrandFilter('todas');
         setMlFilter('todas');
         setCatalogFilter('all');
-        setFilterStatus('');
+        setFilterStatus('todos');
+        setOwnershipFilter('todos');
         setStockTab('stock');
         setPageNumber(1);
     };
@@ -83,11 +73,12 @@ export default function AdminStockPage() {
     const { 
         cars, loading, error, refresh, total, pages, 
         summary: backendSummary, brands: backendBrands, 
-        swapCars, setCars, filteredTotalUSD, filteredTotalARS,
-        filteredPropioARS, filteredInversionistasARS,
-        filteredPropioUSD, filteredInversionistasUSD
+        swapCars, setCars, filteredTotalUSD, filteredTotalARS, filteredMetrics, financialAccess,
     } = useAdminCars();
-    const [showCalculationModal, setShowCalculationModal] = useState(false);
+    const { user } = useAuth();
+    const canWrite = ['owner', 'admin'].includes(user?.role) || hasPermission(user, PERMISSIONS.STOCK_WRITE);
+    const canReserve = ['owner', 'admin'].includes(user?.role) || hasPermission(user, PERMISSIONS.RESERVAS_WRITE);
+    const canSeeCosts = financialAccess;
     const [isFormOpen, setIsFormOpen] = useState(false);
     const [isSavingVehicle, setIsSavingVehicle] = useState(false);
     const savingVehicleRef = useRef(false);
@@ -100,22 +91,9 @@ export default function AdminStockPage() {
     const [reservingCar, setReservingCar] = useState(null);
     const [confirmDeleteMandate, setConfirmDeleteMandate] = useState({ isOpen: false, mandate: null });
     const { mandates, fetchMandates, deleteMandate } = useAdminMandates();
-    const [dolarBlue, setDolarBlue] = useState(null);
-    const [isDolarLoading, setIsDolarLoading] = useState(true);
     const [isSwapping, setIsSwapping] = useState(false);
 
     useEffect(() => {
-        setIsDolarLoading(true);
-        fetch('https://dolarapi.com/v1/dolares/blue')
-            .then(res => res.json())
-            .then(data => {
-                if (data && data.venta) {
-                    setDolarBlue(data.venta);
-                }
-            })
-            .catch(err => console.error('Error fetching dolar blue:', err))
-            .finally(() => setIsDolarLoading(false));
-            
         fetchMandates();
     }, [fetchMandates]);
 
@@ -129,7 +107,7 @@ export default function AdminStockPage() {
     // Cuando cambian los filtros de búsqueda o estado, reiniciamos a la página 1
     useEffect(() => {
         setPageNumber(1);
-    }, [debouncedSearch, filterStatus, brandFilter, stockTab, mlFilter, catalogFilter]);
+    }, [debouncedSearch, filterStatus, brandFilter, stockTab, mlFilter, catalogFilter, ownershipFilter]);
 
     // Ejecuta la consulta únicamente cuando cambie la página o los filtros debounced
     useEffect(() => {
@@ -141,9 +119,10 @@ export default function AdminStockPage() {
             brand: brandFilter,
             tab: stockTab,
             ml: mlFilter,
-            catalog: catalogFilter
+            catalog: catalogFilter,
+            ownership: ownershipFilter
         });
-    }, [pageNumber, debouncedSearch, filterStatus, brandFilter, stockTab, mlFilter, catalogFilter, refresh]);
+    }, [pageNumber, debouncedSearch, filterStatus, brandFilter, stockTab, mlFilter, catalogFilter, ownershipFilter, refresh]);
 
     const handleSwap = async (index, direction) => {
         if (isSwapping || loading) return;
@@ -186,7 +165,8 @@ export default function AdminStockPage() {
                     brand: brandFilter,
                     tab: stockTab,
                     ml: mlFilter,
-                    catalog: catalogFilter
+                    catalog: catalogFilter,
+                    ownership: ownershipFilter
                 });
                 if (!success) {
                     // Fail fallback
@@ -205,15 +185,16 @@ export default function AdminStockPage() {
                 brand: brandFilter,
                 tab: stockTab,
                 ml: mlFilter,
-                catalog: catalogFilter
+                catalog: catalogFilter,
+                ownership: ownershipFilter
             });
         }
     };
 
     const vehicles = useMemo(() => {
         if (!cars || cars.length === 0) return [];
-        return cars.map(mapRealCarToCRM);
-    }, [cars]);
+        return cars.map(car => mapRealCarToCRM({ ...car, linkedMandates: mandates.filter(m => String(m.linkedCarId?._id || m.linkedCarId || '') === String(car._id)).map(m => ({ id: String(m._id), status: m.status })) }));
+    }, [cars, mandates]);
 
     // Los indicadores globales provienen exclusivamente del backendSummary calculado sobre la colección completa
     // Nunca deben recalcularse sobre los 20 vehículos de la página actual ni sobre el subconjunto filtrado
@@ -225,30 +206,9 @@ export default function AdminStockPage() {
             };
         }
 
-        return {
-            total: 0,
-            disponibles: 0,
-            reservados: 0,
-            pausados: 0,
-            consignaciones: 0,
-            compartidos: 0,
-            ceroKm: 0,
-            mandatos: mandates.length,
-            valorActivoUSD: 0,
-            valorActivoARS: 0,
-            capitalInvertidoUSD: 0,
-            capitalInvertidoARS: 0,
-            valorActivoInversionistasUSD: 0,
-            valorActivoInversionistasARS: 0,
-            capitalInvertidoInversionistasUSD: 0,
-            capitalInvertidoInversionistasARS: 0,
-            valorTotalUSD: 0,
-            valorTotalARS: 0,
-            costoTotalUSD: 0,
-            costoTotalARS: 0,
-            disponiblesComputadosCount: 0,
-            disponiblesTotalCount: 0
-        };
+        return { total: 0, inventoryCount: 0, disponibles: 0, reservados: 0, pausados: 0,
+            consignaciones: 0, compartidos: 0, ceroKm: 0, mandatos: mandates.length };
+
     }, [backendSummary, mandates.length]);
 
     const brandOptions = useMemo(() => {
@@ -431,13 +391,9 @@ export default function AdminStockPage() {
             <div className="flex flex-col gap-6">
                 <CrmPageHeader 
                     title="Stock"
-                    subtitle={`${total} vehículos en listado actual · ${stockSummary.disponibles} disponibles para vender (${stockSummary.total} en stock activo total)`}
+                    subtitle="Una lista para consultar, abrir y gestionar cada unidad."
                     actions={
                         <>
-                            <CrmButton variant="secondary" size="sm" className="gap-2 border-amber-500/30 bg-amber-500/10 text-amber-200 hover:bg-amber-500/15">
-                                <Eye size={14} />
-                                Vista previa
-                            </CrmButton>
                             <CrmButton variant="secondary" size="sm" className="gap-2" onClick={() => window.open('/catalogo', '_blank', 'noopener,noreferrer')}>
                                 <ExternalLink size={14} /> Tu catálogo
                             </CrmButton>
@@ -445,7 +401,7 @@ export default function AdminStockPage() {
                                 <Download size={14} />
                                 Exportar XLSX
                             </CrmButton>
-                            <CrmButton variant="secondary" size="sm" className="gap-2" onClick={() => setIsImportModalOpen(true)}>
+                            {canWrite && <><CrmButton variant="secondary" size="sm" className="gap-2" onClick={() => setIsImportModalOpen(true)}>
                                 <FileText size={14} />
                                 Importar XLSX
                             </CrmButton>
@@ -456,226 +412,26 @@ export default function AdminStockPage() {
                             <CrmButton variant="primary" size="sm" onClick={handleNewVehicle} className="gap-2">
                                 <Plus size={14} />
                                 Nuevo vehículo
-                            </CrmButton>
+                            </CrmButton></>}
                         </>
                     }
                 />
 
-                {/* BLOQUE DE TARJETAS COMERCIALES: EXCLUSIVAMENTE VEHÍCULOS DISPONIBLES */}
-                <div className="space-y-4">
-                    {/* Tarjetas Principales: 1. Valor total disponible | 2. Mi participación | 3. Participación de inversores */}
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                        {/* 1. VALOR TOTAL DISPONIBLE */}
-                        <div className="rounded-2xl border border-crm-border bg-gradient-to-b from-crm-surface to-crm-surface/80 p-5 shadow-sm flex flex-col justify-between">
-                            <div>
-                                <div className="flex items-center justify-between gap-2 mb-1.5">
-                                    <span className="text-[11px] font-bold uppercase tracking-wider text-crm-fg-subtle">
-                                        1. Valor total disponible
-                                    </span>
-                                    <span
-                                        className="rounded-full bg-blue-500/10 px-2 py-0.5 text-[10px] font-semibold text-blue-400 border border-blue-500/20"
-                                        title={`Valorados: ${stockSummary.disponiblesComputadosCount ?? (stockSummary.disponibles ? Math.max(0, stockSummary.disponibles - (stockSummary.consignacionesSoloCount || 0) - (stockSummary.tercerosCount || 0)) : 0)} de ${stockSummary.disponiblesTotalCount ?? stockSummary.disponibles ?? 0} disponibles totales`}
-                                    >
-                                        Disponibles ({stockSummary.disponiblesComputadosCount ?? (stockSummary.disponibles ? Math.max(0, stockSummary.disponibles - (stockSummary.consignacionesSoloCount || 0) - (stockSummary.tercerosCount || 0)) : 0)} de {stockSummary.disponiblesTotalCount ?? stockSummary.disponibles ?? 0} unid.)
-                                    </span>
-                                </div>
-                                <p className="text-xs text-crm-fg-muted mb-3 leading-relaxed">
-                                    Precio publicado completo de vehículos propios y compartidos disponibles (excluye consignaciones y terceros informados aparte).
-                                </p>
-                                <div className="space-y-1">
-                                    <div className="text-2xl md:text-3xl font-extrabold tracking-tight text-white">
-                                        {formatARS(stockSummary.valorTotalARS)}
-                                    </div>
-                                    {stockSummary.valorTotalUSD > 0 && (
-                                        <div className="text-lg font-bold text-blue-300">
-                                            {formatUSD(stockSummary.valorTotalUSD)}
-                                        </div>
-                                    )}
-                                </div>
-                            </div>
-                            <div className="mt-4 pt-3 border-t border-crm-border/60 flex items-center justify-between text-[11px] text-crm-fg-muted">
-                                <span>Base comercial</span>
-                                <span className="font-semibold text-crm-fg">Precio de venta publicado</span>
-                            </div>
-                        </div>
-
-                        {/* 2. MI PARTICIPACIÓN */}
-                        <div className="rounded-2xl border border-crm-border bg-gradient-to-b from-crm-surface to-crm-surface/80 p-5 shadow-sm flex flex-col justify-between">
-                            <div>
-                                <div className="flex items-center justify-between gap-2 mb-1.5">
-                                    <span className="text-[11px] font-bold uppercase tracking-wider text-crm-fg-subtle">
-                                        2. Mi participación
-                                    </span>
-                                    <span className="rounded-full bg-emerald-500/10 px-2 py-0.5 text-[10px] font-semibold text-emerald-400 border border-emerald-500/20">
-                                        100% Propios + 50% Cuota
-                                    </span>
-                                </div>
-                                <p className="text-xs text-crm-fg-muted mb-3 leading-relaxed">
-                                    Mi participación real (100% propios + 50% en compartidos; 0% en inversión de terceros).
-                                </p>
-                                <div className="space-y-1">
-                                    <div className="text-2xl md:text-3xl font-extrabold tracking-tight text-emerald-400">
-                                        {formatARS(stockSummary.valorActivoARS)}
-                                    </div>
-                                    {stockSummary.valorActivoUSD > 0 && (
-                                        <div className="text-lg font-bold text-emerald-300">
-                                            {formatUSD(stockSummary.valorActivoUSD)}
-                                        </div>
-                                    )}
-                                </div>
-                            </div>
-                            <div className="mt-4 pt-3 border-t border-crm-border/60 flex items-center justify-between text-[11px] text-crm-fg-muted">
-                                <span>Participación sobre total</span>
-                                <span className="font-semibold text-emerald-400">
-                                    {stockSummary.valorTotalARS > 0
-                                        ? `${(((stockSummary.valorActivoARS) / stockSummary.valorTotalARS) * 100).toFixed(1)}%`
-                                        : '0%'}
-                                </span>
-                            </div>
-                        </div>
-
-                        {/* 3. PARTICIPACIÓN DE INVERSORES */}
-                        <div className="rounded-2xl border border-crm-border bg-gradient-to-b from-crm-surface to-crm-surface/80 p-5 shadow-sm flex flex-col justify-between">
-                            <div>
-                                <div className="flex items-center justify-between gap-2 mb-1.5">
-                                    <span className="text-[11px] font-bold uppercase tracking-wider text-crm-fg-subtle">
-                                        3. Participación de inversores
-                                    </span>
-                                    <span className="rounded-full bg-purple-500/10 px-2 py-0.5 text-[10px] font-semibold text-purple-400 border border-purple-500/20">
-                                        Socios Inversores
-                                    </span>
-                                </div>
-                                <p className="text-xs text-crm-fg-muted mb-3 leading-relaxed">
-                                    Participación de inversionistas (50% en compartidos + 100% en autos de inversores).
-                                </p>
-                                <div className="space-y-1">
-                                    <div className="text-2xl md:text-3xl font-extrabold tracking-tight text-purple-300">
-                                        {formatARS(stockSummary.valorActivoInversionistasARS)}
-                                    </div>
-                                    {stockSummary.valorActivoInversionistasUSD > 0 && (
-                                        <div className="text-lg font-bold text-purple-300">
-                                            {formatUSD(stockSummary.valorActivoInversionistasUSD)}
-                                        </div>
-                                    )}
-                                </div>
-                            </div>
-                            <div className="mt-4 pt-3 border-t border-crm-border/60 flex items-center justify-between text-[11px] text-crm-fg-muted">
-                                <span>Participación sobre total</span>
-                                <span className="font-semibold text-purple-400">
-                                    {stockSummary.valorTotalARS > 0
-                                        ? `${(((stockSummary.valorActivoInversionistasARS) / stockSummary.valorTotalARS) * 100).toFixed(1)}%`
-                                        : '0%'}
-                                </span>
-                            </div>
-                        </div>
-                    </div>
-
-                    {/* Barra de Coherencia Matemática y Botón Ver Cálculo */}
-                    <div className="rounded-xl border border-crm-border bg-crm-surface p-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
-                        <div className="flex items-center gap-2 text-emerald-400 bg-emerald-500/10 px-3 py-1.5 rounded-lg border border-emerald-500/20">
-                            <CheckCircle2 size={15} className="shrink-0" />
-                            <span>
-                                <strong>Suma aritmética exacta:</strong> Valor Total ({formatARS(stockSummary.valorTotalARS)}) = Mi Participación ({formatARS(stockSummary.valorActivoARS)}) + Inversores ({formatARS(stockSummary.valorActivoInversionistasARS)})
-                            </span>
-                        </div>
-
-                        <div className="flex items-center gap-2">
-                            <CrmButton
-                                variant="outline"
-                                size="sm"
-                                onClick={() => setShowCalculationModal(true)}
-                                className="gap-1.5 text-xs font-bold text-blue-400 border-blue-500/30 hover:bg-blue-500/10 shadow-sm"
-                            >
-                                <Calculator size={14} />
-                                Ver cálculo
-                            </CrmButton>
-                        </div>
-                    </div>
-
-                    {/* Subtotal del Filtro Actual (Identificado aparte para no confundirse con el total disponible) */}
-                    {(searchTerm || catalogFilter !== 'all' || (mlFilter && mlFilter !== 'todas') || (brandFilter && brandFilter !== 'todas') || (filterStatus && filterStatus !== 'todos' && filterStatus !== 'disponible') || (stockTab && stockTab !== 'stock')) && (
-                        <div className="rounded-xl border border-blue-500/30 bg-blue-500/10 p-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs animate-in fade-in">
-                            <div className="flex items-center gap-2 text-blue-300">
-                                <Filter size={15} className="shrink-0 text-blue-400" />
-                                <span>
-                                    <strong>Subtotal del filtro actual ({total} vehículos):</strong> Total <strong>{formatARS(filteredTotalARS)}</strong> | Mi parte: <strong>{formatARS(filteredPropioARS)}</strong> | Inversionistas: <strong>{formatARS(filteredInversionistasARS)}</strong>
-                                </span>
-                            </div>
-                            <span className="text-[11px] text-blue-200/70 font-sans">
-                                * Las 3 tarjetas superiores reflejan siempre el total global de disponibles.
-                            </span>
-                        </div>
-                    )}
-
-                    {/* Información Secundaria: Consignaciones y Costo Invertido */}
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
-                        {/* Consignaciones (Aparte) */}
-                        <div className="rounded-xl border border-crm-border bg-crm-surface/60 p-3.5 flex items-start gap-3">
-                            <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-amber-500/15 text-amber-400 font-bold">
-                                📋
-                            </div>
-                            <div className="space-y-0.5 flex-1">
-                                <div className="flex items-center justify-between">
-                                    <span className="font-bold text-crm-fg uppercase tracking-wider text-[11px]">
-                                        Consignaciones (Información aparte)
-                                    </span>
-                                    <span className="font-bold text-amber-300">
-                                        {stockSummary.consignaciones} {stockSummary.consignaciones === 1 ? 'vehículo' : 'vehículos'}
-                                    </span>
-                                </div>
-                                <p className="text-[11px] text-crm-fg-muted leading-relaxed">
-                                    Valor publicado: {formatARS(stockSummary.consignacionesValorARS || 0)}{stockSummary.consignacionesValorUSD > 0 ? ` · ${formatUSD(stockSummary.consignacionesValorUSD)}` : ''}.
-                                    {' '}Excluidas del bloque patrimonial principal: no constituyen capital propio de la agencia ni inversión de socios.
-                                </p>
-                            </div>
-                        </div>
-
-                        {/* Costo Invertido de Compra */}
-                        <div className="rounded-xl border border-crm-border bg-crm-surface/60 p-3.5 flex items-start gap-3">
-                            <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-slate-500/15 text-slate-300 font-bold">
-                                💼
-                            </div>
-                            <div className="space-y-0.5 flex-1">
-                                <div className="flex items-center justify-between">
-                                    <span className="font-bold text-crm-fg uppercase tracking-wider text-[11px]">
-                                        Costo Invertido de Adquisición
-                                    </span>
-                                    <span className="font-bold text-white">
-                                        {formatARS(stockSummary.capitalInvertidoARS || 0)}{stockSummary.capitalInvertidoUSD > 0 ? ` · ${formatUSD(stockSummary.capitalInvertidoUSD)}` : ''}
-                                    </span>
-                                </div>
-                                <p className="text-[11px] text-crm-fg-muted leading-relaxed">
-                                    Costo real de compra de la cuota de AutoSporting. Información secundaria de costo; no representa ganancia ni dinero disponible en caja.
-                                </p>
-                            </div>
-                        </div>
-                    </div>
-
-                    {/* Alerta de Datos Incompletos / Pendientes de Revisar */}
-                    {(stockSummary.inconsistencias?.missingPriceCount > 0 || stockSummary.inconsistencias?.missingCostCount > 0 || stockSummary.sinEstado > 0) && (
-                        <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-3 flex items-center justify-between text-xs text-amber-200">
-                            <div className="flex items-center gap-2">
-                                <AlertCircle size={15} className="text-amber-400 shrink-0" />
-                                <span>
-                                    <strong>Atención de datos:</strong> Se detectaron {stockSummary.inconsistencias?.missingPriceCount || 0} unidades con precio pendiente de revisión, {stockSummary.inconsistencias?.missingCostCount || 0} sin costo registrado{stockSummary.sinEstado > 0 ? ` y ${stockSummary.sinEstado} sin estado asignado` : ''}. Los importes no inventan valores ni asumen datos faltantes como definitivos.
-                                </span>
-                            </div>
-                        </div>
-                    )}
+                <div className="grid gap-3 sm:grid-cols-3">
+                    <div className="rounded-xl border border-crm-border bg-crm-surface p-4"><span className="text-xs text-crm-fg-muted">Disponible para vender</span><strong className="mt-1 block text-2xl text-emerald-400">{stockSummary.disponibles}</strong><p className="m-0 mt-1 text-xs text-crm-fg-muted">Solo unidades con estado Disponible.</p></div>
+                    <div className="rounded-xl border border-crm-border bg-crm-surface p-4"><span className="text-xs text-crm-fg-muted">Inventario completo</span><strong className="mt-1 block text-2xl text-crm-fg">{stockSummary.inventoryCount || 0}</strong><p className="m-0 mt-1 text-xs text-crm-fg-muted">{stockSummary.total} activas · {stockSummary.vendidos || 0} vendidas. Todos incluye cada estado.</p></div>
+                    <div className="rounded-xl border border-crm-border bg-crm-surface p-4"><span className="text-xs text-crm-fg-muted">Resultado actual</span><strong className="mt-1 block text-2xl text-crm-fg">{stockTab === 'mandatos' ? filteredMandates.length : total}</strong><p className="m-0 mt-1 text-xs text-crm-fg-muted">Búsqueda y subtotales sobre el filtro completo, antes de paginar.</p></div>
                 </div>
-
-                {/* TABLA Y CALCULADORA COMERCIAL DE STOCK A PRECIOS DE VENTA */}
-                <StockCommercialCalculator  />
-
-                {/* CONCILIACIÓN PATRIMONIAL INTEGRAL (STOCK + CAJA + CARTERA − DEUDAS) */}
-                <div className="border-t border-crm-border/60 pt-6">
-                    <div className="mb-2">
-                        <span className="text-[11px] font-bold uppercase tracking-wider text-crm-fg-subtle">
-                            Módulo Adicional de Tesorería Patrimonial:
-                        </span>
+                {canSeeCosts && stockTab !== 'mandatos' && <div className="space-y-3 rounded-xl border border-crm-border bg-crm-surface p-4 text-xs text-crm-fg">
+                    <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+                        <div><span className="block text-crm-fg-muted">Capital propio a costo · stock activo</span><strong>{formatStockMoney(stockSummary.activeMetrics?.ownCost)}</strong></div>
+                        <div><span className="block text-crm-fg-muted">Venta publicada · disponibles</span><strong>{formatStockMoney(stockSummary.availableMetrics?.asking)}</strong></div>
+                        <div><span className="block text-crm-fg-muted">Mi parte publicada · disponibles</span><strong>{formatStockMoney(stockSummary.availableMetrics?.ownAsking)}</strong></div>
+                        <div><span className="block text-crm-fg-muted">Inversor / terceros · disponibles</span><strong>{formatStockMoney(stockSummary.availableMetrics?.investorAsking)} / {formatStockMoney(stockSummary.availableMetrics?.thirdPartyAsking)}</strong></div>
                     </div>
-                    <CapitalSummarySection />
-                </div>
+                    <div className="border-t border-crm-border pt-3"><strong>Filtro completo ({total} unidades):</strong> costo {formatStockMoney(filteredMetrics?.cost)} · mi costo {formatStockMoney(filteredMetrics?.ownCost)} · mi parte publicada {formatStockMoney(filteredMetrics?.ownAsking)} · inversor {formatStockMoney(filteredMetrics?.investorAsking)} · terceros {formatStockMoney(filteredMetrics?.thirdPartyAsking)}.</div>
+                    <p className="m-0 text-crm-fg-muted">Costo y precio publicado son escenarios separados. ARS y USD se muestran sin sumar ni convertir. {stockSummary.inconsistencias?.missingCostCount || 0} unidades activas pendientes de costo. La simulación está en el detalle de cada vehículo y no guarda cambios. <a href="/admin/tesoreria" className="text-blue-400 underline">Abrir Caja y Tesorería</a></p>
+                </div>}
 
                 <div className="flex flex-col">
                     <StockFilters
@@ -690,6 +446,8 @@ export default function AdminStockPage() {
                         mlFilter={mlFilter}
                         setMlFilter={setMlFilter}
                         catalogFilter={catalogFilter}
+                        ownershipFilter={ownershipFilter}
+                        setOwnershipFilter={setOwnershipFilter}
                         setCatalogFilter={setCatalogFilter}
                         disabled={isSwapping}
                         brandOptions={brandOptions}
@@ -712,7 +470,8 @@ export default function AdminStockPage() {
                                     brand: brandFilter,
                                     tab: stockTab,
                                     ml: mlFilter,
-                                    catalog: catalogFilter
+                                    catalog: catalogFilter,
+                                    ownership: ownershipFilter
                                 })}
                             >
                                 Reintentar
@@ -722,7 +481,7 @@ export default function AdminStockPage() {
                         <div className="mt-4">
                             <MandateTable 
                                 data={filteredMandates} 
-                                onDelete={(m) => setConfirmDeleteMandate({ isOpen: true, mandate: m })}
+                                onDelete={(m) => { if (canWrite) setConfirmDeleteMandate({ isOpen: true, mandate: m }); }}
                             />
                         </div>
                     ) : (
@@ -741,7 +500,10 @@ export default function AdminStockPage() {
                                     totalItems={total}
                                     filteredTotalUSD={filteredTotalUSD}
                                     filteredTotalARS={filteredTotalARS}
-                                    dolarBlue={dolarBlue}
+                                    canSeeCosts={canSeeCosts}
+                                    canWrite={canWrite}
+                                    canReserve={canReserve}
+                                    onMandate={(vehicle) => { setStockTab('mandatos'); setSearchTerm(vehicle.dominio === 'S/D' ? vehicle.modelo : vehicle.dominio); }}
                                     hasActiveFilters={hasActiveFilters}
                                     onClearFilters={handleClearFilters}
                                     error={error}
@@ -753,7 +515,8 @@ export default function AdminStockPage() {
                                         brand: brandFilter,
                                         tab: stockTab,
                                         ml: mlFilter,
-                                        catalog: catalogFilter
+                                        catalog: catalogFilter,
+                                        ownership: ownershipFilter
                                     })}
                                     onNewVehicle={() => { setEditingCar(null); setIsFormOpen(true); }}
                                 />
@@ -764,10 +527,16 @@ export default function AdminStockPage() {
                                     onEditML={setMlEditingCar} 
                                     onDelete={setDeletingCar} 
                                     onPrint={handlePrint} 
+                                    currentPage={pageNumber}
+                                    totalPages={pages}
+                                    onReserve={setReservingCar}
                                     totalItems={total}
                                     filteredTotalUSD={filteredTotalUSD}
                                     filteredTotalARS={filteredTotalARS}
-                                    dolarBlue={dolarBlue}
+                                    canSeeCosts={canSeeCosts}
+                                    canWrite={canWrite}
+                                    canReserve={canReserve}
+                                    onMandate={(vehicle) => { setStockTab('mandatos'); setSearchTerm(vehicle.dominio === 'S/D' ? vehicle.modelo : vehicle.dominio); }}
                                     hasActiveFilters={hasActiveFilters}
                                     onClearFilters={handleClearFilters}
                                     error={error}
@@ -779,7 +548,8 @@ export default function AdminStockPage() {
                                         brand: brandFilter,
                                         tab: stockTab,
                                         ml: mlFilter,
-                                        catalog: catalogFilter
+                                        catalog: catalogFilter,
+                                        ownership: ownershipFilter
                                     })}
                                     onNewVehicle={() => { setEditingCar(null); setIsFormOpen(true); }}
                                 />
@@ -901,10 +671,6 @@ export default function AdminStockPage() {
 
             <VehicleFlyerPdf vehicle={selectedVehicleForPrint} />
 
-            <StockCalculationModal
-                isOpen={showCalculationModal}
-                onClose={() => setShowCalculationModal(false)}
-            />
         </div>
     );
 }

@@ -10,6 +10,7 @@ import toast from 'react-hot-toast';
 import { useAuth } from '../../../context/AuthContext';
 import { hasPermission, PERMISSIONS } from '../../../utils/adminPermissions';
 import { getCarPurchasePaymentSummary, LOADED_COMPANIES } from '../../../utils/carPurchasePayment';
+import { formatStockMoney } from '../../../utils/inventoryStock';
 
 export default function VehicleFinancialSummary({ vehicle, onEdit, onPaymentSaved }) {
     const { user } = useAuth();
@@ -460,10 +461,12 @@ export default function VehicleFinancialSummary({ vehicle, onEdit, onPaymentSave
 
     const infoAuto = vehicle.infoAuto || vehicle._original?.infoAuto || null;
     const comisionEstimada = (vehicle.precioPublicado || 0) * 0.013;
-    const margenNeto = (vehicle.margenEstimado || 0) - comisionEstimada;
-    const margenNetoPorcentual = vehicle.costoTotal > 0 
+    const margenNeto = vehicle.margenEstimado === null || vehicle.margenEstimado === undefined ? null : vehicle.margenEstimado - comisionEstimada;
+    const margenNetoPorcentual = margenNeto !== null && vehicle.costoTotal > 0
         ? ((margenNeto / vehicle.costoTotal) * 100).toFixed(1)
         : 0;
+
+    if (vehicle?.financialAccess === false) return <CrmCard><p className="text-xs text-crm-fg-muted">Precio de venta guardado</p><strong className="text-lg text-crm-fg">{vehicle.moneda} {Number(vehicle.precioPublicado || 0).toLocaleString('es-AR')}</strong><p className="mt-2 text-xs text-crm-fg-muted">Los costos y el capital requieren permiso de Finanzas.</p></CrmCard>;
 
     return (
         <CrmCard>
@@ -485,21 +488,21 @@ export default function VehicleFinancialSummary({ vehicle, onEdit, onPaymentSave
                 <div className="flex flex-col gap-1 p-3 bg-crm-bg rounded-lg border border-crm-border">
                     <span className="text-xs text-crm-fg-muted">Costo de Compra</span>
                     <span className="text-white font-medium">
-                        {vehicle.precioCompra > 0 ? `${currency} ${Number(vehicle.precioCompra).toLocaleString('es-AR')}` : 'N/A'}
+                        {vehicle.precioCompra > 0 ? `${vehicle.monedaCompra || currency} ${Number(vehicle.precioCompra).toLocaleString('es-AR')}` : 'N/A'}
                     </span>
                 </div>
                 
                 <div className="flex flex-col gap-1 p-3 bg-crm-bg rounded-lg border border-crm-border">
                     <span className="text-xs text-crm-fg-muted">Gastos Operativos</span>
                     <span className="text-white font-medium">
-                        {vehicle.gastos > 0 ? `${vehicle.moneda} ${vehicle.gastos.toLocaleString('es-AR')}` : 'N/A'}
+                        {formatStockMoney(vehicle.expensesByCurrency)}
                     </span>
                 </div>
 
                 <div className="flex flex-col gap-1 p-3 bg-crm-bg rounded-lg border border-crm-border">
                     <span className="text-xs text-crm-fg-muted">Costo Total</span>
                     <span className="text-white font-bold">
-                        {vehicle.costoTotal > 0 ? `${vehicle.moneda} ${vehicle.costoTotal.toLocaleString('es-AR')}` : 'N/A'}
+                        {vehicle.hasAcquisitionCost ? formatStockMoney(vehicle.costByCurrency) : 'Costo pendiente'}
                     </span>
                 </div>
 
@@ -507,8 +510,8 @@ export default function VehicleFinancialSummary({ vehicle, onEdit, onPaymentSave
                     <div className="absolute top-0 right-0 w-16 h-16 bg-gradient-to-bl from-[#E63027]/10 to-transparent"></div>
                     <span className="text-xs text-crm-fg-muted">Margen Estimado</span>
                     <div className="flex items-baseline gap-2">
-                        <span className="text-[#22C55E] font-bold">
-                            {margenNeto > 0 ? `${vehicle.moneda} ${margenNeto.toLocaleString('es-AR', { maximumFractionDigits: 2 })}` : 'N/A'}
+                        <span className={`font-bold ${margenNeto !== null && margenNeto < 0 ? 'text-crm-red' : 'text-[#22C55E]'}`}>
+                            {margenNeto !== null ? `${vehicle.moneda} ${margenNeto.toLocaleString('es-AR', { maximumFractionDigits: 2 })}` : 'Pendiente de costo o conversión'}
                         </span>
                         {margenNetoPorcentual > 0 && (
                             <span className="text-xs text-crm-fg-muted">({margenNetoPorcentual}%)</span>

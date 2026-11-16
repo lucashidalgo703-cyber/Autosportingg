@@ -159,7 +159,10 @@ const Login = () => {
     const t3 = setTimeout(() => setBootStep(3), 1150);
     const t4 = setTimeout(() => setBootStep(4), 1550);
     const tRedirect = setTimeout(() => {
-      router.push('/admin');
+      // Resume only these exact same-origin flows after the full email/TOTP login.
+      const next = new URLSearchParams(window.location.search).get('next');
+      const target = next && /^(?:\/gpt\/autorizar|\/admin\/gastos\/rapido)(?:\?|$)/.test(next) ? next : '/admin';
+      router.push(target);
     }, 1950);
 
     return () => {

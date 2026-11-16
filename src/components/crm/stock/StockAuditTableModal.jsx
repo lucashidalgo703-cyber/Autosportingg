@@ -2,11 +2,8 @@
 import React, { useState } from 'react';
 import { X, Search, Filter, AlertCircle, CheckCircle2, Download, HelpCircle, ShieldAlert } from 'lucide-react';
 import CrmButton from '../ui/CrmButton';
-
-function formatARS(val) {
-    if (val === undefined || val === null || isNaN(val)) return '$0';
-    return '$' + Math.round(val).toLocaleString('es-AR');
-}
+import { formatCapitalAmount } from '../../../utils/capitalSummaryView';
+import { formatStockMoney } from '../../../utils/inventoryStock';
 
 export default function StockAuditTableModal({ isOpen, onClose, capitalSummary }) {
     const [searchTerm, setSearchTerm] = useState('');
@@ -46,26 +43,16 @@ export default function StockAuditTableModal({ isOpen, onClose, capitalSummary }
     const origenPesosUno = capitalSummary.auditoriaIndicadores?.origenPesosUno;
 
     const handleExportCSV = () => {
-        const headers = ['ID', 'Marca', 'Modelo', 'Año', 'Patente', 'Estado', 'Costo Compra', 'Gastos', 'Costo Total', 'Precio Publicado', '% Propio', 'Aporte Propio', '% Inversor', 'Aporte Inversor', 'Motivo Inclusión/Exclusión'];
+        const headers = ['ID', 'Marca', 'Modelo', 'Año', 'Patente', 'Estado', 'Costo Compra', 'Moneda Compra', 'Gastos ARS', 'Gastos USD', 'Costo ARS', 'Costo USD', 'Precio Publicado', 'Moneda Publicación', '% Propio', 'Parte Propia Publicada', '% Externo', 'Parte Externa Publicada', 'Motivo'];
         const rows = filteredVehicles.map(v => [
-            v.id,
-            v.brand,
-            v.name || v.model,
-            v.year,
-            v.plate,
-            v.status,
-            v.purchasePrice,
-            v.expenses || 0,
-            v.costoBase,
-            v.price,
-            `${v.ownPct}%`,
-            v.precioPropio,
-            `${v.invPct}%`,
-            v.precioInv,
-            `"${(v.reason || '').replace(/"/g, '""')}"`
+            v.id, v.brand, v.name || v.model, v.year, v.plate, v.status,
+            v.purchasePrice, v.purchaseCurrency || 'ARS',
+            v.expensesByCurrency?.ARS || 0, v.expensesByCurrency?.USD || 0,
+            v.costByCurrency?.ARS || 0, v.costByCurrency?.USD || 0,
+            v.price, v.currency || 'ARS', v.ownPct, v.precioPropio, v.invPct, v.precioInv, v.reason || ''
         ]);
-
-        const csvContent = 'data:text/csv;charset=utf-8,' + [headers.join(','), ...rows.map(e => e.join(','))].join('\n');
+        const csvCell = value => '"' + String(value ?? '').replace(/"/g, '""') + '"';
+        const csvContent = 'data:text/csv;charset=utf-8,' + [headers, ...rows].map(row => row.map(csvCell).join(',')).join('\n');
         const encodedUri = encodeURI(csvContent);
         const link = document.createElement('a');
         link.setAttribute('href', encodedUri);
@@ -111,7 +98,7 @@ export default function StockAuditTableModal({ isOpen, onClose, capitalSummary }
                         <div className="space-y-1.5 flex-1">
                             <div className="flex items-center gap-2 font-bold text-indigo-200">
                                 <HelpCircle size={15} className="text-indigo-400 shrink-0" />
-                                <span>Diagnóstico técnico: Origen de la terminación en $1 ($926.800.001 y $690.350.001)</span>
+                                <span>Diagnóstico de importes registrados</span>
                             </div>
                             <p className="leading-relaxed text-indigo-200/90">
                                 {origenPesosUno.explicacion}
@@ -119,7 +106,7 @@ export default function StockAuditTableModal({ isOpen, onClose, capitalSummary }
                             <div className="flex flex-wrap gap-2 pt-1">
                                 {origenPesosUno.vehiculos.map(v => (
                                     <div key={v.id} className="px-2.5 py-1 rounded bg-indigo-950/60 border border-indigo-500/20 font-mono text-[11px] text-indigo-300">
-                                        <strong>{v.titulo}</strong>: {formatARS(v.precioPublicado)} ({v.estado}, {v.participacionPropia} propio)
+                                        <strong>{v.titulo}</strong>: {formatCapitalAmount(v.precioPublicado, v.currency)} ({v.estado}, {v.participacionPropia} propio)
                                     </div>
                                 ))}
                             </div>
@@ -181,9 +168,9 @@ export default function StockAuditTableModal({ isOpen, onClose, capitalSummary }
                                     <th className="py-2.5 px-3 text-right">Gastos</th>
                                     <th className="py-2.5 px-3 text-right">Precio Pub.</th>
                                     <th className="py-2.5 px-3 text-center">% Propio</th>
-                                    <th className="py-2.5 px-3 text-right">Aporte Propio</th>
-                                    <th className="py-2.5 px-3 text-center">% Inversor</th>
-                                    <th className="py-2.5 px-3 text-right">Aporte Inversor</th>
+                                    <th className="py-2.5 px-3 text-right">Parte propia publicada</th>
+                                    <th className="py-2.5 px-3 text-center">% Externo</th>
+                                    <th className="py-2.5 px-3 text-right">Parte externa publicada</th>
                                     <th className="py-2.5 px-3">Motivo de Inclusión / Exclusión</th>
                                 </tr>
                             </thead>
@@ -214,17 +201,17 @@ export default function StockAuditTableModal({ isOpen, onClose, capitalSummary }
                                         <td className="py-2.5 px-3 text-right font-mono">
                                             {v.hasMissingCost ? (
                                                 <span className="text-amber-400 font-semibold" title="Costo sin registrar en el CRM">
-                                                    $0 (Pendiente)
+                                                    Costo pendiente
                                                 </span>
                                             ) : (
-                                                formatARS(v.purchasePrice)
+                                                formatCapitalAmount(v.purchasePrice, v.purchaseCurrency || v.currency)
                                             )}
                                         </td>
                                         <td className="py-2.5 px-3 text-right font-mono text-crm-fg-muted">
-                                            {formatARS(v.expenses || 0)}
+                                            {formatStockMoney(v.expensesByCurrency || { [v.purchaseCurrency || v.currency || 'ARS']: v.expenses || 0 })}
                                         </td>
                                         <td className="py-2.5 px-3 text-right font-mono font-bold text-white">
-                                            {formatARS(v.price)}
+                                            {formatCapitalAmount(v.price, v.currency)}
                                         </td>
                                         <td className="py-2.5 px-3 text-center">
                                             <span className={`px-1.5 py-0.5 rounded text-[10px] font-semibold ${
@@ -238,7 +225,7 @@ export default function StockAuditTableModal({ isOpen, onClose, capitalSummary }
                                             </span>
                                         </td>
                                         <td className="py-2.5 px-3 text-right font-mono font-bold text-emerald-400">
-                                            {formatARS(v.precioPropio)}
+                                            {formatCapitalAmount(v.precioPropio, v.currency)}
                                         </td>
                                         <td className="py-2.5 px-3 text-center">
                                             <span className={`px-1.5 py-0.5 rounded text-[10px] font-semibold ${
@@ -248,7 +235,7 @@ export default function StockAuditTableModal({ isOpen, onClose, capitalSummary }
                                             </span>
                                         </td>
                                         <td className="py-2.5 px-3 text-right font-mono text-purple-300">
-                                            {formatARS(v.precioInv)}
+                                            {formatCapitalAmount(v.precioInv, v.currency)}
                                         </td>
                                         <td className="py-2.5 px-3 text-[11px] text-crm-fg-muted max-w-[280px] leading-tight">
                                             {v.reason}
@@ -264,7 +251,7 @@ export default function StockAuditTableModal({ isOpen, onClose, capitalSummary }
                 <div className="p-4 border-t border-crm-border/70 bg-crm-bg/70 flex items-center justify-between text-xs text-crm-fg-muted">
                     <div className="flex items-center gap-1.5">
                         <CheckCircle2 size={14} className="text-emerald-400" />
-                        <span>Suma aritmética verificada: Valor Total = Propio + Inversionistas (Base homogénea a precios de venta publicados).</span>
+                        <span>Por moneda: precio publicado = parte propia + parte externa. Costo y publicación son escenarios separados.</span>
                     </div>
                     <CrmButton variant="secondary" size="sm" onClick={onClose}>
                         Cerrar Auditoría

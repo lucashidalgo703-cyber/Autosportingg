@@ -1,3 +1,5 @@
+import { completeSaleAtomic, getSaleVehicleOptions, changeSaleVehicleAtomic } from './src/services/saleCompletionService.js';
+import { createReservationAtomic, updateReservationAtomic } from './src/services/reservationCreationService.js';
 import { computeCommissionAmount, computeSaleProfit, validateCommissionPercent, parseDecimal, roundMoney } from './src/utils/saleCommercial.js';
 import { resolveCarImageUpdate } from './src/utils/carImageOrder.js';
 import { buildTradeInChain, validateTradeInLink, resolveOriginForCar } from './src/services/tradeInChainService.js';
@@ -36,6 +38,7 @@ import Loan from './src/models/Loan.js';
 import FinanceBudget from './src/models/FinanceBudget.js';
 import ExpenseQuotaAssignment from './src/models/ExpenseQuotaAssignment.js';
 import { getCapitalSummary } from './src/services/capitalSummaryService.js';
+import { getAdminStock, serializeStockCar, canReadStockFinances } from './src/services/inventoryStockService.js';
 import {
     getExpenseAssignmentSummary,
     assignQuotaToExpense,
@@ -88,6 +91,11 @@ import {
     credentialFingerprint, LoginChallengeError
 } from './src/services/emailLoginService.js';
 import { createLoginSession, validateLoginSession, revokeLoginSession } from './src/services/authSessionService.js';
+import { createGptExpenseOAuthRouter } from './src/routes/gptExpenseOAuthRoutes.js';
+import { createGptExpenseRouter } from './src/routes/gptExpenseRoutes.js';
+import { authenticateGpt } from './src/services/gptExpenseOAuthService.js';
+import { createQuickExpenseRouter } from './src/routes/quickExpenseRoutes.js';
+import { isManagedLinkedExpense, mutateLinkedExpense, annulLinkedExpenseBatch } from './src/services/linkedExpenseMutationService.js';
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -186,6 +194,8 @@ app.use(express.json({
     }
 }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+app.use('/api/gpt/oauth', createGptExpenseOAuthRouter());
+app.use('/api/gpt', createGptExpenseRouter({ authenticateGpt }));
 
 // Configure Multer for Cloudinary
 const storage = new CloudinaryStorage({
@@ -441,6 +451,7 @@ const requireAnyPermission = (permissions, allowedRoles = [ROLES.OWNER, ROLES.AD
 };
 
 // Routes
+app.use('/api/admin/quick-expenses', createQuickExpenseRouter({ authenticate: authenticateToken }));
 
 // Helper functions for password hashing using native crypto
 const hashPassword = (password) => {
@@ -1962,7 +1973,7 @@ app.post('/api/admin/dolar-blue/manual', authenticateToken, requirePermission(PE
 });
 
 // GET Resumen de Capital Patrimonial (Stock + Caja + Cartera − Deudas)
-app.get('/api/admin/stock/capital-summary', authenticateToken, requireAnyPermission([PERMISSIONS.STOCK_READ, PERMISSIONS.FINANZAS_READ]), async (req, res) => {
+app.get('/api/admin/stock/capital-summary', authenticateToken, requirePermission(PERMISSIONS.FINANZAS_READ, []), async (req, res) => {
     try {
         await connectDB();
         res.setHeader('Cache-Control', 'no-store, max-age=0');
@@ -1977,299 +1988,11 @@ app.get('/api/admin/stock/capital-summary', authenticateToken, requireAnyPermiss
 // GET all cars for Admin (Protected, Full Data)
 app.get('/api/admin/cars', authenticateToken, requirePermission(PERMISSIONS.STOCK_READ), async (req, res) => {
     try {
-        const { page = 1, limit = 20, search = '', status = '', brand = '', tab = '', ml = '', catalog = 'all' } = req.query;
-        if (!['all', 'published', 'unpublished'].includes(catalog)) {
-            return res.status(400).json({ message: 'El filtro de publicación en el catálogo no es válido.' });
-        }
         await connectDB();
         res.setHeader('Cache-Control', 'no-store, max-age=0');
-
-        // Fetch minimal info for ALL cars to calculate summary stats
-        const allCarsForSummary = await Car.find({})
-            .select('status currency purchaseCurrency price purchasePrice investor.percentage agencyOwned consignedBy km condition sold visibleEnWeb')
-            .lean();
-
-        // Calculate summary using robust normalization
-        // Exclude sold and cancelled cars from stock metrics
-        const stockCars = allCarsForSummary.filter(c => {
-            const st = (c.status || '').toLowerCase().trim();
-            return st !== 'vendido' && st !== 'cancelado' && st !== 'anulado' && !c.sold;
-        });
-        const totalCarsCount = stockCars.length;
-        const disponibles = stockCars.filter(c => (c.status || '').toLowerCase().trim() === 'disponible');
-        const reservados = stockCars.filter(c => (c.status || '').toLowerCase().trim() === 'reservado');
-        const pausados = stockCars.filter(c => (c.status || '').toLowerCase().trim() === 'pausado');
-        const sinEstado = stockCars.filter(c => !['disponible', 'reservado', 'pausado'].includes((c.status || '').toLowerCase().trim()));
-
-        // REGLA DEFINITIVA: Las tarjetas comerciales principales suman ÚNICAMENTE vehículos DISPONIBLES.
-        // Se excluyen reservados, pausados, sin estado, vendidos y cancelados.
-        // Consignaciones y vehículos de terceros se excluyen de las tres tarjetas y se informan por separado.
-        let valorTotalUSD = 0;
-        let valorTotalARS = 0;
-        let valorPropioUSD = 0;
-        let valorPropioARS = 0;
-        let valorInversionistasUSD = 0;
-        let valorInversionistasARS = 0;
-
-        let consignacionesCount = 0;
-        let consignacionesValorUSD = 0;
-        let consignacionesValorARS = 0;
-        let tercerosCount = 0;
-
-        let missingPriceCount = 0;
-        let provisionalPriceCount = 0;
-
-        disponibles.forEach(c => {
-            const isConsignment = Boolean(c.consignedBy && String(c.consignedBy).trim() !== '');
-            const isThirdParty = !isConsignment && c.agencyOwned === false && (!c.investor || Number(c.investor.percentage) === 0);
-            const price = Math.round(Number(c.price) || 0);
-
-            // Normalización de moneda: si el precio es > 200.000 pero figura como USD (ej: alta manual en pesos bajo selector USD),
-            // se trata como ARS para no inflar USD con 13.8M dólares.
-            const isUSD = (c.currency === 'U$S' || c.currency === 'USD') && price <= 200000;
-            const currency = isUSD ? 'USD' : 'ARS';
-
-            if (price <= 0) {
-                missingPriceCount++;
-            } else if (price === 1) {
-                provisionalPriceCount++;
-            }
-
-            if (isConsignment || isThirdParty) {
-                if (isConsignment) consignacionesCount++;
-                if (isThirdParty) tercerosCount++;
-                if (currency === 'USD') consignacionesValorUSD += price;
-                else consignacionesValorARS += price;
-                return;
-            }
-
-            // Propio y Compartido
-            const isShared = c.investor && Number(c.investor.percentage) > 0;
-            const invPct = isShared ? Math.min(100, Math.max(0, Number(c.investor.percentage) || 0)) : 0;
-            const agencyPct = Math.max(0, 100 - invPct);
-
-            // Reglas exactas:
-            // Propio (invPct 0): 100% AutoSporting, 0% Inversor
-            // Compartido 50% (invPct 50): 50% AutoSporting, 50% Inversor
-            // Compartido 100% (invPct 100): 0% AutoSporting, 100% Inversor
-            const contribPropio = Math.round(price * (agencyPct / 100));
-            const contribInv = price - contribPropio;
-
-            if (currency === 'USD') {
-                valorTotalUSD += price;
-                valorPropioUSD += contribPropio;
-                valorInversionistasUSD += contribInv;
-            } else {
-                valorTotalARS += price;
-                valorPropioARS += contribPropio;
-                valorInversionistasARS += contribInv;
-            }
-        });
-
-        const summary = {
-            total: totalCarsCount,
-            totalStock: totalCarsCount,
-            disponibles: disponibles.length,
-            reservados: reservados.length,
-            pausados: pausados.length,
-            sinEstado: sinEstado.length,
-            publicadosWeb: disponibles.filter(c => c.visibleEnWeb !== false).length,
-            consignaciones: consignacionesCount + tercerosCount,
-            consignacionesSoloCount: consignacionesCount,
-            tercerosCount,
-            consignacionesValorUSD: Math.round(consignacionesValorUSD),
-            consignacionesValorARS: Math.round(consignacionesValorARS),
-            compartidos: disponibles.filter(c => c.investor && Number(c.investor.percentage) > 0).length,
-            ceroKm: disponibles.filter(c => {
-                const cond = (c.condition || '').toLowerCase().replace(/\s+/g, '');
-                return cond === '0km' || cond === 'nuevo' || c.km === 0;
-            }).length,
-            // 3 Valores Principales correspondientes ÚNICAMENTE a vehículos DISPONIBLES:
-            valorTotalUSD: Math.round(valorTotalUSD),
-            valorTotalARS: Math.round(valorTotalARS),
-            valorActivoUSD: Math.round(valorPropioUSD),
-            valorActivoARS: Math.round(valorPropioARS),
-            valorActivoInversionistasUSD: Math.round(valorInversionistasUSD),
-            valorActivoInversionistasARS: Math.round(valorInversionistasARS),
-            // Campos explícitos de disponibles
-            disponiblesTotalARS: Math.round(valorTotalARS),
-            disponiblesPropioARS: Math.round(valorPropioARS),
-            disponiblesInversionistasARS: Math.round(valorInversionistasARS),
-            disponiblesTotalUSD: Math.round(valorTotalUSD),
-            disponiblesPropioUSD: Math.round(valorPropioUSD),
-            disponiblesInversionistasUSD: Math.round(valorInversionistasUSD),
-            disponiblesComputadosCount: Math.max(0, disponibles.length - consignacionesCount - tercerosCount),
-            disponiblesTotalCount: disponibles.length,
-            // Inconsistencias
-            inconsistencias: {
-                missingPriceCount,
-                provisionalPriceCount,
-                sinEstadoCount: sinEstado.length
-            }
-        };
-
-        // Now build query for the current page
-        let query = {};
-
-        if (search) {
-            const words = search.trim().split(/\s+/).filter(Boolean);
-            if (words.length > 0) {
-                query.$and = words.map(word => {
-                    const escapedWord = escapeRegex(word);
-                    const regex = { $regex: escapedWord, $options: 'i' };
-                    const conditions = [
-                        { brand: regex },
-                        { name: regex },
-                        { plateOrVin: regex },
-                        { description: regex },
-                        { ownerName: regex },
-                        { ownerPhone: regex },
-                        { consignedBy: regex },
-                        { location: regex },
-                        { notes: regex },
-                        { 'investor.name': regex },
-                        { engineNumber: regex },
-                        { chassisNumber: regex }
-                    ];
-
-                    if (/^\d+$/.test(word)) {
-                        const numVal = parseInt(word);
-                        conditions.push({ year: numVal });
-                        conditions.push({ km: numVal });
-                    }
-
-                    return { $or: conditions };
-                });
-            }
-        }
-
-        if (status && status !== 'todos') {
-            const statusMap = {
-                disponible: 'Disponible',
-                senado: 'Reservado',
-                vendido_sin_confirmar: 'Pausado',
-                vendido: 'Vendido'
-            };
-            query.status = statusMap[status] || status;
-        } else {
-            // Default: do not show sold or cancelled vehicles in the stock view unless explicitly requested
-            query.status = { $nin: ['Vendido', 'Cancelado'] };
-        }
-
-        if (brand && brand !== 'todas') {
-            query.brand = brand;
-        }
-
-        if (tab && tab !== 'stock') {
-            if (tab === 'consignaciones') {
-                query.consignedBy = { $exists: true, $ne: '' };
-            } else if (tab === 'compartidos') {
-                query['investor.percentage'] = { $gt: 0 };
-            } else if (tab === 'cero_km') {
-                query.$or = [
-                    { condition: { $in: ['0km', 'nuevo', 'Nuevo', '0KM'] } },
-                    { km: 0 }
-                ];
-            }
-        }
-
-        if (ml === 'publicados') {
-            query.publishedOnML = 'Sí';
-        } else if (ml === 'no_publicados') {
-            query.publishedOnML = { $ne: 'Sí' };
-        }
-
-        if (catalog === 'published') {
-            query.$and = [...(query.$and || []), publicCatalogQuery()];
-        } else if (catalog === 'unpublished') {
-            query.$nor = [publicCatalogQuery()];
-        }
-
-        const parsedLimit = parseInt(limit);
-        const parsedPage = parseInt(page);
-        const skip = (parsedPage - 1) * parsedLimit;
-
-        const totalFiltered = await Car.countDocuments(query);
-        const cars = await Car.find(query)
-            .select('-auditLog')
-            .populate('consignmentSeller', 'name email')
-            .sort({ order: 1, createdAt: -1 })
-            .skip(skip)
-            .limit(parsedLimit)
-            .lean();
-            
-        // Calculate the sum of prices, purchase costs, own share, and investor share for the filtered vehicles
-        const allFilteredCars = await Car.find(query)
-            .select('price purchasePrice currency consignedBy investor agencyOwned')
-            .lean();
-
-        let filteredTotalUSD = 0;
-        let filteredTotalARS = 0;
-        let filteredCostUSD = 0;
-        let filteredCostARS = 0;
-        let filteredPropioARS = 0;
-        let filteredInversionistasARS = 0;
-        let filteredPropioUSD = 0;
-        let filteredInversionistasUSD = 0;
-        let filteredConsignacionesARS = 0;
-        let filteredConsignacionesUSD = 0;
-
-        allFilteredCars.forEach(c => {
-            const isConsignment = Boolean(c.consignedBy && String(c.consignedBy).trim() !== '');
-            const isThirdParty = !isConsignment && c.agencyOwned === false && (!c.investor || Number(c.investor.percentage) === 0);
-            const price = Math.round(Number(c.price) || 0);
-            const purchasePrice = Math.round(Number(c.purchasePrice) || 0);
-            const isUSD = (c.currency === 'U$S' || c.currency === 'USD') && price <= 200000;
-            const curr = isUSD ? 'USD' : 'ARS';
-
-            if (isConsignment || isThirdParty) {
-                if (curr === 'USD') filteredConsignacionesUSD += price;
-                else filteredConsignacionesARS += price;
-                return;
-            }
-
-            const isShared = c.investor && Number(c.investor.percentage) > 0;
-            const invPct = isShared ? Math.min(100, Math.max(0, Number(c.investor.percentage) || 0)) : 0;
-            const ownPct = Math.max(0, 100 - invPct);
-
-            const contribPropio = Math.round(price * (ownPct / 100));
-            const contribInv = price - contribPropio;
-
-            if (curr === 'USD') {
-                filteredTotalUSD += price;
-                filteredCostUSD += purchasePrice;
-                filteredPropioUSD += contribPropio;
-                filteredInversionistasUSD += contribInv;
-            } else {
-                filteredTotalARS += price;
-                filteredCostARS += purchasePrice;
-                filteredPropioARS += contribPropio;
-                filteredInversionistasARS += contribInv;
-            }
-        });
-
-        const brands = await Car.distinct('brand');
-        res.json({
-            cars,
-            total: totalFiltered,
-            pages: Math.ceil(totalFiltered / parsedLimit),
-            page: parsedPage,
-            limit: parsedLimit,
-            summary,
-            brands,
-            filteredTotalUSD,
-            filteredTotalARS,
-            filteredCostUSD,
-            filteredCostARS,
-            filteredPropioARS,
-            filteredInversionistasARS,
-            filteredPropioUSD,
-            filteredInversionistasUSD,
-            filteredConsignacionesARS,
-            filteredConsignacionesUSD
-        });
+        res.json(await getAdminStock(req.query, req.user));
     } catch (error) {
-        res.status(500).json({ message: error.message });
+        res.status(error.status || 500).json({ message: error.message });
     }
 });
 
@@ -2309,7 +2032,7 @@ app.get('/api/admin/cars/:id', authenticateToken, requirePermission(PERMISSIONS.
     try {
         const car = await Car.findById(req.params.id);
         if (!car) return res.status(404).json({ message: 'Car not found' });
-        res.json(car);
+        res.json(serializeStockCar(car, canReadStockFinances(req.user)));
     } catch (error) {
         res.status(500).json({ message: error.message });
     }
@@ -4671,6 +4394,15 @@ app.delete('/api/transactions/:id', authenticateToken, requirePermission(PERMISS
     try {
         const tx = await Transaction.findById(req.params.id);
         if (!tx) return res.status(404).json({ message: 'Transacción no encontrada' });
+        if (isManagedLinkedExpense(tx)) {
+            try {
+                const updated = await mutateLinkedExpense({ id: req.params.id, annul: true, user: req.user, req });
+                return res.json({ message: 'Gasto anulado junto con su cuenta, costo de unidad y Tesorería.', transaction: updated });
+            } catch (error) {
+                if (error.status) return res.status(error.status).json({ error: error.code, message: error.message });
+                throw error;
+            }
+        }
         const oldStatus = tx.status;
 
         const account = await Account.findById(tx.accountId);
@@ -4760,99 +4492,11 @@ app.get('/api/admin/reservations/:id', authenticateToken, requirePermission(PERM
 // POST create reservation
 app.post('/api/admin/reservations', authenticateToken, requirePermission(PERMISSIONS.RESERVAS_WRITE), async (req, res) => {
     try {
-        const { vehicleId, clientId, leadId, agreedPrice, agreedCurrency, depositAmount, depositCurrency, depositMethod, expiresAt, conditions, notes, salesperson } = req.body;
-
-        // Basic integrity checks
-        if (!vehicleId) return res.status(400).json({ message: 'Vehicle ID is required' });
-        if (agreedPrice < 0) return res.status(400).json({ message: 'Agreed price cannot be negative' });
-        if (depositAmount < 0) return res.status(400).json({ message: 'Deposit amount cannot be negative' });
-        if (!['ARS', 'USD'].includes(agreedCurrency) || !['ARS', 'USD'].includes(depositCurrency)) {
-            return res.status(400).json({ message: 'Invalid currency' });
-        }
-
-        if (expiresAt && new Date(expiresAt) < new Date(new Date().setHours(0,0,0,0))) {
-            return res.status(400).json({ message: 'Expiration date cannot be in the past' });
-        }
-
-        const user = req.user?.username || 'Admin';
-
-        // Check vehicle availability
-        const vehicle = await Car.findById(vehicleId);
-        if (!vehicle) return res.status(404).json({ message: 'Vehicle not found' });
-
-        if (vehicle.status === 'Vendido' || vehicle.status === 'Reservado') {
-            return res.status(400).json({ message: 'Vehicle is already sold or reserved' });
-        }
-
-        // Check if there is already an active reservation for this vehicle
-        const activeRes = await Reservation.findOne({ vehicleId, status: 'activa' });
-        if (activeRes) {
-            return res.status(400).json({ message: 'There is already an active reservation for this vehicle' });
-        }
-
-        const newReservation = new Reservation({
-            vehicleId,
-            clientId: clientId || undefined,
-            leadId: leadId || undefined,
-            agreedPrice,
-            agreedCurrency,
-            depositAmount,
-            depositCurrency,
-            depositMethod,
-            expiresAt,
-            conditions,
-            notes,
-            salesperson,
-            createdBy: user,
-            reservationAuditLog: [{
-                action: 'RESERVA_CREADA',
-                field: 'status',
-                newValue: 'activa',
-                details: `Reserva creada por ${depositCurrency} ${depositAmount}`,
-                user: user,
-                source: 'CRM_V2'
-            }]
-        });
-
-        const savedReservation = await newReservation.save();
-
-        // Update Vehicle Status
-        vehicle.status = 'Reservado';
-        vehicle.auditLog.push({
-            action: 'ESTADO',
-            field: 'status',
-            oldValue: 'Disponible',
-            newValue: 'Reservado',
-            details: `Veh├¡culo reservado (Reserva ID: ${savedReservation._id})`,
-            user: user,
-            source: 'CRM_V2'
-        });
-        await vehicle.save();
-
-        // Update Lead Status if leadId is provided
-        if (leadId) {
-            const lead = await Lead.findById(leadId);
-            if (lead) {
-                const oldStatus = lead.crmStatus;
-                lead.crmStatus = 'reservado';
-                lead.lastActivityAt = new Date();
-                lead.leadAuditLog.push({
-                    action: 'RESERVA_CREADA',
-                    field: 'crmStatus',
-                    oldValue: oldStatus,
-                    newValue: 'reservado',
-                    details: `Se├▒al de reserva recibida por el veh├¡culo asociado`,
-                    user: user,
-                    source: 'CRM_V2'
-                });
-                await lead.save();
-            }
-        }
-
+        await connectDB();
+        const savedReservation = await createReservationAtomic({ payload: req.body, user: req.user });
         res.status(201).json(savedReservation);
     } catch (error) {
-        console.error('Error creating reservation:', error);
-        res.status(400).json({ message: error.message });
+        res.status(error.status || 400).json({ message: error.message });
     }
 });
 
@@ -4860,99 +4504,10 @@ app.post('/api/admin/reservations', authenticateToken, requirePermission(PERMISS
 app.patch('/api/admin/reservations/:id', authenticateToken, requirePermission(PERMISSIONS.RESERVAS_WRITE), async (req, res) => {
     try {
         await connectDB();
-        const { status, conditions, notes } = req.body;
-
-        const reservation = await Reservation.findById(req.params.id);
-        if (!reservation) return res.status(404).json({ message: 'Reservation not found' });
-
-        const user = req.user?.username || 'Admin';
-        const oldStatus = reservation.status;
-
-        let hasChanges = false;
-
-        if (req.body.assignedTo !== undefined) {
-            let oldAssigned = reservation.assignedTo ? reservation.assignedTo.toString() : null;
-            let newAssigned = req.body.assignedTo === "" ? null : req.body.assignedTo;
-            if (oldAssigned !== newAssigned) {
-                reservation.assignedTo = newAssigned;
-                reservation.assignedAt = new Date();
-                hasChanges = true;
-
-                await logAudit({
-                    req,
-                    action: newAssigned ? 'RESPONSABLE_ASIGNADO' : 'RESPONSABLE_REMOVIDO',
-                    module: 'reservas',
-                    entityType: 'Reservation',
-                    entityId: reservation._id,
-                    entityLabel: 'Reserva',
-                    description: `Se reasign├│ la reserva.`,
-                    metadata: { oldAssigned, newAssigned }
-                });
-            }
-        }
-
-        if (conditions !== undefined && conditions !== reservation.conditions) {
-            reservation.conditions = conditions;
-            hasChanges = true;
-        }
-
-        if (notes !== undefined && notes !== reservation.notes) {
-            reservation.notes = notes;
-            hasChanges = true;
-        }
-
-        if (status !== undefined && status !== oldStatus) {
-            if (!['activa', 'convertida', 'vencida', 'cancelada', 'devuelta', 'retenida'].includes(status)) {
-                return res.status(400).json({ message: 'Invalid status' });
-            }
-
-            reservation.status = status;
-            hasChanges = true;
-
-            reservation.reservationAuditLog.push({
-                action: 'CAMBIO_ESTADO',
-                field: 'status',
-                oldValue: oldStatus,
-                newValue: status,
-                details: `Estado de reserva actualizado a ${status}`,
-                user: user,
-                source: 'CRM_V2'
-            });
-
-            // If reservation is no longer active (cancelled, expired, returned, retained)
-            // we should release the vehicle IF it's still 'Reservado' and there isn't another active reservation
-            if (['vencida', 'cancelada', 'devuelta', 'retenida'].includes(status)) {
-                const vehicle = await Car.findById(reservation.vehicleId);
-                if (vehicle && vehicle.status === 'Reservado') {
-                    // Double check if there's any OTHER active reservation for this vehicle (unlikely due to integrity rules, but safe to check)
-                    const otherActive = await Reservation.findOne({ vehicleId: vehicle._id, status: 'activa', _id: { $ne: reservation._id } });
-                    if (!otherActive) {
-                        vehicle.status = 'Disponible';
-                        vehicle.auditLog.push({
-                            action: 'ESTADO',
-                            field: 'status',
-                            oldValue: 'Reservado',
-                            newValue: 'Disponible',
-                            details: `Veh├¡culo liberado por reserva ${status} (ID: ${reservation._id})`,
-                            user: user,
-                            source: 'CRM_V2'
-                        });
-                        await vehicle.save();
-                    }
-                }
-            }
-        }
-
-        if (hasChanges) {
-            reservation.updatedBy = user;
-            const updatedReservation = await reservation.save();
-            res.json(updatedReservation);
-        } else {
-            res.json(reservation);
-        }
+        const reservation = await updateReservationAtomic({ id: req.params.id, payload: req.body, user: req.user, req });
+        res.json(reservation);
     } catch (error) {
-        console.error('Error updating reservation:', error);
-        res.status(400).json({ message: error.message });
+        res.status(error.status || 400).json({ message: error.message });
     }
 });
 
@@ -5632,6 +5187,14 @@ app.get('/api/admin/sales/search-for-installments', authenticateToken, requirePe
 });
 
 // GET sale by id
+// Includes unavailable units so an existing operation can be opened from the sale modal.
+app.get('/api/admin/sales/vehicle-options', authenticateToken, requirePermission(PERMISSIONS.VENTAS_WRITE), async (req, res) => {
+    try {
+        await connectDB();
+        res.json(await getSaleVehicleOptions(req.query, req.user));
+    } catch (error) { res.status(400).json({ message: error.message }); }
+});
+
 app.get('/api/admin/sales/:id', authenticateToken, requirePermission(PERMISSIONS.VENTAS_READ), async (req, res) => {
     try {
         await connectDB();
@@ -5648,137 +5211,15 @@ app.get('/api/admin/sales/:id', authenticateToken, requirePermission(PERMISSIONS
 });
 
 
-// POST create manual sale
+// Confirm a sale and its stock/reservation changes in one database transaction.
 app.post('/api/admin/sales', authenticateToken, requirePermission(PERMISSIONS.VENTAS_WRITE), async (req, res) => {
     try {
         await connectDB();
-        const {
-            vehicleId, clientId, leadId, salePrice, saleCurrency, paymentMethod, notes, salesperson, saleDate, status,
-            isManualImport, vehicleOwnerName, vehicleOwnerPhone,
-            consignationOwnerId, consignationManagerId,
-            commissionSettings, deliveryItems, installmentsCount, depositAppliedAmount, depositAppliedCurrency,
-            financingDetails
-        } = req.body;
-        const finalSalePrice = Number(salePrice);
-        const finalSaleCurrency = saleCurrency;
-        const user = req.user?.username || 'Admin';
-
-        // 1. Validaciones previas
-        if (!isManualImport && !vehicleId) throw new Error('Vehicle ID is required for standard sales');
-        if (!Number.isFinite(finalSalePrice) || finalSalePrice < 0) throw new Error('Sale price cannot be negative');
-        if (!['ARS', 'USD'].includes(finalSaleCurrency)) throw new Error('Invalid sale currency');
-
-        let vehicle = null;
-        if (vehicleId) {
-            vehicle = await Car.findById(vehicleId);
-            if (!vehicle) throw new Error('Vehicle not found');
-            if (vehicle.status !== 'Disponible') throw new Error(`Vehicle is ${vehicle.status}, only Disponible vehicles can be manually sold`);
-
-            const existingSale = await Sale.findOne({ vehicleId, status: { $ne: 'cancelada' } });
-            if (existingSale) throw new Error('There is already an active sale for this vehicle');
-        }
-
-        // 2. Creación
-        const newSale = new Sale({
-            vehicleId: vehicleId || undefined,
-            clientId: clientId || undefined,
-            leadId: leadId || undefined,
-            salePrice: finalSalePrice,
-            saleCurrency: finalSaleCurrency,
-            paymentMethod: paymentMethod || 'contado',
-            notes,
-            salesperson,
-            saleDate: saleDate || new Date(),
-            status: status || 'confirmada',
-            createdBy: user,
-
-            // Nuevos campos
-            isManualImport: !!isManualImport,
-            vehicleOwnerName,
-            vehicleOwnerPhone,
-            consignationOwnerId: consignationOwnerId || undefined,
-            consignationManagerId: consignationManagerId || undefined,
-            commissionSettings,
-            deliveryItems,
-            installmentsCount: installmentsCount || 0,
-            depositAppliedAmount: depositAppliedAmount || 0,
-            depositAppliedCurrency,
-            financingDetails: financingDetails || undefined,
-
-            saleAuditLog: [{
-                action: 'VENTA_CREADA_MANUAL',
-                details: isManualImport ? 'Venta hist├│rica (manual import) registrada' : 'Venta creada manualmente sin reserva previa',
-                user: user,
-                source: 'CRM_V2'
-            }]
-        });
-
-        const savedSale = await newSale.save();
-
-        await logAudit({
-            req,
-            action: 'VENTA_CREADA',
-            module: 'ventas',
-            entityType: 'Sale',
-            entityId: savedSale._id,
-            entityLabel: vehicle ? `Venta de ${vehicle.brand} ${vehicle.name}` : `Venta hist├│rica manual`,
-            description: `Se cre├│ una venta manual por ${finalSaleCurrency} ${finalSalePrice}.`,
-            metadata: { vehicleId: vehicle?._id, salePrice: finalSalePrice, currency: finalSaleCurrency, isManualImport }
-        });
-
-        // 3. Rollback Manual Controlado (solo si hay veh├¡culo)
-        try {
-            if (vehicle) {
-                const targetCarStatus = status === 'señado' ? 'Reservado' : 'Vendido';
-                vehicle.status = targetCarStatus;
-                vehicle.auditLog.push({
-                    action: 'ESTADO',
-                    field: 'status',
-                    oldValue: 'Disponible',
-                    newValue: targetCarStatus,
-                    details: `Veh├¡culo vendido (Venta ID: ${savedSale._id})`,
-                    user: user,
-                    source: 'CRM_V2'
-                });
-                await vehicle.save();
-            }
-
-            if (leadId) {
-                const lead = await Lead.findById(leadId);
-                if (lead && lead.crmStatus !== 'convertido') {
-                    const oldStatus = lead.crmStatus;
-                    lead.crmStatus = 'convertido';
-                    lead.lastActivityAt = new Date();
-                    lead.leadAuditLog.push({
-                        action: 'VENTA_CREADA',
-                        field: 'crmStatus',
-                        oldValue: oldStatus,
-                        newValue: 'convertido',
-                        details: 'Venta cerrada manualmente',
-                        user: user,
-                        source: 'CRM_V2'
-                    });
-                    await lead.save();
-                }
-            }
-
-            res.status(201).json(savedSale);
-        } catch (innerError) {
-            console.error('Inner error during manual sale, performing manual rollback', innerError);
-            await Sale.findByIdAndDelete(savedSale._id);
-
-            if (vehicle && vehicle.status === 'Vendido') {
-                vehicle.status = 'Disponible';
-                vehicle.auditLog.pop();
-                await vehicle.save();
-            }
-
-            throw new Error(`Transaction failed, manual rollback executed: ${innerError.message}`);
-        }
-
+        const sale = await completeSaleAtomic({ payload: req.body, user: req.user, reservationId: req.body.reservationId,
+            request: { ip: req.ip, userAgent: req.headers['user-agent'] } });
+        res.status(201).json(sale);
     } catch (error) {
-        console.error('Error creating manual sale:', error);
-        res.status(400).json({ message: error.message });
+        res.status(error.status || 400).json({ message: error.message, ...(error.details || {}) });
     }
 });
 
@@ -5822,173 +5263,16 @@ const normalizeTradeInVehicle = (tradeIn) => {
     return normalized;
 };
 
-// POST convert reservation to sale
+// Reuse the same transaction for the existing reservation detail workflow.
 app.post('/api/admin/reservations/:id/convert-to-sale', authenticateToken, requirePermission(PERMISSIONS.VENTAS_WRITE), async (req, res) => {
     try {
         await connectDB();
-        const reservationId = req.params.id;
-
-        if (!mongoose.Types.ObjectId.isValid(reservationId)) {
-            return res.status(400).json({ error: "ID de reserva inv├ílido." });
-        }
-
-        const { salePrice, saleCurrency, paymentMethod, saleDate, salesperson, tradeIns, tradeInTotalAmount, balanceAfterTradeIn } = req.body;
-        const user = req.user?.username || 'Admin';
-
-        // 1. Validaciones
-        const reservation = await Reservation.findById(reservationId);
-        if (!reservation) throw new Error('Reservation not found');
-        if (reservation.status !== 'activa') throw new Error(`Cannot convert reservation with status ${reservation.status}`);
-
-        const vehicleId = reservation.vehicleId;
-        const vehicle = await Car.findById(vehicleId);
-        if (!vehicle) throw new Error('Vehicle not found');
-        if (vehicle.status !== 'Reservado') throw new Error(`Vehicle is not Reservado (current: ${vehicle.status})`);
-
-        if (!reservation.clientId) {
-            return res.status(400).json({ error: "La reserva debe tener un cliente vinculado antes de convertirla en venta." });
-        }
-        if (!reservation.vehicleId) {
-            return res.status(400).json({ error: "La reserva debe tener un veh├¡culo vinculado antes de convertirla en venta." });
-        }
-
-        const existingSale = await Sale.findOne({ vehicleId, status: { $ne: 'cancelada' } }).populate('clientId', 'firstName fullName');
-        if (existingSale) {
-            return res.status(409).json({
-                error: 'Este veh├¡culo ya tiene una venta activa asociada.',
-                activeSaleId: existingSale._id,
-                activeSaleStatus: existingSale.status,
-                activeSaleClientName: existingSale.clientId ? (existingSale.clientId.fullName || existingSale.clientId.firstName) : 'Sin Nombre',
-                canResolve: true
-            });
-        }
-
-        const finalSalePrice = salePrice !== undefined ? salePrice : reservation.agreedPrice;
-        const finalSaleCurrency = saleCurrency !== undefined ? saleCurrency : reservation.agreedCurrency;
-
-        if (finalSalePrice < 0) throw new Error('Sale price cannot be negative');
-        if (!['ARS', 'USD'].includes(finalSaleCurrency)) throw new Error('Invalid sale currency');
-
-        // 2. Creaci├│n de Sale
-        const newSale = new Sale({
-            reservationId: reservation._id,
-            vehicleId: vehicle._id,
-            clientId: reservation.clientId, // Ahora es obligatorio
-            leadId: reservation.leadId || undefined,
-            salePrice: finalSalePrice,
-            saleCurrency: finalSaleCurrency,
-            depositAppliedAmount: reservation.depositAmount,
-            depositAppliedCurrency: reservation.depositCurrency,
-            paymentMethod: paymentMethod || 'contado',
-            salesperson: salesperson || reservation.salesperson,
-            saleDate: saleDate || new Date(),
-            status: 'confirmada',
-            tradeIns: Array.isArray(tradeIns) ? tradeIns.map(normalizeTradeInVehicle).filter(Boolean) : [],
-            tradeInTotalAmount: tradeInTotalAmount || 0,
-            balanceAfterTradeIn: balanceAfterTradeIn !== undefined ? balanceAfterTradeIn : (finalSalePrice - (reservation.depositAmount || 0) - (tradeInTotalAmount || 0)),
-            createdBy: user,
-            saleAuditLog: [{
-                action: 'VENTA_CREADA_POR_CONVERSION',
-                details: `Venta generada a partir de reserva ${reservation._id}`,
-                user: user,
-                source: 'CRM_V2'
-            }]
-        });
-
-        const savedSale = await newSale.save();
-
-        await logAudit({
-            req,
-            action: 'RESERVA_CONVERTIDA_A_VENTA',
-            module: 'reservas',
-            entityType: 'Sale',
-            entityId: savedSale._id,
-            entityLabel: `Conversi├│n Reserva a Venta ${vehicle.brand} ${vehicle.name}`,
-            description: `Se convirti├│ la reserva ${reservation._id} a venta final por ${finalSaleCurrency} ${finalSalePrice}.`,
-            metadata: { reservationId: reservation._id, vehicleId: vehicle._id }
-        });
-
-        // 3. Rollback track manual (por si MongoDB no soporta transacciones nativas replica set)
-        try {
-            // Update Reservation
-            const oldResStatus = reservation.status;
-            reservation.status = 'convertida';
-            reservation.updatedBy = user;
-            reservation.reservationAuditLog.push({
-                action: 'RESERVA_CONVERTIDA_A_VENTA',
-                field: 'status',
-                oldValue: oldResStatus,
-                newValue: 'convertida',
-                details: `Reserva convertida a Venta ID: ${savedSale._id}`,
-                user: user,
-                source: 'CRM_V2'
-            });
-            await reservation.save();
-
-            // Update Vehicle
-            const oldVehStatus = vehicle.status;
-            vehicle.status = 'Vendido';
-            vehicle.auditLog.push({
-                action: 'ESTADO',
-                field: 'status',
-                oldValue: oldVehStatus,
-                newValue: 'Vendido',
-                details: `Veh├¡culo vendido por conversi├│n de reserva (Venta ID: ${savedSale._id})`,
-                user: user,
-                source: 'CRM_V2'
-            });
-            await vehicle.save();
-
-            // Update Lead
-            if (reservation.leadId) {
-                const lead = await Lead.findById(reservation.leadId);
-                if (lead) {
-                    const oldLeadStatus = lead.crmStatus;
-                    if (oldLeadStatus !== 'convertido') {
-                        lead.crmStatus = 'convertido';
-                        lead.lastActivityAt = new Date();
-                        lead.leadAuditLog.push({
-                            action: 'VENTA_CREADA',
-                            field: 'crmStatus',
-                            oldValue: oldLeadStatus,
-                            newValue: 'convertido',
-                            details: `Lead convertido por venta de veh├¡culo`,
-                            user: user,
-                            source: 'CRM_V2'
-                        });
-                        await lead.save();
-                    }
-                }
-            }
-
-            // Success
-            res.status(201).json(savedSale);
-
-        } catch (innerError) {
-            // Rollback manual
-            console.error('Inner error during conversion, performing manual rollback', innerError);
-            await Sale.findByIdAndDelete(savedSale._id); // Delete the sale
-
-            if (reservation.status === 'convertida') {
-                reservation.status = 'activa';
-                reservation.reservationAuditLog.pop();
-                await reservation.save();
-            }
-
-            if (vehicle.status === 'Vendido') {
-                vehicle.status = 'Reservado';
-                vehicle.auditLog.pop();
-                await vehicle.save();
-            }
-
-            throw new Error(`Transaction failed, manual rollback executed: ${innerError.message}`);
-        }
-
+        if (!mongoose.Types.ObjectId.isValid(req.params.id)) return res.status(400).json({ message: 'ID de reserva inválido.' });
+        const sale = await completeSaleAtomic({ payload: req.body, user: req.user, reservationId: req.params.id,
+            request: { ip: req.ip, userAgent: req.headers['user-agent'] } });
+        res.status(201).json(sale);
     } catch (error) {
-        console.error("Error converting reservation to sale:", error);
-        return res.status(500).json({
-            error: "No se pudo convertir la reserva en venta. Reintent├í en unos segundos."
-        });
+        res.status(error.status || 400).json({ error: error.message, message: error.message, ...(error.details || {}) });
     }
 });
 
@@ -6270,159 +5554,12 @@ app.post('/api/admin/sales/:id/change-vehicle/preview', authenticateToken, requi
 app.post('/api/admin/sales/:id/change-vehicle', authenticateToken, requirePermission(PERMISSIONS.VENTAS_WRITE), async (req, res) => {
     try {
         await connectDB();
-        const { id } = req.params;
-        const { newVehicleId, reason, documentsChecklist, notes } = req.body;
-
-        if (!reason || !String(reason).trim()) {
-            return res.status(400).json({ ok: false, message: 'El motivo del cambio de vehículo es obligatorio.' });
-        }
-        if (!newVehicleId) {
-            return res.status(400).json({ ok: false, message: 'Debés seleccionar el nuevo vehículo.' });
-        }
-
-        const sale = await Sale.findById(id);
-        if (!sale) return res.status(404).json({ ok: false, message: 'Venta no encontrada.' });
-        if (sale.status === 'cancelada') {
-            return res.status(400).json({ ok: false, message: 'No se puede cambiar de vehículo en una venta cancelada.' });
-        }
-
-        const newCar = await Car.findById(newVehicleId);
-        if (!newCar) return res.status(404).json({ ok: false, message: 'El nuevo vehículo no existe.' });
-
-        if (sale.vehicleId?.toString() === newCar._id.toString()) {
-            return res.status(400).json({ ok: false, message: 'El vehículo seleccionado es el mismo que ya está asignado a la venta.' });
-        }
-
-        const existingSale = await Sale.findOne({
-            vehicleId: newCar._id,
-            _id: { $ne: sale._id },
-            status: { $in: ['señado', 'confirmada', 'pendiente_entrega', 'entregada'] }
-        });
-        if (existingSale) {
-            return res.status(400).json({
-                ok: false,
-                message: `El vehículo ${newCar.brand} ${newCar.name} ya está asignado a otra venta activa.`
-            });
-        }
-
-        const userStr = req.user?.name || req.user?.email || req.user?.username || 'Admin';
-        const cleanReason = String(reason).trim();
-
-        let prevCarSnapshot = null;
-        if (sale.vehicleId) {
-            const oldCar = await Car.findById(sale.vehicleId);
-            if (oldCar) {
-                prevCarSnapshot = {
-                    brand: oldCar.brand,
-                    model: oldCar.name,
-                    year: oldCar.year,
-                    plate: oldCar.plateOrVin,
-                    price: oldCar.price,
-                    currency: oldCar.currency,
-                    purchasePrice: oldCar.purchasePrice,
-                    purchaseCurrency: oldCar.purchaseCurrency,
-                    investorPercentage: oldCar.investor?.percentage || 0
-                };
-                oldCar.status = 'Disponible';
-                if (!oldCar.auditLog) oldCar.auditLog = [];
-                oldCar.auditLog.push({
-                    action: 'ESTADO',
-                    field: 'status',
-                    oldValue: 'Vendido',
-                    newValue: 'Disponible',
-                    justification: cleanReason,
-                    details: `Desvinculado de la venta ${sale._id} por cambio de vehículo. Motivo: ${cleanReason}`,
-                    user: userStr,
-                    date: new Date()
-                });
-                await oldCar.save();
-            }
-        }
-
-        const targetStatus = sale.status === 'señado' ? 'Reservado' : 'Vendido';
-        const oldNewCarStatus = newCar.status;
-        newCar.status = targetStatus;
-        if (!newCar.auditLog) newCar.auditLog = [];
-        newCar.auditLog.push({
-            action: 'ESTADO',
-            field: 'status',
-            oldValue: oldNewCarStatus,
-            newValue: targetStatus,
-            justification: cleanReason,
-            details: `Asignado a la venta ${sale._id} en reemplazo de vehículo anterior. Motivo: ${cleanReason}`,
-            user: userStr,
-            date: new Date()
-        });
-        await newCar.save();
-
-        const newCarSnapshot = {
-            brand: newCar.brand,
-            model: newCar.name,
-            year: newCar.year,
-            plate: newCar.plateOrVin,
-            price: newCar.price,
-            currency: newCar.currency,
-            purchasePrice: newCar.purchasePrice,
-            purchaseCurrency: newCar.purchaseCurrency,
-            investorPercentage: newCar.investor?.percentage || 0
-        };
-
-        const previousVehicleId = sale.vehicleId;
-        sale.vehicleId = newCar._id;
-        sale.updatedBy = userStr;
-
-        if (!sale.vehicleChangeHistory) sale.vehicleChangeHistory = [];
-        sale.vehicleChangeHistory.push({
-            date: new Date(),
-            user: userStr,
-            reason: cleanReason,
-            previousVehicleId: previousVehicleId || newCar._id,
-            previousVehicleSnapshot: prevCarSnapshot,
-            newVehicleId: newCar._id,
-            newVehicleSnapshot: newCarSnapshot,
-            documentsChecklist: Array.isArray(documentsChecklist) ? documentsChecklist : [],
-            notes: notes ? String(notes).trim() : ''
-        });
-
-        if (!sale.saleAuditLog) sale.saleAuditLog = [];
-        sale.saleAuditLog.push({
-            action: 'CAMBIO_VEHICULO',
-            field: 'vehicleId',
-            oldValue: previousVehicleId ? previousVehicleId.toString() : null,
-            newValue: newCar._id.toString(),
-            details: `Cambio de vehículo por ${newCar.brand} ${newCar.name} (${newCar.plateOrVin || 'Sin patente'}). Motivo: ${cleanReason}`,
-            user: userStr,
-            date: new Date(),
-            source: 'CRM_V2'
-        });
-
-        await Installment.updateMany(
-            { saleId: sale._id },
-            { $set: { vehicleId: newCar._id } }
-        );
-
-        await sale.save();
-
-        await logAudit({
-            req,
-            action: 'VENTA_CAMBIO_VEHICULO',
-            module: 'ventas',
-            entityType: 'Sale',
-            entityId: sale._id,
-            entityLabel: 'Venta',
-            description: `Se cambió el vehículo de la venta a ${newCar.brand} ${newCar.name}. Motivo: ${cleanReason}`,
-            metadata: { previousVehicleId, newVehicleId: newCar._id, reason: cleanReason }
-        });
-
-        const populatedSale = await buildPopulatedSaleResponse(sale._id, req.user);
-        res.json({
-            ok: true,
-            message: `Vehículo cambiado exitosamente a ${newCar.brand} ${newCar.name}.`,
-            sale: populatedSale
-        });
+        const changed = await changeSaleVehicleAtomic({ saleId: req.params.id, payload: req.body, user: req.user,
+            request: { ip: req.ip, userAgent: req.headers['user-agent'] } });
+        const sale = await buildPopulatedSaleResponse(changed._id, req.user);
+        res.json({ ok: true, message: `Vehículo cambiado exitosamente a ${changed.vehicleLabel}.`, sale });
     } catch (error) {
-        console.error('Error in POST /api/admin/sales/:id/change-vehicle:', error);
-        res.status(500).json({ ok: false, message: error.message });
+        res.status(error.status || 400).json({ ok: false, message: error.message, ...(error.details || {}) });
     }
 });
 
@@ -6859,6 +5996,10 @@ app.patch('/api/admin/sales/:id', authenticateToken, requirePermission(PERMISSIO
 
         const user = req.user?.username || 'Admin';
         const oldStatus = sale.status;
+        if (oldStatus === 'cancelada' && status !== undefined && status !== 'cancelada') {
+            return res.status(409).json({ message: 'Una venta anulada no puede reactivarse. Creá una nueva operación para volver a validar la unidad.', code: 'SALE_CANCELLED' });
+        }
+
         const wasFinanced = Boolean(sale.financingDetails?.hasFinancing) || String(sale.paymentMethod || '').toLowerCase() === 'financiado';
         let hasChanges = false;
 
@@ -7958,6 +7099,14 @@ app.post('/api/admin/transactions/bulk-annul', authenticateToken, requirePermiss
             return res.status(400).json({ message: 'No se proporcionaron IDs' });
         }
 
+        try {
+            const linkedResult = await annulLinkedExpenseBatch({ ids, user: req.user, req });
+            if (linkedResult) return res.json(linkedResult);
+        } catch (error) {
+            if (error.status) return res.status(error.status).json({ error: error.code, message: error.message });
+            throw error;
+        }
+
         let annulledCount = 0;
         for (const id of ids) {
             const tx = await Transaction.findOne({ _id: id, module: 'crm_v2' });
@@ -8001,6 +7150,15 @@ app.delete('/api/admin/transactions/:id', authenticateToken, requirePermission(P
         await connectDB();
         const tx = await Transaction.findOne({ _id: req.params.id, module: 'crm_v2' });
         if (!tx) return res.status(404).json({ message: 'Transacción no encontrada' });
+        if (isManagedLinkedExpense(tx)) {
+            try {
+                const updated = await mutateLinkedExpense({ id: req.params.id, annul: true, user: req.user, req });
+                return res.json({ message: 'Gasto anulado junto con su cuenta, costo de unidad y Tesorería.', transaction: updated });
+            } catch (error) {
+                if (error.status) return res.status(error.status).json({ error: error.code, message: error.message });
+                throw error;
+            }
+        }
         if (tx.status === 'anulado') return res.status(400).json({ message: 'La transacción ya está anulada' });
 
         const oldStatus = tx.status;
@@ -8223,6 +7381,13 @@ app.patch('/api/admin/transactions/:id', authenticateToken, requirePermission(PE
 
         const tx = await Transaction.findOne({ _id: req.params.id, module: 'crm_v2' });
         if (!tx) return res.status(404).json({ message: 'Transaction not found' });
+        if (isManagedLinkedExpense(tx)) {
+            try { return res.json(await mutateLinkedExpense({ id: req.params.id, patch: req.body, user: req.user, req })); }
+            catch (error) {
+                if (error.status) return res.status(error.status).json({ error: error.code, message: error.message });
+                throw error;
+            }
+        }
 
         const user = req.user?.username || 'Admin';
         let hasChanges = false;
@@ -12608,7 +11773,7 @@ app.post('/api/admin/tesoreria-estrategica/expenses/reclassify', authenticateTok
         res.json(result);
     } catch (error) {
         console.error('POST /api/admin/tesoreria-estrategica/expenses/reclassify error:', error);
-        res.status(400).json({ ok: false, message: error.message });
+        res.status(error.status || 400).json({ ok: false, message: error.message });
     }
 });
 
@@ -12942,7 +12107,7 @@ app.get('/api/admin/offline/bootstrap', authenticateToken, async (req, res) => {
         ]);
 
         const vehicles = vehiclesRaw.map(v => ({
-            ...v,
+            ...serializeStockCar(v, canReadStockFinances(user)),
             coverImage: includePhotos ? (v.coverImage || (Array.isArray(v.images) && v.images[0]) || null) : null,
             images: includePhotos ? (Array.isArray(v.images) ? v.images.slice(0, 3) : []) : []
         }));

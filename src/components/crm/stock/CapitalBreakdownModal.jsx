@@ -2,18 +2,17 @@
 import React, { useState } from 'react';
 import { X, Search, AlertCircle, CheckCircle2, Calendar, FileText, ArrowUpRight, DollarSign, ExternalLink } from 'lucide-react';
 import CrmButton from '../ui/CrmButton';
+import { formatCapitalAmount } from '../../../utils/capitalSummaryView';
+import { formatStockMoney } from '../../../utils/inventoryStock';
 
-function formatARS(val) {
-    if (val === undefined || val === null || isNaN(val)) return '$0';
-    return '$' + Math.round(val).toLocaleString('es-AR');
-}
-
-export default function CapitalBreakdownModal({ isOpen, onClose, componentKey, componentData, totals }) {
+export default function CapitalBreakdownModal({ isOpen, onClose, componentKey, componentData, totals, displayCurrency = 'ARS' }) {
     const [searchTerm, setSearchTerm] = useState('');
 
     if (!isOpen || !componentData) return null;
 
-    const items = componentData.items || [];
+    const formatAmount = (amount, currency = displayCurrency) => formatCapitalAmount(amount, currency);
+    const allItems = componentData.items || [];
+    const items = componentKey === 'stockPropioCosto' ? allItems : allItems.filter(item => (item.currency || 'ARS') === displayCurrency);
     const filteredItems = items.filter(item => {
         if (!searchTerm.trim()) return true;
         const q = searchTerm.toLowerCase();
@@ -45,7 +44,7 @@ export default function CapitalBreakdownModal({ isOpen, onClose, componentKey, c
                                 {componentData.label}
                             </h2>
                             <span className="text-xs px-2.5 py-0.5 rounded-full bg-blue-500/10 text-blue-300 border border-blue-500/20 font-semibold">
-                                {formatARS(componentData.monto)}
+                                {formatAmount(componentData.monto)}
                             </span>
                         </div>
                         <p className="text-xs text-crm-fg-muted max-w-2xl leading-relaxed">
@@ -174,17 +173,17 @@ export default function CapitalBreakdownModal({ isOpen, onClose, componentKey, c
                                                     <td className="py-2 px-3 text-right font-mono">
                                                         {item.hasMissingCost ? (
                                                             <span className="text-amber-400 font-semibold" title="Pendiente de registrar costo real">
-                                                                $0 (Pendiente)
+                                                                Costo pendiente
                                                             </span>
                                                         ) : (
-                                                            formatARS(item.purchasePrice)
+                                                            formatAmount(item.purchasePrice, item.purchaseCurrency || item.currency)
                                                         )}
                                                     </td>
                                                     <td className="py-2 px-3 text-right font-mono text-crm-fg-muted">
-                                                        {formatARS(item.expenses || 0)}
+                                                        {formatStockMoney(item.expensesByCurrency || { [item.purchaseCurrency || item.currency || 'ARS']: item.expenses || 0 })}
                                                     </td>
                                                     <td className="py-2 px-3 text-right font-mono font-medium text-crm-fg">
-                                                        {formatARS(item.costoBase)}
+                                                        {formatStockMoney(item.costByCurrency || { [item.purchaseCurrency || item.currency || 'ARS']: item.costoBase })}
                                                     </td>
                                                     <td className="py-2 px-3 text-center">
                                                         <span className={`px-1.5 py-0.5 rounded text-[10px] font-semibold ${
@@ -196,10 +195,10 @@ export default function CapitalBreakdownModal({ isOpen, onClose, componentKey, c
                                                         </span>
                                                     </td>
                                                     <td className="py-2 px-3 text-right font-mono font-bold text-emerald-400">
-                                                        {formatARS(item.costoPropio)}
+                                                        {formatAmount(item.ownCostByCurrency?.[displayCurrency] ?? (displayCurrency === (item.purchaseCurrency || 'ARS') ? item.costoPropio : 0))}
                                                     </td>
                                                     <td className="py-2 px-3 text-right font-mono text-crm-fg-muted">
-                                                        {formatARS(item.price)}
+                                                        {formatAmount(item.price, item.currency)}
                                                     </td>
                                                 </>
                                             )}
@@ -216,7 +215,7 @@ export default function CapitalBreakdownModal({ isOpen, onClose, componentKey, c
                                                         {item.currency}
                                                     </td>
                                                     <td className="py-2 px-3 text-right font-mono font-bold text-emerald-400">
-                                                        {formatARS(item.balance)}
+                                                        {formatAmount(item.balance, item.currency)}
                                                     </td>
                                                     <td className="py-2 px-3 text-[11px] text-crm-fg-subtle">
                                                         {item.notes}
@@ -251,7 +250,7 @@ export default function CapitalBreakdownModal({ isOpen, onClose, componentKey, c
                                                         </span>
                                                     </td>
                                                     <td className="py-2 px-3 text-right font-mono text-crm-fg">
-                                                        {formatARS(item.remaining)}
+                                                        {formatAmount(item.remaining, item.currency)}
                                                     </td>
                                                     <td className="py-2 px-3 text-center">
                                                         <span className="px-1.5 py-0.5 rounded text-[10px] font-semibold text-emerald-400 bg-emerald-500/10">
@@ -259,7 +258,7 @@ export default function CapitalBreakdownModal({ isOpen, onClose, componentKey, c
                                                         </span>
                                                     </td>
                                                     <td className="py-2 px-3 text-right font-mono font-bold text-emerald-400">
-                                                        {formatARS(item.ownRemaining)}
+                                                        {formatAmount(item.ownRemaining, item.currency)}
                                                     </td>
                                                     <td className="py-2 px-3 text-[10px] text-crm-fg-muted max-w-[200px] truncate" title={item.notes}>
                                                         {item.notes || 'Pactada en venta'}
@@ -271,7 +270,7 @@ export default function CapitalBreakdownModal({ isOpen, onClose, componentKey, c
                                                 <>
                                                     <td className="py-2 px-3 font-medium text-white">{item.concept}</td>
                                                     <td className="py-2 px-3 text-crm-fg-muted">{item.beneficiary}</td>
-                                                    <td className="py-2 px-3 text-right font-mono text-emerald-400">{formatARS(item.amount)}</td>
+                                                    <td className="py-2 px-3 text-right font-mono text-emerald-400">{formatAmount(item.amount, item.currency)}</td>
                                                     <td className="py-2 px-3 text-crm-fg-subtle">{item.date}</td>
                                                 </>
                                             )}
@@ -281,7 +280,7 @@ export default function CapitalBreakdownModal({ isOpen, onClose, componentKey, c
                                                     <td className="py-2 px-3 font-semibold text-white">{item.concept}</td>
                                                     <td className="py-2 px-3 text-crm-fg-muted">{item.category}</td>
                                                     <td className="py-2 px-3 text-crm-fg-subtle">{item.dueDate ? new Date(item.dueDate).toLocaleDateString('es-AR') : 'S/F'}</td>
-                                                    <td className="py-2 px-3 text-right font-mono font-bold text-rose-400">− {formatARS(item.amount)}</td>
+                                                    <td className="py-2 px-3 text-right font-mono font-bold text-rose-400">− {formatAmount(item.amount, item.currency)}</td>
                                                     <td className="py-2 px-3">{item.status}</td>
                                                 </>
                                             )}

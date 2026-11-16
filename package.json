@@ -15,7 +15,20 @@
     "test:auth": "node tests/integration/emailLogin.integration.test.js",
     "dev:auth-preview": "node scripts/start-email-login-preview.js",
     "auth:indexes": "node scripts/create-auth-indexes.js",
-    "test:auth:browser": "node tests/browser/emailLogin.browser.mjs"
+    "test:auth:browser": "node tests/browser/emailLogin.browser.mjs",
+    "dev:mobile-preview": "node scripts/start-mobile-crm-preview.js",
+    "test:mobile:browser": "node tests/browser/mobileCrm.browser.mjs",
+    "test:gpt:oauth": "node tests/integration/gptExpenseOAuth.integration.test.js",
+    "test:gpt:expenses": "node tests/integration/gptExpenses.integration.test.js",
+    "test:stock:unified": "node tests/integration/unifiedStock.integration.test.js",
+    "test:sales:completion": "node tests/integration/saleCompletion.integration.test.js",
+    "gpt:setup": "node scripts/setup-gpt-expenses.js",
+    "expenses:setup": "node scripts/setup-gpt-expenses.js",
+    "test:expenses:quick": "node tests/integration/quickExpenses.integration.test.js",
+    "test:expenses:parser": "node tests/expenseDictation.test.js",
+    "test:expenses:browser": "node tests/browser/quickExpenses.browser.mjs",
+    "test:expenses:mutations": "node tests/integration/linkedExpenseMutations.integration.test.js",
+    "test:reservations:atomic": "node tests/integration/reservationAtomic.integration.test.js"
   },
   "dependencies": {
     "@vercel/analytics": "^1.6.1",

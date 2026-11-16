@@ -12,7 +12,9 @@ const ProtectedRoute = ({ children }) => {
 
         if (!isAuthenticated || !validateSession()) {
             logout();
-            router.replace('/login');
+            if (window.location.pathname === '/admin/gastos/rapido') {
+                window.location.replace('/login?next=' + encodeURIComponent('/admin/gastos/rapido'));
+            } else router.replace('/login');
         }
     }, [isAuthenticated, loading, logout, router, validateSession]);
 

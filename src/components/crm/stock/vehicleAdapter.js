@@ -1,20 +1,19 @@
 import { getCarPurchasePaymentSummary } from '../../../utils/carPurchasePayment';
 import { resolveVehicleAcquisitionCost } from '../../../utils/saleCommercial';
+import { stockValuation, stockStatus } from '../../../utils/inventoryStock';
 
 export const mapRealCarToCRM = (car) => {
     const acq = resolveVehicleAcquisitionCost(car);
-    const resolvedCost = acq.hasCost && acq.amount !== null && acq.amount > 0 
-        ? acq.amount 
-        : (car.purchasePrice || car.tradeInOrigin?.value || 0);
-    const resolvedCurrency = acq.currency || car.purchaseCurrency || car.tradeInOrigin?.currency || (car.currency === 'U$S' || car.currency === 'USD' ? 'USD' : 'ARS');
+    const valuation = stockValuation(car);
+    const resolvedCost = valuation.purchase || 0;
+    const resolvedCurrency = valuation.purchaseCurrency;
+    const gastosTotales = valuation.expenses[resolvedCurrency];
+    const costoTotal = valuation.cost[resolvedCurrency];
+    const hasMixedCurrencyCost = valuation.cost[resolvedCurrency === 'ARS' ? 'USD' : 'ARS'] !== 0;
+    const comparable = valuation.hasCost && !hasMixedCurrencyCost && resolvedCurrency === valuation.askingCurrency;
+    const margenEstimado = comparable ? valuation.asking - costoTotal : null;
+    const margenPorcentual = comparable && costoTotal > 0 ? ((margenEstimado / costoTotal) * 100).toFixed(1) : null;
 
-    // Calculamos el costo total sumando el costo base de adquisición (compra o toma) + gastos en la MISMA moneda.
-    const gastosTotales = (car.expenses || []).reduce((acc, gasto) => acc + gasto.amount, 0);
-    const costoTotal = resolvedCost + gastosTotales;
-    
-    const margenEstimado = (car.price || 0) - costoTotal;
-    const margenPorcentual = costoTotal > 0 ? ((margenEstimado / costoTotal) * 100).toFixed(1) : 0;
-    
     const ingresoDate = new Date(car.createdAt || Date.now());
     const now = new Date();
     const diffTime = Math.abs(now - ingresoDate);
@@ -28,17 +27,23 @@ export const mapRealCarToCRM = (car) => {
         id: car._id,
         marca: car.brand || 'No definido',
         modelo: car.name || 'No definido',
-        version: car.description || 'N/A',
-        año: car.year || new Date().getFullYear(),
+        version: car.infoAuto?.versionName || car.version || car.description || 'Sin versión informada',
+        año: car.year || null,
         kilometraje: car.km || 0,
         combustible: car.fuel || 'Nafta',
         condicion: car.condition || 'Usado',
         color: car.color || 'No definido',
         dominio: car.plateOrVin || 'S/D',
-        origen: (car.investor && car.investor.percentage > 0) ? 'compartido' : (car.agencyOwned ? 'propio' : (car.consignedBy ? 'consignación' : 'tercero')),
+        origen: valuation.type === 'consignacion' ? 'consignación' : valuation.type === 'inversor' ? 'compartido' : valuation.type,
+        ownership: valuation,
+        financialAccess: car.financialAccess !== false,
+        hasAcquisitionCost: valuation.hasCost,
+        costByCurrency: valuation.cost,
+        ownCostByCurrency: valuation.ownCost,
+        expensesByCurrency: valuation.expenses,
         investor: car.investor || null,
-        moneda: car.currency === 'U$S' || car.currency === 'USD' ? 'USD' : 'ARS',
-        monedaCompra: ((resolvedCurrency || car.currency) === 'USD' || (resolvedCurrency || car.currency) === 'U$S') && resolvedCost > 200000 ? 'ARS' : (resolvedCurrency || 'ARS'),
+        moneda: valuation.askingCurrency,
+        monedaCompra: resolvedCurrency,
         precioCompra: resolvedCost,
         acquisitionSource: acq.source || (car.tradeInOrigin?.saleId ? 'valor_de_toma' : 'compra'),
         gastos: gastosTotales,
@@ -49,7 +54,7 @@ export const mapRealCarToCRM = (car) => {
         margenEstimado,
         margenPorcentual,
         fechaIngreso: car.createdAt || new Date().toISOString(),
-        estado: car.status ? car.status.toLowerCase() : 'disponible',
+        estado: stockStatus(car),
         observaciones: car.notes || 'Sin observaciones.',
         diasEnStock,
         alertaRotacion,

@@ -148,6 +148,13 @@ const transactionSchema = new mongoose.Schema({
         inboxStatus: { type: String, enum: ['pendiente', 'distribuido', 'excluido_corte', 'ignorado', 'revertido'], default: 'pendiente' }
     },
     idempotencyKey: { type: String, index: true, sparse: true },
+    linkedExpenseTreasuryEffect: {
+        boxKey: { type: String, default: null },
+        currency: { type: String, enum: ['ARS', 'USD'] },
+        debitApplied: { type: Number, min: 0 },
+        pendingApplied: { type: Number, min: 0 },
+        recorded: { type: Boolean, default: false }
+    },
     // --------------------------------------------------------
 
     createdAt: { type: Date, default: Date.now },

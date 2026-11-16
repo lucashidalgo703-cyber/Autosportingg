@@ -1,7 +1,17 @@
 import assert from 'node:assert/strict';
-import { boot } from './harness.js';
+import { bootIsolatedReplica } from './isolatedReplicaHarness.js';
 
-const { call, test, finish, token } = await boot();
+const isolated = await bootIsolatedReplica();
+const { seedMobileCrm } = await import('../fixtures/mobileCrmFixtures.js');
+const fixtures = await seedMobileCrm(isolated.models);
+const token = fixtures.sessions[0].token;
+const call = (method, route, body, tk = token) => isolated.call(method, route, body, tk);
+let passed = 0;
+const test = async (name, fn) => {
+    try { await fn(); passed++; console.log('OK ' + name); }
+    catch (error) { console.error('FAIL ' + name, error); process.exitCode = 1; }
+};
+const finish = async () => { console.log(`${passed} pruebas de regresión OK`); await isolated.stop(); };
 const { default: mongoose } = await import('mongoose');
 const { default: Sale } = await import('../../src/models/Sale.js');
 const { default: Car } = await import('../../src/models/Car.js');

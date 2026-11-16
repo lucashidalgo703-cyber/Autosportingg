@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useEffect, useMemo, useState } from 'react';
+import Link from 'next/link';
 import {
     AlertTriangle,
     ChevronDown,
@@ -123,13 +124,14 @@ const isSenaTransaction = (tx) => {
 };
 
 function FinanzasPage() {
-    const { fetchTransactions, createTransaction, updateTransaction, annulTransaction, bulkAnnulTransactions, transferFunds, exportTransactions, fetchMonthlyClose, loading: transactionsLoading, error: transactionsError } = useAdminTransactions();
+    const { fetchTransactions, fetchTransactionById, createTransaction, updateTransaction, annulTransaction, bulkAnnulTransactions, transferFunds, exportTransactions, fetchMonthlyClose, loading: transactionsLoading, error: transactionsError } = useAdminTransactions();
     const { fetchInstallments, createInstallment, loading: installmentsLoading, payInstallment } = useAdminInstallments();
     const { fetchAccounts, createAccount, updateAccount, deleteAccount, recalculateBalances, loading: accountsLoading } = useAdminAccounts();
     const [allTransactions, setAllTransactions] = useState([]);
     const [accounts, setAccounts] = useState([]);
     const [installments, setInstallments] = useState([]);
     const [activeTab, setActiveTab] = useState('resumen');
+    const [tabInitialized, setTabInitialized] = useState(false);
     const [movementMode, setMovementMode] = useState('todos');
     const [senaMode, setSenaMode] = useState('todos');
     const [senaSearch, setSenaSearch] = useState('');
@@ -250,15 +252,32 @@ function FinanzasPage() {
         if (tab && FINANCE_TABS.some(t => t.id === tab)) {
             setActiveTab(tab);
         }
+        setTabInitialized(true);
     }, []);
 
+    // Open the exact persisted movement, including records outside the loaded page.
     useEffect(() => {
+        const id = new URLSearchParams(window.location.search).get('movement');
+        if (!id || !/^[a-f0-9]{24}$/i.test(id)) return;
+        let cancelled = false;
+        fetchTransactionById(id).then((transaction) => {
+            if (!cancelled && transaction) {
+                setSelectedTx(transaction);
+                setModalPreset(null);
+                setIsModalOpen(true);
+            }
+        });
+        return () => { cancelled = true; };
+    }, [fetchTransactionById]);
+
+    useEffect(() => {
+        if (!tabInitialized) return;
         const url = new URL(window.location);
         if (url.searchParams.get('tab') !== activeTab) {
             url.searchParams.set('tab', activeTab);
             window.history.replaceState({}, '', url);
         }
-    }, [activeTab]);
+    }, [activeTab, tabInitialized]);
 
     const metrics = useMemo(() => {
         return allTransactions.reduce((acc, tx) => {
@@ -409,6 +428,11 @@ function FinanzasPage() {
                     subtitle="Movimientos, saldos por caja, comisiones, presupuestos y cierres."
                     actions={
                         <>
+                            <PermissionGuard permission={PERMISSIONS.FINANZAS_WRITE} fallback={<></>}>
+                                <Link href="/admin/gastos/rapido" className="inline-flex min-h-10 items-center gap-2 rounded-xl border border-crm-red/40 bg-crm-red/10 px-4 py-2 text-sm font-bold text-crm-fg">
+                                    <span aria-hidden="true">🎙️</span> Dictar gasto
+                                </Link>
+                            </PermissionGuard>
                             <button
                                 type="button"
                                 onClick={() => openTransactionModal({ type: 'ingreso', concept: 'Nuevo recibo', category: 'Recibo', paymentMethod: 'efectivo' })}

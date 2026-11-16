@@ -3,378 +3,127 @@ import Account from '../models/Account.js';
 import Installment from '../models/Installment.js';
 import Transaction from '../models/Transaction.js';
 import Sale from '../models/Sale.js';
+import { emptyMoney, isActiveStock, stockOwnership, stockStatus, stockValuation, summarizeStock } from '../utils/inventoryStock.js';
+import { normalizeCurrency, roundMoney } from '../utils/saleCommercial.js';
 
-/**
- * Service: Capital Summary & Stock Audit for AutoSporting Intelligence
- * Formula: Capital Propio Estimado = Stock Propio a Costo + Efectivo Propio Conciliado + Cartera Propia Pendiente + Otros Créditos - Deudas
- *
- * Directivas estrictas de no doble conteo:
- * 1. No sumar precio publicado y costo del mismo auto (separación de escenarios: Costo vs Publicado).
- * 2. No sumar cajas virtuales de Tesorería junto con las cuentas bancarias/efectivo reales.
- * 3. No computar cuotas ya cobradas o anuladas en cartera pendiente.
- * 4. No descontar fondos de inversionistas dos veces (se descuenta vía porcentaje de titularidad, no como deuda).
- * 5. No incluir consignaciones ni unidades 100% de terceros como capital propio.
- * 6. No inventar datos faltantes; reportar unidades pendientes de conciliación.
- */
-
+// Legacy scalar fields are ARS only. Every component also returns byCurrency; USD is never silently added to ARS.
 export async function getCapitalSummary() {
     const cutoffDate = new Date();
-
-    // 1. OBTENER VEHÍCULOS DE STOCK ACTIVO
-    const allCars = await Car.find({}).lean();
-    
-    // Filtrar inventario activo (excluyendo vendidos, cancelados, anulados)
-    const stockCars = allCars.filter(c => {
-        const st = (c.status || '').toLowerCase().trim();
-        return st !== 'vendido' && st !== 'cancelado' && st !== 'anulado' && !c.sold;
+    const [allCars, accounts, installments, debts] = await Promise.all([
+        Car.find({}).lean(), Account.find({}).lean(),
+        Installment.find({ status: { $in: ['pendiente', 'vencida', 'parcial'] } }).lean(),
+        Transaction.find({ type: { $regex: /egreso/i }, status: 'pendiente' }).lean()
+    ]);
+    const stockCars = allCars.filter(isActiveStock);
+    const metrics = summarizeStock(stockCars);
+    const auditedVehicles = stockCars.map(car => {
+        const v = stockValuation(car);
+        const isConsignment = v.type === 'consignacion';
+        const isThirdParty = v.type === 'tercero';
+        return { id: String(car._id), brand: car.brand || '', name: car.name || '', model: car.name || car.model || '', year: car.year || '',
+            plate: car.plateOrVin || 'S/D', status: car.status || 'sin_estado', isConsignment, isThirdParty,
+            consignedBy: car.consignedBy || '', isShared: ['compartido', 'inversor'].includes(v.type), ownPct: v.ownPct,
+            invPct: v.externalPct, investorName: car.investor?.name || car.consignedBy || '',
+            purchasePrice: v.purchase, purchaseCurrency: v.purchaseCurrency, currency: v.askingCurrency,
+            expenses: v.expenses[v.purchaseCurrency], expensesByCurrency: v.expenses,
+            costoBase: v.cost[v.purchaseCurrency], costoPropio: v.ownCost[v.purchaseCurrency], costoInv: v.externalCost[v.purchaseCurrency],
+            costByCurrency: v.cost, ownCostByCurrency: v.ownCost, externalCostByCurrency: v.externalCost,
+            price: v.asking, precioPropio: v.ownAsking, precioInv: v.externalAsking,
+            hasMissingCost: !v.hasCost && !isConsignment && !isThirdParty, hasMissingPrice: !v.asking,
+            reason: isConsignment || isThirdParty ? 'Unidad de terceros: no aporta al capital propio.' : !v.hasCost ? 'Pendiente de registrar costo real de compra o toma.' : `Participación propia ${v.ownPct}% / inversor ${v.investorPct}%. Monedas sin conversión.` };
     });
-
-    let stockPropioCosto = 0;
-    let stockInversionistasCosto = 0;
-    let stockPropioPublicado = 0;
-    let stockInversionistasPublicado = 0;
-    let stockConsignacionesPublicado = 0;
-    let consignacionesCount = 0;
-    let missingCostCount = 0;
-    let missingPriceCount = 0;
-
-    const auditedVehicles = [];
-
-    for (const c of stockCars) {
-        const isConsignment = Boolean(c.consignedBy && String(c.consignedBy).trim() !== '');
-        const isShared = !isConsignment && c.investor && Number(c.investor.percentage) > 0;
-        const invPct = isShared ? Math.min(100, Math.max(0, Number(c.investor.percentage) || 0)) : 0;
-        const ownPct = isConsignment ? 0 : Math.max(0, 100 - invPct);
-
-        const price = Math.round(Number(c.price) || 0);
-        const purchasePrice = Math.round(Number(c.purchasePrice) || 0);
-
-        // Sumar gastos directos cargados al auto
-        let expensesTotal = 0;
-        if (Array.isArray(c.expenses)) {
-            for (const exp of c.expenses) {
-                expensesTotal += Math.round(Number(exp.amount) || 0);
-            }
-        }
-
-        const costoBase = purchasePrice + expensesTotal;
-
-        if (price <= 100 && !isConsignment) {
-            missingPriceCount++;
-        }
-
-        if (isConsignment) {
-            consignacionesCount++;
-            stockConsignacionesPublicado += price;
-
-            auditedVehicles.push({
-                id: c._id.toString(),
-                brand: c.brand || '',
-                name: c.name || '',
-                model: c.name || c.model || '',
-                year: c.year || '',
-                plate: c.plateOrVin || 'S/D',
-                status: c.status || 'sin_estado',
-                isConsignment: true,
-                consignedBy: c.consignedBy,
-                isShared: false,
-                ownPct: 0,
-                invPct: 100,
-                investorName: c.consignedBy,
-                purchasePrice: 0,
-                expenses: expensesTotal,
-                costoBase: 0,
-                costoPropio: 0,
-                costoInv: 0,
-                price,
-                precioPropio: 0,
-                precioInv: price,
-                hasMissingCost: false,
-                hasMissingPrice: price <= 100,
-                reason: 'Consignación de terceros: excluida 100% de capital propio e inversionistas institucionales.'
-            });
-            continue;
-        }
-
-        if (purchasePrice <= 0) {
-            missingCostCount++;
-        }
-
-        const contribPrecioPropio = Math.round(price * (ownPct / 100));
-        const contribPrecioInv = price - contribPrecioPropio;
-
-        const contribCostoPropio = Math.round(costoBase * (ownPct / 100));
-        const contribCostoInv = costoBase - contribCostoPropio;
-
-        stockPropioCosto += contribCostoPropio;
-        stockInversionistasCosto += contribCostoInv;
-        stockPropioPublicado += contribPrecioPropio;
-        stockInversionistasPublicado += contribPrecioInv;
-
-        let reason = 'Stock activo propio o compartido verificado.';
-        if (purchasePrice <= 0) {
-            reason = 'Pendiente de registrar costo de compra real (figura $0 en base).';
-        } else if (isShared) {
-            reason = `Coparticipación registrada: ${ownPct}% AutoSporting / ${invPct}% ${c.investor?.name || 'Inversor'}.`;
-        }
-
-        auditedVehicles.push({
-            id: c._id.toString(),
-            brand: c.brand || '',
-            name: c.name || '',
-            model: c.name || c.model || '',
-            year: c.year || '',
-            plate: c.plateOrVin || 'S/D',
-            status: c.status || 'sin_estado',
-            isConsignment: false,
-            consignedBy: '',
-            isShared,
-            ownPct,
-            invPct,
-            investorName: c.investor?.name || '',
-            purchasePrice,
-            expenses: expensesTotal,
-            costoBase,
-            costoPropio: contribCostoPropio,
-            costoInv: contribCostoInv,
-            price,
-            precioPropio: contribPrecioPropio,
-            precioInv: contribPrecioInv,
-            hasMissingCost: purchasePrice <= 0,
-            hasMissingPrice: price <= 100,
-            reason
-        });
-    }
-
-    // 2. EFECTIVO PROPIO CONCILIADO (Cuentas reales, sin cajas virtuales duplicadas)
-    const accounts = await Account.find({}).lean();
-    let efectivoTotalARS = 0;
-    const accountsList = [];
-
-    for (const a of accounts) {
-        const bal = Math.round(Number(a.balance) || 0);
-        if (a.currency === 'ARS') {
-            efectivoTotalARS += bal;
-        }
-        accountsList.push({
-            id: a._id.toString(),
-            name: a.name || 'Cuenta',
-            type: a.type || 'Efectivo',
-            currency: a.currency || 'ARS',
-            balance: bal,
-            isIncludedInARS: a.currency === 'ARS',
-            notes: 'Saldo bancario o caja real. Excluye asignaciones virtuales de tesorería para evitar doble conteo.'
-        });
-    }
-
-    // 3. CARTERA PROPIA PENDIENTE (Cuotas pendientes vinculadas a ventas)
-    const pendingInstallments = await Installment.find({
-        status: { $in: ['pendiente', 'vencida'] }
-    }).lean();
-
-    const salesCache = new Map();
-    const salesIds = [...new Set(pendingInstallments.map(i => i.saleId).filter(Boolean))];
-    const salesDocs = await Sale.find({ _id: { $in: salesIds } }).lean();
-    for (const s of salesDocs) {
-        salesCache.set(s._id.toString(), s);
-    }
-
-    let carteraTotalNominal = 0;
-    let carteraPropiaPendiente = 0;
-    let carteraTercerosPendiente = 0;
+    const cash = emptyMoney();
+    const accountsList = accounts.map(account => {
+        const currency = normalizeCurrency(account.currency);
+        const balance = roundMoney(account.balance);
+        cash[currency] = roundMoney(cash[currency] + balance);
+        return { id: String(account._id), name: account.name || 'Cuenta', type: account.type || 'Efectivo', currency, balance,
+            isIncludedInARS: currency === 'ARS', notes: 'Cuenta real; no duplica asignaciones de cajas estratégicas.' };
+    });
+    const sales = await Sale.find({ _id: { $in: [...new Set(installments.map(i => i.saleId).filter(Boolean).map(String))] } }).lean();
+    const salesById = new Map(sales.map(s => [String(s._id), s]));
+    const carsById = new Map(allCars.map(c => [String(c._id), c]));
+    const portfolio = emptyMoney();
+    const portfolioOwn = emptyMoney();
+    const portfolioExternal = emptyMoney();
     const carteraList = [];
-
-    for (const inst of pendingInstallments) {
-        const amount = Math.round(Number(inst.amount) || 0);
-        const paid = Math.round(Number(inst.paidAmount) || 0);
-        const remaining = Math.max(0, amount - paid);
-
-        if (remaining <= 0) continue; // ya cobrada completamente
-
-        carteraTotalNominal += remaining;
-
-        // Determinar participación propia según el vehículo de origen de la venta
-        let ownPct = 100;
-        let vehicleTitle = 'Operación / Venta';
-        let investorName = '';
-
-        const sale = inst.saleId ? salesCache.get(inst.saleId.toString()) : null;
-        if (sale && sale.vehicleId) {
-            const car = allCars.find(c => c._id.toString() === sale.vehicleId.toString());
-            if (car) {
-                vehicleTitle = `${car.brand || ''} ${car.name || car.model || ''} (${car.year || ''})`.trim();
-                const invPct = Number(car.investor?.percentage) || 0;
-                ownPct = Math.max(0, 100 - invPct);
-                investorName = car.investor?.name || '';
-            }
-        }
-
-        const ownRemaining = Math.round(remaining * (ownPct / 100));
-        const invRemaining = remaining - ownRemaining;
-
-        carteraPropiaPendiente += ownRemaining;
-        carteraTercerosPendiente += invRemaining;
-
-        const isOverdue = inst.dueDate ? new Date(inst.dueDate) < cutoffDate : false;
-
-        carteraList.push({
-            id: inst._id.toString(),
-            installmentNumber: inst.installmentNumber || 1,
-            saleId: inst.saleId ? inst.saleId.toString() : null,
-            vehicleTitle,
-            dueDate: inst.dueDate,
-            isOverdue,
-            status: inst.status || 'pendiente',
-            amount,
-            paidAmount: paid,
-            remaining,
-            ownPct,
-            ownRemaining,
-            invRemaining,
-            investorName,
-            currency: inst.currency || 'ARS',
-            notes: inst.notes || ''
-        });
+    for (const installment of installments) {
+        const sale = salesById.get(String(installment.saleId || ''));
+        if (sale?.status === 'cancelada') continue;
+        const remaining = Math.max(0, roundMoney((Number(installment.amount) || 0) - (Number(installment.paidAmount) || 0)));
+        if (!remaining) continue;
+        const car = carsById.get(String(sale?.vehicleId || installment.vehicleId || ''));
+        const ownPct = car ? stockOwnership(car).ownPct : 100;
+        const currency = normalizeCurrency(installment.currency);
+        const ownRemaining = roundMoney(remaining * ownPct / 100);
+        const invRemaining = roundMoney(remaining - ownRemaining);
+        portfolio[currency] = roundMoney(portfolio[currency] + remaining);
+        portfolioOwn[currency] = roundMoney(portfolioOwn[currency] + ownRemaining);
+        portfolioExternal[currency] = roundMoney(portfolioExternal[currency] + invRemaining);
+        carteraList.push({ id: String(installment._id), installmentNumber: installment.installmentNumber || 1,
+            saleId: installment.saleId ? String(installment.saleId) : null,
+            vehicleTitle: car ? `${car.brand} ${car.name} (${car.year})` : 'Operación / Venta', dueDate: installment.dueDate,
+            isOverdue: Boolean(installment.dueDate && new Date(installment.dueDate) < cutoffDate), status: installment.status,
+            amount: roundMoney(installment.amount), paidAmount: roundMoney(installment.paidAmount), remaining,
+            ownPct, ownRemaining, invRemaining, investorName: car?.investor?.name || car?.consignedBy || '', currency,
+            notes: installment.notes || '' });
     }
-
-    // 4. OTROS CRÉDITOS PROPIOS VERIFICADOS (Anticipos a socios o créditos comerciales)
-    // No hay créditos adicionales registrados actualmente en la base; documentamos con claridad
-    const otrosCreditosTotal = 0;
-    const otrosCreditosList = [];
-
-    // 5. DEUDAS Y OBLIGACIONES PROPIAS DOCUMENTADAS (Egresos pendientes en transactions)
-    const pendingTransactions = await Transaction.find({
-        type: { $regex: /egreso/i },
-        status: 'pendiente'
-    }).lean();
-
-    let deudasTotal = 0;
-    const deudasList = [];
-
-    for (const t of pendingTransactions) {
-        const amt = Math.round(Number(t.amount) || 0);
-        deudasTotal += amt;
-        deudasList.push({
-            id: t._id.toString(),
-            concept: t.concept || t.description || 'Gasto pendiente',
-            category: t.category || 'Varios',
-            amount: amt,
-            currency: t.currency || 'ARS',
-            dueDate: t.dueDate || t.date,
-            status: t.status,
-            notes: t.notes || ''
-        });
+    const debt = emptyMoney();
+    const deudasList = debts.map(transaction => {
+        const currency = normalizeCurrency(transaction.currency);
+        const amount = roundMoney(transaction.amount);
+        debt[currency] = roundMoney(debt[currency] + amount);
+        return { id: String(transaction._id), concept: transaction.concept || transaction.description || 'Gasto pendiente',
+            category: transaction.category || 'Varios', amount, currency, dueDate: transaction.dueDate || transaction.date,
+            status: transaction.status, notes: transaction.notes || '' };
+    });
+    const totalsByCurrency = {};
+    for (const currency of ['ARS', 'USD']) {
+        const common = cash[currency] + portfolioOwn[currency] - debt[currency];
+        totalsByCurrency[currency] = {
+            capitalPropioCosto: roundMoney(metrics.ownCost[currency] + common),
+            capitalPropioPublicado: roundMoney(metrics.ownAsking[currency] + common),
+            margenComercialPotencial: roundMoney(metrics.ownAsking[currency] - metrics.ownCost[currency]),
+            efectivoDisponible: cash[currency], stockPropioPublicado: metrics.ownAsking[currency],
+            stockInversionistasPublicado: metrics.investorAsking[currency],
+            valorStockTotalPublicado: roundMoney(metrics.ownAsking[currency] + metrics.investorAsking[currency]),
+            consignacionesTotalPublicado: metrics.thirdPartyAsking[currency]
+        };
     }
-
-    // 6. CÁLCULO DE CAPITAL PROPIO ESTIMADO
-    // Escenario 1: Base Costo (Patrimonial conservador)
-    const capitalPropioCosto = stockPropioCosto + efectivoTotalARS + carteraPropiaPendiente + otrosCreditosTotal - deudasTotal;
-
-    // Escenario 2: Base Precio Publicado (Estimación comercial)
-    const capitalPropioPublicado = stockPropioPublicado + efectivoTotalARS + carteraPropiaPendiente + otrosCreditosTotal - deudasTotal;
-
-    // Margen comercial potencial (diferencia entre precio de venta esperado y costo)
-    const margenComercialPotencial = stockPropioPublicado - stockPropioCosto;
-
-    // Diagnóstico de terminación en $1
-    // Detectamos qué vehículos generan terminaciones impares/fraccionarias en el valor propio
-    const oddPriceVehicles = auditedVehicles.filter(v => v.price % 10 !== 0 || v.costoBase % 10 !== 0);
-
-    return {
-        cutoffDate,
-        currency: 'ARS',
-        conciliacionStatus: missingCostCount > 0 ? 'parcial_datos_pendientes' : 'completa',
-        conciliacionMessage: missingCostCount > 0 
-            ? `Conciliación con ${missingCostCount} unidades sin costo de adquisición registrado en stock. No se inventaron valores en cero.` 
-            : 'Conciliación aritmética y patrimonial completa.',
-        
-        // Componentes principales de la ecuación:
+    const ownVehicles = auditedVehicles.filter(v => !v.isConsignment && !v.isThirdParty);
+    const consignmentCount = auditedVehicles.filter(v => v.isConsignment).length;
+    return { cutoffDate, currency: 'ARS', totalsByCurrency,
+        conciliacionStatus: metrics.missingCost ? 'parcial_datos_pendientes' : 'completa',
+        conciliacionMessage: `${metrics.missingCost} unidades sin costo real registrado. ARS y USD separados; no se convirtió ni se inventó un costo.`,
         componentes: {
-            stockPropioCosto: {
-                label: 'Stock propio a costo',
-                signo: '+',
-                monto: stockPropioCosto,
-                descripcion: 'Mi participación en el costo acumulado (compra + gastos) de las unidades en inventario activo.',
-                subtotalInversionistas: stockInversionistasCosto,
-                unidadesTotal: stockCars.length - consignacionesCount,
-                unidadesSinCosto: missingCostCount,
-                items: auditedVehicles.filter(v => !v.isConsignment)
-            },
-            efectivoPropio: {
-                label: 'Efectivo propio conciliado',
-                signo: '+',
-                monto: efectivoTotalARS,
-                descripcion: 'Caja y bancos atribuibles a AutoSporting, sin duplicar asignaciones internas de tesorería.',
-                cuentasCount: accountsList.length,
-                items: accountsList
-            },
-            carteraPropia: {
-                label: 'Cartera propia pendiente',
-                signo: '+',
-                monto: carteraPropiaPendiente,
-                montoTotalNominal: carteraTotalNominal,
-                montoInversionistas: carteraTercerosPendiente,
-                descripcion: 'Mi parte de los saldos contractuales por cobrar de ventas financiadas, descontando cobranzas realizadas.',
-                cuotasCount: carteraList.length,
-                items: carteraList
-            },
-            otrosCreditos: {
-                label: 'Otros créditos propios verificados',
-                signo: '+',
-                monto: otrosCreditosTotal,
-                descripcion: 'Anticipos o préstamos a socios y terceros pendientes de reintegro documentados.',
-                creditosCount: otrosCreditosList.length,
-                items: otrosCreditosList
-            },
-            deudasPropia: {
-                label: 'Deudas y obligaciones propias',
-                signo: '−',
-                monto: deudasTotal,
-                descripcion: 'Obligaciones y gastos documentados pendientes de pago. Excluye fondos de inversores para no duplicar deducciones.',
-                deudasCount: deudasList.length,
-                items: deudasList
-            }
+            stockPropioCosto: { label: 'Stock propio a costo', signo: '+', monto: metrics.ownCost.ARS, byCurrency: metrics.ownCost,
+                subtotalInversionistas: metrics.investorCost.ARS, inversionistasByCurrency: metrics.investorCost,
+                unidadesTotal: ownVehicles.length, unidadesSinCosto: metrics.missingCost,
+                descripcion: 'Participación real en compra o toma y gastos del stock activo, separada por moneda.', items: ownVehicles, itemsConsignaciones: auditedVehicles.filter(v => v.isConsignment || v.isThirdParty) },
+            efectivoPropio: { label: 'Efectivo propio conciliado', signo: '+', monto: cash.ARS, byCurrency: cash,
+                cuentasCount: accountsList.length, descripcion: 'Caja y bancos reales sin duplicar cajas virtuales de Tesorería.', items: accountsList },
+            carteraPropia: { label: 'Cartera propia pendiente', signo: '+', monto: portfolioOwn.ARS, byCurrency: portfolioOwn,
+                montoTotalNominal: portfolio.ARS, nominalByCurrency: portfolio, montoInversionistas: portfolioExternal.ARS,
+                inversionistasByCurrency: portfolioExternal, cuotasCount: carteraList.length,
+                descripcion: 'Saldo sin cobrar según la participación real; excluye ventas canceladas y cuotas cobradas.', items: carteraList },
+            otrosCreditos: { label: 'Otros créditos propios verificados', signo: '+', monto: 0, byCurrency: emptyMoney(), creditosCount: 0,
+                descripcion: 'Sin créditos adicionales documentados.', items: [] },
+            deudasPropia: { label: 'Deudas y obligaciones propias', signo: '−', monto: debt.ARS, byCurrency: debt,
+                deudasCount: deudasList.length, descripcion: 'Egresos documentados pendientes, separados por moneda.', items: deudasList }
         },
-
-        // Totales Resultantes
-        totales: {
-            capitalPropioCosto,
-            capitalPropioPublicado,
-            margenComercialPotencial,
-            efectivoDisponible: efectivoTotalARS,
-            stockPropioPublicado,
-            stockInversionistasPublicado,
-            valorStockTotalPublicado: stockPropioPublicado + stockInversionistasPublicado,
-            consignacionesTotalPublicado: stockConsignacionesPublicado,
-            consignacionesCount
-        },
-
-        // Diagnóstico de auditoría y caso de los $1
-        auditoriaIndicadores: {
-            totalStockActivo: stockCars.length,
-            consignaciones: consignacionesCount,
-            disponibles: stockCars.filter(c => (c.status || '').toLowerCase() === 'disponible').length,
-            reservados: stockCars.filter(c => (c.status || '').toLowerCase() === 'reservado').length,
-            pausados: stockCars.filter(c => (c.status || '').toLowerCase() === 'pausado').length,
-            sinEstado: stockCars.filter(c => !c.status || (c.status || '').toLowerCase() === 'sin_estado' || (c.status || '').toLowerCase() === 'sinestado').length,
-            compartidos: stockCars.filter(c => !c.consignedBy && c.investor && Number(c.investor.percentage) > 0).length,
-            ceroKm: stockCars.filter(c => {
-                const cond = (c.condition || '').toLowerCase().replace(/\s+/g, '');
-                return cond === '0km' || cond === 'nuevo' || c.km === 0;
-            }).length,
-            origenPesosUno: {
-                hallazgo: 'El valor terminado en $1 proviene de la suma de 3 vehículos específicos de stock propio:',
-                vehiculos: oddPriceVehicles.map(v => ({
-                    id: v.id,
-                    titulo: `${v.brand} ${v.name} (${v.year})`,
-                    estado: v.status,
-                    precioPublicado: v.price,
-                    costo: v.purchasePrice,
-                    participacionPropia: `${v.ownPct}%`,
-                    contribucionPropio: v.precioPropio
-                })),
-                explicacion: 'Dos vehículos pausados tienen precio cargado de $1 provisorio, y un vehículo reservado tiene precio comercial de $13.999.999. Al ser 100% propios, la suma (1 + 1 + 13.999.999 = 14.000.001) traslada la terminación de $1 tanto al Valor Propio ($690.350.001) como al Valor Total ($926.800.001), mientras que el Valor de Inversionistas termina en .000 ($236.450.000). Se respetan los registros originales sin alterar datos.'
-            }
+        totales: { ...totalsByCurrency.ARS, consignacionesCount: consignmentCount },
+        auditoriaIndicadores: { totalStockActivo: stockCars.length, consignaciones: consignmentCount,
+            disponibles: stockCars.filter(c => stockStatus(c) === 'disponible').length,
+            reservados: stockCars.filter(c => stockStatus(c) === 'reservado').length,
+            pausados: stockCars.filter(c => stockStatus(c) === 'pausado').length,
+            sinEstado: stockCars.filter(c => stockStatus(c) === 'sin_estado').length,
+            compartidos: auditedVehicles.filter(v => v.isShared).length,
+            ceroKm: stockCars.filter(c => /^(0\s?km|nuevo)$/i.test(c.condition || '') || c.km === 0).length,
+            origenPesosUno: { hallazgo: 'Importes provisorios o no redondos registrados en el inventario actual.',
+                vehiculos: auditedVehicles.filter(v => v.price % 10 !== 0).map(v => ({ id: v.id,
+                    titulo: `${v.brand} ${v.name} (${v.year})`, estado: v.status, precioPublicado: v.price, currency: v.currency,
+                    costo: v.purchasePrice, participacionPropia: `${v.ownPct}%`, contribucionPropio: v.precioPropio })),
+                explicacion: 'Diagnóstico calculado sobre los registros actuales, sin cifras históricas fijas ni cambios de moneda por el importe.' }
         }
     };
 }
