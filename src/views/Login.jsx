@@ -2,6 +2,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '../context/AuthContext';
+import { gestoriaDocumentTarget } from '../utils/gestoriaDocumentLink';
 import { KeyRound, Mail, ArrowLeft, Eye, EyeOff, CheckCircle2, ArrowRight, AlertTriangle, Cpu } from 'lucide-react';
 
 const Login = () => {
@@ -161,7 +162,7 @@ const Login = () => {
     const tRedirect = setTimeout(() => {
       // Resume only these exact same-origin flows after the full email/TOTP login.
       const next = new URLSearchParams(window.location.search).get('next');
-      const target = next && /^(?:\/gpt\/autorizar|\/admin\/gastos\/rapido)(?:\?|$)/.test(next) ? next : '/admin';
+      const target = gestoriaDocumentTarget(next) || (next && /^(?:\/gpt\/autorizar|\/admin\/gastos\/rapido)(?:\?|$)/.test(next) ? next : '/admin');
       router.push(target);
     }, 1950);
 

@@ -14,6 +14,7 @@ import { gptRequestQuota } from './gptExpenseOAuthService.js';
 import LoginSession from '../models/LoginSession.js';
 import AdminUser from '../models/AdminUser.js';
 import { credentialFingerprint } from './emailLoginService.js';
+import { assertBuyerDocumentNotificationStorage, createBuyerDocumentNotificationIndexes, deliverBuyerDocumentNotification, enqueueBuyerDocumentNotification } from './buyerDocumentNotificationService.js';
 
 export const portalError = (message, status = 400) => Object.assign(new Error(message), { status });
 const fail = (message, status) => { throw portalError(message, status); };
@@ -330,10 +331,12 @@ export async function uploadBuyerDocument(context, input, file) {
         issuedAt = new Date(value + 'T15:00:00Z');
     }
     await storageReady();
+    await assertBuyerDocumentNotificationStorage();
     const fileHash = crypto.createHash('sha256').update(file.buffer).digest('hex');
     const previousRequest = await BuyerPortalDocument.findOne({ saleId: sale._id, requestId: input.requestId }).lean();
     if (previousRequest) {
         if (previousRequest.fileHash !== fileHash || idOf(previousRequest.tradeInId) !== input.tradeInId || previousRequest.slot !== input.slot || previousRequest.requirementKey !== input.requirementKey) fail('Este intento corresponde a otra carga. Actualizá la pantalla.', 409);
+        await deliverBuyerDocumentNotification(String(previousRequest._id));
         return { entry: entryDto(previousRequest), duplicate: true };
     }
     const id = new mongoose.Types.ObjectId(), session = await mongoose.startSession();
@@ -379,15 +382,20 @@ export async function uploadBuyerDocument(context, input, file) {
                 byteLength: file.buffer.length, fileHash, encryptedFile: encrypt(file.buffer, fileContext(id)), requestId: input.requestId,
                 version: old ? old.version + 1 : 1, replacesId: old?._id, history: [{ status: 'received', at: new Date(), by: 'buyer' }] }], { session });
             saved = doc;
+            await enqueueBuyerDocumentNotification({ doc, sale: currentSale, portal: context.portal, client: currentClient }, session);
         });
     } catch (error) {
         if (error.code === 11000) {
             const prior = await BuyerPortalDocument.findOne({ saleId: sale._id, requestId: input.requestId }).lean();
-            if (prior && prior.fileHash === fileHash && prior.slot === input.slot && idOf(prior.tradeInId) === input.tradeInId && prior.requirementKey === input.requirementKey) return { entry: entryDto(prior), duplicate: true };
+            if (prior && prior.fileHash === fileHash && prior.slot === input.slot && idOf(prior.tradeInId) === input.tradeInId && prior.requirementKey === input.requirementKey) {
+                await deliverBuyerDocumentNotification(String(prior._id));
+                return { entry: entryDto(prior), duplicate: true };
+            }
             fail('Esta posición ya tiene una imagen. Elegí corregir esa imagen o agregá otra página.', 409);
         }
         throw error;
     } finally { await session.endSession(); }
+    await deliverBuyerDocumentNotification(String(saved._id));
     return { entry: entryDto(saved.toObject()), duplicate: false };
 }
 export async function documentAccess(id, context, adminUser) {
@@ -436,6 +444,7 @@ export async function readPrivateDocument(id, access) {
 }
 export async function createBuyerPortalIndexes() {
     for (const model of [BuyerPortal, BuyerPortalChallenge, BuyerPortalSession, BuyerPortalDocument, BuyerPortalOriginal, BuyerPortalRate]) await model.createIndexes();
+    await createBuyerDocumentNotificationIndexes();
 }
 function catalogCover(car) {
     const value = car.coverImage || car.images?.[0];

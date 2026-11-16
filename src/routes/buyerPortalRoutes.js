@@ -4,6 +4,7 @@ import connectDB from '../config/db.js';
 import * as portal from '../services/buyerPortalService.js';
 import { gptRequestQuota } from '../services/gptExpenseOAuthService.js';
 import { buyerPortalAccessHistory, recordBuyerPortalView } from '../services/buyerPortalAccessService.js';
+import { getBuyerDocumentNotification, retryBuyerDocumentNotification } from '../services/buyerDocumentNotificationService.js';
 
 const bearer = req => req.headers.authorization?.startsWith('Bearer ') ? req.headers.authorization.slice(7) : '';
 const sessionCookie = 'autosporting_buyer_session';
@@ -46,6 +47,8 @@ export function createAdminBuyerPortalRouter({ authenticate }) {
     router.get('/documents', endpoint(req => portal.adminDocuments(req.user, req.query)));
     router.patch('/documents/:id', endpoint(req => portal.reviewBuyerDocument(req.user, req.params.id, req.body)));
     router.post('/documents/:id/access', endpoint(req => portal.documentAccess(req.params.id, null, req.user)));
+    router.get('/documents/:id/notification', endpoint(req => getBuyerDocumentNotification(req.user, req.params.id)));
+    router.post('/documents/:id/notification/retry', endpoint(req => retryBuyerDocumentNotification(req.user, req.params.id)));
     router.patch('/requirements/original', endpoint(req => portal.markOriginal(req.user, req.body)));
     return router;
 }

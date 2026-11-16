@@ -2,6 +2,7 @@
 import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '../context/AuthContext';
+import { gestoriaDocumentTarget } from '../utils/gestoriaDocumentLink';
 
 const ProtectedRoute = ({ children }) => {
     const { isAuthenticated, loading, validateSession, logout } = useAuth();
@@ -12,7 +13,10 @@ const ProtectedRoute = ({ children }) => {
 
         if (!isAuthenticated || !validateSession()) {
             logout();
-            if (window.location.pathname === '/admin/gastos/rapido') {
+            const documents = gestoriaDocumentTarget(window.location.pathname + window.location.search);
+            if (documents) {
+                window.location.replace('/login?next=' + encodeURIComponent(documents));
+            } else if (window.location.pathname === '/admin/gastos/rapido') {
                 window.location.replace('/login?next=' + encodeURIComponent('/admin/gastos/rapido'));
             } else router.replace('/login');
         }

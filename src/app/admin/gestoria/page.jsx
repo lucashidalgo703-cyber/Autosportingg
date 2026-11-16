@@ -12,6 +12,7 @@ import BuyerDocumentsPanel from '../../../components/buyer-portal/BuyerDocuments
 import { withCrmReturn } from '../../../utils/crmReturnNavigation';
 import { useAuth } from '../../../context/AuthContext';
 import { hasPermission, PERMISSIONS } from '../../../utils/adminPermissions';
+import { gestoriaDocumentTarget } from '../../../utils/gestoriaDocumentLink';
 
 const statusToast = { id: 'gestoria-status-email' };
 
@@ -25,6 +26,12 @@ export default function GestoriaPage() {
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [editingTramite, setEditingTramite] = useState(null);
     const [documentsSaleId, setDocumentsSaleId] = useState('');
+    const canReadDocuments = hasPermission(user, PERMISSIONS.GESTORIA_READ);
+    useEffect(() => {
+        if (!canReadDocuments) return;
+        const target = gestoriaDocumentTarget(window.location.pathname + window.location.search);
+        if (target) setDocumentsSaleId(new URL(target, window.location.origin).searchParams.get('documentos'));
+    }, [canReadDocuments]);
     useEffect(() => {
         if (!documentsSaleId) return;
         const previousFocus = document.activeElement;

@@ -4,6 +4,7 @@ import { FileCheck2 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { hasPermission, PERMISSIONS } from '../../utils/adminPermissions';
 import PrivateAttachment from './PrivateAttachment';
+import BuyerDocumentNotificationStatus from './BuyerDocumentNotificationStatus';
 import { documentRequirements, documentStatus, portalDate, portalRequest, vehicleLabel } from './portalClient';
 
 export default function BuyerDocumentsPanel({ saleId, tradeInId, carId, initiallyOpen = false, readOnly = false, title = 'Documentación entregada por el cliente' }) {
@@ -47,6 +48,7 @@ export default function BuyerDocumentsPanel({ saleId, tradeInId, carId, initiall
     const entries = groups.flatMap(group => group.entries || []);
     const renderEntry = entry => <article key={entry.id} data-admin-document={entry.id} data-document-current={entry.isCurrent !== false} className="min-w-0 space-y-2 rounded-xl border border-neutral-700 bg-neutral-950 p-3">
         <PrivateAttachment entry={entry} requestAccess={requestAccess}/>
+        <BuyerDocumentNotificationStatus documentId={entry.id}/>
         <h5 className="text-sm font-bold text-white">{entry.description || entry.fileName}</h5>
         <p className="text-xs text-neutral-400">{portalDate(entry.createdAt)} · {entry.origin === 'buyer' ? 'Portal del comprador' : entry.origin} · Versión {entry.version || 1}</p>
         <p className={`text-xs font-semibold ${entry.status === 'correction_requested' ? 'text-amber-200' : entry.status === 'reviewed' ? 'text-emerald-300' : 'text-neutral-300'}`}>{entry.isCurrent === false ? 'Versión anterior' : documentStatus(entry.status)}</p>

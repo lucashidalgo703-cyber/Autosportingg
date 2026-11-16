@@ -16,7 +16,7 @@ try {
     await createBuyerPortalIndexes();
     const mails = [];
     EmailAdapter.sendEmail = async (to, subject, html) => {
-        assert.ok([portalFixture.buyerOneEmail, portalFixture.buyerTwoEmail].includes(to));
+        assert.ok([portalFixture.buyerOneEmail, portalFixture.buyerTwoEmail, process.env.SECURITY_ALERT_EMAIL].includes(to));
         mails.push({ to, subject, html }); return { accepted: [to], rejected: [] };
     };
     const adminToken = fixture.sessions[0].token;
