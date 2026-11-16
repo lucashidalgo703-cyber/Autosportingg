@@ -23,7 +23,7 @@ try {
     const service = await import('../../src/services/buyerPortalService.js');
     const { EmailAdapter } = await import('../../src/lib/emailAdapter.js');
     EmailAdapter.sendEmail = async () => { throw new Error('Esta suite no debe enviar correos.'); };
-    const { Sale, Client, BuyerPortal, BuyerPortalDocument } = mongoose.models;
+    const { Sale, Client, BuyerPortal, BuyerPortalSession, BuyerPortalDocument } = mongoose.models;
     for (const Model of Object.values(mongoose.models)) await Model.createCollection();
     await service.createBuyerPortalIndexes();
     const admin = { id: String(new mongoose.Types.ObjectId()), role: 'owner', name: 'Administrador ficticio' };
@@ -37,18 +37,22 @@ try {
         const configuration = await service.configurePortal(admin, String(sale._id), {});
         const token = configuration.url.split('/').at(-1);
         const portal = await BuyerPortal.findById(sale._id).lean();
+        const sid = crypto.randomBytes(32).toString('base64url'), expires = Math.floor(Date.now() / 1000) + 1800;
+        await BuyerPortalSession.create({ _id: sha(sid), portalId: sale._id, generation: portal.generation,
+            clientId: client._id, contactHash: sha(client.email), expiresAt: new Date(expires * 1000) });
         const sessionToken = jwt.sign({ purpose: 'buyer-portal', portalId: String(sale._id), generation: portal.generation,
-            contactHash: sha(client.email), exp: Math.floor(Date.now() / 1000) + 1800 }, portalSigningKey,
+            clientId: String(client._id), contactHash: sha(client.email), sid, exp: expires }, portalSigningKey,
         { algorithm: 'HS256', audience: 'autosporting-buyer' });
         const context = await service.buyerSession(token, sessionToken);
         const input = { tradeInId: String(sale.tradeIns[0]._id), requirementKey: 'title', slot: 'title-page-1', side: 'page',
             description: 'Título · Página 1', requestId: crypto.randomUUID() };
-        return { client, sale, portal, context, input };
+        return { client, sale, portal, context, input, sessionToken };
     };
     const file = { buffer: Buffer.from([0xff, 0xd8, 0xff, 0xe0, 1, 2, 3, 4]), originalname: 'foto-ficticia.jpg' };
     const upload = f => service.uploadBuyerDocument(f.context, f.input, file);
     const counters = async f => ({
         portal: (await BuyerPortal.findById(f.sale._id).lean()).uploadSequence || 0,
+        device: (await BuyerPortalSession.findById(sha(f.context.session.sid)).lean()).uploadSequence || 0,
         sale: (await Sale.findById(f.sale._id).lean()).buyerPortalUploadSequence || 0,
         client: (await Client.findById(f.client._id).lean()).buyerPortalUploadSequence || 0
     });
@@ -82,6 +86,11 @@ try {
     await test('explicit link revocation rejects an upload that was authenticated before revocation', async () => {
         const f = await fixture();
         await service.revokePortal(admin, String(f.sale._id));
+        await rejectedWithoutDocument(f);
+    });
+    await test('closing the remembered device rejects an upload that was authenticated before logout', async () => {
+        const f = await fixture();
+        await service.revokeBuyerSession(f.sessionToken);
         await rejectedWithoutDocument(f);
     });
     // The hook commits an external edit after Sale and Client have been read in
@@ -120,7 +129,7 @@ try {
         f.input = { ...f.input, slot: 'title-page-2', description: 'Título · Página 2', requestId: crypto.randomUUID() };
         const b = await upload(f);
         assert.notEqual(a.entry.id, b.entry.id);
-        assert.deepEqual(await counters(f), { portal: 2, sale: 2, client: 2 });
+        assert.deepEqual(await counters(f), { portal: 2, device: 2, sale: 2, client: 2 });
         assert.equal(await BuyerPortalDocument.countDocuments({ saleId: f.sale._id, isCurrent: true }), 2);
     });
     console.log(`PASS: ${passed} isolated buyer portal transaction-race groups.`);

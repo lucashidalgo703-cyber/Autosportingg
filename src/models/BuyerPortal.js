@@ -18,6 +18,18 @@ const challengeSchema = new mongoose.Schema({
     consumedAt: { type: Date, default: null }, expiresAt: { type: Date, required: true }
 }, { timestamps: true });
 challengeSchema.index({ expiresAt: 1 }, { expireAfterSeconds: 0 });
+const sessionSchema = new mongoose.Schema({
+    // Only a hash of the random browser credential is stored in the database.
+    _id: { type: String, required: true },
+    portalId: { type: mongoose.Schema.Types.ObjectId, required: true },
+    clientId: { type: mongoose.Schema.Types.ObjectId, ref: 'Client', required: true },
+    generation: { type: Number, required: true },
+    contactHash: { type: String, required: true },
+    uploadSequence: { type: Number, default: 0 },
+    expiresAt: { type: Date, required: true },
+    revokedAt: { type: Date, default: null }
+}, { timestamps: true });
+sessionSchema.index({ expiresAt: 1 }, { expireAfterSeconds: 0 });
 const documentSchema = new mongoose.Schema({
     saleId: { type: mongoose.Schema.Types.ObjectId, ref: 'Sale', required: true },
     tradeInId: { type: mongoose.Schema.Types.ObjectId, required: true },
@@ -41,6 +53,7 @@ const originalSchema = new mongoose.Schema({
 originalSchema.index({ saleId: 1, tradeInId: 1, requirementKey: 1 }, { unique: true });
 export const BuyerPortal = mongoose.models.BuyerPortal || mongoose.model('BuyerPortal', portalSchema);
 export const BuyerPortalChallenge = mongoose.models.BuyerPortalChallenge || mongoose.model('BuyerPortalChallenge', challengeSchema);
+export const BuyerPortalSession = mongoose.models.BuyerPortalSession || mongoose.model('BuyerPortalSession', sessionSchema);
 export const BuyerPortalDocument = mongoose.models.BuyerPortalDocument || mongoose.model('BuyerPortalDocument', documentSchema);
 export const BuyerPortalOriginal = mongoose.models.BuyerPortalOriginal || mongoose.model('BuyerPortalOriginal', originalSchema);
 const rateSchema = new mongoose.Schema({ _id: String, count: Number, expiresAt: Date });

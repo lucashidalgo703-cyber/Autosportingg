@@ -5,7 +5,7 @@ import Sale from '../models/Sale.js';
 import Car from '../models/Car.js';
 import Client from '../models/Client.js';
 import Gestoria from '../models/Gestoria.js';
-import { BuyerPortal, BuyerPortalChallenge, BuyerPortalDocument, BuyerPortalOriginal, BuyerPortalRate } from '../models/BuyerPortal.js';
+import { BuyerPortal, BuyerPortalChallenge, BuyerPortalSession, BuyerPortalDocument, BuyerPortalOriginal, BuyerPortalRate } from '../models/BuyerPortal.js';
 import { BUYER_REQUIREMENTS } from '../utils/buyerPortalRequirements.js';
 import { hasPermission, PERMISSIONS } from '../utils/adminPermissions.js';
 import { isMySaleOrReservation } from '../utils/saleOwnership.js';
@@ -170,10 +170,19 @@ export async function verifyBuyerChallenge(token, input, ip) {
     if (!challenge || !crypto.timingSafeEqual(Buffer.from(actual), Buffer.from(challenge.codeHash))) fail('Código incorrecto, vencido o ya usado. Pedí uno nuevo si agotaste los 5 intentos.', 401);
     const consumed = await BuyerPortalChallenge.updateOne({ _id: challenge._id, consumedAt: null }, { $set: { consumedAt: new Date() } });
     if (!consumed.modifiedCount) fail('Este código ya fue utilizado.', 401);
-    const expiresAt = new Date(Math.min(Date.now() + 30 * 60000, portal.expiresAt.getTime()));
+    const expiresAt = new Date(Math.min(Date.now() + 30 * 86400000, portal.expiresAt.getTime()));
+    const sid = crypto.randomBytes(32).toString('base64url');
+    await BuyerPortalSession.create({ _id: hash(sid), portalId: portal._id, clientId: sale.clientId, generation: portal.generation,
+        contactHash: contactHash(email), expiresAt });
     const sessionToken = jwt.sign({ purpose: 'buyer-portal', portalId: String(portal._id), generation: portal.generation,
-        contactHash: contactHash(email), exp: Math.floor(expiresAt.getTime() / 1000) }, signingKey(), { algorithm: 'HS256', audience: 'autosporting-buyer' });
+        contactHash: contactHash(email), clientId: idOf(sale.clientId), sid, exp: Math.floor(expiresAt.getTime() / 1000) }, signingKey(), { algorithm: 'HS256', audience: 'autosporting-buyer' });
     return { sessionToken, expiresAt };
+}
+async function activeBuyerSession(session, expires = session.exp) {
+    if (typeof session.sid !== 'string' || !/^[A-Za-z0-9_-]{43}$/.test(session.sid) || !validId(session.clientId)) return false;
+    const record = await BuyerPortalSession.findOne({ _id: hash(session.sid), portalId: session.portalId,
+        clientId: session.clientId, generation: session.generation, contactHash: session.contactHash, revokedAt: null, expiresAt: { $gt: new Date() } }).lean();
+    return Boolean(record && Number.isFinite(expires) && Math.floor(record.expiresAt.getTime() / 1000) === expires);
 }
 export async function buyerSession(token, sessionToken) {
     const context = await livePortal(token);
@@ -182,8 +191,24 @@ export async function buyerSession(token, sessionToken) {
     catch { fail('Verificá tu correo para continuar.', 401); }
     const email = await buyerContact(context.sale);
     if (session.purpose !== 'buyer-portal' || session.portalId !== String(context.portal._id) || session.generation !== context.portal.generation
-        || session.contactHash !== contactHash(email)) fail('La verificación venció o fue revocada. Verificá tu correo de nuevo.', 401);
+        || session.contactHash !== contactHash(email) || session.sid !== undefined && session.clientId !== idOf(context.sale.clientId)) fail('La verificación venció o fue revocada. Verificá tu correo de nuevo.', 401);
+    // Existing 30-minute sessions may finish normally during the rollout. Every
+    // newly issued, remembered session must have a live server-side record.
+    const legacy = session.sid === undefined && Number.isFinite(session.iat) && session.exp > session.iat && session.exp - session.iat <= 1800;
+    if (!legacy && !await activeBuyerSession(session)) fail('La verificación venció o fue revocada. Verificá tu correo de nuevo.', 401);
     return { ...context, session };
+}
+export async function revokeBuyerSession(sessionToken) {
+    // Logout is idempotent and may remove an expired cookie. Verifying the
+    // signature still ensures it can revoke only the supplied browser session.
+    let session;
+    try { session = jwt.verify(sessionToken || '', signingKey(), { algorithms: ['HS256'], audience: 'autosporting-buyer', ignoreExpiration: true }); }
+    catch { return { loggedOut: true }; }
+    if (session.purpose === 'buyer-portal' && validId(session.portalId) && validId(session.clientId) && typeof session.sid === 'string' && /^[A-Za-z0-9_-]{43}$/.test(session.sid)) {
+        await BuyerPortalSession.updateOne({ _id: hash(session.sid), portalId: session.portalId,
+            clientId: session.clientId, generation: session.generation, contactHash: session.contactHash, revokedAt: null }, { $set: { revokedAt: new Date() } });
+    }
+    return { loggedOut: true };
 }
 const requirement = key => BUYER_REQUIREMENTS.find(item => item.key === key);
 function tradeInFor(sale, tradeInId) {
@@ -295,6 +320,14 @@ export async function uploadBuyerDocument(context, input, file) {
             const locked = await BuyerPortal.updateOne({ _id: context.portal._id, generation: context.portal.generation, enabled: true,
                 mode: 'with_trade_in', expiresAt: { $gt: new Date() } }, { $inc: { uploadSequence: 1 } }, { session });
             if (!locked.matchedCount) fail('El acceso fue revocado. Volvé a verificar el enlace.', 401);
+            if (context.session.sid) {
+                // Serialize a pending upload against this device's logout, not
+                // only a portal-wide revocation. Transaction retries recheck it.
+                const deviceLock = await BuyerPortalSession.updateOne({ _id: hash(context.session.sid), portalId: context.portal._id,
+                    clientId: context.session.clientId, generation: context.portal.generation, contactHash: context.session.contactHash, revokedAt: null,
+                    expiresAt: { $gt: new Date() } }, { $inc: { uploadSequence: 1 } }, { session });
+                if (!deviceLock.matchedCount) fail('El acceso de este dispositivo fue cerrado. Verificá tu correo de nuevo.', 401);
+            }
             const currentSale = await Sale.findById(sale._id).session(session).lean();
             if (!currentSale || currentSale.status === 'cancelada' || idOf(currentSale.clientId) !== idOf(sale.clientId)) fail('La operación cambió. Volvé a verificar el enlace.', 401);
             tradeInFor(currentSale, input.tradeInId);
@@ -345,7 +378,8 @@ export async function documentAccess(id, context, adminUser) {
         if (context.portal.mode !== 'with_trade_in' || idOf(doc.saleId) !== idOf(context.sale._id)) fail('No encontré el archivo.', 404);
         tradeInFor(context.sale, idOf(doc.tradeInId));
         claims = { actor: 'buyer', portalId: String(context.portal._id), generation: context.portal.generation,
-            contactHash: context.session.contactHash, sessionExp: context.session.exp };
+            contactHash: context.session.contactHash, sessionExp: context.session.exp,
+            ...(context.session.sid ? { sid: context.session.sid, clientId: context.session.clientId } : {}) };
     }
     const exp = Math.min(Math.floor(Date.now() / 1000) + 120, claims.sessionExp || Infinity);
     const access = jwt.sign({ ...claims, purpose: 'buyer-document', docId: id, exp }, signingKey(), { algorithm: 'HS256', audience: 'autosporting-document' });
@@ -362,7 +396,10 @@ export async function readPrivateDocument(id, access) {
         const portal = await BuyerPortal.findOne({ _id: claims.portalId, enabled: true, mode: 'with_trade_in',
             generation: claims.generation, expiresAt: { $gt: new Date() } }).lean();
         const sale = portal ? await Sale.findById(portal._id).lean() : null;
-        if (!sale || sale.status === 'cancelada' || idOf(doc.saleId) !== idOf(sale._id) || claims.contactHash !== contactHash(await buyerContact(sale))) fail('El acceso al archivo fue revocado.', 401);
+        if (!sale || sale.status === 'cancelada' || idOf(doc.saleId) !== idOf(sale._id) || claims.contactHash !== contactHash(await buyerContact(sale))
+            || claims.sid !== undefined && claims.clientId !== idOf(sale.clientId)) fail('El acceso al archivo fue revocado.', 401);
+        const legacy = claims.sid === undefined && Number.isFinite(claims.iat) && claims.exp > claims.iat && claims.exp - claims.iat <= 120;
+        if (!legacy && !await activeBuyerSession(claims, claims.sessionExp)) fail('El acceso al archivo fue revocado.', 401);
         tradeInFor(sale, idOf(doc.tradeInId));
     } else if (claims.actor === 'admin') {
         const session = await LoginSession.findOne({ _id: claims.sessionId, userId: claims.userId, revokedAt: null, expiresAt: { $gt: new Date() } }).lean();
@@ -373,7 +410,7 @@ export async function readPrivateDocument(id, access) {
     return { buffer: decrypt(doc.encryptedFile, fileContext(id)), mimeType: doc.mimeType, fileName: doc.fileName };
 }
 export async function createBuyerPortalIndexes() {
-    for (const model of [BuyerPortal, BuyerPortalChallenge, BuyerPortalDocument, BuyerPortalOriginal, BuyerPortalRate]) await model.createIndexes();
+    for (const model of [BuyerPortal, BuyerPortalChallenge, BuyerPortalSession, BuyerPortalDocument, BuyerPortalOriginal, BuyerPortalRate]) await model.createIndexes();
 }
 export async function portalData(sale, portal) {
     const car = sale.vehicleId ? await Car.findById(sale.vehicleId).select('brand name year plateOrVin').lean() : null;

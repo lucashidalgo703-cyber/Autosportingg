@@ -5,6 +5,24 @@ import * as portal from '../services/buyerPortalService.js';
 import { gptRequestQuota } from '../services/gptExpenseOAuthService.js';
 
 const bearer = req => req.headers.authorization?.startsWith('Bearer ') ? req.headers.authorization.slice(7) : '';
+const sessionCookie = 'autosporting_buyer_session';
+const rememberedSession = req => {
+    const value = (req.headers.cookie || '').split(';').map(part => part.trim()).find(part => part.startsWith(sessionCookie + '='));
+    try { return value ? decodeURIComponent(value.slice(sessionCookie.length + 1)) : ''; }
+    catch { return ''; }
+};
+const cookieOptions = req => ({ httpOnly: true, sameSite: 'lax', secure: process.env.NODE_ENV === 'production',
+    path: '/api/buyer-portal/' + encodeURIComponent(req.params.token) });
+const sameOrigin = req => {
+    try {
+        const origin = new URL(req.get('origin'));
+        return ['http:', 'https:'].includes(origin.protocol) && origin.host.toLowerCase() === String(req.get('host')).toLowerCase()
+            && (process.env.NODE_ENV !== 'production' || origin.protocol === 'https:');
+    } catch { return false; }
+};
+const cookieMutationAllowed = req => bearer(req) || sameOrigin(req);
+const browserVerificationAllowed = req => req.get('origin') ? sameOrigin(req)
+    : !['cross-site', 'same-site'].includes(req.get('sec-fetch-site'));
 const endpoint = fn => async (req, res) => {
     try { await connectDB(); const result = await fn(req, res); if (!res.headersSent) res.json(result); }
     catch (error) {
@@ -38,17 +56,39 @@ export function createBuyerPortalRouter() {
         res.send(doc.buffer);
     }));
     router.get('/:token/info', endpoint(req => portal.portalInfo(req.params.token)));
-    router.post('/:token/challenge', endpoint(req => portal.sendBuyerChallenge(req.params.token, req.ip)));
-    router.post('/:token/verify', endpoint(req => portal.verifyBuyerChallenge(req.params.token, req.body, req.ip)));
+    router.post('/:token/challenge', endpoint(req => {
+        if (!browserVerificationAllowed(req)) throw portal.portalError('Abrí el portal desde su enlace para verificar tu acceso.', 403);
+        return portal.sendBuyerChallenge(req.params.token, req.ip);
+    }));
+    router.post('/:token/verify', endpoint(async (req, res) => {
+        if (!browserVerificationAllowed(req)) throw portal.portalError('Abrí el portal desde su enlace para verificar tu acceso.', 403);
+        // The browser credential is inaccessible to page scripts and is never
+        // returned in JSON or placed in localStorage/sessionStorage.
+        const result = await portal.verifyBuyerChallenge(req.params.token, req.body, req.ip);
+        res.cookie(sessionCookie, result.sessionToken, { ...cookieOptions(req), expires: result.expiresAt,
+            maxAge: Math.max(0, result.expiresAt.getTime() - Date.now()) });
+        return { expiresAt: result.expiresAt };
+    }));
+    router.post('/:token/logout', endpoint(async (req, res) => {
+        if (!cookieMutationAllowed(req)) throw portal.portalError('Abrí el portal desde su enlace para cerrar el acceso.', 403);
+        const result = await portal.revokeBuyerSession(bearer(req) || rememberedSession(req));
+        res.clearCookie(sessionCookie, cookieOptions(req));
+        return result;
+    }));
     const authenticated = async (req, res, next) => {
         try {
             await connectDB();
-            req.buyer = await portal.buyerSession(req.params.token, bearer(req));
+            const authorization = bearer(req), remembered = rememberedSession(req);
+            if (!['GET', 'HEAD', 'OPTIONS'].includes(req.method) && !authorization && remembered && !sameOrigin(req)) {
+                throw portal.portalError('Abrí el portal desde su enlace para continuar.', 403);
+            }
+            req.buyer = await portal.buyerSession(req.params.token, authorization || remembered);
             await gptRequestQuota('buyer-portal:' + req.buyer.portal._id, 90);
             next();
         } catch (error) { res.status(error.status || 503).json({ message: error.status ? error.message : 'No se pudo validar el acceso.' }); }
     };
-    router.get('/:token/session', authenticated, endpoint(req => portal.portalData(req.buyer.sale, req.buyer.portal)));
+    router.get('/:token/session', authenticated, endpoint(async req => ({ ...await portal.portalData(req.buyer.sale, req.buyer.portal),
+        sessionExpiresAt: new Date(req.buyer.session.exp * 1000) })));
     const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 3 * 1024 * 1024, files: 1, fields: 15, parts: 17, fieldSize: 3000 } }).single('file');
     router.post('/:token/documents', authenticated, (req, res) => upload(req, res, error => {
         if (error) return res.status(error.code === 'LIMIT_FILE_SIZE' ? 413 : 400).json({ message: 'Subí un archivo de hasta 3 MB por vez.' });

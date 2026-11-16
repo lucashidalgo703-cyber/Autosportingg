@@ -37,9 +37,18 @@ try {
         const challenge = await pub(linkToken, 'POST', '/challenge', {}); status(challenge, 200);
         const mail = mails.filter(item => item.to === email).at(-1);
         const code = mail.html.match(/>\s*(\d{6})\s*</)[1];
-        const verified = await pub(linkToken, 'POST', '/verify', { challengeId: challenge.json.challengeId, code }); status(verified, 200);
+        const verified = await fetch(env.base + api(linkToken, '/verify'), { method: 'POST',
+            headers: { 'Content-Type': 'application/json', Origin: 'https://' + new URL(env.base).host },
+            body: JSON.stringify({ challengeId: challenge.json.challengeId, code }) });
+        assert.equal(verified.status, 200);
+        const verification = await verified.json();
+        assert.equal(verification.sessionToken, undefined, 'browser authentication stays in its HttpOnly cookie');
+        const cookie = verified.headers.getSetCookie().find(value => value.startsWith('autosporting_buyer_session='));
+        assert.ok(cookie);
         status(await pub(linkToken, 'POST', '/verify', { challengeId: challenge.json.challengeId, code }), 401);
-        return verified.json.sessionToken;
+        // Node's isolated HTTP client intentionally extracts its own cookie here
+        // to retain the existing bearer-boundary and document regression checks.
+        return decodeURIComponent(cookie.split(';')[0].slice('autosporting_buyer_session='.length));
     };
     const photo = Buffer.from([0xff, 0xd8, 0xff, 0xe0, 1, 2, 3, 4]);
     const upload = async ({ link = withToken, session = buyerOne, key = 'registration_cards', slot, side, description,
