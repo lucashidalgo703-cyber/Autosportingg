@@ -13,6 +13,7 @@ import { EmailAdapter } from '../lib/emailAdapter.js';
 import { gptRequestQuota } from './gptExpenseOAuthService.js';
 import LoginSession from '../models/LoginSession.js';
 import AdminUser from '../models/AdminUser.js';
+import BuyerDocumentNotification from '../models/BuyerDocumentNotification.js';
 import { credentialFingerprint } from './emailLoginService.js';
 import { assertBuyerDocumentNotificationStorage, createBuyerDocumentNotificationIndexes, deliverBuyerDocumentNotification, enqueueBuyerDocumentNotification } from './buyerDocumentNotificationService.js';
 
@@ -276,14 +277,14 @@ export async function adminDocuments(user, query) {
 }
 export async function reviewBuyerDocument(user, id, input) {
     if (!validId(id)) fail('No encontré el archivo.', 404);
-    const doc = await BuyerPortalDocument.findById(id).lean();
+    const doc = await BuyerPortalDocument.findOne({ _id: id, removedAt: null }).lean();
     if (!doc) fail('No encontré el archivo.', 404);
     await adminSale(user, String(doc.saleId), true);
     if (!hasPermission(user, PERMISSIONS.DOCUMENTACION_WRITE) && !hasPermission(user, PERMISSIONS.STOCK_WRITE)) fail('No tenés permiso para revisar documentación.', 403);
     if (!['received', 'reviewed', 'correction_requested'].includes(input.status)) fail('Estado de revisión inválido.');
     const reason = clean(input.reason, 1000);
     if (input.status === 'correction_requested' && !reason) fail('Explicá qué debe corregirse en esta imagen.');
-    const updated = await BuyerPortalDocument.findOneAndUpdate({ _id: id, isCurrent: true }, { $set: { status: input.status, correctionReason: reason },
+    const updated = await BuyerPortalDocument.findOneAndUpdate({ _id: id, isCurrent: true, removedAt: null }, { $set: { status: input.status, correctionReason: reason },
         $push: { history: { status: input.status, reason, at: new Date(), by: user.id } } }, { returnDocument: 'after' }).lean();
     if (!updated) fail('Esta imagen fue reemplazada. Revisá la versión vigente.', 409);
     return entryDto(updated);
@@ -306,6 +307,60 @@ function fileType(buffer) {
     if (buffer.subarray(0, 4).toString() === 'RIFF' && buffer.subarray(8, 12).toString() === 'WEBP') return 'image/webp';
     if (buffer.subarray(4, 8).toString() === 'ftyp' && /^(heic|heix|hevc|hevx|mif1|heif)$/.test(buffer.subarray(8, 12).toString())) return 'image/heic';
     fail('Subí una foto JPEG, PNG, WebP o HEIC, o un PDF completo.');
+}
+async function lockBuyerDocumentMutation(context, tradeInId, session) {
+    const { sale } = context;
+    if (!Number.isFinite(context.session.exp) || context.session.exp * 1000 <= Date.now()) fail('La verificación venció. Verificá tu correo de nuevo.', 401);
+    // Serialize document changes against link revocation, device logout,
+    // buyer/contact edits and cancellation; transaction retries recheck them.
+    const locked = await BuyerPortal.updateOne({ _id: context.portal._id, generation: context.portal.generation, enabled: true,
+        mode: 'with_trade_in', expiresAt: { $gt: new Date() } }, { $inc: { uploadSequence: 1 } }, { session });
+    if (!locked.matchedCount) fail('El acceso fue revocado. Volvé a verificar el enlace.', 401);
+    if (context.session.sid) {
+        const deviceLock = await BuyerPortalSession.updateOne({ _id: hash(context.session.sid), portalId: context.portal._id,
+            clientId: context.session.clientId, generation: context.portal.generation, contactHash: context.session.contactHash, revokedAt: null,
+            expiresAt: { $gt: new Date() } }, { $inc: { uploadSequence: 1 } }, { session });
+        if (!deviceLock.matchedCount) fail('El acceso de este dispositivo fue cerrado. Verificá tu correo de nuevo.', 401);
+    }
+    const currentSale = await Sale.findById(sale._id).session(session).lean();
+    if (!currentSale || currentSale.status === 'cancelada' || idOf(currentSale.clientId) !== idOf(sale.clientId)) fail('La operación cambió. Volvé a verificar el enlace.', 401);
+    tradeInFor(currentSale, tradeInId);
+    const currentClient = currentSale.clientId ? await Client.findById(currentSale.clientId).select('email status').session(session).lean() : null;
+    if (!currentClient || currentClient.status === 'bloqueado' || contactHash(currentClient.email || '') !== context.session.contactHash) fail('El contacto del comprador cambió. Verificá el correo de nuevo.', 401);
+    const saleLock = await Sale.updateOne({ _id: currentSale._id, clientId: currentClient._id,
+        'tradeIns._id': tradeInId, status: { $ne: 'cancelada' } }, { $inc: { buyerPortalUploadSequence: 1 } }, { session, timestamps: false });
+    const clientLock = await Client.updateOne({ _id: currentClient._id, email: currentClient.email, status: { $ne: 'bloqueado' } },
+        { $inc: { buyerPortalUploadSequence: 1 } }, { session, timestamps: false });
+    if (!saleLock.matchedCount || !clientLock.matchedCount) fail('Los datos de la operación cambiaron. Volvé a verificar el enlace.', 401);
+    return { currentSale, currentClient };
+}
+export async function removeBuyerDocument(context, id) {
+    if (context.portal.mode !== 'with_trade_in') fail('Este enlace permite únicamente seguimiento.', 403);
+    if (!validId(id)) fail('No encontré el archivo.', 404);
+    const candidate = await BuyerPortalDocument.findOne({ _id: id, saleId: context.sale._id }).lean();
+    if (!candidate || candidate.origin !== 'buyer' || !requirement(candidate.requirementKey)) fail('No encontré el archivo.', 404);
+    tradeInFor(context.sale, idOf(candidate.tradeInId));
+    await gptRequestQuota('buyer-document-remove:' + context.portal._id, 20);
+    const session = await mongoose.startSession();
+    let duplicate = false;
+    try {
+        await session.withTransaction(async () => {
+            await lockBuyerDocumentMutation(context, idOf(candidate.tradeInId), session);
+            const doc = await BuyerPortalDocument.findOne({ _id: id, saleId: context.sale._id, tradeInId: candidate.tradeInId,
+                requirementKey: candidate.requirementKey, origin: 'buyer' }).session(session).lean();
+            if (!doc) fail('No encontré el archivo.', 404);
+            if (doc.removedAt) { duplicate = true; return; }
+            if (!doc.isCurrent) fail('Esta imagen fue reemplazada. Actualizá la documentación para quitar la versión vigente.', 409);
+            const now = new Date();
+            const changed = await BuyerPortalDocument.updateOne({ _id: id, isCurrent: true, removedAt: null },
+                { $set: { isCurrent: false, removedAt: now, removedBy: 'buyer' }, $unset: { encryptedFile: '' },
+                    $push: { history: { status: 'removed', at: now, by: 'buyer' } } }, { session });
+            if (!changed.modifiedCount) fail('La versión vigente cambió. Actualizá la documentación.', 409);
+            await BuyerDocumentNotification.updateMany({ documentId: id, state: { $in: ['pending', 'failed'] } },
+                { $set: { state: 'skipped', reason: 'document_removed' }, $unset: { nextAttemptAt: '', claimId: '' } }, { session });
+        });
+    } finally { await session.endSession(); }
+    return { removed: true, id, ...(duplicate ? { duplicate: true } : {}) };
 }
 export async function uploadBuyerDocument(context, input, file) {
     if (context.portal.mode !== 'with_trade_in') fail('Este enlace permite únicamente seguimiento.', 403);
@@ -335,6 +390,7 @@ export async function uploadBuyerDocument(context, input, file) {
     const fileHash = crypto.createHash('sha256').update(file.buffer).digest('hex');
     const previousRequest = await BuyerPortalDocument.findOne({ saleId: sale._id, requestId: input.requestId }).lean();
     if (previousRequest) {
+        if (previousRequest.removedAt) fail('Este archivo fue quitado. Elegí el archivo de nuevo para realizar una nueva carga.', 409);
         if (previousRequest.fileHash !== fileHash || idOf(previousRequest.tradeInId) !== input.tradeInId || previousRequest.slot !== input.slot || previousRequest.requirementKey !== input.requirementKey) fail('Este intento corresponde a otra carga. Actualizá la pantalla.', 409);
         await deliverBuyerDocumentNotification(String(previousRequest._id));
         return { entry: entryDto(previousRequest), duplicate: true };
@@ -343,37 +399,22 @@ export async function uploadBuyerDocument(context, input, file) {
     let saved;
     try {
         await session.withTransaction(async () => {
-            // Re-read the live portal inside the write transaction: a concurrent
-            // revocation conflicts with this lock and cannot commit a later upload.
-            const locked = await BuyerPortal.updateOne({ _id: context.portal._id, generation: context.portal.generation, enabled: true,
-                mode: 'with_trade_in', expiresAt: { $gt: new Date() } }, { $inc: { uploadSequence: 1 } }, { session });
-            if (!locked.matchedCount) fail('El acceso fue revocado. Volvé a verificar el enlace.', 401);
-            if (context.session.sid) {
-                // Serialize a pending upload against this device's logout, not
-                // only a portal-wide revocation. Transaction retries recheck it.
-                const deviceLock = await BuyerPortalSession.updateOne({ _id: hash(context.session.sid), portalId: context.portal._id,
-                    clientId: context.session.clientId, generation: context.portal.generation, contactHash: context.session.contactHash, revokedAt: null,
-                    expiresAt: { $gt: new Date() } }, { $inc: { uploadSequence: 1 } }, { session });
-                if (!deviceLock.matchedCount) fail('El acceso de este dispositivo fue cerrado. Verificá tu correo de nuevo.', 401);
-            }
-            const currentSale = await Sale.findById(sale._id).session(session).lean();
-            if (!currentSale || currentSale.status === 'cancelada' || idOf(currentSale.clientId) !== idOf(sale.clientId)) fail('La operación cambió. Volvé a verificar el enlace.', 401);
-            tradeInFor(currentSale, input.tradeInId);
-            const currentClient = currentSale.clientId ? await Client.findById(currentSale.clientId).select('email status').session(session).lean() : null;
-            if (!currentClient || currentClient.status === 'bloqueado' || contactHash(currentClient.email || '') !== context.session.contactHash) fail('El contacto del comprador cambió. Verificá el correo de nuevo.', 401);
-            // Guaranteed writes serialize uploads against buyer/vehicle edits,
-            // cancellation and a changed registered verification channel.
-            const saleLock = await Sale.updateOne({ _id: currentSale._id, clientId: currentClient._id,
-                'tradeIns._id': input.tradeInId, status: { $ne: 'cancelada' } }, { $inc: { buyerPortalUploadSequence: 1 } }, { session, timestamps: false });
-            const clientLock = await Client.updateOne({ _id: currentClient._id, email: currentClient.email, status: { $ne: 'bloqueado' } },
-                { $inc: { buyerPortalUploadSequence: 1 } }, { session, timestamps: false });
-            if (!saleLock.matchedCount || !clientLock.matchedCount) fail('Los datos de la operación cambiaron. Volvé a verificar el enlace.', 401);
+            const { currentSale, currentClient } = await lockBuyerDocumentMutation(context, input.tradeInId, session);
             let old;
             if (input.replacesId) {
                 if (!validId(input.replacesId)) fail('La imagen a corregir no es válida.');
                 old = await BuyerPortalDocument.findOne({ _id: input.replacesId, saleId: sale._id, tradeInId: input.tradeInId,
-                    requirementKey: input.requirementKey, slot: input.slot, isCurrent: true }).session(session);
+                    requirementKey: input.requirementKey, origin: 'buyer', isCurrent: true, removedAt: null }).session(session);
                 if (!old) fail('La versión vigente cambió. Actualizá la documentación.', 409);
+                const completeCard = req.key === 'registration_cards' && old.mimeType === 'application/pdf' && old.side === 'other'
+                    && old.slot.match(/^cedula-(\d+)-complete$/);
+                const convertsCompleteCard = completeCard && mimeType !== 'application/pdf' && ['front', 'back'].includes(input.side)
+                    && input.slot === `cedula-${completeCard[1]}-${input.side}`;
+                if (!(old.slot === input.slot && old.side === input.side) && !convertsCompleteCard) fail('La nueva imagen debe corresponder a la misma página o lado de la cédula.');
+                if (convertsCompleteCard && await BuyerPortalDocument.exists({ saleId: sale._id, tradeInId: input.tradeInId,
+                    requirementKey: input.requirementKey, slot: input.slot, isCurrent: true }).session(session)) {
+                    fail('Ese lado de la cédula ya tiene un archivo. Reemplazá ese archivo o elegí el otro lado.', 409);
+                }
                 old.isCurrent = false; await old.save({ session });
             }
             const [doc] = await BuyerPortalDocument.create([{ _id: id, saleId: sale._id, tradeInId: input.tradeInId,
@@ -387,7 +428,7 @@ export async function uploadBuyerDocument(context, input, file) {
     } catch (error) {
         if (error.code === 11000) {
             const prior = await BuyerPortalDocument.findOne({ saleId: sale._id, requestId: input.requestId }).lean();
-            if (prior && prior.fileHash === fileHash && prior.slot === input.slot && idOf(prior.tradeInId) === input.tradeInId && prior.requirementKey === input.requirementKey) {
+            if (prior && !prior.removedAt && prior.fileHash === fileHash && prior.slot === input.slot && idOf(prior.tradeInId) === input.tradeInId && prior.requirementKey === input.requirementKey) {
                 await deliverBuyerDocumentNotification(String(prior._id));
                 return { entry: entryDto(prior), duplicate: true };
             }
@@ -400,7 +441,7 @@ export async function uploadBuyerDocument(context, input, file) {
 }
 export async function documentAccess(id, context, adminUser) {
     if (!validId(id)) fail('No encontré el archivo.', 404);
-    const doc = await BuyerPortalDocument.findById(id).lean();
+    const doc = await BuyerPortalDocument.findOne({ _id: id, removedAt: null }).lean();
     if (!doc) fail('No encontré el archivo.', 404);
     let claims;
     if (adminUser) {
@@ -423,7 +464,7 @@ export async function readPrivateDocument(id, access) {
     try { claims = jwt.verify(access || '', signingKey(), { algorithms: ['HS256'], audience: 'autosporting-document' }); }
     catch { fail('El acceso al archivo venció. Volvé a abrirlo desde el portal.', 401); }
     if (claims.purpose !== 'buyer-document' || claims.docId !== id || !validId(id)) fail('Archivo no disponible.', 404);
-    const doc = await BuyerPortalDocument.findById(id).select('+encryptedFile').lean();
+    const doc = await BuyerPortalDocument.findOne({ _id: id, removedAt: null }).select('+encryptedFile').lean();
     if (!doc) fail('Archivo no disponible.', 404);
     if (claims.actor === 'buyer') {
         const portal = await BuyerPortal.findOne({ _id: claims.portalId, enabled: true, mode: 'with_trade_in',
@@ -466,7 +507,7 @@ export async function portalData(sale, portal) {
     const proceduresStatus = procedures.length ? procedures.map(item => item.status).join(' · ') : (sale.expedienteStatus || 'pendiente');
     const showTradeIns = portal.mode === 'with_trade_in';
     const [docs, originals] = showTradeIns ? await Promise.all([
-        BuyerPortalDocument.find({ saleId: sale._id }).sort({ createdAt: 1, _id: 1 }).lean(),
+        BuyerPortalDocument.find({ saleId: sale._id, removedAt: null }).sort({ createdAt: 1, _id: 1 }).lean(),
         BuyerPortalOriginal.find({ saleId: sale._id }).lean()
     ]) : [[], []];
     const tradeIns = showTradeIns ? (sale.tradeIns || []).map(item => ({ id: String(item._id), carId: item.linkedStockCarId ? String(item.linkedStockCarId) : null,

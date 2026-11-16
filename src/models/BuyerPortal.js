@@ -43,11 +43,12 @@ const documentSchema = new mongoose.Schema({
     requirementKey: { type: String, required: true }, slot: { type: String, required: true },
     description: String, side: { type: String, enum: ['front', 'back', 'page', 'other'] },
     issuedAt: Date, fileName: String, mimeType: String, byteLength: Number,
-    encryptedFile: { type: encrypted, required: true, select: false }, fileHash: String,
+    encryptedFile: { type: encrypted, required() { return !this.removedAt; }, select: false }, fileHash: String,
     requestId: { type: String, required: true }, version: { type: Number, default: 1 },
     isCurrent: { type: Boolean, default: true }, replacesId: mongoose.Schema.Types.ObjectId,
     status: { type: String, enum: ['received', 'reviewed', 'correction_requested'], default: 'received' },
     correctionReason: String, origin: { type: String, default: 'buyer', immutable: true },
+    removedAt: { type: Date, default: null }, removedBy: String,
     history: [{ status: String, reason: String, at: Date, by: String }]
 }, { timestamps: true });
 documentSchema.index({ saleId: 1, requestId: 1 }, { unique: true });

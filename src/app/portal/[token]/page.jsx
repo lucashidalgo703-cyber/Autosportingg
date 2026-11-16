@@ -106,13 +106,24 @@ export default function BuyerPortalPage() {
             await refresh();
         } catch (err) {
             if ([401, 403, 404, 410].includes(err.status)) expireSession();
+            else if (err.status === 409) await refresh().catch(() => {});
             throw err;
         }
     };
     const requestAccess = useCallback(async id => {
         try { return await portalRequest(base + `/documents/${encodeURIComponent(id)}/access`, { method: 'POST', body: {} }); }
-        catch (err) { if ([401, 403, 404, 410].includes(err.status)) { expireSession(); setError(err.message); } throw err; }
+        catch (err) { if ([401, 403, 410].includes(err.status)) { expireSession(); setError(err.message); } throw err; }
     }, [base, expireSession]);
+    const removeDocument = async id => {
+        try {
+            await portalRequest(base + `/documents/${encodeURIComponent(id)}`, { method: 'DELETE' });
+            await refresh();
+        } catch (err) {
+            if ([401, 403, 410].includes(err.status)) expireSession();
+            else if ([404, 409].includes(err.status)) await refresh().catch(() => {});
+            throw err;
+        }
+    };
     const logout = async () => {
         setBusy(true); setError('');
         try {
@@ -127,7 +138,7 @@ export default function BuyerPortalPage() {
         <div className="mx-auto w-full max-w-3xl">
             {loading ? <p role="status" className="py-12 text-center text-neutral-400">Abriendo tu portal privado…</p> : data ? <>
                 {error && <p role="alert" className="mb-3 rounded-xl border border-red-500/30 bg-red-500/10 p-3 text-sm text-red-200">{error}</p>}
-                <BuyerPortalView data={data} onUpload={upload} requestAccess={requestAccess} onRefresh={() => { void refresh().catch(() => {}); }}/>
+                <BuyerPortalView data={data} onUpload={upload} onRemove={removeDocument} requestAccess={requestAccess} onRefresh={() => { void refresh().catch(() => {}); }}/>
                 <button type="button" onClick={logout} disabled={busy} className={`${styles.logoutButton} mt-3 min-h-11 rounded-lg border border-solid border-neutral-700 px-3 text-sm text-neutral-300 disabled:opacity-50`}>{busy ? 'Cerrando acceso…' : 'Salir y olvidar este dispositivo'}</button>
             </> : <section className={`${styles.gate} mx-auto max-w-md space-y-5 rounded-2xl border border-neutral-700 bg-neutral-900 p-5 sm:p-7`}>
                 <BuyerPortalBrand/>

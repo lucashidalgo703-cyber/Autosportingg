@@ -105,5 +105,6 @@ export function createBuyerPortalRouter() {
         void endpoint(request => portal.uploadBuyerDocument(request.buyer, request.body, request.file))(req, res);
     }));
     router.post('/:token/documents/:id/access', authenticated, endpoint(req => portal.documentAccess(req.params.id, req.buyer)));
+    router.delete('/:token/documents/:id', authenticated, endpoint(req => portal.removeBuyerDocument(req.buyer, req.params.id)));
     return router;
 }

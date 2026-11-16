@@ -89,6 +89,13 @@
 .view .uploadInput:focus { border-color: #ff918a; outline: 2px solid rgb(255 145 138 / 30%); outline-offset: 2px; }
 .view .saveButton { background: #d52c24; border: 1px solid #f06b64; }
 .view .saveButton:hover:not(:disabled) { background: #c42620; }
+.view .documentAction { display: inline-flex; align-items: center; justify-content: center; gap: 6px; min-height: 44px; max-width: 100%; padding: 8px 10px; border: 1px solid #76636b; border-radius: 10px; background: #393239; color: #fff; font: inherit; font-size: 12px; text-transform: uppercase; cursor: pointer; }
+.view .documentAction:hover:not(:disabled) { background: #514048; }
+.view .documentAction:disabled { opacity: .5; cursor: default; }
+.view .documentAction:focus-visible { outline: 2px solid #ff918a; outline-offset: 3px; }
+.view .removeAction { border-color: #b2605a; background: #552d30; color: #ffe7e5; }
+.view .removeConfirmation { border: 1px solid #b2605a; border-radius: 12px; background: #422b30; padding: 12px; overflow-wrap: anywhere; }
+.view .editNotice { border: 1px solid #98605b; border-radius: 10px; background: #432d32; padding: 12px; font-size: 12px; line-height: 1.6; color: #fff; }
 .view .footer { border-top: 1px solid #55515a; }
 .view .refreshButton,
 .page .logoutButton { border: 1px solid #665b60; background: #303036; color: #f8f9fa; }

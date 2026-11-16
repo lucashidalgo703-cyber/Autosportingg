@@ -62,7 +62,7 @@ async function deliveryContext(event) {
     const email = administratorEmail();
     if (!email || hash(email) !== event.recipientHash) return { reason: 'admin_recipient_changed' };
     const doc = await BuyerPortalDocument.findById(event.documentId).select('-encryptedFile').lean();
-    if (!doc || doc.origin !== 'buyer' || idOf(doc.saleId) !== idOf(event.saleId)
+    if (!doc || doc.removedAt || doc.origin !== 'buyer' || idOf(doc.saleId) !== idOf(event.saleId)
         || idOf(doc.tradeInId) !== idOf(event.tradeInId)) return { reason: 'document_changed' };
     const sale = await Sale.findById(event.saleId).lean();
     if (!sale || sale.status === 'cancelada' || idOf(sale.clientId) !== idOf(event.clientId)) return { reason: 'buyer_changed' };
@@ -154,7 +154,7 @@ async function authorizedDocument(user, documentId, write = false) {
     const salesRead = hasPermission(user, PERMISSIONS.VENTAS_READ);
     if (!salesRead && !hasPermission(user, PERMISSIONS.GESTORIA_READ)) fail('No tenés permiso para consultar este aviso.', 403);
     if (write && !hasPermission(user, PERMISSIONS.GESTORIA_WRITE)) fail('No tenés permiso para reenviar el aviso.', 403);
-    const doc = await BuyerPortalDocument.findById(documentId).select('saleId').lean();
+    const doc = await BuyerPortalDocument.findOne({ _id: documentId, removedAt: null }).select('saleId').lean();
     const sale = doc ? await Sale.findById(doc.saleId).lean() : null;
     if (!sale || user.role === 'ventas' && !isMySaleOrReservation(sale, user)) fail('No encontré el archivo.', 404);
     if (!salesRead && !await Gestoria.exists({ saleId: sale._id })) fail('No encontré documentación de este trámite.', 404);
