@@ -11,6 +11,7 @@ import VehicleFinancialSummary from '../../../../components/crm/stock/VehicleFin
 import VehicleInfoPanel from '../../../../components/crm/stock/VehicleInfoPanel';
 import VehicleHistoryTimeline from '../../../../components/crm/stock/VehicleHistoryTimeline';
 import VehicleDocumentsPanel from '../../../../components/crm/stock/VehicleDocumentsPanel';
+import BuyerDocumentsPanel from '../../../../components/buyer-portal/BuyerDocumentsPanel';
 import VehicleActionsPanel from '../../../../components/crm/stock/VehicleActionsPanel';
 import VehicleImagesPanel from '../../../../components/crm/stock/VehicleImagesPanel';
 import VehicleWebStatusPanel from '../../../../components/crm/stock/VehicleWebStatusPanel';
@@ -247,6 +248,7 @@ export default function VehicleDetailPage() {
                                 activeReservation={activeReservation}
                             />
                             <VehicleDocumentsPanel vehicle={vehicle} onSaveComplete={fetchCar} />
+                            <BuyerDocumentsPanel carId={vehicle.id}/>
                         </div>
                     </div>
                 </div>

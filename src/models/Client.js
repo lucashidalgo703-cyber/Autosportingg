@@ -26,6 +26,7 @@ const interactionSchema = new mongoose.Schema({
 }, { _id: false });
 
 const clientSchema = new mongoose.Schema({
+    buyerPortalUploadSequence: { type: Number, default: 0 },
     firstName: { type: String, trim: true },
     lastName: { type: String, trim: true, default: '' },
     fullName: { type: String, trim: true, required: true }, // Calculado

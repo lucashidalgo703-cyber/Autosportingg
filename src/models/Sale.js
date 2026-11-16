@@ -132,6 +132,10 @@ const financingDetailsSchema = new mongoose.Schema({
 }, { _id: false });
 
 const saleSchema = new mongoose.Schema({
+    buyerPortalUploadSequence: { type: Number, default: 0 },
+    clientPortalUpdate: {
+        latestUpdate: String, nextStep: String, actionRequired: Boolean, updatedAt: Date, updatedBy: String
+    },
     reservationId: { type: mongoose.Schema.Types.ObjectId, ref: 'Reservation' },
     leadId: { type: mongoose.Schema.Types.ObjectId, ref: 'Lead' },
     clientId: { type: mongoose.Schema.Types.ObjectId, ref: 'Client' },

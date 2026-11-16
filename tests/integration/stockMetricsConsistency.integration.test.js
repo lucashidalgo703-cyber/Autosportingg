@@ -126,8 +126,8 @@ await test('1. El resumen global calcula correctamente cantidades y valores por 
     assert.equal(res.status, 200, 'Debe responder 200 OK');
     const { summary, cars, total } = res.json;
 
-    // Stock activo: 5 vehículos (Toyota, Amarok, Ranger, Cruze, 208). Excluye Vendido y Cancelado.
-    assert.equal(summary.totalStock, 5, 'El stock total activo debe ser 5');
+    // Inventario: únicamente Toyota, Amarok y Ranger disponibles.
+    assert.equal(summary.totalStock, 3, 'El inventario debe tener las mismas 3 unidades disponibles');
     assert.equal(summary.disponibles, 3, 'Disponibles deben ser exactamente 3');
     assert.equal(summary.reservados, 1, 'Reservados deben ser exactamente 1');
     assert.equal(summary.pausados, 1, 'Pausados deben ser exactamente 1');
@@ -160,29 +160,29 @@ await test('2. El parámetro limit=1 devuelve 1 vehículo pero conserva el resum
     const { summary, cars, total } = res.json;
 
     assert.equal(cars.length, 1, 'Debe devolver un único vehículo en la lista paginada');
-    assert.equal(total, 7, 'Todos conserva 7 vehículos, incluidos los históricos vendidos');
+    assert.equal(total, 3, 'Inventario conserva solamente 3 disponibles');
 
     // El resumen global conserva 5 activos y 60.000 USD disponibles, sin colapsar a la página actual.
-    assert.equal(summary.totalStock, 5, 'El totalStock global sigue siendo 5');
+    assert.equal(summary.totalStock, 3, 'El totalStock global sigue siendo 3');
     assert.equal(summary.disponibles, 3, 'Los disponibles globales siguen siendo 3');
     assert.equal(summary.valorTotalUSD, 60000, 'El valor total USD sigue siendo 60.000');
 });
 
 await test('3. Cambiar un filtro altera el resultado filtrado pero NO los indicadores globales', async () => {
     // Filtramos por estado 'Reservado'
-    const res = await call('GET', '/api/admin/cars?status=Reservado', null, token);
+    const res = await call('GET', '/api/admin/cars?tab=historial&status=Reservado', null, token);
     assert.equal(res.status, 200);
     const { summary, cars, total, filteredTotalUSD, filteredTotalARS } = res.json;
 
     // Resultado filtrado: solo el Cruze LTZ (25.000 USD)
     assert.equal(total, 1, 'Total filtrado debe ser 1');
     assert.equal(cars[0].name, 'Cruze LTZ');
-    assert.equal(filteredTotalUSD, 25000, 'Total publicado filtrado en USD es 25.000');
+    assert.equal(filteredTotalUSD, 0, 'Reservados no aportan a subtotales del inventario disponible');
     assert.equal(filteredTotalARS, 0, 'Total publicado filtrado en ARS es 0');
 
     // Los indicadores globales se mantienen idénticos:
     assert.equal(summary.disponibles, 3, 'Los disponibles globales siguen siendo 3');
-    assert.equal(summary.totalStock, 5, 'El total stock global sigue siendo 5');
+    assert.equal(summary.totalStock, 3, 'El inventario global sigue siendo 3');
     assert.equal(summary.valorTotalUSD, 60000, 'El valor total global en USD sigue siendo 60.000');
 });
 
@@ -192,17 +192,19 @@ await test('4. Paginación: navegar entre páginas no altera el conteo total ni 
     const p3 = await call('GET', '/api/admin/cars?page=3&limit=2', null, token);
 
     assert.equal(p1.json.cars.length, 2, 'Página 1 devuelve 2 autos');
-    assert.equal(p2.json.cars.length, 2, 'Página 2 devuelve 2 autos');
-    assert.equal(p3.json.cars.length, 2, 'Página 3 devuelve 2 autos; los históricos también se pueden consultar');
+    assert.equal(p2.json.cars.length, 1, 'Página 2 devuelve el tercer disponible');
+    assert.equal(p3.json.cars.length, 0, 'Página 3 no introduce históricos en inventario');
 
     // En todas las páginas, el total y summary son idénticos
-    assert.equal(p1.json.total, 7);
-    assert.equal(p2.json.total, 7);
-    assert.equal(p3.json.total, 7);
+    assert.equal(p1.json.total, 3);
+    assert.equal(p2.json.total, 3);
+    assert.equal(p3.json.total, 3);
 
-    assert.equal(p1.json.summary.totalStock, 5);
-    assert.equal(p2.json.summary.totalStock, 5);
-    assert.equal(p3.json.summary.totalStock, 5);
+    assert.equal(p1.json.summary.totalStock, 3);
+    assert.equal(p2.json.summary.totalStock, 3);
+    assert.equal(p3.json.summary.totalStock, 3);
+    const history = await call('GET', '/api/admin/cars?tab=historial', null, token);
+    assert.equal(history.json.total, 7, 'El historial conserva acceso a todos los estados');
 });
 
 await test('5. Altas, modificaciones de precio y cambios de estado actualizan coherentemente los totales', async () => {
@@ -222,7 +224,7 @@ await test('5. Altas, modificaciones de precio y cambios de estado actualizan co
     await amarok.save();
 
     const resAfterSale = await call('GET', '/api/admin/cars', null, token);
-    assert.equal(resAfterSale.json.summary.totalStock, 4, 'El stock total activo bajó a 4');
+    assert.equal(resAfterSale.json.summary.totalStock, 2, 'El inventario bajó a 2 disponibles');
     assert.equal(resAfterSale.json.summary.disponibles, 2, 'Los disponibles bajaron a 2');
     // En ARS queda el 208 Feline (15.000.000 ARS en estado Pausado)
     assert.equal(resAfterSale.json.summary.valorTotalARS, 0, 'Un pausado no integra el valor comercial disponible');
@@ -240,7 +242,7 @@ await test('6. Asignaciones de dinero a la caja estratégica "Stock" no aumentan
     });
 
     const res = await call('GET', '/api/admin/cars', null, token);
-    assert.equal(res.json.summary.totalStock, 4, 'La cantidad de vehículos sigue siendo 4');
+    assert.equal(res.json.summary.totalStock, 2, 'La cantidad de disponibles sigue siendo 2');
     assert.equal(res.json.summary.valorTotalUSD, 62000, 'El valor del inventario sigue siendo 62.000 USD sin sumar dinero de caja');
 });
 

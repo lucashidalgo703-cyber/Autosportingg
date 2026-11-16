@@ -6,6 +6,20 @@ const host = '127.0.0.1', port = 3200;
 const env = await bootIsolatedReplica({ listen: false });
 const { seedMobileCrm, localPassword } = await import('../tests/fixtures/mobileCrmFixtures.js');
 const fixtures = await seedMobileCrm(env.models);
+let buyerPortalFixtures = null;
+if (process.env.LOCAL_BUYER_PORTAL_FIXTURES === 'true') {
+    process.env.BUYER_PORTAL_DOCUMENT_KEY = 'exclusivamente-fixture-local-no-usar-en-produccion-2026';
+    const { seedBuyerPortalFixtures } = await import('../tests/fixtures/buyerPortalFixtures.js');
+    const { createBuyerPortalIndexes } = await import('../src/services/buyerPortalService.js');
+    const { EmailAdapter } = await import('../src/lib/emailAdapter.js');
+    await createBuyerPortalIndexes();
+    buyerPortalFixtures = { ...await seedBuyerPortalFixtures(env.models, fixtures), adminSessionToken: fixtures.sessions[0].token };
+    EmailAdapter.sendEmail = async (to, subject, html) => {
+        if (![process.env.SECURITY_ALERT_EMAIL, buyerPortalFixtures.buyerOneEmail, buyerPortalFixtures.buyerTwoEmail].includes(to)) throw new Error('Destinatario no ficticio bloqueado.');
+        env.mailbox.push({ to, subject, html });
+        return { accepted: [to], rejected: [] };
+    };
+}
 const noActiveAccounts = process.env.LOCAL_PREVIEW_NO_ACCOUNTS === 'true';
 if (noActiveAccounts) {
     // Only these disposable fixtures are affected; the harness never loads .env.
@@ -28,7 +42,7 @@ const server = http.createServer((req, res) => {
             cars: fixtures.cars.map(car => ({ id: String(car._id), name: car.name, plate: car.plateOrVin })),
             accounts: fixtures.accounts.map(account => ({ id: String(account._id), name: account.name })),
             reservation: String(fixtures.reservation._id),
-            noActiveAccounts
+            noActiveAccounts, buyerPortal: buyerPortalFixtures
         }));
         return;
     }

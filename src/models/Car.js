@@ -16,13 +16,18 @@ const carSchema = new mongoose.Schema({
     plateOrVin: { type: String },
     color: { type: String },
     purchasePrice: { type: Number },
-    purchaseCurrency: { type: String, default: 'USD' },
+    purchaseCurrency: { type: String },
     location: { type: String, default: 'Salón Principal' },
     owners: { type: Number, default: 1 },
     agencyOwned: { type: Boolean, default: false },
     investor: {
         name: { type: String },
         percentage: { type: Number, default: 0, min: 0, max: 100 }
+    },
+    jointOwnership: {
+        hasPartner: Boolean, partnerPercentage: { type: Number, min: 0, max: 100 },
+        agencyPercentage: { type: Number, min: 0, max: 100 }, agencyCost: Number,
+        partnerContribution: Number, currency: String, partnerName: String
     },
     ownerName: { type: String },
     linkedClient: { type: String },
@@ -151,6 +156,8 @@ const carSchema = new mongoose.Schema({
         concept: { type: String, required: true },
         amount: { type: Number, required: true },
         currency: { type: String, enum: ['ARS', 'USD'], required: true },
+        paidBy: { type: String, enum: ['agency', 'investor', 'shared'] },
+        agencyPercentage: { type: Number, min: 0, max: 100 },
         date: { type: Date, default: Date.now },
         note: { type: String }
     }],

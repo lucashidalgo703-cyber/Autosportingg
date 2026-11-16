@@ -13,6 +13,7 @@ import SaleStatusPanel from '../../../../components/crm/sales/detail/SaleStatusP
 import SaleAuditTimeline from '../../../../components/crm/sales/detail/SaleAuditTimeline';
 import SaleFinancePanel from '../../../../components/crm/sales/detail/SaleFinancePanel';
 import SaleInstallmentsPanel from '../../../../components/crm/sales/detail/SaleInstallmentsPanel';
+import BuyerPortalPanel from '../../../../components/buyer-portal/BuyerPortalPanel';
 
 import SalePostventaPanel from '../../../../components/crm/sales/detail/SalePostventaPanel';
 import TradeInChainPanel from '../../../../components/crm/stock/TradeInChainPanel';
@@ -41,6 +42,7 @@ export default function SaleDetailPage() {
     const sections = [
         { id: 'operation', label: 'Operación', description: 'Datos y condiciones', icon: Handshake },
         { id: 'documents', label: 'Documentación y entrega', description: 'Papeles y pendientes', icon: ClipboardCheck },
+        { id: 'portal', label: 'Portal del cliente', description: 'Vista del comprador', icon: MessagesSquare },
         ...(hasPermission(user, PERMISSIONS.FINANZAS_READ) || hasPermission(user, PERMISSIONS.CUOTAS_READ)
             ? [{ id: 'collections', label: 'Cobros y cuotas', description: 'Movimientos y plan de pagos', icon: Wallet }] : []),
         { id: 'followup', label: 'Seguimiento', description: 'Notas, contacto e historial', icon: MessagesSquare }
@@ -225,7 +227,7 @@ export default function SaleDetailPage() {
                 }
             />
 
-            <nav aria-label="Apartados del expediente comercial" role="tablist" className={'grid grid-cols-2 gap-2 rounded-2xl border border-crm-border bg-crm-surface p-2 ' + (sections.length === 4 ? 'lg:grid-cols-4' : 'lg:grid-cols-3')}>
+            <nav aria-label="Apartados del expediente comercial" role="tablist" className={'grid grid-cols-2 gap-2 rounded-2xl border border-crm-border bg-crm-surface p-2 ' + (sections.length === 5 ? 'lg:grid-cols-5' : sections.length === 4 ? 'lg:grid-cols-4' : 'lg:grid-cols-3')}>
                 {sections.map(({ id: sectionId, label, description, icon: Icon }, index) => (
                     <button key={sectionId} type="button" role="tab" id={'sale-section-tab-' + sectionId} aria-controls={'sale-section-' + sectionId} aria-selected={selectedSection === sectionId} tabIndex={selectedSection === sectionId ? 0 : -1} onClick={() => setActiveSection(sectionId)} onKeyDown={event => handleSectionKey(event, index)} className={'flex min-w-0 items-center gap-2.5 rounded-xl border px-3 py-3 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-crm-red ' + (sections.length === 3 && index === 2 ? 'col-span-2 lg:col-span-1 ' : '') + (selectedSection === sectionId ? 'border-crm-red bg-crm-surface-raised text-crm-fg' : 'border-transparent text-crm-fg-muted hover:bg-crm-surface-raised')}>
                         <Icon size={18} className={'shrink-0 ' + (selectedSection === sectionId ? 'text-crm-red' : 'text-crm-fg-muted')}/>
@@ -255,6 +257,10 @@ export default function SaleDetailPage() {
                     <SaleChecklistPanel sale={sale} type="documentation" onSave={handleSave}/>
                     <SaleChecklistPanel sale={sale} type="delivery" onSave={handleSave}/>
                 </div>
+            </section>
+
+            <section role="tabpanel" id="sale-section-portal" aria-labelledby="sale-section-tab-portal" hidden={selectedSection !== 'portal'} className="min-w-0 outline-none">
+                <BuyerPortalPanel sale={sale}/>
             </section>
 
             {(hasPermission(user, PERMISSIONS.FINANZAS_READ) || hasPermission(user, PERMISSIONS.CUOTAS_READ)) && (

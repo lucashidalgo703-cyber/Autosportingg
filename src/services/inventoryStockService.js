@@ -1,6 +1,6 @@
 import Car from '../models/Car.js';
 import { hasPermission, PERMISSIONS } from '../utils/adminPermissions.js';
-import { isActiveStock, isAvailableStock, stockOwnership, stockStatus, summarizeStock } from '../utils/inventoryStock.js';
+import { filterStockVehicles, isAvailableStock, stockOwnership, stockStatus, summarizeStock } from '../utils/inventoryStock.js';
 
 export const canReadStockFinances = user => hasPermission(user, PERMISSIONS.FINANZAS_READ);
 const escapeRegex = value => String(value).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -10,8 +10,9 @@ const exact = value => new RegExp(`^${escapeRegex(value)}$`, 'i');
 export function buildStockQuery(params = {}) {
     const { search = '', status = '', brand = '', tab = '', ml = '', catalog = 'all', ownership = 'todos' } = params;
     if (!['all', 'published', 'unpublished'].includes(catalog)) throw Object.assign(new Error('El filtro de publicación en el catálogo no es válido.'), { status: 400 });
-    if (!['todos', 'propio', 'compartido', 'inversor', 'tercero', 'consignacion'].includes(ownership)) throw Object.assign(new Error('El tipo de propiedad no es válido.'), { status: 400 });
+    if (!['todos', 'propio', 'compartido', 'inversor', 'tercero', 'consignacion', 'sin_definir'].includes(ownership)) throw Object.assign(new Error('El tipo de propiedad no es válido.'), { status: 400 });
     const clauses = [];
+    if (tab !== 'historial') clauses.push({ status: exact('disponible'), sold: { $ne: true } });
     for (const word of String(search).trim().split(/\s+/).filter(Boolean)) {
         const regex = new RegExp(escapeRegex(word), 'i');
         const conditions = ['brand', 'name', 'model', 'description', 'plateOrVin', 'ownerName', 'ownerPhone', 'consignedBy', 'location', 'notes', 'investor.name', 'engineNumber', 'chassisNumber', 'infoAuto.versionName'].map(key => ({ [key]: regex }));
@@ -50,39 +51,49 @@ export function serializeStockCar(car, financialAccess) {
     if (!financialAccess) {
         for (const key of ['purchasePrice', 'purchaseCurrency', 'purchasePaymentState', 'expenses', 'auditLog', 'consignmentExpectedPrice', 'consignmentValuation', 'consignmentCommission', 'consignmentGoal']) delete value[key];
         if (value.tradeInOrigin) { value.tradeInOrigin = { ...value.tradeInOrigin }; delete value.tradeInOrigin.value; }
+        if (value.jointOwnership) { value.jointOwnership = { ...value.jointOwnership }; delete value.jointOwnership.agencyCost; delete value.jointOwnership.partnerContribution; }
     }
     return value;
 }
 
 export async function getAdminStock(params = {}, user = null) {
-    const query = buildStockQuery(params);
+    buildStockQuery(params); // Validate public filter values before reading data.
     const limit = Math.min(500, Math.max(1, Number.parseInt(params.limit, 10) || 20));
     const page = Math.max(1, Number.parseInt(params.page, 10) || 1);
     const financialAccess = canReadStockFinances(user);
-    const projection = 'status sold currency purchaseCurrency price purchasePrice investor agencyOwned consignedBy km condition visibleEnWeb expenses tradeInOrigin';
-    const [allCars, filteredCars, cars, total, brands] = await Promise.all([
-        Car.find({}).select(projection).lean(), Car.find(query).select(projection).lean(),
-        Car.find(query).select('-auditLog').populate('consignmentSeller', 'name email').sort({ order: 1, createdAt: -1, _id: 1 }).skip((page - 1) * limit).limit(limit).lean(),
-        Car.countDocuments(query), Car.distinct('brand')
-    ]);
-    const active = allCars.filter(isActiveStock);
+    // This projection deliberately keeps historical ownership agreements and the
+    // raw absence of currencies. Hydrating defaults would hide missing data.
+    const allCars = await Car.find({}).select('-images -coverImage -auditLog').lean();
+    const filteredCars = filterStockVehicles(allCars, params).sort((a, b) => (Number(a.order) || 0) - (Number(b.order) || 0)
+        || new Date(b.createdAt || 0) - new Date(a.createdAt || 0) || String(a._id).localeCompare(String(b._id)));
+    const total = filteredCars.length;
+    const ids = filteredCars.slice((page - 1) * limit, page * limit).map(car => car._id);
+    // Enrich presentation only. Monetary/status/ownership fields must remain
+    // from the same read that produced the counters and unpaginated totals.
+    const pageCars = await Car.find({ _id: { $in: ids } }).select('images coverImage consignmentSeller').populate('consignmentSeller', 'name email').lean();
+    const carsById = new Map(pageCars.map(car => [String(car._id), car]));
+    const cars = filteredCars.slice((page - 1) * limit, page * limit).map(car => {
+        const presentation = carsById.get(String(car._id));
+        return { ...car, ...(presentation ? { images: presentation.images, coverImage: presentation.coverImage, consignmentSeller: presentation.consignmentSeller } : {}) };
+    });
     const available = allCars.filter(isAvailableStock);
     const availableMetrics = summarizeStock(available);
-    const activeMetrics = summarizeStock(active);
-    const filteredMetrics = summarizeStock(filteredCars);
-    const summary = { total: active.length, totalStock: active.length, inventoryCount: allCars.length,
-        disponibles: available.length, reservados: active.filter(c => stockStatus(c) === 'reservado').length,
-        pausados: active.filter(c => stockStatus(c) === 'pausado').length,
-        sinEstado: active.filter(c => !['disponible', 'reservado', 'pausado'].includes(stockStatus(c))).length,
+    const filteredMetrics = summarizeStock(filteredCars.filter(isAvailableStock));
+    const summary = { total: available.length, totalStock: available.length, inventoryCount: allCars.length,
+        disponibles: available.length, reservados: allCars.filter(c => stockStatus(c) === 'reservado').length,
+        pausados: allCars.filter(c => stockStatus(c) === 'pausado').length,
+        sinEstado: allCars.filter(c => !['disponible', 'reservado', 'pausado', 'vendido', 'cancelado', 'anulado', 'eliminado'].includes(stockStatus(c))).length,
         vendidos: allCars.filter(c => stockStatus(c) === 'vendido').length,
         publicadosWeb: available.filter(c => c.visibleEnWeb !== false).length,
-        consignaciones: allCars.filter(c => ['consignacion', 'tercero'].includes(stockOwnership(c).type)).length,
-        consignacionesSoloCount: allCars.filter(c => stockOwnership(c).type === 'consignacion').length,
-        tercerosCount: allCars.filter(c => stockOwnership(c).type === 'tercero').length,
-        compartidos: allCars.filter(c => ['compartido', 'inversor'].includes(stockOwnership(c).type)).length,
-        ceroKm: allCars.filter(c => /^(0\s?km|nuevo)$/i.test(c.condition || '') || c.km === 0).length,
-        availableMetrics, activeMetrics,
-        inconsistencias: { missingPriceCount: activeMetrics.missingPrice, missingCostCount: activeMetrics.missingCost, provisionalPriceCount: activeMetrics.provisionalPrice, sinEstadoCount: active.filter(c => stockStatus(c) === 'sin_estado').length }
+        consignaciones: available.filter(c => ['consignacion', 'tercero'].includes(stockOwnership(c).type)).length,
+        consignacionesSoloCount: availableMetrics.countsByOwnership.consignacion,
+        tercerosCount: availableMetrics.countsByOwnership.tercero,
+        compartidos: availableMetrics.countsByOwnership.compartido + availableMetrics.countsByOwnership.inversor,
+        ceroKm: available.filter(c => /^(0\s?km|nuevo)$/i.test(c.condition || '') || c.km === 0).length,
+        availableMetrics, activeMetrics: availableMetrics,
+        inconsistencias: { missingPriceCount: availableMetrics.missingPrice, missingCostCount: availableMetrics.missingCost,
+            missingOwnershipCount: availableMetrics.missingOwnership, provisionalPriceCount: availableMetrics.provisionalPrice,
+            sinEstadoCount: allCars.filter(c => stockStatus(c) === 'sin_estado').length }
     };
     // Legacy commercial fields retain their original meaning (available own + investor units only).
     for (const currency of ['ARS', 'USD']) {
@@ -90,9 +101,10 @@ export async function getAdminStock(params = {}, user = null) {
         summary[`valorActivo${currency}`] = availableMetrics.ownAsking[currency];
         summary[`valorActivoInversionistas${currency}`] = availableMetrics.investorAsking[currency];
         summary[`consignacionesValor${currency}`] = availableMetrics.thirdPartyAsking[currency];
-        summary[`capitalInvertido${currency}`] = activeMetrics.ownCost[currency];
+        summary[`capitalInvertido${currency}`] = availableMetrics.ownCost[currency];
     }
-    const result = { cars: cars.map(car => serializeStockCar(car, financialAccess)), total, pages: Math.ceil(total / limit), page, limit, brands: brands.filter(Boolean).sort(), summary, financialAccess, filteredMetrics };
+    const brands = [...new Set(allCars.map(car => car.brand).filter(Boolean))].sort();
+    const result = { cars: cars.map(car => serializeStockCar(car, financialAccess)), total, pages: Math.ceil(total / limit), page, limit, brands, summary, financialAccess, filteredMetrics };
     for (const currency of ['ARS', 'USD']) {
         result[`filteredTotal${currency}`] = filteredMetrics.asking[currency];
         result[`filteredCost${currency}`] = filteredMetrics.cost[currency];
@@ -104,7 +116,7 @@ export async function getAdminStock(params = {}, user = null) {
         for (const key of ['activeMetrics', 'availableMetrics']) delete summary[key];
         for (const key of Object.keys(summary)) if (/^(valor|capital|consignacionesValor)/.test(key)) delete summary[key];
         delete summary.inconsistencias.missingCostCount;
-        for (const key of ['cost', 'ownCost', 'investorCost', 'thirdPartyCost', 'ownAsking', 'investorAsking', 'thirdPartyAsking', 'missingCost']) delete filteredMetrics[key];
+        for (const key of Object.keys(filteredMetrics)) if (!['count', 'available', 'asking', 'missingPrice', 'provisionalPrice', 'countsByOwnership'].includes(key)) delete filteredMetrics[key];
         for (const key of Object.keys(result)) if (/^filtered(Cost|Propio|Inversionistas|Consignaciones)/.test(key)) delete result[key];
     }
     return result;

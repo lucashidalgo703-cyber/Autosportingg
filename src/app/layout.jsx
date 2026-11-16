@@ -5,7 +5,7 @@ import Footer from '../components/Footer';
 import WhatsAppButton from '../components/WhatsAppButton';
 import Preloader from '../components/Preloader';
 import PublicChromeGate from '../components/PublicChromeGate';
-import { Analytics } from '@vercel/analytics/react';
+import AnalyticsGate from '../components/AnalyticsGate';
 
 export const metadata = {
     metadataBase: new URL('https://autosportingg.com'),
@@ -117,7 +117,7 @@ export default function RootLayout({ children }) {
                         <PublicChromeGate>
                             <Footer />
                         </PublicChromeGate>
-                        <Analytics />
+                        <AnalyticsGate />
                     </div>
                 </ClientProviders>
             </body>

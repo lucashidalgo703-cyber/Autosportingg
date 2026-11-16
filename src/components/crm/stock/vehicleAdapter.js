@@ -5,12 +5,13 @@ import { stockValuation, stockStatus } from '../../../utils/inventoryStock';
 export const mapRealCarToCRM = (car) => {
     const acq = resolveVehicleAcquisitionCost(car);
     const valuation = stockValuation(car);
+    const costIssues = (valuation.missingFields || []).filter(issue => ['cost', 'ownership'].includes(issue.scope));
     const resolvedCost = valuation.purchase || 0;
     const resolvedCurrency = valuation.purchaseCurrency;
     const gastosTotales = valuation.expenses[resolvedCurrency];
     const costoTotal = valuation.cost[resolvedCurrency];
     const hasMixedCurrencyCost = valuation.cost[resolvedCurrency === 'ARS' ? 'USD' : 'ARS'] !== 0;
-    const comparable = valuation.hasCost && !hasMixedCurrencyCost && resolvedCurrency === valuation.askingCurrency;
+    const comparable = valuation.hasCost && valuation.hasPrice && !costIssues.length && !hasMixedCurrencyCost && resolvedCurrency === valuation.askingCurrency;
     const margenEstimado = comparable ? valuation.asking - costoTotal : null;
     const margenPorcentual = comparable && costoTotal > 0 ? ((margenEstimado / costoTotal) * 100).toFixed(1) : null;
 
@@ -38,6 +39,8 @@ export const mapRealCarToCRM = (car) => {
         ownership: valuation,
         financialAccess: car.financialAccess !== false,
         hasAcquisitionCost: valuation.hasCost,
+        valuationIssues: valuation.missingFields || [],
+        costComplete: costIssues.length === 0,
         costByCurrency: valuation.cost,
         ownCostByCurrency: valuation.ownCost,
         expensesByCurrency: valuation.expenses,
@@ -49,7 +52,7 @@ export const mapRealCarToCRM = (car) => {
         gastos: gastosTotales,
         expensesList: car.expenses || [],
         costoTotal,
-        precioPublicado: car.price || 0,
+        precioPublicado: valuation.asking ?? null,
         precioMinimo: resolvedCost ? resolvedCost * 1.05 : 0,
         margenEstimado,
         margenPorcentual,

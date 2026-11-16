@@ -3,7 +3,7 @@ import Account from '../models/Account.js';
 import Installment from '../models/Installment.js';
 import Transaction from '../models/Transaction.js';
 import Sale from '../models/Sale.js';
-import { emptyMoney, isActiveStock, stockOwnership, stockStatus, stockValuation, summarizeStock } from '../utils/inventoryStock.js';
+import { emptyMoney, isAvailableStock, stockOwnership, stockStatus, stockValuation, summarizeStock } from '../utils/inventoryStock.js';
 import { normalizeCurrency, roundMoney } from '../utils/saleCommercial.js';
 
 // Legacy scalar fields are ARS only. Every component also returns byCurrency; USD is never silently added to ARS.
@@ -16,7 +16,7 @@ export async function getCapitalSummary() {
         Transaction.find({ type: { $regex: /egreso/i }, status: 'activo',
             accountAssignmentStatus: 'pending', accountDebitApplied: false }).lean()
     ]);
-    const stockCars = allCars.filter(isActiveStock);
+    const stockCars = allCars.filter(isAvailableStock);
     const metrics = summarizeStock(stockCars);
     const auditedVehicles = stockCars.map(car => {
         const v = stockValuation(car);
@@ -32,7 +32,8 @@ export async function getCapitalSummary() {
             costByCurrency: v.cost, ownCostByCurrency: v.ownCost, externalCostByCurrency: v.externalCost,
             price: v.asking, precioPropio: v.ownAsking, precioInv: v.externalAsking,
             hasMissingCost: !v.hasCost && !isConsignment && !isThirdParty, hasMissingPrice: !v.asking,
-            reason: isConsignment || isThirdParty ? 'Unidad de terceros: no aporta al capital propio.' : !v.hasCost ? 'Pendiente de registrar costo real de compra o toma.' : `Participación propia ${v.ownPct}% / inversor ${v.investorPct}%. Monedas sin conversión.` };
+            missingFields: v.missingFields, valuationComplete: v.costComplete && v.askingComplete,
+            reason: v.missingFields.length ? v.missingFields.map(item => item.message).join(' ') : isConsignment || isThirdParty ? 'Unidad de terceros: no aporta al capital propio.' : `Participación propia ${v.ownPct}% / inversor ${v.investorPct}%. Monedas sin conversión.` };
     });
     const cash = emptyMoney();
     const accountsList = accounts.map(account => {
@@ -105,14 +106,14 @@ export async function getCapitalSummary() {
     }
     const ownVehicles = auditedVehicles.filter(v => !v.isConsignment && !v.isThirdParty);
     const consignmentCount = auditedVehicles.filter(v => v.isConsignment).length;
-    return { cutoffDate, currency: 'ARS', totalsByCurrency,
-        conciliacionStatus: metrics.missingCost || pagosSinCuentaList.length ? 'parcial_datos_pendientes' : 'completa',
-        conciliacionMessage: `${metrics.missingCost} unidades sin costo real registrado. ${pagosSinCuentaList.length} pagos con cuenta sin asignar descontados del capital y efectivo disponible. ARS y USD separados; no se convirtió ni se inventó un costo.`,
+    return { cutoffDate, currency: 'ARS', totalsByCurrency, availableMetrics: metrics, inventoryAvailableCount: stockCars.length,
+        conciliacionStatus: !metrics.completeness.cost || !metrics.completeness.asking || pagosSinCuentaList.length ? 'parcial_datos_pendientes' : 'completa',
+        conciliacionMessage: `${metrics.missingCost} unidades disponibles con costo o participación pendiente; ${metrics.missingPrice} con precio o participación pendiente. Los importes afectados son subtotales conocidos. ${pagosSinCuentaList.length} pagos con cuenta sin asignar descontados del capital y efectivo disponible. ARS y USD separados; no se convirtió ni se inventó un costo.`,
         componentes: {
             stockPropioCosto: { label: 'Stock propio a costo', signo: '+', monto: metrics.ownCost.ARS, byCurrency: metrics.ownCost,
                 subtotalInversionistas: metrics.investorCost.ARS, inversionistasByCurrency: metrics.investorCost,
                 unidadesTotal: ownVehicles.length, unidadesSinCosto: metrics.missingCost,
-                descripcion: 'Participación real en compra o toma y gastos del stock activo, separada por moneda.', items: ownVehicles, itemsConsignaciones: auditedVehicles.filter(v => v.isConsignment || v.isThirdParty) },
+                descripcion: 'Participación real en compra o toma y gastos exclusivamente de unidades disponibles, separada por moneda.', items: ownVehicles, itemsConsignaciones: auditedVehicles.filter(v => v.isConsignment || v.isThirdParty) },
             efectivoPropio: { label: 'Efectivo propio conciliado', signo: '+', monto: cash.ARS, byCurrency: cash,
                 cuentasCount: accountsList.length, descripcion: 'Caja y bancos reales sin duplicar cajas virtuales de Tesorería.', items: accountsList },
             carteraPropia: { label: 'Cartera propia pendiente', signo: '+', monto: portfolioOwn.ARS, byCurrency: portfolioOwn,
@@ -129,7 +130,7 @@ export async function getCapitalSummary() {
                 items: pagosSinCuentaList }
         },
         totales: { ...totalsByCurrency.ARS, consignacionesCount: consignmentCount },
-        auditoriaIndicadores: { totalStockActivo: stockCars.length, consignaciones: consignmentCount,
+        auditoriaIndicadores: { totalStockActivo: stockCars.length, inventarioDisponible: stockCars.length, consignaciones: consignmentCount,
             disponibles: stockCars.filter(c => stockStatus(c) === 'disponible').length,
             reservados: stockCars.filter(c => stockStatus(c) === 'reservado').length,
             pausados: stockCars.filter(c => stockStatus(c) === 'pausado').length,

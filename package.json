@@ -28,7 +28,12 @@
     "test:expenses:parser": "node tests/expenseDictation.test.js",
     "test:expenses:browser": "node tests/browser/quickExpenses.browser.mjs",
     "test:expenses:mutations": "node tests/integration/linkedExpenseMutations.integration.test.js",
-    "test:reservations:atomic": "node tests/integration/reservationAtomic.integration.test.js"
+    "test:reservations:atomic": "node tests/integration/reservationAtomic.integration.test.js",
+    "dev:review-preview": "node scripts/start-review-preview.js",
+    "portal:setup": "node scripts/setup-buyer-portal.js",
+    "test:portal": "node tests/integration/buyerPortal.integration.test.js",
+    "test:portal:browser": "node tests/browser/buyerPortal.browser.mjs",
+    "test:inventory:available": "node tests/integration/availableInventory.integration.test.js"
   },
   "dependencies": {
     "@vercel/analytics": "^1.6.1",

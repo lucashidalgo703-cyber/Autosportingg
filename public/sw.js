@@ -2,7 +2,15 @@
 // Service Worker de soporte Offline para AutoSporting CRM (Etapa 4)
 // Estrategia: Network-First con respaldo en CacheStorage cuando el navegador está sin conexión.
 
-const CACHE_NAME = 'autosporting-offline-shell-v2';
+const CACHE_NAME = 'autosporting-offline-shell-v3';
+
+function isPrivatePortalPath(pathname) {
+    return /^\/portal(?:\/|$)/.test(pathname) || /^\/api\/(?:admin\/)?buyer-portal(?:\/|$)/.test(pathname);
+}
+
+self.addEventListener('message', event => {
+    if (event.data?.type === 'BUYER_PORTAL_PRIVACY_POLICY') event.ports?.[0]?.postMessage({ version: 3 });
+});
 
 function normalizeCacheKey(requestUrl) {
     try {
@@ -42,6 +50,10 @@ self.addEventListener('fetch', (event) => {
 
     if (url.protocol !== 'http:' && url.protocol !== 'https:') return;
 
+    // Invitation pages, verified sessions and short-lived document URLs must
+    // always reach the server, including when a worker already controls the tab.
+    if (isPrivatePortalPath(url.pathname)) return;
+
     event.respondWith(
         (async () => {
             const cache = await caches.open(CACHE_NAME);
@@ -49,7 +61,8 @@ self.addEventListener('fetch', (event) => {
 
             try {
                 const networkResponse = await fetch(request);
-                if (networkResponse && networkResponse.status === 200) {
+                const cachePolicy = networkResponse?.headers.get('Cache-Control') || '';
+                if (networkResponse && networkResponse.status === 200 && !/\b(?:no-store|private)\b/i.test(cachePolicy)) {
                     try {
                         await cache.put(request, networkResponse.clone());
                         if (normalizedKey !== request.url) {

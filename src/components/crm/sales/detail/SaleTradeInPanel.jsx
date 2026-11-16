@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { useAuth } from '../../../../context/AuthContext';
 import { hasPermission, PERMISSIONS } from '../../../../utils/adminPermissions';
 import ConfirmModal from '../../ui/ConfirmModal';
+import BuyerDocumentsPanel from '../../../buyer-portal/BuyerDocumentsPanel';
 
 export default function SaleTradeInPanel({ sale, onUpdate }) {
     const { user, token } = useAuth();
@@ -299,6 +300,8 @@ export default function SaleTradeInPanel({ sale, onUpdate }) {
                                         Transf: {tradeIn.transferStatus.replace('_', ' ')}
                                     </span>
                                 </div>
+
+                                <BuyerDocumentsPanel saleId={sale._id} tradeInId={tradeIn._id}/>
 
                                 <div className="flex items-center justify-between mt-3 pt-3 border-t border-crm-border">
                                     {tradeIn.linkedStockCarId ? (

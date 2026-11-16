@@ -95,6 +95,9 @@ import { createGptExpenseOAuthRouter } from './src/routes/gptExpenseOAuthRoutes.
 import { createGptExpenseRouter } from './src/routes/gptExpenseRoutes.js';
 import { authenticateGpt } from './src/services/gptExpenseOAuthService.js';
 import { createQuickExpenseRouter } from './src/routes/quickExpenseRoutes.js';
+import { createAdminBuyerPortalRouter, createBuyerPortalRouter } from './src/routes/buyerPortalRoutes.js';
+import { preserveRecordedCarFields } from './src/utils/preserveRecordedCarFields.js';
+import { stockCurrency } from './src/utils/inventoryStock.js';
 import { isManagedLinkedExpense, mutateLinkedExpense, annulLinkedExpenseBatch } from './src/services/linkedExpenseMutationService.js';
 
 const app = express();
@@ -452,6 +455,8 @@ const requireAnyPermission = (permissions, allowedRoles = [ROLES.OWNER, ROLES.AD
 
 // Routes
 app.use('/api/admin/quick-expenses', createQuickExpenseRouter({ authenticate: authenticateToken }));
+app.use('/api/admin/buyer-portal', createAdminBuyerPortalRouter({ authenticate: authenticateToken }));
+app.use('/api/buyer-portal', createBuyerPortalRouter());
 
 // Helper functions for password hashing using native crypto
 const hashPassword = (password) => {
@@ -987,6 +992,10 @@ app.post('/api/cars', authenticateToken, requirePermission(PERMISSIONS.STOCK_WRI
             carData.imagePosition = carData.imagePositions[0];
         }
 
+        if (parseDecimal(carData.purchasePrice) > 0 && !stockCurrency(carData.purchaseCurrency)) {
+            return res.status(400).json({ message: 'Elegí explícitamente ARS o USD para el costo de compra o toma.' });
+        }
+        if (carData.purchaseCurrency) carData.purchaseCurrency = stockCurrency(carData.purchaseCurrency) || carData.purchaseCurrency;
         const newCar = new Car({
             ...carData,
             auditLog: [{
@@ -2030,7 +2039,9 @@ app.get('/api/admin/dashboard/upcoming-dues', authenticateToken, requirePermissi
 // GET single car for Admin (Protected, Full Data)
 app.get('/api/admin/cars/:id', authenticateToken, requirePermission(PERMISSIONS.STOCK_READ), async (req, res) => {
     try {
-        const car = await Car.findById(req.params.id);
+        // Historical missing fields must remain visible as missing, rather than
+        // acquiring schema defaults that could imply verified availability.
+        const car = await Car.findById(req.params.id).lean();
         if (!car) return res.status(404).json({ message: 'Car not found' });
         res.json(serializeStockCar(car, canReadStockFinances(req.user)));
     } catch (error) {
@@ -2272,7 +2283,8 @@ app.patch('/api/admin/cars/:id', authenticateToken, requirePermission(PERMISSION
         let updates = req.body;
         const user = req.user ? (req.user.email || req.user.role) : 'System';
 
-        const car = await Car.findById(carId);
+        const rawCar = await Car.findById(carId).lean();
+        const car = rawCar ? Car.hydrate(rawCar) : null;
         if (!car) {
             return res.status(404).json({ message: 'Car not found' });
         }
@@ -2303,9 +2315,13 @@ app.patch('/api/admin/cars/:id', authenticateToken, requirePermission(PERMISSION
         } = updates;
 
         const oldPurchasePrice = car.purchasePrice !== undefined && car.purchasePrice !== null ? Number(car.purchasePrice) : 0;
+        if (otherUpdates.purchasePrice !== undefined && parseDecimal(otherUpdates.purchasePrice) > 0
+            && !stockCurrency(otherUpdates.purchaseCurrency ?? rawCar.purchaseCurrency)) {
+            return res.status(400).json({ message: 'Elegí explícitamente ARS o USD para el costo de compra o toma.' });
+        }
         const oldPurchaseCurrency = car.purchaseCurrency || (car.currency === 'U$S' || car.currency === 'USD' ? 'USD' : 'ARS');
         const oldPrice = car.price !== undefined && car.price !== null ? Number(car.price) : 0;
-        const oldStatus = car.status;
+        const oldStatus = rawCar.status;
 
         const incomingPurchasePriceProvided = otherUpdates.purchasePrice !== undefined && otherUpdates.purchasePrice !== null && String(otherUpdates.purchasePrice).trim() !== '';
         const parsedIncomingPurchasePrice = incomingPurchasePriceProvided ? parseDecimal(otherUpdates.purchasePrice) : NaN;
@@ -2626,6 +2642,7 @@ app.patch('/api/admin/cars/:id', authenticateToken, requirePermission(PERMISSION
             car.auditLog.push(...newAuditLogs);
         }
 
+        preserveRecordedCarFields(car, rawCar, updates);
         const updatedCar = await car.save();
 
         if (newAuditLogs.length > 0) {
@@ -2641,7 +2658,7 @@ app.patch('/api/admin/cars/:id', authenticateToken, requirePermission(PERMISSION
             });
         }
 
-        res.json(updatedCar);
+        res.json(await Car.findById(updatedCar._id).lean());
     } catch (error) {
         console.error("PATCH error:", error);
         res.status(400).json({ message: error.message });

@@ -86,10 +86,12 @@ async function warmOfflineShellCache(token) {
             await Promise.all(
                 Array.from(urlsToCache).map(async (u) => {
                     try {
+                        const pathname = new URL(u, origin).pathname;
+                        if (/^\/portal(?:\/|$)/.test(pathname) || /^\/api\/(?:admin\/)?buyer-portal(?:\/|$)/.test(pathname)) return;
                         const resp = await fetch(u, {
                             headers: token ? { Authorization: `Bearer ${token}` } : {}
                         });
-                        if (resp && resp.status === 200) {
+                        if (resp && resp.status === 200 && !/\b(?:no-store|private)\b/i.test(resp.headers.get('Cache-Control') || '')) {
                             await cache.put(u, resp.clone());
                         }
                     } catch (_) {}

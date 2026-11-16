@@ -1,9 +1,11 @@
 "use client";
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { X, Save, AlertTriangle, HelpCircle, FileText, Upload, Eye, Trash2, Edit, RefreshCw, TrendingDown, TrendingUp } from 'lucide-react';
 import Link from 'next/link';
 import toast from 'react-hot-toast';
 import { parseArgentineMoney } from '../../../utils/saleCommercial';
+import { stockCurrency } from '../../../utils/inventoryStock';
+import { changedVehiclePayload, hasVehicleFormChange, investorFormFields, validateVehicleFinancialChanges } from './vehicleFormIntegrity';
 
 export default function VehicleEditModal({ isOpen, onClose, onSave, vehicleData }) {
     const [formData, setFormData] = useState({});
@@ -11,6 +13,7 @@ export default function VehicleEditModal({ isOpen, onClose, onSave, vehicleData 
     const [deletedDocs, setDeletedDocs] = useState([]);
     const [isSaving, setIsSaving] = useState(false);
     const [isSearchingInfoAuto, setIsSearchingInfoAuto] = useState(false);
+    const initialForm = useRef({});
 
     const docFieldsConfig = [
         { key: 'tituloAutomotor', label: 'Título Automotor' },
@@ -25,7 +28,7 @@ export default function VehicleEditModal({ isOpen, onClose, onSave, vehicleData 
         if (isOpen && vehicleData) {
             setDeletedDocs([]);
             // Flatten the nested structure for the form.
-            setFormData({
+            const initial = {
                 brand: vehicleData.marca || '',
                 name: vehicleData.modelo || '',
                 description: vehicleData._original?.description || '',
@@ -33,14 +36,14 @@ export default function VehicleEditModal({ isOpen, onClose, onSave, vehicleData 
                 km: vehicleData.kilometraje || 0,
                 fuel: vehicleData.combustible || 'Nafta',
                 condition: vehicleData.condicion || 'Usado',
-                price: vehicleData.precioPublicado || 0,
-                currency: vehicleData.moneda || 'USD',
-                status: vehicleData._original?.status || 'Disponible',
+                price: vehicleData._original?.price ?? vehicleData.precioPublicado ?? '',
+                currency: stockCurrency(vehicleData._original?.currency) || '',
+                status: vehicleData._original?.status || '',
                 visibleEnWeb: vehicleData.visibleEnWeb,
                 
                 // Internal fields
-                purchasePrice: vehicleData.precioCompra || 0,
-                purchaseCurrency: vehicleData.monedaCompra || 'USD',
+                purchasePrice: vehicleData.precioCompra || '',
+                purchaseCurrency: vehicleData.monedaCompra || '',
                 purchasePriceChangeType: 'correccion_precio',
                 purchasePriceJustification: '',
                 purchasePriceExpenseConcept: '',
@@ -51,9 +54,9 @@ export default function VehicleEditModal({ isOpen, onClose, onSave, vehicleData 
                 notes: vehicleData.observaciones === 'Sin observaciones.' ? '' : vehicleData.observaciones,
                 createdAt: vehicleData._original?.createdAt ? new Date(vehicleData._original.createdAt).toISOString().split('T')[0] : '',
                 soldAt: vehicleData._original?.soldAt ? new Date(vehicleData._original.soldAt).toISOString().split('T')[0] : '',
-                isSharedInvestment: !!(vehicleData.investor && vehicleData.investor.percentage > 0),
-                investorName: vehicleData.investor?.name || '',
-                investorPercentage: vehicleData.investor?.percentage || 50,
+                isSharedInvestment: ['compartido', 'inversor', 'sin_definir'].includes(vehicleData.ownership?.type) && Boolean(vehicleData.investor?.name || vehicleData.ownership?.investorName || vehicleData._original?.jointOwnership?.hasPartner || vehicleData.investor?.percentage > 0),
+                investorName: vehicleData.investor?.name || vehicleData.ownership?.investorName || '',
+                investorPercentage: vehicleData.ownership?.ownershipKnown === false ? '' : vehicleData.ownership?.investorPct ?? vehicleData.investor?.percentage ?? '',
                 
                 // InfoAuto
                 infoAutoCodia: vehicleData.infoAuto?.codia || vehicleData._original?.infoAuto?.codia || '',
@@ -61,7 +64,9 @@ export default function VehicleEditModal({ isOpen, onClose, onSave, vehicleData 
                 infoAutoCurrency: vehicleData.infoAuto?.currency || vehicleData._original?.infoAuto?.currency || 'ARS',
                 infoAutoEdicion: vehicleData.infoAuto?.edicion || vehicleData._original?.infoAuto?.edicion || '',
                 infoAutoAutoSync: vehicleData.infoAuto?.autoSync ?? vehicleData._original?.infoAuto?.autoSync ?? true
-            });
+            };
+            initialForm.current = initial;
+            setFormData(initial);
         }
     }, [isOpen, vehicleData]);
 
@@ -116,7 +121,8 @@ export default function VehicleEditModal({ isOpen, onClose, onSave, vehicleData 
         const { name, value, type, checked } = e.target;
         setFormData(prev => ({
             ...prev,
-            [name]: type === 'checkbox' ? checked : value
+            [name]: type === 'checkbox' ? checked : value,
+            ...(name === 'isSharedInvestment' && checked && !prev.isSharedInvestment ? { investorPercentage: '' } : {})
         }));
     };
 
@@ -138,17 +144,19 @@ export default function VehicleEditModal({ isOpen, onClose, onSave, vehicleData 
 
     const handleSubmit = async (e) => {
         e.preventDefault();
+        const financialError = validateVehicleFinancialChanges(formData, initialForm.current);
+        if (financialError) { toast.error(financialError); return; }
         
         const parsedPrice = parseArgentineMoney(formData.price);
         const parsedPurchasePrice = parseArgentineMoney(formData.purchasePrice);
         const parsedKm = parseArgentineMoney(formData.km);
 
-        if (Number.isNaN(parsedPrice) || parsedPrice < 0) {
+        if (hasVehicleFormChange(formData, initialForm.current, ['price']) && (Number.isNaN(parsedPrice) || parsedPrice < 0)) {
             toast.error('El precio de publicación debe ser un número válido y positivo.');
             return;
         }
 
-        if (Number.isNaN(parsedPurchasePrice) || parsedPurchasePrice < 0) {
+        if (hasVehicleFormChange(formData, initialForm.current, ['purchasePrice']) && (Number.isNaN(parsedPurchasePrice) || parsedPurchasePrice < 0)) {
             toast.error('Ingresá un valor de toma / costo de compra válido (número positivo).');
             return;
         }
@@ -265,7 +273,10 @@ export default function VehicleEditModal({ isOpen, onClose, onSave, vehicleData 
             
             
             // Save main vehicle data which will also trigger a refetch in the parent
-            await onSave(payload);
+            await onSave(changedVehiclePayload(payload, initialForm.current, formData, {
+                purchasePriceChangeType: ['purchasePrice'], purchasePriceJustification: ['purchasePrice'], purchasePriceExpenseConcept: ['purchasePrice'],
+                infoAuto: ['infoAutoCodia', 'infoAutoValor', 'infoAutoCurrency', 'infoAutoEdicion', 'infoAutoAutoSync']
+            }));
 
             if (typeof window !== 'undefined') {
                 window.dispatchEvent(new CustomEvent('vehicle-updated'));
@@ -286,6 +297,7 @@ export default function VehicleEditModal({ isOpen, onClose, onSave, vehicleData 
     };
 
     const isVisibleWarning = !formData.visibleEnWeb;
+    const investmentChanged = hasVehicleFormChange(formData, initialForm.current, investorFormFields);
 
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-5 bg-black/85 backdrop-blur-sm animate-fadeIn">
@@ -383,11 +395,12 @@ export default function VehicleEditModal({ isOpen, onClose, onSave, vehicleData 
                             <div className="grid grid-cols-[1fr_80px] gap-4">
                                 <div className="flex flex-col gap-1.5">
                                     <label className="text-xs font-medium text-crm-fg-muted uppercase tracking-wider">Precio Publicado *</label>
-                                    <input type="number" required min="0" name="price" value={formData.price} onChange={handleChange} className="bg-crm-bg border border-crm-border text-crm-fg rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-crm-red focus:ring-1 focus:ring-crm-red" />
+                                    <input type="number" required={hasVehicleFormChange(formData, initialForm.current, ['price'])} min="0" name="price" value={formData.price} onChange={handleChange} className="bg-crm-bg border border-crm-border text-crm-fg rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-crm-red focus:ring-1 focus:ring-crm-red" />
                                 </div>
                                 <div className="flex flex-col gap-1.5">
                                     <label className="text-xs font-medium text-crm-fg-muted uppercase tracking-wider">Moneda</label>
-                                    <select name="currency" value={formData.currency} onChange={handleChange} className="bg-crm-bg border border-crm-border text-crm-fg rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-crm-red focus:ring-1 focus:ring-crm-red">
+                                    <select aria-label="Moneda del precio publicado" name="currency" value={formData.currency} required={hasVehicleFormChange(formData, initialForm.current, ['price', 'currency']) && Number(formData.price) > 0} onChange={handleChange} className="bg-crm-bg border border-crm-border text-crm-fg rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-crm-red focus:ring-1 focus:ring-crm-red">
+                                        <option value="">Moneda pendiente</option>
                                         <option value="USD">USD</option>
                                         <option value="U$S">U$S</option>
                                         <option value="ARS">ARS</option>
@@ -447,7 +460,8 @@ export default function VehicleEditModal({ isOpen, onClose, onSave, vehicleData 
                                 </div>
                                 <div className="flex flex-col gap-1.5">
                                     <label className="text-xs font-medium text-crm-fg-muted uppercase tracking-wider">Moneda</label>
-                                    <select name="purchaseCurrency" value={formData.purchaseCurrency} onChange={handleChange} className="bg-crm-bg border border-crm-border text-crm-fg rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-crm-red focus:ring-1 focus:ring-crm-red">
+                                    <select aria-label="Moneda del costo de compra o toma" name="purchaseCurrency" value={formData.purchaseCurrency} required={hasVehicleFormChange(formData, initialForm.current, ['purchasePrice', 'purchaseCurrency']) && Number(currentPurchasePrice) > 0} onChange={handleChange} className="bg-crm-bg border border-crm-border text-crm-fg rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-crm-red focus:ring-1 focus:ring-crm-red">
+                                        <option value="">Moneda pendiente</option>
                                         <option value="USD">USD</option>
                                         <option value="ARS">ARS</option>
                                     </select>
@@ -712,7 +726,7 @@ export default function VehicleEditModal({ isOpen, onClose, onSave, vehicleData 
                                     <input type="checkbox" name="isSharedInvestment" checked={formData.isSharedInvestment} onChange={handleChange} className="w-5 h-5 rounded border-blue-500 text-blue-500 focus:ring-blue-500 bg-crm-bg cursor-pointer" />
                                     <div className="flex flex-col">
                                         <span className="text-white font-medium group-hover:text-blue-400 transition-colors text-sm">Vehículo con inversión compartida</span>
-                                        <span className="text-[10px] text-crm-fg-muted">El auto fue comprado a medias con un inversionista.</span>
+                                        <span className="text-[10px] text-crm-fg-muted">Participación real del inversor, incluido el caso 100% del inversor.</span>
                                     </div>
                                 </label>
 
@@ -720,7 +734,7 @@ export default function VehicleEditModal({ isOpen, onClose, onSave, vehicleData 
                                     <div className="grid grid-cols-2 gap-4 mt-2 p-3 bg-blue-500/10 border border-blue-500/20 rounded-lg">
                                         <div className="flex flex-col gap-1.5">
                                             <label className="text-xs font-medium text-crm-fg-muted uppercase tracking-wider">Nombre del Inversor *</label>
-                                            <input list="edit-companies-datalist" type="text" name="investorName" value={formData.investorName || ''} onChange={handleChange} required={formData.isSharedInvestment} placeholder="Seleccionar empresa o nombre..." className="bg-crm-bg border border-crm-border text-crm-fg rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500" />
+                                            <input list="edit-companies-datalist" type="text" name="investorName" value={formData.investorName || ''} onChange={handleChange} required={formData.isSharedInvestment && investmentChanged} placeholder="Seleccionar empresa o nombre..." className="bg-crm-bg border border-crm-border text-crm-fg rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500" />
                                             <datalist id="edit-companies-datalist">
                                                 <option value="LHIVER" />
                                                 <option value="AUTOTERRA" />
@@ -730,7 +744,7 @@ export default function VehicleEditModal({ isOpen, onClose, onSave, vehicleData 
                                         </div>
                                         <div className="flex flex-col gap-1.5">
                                             <label className="text-xs font-medium text-crm-fg-muted uppercase tracking-wider">Porcentaje (%) *</label>
-                                            <input type="number" name="investorPercentage" value={formData.investorPercentage || ''} onChange={handleChange} required={formData.isSharedInvestment} min="1" max="100" className="bg-crm-bg border border-crm-border text-crm-fg rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500" />
+                                            <input aria-label="Porcentaje real del inversor" type="number" name="investorPercentage" value={formData.investorPercentage ?? ''} onChange={handleChange} required={formData.isSharedInvestment && investmentChanged} min="0.01" max="100" step="0.01" placeholder="Porcentaje pendiente" className="bg-crm-bg border border-crm-border text-crm-fg rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500" />
                                         </div>
                                     </div>
                                 )}
@@ -750,7 +764,9 @@ export default function VehicleEditModal({ isOpen, onClose, onSave, vehicleData 
                             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                                 <div className="flex flex-col gap-1.5">
                                     <label className="text-xs font-medium text-crm-fg-muted uppercase tracking-wider">Estado Operativo</label>
-                                    <select name="status" value={formData.status} onChange={handleChange} className="bg-crm-bg border border-crm-border text-crm-fg rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-crm-red focus:ring-1 focus:ring-crm-red">
+                                    <select aria-label="Estado operativo del vehículo" name="status" value={formData.status} required={hasVehicleFormChange(formData, initialForm.current, ['status'])} onChange={handleChange} className="bg-crm-bg border border-crm-border text-crm-fg rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-crm-red focus:ring-1 focus:ring-crm-red">
+                                        <option value="">Sin estado verificable</option>
+                                        {formData.status && !['Disponible', 'Reservado', 'Vendido', 'Pausado'].includes(formData.status) && <option value={formData.status}>Estado histórico: {formData.status}</option>}
                                         <option value="Disponible">Disponible</option>
                                         <option value="Reservado">Reservado</option>
                                         <option value="Vendido">Vendido</option>
@@ -766,6 +782,8 @@ export default function VehicleEditModal({ isOpen, onClose, onSave, vehicleData 
                                     <input type="date" name="soldAt" value={formData.soldAt} onChange={handleChange} disabled={formData.status !== 'Vendido'} className="bg-crm-bg border border-crm-border text-crm-fg rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-crm-red focus:ring-1 focus:ring-crm-red appearance-none disabled:opacity-50" style={{colorScheme: 'dark'}} />
                                 </div>
                             </div>
+
+                            {(!formData.currency || !formData.purchaseCurrency || !formData.status || formData.isSharedInvestment && formData.investorPercentage === '') && <p className="text-xs text-amber-300">Los datos pendientes se conservan si guardás otro campo. No se asignan moneda, estado ni porcentaje automáticamente.</p>}
 
                             <div className="flex flex-col gap-1.5 flex-1">
                                 <label className="text-xs font-medium text-crm-fg-muted uppercase tracking-wider">Observaciones Internas</label>

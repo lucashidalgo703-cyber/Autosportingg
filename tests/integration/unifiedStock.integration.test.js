@@ -2,7 +2,7 @@
 // STOCK_DIRECT_SERVICE=1 allows checking services before the surgical server patch is applied.
 import assert from 'node:assert/strict';
 import { boot } from './harness.js';
-import { filterStockVehicles, stockValuation, summarizeStock } from '../../src/utils/inventoryStock.js';
+import { filterStockVehicles, isAvailableStock, stockValuation, summarizeStock } from '../../src/utils/inventoryStock.js';
 import { getAdminStock, serializeStockCar } from '../../src/services/inventoryStockService.js';
 import { getCapitalSummary } from '../../src/services/capitalSummaryService.js';
 const { call, test, finish, mongoose, makeToken } = await boot();
@@ -34,23 +34,23 @@ await Car.collection.insertMany([
 const all = await Car.find({}).lean();
 
 await test('Todos incluye históricos, cancelados y sin estado; páginas comparten totales del inventario completo', async () => {
-    const first = await get({ status: 'todos', page: 1, limit: 2 });
-    const last = await get({ status: 'todos', page: 16, limit: 2 });
+    const first = await get({ tab: 'historial', status: 'todos', page: 1, limit: 2 });
+    const last = await get({ tab: 'historial', status: 'todos', page: 16, limit: 2 });
     assert.equal(first.total, 31);
     assert.equal(first.cars.length, 2);
     assert.equal(last.cars.length, 1);
     assert.deepEqual(first.filteredMetrics, last.filteredMetrics);
     assert.deepEqual(first.summary, last.summary);
     assert.equal(first.summary.inventoryCount, 31);
-    assert.equal(first.summary.totalStock, 29);
+    assert.equal(first.summary.totalStock, 26);
     assert.equal(first.summary.disponibles, 26);
     assert.equal(first.summary.reservados, 1);
     assert.equal(first.summary.pausados, 1);
     assert.equal(first.summary.sinEstado, 1);
     const allPages = [];
-    for (let page = 1; page <= first.pages; page++) allPages.push(...(await get({ status: 'todos', page, limit: 2 })).cars.map(car => String(car._id)));
+    for (let page = 1; page <= first.pages; page++) allPages.push(...(await get({ tab: 'historial', status: 'todos', page, limit: 2 })).cars.map(car => String(car._id)));
     assert.equal(new Set(allPages).size, 31);
-    assert.deepEqual(first.filteredMetrics, summarizeStock(all));
+    assert.deepEqual(first.filteredMetrics, summarizeStock(all.filter(isAvailableStock)));
 });
 
 await test('Búsqueda global por versión y patente encuentra una unidad fuera de la primera página', async () => {
@@ -67,7 +67,7 @@ await test('Búsqueda global por versión y patente encuentra una unidad fuera d
 await test('Estado operativo y propiedad son filtros independientes; disponible cuenta únicamente Disponible', async () => {
     const available = await get({ status: 'disponible', limit: 1 });
     assert.equal(available.total, 26);
-    const reserved = await get({ status: 'reservado', ownership: 'propio' });
+    const reserved = await get({ tab: 'historial', status: 'reservado', ownership: 'propio' });
     assert.equal(reserved.total, 1);
     assert.equal(reserved.cars[0].status, 'Reservado');
     const investor = await get({ status: 'todos', ownership: 'inversor' });
@@ -106,7 +106,7 @@ await test('Simular un precio recalcula la participación sin modificar registro
 });
 
 await test('Desktop y móvil consumen la misma búsqueda y filtros; el fallback aplica el mismo conjunto antes de paginar', async () => {
-    for (const params of [{ status: 'todos' }, { status: 'reservado' }, { status: 'todos', ownership: 'propio' }, { search: 'AAA111', catalog: 'published' }, { ownership: 'consignacion' }, { ml: 'no_publicados', brand: 'Ficticia', status: 'vendido' }]) {
+    for (const params of [{ tab: 'historial', status: 'todos' }, { tab: 'historial', status: 'reservado' }, { status: 'todos', ownership: 'propio' }, { search: 'AAA111', catalog: 'published' }, { ownership: 'consignacion' }, { tab: 'historial', ml: 'no_publicados', brand: 'Ficticia', status: 'vendido' }]) {
         const result = await get({ ...params, limit: 500 });
         const expected = filterStockVehicles(all, params).map(car => String(car._id)).sort();
         assert.deepEqual(result.cars.map(car => String(car._id)).sort(), expected);
@@ -173,8 +173,7 @@ await test('Un admin con permisos explícitos restringidos a Stock no recibe fin
 await test('Capital patrimonial mantiene ARS/USD y la participación real sin duplicar el precio publicado', async () => {
     await Account.create({ name: 'Caja ficticia', type: 'Efectivo', currency: 'ARS', balance: 1000 });
     const summary = await getCapitalSummary();
-    const active = all.filter(car => !car.sold && !['Vendido', 'Cancelado'].includes(car.status));
-    const metrics = summarizeStock(active);
+    const metrics = summarizeStock(all.filter(isAvailableStock));
     assert.deepEqual(summary.componentes.stockPropioCosto.byCurrency, metrics.ownCost);
     assert.equal(summary.totales.capitalPropioCosto, metrics.ownCost.ARS + 1000);
     assert.equal(summary.totalsByCurrency.USD.capitalPropioCosto, metrics.ownCost.USD);

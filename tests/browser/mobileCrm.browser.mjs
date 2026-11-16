@@ -91,7 +91,7 @@ try {
     await desktop.screenshot({ path: path.join(output, 'gasto-taller-confirmado.png') });
     ok('Acción de taller: ambigüedad por año/patente, vista previa, doble confirmación = un movimiento y un débito');
     await goto(desktop, '/admin/stock');
-    await desktop.getByRole('searchbox', { name: 'Buscar en todo el inventario' }).fill('QA001AA');
+    await desktop.getByRole('searchbox', { name: 'Buscar en el inventario disponible' }).fill('QA001AA');
     const row = desktop.locator(`tr[data-stock-vehicle="${fixtures.cars[0].id}"]`);
     await row.waitFor({ timeout: 180000 });
     await desktop.waitForFunction(() => document.querySelectorAll('tr[data-stock-vehicle]').length === 1);
@@ -104,7 +104,7 @@ try {
     const mobile = await newPage({ width: 390, height: 844 });
     const mobileToken = await login(mobile);
     await goto(mobile, '/admin/stock');
-    await mobile.getByRole('searchbox', { name: 'Buscar en todo el inventario' }).fill('QA001AA');
+    await mobile.getByRole('searchbox', { name: 'Buscar en el inventario disponible' }).fill('QA001AA');
     const card = mobile.locator(`article[data-stock-vehicle="${fixtures.cars[0].id}"]`);
     await card.waitFor({ timeout: 180000 });
     await mobile.waitForFunction(() => document.querySelectorAll('article[data-stock-vehicle]').length === 1);
@@ -137,7 +137,9 @@ try {
         return saved.json();
     }
     const sold = await completeSale('QA001AA', false);
-    await row.getByText('Vendido', { exact: true }).waitFor({ timeout: 60000 });
+    await row.waitFor({ state: 'detached', timeout: 60000 });
+    await desktop.getByRole('button', { name: /Todos los estados \(/ }).click();
+    await desktop.locator(`tr[data-stock-vehicle="${fixtures.cars[0].id}"]`).getByText('Vendido', { exact: true }).waitFor({ timeout: 60000 });
     assert.equal((await api(desktop, 'GET', `/api/admin/cars/${fixtures.cars[0].id}`, null, token)).json.status, 'Vendido');
     await goto(sales, '/admin/mis-ventas');
     const reservedSale = await completeSale('QA003AA', true);

@@ -4,9 +4,9 @@ import { stockOwnership, formatStockMoney } from '../../../utils/inventoryStock'
 export const vehicleYear = vehicle => vehicle.year || vehicle['año'] || 'S/D';
 export const vehicleStatus = vehicle => ({ disponible: 'Disponible', reservado: 'Reservado', pausado: 'Pausado', vendido: 'Vendido', sin_estado: 'Sin estado', cancelado: 'Cancelado', anulado: 'Anulado' })[vehicle.estado] || vehicle.estado || 'Sin estado';
 export const vehicleOwnership = vehicle => stockOwnership(vehicle._original || vehicle).label;
-export const vehicleMoney = (currency, amount) => amount === null || amount === undefined ? 'Sin importe' : `${currency || 'ARS'} ${Number(amount).toLocaleString('es-AR', { maximumFractionDigits: 2 })}`;
-export function StockListTotals({ totalItems = 0, currentPage = 1, totalPages = 1, filteredTotalUSD = 0, filteredTotalARS = 0 }) {
-    return <div className="flex flex-wrap justify-between gap-2 rounded-xl border border-crm-border bg-crm-surface p-3 text-xs text-crm-fg"><span><strong>{totalItems} vehículos</strong> · Página {currentPage} de {Math.max(1, totalPages)}</span><span>Venta publicada del filtro completo: <strong>{formatStockMoney({ ARS: filteredTotalARS, USD: filteredTotalUSD })}</strong></span></div>;
+export const vehicleMoney = (currency, amount) => amount === null || amount === undefined ? (currency ? 'Precio pendiente' : 'Precio y moneda pendientes') : !currency ? 'Moneda pendiente' : `${currency} ${Number(amount).toLocaleString('es-AR', { maximumFractionDigits: 2 })}`;
+export function StockListTotals({ totalItems = 0, currentPage = 1, totalPages = 1, filteredTotalUSD = 0, filteredTotalARS = 0, showPublishedSubtotal = true, isFiltered = false, filteredMetrics }) {
+    return <div className="flex flex-wrap justify-between gap-2 rounded-xl border border-crm-border bg-crm-surface p-3 text-xs text-crm-fg"><span><strong>{totalItems} vehículos</strong> · Página {currentPage} de {Math.max(1, totalPages)}</span>{showPublishedSubtotal && <span>{isFiltered ? 'Subtotal del filtro' : 'Valor publicado del inventario disponible'}{filteredMetrics?.completeness?.asking === false ? ' · subtotal conocido' : ''}: <strong>{formatStockMoney({ ARS: filteredTotalARS, USD: filteredTotalUSD })}</strong></span>}</div>;
 }
 export function StockVehicleActions({ vehicle, canWrite = false, canReserve = false, onPrint, onEditML, onDelete, onReserve, onMandate }) {
     const button = 'rounded-lg border border-crm-border px-2 py-1.5 text-xs font-semibold text-crm-fg hover:bg-crm-surface-raised';

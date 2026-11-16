@@ -49,7 +49,7 @@ export const useAdminCars = () => {
         const currentPage = Math.max(1, Number(filters.page) || 1);
         const pageCars = filtered.slice((currentPage - 1) * limit, currentPage * limit);
         const uniqueBrands = Array.from(new Set(cachedVehicles.map(v => v.brand).filter(Boolean))).sort();
-        const metrics = summarizeStock(filtered);
+        const metrics = summarizeStock(filtered.filter(isAvailableStock));
         const canRead = hasPermission(user, PERMISSIONS.FINANZAS_READ);
         setCars(pageCars);
         setTotal(filtered.length);
@@ -68,9 +68,9 @@ export const useAdminCars = () => {
         setFilteredInversionistasUSD(canRead ? metrics.investorAsking.USD : 0);
         const active = cachedVehicles.filter(isActiveStock);
         const available = cachedVehicles.filter(isAvailableStock);
-        setSummary({ inventoryCount: cachedVehicles.length, total: active.length, disponibles: available.length,
+        setSummary({ inventoryCount: cachedVehicles.length, total: available.length, disponibles: available.length,
             vendidos: cachedVehicles.length - active.length,
-            ...(canRead ? { activeMetrics: summarizeStock(active), availableMetrics: summarizeStock(available) } : {}) });
+            ...(canRead ? { activeMetrics: summarizeStock(available), availableMetrics: summarizeStock(available) } : {}) });
         setError(null);
         return { cars: pageCars, total: filtered.length, pages: Math.ceil(filtered.length / limit), page: currentPage, brands: uniqueBrands, offline: true };
     }, [user]);

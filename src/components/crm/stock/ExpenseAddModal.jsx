@@ -6,16 +6,20 @@ import toast from 'react-hot-toast';
 export default function ExpenseAddModal({ isOpen, onClose, onSave, vehicleCurrency }) {
     const [concept, setConcept] = useState('');
     const [amount, setAmount] = useState('');
-    const [currency, setCurrency] = useState(vehicleCurrency || 'USD');
+    const [currency, setCurrency] = useState(vehicleCurrency || '');
     const [note, setNote] = useState('');
+    const [allocation, setAllocation] = useState('shared');
+    const [agencyPercentage, setAgencyPercentage] = useState('');
     const [isSaving, setIsSaving] = useState(false);
 
     useEffect(() => {
         if (isOpen) {
             setConcept('');
             setAmount('');
-            setCurrency(vehicleCurrency || 'USD');
+            setCurrency(vehicleCurrency || '');
             setNote('');
+            setAllocation('shared');
+            setAgencyPercentage('');
         }
     }, [isOpen, vehicleCurrency]);
 
@@ -24,8 +28,12 @@ export default function ExpenseAddModal({ isOpen, onClose, onSave, vehicleCurren
     const handleSubmit = async (e) => {
         e.preventDefault();
         
-        if (!concept || !amount || amount <= 0) {
+        if (!concept || !amount || !currency || amount <= 0) {
             toast.error('Concepto y monto (positivo) son requeridos.');
+            return;
+        }
+        if (allocation === 'custom' && (agencyPercentage === '' || !Number.isFinite(Number(agencyPercentage)) || Number(agencyPercentage) < 0 || Number(agencyPercentage) > 100)) {
+            toast.error('Indicá qué porcentaje del gasto corresponde a AutoSporting (0 a 100).');
             return;
         }
 
@@ -35,7 +43,9 @@ export default function ExpenseAddModal({ isOpen, onClose, onSave, vehicleCurren
                 concept,
                 amount: Number(amount),
                 currency,
-                note
+                note,
+                paidBy: allocation === 'custom' ? 'shared' : allocation,
+                ...(allocation === 'custom' ? { agencyPercentage: Number(agencyPercentage) } : {})
             });
             toast.success('Gasto añadido');
             onClose();
@@ -87,12 +97,15 @@ export default function ExpenseAddModal({ isOpen, onClose, onSave, vehicleCurren
                             />
                         </div>
                         <div className="flex flex-col gap-1.5 w-24">
-                            <label className="text-sm font-medium text-crm-fg-muted">Moneda</label>
+                            <label htmlFor="expense-currency" className="text-sm font-medium text-crm-fg-muted">Moneda</label>
                             <select 
+                                id="expense-currency"
+                                required
                                 value={currency}
                                 onChange={e => setCurrency(e.target.value)}
                                 className="bg-crm-bg border border-crm-border text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-crm-red"
                             >
+                                <option value="">Elegir</option>
                                 <option value="USD">USD</option>
                                 <option value="ARS">ARS</option>
                             </select>
@@ -103,10 +116,22 @@ export default function ExpenseAddModal({ isOpen, onClose, onSave, vehicleCurren
                         <div className="flex items-start gap-2 p-3 bg-[#EAB308]/10 border border-[#EAB308]/30 rounded-lg">
                             <AlertTriangle size={16} className="text-[#EAB308] mt-0.5 shrink-0" />
                             <p className="text-xs text-[#EAB308]">
-                                El vehículo fue comprado en {vehicleCurrency}. Añadir un gasto en {currency} podría afectar el cálculo del costo total debido a variaciones cambiarias.
+                                Este gasto se conserva en {currency}. Los costos en ARS y USD se muestran separados, sin conversión automática.
                             </p>
                         </div>
                     )}
+
+                    <div className="flex flex-col gap-1.5">
+                        <label htmlFor="expense-allocation" className="text-sm font-medium text-crm-fg-muted">Quién asume este gasto</label>
+                        <select id="expense-allocation" value={allocation} onChange={event => setAllocation(event.target.value)} className="min-h-11 rounded-lg border border-crm-border bg-crm-bg px-3 py-2 text-sm text-white">
+                            <option value="shared">Según la participación registrada de la unidad</option>
+                            <option value="agency">100% AutoSporting</option>
+                            <option value="investor">100% inversor</option>
+                            <option value="custom">Distribución específica de este gasto</option>
+                        </select>
+                        {allocation === 'custom' && <label className="mt-2 text-xs text-crm-fg-muted">Porcentaje del gasto de AutoSporting<input aria-label="Porcentaje del gasto de AutoSporting" type="number" min="0" max="100" step="0.01" required value={agencyPercentage} onChange={event => setAgencyPercentage(event.target.value)} className="mt-1 block min-h-11 w-full rounded-lg border border-crm-border bg-crm-bg px-3 py-2 text-sm text-white" /></label>}
+                        <p className="text-xs text-crm-fg-muted">La distribución modifica el costo de cada parte. Si falta verificar la participación registrada, se identifica como pendiente en el desglose.</p>
+                    </div>
 
                     <div className="flex flex-col gap-1.5">
                         <label className="text-sm font-medium text-crm-fg-muted">Nota (opcional)</label>

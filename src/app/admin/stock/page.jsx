@@ -23,8 +23,8 @@ import CrmPagination from '../../../components/crm/ui/CrmPagination';
 import VehicleFlyerPdf from '../../../components/crm/stock/VehicleFlyerPdf';
 import { useAuth } from '../../../context/AuthContext';
 import { hasPermission, PERMISSIONS } from '../../../utils/adminPermissions';
-import { formatStockMoney } from '../../../utils/inventoryStock';
 import { prepareVehicleImageOrder } from '../../../services/vehicleImageUpload';
+import AvailableInventoryValues from '../../../components/crm/stock/AvailableInventoryValues';
 
 
 export default function AdminStockPage() {
@@ -391,7 +391,7 @@ export default function AdminStockPage() {
             <div className="flex flex-col gap-6">
                 <CrmPageHeader 
                     title="Stock"
-                    subtitle="Una lista para consultar, abrir y gestionar cada unidad."
+                    subtitle="Inventario disponible para vender. Las fichas de otros estados se conservan en el historial."
                     actions={
                         <>
                             <CrmButton variant="secondary" size="sm" className="gap-2" onClick={() => window.open('/catalogo', '_blank', 'noopener,noreferrer')}>
@@ -417,21 +417,7 @@ export default function AdminStockPage() {
                     }
                 />
 
-                <div className="grid gap-3 sm:grid-cols-3">
-                    <div className="rounded-xl border border-crm-border bg-crm-surface p-4"><span className="text-xs text-crm-fg-muted">Disponible para vender</span><strong className="mt-1 block text-2xl text-emerald-400">{stockSummary.disponibles}</strong><p className="m-0 mt-1 text-xs text-crm-fg-muted">Solo unidades con estado Disponible.</p></div>
-                    <div className="rounded-xl border border-crm-border bg-crm-surface p-4"><span className="text-xs text-crm-fg-muted">Inventario completo</span><strong className="mt-1 block text-2xl text-crm-fg">{stockSummary.inventoryCount || 0}</strong><p className="m-0 mt-1 text-xs text-crm-fg-muted">{stockSummary.total} activas · {stockSummary.vendidos || 0} vendidas. Todos incluye cada estado.</p></div>
-                    <div className="rounded-xl border border-crm-border bg-crm-surface p-4"><span className="text-xs text-crm-fg-muted">Resultado actual</span><strong className="mt-1 block text-2xl text-crm-fg">{stockTab === 'mandatos' ? filteredMandates.length : total}</strong><p className="m-0 mt-1 text-xs text-crm-fg-muted">Búsqueda y subtotales sobre el filtro completo, antes de paginar.</p></div>
-                </div>
-                {canSeeCosts && stockTab !== 'mandatos' && <div className="space-y-3 rounded-xl border border-crm-border bg-crm-surface p-4 text-xs text-crm-fg">
-                    <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-                        <div><span className="block text-crm-fg-muted">Capital propio a costo · stock activo</span><strong>{formatStockMoney(stockSummary.activeMetrics?.ownCost)}</strong></div>
-                        <div><span className="block text-crm-fg-muted">Venta publicada · disponibles</span><strong>{formatStockMoney(stockSummary.availableMetrics?.asking)}</strong></div>
-                        <div><span className="block text-crm-fg-muted">Mi parte publicada · disponibles</span><strong>{formatStockMoney(stockSummary.availableMetrics?.ownAsking)}</strong></div>
-                        <div><span className="block text-crm-fg-muted">Inversor / terceros · disponibles</span><strong>{formatStockMoney(stockSummary.availableMetrics?.investorAsking)} / {formatStockMoney(stockSummary.availableMetrics?.thirdPartyAsking)}</strong></div>
-                    </div>
-                    <div className="border-t border-crm-border pt-3"><strong>Filtro completo ({total} unidades):</strong> costo {formatStockMoney(filteredMetrics?.cost)} · mi costo {formatStockMoney(filteredMetrics?.ownCost)} · mi parte publicada {formatStockMoney(filteredMetrics?.ownAsking)} · inversor {formatStockMoney(filteredMetrics?.investorAsking)} · terceros {formatStockMoney(filteredMetrics?.thirdPartyAsking)}.</div>
-                    <p className="m-0 text-crm-fg-muted">Costo y precio publicado son escenarios separados. ARS y USD se muestran sin sumar ni convertir. {stockSummary.inconsistencias?.missingCostCount || 0} unidades activas pendientes de costo. La simulación está en el detalle de cada vehículo y no guarda cambios. <a href="/admin/tesoreria" className="text-blue-400 underline">Abrir Caja y Tesorería</a></p>
-                </div>}
+                {canSeeCosts && stockTab !== 'mandatos' && <AvailableInventoryValues metrics={stockSummary.availableMetrics} filteredMetrics={filteredMetrics} hasFilter={stockTab !== 'historial' && hasActiveFilters} />}
 
                 <div className="flex flex-col">
                     <StockFilters
@@ -453,6 +439,9 @@ export default function AdminStockPage() {
                         brandOptions={brandOptions}
                         counts={stockSummary}
                     />
+
+                    <h2 className="mb-1 mt-5 text-lg font-bold text-crm-fg" data-stock-heading>{stockTab === 'mandatos' ? `Mandatos (${filteredMandates.length})` : stockTab === 'historial' ? `Historial de unidades (${total})` : hasActiveFilters ? `${total} de ${stockSummary.disponibles} disponibles` : `Inventario disponible (${stockSummary.disponibles})`}</h2>
+                    {stockTab === 'historial' && <p className="mb-3 text-xs text-crm-fg-muted">Consulta de fichas en todos los estados. Los totales de capital de arriba incluyen únicamente unidades disponibles.</p>}
 
                     {error ? (
                         <div className="rounded-xl border border-crm-red/30 bg-crm-red/10 px-6 py-5 text-center mt-4">
@@ -498,6 +487,9 @@ export default function AdminStockPage() {
                                     totalPages={pages} 
                                     onReserve={setReservingCar}
                                     totalItems={total}
+                                    showPublishedSubtotal={stockTab !== 'historial'}
+                                    isFiltered={hasActiveFilters}
+                                    filteredMetrics={filteredMetrics}
                                     filteredTotalUSD={filteredTotalUSD}
                                     filteredTotalARS={filteredTotalARS}
                                     canSeeCosts={canSeeCosts}
@@ -531,6 +523,9 @@ export default function AdminStockPage() {
                                     totalPages={pages}
                                     onReserve={setReservingCar}
                                     totalItems={total}
+                                    showPublishedSubtotal={stockTab !== 'historial'}
+                                    isFiltered={hasActiveFilters}
+                                    filteredMetrics={filteredMetrics}
                                     filteredTotalUSD={filteredTotalUSD}
                                     filteredTotalARS={filteredTotalARS}
                                     canSeeCosts={canSeeCosts}

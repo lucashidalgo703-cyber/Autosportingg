@@ -468,6 +468,14 @@ export default function VehicleFinancialSummary({ vehicle, onEdit, onPaymentSave
 
     if (vehicle?.financialAccess === false) return <CrmCard><p className="text-xs text-crm-fg-muted">Precio de venta guardado</p><strong className="text-lg text-crm-fg">{vehicle.moneda} {Number(vehicle.precioPublicado || 0).toLocaleString('es-AR')}</strong><p className="mt-2 text-xs text-crm-fg-muted">Los costos y el capital requieren permiso de Finanzas.</p></CrmCard>;
 
+    if (paymentSummary.calculationPending) return <CrmCard>
+        <h3 className="text-lg font-semibold text-white">Datos de compra pendientes de verificar</h3>
+        <p className="mt-2 text-sm text-crm-fg-muted">El costo, la moneda o la participación todavía no permiten calcular el pago de compra. Revisá los datos de la ficha antes de registrar un pago.</p>
+        <ul className="mt-3 list-disc space-y-1 pl-5 text-sm text-amber-300">{(paymentSummary.missingFields || []).map(item => <li key={item.field}>{item.message}</li>)}</ul>
+        <p className="mt-3 text-sm text-crm-fg-muted">Saldo de compra: dato pendiente.</p>
+        {onEdit && <button type="button" onClick={onEdit} className="mt-4 min-h-11 rounded-lg border border-crm-border px-4 text-sm text-white">Revisar datos de la unidad</button>}
+    </CrmCard>;
+
     return (
         <CrmCard>
             <div className="flex items-center justify-between mb-4">

@@ -5,6 +5,8 @@ import toast from 'react-hot-toast';
 import { parseArgentineMoney } from '../utils/saleCommercial';
 import CrmModal from './crm/ui/CrmModal';
 import { compressImage } from '../utils/imageCompressor';
+import { stockCurrency, stockOwnership } from '../utils/inventoryStock';
+import { changedVehiclePayload, hasVehicleFormChange, investorFormFields, validateVehicleFinancialChanges } from './crm/stock/vehicleFormIntegrity';
 
 const InputLabel = ({ children, required }) => (
     <label className="text-[10px] text-gray-400 font-medium mb-1.5 block">
@@ -12,19 +14,21 @@ const InputLabel = ({ children, required }) => (
     </label>
 );
 
-const TextInput = ({ name, value, onChange, placeholder, type="text", required }) => (
+const TextInput = ({ name, value, onChange, placeholder, type="text", required, min, max, step }) => (
     <input 
-        type={type} name={name} value={value} onChange={onChange} placeholder={placeholder} required={required}
+        type={type} name={name} value={value} onChange={onChange} placeholder={placeholder} required={required} min={min} max={max} step={step} aria-label={name === 'investorPercentage' ? 'Porcentaje real del inversor' : undefined}
         className="w-full bg-crm-surface border border-crm-border rounded-md px-3 py-2 text-xs text-white placeholder-gray-600 focus:border-red-500 focus:outline-none transition-colors"
     />
 );
 
-const SelectInput = ({ name, value, onChange, options }) => (
+const SelectInput = ({ name, value, onChange, options, required = false, placeholder }) => (
     <select 
-        name={name} value={value} onChange={onChange}
+        name={name} value={value} onChange={onChange} required={required} aria-label={({ currency: 'Moneda de venta', purchaseCurrency: 'Moneda de compra o toma', status: 'Estado operativo de la unidad' })[name] || undefined}
         className="w-full bg-crm-surface border border-crm-border rounded-md px-3 py-2 text-xs text-white focus:border-red-500 focus:outline-none transition-colors appearance-none"
         style={{ backgroundImage: 'url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns=\'http://www.w3.org/2000/svg\' viewBox=\'0 0 24 24\' fill=\'none\' stroke=\'white\' stroke-width=\'2\' stroke-linecap=\'round\' stroke-linejoin=\'round\'%3e%3cpolyline points=\'6 9 12 15 18 9\'%3e%3c/polyline%3e%3c/svg%3e")', backgroundRepeat: 'no-repeat', backgroundPosition: 'right 0.5rem center', backgroundSize: '1em' }}
     >
+        {placeholder && <option value="">{placeholder}</option>}
+        {value && !options.includes(value) && <option value={value}>Valor histórico: {value}</option>}
         {options.map((opt, i) => <option key={i} value={opt} className="bg-crm-surface text-white">{opt}</option>)}
     </select>
 );
@@ -39,6 +43,7 @@ export default function VehicleFormModal({ isOpen, onClose, onSave, editingCar, 
     const imagePreparationSession = useRef(0);
     const imageActionsDisabled = saving || preparingImages > 0;
     const editingVehicleId = editingCar?._id || editingCar?.id;
+    const initialForm = useRef(null);
 
     useEffect(() => {
         const session = ++imagePreparationSession.current;
@@ -87,27 +92,30 @@ export default function VehicleFormModal({ isOpen, onClose, onSave, editingCar, 
 
     const [formData, setFormData] = useState({
         brand: '', name: '', year: '', km: '', fuel: 'Nafta', condition: 'Muy bueno',
-        description: '', price: '', currency: 'USD', featured: false, sold: false, status: 'Disponible',
-        vehicleType: 'Auto', plateOrVin: '', color: '', purchasePrice: '', purchaseCurrency: 'USD',
+        description: '', price: '', currency: '', featured: false, sold: false, status: 'Disponible',
+        vehicleType: 'Auto', plateOrVin: '', color: '', purchasePrice: '', purchaseCurrency: '',
         location: 'Salón Principal', owners: '1', agencyOwned: false, ownerName: '', linkedClient: '',
         ownerPhone: '', ownerEmail: '', consignedBy: '', engineNumber: '', chassisNumber: '',
         hasManuals: 'No', hasDuplicateKeys: 'No', hasOfficialServices: 'No', publishedOnML: 'No',
         publishedBy: '', mlLink: '', notes: '', visibleEnWeb: true,
-        isSharedInvestment: false, investorName: '', investorPercentage: 50,
+        isSharedInvestment: false, investorName: '', investorPercentage: '',
         receivedAsTradeIn: false, tradeInOriginSaleId: '', tradeInOriginItemId: '',
-        tradeInOriginValue: '', tradeInOriginCurrency: 'ARS'
+        tradeInOriginValue: '', tradeInOriginCurrency: ''
     });
 
     useEffect(() => {
         if (isOpen) {
             if (editingCar) {
-                setFormData({
+                const ownership = stockOwnership(editingCar);
+                const initial = {
                     ...editingCar,
                     vehicleType: editingCar.vehicleType || 'Auto',
                     condition: editingCar.condition || 'Muy bueno',
-                    currency: editingCar.currency || 'USD',
-                    status: editingCar.status || 'Disponible',
-                    purchaseCurrency: editingCar.purchaseCurrency || 'USD',
+                    price: editingCar.price ?? '',
+                    purchasePrice: editingCar.purchasePrice ?? '',
+                    currency: stockCurrency(editingCar.currency) || '',
+                    status: editingCar.status || '',
+                    purchaseCurrency: stockCurrency(editingCar.purchaseCurrency) || '',
                     location: editingCar.location || 'Salón Principal',
                     owners: editingCar.owners || '1',
                     hasManuals: editingCar.hasManuals || 'No',
@@ -115,17 +123,19 @@ export default function VehicleFormModal({ isOpen, onClose, onSave, editingCar, 
                     hasOfficialServices: editingCar.hasOfficialServices || 'No',
                     publishedOnML: editingCar.publishedOnML || 'No',
                     visibleEnWeb: editingCar.visibleEnWeb !== undefined ? editingCar.visibleEnWeb : true,
-                    isSharedInvestment: !!(editingCar.investor && editingCar.investor.percentage > 0),
-                    investorName: editingCar.investor?.name || '',
-                    investorPercentage: editingCar.investor?.percentage || 50,
+                    isSharedInvestment: Boolean(ownership.investorName || editingCar.jointOwnership?.hasPartner || editingCar.purchasePaymentState?.isSharedInvestment || editingCar.investor?.percentage > 0),
+                    investorName: ownership.investorName || '',
+                    investorPercentage: ownership.ownershipKnown ? ownership.investorPct ?? '' : '',
                     receivedAsTradeIn: Boolean(editingCar.tradeInOrigin?.saleId),
                     tradeInOriginSaleId: editingCar.tradeInOrigin?.saleId || '',
                     tradeInOriginItemId: editingCar.tradeInOrigin?.tradeInId || '',
                     tradeInOriginValue: editingCar.tradeInOrigin?.value ?? '',
-                    tradeInOriginCurrency: editingCar.tradeInOrigin?.currency || editingCar.purchaseCurrency || 'ARS',
+                    tradeInOriginCurrency: stockCurrency(editingCar.tradeInOrigin?.currency) || '',
                     imagePosition: editingCar.imagePosition || '50% 75%',
                     imagePositions: editingCar.imagePositions || []
-                });
+                };
+                initialForm.current = initial;
+                setFormData(initial);
                 
                 // Load existing images if editing
                 if (editingCar.images && editingCar.images.length > 0) {
@@ -139,17 +149,18 @@ export default function VehicleFormModal({ isOpen, onClose, onSave, editingCar, 
                     setFiles([]);
                 }
             } else {
+                initialForm.current = null;
                 setFormData({
                     brand: '', name: '', year: '', km: '', fuel: 'Nafta', condition: 'Muy bueno',
-                    description: '', price: '', currency: 'USD', featured: false, sold: false, status: 'Disponible',
-                    vehicleType: 'Auto', plateOrVin: '', color: '', purchasePrice: '', purchaseCurrency: 'USD',
+                    description: '', price: '', currency: '', featured: false, sold: false, status: 'Disponible',
+                    vehicleType: 'Auto', plateOrVin: '', color: '', purchasePrice: '', purchaseCurrency: '',
                     location: 'Salón Principal', owners: '1', agencyOwned: false, ownerName: '', linkedClient: '',
                     ownerPhone: '', ownerEmail: '', consignedBy: '', engineNumber: '', chassisNumber: '',
                     hasManuals: 'No', hasDuplicateKeys: 'No', hasOfficialServices: 'No', publishedOnML: 'No',
                     publishedBy: '', mlLink: '', notes: '', visibleEnWeb: true,
-                    isSharedInvestment: false, investorName: '', investorPercentage: 50,
+                    isSharedInvestment: false, investorName: '', investorPercentage: '',
                     receivedAsTradeIn: false, tradeInOriginSaleId: '', tradeInOriginItemId: '',
-                    tradeInOriginValue: '', tradeInOriginCurrency: 'ARS',
+                    tradeInOriginValue: '', tradeInOriginCurrency: '',
                     imagePosition: '50% 75%',
                     imagePositions: []
                 });
@@ -184,7 +195,8 @@ export default function VehicleFormModal({ isOpen, onClose, onSave, editingCar, 
         setFormData(prev => {
             const next = {
                 ...prev,
-                [name]: type === 'checkbox' ? checked : value
+                [name]: type === 'checkbox' ? checked : value,
+                ...(name === 'isSharedInvestment' && checked && !prev.isSharedInvestment ? { investorPercentage: '' } : {})
             };
             if (name === 'receivedAsTradeIn' && checked) {
                 next.agencyOwned = true;
@@ -198,7 +210,7 @@ export default function VehicleFormModal({ isOpen, onClose, onSave, editingCar, 
                         const t = unlinked[0];
                         next.tradeInOriginItemId = t._id || '';
                         next.tradeInOriginValue = t.estimatedValue ?? next.tradeInOriginValue;
-                        next.tradeInOriginCurrency = t.currency === 'USD' ? 'USD' : 'ARS';
+                        next.tradeInOriginCurrency = stockCurrency(t.currency) || '';
                         next.purchasePrice = t.estimatedValue ?? next.purchasePrice;
                         next.purchaseCurrency = next.tradeInOriginCurrency;
                         if (!next.brand && t.brand) next.brand = t.brand;
@@ -214,7 +226,7 @@ export default function VehicleFormModal({ isOpen, onClose, onSave, editingCar, 
                 const t = (sale?.tradeIns || []).find(item => String(item._id) === String(value));
                 if (t) {
                     next.tradeInOriginValue = t.estimatedValue ?? next.tradeInOriginValue;
-                    next.tradeInOriginCurrency = t.currency === 'USD' ? 'USD' : 'ARS';
+                    next.tradeInOriginCurrency = stockCurrency(t.currency) || '';
                     next.purchasePrice = t.estimatedValue ?? next.purchasePrice;
                     next.purchaseCurrency = next.tradeInOriginCurrency;
                     if (!next.brand && t.brand) next.brand = t.brand;
@@ -230,6 +242,7 @@ export default function VehicleFormModal({ isOpen, onClose, onSave, editingCar, 
             if (name === 'tradeInOriginCurrency' && prev.receivedAsTradeIn) {
                 next.purchaseCurrency = value;
             }
+            if (name === 'purchaseCurrency' && prev.receivedAsTradeIn) next.tradeInOriginCurrency = value;
             return next;
         });
     };
@@ -296,6 +309,8 @@ export default function VehicleFormModal({ isOpen, onClose, onSave, editingCar, 
     const handleSubmit = (e) => {
         e.preventDefault();
         if (saving || preparingImages > 0) return;
+        const financialError = validateVehicleFinancialChanges(formData, editingCar ? initialForm.current : null);
+        if (financialError) { toast.error(financialError); return; }
         
         if (formData.receivedAsTradeIn) {
             if (!formData.tradeInOriginSaleId) {
@@ -364,11 +379,16 @@ export default function VehicleFormModal({ isOpen, onClose, onSave, editingCar, 
         if (Array.isArray(dataToSave.imagePositions)) {
             dataToSave.imagePositions = JSON.stringify(dataToSave.imagePositions);
         }
-        onSave(dataToSave, files);
+        if (!editingCar && !dataToSave.purchasePrice) { delete dataToSave.purchasePrice; if (!dataToSave.purchaseCurrency) delete dataToSave.purchaseCurrency; }
+        const finalData = editingCar ? changedVehiclePayload(dataToSave, initialForm.current, formData, {
+            purchasePriceChangeType: ['purchasePrice'], purchasePriceJustification: ['purchasePrice'], purchasePriceExpenseConcept: ['purchasePrice']
+        }) : dataToSave;
+        onSave(finalData, files);
     };
 
 
 
+    const investmentChanged = !editingCar || hasVehicleFormChange(formData, initialForm.current, investorFormFields);
     const modalTitle = (
         <div>
             <h2 className="text-lg font-bold text-white tracking-tight">{editingCar ? 'Editar vehículo' : 'Nuevo vehículo'}</h2>
@@ -426,16 +446,18 @@ export default function VehicleFormModal({ isOpen, onClose, onSave, editingCar, 
                             </div>
                             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                                 <div><InputLabel required>Kilómetros</InputLabel><TextInput name="km" value={formData.km} onChange={handleChange} type="number" required /></div>
-                                <div><InputLabel required>Precio de venta</InputLabel><TextInput name="price" value={formData.price} onChange={handleChange} type="number" required /></div>
-                                <div><InputLabel>Moneda venta</InputLabel><SelectInput name="currency" value={formData.currency} onChange={handleChange} options={['USD', 'ARS']} /></div>
+                                <div><InputLabel required>Precio de venta</InputLabel><TextInput name="price" value={formData.price} onChange={handleChange} type="number" required={!editingCar || hasVehicleFormChange(formData, initialForm.current, ['price'])} /></div>
+                                <div><InputLabel required>Moneda venta</InputLabel><SelectInput name="currency" value={formData.currency} onChange={handleChange} options={['USD', 'ARS']} placeholder="Elegir moneda" required={!editingCar || hasVehicleFormChange(formData, initialForm.current, ['price', 'currency']) && Number(parseArgentineMoney(formData.price)) > 0} /></div>
                                 
                                 <div><InputLabel>Precio compra / toma (opcional)</InputLabel><TextInput name="purchasePrice" value={formData.purchasePrice} onChange={handleChange} type="text" placeholder="0" /></div>
+                                <div><InputLabel>Moneda compra / toma</InputLabel><SelectInput name="purchaseCurrency" value={formData.purchaseCurrency} onChange={handleChange} options={['USD', 'ARS']} placeholder="Elegir moneda" required={(!editingCar || hasVehicleFormChange(formData, initialForm.current, ['purchasePrice', 'purchaseCurrency'])) && Number(parseArgentineMoney(formData.purchasePrice)) > 0} /></div>
                                 <div><InputLabel required>Condición</InputLabel><SelectInput name="condition" value={formData.condition} onChange={handleChange} options={['0 km', 'Excelente', 'Muy bueno', 'Bueno', 'Regular']} /></div>
                                 <div><InputLabel>Combustible</InputLabel><SelectInput name="fuel" value={formData.fuel} onChange={handleChange} options={['Nafta', 'Diésel', 'GNC', 'Híbrido', 'Eléctrico']} /></div>
-                                <div><InputLabel>Estado inicial</InputLabel><SelectInput name="status" value={formData.status} onChange={handleChange} options={['Disponible', 'Reservado', 'Señado', 'Vendido', 'En preparación']} /></div>
+                                <div><InputLabel>Estado operativo</InputLabel><SelectInput name="status" value={formData.status} onChange={handleChange} options={['Disponible', 'Reservado', 'Vendido', 'Pausado']} placeholder="Sin estado verificable" required={!editingCar || hasVehicleFormChange(formData, initialForm.current, ['status'])} /></div>
 
                                 <div><InputLabel required>Ubicación</InputLabel><SelectInput name="location" value={formData.location} onChange={handleChange} options={['Salón Principal', 'Depósito', 'Con cliente', 'Taller Mecánico', 'Taller Chapa y Pintura', 'Otra']} /></div>
                             </div>
+                            <p className="mt-3 text-[11px] text-gray-400">Elegí la moneda de venta y la de compra por separado. Podés dejar el costo pendiente; al ingresar un costo, su moneda es obligatoria. Al editar, guardar otro dato conserva los campos pendientes.</p>
 
                             {editingCar && Math.abs(Number(formData.purchasePrice || 0) - Number(editingCar.purchasePrice ?? editingCar.precioCompra ?? 0)) > 0.001 && (
                                 <div className="mt-4 flex flex-col gap-3 rounded-xl border border-amber-500/40 bg-amber-500/10 p-3.5">
@@ -777,7 +799,7 @@ export default function VehicleFormModal({ isOpen, onClose, onSave, editingCar, 
                                     <input type="checkbox" name="isSharedInvestment" checked={formData.isSharedInvestment} onChange={handleChange} className="w-4 h-4 rounded border-gray-600 text-blue-500 focus:ring-blue-500 bg-crm-surface-raised" />
                                     <div>
                                         <span className="text-xs font-bold text-white block">Vehículo con inversión compartida</span>
-                                        <span className="text-[10px] text-gray-500">El auto fue comprado a medias con un inversionista.</span>
+                                        <span className="text-[10px] text-gray-500">Participación real del inversor, incluido el caso 100% del inversor.</span>
                                     </div>
                                 </label>
 
@@ -791,7 +813,7 @@ export default function VehicleFormModal({ isOpen, onClose, onSave, editingCar, 
                                                 value={formData.investorName}
                                                 onChange={handleChange}
                                                 placeholder="Seleccionar empresa cargada o ingresar nombre..."
-                                                required={formData.isSharedInvestment}
+                                                required={formData.isSharedInvestment && investmentChanged}
                                                 className="w-full bg-crm-surface-raised border border-crm-border text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-red-500 focus:ring-1 focus:ring-red-500"
                                             />
                                             <datalist id="loaded-companies-datalist">
@@ -803,8 +825,8 @@ export default function VehicleFormModal({ isOpen, onClose, onSave, editingCar, 
                                         </div>
                                         <div>
                                             <InputLabel required>Porcentaje del Inversionista (%)</InputLabel>
-                                            <TextInput name="investorPercentage" type="number" value={formData.investorPercentage} onChange={handleChange} placeholder="Ej: 50" required={formData.isSharedInvestment} />
-                                            <p className="text-[10px] text-blue-400 mt-1">La agencia retiene el {100 - (Number(formData.investorPercentage) || 0)}%</p>
+                                            <TextInput name="investorPercentage" type="number" value={formData.investorPercentage} onChange={handleChange} placeholder="Porcentaje registrado" min="0.01" max="100" step="0.01" required={formData.isSharedInvestment && investmentChanged} />
+                                            <p className="text-[10px] text-blue-400 mt-1">{formData.investorPercentage === '' ? 'Participación propia pendiente de verificar.' : `La agencia retiene el ${100 - Number(formData.investorPercentage)}%.`}</p>
                                         </div>
                                     </div>
                                 )}
