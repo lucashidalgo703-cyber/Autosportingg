@@ -77,7 +77,7 @@ export class EmailAdapter {
         throw new Error('Integracion de Correo no configurada.');
     }
 
-    static async sendEmail(to, subject, html, attachments = [], options = {}) {
+    static async sendEmail(to, subject, html, attachments = [], options = {}, messageOptions = {}) {
         if (!this.isConfigured()) {
             throw new Error('Integracion de Correo no configurada.');
         }
@@ -88,6 +88,7 @@ export class EmailAdapter {
             from: process.env.SMTP_FROM || process.env.SMTP_USER,
             to,
             subject,
+            ...(typeof messageOptions.text === 'string' ? { text: messageOptions.text } : {}),
             html,
             attachments
         };

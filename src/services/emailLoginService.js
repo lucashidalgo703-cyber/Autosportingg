@@ -66,6 +66,26 @@ const buildEmail = (user, code, req) => {
     const { browser, os } = describeLoginDevice(req);
     return {
         subject: `AutoSporting | Solicitud de ingreso de ${name}`,
+        text: [
+            'AutoSporting | Solicitud de ingreso pendiente',
+            '',
+            'Las credenciales de la cuenta fueron validadas, pero el ingreso al CRM todavía está pendiente.',
+            'La sesión se habilitará únicamente al verificar este código en la solicitud que lo generó.',
+            '',
+            'Cuenta que solicita acceso: ' + name + ' (' + user.email + ')',
+            'Fecha y hora argentina: ' + date,
+            'Navegador: ' + browser,
+            'Sistema operativo: ' + os,
+            '',
+            'Código de verificación:',
+            code,
+            '',
+            'El código vence en 5 minutos, permite hasta 5 intentos y se usa una sola vez.',
+            'Si se solicita un nuevo código, el anterior deja de funcionar.',
+            '',
+            'Si no reconocés esta solicitud, no compartas el código.',
+            'Este correo es el aviso de seguridad y la solicitud de verificación.'
+        ].join('\n'),
         html: `<div style="font-family:Arial,sans-serif;color:#18181b;max-width:600px;margin:auto;padding:24px">
 <h1 style="font-size:24px">Solicitud de ingreso pendiente</h1>
 <p>Las credenciales de la cuenta fueron validadas, pero <strong>el ingreso al CRM todavía está pendiente</strong>. La sesión se habilitará únicamente al verificar este código en la solicitud que lo generó.</p>
@@ -112,8 +132,8 @@ const pendingPayload = (challenge, challengeId, emailSent, message) => ({
 const sendReservedCode = async (challenge, challengeId, user, code, req) => {
     try {
         const recipient = getRecipient();
-        const { subject, html } = buildEmail(user, code, req);
-        const info = await EmailAdapter.sendEmail(recipient, subject, html, [], { connectionTimeout: 10000, greetingTimeout: 10000, socketTimeout: 15000 });
+        const { subject, html, text } = buildEmail(user, code, req);
+        const info = await EmailAdapter.sendEmail(recipient, subject, html, [], { connectionTimeout: 10000, greetingTimeout: 10000, socketTimeout: 15000 }, { text });
         // SMTP can resolve a request whose recipients were all rejected.
         if (Array.isArray(info?.rejected) && info.rejected.length > 0) throw new Error('Recipient rejected');
         const sent = await LoginChallenge.findOneAndUpdate({

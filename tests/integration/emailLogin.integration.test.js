@@ -52,18 +52,42 @@ const smtp = net.createServer(socket => {
     });
 });
 
+// Decode the actual SMTP MIME parts, including multipart/alternative and folded headers.
 function decodedMessage(raw) {
-    const split = raw.indexOf('\r\n\r\n');
-    const headers = raw.slice(0, split).replace(/\r\n[ \t]+/g, ' ');
-    let body = raw.slice(split + 4);
-    if (/Content-Transfer-Encoding: base64/i.test(headers)) body = Buffer.from(body.replace(/\s/g, ''), 'base64').toString('utf8');
-    else if (/Content-Transfer-Encoding: quoted-printable/i.test(headers)) {
-        body = Buffer.from(body.replace(/=\r\n/g, '').replace(/=([0-9A-F]{2})/gi, (_, hex) => String.fromCharCode(parseInt(hex, 16))), 'latin1').toString('utf8');
-    }
-    const subject = (headers.match(/^Subject: (.*)$/mi)?.[1] || '').replace(/=\?UTF-8\?([BQ])\?([^?]*)\?=/gi, (_, encoding, data) => (
+    const splitPart = value => {
+        const split = value.indexOf('\r\n\r\n');
+        assert.ok(split >= 0, 'El mensaje MIME debe contener cabeceras y cuerpo');
+        return { headers: value.slice(0, split).replace(/\r\n[ \t]+/g, ' '), body: value.slice(split + 4) };
+    };
+    const decodeBody = ({ headers, body }) => {
+        if (/^Content-Transfer-Encoding: base64/im.test(headers)) return Buffer.from(body.replace(/\s/g, ''), 'base64').toString('utf8');
+        if (/^Content-Transfer-Encoding: quoted-printable/im.test(headers)) {
+            return Buffer.from(body.replace(/=\r\n/g, '').replace(/=([0-9A-F]{2})/gi, (_, hex) => String.fromCharCode(parseInt(hex, 16))), 'latin1').toString('utf8');
+        }
+        return body;
+    };
+    const leaves = [];
+    const parsePart = value => {
+        const part = splitPart(value);
+        const contentType = part.headers.match(/^Content-Type:\s*([^\r\n]+)/im)?.[1] || 'text/plain';
+        if (/^multipart\//i.test(contentType)) {
+            const boundary = contentType.match(/boundary\s*=\s*(?:"([^"]+)"|([^;\s]+))/i);
+            assert.ok(boundary, 'El mensaje multipart debe declarar su separador');
+            for (const child of part.body.split('--' + (boundary[1] || boundary[2])).slice(1)) {
+                if (child.startsWith('--')) break;
+                parsePart(child.replace(/^\r\n/, '').replace(/\r\n$/, ''));
+            }
+        } else leaves.push({ type: contentType.split(';')[0].trim().toLowerCase(), body: decodeBody(part) });
+        return contentType;
+    };
+    const { headers } = splitPart(raw);
+    const subject = (headers.match(/^Subject: (.*)$/mi)?.[1] || '').replace(/(\?=)\s+(=\?)/g, '$1$2').replace(/=\?UTF-8\?([BQ])\?([^?]*)\?=/gi, (_, encoding, data) => (
         encoding.toUpperCase() === 'B' ? Buffer.from(data, 'base64').toString('utf8') : Buffer.from(data.replace(/_/g, ' ').replace(/=([0-9A-F]{2})/gi, (m, h) => String.fromCharCode(parseInt(h, 16))), 'latin1').toString('utf8')
     ));
-    return { subject, body };
+    const contentType = parsePart(raw);
+    const html = leaves.find(part => part.type === 'text/html')?.body || '';
+    const text = leaves.find(part => part.type === 'text/plain')?.body || '';
+    return { subject, body: html || text, html, text, contentType };
 }
 
 const seenCodes = new Set();
@@ -168,13 +192,19 @@ try {
             assert.ok(!response.json.token);
             const mail = smtpMessages.at(-1);
             assert.deepEqual(mail.recipients, ['administrador@example.test']);
-            const { body, subject } = decodedMessage(mail.raw);
+            const { html, text, subject, contentType } = decodedMessage(mail.raw);
             assert.equal(subject, `AutoSporting | Solicitud de ingreso de ${user.name}`);
-            assert.ok(body.includes(user.email), 'Debe identificar la cuenta solicitante');
-            assert.ok(/pendiente/i.test(body), 'Debe aclarar que el acceso está pendiente');
-            assert.ok(/Windows/i.test(body) && /Chrome/i.test(body), 'Debe mostrar navegador y sistema');
-            assert.ok(/Argentina|Buenos_Aires|argent|ART/i.test(body), 'Debe indicar hora argentina');
-            readCode(mail);
+            assert.ok(/^multipart\/alternative(?:;|$)/i.test(contentType), 'Debe enviar un solo correo con alternativas HTML y texto');
+            for (const version of [html, text]) {
+                assert.ok(version.includes(user.name) && version.includes(user.email), 'Cada versión debe identificar la cuenta solicitante');
+                assert.ok(/ingreso al CRM todavía está pendiente/i.test(version.replace(/<[^>]+>/g, '')), 'Cada versión debe aclarar que el acceso sigue pendiente');
+                assert.ok(/Windows/i.test(version) && /Chrome/i.test(version), 'Cada versión debe mostrar navegador y sistema');
+                assert.ok(/Fecha y hora argentina/i.test(version), 'Cada versión debe indicar hora argentina');
+                assert.ok(/5 minutos/i.test(version) && /5 intentos/i.test(version), 'Cada versión debe explicar vencimiento e intentos');
+            }
+            const htmlCode = readCode(mail);
+            const textCode = text.match(/^([0-9]{6})$/m)?.[1];
+            assert.ok(textCode === htmlCode, 'HTML y texto deben contener el mismo código sin exponerlo en la prueba');
         }
         assert.equal(smtpMessages.length, 3);
     });
