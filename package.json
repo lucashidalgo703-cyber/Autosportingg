@@ -11,7 +11,11 @@
     "check": "node --check server.js && npm run lint && node scripts/validate-codebase.js",
     "api": "node server.js",
     "test:smoke": "playwright test",
-    "test:help": "node tests/helpRegistry.test.js"
+    "test:help": "node tests/helpRegistry.test.js",
+    "test:auth": "node tests/integration/emailLogin.integration.test.js",
+    "dev:auth-preview": "node scripts/start-email-login-preview.js",
+    "auth:indexes": "node scripts/create-auth-indexes.js",
+    "test:auth:browser": "node tests/browser/emailLogin.browser.mjs"
   },
   "dependencies": {
     "@vercel/analytics": "^1.6.1",
@@ -47,6 +51,8 @@
     "eslint-config-next": "^16.2.9",
     "eslint-plugin-react-hooks": "^7.1.1",
     "postcss": "^8.5.15",
-    "tailwindcss": "^3.4.0"
+    "tailwindcss": "^3.4.0",
+    "mongodb-memory-server": "^11.3.0",
+    "playwright": "^1.65.1"
   }
 }

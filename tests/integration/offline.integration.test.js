@@ -1,5 +1,4 @@
 import assert from 'node:assert/strict';
-import jwt from 'jsonwebtoken';
 import { boot } from './harness.js';
 import Car from '../../src/models/Car.js';
 import Client from '../../src/models/Client.js';
@@ -29,7 +28,7 @@ function createMemoryStorage() {
     };
 }
 
-const { call: apiCall, test, finish, base: baseUrl } = await boot();
+const { call: apiCall, test, finish, base: baseUrl, token } = await boot();
 console.log('Etapa 4 — Uso del CRM sin Conexión (Modo Offline v1)');
 
 await test('Preparación del dispositivo: descarga stock, clientes, ventas, cuotas y gastos autorizados sin exponer Tesorería Estratégica privada y soporta opción con/sin fotos', async () => {
@@ -107,11 +106,7 @@ await test('Preparación del dispositivo: descarga stock, clientes, ventas, cuot
             ...opts,
             headers: {
                 ...(opts.headers || {}),
-                Authorization: `Bearer ${jwt.sign(
-                    { id: 'user_owner_1', username: 'owner_test', role: 'owner' },
-                    process.env.JWT_SECRET,
-                    { expiresIn: '2h' }
-                )}`
+                Authorization: `Bearer ${token}`
             }
         });
     };

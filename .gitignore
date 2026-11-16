@@ -27,3 +27,6 @@ dist-ssr
 
 .vercel
 .env*
+
+# Isolated local authentication preview
+.next-email-login-preview

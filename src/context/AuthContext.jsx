@@ -3,31 +3,29 @@ import { clearOfflineData } from '../services/offlineSyncService';
 
 const AuthContext = createContext(null);
 
+const decodeToken = (token) => {
+    try {
+        const base64 = token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/');
+        const payload = decodeURIComponent(atob(base64).split('').map((c) => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2)).join(''));
+        return JSON.parse(payload);
+    } catch {
+        return null;
+    }
+};
+
+const isTokenValid = (token) => {
+    const decoded = decodeToken(token);
+    return Boolean(decoded?.type === 'session' && decoded.emailVerified === true &&
+        Number.isFinite(decoded.exp) && decoded.exp * 1000 > Date.now());
+};
+
+const authBaseUrl = () => process.env.NODE_ENV === 'production' ? '' : (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001');
+
 export const AuthProvider = ({ children }) => {
     const [isAuthenticated, setIsAuthenticated] = useState(false);
     const [user, setUser] = useState(null);
     const [token, setToken] = useState(null);
     const [loading, setLoading] = useState(true);
-
-    const decodeToken = (token) => {
-        try {
-            const base64Url = token.split('.')[1];
-            const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
-            const jsonPayload = decodeURIComponent(atob(base64).split('').map(function(c) {
-                return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
-            }).join(''));
-            return JSON.parse(jsonPayload);
-        } catch (e) {
-            return null;
-        }
-    };
-
-    const isTokenValid = (token) => {
-        const decoded = decodeToken(token);
-        if (!decoded) return false;
-        if (decoded.exp && decoded.exp * 1000 <= Date.now()) return false;
-        return true;
-    };
 
     const clearSession = useCallback(() => {
         try {
@@ -44,90 +42,105 @@ export const AuthProvider = ({ children }) => {
 
     useEffect(() => {
         let cancelled = false;
-
+        const controller = new AbortController();
         const restoreSession = async () => {
             const storedToken = localStorage.getItem('token');
-
             if (!storedToken || !isTokenValid(storedToken)) {
-                if (storedToken) localStorage.removeItem('token');
-                if (!cancelled) setLoading(false);
+                if (!cancelled) {
+                    clearSession();
+                    setLoading(false);
+                }
                 return;
             }
-
             try {
-                const response = await fetch('/api/admin/auth/me', {
-                    headers: { Authorization: `Bearer ${storedToken}` },
-                    cache: 'no-store'
+                const response = await fetch(authBaseUrl() + '/api/admin/auth/me', {
+                    headers: { Authorization: 'Bearer ' + storedToken },
+                    cache: 'no-store',
+                    signal: controller.signal
                 });
-
-                if (response.status === 401) {
-                    if (!cancelled) {
-                        clearSession();
-                        setLoading(false);
-                    }
-                    return;
+                if (!response.ok) throw new Error('Session rejected');
+                if (!cancelled && localStorage.getItem('token') === storedToken && isTokenValid(storedToken)) {
+                    setToken(storedToken);
+                    setIsAuthenticated(true);
+                    setUser(decodeToken(storedToken));
                 }
-            } catch (error) {
-                console.warn('No se pudo validar la sesion contra el servidor:', error.message);
+            } catch {
+                if (!cancelled) clearSession();
+            } finally {
+                if (!cancelled) setLoading(false);
             }
-
-            if (!cancelled) {
-                setToken(storedToken);
-                setIsAuthenticated(true);
-                setUser(decodeToken(storedToken));
-            }
-
-            if (!cancelled) setLoading(false);
         };
-
         restoreSession();
-
         return () => {
             cancelled = true;
+            controller.abort();
         };
     }, [clearSession]);
 
     useEffect(() => {
-        const handleAuthExpired = () => {
-            clearSession();
-        };
-
-        window.addEventListener('autosporting-auth-expired', handleAuthExpired);
-        return () => window.removeEventListener('autosporting-auth-expired', handleAuthExpired);
-    }, [clearSession]);
-
-    const login = (token) => {
-        if (!token || !isTokenValid(token)) {
+        if (!token) return;
+        const decoded = decodeToken(token);
+        const remaining = decoded?.exp * 1000 - Date.now();
+        if (!Number.isFinite(remaining) || remaining <= 0) {
             clearSession();
             return;
         }
+        const timer = setTimeout(clearSession, remaining);
+        return () => clearTimeout(timer);
+    }, [token, clearSession]);
 
-        localStorage.setItem('token', token);
-        setToken(token);
-        setIsAuthenticated(true);
-        setUser(decodeToken(token));
-    };
+    useEffect(() => {
+        const handleAuthExpired = () => clearSession();
+        const handleStorage = (event) => {
+            if (event.key !== 'token' || event.newValue === event.oldValue) return;
+            if (event.newValue === null) clearSession();
+            else window.location.reload();
+        };
+        window.addEventListener('autosporting-auth-expired', handleAuthExpired);
+        window.addEventListener('storage', handleStorage);
+        return () => {
+            window.removeEventListener('autosporting-auth-expired', handleAuthExpired);
+            window.removeEventListener('storage', handleStorage);
+        };
+    }, [clearSession]);
 
-    const logout = () => {
-        clearSession();
-    };
-
-    const getToken = () => {
-        if (typeof window !== 'undefined') {
-            const storedToken = localStorage.getItem('token');
-            return storedToken && isTokenValid(storedToken) ? storedToken : null;
+    const login = useCallback((sessionToken) => {
+        if (!sessionToken || !isTokenValid(sessionToken)) {
+            clearSession();
+            return false;
         }
-        return null;
-    };
+        localStorage.setItem('token', sessionToken);
+        setToken(sessionToken);
+        setIsAuthenticated(true);
+        setUser(decodeToken(sessionToken));
+        return true;
+    }, [clearSession]);
 
-    const validateSession = () => {
-        const validToken = getToken();
-        if (!validToken) {
+    const logout = useCallback(() => {
+        const storedToken = localStorage.getItem('token');
+        clearSession();
+        if (storedToken && isTokenValid(storedToken)) {
+            void fetch(authBaseUrl() + '/api/logout', {
+                method: 'POST',
+                headers: { Authorization: 'Bearer ' + storedToken },
+                keepalive: true
+            }).catch(() => {});
+        }
+    }, [clearSession]);
+
+    const getToken = useCallback(() => {
+        if (typeof window === 'undefined') return null;
+        const storedToken = localStorage.getItem('token');
+        return storedToken && isTokenValid(storedToken) ? storedToken : null;
+    }, []);
+
+    const validateSession = useCallback(() => {
+        if (!getToken()) {
             clearSession();
             return false;
         }
         return true;
-    };
+    }, [getToken, clearSession]);
 
     return (
         <AuthContext.Provider value={{ isAuthenticated, user, login, logout, loading, token, getToken, validateSession }}>
@@ -138,8 +151,6 @@ export const AuthProvider = ({ children }) => {
 
 export const useAuth = () => {
     const context = useContext(AuthContext);
-    if (!context) {
-        throw new Error('useAuth must be used within an AuthProvider');
-    }
+    if (!context) throw new Error('useAuth must be used within an AuthProvider');
     return context;
 };

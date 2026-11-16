@@ -2,7 +2,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '../context/AuthContext';
-import { Lock, KeyRound, ArrowLeft, Eye, EyeOff, ShieldCheck, CheckCircle2, ArrowRight, AlertTriangle, Cpu } from 'lucide-react';
+import { KeyRound, Mail, ArrowLeft, Eye, EyeOff, CheckCircle2, ArrowRight, AlertTriangle, Cpu } from 'lucide-react';
 
 const Login = () => {
   const [email, setEmail] = useState('');
@@ -19,12 +19,59 @@ const Login = () => {
 
   // 2FA state
   const [challengeId, setChallengeId] = useState(null);
+  const [challengeStep, setChallengeStep] = useState('email');
+  const [emailSent, setEmailSent] = useState(false);
+  const [expiresAt, setExpiresAt] = useState(null);
+  const [resendAvailableAt, setResendAvailableAt] = useState(null);
+  const [attemptsRemaining, setAttemptsRemaining] = useState(5);
+  const [now, setNow] = useState(0);
   const [twoFactorCode, setTwoFactorCode] = useState('');
   const [recoveryMode, setRecoveryMode] = useState(false);
 
-  const { login } = useAuth();
+  const { login, logout } = useAuth();
   const router = useRouter();
   const canvasRef = useRef(null);
+
+  useEffect(() => {
+    if (!challengeId) return;
+    const timer = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(timer);
+  }, [challengeId]);
+
+  const resendWait = Math.max(0, Math.ceil((new Date(resendAvailableAt).getTime() - now) / 1000));
+  const expiryWait = expiresAt ? Math.max(0, Math.ceil((new Date(expiresAt).getTime() - now) / 1000)) : 0;
+  const codeExpired = Boolean(expiresAt) && expiryWait === 0;
+
+  const requestAuth = async (path, payload) => {
+    const baseUrl = process.env.NODE_ENV === 'production' ? '' : (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001');
+    const response = await fetch(baseUrl + path, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    return { response, data: await response.json() };
+  };
+
+  const updateEmailChallenge = (data) => {
+    setChallengeId(data.challengeId);
+    setChallengeStep('email');
+    setEmailSent(data.emailSent === true);
+    setExpiresAt(data.expiresAt || null);
+    setResendAvailableAt(data.resendAvailableAt || null);
+    setAttemptsRemaining(5);
+    setTwoFactorCode('');
+    setNow(Date.now());
+    setError(data.emailSent ? '' : (data.message || 'No se pudo enviar el correo. Tu acceso sigue pendiente. Reintentá el envío cuando se habilite el botón.'));
+  };
+
+  const completeLogin = (data) => {
+    if (!login(data.token)) {
+      setError('No se pudo validar la sesión. Volvé a iniciar sesión.');
+      return;
+    }
+    setWelcomeUserName(data.name || email.split('@')[0] || 'Operador');
+    setAuthSuccess(true);
+  };
 
   // Matrix Rain Canvas Effect
   useEffect(() => {
@@ -126,36 +173,66 @@ const Login = () => {
 
   const handleLoginSubmit = async (e) => {
     e.preventDefault();
+    logout();
     setError('');
     setLoading(true);
-
     try {
-      const API_URL = process.env.NEXT_PUBLIC_API_URL;
-      const baseUrl = process.env.NODE_ENV === 'production' ? '' : (API_URL || 'http://localhost:3001');
-      const response = await fetch(`${baseUrl}/api/login`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ email: email.trim(), password }),
-      });
+      const { response, data } = await requestAuth('/api/login', { email: email.trim(), password });
+      if (response.ok && data.requireEmailVerification && data.challengeId) {
+        setPassword('');
+        updateEmailChallenge(data);
+      } else {
+        setError(data.message || 'No se pudo iniciar la verificación por correo.');
+      }
+    } catch {
+      setError('Error de conexión con el servidor. Volvé a intentar.');
+    } finally {
+      setLoading(false);
+    }
+  };
 
-      const data = await response.json();
-
+  const handleEmailSubmit = async (e) => {
+    e.preventDefault();
+    setError('');
+    setLoading(true);
+    try {
+      const { response, data } = await requestAuth('/api/login/email/verify', { challengeId, code: twoFactorCode.trim() });
       if (response.ok) {
         if (data.require2FA) {
           setChallengeId(data.challengeId);
+          setChallengeStep('totp');
+          setTwoFactorCode('');
+          setRecoveryMode(false);
         } else {
-          login(data.token);
-          const displayName = data.name || data.user?.name || (email.split('@')[0]) || 'Operador';
-          setWelcomeUserName(displayName);
-          setAuthSuccess(true);
+          completeLogin(data);
         }
       } else {
-        setError(data.message || 'No se pudo iniciar sesión');
+        if (Number.isInteger(data.attemptsRemaining)) setAttemptsRemaining(data.attemptsRemaining);
+        setError(data.message || 'Código inválido. Revisá el código enviado al administrador.');
       }
     } catch {
-      setError('Error de conexión con el servidor');
+      setError('Error de conexión con el servidor. El acceso sigue pendiente.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleResend = async () => {
+    setError('');
+    setLoading(true);
+    try {
+      const { response, data } = await requestAuth('/api/login/email/resend', { challengeId });
+      if (response.ok) {
+        updateEmailChallenge(data);
+      } else {
+        if (Number.isFinite(data.retryAfter)) {
+          setResendAvailableAt(new Date(Date.now() + data.retryAfter * 1000).toISOString());
+          setNow(Date.now());
+        }
+        setError(data.message || 'No se pudo reenviar el código. El acceso sigue pendiente.');
+      }
+    } catch {
+      setError('Error de conexión. Podés reintentar el envío.');
     } finally {
       setLoading(false);
     }
@@ -165,37 +242,13 @@ const Login = () => {
     e.preventDefault();
     setError('');
     setLoading(true);
-
     try {
-      const API_URL = process.env.NEXT_PUBLIC_API_URL;
-      const baseUrl = process.env.NODE_ENV === 'production' ? '' : (API_URL || 'http://localhost:3001');
-      
       const payload = { challengeId };
-      if (recoveryMode) {
-        payload.recoveryCode = twoFactorCode.trim();
-      } else {
-        payload.code = twoFactorCode.trim();
-      }
-
-      const response = await fetch(`${baseUrl}/api/login/2fa`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${challengeId}`
-        },
-        body: JSON.stringify(payload),
-      });
-
-      const data = await response.json();
-
-      if (response.ok) {
-        login(data.token);
-        const displayName = data.name || data.user?.name || (email.split('@')[0]) || 'Operador';
-        setWelcomeUserName(displayName);
-        setAuthSuccess(true);
-      } else {
-        setError(data.message || 'Código inválido');
-      }
+      if (recoveryMode) payload.recoveryCode = twoFactorCode.trim();
+      else payload.code = twoFactorCode.trim();
+      const { response, data } = await requestAuth('/api/login/2fa', payload);
+      if (response.ok) completeLogin(data);
+      else setError(data.message || 'Código inválido');
     } catch {
       setError('Error de conexión con el servidor');
     } finally {
@@ -205,9 +258,15 @@ const Login = () => {
 
   const cancel2FA = () => {
     setChallengeId(null);
+    setChallengeStep('email');
     setTwoFactorCode('');
+    setPassword('');
     setError('');
     setRecoveryMode(false);
+    setExpiresAt(null);
+    setResendAvailableAt(null);
+    setEmailSent(false);
+    setAttemptsRemaining(5);
   };
 
   return (
@@ -426,12 +485,66 @@ const Login = () => {
                 </button>
               </form>
             </>
+          ) : challengeStep === 'email' ? (
+            <>
+              <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl border border-crm-red/40 bg-red-950/30 text-red-400">
+                <Mail className="h-7 w-7" />
+              </div>
+              <div className="text-center mb-6">
+                <p className="text-xs font-mono text-red-300 mb-2">INGRESO PENDIENTE</p>
+                <h1 className="text-xl font-bold text-white">Ingresá el código de 6 dígitos enviado al administrador</h1>
+                <p className="mt-3 text-sm text-zinc-300 break-all">Cuenta: {email.trim()}</p>
+                <p className="mt-2 text-xs text-zinc-400">El acceso se habilita después de validar el código. Se solicita uno nuevo en cada inicio de sesión.</p>
+              </div>
+              <form onSubmit={handleEmailSubmit} className="space-y-4">
+                <label htmlFor="email-login-code" className="block text-xs font-mono text-zinc-300">Código de verificación</label>
+                <input
+                  id="email-login-code"
+                  type="text"
+                  inputMode="numeric"
+                  pattern="[0-9]{6}"
+                  autoComplete="one-time-code"
+                  value={twoFactorCode}
+                  onChange={(e) => setTwoFactorCode(e.target.value.replace(/[^0-9]/g, '').slice(0, 6))}
+                  placeholder="000000"
+                  maxLength={6}
+                  minLength={6}
+                  required
+                  autoFocus
+                  disabled={loading || !emailSent || codeExpired || attemptsRemaining === 0}
+                  className="w-full rounded-xl border border-crm-red/40 bg-black/60 py-3 text-center text-2xl font-mono font-bold tracking-[0.4em] text-white outline-none focus:border-red-400 disabled:opacity-50"
+                />
+                <p className="text-xs text-zinc-400" aria-live="polite">
+                  {!emailSent ? 'El correo todavía no se pudo enviar.' : codeExpired ? 'El código venció. Solicitá uno nuevo.' : 'El código vence en ' + Math.floor(expiryWait / 60) + ':' + String(expiryWait % 60).padStart(2, '0') + '.'}
+                  {emailSent && !codeExpired && ' Intentos disponibles: ' + attemptsRemaining + '.'}
+                </p>
+                {error && <div role="alert" className="rounded-xl border border-rose-500/40 bg-rose-500/10 p-3 text-sm text-rose-300">{error}</div>}
+                <button
+                  type="submit"
+                  disabled={loading || !emailSent || codeExpired || attemptsRemaining === 0 || twoFactorCode.length !== 6}
+                  className="w-full rounded-xl bg-crm-red py-3 font-bold text-sm text-white disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {loading ? 'Procesando…' : 'Verificar código'}
+                </button>
+                <button
+                  type="button"
+                  onClick={handleResend}
+                  disabled={loading || resendWait > 0}
+                  className="w-full rounded-xl border border-white/20 py-3 text-sm text-zinc-200 hover:bg-white/5 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {(!emailSent ? 'Reintentar envío' : 'Reenviar código') + (resendWait > 0 ? ' (' + resendWait + ' s)' : '')}
+                </button>
+                <p className="text-xs text-zinc-500">Al reenviar, el código anterior deja de ser válido.</p>
+                <button type="button" onClick={cancel2FA} disabled={loading} className="w-full py-2 text-xs text-zinc-400 hover:text-white disabled:opacity-50">Volver al inicio de sesión</button>
+              </form>
+            </>
           ) : (
             /* VISTA 3: PASO 2FA TECNOLÓGICO */
             <>
               <button
                 type="button"
                 onClick={cancel2FA}
+                disabled={loading}
                 className="absolute top-6 left-6 flex h-8 w-8 items-center justify-center rounded-lg border border-white/10 bg-white/5 text-zinc-400 hover:text-white hover:bg-white/10 transition-colors cursor-pointer"
                 title="Volver"
               >

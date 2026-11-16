@@ -81,6 +81,14 @@ import speakeasy from 'speakeasy';
 import QRCode from 'qrcode';
 import crypto from 'crypto';
 
+import LoginChallenge from './src/models/LoginChallenge.js';
+import {
+    createEmailLoginChallenge, resendEmailLoginChallenge, verifyEmailLoginChallenge,
+    loadVerifiedChallenge, consumeVerifiedChallenge, hashChallengeToken,
+    credentialFingerprint, LoginChallengeError
+} from './src/services/emailLoginService.js';
+import { createLoginSession, validateLoginSession, revokeLoginSession } from './src/services/authSessionService.js';
+
 const app = express();
 const PORT = process.env.PORT || 3001;
 const JWT_SECRET = process.env.JWT_SECRET?.trim();
@@ -394,30 +402,18 @@ const enforceLoginRateLimit = async (req, res, next) => {
 };
 
 // Authentication Middleware
-const authenticateToken = (req, res, next) => {
-    if (!JWT_SECRET) {
-        console.error('Authentication unavailable: JWT_SECRET is not configured.');
-        return res.status(503).json({ message: 'Servicio de autenticacion no disponible.' });
-    }
-
-    const authHeader = req.headers['authorization'];
-    const token = authHeader && authHeader.split(' ')[1];
-
+const authenticateToken = async (req, res, next) => {
+    if (!JWT_SECRET) return res.status(503).json({ message: 'Servicio de autenticación no disponible.' });
+    const token = req.headers.authorization?.startsWith('Bearer ') ? req.headers.authorization.slice(7) : null;
     if (!token) return res.sendStatus(401);
-
-    jwt.verify(token, JWT_SECRET, (err, user) => {
-        if (err) return res.sendStatus(403);
-
-        // No permitir que un token de desafío se use como sesión regular
-        if (user.type === '2fa_challenge') {
-            return res.status(403).json({ message: 'Token de desafío inválido para esta operación' });
-        }
-
+    try {
+        const user = await validateLoginSession(token);
+        if (!user) return res.status(401).json({ message: 'Sesión inválida o vencida. Iniciá sesión nuevamente.' });
         req.user = user;
-        req.user.id = user.id || user.userId;
-        req.user.userId = user.userId || user.id;
         next();
-    });
+    } catch {
+        return res.status(503).json({ message: 'No se pudo validar la sesión. Reintentá en unos instantes.' });
+    }
 };
 
 const requirePermission = (permission, allowedRoles = [ROLES.OWNER, ROLES.ADMIN]) => {
@@ -473,6 +469,7 @@ const verifyPassword = (password, hash) => {
 
 // Login Endpoint
 app.post('/api/login', requireJwtConfiguration, enforceLoginRateLimit, async (req, res) => {
+    res.setHeader('Cache-Control', 'no-store');
     try {
         const { email, password } = req.body;
 
@@ -498,55 +495,7 @@ app.post('/api/login', requireJwtConfiguration, enforceLoginRateLimit, async (re
 
         if (isValid) {
             await clearLoginAttempts(req);
-
-            if (user.twoFactorEnabled) {
-                // Generate a temporary challenge token valid for 5 mins
-                const challengeToken = jwt.sign(
-                    { type: '2fa_challenge', challengeUserId: user._id },
-                    JWT_SECRET,
-                    { expiresIn: '5m' }
-                );
-
-                await logAudit({
-                    req,
-                    action: 'LOGIN_REQUIRES_2FA',
-                    module: 'usuarios',
-                    entityType: 'User',
-                    entityId: user._id,
-                    entityLabel: user.email,
-                    description: `Login requiere 2FA para ${user.email}`
-                });
-
-                return res.json({ require2FA: true, challengeId: challengeToken });
-            }
-
-            user.lastLoginAt = new Date();
-            await user.save();
-
-            const token = jwt.sign(
-                {
-                    id: user._id,
-                    userId: user._id,
-                    email: user.email,
-                    username: user.name,
-                    role: user.role,
-                    permissions: user.permissions
-                },
-                JWT_SECRET,
-                { expiresIn: '24h' }
-            );
-
-            await logAudit({
-                req,
-                action: 'LOGIN_EXITOSO',
-                module: 'usuarios',
-                entityType: 'User',
-                entityId: user._id,
-                entityLabel: user.email,
-                description: `Login exitoso DB de ${user.email}`
-            });
-
-            return res.json({ token, role: user.role, name: user.name });
+            return res.json(await createEmailLoginChallenge(user, req));
         }
 
         await recordFailedLogin(req);
@@ -563,105 +512,100 @@ app.post('/api/login', requireJwtConfiguration, enforceLoginRateLimit, async (re
         res.status(401).json({ message: 'Credenciales invalidas.' });
 
     } catch (error) {
-        console.error("Login Error: ", error);
+        if (error instanceof LoginChallengeError) return sendLoginChallengeError(res, error);
+        console.error('Login unavailable');
         res.status(500).json({ message: 'Error interno de autenticacion.' });
     }
 });
 
-app.post('/api/login/2fa', requireJwtConfiguration, async (req, res) => {
-    try {
-        let { challengeId, code, recoveryCode } = req.body;
-
-        const authHeader = req.headers['authorization'];
-        const headerToken = authHeader && authHeader.split(' ')[1];
-
-        if (headerToken && challengeId && headerToken !== challengeId) {
-            return res.status(400).json({ message: 'Conflicto de tokens de desafío entre cabecera y cuerpo de la petición.' });
-        }
-
-        challengeId = challengeId || headerToken;
-
-        if (!challengeId || (!code && !recoveryCode)) {
-            return res.status(400).json({ message: 'Se requiere token de desafío y código TOTP/Recuperación.' });
-        }
-
-        let decoded;
-        try {
-            decoded = jwt.verify(challengeId, JWT_SECRET);
-            if (decoded.type !== '2fa_challenge') {
-                return res.status(401).json({ message: 'Tipo de token inválido para este desafío.' });
-            }
-        } catch (err) {
-            return res.status(401).json({ message: 'Desafío expirado o inválido.' });
-        }
-
-        const user = await AdminUser.findById(decoded.challengeUserId);
-        if (!user || !user.active || !user.twoFactorEnabled) {
-            return res.status(401).json({ message: 'Usuario inválido o 2FA no activo.' });
-        }
-
-        let isVerified = false;
-
-        if (code) {
-            const secret = decryptData(user.twoFactorSecret);
-            if (!secret) {
-                return res.status(500).json({ message: 'El secreto 2FA está corrupto o la clave de cifrado ha cambiado. Contacte a un administrador para restablecer su 2FA.' });
-            }
-
-            isVerified = speakeasy.totp.verify({
-                secret: secret,
-                encoding: 'base32',
-                token: code,
-                window: 1 // Permitir +- 30 segundos
-            });
-        } else if (recoveryCode) {
-            const hashedInput = crypto.createHash('sha256').update(recoveryCode).digest('hex');
-            const codeIndex = user.recoveryCodes.indexOf(hashedInput);
-
-            if (codeIndex !== -1) {
-                isVerified = true;
-                user.recoveryCodes.splice(codeIndex, 1); // Consumir el código
-            }
-        }
-
-        if (!isVerified) {
-            return res.status(401).json({ message: 'Código inválido.' });
-        }
-
-        user.lastLoginAt = new Date();
-        await user.save();
-
-        const token = jwt.sign(
-            {
-                id: user._id,
-                userId: user._id,
-                email: user.email,
-                username: user.name,
-                role: user.role,
-                permissions: user.permissions
-            },
-            JWT_SECRET,
-            { expiresIn: '24h' }
-        );
-
-        await logAudit({
-            req,
-            action: 'LOGIN_EXITOSO_2FA',
-            module: 'usuarios',
-            entityType: 'User',
-            entityId: user._id,
-            entityLabel: user.email,
-            description: `Login 2FA exitoso de ${user.email}`
+function sendLoginChallengeError(res, error) {
+    if (error instanceof LoginChallengeError) {
+        if (error.retryAfter) res.setHeader('Retry-After', String(error.retryAfter));
+        return res.status(error.status).json({ message: error.message,
+            ...(error.retryAfter ? { retryAfter: error.retryAfter } : {}),
+            ...(error.attemptsRemaining !== undefined ? { attemptsRemaining: error.attemptsRemaining } : {})
         });
-
-        return res.json({ token, role: user.role, name: user.name });
-
-    } catch (error) {
-        console.error("2FA Login Error: ", error);
-        res.status(500).json({ message: 'Error interno verificando 2FA.' });
     }
+    // Never serialize provider errors or requests that may contain an OTP.
+    console.error('Email login operation unavailable');
+    return res.status(503).json({ message: 'No se pudo completar la verificación. Reintentá en unos instantes.' });
+}
+
+async function completeVerifiedLogin(challengeId, req) {
+    const challenge = await consumeVerifiedChallenge(challengeId);
+    const user = await AdminUser.findById(challenge.userId);
+    if (!user?.active || credentialFingerprint(user) !== challenge.credentialFingerprint) {
+        throw new LoginChallengeError(401, 'La cuenta cambió. Iniciá sesión nuevamente.');
+    }
+    const session = await createLoginSession(user);
+    await AdminUser.updateOne({ _id: user._id }, { $set: { lastLoginAt: new Date() } });
+    await logAudit({ req, action: 'LOGIN_EXITOSO', module: 'usuarios', entityType: 'User',
+        entityId: user._id, entityLabel: user.email, description: 'Ingreso con correo verificado.' });
+    return session;
+}
+
+app.post('/api/login/email/verify', requireJwtConfiguration, async (req, res) => {
+    res.setHeader('Cache-Control', 'no-store');
+    try {
+        await connectDB();
+        const { challengeId, code } = req.body;
+        const challenge = await verifyEmailLoginChallenge(challengeId, code);
+        const user = await AdminUser.findById(challenge.userId);
+        if (!user?.active || credentialFingerprint(user) !== challenge.credentialFingerprint) {
+            throw new LoginChallengeError(401, 'La cuenta cambió. Iniciá sesión nuevamente.');
+        }
+        if (user.twoFactorEnabled) return res.json({ require2FA: true, challengeId });
+        return res.json(await completeVerifiedLogin(challengeId, req));
+    } catch (error) { return sendLoginChallengeError(res, error); }
 });
 
+app.post('/api/login/email/resend', requireJwtConfiguration, async (req, res) => {
+    res.setHeader('Cache-Control', 'no-store');
+    try {
+        await connectDB();
+        return res.json(await resendEmailLoginChallenge(req.body.challengeId, req));
+    } catch (error) { return sendLoginChallengeError(res, error); }
+});
+
+app.post('/api/login/2fa', requireJwtConfiguration, async (req, res) => {
+    res.setHeader('Cache-Control', 'no-store');
+    try {
+        await connectDB();
+        const { challengeId, code, recoveryCode } = req.body;
+        const challenge = await loadVerifiedChallenge(challengeId);
+        const user = await AdminUser.findById(challenge.userId);
+        if (!user?.active || !user.twoFactorEnabled || credentialFingerprint(user) !== challenge.credentialFingerprint) {
+            throw new LoginChallengeError(401, 'Solicitud inválida. Iniciá sesión nuevamente.');
+        }
+        // Reserve each TOTP attempt atomically across concurrent server instances.
+        const attempt = await LoginChallenge.findOneAndUpdate({
+            _id: hashChallengeToken(challengeId), status: 'email_verified',
+            expiresAt: { $gt: new Date() }, totpAttempts: { $lt: 5 }
+        }, { $inc: { totpAttempts: 1 } }, { new: true });
+        if (!attempt) throw new LoginChallengeError(401, 'Solicitud agotada o vencida. Iniciá sesión nuevamente.');
+        let verified = false;
+        if (typeof code === 'string' && /^\d{6}$/.test(code)) {
+            const secret = decryptData(user.twoFactorSecret);
+            verified = Boolean(secret) && speakeasy.totp.verify({ secret, encoding: 'base32', token: code, window: 1 });
+        } else if (typeof recoveryCode === 'string' && recoveryCode.length <= 100) {
+            const hashedInput = crypto.createHash('sha256').update(recoveryCode).digest('hex');
+            // Recovery codes are one-use even across separate login requests.
+            const used = await AdminUser.updateOne({ _id: user._id, recoveryCodes: hashedInput }, {
+                $pull: { recoveryCodes: hashedInput }
+            });
+            verified = used.modifiedCount === 1;
+        }
+        if (!verified) throw new LoginChallengeError(401, 'Código inválido.');
+        return res.json(await completeVerifiedLogin(challengeId, req));
+    } catch (error) { return sendLoginChallengeError(res, error); }
+});
+
+app.post('/api/logout', authenticateToken, async (req, res) => {
+    try {
+        await revokeLoginSession(req.user.sid);
+        return res.sendStatus(204);
+    } catch { return res.status(503).json({ message: 'No se pudo cerrar la sesión en el servidor.' }); }
+});
 
 // GET Current Auth User (Diagnostic)
 app.get('/api/admin/auth/me', authenticateToken, async (req, res) => {
@@ -17096,8 +17040,8 @@ app.post('/api/admin/jobs/daily-summary', async (req, res) => {
         } else if (authHeader && authHeader.startsWith('Bearer ')) {
             const token = authHeader.split(' ')[1];
             try {
-                const decoded = jwt.verify(token, process.env.JWT_SECRET);
-                if (decoded.role === 'admin' || decoded.role === 'owner') {
+                const decoded = await validateLoginSession(token);
+                if (decoded && (decoded.role === 'admin' || decoded.role === 'owner')) {
                     authorized = true;
                 }
             } catch (e) {}

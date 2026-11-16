@@ -46,10 +46,11 @@ export class EmailAdapter {
         };
     }
 
-    static getTransporter() {
+    static getTransporter(options = {}) {
         if (this.hasOAuthConfig()) {
             return nodemailer.createTransport({
                 service: 'gmail',
+                ...options,
                 auth: {
                     type: 'OAuth2',
                     user: process.env.SMTP_USER,
@@ -62,6 +63,7 @@ export class EmailAdapter {
 
         if (this.hasSmtpConfig()) {
             return nodemailer.createTransport({
+                ...options,
                 host: process.env.SMTP_HOST,
                 port: Number(process.env.SMTP_PORT || 587),
                 secure: process.env.SMTP_PORT === '465',
@@ -75,12 +77,12 @@ export class EmailAdapter {
         throw new Error('Integracion de Correo no configurada.');
     }
 
-    static async sendEmail(to, subject, html, attachments = []) {
+    static async sendEmail(to, subject, html, attachments = [], options = {}) {
         if (!this.isConfigured()) {
             throw new Error('Integracion de Correo no configurada.');
         }
 
-        const transporter = this.getTransporter();
+        const transporter = this.getTransporter(options);
 
         const mailOptions = {
             from: process.env.SMTP_FROM || process.env.SMTP_USER,
