@@ -38,6 +38,7 @@ export default function GestoriaPage() {
         const previousOverflow = document.body.style.overflow;
         document.body.style.overflow = 'hidden';
         const handleKey = event => {
+            if (document.querySelector('[data-private-document-viewer]')) return;
             if (event.key === 'Escape') { event.preventDefault(); setDocumentsSaleId(''); }
             if (event.key !== 'Tab') return;
             const controls = [...document.querySelectorAll('[data-gestoria-buyer-documents] a[href], [data-gestoria-buyer-documents] button:not([disabled]), [data-gestoria-buyer-documents] select:not([disabled])')].filter(element => element.offsetParent !== null);

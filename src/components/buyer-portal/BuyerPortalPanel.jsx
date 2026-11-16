@@ -39,6 +39,7 @@ export default function BuyerPortalPanel({ sale }) {
         const previousOverflow = document.body.style.overflow;
         document.body.style.overflow = 'hidden';
         const close = event => {
+            if (document.querySelector('[data-private-document-viewer]')) return;
             if (event.key === 'Escape') setPreviewOpen(false);
             if (event.key !== 'Tab') return;
             const controls = [...document.querySelectorAll('[data-buyer-portal-preview] a[href], [data-buyer-portal-preview] button:not([disabled]), [data-buyer-portal-preview] input:not([disabled]), [data-buyer-portal-preview] select:not([disabled]), [data-buyer-portal-preview] textarea:not([disabled])')].filter(element => element.offsetParent !== null);
