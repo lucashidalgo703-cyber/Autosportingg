@@ -51,11 +51,13 @@ export async function getSaleVehicleOptions({ q = '', page = 1, limit = 20 } = {
     page = Math.max(1, Number.parseInt(page, 10) || 1);
     limit = Math.min(50, Math.max(1, Number.parseInt(limit, 10) || 20));
     const query = {};
-    const text = String(q).trim().slice(0, 100);
-    if (text) {
-        const regex = new RegExp(escapeSearch(text), 'i');
-        query.$or = ['brand', 'name', 'model', 'version', 'plateOrVin', 'infoAuto.modelName', 'infoAuto.versionName'].map(key => ({ [key]: regex }));
-    }
+    const words = String(q).trim().slice(0, 100).split(/\s+/).filter(Boolean);
+    if (words.length) query.$and = words.map(word => {
+        const regex = new RegExp(escapeSearch(word), 'i');
+        const matches = ['brand', 'name', 'model', 'version', 'plateOrVin', 'infoAuto.modelName', 'infoAuto.versionName'].map(key => ({ [key]: regex }));
+        if (/^\d{4}$/.test(word)) matches.push({ year: Number(word) });
+        return { $or: matches };
+    });
     const total = await Car.countDocuments(query);
     const cars = await Car.find(query).sort({ createdAt: -1, _id: -1 }).skip((page - 1) * limit).limit(limit)
         .select('brand name model version infoAuto.modelName infoAuto.versionName year plateOrVin price currency km status notes auditLog ownerName ownerPhone').lean();
