@@ -5,6 +5,8 @@ export function capitalSummaryCurrencyView(summary, currency = 'ARS') {
     const components = Object.fromEntries(Object.entries(summary?.componentes || {}).map(([key, component]) => [key, {
         ...component,
         monto: component.byCurrency?.[code] ?? (legacy ? component.monto || 0 : 0),
+        ...(key === 'pagosSinCuenta' && Array.isArray(component.items)
+            ? { pagosCount: component.items.filter(item => (item.currency || 'ARS') === code).length } : {}),
         ...(component.nominalByCurrency ? { montoTotalNominal: component.nominalByCurrency[code] || 0 } : {}),
         ...(component.inversionistasByCurrency ? { montoInversionistas: component.inversionistasByCurrency[code] || 0, subtotalInversionistas: component.inversionistasByCurrency[code] || 0 } : {})
     }]));

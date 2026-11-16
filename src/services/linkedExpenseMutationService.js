@@ -17,10 +17,12 @@ const idOf = value => String(value?._id || value || '');
 const fail = (message, status = 400, code = 'LINKED_EXPENSE_INVALID') => { throw new ExpenseError(status, code, message); };
 const validId = value => typeof value === 'string' && /^[a-f0-9]{24}$/i.test(value);
 const linkedVehicleId = tx => idOf(tx.vehicleId || tx.carId);
+const accountWasDebited = tx => Boolean(tx.accountId) && tx.status === 'activo'
+    && (tx.accountDebitApplied === undefined ? true : tx.accountDebitApplied);
 const permissionPayload = tx => ({ vehicleId: linkedVehicleId(tx), category: tx.category,
     kind: /taller|mec[aá]nic|chapist|repuestos/i.test(tx.category || '') ? 'workshop' : linkedVehicleId(tx) ? 'vehicle' : 'operational' });
 const fields = ['category', 'concept', 'paymentMethod', 'date', 'notes', 'status', 'saleId', 'reservationId', 'clientId',
-    'vehicleId', 'installmentId', 'payeeCompany', 'payeeVehicle', 'beneficiary', 'dueDate', 'targetUser', 'amount', 'type', 'currency', 'accountId'];
+    'vehicleId', 'installmentId', 'payeeCompany', 'payeeVehicle', 'beneficiary', 'dueDate', 'targetUser', 'amount', 'type', 'currency', 'accountId', 'accountUnassigned'];
 function parseDate(value, label, optional = false) {
     if (optional && (value === null || value === '')) return undefined;
     if (typeof value !== 'string') fail(`Ingresá una fecha válida para ${label}.`);
@@ -36,7 +38,10 @@ function normalizePatch(patch) {
     const normalized = {};
     for (const [key, value] of Object.entries(patch)) {
         if (!fields.includes(key)) fail(`El campo ${key} no puede modificarse desde este movimiento.`);
-        if (key === 'amount') {
+        if (key === 'accountUnassigned') {
+            if (typeof value !== 'boolean') fail('La asignación de cuenta no es válida.');
+            normalized.accountUnassigned = value;
+        } else if (key === 'amount') {
             if (typeof value !== 'number' || !Number.isFinite(value) || value <= 0 || value > 1e12 || Math.abs(value * 100 - Math.round(value * 100)) > 0.0001) fail('El importe debe ser positivo y tener como máximo dos decimales.');
             normalized.amount = Math.round(value * 100) / 100;
         } else if (['date', 'dueDate'].includes(key)) normalized[key] = parseDate(value, key, key === 'dueDate');
@@ -53,6 +58,7 @@ function normalizePatch(patch) {
     if (normalized.status && !['activo', 'pendiente', 'anulado'].includes(normalized.status)) fail('El estado del gasto no es válido.');
     if (normalized.currency && !['ARS', 'USD'].includes(normalized.currency)) fail('La moneda debe ser ARS o USD.');
     for (const field of ['concept', 'category']) if (normalized[field] !== undefined && !normalized[field]) fail(`El campo ${field} es obligatorio.`);
+    if (normalized.accountUnassigned === true && normalized.accountId) fail('Elegí una cuenta o dejala pendiente de asignar.');
     return normalized;
 }
 
@@ -68,9 +74,17 @@ async function changeInTransaction(id, patch, user, req, session) {
     const original = tx.toObject();
     const oldVehicleId = linkedVehicleId(original);
     for (const [field, value] of Object.entries(patch)) {
+        if (field === 'accountUnassigned') continue;
         const previous = tx[field];
         const equal = value instanceof Date ? previous?.getTime?.() === value.getTime() : field.endsWith('Id') ? idOf(previous) === idOf(value) : previous === value;
         if (!equal) tx.set(field, value);
+    }
+    if (patch.accountUnassigned === true) {
+        tx.accountId = undefined;
+        tx.accountAssignmentStatus = 'pending';
+    } else if (patch.accountId || patch.accountUnassigned === false) {
+        if (!tx.accountId) fail('Elegí la cuenta que corresponde al gasto.');
+        tx.accountAssignmentStatus = 'assigned';
     }
     tx.description = tx.concept;
     tx.carId = tx.vehicleId || undefined;
@@ -80,11 +94,16 @@ async function changeInTransaction(id, patch, user, req, session) {
     for (const [field, model] of [['saleId', Sale], ['reservationId', Reservation], ['clientId', Client], ['installmentId', Installment]]) {
         if (tx[field] && !await model.exists({ _id: tx[field] }).session(session)) fail(`El vínculo ${field} ya no está disponible.`, 409);
     }
-    if (original.currency !== tx.currency && !patch.accountId) fail('Para cambiar moneda, anulá este gasto y cargalo de nuevo con la moneda y cuenta correctas.', 409);
-    const oldAccount = await Account.findById(original.accountId).session(session);
-    const account = await Account.findById(tx.accountId).session(session);
-    if (!oldAccount || !account || account.currency !== tx.currency) fail('La cuenta del movimiento no coincide con la moneda. Revisá sus datos.', 409);
-    if (tx.status !== 'anulado' && account.isActive === false) fail('La cuenta elegida ya no está activa.', 409);
+    if (original.currency !== tx.currency && tx.accountAssignmentStatus !== 'pending' && !patch.accountId) fail('Para cambiar moneda, elegí una cuenta de la moneda correcta o dejala pendiente de asignar.', 409);
+    const oldAccount = original.accountId ? await Account.findById(original.accountId).session(session) : null;
+    const account = tx.accountId ? await Account.findById(tx.accountId).session(session) : null;
+    if (accountWasDebited(original) && !oldAccount) fail('La cuenta debitada ya no está disponible. Pedí su revisión antes de modificar el gasto.', 409);
+    if (tx.accountAssignmentStatus === 'pending') {
+        if (tx.accountId) fail('El gasto pendiente de asignación no puede tener una cuenta debitada.', 409);
+    } else {
+        if (!account || account.currency !== tx.currency) fail('La cuenta del movimiento no coincide con la moneda. Revisá sus datos.', 409);
+        if (tx.status !== 'anulado' && account.isActive === false) fail('La cuenta elegida ya no está activa.', 409);
+    }
     const targetVehicleId = linkedVehicleId(tx);
     const vehicleIds = [...new Set([oldVehicleId, targetVehicleId].filter(Boolean))];
     const vehicles = [];
@@ -95,20 +114,23 @@ async function changeInTransaction(id, patch, user, req, session) {
     }
     await tx.validate();
     const actor = user.username || user.name || user.email || idOf(user.id);
-    const moneyChanged = ['status', 'amount', 'currency', 'category', 'accountId'].some(field => idOf(original[field]) !== idOf(tx[field]));
+    const moneyChanged = ['status', 'amount', 'currency', 'category'].some(field => idOf(original[field]) !== idOf(tx[field]));
     if ((original.amount !== tx.amount || original.currency !== tx.currency || tx.status === 'anulado')
         && await ExpenseQuotaAssignment.exists({ expenseId: tx._id, status: 'activa' }).session(session)) {
         fail('Liberá primero las cuotas asignadas desde Gestionar asignaciones; después corregí o anulá este gasto.', 409, 'EXPENSE_HAS_QUOTA_ASSIGNMENTS');
     }
-    if (moneyChanged) {
-        const oldDebit = original.status === 'activo' ? original.amount : 0;
-        const newDebit = tx.status === 'activo' ? tx.amount : 0;
+    const oldDebit = accountWasDebited(original) ? original.amount : 0;
+    const newDebit = tx.status === 'activo' && account && tx.accountAssignmentStatus === 'assigned' ? tx.amount : 0;
+    if (oldDebit !== newDebit || idOf(oldAccount) !== idOf(account)) {
         if (idOf(oldAccount) === idOf(account)) {
             if (oldDebit !== newDebit) await Account.updateOne({ _id: account._id }, { $inc: { balance: oldDebit - newDebit } }, { session });
         } else {
             if (oldDebit) await Account.updateOne({ _id: oldAccount._id }, { $inc: { balance: oldDebit } }, { session });
             if (newDebit) await Account.updateOne({ _id: account._id }, { $inc: { balance: -newDebit } }, { session });
         }
+    }
+    tx.accountDebitApplied = newDebit > 0;
+    if (moneyChanged) {
         await reverseLinkedExpenseTreasury(tx, { session, user: actor });
         if (original.category !== tx.category) tx.treasuryBoxKey = null;
         const debitCap = original.status === 'activo' && tx.status === 'activo' && original.currency === tx.currency && original.category === tx.category
@@ -126,22 +148,28 @@ async function changeInTransaction(id, patch, user, req, session) {
     tx.updatedBy = actor;
     tx.transactionAuditLog.push({ action: tx.status === 'anulado' ? 'ANULACION' : 'EDICION', source: 'CRM_V2', user: actor,
         details: 'Movimiento, cuenta, costo de unidad y Tesorería actualizados de forma conjunta.',
-        oldValue: { amount: original.amount, currency: original.currency, status: original.status, vehicleId: oldVehicleId },
-        newValue: { amount: tx.amount, currency: tx.currency, status: tx.status, vehicleId: targetVehicleId } });
+        oldValue: { amount: original.amount, currency: original.currency, status: original.status, vehicleId: oldVehicleId,
+            accountId: idOf(original.accountId) || null, accountAssignmentStatus: original.accountAssignmentStatus,
+            accountDebitApplied: accountWasDebited(original) },
+        newValue: { amount: tx.amount, currency: tx.currency, status: tx.status, vehicleId: targetVehicleId,
+            accountId: idOf(tx.accountId) || null, accountAssignmentStatus: tx.accountAssignmentStatus,
+            accountDebitApplied: tx.accountDebitApplied } });
     await tx.save({ session });
     const tab = /taller|mec[aá]nic|chapist|repuestos/i.test(tx.category) ? 'taller' : tx.paymentMethod === 'tarjeta' ? 'tarjeta' : 'movimientos';
     const vehicle = vehicles.find(item => idOf(item) === targetVehicleId);
     const date = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Argentina/Buenos_Aires' }).format(tx.date);
     const summary = [`$${tx.amount.toLocaleString('es-AR')} ${tx.currency}`, tx.concept,
-        vehicle ? `${vehicle.brand} ${vehicle.name} ${vehicle.year} (${vehicle.plateOrVin || 'Sin patente'})` : '', account.name, date,
+        vehicle ? `${vehicle.brand} ${vehicle.name} ${vehicle.year} (${vehicle.plateOrVin || 'Sin patente'})` : '', account?.name || 'Cuenta pendiente de asignar', date,
         tx.status === 'anulado' ? 'Anulado' : tx.status === 'pendiente' ? 'Pendiente de pago; sin débito' : ''].filter(Boolean).join(' · ');
-    const resultPatch = { 'result.movementStatus': tx.status, 'result.accountDebited': tx.status === 'activo', 'result.summary': summary,
+    const resultPatch = { 'result.movementStatus': tx.status, 'result.accountDebited': tx.accountDebitApplied,
+        'result.accountAssignmentPending': tx.accountAssignmentStatus === 'pending', 'result.summary': summary,
         'result.url': `/admin/finanzas?tab=${tab}&movement=${tx._id}`, 'result.vehicleUrl': vehicle ? `/admin/stock/${vehicle._id}` : null };
     await GptExpenseDraft.updateMany({ movementId: tx._id, status: 'confirmed' }, { $set: resultPatch }, { session });
     await logAudit({ req: req || { user }, action: tx.status === 'anulado' ? 'MOVIMIENTO_ANULADO' : 'MOVIMIENTO_EDITADO',
         module: 'finanzas', entityType: 'Transaction', entityId: tx._id, entityLabel: tx.concept,
         description: `Gasto actualizado junto con su cuenta y costo de unidad (${tx.status}).`,
-        metadata: { amount: tx.amount, currency: tx.currency, vehicleId: targetVehicleId || null }, strict: true, session });
+        metadata: { amount: tx.amount, currency: tx.currency, vehicleId: targetVehicleId || null,
+            accountAssignmentPending: tx.accountAssignmentStatus === 'pending', accountDebited: tx.accountDebitApplied }, strict: true, session });
     return { tx, changed: true };
 }
 

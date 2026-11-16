@@ -25,6 +25,7 @@ export default function CapitalBreakdownModal({ isOpen, onClose, componentKey, c
     const isCartera = componentKey === 'carteraPropia';
     const isOtrosCreditos = componentKey === 'otrosCreditos';
     const isDeudas = componentKey === 'deudasPropia';
+    const isPaymentsWithoutAccount = componentKey === 'pagosSinCuenta';
 
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm animate-fadeIn">
@@ -137,11 +138,11 @@ export default function CapitalBreakdownModal({ isOpen, onClose, componentKey, c
                                                 <th className="py-2.5 px-3">Fecha</th>
                                             </>
                                         )}
-                                        {isDeudas && (
+                                        {(isDeudas || isPaymentsWithoutAccount) && (
                                             <>
-                                                <th className="py-2.5 px-3">Concepto / Obligación</th>
+                                                <th className="py-2.5 px-3">{isPaymentsWithoutAccount ? 'Pago registrado' : 'Concepto / Obligación'}</th>
                                                 <th className="py-2.5 px-3">Categoría</th>
-                                                <th className="py-2.5 px-3">Vencimiento</th>
+                                                <th className="py-2.5 px-3">{isPaymentsWithoutAccount ? 'Fecha de pago' : 'Vencimiento'}</th>
                                                 <th className="py-2.5 px-3 text-right">Importe a Deducir</th>
                                                 <th className="py-2.5 px-3">Estado</th>
                                             </>
@@ -275,13 +276,13 @@ export default function CapitalBreakdownModal({ isOpen, onClose, componentKey, c
                                                 </>
                                             )}
 
-                                            {isDeudas && (
+                                            {(isDeudas || isPaymentsWithoutAccount) && (
                                                 <>
                                                     <td className="py-2 px-3 font-semibold text-white">{item.concept}</td>
                                                     <td className="py-2 px-3 text-crm-fg-muted">{item.category}</td>
-                                                    <td className="py-2 px-3 text-crm-fg-subtle">{item.dueDate ? new Date(item.dueDate).toLocaleDateString('es-AR') : 'S/F'}</td>
+                                                    <td className="py-2 px-3 text-crm-fg-subtle">{(item.dueDate || item.date) ? new Date(item.dueDate || item.date).toLocaleDateString('es-AR') : 'S/F'}</td>
                                                     <td className="py-2 px-3 text-right font-mono font-bold text-rose-400">− {formatAmount(item.amount, item.currency)}</td>
-                                                    <td className="py-2 px-3">{item.status}</td>
+                                                    <td className="py-2 px-3">{isPaymentsWithoutAccount ? 'Pagado · cuenta por asignar' : item.status}</td>
                                                 </>
                                             )}
                                         </tr>

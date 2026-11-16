@@ -32,9 +32,11 @@ export function assertExpensePermission(user, payload = {}) {
 export async function createExpenseMovement({ payload, user, draftId, origin = 'gpt', session, req }) {
     if (!session?.inTransaction()) throw new Error('Expense creation requires an active MongoDB transaction');
     assertExpensePermission(user, payload);
-    const account = await Account.findOne({ _id: payload.accountId, isActive: { $ne: false } }).session(session);
-    if (!account) throw new ExpenseError(409, 'ACCOUNT_UNAVAILABLE', 'La cuenta elegida ya no está disponible. Corregí el borrador.');
-    if (account.currency !== payload.currency) throw new ExpenseError(409, 'ACCOUNT_CURRENCY', 'La moneda de la cuenta no coincide con el gasto.');
+    const accountUnassigned = payload.accountUnassigned === true;
+    if (accountUnassigned && payload.accountId) throw new ExpenseError(400, 'ACCOUNT_ASSIGNMENT_CONFLICT', 'Elegí una cuenta o dejala pendiente de asignar.');
+    const account = accountUnassigned ? null : await Account.findOne({ _id: payload.accountId, isActive: { $ne: false } }).session(session);
+    if (!accountUnassigned && !account) throw new ExpenseError(409, 'ACCOUNT_UNAVAILABLE', 'La cuenta elegida ya no está disponible. Corregí el borrador.');
+    if (account && account.currency !== payload.currency) throw new ExpenseError(409, 'ACCOUNT_CURRENCY', 'La moneda de la cuenta no coincide con el gasto.');
     const vehicle = payload.vehicleId ? await Car.findById(payload.vehicleId).session(session) : null;
     if (payload.vehicleId && !vehicle) throw new ExpenseError(409, 'VEHICLE_UNAVAILABLE', 'La unidad elegida ya no existe. Corregí el borrador.');
     const actor = user.username || user.name || user.email || String(user.id || user._id);
@@ -46,7 +48,9 @@ export async function createExpenseMovement({ payload, user, draftId, origin = '
         module: 'crm_v2', source: 'manual', type: 'Egreso',
         category: payload.category, concept: payload.concept, description: payload.concept,
         amount: payload.amount, currency: payload.currency,
-        paymentMethod: payload.paymentMethod, accountId: account._id,
+        paymentMethod: payload.paymentMethod, accountId: account?._id,
+        accountAssignmentStatus: accountUnassigned ? 'pending' : 'assigned',
+        accountDebitApplied: Boolean(account && !deferred),
         date: new Date(`${payload.date}T12:00:00-03:00`),
         dueDate: payload.dueDate ? new Date(`${payload.dueDate}T12:00:00-03:00`) : undefined,
         status: deferred ? 'pendiente' : 'activo',
@@ -57,7 +61,7 @@ export async function createExpenseMovement({ payload, user, draftId, origin = '
         transactionAuditLog: [{ action: 'CREACION_MANUAL', source: 'CRM_V2', user: actor,
             details: `Gasto confirmado desde ${originLabel}: ${payload.concept}` }]
     }], { session });
-    if (!deferred) {
+    if (account && !deferred) {
         // $inc avoids lost updates when two distinct expenses affect the same account.
         const updated = await Account.updateOne({ _id: account._id, isActive: { $ne: false }, currency: payload.currency },
             { $inc: { balance: -payload.amount }, $set: { updatedAt: new Date() } }, { session });
@@ -80,6 +84,7 @@ export async function createExpenseMovement({ payload, user, draftId, origin = '
         entityType: 'Transaction', entityId: movementId, entityLabel: `Egreso - ${payload.concept}`,
         description: `Se creó un gasto desde ${originLabel} por ${payload.currency} ${payload.amount}.`,
         metadata: { origin, draftId: String(draftId), amount: payload.amount, currency: payload.currency,
-            vehicleId: payload.vehicleId, status: tx.status }, strict: true, session });
+            vehicleId: payload.vehicleId, status: tx.status, accountAssignmentPending: accountUnassigned,
+            accountDebited: tx.accountDebitApplied }, strict: true, session });
     return tx;
 }

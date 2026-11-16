@@ -185,7 +185,7 @@ export default function CapitalSummarySection({ initialSummary = null }) {
 
                     {/* Efectivo Disponible Aparte (Regla de Oro: no confundir efectivo con capital total) */}
                     <div className="flex items-center gap-3 bg-crm-bg/80 px-3 py-1.5 rounded-lg border border-crm-border text-[11px]">
-                        <span className="text-crm-fg-subtle">Efectivo en mano disponible:</span>
+                        <span className="text-crm-fg-subtle">Efectivo disponible tras pagos registrados:</span>
                         <span className="font-mono font-bold text-emerald-400 text-xs">
                             {formatAmount(totales.efectivoDisponible)}
                         </span>
@@ -200,17 +200,17 @@ export default function CapitalSummarySection({ initialSummary = null }) {
                         <AlertCircle size={15} className="text-amber-400 shrink-0 mt-0.5" />
                         <div>
                             <strong>Estado de conciliación:</strong> {summary.conciliacionMessage}
-                            <span className="block text-[11px] text-amber-300/80 mt-0.5">
+                            {componentes.stockPropioCosto.unidadesSinCosto > 0 && <span className="block text-[11px] text-amber-300/80 mt-0.5">
                                 Las unidades sin costo cargado se computan con costo de adquisición pendiente de registración ($0 en libros) para no sobredimensionar el capital conservador.
-                            </span>
+                            </span>}
                         </div>
                     </div>
-                    <button 
+                    {componentes.stockPropioCosto.unidadesSinCosto > 0 && <button
                         onClick={() => setSelectedComponentKey('stockPropioCosto')}
                         className="text-[11px] font-semibold text-amber-300 hover:text-white underline shrink-0"
                     >
                         Ver las {componentes.stockPropioCosto.unidadesSinCosto || 0} unidades
-                    </button>
+                    </button>}
                 </div>
             )}
 
@@ -370,7 +370,25 @@ export default function CapitalSummarySection({ initialSummary = null }) {
                     </div>
                 </div>
 
-                {/* 6. = CAPITAL PROPIO ESTIMADO */}
+                {componentes.pagosSinCuenta?.pagosCount > 0 && (
+                    <div
+                        onClick={() => setSelectedComponentKey('pagosSinCuenta')}
+                        className="cursor-pointer group rounded-xl border border-amber-500/30 bg-crm-surface p-4 flex flex-col justify-between hover:border-amber-500/60 transition-all shadow-sm"
+                    >
+                        <div className="space-y-1.5">
+                            <div className="flex items-center justify-between">
+                                <span className="inline-flex items-center justify-center h-5 w-5 rounded-md bg-amber-500/15 text-amber-300 font-bold text-xs">−</span>
+                                <span className="text-[10px] text-crm-fg-subtle group-hover:text-amber-300 flex items-center gap-0.5">Ver pagos <ChevronRight size={11} /></span>
+                            </div>
+                            <div className="text-[11px] font-bold text-crm-fg-subtle uppercase tracking-wider">Pagos con cuenta sin asignar</div>
+                            <div className="text-lg md:text-xl font-extrabold text-amber-200 tracking-tight">{formatAmount(componentes.pagosSinCuenta.monto)}</div>
+                            <p className="text-[11px] text-crm-fg-muted">Pagos ya registrados. Descontados del capital hasta asignar su cuenta de origen.</p>
+                        </div>
+                        <div className="mt-3 pt-2.5 border-t border-crm-border/60 text-[10px] text-crm-fg-subtle">{componentes.pagosSinCuenta.pagosCount} pagos por asignar</div>
+                    </div>
+                )}
+
+                {/* = CAPITAL PROPIO ESTIMADO */}
                 <div className={`rounded-xl border p-4 flex flex-col justify-between shadow-md transition-all ${
                     valuationScenario === 'costo'
                         ? 'border-blue-500/40 bg-gradient-to-b from-blue-950/40 to-crm-surface'

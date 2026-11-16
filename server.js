@@ -7037,7 +7037,7 @@ app.get('/api/admin/transactions/export', authenticateToken, requirePermission(P
             new Date(tx.date || tx.createdAt).toLocaleDateString('es-AR'),
             `"${(tx.concept || tx.description || '').replace(/"/g, '""')}"`,
             `"${(tx.category || '').replace(/"/g, '""')}"`,
-            `"${(tx.accountId?.name || '').replace(/"/g, '""')}"`,
+            `"${(tx.accountId?.name || (tx.accountAssignmentStatus === 'pending' ? 'Cuenta sin asignar' : '')).replace(/"/g, '""')}"`,
             tx.currency,
             tx.type,
             tx.amount
@@ -14099,7 +14099,7 @@ app.post('/api/admin/finance/reconciliation/:id/confirm', authenticateToken, req
                 matchedTxIds.add(matchedTransactionId.toString());
 
                 const tx = await Transaction.findById(matchedTransactionId);
-                if (!tx || tx.status !== 'activo' || tx.accountId.toString() !== reconciliation.accountId.toString()) {
+                if (!tx || tx.status !== 'activo' || !tx.accountId || String(tx.accountId) !== String(reconciliation.accountId)) {
                     return res.status(400).json({ message: `Transacción inválida para match en línea ${index}` });
                 }
 

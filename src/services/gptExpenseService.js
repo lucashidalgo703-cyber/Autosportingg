@@ -13,7 +13,7 @@ export const EXPENSE_CATEGORIES = ['Sueldos', 'Taller', 'Gastos Personales', 'Co
     'Pago a Proveedor', 'Retiros', 'AFIP/IVA', 'Mantenimiento', 'Gastos Varios', 'Tarjeta'];
 const METHODS = ['efectivo', 'transferencia', 'tarjeta', 'cheque', 'deposito', 'dolares', 'otro'];
 const KINDS = ['operational', 'workshop', 'vehicle', 'card'];
-const FIELDS = ['kind', 'amount', 'currency', 'date', 'concept', 'paymentMethod', 'accountId', 'accountQuery',
+const FIELDS = ['kind', 'amount', 'currency', 'date', 'concept', 'paymentMethod', 'accountId', 'accountQuery', 'accountUnassigned',
     'vehicleId', 'vehicleQuery', 'category', 'notes', 'cardTiming', 'dueDate'];
 const DRAFT_LIFE_MS = 24 * 60 * 60 * 1000;
 const fail = (status, code, message, details) => { throw new ExpenseError(status, code, message, details); };
@@ -46,6 +46,9 @@ function normalizePayload(input, previous = {}) {
                 fail(400, 'INVALID_AMOUNT', 'El importe debe ser positivo y tener como máximo dos decimales.');
             }
             payload.amount = Math.round(amount * 100) / 100;
+        } else if (key === 'accountUnassigned') {
+            if (typeof value !== 'boolean') fail(400, 'INVALID_FIELD', 'Indicá si la cuenta queda sin asignar.');
+            payload.accountUnassigned = value;
         } else if (['accountId', 'vehicleId'].includes(key)) {
             if (!validId(value)) fail(400, 'INVALID_ID', `El identificador ${key} no es válido.`);
             payload[key] = str(value);
@@ -54,6 +57,10 @@ function normalizePayload(input, previous = {}) {
             payload[key] = str(value);
         }
     }
+    if (input.accountUnassigned === true && input.accountId) fail(400, 'INVALID_ACCOUNT', 'Elegí una cuenta o dejala sin asignar.');
+    if (['currency', 'paymentMethod', 'accountQuery'].some((key) => Object.hasOwn(input, key)) && !Object.hasOwn(input, 'accountUnassigned') && !input.accountId) delete payload.accountUnassigned;
+    if (input.accountId) payload.accountUnassigned = false;
+    if (payload.accountUnassigned) { delete payload.accountId; delete payload.accountQuery; }
     if (payload.currency) payload.currency = payload.currency.toUpperCase();
     if (payload.currency && !['ARS', 'USD'].includes(payload.currency)) fail(400, 'INVALID_CURRENCY', 'Usá ARS o USD.');
     if (payload.kind && !KINDS.includes(payload.kind)) fail(400, 'INVALID_KIND', 'Tipo de gasto inválido.');
@@ -122,8 +129,12 @@ export async function expenseContext(user, query = {}) {
             { value: 'deferred', label: 'Pendiente de pago: compromiso sin débito; completar el pago en Finanzas' }] };
 }
 
-async function reviewPayload(user, input, session = null) {
+async function reviewPayload(user, input, session = null, { allowUnassignedAccount = false } = {}) {
     const payload = { ...input };
+    if (!allowUnassignedAccount) {
+        if (payload.accountUnassigned) fail(400, 'ACCOUNT_REQUIRED', 'Elegí una cuenta de origen para este gasto.');
+        delete payload.accountUnassigned;
+    }
     assertExpensePermission(user, payload);
     const missing = [];
     const issue = (field, question, candidates = [], total = candidates.length) => missing.push({ field, question, candidates, total });
@@ -144,11 +155,14 @@ async function reviewPayload(user, input, session = null) {
         delete payload.accountId;
     }
     // Infer only from the complete result count, never from one page of matches.
-    if (!account && accountTotal === 1 && payload.currency && payload.paymentMethod) {
+    if (!payload.accountUnassigned && !account && accountTotal === 1 && payload.currency && payload.paymentMethod) {
         account = accounts[0];
         payload.accountId = String(account._id);
     }
-    if (!account) issue('accountId', accountTotal ? '¿Desde cuál cuenta pagaste?' : 'No encontré una cuenta activa para esa moneda y medio. Elegí otra cuenta o corregí el medio.', accounts.map(accountDto), accountTotal);
+    if (account) payload.accountUnassigned = false;
+    if (!account && allowUnassignedAccount && accountTotal === 0) payload.accountUnassigned = true;
+    if (payload.accountUnassigned) { delete payload.accountId; delete payload.accountQuery; }
+    else if (!account) issue('accountId', accountTotal ? '¿Desde cuál cuenta pagaste?' : 'No encontré una cuenta activa para esa moneda y medio. Elegí otra cuenta o corregí el medio.', accounts.map(accountDto), accountTotal);
     const needsVehicle = ['workshop', 'vehicle'].includes(payload.kind) || Boolean(payload.vehicleId || payload.vehicleQuery);
     let vehicle = payload.vehicleId ? await Car.findById(payload.vehicleId).select('brand name year plateOrVin status').session(session).lean() : null;
     if (needsVehicle && !vehicle) {
@@ -161,7 +175,7 @@ async function reviewPayload(user, input, session = null) {
     }
     const amount = payload.amount ? `$${payload.amount.toLocaleString('es-AR', { maximumFractionDigits: 2 })} ${payload.currency || ''}`.trim() : 'Importe pendiente';
     const cardLabel = payload.paymentMethod === 'tarjeta' && payload.cardTiming === 'deferred' ? ' · Tarjeta pendiente de pago; sin débito' : '';
-    const summary = [amount, payload.concept || 'Concepto pendiente', vehicle ? `${vehicle.brand} ${vehicle.name} ${vehicle.year} (${vehicle.plateOrVin || 'Sin patente'})` : '', account?.name || 'Cuenta pendiente', payload.date].filter(Boolean).join(' · ') + cardLabel;
+    const summary = [amount, payload.concept || 'Concepto pendiente', vehicle ? `${vehicle.brand} ${vehicle.name} ${vehicle.year} (${vehicle.plateOrVin || 'Sin patente'})` : '', account?.name || (payload.accountUnassigned ? 'Cuenta sin asignar' : 'Cuenta pendiente'), payload.date].filter(Boolean).join(' · ') + cardLabel;
     return { payload, summary, missingFields: missing, readyToConfirm: missing.length === 0 };
 }
 function assertDraftId(id) { if (!validId(id)) fail(404, 'DRAFT_NOT_FOUND', 'No encontré ese borrador.'); }
@@ -178,7 +192,7 @@ export async function getExpenseDraft(user, id) {
     if (!draft) fail(404, 'DRAFT_NOT_FOUND', 'No encontré ese borrador.');
     if (draft.status === 'confirmed') { assertExpensePermission(user, draft.payload); return { ...draft.result, duplicate: true }; }
     assertLive(draft);
-    return publicDraft(draft, await reviewPayload(user, draft.payload));
+    return publicDraft(draft, await reviewPayload(user, draft.payload, null, { allowUnassignedAccount: draft.origin === 'crm_dictation' }));
 }
 export async function createExpenseDraft(user, { requestId, expense } = {}, { origin = 'gpt' } = {}) {
     assertExpensePermission(user);
@@ -195,7 +209,7 @@ export async function createExpenseDraft(user, { requestId, expense } = {}, { or
     if (!indexes.some(index => index.unique === true && !index.partialFilterExpression && index.key.userId === 1 && index.key.requestId === 1 && Object.keys(index.key).length === 2)) {
         fail(503, 'EXPENSE_STORAGE_NOT_READY', 'La carga de gastos todavía no está habilitada en este entorno. Pedile al administrador que complete la configuración.');
     }
-    const review = await reviewPayload(user, normalizePayload(expense));
+    const review = await reviewPayload(user, normalizePayload(expense), null, { allowUnassignedAccount: origin === 'crm_dictation' });
     try {
         const draft = await GptExpenseDraft.create({ userId: uid, requestId, origin, payload: review.payload,
             expiresAt: new Date(Date.now() + DRAFT_LIFE_MS) });
@@ -219,7 +233,8 @@ export async function editExpenseDraft(user, id, { version, expense } = {}) {
     // A changed search or currency must not retain an earlier inferred selection.
     if (Object.hasOwn(expense, 'vehicleQuery') && !Object.hasOwn(expense, 'vehicleId')) delete payload.vehicleId;
     if (['currency', 'paymentMethod', 'accountQuery'].some((key) => Object.hasOwn(expense, key)) && !Object.hasOwn(expense, 'accountId')) delete payload.accountId;
-    const review = await reviewPayload(user, payload);
+    if (['currency', 'paymentMethod', 'accountQuery'].some((key) => Object.hasOwn(expense, key)) && !Object.hasOwn(expense, 'accountUnassigned') && !expense.accountId) delete payload.accountUnassigned;
+    const review = await reviewPayload(user, payload, null, { allowUnassignedAccount: draft.origin === 'crm_dictation' });
     const updated = await GptExpenseDraft.findOneAndUpdate({ _id: id, userId: ownerId(user), version, status: 'draft', expiresAt: { $gt: new Date() } },
         { $set: { payload: review.payload }, $inc: { version: 1 } }, { new: true });
     if (!updated) fail(409, 'DRAFT_CHANGED', 'El borrador cambió. Consultalo de nuevo antes de confirmar.');
@@ -240,7 +255,7 @@ export async function confirmExpenseDraft(user, id, { version, confirmed } = {},
             if (draft.status === 'confirmed') { result = { ...draft.result, duplicate: true }; return; }
             assertLive(draft);
             if (draft.version !== version) fail(409, 'DRAFT_CHANGED', 'El borrador cambió. Leé el resumen actualizado y confirmalo de nuevo.');
-            const review = await reviewPayload(user, draft.payload.toObject(), session);
+            const review = await reviewPayload(user, draft.payload.toObject(), session, { allowUnassignedAccount: draft.origin === 'crm_dictation' });
             if (!review.readyToConfirm) fail(422, 'EXPENSE_INCOMPLETE', 'Faltan datos del gasto. Respondé solo la pregunta pendiente.', review);
             // Revalidation may discover changed reference data. Never confirm values
             // inferred after the user's last review (e.g. deleted source account).
@@ -250,7 +265,7 @@ export async function confirmExpenseDraft(user, id, { version, confirmed } = {},
             // First write locks the draft. Concurrent confirmations retry against
             // its committed result rather than creating another movement.
             const locked = await GptExpenseDraft.updateOne({ _id: id, userId: uid, status: 'draft', version },
-                { $set: { status: 'confirmed', confirmedAt: new Date() } }, { session });
+                { $set: { status: 'confirmed', confirmedAt: new Date(), payload: review.payload } }, { session });
             if (locked.modifiedCount !== 1) fail(409, 'DRAFT_CHANGED', 'El borrador cambió. Consultalo de nuevo.');
             const tx = await createExpenseMovement({ payload: review.payload, user, draftId: id, origin: draft.origin || 'gpt', session, req });
             const tab = review.payload.kind === 'workshop' || /taller|mec[aá]nic|chapist|repuestos/i.test(tx.category) ? 'taller' :
@@ -258,7 +273,8 @@ export async function confirmExpenseDraft(user, id, { version, confirmed } = {},
             result = { draftId: id, version, status: 'confirmed', movementId: String(tx._id), movementNumber: String(tx._id),
                 movementStatus: tx.status, summary: review.summary,
                 url: `/admin/finanzas?tab=${tab}&movement=${tx._id}`, vehicleUrl: tx.vehicleId ? `/admin/stock/${tx.vehicleId}` : null,
-                accountDebited: tx.status === 'activo', duplicate: false };
+                accountAssignmentPending: tx.accountAssignmentStatus === 'pending',
+                accountDebited: tx.accountDebitApplied ?? (tx.status === 'activo' && Boolean(tx.accountId)), duplicate: false };
             await GptExpenseDraft.updateOne({ _id: id }, { $set: { movementId: tx._id, result } }, { session });
         }, { readConcern: { level: 'snapshot' }, writeConcern: { w: 'majority' } });
         return result;

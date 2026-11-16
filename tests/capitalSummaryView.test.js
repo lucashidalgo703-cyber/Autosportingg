@@ -6,19 +6,23 @@ const summary = {
         efectivoPropio: { monto: 200, byCurrency: { ARS: 200, USD: 10 } },
         carteraPropia: { monto: 300, byCurrency: { ARS: 300, USD: 20 }, nominalByCurrency: { ARS: 600, USD: 40 } },
         otrosCreditos: { monto: 0, byCurrency: { ARS: 0, USD: 0 } },
-        deudasPropia: { monto: 50, byCurrency: { ARS: 50, USD: 5 } }
+        deudasPropia: { monto: 50, byCurrency: { ARS: 50, USD: 5 } },
+        pagosSinCuenta: { monto: 100, byCurrency: { ARS: 100, USD: 8 }, pagosCount: 3,
+            items: [{ id: 'p1', currency: 'ARS' }, { id: 'p2', currency: 'USD' }, { id: 'p3', currency: 'ARS' }] }
     },
-    totales: { capitalPropioCosto: 1450 },
-    totalsByCurrency: { ARS: { capitalPropioCosto: 1450 }, USD: { capitalPropioCosto: 115 } }
+    totales: { capitalPropioCosto: 1350 },
+    totalsByCurrency: { ARS: { capitalPropioCosto: 1350 }, USD: { capitalPropioCosto: 107 } }
 };
 const before = structuredClone(summary);
 for (const currency of ['ARS', 'USD']) {
     const view = capitalSummaryCurrencyView(summary, currency);
     const c = view.componentes;
-    assert.equal(c.stockPropioCosto.monto + c.efectivoPropio.monto + c.carteraPropia.monto + c.otrosCreditos.monto - c.deudasPropia.monto, view.totales.capitalPropioCosto);
+    assert.equal(c.stockPropioCosto.monto + c.efectivoPropio.monto + c.carteraPropia.monto + c.otrosCreditos.monto - c.deudasPropia.monto - c.pagosSinCuenta.monto, view.totales.capitalPropioCosto);
     assert.match(formatCapitalAmount(view.totales.capitalPropioCosto, currency), new RegExp(`^${currency} `));
 }
 assert.equal(capitalSummaryCurrencyView(summary, 'USD').componentes.carteraPropia.montoTotalNominal, 40);
+assert.equal(capitalSummaryCurrencyView(summary, 'ARS').componentes.pagosSinCuenta.pagosCount, 2);
+assert.equal(capitalSummaryCurrencyView(summary, 'USD').componentes.pagosSinCuenta.pagosCount, 1);
 assert.deepEqual(summary, before, 'Cambiar la moneda de presentación no altera el resumen ni convierte importes');
 const legacy = { componentes: { stockPropioCosto: { monto: 1234 } }, totales: { capitalPropioCosto: 1234 } };
 assert.equal(capitalSummaryCurrencyView(legacy, 'ARS').componentes.stockPropioCosto.monto, 1234);

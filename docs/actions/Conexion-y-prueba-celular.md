@@ -6,19 +6,23 @@ Se agregó una pantalla propia: **Finanzas → Dictar gasto**, en `/admin/gastos
 
 La pantalla se implementó y probó con datos ficticios en una base aislada. El 16 de noviembre de 2026 se autorizó publicar la rama completa en el CRM real, junto con Stock y Mis Ventas. Las pruebas de gastos y ventas se realizan en local; el despliegue prepara los índices de producción sin cargar movimientos de prueba.
 
-Cuando esa rama esté publicada en el entorno elegido:
+La carga directa está publicada en https://autosportingg.com/admin/gastos/rapido.
 
 1. Abrí el CRM desde Safari o Chrome en el celular e iniciá sesión con la verificación por correo habitual.
 2. Entrá en **Finanzas → Dictar gasto**. También hay un acceso en el menú lateral.
 3. Tocá **Dictar con el teclado** y después el micrófono del teclado de tu teléfono. Dictá: “Pagué 85 mil pesos en efectivo por la alineación de la Amarok Extreme”. La frase queda visible para revisar o corregir antes de continuar.
-4. Tocá **Preparar gasto**. Si hay dos Amarok, elegí la correcta por año y patente. Si dictaste una transferencia y hay varios bancos posibles, elegí la cuenta desde la que pagaste.
+4. Tocá **Preparar gasto**. Si hay dos Amarok, elegí la correcta por año y patente. Si hay varias cuentas posibles, elegí la cuenta desde la que pagaste o **Cargar sin asignar cuenta**. Si no hay una cuenta compatible, el resumen muestra **Cuenta sin asignar** y permite continuar.
 5. Revisá la línea con importe, moneda, concepto, unidad, cuenta y fecha. **Corregir datos** permite cambiar lo interpretado. **Guardar corrección** actualiza el borrador; todavía no registra el egreso.
-6. Tocá **Confirmar gasto**. El servidor guarda el movimiento, el débito y el costo asociado a la unidad en una sola operación.
+6. Tocá **Confirmar gasto**. El servidor guarda el movimiento y el costo asociado a la unidad en una sola operación. Descuenta saldo únicamente si hay una cuenta asignada y el gasto está pagado.
 7. Usá **Ver movimiento** para abrirlo en **Finanzas → Taller / Mecánico**, o **Ver unidad** para abrir el vehículo. Para otro gasto, tocá **Cargar otro gasto**.
 
 Si se pierde la respuesta al confirmar, usá **Recuperar resultado** o actualizá la página. Se consulta la misma solicitud y se devuelve el mismo movimiento si ya quedó guardado. No hace falta volver a dictarlo ni crear otro gasto.
 
 Después de registrarlo, desde **Ver movimiento** podés corregirlo o anularlo usando Finanzas. El movimiento, el saldo de la cuenta, el costo de la unidad y el efecto real de Tesorería se ajustan juntos. Recuperar una solicitud cuyo movimiento fue anulado muestra la anulación y no vuelve a cargar el gasto.
+
+La falta de una cuenta no impide registrar el gasto. Si ya lo pagaste, conserva ese estado y queda únicamente la cuenta por asignar. En **Ver movimiento → Cuenta de origen (opcional)** podés asignarla después: el servidor aplica el débito una sola vez. Hasta entonces los saldos individuales no cambian y el resumen de capital muestra el ajuste separado **Pagos con cuenta sin asignar**. Los consumos de tarjeta pendientes de pago conservan su estado pendiente.
+
+Si antes apareció el aviso de que no había una cuenta activa, actualizá la pantalla para recuperar el mismo borrador y confirmalo; no hace falta volver a dictarlo. Este cambio no requiere nuevas variables de Vercel.
 
 La interpretación reconoce frases habituales, importes numéricos o en palabras y fechas como hoy o ayer. Ante importes múltiples, monedas contradictorias u otros datos sin resolver, pide completar o corregir el borrador antes de permitir la confirmación.
 

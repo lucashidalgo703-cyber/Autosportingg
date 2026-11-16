@@ -8,6 +8,7 @@ const payloadSchema = new mongoose.Schema({
     concept: String,
     paymentMethod: String,
     accountId: { type: mongoose.Schema.Types.ObjectId, ref: 'Account' },
+    accountUnassigned: Boolean,
     accountQuery: String,
     vehicleId: { type: mongoose.Schema.Types.ObjectId, ref: 'Car' },
     vehicleQuery: String,

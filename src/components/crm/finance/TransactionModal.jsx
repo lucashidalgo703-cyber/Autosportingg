@@ -7,6 +7,7 @@ import { Layers } from 'lucide-react';
 export default function TransactionModal({ isOpen, onClose, transaction, onSave, onAnnul, initialData = null }) {
     const isEdit = !!transaction;
     const isAnnulled = transaction?.status === 'anulado';
+    const isManagedExpense = transaction?.module === 'crm_v2' && /^(crm|gpt)-expense:/.test(transaction?.idempotencyKey || '');
 
     const [formData, setFormData] = useState({
         type: 'ingreso',
@@ -38,6 +39,9 @@ export default function TransactionModal({ isOpen, onClose, transaction, onSave,
     const [clientOptions, setClientOptions] = useState([]);
     const [carOptions, setCarOptions] = useState([]);
     const [userOptions, setUserOptions] = useState([]);
+    const [accountOptions, setAccountOptions] = useState([]);
+    const [accountsLoading, setAccountsLoading] = useState(false);
+    const [accountsError, setAccountsError] = useState('');
 
     const getAuthHeaders = () => {
         const token = localStorage.getItem('token');
@@ -91,6 +95,40 @@ export default function TransactionModal({ isOpen, onClose, transaction, onSave,
     }, [isOpen, isAnnulled]);
 
     useEffect(() => {
+        if (!isOpen || !isManagedExpense || isAnnulled) return;
+        let active = true;
+        const controller = new AbortController();
+        setAccountOptions([]);
+        setAccountsLoading(true);
+        setAccountsError('');
+        const fetchAccounts = async () => {
+            try {
+                const accounts = new Map();
+                let page = 1;
+                let hasMore = true;
+                while (hasMore) {
+                    const params = new URLSearchParams({ currency: formData.currency, accountPage: String(page), limit: '50' });
+                    const response = await fetch('/api/admin/quick-expenses/context?' + params, { headers: getAuthHeaders(), cache: 'no-store', signal: controller.signal });
+                    const data = await response.json().catch(() => ({}));
+                    if (!response.ok) throw new Error(data.message || 'No se pudieron cargar las cuentas. Podés guardar el gasto sin asignar una.');
+                    for (const account of data.accounts || []) {
+                        if (account.currency === formData.currency && account.isActive !== false) accounts.set(String(account.id || account._id), account);
+                    }
+                    hasMore = data.accountPagination?.hasMore === true;
+                    page += 1;
+                }
+                if (active) setAccountOptions([...accounts.values()]);
+            } catch (err) {
+                if (active) setAccountsError(err.message);
+            } finally {
+                if (active) setAccountsLoading(false);
+            }
+        };
+        fetchAccounts();
+        return () => { active = false; controller.abort(); };
+    }, [isOpen, isManagedExpense, isAnnulled, formData.currency]);
+
+    useEffect(() => {
         if (isOpen && transaction) {
             setFormData({
                 type: transaction.type?.toLowerCase() || 'ingreso',
@@ -110,7 +148,8 @@ export default function TransactionModal({ isOpen, onClose, transaction, onSave,
                 payeeCompany: transaction.payeeCompany || '',
                 targetUser: transaction.targetUser || transaction.createdBy || '',
                 beneficiary: transaction.beneficiary || '',
-                dueDate: transaction.dueDate ? new Date(transaction.dueDate).toISOString().split('T')[0] : ''
+                dueDate: transaction.dueDate ? new Date(transaction.dueDate).toISOString().split('T')[0] : '',
+                ...(isManagedExpense ? { accountId: String(transaction.accountId?._id || transaction.accountId || '') } : {})
             });
         } else if (isOpen) {
             // Default initial state or props if provided from SaleFinancePanel
@@ -137,7 +176,7 @@ export default function TransactionModal({ isOpen, onClose, transaction, onSave,
             });
         }
         setErrors({});
-    }, [isOpen, transaction, initialData]);
+    }, [isOpen, transaction, initialData, isManagedExpense]);
 
     if (!isOpen) return null;
 
@@ -156,8 +195,13 @@ export default function TransactionModal({ isOpen, onClose, transaction, onSave,
         if (validate()) {
             const dataToSave = {
                 ...formData,
-                amount: Number(formData.amount)
+                amount: Number(formData.amount),
+                ...(isManagedExpense ? { accountId: formData.accountId || null, accountUnassigned: !formData.accountId } : {})
             };
+            if (!isManagedExpense) {
+                delete dataToSave.accountId;
+                delete dataToSave.accountUnassigned;
+            }
             // Limpiar vacíos
             if (!dataToSave.saleId) delete dataToSave.saleId;
             if (!dataToSave.reservationId) delete dataToSave.reservationId;
@@ -245,7 +289,7 @@ export default function TransactionModal({ isOpen, onClose, transaction, onSave,
                                     <div className="flex gap-2">
                                         <button
                                             type="button"
-                                            onClick={() => setFormData({ ...formData, currency: 'ARS' })}
+                                            onClick={() => setFormData({ ...formData, currency: 'ARS', ...(isManagedExpense && formData.currency !== 'ARS' ? { accountId: '' } : {}) })}
                                             disabled={isAnnulled}
                                             className={`flex-1 py-2.5 rounded-xl text-sm font-bold transition-colors border ${formData.currency === 'ARS' ? 'bg-blue-500/20 text-blue-400 border-blue-500/30' : 'bg-black/40 text-neutral-400 border-neutral-800 hover:border-neutral-700'} ${isAnnulled ? 'opacity-30 cursor-not-allowed' : ''}`}
                                         >
@@ -253,7 +297,7 @@ export default function TransactionModal({ isOpen, onClose, transaction, onSave,
                                         </button>
                                         <button
                                             type="button"
-                                            onClick={() => setFormData({ ...formData, currency: 'USD' })}
+                                            onClick={() => setFormData({ ...formData, currency: 'USD', ...(isManagedExpense && formData.currency !== 'USD' ? { accountId: '' } : {}) })}
                                             disabled={isAnnulled}
                                             className={`flex-1 py-2.5 rounded-xl text-sm font-bold transition-colors border ${formData.currency === 'USD' ? 'bg-green-500/20 text-green-400 border-green-500/30' : 'bg-black/40 text-neutral-400 border-neutral-800 hover:border-neutral-700'} ${isAnnulled ? 'opacity-30 cursor-not-allowed' : ''}`}
                                         >
@@ -485,6 +529,26 @@ export default function TransactionModal({ isOpen, onClose, transaction, onSave,
                                 <option value="pendiente">Pendiente</option>
                             </select>
                         </div>
+
+                        {isManagedExpense && (
+                            <div className="col-span-1 md:col-span-2">
+                                <label htmlFor="transaction-origin-account" className="block text-xs font-bold text-neutral-500 uppercase tracking-wider mb-2">Cuenta de origen (opcional)</label>
+                                <select
+                                    id="transaction-origin-account"
+                                    className="min-h-11 w-full bg-black/40 border border-neutral-800 rounded-xl py-2.5 px-4 text-sm text-neutral-300 focus:outline-none focus:border-neutral-600 transition-colors"
+                                    value={formData.accountId || ''}
+                                    onChange={(event) => setFormData({ ...formData, accountId: event.target.value })}
+                                    disabled={isAnnulled || accountsLoading}
+                                >
+                                    <option value="">Sin asignar</option>
+                                    {formData.accountId && !accountOptions.some(account => String(account.id || account._id) === formData.accountId) && <option value={formData.accountId}>{transaction.accountId?.name || 'Cuenta asignada'} · {transaction.currency}</option>}
+                                    {accountOptions.map(account => <option key={account.id || account._id} value={account.id || account._id}>{account.name} · {account.currency}</option>)}
+                                </select>
+                                {!isAnnulled && <p className="mt-2 text-xs text-neutral-400">Sin cuenta asignada no se descuenta saldo de ninguna cuenta. Al asignarla a un gasto pagado, el saldo se actualiza una sola vez.</p>}
+                                {accountsLoading && <p className="mt-2 text-xs text-neutral-400">Cargando cuentas…</p>}
+                                {accountsError && <p role="alert" className="mt-2 text-xs text-amber-400">{accountsError}</p>}
+                            </div>
+                        )}
 
                         <div className="col-span-1 md:col-span-2">
                             <label className="block text-xs font-bold text-neutral-500 uppercase tracking-wider mb-2">Notas (Opcional)</label>

@@ -35,7 +35,16 @@ const transactionSchema = new mongoose.Schema({
     description: { type: String, required: true },
     category: { type: String, required: true },
     date: { type: Date, default: Date.now },
-    accountId: { type: mongoose.Schema.Types.ObjectId, ref: 'Account', required: true },
+    accountId: { type: mongoose.Schema.Types.ObjectId, ref: 'Account', required: function () {
+        return !(this.module === 'crm_v2' && /^(crm|gpt)-expense:/.test(this.idempotencyKey || '') && this.accountAssignmentStatus === 'pending');
+    }, validate: {
+        validator(value) { return this.accountAssignmentStatus !== 'pending' || !value; },
+        message: 'Una cuenta pendiente de asignar no puede tener accountId.'
+    } },
+    accountAssignmentStatus: { type: String, enum: ['assigned', 'pending'], default: 'assigned' },
+    // Absence on older managed expenses means their active account debit was
+    // already applied. New expenses always persist the actual account effect.
+    accountDebitApplied: { type: Boolean, default: undefined },
     carId: { type: mongoose.Schema.Types.ObjectId, ref: 'Car' }, // Optional linked car
     notes: { type: String },
     

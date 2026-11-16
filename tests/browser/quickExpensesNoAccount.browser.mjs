@@ -1,0 +1,138 @@
+// Run LOCAL_PREVIEW_NO_ACCOUNTS=true node scripts/start-mobile-crm-preview.js.
+// All data and mail belong to the disposable loopback-only preview.
+import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import path from 'node:path';
+const { chromium } = await import(process.env.PLAYWRIGHT_MODULE || 'playwright');
+const base = 'http://127.0.0.1:3200';
+const output = path.resolve('../../outputs/gastos-sin-cuenta');
+fs.mkdirSync(output, { recursive: true });
+const browser = await chromium.launch({ headless: true, executablePath: process.env.CHROME_PATH || 'C:/Program Files/Google/Chrome/Application/chrome.exe' });
+let page;
+try {
+    const fixture = await (await fetch(base + '/__test-fixtures.json')).json();
+    assert.equal(fixture.noActiveAccounts, true, 'requires disposable preview with LOCAL_PREVIEW_NO_ACCOUNTS=true');
+    const context = await browser.newContext({ viewport: { width: 390, height: 844 } });
+    await context.route('**/*', route => new URL(route.request().url()).hostname === '127.0.0.1' ? route.continue() : route.abort());
+    await context.addInitScript(userId => localStorage.setItem(`autosporting_tour_seen_${userId}`, 'true'), fixture.users[0].id);
+    page = await context.newPage();
+    page.on('pageerror', error => console.error('Browser error:', error.message));
+    await page.goto(base + '/admin/gastos/rapido', { waitUntil: 'domcontentloaded', timeout: 180000 });
+    await page.waitForURL(url => url.pathname === '/login' && url.searchParams.get('next') === '/admin/gastos/rapido', { waitUntil: 'domcontentloaded', timeout: 120000 });
+    await page.locator('input[type=email]').fill('admin@example.test');
+    await page.locator('input[type=password]').fill('Ficticia-Local-2026!');
+    await page.getByRole('button', { name: 'INICIAR SESIÓN // LOGIN' }).click();
+    await page.getByRole('heading', { name: 'Ingresá el código de 6 dígitos enviado al administrador' }).waitFor();
+    assert.equal(await page.evaluate(() => localStorage.getItem('token')), null);
+    const mailbox = await (await page.request.get(base + '/__test-mail.json')).json();
+    const code = await page.evaluate(html => new DOMParser().parseFromString(html, 'text/html').body.textContent.match(/\b\d{6}\b/)[0], mailbox.at(-1).html);
+    await page.getByLabel('Código de verificación').fill(code);
+    await page.getByRole('button', { name: 'Verificar código', exact: true }).click();
+    await page.waitForURL(base + '/admin/gastos/rapido', { timeout: 120000 });
+    await page.getByRole('heading', { name: 'Dictar un gasto', exact: true }).waitFor();
+    const token = await page.evaluate(() => localStorage.getItem('token'));
+    const call = async (method, route, body) => {
+        const response = await page.request.fetch(base + route, { method, headers: { Authorization: 'Bearer ' + token }, ...(body ? { data: body } : {}) });
+        assert.ok(response.ok(), `${response.status()} ${await response.text()}`);
+        return response.json();
+    };
+    const accountsBefore = await call('GET', '/api/admin/accounts');
+    assert.equal(accountsBefore.filter(account => account.isActive !== false).length, 0);
+    const balanceSnapshot = accounts => Object.fromEntries(accounts.map(account => [String(account._id), account.balance]));
+    const balancesBefore = balanceSnapshot(accountsBefore);
+    const before = await call('GET', '/api/admin/transactions');
+    await page.getByLabel('Gasto escrito o dictado').fill('Pagué 85 mil pesos en efectivo por la alineación de la Amarok Extreme');
+    await page.getByRole('button', { name: 'Preparar gasto', exact: true }).click();
+    await page.getByRole('heading', { name: '¿A qué unidad corresponde? Elegí por año y patente.' }).waitFor();
+    await page.getByRole('button', { name: /2022.*QA001AA/ }).click();
+    await page.waitForFunction(() => document.querySelector('[data-expense-summary]')?.textContent.includes('Cuenta sin asignar'));
+    assert.equal(await page.getByRole('button', { name: 'Confirmar gasto', exact: true }).isEnabled(), true);
+    assert.equal(await page.getByText(/No encontré una cuenta activa/).count(), 0);
+    assert.equal((await call('GET', '/api/admin/transactions')).length, before.length, 'draft does not write a transaction');
+    await page.reload({ waitUntil: 'domcontentloaded' });
+    await page.getByRole('button', { name: 'Confirmar gasto', exact: true }).waitFor();
+    await page.getByRole('button', { name: 'Confirmar gasto', exact: true }).scrollIntoViewIfNeeded();
+    await page.screenshot({ path: path.join(output, '01-confirmar-sin-cuenta.png') });
+    let movement;
+    let confirmationRequests = 0;
+    // Commit once but lose the response, then recover the existing result.
+    await page.route('**/api/admin/quick-expenses/drafts/*/confirm', async route => {
+        confirmationRequests++;
+        const response = await route.fetch();
+        assert.equal(response.status(), 200, await response.text());
+        movement = await response.json();
+        await route.abort('failed');
+    });
+    await page.getByRole('button', { name: 'Confirmar gasto', exact: true }).click();
+    await page.getByRole('alert').waitFor();
+    assert.equal(await page.getByRole('button', { name: 'Descartar borrador y cargar otro gasto', exact: true }).count(), 0);
+    await page.getByRole('button', { name: 'Recuperar resultado', exact: true }).click();
+    await page.getByRole('heading', { name: 'Gasto registrado', exact: true }).waitFor();
+    await page.getByText('Gasto registrado. Cuenta de origen sin asignar; no se descontó saldo de ninguna cuenta.', { exact: true }).waitFor();
+    assert.equal(confirmationRequests, 1);
+    assert.equal(movement.accountAssignmentPending, true);
+    assert.equal(movement.accountDebited, false);
+    assert.equal(movement.movementStatus, 'activo');
+    const after = await call('GET', '/api/admin/transactions');
+    assert.equal(after.length - before.length, 1);
+    const saved = after.find(tx => tx._id === movement.movementId);
+    assert.equal(saved.accountId ?? null, null);
+    assert.equal(saved.accountAssignmentStatus, 'pending');
+    assert.equal(saved.accountDebitApplied, false);
+    assert.equal(saved.status, 'activo');
+    assert.deepEqual(balanceSnapshot(await call('GET', '/api/admin/accounts')), balancesBefore);
+    const car = await call('GET', '/api/admin/cars/' + fixture.cars[0].id);
+    assert.equal(car.expenses.filter(expense => String(expense._id) === movement.movementId).length, 1);
+    assert.equal(car.expenses.find(expense => String(expense._id) === movement.movementId).amount, 85000);
+    await page.reload({ waitUntil: 'domcontentloaded' });
+    await page.getByRole('heading', { name: 'Gasto registrado', exact: true }).waitFor();
+    assert.equal((await call('GET', '/api/admin/transactions')).length, after.length);
+    assert.deepEqual(balanceSnapshot(await call('GET', '/api/admin/accounts')), balancesBefore);
+    assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth + 2), false);
+    await page.screenshot({ path: path.join(output, '02-gasto-sin-cuenta-registrado.png') });
+
+    // Activate an existing fictitious account; no employee or production data.
+    const accountId = fixture.accounts[0].id;
+    await call('PATCH', '/api/admin/accounts/' + accountId, { isActive: true });
+    await page.getByRole('link', { name: 'Ver movimiento', exact: true }).click();
+    const selector = page.getByLabel('Cuenta de origen (opcional)', { exact: true });
+    await selector.waitFor();
+    assert.equal(await selector.inputValue(), '');
+    await selector.selectOption(accountId);
+    const edition = page.waitForResponse(response => response.url().endsWith('/api/admin/transactions/' + movement.movementId) && response.request().method() === 'PATCH');
+    await page.getByRole('button', { name: 'Guardar Cambios', exact: true }).click();
+    assert.equal((await edition).status(), 200);
+    const assigned = (await call('GET', '/api/admin/transactions')).find(tx => tx._id === movement.movementId);
+    assert.equal(String(assigned.accountId?._id || assigned.accountId), accountId);
+    assert.equal(assigned.accountAssignmentStatus, 'assigned');
+    assert.equal(assigned.accountDebitApplied, true);
+    assert.equal((await call('GET', '/api/admin/accounts')).find(account => String(account._id) === accountId).balance, balancesBefore[accountId] - 85000);
+    assert.equal((await call('GET', '/api/admin/cars/' + fixture.cars[0].id)).expenses.filter(expense => String(expense._id) === movement.movementId).length, 1);
+
+    // Save the same assignment again through the UI; it cannot debit twice.
+    await page.goto(base + '/admin/finanzas?tab=taller&movement=' + movement.movementId, { waitUntil: 'domcontentloaded' });
+    await page.getByLabel('Cuenta de origen (opcional)', { exact: true }).waitFor();
+    assert.equal(await page.getByLabel('Cuenta de origen (opcional)', { exact: true }).inputValue(), accountId);
+    const repeatEdition = page.waitForResponse(response => response.url().endsWith('/api/admin/transactions/' + movement.movementId) && response.request().method() === 'PATCH');
+    await page.getByRole('button', { name: 'Guardar Cambios', exact: true }).click();
+    assert.equal((await repeatEdition).status(), 200);
+    assert.equal((await call('GET', '/api/admin/accounts')).find(account => String(account._id) === accountId).balance, balancesBefore[accountId] - 85000);
+    await page.goto(base + '/admin/finanzas?tab=taller&movement=' + movement.movementId, { waitUntil: 'domcontentloaded' });
+    await page.getByRole('button', { name: 'Anular Movimiento', exact: true }).click();
+    const annulDialog = page.getByRole('dialog', { name: 'Anular Movimiento', exact: true });
+    await annulDialog.waitFor();
+    const annulment = page.waitForResponse(response => response.url().endsWith('/api/admin/transactions/' + movement.movementId) && response.request().method() === 'PATCH');
+    annulment.catch(() => {});
+    await annulDialog.getByRole('button', { name: 'Anular', exact: true }).click();
+    assert.equal((await annulment).status(), 200);
+    assert.equal((await call('GET', '/api/admin/cars/' + fixture.cars[0].id)).expenses.some(expense => String(expense._id) === movement.movementId), false);
+    assert.deepEqual(balanceSnapshot(await call('GET', '/api/admin/accounts')), balancesBefore);
+    await page.goto(base + '/admin/gastos/rapido', { waitUntil: 'domcontentloaded' });
+    await page.getByRole('heading', { name: 'Gasto anulado', exact: true }).waitFor();
+    assert.equal((await call('GET', '/api/admin/transactions')).length, after.length);
+    console.log('Navegador móvil sin cuentas OK: confirmación, respuesta perdida/reload sin duplicados ni débitos; Car.expenses único; asignación posterior debita una vez y anulación restaura el saldo.');
+} catch (error) {
+    console.error('Page:', page?.url(), (await page?.locator('body').innerText().catch(() => '') || '').slice(0, 2200));
+    if (page) await page.screenshot({ path: path.join(output, 'failure.png') }).catch(() => {});
+    throw error;
+} finally { await browser.close(); }

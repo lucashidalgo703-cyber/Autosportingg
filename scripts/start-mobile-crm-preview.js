@@ -6,6 +6,11 @@ const host = '127.0.0.1', port = 3200;
 const env = await bootIsolatedReplica({ listen: false });
 const { seedMobileCrm, localPassword } = await import('../tests/fixtures/mobileCrmFixtures.js');
 const fixtures = await seedMobileCrm(env.models);
+const noActiveAccounts = process.env.LOCAL_PREVIEW_NO_ACCOUNTS === 'true';
+if (noActiveAccounts) {
+    // Only these disposable fixtures are affected; the harness never loads .env.
+    await env.models.Account.updateMany({ _id: { $in: fixtures.accounts.map(account => account._id) } }, { $set: { isActive: false } });
+}
 process.env.NODE_ENV = 'development';
 process.env.NEXT_PUBLIC_API_URL = `http://${host}:${port}`;
 delete process.env.TURBOPACK;
@@ -22,7 +27,8 @@ const server = http.createServer((req, res) => {
             users: fixtures.users.map(user => ({ name: user.name, email: user.email, id: String(user._id) })),
             cars: fixtures.cars.map(car => ({ id: String(car._id), name: car.name, plate: car.plateOrVin })),
             accounts: fixtures.accounts.map(account => ({ id: String(account._id), name: account.name })),
-            reservation: String(fixtures.reservation._id)
+            reservation: String(fixtures.reservation._id),
+            noActiveAccounts
         }));
         return;
     }
