@@ -77,7 +77,8 @@ try {
     await admin.getByRole('button', { name: 'Ver como cliente', exact: true }).click();
     const preview = admin.getByRole('dialog', { name: 'Vista previa del portal del cliente' });
     await preview.getByRole('heading', { name: 'El vehículo que entrego', exact: true }).waitFor();
-    assert.equal(await preview.getByRole('button', { name: 'Guardar este archivo', exact: true }).isDisabled(), true);
+    assert.equal(await preview.locator('[data-upload-requirement]').count(), 6);
+    for (const control of await preview.getByRole('button', { name: /^(Sacar foto|Galería o PDF)$/ }).all()) assert.equal(await control.isDisabled(), true);
     await admin.screenshot({ path: path.join(output, 'portal-vista-previa.png') });
     await preview.getByRole('button', { name: 'Cerrar vista previa del portal', exact: true }).click();
     const withConfig = await api('GET', '/api/admin/buyer-portal/sales/' + withTradeIn);
@@ -90,13 +91,21 @@ try {
     assert.equal(await buyer.getByText(/NOTA.*INTERNA PRIVADA/).count(), 0);
     await buyer.getByText('Presentado', { exact: true }).waitFor();
     await buyer.getByRole('heading', { name: 'El vehículo que entrego', exact: true }).waitFor();
-    const form = buyer.getByRole('form', { name: /Cargar documentación de PT001AA/ });
+    assert.equal(await buyer.locator('[data-upload-requirement]').count(), 6);
+    for (const key of ['title', 'domain_report', 'traffic_report', 'police_check', 'registration_cards', 'municipal_clearance']) {
+        const requirementForm = buyer.locator(`[data-upload-requirement="${key}"]`);
+        assert.equal(await requirementForm.getByRole('button', { name: 'Sacar foto', exact: true }).isEnabled(), true);
+        assert.equal(await requirementForm.getByRole('button', { name: 'Galería o PDF', exact: true }).isEnabled(), true);
+        assert.equal(await requirementForm.getByLabel('Foto con la cámara', { exact: true }).getAttribute('capture'), 'environment');
+        assert.match(await requirementForm.getByLabel('Elegir foto o PDF', { exact: true }).getAttribute('accept'), /application\/pdf/);
+    }
+    await buyer.screenshot({ path: path.join(output, 'portal-carga-por-requisito.png'), fullPage: true });
     async function upload(requirementKey, description, number, side) {
-        await form.getByLabel('Requisito', { exact: true }).selectOption(requirementKey);
+        const form = buyer.locator(`[data-upload-requirement="${requirementKey}"]`);
+        await form.getByLabel('Elegir foto o PDF', { exact: true }).setInputFiles({ name: 'documento-ficticio.png', mimeType: 'image/png', buffer: png });
         if (requirementKey === 'registration_cards') { await form.getByLabel('Número de cédula', { exact: true }).fill(String(number)); await form.getByLabel('Lado', { exact: true }).selectOption(side); }
         else { await form.getByLabel('Número de página o PDF', { exact: true }).fill(String(number)); await form.getByLabel('Fecha de emisión', { exact: true }).fill(new Date().toISOString().slice(0, 10)); }
         await form.getByLabel('Descripción de esta foto o PDF', { exact: true }).fill(description);
-        await form.getByLabel('Elegir foto o PDF', { exact: true }).setInputFiles({ name: 'documento-ficticio.png', mimeType: 'image/png', buffer: png });
         const saved = responseFor(buyer, response => response.url().endsWith('/documents') && response.request().method() === 'POST');
         await form.getByRole('button', { name: 'Guardar este archivo', exact: true }).click();
         assert.ok([200, 201].includes((await saved).status()));
@@ -141,11 +150,10 @@ try {
     const frontId = await front.getAttribute('data-admin-document');
     await buyer.reload({ waitUntil: 'domcontentloaded' });
     await buyer.getByRole('heading', { name: 'El vehículo que entrego', exact: true }).waitFor();
-    const replacementForm = buyer.getByRole('form', { name: /Cargar documentación de PT001AA/ });
-    await replacementForm.getByLabel('Requisito', { exact: true }).selectOption('registration_cards');
+    const replacementForm = buyer.locator('[data-upload-requirement="registration_cards"]');
+    await replacementForm.getByLabel('Elegir foto o PDF', { exact: true }).setInputFiles({ name: 'frente-corregido.png', mimeType: 'image/png', buffer: png });
     await replacementForm.getByLabel('Nueva foto o reemplazo', { exact: true }).selectOption(frontId);
     await replacementForm.getByLabel('Descripción de esta foto o PDF', { exact: true }).fill('Cédula 1 · Frente corregido');
-    await replacementForm.getByLabel('Elegir foto o PDF', { exact: true }).setInputFiles({ name: 'frente-corregido.png', mimeType: 'image/png', buffer: png });
     const replaced = responseFor(buyer, response => response.url().endsWith('/documents') && response.request().method() === 'POST');
     await replacementForm.getByRole('button', { name: 'Guardar este archivo', exact: true }).click();
     assert.ok([200, 201].includes((await replaced).status()));

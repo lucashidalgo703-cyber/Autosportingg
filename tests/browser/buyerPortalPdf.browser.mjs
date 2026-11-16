@@ -29,7 +29,18 @@ try {
     assert.equal(configurationResponse.status(), 200);
     const configuration = await configurationResponse.json();
     await page.goto(new URL(configuration.url, base).href, { waitUntil: 'domcontentloaded', timeout: 180000 });
-    await page.getByRole('button', { name: 'Enviar código a mi correo', exact: true }).click();
+    const sendCode = async () => {
+        const response = page.waitForResponse(item => item.url().endsWith('/challenge') && item.request().method() === 'POST');
+        await page.getByRole('button', { name: 'Enviar código a mi correo', exact: true }).click();
+        return response;
+    };
+    let sent = await sendCode();
+    if (sent.status() === 429) {
+        assert.match((await sent.json()).message, /60 segundos/, 'only the normal resend cooldown may be retried');
+        await page.waitForTimeout(60050);
+        sent = await sendCode();
+    }
+    assert.equal(sent.status(), 200);
     await page.getByLabel('Código de 6 dígitos', { exact: true }).waitFor();
     const mailbox = await (await page.request.get(base + '/__test-mail.json')).json();
     const message = mailbox.filter(item => item.to === fixture.buyerPortal.buyerOneEmail).at(-1);
@@ -37,27 +48,34 @@ try {
     await page.getByLabel('Código de 6 dígitos', { exact: true }).fill(code);
     await page.getByRole('button', { name: 'Verificar y abrir mi portal', exact: true }).click();
     await page.getByRole('heading', { name: 'El vehículo que entrego', exact: true }).waitFor();
-    const form = page.getByRole('form', { name: /Cargar documentación de PT001AA/ });
-    await form.getByLabel('Requisito', { exact: true }).selectOption('title');
-    await form.getByLabel('Descripción de esta foto o PDF', { exact: true }).fill('CAT · PDF completo');
-    await form.getByLabel('Elegir foto o PDF', { exact: true }).setInputFiles({ name: 'titulo-ficticio-completo.pdf', mimeType: 'application/pdf', buffer: pdf });
-    const upload = page.waitForResponse(response => response.url().endsWith('/documents') && response.request().method() === 'POST'); upload.catch(() => {});
-    await form.getByRole('button', { name: 'Guardar este archivo', exact: true }).click();
-    assert.ok([200, 201].includes((await upload).status()));
-    await form.getByRole('status').filter({ hasText: 'Carga guardada:' }).waitFor();
-    const title = page.locator('[data-requirement="title"]');
-    assert.equal(await title.locator('[data-document-entry][data-document-current="true"]').count(), 1);
-    assert.equal(await title.locator('img').count(), 0, 'a PDF must remain one complete file');
-    const frame = title.locator('iframe[title="Vista previa de CAT · PDF completo"]');
-    await frame.waitFor();
-    const signedUrl = await frame.getAttribute('src');
-    const fetched = await page.request.get(new URL(signedUrl, base).href);
-    assert.equal(fetched.status(), 200);
-    assert.match(fetched.headers()['content-type'], /^application\/pdf/);
-    assert.deepEqual(await fetched.body(), pdf);
-    await frame.scrollIntoViewIfNeeded();
+    for (const key of ['title', 'domain_report', 'traffic_report', 'police_check', 'registration_cards', 'municipal_clearance']) {
+        const group = page.locator(`[data-requirement="${key}"]`);
+        const form = group.locator('[data-upload-requirement]');
+        const description = `${key} · PDF completo`;
+        const before = await group.locator('[data-document-entry][data-document-current="true"]').count();
+        await form.getByLabel('Elegir foto o PDF', { exact: true }).setInputFiles({ name: `${key}-ficticio-completo.pdf`, mimeType: 'application/pdf', buffer: pdf });
+        await form.getByLabel('Descripción de esta foto o PDF', { exact: true }).fill(description);
+        if (['domain_report', 'police_check'].includes(key)) await form.getByLabel('Fecha de emisión', { exact: true }).fill(new Date().toISOString().slice(0, 10));
+        const upload = page.waitForResponse(response => response.url().endsWith('/documents') && response.request().method() === 'POST'); upload.catch(() => {});
+        await form.getByRole('button', { name: 'Guardar este archivo', exact: true }).click();
+        assert.ok([200, 201].includes((await upload).status()));
+        await form.getByRole('status').filter({ hasText: 'Carga guardada:' }).waitFor();
+        assert.equal(await group.locator('[data-document-entry][data-document-current="true"]').count(), before + 1);
+        const frame = group.getByTitle(`Vista previa de ${description}`, { exact: true });
+        await frame.waitFor();
+        const signedUrl = await frame.getAttribute('src');
+        const fetched = await page.request.get(new URL(signedUrl, base).href);
+        assert.equal(fetched.status(), 200);
+        assert.match(fetched.headers()['content-type'], /^application\/pdf/);
+        assert.deepEqual(await fetched.body(), pdf, 'each requirement must preserve the complete PDF');
+        console.log(`ok - PDF completo guardado en ${key}`);
+    }
+    await page.reload({ waitUntil: 'domcontentloaded' });
+    await page.getByRole('heading', { name: 'El vehículo que entrego', exact: true }).waitFor();
+    assert.equal(await page.locator('[data-document-entry][data-document-current="true"] iframe').count(), 6);
+    assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth + 2), false);
     await page.screenshot({ path: path.join(output, 'portal-pdf-completo.png') });
-    console.log('Portal PDF OK: carga individual, un archivo completo, iframe privado y bytes originales recuperados por enlace firmado.');
+    console.log('Portal PDF OK: los seis requisitos permiten PDF individual, conservan el archivo completo y lo recuperan por enlace firmado privado.');
 } catch (error) {
     if (page) await page.screenshot({ path: path.join(output, 'portal-pdf-failure.png') }).catch(() => {});
     throw error;

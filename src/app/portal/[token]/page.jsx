@@ -3,6 +3,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
 import { LockKeyhole } from 'lucide-react';
 import BuyerPortalView from '../../../components/buyer-portal/BuyerPortalView';
+import BuyerPortalBrand from '../../../components/buyer-portal/BuyerPortalBrand';
 import { portalRequest } from '../../../components/buyer-portal/portalClient';
 
 export default function BuyerPortalPage() {
@@ -115,7 +116,7 @@ export default function BuyerPortalPage() {
                 <BuyerPortalView data={data} onUpload={upload} requestAccess={requestAccess} onRefresh={() => { void refresh().catch(() => {}); }}/>
                 <button type="button" onClick={expireSession} className="mt-4 min-h-10 rounded-lg border border-neutral-700 px-3 text-sm text-neutral-400">Cerrar acceso a este portal</button>
             </> : <section className="mx-auto max-w-md space-y-5 rounded-2xl border border-neutral-700 bg-neutral-900 p-5 sm:p-7">
-                <p className="text-xs font-bold uppercase tracking-[0.15em] text-red-400">AutoSporting · Portal del cliente</p>
+                <BuyerPortalBrand/>
                 <LockKeyhole size={30} className="text-red-400"/>
                 <h1 className="text-2xl font-extrabold text-white">{fatal ? 'Este enlace no está disponible' : 'Verificá tu acceso'}</h1>
                 {!fatal && <><p className="text-sm text-neutral-300">Para consultar tu operación, enviaremos un código a la casilla que tenés registrada en AutoSporting.</p><p className="break-all text-sm font-semibold text-white">{info?.maskedDestination || 'Correo registrado del comprador'}</p>
