@@ -28,11 +28,14 @@ import { useAuth } from '../../../../context/AuthContext';
 import { hasPermission, PERMISSIONS } from '../../../../utils/adminPermissions';
 import ConfirmModal from '../../../../components/crm/ui/ConfirmModal';
 import { crmReturnLabel, crmReturnPath } from '../../../../utils/crmReturnNavigation';
+import { salePaymentProofTarget } from '../../../../utils/salePaymentProofLink';
 
 export default function SaleDetailPage() {
     const { id } = useParams();
     const router = useRouter();
     const searchParams = useSearchParams();
+    const proofDestination = salePaymentProofTarget('/admin/ventas/' + id + '?' + searchParams.toString());
+    const highlightedProofId = proofDestination ? new URLSearchParams(proofDestination.split('?')[1]).get('comprobante') : '';
     const returnTo = crmReturnPath(searchParams.get('returnTo'));
     const backHref = returnTo || '/admin/ventas';
     const { fetchSaleById, updateSale, previewInstallmentPlanCancel, cancelInstallmentPlan, loading, error } = useAdminSales();
@@ -44,7 +47,7 @@ export default function SaleDetailPage() {
     const [cancelReason, setCancelReason] = useState('');
     const [isCancelling, setIsCancelling] = useState(false);
     const [confirmActivateModal, setConfirmActivateModal] = useState(false);
-    const [activeSection, setActiveSection] = useState('operation');
+    const [activeSection, setActiveSection] = useState(() => proofDestination ? 'collections' : 'operation');
     const [financialRevision, setFinancialRevision] = useState(0);
     const sections = [
         { id: 'operation', label: 'Operación', description: 'Datos y condiciones', icon: Handshake },
@@ -55,6 +58,7 @@ export default function SaleDetailPage() {
         { id: 'followup', label: 'Seguimiento', description: 'Notas, contacto e historial', icon: MessagesSquare }
     ];
     const selectedSection = sections.some(section => section.id === activeSection) ? activeSection : 'operation';
+    useEffect(() => { setActiveSection(proofDestination ? 'collections' : 'operation'); }, [id, proofDestination]);
     const handleSectionKey = (event, index) => {
         const offset = event.key === 'ArrowRight' ? 1 : event.key === 'ArrowLeft' ? -1 : 0;
         if (!offset && !['Home', 'End'].includes(event.key)) return;
@@ -274,7 +278,7 @@ export default function SaleDetailPage() {
 
             {(hasPermission(user, PERMISSIONS.FINANZAS_READ) || hasPermission(user, PERMISSIONS.CUOTAS_READ)) && (
                 <section role="tabpanel" id="sale-section-collections" aria-labelledby="sale-section-tab-collections" hidden={selectedSection !== 'collections'} className="min-w-0 outline-none">
-                    {selectedSection === 'collections' && hasPermission(user, PERMISSIONS.FINANZAS_READ) && <div className="mb-4"><BuyerPaymentProofsPanel saleId={sale._id} onChanged={async () => { await loadSale(); setFinancialRevision(value => value + 1); }}/></div>}
+                    {selectedSection === 'collections' && hasPermission(user, PERMISSIONS.FINANZAS_READ) && <div className="mb-4"><BuyerPaymentProofsPanel saleId={sale._id} highlightedProofId={highlightedProofId} onChanged={async () => { await loadSale(); setFinancialRevision(value => value + 1); }}/></div>}
                     <div className="grid items-start gap-4 2xl:grid-cols-2">
                         {hasPermission(user, PERMISSIONS.FINANZAS_READ) && <div className="min-w-0"><SaleFinancePanel key={financialRevision} sale={sale}/></div>}
                         {hasPermission(user, PERMISSIONS.CUOTAS_READ) && <div className="min-w-0"><SaleInstallmentsPanel key={financialRevision} sale={sale} saleFinanceData={sale.finance}/></div>}

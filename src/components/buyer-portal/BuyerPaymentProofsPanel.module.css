@@ -5,6 +5,7 @@
 .header p { margin: 8px 0 0; color: var(--crm-fg-muted, #c5bfce); font-size: 12px; line-height: 1.6; }
 .list { display: grid; gap: 16px; }
 .proof { min-width: 0; display: flex; flex-direction: column; gap: 12px; border: 1px solid var(--crm-border, #5c535f); border-radius: 12px; padding: 14px; background: var(--crm-bg, #1c1d22); }
+.proof[data-highlighted="true"] { border-color: #e63027; outline: 2px solid rgb(230 48 39 / 25%); outline-offset: 3px; scroll-margin-top: 110px; }
 .proofHeader { display: flex; flex-wrap: wrap; align-items: flex-start; justify-content: space-between; gap: 10px; }
 .proofHeader h4 { margin: 0; font-size: 14px; line-height: 1.6; overflow-wrap: anywhere; }
 .proofHeader p { margin: 4px 0 0; color: var(--crm-fg-muted, #c5bfce); font-size: 12px; line-height: 1.5; }

@@ -63,9 +63,13 @@ export function createAdminBuyerPortalRouter({ authenticate }) {
     router.post('/delivery-documents/:id/publish', endpoint(req => delivery.publishDeliveryDocument(req.user, req.params.id, req.body)));
     router.post('/delivery-documents/:id/withdraw', endpoint(req => delivery.withdrawDeliveryDocument(req.user, req.params.id, req.body)));
     router.post('/delivery-documents/:id/access', endpoint(req => delivery.deliveryDocumentAccess(req.params.id, { adminUser: req.user, download: req.body?.download === true })));
+    router.get('/delivery-documents/:id/notification', endpoint(async req => (await import('../services/buyerDeliveryNotificationService.js')).getBuyerDeliveryNotification(req.user, req.params.id)));
+    router.post('/delivery-documents/:id/notification/retry', endpoint(async req => (await import('../services/buyerDeliveryNotificationService.js')).retryBuyerDeliveryNotification(req.user, req.params.id)));
     router.get('/sales/:id/payment-proofs', endpoint(req => paymentService('adminPaymentProofs', req.user, req.params.id)));
     router.post('/payment-proofs/:id/review', endpoint(req => paymentService('reviewPaymentProof', req.user, req.params.id, req.body)));
     router.post('/payment-proofs/:id/access', endpoint(req => paymentService('paymentProofAccess', req.params.id, null, req.user, req.body?.download === true)));
+    router.get('/payment-proofs/:id/notification', endpoint(async req => (await import('../services/buyerPaymentNotificationService.js')).getBuyerPaymentNotification(req.user, req.params.id)));
+    router.post('/payment-proofs/:id/notification/retry', endpoint(async req => (await import('../services/buyerPaymentNotificationService.js')).retryBuyerPaymentNotification(req.user, req.params.id)));
     return router;
 }
 export function createBuyerPortalRouter() {

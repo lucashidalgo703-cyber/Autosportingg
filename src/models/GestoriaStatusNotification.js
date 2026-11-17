@@ -6,6 +6,7 @@ const schema = new mongoose.Schema({
     fromStatus: { type: String, required: true },
     toStatus: { type: String, required: true },
     saleId: { type: mongoose.Schema.Types.ObjectId, ref: 'Sale', default: null },
+    vehicleId: { type: mongoose.Schema.Types.ObjectId, ref: 'Car', default: null },
     recipientClientId: { type: mongoose.Schema.Types.ObjectId, ref: 'Client', default: null },
     // Never persist the recipient address, private portal URL or rendered mail.
     contactHash: String,

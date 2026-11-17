@@ -1,10 +1,11 @@
 "use client";
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { CheckCircle2, Link2, MessageSquareWarning, Receipt, RefreshCw } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { hasPermission, PERMISSIONS } from '../../utils/adminPermissions';
 import { downloadPortalFile, portalDate, portalRequest } from './portalClient';
 import BuyerPortalFileActions from './BuyerPortalFileActions';
+import PortalEmailNotificationStatus from './PortalEmailNotificationStatus';
 import styles from './BuyerPaymentProofsPanel.module.css';
 
 const amountLabel = (value, currency) => `${currency} ${new Intl.NumberFormat('es-AR', { maximumFractionDigits: 2 }).format(Number(value) || 0)}`;
@@ -18,7 +19,7 @@ function compatibleTransaction(proof, transaction) {
     return !['installment', 'gestoria'].includes(proof.targetType) || String(transaction.targetId || '') === String(proof.targetId || '');
 }
 
-function PaymentReviewCard({ proof, accounts, transactions, canWrite, token, refreshing, onReview }) {
+function PaymentReviewCard({ proof, accounts, transactions, canWrite, token, refreshing, onReview, highlighted, onRefresh }) {
     const [mode, setMode] = useState('');
     const [accountId, setAccountId] = useState('');
     const [paymentMethod, setPaymentMethod] = useState('transferencia');
@@ -54,11 +55,13 @@ function PaymentReviewCard({ proof, accounts, transactions, canWrite, token, ref
         } finally { setBusy(false); }
     };
     const file = proof.entry || (proof.fileId ? { ...proof, id: proof.fileId } : null);
-    return <article className={styles.proof} data-admin-payment-proof={proof.id} data-proof-status={proof.status}>
+    return <article className={styles.proof} data-admin-payment-proof={proof.id} data-proof-status={proof.status} data-highlighted={highlighted ? 'true' : undefined} tabIndex={highlighted ? -1 : undefined}>
+        {highlighted && <p className={styles.help}>Comprobante seleccionado desde el aviso por correo</p>}
         <header className={styles.proofHeader}><div><h4>{proof.concept || 'Comprobante de pago'}</h4><p>{destinationLabel(proof)}</p></div><strong>{amountLabel(proof.amount, proof.currency)}</strong></header>
         <p className={`${styles.status} ${['confirmed', 'linked'].includes(proof.status) && proof.transactionStatus !== 'anulado' ? styles.confirmed : proof.status === 'correction_requested' ? styles.correction : ''}`}>{proof.transactionStatus === 'anulado' ? 'Cobro vinculado anulado · Requiere revisión' : labels[proof.status] || 'En revisión'}</p>
         <dl className={styles.meta}><div><dt>Fecha informada</dt><dd>{dateLabel(proof.paymentDate)}</dd></div><div><dt>Recibido</dt><dd>{portalDate(proof.createdAt)}</dd></div>{proof.transactionId && <div><dt>Cobro vinculado</dt><dd>{String(proof.transactionId)}</dd></div>}</dl>
         {proof.comment && <p className={styles.comment}>Comentario para el cliente: {proof.comment}</p>}
+        <PortalEmailNotificationStatus notification={proof.emailNotification} endpoint={'/api/admin/buyer-portal/payment-proofs/' + encodeURIComponent(proof.id) + '/notification'} token={token} canRetry={canWrite} audience="administrador" onChanged={onRefresh}/>
         {file && <BuyerPortalFileActions entry={{ ...file, proofId: proof.id, label: proof.concept || file.description || 'Comprobante de pago' }} requestAccess={access} requestDownload={download} disabled={busy}/>}
         {unresolved && canWrite && <div className={styles.review}>
             {!mode ? <div className={styles.actions}><button type="button" className={styles.primary} disabled={refreshing} onClick={() => selectMode('confirm')}><CheckCircle2 size={16} aria-hidden="true"/>Confirmar acreditación</button><button type="button" className={styles.button} disabled={refreshing} onClick={() => selectMode('link')}><Link2 size={16} aria-hidden="true"/>Vincular a cobro existente</button><button type="button" className={styles.button} disabled={refreshing} onClick={() => selectMode('correction')}><MessageSquareWarning size={16} aria-hidden="true"/>Solicitar corrección</button></div> : <form onSubmit={submit} className={styles.reviewForm} aria-label={`Revisar comprobante: ${proof.concept || 'Pago'}`}>
@@ -76,13 +79,14 @@ function PaymentReviewCard({ proof, accounts, transactions, canWrite, token, ref
     </article>;
 }
 
-export default function BuyerPaymentProofsPanel({ saleId, onChanged }) {
+export default function BuyerPaymentProofsPanel({ saleId, onChanged, highlightedProofId = '' }) {
     const { token, user, loading: authLoading } = useAuth();
     const canRead = user?.role !== 'ventas' && hasPermission(user, PERMISSIONS.FINANZAS_READ);
     const canWrite = canRead && hasPermission(user, PERMISSIONS.FINANZAS_WRITE);
     const [snapshot, setSnapshot] = useState(null);
     const [generation, setGeneration] = useState(0);
     const [notice, setNotice] = useState('');
+    const focused = useRef('');
     useEffect(() => {
         if (!saleId || !token || !canRead) return;
         let active = true;
@@ -104,16 +108,27 @@ export default function BuyerPaymentProofsPanel({ saleId, onChanged }) {
             return result;
         } catch (error) { refresh(); throw error; }
     };
-    if (!authLoading && !canRead) return null;
     // Keep cards mounted during refresh so an uncertain review keeps the same
     // immutable intent until the server confirms its result.
     const data = current?.data || (snapshot?.saleId === saleId && snapshot?.token === token ? snapshot.data : null);
+    const selectedProof = data?.proofs?.some(proof => proof.id === highlightedProofId);
+    useEffect(() => {
+        const key = saleId + ':' + highlightedProofId;
+        if (!selectedProof || loading || focused.current === key || !/^[a-f0-9]{24}$/.test(highlightedProofId)) return;
+        const frame = requestAnimationFrame(() => {
+            const card = document.querySelector(`[data-admin-payment-proof="${highlightedProofId}"]`);
+            if (card) { card.scrollIntoView({ block: 'start', behavior: 'auto' }); card.focus({ preventScroll: true }); focused.current = key; }
+        });
+        return () => cancelAnimationFrame(frame);
+    }, [saleId, highlightedProofId, selectedProof, loading]);
+    if (!authLoading && !canRead) return null;
     return <section className={styles.panel} aria-labelledby="buyer-payment-proofs-title" data-admin-payment-proofs>
         <header className={styles.header}><div><h3 id="buyer-payment-proofs-title"><Receipt size={20} aria-hidden="true"/>Comprobantes enviados por el cliente</h3><p>La recepción de un comprobante queda pendiente hasta verificar la acreditación.</p></div><button type="button" className={styles.button} onClick={refresh} disabled={loading} aria-label="Actualizar comprobantes del cliente"><RefreshCw size={16} aria-hidden="true"/></button></header>
         {notice && <p role="status" className={styles.notice}>{notice}</p>}
         {!saleId && <p className={styles.help}>Seleccioná la operación para consultar sus comprobantes.</p>}
         {loading && <p role="status" className={styles.help}>Consultando comprobantes…</p>}
         {current?.error && <div role="alert" className={styles.error}>{current.error}<button type="button" className={styles.button} onClick={refresh}>Reintentar</button></div>}
-        {data && (data.proofs?.length ? <div className={styles.list}>{data.proofs.map(proof => <PaymentReviewCard key={proof.id} proof={proof} accounts={data.accounts || []} transactions={data.eligibleTransactions || []} token={token} canWrite={canWrite} refreshing={loading || Boolean(current?.error)} onReview={review}/>)}</div> : !loading && <p className={styles.help}>El cliente todavía no envió comprobantes para esta operación.</p>)}
+        {!loading && data && highlightedProofId && !selectedProof && <p className={styles.warning} data-payment-proof-link-warning>Este comprobante no está disponible en esta operación.</p>}
+        {data && (data.proofs?.length ? <div className={styles.list}>{data.proofs.map(proof => <PaymentReviewCard key={proof.id} proof={proof} accounts={data.accounts || []} transactions={data.eligibleTransactions || []} token={token} canWrite={canWrite} refreshing={loading || Boolean(current?.error)} onReview={review} highlighted={proof.id === highlightedProofId} onRefresh={refresh}/>)}</div> : !loading && <p className={styles.help}>El cliente todavía no envió comprobantes para esta operación.</p>)}
     </section>;
 }

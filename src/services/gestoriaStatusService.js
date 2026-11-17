@@ -114,6 +114,7 @@ export async function updateGestoria(user, id, input) {
             const binding = await recipientBinding(saved, session);
             const event = await GestoriaStatusNotification.create([{ tramiteId: saved._id, revision,
                 fromStatus: existing.status, toStatus: saved.status, saleId: saved.saleId || null,
+                vehicleId: binding.sale ? binding.sale.vehicleId || null : saved.vehicleId || null,
                 recipientClientId: binding.client?._id || null, contactHash: binding.contactHash,
                 portalGeneration: binding.portalGeneration ?? null, state: binding.reason ? 'skipped' : 'pending',
                 reason: binding.reason, nextAttemptAt: new Date(), expiresAt: new Date(Date.now() + 30 * 86400000) }], { session });
@@ -152,12 +153,16 @@ async function emailContent(event, tramite, binding) {
     let path = null;
     if (binding.sale) path = await notificationPortalUrl(binding.sale, event.portalGeneration);
     const url = typeof path === 'string' && /^\/portal\/[A-Za-z0-9_-]{43}$/.test(path) ? publicOrigin() + path : '';
-    const text = ['AutoSporting', 'Se actualizó el estado de tu trámite.', `Trámite: ${tramite.type}`, `Nuevo estado: ${event.toStatus}`,
+    const documentation = tramite.type === 'Transferencia Egreso';
+    const heading = documentation ? 'Se actualizó el estado de la documentación de tu vehículo' : 'Se actualizó el estado de tu trámite';
+    const action = documentation ? 'Ver la documentación de mi vehículo' : 'Ver el estado de mi trámite';
+    const section = documentation ? 'Documentación de tu vehículo' : `Trámite: ${tramite.type}`;
+    const text = ['AutoSporting', heading + '.', section, `Nuevo estado: ${event.toStatus}`,
         vehicle && `Vehículo: ${vehicle}`, plate && `Patente: ${plate}`, `Hora argentina: ${date}`,
         url ? `Consultá el avance en tu portal privado: ${url}` : 'Podés comunicarte con AutoSporting para consultar el avance de tu trámite.',
         'Este aviso informa un cambio de estado. No tenés que responder este correo.'].filter(Boolean).join('\n\n');
-    const html = `<div style="font-family:Arial,sans-serif;max-width:600px;margin:auto;color:#18181b"><h1 style="font-size:24px">AutoSporting</h1><h2 style="font-size:20px">Se actualizó el estado de tu trámite</h2><p>Trámite: ${escape(tramite.type)}</p><p style="font-size:24px;font-weight:bold">Nuevo estado: ${escape(event.toStatus)}</p>${vehicle ? `<p>Vehículo: ${escape(vehicle)}</p>` : ''}${plate ? `<p>Patente: ${escape(plate)}</p>` : ''}<p>Hora argentina: ${escape(date)}</p>${url ? `<p><a href="${escape(url)}" style="display:inline-block;background:#dc2626;color:#fff;padding:14px 20px;border-radius:8px;text-decoration:none">Ver el estado de mi trámite</a></p><p>Tu portal mantiene su verificación de acceso habitual.</p>` : '<p>Podés comunicarte con AutoSporting para consultar el avance de tu trámite.</p>'}<p style="color:#52525b;font-size:12px">Este aviso informa un cambio de estado. No tenés que responder este correo.</p></div>`;
-    return { text, html };
+    const html = `<div style="font-family:Arial,sans-serif;max-width:600px;margin:auto;color:#18181b"><h1 style="font-size:24px">AutoSporting</h1><h2 style="font-size:20px">${escape(heading)}</h2><p>${escape(section)}</p><p style="font-size:24px;font-weight:bold">Nuevo estado: ${escape(event.toStatus)}</p>${vehicle ? `<p>Vehículo: ${escape(vehicle)}</p>` : ''}${plate ? `<p>Patente: ${escape(plate)}</p>` : ''}<p>Hora argentina: ${escape(date)}</p>${url ? `<p><a href="${escape(url)}" style="display:inline-block;background:#dc2626;color:#fff;padding:14px 20px;border-radius:8px;text-decoration:none">${escape(action)}</a></p><p>Tu portal mantiene su verificación de acceso habitual.</p>` : '<p>Podés comunicarte con AutoSporting para consultar el avance de tu trámite.</p>'}<p style="color:#52525b;font-size:12px">Este aviso informa un cambio de estado. No tenés que responder este correo.</p></div>`;
+    return { text, html, subject: 'AutoSporting | ' + heading };
 }
 
 async function deliveryContext(event) {
@@ -166,12 +171,15 @@ async function deliveryContext(event) {
     if (tramite.status !== event.toStatus || (tramite.statusRevision || 0) !== event.revision) return { reason: 'superseded' };
     const binding = await recipientBinding(tramite);
     if (binding.reason) return { reason: binding.reason };
+    if (idOf(binding.sale ? binding.sale.vehicleId : tramite.vehicleId) !== idOf(event.vehicleId)) return { reason: 'vehicle_changed' };
     if (idOf(binding.client._id) !== idOf(event.recipientClientId) || binding.contactHash !== event.contactHash) return { reason: 'recipient_changed' };
     if (binding.portalGeneration !== event.portalGeneration) return { reason: 'portal_changed' };
     return { tramite, binding };
 }
-const knownDeliveryFailure = error => ['EAUTH', 'ECONNECTION', 'ENOTFOUND', 'ECONNREFUSED', 'EENVELOPE', 'EMESSAGE', 'NOT_ACCEPTED', 'MAIL_UNCONFIGURED'].includes(error?.code)
-    || Number(error?.responseCode) >= 400 && Number(error?.responseCode) <= 599;
+const knownDeliveryFailure = error => String(error?.command || '').trim().toUpperCase() !== 'QUIT' && (
+    ['EAUTH', 'ENOTFOUND', 'ECONNREFUSED', 'EENVELOPE', 'NOT_ACCEPTED', 'MAIL_UNCONFIGURED'].includes(error?.code)
+    || error?.code === 'ECONNECTION' && String(error?.command || '').trim().toUpperCase() === 'CONN'
+    || Number(error?.responseCode) >= 400 && Number(error?.responseCode) <= 599);
 async function deliverNotification(id, { force = false } = {}) {
     const now = new Date(), claimId = crypto.randomUUID();
     const event = await GestoriaStatusNotification.findOneAndUpdate({ _id: id, state: { $in: ['pending', 'failed'] }, attempts: { $lt: MAX_ATTEMPTS },
@@ -195,7 +203,7 @@ async function deliverNotification(id, { force = false } = {}) {
     try {
         if (!EmailAdapter.isConfigured()) throw Object.assign(new Error('Mail not configured'), { code: 'MAIL_UNCONFIGURED' });
         const result = await Promise.race([
-            EmailAdapter.sendEmail(context.binding.email, 'AutoSporting | Se actualizó el estado de tu trámite', content.html, [],
+            EmailAdapter.sendEmail(context.binding.email, content.subject, content.html, [],
                 { connectionTimeout: 4000, greetingTimeout: 4000, socketTimeout: 6000, logger: false, debug: false },
                 { text: content.text, messageId: `<autosporting-gestoria-${idOf(event._id)}@autosportingg.com>` }),
             new Promise((_, reject) => { timeout = setTimeout(() => reject(Object.assign(new Error('Mail result unknown'), { code: 'DELIVERY_TIMEOUT' })), 8000); })

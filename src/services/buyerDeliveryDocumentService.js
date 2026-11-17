@@ -8,6 +8,7 @@ import { hasPermission, PERMISSIONS } from '../utils/adminPermissions.js';
 import { isMySaleOrReservation } from '../utils/saleOwnership.js';
 import { authorizePortalDocumentSale, portalError } from './buyerPortalService.js';
 import { inspectPortalUpload, encryptPortalFile, decryptPortalFile, issuePortalFileAccess, verifyPortalFileAccess } from './buyerPortalFileService.js';
+import { createBuyerDeliveryNotificationIndexes, enqueueBuyerDeliveryNotification, deliverBuyerDeliveryNotification, buyerDeliveryNotificationSummaries } from './buyerDeliveryNotificationService.js';
 
 const idOf = value => String(value?._id || value || '');
 const validId = value => typeof value === 'string' && /^[a-f0-9]{24}$/i.test(value);
@@ -70,7 +71,7 @@ async function authorizedDocument(user, id, write = false) {
 }
 let indexesReady;
 export function createBuyerDeliveryIndexes() {
-    return indexesReady ||= (async () => { await BuyerDeliveryDocument.createCollection(); await BuyerDeliveryDocument.createIndexes(); })()
+    return indexesReady ||= (async () => { await BuyerDeliveryDocument.createCollection(); await BuyerDeliveryDocument.createIndexes(); await createBuyerDeliveryNotificationIndexes(); })()
         .catch(error => { indexesReady = null; throw error; });
 }
 async function assertIndexes() {
@@ -86,7 +87,8 @@ export async function adminDeliveryDocuments(user, saleId) {
     await createBuyerDeliveryIndexes();
     const { recipient } = await recipientFor(sale);
     const docs = await BuyerDeliveryDocument.find({ saleId: sale._id, isCurrent: true }).sort({ createdAt: -1, _id: -1 }).lean();
-    return { recipient, canWrite: canWrite(user), documents: docs.map(doc => ({ ...dto(doc), recipientMismatch:
+    const notifications = await buyerDeliveryNotificationSummaries(docs.map(doc => doc._id));
+    return { recipient, canWrite: canWrite(user), documents: docs.map(doc => ({ ...dto(doc), emailNotification: notifications[idOf(doc._id)] || { status: 'not_needed', retryable: false }, recipientMismatch:
         idOf(doc.clientId) !== idOf(sale.clientId) || idOf(doc.vehicleId) !== idOf(sale.vehicleId) })) };
 }
 export async function uploadDeliveryDocument(user, saleId, input = {}, file) {
@@ -103,7 +105,7 @@ export async function uploadDeliveryDocument(user, saleId, input = {}, file) {
     if (previous) {
         assertBinding(previous, initialSale);
         if (previous.requestFingerprint !== fingerprint) fail('Este intento corresponde a otra carga. Elegí el archivo de nuevo.', 409);
-        return { entry: dto(previous), duplicate: true };
+        return { entry: dto(previous), duplicate: true, notificationDocumentId: idOf(previous._id), emailNotification: await deliverBuyerDeliveryNotification(previous._id) };
     }
     const id = new mongoose.Types.ObjectId(), session = await mongoose.startSession();
     let saved, duplicate = false;
@@ -117,11 +119,12 @@ export async function uploadDeliveryDocument(user, saleId, input = {}, file) {
                 if (prior.requestFingerprint !== fingerprint) fail('Este intento corresponde a otra carga. Elegí el archivo de nuevo.', 409);
                 assertBinding(prior, sale); saved = prior; duplicate = true; return;
             }
-            let old = null;
+            let old = null, replacedPublishedType = null;
             if (input.replacesId) {
                 old = await BuyerDeliveryDocument.findOne({ _id: input.replacesId, saleId: sale._id, isCurrent: true }).session(session);
                 if (!old) fail('El archivo vigente cambió. Actualizá la pantalla.', 409);
                 assertBinding(old, sale);
+                if (old.state === 'published') replacedPublishedType = old.type;
                 old.isCurrent = false; old.state = 'replaced'; old.revision += 1;
                 old.withdrawnAt = new Date(); old.withdrawnBy = userId(user);
                 old.history.push({ action: 'replaced', at: new Date(), by: userId(user), revision: old.revision });
@@ -135,16 +138,17 @@ export async function uploadDeliveryDocument(user, saleId, input = {}, file) {
                 encryptedFile: encryptPortalFile(file.buffer, 'delivery', idOf(id)), createdBy: userId(user),
                 history: [{ action: 'uploaded', at: new Date(), by: userId(user), revision: 1 }] }], { session });
             saved = doc.toObject();
+            if (replacedPublishedType) await enqueueBuyerDeliveryNotification({ doc: saved, sale, action: 'withdrawn', documentType: replacedPublishedType }, session);
         });
     } catch (error) {
         if (error.code === 11000) {
             const prior = await BuyerDeliveryDocument.findOne({ saleId, requestId: input.requestId }).lean();
-            if (prior?.requestFingerprint === fingerprint) return { entry: dto(prior), duplicate: true };
+            if (prior?.requestFingerprint === fingerprint) return { entry: dto(prior), duplicate: true, notificationDocumentId: idOf(prior._id), emailNotification: await deliverBuyerDeliveryNotification(prior._id) };
             fail('La carga ya fue procesada o el archivo vigente cambió. Actualizá la pantalla.', 409);
         }
         throw error;
     } finally { await session.endSession(); }
-    return { entry: dto(saved), ...(duplicate ? { duplicate: true } : {}) };
+    return { entry: dto(saved), notificationDocumentId: idOf(saved._id), emailNotification: await deliverBuyerDeliveryNotification(saved._id), ...(duplicate ? { duplicate: true } : {}) };
 }
 export async function editDeliveryDocument(user, id, input = {}) {
     const { doc } = await authorizedDocument(user, id, true);
@@ -158,6 +162,7 @@ export async function editDeliveryDocument(user, id, input = {}) {
 export async function publishDeliveryDocument(user, id, input = {}) {
     const { doc } = await authorizedDocument(user, id, true);
     if (!Number.isSafeInteger(input.revision) || input.revision < 1 || typeof input.confirmationKey !== 'string') fail('Confirmá el destinatario antes de publicar.');
+    await createBuyerDeliveryIndexes();
     const session = await mongoose.startSession();
     let saved, recipient, duplicate = false;
     try {
@@ -174,21 +179,37 @@ export async function publishDeliveryDocument(user, id, input = {}) {
                     $push: { history: { action: 'published', at: new Date(), by: userId(user), revision: input.revision + 1 } } },
                 { session, returnDocument: 'after' }).lean();
             if (!saved) fail('La publicación cambió. Actualizá la pantalla.', 409);
+            await enqueueBuyerDeliveryNotification({ doc: saved, sale: details.sale, action: 'published' }, session);
         });
     } finally { await session.endSession(); }
-    return { entry: dto(saved), recipient, ...(duplicate ? { duplicate: true } : {}) };
+    return { entry: dto(saved), recipient, notificationDocumentId: idOf(saved._id), emailNotification: await deliverBuyerDeliveryNotification(saved._id), ...(duplicate ? { duplicate: true } : {}) };
 }
 export async function withdrawDeliveryDocument(user, id, input = {}) {
     const { doc } = await authorizedDocument(user, id, true);
     if (!doc.isCurrent) fail('El archivo vigente cambió. Actualizá la pantalla.', 409);
     if (!Number.isSafeInteger(input.revision) || input.revision < 1) fail('Actualizá el documento antes de retirarlo.', 409);
-    if (doc.state === 'withdrawn' && doc.revision === input.revision + 1) return { entry: dto(doc), duplicate: true };
-    if (doc.revision !== input.revision) fail('El documento cambió. Actualizá la pantalla.', 409);
-    const saved = await BuyerDeliveryDocument.findOneAndUpdate({ _id: id, isCurrent: true, revision: input.revision },
-        { $set: { state: 'withdrawn', withdrawnAt: new Date(), withdrawnBy: userId(user) }, $inc: { revision: 1 },
-            $push: { history: { action: 'withdrawn', at: new Date(), by: userId(user), revision: input.revision + 1 } } }, { returnDocument: 'after' }).lean();
-    if (!saved) fail('El documento cambió. Actualizá la pantalla.', 409);
-    return { entry: dto(saved) };
+    await createBuyerDeliveryIndexes();
+    const session = await mongoose.startSession();
+    let saved, duplicate = false;
+    try {
+        await session.withTransaction(async () => {
+            const current = await BuyerDeliveryDocument.findOne({ _id: id, isCurrent: true }).session(session).lean();
+            if (!current) fail('El archivo vigente cambió. Actualizá la pantalla.', 409);
+            if (current.state === 'withdrawn' && current.revision === input.revision + 1) { saved = current; duplicate = true; return; }
+            if (current.revision !== input.revision) fail('El documento cambió. Actualizá la pantalla.', 409);
+            const sale = await Sale.findById(current.saleId).session(session).lean();
+            if (sale) await Sale.updateOne({ _id: sale._id }, { $inc: { buyerPortalUploadSequence: 1 } }, { session, timestamps: false });
+            saved = await BuyerDeliveryDocument.findOneAndUpdate({ _id: id, isCurrent: true, revision: input.revision },
+                { $set: { state: 'withdrawn', withdrawnAt: new Date(), withdrawnBy: userId(user) }, $inc: { revision: 1 },
+                    $push: { history: { action: 'withdrawn', at: new Date(), by: userId(user), revision: input.revision + 1 } } }, { session, returnDocument: 'after' }).lean();
+            if (!saved) fail('El documento cambió. Actualizá la pantalla.', 409);
+            if (current.state === 'published' && sale && sale.status !== 'cancelada'
+                && idOf(saved.clientId) === idOf(sale.clientId) && idOf(saved.vehicleId) === idOf(sale.vehicleId)) {
+                await enqueueBuyerDeliveryNotification({ doc: saved, sale, action: 'withdrawn' }, session);
+            }
+        });
+    } finally { await session.endSession(); }
+    return { entry: dto(saved), notificationDocumentId: idOf(saved._id), emailNotification: await deliverBuyerDeliveryNotification(saved._id), ...(duplicate ? { duplicate: true } : {}) };
 }
 export async function buyerDeliveryDocuments(context) {
     const documents = await BuyerDeliveryDocument.find({ saleId: context.sale._id, clientId: context.sale.clientId,

@@ -66,8 +66,10 @@ try {
         assert.notEqual(mail.to, f.seller.email);
         assert.notEqual(mail.to, process.env.SECURITY_ALERT_EMAIL);
         assert.match(mail.subject, /AutoSporting/);
+        assert.match(mail.subject, /documentación de tu vehículo/);
         assert.match(mail.html, /Documentación/);
-        assert.match(mail.html, /Transferencia Egreso/);
+        assert.match(mail.html, /Documentación de tu vehículo/);
+        assert.doesNotMatch(mail.html + mail.text, /Transferencia Egreso/);
         assert.match(mail.html, /Duster/);
         assert.ok(mail.html.includes(f.configuration.url), 'the notice includes only the existing portal link');
         assert.match(mail.html, /argentina/i);
@@ -174,6 +176,28 @@ try {
         assert.equal(stale.status, 'skipped');
         assert.equal(mails.length, before);
         assert.equal((await env.models.Gestoria.findById(f.tramite._id).lean()).status, 'Presentado');
+    });
+    await test('a queued procedure notice remains bound to the purchased vehicle at the actual transition', async () => {
+        const f = await failedFixture();
+        assert.equal(String(f.event.vehicleId), String(f.sale.vehicleId));
+        await env.models.Sale.updateOne({ _id: f.sale._id }, { $set: { vehicleId: fixture.cars[0]._id } });
+        const before = mails.length;
+        const stale = await service.retryGestoriaNotification(admin, String(f.tramite._id), String(f.event._id));
+        assert.equal(stale.status, 'skipped'); assert.equal(stale.reason, 'vehicle_changed');
+        assert.equal(mails.length, before);
+        const current = await update(f, { status: 'Presentado' });
+        assert.equal(current.notification.status, 'sent'); assert.ok(mails.at(-1).html.includes(fixture.cars[0].name));
+    });
+    await test('a lost SMTP acknowledgement after DATA is uncertain and never blindly re-sent', async () => {
+        for (const failure of [{ code: 'ECONNECTION', command: 'DATA' }, { code: 'ECONNECTION' }, { code: 'EMESSAGE', command: 'DATA' }, { code: 'ESMTP', command: 'QUIT', responseCode: 550 }]) {
+            const f = await makeFixture();
+            mailFailure = Object.assign(new Error('Provider fixture result unknown'), failure);
+            const result = await update(f, { status: 'Documentación' }); mailFailure = null;
+            assert.equal(result.notification.reason, 'delivery_uncertain'); assert.equal(result.notification.retryable, false);
+            const event = await latest(f), before = calls.length;
+            await assert.rejects(service.retryGestoriaNotification(admin, String(f.tramite._id), String(event._id)), error => error.status === 409);
+            assert.equal(calls.length, before);
+        }
     });
     await test('scheduled retries respect delivery claims and revoked links, with minimal expiring outbox data', async () => {
         const failed = await failedFixture(), revoked = await failedFixture(), inFlight = await failedFixture();

@@ -4,6 +4,7 @@ import { Camera, FileUp, RefreshCw } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { downloadPortalFile, portalDate, portalRequest, prepareBuyerFile, uploadPortalFile } from './portalClient';
 import BuyerPortalFileActions from './BuyerPortalFileActions';
+import PortalEmailNotificationStatus from './PortalEmailNotificationStatus';
 import styles from './BuyerDeliveryDocumentsPanel.module.css';
 
 const types = { title: 'Título del automotor a nombre del comprador', registration_front: 'Cédula del comprador · Frente', registration_back: 'Cédula del comprador · Dorso', transfer_certificate: 'Constancia de transferencia', other: 'Otros documentos' };
@@ -18,6 +19,7 @@ function DeliveryDocumentsPanel({ saleId, token }) {
     const headingId = useId(), gallery = useRef(null), camera = useRef(null);
     const [snapshot, setSnapshot] = useState(null), [loading, setLoading] = useState(false), [busy, setBusy] = useState('');
     const [error, setError] = useState(''), [notice, setNotice] = useState('');
+    const [operationNotification, setOperationNotification] = useState(null);
     const [type, setType] = useState('title'), [description, setDescription] = useState('');
     const [selected, setSelected] = useState(null), [requestId, setRequestId] = useState(''), [replacement, setReplacement] = useState(null);
     const [uploadIntent, setUploadIntent] = useState(null), [progress, setProgress] = useState(0);
@@ -46,7 +48,8 @@ function DeliveryDocumentsPanel({ saleId, token }) {
             if (!intent) { intent = { file: await prepareBuyerFile(selected), type, description, requestId, replacesId: replacement?.id || '' }; setUploadIntent(intent); }
             const form = new FormData(); form.set('file', intent.file); form.set('requestId', intent.requestId); form.set('type', intent.type); form.set('description', intent.description);
             if (intent.replacesId) form.set('replacesId', intent.replacesId);
-            await uploadPortalFile(base, form, { token, onProgress: setProgress });
+            const result = await uploadPortalFile(base, form, { token, onProgress: setProgress });
+            setOperationNotification(result.emailNotification ? { notification: result.emailNotification, documentId: result.notificationDocumentId || result.entry?.id } : null);
             await load(); resetUpload(); setNotice('Archivo guardado en preparación. Revisá el destinatario y publicalo cuando esté listo.');
         } catch (err) { if (err.status >= 400 && err.status < 500) setUploadIntent(null); setError(err.message); }
         finally { setBusy(''); }
@@ -55,7 +58,8 @@ function DeliveryDocumentsPanel({ saleId, token }) {
         if (busy) return;
         setBusy(doc.id); setError(''); setNotice('');
         try {
-            await portalRequest('/api/admin/buyer-portal/delivery-documents/' + doc.id + (action === 'edit' ? '' : '/' + action), { token, method: action === 'edit' ? 'PATCH' : 'POST', body });
+            const result = await portalRequest('/api/admin/buyer-portal/delivery-documents/' + doc.id + (action === 'edit' ? '' : '/' + action), { token, method: action === 'edit' ? 'PATCH' : 'POST', body });
+            setOperationNotification(result.emailNotification ? { notification: result.emailNotification, documentId: result.notificationDocumentId || doc.id } : null);
             await load(); setPublishIntent(null); setRecipientChecked(false);
             setNotice(action === 'publish' ? 'Documento publicado en el portal del cliente.' : action === 'withdraw' ? 'Documento retirado del portal. Sus enlaces anteriores dejaron de estar disponibles.' : 'Descripción actualizada.');
         } catch (err) { setError(err.message); if (err.status === 409) { setPublishIntent(null); setRecipientChecked(false); await load().catch(() => {}); } }
@@ -65,6 +69,7 @@ function DeliveryDocumentsPanel({ saleId, token }) {
     return <section className={styles.panel} aria-labelledby={headingId} data-buyer-delivery-admin>
         <header className={styles.header}><div><h2 id={headingId}>Documentación para el comprador</h2><p className={styles.muted}>Documentos del vehículo vendido. Se muestran al cliente después de publicarlos.</p></div><button type="button" className={styles.button} disabled={loading || Boolean(busy)} onClick={() => { setError(''); void load().catch(err => setError(err.message)); }}><RefreshCw size={16}/>Actualizar</button></header>
         {error && <p role="alert" className={styles.error}>{error}</p>}{notice && <p role="status" className={styles.success}>{notice}</p>}
+        {operationNotification && !data?.documents?.some(doc => doc.id === operationNotification.documentId) && <PortalEmailNotificationStatus notification={operationNotification.notification} endpoint={'/api/admin/buyer-portal/delivery-documents/' + operationNotification.documentId + '/notification'} token={token} canRetry={Boolean(data?.canWrite)} onChanged={() => { void load().catch(err => setError(err.message)); }}/ >}
         {loading && !data && <p role="status" className={styles.muted}>Cargando documentos privados…</p>}
         {data && <>
             <div className={styles.recipient} data-delivery-recipient><strong>Destinatario de la documentación</strong><p>Comprador: {data.recipient.name}</p><p>Vehículo: {data.recipient.vehicle}</p><p>Patente: {data.recipient.plate}</p></div>
@@ -83,6 +88,7 @@ function DeliveryDocumentsPanel({ saleId, token }) {
             <div className={styles.list}>{data.documents.map(doc => <article className={styles.card} key={doc.id} data-delivery-document={doc.id}>
                 <div className={styles.heading}><h3>{types[doc.type] || doc.label}</h3><span className={styles.badge}>{states[doc.state] || 'En preparación'}</span></div>
                 <p className={styles.muted}>Cargado: {portalDate(doc.createdAt)} · Versión {doc.version}</p>{doc.description && <p>{doc.description}</p>}
+                <PortalEmailNotificationStatus notification={doc.emailNotification} endpoint={'/api/admin/buyer-portal/delivery-documents/' + doc.id + '/notification'} token={token} canRetry={data.canWrite} onChanged={() => { void load().catch(err => setError(err.message)); }}/>
                 {doc.recipientMismatch && <p className={styles.error}>El comprador o el vehículo de esta operación cambió. Cargá el documento para el destinatario actual antes de publicarlo.</p>}
                 <BuyerPortalFileActions key={`${doc.id}:${doc.revision}`} entry={doc} requestAccess={access} requestDownload={download} disabled={Boolean(busy)}/>
                 {data.canWrite && <><div className={styles.actions}><button type="button" className={styles.button} disabled={Boolean(busy) || Boolean(uploadIntent)} onClick={() => replace(doc)}>Reemplazar archivo</button>{doc.state === 'published' ? <button type="button" className={styles.button} disabled={Boolean(busy)} onClick={() => { void mutate(doc, 'withdraw', { revision: doc.revision }); }}>Retirar del portal</button> : <button type="button" className={`${styles.button} ${styles.primary}`} disabled={Boolean(busy) || doc.recipientMismatch} onClick={() => { setPublishIntent({ doc, recipient: data.recipient }); setRecipientChecked(false); }}>Publicar en el portal del cliente</button>}</div>

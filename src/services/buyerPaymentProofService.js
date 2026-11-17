@@ -15,6 +15,7 @@ import { roundMoney } from '../utils/saleCommercial.js';
 import { isDepositCollection, isGestoriaCollection, remainingAppliedDeposit } from '../utils/collectionDestination.js';
 import { inspectPortalUpload, encryptPortalFile, decryptPortalFile, issuePortalFileAccess, verifyPortalFileAccess, lockBuyerPortalMutation } from './buyerPortalFileService.js';
 import { createCollectionRecordingStorage, recordCrmCollection, syncRecordedCollection } from './collectionRecordingService.js';
+import { createBuyerPaymentNotificationIndexes, enqueueBuyerPaymentNotification, deliverBuyerPaymentNotification, getBuyerPaymentNotificationSummaries } from './buyerPaymentNotificationService.js';
 
 const fail = (message, status = 400) => { throw Object.assign(new Error(message), { status }); };
 const idOf = value => String(value?._id || value || '');
@@ -25,7 +26,7 @@ const active = tx => tx.type === 'Ingreso' && ['activo', 'Completado'].includes(
 const actor = user => user?.username || user?.name || user?.email || 'Admin';
 let ready;
 export function createBuyerPaymentIndexes() {
-    return ready ||= (async () => { await BuyerPaymentProof.createCollection(); await BuyerPaymentProof.createIndexes(); await createCollectionRecordingStorage(); })()
+    return ready ||= (async () => { await BuyerPaymentProof.createCollection(); await BuyerPaymentProof.createIndexes(); await createCollectionRecordingStorage(); await createBuyerPaymentNotificationIndexes(); })()
         .catch(error => { ready = null; throw error; });
 }
 function financialAccess(user, write = false) {
@@ -109,7 +110,7 @@ export async function uploadPaymentProof(context, input, file) {
     const session = await mongoose.startSession(); let proof, duplicate = false;
     try {
         await session.withTransaction(async () => {
-            const { currentSale } = await lockBuyerPortalMutation(context, session);
+            const { currentSale, currentClient } = await lockBuyerPortalMutation(context, session);
             const previous = await BuyerPaymentProof.findOne({ saleId: currentSale._id, $or: [{ requestId: input.requestId }, { dedupeHash }] }).session(session).lean();
             if (previous) {
                 if (!sameBinding(previous, currentSale) || previous.dedupeHash !== dedupeHash || previous.status === 'superseded') fail('El envío ya corresponde a otro comprobante o fue reemplazado.', 409);
@@ -133,8 +134,10 @@ export async function uploadPaymentProof(context, input, file) {
                 encryptedFile: encryptPortalFile(file.buffer, 'payment', idOf(id)), version: prior ? prior.version + 1 : 1, replacesId: prior?._id,
                 history: [{ status: 'pending', at: new Date(), by: 'buyer' }] }], { session });
             proof = created.toObject();
+            await enqueueBuyerPaymentNotification({ proof, sale: currentSale, portal: context.portal, client: currentClient }, session);
         });
     } finally { await session.endSession(); }
+    await deliverBuyerPaymentNotification(idOf(proof));
     return { proof: proofDto(proof), duplicate };
 }
 
@@ -155,7 +158,9 @@ export async function adminPaymentProofs(user, saleId) {
     const [proofs, accounts] = await Promise.all([
         BuyerPaymentProof.find({ saleId }).sort({ createdAt: -1 }).lean(), Account.find({ isActive: { $ne: false } }).select('name type currency').lean()
     ]);
-    return { proofs: proofs.map(proof => ({ ...proofDto(proof, transactions), targetLabel: targetLabel(proof, sale, targets) })), targets,
+    const notifications = await getBuyerPaymentNotificationSummaries(proofs.map(proof => idOf(proof)));
+    return { proofs: proofs.map(proof => ({ ...proofDto(proof, transactions), targetLabel: targetLabel(proof, sale, targets),
+        emailNotification: notifications.get(idOf(proof)) || { status: 'not_needed', retryable: false } })), targets,
         accounts: accounts.map(account => ({ id: idOf(account), name: account.name, currency: account.currency, type: account.type })),
         eligibleTransactions: transactions.filter(active).map(tx => ({ id: idOf(tx), amount: tx.amount, currency: tx.currency, date: tx.date,
             canLinkGestoria: legacyProcedureCollection(tx),

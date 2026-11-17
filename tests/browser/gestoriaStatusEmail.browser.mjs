@@ -10,7 +10,7 @@ const browser = await chromium.launch({ headless: true, executablePath: process.
     args: ['--host-resolver-rules=MAP * ~NOTFOUND, EXCLUDE 127.0.0.1'] });
 let context, page;
 const mailbox = async () => (await fetch(base + '/__test-mail.json')).json();
-const statusMail = item => item.subject === 'AutoSporting | Se actualizó el estado de tu trámite';
+const statusMail = item => item.subject === 'AutoSporting | Se actualizó el estado de la documentación de tu vehículo';
 try {
     const fixture = await (await fetch(base + '/__test-fixtures.json')).json();
     assert.ok(fixture.buyerPortal?.adminSessionToken, 'requires the opt-in buyer portal fixtures and SMTP sink');

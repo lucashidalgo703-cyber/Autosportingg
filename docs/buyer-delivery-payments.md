@@ -6,6 +6,9 @@
 - El enlace personalizado conserva su acceso verificado. Muestra **Documentación de tu vehículo** (sólo publicaciones para su comprador y unidad vendida) y **Mis pagos**, con o sin toma. La documentación del usado entregado mantiene su circuito separado.
 - En Gestoría, **Monto a cobrar al comprador** es el total acordado. **Monto cobrado al cliente** es lo recibido. El pendiente es su diferencia. No se copian importes históricos ni se infiere deuda del costo/arancel. Una acreditación de gestoría incrementa lo cobrado sin reducir el saldo del vehículo. Anularla resta su imputación una sola vez.
 - Una seña registrada es dinero recibido; no se presenta como deuda nueva. Se puede adjuntar su comprobante para vincularlo al cobro. Si falta registrar su ingreso, Finanzas puede acreditar sólo su parte sin movimiento registrado. Las cuotas ya pagadas también permiten adjuntar su comprobante, para vincularlo al movimiento existente.
+- Cada nuevo comprobante guardado avisa exclusivamente al administrador definido en `SECURITY_ALERT_EMAIL`, con sus datos de revisión y un enlace protegido que abre **Cobros y cuotas** y resalta ese comprobante. Si hace falta iniciar sesión, el destino se conserva hasta completar el código de verificación. La recepción del aviso no acredita el pago.
+- Los cambios del estado de Gestoría **Transferencia Egreso** avisan al correo de la ficha del comprador sobre la documentación del vehículo comprado. Publicar o retirar documentos en el portal también avisa a ese comprador; los borradores internos y la edición de descripciones no generan correos. Reemplazar un documento publicado avisa que la copia anterior dejó de estar disponible; publicar la nueva genera su aviso de disponibilidad.
+- El CRM muestra el estado de esos avisos y permite reintentar fallos de entrega conocidos con los permisos correspondientes. Archivo/cambio y aviso se registran juntos; el envío ocurre después de guardar. Un resultado SMTP incierto no se reenvía a ciegas. Se comprueban de nuevo comprador, contacto, vehículo y acceso antes de entregar avisos pendientes. No se habilita ningún cron nuevo.
 
 ## Persistencia y acceso
 
@@ -20,9 +23,13 @@ Los runners rechazan archivos `.env` y usan MongoDB en memoria, compradores fict
 ```sh
 npm run test:portal:delivery
 npm run test:portal:payments
+npm run test:portal:payment-mail
+npm run test:portal:delivery-mail
+npm run test:portal:mail-link
 npm run dev:review-preview
 # En otra terminal, con el preview listo en 127.0.0.1:3200:
 npm run test:portal:delivery-payments:browser
+npm run test:portal:mail-link:browser
 ```
 
 El navegador genera capturas de ambas variantes, administración y visor. Comprueba publicación, descarga, reemplazo, retirada, aislamiento entre operaciones, pérdida de respuesta de una carga, confirmación idempotente, vinculación y comentario de corrección. Las suites de servidor agregan moneda original, cuotas parciales, pagos de gestoría, anulación, edición desactualizada y carreras concurrentes.

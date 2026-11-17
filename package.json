@@ -36,6 +36,10 @@
     "test:portal:delivery": "node tests/integration/buyerDeliveryDocuments.integration.test.js",
     "test:portal:payments": "node tests/integration/buyerPaymentProofs.integration.test.js",
     "test:portal:delivery-payments:browser": "node tests/browser/buyerDeliveryPayments.browser.mjs",
+    "test:portal:payment-mail": "node tests/integration/buyerPaymentNotification.integration.test.js",
+    "test:portal:delivery-mail": "node tests/integration/buyerDeliveryNotification.integration.test.js",
+    "test:portal:mail-link": "node tests/salePaymentProofLink.test.js",
+    "test:portal:mail-link:browser": "node tests/browser/paymentNoticeLink.browser.mjs",
     "test:inventory:available": "node tests/integration/availableInventory.integration.test.js"
   },
   "dependencies": {

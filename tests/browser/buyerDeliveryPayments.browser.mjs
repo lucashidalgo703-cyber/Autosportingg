@@ -54,7 +54,8 @@ async function screenshot(p, locator, filename) {
     await locator.scrollIntoViewIfNeeded();
     await locator.screenshot({ path: path.join(output, filename) });
 }
-async function publish(panel, id) {
+async function publish(panel, id, buyer) {
+    const before = buyer ? (await (await fetch(base + '/__test-mail.json')).json()).filter(mail => mail.to === buyer.email).length : 0;
     const card = panel.locator(`[data-delivery-document="${id}"]`);
     await card.getByRole('button', { name: 'Publicar en el portal del cliente', exact: true }).click();
     const confirmation = card.getByRole('group', { name: 'Confirmar destinatario de documentación' });
@@ -62,15 +63,27 @@ async function publish(panel, id) {
     await confirmation.getByRole('checkbox').check();
     const saved = responseFor(page, '/publish', 'POST');
     await confirmation.getByRole('button', { name: 'Publicar en el portal del cliente', exact: true }).click(); assert.equal((await saved).status(), 200);
-    await card.getByText('Disponible para descargar', { exact: true }).waitFor(); return card;
+    await card.getByText('Disponible para descargar', { exact: true }).waitFor();
+    if (buyer) {
+        await card.locator('[data-portal-email-notification][data-email-status="sent"]').waitFor();
+        const messages = (await (await fetch(base + '/__test-mail.json')).json()).filter(mail => mail.to === buyer.email);
+        assert.equal(messages.length, before + 1, 'publication sends one notice exclusively to this buyer');
+        const notice = messages.at(-1); assert.match(notice.subject, /Documentación de tu vehículo disponible/);
+        const href = await page.evaluate(html => new DOMParser().parseFromString(html, 'text/html').querySelector('a').href, notice.html);
+        assert.equal(href, buyer.url, 'published document notice preserves the existing private portal link');
+    }
+    return card;
 }
 async function uploadAgency(panel, file, type = 'title', description = '') {
+    const before = (await (await fetch(base + '/__test-mail.json')).json()).filter(mail => /documentación/i.test(mail.subject)).length;
     const form = panel.getByRole('form', { name: 'Cargar documentación para el comprador' });
     await form.getByRole('combobox').selectOption(type);
     if (description) await form.getByRole('textbox').fill(description);
     await form.getByLabel('Archivo de documentación para comprador', { exact: true }).setInputFiles(file);
     const sent = responseFor(page, '/delivery-documents', 'POST'); await form.getByRole('button', { name: 'Guardar en preparación', exact: true }).click();
-    const response = await sent; assert.equal(response.status(), 200); const data = await response.json(); return data.entry.id;
+    const response = await sent; assert.equal(response.status(), 200); const data = await response.json();
+    assert.equal((await (await fetch(base + '/__test-mail.json')).json()).filter(mail => /documentación/i.test(mail.subject)).length, before, 'an internal draft sends no customer notice');
+    return data.entry.id;
 }
 async function refreshBuyer(item) {
     await item.page.getByRole('button', { name: 'Actualizar documentación de tu vehículo', exact: true }).click();
@@ -85,7 +98,15 @@ async function payment(item, amount, concept, file, loseResponse = false) {
     await form.getByRole('button', { name: 'Enviar comprobante', exact: true }).click();
     if (loseResponse) { await form.getByRole('button', { name: 'Reintentar envío', exact: true }).click(); }
     await form.getByText('Comprobante recibido · Pendiente de verificación', { exact: true }).waitFor();
-    const data = await (await p.request.get(base + item.api + '/payments')).json(); return data.proofs.find(proof => proof.concept === concept);
+    const data = await (await p.request.get(base + item.api + '/payments')).json(), proof = data.proofs.find(proof => proof.concept === concept);
+    assert.ok(proof);
+    const notices = (await (await fetch(base + '/__test-mail.json')).json()).filter(mail => /Nuevo comprobante de pago/.test(mail.subject) && mail.html.includes(proof.id));
+    assert.equal(notices.length, 1, 'a saved proof and its network retry send one admin notice');
+    assert.equal(notices[0].to, 'administrador@example.test');
+    const href = await p.evaluate(html => new DOMParser().parseFromString(html, 'text/html').querySelector('a').href, notices[0].html);
+    assert.equal(href, base + '/admin/ventas/' + item.saleId + '?section=collections&comprobante=' + proof.id);
+    assert.match(notices[0].html, /Pendiente de verificación/);
+    return proof;
 }
 try {
     const fixture = await (await fetch(base + '/__test-fixtures.json')).json(), portal = fixture.buyerPortal;
@@ -111,7 +132,7 @@ try {
     await page.getByRole('button', { name: 'Documentación para el comprador', exact: true }).click();
     let panel = page.locator('[data-buyer-delivery-admin]');
     await panel.locator('[data-delivery-recipient]').waitFor();
-    const docA = await uploadAgency(panel, imageFile); await publish(panel, docA);
+    const docA = await uploadAgency(panel, imageFile); await publish(panel, docA, a);
     await refreshBuyer(a);
     const delivery = a.page.locator(`[data-delivered-document="${docA}"]`); await delivery.waitFor();
     const accessA = await (await a.page.request.post(base + a.api + '/delivery-documents/' + docA + '/access', { data: {}, headers: { Origin: base } })).json();
@@ -134,14 +155,14 @@ try {
     const replacementResponse = await replaced; assert.equal(replacementResponse.status(), 200); const docA2 = (await replacementResponse.json()).entry.id;
     assert.equal((await fetch(base + accessA.url)).status, 404);
     await refreshBuyer(a); await a.page.locator('[data-delivery-state="preparing"]').waitFor();
-    await publish(panel, docA2);
+    await publish(panel, docA2, a);
     const accessA2 = await (await a.page.request.post(base + a.api + '/delivery-documents/' + docA2 + '/access', { data: {}, headers: { Origin: base } })).json();
     const withdrawn = responseFor(page, '/withdraw', 'POST'); await panel.locator(`[data-delivery-document="${docA2}"]`).getByRole('button', { name: 'Retirar del portal', exact: true }).click(); assert.equal((await withdrawn).status(), 200);
-    assert.equal((await fetch(base + accessA2.url)).status, 404); await publish(panel, docA2);
+    assert.equal((await fetch(base + accessA2.url)).status, 404); await publish(panel, docA2, a);
     await page.getByRole('button', { name: 'Cerrar documentación para el comprador', exact: true }).click();
     await page.goto(base + '/admin/ventas/' + b.saleId, { waitUntil: 'domcontentloaded', timeout: 180000 });
     await page.getByRole('tab', { name: /Documentación y entrega/ }).click(); panel = page.locator('[data-buyer-delivery-admin]'); await panel.locator('[data-delivery-recipient]').waitFor();
-    const docB = await uploadAgency(panel, imageFile, 'other', 'Constancia ficticia para Juan Ignacio'); await publish(panel, docB);
+    const docB = await uploadAgency(panel, imageFile, 'other', 'Constancia ficticia para Juan Ignacio'); await publish(panel, docB, b);
     await screenshot(page, panel, 'crm-documentos-comprador-movil.png');
     const runId = crypto.randomUUID().slice(0, 8);
     const proofA = await payment(a, 250, 'Saldo de compra ficticio ' + runId, imageFile, true); assert.ok(proofA); a.proofId = proofA.id;
@@ -149,7 +170,9 @@ try {
     const proofB = await payment(b, 300, 'Pago ficticio para vincular ' + runId, pdfFile); assert.ok(proofB); b.proofId = proofB.id;
     const bTxsBefore = (await api('GET', '/api/admin/transactions?saleId=' + b.saleId)).length;
     await page.goto(base + '/admin/ventas/' + a.saleId, { waitUntil: 'domcontentloaded', timeout: 180000 }); await page.getByRole('tab', { name: /Cobros y cuotas/ }).click();
-    let proofCard = page.locator(`[data-admin-payment-proof="${proofA.id}"]`); await proofCard.getByRole('button', { name: 'Confirmar acreditación', exact: true }).click();
+    let proofCard = page.locator(`[data-admin-payment-proof="${proofA.id}"]`);
+    await proofCard.locator('[data-portal-email-notification][data-email-status="sent"]').waitFor();
+    await proofCard.getByRole('button', { name: 'Confirmar acreditación', exact: true }).click();
     const paymentData = await api('GET', '/api/admin/buyer-portal/sales/' + a.saleId + '/payment-proofs'); const account = paymentData.accounts.find(item => item.currency === 'ARS'); assert.ok(account);
     await proofCard.getByLabel('Cuenta para acreditar el comprobante', { exact: true }).selectOption(account.id);
     await proofCard.getByRole('button', { name: 'Confirmar acreditación y registrar cobro', exact: true }).click(); await proofCard.getByText('Acreditado · Cobro registrado', { exact: true }).waitFor();
