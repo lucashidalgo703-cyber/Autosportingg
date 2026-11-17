@@ -488,20 +488,29 @@ export async function createBuyerPortalIndexes() {
     await createBuyerDocumentNotificationIndexes();
 }
 function catalogCover(car) {
-    const value = car.coverImage || car.images?.[0];
-    if (typeof value !== 'string' || value.length > 2000) return null;
-    // Match the catalogue's chosen cover, without admitting arbitrary trackers
-    // or private API URLs into the buyer's portal.
-    if (/^\/(?!\/)[\w/-]+\.(?:jpe?g|png|webp|avif)$/i.test(value)) return value;
-    try {
-        const url = new URL(value);
-        if (url.protocol === 'https:' && ['res.cloudinary.com', 'images.unsplash.com'].includes(url.hostname)
-            && !url.username && !url.password && !url.port) return url.href;
-    } catch {}
+    const candidates = [car.coverImage, ...(Array.isArray(car.images) ? car.images : [])];
+    for (const value of candidates) {
+        if (typeof value !== 'string' || value.length > 2000) continue;
+        // Only this purchased car's media may be used. Local agency artwork is
+        // not a vehicle photo; trusted remote car filenames remain unrestricted.
+        if (/^\/(?!\/)[\w/-]+\.(?:jpe?g|png|webp|avif)$/i.test(value)) {
+            const name = value.slice(value.lastIndexOf('/') + 1);
+            if (!/^(?:hero-autosporting\.jpg|autosporting-hero[\w-]*\.jpg|agencia-autosporting\.(?:jpg|png)|logo[\w-]*\.png|autosporting-logo-white\.png)$/i.test(name)) return value;
+            continue;
+        }
+        try {
+            const url = new URL(value);
+            if (url.protocol === 'https:' && ['res.cloudinary.com', 'images.unsplash.com'].includes(url.hostname)
+                && !url.username && !url.password && !url.port) return url.href;
+        } catch {}
+    }
     return null;
 }
 export async function portalData(sale, portal) {
-    const car = sale.vehicleId ? await Car.findById(sale.vehicleId).select('brand name year plateOrVin coverImage images').lean() : null;
+    const [car, buyer] = await Promise.all([
+        sale.vehicleId ? Car.findById(sale.vehicleId).select('brand name year plateOrVin coverImage images').lean() : null,
+        sale.clientId ? Client.findById(sale.clientId).select('firstName').lean() : null
+    ]);
     const procedures = await Gestoria.find({ saleId: sale._id }).select('type status updatedAt').sort({ updatedAt: -1, _id: 1 }).lean();
     const publicUpdate = sale.clientPortalUpdate || {};
     const proceduresStatus = procedures.length ? procedures.map(item => item.status).join(' · ') : (sale.expedienteStatus || 'pendiente');
@@ -514,6 +523,7 @@ export async function portalData(sale, portal) {
         brand: item.brand, model: item.model, year: item.year, plate: item.plate || 'Sin patente',
         groups: groupsFor(docs, originals, String(item._id)) })) : [];
     return { saleId: String(sale._id), mode: portal.mode,
+        buyerFirstName: typeof buyer?.firstName === 'string' ? buyer.firstName.trim() : '',
         purchasedVehicle: car ? { brand: car.brand, model: car.name, year: car.year, plate: car.plateOrVin || 'Sin patente', image: catalogCover(car) } : null,
         operationStatus: sale.status, deliveryStatus: sale.deliveryStatus, procedureStatus: proceduresStatus,
         procedures: procedures.map(item => ({ id: String(item._id), title: item.type || 'Trámite de la operación', type: item.type, status: item.status, updatedAt: item.updatedAt })),

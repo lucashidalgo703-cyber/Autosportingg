@@ -1,0 +1,13 @@
+{
+  "purpose": "Offline vehicle photographs for disposable buyer portal fixtures only; no production data is modified.",
+  "buyer-duster.jpg": {
+    "catalogPage": "https://autosportingg.com/auto/69863fccc65a6e99a1bf8687",
+    "vehicle": "Renault Duster Dynamique",
+    "source": "https://res.cloudinary.com/dkp87ot9j/image/upload/v1770405835/autosporting-cars/rrtyiluwpx6w5lxnzrh0.jpg"
+  },
+  "buyer-cronos.jpg": {
+    "catalogPage": "https://autosportingg.com/auto/69864c3ec65a6e99a1bf86df",
+    "vehicle": "Fiat Cronos Drive MT",
+    "source": "https://res.cloudinary.com/dkp87ot9j/image/upload/v1770409006/autosporting-cars/g7lr95j9j306z5vfncqp.jpg"
+  }
+}

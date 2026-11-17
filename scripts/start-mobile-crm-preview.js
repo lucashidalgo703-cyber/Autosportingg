@@ -1,8 +1,13 @@
 // Loopback-only disposable preview. Never loads deployment settings or sends email.
 import http from 'node:http';
+import { readFileSync } from 'node:fs';
 import { bootIsolatedReplica } from '../tests/integration/isolatedReplicaHarness.js';
 
 const host = '127.0.0.1', port = 3200;
+const vehicleMedia = process.env.LOCAL_BUYER_PORTAL_FIXTURES === 'true' ? new Map([
+    ['/__fixture-media/buyer-duster.jpg', readFileSync(new URL('../tests/fixtures/media/buyer-duster.jpg', import.meta.url))],
+    ['/__fixture-media/buyer-cronos.jpg', readFileSync(new URL('../tests/fixtures/media/buyer-cronos.jpg', import.meta.url))]
+]) : new Map();
 const env = await bootIsolatedReplica({ listen: false });
 const { seedMobileCrm, localPassword } = await import('../tests/fixtures/mobileCrmFixtures.js');
 const fixtures = await seedMobileCrm(env.models);
@@ -42,6 +47,11 @@ await nextApp.prepare();
 const handleNext = nextApp.getRequestHandler();
 const server = http.createServer((req, res) => {
     const url = new URL(req.url, `http://${host}:${port}`);
+    if (vehicleMedia.has(url.pathname) && ['GET', 'HEAD'].includes(req.method)) {
+        res.writeHead(200, { 'Content-Type': 'image/jpeg', 'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff' });
+        res.end(req.method === 'HEAD' ? undefined : vehicleMedia.get(url.pathname));
+        return;
+    }
     if (url.pathname === '/__test-mail.json' || url.pathname === '/__test-fixtures.json') {
         res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' });
         res.end(JSON.stringify(url.pathname === '/__test-mail.json' ? env.mailbox : {

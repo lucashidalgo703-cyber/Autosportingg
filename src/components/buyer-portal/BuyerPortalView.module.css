@@ -24,6 +24,33 @@
 
 .view .intro h1 { margin-top: 20px; }
 .view .intro p { line-height: 1.6; }
+.view .greeting,
+.view .welcomeCopy { text-transform: none; overflow-wrap: anywhere; }
+.view .documentationLink {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 44px;
+    max-width: 100%;
+    box-sizing: border-box;
+    margin-top: 12px;
+    padding: 12px 16px;
+    border: 1px solid #f06b64;
+    border-radius: 12px;
+    background: #c42620;
+    color: #fff;
+    font-size: 14px;
+    font-weight: 600;
+    line-height: 1.5;
+    text-align: center;
+    text-decoration: none;
+    text-transform: none;
+    overflow-wrap: anywhere;
+}
+.view .documentationLink:hover { background: #ab211b; }
+.view .documentationLink:focus-visible,
+.view .documents:focus-visible { outline: 2px solid #ff918a; outline-offset: 4px; }
+.view .documents { scroll-margin-top: 24px; }
 .view .purchase { border-top: 3px solid #e63027; }
 .view .vehiclePhoto { border: 1px solid #55515a; background: #202126; }
 
