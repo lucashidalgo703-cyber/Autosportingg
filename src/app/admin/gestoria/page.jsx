@@ -9,6 +9,7 @@ import ConfirmModal from '../../../components/crm/ui/ConfirmModal';
 import BuyerPortalAccessPanel from '../../../components/buyer-portal/BuyerPortalAccessPanel';
 import GestoriaStatusEmailNotice from '../../../components/buyer-portal/GestoriaStatusEmailNotice';
 import BuyerDocumentsPanel from '../../../components/buyer-portal/BuyerDocumentsPanel';
+import BuyerDeliveryDocumentsPanel from '../../../components/buyer-portal/BuyerDeliveryDocumentsPanel';
 import { withCrmReturn } from '../../../utils/crmReturnNavigation';
 import { useAuth } from '../../../context/AuthContext';
 import { hasPermission, PERMISSIONS } from '../../../utils/adminPermissions';
@@ -26,6 +27,7 @@ export default function GestoriaPage() {
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [editingTramite, setEditingTramite] = useState(null);
     const [documentsSaleId, setDocumentsSaleId] = useState('');
+    const [deliverySaleId, setDeliverySaleId] = useState('');
     const canReadDocuments = hasPermission(user, PERMISSIONS.GESTORIA_READ);
     useEffect(() => {
         if (!canReadDocuments) return;
@@ -33,27 +35,28 @@ export default function GestoriaPage() {
         if (target) setDocumentsSaleId(new URL(target, window.location.origin).searchParams.get('documentos'));
     }, [canReadDocuments]);
     useEffect(() => {
-        if (!documentsSaleId) return;
+        if (!documentsSaleId && !deliverySaleId) return;
         const previousFocus = document.activeElement;
         const previousOverflow = document.body.style.overflow;
         document.body.style.overflow = 'hidden';
         const handleKey = event => {
             if (document.querySelector('[data-private-document-viewer]')) return;
-            if (event.key === 'Escape') { event.preventDefault(); setDocumentsSaleId(''); }
+            if (event.key === 'Escape') { event.preventDefault(); setDocumentsSaleId(''); setDeliverySaleId(''); }
             if (event.key !== 'Tab') return;
-            const controls = [...document.querySelectorAll('[data-gestoria-buyer-documents] a[href], [data-gestoria-buyer-documents] button:not([disabled]), [data-gestoria-buyer-documents] select:not([disabled])')].filter(element => element.offsetParent !== null);
+            const dialog = document.querySelector(deliverySaleId ? '[data-gestoria-delivery-documents]' : '[data-gestoria-buyer-documents]');
+            const controls = [...(dialog?.querySelectorAll('a[href], button:not([disabled]), select:not([disabled]), input:not([disabled]), textarea:not([disabled]), summary') || [])].filter(element => element.offsetParent !== null);
             const first = controls[0], last = controls.at(-1);
             if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last?.focus(); }
             else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first?.focus(); }
         };
         document.addEventListener('keydown', handleKey);
         return () => { document.body.style.overflow = previousOverflow; document.removeEventListener('keydown', handleKey); previousFocus?.focus?.(); };
-    }, [documentsSaleId]);
+    }, [documentsSaleId, deliverySaleId]);
     const [printModal, setPrintModal] = useState({ isOpen: false, type: '', tramite: null });
     const [formData, setFormData] = useState({
         title: '', type: 'Transferencia Ingreso', vehiclePlate: '', gestorName: '',
         status: 'Pendiente', cost: '', currency: 'ARS', estimatedEndDate: '', notes: '',
-        saleId: '', organismo: '', chargedAmount: '', clientId: '', sellerId: '', documents: []
+        saleId: '', organismo: '', clientChargeAmount: '', chargedAmount: '', collectionRevision: 0, clientId: '', sellerId: '', documents: []
     });
     const [confirmDeleteModal, setConfirmDeleteModal] = useState({ isOpen: false, id: null });
     const [clients, setClients] = useState([]);
@@ -165,6 +168,8 @@ export default function GestoriaPage() {
                 notes: tramite.notes || '',
                 saleId: tramite.saleId || '',
                 organismo: tramite.organismo || '',
+                clientChargeAmount: tramite.clientChargeAmount || '',
+                collectionRevision: tramite.collectionRevision || 0,
                 chargedAmount: tramite.chargedAmount || '',
                 clientId: tramite.clientId?._id || tramite.clientId || '',
                 sellerId: tramite.sellerId?._id || tramite.sellerId || '',
@@ -175,7 +180,7 @@ export default function GestoriaPage() {
             setFormData({ 
                 title: '', type: 'Transferencia Ingreso', vehiclePlate: '', gestorName: '',
                 status: 'Pendiente', cost: '', currency: 'ARS', estimatedEndDate: '', notes: '',
-                saleId: '', organismo: '', chargedAmount: '', clientId: '', sellerId: '', documents: []
+                saleId: '', organismo: '', clientChargeAmount: '', chargedAmount: '', collectionRevision: 0, clientId: '', sellerId: '', documents: []
             });
         }
         setIsModalOpen(true);
@@ -342,6 +347,9 @@ export default function GestoriaPage() {
                                 <div className="flex items-center gap-2">
                                     <DollarSign size={14} className="text-crm-fg opacity-70" />
                                     <span className="font-medium text-crm-fg">{tramite.currency} {tramite.cost?.toLocaleString('es-AR') || '0'}</span>
+                                    {tramite.clientChargeAmount > 0 && (
+                                        <div className="text-xs text-crm-fg-muted">Pendiente de gestoría: {tramite.currency} {Math.max(0, tramite.clientChargeAmount - (tramite.chargedAmount || 0)).toLocaleString('es-AR')}</div>
+                                    )}
                                     {tramite.chargedAmount > 0 && (
                                         <span className="ml-2 px-1.5 py-0.5 rounded bg-blue-500/20 text-blue-300 text-[10px] font-bold uppercase">
                                             Cobrado: {tramite.currency} {tramite.chargedAmount.toLocaleString('es-AR')}
@@ -357,6 +365,7 @@ export default function GestoriaPage() {
                                         </a>
                                         </div>
                                         {hasPermission(user, PERMISSIONS.GESTORIA_READ) && <button type="button" onClick={() => setDocumentsSaleId(String(tramite.saleId?._id || tramite.saleId))} className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-lg border border-solid border-blue-400/30 bg-blue-500/10 px-3 text-xs font-bold text-blue-300"><FileSignature size={16}/>Ver documentación del cliente</button>}
+                                        {tramite.type === 'Transferencia Egreso' && hasPermission(user, PERMISSIONS.GESTORIA_READ) && <button type="button" onClick={() => setDeliverySaleId(String(tramite.saleId?._id || tramite.saleId))} className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-lg border border-solid border-red-400/40 bg-red-500/10 px-3 text-xs font-bold text-red-200"><FileSignature size={16}/>Documentación para el comprador</button>}
                                     </div>
                                 )}
                             </div>
@@ -488,6 +497,11 @@ export default function GestoriaPage() {
                                         <input type="text" placeholder="Ej: RNPA Seccional 2" value={formData.organismo} onChange={e => setFormData({...formData, organismo: e.target.value})} className="w-full rounded-lg border border-crm-border bg-crm-bg px-4 py-2.5 text-sm text-crm-fg focus:border-crm-red focus:outline-none focus:ring-1 focus:ring-crm-red" />
                                     </div>
                                     <div>
+                                        <label className="mb-1.5 block text-xs font-bold uppercase tracking-wider text-crm-fg-muted">Monto a cobrar al comprador</label>
+                                        <input type="number" min="0" step="0.01" placeholder="Total acordado de gestoría" value={formData.clientChargeAmount} onChange={e => setFormData({...formData, clientChargeAmount: e.target.value})} className="w-full rounded-lg border border-crm-border bg-crm-bg px-4 py-2.5 text-sm text-crm-fg focus:border-crm-red focus:outline-none focus:ring-1 focus:ring-crm-red" />
+                                        <p className="mt-1 text-xs text-crm-fg-muted">El portal muestra este total menos lo ya cobrado. Cargar un comprobante no modifica lo recibido.</p>
+                                    </div>
+                                    <div>
                                         <label className="mb-1.5 block text-xs font-bold uppercase tracking-wider text-crm-fg-muted">Monto Cobrado al Cliente</label>
                                         <input type="number" placeholder="Ej: 50000" value={formData.chargedAmount} onChange={e => setFormData({...formData, chargedAmount: e.target.value})} className="w-full rounded-lg border border-crm-border bg-crm-bg px-4 py-2.5 text-sm text-crm-fg focus:border-crm-red focus:outline-none focus:ring-1 focus:ring-crm-red" />
                                     </div>
@@ -578,6 +592,12 @@ export default function GestoriaPage() {
                 <div className="mx-auto w-full max-w-4xl space-y-3 rounded-2xl border border-solid border-crm-border bg-crm-surface p-3 sm:p-5">
                     <div className="flex items-center justify-between gap-3"><h2 id="gestoria-documents-title" className="text-lg font-bold text-crm-fg">Documentación del cliente</h2><button type="button" autoFocus onClick={() => setDocumentsSaleId('')} aria-label="Cerrar documentación del cliente" className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-lg border border-solid border-crm-border text-crm-fg"><X size={20}/></button></div>
                     <BuyerDocumentsPanel key={documentsSaleId} saleId={documentsSaleId} initiallyOpen readOnly title="Archivos del vehículo recibido"/>
+                </div>
+            </div>}
+            {deliverySaleId && <div className="fixed inset-0 z-[120] overflow-y-auto bg-black/85 p-3 sm:p-6" role="dialog" aria-modal="true" aria-labelledby="gestoria-delivery-documents-title" data-gestoria-delivery-documents>
+                <div className="mx-auto w-full max-w-4xl space-y-3 rounded-2xl border border-solid border-crm-border bg-crm-surface p-3 sm:p-5">
+                    <div className="flex items-center justify-between gap-3"><h2 id="gestoria-delivery-documents-title" className="text-lg font-bold text-crm-fg">Documentación para el comprador</h2><button type="button" autoFocus onClick={() => setDeliverySaleId('')} aria-label="Cerrar documentación para el comprador" className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-lg border border-solid border-crm-border text-crm-fg"><X size={20}/></button></div>
+                    <BuyerDeliveryDocumentsPanel key={deliverySaleId} saleId={deliverySaleId}/>
                 </div>
             </div>}
 

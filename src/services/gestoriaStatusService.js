@@ -14,7 +14,7 @@ import { notificationPortalUrl } from './buyerPortalService.js';
 const MAX_ATTEMPTS = 3;
 const STATES = ['Pendiente', 'Documentación', 'Presentado', 'Observado', 'Transferido', 'Finalizado', 'Cancelado'];
 const EDITABLE = ['title', 'type', 'vehicleId', 'vehiclePlate', 'clientId', 'sellerId', 'saleId', 'organismo', 'chargedToClient',
-    'gestorName', 'status', 'cost', 'chargedAmount', 'currency', 'startDate', 'estimatedEndDate', 'actualEndDate', 'notes', 'documents'];
+    'gestorName', 'status', 'cost', 'clientChargeAmount', 'chargedAmount', 'currency', 'startDate', 'estimatedEndDate', 'actualEndDate', 'notes', 'documents'];
 const idOf = value => String(value?._id || value || '');
 const validId = value => /^[a-f0-9]{24}$/i.test(idOf(value));
 const hash = value => crypto.createHash('sha256').update(value).digest('hex');
@@ -81,6 +81,11 @@ export async function updateGestoria(user, id, input) {
     const patch = {};
     for (const field of EDITABLE) if (Object.prototype.hasOwnProperty.call(input, field)) patch[field] = input[field];
     for (const field of ['vehicleId', 'clientId', 'sellerId', 'saleId']) if (patch[field] === '') patch[field] = null;
+    for (const field of ['clientChargeAmount', 'chargedAmount']) if (field in patch) {
+        const amount = Number(patch[field]);
+        if (!Number.isFinite(amount) || amount < 0 || amount > 1e12) fail('Los importes del trámite deben ser números positivos o cero.');
+        patch[field] = Math.round(amount * 100) / 100;
+    }
     if ('status' in patch && !STATES.includes(patch.status)) fail('El estado del trámite no es válido.');
     await storageReady();
     const session = await mongoose.startSession();
@@ -90,11 +95,17 @@ export async function updateGestoria(user, id, input) {
             notificationId = null;
             const existing = await Gestoria.findById(id).session(session).lean();
             await authorize(user, existing, PERMISSIONS.GESTORIA_WRITE, session);
+            const moneyChanged = ['chargedAmount', 'clientChargeAmount'].some(field => field in patch && Number(patch[field]) !== Number(existing[field] || 0));
+            if (moneyChanged && Number(input.collectionRevision ?? 0) !== Number(existing.collectionRevision || 0)) fail('Los cobros de este trámite cambiaron. Volvé a abrirlo antes de guardar los importes.', 409);
+            if (existing.collectionRevision > 0 && existing.chargedAmount > 0 && ['currency', 'saleId', 'clientId', 'vehicleId'].some(field => field in patch && idOf(patch[field]) !== idOf(existing[field]))) {
+                fail('Este trámite tiene cobros imputados. Revisá o anulá esos cobros antes de cambiar la moneda o la operación.', 409);
+            }
             const next = { ...existing, ...patch };
             await authorize(user, next, PERMISSIONS.GESTORIA_WRITE, session);
             const changed = Object.prototype.hasOwnProperty.call(patch, 'status') && patch.status !== existing.status;
             const revision = (existing.statusRevision || 0) + (changed ? 1 : 0);
             const update = { $set: { ...patch, ...(changed ? { statusRevision: revision } : {}) } };
+            if (moneyChanged) update.$inc = { collectionRevision: 1 };
             if (changed) update.$push = { auditLog: { action: 'CAMBIO_ESTADO',
                 details: `Estado cambió de ${existing.status} a ${patch.status}`, date: new Date(),
                 user: String(user.name || user.username || user.email || 'Usuario').replace(/[\r\n]/g, ' ').slice(0, 160) } };

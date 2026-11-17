@@ -63,6 +63,10 @@ const transactionSchema = new mongoose.Schema({
     clientId: { type: mongoose.Schema.Types.ObjectId, ref: 'Client' },
     vehicleId: { type: mongoose.Schema.Types.ObjectId, ref: 'Car' },
     installmentId: { type: mongoose.Schema.Types.ObjectId, ref: 'Installment' },
+    paymentDestination: { type: String, enum: ['purchase', 'deposit', 'installment', 'gestoria'] },
+    gestoriaId: { type: mongoose.Schema.Types.ObjectId, ref: 'Gestoria' },
+    gestoriaPaidAmountApplied: { type: Number, default: 0 },
+    buyerPaymentProofId: { type: mongoose.Schema.Types.ObjectId, ref: 'BuyerPaymentProof' },
     installmentPaidAmountApplied: { type: Number, default: 0 },
     receiptReference: { type: String },
     paymentSplits: [{

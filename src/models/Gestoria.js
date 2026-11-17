@@ -50,12 +50,19 @@ const GestoriaSchema = new mongoose.Schema({
     },
     // Increased only by an actual status transition; also identifies its email.
     statusRevision: { type: Number, default: 0, min: 0 },
+    collectionRevision: { type: Number, default: 0, min: 0 },
     cost: {
         type: Number,
         default: 0 // Costo real
     },
+    clientChargeAmount: {
+        type: Number,
+        min: 0,
+        default: 0 // Total acordado a cobrar al comprador; independiente del costo y de lo recibido.
+    },
     chargedAmount: {
         type: Number,
+        min: 0,
         default: 0 // Cobro al cliente
     },
     currency: {

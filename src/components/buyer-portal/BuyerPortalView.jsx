@@ -172,7 +172,7 @@ function RequirementGroup({ tradeIn, requirement, group, requestAccess, onUpload
     </section>;
 }
 
-export default function BuyerPortalView({ data, onUpload, onRemove, onRefresh, requestAccess, preview = false }) {
+export default function BuyerPortalView({ data, onUpload, onRemove, onRefresh, requestAccess, preview = false, children }) {
     const requirements = data?.requirements?.length ? data.requirements : documentRequirements;
     if (!data) return null;
     const procedures = data.procedures?.length ? data.procedures : [{ id: 'commercial', type: 'Trámite de tu vehículo', status: data.procedureStatus }];
@@ -194,6 +194,7 @@ export default function BuyerPortalView({ data, onUpload, onRemove, onRefresh, r
             <div className={`${styles.updates} space-y-3 border-t border-neutral-700 pt-4`}><div className={styles.updateItem}><h3 className="text-sm font-semibold text-white">Última novedad</h3><p className="mt-1 whitespace-pre-wrap text-sm text-neutral-300">{data.latestUpdate || 'Todavía no hay una novedad para mostrar.'}</p></div><div className={styles.updateItem}><h3 className="text-sm font-semibold text-white">Próximo paso</h3><p className="mt-1 whitespace-pre-wrap text-sm text-neutral-300">{data.nextStep || 'AutoSporting te informará el próximo paso.'}</p></div><p className={`rounded-xl p-3 text-sm ${data.actionRequired ? 'border border-amber-500/30 bg-amber-500/10 text-amber-200' : 'border border-emerald-500/20 bg-emerald-500/5 text-emerald-300'}`}>{data.actionRequired ? 'Tenés una acción pendiente. Revisá el próximo paso indicado arriba.' : 'Por ahora no tenés que realizar ninguna acción adicional.'}</p></div>
             {data.updatedAt && <p className="text-xs text-neutral-500">Actualizado: {portalDate(data.updatedAt)}</p>}
         </section>
+        {children}
         {data.mode === 'with_trade_in' && <section id="documentacion-vehiculo-entregado" tabIndex={-1} className={`${styles.documents} space-y-4`} aria-label="El vehículo que entrego"><h2 className="text-xl font-bold text-white">El vehículo que entrego</h2>{(data.tradeIns || []).map(tradeIn => <section key={tradeIn.id} className={`${styles.tradeIn} min-w-0 space-y-4 rounded-2xl border border-neutral-700 p-3 sm:p-4`} data-trade-in={tradeIn.id}>
             <header className="space-y-1"><h3 className="text-lg font-bold text-white">{vehicleLabel(tradeIn)}</h3><p className="font-mono text-sm text-neutral-300">Patente: {tradeIn.plate || 'Por confirmar'}</p><p className="text-sm text-neutral-400">{(tradeIn.groups || []).filter(group => group.complete).length} de 6 requisitos con copia digital completa</p></header>
             {preview && <p className="rounded-xl border border-neutral-700 bg-neutral-900 p-3 text-sm text-neutral-300">Vista previa: el comprador podrá cargar fotos y PDF en cada requisito después de verificar su identidad.</p>}

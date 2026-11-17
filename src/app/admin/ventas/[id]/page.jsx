@@ -14,6 +14,8 @@ import SaleAuditTimeline from '../../../../components/crm/sales/detail/SaleAudit
 import SaleFinancePanel from '../../../../components/crm/sales/detail/SaleFinancePanel';
 import SaleInstallmentsPanel from '../../../../components/crm/sales/detail/SaleInstallmentsPanel';
 import BuyerPortalPanel from '../../../../components/buyer-portal/BuyerPortalPanel';
+import BuyerDeliveryDocumentsPanel from '../../../../components/buyer-portal/BuyerDeliveryDocumentsPanel';
+import BuyerPaymentProofsPanel from '../../../../components/buyer-portal/BuyerPaymentProofsPanel';
 
 import SalePostventaPanel from '../../../../components/crm/sales/detail/SalePostventaPanel';
 import TradeInChainPanel from '../../../../components/crm/stock/TradeInChainPanel';
@@ -43,6 +45,7 @@ export default function SaleDetailPage() {
     const [isCancelling, setIsCancelling] = useState(false);
     const [confirmActivateModal, setConfirmActivateModal] = useState(false);
     const [activeSection, setActiveSection] = useState('operation');
+    const [financialRevision, setFinancialRevision] = useState(0);
     const sections = [
         { id: 'operation', label: 'Operación', description: 'Datos y condiciones', icon: Handshake },
         { id: 'documents', label: 'Documentación y entrega', description: 'Papeles y pendientes', icon: ClipboardCheck },
@@ -261,6 +264,7 @@ export default function SaleDetailPage() {
                 <div className="grid items-start gap-4 lg:grid-cols-2">
                     <SaleChecklistPanel sale={sale} type="documentation" onSave={handleSave}/>
                     <SaleChecklistPanel sale={sale} type="delivery" onSave={handleSave}/>
+                    {selectedSection === 'documents' && <BuyerDeliveryDocumentsPanel saleId={sale._id}/>}
                 </div>
             </section>
 
@@ -270,9 +274,10 @@ export default function SaleDetailPage() {
 
             {(hasPermission(user, PERMISSIONS.FINANZAS_READ) || hasPermission(user, PERMISSIONS.CUOTAS_READ)) && (
                 <section role="tabpanel" id="sale-section-collections" aria-labelledby="sale-section-tab-collections" hidden={selectedSection !== 'collections'} className="min-w-0 outline-none">
+                    {selectedSection === 'collections' && hasPermission(user, PERMISSIONS.FINANZAS_READ) && <div className="mb-4"><BuyerPaymentProofsPanel saleId={sale._id} onChanged={async () => { await loadSale(); setFinancialRevision(value => value + 1); }}/></div>}
                     <div className="grid items-start gap-4 2xl:grid-cols-2">
-                        {hasPermission(user, PERMISSIONS.FINANZAS_READ) && <div className="min-w-0"><SaleFinancePanel sale={sale}/></div>}
-                        {hasPermission(user, PERMISSIONS.CUOTAS_READ) && <div className="min-w-0"><SaleInstallmentsPanel sale={sale} saleFinanceData={sale.finance}/></div>}
+                        {hasPermission(user, PERMISSIONS.FINANZAS_READ) && <div className="min-w-0"><SaleFinancePanel key={financialRevision} sale={sale}/></div>}
+                        {hasPermission(user, PERMISSIONS.CUOTAS_READ) && <div className="min-w-0"><SaleInstallmentsPanel key={financialRevision} sale={sale} saleFinanceData={sale.finance}/></div>}
                     </div>
                 </section>
             )}

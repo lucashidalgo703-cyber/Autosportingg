@@ -4,6 +4,9 @@ import { useParams } from 'next/navigation';
 import { LockKeyhole } from 'lucide-react';
 import BuyerPortalView from '../../../components/buyer-portal/BuyerPortalView';
 import BuyerPortalBrand from '../../../components/buyer-portal/BuyerPortalBrand';
+import BuyerPaymentsSection from '../../../components/buyer-portal/BuyerPaymentsSection';
+import BuyerDeliveredDocumentsSection from '../../../components/buyer-portal/BuyerDeliveredDocumentsSection';
+import useBuyerPortalResources from '../../../components/buyer-portal/useBuyerPortalResources';
 import { portalRequest } from '../../../components/buyer-portal/portalClient';
 import styles from '../../../components/buyer-portal/BuyerPortalView.module.css';
 
@@ -51,6 +54,8 @@ export default function BuyerPortalPage() {
     const expireSession = useCallback(() => {
         setSessionExpiresAt(''); setData(null); setChallenge(null); setCode('');
     }, []);
+    const resourceExpired = useCallback(error => { expireSession(); setError(error.message); }, [expireSession]);
+    const resources = useBuyerPortalResources({ base, enabled: Boolean(data), onExpired: resourceExpired });
     useEffect(() => {
         if (!sessionExpiresAt) return;
         const expires = Date.parse(sessionExpiresAt);
@@ -138,7 +143,10 @@ export default function BuyerPortalPage() {
         <div className="mx-auto w-full max-w-3xl">
             {loading ? <p role="status" className="py-12 text-center text-neutral-400">Abriendo tu portal privado…</p> : data ? <>
                 {error && <p role="alert" className="mb-3 rounded-xl border border-red-500/30 bg-red-500/10 p-3 text-sm text-red-200">{error}</p>}
-                <BuyerPortalView data={data} onUpload={upload} onRemove={removeDocument} requestAccess={requestAccess} onRefresh={() => { void refresh().catch(() => {}); }}/>
+                <BuyerPortalView data={data} onUpload={upload} onRemove={removeDocument} requestAccess={requestAccess} onRefresh={() => { void Promise.all([refresh(), resources.refreshAll()]).catch(() => {}); }}>
+                    <BuyerDeliveredDocumentsSection data={resources.delivery?.data} loading={!resources.delivery || resources.delivery.loading} error={resources.delivery?.error} onRefresh={() => { void resources.refreshDelivery().catch(() => {}); }} requestAccess={resources.accessDelivery} requestDownload={resources.downloadDelivery}/>
+                    <BuyerPaymentsSection data={resources.payments?.data} loading={!resources.payments || resources.payments.loading} error={resources.payments?.error} onRefresh={() => { void resources.refreshPayments().catch(() => {}); }} onUpload={resources.uploadPayment} requestAccess={resources.accessPayment} requestDownload={resources.downloadPayment}/>
+                </BuyerPortalView>
                 <button type="button" onClick={logout} disabled={busy} className={`${styles.logoutButton} mt-3 min-h-11 rounded-lg border border-solid border-neutral-700 px-3 text-sm text-neutral-300 disabled:opacity-50`}>{busy ? 'Cerrando acceso…' : 'Salir y olvidar este dispositivo'}</button>
             </> : <section className={`${styles.gate} mx-auto max-w-md space-y-5 rounded-2xl border border-neutral-700 bg-neutral-900 p-5 sm:p-7`}>
                 <BuyerPortalBrand/>

@@ -4,6 +4,7 @@ import { Wallet, Plus, ShieldAlert, ArrowDownRight, CheckCircle2, Lock } from 'l
 import TransactionModal from '../../finance/TransactionModal';
 import TreasuryCollectAndDistributeModal from '../../treasury/TreasuryCollectAndDistributeModal';
 import { useAdminTransactions } from '../../../../hooks/useAdminTransactions';
+import { isGestoriaCollection, remainingAppliedDeposit } from '../../../../utils/collectionDestination';
 
 export default function SaleFinancePanel({ sale }) {
     const { fetchTransactions, createTransaction, updateTransaction, loading, error } = useAdminTransactions();
@@ -159,13 +160,14 @@ export default function SaleFinancePanel({ sale }) {
         let depositApplied = 0;
         if (sale.depositAppliedCurrency === saleCurrency && sale.depositAppliedAmount) {
             depositApplied = sale.depositAppliedAmount;
-            netoCobradoPrincipal += depositApplied;
-            if (saleCurrency === 'ARS') ingresosARS += depositApplied;
-            else ingresosUSD += depositApplied;
+            const remainder = remainingAppliedDeposit(sale, transactions);
+            netoCobradoPrincipal += remainder;
+            if (saleCurrency === 'ARS') ingresosARS += remainder;
+            else ingresosUSD += remainder;
         }
 
         transactions.forEach(tx => {
-            if (tx.status === 'anulado') return;
+            if (!['activo', 'Completado'].includes(tx.status)) return;
             const amount = Number(tx.amount) || 0;
             
             if (tx.currency === 'ARS') {
@@ -176,7 +178,7 @@ export default function SaleFinancePanel({ sale }) {
                 else egresosUSD += amount;
             }
 
-            if (tx.currency === saleCurrency) {
+            if (tx.currency === saleCurrency && !isGestoriaCollection(tx)) {
                 if (tx.type === 'Ingreso') netoCobradoPrincipal += amount;
                 else if (tx.type === 'Egreso') netoCobradoPrincipal -= amount;
             }

@@ -28,6 +28,10 @@ const key = () => {
     if (!secret || secret.length < 32) fail('El almacenamiento privado del portal aún no está configurado.', 503);
     return crypto.createHash('sha256').update(secret).digest();
 };
+// Server-only primitives shared by the other private files of this portal.
+export { encrypt as encryptBuyerPortalBuffer, decrypt as decryptBuyerPortalBuffer, signingKey as buyerPortalSigningKey,
+    fileType as detectBuyerPortalFileType, activeBuyerSession as isActiveBuyerPortalSession,
+    buyerContact as getBuyerPortalContact, contactHash as buyerPortalContactHash, adminDocumentSale as authorizePortalDocumentSale };
 function encrypt(buffer, context) {
     const iv = crypto.randomBytes(12), cipher = crypto.createCipheriv('aes-256-gcm', key(), iv);
     cipher.setAAD(Buffer.from(context));
@@ -308,13 +312,13 @@ function fileType(buffer) {
     if (buffer.subarray(4, 8).toString() === 'ftyp' && /^(heic|heix|hevc|hevx|mif1|heif)$/.test(buffer.subarray(8, 12).toString())) return 'image/heic';
     fail('Subí una foto JPEG, PNG, WebP o HEIC, o un PDF completo.');
 }
-async function lockBuyerDocumentMutation(context, tradeInId, session) {
+export async function lockBuyerPortalMutation(context, session, { tradeInId } = {}) {
     const { sale } = context;
     if (!Number.isFinite(context.session.exp) || context.session.exp * 1000 <= Date.now()) fail('La verificación venció. Verificá tu correo de nuevo.', 401);
     // Serialize document changes against link revocation, device logout,
     // buyer/contact edits and cancellation; transaction retries recheck them.
     const locked = await BuyerPortal.updateOne({ _id: context.portal._id, generation: context.portal.generation, enabled: true,
-        mode: 'with_trade_in', expiresAt: { $gt: new Date() } }, { $inc: { uploadSequence: 1 } }, { session });
+        mode: context.portal.mode, expiresAt: { $gt: new Date() } }, { $inc: { uploadSequence: 1 } }, { session });
     if (!locked.matchedCount) fail('El acceso fue revocado. Volvé a verificar el enlace.', 401);
     if (context.session.sid) {
         const deviceLock = await BuyerPortalSession.updateOne({ _id: hash(context.session.sid), portalId: context.portal._id,
@@ -323,17 +327,22 @@ async function lockBuyerDocumentMutation(context, tradeInId, session) {
         if (!deviceLock.matchedCount) fail('El acceso de este dispositivo fue cerrado. Verificá tu correo de nuevo.', 401);
     }
     const currentSale = await Sale.findById(sale._id).session(session).lean();
-    if (!currentSale || currentSale.status === 'cancelada' || idOf(currentSale.clientId) !== idOf(sale.clientId)) fail('La operación cambió. Volvé a verificar el enlace.', 401);
-    tradeInFor(currentSale, tradeInId);
+    if (!currentSale || currentSale.status === 'cancelada' || idOf(currentSale.clientId) !== idOf(sale.clientId)
+        || idOf(currentSale.vehicleId) !== idOf(sale.vehicleId)) fail('La operación cambió. Volvé a verificar el enlace.', 401);
+    if (tradeInId) {
+        if (context.portal.mode !== 'with_trade_in') fail('Este enlace permite únicamente seguimiento.', 403);
+        tradeInFor(currentSale, tradeInId);
+    }
     const currentClient = currentSale.clientId ? await Client.findById(currentSale.clientId).select('email status').session(session).lean() : null;
     if (!currentClient || currentClient.status === 'bloqueado' || contactHash(currentClient.email || '') !== context.session.contactHash) fail('El contacto del comprador cambió. Verificá el correo de nuevo.', 401);
     const saleLock = await Sale.updateOne({ _id: currentSale._id, clientId: currentClient._id,
-        'tradeIns._id': tradeInId, status: { $ne: 'cancelada' } }, { $inc: { buyerPortalUploadSequence: 1 } }, { session, timestamps: false });
+        ...(tradeInId ? { 'tradeIns._id': tradeInId } : { vehicleId: currentSale.vehicleId }), status: { $ne: 'cancelada' } }, { $inc: { buyerPortalUploadSequence: 1 } }, { session, timestamps: false });
     const clientLock = await Client.updateOne({ _id: currentClient._id, email: currentClient.email, status: { $ne: 'bloqueado' } },
         { $inc: { buyerPortalUploadSequence: 1 } }, { session, timestamps: false });
     if (!saleLock.matchedCount || !clientLock.matchedCount) fail('Los datos de la operación cambiaron. Volvé a verificar el enlace.', 401);
     return { currentSale, currentClient };
 }
+const lockBuyerDocumentMutation = (context, tradeInId, session) => lockBuyerPortalMutation(context, session, { tradeInId });
 export async function removeBuyerDocument(context, id) {
     if (context.portal.mode !== 'with_trade_in') fail('Este enlace permite únicamente seguimiento.', 403);
     if (!validId(id)) fail('No encontré el archivo.', 404);
@@ -486,6 +495,10 @@ export async function readPrivateDocument(id, access) {
 export async function createBuyerPortalIndexes() {
     for (const model of [BuyerPortal, BuyerPortalChallenge, BuyerPortalSession, BuyerPortalDocument, BuyerPortalOriginal, BuyerPortalRate]) await model.createIndexes();
     await createBuyerDocumentNotificationIndexes();
+    const { createBuyerDeliveryIndexes } = await import('./buyerDeliveryDocumentService.js');
+    await createBuyerDeliveryIndexes();
+    const { createBuyerPaymentIndexes } = await import('./buyerPaymentProofService.js');
+    await createBuyerPaymentIndexes();
 }
 function catalogCover(car) {
     const candidates = [car.coverImage, ...(Array.isArray(car.images) ? car.images : [])];

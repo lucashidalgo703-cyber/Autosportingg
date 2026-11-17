@@ -15,6 +15,8 @@ import AdminUser from '../models/AdminUser.js';
 import Sale from '../models/Sale.js';
 import Car from '../models/Car.js';
 import Client from '../models/Client.js';
+import { reverseRecordedCollection } from './collectionReversalService.js';
+import CollectionRecordingOperation from '../models/CollectionRecordingOperation.js';
 import FinanceRecurringRule from '../models/FinanceRecurringRule.js';
 import Settlement from '../models/Settlement.js';
 import { resolveOriginForCar } from './tradeInChainService.js';
@@ -3226,6 +3228,24 @@ export async function reverseIncomeDistribution(txOrId, options = {}) {
  *  4. Marca la transacción como "anulado" conservando el historial y auditoría
  */
 export async function annulCollectionAndReverse(txOrId, options = {}) {
+    const recorded = await reverseRecordedCollection(txOrId?._id || txOrId, options.user || 'Sistema');
+    if (recorded) {
+        const claim = await CollectionRecordingOperation.findOneAndUpdate({ transactionId: recorded.transaction._id, treasuryReversalState: 'pending' },
+            { $set: { treasuryReversalState: 'running' } }, { new: true }).lean();
+        let reversal;
+        if (claim) {
+            try {
+                reversal = await reverseIncomeDistribution(recorded.transaction, { user: options.user || 'Sistema', reason: options.reason || 'Anulación integral de cobro' });
+                await CollectionRecordingOperation.updateOne({ _id: claim._id }, { $set: { treasuryReversalState: 'done' } });
+            } catch {
+                await CollectionRecordingOperation.updateOne({ _id: claim._id }, { $set: { treasuryReversalState: 'uncertain' } });
+            }
+        }
+        const operation = await CollectionRecordingOperation.findOne({ transactionId: recorded.transaction._id }).lean();
+        return { ok: true, transactionId: recorded.transaction._id, status: 'anulado', alreadyAnnulled: recorded.alreadyAnnulled,
+            treasuryReversed: reversal?.reversed || false, pendingTreasuryReview: operation.treasuryReversalState !== 'done',
+            message: operation.treasuryReversalState === 'done' ? 'Cobro anulado y movimientos relacionados revertidos.' : 'Cobro anulado en la cuenta y su destino. Revisá la reversión de distribución en Tesorería.' };
+    }
     const tx = (typeof txOrId === 'object' && txOrId !== null && typeof txOrId.save === 'function')
         ? txOrId
         : await Transaction.findById(txOrId);
@@ -3963,6 +3983,9 @@ export async function calculateSuggestedAllocation(query = {}, user) {
 export async function registerCollectionForTreasury(tx, options = {}) {
     if (!tx || tx.type !== 'Ingreso') {
         return { action: 'ignored', reason: 'not_income', status: 'ignored' };
+    }
+    if (tx.paymentDestination === 'gestoria') {
+        return { action: 'ignored', reason: 'procedure_collection', status: 'ignored', message: 'Cobro de gestoría registrado en su cuenta y trámite.' };
     }
     if (EXCLUDED_INBOX_CATEGORIES.includes(tx.category) || tx.isHistoricallyRegularized) {
         return { action: 'ignored', reason: 'excluded_category_or_historical', status: 'ignored' };

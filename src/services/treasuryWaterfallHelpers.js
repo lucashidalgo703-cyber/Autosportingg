@@ -3,6 +3,7 @@ import {
     resolveVehicleAcquisitionCost,
     roundMoney
 } from '../utils/saleCommercial.js';
+import { isGestoriaCollection, remainingAppliedDeposit } from '../utils/collectionDestination.js';
 
 /**
  * Calcula el estado de inversión real, capital propio vs terceros, costos pendientes,
@@ -71,18 +72,12 @@ export function computeOperationRecoveryState({
     );
 
     // Dinero efectivamente cobrado (NUNCA incluye permutas; evita duplicar seña si ya hay transacción de ingreso por seña)
-    const incomeTxs = activeTxs.filter((t) => t.type === 'Ingreso');
+    const incomeTxs = activeTxs.filter((t) => t.type === 'Ingreso' && !isGestoriaCollection(t));
     let incomeTxsSum = 0;
-    let hasDepositTx = false;
     for (const t of incomeTxs) {
         incomeTxsSum = roundMoney(incomeTxsSum + Number(t.amount || 0));
-        if (t.source === 'reserva' || /seña|reserva/i.test(t.concept || t.description || '')) {
-            hasDepositTx = true;
-        }
     }
-    const depositApplied = (sale?.depositAppliedCurrency === saleCurrency && Number(sale?.depositAppliedAmount) > 0 && !hasDepositTx)
-        ? roundMoney(Number(sale.depositAppliedAmount))
-        : 0;
+    const depositApplied = remainingAppliedDeposit(sale, incomeTxs);
     const effectivelyCollectedCash = roundMoney(incomeTxsSum + depositApplied);
 
     // Permutas recibidas (capital en otro vehículo, NO ingreso de efectivo)

@@ -48,6 +48,60 @@ export async function portalRequest(url, { token, body, method = 'GET' } = {}) {
     return data;
 }
 
+function privatePortalUrl(value, fileOnly = false) {
+    const url = new URL(value, window.location.origin);
+    const path = fileOnly ? /^\/api\/buyer-portal\/files\/[a-f0-9]{24}$/i : /^\/api\/(?:admin\/)?buyer-portal\//;
+    if (url.origin !== window.location.origin || url.username || url.password || !path.test(url.pathname)) throw new Error('Archivo no disponible. Volvé a abrirlo desde el portal.');
+    return url.href;
+}
+
+export async function uploadPortalFile(url, form, { token, onProgress, signal } = {}) {
+    await ensurePrivatePortalWorker();
+    url = privatePortalUrl(url);
+    if (!(form instanceof FormData)) throw new Error('Elegí el archivo que querés cargar.');
+    return new Promise((resolve, reject) => {
+        const xhr = new XMLHttpRequest();
+        const error = (message, status = 0) => Object.assign(new Error(message), { status });
+        const stop = () => xhr.abort();
+        const cleanup = () => signal?.removeEventListener('abort', stop);
+        xhr.open('POST', url); xhr.withCredentials = true; xhr.timeout = 120000;
+        if (token) xhr.setRequestHeader('Authorization', 'Bearer ' + token);
+        xhr.setRequestHeader('Cache-Control', 'no-store');
+        xhr.upload.onprogress = event => { if (event.lengthComputable) onProgress?.(Math.min(100, Math.round(event.loaded * 100 / event.total))); };
+        xhr.onload = () => {
+            cleanup();
+            let data; try { data = JSON.parse(xhr.responseText); } catch { data = {}; }
+            if (xhr.status >= 200 && xhr.status < 300) { onProgress?.(100); resolve(data); }
+            else reject(error(data.message || 'No se pudo guardar el archivo. Reintentá.', xhr.status));
+        };
+        xhr.onerror = xhr.ontimeout = () => { cleanup(); reject(error('Se perdió la conexión. Reintentá para confirmar la misma carga.')); };
+        xhr.onabort = () => { cleanup(); reject(error('La carga se interrumpió. Podés reintentar sin duplicarla.')); };
+        if (signal?.aborted) { reject(error('La carga se interrumpió.')); return; }
+        signal?.addEventListener('abort', stop, { once: true });
+        onProgress?.(0); xhr.send(form);
+    });
+}
+
+export async function downloadPortalFile(access, { fileName = 'documento' } = {}) {
+    await ensurePrivatePortalWorker();
+    const url = privatePortalUrl(access?.url, true);
+    const response = await fetch(url, { cache: 'no-store', credentials: 'same-origin', referrerPolicy: 'no-referrer' });
+    if (!response.ok) {
+        const body = await response.json().catch(() => ({}));
+        throw Object.assign(new Error(body.message || 'No se pudo descargar el archivo. Volvé a intentarlo.'), { status: response.status });
+    }
+    const blob = await response.blob();
+    if (!/^(?:application\/pdf|image\/(?:jpeg|png|webp|heic|heif))$/i.test(blob.type)) throw new Error('No se pudo descargar este archivo. Volvé a abrirlo.');
+    const disposition = response.headers.get('Content-Disposition') || '';
+    const encoded = disposition.match(/filename\*=UTF-8''([^;]+)/i)?.[1];
+    if (encoded) { try { fileName = decodeURIComponent(encoded); } catch {} }
+    fileName = String(fileName).replace(/[\x00-\x1f\x7f/\\]/g, '_').slice(0, 180) || 'documento';
+    const objectUrl = URL.createObjectURL(blob), link = document.createElement('a');
+    link.href = objectUrl; link.download = fileName; link.referrerPolicy = 'no-referrer';
+    document.body.append(link); link.click(); link.remove();
+    setTimeout(() => URL.revokeObjectURL(objectUrl), 60000);
+}
+
 export const documentRequirements = [
     { key: 'title', label: 'CAT o título del automotor', guidance: 'Adelantá una foto o el PDF del título. Para modelos anteriores a 2016, la guía de AutoSporting pide presentar el título de propiedad original.' },
     { key: 'domain_report', label: 'Informe de estado de dominio', guidance: 'Subí el informe completo. Gestoría revisa su vigencia.' },

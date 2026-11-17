@@ -1,0 +1,7 @@
+.root { min-width: 0; }
+.buttons { display: flex; flex-wrap: wrap; gap: 8px; }
+.root .button { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 44px; max-width: 100%; padding: 10px 14px; border: 1px solid #8b5b61; border-radius: 11px; background: #4c3036; color: #fff; font: inherit; font-size: 13px; font-weight: 600; cursor: pointer; }
+.root .button:hover:not(:disabled) { background: #633b42; border-color: #e63027; }
+.root .button:disabled { opacity: .5; cursor: default; }
+.root .button:focus-visible { outline: 2px solid #ff918a; outline-offset: 3px; }
+.error { color: #fecaca; font-size: 13px; line-height: 1.5; margin: 8px 0 0; overflow-wrap: anywhere; }

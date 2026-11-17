@@ -1,5 +1,9 @@
 import { completeSaleAtomic, getSaleVehicleOptions, changeSaleVehicleAtomic } from './src/services/saleCompletionService.js';
 import { createReservationAtomic, updateReservationAtomic } from './src/services/reservationCreationService.js';
+import { recordCrmCollection, payInstallmentAtomic } from './src/services/collectionRecordingService.js';
+import CollectionRecordingOperation from './src/models/CollectionRecordingOperation.js';
+import BuyerPaymentProof from './src/models/BuyerPaymentProof.js';
+import { isGestoriaCollection, remainingAppliedDeposit } from './src/utils/collectionDestination.js';
 import { computeCommissionAmount, computeSaleProfit, validateCommissionPercent, parseDecimal, roundMoney } from './src/utils/saleCommercial.js';
 import { resolveCarImageUpdate } from './src/utils/carImageOrder.js';
 import { buildTradeInChain, validateTradeInLink, resolveOriginForCar } from './src/services/tradeInChainService.js';
@@ -4411,6 +4415,9 @@ app.delete('/api/transactions/:id', authenticateToken, requirePermission(PERMISS
     try {
         const tx = await Transaction.findById(req.params.id);
         if (!tx) return res.status(404).json({ message: 'Transacción no encontrada' });
+        if (await CollectionRecordingOperation.exists({ transactionId: tx._id })) {
+            return res.json(await treasuryStrategicService.annulCollectionAndReverse(tx._id, { user: req.user?.username || 'Admin' }));
+        }
         if (isManagedLinkedExpense(tx)) {
             try {
                 const updated = await mutateLinkedExpense({ id: req.params.id, annul: true, user: req.user, req });
@@ -4833,11 +4840,11 @@ async function buildPopulatedSaleResponse(saleId, reqUser) {
     let depositApplied = 0;
     if (sale.depositAppliedCurrency === sale.saleCurrency && sale.depositAppliedAmount) {
         depositApplied = sale.depositAppliedAmount;
-        netoCobrado += depositApplied;
+        netoCobrado += remainingAppliedDeposit(sale, transactions);
     }
 
     transactions.forEach(tx => {
-        if (tx.currency === sale.saleCurrency) {
+        if (tx.currency === sale.saleCurrency && !isGestoriaCollection(tx)) {
             if (tx.type === 'Ingreso') netoCobrado += tx.amount;
             else if (tx.type === 'Egreso') netoCobrado -= tx.amount;
         }
@@ -4998,11 +5005,11 @@ app.get('/api/admin/sales', authenticateToken, requirePermission(PERMISSIONS.VEN
             let depositApplied = 0;
             if (sale.depositAppliedCurrency === sale.saleCurrency && sale.depositAppliedAmount) {
                 depositApplied = sale.depositAppliedAmount;
-                netoCobrado += depositApplied;
+                netoCobrado += remainingAppliedDeposit(sale, saleTxs);
             }
 
             saleTxs.forEach(tx => {
-                if (tx.currency === sale.saleCurrency) {
+                if (tx.currency === sale.saleCurrency && !isGestoriaCollection(tx)) {
                     if (tx.type === 'Ingreso') netoCobrado += tx.amount;
                     else if (tx.type === 'Egreso') netoCobrado -= tx.amount;
                 }
@@ -7128,6 +7135,11 @@ app.post('/api/admin/transactions/bulk-annul', authenticateToken, requirePermiss
         for (const id of ids) {
             const tx = await Transaction.findOne({ _id: id, module: 'crm_v2' });
             if (tx && tx.status !== 'anulado') {
+                if (await CollectionRecordingOperation.exists({ transactionId: tx._id })) {
+                    await treasuryStrategicService.annulCollectionAndReverse(tx._id, { user: req.user?.username || 'Admin' });
+                    annulledCount++;
+                    continue;
+                }
                 const oldStatus = tx.status;
                 if (oldStatus === 'activo' || oldStatus === 'Completado') {
                     const account = await Account.findById(tx.accountId);
@@ -7167,6 +7179,9 @@ app.delete('/api/admin/transactions/:id', authenticateToken, requirePermission(P
         await connectDB();
         const tx = await Transaction.findOne({ _id: req.params.id, module: 'crm_v2' });
         if (!tx) return res.status(404).json({ message: 'Transacción no encontrada' });
+        if (await CollectionRecordingOperation.exists({ transactionId: tx._id })) {
+            return res.json(await treasuryStrategicService.annulCollectionAndReverse(tx._id, { user: req.user?.username || 'Admin' }));
+        }
         if (isManagedLinkedExpense(tx)) {
             try {
                 const updated = await mutateLinkedExpense({ id: req.params.id, annul: true, user: req.user, req });
@@ -7298,6 +7313,23 @@ app.post('/api/admin/transactions', authenticateToken, requirePermission(PERMISS
             account = await getOrCreateCrmV2Account(currency);
         }
 
+        if (normalizedTypeLower === 'ingreso' && (!status || status === 'activo')) {
+            let isTreasuryUnlocked = false;
+            try {
+                const token = req.headers['x-treasury-token'] || req.headers['x-treasury-auth'];
+                if (token) isTreasuryUnlocked = jwt.verify(token, JWT_SECRET).purpose === 'strategic_treasury';
+            } catch { /* keep the existing pending-distribution circuit */ }
+            const result = await recordCrmCollection(req.user, { ...req.body, accountId: account._id,
+                idempotencyKey: cleanIdempotencyKey || undefined }, { isTreasuryUnlocked });
+            if (!result.duplicate) {
+                try { await logAudit({ req, action: 'MOVIMIENTO_CREADO', module: 'finanzas', entityType: 'Transaction',
+                    entityId: result.transaction._id, entityLabel: `Ingreso - ${concept}`,
+                    description: `Se creó un movimiento financiero por ${currency} ${result.transaction.amount}.`,
+                    metadata: { type: 'Ingreso', amount: result.transaction.amount, currency } }); } catch { /* transaction history remains durable */ }
+            }
+            return res.status(result.duplicate ? 200 : 201).json({ ...result.transaction.toObject(), treasuryIntegration: result.treasuryIntegration });
+        }
+
         const newTx = new Transaction({
             module: 'crm_v2',
             source: req.body.source || (saleId ? 'venta' : (reservationId ? 'reserva' : 'manual')),
@@ -7398,6 +7430,17 @@ app.patch('/api/admin/transactions/:id', authenticateToken, requirePermission(PE
 
         const tx = await Transaction.findOne({ _id: req.params.id, module: 'crm_v2' });
         if (!tx) return res.status(404).json({ message: 'Transaction not found' });
+        if (await CollectionRecordingOperation.exists({ transactionId: tx._id }) || await BuyerPaymentProof.exists({ transactionId: tx._id })) {
+            const same = (a, b) => String(a ?? '') === String(b ?? '');
+            const financialFields = ['amount', 'currency', 'type', 'accountId', 'saleId', 'reservationId', 'clientId', 'vehicleId', 'installmentId', 'gestoriaId', 'paymentDestination', 'paymentSplits'];
+            if (financialFields.some(field => Object.prototype.hasOwnProperty.call(req.body, field) && !same(req.body[field], tx[field]))) {
+                return res.status(409).json({ message: 'Este cobro tiene una imputación confirmada. Anulalo y registrá la corrección para conservar los saldos.' });
+            }
+            if (status !== undefined && status !== tx.status) {
+                if (status !== 'anulado') return res.status(409).json({ message: 'Un cobro anulado debe corregirse con un nuevo movimiento.' });
+                return res.json(await treasuryStrategicService.annulCollectionAndReverse(tx._id, { user: req.user?.username || 'Admin' }));
+            }
+        }
         if (isManagedLinkedExpense(tx)) {
             try { return res.json(await mutateLinkedExpense({ id: req.params.id, patch: req.body, user: req.user, req })); }
             catch (error) {
@@ -8226,143 +8269,22 @@ app.post('/api/admin/installments', authenticateToken, requirePermission(PERMISS
 app.post('/api/admin/installments/:id/pay', authenticateToken, requirePermission(PERMISSIONS.FINANZAS_WRITE), async (req, res) => {
     try {
         await connectDB();
-        if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
-            return res.status(400).json({ message: 'Installment ID inválido' });
-        }
-
-        const { amount, paymentMethod, accountId, notes } = req.body;
-        const payAmount = Number(amount);
-
-        if (!payAmount || payAmount <= 0) {
-            return res.status(400).json({ message: 'El monto a pagar debe ser mayor a cero' });
-        }
-        if (!accountId) {
-            return res.status(400).json({ message: 'Se requiere cuenta (accountId) para registrar el cobro' });
-        }
-
-        const installment = await Installment.findById(req.params.id);
-        if (!installment) return res.status(404).json({ message: 'Cuota no encontrada' });
-
-        if (installment.status === 'pagada' || installment.status === 'anulada') {
-            return res.status(400).json({ message: `No se puede cobrar una cuota en estado ${installment.status}` });
-        }
-
-        const account = await Account.findById(accountId);
-        if (!account) return res.status(404).json({ message: 'Cuenta financiera no encontrada' });
-        if (account.currency !== installment.currency) {
-            return res.status(400).json({ message: 'La moneda de la cuenta no coincide con la moneda de la cuota' });
-        }
-
-        // Idempotencia y validación de excedente
-        const currentPaid = Number(installment.paidAmount || 0);
-        const installmentTotal = Number(installment.amount || 0);
-        const pending = installmentTotal - currentPaid;
-
-        if (payAmount > pending) {
-            return res.status(400).json({ message: `El monto (${payAmount}) supera el saldo pendiente (${pending})` });
-        }
-
-        const user = req.user ? (req.user.username || req.user.email || req.user.role) : 'System';
-
-        // 1. Crear el movimiento (Transacción)
-        const newTx = new Transaction({
-            type: 'Ingreso',
-            amount: payAmount,
-            currency: installment.currency,
-            description: `Cobro cuota ${installment.installmentNumber || ''} - ${installment.concept || ''}`,
-            concept: 'Cobro de Cuota',
-            category: 'Cobranzas',
-            paymentMethod: paymentMethod || 'efectivo',
-            date: new Date(),
-            accountId: account._id,
-            saleId: installment.saleId,
-            clientId: installment.clientId,
-            vehicleId: installment.vehicleId,
-            installmentId: installment._id,
-            notes: notes || '',
-            module: 'crm_v2',
-            source: 'cuota',
-            status: 'activo',
-            createdBy: user,
-            transactionAuditLog: [{ action: 'CREACION', details: 'Cobro de cuota', user: user }]
-        });
-
-        await newTx.save();
-
+        let isTreasuryUnlocked = false;
         try {
-            // 2. Actualizar balance de la cuenta
-            account.balance += payAmount;
-            await account.save();
-
-            // 3. Actualizar estado de la cuota
-            installment.paidAmount = currentPaid + payAmount;
-            if (installment.paidAmount >= installmentTotal) {
-                installment.status = 'pagada';
-                installment.paymentDate = new Date();
-            } else if (installment.paidAmount > 0) {
-                installment.status = 'parcial';
-                installment.paymentDate = new Date();
-            }
-
-            installment.updatedBy = user;
-            installment.installmentAuditLog.push({
-                action: 'COBRO_REGISTRADO',
-                details: `Cobro por ${installment.currency} ${payAmount}. Nuevo saldo: ${installment.paidAmount}.`,
-                user: user
-            });
-
-            await installment.save();
-        } catch (saveError) {
-            // Rollback manual si falla account o installment
-            await Transaction.findByIdAndDelete(newTx._id);
-            // Revert account balance if it was already saved
-            const verifyAcc = await Account.findById(account._id);
-            if (verifyAcc && verifyAcc.balance !== (account.balance - payAmount)) {
-                verifyAcc.balance -= payAmount;
-                await verifyAcc.save();
-            }
-            throw new Error(`Error en persistencia, cobro revertido: ${saveError.message}`);
+            const token = req.headers['x-treasury-token'] || req.headers['x-treasury-auth'];
+            if (token) isTreasuryUnlocked = jwt.verify(token, JWT_SECRET).purpose === 'strategic_treasury';
+        } catch { /* a locked treasury keeps the collection pending distribution */ }
+        const result = await payInstallmentAtomic(req.user, req.params.id,
+            { ...req.body, idempotencyKey: req.body.idempotencyKey || req.headers['x-idempotency-key'] }, { isTreasuryUnlocked });
+        if (!result.duplicate) {
+            try { await logAudit({ req, action: 'COBRO_CUOTA', module: 'cuotas', entityType: 'Installment',
+                entityId: result.installment._id, entityLabel: `Cuota ${result.installment.installmentNumber}`,
+                description: `Cobro de ${result.transaction.currency} ${result.transaction.amount} registrado.` }); } catch { /* installment and transaction keep their own audit */ }
         }
-
-        // 4. Vincular automáticamente el cobro confirmado con Tesorería Estratégica (sin duplicar ingreso)
-        let treasuryIntegration = null;
-        try {
-            let isTreasuryUnlocked = false;
-            const tTok = req.headers['x-treasury-token'] || req.headers['x-treasury-auth'];
-            if (tTok) {
-                try {
-                    const dec = jwt.verify(tTok, JWT_SECRET);
-                    isTreasuryUnlocked = dec.purpose === 'strategic_treasury';
-                } catch (_) { /* ignore expired token */ }
-            }
-            treasuryIntegration = await treasuryStrategicService.registerCollectionForTreasury(newTx, {
-                isTreasuryUnlocked,
-                user: req.user
-            });
-        } catch (treasuryErr) {
-            console.error('Treasury integration warning on pay installment:', treasuryErr);
-        }
-
-        try {
-            if (typeof logAudit === 'function') {
-                await logAudit({
-                    req,
-                    action: 'COBRO_CUOTA',
-                    module: 'cuotas',
-                    entityType: 'Installment',
-                    entityId: installment._id,
-                    entityLabel: `Cuota ${installment.installmentNumber}`,
-                    description: `Cobro de ${installment.currency} ${payAmount} registrado en la caja ${account.name}.`
-                });
-            }
-        } catch (auditErr) {
-            console.error('Audit log error on pay installment:', auditErr);
-        }
-
-        res.json({ message: 'Cobro registrado correctamente', installment, transaction: newTx, treasuryIntegration });
+        res.json({ message: 'Cobro registrado correctamente', installment: result.installment,
+            transaction: result.transaction, treasuryIntegration: result.treasuryIntegration, duplicate: result.duplicate });
     } catch (error) {
-        console.error('Error paying installment:', error);
-        res.status(500).json({ message: error.message });
+        res.status(error.status || 503).json({ message: error.status ? error.message : 'No se pudo registrar el cobro. Reintentá con el mismo identificador.' });
     }
 });
 

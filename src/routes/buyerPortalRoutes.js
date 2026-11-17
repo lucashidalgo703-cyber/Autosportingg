@@ -5,6 +5,8 @@ import * as portal from '../services/buyerPortalService.js';
 import { gptRequestQuota } from '../services/gptExpenseOAuthService.js';
 import { buyerPortalAccessHistory, recordBuyerPortalView } from '../services/buyerPortalAccessService.js';
 import { getBuyerDocumentNotification, retryBuyerDocumentNotification } from '../services/buyerDocumentNotificationService.js';
+import * as delivery from '../services/buyerDeliveryDocumentService.js';
+const paymentService = async (name, ...args) => (await import('../services/buyerPaymentProofService.js'))[name](...args);
 
 const bearer = req => req.headers.authorization?.startsWith('Bearer ') ? req.headers.authorization.slice(7) : '';
 const sessionCookie = 'autosporting_buyer_session';
@@ -37,6 +39,11 @@ const headers = (_req, res, next) => {
     res.set({ 'Cache-Control': 'private, no-store', 'Referrer-Policy': 'no-referrer', 'X-Content-Type-Options': 'nosniff', 'X-Robots-Tag': 'noindex, nofollow, noarchive' });
     next();
 };
+const privateUpload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 3 * 1024 * 1024, files: 1, fields: 15, parts: 17, fieldSize: 3000 } }).single('file');
+const uploaded = handler => (req, res) => privateUpload(req, res, error => {
+    if (error) return res.status(error.code === 'LIMIT_FILE_SIZE' ? 413 : 400).json({ message: 'Subí un archivo de hasta 3 MB por vez.' });
+    void endpoint(handler)(req, res);
+});
 export function createAdminBuyerPortalRouter({ authenticate }) {
     const router = Router(); router.use(headers, authenticate);
     router.get('/sales/:id', endpoint(req => portal.portalConfiguration(req.user, req.params.id)));
@@ -50,13 +57,28 @@ export function createAdminBuyerPortalRouter({ authenticate }) {
     router.get('/documents/:id/notification', endpoint(req => getBuyerDocumentNotification(req.user, req.params.id)));
     router.post('/documents/:id/notification/retry', endpoint(req => retryBuyerDocumentNotification(req.user, req.params.id)));
     router.patch('/requirements/original', endpoint(req => portal.markOriginal(req.user, req.body)));
+    router.get('/sales/:id/delivery-documents', endpoint(req => delivery.adminDeliveryDocuments(req.user, req.params.id)));
+    router.post('/sales/:id/delivery-documents', uploaded(req => delivery.uploadDeliveryDocument(req.user, req.params.id, req.body, req.file)));
+    router.patch('/delivery-documents/:id', endpoint(req => delivery.editDeliveryDocument(req.user, req.params.id, req.body)));
+    router.post('/delivery-documents/:id/publish', endpoint(req => delivery.publishDeliveryDocument(req.user, req.params.id, req.body)));
+    router.post('/delivery-documents/:id/withdraw', endpoint(req => delivery.withdrawDeliveryDocument(req.user, req.params.id, req.body)));
+    router.post('/delivery-documents/:id/access', endpoint(req => delivery.deliveryDocumentAccess(req.params.id, { adminUser: req.user, download: req.body?.download === true })));
+    router.get('/sales/:id/payment-proofs', endpoint(req => paymentService('adminPaymentProofs', req.user, req.params.id)));
+    router.post('/payment-proofs/:id/review', endpoint(req => paymentService('reviewPaymentProof', req.user, req.params.id, req.body)));
+    router.post('/payment-proofs/:id/access', endpoint(req => paymentService('paymentProofAccess', req.params.id, null, req.user, req.body?.download === true)));
     return router;
 }
 export function createBuyerPortalRouter() {
     const router = Router(); router.use(headers);
     router.get('/files/:id', endpoint(async (req, res) => {
-        const doc = await portal.readPrivateDocument(req.params.id, req.query.access);
-        res.set({ 'Content-Type': doc.mimeType, 'Content-Disposition': 'inline; filename="documento"',
+        const doc = req.query.kind === 'delivery' ? await delivery.readDeliveryPortalFile(req.params.id, req.query.access)
+            : req.query.kind === 'payment' ? await paymentService('readPaymentProofFile', req.params.id, req.query.access)
+                : req.query.kind === undefined ? await portal.readPrivateDocument(req.params.id, req.query.access)
+                    : (() => { throw portal.portalError('Archivo no disponible.', 404); })();
+        const extension = ({ 'application/pdf': 'pdf', 'image/jpeg': 'jpg', 'image/png': 'png', 'image/webp': 'webp', 'image/heic': 'heic', 'image/heif': 'heif' })[doc.mimeType] || 'bin';
+        const name = String(doc.fileName || 'documento').replace(/[\x00-\x1f\x7f/\\"']/g, '_').replace(/\.[^.]{1,12}$/, '').slice(0, 140) + '.' + extension;
+        const encoded = encodeURIComponent(name).replace(/[!'()*]/g, char => '%' + char.charCodeAt(0).toString(16));
+        res.set({ 'Content-Type': doc.mimeType, 'Content-Disposition': `${doc.download ? 'attachment' : 'inline'}; filename="documento.${extension}"; filename*=UTF-8''${encoded}`,
             'Content-Security-Policy': "sandbox; default-src 'none'; frame-ancestors 'self'", 'Cross-Origin-Resource-Policy': 'same-origin' });
         res.send(doc.buffer);
     }));
@@ -106,5 +128,10 @@ export function createBuyerPortalRouter() {
     }));
     router.post('/:token/documents/:id/access', authenticated, endpoint(req => portal.documentAccess(req.params.id, req.buyer)));
     router.delete('/:token/documents/:id', authenticated, endpoint(req => portal.removeBuyerDocument(req.buyer, req.params.id)));
+    router.get('/:token/delivery-documents', authenticated, endpoint(req => delivery.buyerDeliveryDocuments(req.buyer)));
+    router.post('/:token/delivery-documents/:id/access', authenticated, endpoint(req => delivery.deliveryDocumentAccess(req.params.id, { context: req.buyer, download: req.body?.download === true })));
+    router.get('/:token/payments', authenticated, endpoint(req => paymentService('buyerPaymentData', req.buyer)));
+    router.post('/:token/payments', authenticated, uploaded(req => paymentService('uploadPaymentProof', req.buyer, req.body, req.file)));
+    router.post('/:token/payments/:id/access', authenticated, endpoint(req => paymentService('paymentProofAccess', req.params.id, req.buyer, null, req.body?.download === true)));
     return router;
 }

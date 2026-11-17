@@ -33,6 +33,9 @@
     "portal:setup": "node scripts/setup-buyer-portal.js",
     "test:portal": "node tests/integration/buyerPortal.integration.test.js",
     "test:portal:browser": "node tests/browser/buyerPortal.browser.mjs",
+    "test:portal:delivery": "node tests/integration/buyerDeliveryDocuments.integration.test.js",
+    "test:portal:payments": "node tests/integration/buyerPaymentProofs.integration.test.js",
+    "test:portal:delivery-payments:browser": "node tests/browser/buyerDeliveryPayments.browser.mjs",
     "test:inventory:available": "node tests/integration/availableInventory.integration.test.js"
   },
   "dependencies": {

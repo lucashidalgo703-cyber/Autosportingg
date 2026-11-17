@@ -1,0 +1,23 @@
+.section { min-width: 0; padding: 20px 16px; border: 1px solid #61535a; border-top: 3px solid #e63027; border-radius: 20px; background: linear-gradient(135deg, #333039, #292a30 75%); color: #f8f9fa; scroll-margin-top: 24px; }
+.header { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; margin-bottom: 18px; }
+.eyebrow { margin: 0 0 8px; color: #ffaaa3; font-size: 11px; font-weight: 700; letter-spacing: .1em; }
+.title { display: flex; align-items: flex-start; gap: 10px; margin: 0; font-size: 20px; line-height: 1.35; font-weight: 800; overflow-wrap: anywhere; }
+.title svg { flex-shrink: 0; margin-top: 2px; color: #ff918a; }
+.section .refresh { display: inline-flex; flex-shrink: 0; align-items: center; justify-content: center; min-width: 44px; min-height: 44px; border: 1px solid #71616b; border-radius: 11px; background: #383139; color: #fff; cursor: pointer; }
+.section .refresh:focus-visible, .section .retry:focus-visible { outline: 2px solid #ff918a; outline-offset: 3px; }
+.section .refresh:disabled { opacity: .5; cursor: default; }
+.muted, .date { color: #c5c0cb; font-size: 12px; line-height: 1.6; }
+.preparing { display: flex; gap: 12px; padding: 16px; border: 1px solid #72616a; border-radius: 14px; background: #29282e; }
+.preparing > svg { flex-shrink: 0; color: #ffaaa3; }
+.preparing h3 { margin: 0 0 8px; font-size: 15px; }
+.preparing p { margin: 0; color: #d1cbd5; font-size: 13px; line-height: 1.6; }
+.available { display: inline-flex; margin: 0 0 14px; padding: 7px 10px; border: 1px solid #527768; border-radius: 9px; background: #24372f; color: #a7f3d0; font-size: 12px; font-weight: 700; }
+.list { display: grid; gap: 14px; }
+.document { min-width: 0; display: flex; flex-direction: column; gap: 12px; padding: 16px; border: 1px solid #66565e; border-radius: 14px; background: #232429; }
+.document h3 { margin: 0; font-size: 15px; line-height: 1.5; overflow-wrap: anywhere; }
+.description { margin: 6px 0 0; color: #ddd4dc; font-size: 13px; line-height: 1.5; overflow-wrap: anywhere; }
+.date { margin: 0; }
+.message { border: 1px solid #a7605d; border-radius: 12px; padding: 14px; background: #442c31; color: #fecaca; font-size: 13px; line-height: 1.5; overflow-wrap: anywhere; }
+.message p { margin: 0 0 10px; }
+.section .retry { min-height: 44px; padding: 10px 14px; border: 1px solid #d58a85; border-radius: 10px; background: #613333; color: white; font: inherit; cursor: pointer; }
+@media (min-width: 640px) { .list { grid-template-columns: repeat(2, minmax(0, 1fr)); } .section { padding: 24px; } }
