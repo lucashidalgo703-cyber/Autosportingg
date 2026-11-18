@@ -34,7 +34,7 @@ export async function bootIsolatedReplica({ listen = true } = {}) {
     const { EmailAdapter } = await import('../../src/lib/emailAdapter.js');
     const mailbox = [];
     EmailAdapter.sendEmail = async (to, subject, html) => {
-        if (to !== process.env.SECURITY_ALERT_EMAIL) throw new Error('Se bloqueó un destinatario externo en la prueba.');
+        if (![process.env.SECURITY_ALERT_EMAIL, 'vendedor.uno@example.test', 'vendedor.dos@example.test'].includes(to)) throw new Error('Se bloqueó un destinatario externo en la prueba.');
         mailbox.push({ to, subject, html });
         return { accepted: [to], messageId: crypto.randomUUID(), rejected: [] };
     };

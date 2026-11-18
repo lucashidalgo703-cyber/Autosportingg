@@ -92,7 +92,7 @@ import LoginChallenge from './src/models/LoginChallenge.js';
 import {
     createEmailLoginChallenge, resendEmailLoginChallenge, verifyEmailLoginChallenge,
     loadVerifiedChallenge, consumeVerifiedChallenge, hashChallengeToken,
-    credentialFingerprint, LoginChallengeError
+    credentialFingerprint, LoginChallengeError, assertEmailChallengeRecipient
 } from './src/services/emailLoginService.js';
 import { createLoginSession, validateLoginSession, revokeLoginSession } from './src/services/authSessionService.js';
 import { createGptExpenseOAuthRouter } from './src/routes/gptExpenseOAuthRoutes.js';
@@ -559,6 +559,7 @@ async function completeVerifiedLogin(challengeId, req) {
     if (!user?.active || credentialFingerprint(user) !== challenge.credentialFingerprint) {
         throw new LoginChallengeError(401, 'La cuenta cambió. Iniciá sesión nuevamente.');
     }
+    await assertEmailChallengeRecipient(challenge, user);
     const session = await createLoginSession(user);
     await AdminUser.updateOne({ _id: user._id }, { $set: { lastLoginAt: new Date() } });
     await logAudit({ req, action: 'LOGIN_EXITOSO', module: 'usuarios', entityType: 'User',
@@ -576,6 +577,7 @@ app.post('/api/login/email/verify', requireJwtConfiguration, async (req, res) =>
         if (!user?.active || credentialFingerprint(user) !== challenge.credentialFingerprint) {
             throw new LoginChallengeError(401, 'La cuenta cambió. Iniciá sesión nuevamente.');
         }
+        await assertEmailChallengeRecipient(challenge, user);
         if (user.twoFactorEnabled) return res.json({ require2FA: true, challengeId });
         return res.json(await completeVerifiedLogin(challengeId, req));
     } catch (error) { return sendLoginChallengeError(res, error); }
@@ -599,6 +601,7 @@ app.post('/api/login/2fa', requireJwtConfiguration, async (req, res) => {
         if (!user?.active || !user.twoFactorEnabled || credentialFingerprint(user) !== challenge.credentialFingerprint) {
             throw new LoginChallengeError(401, 'Solicitud inválida. Iniciá sesión nuevamente.');
         }
+        await assertEmailChallengeRecipient(challenge, user);
         // Reserve each TOTP attempt atomically across concurrent server instances.
         const attempt = await LoginChallenge.findOneAndUpdate({
             _id: hashChallengeToken(challengeId), status: 'email_verified',

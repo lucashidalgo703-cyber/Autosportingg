@@ -24,11 +24,13 @@ if (process.env.LOCAL_BUYER_PORTAL_FIXTURES === 'true') {
     buyerPortalFixtures = { ...await seedBuyerPortalFixtures(env.models, fixtures), adminSessionToken: fixtures.sessions[0].token,
         sellerSessionToken: fixtures.sessions[1].token };
     const { startLocalSmtpSink } = await import('../tests/fixtures/localSmtpSink.js');
-    smtpSink = await startLocalSmtpSink(env.mailbox, [process.env.SECURITY_ALERT_EMAIL, buyerPortalFixtures.buyerOneEmail, buyerPortalFixtures.buyerTwoEmail]);
+    const localMailRecipients = [process.env.SECURITY_ALERT_EMAIL, buyerPortalFixtures.buyerOneEmail, buyerPortalFixtures.buyerTwoEmail,
+        ...fixtures.users.filter(user => user.role === 'ventas').map(user => user.email)];
+    smtpSink = await startLocalSmtpSink(env.mailbox, localMailRecipients);
     process.env.SMTP_PORT = String(smtpSink.port);
     process.env.NEXT_PUBLIC_BASE_URL = `http://${host}:${port}`;
     EmailAdapter.sendEmail = async (to, subject, html) => {
-        if (![process.env.SECURITY_ALERT_EMAIL, buyerPortalFixtures.buyerOneEmail, buyerPortalFixtures.buyerTwoEmail].includes(to)) throw new Error('Destinatario no ficticio bloqueado.');
+        if (!localMailRecipients.includes(to)) throw new Error('Destinatario no ficticio bloqueado.');
         env.mailbox.push({ to, subject, html });
         return { accepted: [to], rejected: [] };
     };

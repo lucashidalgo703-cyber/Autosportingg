@@ -100,6 +100,13 @@ function readCode(mail) {
     return match[1];
 }
 const wrongCode = code => code === '000000' ? '111111' : '000000';
+function assertOnlyRecipient(mail, address) {
+    assert.ok(mail, 'El SMTP local debe recibir un único correo para esta solicitud');
+    assert.deepEqual(mail.recipients, [address], 'El sobre SMTP no debe incluir copias ni reenvíos a otra cuenta');
+    const headers = mail.raw.slice(0, mail.raw.indexOf('\r\n\r\n')).replace(/\r\n[ \t]+/g, ' ');
+    assert.ok(headers.match(/^To:\s*(.*)$/im)?.[1].includes(address), 'El destinatario visible debe coincidir con el sobre SMTP');
+    assert.ok(!/^(Cc|Bcc):/im.test(headers), 'El código no debe enviarse con copia');
+}
 const password = 'Ficticia-Local-2026!';
 function passwordHash() {
     const salt = crypto.randomBytes(16).toString('hex');
@@ -139,12 +146,13 @@ try {
     const { default: LoginChallenge } = await import('../../src/models/LoginChallenge.js');
     const { default: LoginEmailRateLimit } = await import('../../src/models/LoginEmailRateLimit.js');
     const { default: LoginSession } = await import('../../src/models/LoginSession.js');
-    const { hashChallengeToken } = await import('../../src/services/emailLoginService.js');
+    const { hashChallengeToken, credentialFingerprint } = await import('../../src/services/emailLoginService.js');
     await connectDB();
     const users = await AdminUser.create([
         { name: 'Vendedora Ficticia A', email: 'vendedora-a@example.test', passwordHash: passwordHash(), role: 'ventas' },
         { name: 'Vendedor Ficticio B', email: 'vendedor-b@example.test', passwordHash: passwordHash(), role: 'ventas' },
-        { name: 'Administrador Ficticio', email: 'admin@example.test', passwordHash: passwordHash(), role: 'admin' }
+        { name: 'Administrador Ficticio', email: 'admin@example.test', passwordHash: passwordHash(), role: 'admin' },
+        { name: 'Propietario Ficticio', email: 'owner@example.test', passwordHash: passwordHash(), role: 'owner' }
     ]);
     httpServer = app.listen(0, '127.0.0.1');
     await once(httpServer, 'listening');
@@ -183,15 +191,16 @@ try {
         assert.ok(!response.json.token);
     });
 
-    await test('Todas las cuentas, incluido administrador, quedan pendientes; correo único solo al administrador', async () => {
+    await test('Ventas recibe únicamente en su correo registrado; admin y owner conservan el destinatario administrativo', async () => {
         for (const user of users) {
             const response = await login(user);
             assert.equal(response.status, 200);
             assert.equal(response.json.requireEmailVerification, true);
             assert.equal(response.json.emailSent, true);
+            assert.equal(response.json.emailRecipientType, user.role === 'ventas' ? 'account' : 'administrator');
             assert.ok(!response.json.token);
             const mail = smtpMessages.at(-1);
-            assert.deepEqual(mail.recipients, ['administrador@example.test']);
+            assertOnlyRecipient(mail, user.role === 'ventas' ? user.email : 'administrador@example.test');
             const { html, text, subject, contentType } = decodedMessage(mail.raw);
             assert.equal(subject, `AutoSporting | Solicitud de ingreso de ${user.name}`);
             assert.ok(/^multipart\/alternative(?:;|$)/i.test(contentType), 'Debe enviar un solo correo con alternativas HTML y texto');
@@ -206,7 +215,7 @@ try {
             const textCode = text.match(/^([0-9]{6})$/m)?.[1];
             assert.ok(textCode === htmlCode, 'HTML y texto deben contener el mismo código sin exponerlo en la prueba');
         }
-        assert.equal(smtpMessages.length, 3);
+        assert.equal(smtpMessages.length, users.length);
     });
 
     await test('Dos vendedores simultáneos tienen desafíos aislados por cuenta e intento', async () => {
@@ -214,6 +223,13 @@ try {
         assert.ok(a.json.challengeId && b.json.challengeId && a.json.challengeId !== b.json.challengeId);
         const mailA = smtpMessages.find(mail => decodedMessage(mail.raw).body.includes(users[0].email));
         const mailB = smtpMessages.find(mail => decodedMessage(mail.raw).body.includes(users[1].email));
+        assert.equal(smtpMessages.length, 2);
+        assertOnlyRecipient(mailA, users[0].email);
+        assertOnlyRecipient(mailB, users[1].email);
+        const [storedA, storedB] = await Promise.all([a, b].map(challenge => LoginChallenge.findById(hashChallengeToken(challenge.json.challengeId)).lean()));
+        assert.equal(String(storedA.userId), String(users[0]._id));
+        assert.equal(String(storedB.userId), String(users[1]._id));
+        assert.ok(storedA.recipientFingerprint && storedB.recipientFingerprint && storedA.recipientFingerprint !== storedB.recipientFingerprint);
         const codeA = readCode(mailA);
         const codeB = readCode(mailB);
         // A random six-digit collision is possible; isolation is still tied to the request hash.
@@ -223,6 +239,119 @@ try {
         }
         assert.equal((await verify(a, codeA)).status, 200);
         assert.equal((await verify(b, codeB)).status, 200);
+    });
+
+    await test('Reenviar conserva el destinatario de cada usuario y el cliente no puede elegirlo en el cuerpo HTTP', async () => {
+        const destinationOverride = { recipient: 'intruso@example.test', to: 'intruso@example.test',
+            emailRecipient: 'intruso@example.test', securityAlertEmail: 'intruso@example.test',
+            cc: 'administrador@example.test', bcc: 'intruso@example.test', role: 'owner', emailRecipientType: 'administrator' };
+        for (const user of users) {
+            const expected = user.role === 'ventas' ? user.email : 'administrador@example.test';
+            const pending = await call('/api/login', { ...destinationOverride, email: user.email, password });
+            assert.equal(pending.json.emailSent, true);
+            assertOnlyRecipient(smtpMessages.at(-1), expected);
+            const oldCode = readCode(smtpMessages.at(-1));
+            await makeResendReady(pending);
+            const sentBefore = smtpMessages.length;
+            const response = await call('/api/login/email/resend', { ...destinationOverride, challengeId: pending.json.challengeId });
+            assert.equal(response.status, 200); assert.equal(response.json.emailSent, true);
+            assert.equal(smtpMessages.length, sentBefore + 1); assertOnlyRecipient(smtpMessages.at(-1), expected);
+            const freshCode = readCode(smtpMessages.at(-1));
+            assert.ok(freshCode !== oldCode, 'El reenvío debe reemplazar el código anterior sin exponerlo en la prueba');
+            assert.equal((await verify(pending, oldCode)).status, 401);
+            assert.equal((await verify(pending, freshCode)).status, 200);
+        }
+        assert.equal(smtpMessages.length, users.length * 2, 'Cada solicitud y reenvío deben generar un único correo');
+    });
+
+    await test('Cambiar el correo de ventas invalida verificaciones y reenvíos pendientes aunque se restaure la ficha', async () => {
+        const user = users[0];
+        const first = await login(user), code = readCode(smtpMessages.at(-1));
+        const second = await login(user);
+        await makeResendReady(second);
+        const sentBefore = smtpMessages.length;
+        try {
+            await AdminUser.updateOne({ _id: user._id }, { $set: { email: 'vendedora-corregida@example.test' } });
+            assert.equal((await verify(first, code)).status, 401);
+            assert.equal((await call('/api/login/email/resend', { challengeId: second.json.challengeId })).status, 401);
+            assert.equal(smtpMessages.length, sentBefore, 'Un intento vinculado al correo anterior no debe despachar otro código');
+            const next = await login({ email: 'vendedora-corregida@example.test' });
+            assert.equal(next.json.emailSent, true); assertOnlyRecipient(smtpMessages.at(-1), 'vendedora-corregida@example.test');
+        } finally {
+            await AdminUser.updateOne({ _id: user._id }, { $set: { email: user.email } });
+        }
+        assert.equal((await verify(first, code)).status, 401, 'Restaurar el correo no debe revivir un intento invalidado');
+        assert.equal((await call('/api/login/email/resend', { challengeId: second.json.challengeId })).status, 401);
+    });
+
+    await test('Cambiar entre ventas y administración invalida el destinatario de solicitudes pendientes', async () => {
+        for (const [user, role] of [[users[0], 'admin'], [users[2], 'ventas']]) {
+            const first = await login(user), code = readCode(smtpMessages.at(-1));
+            const second = await login(user);
+            await makeResendReady(second);
+            const sentBefore = smtpMessages.length;
+            try {
+                await AdminUser.updateOne({ _id: user._id }, { $set: { role } });
+                assert.equal((await verify(first, code)).status, 401);
+                assert.equal((await call('/api/login/email/resend', { challengeId: second.json.challengeId })).status, 401);
+                assert.equal(smtpMessages.length, sentBefore);
+                const next = await login(user);
+                assert.equal(next.json.emailSent, true);
+                assertOnlyRecipient(smtpMessages.at(-1), role === 'ventas' ? user.email : 'administrador@example.test');
+            } finally {
+                await AdminUser.updateOne({ _id: user._id }, { $set: { role: user.role } });
+            }
+            assert.equal((await verify(first, code)).status, 401);
+            assert.equal((await call('/api/login/email/resend', { challengeId: second.json.challengeId })).status, 401);
+        }
+    });
+
+    await test('Desafíos previos al cambio sin vínculo de destinatario no verifican ni reenvían', async () => {
+        const first = await login(), code = readCode(smtpMessages.at(-1));
+        const second = await login();
+        await makeResendReady(second);
+        await LoginChallenge.collection.updateMany({ _id: { $in: [first, second].map(challenge => hashChallengeToken(challenge.json.challengeId)) } },
+            { $unset: { recipientFingerprint: 1, emailRecipientType: 1 } });
+        const sentBefore = smtpMessages.length;
+        assert.equal((await verify(first, code)).status, 401);
+        assert.equal((await call('/api/login/email/resend', { challengeId: second.json.challengeId })).status, 401);
+        assert.equal(smtpMessages.length, sentBefore);
+        assert.ok(!(await verify(first, code)).json.token);
+    });
+
+    await test('Cambiar el destinatario administrativo invalida los códigos anteriores sin enviarlos a otro correo', async () => {
+        const address = process.env.SECURITY_ALERT_EMAIL;
+        const first = await login(users[2]), code = readCode(smtpMessages.at(-1));
+        const second = await login(users[2]);
+        await makeResendReady(second);
+        const sentBefore = smtpMessages.length;
+        try {
+            process.env.SECURITY_ALERT_EMAIL = 'administrador-nuevo@example.test';
+            assert.equal((await verify(first, code)).status, 401);
+            assert.equal((await call('/api/login/email/resend', { challengeId: second.json.challengeId })).status, 401);
+            assert.equal(smtpMessages.length, sentBefore);
+            const next = await login(users[2]);
+            assert.equal(next.json.emailSent, true); assertOnlyRecipient(smtpMessages.at(-1), process.env.SECURITY_ALERT_EMAIL);
+        } finally { process.env.SECURITY_ALERT_EMAIL = address; }
+        assert.equal((await verify(first, code)).status, 401);
+        assert.equal((await call('/api/login/email/resend', { challengeId: second.json.challengeId })).status, 401);
+    });
+
+    await test('La nueva política de desafíos conserva las sesiones activas creadas con el formato anterior', async () => {
+        const user = users[0], sid = crypto.randomBytes(32).toString('base64url');
+        const legacyFingerprint = crypto.createHmac('sha256', process.env.EMAIL_LOGIN_HMAC_SECRET)
+            .update(`credentials:${user._id}:${user.passwordHash}:${Boolean(user.twoFactorEnabled)}:${user.twoFactorSecret || ''}`).digest('hex');
+        assert.equal(credentialFingerprint(user), legacyFingerprint, 'El cambio de destinatarios no debe alterar el fingerprint de credenciales');
+        const sessionId = crypto.createHash('sha256').update(sid).digest('hex');
+        await LoginSession.create({ _id: sessionId, userId: user._id, credentialFingerprint: legacyFingerprint,
+            expiresAt: new Date(Date.now() + 3600000) });
+        const token = jwt.sign({ id: String(user._id), sid, type: 'session', emailVerified: true }, process.env.JWT_SECRET, { expiresIn: '1h' });
+        assert.equal((await call('/api/admin/auth/me', undefined, token, 'GET')).status, 200);
+        const pending = await login(user);
+        assert.equal(pending.json.requireEmailVerification, true); assertOnlyRecipient(smtpMessages.at(-1), user.email);
+        assert.equal((await call('/api/admin/auth/me', undefined, token, 'GET')).status, 200);
+        const stored = await LoginSession.findById(sessionId).lean();
+        assert.equal(stored.revokedAt, null); assert.ok(!stored.recipientFingerprint && !stored.emailRecipientType);
     });
 
     await test('Desafío pendiente y tokens anteriores no acceden directamente a APIs protegidas', async () => {
@@ -340,6 +469,29 @@ try {
         assert.equal(smtpMessages.length, 5);
     });
 
+    await test('La cuota por cuenta limita ventas sin correo administrativo y owner sin cambiar el destinatario', async () => {
+        const address = process.env.SECURITY_ALERT_EMAIL;
+        try {
+            for (const user of [users[0], users[3]]) {
+                process.env.SECURITY_ALERT_EMAIL = user.role === 'ventas' ? '' : address;
+                const expected = user.role === 'ventas' ? user.email : address;
+                const sentBefore = smtpMessages.length;
+                const pending = await login(user);
+                assert.equal(pending.json.emailSent, true);
+                await makeResendReady(pending);
+                const resent = await call('/api/login/email/resend', { challengeId: pending.json.challengeId });
+                assert.equal(resent.status, 200); assert.equal(resent.json.emailSent, true);
+                for (let i = 0; i < 3; i++) assert.equal((await login(user)).json.emailSent, true);
+                assert.equal(smtpMessages.length, sentBefore + 5);
+                for (const mail of smtpMessages.slice(sentBefore)) assertOnlyRecipient(mail, expected);
+                assert.equal((await login(user)).status, 429);
+                await makeResendReady(pending);
+                assert.equal((await call('/api/login/email/resend', { challengeId: pending.json.challengeId })).status, 429);
+                assert.equal(smtpMessages.length, sentBefore + 5, 'La cuota debe contar solicitudes nuevas y reenvíos de la misma cuenta');
+            }
+        } finally { process.env.SECURITY_ALERT_EMAIL = address; }
+    });
+
     await test('Mismo navegador: sesión activa sobrevive recargas; logout revoca y próximo login pide código', async () => {
         const first = await login();
         const verified = await verify(first, readCode(smtpMessages.at(-1)));
@@ -357,16 +509,60 @@ try {
         assert.ok(!(await verify(second, readCode(smtpMessages[0]))).json.token);
     });
 
-    await test('Configuración ausente o varios destinatarios jamás omiten la verificación', async () => {
+    await test('Ventas usa su correo aunque falte el destinatario administrativo o sea una lista inválida', async () => {
         const address = process.env.SECURITY_ALERT_EMAIL;
-        for (const value of ['', 'uno@example.test,dos@example.test']) {
-            process.env.SECURITY_ALERT_EMAIL = value;
-            const response = await login();
-            assert.ok(!response.json.token);
+        try {
+            for (const value of ['', 'uno@example.test,dos@example.test']) {
+                process.env.SECURITY_ALERT_EMAIL = value;
+                const response = await login();
+                assert.equal(response.status, 200); assert.equal(response.json.emailSent, true); assert.ok(!response.json.token);
+                assertOnlyRecipient(smtpMessages.at(-1), users[0].email);
+                await makeResendReady(response);
+                const resent = await call('/api/login/email/resend', { challengeId: response.json.challengeId });
+                assert.equal(resent.json.emailSent, true); assertOnlyRecipient(smtpMessages.at(-1), users[0].email);
+                assert.equal((await verify(response, readCode(smtpMessages.at(-1)))).status, 200);
+            }
+            assert.equal(smtpMessages.length, 4);
+        } finally { process.env.SECURITY_ALERT_EMAIL = address; }
+    });
+
+    await test('Admin y owner conservan acceso pendiente si falta una dirección administrativa única', async () => {
+        const address = process.env.SECURITY_ALERT_EMAIL;
+        try {
+            for (const value of ['', 'uno@example.test,dos@example.test']) {
+                process.env.SECURITY_ALERT_EMAIL = value;
+                for (const user of [users[2], users[3]]) {
+                    const response = await login(user);
+                    assert.equal(response.status, 200); assert.equal(response.json.requireEmailVerification, true);
+                    assert.equal(response.json.emailSent, false); assert.ok(!response.json.token);
+                    const stored = await LoginChallenge.findById(hashChallengeToken(response.json.challengeId)).lean();
+                    assert.ok(!stored.codeHash);
+                    assert.ok(!(await verify(response, '000000')).json.token);
+                }
+            }
             assert.equal(smtpMessages.length, 0);
-            if (response.status === 200) assert.equal(response.json.emailSent, false);
-        }
-        process.env.SECURITY_ALERT_EMAIL = address;
+        } finally { process.env.SECURITY_ALERT_EMAIL = address; }
+    });
+
+    await test('Correo de ventas inválido no usa al administrador como alternativa y conserva el acceso pendiente', async () => {
+        const user = users[0];
+        try {
+            for (const email of ['vendedor-sin-correo', 'uno@example.test,dos@example.test']) {
+                await AdminUser.updateOne({ _id: user._id }, { $set: { email } });
+                const pending = await login({ email });
+                assert.equal(pending.status, 200); assert.equal(pending.json.requireEmailVerification, true);
+                assert.equal(pending.json.emailSent, false); assert.ok(!pending.json.token);
+                let stored = await LoginChallenge.findById(hashChallengeToken(pending.json.challengeId)).lean();
+                assert.equal(stored.status, 'pending'); assert.ok(!stored.codeHash);
+                assert.ok(!(await verify(pending, '000000')).json.token);
+                await makeResendReady(pending);
+                const resent = await call('/api/login/email/resend', { challengeId: pending.json.challengeId, recipient: 'administrador@example.test' });
+                assert.equal(resent.status, 200); assert.equal(resent.json.emailSent, false); assert.ok(!resent.json.token);
+                stored = await LoginChallenge.findById(hashChallengeToken(pending.json.challengeId)).lean();
+                assert.equal(stored.status, 'pending'); assert.ok(!stored.codeHash);
+                assert.equal(smtpMessages.length, 0, 'Un correo inválido no debe enviar el código al administrador ni a otra casilla');
+            }
+        } finally { await AdminUser.updateOne({ _id: user._id }, { $set: { email: user.email } }); }
     });
 
     await test('Sesión vencida se rechaza y el siguiente ingreso exige otro código', async () => {

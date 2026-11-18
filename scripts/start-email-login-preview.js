@@ -12,6 +12,7 @@ const host = '127.0.0.1';
 const port = 3100;
 const password = 'Ficticia-Local-2026!';
 const mailbox = [];
+const allowedRecipients = new Set(['administrador@example.test', 'vendedor.uno@example.test', 'vendedor.dos@example.test']);
 const sockets = new Set();
 let mongod;
 let mongoose;
@@ -80,7 +81,7 @@ try {
     const { default: LoginSession } = await import('../src/models/LoginSession.js');
     const { EmailAdapter } = await import('../src/lib/emailAdapter.js');
     EmailAdapter.sendEmail = async (to, subject, html) => {
-        if (to !== 'administrador@example.test') throw new Error('Destinatario de prueba inesperado.');
+        if (!allowedRecipients.has(to)) throw new Error('Destinatario de prueba inesperado.');
         const messageId = crypto.randomUUID();
         mailbox.push({ to, subject, html, receivedAt: new Date(), messageId });
         return { accepted: [to], rejected: [], messageId };

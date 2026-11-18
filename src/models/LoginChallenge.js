@@ -4,6 +4,10 @@ const schema = new mongoose.Schema({
     _id: { type: String, required: true },
     userId: { type: mongoose.Schema.Types.ObjectId, ref: 'AdminUser', required: true },
     credentialFingerprint: { type: String, required: true },
+    // Bind pending attempts to their current delivery policy without storing
+    // another copy of the recipient's email. Legacy attempts must restart.
+    recipientFingerprint: String,
+    emailRecipientType: { type: String, enum: ['account', 'administrator'] },
     status: { type: String, enum: ['pending', 'email_verified', 'completed'], default: 'pending' },
     codeHash: String,
     generation: String,

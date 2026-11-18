@@ -23,6 +23,7 @@ const Login = () => {
   const [challengeId, setChallengeId] = useState(null);
   const [challengeStep, setChallengeStep] = useState('email');
   const [emailSent, setEmailSent] = useState(false);
+  const [emailRecipientType, setEmailRecipientType] = useState('administrator');
   const [expiresAt, setExpiresAt] = useState(null);
   const [resendAvailableAt, setResendAvailableAt] = useState(null);
   const [attemptsRemaining, setAttemptsRemaining] = useState(5);
@@ -58,6 +59,7 @@ const Login = () => {
     setChallengeId(data.challengeId);
     setChallengeStep('email');
     setEmailSent(data.emailSent === true);
+    setEmailRecipientType(data.emailRecipientType === 'account' ? 'account' : 'administrator');
     setExpiresAt(data.expiresAt || null);
     setResendAvailableAt(data.resendAvailableAt || null);
     setAttemptsRemaining(5);
@@ -213,7 +215,7 @@ const Login = () => {
         }
       } else {
         if (Number.isInteger(data.attemptsRemaining)) setAttemptsRemaining(data.attemptsRemaining);
-        setError(data.message || 'Código inválido. Revisá el código enviado al administrador.');
+        setError(data.message || 'Código inválido. Revisá el código recibido por correo.');
       }
     } catch {
       setError('Error de conexión con el servidor. El acceso sigue pendiente.');
@@ -271,6 +273,7 @@ const Login = () => {
     setExpiresAt(null);
     setResendAvailableAt(null);
     setEmailSent(false);
+    setEmailRecipientType('administrator');
     setAttemptsRemaining(5);
   };
 
@@ -497,7 +500,7 @@ const Login = () => {
               </div>
               <div className="text-center mb-6">
                 <p className="text-xs font-mono text-red-300 mb-2">INGRESO PENDIENTE</p>
-                <h1 className="text-xl font-bold text-white">Ingresá el código de 6 dígitos enviado al administrador</h1>
+                <h1 className="text-xl font-bold text-white">{emailRecipientType === 'account' ? 'Ingresá el código de 6 dígitos enviado a tu correo' : 'Ingresá el código de 6 dígitos enviado al administrador'}</h1>
                 <p className="mt-3 text-sm text-zinc-300 break-all">Cuenta: {email.trim()}</p>
                 <p className="mt-2 text-xs text-zinc-400">El acceso se habilita después de validar el código. Se solicita uno nuevo en cada inicio de sesión.</p>
               </div>

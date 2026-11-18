@@ -2,6 +2,8 @@
 
 Esta implementación exige un código nuevo en cada inicio de sesión para todas las cuentas, incluso administradores y navegadores conocidos. La navegación y las recargas conservan una sesión verificada activa. El código dura cinco minutos, admite cinco errores y se consume una sola vez. Los reenvíos esperan sesenta segundos; los envíos iniciales y reenvíos comparten un máximo de cinco intentos de envío por cuenta cada quince minutos.
 
+Para las cuentas con rol **Ventas**, el código llega exclusivamente al correo de esa cuenta, que administración puede revisar y editar en **Configuración → Usuarios**. La pantalla indica “Ingresá el código de 6 dígitos enviado a tu correo”. No hace falta cambiar `SECURITY_ALERT_EMAIL` para que un vendedor reciba su código. Las demás cuentas, incluidos administradores y propietarios, conservan el envío a la casilla de administrador configurada en esa variable. Los demás avisos administrativos del CRM conservan su destinatario.
+
 ## Entorno aislado
 
 No reutilizar cuentas de empleados, credenciales ni una base de producción. Crear un proyecto de staging o un despliegue Preview en Vercel conectado a esta rama. Antes de iniciar sesión, verificar que `MONGODB_URI` apunte a una base de prueba separada y que su usuario de MongoDB solo tenga permisos sobre esa base. Tener otra base dentro de la misma instancia no aísla las credenciales si el usuario conserva permisos globales.
@@ -10,7 +12,7 @@ En **Vercel → proyecto → Settings → Environment Variables**, seleccionar e
 
 | Variable de servidor | Valor |
 | --- | --- |
-| `SECURITY_ALERT_EMAIL` | Tu dirección de administrador, una sola casilla; sin listas ni destinatarios adicionales. |
+| `SECURITY_ALERT_EMAIL` | Tu dirección de administrador, una sola casilla; se conserva para códigos de administradores/propietarios y demás roles que no sean Ventas. |
 | `MONGODB_URI` | URI exclusiva de la base de pruebas. |
 | `JWT_SECRET` | Secreto aleatorio exclusivo del entorno; no compartir con producción. |
 | `SMTP_FROM` | Remitente permitido por el proveedor de correo existente. |
@@ -22,7 +24,7 @@ Las variables son de servidor: no usar el prefijo `NEXT_PUBLIC_` ni incorporarla
 
 `EMAIL_LOGIN_HMAC_SECRET` es opcional: permite usar un secreto aleatorio dedicado para proteger los códigos almacenados. Si se omite, se utiliza `JWT_SECRET`. Mantenerlo estable dentro del entorno; cambiar cualquiera de estos secretos invalida solicitudes y sesiones asociadas.
 
-Crear dos vendedores ficticios y un administrador ficticio únicamente en la base de pruebas mediante el mecanismo de usuarios del CRM o un script de preparación local. No copiar una base real ni ejecutar un sembrado contra producción.
+Crear dos vendedores ficticios y un administrador ficticio únicamente en la base de pruebas mediante el mecanismo de usuarios del CRM o un script de preparación local. Configurar una casilla de prueba accesible y distinta para cada vendedor en **Configuración → Usuarios**. No copiar una base real ni ejecutar un sembrado contra producción.
 
 Con `MONGODB_URI` ya configurada para esa base separada, ejecutar `npm run auth:indexes` desde una terminal del entorno de pruebas. Crea los índices de autenticación y la limpieza TTL; no borra ni sincroniza índices de otros módulos. El vencimiento de códigos y sesiones también se controla en cada consulta del servidor y no depende de cuándo MongoDB ejecute su limpieza.
 
@@ -42,16 +44,16 @@ Para probar también las pantallas, usar una copia limpia sin archivos `.env` y 
 npm run dev:auth-preview
 ```
 
-Abrir `http://127.0.0.1:3100/login` y el buzón de prueba `http://127.0.0.1:3100/__test-mail`. Cuentas disponibles: `vendedor.uno@example.test`, `vendedor.dos@example.test` y `admin@example.test`; todas usan la contraseña ficticia `Ficticia-Local-2026!`. Esta vista previa tiene una base temporal y reemplaza el transporte por un buzón en memoria: no envía mensajes reales. Los códigos se consultan solo en ese buzón local. Detener con Ctrl+C elimina la base y los mensajes.
+Abrir `http://127.0.0.1:3100/login` y el buzón de prueba `http://127.0.0.1:3100/__test-mail`. Cuentas disponibles: `vendedor.uno@example.test`, `vendedor.dos@example.test` y `admin@example.test`; todas usan la contraseña ficticia `Ficticia-Local-2026!`. Esta vista previa tiene una base temporal y reemplaza el transporte por un buzón en memoria: no envía mensajes reales. Los códigos de los vendedores tienen como destinatario su respectiva cuenta; los del administrador se dirigen a `administrador@example.test`. Los códigos se consultan solo en ese buzón local. Detener con Ctrl+C elimina la base y los mensajes.
 
-Para repetir las cinco pruebas automatizadas en navegador, reiniciar primero la vista previa (para renovar la cuota de correo ficticia) y ejecutar en otra terminal `npm run test:auth:browser`. Usa Chrome local en Windows cuando está instalado; también permite indicar su ejecutable con `CHROME_PATH`. Si no hay navegador disponible, instalar el navegador de pruebas con `npx playwright install chromium`. La suite verifica la pantalla pendiente, accesos directos y API de Express/Next, dos vendedores simultáneos, recarga, cierre de sesión y nuevo ingreso en el mismo navegador. No imprime códigos.
+Para repetir las pruebas automatizadas en navegador, reiniciar primero la vista previa (para renovar la cuota de correo ficticia) y ejecutar en otra terminal `npm run test:auth:browser`. Usa Chrome local en Windows cuando está instalado; también permite indicar su ejecutable con `CHROME_PATH`. Si no hay navegador disponible, instalar el navegador de pruebas con `npx playwright install chromium`. La suite verifica la pantalla pendiente según el destinatario, la casilla de destino de cada mensaje, accesos directos y API de Express/Next, dos vendedores simultáneos, recarga, cierre de sesión y nuevo ingreso en el mismo navegador. No imprime códigos.
 
 ## Confirmación con tu casilla
 
 1. Abrir la URL de Preview. Ingresar credenciales incorrectas: debe aparecer el error y no llegar correo.
 2. Ingresar con el administrador ficticio. Debe aparecer “Ingresá el código de 6 dígitos enviado al administrador”, sin poder acceder al CRM. Confirmar en tu casilla un único correo con asunto `AutoSporting | Solicitud de ingreso de [nombre]`, código grande, cuenta, fecha y hora argentina, navegador, sistema operativo y aviso de ingreso pendiente.
 3. Antes de validar, abrir directamente `/admin` y consultar una API protegida como `/api/admin/auth/me` o `/api/admin/cars`: debe impedir acceso. La solicitud pendiente tampoco debe poder utilizarse como token de sesión.
-4. En dos perfiles/ventanas independientes, iniciar sesión al mismo tiempo con los dos vendedores ficticios. Ingresar el código del vendedor A en la solicitud B: debe rechazarse. Usar luego cada código en su solicitud correcta: ambas deben poder completar su ingreso.
+4. En dos perfiles/ventanas independientes, iniciar sesión al mismo tiempo con los dos vendedores ficticios. La pantalla debe indicar “Ingresá el código de 6 dígitos enviado a tu correo”. Confirmar que cada vendedor reciba únicamente su propio código en el correo configurado en su ficha de usuario, sin copias al administrador. Ingresar el código del vendedor A en la solicitud B: debe rechazarse. Usar luego cada código en su solicitud correcta: ambas deben poder completar su ingreso.
 5. Actualizar y navegar con una sesión activa: debe conservarse. Cerrar sesión y volver a entrar desde la misma computadora/navegador: debe llegar otro código y solicitarse de nuevo.
 6. En una solicitud nueva, fallar cinco veces: el código debe quedar bloqueado. En otra, esperar más de cinco minutos: debe rechazarse como vencido. Reutilizar un código ya consumido: debe rechazarse.
 7. Intentar reenviar antes de sesenta segundos: debe estar bloqueado. Después reenviar: debe llegar un correo nuevo y el código anterior debe quedar inválido. Verificar que abrir solicitudes nuevas no permita superar el límite de envíos por cuenta.
@@ -61,4 +63,4 @@ Los códigos nunca deben aparecer en respuestas JSON, registros de aplicación n
 
 ## Activación posterior
 
-Cuando todas las pruebas anteriores estén conformes, cargar `SECURITY_ALERT_EMAIL` y la configuración de servidor correspondiente en **Production**, volver a desplegar y realizar un ingreso controlado. Los tokens de sesión anteriores al cambio no cumplen la nueva verificación y se rechazan: todos deberán iniciar sesión con un código. Esta guía no autoriza ni realiza esa activación.
+Esta actualización no necesita variables nuevas: mantener `SECURITY_ALERT_EMAIL` y el proveedor de correo existentes. Antes de aplicarla, revisar el correo de cada vendedor en **Configuración → Usuarios** y completar las pruebas aisladas. Las sesiones verificadas vigentes se conservan. Si había una solicitud pendiente anterior que envió el código de un vendedor al administrador, el vendedor debe volver al inicio de sesión e iniciar una solicitud nueva para recibirlo en su propio correo. Después del despliegue autorizado, realizar un ingreso controlado de un vendedor y otro del administrador para confirmar ambos destinos.

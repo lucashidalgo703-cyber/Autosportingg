@@ -32,14 +32,35 @@ export const hashChallengeToken = token => {
 };
 export const credentialFingerprint = user => hmac(`credentials:${user._id}:${user.passwordHash}:${Boolean(user.twoFactorEnabled)}:${user.twoFactorSecret || ''}`);
 const hashCode = (challenge, code, generation = challenge.generation) => hmac(`email-code:${challenge._id}:${challenge.userId}:${generation}:${code}`);
-const getRecipient = () => {
-    const recipient = process.env.SECURITY_ALERT_EMAIL?.trim();
-    // A single bare address only; reject lists, headers and display names.
-    if (!recipient || !/^[A-Z0-9.!#$%&'*+\/=?^_`{|}~-]+@[A-Z0-9](?:[A-Z0-9.-]*[A-Z0-9])?\.[A-Z]{2,}$/i.test(recipient)) {
-        throw new Error('Security notification recipient unavailable');
-    }
-    return recipient;
+// user is always freshly loaded from AdminUser; never accept a request-supplied
+// destination or copy a seller's verification code to the administrator.
+const getRecipient = user => {
+    const type = user.role === 'ventas' ? 'account' : 'administrator';
+    const recipient = String(type === 'account' ? user.email || '' : process.env.SECURITY_ALERT_EMAIL || '').trim();
+    return { type, recipient };
 };
+const recipientFingerprint = (challenge, user) => {
+    const { type, recipient } = getRecipient(user);
+    return hmac('email-login-recipient:v1:' + JSON.stringify([
+        String(challenge._id), String(user._id), String(user.role || ''),
+        String(user.email || '').trim().toLowerCase(), type, recipient.toLowerCase()
+    ]));
+};
+export async function assertEmailChallengeRecipient(challenge, user) {
+    const expected = user && challenge ? recipientFingerprint(challenge, user) : null;
+    const actual = challenge?.recipientFingerprint;
+    const bound = challenge && user?.active && String(user._id) === String(challenge.userId)
+        && challenge.emailRecipientType === getRecipient(user).type
+        && typeof actual === 'string' && /^[a-f0-9]{64}$/.test(actual)
+        && crypto.timingSafeEqual(Buffer.from(actual, 'hex'), Buffer.from(expected, 'hex'));
+    if (bound) return;
+    // A changed policy cannot become valid again by restoring the old address.
+    // This expires only the pending attempt, never an already active session.
+    if (challenge?._id) await LoginChallenge.updateOne({ _id: challenge._id }, {
+        $set: { expiresAt: new Date(), emailSent: false }, $unset: { codeHash: 1 }
+    });
+    throw invalidChallenge();
+}
 const escapeHtml = value => String(value ?? '').replace(/[&<>"']/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[char]));
 export const describeLoginDevice = req => {
     const ua = String(req?.headers?.['user-agent'] || '').slice(0, 1024);
@@ -123,26 +144,35 @@ const reserveAccountSend = async userId => {
     }
 };
 const pendingPayload = (challenge, challengeId, emailSent, message) => ({
-    requireEmailVerification: true, challengeId, emailSent,
+    requireEmailVerification: true, challengeId, emailSent, emailRecipientType: challenge.emailRecipientType,
     expiresAt: challenge.codeExpiresAt.toISOString(),
     attemptExpiresAt: challenge.expiresAt.toISOString(),
     resendAvailableAt: challenge.resendAvailableAt.toISOString(),
     ...(message ? { message } : {})
 });
-const sendReservedCode = async (challenge, challengeId, user, code, req) => {
+const sendReservedCode = async (challenge, challengeId, code, req) => {
     try {
-        const recipient = getRecipient();
+        const user = await activeUserFor(challenge);
+        const { recipient } = getRecipient(user);
+        // A single bare address only; reject lists, headers and display names.
+        // Invalid/missing account email stays pending with no fallback address.
+        if (!recipient || !/^[A-Z0-9.!#$%&'*+\/=?^_`{|}~-]+@[A-Z0-9](?:[A-Z0-9.-]*[A-Z0-9])?\.[A-Z]{2,}$/i.test(recipient)) {
+            throw new Error('Verification recipient unavailable');
+        }
         const { subject, html, text } = buildEmail(user, code, req);
         const info = await EmailAdapter.sendEmail(recipient, subject, html, [], { connectionTimeout: 10000, greetingTimeout: 10000, socketTimeout: 15000 }, { text });
         // SMTP can resolve a request whose recipients were all rejected.
         if (Array.isArray(info?.rejected) && info.rejected.length > 0) throw new Error('Recipient rejected');
+        await activeUserFor(challenge);
         const sent = await LoginChallenge.findOneAndUpdate({
             _id: challenge._id, status: 'pending', generation: challenge.generation,
+            recipientFingerprint: challenge.recipientFingerprint, emailRecipientType: challenge.emailRecipientType,
             expiresAt: { $gt: new Date() }, codeExpiresAt: { $gt: new Date() }
         }, { $set: { emailSent: true } }, { new: true });
         if (!sent) throw new Error('Delivery no longer current');
         return pendingPayload(sent, challengeId, true);
-    } catch {
+    } catch (error) {
+        if (error instanceof LoginChallengeError) throw error;
         // Transport errors may contain mail content: never log or serialize them.
         await LoginChallenge.updateOne({ _id: challenge._id, status: 'pending', generation: challenge.generation }, {
             $unset: { codeHash: 1 }, $set: { emailSent: false }
@@ -153,24 +183,28 @@ const sendReservedCode = async (challenge, challengeId, user, code, req) => {
 const activeUserFor = async challenge => {
     const user = await AdminUser.findById(challenge.userId);
     if (!user?.active || credentialFingerprint(user) !== challenge.credentialFingerprint) throw invalidChallenge();
+    await assertEmailChallengeRecipient(challenge, user);
     return user;
 };
 export async function createEmailLoginChallenge(user, req) {
-    await reserveAccountSend(user._id);
+    const current = await AdminUser.findById(user?._id);
+    if (!current?.active || credentialFingerprint(current) !== credentialFingerprint(user)) throw invalidChallenge();
+    await reserveAccountSend(current._id);
     const now = new Date();
     const challengeId = crypto.randomBytes(32).toString('hex');
     const code = String(crypto.randomInt(0, 1000000)).padStart(6, '0');
     const challenge = new LoginChallenge({
-        _id: hashChallengeToken(challengeId), userId: user._id,
-        credentialFingerprint: credentialFingerprint(user),
+        _id: hashChallengeToken(challengeId), userId: current._id,
+        credentialFingerprint: credentialFingerprint(current), emailRecipientType: getRecipient(current).type,
         generation: crypto.randomBytes(16).toString('hex'),
         codeExpiresAt: new Date(now.getTime() + EMAIL_CODE_TTL_MS),
         expiresAt: new Date(now.getTime() + EMAIL_ATTEMPT_TTL_MS),
         resendAvailableAt: new Date(now.getTime() + EMAIL_RESEND_DELAY_MS)
     });
+    challenge.recipientFingerprint = recipientFingerprint(challenge, current);
     challenge.codeHash = hashCode(challenge, code);
     await challenge.save();
-    return sendReservedCode(challenge, challengeId, user, code, req);
+    return sendReservedCode(challenge, challengeId, code, req);
 }
 export async function resendEmailLoginChallenge(challengeId, req) {
     const id = hashChallengeToken(challengeId);
@@ -182,6 +216,7 @@ export async function resendEmailLoginChallenge(challengeId, req) {
     // Invalidate immediately, including when the replacement delivery fails.
     const claimed = await LoginChallenge.findOneAndUpdate({
         _id: id, status: 'pending', generation: previous.generation,
+        recipientFingerprint: previous.recipientFingerprint, emailRecipientType: previous.emailRecipientType,
         resendAvailableAt: { $lte: now }, expiresAt: { $gt: now }
     }, {
         $set: { emailSent: false, resendAvailableAt: new Date(now.getTime() + EMAIL_RESEND_DELAY_MS) },
@@ -195,14 +230,16 @@ export async function resendEmailLoginChallenge(challengeId, req) {
     const generation = crypto.randomBytes(16).toString('hex');
     claimed.generation = generation;
     const replacement = await LoginChallenge.findOneAndUpdate({
-        _id: id, status: 'pending', generation: previous.generation, expiresAt: { $gt: new Date() }
+        _id: id, status: 'pending', generation: previous.generation,
+        recipientFingerprint: previous.recipientFingerprint, emailRecipientType: previous.emailRecipientType,
+        expiresAt: { $gt: new Date() }
     }, {
         $set: { generation, codeHash: hashCode(claimed, code), attempts: 0,
             codeExpiresAt: new Date(Date.now() + EMAIL_CODE_TTL_MS),
             expiresAt: new Date(Date.now() + EMAIL_ATTEMPT_TTL_MS) }
     }, { new: true });
     if (!replacement) throw invalidChallenge();
-    return sendReservedCode(replacement, challengeId, user, code, req);
+    return sendReservedCode(replacement, challengeId, code, req);
 }
 export async function verifyEmailLoginChallenge(challengeId, code) {
     const id = hashChallengeToken(challengeId);
@@ -216,12 +253,13 @@ export async function verifyEmailLoginChallenge(challengeId, code) {
     const candidate = typeof code === 'string' && /^\d{6}$/.test(code) ? hashCode(challenge, code) : '';
     const filter = {
         _id: id, status: 'pending', generation: challenge.generation, emailSent: true,
+        recipientFingerprint: challenge.recipientFingerprint, emailRecipientType: challenge.emailRecipientType,
         expiresAt: { $gt: new Date() }, codeExpiresAt: { $gt: new Date() }, attempts: { $lt: EMAIL_MAX_ATTEMPTS }
     };
     const verified = candidate ? await LoginChallenge.findOneAndUpdate({ ...filter, codeHash: candidate }, {
         $set: { status: 'email_verified', emailVerifiedAt: new Date() }, $unset: { codeHash: 1 }
     }, { new: true }) : null;
-    if (verified) return verified;
+    if (verified) { await activeUserFor(verified); return verified; }
     const failed = await LoginChallenge.findOneAndUpdate({ ...filter, codeHash: { $ne: candidate } }, {
         $inc: { attempts: 1 }
     }, { new: true });
@@ -238,9 +276,18 @@ export async function loadVerifiedChallenge(challengeId) {
     return challenge;
 }
 export async function consumeVerifiedChallenge(challengeId) {
+    const id = hashChallengeToken(challengeId);
+    const previous = await LoginChallenge.findOne({
+        _id: id, status: 'email_verified', expiresAt: { $gt: new Date() }, totpAttempts: { $lte: 5 }
+    });
+    if (!previous) throw invalidChallenge();
+    await activeUserFor(previous);
     const challenge = await LoginChallenge.findOneAndUpdate({
-        _id: hashChallengeToken(challengeId), status: 'email_verified', expiresAt: { $gt: new Date() }, totpAttempts: { $lte: 5 }
+        _id: id, status: 'email_verified', generation: previous.generation,
+        recipientFingerprint: previous.recipientFingerprint, emailRecipientType: previous.emailRecipientType,
+        expiresAt: { $gt: new Date() }, totpAttempts: { $lte: 5 }
     }, { $set: { status: 'completed', completedAt: new Date() } }, { new: true });
     if (!challenge) throw invalidChallenge();
+    await activeUserFor(challenge);
     return challenge;
 }
