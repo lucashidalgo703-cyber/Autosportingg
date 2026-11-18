@@ -1,6 +1,7 @@
 const destinations = {
     '/admin/gestoria': 'Volver a Gestoría',
     '/admin/ventas': 'Volver a Ventas',
+    '/admin/mis-ventas': 'Volver a Mis Ventas',
     '/admin/stock': 'Volver al Stock',
     '/admin/expedientes': 'Volver a Expedientes'
 };

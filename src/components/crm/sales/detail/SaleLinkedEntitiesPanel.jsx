@@ -3,8 +3,13 @@ import Link from 'next/link';
 import { Link2, CarFront, User, CalendarClock, ChevronRight, AlertTriangle, Search, Handshake, RefreshCw } from 'lucide-react';
 import SaleChangeVehicleModal from './SaleChangeVehicleModal';
 import { withCrmReturn } from '../../../../utils/crmReturnNavigation';
+import { useAuth } from '../../../../context/AuthContext';
+import { hasPermission, isSalesRole, PERMISSIONS } from '../../../../utils/adminPermissions';
 
 export default function SaleLinkedEntitiesPanel({ sale, onUpdate, returnTo }) {
+    const { user } = useAuth();
+    const isSales = isSalesRole(user);
+    const canReadStock = hasPermission(user, PERMISSIONS.STOCK_READ);
     const [clientSearch, setClientSearch] = useState('');
     const [clientSearchResults, setClientSearchResults] = useState([]);
     const [searchingClient, setSearchingClient] = useState(false);
@@ -60,13 +65,12 @@ export default function SaleLinkedEntitiesPanel({ sale, onUpdate, returnTo }) {
                 setSearchingVehicle(true);
                 try {
                     const token = localStorage.getItem('token');
-                    const res = await fetch(`/api/admin/cars?search=${encodeURIComponent(vehicleSearch)}&limit=5`, {
+                    const url = isSales ? `/api/admin/sales/vehicle-options?q=${encodeURIComponent(vehicleSearch)}&limit=5` : `/api/admin/cars?search=${encodeURIComponent(vehicleSearch)}&limit=5`;
+                    const res = await fetch(url, {
                         headers: { 'Authorization': `Bearer ${token}` }
                     });
                     if (res.ok) {
                         const data = await res.json();
-                        // In /api/admin/cars, data is usually the array directly or inside a wrapper. 
-                        // It returns an array directly based on my previous checks.
                         setVehicleSearchResults(Array.isArray(data) ? data : (data.cars || []));
                     }
                 } catch (err) {
@@ -79,7 +83,7 @@ export default function SaleLinkedEntitiesPanel({ sale, onUpdate, returnTo }) {
         } else {
             setVehicleSearchResults([]);
         }
-    }, [vehicleSearch]);
+    }, [vehicleSearch, isSales]);
 
     const handleLinkClient = async (clientId) => {
         setIsLinking(true);
@@ -266,9 +270,9 @@ export default function SaleLinkedEntitiesPanel({ sale, onUpdate, returnTo }) {
                                     <span>Cambiar</span>
                                 </button>
                             )}
-                            <Link href={vehicleHref} className="h-9 w-9 shrink-0 rounded-lg bg-crm-surface-raised hover:bg-neutral-700 text-white flex items-center justify-center transition-colors shadow-sm">
+                            {canReadStock && <Link href={vehicleHref} className="h-9 w-9 shrink-0 rounded-lg bg-crm-surface-raised hover:bg-neutral-700 text-white flex items-center justify-center transition-colors shadow-sm">
                                 <ChevronRight size={18} />
-                            </Link>
+                            </Link>}
                         </div>
                     </div>
                 ) : (

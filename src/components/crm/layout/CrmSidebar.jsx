@@ -5,7 +5,7 @@ import { X, Wrench } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { useAuth } from '../../../context/AuthContext';
 import { useTheme } from '../../../context/ThemeContext';
-import { hasPermission, PERMISSIONS } from '../../../utils/adminPermissions';
+import { canAccessCrmPath, hasPermission, isSalesRole, PERMISSIONS } from '../../../utils/adminPermissions';
 
 const menuGroups = [
     {
@@ -93,6 +93,7 @@ export default function CrmSidebar({ isOpen, onClose }) {
     const { theme } = useTheme();
     const [flags, setFlags] = useState({});
     const { user, logout, token } = useAuth();
+    const isSales = isSalesRole(user);
 
     const [isCollapsed, setIsCollapsed] = useState(false);
 
@@ -203,7 +204,8 @@ export default function CrmSidebar({ isOpen, onClose }) {
 
             <nav className="flex min-h-0 flex-1 touch-pan-y flex-col gap-6 overflow-y-auto overscroll-y-contain px-3 py-4 pb-[calc(1rem+var(--safe-bottom,0px))] [-webkit-overflow-scrolling:touch] custom-scrollbar">
                 {menuGroups.map((group) => {
-                    const visibleItems = group.items.filter(item => hasItemPermission(item.name));
+                    const visibleItems = group.items.filter(item => canAccessCrmPath(user, item.path) && hasItemPermission(item.name))
+                        .map(item => isSales && item.path === '/admin/stock' ? { ...item, name: 'Negociación', prefetch: false } : item);
                     if (visibleItems.length === 0) return null;
 
                     return (
@@ -267,7 +269,7 @@ export default function CrmSidebar({ isOpen, onClose }) {
                 {!isDesktopCollapsed && (
                     <div className="flex flex-col mb-2">
                         <span className="text-sm font-bold text-crm-fg">{user?.displayName || user?.email?.split('@')[0] || 'Usuario'}</span>
-                        <span className="text-[10px] font-bold uppercase text-crm-red">ADMINISTRADOR</span>
+                        <span className="text-[10px] font-bold uppercase text-crm-red">{isSales ? 'VENTAS' : 'ADMINISTRADOR'}</span>
                     </div>
                 )}
                 <button

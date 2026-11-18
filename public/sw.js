@@ -2,11 +2,11 @@
 // Service Worker de soporte Offline para AutoSporting CRM (Etapa 4)
 // Estrategia: Network-First con respaldo en CacheStorage cuando el navegador está sin conexión.
 
-const CACHE_NAME = 'autosporting-offline-shell-v3';
+const CACHE_NAME = 'autosporting-offline-shell-v4';
 
 function isPrivatePortalPath(pathname) {
-    return /^\/portal(?:\/|$)/.test(pathname) || /^\/api\/(?:admin\/)?buyer-portal(?:\/|$)/.test(pathname)
-        || /^\/api\/admin\/stock\/negotiation(?:\/|$)/.test(pathname);
+    return /^\/portal(?:\/|$)/i.test(pathname) || /^\/api\/(?:admin\/)?buyer-portal(?:\/|$)/i.test(pathname)
+        || /^\/api\/admin(?:\/|$)/i.test(pathname) || /^\/api\/stats\/dashboard(?:\/|$)/i.test(pathname);
 }
 
 self.addEventListener('message', event => {

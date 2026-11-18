@@ -1,16 +1,20 @@
 "use client";
 import { useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import { useAuth } from '../context/AuthContext';
 import { gestoriaDocumentTarget } from '../utils/gestoriaDocumentLink';
 import { salePaymentProofTarget } from '../utils/salePaymentProofLink';
+import { canAccessCrmPath, crmHomeFor } from '../utils/adminPermissions';
 
 const ProtectedRoute = ({ children }) => {
-    const { isAuthenticated, loading, validateSession, logout } = useAuth();
+    const { isAuthenticated, loading, validateSession, logout, user } = useAuth();
     const router = useRouter();
+    const pathname = usePathname();
+    const canAccess = Boolean(user && pathname && canAccessCrmPath(user, pathname));
+    const home = crmHomeFor(user);
 
     useEffect(() => {
-        if (loading) return;
+        if (loading || !pathname) return;
 
         if (!isAuthenticated || !validateSession()) {
             logout();
@@ -21,12 +25,15 @@ const ProtectedRoute = ({ children }) => {
             } else if (window.location.pathname === '/admin/gastos/rapido') {
                 window.location.replace('/login?next=' + encodeURIComponent('/admin/gastos/rapido'));
             } else router.replace('/login');
+        } else if (!canAccess) {
+            router.replace(home);
         }
-    }, [isAuthenticated, loading, logout, router, validateSession]);
+    }, [isAuthenticated, loading, logout, router, validateSession, pathname, canAccess, home]);
 
     if (loading || !isAuthenticated) {
         return <div>Cargando...</div>;
     }
+    if (!canAccess) return <div role="status">Redirigiendo...</div>;
 
     return children;
 };

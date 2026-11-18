@@ -103,7 +103,6 @@ export const DEFAULT_ROLE_PERMISSIONS = {
     [ROLES.OWNER]: Object.values(PERMISSIONS), // Acceso total
     [ROLES.ADMIN]: Object.values(PERMISSIONS).filter(p => p !== PERMISSIONS.TRASH_DELETE), // Acceso casi total, pero no puede eliminar permanentemente
     [ROLES.VENTAS]: [
-        PERMISSIONS.STOCK_READ,
         PERMISSIONS.STOCK_NEGOTIATION_READ,
         PERMISSIONS.CLIENTES_READ, PERMISSIONS.CLIENTES_WRITE,
         PERMISSIONS.LEADS_READ, PERMISSIONS.LEADS_WRITE,
@@ -191,6 +190,9 @@ export const hasPermission = (user, permission) => {
     if (!user || !permission) return false;
 
     if (user.role === ROLES.OWNER) return true;
+    // Sales accounts use the negotiation view and their own operations. Saved
+    // custom permissions cannot reopen the inventory or assign another seller.
+    if (user.role === ROLES.VENTAS && [PERMISSIONS.STOCK_READ, PERMISSIONS.STOCK_WRITE, PERMISSIONS.ASIGNACIONES_WRITE].includes(permission)) return false;
 
     // Si tiene un array de permisos explícito, lo usamos.
     // Sino, caemos a los permisos por defecto de su rol.
@@ -201,7 +203,25 @@ export const hasPermission = (user, permission) => {
     return userPermissions.includes(permission);
 };
 
-// Negotiation reveals projected margins without granting general finance access.
-export const canReadStockNegotiation = user => hasPermission(user, PERMISSIONS.STOCK_READ)
-    && (['owner', 'admin'].includes(user?.role) || hasPermission(user, PERMISSIONS.STOCK_NEGOTIATION_READ));
+export const isSalesRole = user => user?.role === ROLES.VENTAS;
+export const crmHomeFor = user => isSalesRole(user) ? '/admin/mis-ventas' : '/admin';
+
+// Shared by navigation and the route gate, including legacy dashboard paths.
+// Other modules retain their current permission checks.
+export const canAccessCrmPath = (user, rawPath) => {
+    if (!user || typeof rawPath !== 'string' || !rawPath.startsWith('/') || rawPath.startsWith('//') || /[\\\u0000-\u001f]/.test(rawPath)) return false;
+    let path;
+    try { path = decodeURIComponent(rawPath.split(/[?#]/)[0]).replace(/\/+$/, '') || '/'; }
+    catch { return false; }
+    if (!isSalesRole(user)) return true;
+    if (path.split('/').some(segment => segment === '.' || segment === '..') || /[\\\u0000-\u001f]/.test(path)) return false;
+    return !/^\/admin(?:$|\/(?:ventas|legacy|analitica)(?:\/|$)|\/stock\/)/i.test(path);
+};
+
+// Negotiation is independent of inventory access for sellers. Honor an old
+// explicit stock-read grant as negotiation-only access without a DB migration.
+export const canReadStockNegotiation = user => isSalesRole(user)
+    ? hasPermission(user, PERMISSIONS.STOCK_NEGOTIATION_READ) || Boolean(user?.permissions?.includes(PERMISSIONS.STOCK_READ))
+    : hasPermission(user, PERMISSIONS.STOCK_READ)
+        && (['owner', 'admin'].includes(user?.role) || hasPermission(user, PERMISSIONS.STOCK_NEGOTIATION_READ));
 export const canConfigureStockNegotiation = user => canReadStockNegotiation(user) && ['owner', 'admin'].includes(user?.role);

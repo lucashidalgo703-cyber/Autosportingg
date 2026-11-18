@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { X, Save, AlertCircle } from 'lucide-react';
-import { ROLES, PERMISSIONS, DEFAULT_ROLE_PERMISSIONS } from '../../../utils/adminPermissions';
+import { ROLES, PERMISSIONS, DEFAULT_ROLE_PERMISSIONS, canReadStockNegotiation } from '../../../utils/adminPermissions';
 
 export default function AdminUserModal({ user, onClose, onSave }) {
     const isEditing = !!user;
@@ -16,8 +16,8 @@ export default function AdminUserModal({ user, onClose, onSave }) {
 
     const [loading, setLoading] = useState(false);
     const currentPermissions = formData.permissions.length ? formData.permissions : (DEFAULT_ROLE_PERMISSIONS[formData.role] || []);
-    const canHaveNegotiation = !['owner', 'admin'].includes(formData.role) && currentPermissions.includes(PERMISSIONS.STOCK_READ);
-    const negotiationEnabled = currentPermissions.includes(PERMISSIONS.STOCK_NEGOTIATION_READ);
+    const canHaveNegotiation = !['owner', 'admin'].includes(formData.role) && (formData.role === ROLES.VENTAS || currentPermissions.includes(PERMISSIONS.STOCK_READ));
+    const negotiationEnabled = canReadStockNegotiation(formData);
 
     useEffect(() => {
         if (user) {
@@ -134,7 +134,8 @@ export default function AdminUserModal({ user, onClose, onSave }) {
                             {canHaveNegotiation && <label className="flex items-start gap-3 rounded-xl border border-crm-border bg-crm-bg p-4 text-sm text-crm-fg">
                                 <input type="checkbox" className="mt-1 h-4 w-4" checked={negotiationEnabled} onChange={event => setFormData(previous => {
                                     const permissions = previous.permissions.length ? previous.permissions : (DEFAULT_ROLE_PERMISSIONS[previous.role] || []);
-                                    return { ...previous, permissions: event.target.checked ? [...new Set([...permissions, PERMISSIONS.STOCK_NEGOTIATION_READ])] : permissions.filter(permission => permission !== PERMISSIONS.STOCK_NEGOTIATION_READ) };
+                                    const base = previous.role === ROLES.VENTAS ? permissions.filter(permission => permission !== PERMISSIONS.STOCK_READ) : permissions;
+                                    return { ...previous, permissions: event.target.checked ? [...new Set([...base, PERMISSIONS.STOCK_NEGOTIATION_READ])] : base.filter(permission => permission !== PERMISSIONS.STOCK_NEGOTIATION_READ) };
                                 })}/>
                                 <span><strong className="block">Consultar Negociación en Stock</strong><span className="block text-xs text-crm-fg-muted">Ver precios internos, ganancias proyectadas y probar ofertas. La configuración de mínimos queda a cargo de administración.</span></span>
                             </label>}

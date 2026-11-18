@@ -29,7 +29,7 @@ try{
  if(process.env.AUTH_QA_SELLER_SCREENSHOT){ fs.mkdirSync(path.dirname(process.env.AUTH_QA_SELLER_SCREENSHOT),{recursive:true}); await a.setViewportSize({width:390,height:844}); assert.equal(await a.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+2),true); await a.waitForTimeout(500); await a.screenshot({path:process.env.AUTH_QA_SELLER_SCREENSHOT,animations:'disabled'}); await a.setViewportSize({width:1280,height:950}); }
  const wrong=await verify(b,ca); assert.equal(wrong.status(),401); assert.equal(await b.evaluate(()=>localStorage.getItem('token')),null);
  assert.equal((await verify(a,ca)).status(),200); assert.equal((await verify(b,cb)).status(),200);
- await Promise.all([a.waitForURL(base+'/admin',{timeout:120000}),b.waitForURL(base+'/admin',{timeout:120000})]);
+ await Promise.all([a.waitForURL(base+'/admin/mis-ventas',{timeout:120000}),b.waitForURL(base+'/admin/mis-ventas',{timeout:120000})]);
  ok('Cada vendedor recibe el código en su correo; dos navegadores rechazan códigos cruzados');
  const token=await a.evaluate(()=>localStorage.getItem('token')); assert.ok(token);
  await a.reload({waitUntil:'domcontentloaded'}); await a.getByRole('button',{name:'Cerrar sesión',exact:false}).first().waitFor({timeout:90000});

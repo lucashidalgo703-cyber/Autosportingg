@@ -42,7 +42,9 @@
     "test:portal:mail-link:browser": "node tests/browser/paymentNoticeLink.browser.mjs",
     "test:inventory:available": "node tests/integration/availableInventory.integration.test.js",
     "test:stock:negotiation": "node tests/stockNegotiation.test.js && node tests/stockNegotiationPermissions.test.js && node tests/integration/stockNegotiation.integration.test.js",
-    "test:stock:negotiation:browser": "node tests/browser/stockNegotiation.browser.mjs"
+    "test:stock:negotiation:browser": "node tests/browser/stockNegotiation.browser.mjs",
+    "test:seller:access": "node tests/sellerAccessCache.test.js && node tests/integration/sellerAccess.integration.test.js",
+    "test:seller:access:browser": "node tests/browser/sellerAccess.browser.mjs"
   },
   "dependencies": {
     "@vercel/analytics": "^1.6.1",

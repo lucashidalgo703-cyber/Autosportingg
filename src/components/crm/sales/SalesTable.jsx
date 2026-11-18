@@ -60,11 +60,12 @@ export default function SalesTable({ sales, onViewDetail, onDeleteSale }) {
 
                 return (
                     <div className="flex flex-col">
-                        {sale.vehicleId ? (
+                        {sale.vehicleId ? (canViewStock ? (
                             <Link href={vehicleHref} className="flex max-w-[190px] items-center gap-2 truncate text-sm font-bold text-crm-fg no-underline transition-colors hover:text-crm-red">
                                 <CarFront size={14} className="shrink-0 text-crm-red" />
                                 {vehicleName}
                             </Link>
+                        ) : <span className="flex max-w-[190px] items-center gap-2 truncate text-sm font-bold text-crm-fg"><CarFront size={14} className="shrink-0 text-crm-red" />{vehicleName}</span>
                         ) : (
                             <span className="text-sm font-bold text-crm-fg-muted">N/A</span>
                         )}

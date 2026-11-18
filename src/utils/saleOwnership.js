@@ -16,6 +16,14 @@ export function isMySaleOrReservation(record, user) {
     // 1. Extraer ID del usuario autenticado (JWT habitual contiene 'id' o 'userId', a veces '_id')
     const currentUserId = user.id ? String(user.id).trim() : user.userId ? String(user.userId).trim() : user._id ? String(user._id).trim() : null;
 
+    // Sales staff access is an authorization decision, never a name match.
+    // Historical records without an assigned ID require an administrator.
+    if (user.role === 'ventas') {
+        const assigned = record.assignedTo?._id || record.assignedTo;
+        const assignedId = assigned ? String(assigned).trim() : '';
+        return /^[a-f\d]{24}$/i.test(assignedId) && assignedId === currentUserId;
+    }
+
     // 2. Extraer ID del vendedor en el registro
     let recordSellerId = null;
     if (record.assignedTo) {

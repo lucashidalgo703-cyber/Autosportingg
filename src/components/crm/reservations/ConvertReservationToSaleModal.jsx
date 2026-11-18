@@ -3,8 +3,12 @@ import toast from 'react-hot-toast';
 import React, { useState, useEffect } from 'react';
 import { X, DollarSign, Handshake, AlertTriangle, Info } from 'lucide-react';
 import { useAdminReservations } from '../../../hooks/useAdminReservations';
+import { useAuth } from '../../../context/AuthContext';
+import { isSalesRole } from '../../../utils/adminPermissions';
+import { withCrmReturn } from '../../../utils/crmReturnNavigation';
 
 export default function ConvertReservationToSaleModal({ isOpen, onClose, onSuccess, reservation }) {
+    const { user } = useAuth();
     const { convertReservationToSale } = useAdminReservations();
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState(null);
@@ -338,7 +342,7 @@ export default function ConvertReservationToSaleModal({ isOpen, onClose, onSucce
                                     
                                     <div className="flex flex-wrap gap-2">
                                         <a 
-                                            href={`/admin/ventas/${conflictData.activeSaleId}`} 
+                                            href={isSalesRole(user) ? withCrmReturn(`/admin/mis-ventas/${conflictData.activeSaleId}`, '/admin/mis-ventas') : `/admin/ventas/${conflictData.activeSaleId}`}
                                             target="_blank" rel="noopener noreferrer"
                                             className="px-3 py-1.5 bg-neutral-800 hover:bg-neutral-700 text-white rounded text-xs font-bold transition-colors"
                                         >

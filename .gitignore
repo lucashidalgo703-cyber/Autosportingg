@@ -30,3 +30,4 @@ dist-ssr
 
 # Isolated local authentication preview
 .next-email-login-preview
+.next-seller-access-qa

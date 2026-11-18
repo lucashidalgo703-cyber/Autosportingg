@@ -114,7 +114,7 @@ await test('Desktop y móvil consumen la misma búsqueda y filtros; el fallback 
 });
 
 await test('Sin permiso de Finanzas hay precio de venta pero no costos ni capital, también en ficha y API patrimonial', async () => {
-    const response = await get({ search: 'AAA111' }, { role: 'ventas' });
+    const response = await get({ search: 'AAA111' }, { role: 'solo_lectura', permissions: ['stock.read'] });
     assert.equal(response.financialAccess, false);
     assert.equal(response.cars[0].price, 40000);
     for (const key of ['purchasePrice', 'purchaseCurrency', 'expenses', 'purchasePaymentState', 'auditLog']) assert.equal(response.cars[0][key], undefined);
@@ -124,7 +124,7 @@ await test('Sin permiso de Finanzas hay precio de venta pero no costos ni capita
     const car = created.find(car => car.plateOrVin === 'AAA111');
     if (direct) assert.equal(serializeStockCar(car, false).purchasePrice, undefined);
     else {
-        const token = makeToken('ventas');
+        const token = makeToken('solo_lectura');
         const detail = await call('GET', `/api/admin/cars/${car._id}`, null, token);
         assert.equal(detail.status, 200);
         assert.equal(detail.json.purchasePrice, undefined);

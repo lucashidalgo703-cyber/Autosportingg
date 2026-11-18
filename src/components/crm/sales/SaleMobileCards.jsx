@@ -42,11 +42,12 @@ export default function SaleMobileCards({ sales, onViewDetail, onDeleteSale }) {
                         <div className="flex flex-col gap-3 px-3 py-3">
                             <div className="flex flex-col">
                                 <span className="mb-1 text-[10px] font-bold uppercase tracking-[0.08em] text-crm-fg-muted">Vehiculo</span>
-                                {sale.vehicleId ? (
+                                {sale.vehicleId ? (canViewStock ? (
                                     <Link href={vehicleHref} className="flex items-center gap-2 text-sm font-bold text-crm-fg no-underline transition-colors hover:text-crm-red">
                                         <CarFront size={14} className="text-crm-red" />
                                         {vehicleName}
                                     </Link>
+                                ) : <span className="flex items-center gap-2 text-sm font-bold text-crm-fg"><CarFront size={14} className="text-crm-red" />{vehicleName}</span>
                                 ) : (
                                     <span className="text-sm font-bold text-crm-fg-muted">N/A</span>
                                 )}

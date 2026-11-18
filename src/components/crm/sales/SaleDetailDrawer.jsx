@@ -2,8 +2,13 @@ import React from 'react';
 import Link from 'next/link';
 import { AlertTriangle, Calendar, CarFront, ChevronRight, DollarSign, ExternalLink, Receipt, ShieldCheck, User, X } from 'lucide-react';
 import SaleStatusBadge from './SaleStatusBadge';
+import { useAuth } from '../../../context/AuthContext';
+import { hasPermission, isSalesRole, PERMISSIONS } from '../../../utils/adminPermissions';
+import { withCrmReturn } from '../../../utils/crmReturnNavigation';
 
 export default function SaleDetailDrawer({ sale, isOpen, onClose }) {
+    const { user } = useAuth();
+    const canReadStock = hasPermission(user, PERMISSIONS.STOCK_READ);
     if (!isOpen || !sale) return null;
 
     const vehicleName = sale.vehicleId ? `${sale.vehicleId.brand} ${sale.vehicleId.name}` : 'Vehiculo no asignado';
@@ -98,7 +103,7 @@ export default function SaleDetailDrawer({ sale, isOpen, onClose }) {
                                         {vehicleVin && <span className="mt-0.5 font-mono text-[10px] text-crm-fg-muted">{vehicleVin}</span>}
                                     </div>
                                 </div>
-                                {sale.vehicleId && (
+                                {sale.vehicleId?._id && canReadStock && (
                                     <Link href={vehicleHref} className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-crm-border bg-crm-surface text-crm-fg no-underline transition-colors hover:bg-crm-surface-raised">
                                         <ChevronRight size={16} />
                                     </Link>
@@ -188,7 +193,7 @@ export default function SaleDetailDrawer({ sale, isOpen, onClose }) {
 
                 <div className="border-t border-crm-border bg-crm-topbar p-5">
                     <Link
-                        href={`/admin/ventas/${sale._id}`}
+                        href={isSalesRole(user) ? withCrmReturn(`/admin/mis-ventas/${sale._id}`, '/admin/mis-ventas') : `/admin/ventas/${sale._id}`}
                         className="flex w-full items-center justify-center gap-2 rounded-lg bg-crm-red px-4 py-3 font-bold text-white no-underline transition-colors hover:bg-crm-red-hover"
                     >
                         <ExternalLink size={18} />

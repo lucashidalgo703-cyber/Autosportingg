@@ -2,8 +2,12 @@ import React from 'react';
 import Link from 'next/link';
 import { AlertCircle, CarFront, ChevronRight, Lock, User, XCircle, Trash2 } from 'lucide-react';
 import ReservationStatusBadge from './ReservationStatusBadge';
+import { useAuth } from '../../../context/AuthContext';
+import { hasPermission, PERMISSIONS } from '../../../utils/adminPermissions';
 
 export default function ReservationMobileCards({ reservations, onLiberar, onConvertir, getIsOverdue, onDelete }) {
+    const { user } = useAuth();
+    const canViewStock = hasPermission(user, PERMISSIONS.STOCK_READ);
     if (!reservations || reservations.length === 0) {
         return (
             <div className="flex min-h-[210px] flex-col items-center justify-center rounded-xl border border-dashed border-crm-border bg-crm-surface p-8 text-center md:hidden">
@@ -34,11 +38,12 @@ export default function ReservationMobileCards({ reservations, onLiberar, onConv
                         <div className="flex flex-col gap-3 px-3 py-3">
                             <div className="flex flex-col">
                                 <span className="mb-1 text-[10px] font-bold uppercase tracking-[0.08em] text-crm-fg-muted">Vehiculo</span>
-                                {res.vehicleId ? (
+                                {res.vehicleId ? (canViewStock ? (
                                     <Link href={vehicleHref} className="flex items-center gap-2 text-sm font-bold text-crm-fg no-underline transition-colors hover:text-crm-red">
                                         <CarFront size={14} className="text-crm-red" />
                                         {vehicleName}
                                     </Link>
+                                ) : <span className="flex items-center gap-2 text-sm font-bold text-crm-fg"><CarFront size={14} className="text-crm-red" />{vehicleName}</span>
                                 ) : (
                                     <span className="text-sm font-bold text-crm-fg-muted">N/A</span>
                                 )}
@@ -107,12 +112,12 @@ export default function ReservationMobileCards({ reservations, onLiberar, onConv
                                 </button>
                             )}
 
-                            <Link
+                            {canViewStock && res.vehicleId?._id && <Link
                                 href={vehicleHref}
                                 className={`${res.status === 'activa' ? 'w-11 flex-none' : (onDelete ? 'flex-1' : 'flex-1')} flex h-11 items-center justify-center rounded-lg border border-crm-border bg-crm-surface-raised text-crm-fg-muted no-underline transition-colors hover:bg-crm-border`}
                             >
                                 <ChevronRight size={18} />
-                            </Link>
+                            </Link>}
                         </div>
                     </article>
                 );

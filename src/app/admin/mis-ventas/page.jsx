@@ -18,9 +18,11 @@ import CrmButton from '../../../components/crm/ui/CrmButton';
 import ConfirmModal from '../../../components/crm/ui/ConfirmModal';
 import SalesPerformanceDashboard from '../../../components/crm/sales/SalesPerformanceDashboard';
 import { isMySaleOrReservation } from '../../../utils/saleOwnership';
+import { hasPermission, PERMISSIONS } from '../../../utils/adminPermissions';
 
 export default function MisVentasPage() {
     const { user } = useAuth();
+    const canCreateSale = hasPermission(user, PERMISSIONS.VENTAS_WRITE);
     const { fetchSales, fetchSaleById, loading, error, deleteSale } = useAdminSales();
     const {
         fetchReservations,
@@ -59,7 +61,7 @@ export default function MisVentasPage() {
         tradeInOnly: false
     });
 
-    const isReservationsTab = filters.status === 'reservas';
+    const isReservationsTab = ['reservas', 'señado'].includes(filters.status);
     const pageLoading = isReservationsTab ? reservationsLoading : loading;
     const pageError = isReservationsTab ? reservationsError : error;
 
@@ -341,7 +343,7 @@ export default function MisVentasPage() {
                     >
                         Nuevo Boleto
                     </CrmButton>
-                    <CrmButton
+                    {canCreateSale && <CrmButton
                         variant="primary"
                         size="sm"
                         onClick={() => setIsCreateModalOpen(true)}
@@ -349,7 +351,7 @@ export default function MisVentasPage() {
                     >
                         <Plus size={14} />
                         Nueva venta
-                    </CrmButton>
+                    </CrmButton>}
                 </div>
             </div>
 

@@ -1,20 +1,29 @@
 "use client";
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import { useAuth } from '../../../context/AuthContext';
+import { canAccessCrmPath, isSalesRole } from '../../../utils/adminPermissions';
 
 export default function CrmBottomNav({ isHidden = false }) {
     const pathname = usePathname();
+    const { user } = useAuth();
+    const isSales = isSalesRole(user);
 
-    const navItems = [
+    const navItems = (isSales ? [
+        { name: 'Negociación', path: '/admin/stock', icon: '🚗' },
+        { name: 'Clientes', path: '/admin/clientes', icon: '👥' },
+        { name: 'Mis Ventas', path: '/admin/mis-ventas', icon: '🏆' },
+        { name: 'Calendario', path: '/admin/agenda', icon: '📅' },
+    ] : [
         { name: 'Dashboard', path: '/admin', icon: '📊' },
         { name: 'Stock', path: '/admin/stock', icon: '🚗' },
         { name: 'Clientes', path: '/admin/clientes', icon: '👥' },
         { name: 'Ventas', path: '/admin/ventas', icon: '💼' },
         { name: 'Calendario', path: '/admin/agenda', icon: '📅' },
-    ];
+    ]).filter(item => canAccessCrmPath(user, item.path));
 
     return (
-        <nav className={`fixed inset-x-0 bottom-0 z-30 min-h-[68px] grid-cols-5 border-t border-crm-border bg-crm-topbar/95 pb-[var(--safe-bottom,0px)] shadow-[0_-12px_30px_rgba(0,0,0,0.35)] backdrop-blur md:hidden ${isHidden ? 'hidden' : 'grid'}`}>
+        <nav style={{ gridTemplateColumns: `repeat(${Math.max(1, navItems.length)}, minmax(0, 1fr))` }} className={`fixed inset-x-0 bottom-0 z-30 min-h-[68px] border-t border-crm-border bg-crm-topbar/95 pb-[var(--safe-bottom,0px)] shadow-[0_-12px_30px_rgba(0,0,0,0.35)] backdrop-blur md:hidden ${isHidden ? 'hidden' : 'grid'}`}>
             {navItems.map((item) => {
                 const isSalesArea = item.path === '/admin/ventas' && (pathname.startsWith('/admin/ventas') || pathname.startsWith('/admin/reservas'));
                 const isActive = item.path === '/admin'

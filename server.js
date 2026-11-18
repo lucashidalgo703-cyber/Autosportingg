@@ -1,5 +1,6 @@
 import { completeSaleAtomic, getSaleVehicleOptions, changeSaleVehicleAtomic } from './src/services/saleCompletionService.js';
 import { createReservationAtomic, updateReservationAtomic } from './src/services/reservationCreationService.js';
+import { enforceSellerAccess, sellerScope, sellerVehicleDto } from './src/services/sellerAccessService.js';
 import { recordCrmCollection, payInstallmentAtomic } from './src/services/collectionRecordingService.js';
 import CollectionRecordingOperation from './src/models/CollectionRecordingOperation.js';
 import BuyerPaymentProof from './src/models/BuyerPaymentProof.js';
@@ -421,6 +422,7 @@ const enforceLoginRateLimit = async (req, res, next) => {
 
 // Authentication Middleware
 const authenticateToken = async (req, res, next) => {
+    res.setHeader('Cache-Control', 'private, no-store');
     if (!JWT_SECRET) return res.status(503).json({ message: 'Servicio de autenticación no disponible.' });
     const token = req.headers.authorization?.startsWith('Bearer ') ? req.headers.authorization.slice(7) : null;
     if (!token) return res.sendStatus(401);
@@ -428,8 +430,10 @@ const authenticateToken = async (req, res, next) => {
         const user = await validateLoginSession(token);
         if (!user) return res.status(401).json({ message: 'Sesión inválida o vencida. Iniciá sesión nuevamente.' });
         req.user = user;
+        await enforceSellerAccess(req, res);
         next();
-    } catch {
+    } catch (error) {
+        if (error.status) return res.status(error.status).json({ message: error.message });
         return res.status(503).json({ message: 'No se pudo validar la sesión. Reintentá en unos instantes.' });
     }
 };
@@ -896,7 +900,9 @@ app.get('/api/public/cars/:id', async (req, res) => {
             visibleEnWeb: { $ne: false },
             status: { $nin: [/^vendido$/i, /^reservado$/i, /^pausado$/i, /^cancelado$/i, /^eliminado$/i] }
         })
-            .select('-purchasePrice -purchaseCurrency -ownerName -ownerEmail -ownerPhone -linkedClient -consignedBy -notes -agencyOwned -engineNumber -chassisNumber -location -hasManuals -hasDuplicateKeys -hasOfficialServices -publishedOnML -publishedBy -mlLink -plateOrVin -expenses -visibleEnWeb -createdAt -updatedAt -__v -order -owners -auditLog')
+            // A public catalogue detail must not inherit newly added CRM fields.
+            // CarDetail uses description, specifications and gallery positions.
+            .select('brand name model version year km price currency fuel fuelType transmission condition vehicleType type category status featured coverImage images imagePosition imagePositions description color equipment features doors seats traction motor power gearbox infoAuto.brandName infoAuto.modelName infoAuto.versionName infoAuto.year')
             .lean();
 
         if (!car) {
@@ -4477,6 +4483,7 @@ app.get('/api/admin/reservations', authenticateToken, requirePermission(PERMISSI
         if (clientId) query.clientId = clientId;
         if (status) query.status = status;
 
+        Object.assign(query, sellerScope(req.user));
         const reservations = await Reservation.find(query)
             .populate({
                 path: 'clientId',
@@ -4488,7 +4495,7 @@ app.get('/api/admin/reservations', authenticateToken, requirePermission(PERMISSI
             })
             .populate({
                 path: 'vehicleId',
-                select: 'brand name year plateOrVin price currency status purchasePrice purchaseCurrency'
+                select: req.user?.role === 'ventas' ? 'brand name year plateOrVin price currency status images' : 'brand name year plateOrVin price currency status purchasePrice purchaseCurrency'
             })
             .sort({ createdAt: -1 })
             .select('-reservationAuditLog')
@@ -4804,7 +4811,7 @@ app.delete('/api/admin/opportunities/:id', authenticateToken, requireAnyPermissi
 // --- SALES ROUTES ---
 
 const canViewSaleCostAndProfit = (user) => Boolean(
-    user && (['owner', 'admin'].includes(user.role) || hasPermission(user, PERMISSIONS.FINANZAS_READ))
+    user && user.role !== 'ventas' && (['owner', 'admin'].includes(user.role) || hasPermission(user, PERMISSIONS.FINANZAS_READ))
 );
 
 const stripVehicleCostFields = (vehicleObj) => {
@@ -4821,7 +4828,7 @@ const stripVehicleCostFields = (vehicleObj) => {
 };
 
 async function buildPopulatedSaleResponse(saleId, reqUser) {
-    const sale = await Sale.findById(saleId)
+    const sale = await Sale.findOne({ _id: saleId, ...sellerScope(reqUser) })
         .populate({
             path: 'clientId',
             select: 'firstName lastName fullName phone email documentNumber'
@@ -4903,7 +4910,7 @@ async function buildPopulatedSaleResponse(saleId, reqUser) {
         });
     } else {
         if (saleObj.vehicleId && typeof saleObj.vehicleId === 'object') {
-            saleObj.vehicleId = stripVehicleCostFields(saleObj.vehicleId);
+            saleObj.vehicleId = reqUser?.role === 'ventas' ? sellerVehicleDto(saleObj.vehicleId) : stripVehicleCostFields(saleObj.vehicleId);
         }
         saleObj.profitability = {
             restricted: true,
@@ -4928,6 +4935,7 @@ app.get('/api/admin/sales', authenticateToken, requirePermission(PERMISSIONS.VEN
         if (leadId) query.leadId = leadId;
         if (status) query.status = status;
 
+        Object.assign(query, sellerScope(req.user));
         const sales = await Sale.find(query)
             .populate({
                 path: 'clientId',
@@ -5089,7 +5097,7 @@ app.get('/api/admin/sales/search-for-installments', authenticateToken, requirePe
         const trimmed = String(q || '').trim();
 
         const filter = {
-            status: { $nin: ['cancelada', 'borrador'] }
+            status: { $nin: ['cancelada', 'borrador'] }, ...sellerScope(req.user)
         };
 
         if (trimmed) {
@@ -8834,7 +8842,8 @@ app.get('/api/admin/notifications', authenticateToken, async (req, res) => {
 
         // 1. CUOTAS
         if (canReadInstallments) {
-            const installments = await Installment.find({ status: { $in: ['pendiente', 'parcial'] } })
+            const ownSaleIds = isVentas ? await Sale.find(sellerScope(req.user)).distinct('_id') : null;
+            const installments = await Installment.find({ status: { $in: ['pendiente', 'parcial'] }, ...(isVentas ? { saleId: { $in: ownSaleIds } } : {}) })
                 .select('dueDate installmentNumber currency amount saleId status')
                 .populate('saleId', 'clientId vehicleId')
                 .lean();
@@ -8916,7 +8925,7 @@ app.get('/api/admin/notifications', authenticateToken, async (req, res) => {
 
         // 3. DOCUMENTACION / ENTREGAS / POSTVENTA
         if (canReadDocs || canReadPostventa) {
-            const activeSales = await Sale.find({ status: { $in: ['confirmada', 'pendiente_entrega', 'entregada'] } })
+            const activeSales = await Sale.find({ status: { $in: ['confirmada', 'pendiente_entrega', 'entregada'] }, ...sellerScope(req.user) })
                 .select('assignedTo documentationStatus deliveryStatus status postSaleStatus createdAt estimatedDeliveryDate updatedAt')
                 .lean();
 
@@ -8970,7 +8979,7 @@ app.get('/api/admin/notifications', authenticateToken, async (req, res) => {
 
         // 4. RESERVAS
         if (canReadReservations) {
-            const reservations = await Reservation.find({ status: 'activa' }).lean();
+            const reservations = await Reservation.find({ status: 'activa', ...sellerScope(req.user) }).lean();
             reservations.forEach(res => {
                 if (!isOwnerAdmin && res.assignedTo && res.assignedTo.toString() !== req.user?.userId) return;
                 rawNotifs.push({
@@ -10091,7 +10100,9 @@ app.get('/api/admin/team-goals/progress', authenticateToken, requirePermission(P
             return res.status(403).json({ message: 'Sin permisos para ver el progreso de las metas.' });
         }
 
-        const activeGoals = await TeamGoal.find({ active: true }).populate('userId', 'name email role active').lean();
+        const activeGoals = await TeamGoal.find({ active: true,
+            ...(userRole === 'ventas' ? { userId: req.user.id || req.user.userId || req.user._id } : {})
+        }).populate('userId', 'name email role active').lean();
 
         if (!activeGoals.length) {
             return res.json([]);
@@ -11806,6 +11817,9 @@ app.get('/api/admin/tesoreria-estrategica/sales/:saleId/summary', authenticateTo
 // 19d. Resumen de venta para panel de detalle de venta (acceso desde Ventas)
 app.get('/api/admin/sales/:saleId/treasury-summary', authenticateToken, async (req, res) => {
     try {
+        if (req.user?.role === 'ventas' && !hasPermission(req.user, PERMISSIONS.FINANZAS_READ) && !hasPermission(req.user, PERMISSIONS.FINANZAS_WRITE)) {
+            return res.status(403).json({ message: 'No tenés permiso para consultar las finanzas de esta operación.' });
+        }
         const summary = await treasuryStrategicService.getSaleTreasurySummary(req.params.saleId);
         res.json(summary);
     } catch (error) {

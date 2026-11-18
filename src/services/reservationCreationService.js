@@ -4,6 +4,7 @@ import Reservation from '../models/Reservation.js';
 import Sale from '../models/Sale.js';
 import Lead from '../models/Lead.js';
 import { logAudit } from '../utils/auditLogger.js';
+import { sellerScope, assertSellerAssignment } from './sellerAccessService.js';
 
 export class ReservationCreationError extends Error {
     constructor(message, status = 400) { super(message); this.status = status; }
@@ -13,6 +14,7 @@ const fail = (message, status) => { throw new ReservationCreationError(message, 
 // Reservation and sale creation serialize on the same stock document. The
 // transaction rolls back the reservation/lead too when another operation wins.
 export async function createReservationAtomic({ payload, user }) {
+    assertSellerAssignment(user, payload);
     const { vehicleId, clientId, leadId, agreedPrice, agreedCurrency, depositAmount, depositCurrency,
         depositMethod, expiresAt, conditions, notes, salesperson } = payload;
     if (!vehicleId || !mongoose.isValidObjectId(vehicleId)) fail('Seleccioná un vehículo válido.');
@@ -38,7 +40,8 @@ export async function createReservationAtomic({ payload, user }) {
             if (activeReservation) fail('El vehículo ya tiene una reserva activa.', 409);
             const reservation = new Reservation({ vehicleId, clientId: clientId || undefined, leadId: leadId || undefined,
                 agreedPrice, agreedCurrency, depositAmount, depositCurrency, depositMethod, expiresAt,
-                conditions, notes, salesperson, createdBy: actor,
+                conditions, notes, salesperson: user?.role === 'ventas' ? user.name || user.username || user.email : salesperson, createdBy: actor,
+                ...(user?.role === 'ventas' ? { assignedTo: user.id || user.userId || user._id, assignedAt: new Date() } : {}),
                 reservationAuditLog: [{ action: 'RESERVA_CREADA', field: 'status', newValue: 'activa',
                     details: `Reserva creada por ${depositCurrency} ${depositAmount}`, user: actor, source: 'CRM_V2' }] });
             await reservation.save({ session });
@@ -68,13 +71,14 @@ export async function createReservationAtomic({ payload, user }) {
 }
 
 export async function updateReservationAtomic({ id, payload, user, req }) {
+    assertSellerAssignment(user, payload);
     if (!mongoose.isValidObjectId(id)) fail('El identificador de reserva no es válido.');
     const actor = user?.username || user?.name || 'Admin';
     const session = await mongoose.startSession();
     let result;
     try {
         await session.withTransaction(async () => {
-            const reservation = await Reservation.findById(id).session(session);
+            const reservation = await Reservation.findOne({ _id: id, ...sellerScope(user) }).session(session);
             if (!reservation) fail('No se encontró la reserva.', 404);
             const oldStatus = reservation.status;
             const { status, conditions, notes } = payload;

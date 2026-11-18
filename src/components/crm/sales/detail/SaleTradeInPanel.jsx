@@ -25,6 +25,8 @@ export default function SaleTradeInPanel({ sale, onUpdate, returnTo }) {
     const [confirmStockModal, setConfirmStockModal] = useState({ isOpen: false, index: null });
 
     const hasWritePermission = ['owner', 'admin'].includes(user?.role) || hasPermission(user, PERMISSIONS.VENTAS_WRITE);
+    const canReadStock = hasPermission(user, PERMISSIONS.STOCK_READ);
+    const canWriteStock = hasPermission(user, PERMISSIONS.STOCK_WRITE);
 
     if (!sale) return null;
 
@@ -129,6 +131,7 @@ export default function SaleTradeInPanel({ sale, onUpdate, returnTo }) {
     };
 
     const handleEnterStock = (index) => {
+        if (!canWriteStock) return;
         setStockError(null);
         
         const tradeIn = sale.tradeIns[index];
@@ -141,6 +144,7 @@ export default function SaleTradeInPanel({ sale, onUpdate, returnTo }) {
     };
 
     const confirmEnterStock = async () => {
+        if (!canWriteStock) return;
         const index = confirmStockModal.index;
         if (index === null) return;
 
@@ -305,12 +309,12 @@ export default function SaleTradeInPanel({ sale, onUpdate, returnTo }) {
                                 <BuyerDocumentsPanel saleId={sale._id} tradeInId={tradeIn._id}/>
 
                                 <div className="flex items-center justify-between mt-3 pt-3 border-t border-crm-border">
-                                    {tradeIn.linkedStockCarId ? (
+                                    {tradeIn.linkedStockCarId ? (canReadStock ? (
                                         <Link href={withCrmReturn(`/admin/stock/${tradeIn.linkedStockCarId}`, returnTo)} className="text-xs font-bold text-blue-400 hover:text-blue-300 flex items-center gap-1 transition-colors">
                                             <CheckCircle2 size={12} />
                                             En Stock
                                         </Link>
-                                    ) : (
+                                    ) : <span className="text-xs font-bold text-crm-fg-muted flex items-center gap-1"><CheckCircle2 size={12} />En Stock</span>) : canWriteStock ? (
                                         <button 
                                             onClick={() => handleEnterStock(index)}
                                             disabled={enteringStockIndex === index || sale.status === 'cancelada' || !hasWritePermission}
@@ -319,7 +323,7 @@ export default function SaleTradeInPanel({ sale, onUpdate, returnTo }) {
                                             <ArrowRight size={12} />
                                             {enteringStockIndex === index ? 'Ingresando...' : 'Ingresar a Stock'}
                                         </button>
-                                    )}
+                                    ) : null}
                                     
                                     {hasWritePermission && sale.status !== 'cancelada' && (
                                         <button 
@@ -351,7 +355,7 @@ export default function SaleTradeInPanel({ sale, onUpdate, returnTo }) {
             </div>
 
             <ConfirmModal
-                isOpen={confirmStockModal.isOpen}
+                isOpen={canWriteStock && confirmStockModal.isOpen}
                 onClose={() => setConfirmStockModal({ isOpen: false, index: null })}
                 onConfirm={confirmEnterStock}
                 title="Ingresar a Stock"

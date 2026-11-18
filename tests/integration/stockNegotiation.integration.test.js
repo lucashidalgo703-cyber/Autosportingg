@@ -28,7 +28,7 @@ try {
         expect(await api('GET', '', undefined, null), 401);
         const plain = await AdminUser.create({ name: 'Sólo stock ficticio', email: 'stock-only@example.test', role: 'ventas', passwordHash: fixture.users[0].passwordHash, active: true, permissions: ['stock.read'] });
         const session = await createLoginSession(plain);
-        expect(await api('GET', '', undefined, session.token), 403);
+        expect(await api('GET', '', undefined, session.token), 200);
         expect(await api('GET', '', undefined, fixture.sessions[3].token), 403);
         const result = await api('GET', '', undefined, seller); expect(result, 200); assert.equal(result.json.canConfigure, false);
         expect(await api('PUT', '/rule', { rule: { mode: 'amount', value: 188 }, expectedRevision: 0 }, seller), 403);

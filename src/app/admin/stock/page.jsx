@@ -22,13 +22,24 @@ import toast from 'react-hot-toast';
 import CrmPagination from '../../../components/crm/ui/CrmPagination';
 import VehicleFlyerPdf from '../../../components/crm/stock/VehicleFlyerPdf';
 import { useAuth } from '../../../context/AuthContext';
-import { hasPermission, PERMISSIONS, canReadStockNegotiation } from '../../../utils/adminPermissions';
+import { hasPermission, PERMISSIONS, canReadStockNegotiation, isSalesRole } from '../../../utils/adminPermissions';
 import { prepareVehicleImageOrder } from '../../../services/vehicleImageUpload';
 import AvailableInventoryValues from '../../../components/crm/stock/AvailableInventoryValues';
 import StockNegotiationPanel from '../../../components/crm/stock/StockNegotiationPanel';
 
 
 export default function AdminStockPage() {
+    const { user, loading } = useAuth();
+    if (loading || !user) return <p className="text-sm text-crm-fg-muted">Cargando…</p>;
+    // Do not mount inventory hooks, cached rows, actions or counters for sellers.
+    if (isSalesRole(user)) return <div className="flex min-w-0 flex-col gap-6" data-seller-stock-negotiation>
+        <CrmPageHeader title="Stock" subtitle="Negociación de contado de las unidades disponibles." />
+        {canReadStockNegotiation(user) ? <StockNegotiationPanel/> : <p className="text-sm text-crm-fg-muted">No tenés permiso para consultar Negociación.</p>}
+    </div>;
+    return <StockInventoryPage/>;
+}
+
+function StockInventoryPage() {
     const [pageNumber, setPageNumber] = useState(1);
     const [searchTerm, setSearchTerm] = useState('');
     const [debouncedSearch, setDebouncedSearch] = useState('');

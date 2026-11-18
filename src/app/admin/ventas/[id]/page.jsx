@@ -25,7 +25,7 @@ import CrmTaskModal from '../../../../components/crm/agenda/CrmTaskModal';
 import { useAdminCrmTasks } from '../../../../hooks/useAdminCrmTasks';
 import { ShieldAlert, Target, XCircle, Info, CheckCircle, Handshake, ClipboardCheck, Wallet, MessagesSquare } from 'lucide-react';
 import { useAuth } from '../../../../context/AuthContext';
-import { hasPermission, PERMISSIONS } from '../../../../utils/adminPermissions';
+import { hasPermission, PERMISSIONS, isSalesRole, canAccessCrmPath } from '../../../../utils/adminPermissions';
 import ConfirmModal from '../../../../components/crm/ui/ConfirmModal';
 import { crmReturnLabel, crmReturnPath } from '../../../../utils/crmReturnNavigation';
 import { salePaymentProofTarget } from '../../../../utils/salePaymentProofLink';
@@ -34,13 +34,16 @@ export default function SaleDetailPage() {
     const { id } = useParams();
     const router = useRouter();
     const searchParams = useSearchParams();
+    const { user, token } = useAuth();
     const proofDestination = salePaymentProofTarget('/admin/ventas/' + id + '?' + searchParams.toString());
     const highlightedProofId = proofDestination ? new URLSearchParams(proofDestination.split('?')[1]).get('comprobante') : '';
-    const returnTo = crmReturnPath(searchParams.get('returnTo'));
+    const requestedReturnTo = crmReturnPath(searchParams.get('returnTo'));
+    const returnTo = isSalesRole(user)
+        ? requestedReturnTo && canAccessCrmPath(user, requestedReturnTo) ? requestedReturnTo : '/admin/mis-ventas'
+        : requestedReturnTo;
     const backHref = returnTo || '/admin/ventas';
     const { fetchSaleById, updateSale, previewInstallmentPlanCancel, cancelInstallmentPlan, loading, error } = useAdminSales();
     const { createTask } = useAdminCrmTasks();
-    const { user, token } = useAuth();
     const [sale, setSale] = useState(null);
     const [isTaskModalOpen, setIsTaskModalOpen] = useState(false);
     const [isCancelModalOpen, setIsCancelModalOpen] = useState(false);
@@ -297,10 +300,10 @@ export default function SaleDetailPage() {
                         <SaleAuditTimeline sale={sale}/>
                     </div>
                 </div>
-                <details className="group rounded-2xl border border-crm-border bg-crm-surface">
+                {!isSalesRole(user) && <details className="group rounded-2xl border border-crm-border bg-crm-surface">
                     <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-4 py-3 text-sm font-semibold text-crm-fg marker:content-none"><span>Cadena de permutas y rentabilidad</span><span className="text-xs font-normal text-crm-fg-muted group-open:hidden">Ver historial</span><span className="hidden text-xs font-normal text-crm-fg-muted group-open:inline">Ocultar historial</span></summary>
                     <div className="min-w-0 border-t border-crm-border p-3"><TradeInChainPanel saleId={sale._id} carId={sale.vehicleId?._id || sale.vehicleId || null} onUpdated={loadSale}/></div>
-                </details>
+                </details>}
             </section>
 
             <CrmTaskModal 

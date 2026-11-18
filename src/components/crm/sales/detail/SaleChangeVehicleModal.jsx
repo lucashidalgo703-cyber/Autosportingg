@@ -15,6 +15,8 @@ import {
     RefreshCw
 } from 'lucide-react';
 import toast from 'react-hot-toast';
+import { useAuth } from '../../../../context/AuthContext';
+import { hasPermission, isSalesRole, PERMISSIONS } from '../../../../utils/adminPermissions';
 
 export default function SaleChangeVehicleModal({
     isOpen,
@@ -22,6 +24,9 @@ export default function SaleChangeVehicleModal({
     sale,
     onSuccess
 }) {
+    const { user } = useAuth();
+    const isSales = isSalesRole(user);
+    const canReadStock = hasPermission(user, PERMISSIONS.STOCK_READ);
     const [searchTerm, setSearchTerm] = useState('');
     const [searchResults, setSearchResults] = useState([]);
     const [isSearching, setIsSearching] = useState(false);
@@ -44,7 +49,7 @@ export default function SaleChangeVehicleModal({
 
     // Búsqueda de vehículos disponibles en stock
     useEffect(() => {
-        if (!searchTerm || searchTerm.trim().length < 2) {
+        if (!isOpen || !searchTerm || searchTerm.trim().length < 2) {
             setSearchResults([]);
             return;
         }
@@ -53,14 +58,15 @@ export default function SaleChangeVehicleModal({
             setIsSearching(true);
             try {
                 const token = localStorage.getItem('token');
-                const res = await fetch(`/api/admin/cars?search=${encodeURIComponent(searchTerm)}&status=Disponible&limit=10`, {
+                const url = isSales ? `/api/admin/sales/vehicle-options?q=${encodeURIComponent(searchTerm)}&limit=10` : `/api/admin/cars?search=${encodeURIComponent(searchTerm)}&status=Disponible&limit=10`;
+                const res = await fetch(url, {
                     headers: { 'Authorization': `Bearer ${token}` }
                 });
                 if (res.ok) {
                     const data = await res.json();
                     const list = data.cars || data.items || (Array.isArray(data) ? data : []);
                     // Filtrar para excluir el auto actual de la venta
-                    const filtered = list.filter(c => c._id !== sale?.vehicleId?._id && c._id !== sale?.vehicleId);
+                    const filtered = list.filter(c => c._id !== sale?.vehicleId?._id && c._id !== sale?.vehicleId && (!isSales || c.status === 'Disponible' && !c.activeSale && !c.reservation));
                     setSearchResults(filtered);
                 }
             } catch (err) {
@@ -71,7 +77,7 @@ export default function SaleChangeVehicleModal({
         }, 300);
 
         return () => clearTimeout(timeout);
-    }, [searchTerm, sale]);
+    }, [searchTerm, sale, isSales, isOpen]);
 
     // Al seleccionar nuevo vehículo, pedir preview comparativa al backend
     const handleSelectNewCar = async (car) => {
@@ -200,7 +206,7 @@ export default function SaleChangeVehicleModal({
                                     {currentCar.plateOrVin || 'Sin patente'} {currentCar.year ? `· Año ${currentCar.year}` : ''}
                                 </span>
                             </div>
-                            <div className="mt-4 pt-3 border-t border-neutral-800/60 grid grid-cols-2 gap-2 text-[11px]">
+                            {canReadStock && <div className="mt-4 pt-3 border-t border-neutral-800/60 grid grid-cols-2 gap-2 text-[11px]">
                                 <div>
                                     <span className="text-neutral-500 block">Costo de Compra:</span>
                                     <span className="font-mono text-neutral-300">
@@ -213,7 +219,7 @@ export default function SaleChangeVehicleModal({
                                         {currentCar.investor?.percentage ? `${currentCar.investor.percentage}% (${currentCar.investor.name || 'Inversor'})` : '100% Propio'}
                                     </span>
                                 </div>
-                            </div>
+                            </div>}
                         </div>
 
                         {/* Nuevo Auto Seleccionado */}
@@ -244,7 +250,7 @@ export default function SaleChangeVehicleModal({
                                             {selectedCar.plateOrVin || 'Sin patente'} · Año {selectedCar.year}
                                         </span>
                                     </div>
-                                    <div className="mt-4 pt-3 border-t border-blue-500/20 grid grid-cols-2 gap-2 text-[11px]">
+                                    {canReadStock && <div className="mt-4 pt-3 border-t border-blue-500/20 grid grid-cols-2 gap-2 text-[11px]">
                                         <div>
                                             <span className="text-neutral-400 block">Costo de Compra:</span>
                                             <span className="font-mono text-white font-bold">
@@ -257,7 +263,7 @@ export default function SaleChangeVehicleModal({
                                                 {selectedCar.investor?.percentage ? `${selectedCar.investor.percentage}% (${selectedCar.investor.name || 'Inversor'})` : '100% Propio'}
                                             </span>
                                         </div>
-                                    </div>
+                                    </div>}
                                 </>
                             ) : (
                                 <div className="py-4 space-y-1">
@@ -334,7 +340,7 @@ export default function SaleChangeVehicleModal({
                             )}
 
                             {/* Indicadores de diferencias */}
-                            <div className="grid grid-cols-2 gap-3 text-xs">
+                            {canReadStock && <div className="grid grid-cols-2 gap-3 text-xs">
                                 <div className="bg-black/30 border border-neutral-800 rounded-xl p-3">
                                     <span className="text-neutral-500 block text-[10px] uppercase font-bold">
                                         Variación de Costo de Compra
@@ -353,7 +359,7 @@ export default function SaleChangeVehicleModal({
                                         {previewData.investorDiff > 0 ? `+${previewData.investorDiff}%` : `${previewData.investorDiff}%`}
                                     </span>
                                 </div>
-                            </div>
+                            </div>}
 
                             {/* Checklist de Documentos Afectados */}
                             <div className="bg-black/30 border border-neutral-800 rounded-xl p-4">

@@ -12,7 +12,8 @@ const mkCar = extra => Car.create({ ...baseCar, ...extra });
 const payload = car => ({ vehicleId: String(car._id), clientId: String(client._id), salePrice: 1200, saleCurrency: 'USD', paymentMethod: 'contado' });
 const reserveCar = async extra => {
     const car = await mkCar({ status: 'Reservado', ...extra });
-    const reserve = await Reservation.create({ vehicleId: car._id, clientId: client._id, agreedPrice: 1200, agreedCurrency: 'USD', depositAmount: 100, depositCurrency: 'USD', depositMethod: 'efectivo', expiresAt: new Date(Date.now() + 86400000) });
+    const reserve = await Reservation.create({ vehicleId: car._id, clientId: client._id, assignedTo: users[1]._id, salesperson: users[1].name,
+        agreedPrice: 1200, agreedCurrency: 'USD', depositAmount: 100, depositCurrency: 'USD', depositMethod: 'efectivo', expiresAt: new Date(Date.now() + 86400000) });
     return { car, reserve };
 };
 let passed = 0;
@@ -70,6 +71,7 @@ try {
         assert.equal(reviewed.json.cars[0].status, 'Disponible');
         assert.equal(reviewed.json.cars[0].reservation, null);
         const reserve = await Reservation.create({ vehicleId: car._id, clientId: client._id, status: 'activa',
+            assignedTo: users[1]._id, salesperson: users[1].name,
             agreedPrice: 1200, agreedCurrency: 'USD', depositAmount: 250, depositCurrency: 'USD',
             depositMethod: 'efectivo', expiresAt: new Date(Date.now() + 86400000) });
         await Car.updateOne({ _id: car._id }, { status: 'Reservado' });

@@ -3,8 +3,12 @@ import Link from 'next/link';
 import { AlertCircle, CarFront, ChevronRight, Lock, User, XCircle, Trash2 } from 'lucide-react';
 import ReservationStatusBadge from './ReservationStatusBadge';
 import CrmButton from '../ui/CrmButton';
+import { useAuth } from '../../../context/AuthContext';
+import { hasPermission, PERMISSIONS } from '../../../utils/adminPermissions';
 
 export default function ReservationsTable({ reservations, onLiberar, onConvertir, getIsOverdue, onDelete }) {
+    const { user } = useAuth();
+    const canViewStock = hasPermission(user, PERMISSIONS.STOCK_READ);
     if (!reservations || reservations.length === 0) {
         return (
             <div className="hidden min-h-[210px] flex-col items-center justify-center rounded-xl border border-dashed border-crm-border bg-crm-surface p-12 text-center md:flex">
@@ -69,11 +73,12 @@ export default function ReservationsTable({ reservations, onLiberar, onConvertir
 
                                     <td className="px-4 py-3 align-middle">
                                         <div className="flex flex-col">
-                                            {res.vehicleId ? (
+                                            {res.vehicleId ? (canViewStock ? (
                                                 <Link href={vehicleHref} className="flex max-w-[210px] items-center gap-2 truncate text-sm font-bold text-crm-fg no-underline transition-colors hover:text-crm-red">
                                                     <CarFront size={14} className="shrink-0 text-crm-red" />
                                                     {vehicleName}
                                                 </Link>
+                                            ) : <span className="flex max-w-[210px] items-center gap-2 truncate text-sm font-bold text-crm-fg"><CarFront size={14} className="shrink-0 text-crm-red" />{vehicleName}</span>
                                             ) : (
                                                 <span className="text-sm font-bold text-crm-fg-muted">N/A</span>
                                             )}
@@ -148,13 +153,13 @@ export default function ReservationsTable({ reservations, onLiberar, onConvertir
                                                 </button>
                                             )}
 
-                                            <Link
+                                            {canViewStock && res.vehicleId?._id && <Link
                                                 href={vehicleHref}
                                                 className="flex h-8 w-8 items-center justify-center rounded-lg border border-crm-border bg-crm-surface-raised text-crm-fg-muted no-underline transition-colors hover:bg-crm-border hover:text-crm-fg"
                                                 title="Ver vehiculo"
                                             >
                                                 <ChevronRight size={16} />
-                                            </Link>
+                                            </Link>}
                                         </div>
                                     </td>
                                 </tr>

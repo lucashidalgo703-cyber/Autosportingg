@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '../../../context/AuthContext';
 import { useTheme } from '../../../context/ThemeContext';
-import { hasPermission, PERMISSIONS } from '../../../utils/adminPermissions';
+import { canAccessCrmPath, hasPermission, isSalesRole, PERMISSIONS } from '../../../utils/adminPermissions';
 import toast from 'react-hot-toast';
 import UserProfileMenu from './UserProfileMenu';
 import OfflineSyncControl from '../offline/OfflineSyncControl';
@@ -15,6 +15,7 @@ const formatCurrency = (val) => new Intl.NumberFormat('es-AR').format(Math.round
 export default function CrmHeader({ onMenuClick }) {
     const { theme, toggleTheme } = useTheme();
     const { user } = useAuth();
+    const isSales = isSalesRole(user);
     const canSeeFinancials = hasPermission(user, PERMISSIONS.FINANZAS_READ);
 
     const [notifications, setNotifications] = useState([]);
@@ -34,6 +35,7 @@ export default function CrmHeader({ onMenuClick }) {
 
     // Buscar datos
     useEffect(() => {
+        if (!user || isSales) return;
         if (searchQuery.length < 2) {
             setSearchResults([]);
             setShowSearchDropdown(false);
@@ -50,7 +52,7 @@ export default function CrmHeader({ onMenuClick }) {
                 });
                 if (res.ok && res.headers.get('content-type')?.includes('application/json')) {
                     const data = await res.json();
-                    setSearchResults(data);
+                    setSearchResults(Array.isArray(data) ? data.filter(result => canAccessCrmPath(user, result.url)) : []);
                     setShowSearchDropdown(true);
                 }
             } catch (err) {
@@ -61,9 +63,11 @@ export default function CrmHeader({ onMenuClick }) {
         }, 300);
 
         return () => clearTimeout(delayDebounceFn);
-    }, [searchQuery]);
+    }, [searchQuery, isSales, user]);
 
     useEffect(() => {
+        if (!user) return;
+        let active = true;
         const fetchNotifs = async () => {
             try {
                 const token = localStorage.getItem('token');
@@ -73,7 +77,7 @@ export default function CrmHeader({ onMenuClick }) {
                 });
                 if (res.ok && res.headers.get('content-type')?.includes('application/json')) {
                     const data = await res.json();
-                    setNotifications(data);
+                    if (active) setNotifications(Array.isArray(data) ? data : []);
                 }
             } catch (error) {
                 console.error("Error fetching notifications", error);
@@ -81,8 +85,8 @@ export default function CrmHeader({ onMenuClick }) {
         };
         fetchNotifs();
         const interval = setInterval(fetchNotifs, 300000);
-        return () => clearInterval(interval);
-    }, []);
+        return () => { active = false; clearInterval(interval); };
+    }, [user]);
 
     useEffect(() => {
         const handleClickOutside = (e) => {
@@ -98,6 +102,7 @@ export default function CrmHeader({ onMenuClick }) {
     }, []);
 
     useEffect(() => {
+        if (!user || isSales) return;
         const fetchSummary = async () => {
             try {
                 const token = localStorage.getItem('token');
@@ -174,9 +179,13 @@ export default function CrmHeader({ onMenuClick }) {
         fetchSummary();
         const interval = setInterval(fetchSummary, 300000); // Polling cada 5 minutos (300000ms) en lugar de 60s para no saturar serverless
         return () => clearInterval(interval);
-    }, [canSeeFinancials]);
+    }, [canSeeFinancials, isSales, user]);
 
-    const unreadCount = notifications.filter(n => !n.read).length;
+    const visibleNotifications = notifications.map(notification => {
+        if (!isSales || !/^\/admin\/ventas(?:\/|\?|$)/.test(notification.href || '')) return notification;
+        return { ...notification, href: notification.href.replace(/^\/admin\/ventas/, '/admin/mis-ventas') };
+    }).filter(notification => canAccessCrmPath(user, notification.href));
+    const unreadCount = visibleNotifications.filter(n => !n.read).length;
 
     const handleMarkAsRead = async (e, key) => {
         e.preventDefault();
@@ -198,7 +207,7 @@ export default function CrmHeader({ onMenuClick }) {
         e.stopPropagation();
         try {
             const token = localStorage.getItem('token');
-            const unreadKeys = notifications.filter(n => !n.read).map(n => n.id);
+            const unreadKeys = visibleNotifications.filter(n => !n.read).map(n => n.id);
             if (unreadKeys.length === 0) return;
             await fetch(`/api/admin/notifications/read-all`, {
                 method: 'PATCH',
@@ -298,11 +307,11 @@ export default function CrmHeader({ onMenuClick }) {
                     </button>
 
                     <div className="flex-1 min-w-0 md:w-80 md:flex-none">
-                        {searchInput}
+                        {isSales ? <span className="text-sm font-semibold text-crm-fg">Mi espacio comercial</span> : searchInput}
                     </div>
                 </div>
 
-                <div className="hidden flex-1 items-center justify-center gap-6 xl:flex">
+                {!isSales && <div className="hidden flex-1 items-center justify-center gap-6 xl:flex">
                     {canSeeFinancials && !summaryData.accountsError && (
                         <div className="flex items-center gap-3 rounded-full bg-crm-surface-raised px-3 py-1.5 text-xs font-semibold text-crm-fg-muted shadow-sm">
                             <span className="flex items-center gap-1" title="Caja Fuerte USD"><DollarSign size={13} className="text-emerald-400"/> USD {formatCurrency(summaryData.usd)}</span>
@@ -317,10 +326,10 @@ export default function CrmHeader({ onMenuClick }) {
                             <span className="flex items-center gap-1.5 rounded-full bg-crm-surface-raised px-3 py-1.5 shadow-sm" title="Plan actual"><Star size={13} className="text-violet-400"/> {summaryData.subscription?.planLabel || 'Premium'}</span>
                         )}
                     </div>
-                </div>
+                </div>}
 
                 <div className="relative flex shrink-0 items-center gap-1 md:gap-2" ref={dropdownRef}>
-                    <OfflineSyncControl />
+                    {!isSales && <OfflineSyncControl />}
 
                     <button
                         type="button"
@@ -351,10 +360,10 @@ export default function CrmHeader({ onMenuClick }) {
                                 )}
                             </div>
                             <div className="min-h-0 flex-1 overflow-y-auto">
-                                {notifications.length === 0 ? (
+                                {visibleNotifications.length === 0 ? (
                                     <div className="p-4 text-center text-sm text-crm-fg-muted">No hay notificaciones.</div>
                                 ) : (
-                                    notifications.slice(0, 10).map((n) => (
+                                    visibleNotifications.slice(0, 10).map((n) => (
                                         <div key={n.id} className={`group relative flex cursor-pointer gap-3 border-b border-crm-border p-3 ${n.read ? 'opacity-60' : 'bg-crm-surface-raised/30'}`} onClick={() => { setShowDropdown(false); router.push(n.href); }}>
                                             <div className={`mt-1.5 h-2 w-2 flex-shrink-0 rounded-full ${n.severity === 'danger' ? 'bg-crm-red-brand' : n.severity === 'warning' ? 'bg-crm-warning' : n.severity === 'success' ? 'bg-crm-success' : 'bg-crm-red'}`} />
                                             <div className="min-w-0 flex-1 pr-6">
