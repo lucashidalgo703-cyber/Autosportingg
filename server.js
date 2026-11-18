@@ -100,6 +100,7 @@ import { createGptExpenseRouter } from './src/routes/gptExpenseRoutes.js';
 import { authenticateGpt } from './src/services/gptExpenseOAuthService.js';
 import { createQuickExpenseRouter } from './src/routes/quickExpenseRoutes.js';
 import { createAdminBuyerPortalRouter, createBuyerPortalRouter } from './src/routes/buyerPortalRoutes.js';
+import { createStockNegotiationRouter } from './src/routes/stockNegotiationRoutes.js';
 import { preserveRecordedCarFields } from './src/utils/preserveRecordedCarFields.js';
 import { stockCurrency } from './src/utils/inventoryStock.js';
 import { isManagedLinkedExpense, mutateLinkedExpense, annulLinkedExpenseBatch } from './src/services/linkedExpenseMutationService.js';
@@ -460,6 +461,7 @@ const requireAnyPermission = (permissions, allowedRoles = [ROLES.OWNER, ROLES.AD
 // Routes
 app.use('/api/admin/quick-expenses', createQuickExpenseRouter({ authenticate: authenticateToken }));
 app.use('/api/admin/buyer-portal', createAdminBuyerPortalRouter({ authenticate: authenticateToken }));
+app.use('/api/admin/stock/negotiation', createStockNegotiationRouter({ authenticate: authenticateToken }));
 app.use('/api/buyer-portal', createBuyerPortalRouter());
 
 // Helper functions for password hashing using native crypto

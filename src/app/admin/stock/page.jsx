@@ -22,9 +22,10 @@ import toast from 'react-hot-toast';
 import CrmPagination from '../../../components/crm/ui/CrmPagination';
 import VehicleFlyerPdf from '../../../components/crm/stock/VehicleFlyerPdf';
 import { useAuth } from '../../../context/AuthContext';
-import { hasPermission, PERMISSIONS } from '../../../utils/adminPermissions';
+import { hasPermission, PERMISSIONS, canReadStockNegotiation } from '../../../utils/adminPermissions';
 import { prepareVehicleImageOrder } from '../../../services/vehicleImageUpload';
 import AvailableInventoryValues from '../../../components/crm/stock/AvailableInventoryValues';
+import StockNegotiationPanel from '../../../components/crm/stock/StockNegotiationPanel';
 
 
 export default function AdminStockPage() {
@@ -76,6 +77,7 @@ export default function AdminStockPage() {
         swapCars, setCars, filteredTotalUSD, filteredTotalARS, filteredMetrics, financialAccess,
     } = useAdminCars();
     const { user } = useAuth();
+    const canNegotiate = canReadStockNegotiation(user);
     const canWrite = ['owner', 'admin'].includes(user?.role) || hasPermission(user, PERMISSIONS.STOCK_WRITE);
     const canReserve = ['owner', 'admin'].includes(user?.role) || hasPermission(user, PERMISSIONS.RESERVAS_WRITE);
     const canSeeCosts = financialAccess;
@@ -111,6 +113,7 @@ export default function AdminStockPage() {
 
     // Ejecuta la consulta únicamente cuando cambie la página o los filtros debounced
     useEffect(() => {
+        if (stockTab === 'negotiation') return;
         refresh({
             page: pageNumber,
             limit: 20,
@@ -123,6 +126,9 @@ export default function AdminStockPage() {
             ownership: ownershipFilter
         });
     }, [pageNumber, debouncedSearch, filterStatus, brandFilter, stockTab, mlFilter, catalogFilter, ownershipFilter, refresh]);
+    useEffect(() => {
+        if (stockTab === 'negotiation' && !canNegotiate) setStockTab('stock');
+    }, [stockTab, canNegotiate]);
 
     const handleSwap = async (index, direction) => {
         if (isSwapping || loading) return;
@@ -391,16 +397,16 @@ export default function AdminStockPage() {
             <div className="flex flex-col gap-6">
                 <CrmPageHeader 
                     title="Stock"
-                    subtitle="Inventario disponible para vender. Las fichas de otros estados se conservan en el historial."
+                    subtitle={stockTab === 'negotiation' ? 'Precios de contado y ganancia proyectada de las unidades disponibles.' : 'Inventario disponible para vender. Las fichas de otros estados se conservan en el historial.'}
                     actions={
                         <>
                             <CrmButton variant="secondary" size="sm" className="gap-2" onClick={() => window.open('/catalogo', '_blank', 'noopener,noreferrer')}>
                                 <ExternalLink size={14} /> Tu catálogo
                             </CrmButton>
-                            <CrmButton variant="secondary" size="sm" className="gap-2" onClick={handleExportXLSX}>
+                            {stockTab !== 'negotiation' && <CrmButton variant="secondary" size="sm" className="gap-2" onClick={handleExportXLSX}>
                                 <Download size={14} />
                                 Exportar XLSX
-                            </CrmButton>
+                            </CrmButton>}
                             {canWrite && <><CrmButton variant="secondary" size="sm" className="gap-2" onClick={() => setIsImportModalOpen(true)}>
                                 <FileText size={14} />
                                 Importar XLSX
@@ -417,7 +423,7 @@ export default function AdminStockPage() {
                     }
                 />
 
-                {canSeeCosts && stockTab !== 'mandatos' && <AvailableInventoryValues metrics={stockSummary.availableMetrics} filteredMetrics={filteredMetrics} hasFilter={stockTab !== 'historial' && hasActiveFilters} />}
+                {canSeeCosts && !['mandatos', 'negotiation'].includes(stockTab) && <AvailableInventoryValues metrics={stockSummary.availableMetrics} filteredMetrics={filteredMetrics} hasFilter={stockTab !== 'historial' && hasActiveFilters} />}
 
                 <div className="flex flex-col">
                     <StockFilters
@@ -438,12 +444,13 @@ export default function AdminStockPage() {
                         disabled={isSwapping}
                         brandOptions={brandOptions}
                         counts={stockSummary}
+                        canNegotiate={canNegotiate}
                     />
 
-                    <h2 className="mb-1 mt-5 text-lg font-bold text-crm-fg" data-stock-heading>{stockTab === 'mandatos' ? `Mandatos (${filteredMandates.length})` : stockTab === 'historial' ? `Historial de unidades (${total})` : hasActiveFilters ? `${total} de ${stockSummary.disponibles} disponibles` : `Inventario disponible (${stockSummary.disponibles})`}</h2>
+                    {stockTab !== 'negotiation' && <h2 className="mb-1 mt-5 text-lg font-bold text-crm-fg" data-stock-heading>{stockTab === 'mandatos' ? `Mandatos (${filteredMandates.length})` : stockTab === 'historial' ? `Historial de unidades (${total})` : hasActiveFilters ? `${total} de ${stockSummary.disponibles} disponibles` : `Inventario disponible (${stockSummary.disponibles})`}</h2>}
                     {stockTab === 'historial' && <p className="mb-3 text-xs text-crm-fg-muted">Consulta de fichas en todos los estados. Los totales de capital de arriba incluyen únicamente unidades disponibles.</p>}
 
-                    {error ? (
+                    {stockTab === 'negotiation' && canNegotiate ? <StockNegotiationPanel/> : error ? (
                         <div className="rounded-xl border border-crm-red/30 bg-crm-red/10 px-6 py-5 text-center mt-4">
                             <p className="m-0 text-sm font-bold text-crm-red">Error de conexión</p>
                             <p className="m-0 mt-2 text-sm text-crm-fg-muted">{error}</p>

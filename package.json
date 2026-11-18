@@ -40,7 +40,9 @@
     "test:portal:delivery-mail": "node tests/integration/buyerDeliveryNotification.integration.test.js",
     "test:portal:mail-link": "node tests/salePaymentProofLink.test.js",
     "test:portal:mail-link:browser": "node tests/browser/paymentNoticeLink.browser.mjs",
-    "test:inventory:available": "node tests/integration/availableInventory.integration.test.js"
+    "test:inventory:available": "node tests/integration/availableInventory.integration.test.js",
+    "test:stock:negotiation": "node tests/stockNegotiation.test.js && node tests/stockNegotiationPermissions.test.js && node tests/integration/stockNegotiation.integration.test.js",
+    "test:stock:negotiation:browser": "node tests/browser/stockNegotiation.browser.mjs"
   },
   "dependencies": {
     "@vercel/analytics": "^1.6.1",

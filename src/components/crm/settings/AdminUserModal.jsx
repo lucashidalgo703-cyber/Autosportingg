@@ -15,6 +15,9 @@ export default function AdminUserModal({ user, onClose, onSave }) {
     });
 
     const [loading, setLoading] = useState(false);
+    const currentPermissions = formData.permissions.length ? formData.permissions : (DEFAULT_ROLE_PERMISSIONS[formData.role] || []);
+    const canHaveNegotiation = !['owner', 'admin'].includes(formData.role) && currentPermissions.includes(PERMISSIONS.STOCK_READ);
+    const negotiationEnabled = currentPermissions.includes(PERMISSIONS.STOCK_NEGOTIATION_READ);
 
     useEffect(() => {
         if (user) {
@@ -128,6 +131,13 @@ export default function AdminUserModal({ user, onClose, onSave }) {
                                     El rol define los permisos automáticos. Un Owner tiene acceso total. Un Admin no puede eliminar al Owner.
                                 </p>
                             </div>
+                            {canHaveNegotiation && <label className="flex items-start gap-3 rounded-xl border border-crm-border bg-crm-bg p-4 text-sm text-crm-fg">
+                                <input type="checkbox" className="mt-1 h-4 w-4" checked={negotiationEnabled} onChange={event => setFormData(previous => {
+                                    const permissions = previous.permissions.length ? previous.permissions : (DEFAULT_ROLE_PERMISSIONS[previous.role] || []);
+                                    return { ...previous, permissions: event.target.checked ? [...new Set([...permissions, PERMISSIONS.STOCK_NEGOTIATION_READ])] : permissions.filter(permission => permission !== PERMISSIONS.STOCK_NEGOTIATION_READ) };
+                                })}/>
+                                <span><strong className="block">Consultar Negociación en Stock</strong><span className="block text-xs text-crm-fg-muted">Ver precios internos, ganancias proyectadas y probar ofertas. La configuración de mínimos queda a cargo de administración.</span></span>
+                            </label>}
 
                         </div>
                     </form>

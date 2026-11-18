@@ -5,7 +5,8 @@
 const CACHE_NAME = 'autosporting-offline-shell-v3';
 
 function isPrivatePortalPath(pathname) {
-    return /^\/portal(?:\/|$)/.test(pathname) || /^\/api\/(?:admin\/)?buyer-portal(?:\/|$)/.test(pathname);
+    return /^\/portal(?:\/|$)/.test(pathname) || /^\/api\/(?:admin\/)?buyer-portal(?:\/|$)/.test(pathname)
+        || /^\/api\/admin\/stock\/negotiation(?:\/|$)/.test(pathname);
 }
 
 self.addEventListener('message', event => {

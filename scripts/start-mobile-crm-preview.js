@@ -21,7 +21,8 @@ if (process.env.LOCAL_BUYER_PORTAL_FIXTURES === 'true') {
     await createBuyerPortalIndexes();
     const { createGestoriaNotificationIndexes } = await import('../src/services/gestoriaStatusService.js');
     await createGestoriaNotificationIndexes();
-    buyerPortalFixtures = { ...await seedBuyerPortalFixtures(env.models, fixtures), adminSessionToken: fixtures.sessions[0].token };
+    buyerPortalFixtures = { ...await seedBuyerPortalFixtures(env.models, fixtures), adminSessionToken: fixtures.sessions[0].token,
+        sellerSessionToken: fixtures.sessions[1].token };
     const { startLocalSmtpSink } = await import('../tests/fixtures/localSmtpSink.js');
     smtpSink = await startLocalSmtpSink(env.mailbox, [process.env.SECURITY_ALERT_EMAIL, buyerPortalFixtures.buyerOneEmail, buyerPortalFixtures.buyerTwoEmail]);
     process.env.SMTP_PORT = String(smtpSink.port);
@@ -59,7 +60,9 @@ const server = http.createServer((req, res) => {
             cars: fixtures.cars.map(car => ({ id: String(car._id), name: car.name, plate: car.plateOrVin })),
             accounts: fixtures.accounts.map(account => ({ id: String(account._id), name: account.name })),
             reservation: String(fixtures.reservation._id),
-            noActiveAccounts, buyerPortal: buyerPortalFixtures
+            noActiveAccounts, buyerPortal: buyerPortalFixtures,
+            negotiation: buyerPortalFixtures ? { adminSessionToken: fixtures.sessions[0].token, sellerSessionToken: fixtures.sessions[1].token,
+                readOnlySessionToken: fixtures.sessions[3].token } : null
         }));
         return;
     }

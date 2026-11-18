@@ -31,6 +31,18 @@ const crmSettingsSchema = new mongoose.Schema({
         enum: ["ARS", "USD"],
         default: "ARS"
     },
+    // Persist the quotation already maintained by dolarService. No default rate:
+    // a missing quotation must remain distinguishable from a configured one.
+    dolarBlueConfig: {
+        rate: { type: Number, min: 0 },
+        compra: { type: Number, min: 0 },
+        publishedAt: { type: String },
+        lastFetchedAt: { type: Date },
+        source: { type: String },
+        sourceUrl: { type: String },
+        isManual: { type: Boolean },
+        status: { type: String }
+    },
     businessHours: {
         mondayToFriday: { type: String, default: "09:00 - 18:00" },
         saturday: { type: String, default: "09:00 - 13:00" },

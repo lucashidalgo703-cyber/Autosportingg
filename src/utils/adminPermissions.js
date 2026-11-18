@@ -11,6 +11,7 @@ export const ROLES = {
 export const PERMISSIONS = {
     STOCK_READ: 'stock.read',
     STOCK_WRITE: 'stock.write',
+    STOCK_NEGOTIATION_READ: 'stock.negotiation.read',
     CLIENTES_READ: 'clientes.read',
     CLIENTES_WRITE: 'clientes.write',
     LEADS_READ: 'leads.read',
@@ -103,6 +104,7 @@ export const DEFAULT_ROLE_PERMISSIONS = {
     [ROLES.ADMIN]: Object.values(PERMISSIONS).filter(p => p !== PERMISSIONS.TRASH_DELETE), // Acceso casi total, pero no puede eliminar permanentemente
     [ROLES.VENTAS]: [
         PERMISSIONS.STOCK_READ,
+        PERMISSIONS.STOCK_NEGOTIATION_READ,
         PERMISSIONS.CLIENTES_READ, PERMISSIONS.CLIENTES_WRITE,
         PERMISSIONS.LEADS_READ, PERMISSIONS.LEADS_WRITE,
         PERMISSIONS.COTIZACIONES_READ, PERMISSIONS.COTIZACIONES_WRITE,
@@ -198,3 +200,8 @@ export const hasPermission = (user, permission) => {
 
     return userPermissions.includes(permission);
 };
+
+// Negotiation reveals projected margins without granting general finance access.
+export const canReadStockNegotiation = user => hasPermission(user, PERMISSIONS.STOCK_READ)
+    && (['owner', 'admin'].includes(user?.role) || hasPermission(user, PERMISSIONS.STOCK_NEGOTIATION_READ));
+export const canConfigureStockNegotiation = user => canReadStockNegotiation(user) && ['owner', 'admin'].includes(user?.role);
