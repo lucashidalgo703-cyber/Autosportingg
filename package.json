@@ -49,7 +49,9 @@
     "test:roles:access:browser": "node tests/browser/managedRoles.browser.mjs",
     "test:facturacion": "node tests/integration/vehicleInvoices.integration.test.js",
     "test:facturacion:browser": "node tests/browser/vehicleInvoices.browser.mjs",
-    "test:stock:plates": "node tests/vehiclePlate.test.js && node tests/integration/negotiationPlate.integration.test.js"
+    "test:stock:plates": "node tests/vehiclePlate.test.js && node tests/integration/negotiationPlate.integration.test.js",
+    "test:capital:history": "node tests/capitalHistoryPermissions.test.js && node tests/capitalHistoryView.test.js && node tests/integration/capitalHistory.integration.test.js",
+    "test:capital:history:browser": "node tests/browser/capitalHistory.browser.mjs"
   },
   "dependencies": {
     "@vercel/analytics": "^1.6.1",

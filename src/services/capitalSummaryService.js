@@ -7,15 +7,25 @@ import { emptyMoney, isAvailableStock, stockOwnership, stockStatus, stockValuati
 import { normalizeCurrency, roundMoney } from '../utils/saleCommercial.js';
 
 // Legacy scalar fields are ARS only. Every component also returns byCurrency; USD is never silently added to ARS.
-export async function getCapitalSummary() {
-    const cutoffDate = new Date();
-    const [allCars, accounts, installments, debts, unassignedPayments] = await Promise.all([
-        Car.find({}).lean(), Account.find({}).lean(),
-        Installment.find({ status: { $in: ['pendiente', 'vencida', 'parcial'] } }).lean(),
-        Transaction.find({ type: { $regex: /egreso/i }, status: 'pendiente' }).lean(),
-        Transaction.find({ type: { $regex: /egreso/i }, status: 'activo',
-            accountAssignmentStatus: 'pending', accountDebitApplied: false }).lean()
-    ]);
+export async function getCapitalSummary({ session = null, cutoffDate = new Date() } = {}) {
+    cutoffDate = new Date(cutoffDate);
+    if (!Number.isFinite(cutoffDate.getTime())) throw new Error('La fecha del resumen de capital no es válida.');
+    // A session lets a monthly observation read the same MongoDB snapshot as
+    // its durable record. The timestamp affects due-date labels only: it does
+    // not reconstruct former balances, inventory or collections from today.
+    const read = query => (session ? query.session(session) : query).lean();
+    const reads = [
+        () => read(Car.find({})), () => read(Account.find({})),
+        () => read(Installment.find({ status: { $in: ['pendiente', 'vencida', 'parcial'] } })),
+        () => read(Transaction.find({ type: { $regex: /egreso/i }, status: 'pendiente' })),
+        () => read(Transaction.find({ type: { $regex: /egreso/i }, status: 'activo',
+            accountAssignmentStatus: 'pending', accountDebitApplied: false }))
+    ];
+    // Parallel operations on the same transaction session are unsupported.
+    const values = [];
+    if (session) { for (const load of reads) values.push(await load()); }
+    else values.push(...await Promise.all(reads.map(load => load())));
+    const [allCars, accounts, installments, debts, unassignedPayments] = values;
     const stockCars = allCars.filter(isAvailableStock);
     const metrics = summarizeStock(stockCars);
     const auditedVehicles = stockCars.map(car => {
@@ -43,7 +53,7 @@ export async function getCapitalSummary() {
         return { id: String(account._id), name: account.name || 'Cuenta', type: account.type || 'Efectivo', currency, balance,
             isIncludedInARS: currency === 'ARS', notes: 'Cuenta real; no duplica asignaciones de cajas estratégicas.' };
     });
-    const sales = await Sale.find({ _id: { $in: [...new Set(installments.map(i => i.saleId).filter(Boolean).map(String))] } }).lean();
+    const sales = await read(Sale.find({ _id: { $in: [...new Set(installments.map(i => i.saleId).filter(Boolean).map(String))] } }));
     const salesById = new Map(sales.map(s => [String(s._id), s]));
     const carsById = new Map(allCars.map(c => [String(c._id), c]));
     const portfolio = emptyMoney();
