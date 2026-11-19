@@ -6,9 +6,16 @@ import { useAdminCars } from '../../../../hooks/useAdminCars';
 import { useAdminInstallments } from '../../../../hooks/useAdminInstallments';
 import { useAdminCrmTasks } from '../../../../hooks/useAdminCrmTasks';
 import PermissionGuard from '../../../../components/crm/layout/PermissionGuard';
-import { PERMISSIONS } from '../../../../utils/adminPermissions';
+import { useAuth } from '../../../../context/AuthContext';
+import { hasPermission, isSalesRole, PERMISSIONS } from '../../../../utils/adminPermissions';
 
 export default function PrintableReportPage() {
+    const { user } = useAuth();
+    const canReadReports = hasPermission(user, PERMISSIONS.REPORTES_READ);
+    const canReadStock = canReadReports && hasPermission(user, PERMISSIONS.STOCK_READ);
+    const canReadSales = canReadReports && hasPermission(user, PERMISSIONS.VENTAS_READ);
+    const canReadFinance = canReadReports && !isSalesRole(user) && hasPermission(user, PERMISSIONS.FINANZAS_READ);
+    const canReadAgenda = canReadReports && hasPermission(user, PERMISSIONS.AGENDA_READ);
     const searchParams = useSearchParams();
     const period = searchParams.get('period') || 'all';
     const currency = searchParams.get('currency') || 'todos';
@@ -25,11 +32,13 @@ export default function PrintableReportPage() {
         const loadAll = async () => {
             try {
                 const [salesData, carsData, instData, tasksData] = await Promise.all([
-                    fetchSales(), fetchCars(), fetchInstallments(), fetchTasks()
+                    canReadSales ? fetchSales() : [], canReadStock ? fetchCars() : [],
+                    canReadFinance ? fetchInstallments() : [],
+                    canReadAgenda ? fetchTasks(isSalesRole(user) ? { scope: 'my-space' } : {}) : []
                 ]);
                 setData({
                     sales: salesData || [],
-                    cars: carsData || [],
+                    cars: Array.isArray(carsData) ? carsData : carsData?.cars || [],
                     installments: instData || [],
                     tasks: tasksData || []
                 });
@@ -41,7 +50,7 @@ export default function PrintableReportPage() {
         };
         loadAll();
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, []);
+    }, [canReadReports, canReadStock, canReadSales, canReadFinance, canReadAgenda]);
 
     const filtered = useMemo(() => {
         let { sales, cars, installments, tasks } = data;
@@ -126,7 +135,7 @@ export default function PrintableReportPage() {
     }
 
     return (
-        <PermissionGuard permission={PERMISSIONS.REPORTES_EXPORT}>
+        <PermissionGuard permission={isSalesRole(user) ? PERMISSIONS.REPORTES_READ : PERMISSIONS.REPORTES_EXPORT}>
         <div className="font-sans text-black bg-white min-h-screen">
             
             {/* Controles solo pantalla */}
@@ -146,7 +155,8 @@ export default function PrintableReportPage() {
                 <div className="border-b-2 border-black pb-4 mb-6 flex justify-between items-end">
                     <div>
                         <h1 className="text-3xl font-black tracking-tighter">AUTOSPORTING</h1>
-                        <h2 className="text-xl font-bold text-crm-fg-muted mt-1">Reporte Gerencial</h2>
+                        <h2 className="text-xl font-bold text-crm-fg-muted mt-1">{isSalesRole(user) ? 'Reporte de mi actividad' : 'Reporte Gerencial'}</h2>
+                        {isSalesRole(user) && <p className="text-xs text-crm-fg-muted">Operaciones y tareas de tu cuenta. Información según tus permisos.</p>}
                     </div>
                     <div className="text-right text-sm">
                         <div><span className="font-bold">Fecha:</span> {new Date().toLocaleDateString('es-AR')}</div>
@@ -159,19 +169,19 @@ export default function PrintableReportPage() {
                 <div className="mb-8 break-inside-avoid">
                     <h3 className="text-lg font-bold border-b border-gray-300 pb-1 mb-3 uppercase tracking-wider">Resumen Ejecutivo</h3>
                     <div className="grid grid-cols-2 gap-y-2 text-sm">
-                        <div className="flex justify-between pr-4"><span className="font-bold">Unidades en Stock:</span> <span>{stockDisp.length}</span></div>
+                        {canReadStock && <div className="flex justify-between pr-4"><span className="font-bold">Unidades en Stock:</span> <span>{stockDisp.length}</span></div>}
                         <div className="flex justify-between pl-4"><span className="font-bold">Ventas Confirmadas:</span> <span>{confirmadas.length}</span></div>
                         
-                        <div className="flex justify-between pr-4"><span className="font-bold">Capital Stock USD:</span> <span>{formatMoney(stockUsd, 'USD')}</span></div>
+                        {canReadStock && <div className="flex justify-between pr-4"><span className="font-bold">Capital Stock USD:</span> <span>{formatMoney(stockUsd, 'USD')}</span></div>}
                         <div className="flex justify-between pl-4"><span className="font-bold">Volumen Ventas USD:</span> <span>{formatMoney(ventasUsd, 'USD')}</span></div>
                         
-                        <div className="flex justify-between pr-4"><span className="font-bold">Capital Stock ARS:</span> <span>{formatMoney(stockArs, 'ARS')}</span></div>
+                        {canReadStock && <div className="flex justify-between pr-4"><span className="font-bold">Capital Stock ARS:</span> <span>{formatMoney(stockArs, 'ARS')}</span></div>}
                         <div className="flex justify-between pl-4"><span className="font-bold">Volumen Ventas ARS:</span> <span>{formatMoney(ventasArs, 'ARS')}</span></div>
                         
-                        <div className="flex justify-between pr-4 mt-2"><span className="font-bold text-red-600">Deuda Pdte USD:</span> <span className="text-red-600">{formatMoney(deudaUsd, 'USD')}</span></div>
-                        <div className="flex justify-between pl-4 mt-2"><span className="font-bold text-red-600">Deuda Pdte ARS:</span> <span className="text-red-600">{formatMoney(deudaArs, 'ARS')}</span></div>
+                        {canReadFinance && <div className="flex justify-between pr-4 mt-2"><span className="font-bold text-red-600">Deuda Pdte USD:</span> <span className="text-red-600">{formatMoney(deudaUsd, 'USD')}</span></div>}
+                        {canReadFinance && <div className="flex justify-between pl-4 mt-2"><span className="font-bold text-red-600">Deuda Pdte ARS:</span> <span className="text-red-600">{formatMoney(deudaArs, 'ARS')}</span></div>}
                         
-                        <div className="flex justify-between pr-4"><span className="font-bold text-red-600">Cuotas Vencidas:</span> <span className="text-red-600">{cuotasVencidas}</span></div>
+                        {canReadFinance && <div className="flex justify-between pr-4"><span className="font-bold text-red-600">Cuotas Vencidas:</span> <span className="text-red-600">{cuotasVencidas}</span></div>}
                         <div className="flex justify-between pl-4"><span className="font-bold text-orange-600">Tareas Vencidas:</span> <span className="text-orange-600">{tareasVencidas}</span></div>
                         
                         <div className="flex justify-between pr-4"><span className="font-bold">Entregas Pdtes:</span> <span>{entregasPendientes}</span></div>
@@ -211,7 +221,7 @@ export default function PrintableReportPage() {
                 </div>
 
                 {/* Desglose Stock */}
-                <div className="mb-8 break-inside-avoid">
+                {canReadStock && <div className="mb-8 break-inside-avoid">
                     <h3 className="text-lg font-bold border-b border-gray-300 pb-1 mb-3 uppercase tracking-wider">Stock</h3>
                     <table className="w-full text-sm text-left border-collapse">
                         <thead>
@@ -239,7 +249,7 @@ export default function PrintableReportPage() {
                             </tr>
                         </tbody>
                     </table>
-                </div>
+                </div>}
 
                 {/* Tareas */}
                 <div className="mb-8 break-inside-avoid">

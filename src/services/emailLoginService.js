@@ -3,6 +3,7 @@ import LoginChallenge from '../models/LoginChallenge.js';
 import LoginEmailRateLimit from '../models/LoginEmailRateLimit.js';
 import AdminUser from '../models/AdminUser.js';
 import { EmailAdapter } from '../lib/emailAdapter.js';
+import { isSalesRole } from '../utils/adminPermissions.js';
 
 export const EMAIL_CODE_TTL_MS = 5 * 60 * 1000;
 export const EMAIL_RESEND_DELAY_MS = 60 * 1000;
@@ -35,7 +36,7 @@ const hashCode = (challenge, code, generation = challenge.generation) => hmac(`e
 // user is always freshly loaded from AdminUser; never accept a request-supplied
 // destination or copy a seller's verification code to the administrator.
 const getRecipient = user => {
-    const type = user.role === 'ventas' ? 'account' : 'administrator';
+    const type = isSalesRole(user) ? 'account' : 'administrator';
     const recipient = String(type === 'account' ? user.email || '' : process.env.SECURITY_ALERT_EMAIL || '').trim();
     return { type, recipient };
 };

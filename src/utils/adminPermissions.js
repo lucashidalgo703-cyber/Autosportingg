@@ -4,6 +4,7 @@ export const ROLES = {
     OWNER: 'owner',
     ADMIN: 'admin',
     VENTAS: 'ventas',
+    GESTORIA_CONTABILIDAD: 'gestoria_contabilidad',
     ADMINISTRATIVO: 'administrativo',
     SOLO_LECTURA: 'solo_lectura'
 };
@@ -11,9 +12,13 @@ export const ROLES = {
 export const PERMISSIONS = {
     STOCK_READ: 'stock.read',
     STOCK_WRITE: 'stock.write',
+    STOCK_SUBMIT: 'stock.submit',
     STOCK_NEGOTIATION_READ: 'stock.negotiation.read',
     CLIENTES_READ: 'clientes.read',
     CLIENTES_WRITE: 'clientes.write',
+    CLIENTES_SUBMIT: 'clientes.submit',
+    OPORTUNIDADES_READ: 'oportunidades.read',
+    OPORTUNIDADES_WRITE: 'oportunidades.write',
     LEADS_READ: 'leads.read',
     LEADS_WRITE: 'leads.write',
     COTIZACIONES_READ: 'cotizaciones.read',
@@ -104,7 +109,12 @@ export const DEFAULT_ROLE_PERMISSIONS = {
     [ROLES.ADMIN]: Object.values(PERMISSIONS).filter(p => p !== PERMISSIONS.TRASH_DELETE), // Acceso casi total, pero no puede eliminar permanentemente
     [ROLES.VENTAS]: [
         PERMISSIONS.STOCK_NEGOTIATION_READ,
+        PERMISSIONS.STOCK_SUBMIT, PERMISSIONS.CLIENTES_SUBMIT,
         PERMISSIONS.CLIENTES_READ, PERMISSIONS.CLIENTES_WRITE,
+        PERMISSIONS.GESTORIA_READ, PERMISSIONS.GESTORIA_WRITE,
+        PERMISSIONS.DOCUMENTACION_READ, PERMISSIONS.DOCUMENTACION_WRITE,
+        PERMISSIONS.REPORTES_READ,
+        PERMISSIONS.OPORTUNIDADES_READ, PERMISSIONS.OPORTUNIDADES_WRITE,
         PERMISSIONS.LEADS_READ, PERMISSIONS.LEADS_WRITE,
         PERMISSIONS.COTIZACIONES_READ, PERMISSIONS.COTIZACIONES_WRITE,
         PERMISSIONS.AGENDA_READ, PERMISSIONS.AGENDA_WRITE,
@@ -127,6 +137,19 @@ export const DEFAULT_ROLE_PERMISSIONS = {
         PERMISSIONS.TALLER_READ, PERMISSIONS.TALLER_WRITE,
 
         PERMISSIONS.TRASH_READ,
+        PERMISSIONS.HELP_READ
+    ],
+    [ROLES.GESTORIA_CONTABILIDAD]: [
+        PERMISSIONS.STOCK_NEGOTIATION_READ,
+        PERMISSIONS.CLIENTES_READ, PERMISSIONS.CLIENTES_WRITE,
+        PERMISSIONS.GESTORIA_READ, PERMISSIONS.GESTORIA_WRITE,
+        PERMISSIONS.DOCUMENTACION_READ, PERMISSIONS.DOCUMENTACION_WRITE,
+        PERMISSIONS.VENTAS_READ, PERMISSIONS.VENTAS_WRITE,
+        PERMISSIONS.RESERVAS_READ, PERMISSIONS.RESERVAS_WRITE,
+        PERMISSIONS.COMISIONES_READ,
+        PERMISSIONS.OPORTUNIDADES_READ, PERMISSIONS.OPORTUNIDADES_WRITE,
+        PERMISSIONS.AGENDA_READ, PERMISSIONS.AGENDA_WRITE,
+        PERMISSIONS.REPORTES_READ,
         PERMISSIONS.HELP_READ
     ],
     [ROLES.ADMINISTRATIVO]: [
@@ -190,9 +213,12 @@ export const hasPermission = (user, permission) => {
     if (!user || !permission) return false;
 
     if (user.role === ROLES.OWNER) return true;
-    // Sales accounts use the negotiation view and their own operations. Saved
-    // custom permissions cannot reopen the inventory or assign another seller.
-    if (user.role === ROLES.VENTAS && [PERMISSIONS.STOCK_READ, PERMISSIONS.STOCK_WRITE, PERMISSIONS.ASIGNACIONES_WRITE].includes(permission)) return false;
+    // Restricted staff cannot reopen global administration or finance through
+    // historical broad custom grants. Personal commissions remain available.
+    if (isSalesRole(user) && [PERMISSIONS.STOCK_READ, PERMISSIONS.STOCK_WRITE, PERMISSIONS.ASIGNACIONES_WRITE,
+        PERMISSIONS.FINANZAS_READ, PERMISSIONS.FINANZAS_WRITE, PERMISSIONS.CAJA_READ, PERMISSIONS.CAJA_WRITE,
+        PERMISSIONS.LIQUIDACIONES_READ, PERMISSIONS.LIQUIDACIONES_WRITE, PERMISSIONS.SETTINGS_READ,
+        PERMISSIONS.SETTINGS_WRITE, PERMISSIONS.USUARIOS_READ, PERMISSIONS.USUARIOS_WRITE].includes(permission)) return false;
 
     // Si tiene un array de permisos explícito, lo usamos.
     // Sino, caemos a los permisos por defecto de su rol.
@@ -203,7 +229,9 @@ export const hasPermission = (user, permission) => {
     return userPermissions.includes(permission);
 };
 
-export const isSalesRole = user => user?.role === ROLES.VENTAS;
+// Both staff profiles work in their assigned operations and negotiation view.
+// Keep a single role predicate shared by route, API and module restrictions.
+export const isSalesRole = user => [ROLES.VENTAS, ROLES.GESTORIA_CONTABILIDAD].includes(user?.role);
 export const crmHomeFor = user => isSalesRole(user) ? '/admin/mis-ventas' : '/admin';
 
 // Shared by navigation and the route gate, including legacy dashboard paths.
@@ -225,3 +253,98 @@ export const canReadStockNegotiation = user => isSalesRole(user)
     : hasPermission(user, PERMISSIONS.STOCK_READ)
         && (['owner', 'admin'].includes(user?.role) || hasPermission(user, PERMISSIONS.STOCK_NEGOTIATION_READ));
 export const canConfigureStockNegotiation = user => canReadStockNegotiation(user) && ['owner', 'admin'].includes(user?.role);
+
+// Labels and descriptions are shared by user assignment and the role catalog.
+// Existing database role values remain valid; no account is changed by selecting
+// or displaying a profile until administration explicitly saves that account.
+export const ROLE_DEFINITIONS = {
+    [ROLES.OWNER]: {
+        label: 'Propietario',
+        description: 'Control total del CRM. Aprueba o rechaza las altas de vehículos y clientes enviadas por vendedores.',
+        limits: []
+    },
+    [ROLES.ADMIN]: {
+        label: 'Administrador',
+        description: 'Administración general, gestión de usuarios y operación del CRM.',
+        limits: ['Las nuevas altas enviadas para autorización las resuelve el propietario.', 'No elimina registros de forma permanente ni desactiva al propietario.']
+    },
+    [ROLES.VENTAS]: {
+        label: 'Vendedor · altas con autorización',
+        description: 'Consulta Negociación y trabaja sobre sus ventas y comisiones. Envía las altas de vehículos y clientes para autorización.',
+        limits: ['Los vehículos y clientes nuevos quedan pendientes hasta que los apruebe el propietario.', 'Sin Dashboard, Ventas generales, inventario completo, Caja ni Finanzas generales.']
+    },
+    [ROLES.GESTORIA_CONTABILIDAD]: {
+        label: 'Gestoría / Contabilidad',
+        description: 'Gestiona trámites, expedientes y clientes, con consulta comercial de sus operaciones.',
+        limits: ['Sin Dashboard, Ventas generales, inventario completo, Caja ni Finanzas generales.', 'No configura precios mínimos, administra usuarios ni aprueba altas del vendedor.']
+    },
+    [ROLES.ADMINISTRATIVO]: {
+        label: 'Administrativo · perfil anterior',
+        description: 'Conserva los permisos administrativos existentes, incluidos Caja, Cuotas y Cobranzas.',
+        limits: ['No equivale al perfil Gestoría / Contabilidad. Revisá sus accesos antes de asignarlo.']
+    },
+    [ROLES.SOLO_LECTURA]: {
+        label: 'Solo lectura',
+        description: 'Consulta de los módulos habilitados, sin acciones de edición por defecto.',
+        limits: ['No puede cargar, editar ni autorizar información por defecto.']
+    }
+};
+
+export const roleLabel = role => ROLE_DEFINITIONS[role]?.label || role || 'Sin rol';
+
+export const roleAccessSummary = user => {
+    if (!user) return [];
+    const entries = [];
+    const add = (condition, label, detail) => { if (condition) entries.push({ label, detail }); };
+    const permission = p => hasPermission(user, p);
+    const writeDetail = p => permission(p) ? 'Consulta y gestión' : 'Solo consulta';
+    add(['owner', 'admin'].includes(user.role), 'Dashboard y administración general', 'Según los permisos del perfil');
+    add(permission(PERMISSIONS.GESTORIA_READ), 'Gestoría', writeDetail(PERMISSIONS.GESTORIA_WRITE));
+    add(permission(PERMISSIONS.CLIENTES_READ), 'Clientes', user.role === ROLES.VENTAS
+        ? 'Consulta y edición; altas con autorización del propietario' : writeDetail(PERMISSIONS.CLIENTES_WRITE));
+    add(canReadStockNegotiation(user), 'Negociación', canConfigureStockNegotiation(user) ? 'Consulta, simulación y configuración de mínimos' : 'Consulta y simulación de ofertas');
+    add(permission(PERMISSIONS.STOCK_READ), 'Inventario de Stock', writeDetail(PERMISSIONS.STOCK_WRITE));
+    add(permission(PERMISSIONS.STOCK_SUBMIT) && user.role === ROLES.VENTAS, 'Solicitar alta de vehículo', 'No ingresa al Stock hasta la aprobación del propietario');
+    add(permission(PERMISSIONS.VENTAS_READ), isSalesRole(user) ? 'Mis ventas' : 'Ventas', isSalesRole(user) ? 'Únicamente operaciones asignadas a su cuenta' : writeDetail(PERMISSIONS.VENTAS_WRITE));
+    add(permission(PERMISSIONS.DOCUMENTACION_READ), 'Expedientes', writeDetail(PERMISSIONS.DOCUMENTACION_WRITE));
+    add(permission(PERMISSIONS.COMISIONES_READ), 'Mis comisiones', 'Comisiones de su cuenta');
+    add(permission(PERMISSIONS.OPORTUNIDADES_READ), 'Oportunidades', writeDetail(PERMISSIONS.OPORTUNIDADES_WRITE));
+    add(permission(PERMISSIONS.AGENDA_READ), 'Calendario', writeDetail(PERMISSIONS.AGENDA_WRITE));
+    add(true, 'Alertas', 'Avisos de los módulos habilitados');
+    add(permission(PERMISSIONS.REPORTES_READ), 'Reportes', isSalesRole(user) ? 'Actividad y operaciones permitidas; sin información financiera general' : 'Según los permisos de los módulos incluidos');
+    add(true, 'Mi espacio', 'Resumen, pendientes, autos personales y patrimonio de su cuenta');
+    add(permission(PERMISSIONS.LEADS_READ), 'Leads', writeDetail(PERMISSIONS.LEADS_WRITE));
+    add(permission(PERMISSIONS.COTIZACIONES_READ), 'Cotizaciones', writeDetail(PERMISSIONS.COTIZACIONES_WRITE));
+    add(permission(PERMISSIONS.RESERVAS_READ), 'Reservas', isSalesRole(user) ? 'Únicamente reservas asignadas a su cuenta' : writeDetail(PERMISSIONS.RESERVAS_WRITE));
+    add(permission(PERMISSIONS.POSTVENTA_READ), 'Postventa', writeDetail(PERMISSIONS.POSTVENTA_WRITE));
+    add(permission(PERMISSIONS.CAJA_READ), 'Caja', writeDetail(PERMISSIONS.CAJA_WRITE));
+    add(!isSalesRole(user) && permission(PERMISSIONS.FINANZAS_READ), 'Finanzas', writeDetail(PERMISSIONS.FINANZAS_WRITE));
+    add(permission(PERMISSIONS.CUOTAS_READ), 'Cuotas', writeDetail(PERMISSIONS.CUOTAS_WRITE));
+    add(permission(PERMISSIONS.COBRANZAS_READ), 'Cobranzas', writeDetail(PERMISSIONS.COBRANZAS_WRITE));
+    add(permission(PERMISSIONS.TALLER_READ), 'Taller', writeDetail(PERMISSIONS.TALLER_WRITE));
+    add(permission(PERMISSIONS.COMMUNICATIONLOGS_READ), 'Historial de comunicaciones', writeDetail(PERMISSIONS.COMMUNICATIONLOGS_WRITE));
+    add(permission(PERMISSIONS.MESSAGETEMPLATES_READ), 'Plantillas de mensajes', writeDetail(PERMISSIONS.MESSAGETEMPLATES_WRITE));
+    add(permission(PERMISSIONS.MENSAJES_READ), 'Mensajes', writeDetail(PERMISSIONS.MENSAJES_WRITE));
+    add(permission(PERMISSIONS.WHATSAPP_READ), 'WhatsApp', writeDetail(PERMISSIONS.WHATSAPP_WRITE));
+    add(permission(PERMISSIONS.CORREOS_READ), 'Correos', writeDetail(PERMISSIONS.CORREOS_WRITE));
+    add(permission(PERMISSIONS.NPS_READ), 'Encuestas de satisfacción', writeDetail(PERMISSIONS.NPS_WRITE));
+    add(permission(PERMISSIONS.DORMANT_READ), 'Clientes inactivos', writeDetail(PERMISSIONS.DORMANT_WRITE));
+    add(permission(PERMISSIONS.RECLAMOS_READ), 'Reclamos', writeDetail(PERMISSIONS.RECLAMOS_WRITE));
+    add(permission(PERMISSIONS.PEDIDOS_READ), 'Pedidos', writeDetail(PERMISSIONS.PEDIDOS_WRITE));
+    add(permission(PERMISSIONS.TELEFONOS_READ), 'Teléfonos', writeDetail(PERMISSIONS.TELEFONOS_WRITE));
+    add(permission(PERMISSIONS.INFRACCIONES_READ), 'Infracciones', writeDetail(PERMISSIONS.INFRACCIONES_WRITE));
+    add(permission(PERMISSIONS.LIQUIDACIONES_READ), 'Liquidaciones', writeDetail(PERMISSIONS.LIQUIDACIONES_WRITE));
+    add(permission(PERMISSIONS.AUDITORIA_READ), 'Auditoría', 'Consulta de registros de actividad');
+    add(permission(PERMISSIONS.EQUIPO_READ), 'Equipo', 'Consulta del equipo');
+    add(permission(PERMISSIONS.PRODUCTIVIDAD_READ), 'Productividad', 'Consulta');
+    add(permission(PERMISSIONS.METAS_READ), 'Metas', writeDetail(PERMISSIONS.METAS_WRITE));
+    add(permission(PERMISSIONS.DATAQUALITY_READ), 'Calidad de datos', 'Consulta');
+    add(permission(PERMISSIONS.SYSTEMHEALTH_READ), 'Estado del sistema', 'Consulta');
+    add(permission(PERMISSIONS.EXPORTS_READ), 'Exportaciones', 'Según los módulos autorizados');
+    add(permission(PERMISSIONS.TRASH_READ), 'Papelera', permission(PERMISSIONS.TRASH_DELETE) ? 'Consulta, restauración y eliminación definitiva' : permission(PERMISSIONS.TRASH_RESTORE) ? 'Consulta y restauración' : 'Solo consulta');
+    add(permission(PERMISSIONS.SETTINGS_READ), 'Configuración general', writeDetail(PERMISSIONS.SETTINGS_WRITE));
+    add(permission(PERMISSIONS.USUARIOS_READ), 'Configuración de usuarios', writeDetail(PERMISSIONS.USUARIOS_WRITE));
+    add(permission(PERMISSIONS.APPROVALS_READ), 'Autorizaciones', user.role === ROLES.OWNER ? 'Aprueba altas y administra solicitudes' : 'Solicitudes habilitadas para su cuenta');
+    add(permission(PERMISSIONS.HELP_READ), 'Ayuda', 'Consulta');
+    return entries;
+};

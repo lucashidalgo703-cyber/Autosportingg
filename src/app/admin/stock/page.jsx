@@ -26,17 +26,24 @@ import { hasPermission, PERMISSIONS, canReadStockNegotiation, isSalesRole } from
 import { prepareVehicleImageOrder } from '../../../services/vehicleImageUpload';
 import AvailableInventoryValues from '../../../components/crm/stock/AvailableInventoryValues';
 import StockNegotiationPanel from '../../../components/crm/stock/StockNegotiationPanel';
+import VehicleIntakeModal from '../../../components/crm/stock/VehicleIntakeModal';
 
 
 export default function AdminStockPage() {
     const { user, loading } = useAuth();
     if (loading || !user) return <p className="text-sm text-crm-fg-muted">Cargando…</p>;
     // Do not mount inventory hooks, cached rows, actions or counters for sellers.
-    if (isSalesRole(user)) return <div className="flex min-w-0 flex-col gap-6" data-seller-stock-negotiation>
-        <CrmPageHeader title="Stock" subtitle="Negociación de contado de las unidades disponibles." />
-        {canReadStockNegotiation(user) ? <StockNegotiationPanel/> : <p className="text-sm text-crm-fg-muted">No tenés permiso para consultar Negociación.</p>}
-    </div>;
+    if (isSalesRole(user)) return <RestrictedStockPage user={user}/>;
     return <StockInventoryPage/>;
+}
+
+function RestrictedStockPage({ user }) {
+    const [intakeOpen, setIntakeOpen] = useState(false);
+    return <div className="flex min-w-0 flex-col gap-6" data-seller-stock-negotiation>
+        <CrmPageHeader title="Stock" subtitle="Negociación de contado de las unidades disponibles." actions={hasPermission(user, PERMISSIONS.STOCK_SUBMIT) && <CrmButton type="button" onClick={() => setIntakeOpen(true)}><Plus size={16}/> Solicitar alta de vehículo</CrmButton>}/>
+        {canReadStockNegotiation(user) ? <StockNegotiationPanel/> : <p className="text-sm text-crm-fg-muted">No tenés permiso para consultar Negociación.</p>}
+        {intakeOpen && <VehicleIntakeModal onClose={() => setIntakeOpen(false)}/>}
+    </div>;
 }
 
 function StockInventoryPage() {

@@ -6,7 +6,7 @@ import Sale from '../models/Sale.js';
 import Client from '../models/Client.js';
 import Car from '../models/Car.js';
 import { EmailAdapter } from '../lib/emailAdapter.js';
-import { hasPermission, PERMISSIONS } from '../utils/adminPermissions.js';
+import { hasPermission, isSalesRole, PERMISSIONS } from '../utils/adminPermissions.js';
 
 const MAX_ATTEMPTS = 3;
 const idOf = value => String(value?._id || value || '');
@@ -136,7 +136,7 @@ export async function deliverBuyerPaymentNotification(proofId) {
 }
 async function authorizedProof(user, proofId, write = false) {
     if (!validId(proofId)) fail('No encontré el comprobante.', 404);
-    if (user?.role === 'ventas' || !hasPermission(user, write ? PERMISSIONS.FINANZAS_WRITE : PERMISSIONS.FINANZAS_READ)) fail('No tenés permiso para consultar este aviso.', 403);
+    if (isSalesRole(user) || !hasPermission(user, write ? PERMISSIONS.FINANZAS_WRITE : PERMISSIONS.FINANZAS_READ)) fail('No tenés permiso para consultar este aviso.', 403);
     const proof = await BuyerPaymentProof.findById(proofId).select('saleId clientId vehicleId').lean();
     const sale = proof ? await Sale.findById(proof.saleId).select('clientId vehicleId').lean() : null;
     if (!sale || idOf(proof.clientId) !== idOf(sale.clientId) || idOf(proof.vehicleId) !== idOf(sale.vehicleId)) fail('No encontré el comprobante.', 404);

@@ -1,281 +1,195 @@
 "use client";
 
-import React, { useEffect, useState } from 'react';
-import { Shield, Check, X, Clock, PlayCircle, AlertCircle } from 'lucide-react';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { Shield, Check, X, PlayCircle, RefreshCw, Eye, Loader2 } from 'lucide-react';
 import PermissionGuard from '../../../components/crm/layout/PermissionGuard';
+import CrmButton from '../../../components/crm/ui/CrmButton';
+import CrmModal from '../../../components/crm/ui/CrmModal';
+import CrmPageHeader from '../../../components/crm/ui/CrmPageHeader';
 import { PERMISSIONS, hasPermission } from '../../../utils/adminPermissions';
 import { useAuth } from '../../../context/AuthContext';
 import toast from 'react-hot-toast';
-import ConfirmModal from '../../../components/crm/ui/ConfirmModal';
+
+const isIntake = request => ['CREATE_STOCK_VEHICLE', 'CREATE_CLIENT'].includes(request?.actionType);
+const idOf = value => String(value?._id || value?.id || value?.userId || value || '');
+const date = value => value ? new Date(value).toLocaleString('es-AR', { timeZone: 'America/Argentina/Buenos_Aires', dateStyle: 'short', timeStyle: 'short' }) : 'Sin fecha';
+const money = (value, currency) => value === undefined || value === null || value === '' ? 'Sin informar' : `${currency || 'Moneda pendiente'} ${Number(value).toLocaleString('es-AR', { maximumFractionDigits: 2 })}`;
+const person = value => value?.name || value?.email || 'Usuario';
+
+function StatusBadge({ request }) {
+    const styles = { pending: 'border-amber-400/20 bg-amber-400/10 text-amber-300', approved: 'border-green-500/20 bg-green-500/10 text-green-400',
+        rejected: 'border-red-500/20 bg-red-500/10 text-red-300', cancelled: 'border-crm-border bg-crm-bg text-crm-fg-muted', executed: 'border-emerald-400/20 bg-emerald-400/10 text-emerald-300' };
+    const labels = { pending: 'Pendiente de autorización', approved: 'Aprobada', rejected: 'Rechazada', cancelled: 'Cancelada', executed: isIntake(request) ? 'Alta aprobada' : 'Ejecutada' };
+    return <span className={`inline-flex rounded-full border px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide ${styles[request.status] || styles.pending}`}>{labels[request.status] || request.status}</span>;
+}
+
+function Value({ label, children }) {
+    return <div className="min-w-0"><dt className="text-[11px] font-semibold text-crm-fg-muted">{label}</dt><dd className="mt-0.5 break-words text-sm font-medium text-crm-fg">{children || 'Sin informar'}</dd></div>;
+}
+
+function ProposalDetails({ request, compact = false }) {
+    const data = request.intakePayload;
+    if (!isIntake(request) || !data) return <p className="whitespace-pre-wrap break-words text-sm text-crm-fg-muted">{request.reason || 'Sin motivo registrado.'}</p>;
+    const vehicle = request.actionType === 'CREATE_STOCK_VEHICLE';
+    const images = (Array.isArray(data.images) ? data.images : []).map(image => typeof image === 'string' ? image : image?.url).filter(image => {
+        try { return new URL(image).protocol === 'https:'; } catch { return false; }
+    });
+    return <div className="space-y-4">
+        <dl className="grid grid-cols-1 gap-3 min-[400px]:grid-cols-2">
+            {vehicle ? <>
+                <Value label="Vehículo">{[data.brand, data.name, data.year].filter(Boolean).join(' ')}</Value>
+                <Value label="Patente / VIN">{data.plateOrVin || 'Sin informar'}</Value>
+                <Value label="Precio publicado">{money(data.price, data.currency)}</Value>
+                <Value label="Costo de compra">{money(data.purchasePrice, data.purchaseCurrency)}</Value>
+                {!compact && <>
+                    <Value label="Kilometraje">{`${Number(data.km || 0).toLocaleString('es-AR')} km`}</Value>
+                    <Value label="Combustible">{data.fuel}</Value>
+                    <Value label="Condición">{data.condition}</Value>
+                    <Value label="Color">{data.color}</Value>
+                    <Value label="Tipo de vehículo">{data.vehicleType}</Value>
+                    <Value label="Propiedad">{data.agencyOwned ? 'Unidad propia de la agencia' : 'Unidad de un tercero'}</Value>
+                </>}
+            </> : <>
+                <Value label="Cliente">{[data.firstName, data.lastName].filter(Boolean).join(' ') || data.fullName}</Value>
+                <Value label="Teléfono">{data.phone}</Value>
+                <Value label="Email">{data.email}</Value>
+                <Value label="Tipo de cliente">{data.type}</Value>
+                {!compact && <>
+                    <Value label="DNI / CUIT">{data.dniCuit}</Value>
+                    <Value label="Localidad / provincia">{[data.locality, data.province].filter(Boolean).join(' · ')}</Value>
+                    <Value label="Dirección">{data.address}</Value>
+                    <Value label="Origen">{data.source}</Value>
+                </>}
+            </>}
+        </dl>
+        {!compact && <>
+            {(data.notes || data.description) && <div className="rounded-lg border border-crm-border bg-crm-bg p-3"><h4 className="text-xs font-bold text-crm-fg">Observaciones</h4><p className="mt-1 whitespace-pre-wrap break-words text-sm text-crm-fg-muted">{[data.description, data.notes].filter(Boolean).join('\n')}</p></div>}
+            {request.reason && <p className="whitespace-pre-wrap break-words text-xs text-crm-fg-muted"><strong>Motivo:</strong> {request.reason}</p>}
+            {images.length > 0 && <section className="space-y-2" aria-label="Fotos propuestas"><h4 className="text-xs font-bold text-crm-fg">Fotos propuestas · {images.length}</h4><div className="grid grid-cols-1 gap-2 sm:grid-cols-2">{images.map((image, index) => <div key={`${image}-${index}`} className="rounded-lg border border-crm-border bg-crm-bg p-2">
+                <img src={image} alt={`Foto propuesta ${index + 1}`} loading="lazy" className="max-h-64 w-full object-contain"/>
+            </div>)}</div></section>}
+        </>}
+    </div>;
+}
 
 export default function AutorizacionesPage() {
-    const { user } = useAuth();
-    const canApprove = hasPermission(user, PERMISSIONS.APPROVALS_WRITE);
-    
+    const { user, logout } = useAuth();
+    const canRead = hasPermission(user, PERMISSIONS.APPROVALS_READ);
     const [requests, setRequests] = useState([]);
     const [loading, setLoading] = useState(true);
-    const [filter, setFilter] = useState('pending'); // pending, history
-
-    // Modal state
-    const [selectedReq, setSelectedReq] = useState(null);
+    const [loadError, setLoadError] = useState('');
+    const [filter, setFilter] = useState('pending');
+    const [selection, setSelection] = useState(null);
     const [notes, setNotes] = useState('');
-    const [modalAction, setModalAction] = useState(null); // 'approve', 'reject'
-    const [actionLoading, setActionLoading] = useState(false);
-    const [confirmActionModal, setConfirmActionModal] = useState({ isOpen: false, id: null, status: null });
+    const [saving, setSaving] = useState(false);
+    const [actionError, setActionError] = useState('');
+    const busyRef = useRef(false);
 
-    const fetchRequests = async () => {
+    const canApprove = request => isIntake(request) ? user?.role === 'owner' : hasPermission(user, PERMISSIONS.APPROVALS_WRITE);
+    const canCancel = request => isIntake(request)
+        ? user?.role === 'owner' || idOf(request.requester) === idOf(user)
+        : hasPermission(user, PERMISSIONS.APPROVALS_WRITE);
+
+    const fetchRequests = useCallback(async () => {
+        if (!canRead) { setRequests([]); setLoading(false); return; }
+        setLoading(true);
+        setLoadError('');
         try {
-            const token = localStorage.getItem('token');
-            const res = await fetch(`/api/admin/approvals`, {
-                headers: { 'Authorization': `Bearer ${token}` }
-            });
-            if (!res.ok) throw new Error('Error al cargar autorizaciones');
-            const data = await res.json();
-            setRequests(data);
-        } catch (error) {
-            toast.error(error.message);
-        } finally {
-            setLoading(false);
-        }
+            const response = await fetch('/api/admin/approvals', { cache: 'no-store', headers: { Authorization: `Bearer ${localStorage.getItem('token')}` } });
+            const data = await response.json().catch(() => ({}));
+            if (!response.ok) {
+                if (response.status === 401) logout();
+                throw new Error(data.message || 'No se pudieron cargar las autorizaciones.');
+            }
+            setRequests(Array.isArray(data) ? data : []);
+        } catch (error) { setLoadError(error.message || 'No se pudieron cargar las autorizaciones.'); }
+        finally { setLoading(false); }
+    }, [canRead, logout]);
+
+    useEffect(() => { fetchRequests(); }, [fetchRequests]);
+
+    const open = (request, action) => {
+        if (busyRef.current) return;
+        setSelection({ request, action });
+        setNotes('');
+        setActionError('');
     };
+    const close = () => { if (!busyRef.current) { setSelection(null); setNotes(''); setActionError(''); } };
 
-    useEffect(() => {
-        fetchRequests();
-    }, []);
-
-    const handleAction = async (e) => {
-        e.preventDefault();
-        setActionLoading(true);
+    const submitAction = async event => {
+        event.preventDefault();
+        if (busyRef.current || !selection || selection.action === 'view') return;
+        const { request, action } = selection;
+        if (['approve', 'reject'].includes(action) && !canApprove(request)) return;
+        if (action === 'cancel' && !canCancel(request)) return;
+        if (action === 'reject' && !notes.trim()) { setActionError('Indicá el motivo del rechazo.'); return; }
+        const status = { approve: 'approved', reject: 'rejected', cancel: 'cancelled', execute: 'executed' }[action];
+        if (!status || isIntake(request) && status === 'executed') return;
+        busyRef.current = true;
+        setSaving(true);
+        setActionError('');
         try {
-            const token = localStorage.getItem('token');
-            const res = await fetch(`/api/admin/approvals/${selectedReq._id}`, {
-                method: 'PATCH',
-                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-                body: JSON.stringify({ status: modalAction === 'approve' ? 'approved' : 'rejected', resolutionNotes: notes })
-            });
-
-            if (!res.ok) throw new Error('Error al procesar la solicitud');
-            toast.success(modalAction === 'approve' ? 'Solicitud aprobada' : 'Solicitud rechazada');
-            setModalAction(null);
-            setSelectedReq(null);
+            const response = await fetch(`/api/admin/approvals/${request._id}`, { method: 'PATCH',
+                headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${localStorage.getItem('token')}` },
+                body: JSON.stringify({ status, resolutionNotes: notes.trim() }) });
+            const data = await response.json().catch(() => ({}));
+            if (!response.ok) {
+                if (response.status === 401) logout();
+                throw new Error(data.message || 'No se pudo actualizar la solicitud. Reintentá.');
+            }
+            toast.success(isIntake(request) && action === 'approve' ? 'Alta aprobada y registrada' : 'Solicitud actualizada');
+            setSelection(null);
             setNotes('');
-            fetchRequests();
-        } catch (error) {
-            toast.error(error.message);
-        } finally {
-            setActionLoading(false);
-        }
+            await fetchRequests();
+        } catch (error) { setActionError(error.message || 'No se pudo actualizar la solicitud. Reintentá.'); }
+        finally { busyRef.current = false; setSaving(false); }
     };
 
-    const handleExecuteOrCancel = (id, newStatus) => {
-        setConfirmActionModal({ isOpen: true, id, status: newStatus });
-    };
+    const filtered = requests.filter(request => filter === 'pending' ? ['pending', 'approved'].includes(request.status) : ['executed', 'rejected', 'cancelled'].includes(request.status));
+    const selectedRequest = selection?.request;
+    const modalTitle = selection?.action === 'view' ? 'Detalle de la solicitud' : selection?.action === 'approve' ? isIntake(selectedRequest) ? 'Aprobar alta' : 'Aprobar solicitud' : selection?.action === 'reject' ? 'Rechazar solicitud' : selection?.action === 'cancel' ? 'Cancelar solicitud' : 'Marcar solicitud ejecutada';
+    const confirmationText = { approve: 'Confirmar aprobación', reject: 'Confirmar rechazo', cancel: 'Confirmar cancelación', execute: 'Confirmar ejecución' }[selection?.action];
 
-    const confirmExecuteOrCancel = async () => {
-        const { id, status: newStatus } = confirmActionModal;
-        if (!id || !newStatus) return;
-        try {
-            const token = localStorage.getItem('token');
-            const res = await fetch(`/api/admin/approvals/${id}`, {
-                method: 'PATCH',
-                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-                body: JSON.stringify({ status: newStatus })
-            });
-            if (!res.ok) throw new Error('Error de conexión');
-            toast.success('Estado actualizado');
-            fetchRequests();
-        } catch (error) {
-            toast.error(error.message);
-        }
-    };
-
-    const filteredRequests = requests.filter(r => {
-        if (filter === 'pending') return r.status === 'pending' || r.status === 'approved';
-        return r.status === 'rejected' || r.status === 'cancelled' || r.status === 'executed';
-    });
-
-    const getStatusBadge = (status) => {
-        const styles = {
-            pending: 'bg-yellow-500/10 text-yellow-600 border-yellow-500/20',
-            approved: 'bg-green-500/10 text-green-600 border-green-500/20',
-            rejected: 'bg-red-500/10 text-red-600 border-red-500/20',
-            cancelled: 'bg-gray-500/10 text-gray-600 border-gray-500/20',
-            executed: 'bg-blue-500/10 text-blue-600 border-blue-500/20'
-        };
-        const labels = {
-            pending: 'Pendiente', approved: 'Aprobada', rejected: 'Rechazada',
-            cancelled: 'Cancelada', executed: 'Ejecutada'
-        };
-        return <span className={`px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wider border ${styles[status]}`}>{labels[status]}</span>;
-    };
-
-    return (
-        <PermissionGuard permission={PERMISSIONS.APPROVALS_READ}>
-            <div className="flex h-[calc(100vh-64px)] w-full flex-col bg-crm-bg p-4 md:p-6 overflow-y-auto">
-                <div className="max-w-6xl mx-auto w-full space-y-6">
-                    
-                    <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-                        <div>
-                            <h1 className="text-2xl font-black text-crm-fg flex items-center gap-2">
-                                <Shield className="text-blue-500" /> Autorizaciones
-                            </h1>
-                            <p className="text-sm text-crm-fg-muted mt-1">Cada decisión queda trazada con motivo, fecha y usuario.</p>
-                        </div>
-                        <div className="flex items-center gap-3">
-                            <button disabled className="bg-crm-surface border border-crm-border text-crm-fg-muted font-bold text-sm px-4 py-2 rounded-xl flex items-center gap-2 opacity-50 cursor-not-allowed" title="Pendiente de configuración">
-                                <Shield size={16} className="text-crm-red" />
-                                PIN de emergencia
-                            </button>
-                        </div>
-                    </div>
-
-                    <div className="bg-crm-surface border border-crm-border rounded-2xl shadow-sm overflow-hidden">
-                        <div className="border-b border-crm-border flex p-2 gap-2 bg-crm-bg/50">
-                            <button
-                                onClick={() => setFilter('pending')}
-                                className={`px-4 py-2 rounded-xl text-sm font-bold transition-colors ${filter === 'pending' ? 'bg-crm-surface text-crm-fg shadow-sm border border-crm-border' : 'text-crm-fg-muted hover:text-crm-fg'}`}
-                            >
-                                Pendientes
-                            </button>
-                            <button
-                                onClick={() => setFilter('history')}
-                                className={`px-4 py-2 rounded-xl text-sm font-bold transition-colors ${filter === 'history' ? 'bg-crm-surface text-crm-fg shadow-sm border border-crm-border' : 'text-crm-fg-muted hover:text-crm-fg'}`}
-                            >
-                                Histórico
-                            </button>
-                        </div>
-
-                        <div className="p-0 overflow-x-auto">
-                            {loading ? (
-                                <div className="p-8 text-center text-crm-fg-muted">Cargando...</div>
-                            ) : filteredRequests.length === 0 ? (
-                                <div className="p-12 text-center flex flex-col items-center">
-                                    <Shield size={48} className="text-crm-border mb-4" />
-                                    <p className="text-sm font-bold text-crm-fg">No hay autorizaciones en esta vista.</p>
-                                </div>
-                            ) : (
-                                <table className="w-full text-left text-sm text-crm-fg whitespace-nowrap">
-                                    <thead className="bg-crm-bg text-xs font-bold uppercase text-crm-fg-muted border-b border-crm-border">
-                                        <tr>
-                                            <th className="px-6 py-4">Fecha</th>
-                                            <th className="px-6 py-4">Solicitante</th>
-                                            <th className="px-6 py-4">Acción Requerida</th>
-                                            <th className="px-6 py-4">Estado</th>
-                                            <th className="px-6 py-4 text-right">Acciones</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody className="divide-y divide-crm-border">
-                                        {filteredRequests.map(r => (
-                                            <React.Fragment key={r._id}>
-                                                <tr className="hover:bg-crm-bg/50 transition-colors group">
-                                                    <td className="px-6 py-4">
-                                                        <div className="font-bold">{new Date(r.createdAt).toLocaleDateString()}</div>
-                                                        <div className="text-xs text-crm-fg-subtle">{new Date(r.createdAt).toLocaleTimeString()}</div>
-                                                    </td>
-                                                    <td className="px-6 py-4">
-                                                        <div className="font-bold">{r.requester?.name || r.requester?.email || 'Sistema'}</div>
-                                                    </td>
-                                                    <td className="px-6 py-4">
-                                                        <div className="font-bold text-crm-red">{r.summary}</div>
-                                                        <div className="text-xs text-crm-fg-subtle truncate max-w-[250px] font-medium" title={r.reason}>
-                                                            Motivo: {r.reason}
-                                                        </div>
-                                                    </td>
-                                                    <td className="px-6 py-4">
-                                                        {getStatusBadge(r.status)}
-                                                    </td>
-                                                    <td className="px-6 py-4 text-right space-x-2">
-                                                        {/* Acciones para Aprobador */}
-                                                        {canApprove && r.status === 'pending' && (
-                                                            <>
-                                                                <button onClick={() => { setSelectedReq(r); setModalAction('approve'); }} className="p-2 bg-green-500/10 text-green-600 rounded-lg hover:bg-green-500 hover:text-white transition-colors" title="Aprobar">
-                                                                    <Check size={16} />
-                                                                </button>
-                                                                <button onClick={() => { setSelectedReq(r); setModalAction('reject'); }} className="p-2 bg-red-500/10 text-red-600 rounded-lg hover:bg-red-500 hover:text-white transition-colors" title="Rechazar">
-                                                                    <X size={16} />
-                                                                </button>
-                                                            </>
-                                                        )}
-                                                        {/* Acciones para Solicitante */}
-                                                        {r.status === 'pending' && !canApprove && (
-                                                            <button onClick={() => handleExecuteOrCancel(r._id, 'cancelled')} className="text-xs font-bold text-crm-fg-muted hover:text-crm-red transition-colors">Cancelar</button>
-                                                        )}
-                                                        {r.status === 'approved' && (
-                                                            <button onClick={() => handleExecuteOrCancel(r._id, 'executed')} className="flex items-center gap-1 ml-auto text-xs font-bold bg-blue-600 text-white px-3 py-1.5 rounded-lg hover:bg-blue-500 transition-colors">
-                                                                <PlayCircle size={14} /> Marcar Ejecutada
-                                                            </button>
-                                                        )}
-                                                    </td>
-                                                </tr>
-                                                {/* Detalle si está rechazada o tiene notas del aprobador */}
-                                                {(r.resolutionNotes || r.approver) && filter === 'history' && (
-                                                    <tr className="bg-crm-bg/30">
-                                                        <td colSpan={5} className="px-6 py-3 border-t-0 text-xs text-crm-fg-subtle border-l-2 border-l-crm-border ml-2">
-                                                            <div className="flex items-start gap-2 max-w-3xl">
-                                                                <AlertCircle size={14} className="mt-0.5 shrink-0" />
-                                                                <div>
-                                                                    <strong>Resolución por {r.approver?.name || r.approver?.email || 'Admin'}:</strong> {r.resolutionNotes || 'Sin comentarios.'}
-                                                                </div>
-                                                            </div>
-                                                        </td>
-                                                    </tr>
-                                                )}
-                                            </React.Fragment>
-                                        ))}
-                                    </tbody>
-                                </table>
-                            )}
-                        </div>
-                    </div>
-                </div>
+    return <PermissionGuard permission={PERMISSIONS.APPROVALS_READ}>
+        <div className="mx-auto w-full max-w-6xl space-y-5 p-3 pb-20 sm:p-5">
+            <CrmPageHeader title="Autorizaciones" subtitle="Revisá las solicitudes y sus datos antes de resolverlas. Las altas de vendedores las autoriza el propietario." actions={<CrmButton type="button" variant="secondary" disabled={loading || saving} onClick={fetchRequests}><RefreshCw size={15}/> Actualizar</CrmButton>}/>
+            <div className="flex flex-wrap gap-2" aria-label="Filtrar autorizaciones">
+                <CrmButton type="button" variant={filter === 'pending' ? 'primary' : 'secondary'} onClick={() => setFilter('pending')}>Pendientes</CrmButton>
+                <CrmButton type="button" variant={filter === 'history' ? 'primary' : 'secondary'} onClick={() => setFilter('history')}>Histórico</CrmButton>
             </div>
-
-            {/* Modal de Aprobación/Rechazo */}
-            {modalAction && selectedReq && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
-                    <div className="w-full max-w-md rounded-2xl bg-crm-surface shadow-2xl overflow-hidden flex flex-col">
-                        <div className={`flex items-center justify-between border-b border-crm-border px-6 py-4 ${modalAction === 'approve' ? 'bg-green-500/10' : 'bg-red-500/10'}`}>
-                            <h3 className={`text-lg font-black ${modalAction === 'approve' ? 'text-green-600' : 'text-red-600'}`}>
-                                {modalAction === 'approve' ? 'Aprobar Solicitud' : 'Rechazar Solicitud'}
-                            </h3>
-                            <button onClick={() => setModalAction(null)} className="text-crm-fg-muted hover:text-crm-fg">✕</button>
-                        </div>
-                        
-                        <form onSubmit={handleAction} className="p-6 space-y-4">
-                            <div>
-                                <p className="text-sm font-bold text-crm-fg mb-1">Solicitado por: {selectedReq.requester?.name || selectedReq.requester?.email || 'Sistema'}</p>
-                                <p className="text-xs text-crm-fg-muted mb-4">{selectedReq.summary}</p>
-                                
-                                <label className="block text-xs font-bold uppercase tracking-wider text-crm-fg-muted mb-1.5">Notas de Resolución (Opcional)</label>
-                                <textarea
-                                    className="w-full rounded-xl border border-crm-border bg-crm-bg p-3 text-sm text-crm-fg outline-none focus:border-crm-red transition-colors resize-none"
-                                    rows={4}
-                                    value={notes}
-                                    onChange={e => setNotes(e.target.value)}
-                                    placeholder={modalAction === 'approve' ? "Instrucciones o comentarios sobre la aprobación..." : "Motivo del rechazo..."}
-                                    required={modalAction === 'reject'}
-                                ></textarea>
-                            </div>
-                            <div className="pt-2 flex justify-end gap-3">
-                                <button type="button" onClick={() => setModalAction(null)} className="px-4 py-2 text-sm font-bold text-crm-fg-muted hover:text-crm-fg">Cancelar</button>
-                                <button disabled={actionLoading} type="submit" className={`rounded-xl px-6 py-2 text-sm font-black text-white shadow-sm disabled:opacity-50 ${modalAction === 'approve' ? 'bg-green-600 hover:bg-green-500' : 'bg-red-600 hover:bg-red-500'}`}>
-                                    Confirmar {modalAction === 'approve' ? 'Aprobación' : 'Rechazo'}
-                                </button>
-                            </div>
-                        </form>
+            {loadError && <div role="alert" className="rounded-xl border border-red-500/25 bg-red-500/10 p-4 text-sm text-red-300">{loadError} <button type="button" onClick={fetchRequests} className="ml-2 font-bold underline">Reintentar</button></div>}
+            {loading ? <p className="p-6 text-center text-sm text-crm-fg-muted">Cargando autorizaciones…</p> : filtered.length === 0 ? <div className="flex flex-col items-center gap-3 rounded-2xl border border-crm-border bg-crm-surface p-10 text-center"><Shield size={35} className="text-crm-fg-muted"/><p className="text-sm font-bold text-crm-fg">No hay autorizaciones en esta vista.</p></div> : <div className="grid min-w-0 grid-cols-1 gap-4 lg:grid-cols-2">
+                {filtered.map(request => <article key={request._id} data-approval-id={request._id} className="min-w-0 space-y-4 rounded-2xl border border-crm-border bg-crm-surface p-4 sm:p-5">
+                    <div className="flex flex-wrap items-center justify-between gap-2"><StatusBadge request={request}/><span className="text-[11px] text-crm-fg-muted">{date(request.createdAt)}</span></div>
+                    <div><h2 className="break-words text-base font-bold text-crm-fg">{request.summary}</h2><p className="mt-1 break-words text-xs text-crm-fg-muted">Solicitado por {person(request.requester)}</p></div>
+                    <ProposalDetails request={request} compact/>
+                    {request.resolutionNotes || request.approver || ['executed', 'rejected', 'cancelled'].includes(request.status) ? <div className="rounded-lg border border-crm-border bg-crm-bg p-3 text-xs text-crm-fg-muted"><strong className="text-crm-fg">Resolución{request.approver ? ` de ${person(request.approver)}` : ''}:</strong><p className="mt-1 whitespace-pre-wrap break-words">{request.resolutionNotes || 'Sin comentarios.'}</p><p className="mt-1 text-[10px]">{date(request.updatedAt)}</p></div> : null}
+                    <div className="flex flex-wrap gap-2 border-t border-crm-border pt-3">
+                        <CrmButton type="button" size="sm" variant="secondary" disabled={saving} onClick={() => open(request, 'view')}><Eye size={14}/> Ver detalle</CrmButton>
+                        {request.status === 'pending' && canApprove(request) && <>
+                            <CrmButton type="button" size="sm" disabled={saving} onClick={() => open(request, 'approve')}><Check size={14}/>{isIntake(request) ? 'Aprobar alta' : 'Aprobar'}</CrmButton>
+                            <CrmButton type="button" size="sm" variant="secondary" disabled={saving} onClick={() => open(request, 'reject')}><X size={14}/> Rechazar</CrmButton>
+                        </>}
+                        {request.status === 'pending' && canCancel(request) && <CrmButton type="button" size="sm" variant="ghost" disabled={saving} onClick={() => open(request, 'cancel')}>Cancelar solicitud</CrmButton>}
+                        {!isIntake(request) && request.status === 'approved' && hasPermission(user, PERMISSIONS.APPROVALS_WRITE) && <CrmButton type="button" size="sm" variant="secondary" disabled={saving} onClick={() => open(request, 'execute')}><PlayCircle size={14}/> Marcar Ejecutada</CrmButton>}
+                        {isIntake(request) && request.status === 'pending' && !canApprove(request) && <p className="w-full text-xs text-crm-fg-muted">Pendiente de autorización del propietario.</p>}
                     </div>
-                </div>
-            )}
-
-            <ConfirmModal
-                isOpen={confirmActionModal.isOpen}
-                onClose={() => setConfirmActionModal({ isOpen: false, id: null, status: null })}
-                onConfirm={confirmExecuteOrCancel}
-                title="Actualizar Estado"
-                message={`¿Estás seguro de marcar esta solicitud como ${confirmActionModal.status}?`}
-                confirmText="Confirmar"
-                isDestructive={confirmActionModal.status === 'cancelled'}
-            />
-        </PermissionGuard>
-    );
+                </article>)}
+            </div>}
+        </div>
+        {selectedRequest && <CrmModal isOpen onClose={close} hideCloseButton={saving} title={modalTitle} maxWidth="max-w-2xl" footer={<div className="flex flex-wrap justify-end gap-2">
+            <CrmButton type="button" variant="ghost" disabled={saving} onClick={close}>{selection.action === 'view' ? 'Cerrar' : 'Volver'}</CrmButton>
+            {selection.action !== 'view' && <CrmButton type="submit" form="approval-resolution-form" disabled={saving} variant={['reject', 'cancel'].includes(selection.action) ? 'danger' : 'primary'}>{saving ? <><Loader2 size={15} className="animate-spin"/> Guardando…</> : confirmationText}</CrmButton>}
+        </div>}>
+            <form id="approval-resolution-form" onSubmit={submitAction} className="space-y-5 p-4 sm:p-5">
+                <div><StatusBadge request={selectedRequest}/><h3 className="mt-3 break-words text-lg font-bold text-crm-fg">{selectedRequest.summary}</h3><p className="mt-1 text-xs text-crm-fg-muted">Solicitado por {person(selectedRequest.requester)} · {date(selectedRequest.createdAt)}</p></div>
+                <ProposalDetails request={selectedRequest}/>
+                {selection.action === 'approve' && isIntake(selectedRequest) && <p className="rounded-xl border border-amber-400/20 bg-amber-400/5 p-3 text-sm text-crm-fg-muted">Al confirmar se dará de alta {selectedRequest.actionType === 'CREATE_CLIENT' ? 'este cliente' : 'este vehículo en el inventario privado'}. Revisá los datos propuestos. No se registran pagos ni movimientos de caja.</p>}
+                {selection.action === 'cancel' && <p className="text-sm text-crm-fg-muted">La solicitud se cancelará y dejará de estar pendiente de autorización.</p>}
+                {['approve', 'reject'].includes(selection.action) && <label className="block space-y-2 text-xs font-bold text-crm-fg-muted"><span>{selection.action === 'reject' ? 'Motivo del rechazo' : 'Comentario de la aprobación (opcional)'}</span><textarea rows={3} maxLength={4000} value={notes} onChange={event => setNotes(event.target.value)} required={selection.action === 'reject'} disabled={saving} className="w-full rounded-xl border border-crm-border bg-crm-bg p-3 text-base font-normal text-crm-fg outline-none focus:border-crm-red md:text-sm"/></label>}
+                {selection.action === 'view' && selectedRequest.resolutionNotes && <p className="whitespace-pre-wrap break-words rounded-xl border border-crm-border bg-crm-bg p-3 text-sm text-crm-fg-muted">Resolución: {selectedRequest.resolutionNotes}</p>}
+                {actionError && <div role="alert" className="rounded-xl border border-red-500/25 bg-red-500/10 p-3 text-sm text-red-300">{actionError}</div>}
+            </form>
+        </CrmModal>}
+    </PermissionGuard>;
 }

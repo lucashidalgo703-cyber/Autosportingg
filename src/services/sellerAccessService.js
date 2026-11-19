@@ -3,15 +3,16 @@ import Reservation from '../models/Reservation.js';
 import { BuyerPortalDocument } from '../models/BuyerPortal.js';
 import BuyerDeliveryDocument from '../models/BuyerDeliveryDocument.js';
 import BuyerPaymentProof from '../models/BuyerPaymentProof.js';
+import { hasPermission, isSalesRole, PERMISSIONS, ROLES } from '../utils/adminPermissions.js';
 
 const idOf = value => String(value?._id || value || '');
 const validId = value => /^[a-f\d]{24}$/i.test(idOf(value));
 const fail = (message, status) => { throw Object.assign(new Error(message), { status }); };
-export const sellerScope = user => user?.role === 'ventas'
+export const sellerScope = user => isSalesRole(user)
     ? { assignedTo: validId(user.id || user.userId || user._id) ? idOf(user.id || user.userId || user._id) : { $in: [] } } : {};
 
 export function assertSellerAssignment(user, input = {}) {
-    if (user?.role !== 'ventas' || input.assignedTo === undefined) return;
+    if (!isSalesRole(user) || input.assignedTo === undefined) return;
     if (idOf(input.assignedTo) !== idOf(user.id || user.userId || user._id)) {
         fail('Sólo podés gestionar operaciones asignadas a tu cuenta.', 403);
     }
@@ -52,10 +53,16 @@ async function ownRecord(Model, id, user) {
 // Called after session validation, so restrictions also apply to already-open
 // sessions and to accounts with historical broad custom permission arrays.
 export async function enforceSellerAccess(req, res) {
-    if (req.user?.role !== 'ventas') return;
+    if (!isSalesRole(req.user)) return;
     let path;
     try { path = decodeURIComponent(req.originalUrl.split('?')[0]).toLowerCase(); }
     catch { fail('Dirección no válida.', 400); }
+    if (req.user.role === ROLES.VENTAS && req.method === 'POST'
+        && (path === '/api/admin/clients/bulk'
+            || /^\/api\/admin\/sales\/[a-f\d]{24}\/create-link-(?:client|vehicle)$/.test(path)
+            || /^\/api\/admin\/sales\/[a-f\d]{24}\/trade-ins\/\d+\/create-stock-car$/.test(path))) {
+        fail('El alta requiere autorización. Solicitá el alta desde Clientes o Negociación y esperá la aprobación del propietario.', 403);
+    }
     const blocked = /^\/api\/admin\/(?:cars|dashboard|team-dashboard|offline)(?:\/|$)/.test(path)
         || /^\/api\/cars(?:\/|$)/.test(path)
         || /^\/api\/stats\/dashboard(?:\/|$)/.test(path)
@@ -65,7 +72,11 @@ export async function enforceSellerAccess(req, res) {
     if (blocked) fail('Esta sección no está habilitada para vendedores.', 403);
     const sale = path.match(/^\/api\/admin\/(?:buyer-portal\/)?sales\/([a-f\d]{24})(?:\/|$)/);
     const reservation = path.match(/^\/api\/admin\/reservations\/([a-f\d]{24})(?:\/|$)/);
-    if (sale) await ownRecord(Sale, sale[1], req.user);
+    const operationalPortal = req.user.role === ROLES.GESTORIA_CONTABILIDAD
+        && hasPermission(req.user, PERMISSIONS.GESTORIA_READ)
+        && /^\/api\/admin\/buyer-portal(?:\/|$)/.test(path)
+        && !/\/(?:payment-proofs|payments)(?:\/|$)/.test(path);
+    if (sale && !operationalPortal) await ownRecord(Sale, sale[1], req.user);
     if (reservation) await ownRecord(Reservation, reservation[1], req.user);
     if (/^\/api\/admin\/(?:sales|reservations)(?:\/|$)/.test(path)) {
         assertSellerAssignment(req.user, req.body);
@@ -78,7 +89,7 @@ export async function enforceSellerAccess(req, res) {
         await ownRecord(Model, req.body.entityId, req.user);
         assertSellerAssignment(req.user, req.body);
     }
-    if (/^\/api\/admin\/buyer-portal(?:\/|$)/.test(path)) {
+    if (/^\/api\/admin\/buyer-portal(?:\/|$)/.test(path) && !operationalPortal) {
         if (req.query?.saleId) await ownRecord(Sale, req.query.saleId, req.user);
         if (req.body?.saleId) await ownRecord(Sale, req.body.saleId, req.user);
         const document = path.match(/^\/api\/admin\/buyer-portal\/(documents|delivery-documents|payment-proofs)\/([a-f\d]{24})(?:\/|$)/);

@@ -10,6 +10,8 @@
  *    (salesperson, user, assignedTo.name, assignedTo.email).
  * 4. Operaciones sin vendedor identificable quedan estrictamente excluidas (false).
  */
+import { isSalesRole } from './adminPermissions.js';
+
 export function isMySaleOrReservation(record, user) {
     if (!record || !user) return false;
 
@@ -18,7 +20,7 @@ export function isMySaleOrReservation(record, user) {
 
     // Sales staff access is an authorization decision, never a name match.
     // Historical records without an assigned ID require an administrator.
-    if (user.role === 'ventas') {
+    if (isSalesRole(user)) {
         const assigned = record.assignedTo?._id || record.assignedTo;
         const assignedId = assigned ? String(assigned).trim() : '';
         return /^[a-f\d]{24}$/i.test(assignedId) && assignedId === currentUserId;

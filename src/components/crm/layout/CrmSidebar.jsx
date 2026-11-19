@@ -98,7 +98,7 @@ export default function CrmSidebar({ isOpen, onClose }) {
     const [isCollapsed, setIsCollapsed] = useState(false);
 
     useEffect(() => {
-        if (!token) return;
+        if (!token || !hasPermission(user, PERMISSIONS.SETTINGS_READ)) return;
         fetch('/api/admin/settings', {
             headers: { 'Authorization': `Bearer ${token}` }
         })
@@ -109,7 +109,7 @@ export default function CrmSidebar({ isOpen, onClose }) {
             }
         })
         .catch(err => console.error("Error fetching settings in sidebar:", err));
-    }, [token]);
+    }, [token, user]);
 
     const closeMenu = () => {
         if (typeof onClose === 'function') onClose();
@@ -121,6 +121,8 @@ export default function CrmSidebar({ isOpen, onClose }) {
     };
 
     const hasItemPermission = (itemName) => {
+        if (itemName === 'Calendario') return hasPermission(user, PERMISSIONS.AGENDA_READ);
+        if (itemName === 'Clientes') return hasPermission(user, PERMISSIONS.CLIENTES_READ);
         if (itemName === 'Usuarios') return hasPermission(user, PERMISSIONS.USUARIOS_READ);
         if (itemName === 'Configuración') return hasPermission(user, PERMISSIONS.USUARIOS_READ) || hasPermission(user, PERMISSIONS.MESSAGETEMPLATES_READ);
         if (itemName === 'Finanzas') return hasPermission(user, PERMISSIONS.FINANZAS_READ);
@@ -135,26 +137,28 @@ export default function CrmSidebar({ isOpen, onClose }) {
         if (itemName === 'Correos') return hasPermission(user, PERMISSIONS.CORREOS_READ);
         if (itemName === 'NPS') return hasPermission(user, PERMISSIONS.NPS_READ) && (flags?.enableNps !== false);
         if (itemName === 'Reportes') return hasPermission(user, PERMISSIONS.REPORTES_READ);
-        if (itemName === 'Mis ventas') return true;
+        if (itemName === 'Mis ventas') return hasPermission(user, PERMISSIONS.VENTAS_READ);
         if (itemName === 'Clientes Dormidos') return hasPermission(user, PERMISSIONS.DORMANT_READ);
         if (itemName === 'Pedidos') return true;
-        if (itemName === 'Expedientes') return true;
+        if (itemName === 'Expedientes') return hasPermission(user, PERMISSIONS.GESTORIA_READ) || hasPermission(user, PERMISSIONS.VENTAS_READ);
         if (itemName === 'Reclamos') return hasPermission(user, PERMISSIONS.RECLAMOS_READ);
         if (itemName === 'Taller') return hasPermission(user, PERMISSIONS.TALLER_READ);
-        if (itemName === 'Gestoría') return true;
+        if (itemName === 'Gestoría') return hasPermission(user, PERMISSIONS.GESTORIA_READ);
         if (itemName === 'Consignaciones') return true;
         if (itemName === 'Infracciones') return true;
         if (itemName === 'Teléfonos útiles') return true;
         if (itemName === 'Auditoría') return hasPermission(user, PERMISSIONS.AUDITORIA_READ);
         if (itemName === 'Papelera') return hasPermission(user, PERMISSIONS.TRASH_READ) && (flags?.enableTrash !== false);
-        if (itemName === 'Autorizaciones') return hasPermission(user, PERMISSIONS.APPROVALS_READ) && (flags?.enableApprovals !== false);
+        if (itemName === 'Autorizaciones') return user?.role === 'owner'
+            || hasPermission(user, PERMISSIONS.APPROVALS_READ) && (flags?.enableApprovals !== false
+                || hasPermission(user, PERMISSIONS.STOCK_SUBMIT) || hasPermission(user, PERMISSIONS.CLIENTES_SUBMIT));
         if (itemName === 'Sistema') return hasPermission(user, PERMISSIONS.SYSTEMHEALTH_READ);
         if (itemName === 'Exportaciones') return hasPermission(user, PERMISSIONS.EXPORTS_READ) || hasPermission(user, PERMISSIONS.EXPORTS_AUDIT);
         if (itemName === 'Equipo') return hasPermission(user, PERMISSIONS.EQUIPO_READ);
         if (itemName === 'Productividad') return hasPermission(user, PERMISSIONS.PRODUCTIVIDAD_READ);
         if (itemName === 'Metas') return hasPermission(user, PERMISSIONS.METAS_READ);
         if (itemName === 'Ayuda') return hasPermission(user, PERMISSIONS.HELP_READ);
-        if (itemName === 'Oportunidades') return hasPermission(user, PERMISSIONS.STOCK_READ) || user?.role === 'owner';
+        if (itemName === 'Oportunidades') return hasPermission(user, PERMISSIONS.OPORTUNIDADES_READ) || hasPermission(user, PERMISSIONS.STOCK_READ);
         return true;
     };
 

@@ -1,9 +1,15 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { X, Save, AlertCircle, Scan, Upload, HelpCircle } from 'lucide-react';
 import Link from 'next/link';
 import toast from 'react-hot-toast';
+import { useAuth } from '../../../context/AuthContext';
+import { ROLES } from '../../../utils/adminPermissions';
 
 export default function ClientFormModal({ isOpen, onClose, onSave, client = null }) {
+    const { user } = useAuth();
+    const needsApproval = !client && user?.role === ROLES.VENTAS;
+    const submissionKey = useRef(null);
+    useEffect(() => { if (isOpen) submissionKey.current = crypto.randomUUID(); }, [isOpen]);
     const [formData, setFormData] = useState({
         firstName: '',
         lastName: '',
@@ -128,7 +134,7 @@ export default function ClientFormModal({ isOpen, onClose, onSave, client = null
         
         setIsSubmitting(true);
         try {
-            await onSave(formData);
+            await onSave({ ...formData, submissionKey: submissionKey.current });
             onClose();
         } catch (error) {
             toast.error(error.message || 'Error al guardar el cliente');
@@ -147,7 +153,7 @@ export default function ClientFormModal({ isOpen, onClose, onSave, client = null
                 <div className="flex items-center justify-between border-b border-crm-border bg-crm-topbar p-5">
                     <div className="flex items-center gap-3">
                         <h2 className="m-0 text-lg font-bold text-crm-fg">
-                            {client ? 'Editar Cliente' : 'Nuevo Cliente'}
+                            {client ? 'Editar Cliente' : needsApproval ? 'Solicitar alta de cliente' : 'Nuevo Cliente'}
                         </h2>
                         <Link href="/admin/ayuda?tema=clientes" className="text-crm-fg-muted hover:text-crm-red transition-colors" title="Ver ayuda sobre clientes y pipeline">
                             <HelpCircle size={18} />
@@ -165,6 +171,7 @@ export default function ClientFormModal({ isOpen, onClose, onSave, client = null
                 {/* Body */}
                 <div className="flex-1 overflow-y-auto p-5 custom-scrollbar">
                     <form id="client-form" onSubmit={handleSubmit} className="space-y-6">
+                        {needsApproval && <p className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-3 text-sm text-crm-fg" role="note">El cliente quedará pendiente de autorización del titular. Podrás seguir la solicitud desde Autorizaciones.</p>}
                         
                         {/* Alerta de datos mínimos */}
                         <div className="flex gap-3 rounded-lg border border-crm-red/20 bg-crm-red/10 p-3 text-sm text-red-200">
@@ -430,7 +437,7 @@ export default function ClientFormModal({ isOpen, onClose, onSave, client = null
                         className="bg-crm-red hover:bg-crm-red-hover text-white px-6 py-2 rounded-lg font-bold transition-colors flex items-center gap-2 disabled:opacity-50"
                     >
                         <Save size={18} />
-                        {isSubmitting ? 'Guardando...' : 'Guardar Cliente'}
+                        {isSubmitting ? 'Enviando...' : needsApproval ? 'Enviar para autorización' : 'Guardar Cliente'}
                     </button>
                 </div>
             </div>

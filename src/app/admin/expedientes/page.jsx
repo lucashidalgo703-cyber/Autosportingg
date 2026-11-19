@@ -3,8 +3,12 @@ import React, { useEffect, useState } from 'react';
 import { FolderOpen, Search, Filter, AlertCircle, FileText, Calendar, Car, ArrowRight } from 'lucide-react';
 import Link from 'next/link';
 import { useAdminSales } from '../../../hooks/useAdminSales';
+import { useAuth } from '../../../context/AuthContext';
+import { hasPermission, PERMISSIONS } from '../../../utils/adminPermissions';
 
 export default function ExpedientesPage() {
+    const { user } = useAuth();
+    const canReadGestoria = hasPermission(user, PERMISSIONS.GESTORIA_READ);
     const { sales, loading, error, fetchSales } = useAdminSales();
     const [search, setSearch] = useState('');
     const [filterStatus, setFilterStatus] = useState('activos');
@@ -13,8 +17,8 @@ export default function ExpedientesPage() {
     const [filterDueDate, setFilterDueDate] = useState('todos');
 
     useEffect(() => {
-        fetchSales();
-    }, [fetchSales]);
+        fetchSales(canReadGestoria ? { scope: 'gestoria' } : {});
+    }, [fetchSales, canReadGestoria]);
 
     const expedientes = sales.filter(sale => {
         if (sale.status === 'cancelada' || sale.status === 'borrador') return false;
@@ -213,7 +217,7 @@ export default function ExpedientesPage() {
                                         <div className="flex items-center gap-1.5 mt-1 text-sm text-crm-fg-muted">
                                             <Car size={14} />
                                             {sale.vehicleId ? (
-                                                <Link href={`/admin/stock/${sale.vehicleId._id}`} className="truncate max-w-[180px] hover:text-crm-red hover:underline">
+                                                <Link href={canReadGestoria ? `/admin/expedientes/${sale._id}` : `/admin/mis-ventas/${sale._id}`} className="truncate max-w-[180px] hover:text-crm-red hover:underline">
                                                     {sale.vehicleId.brand} {sale.vehicleId.name}
                                                 </Link>
                                             ) : (
@@ -270,7 +274,7 @@ export default function ExpedientesPage() {
                                 </div>
                             </div>
 
-                            <Link href={`/admin/ventas/${sale._id}`} className="mt-5 flex w-full items-center justify-center gap-2 rounded-lg bg-crm-bg py-2 text-sm font-bold text-white border border-crm-border hover:bg-crm-border hover:text-crm-red transition-all">
+                            <Link href={canReadGestoria ? `/admin/expedientes/${sale._id}` : `/admin/mis-ventas/${sale._id}`} className="mt-5 flex w-full items-center justify-center gap-2 rounded-lg bg-crm-bg py-2 text-sm font-bold text-white border border-crm-border hover:bg-crm-border hover:text-crm-red transition-all">
                                 Abrir Expediente <ArrowRight size={14} />
                             </Link>
                         </div>

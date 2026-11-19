@@ -2,7 +2,7 @@ import mongoose from 'mongoose';
 import Account from '../models/Account.js';
 import Car from '../models/Car.js';
 import Transaction from '../models/Transaction.js';
-import { PERMISSIONS, hasPermission } from '../utils/adminPermissions.js';
+import { PERMISSIONS, hasPermission, isSalesRole } from '../utils/adminPermissions.js';
 import { logAudit } from '../utils/auditLogger.js';
 import { applyLinkedExpenseTreasury } from './linkedExpenseTreasuryService.js';
 
@@ -16,7 +16,7 @@ export class ExpenseError extends Error {
 }
 
 export function assertExpensePermission(user, payload = {}) {
-    if (!user || user.role === 'ventas' || !hasPermission(user, PERMISSIONS.FINANZAS_WRITE)) {
+    if (!user || isSalesRole(user) || !hasPermission(user, PERMISSIONS.FINANZAS_WRITE)) {
         throw new ExpenseError(403, 'EXPENSE_FORBIDDEN', 'No tenés permiso para registrar gastos financieros.');
     }
     if ((payload.vehicleId || payload.kind === 'vehicle' || payload.kind === 'workshop') && !hasPermission(user, PERMISSIONS.STOCK_WRITE)) {

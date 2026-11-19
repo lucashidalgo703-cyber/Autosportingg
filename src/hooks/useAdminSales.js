@@ -31,7 +31,8 @@ export function useAdminSales() {
             if (filters?.leadId) queryParams.append('leadId', filters.leadId);
             if (filters?.status) queryParams.append('status', filters.status);
 
-            const res = await fetch(`${getBaseUrl()}/api/admin/sales?${queryParams.toString()}`, {
+            const endpoint = filters?.scope === 'gestoria' ? '/api/admin/gestoria/sales' : '/api/admin/sales';
+            const res = await fetch(`${getBaseUrl()}${endpoint}?${queryParams.toString()}`, {
                 headers: getAuthHeader()
             });
 

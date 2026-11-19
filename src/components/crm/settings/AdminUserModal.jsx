@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { X, Save, AlertCircle } from 'lucide-react';
-import { ROLES, PERMISSIONS, DEFAULT_ROLE_PERMISSIONS, canReadStockNegotiation } from '../../../utils/adminPermissions';
+import { ROLES, PERMISSIONS, DEFAULT_ROLE_PERMISSIONS, canReadStockNegotiation, isSalesRole, roleLabel } from '../../../utils/adminPermissions';
+import RoleAccessDetails from './RoleAccessDetails';
 
 export default function AdminUserModal({ user, onClose, onSave }) {
     const isEditing = !!user;
@@ -16,7 +17,7 @@ export default function AdminUserModal({ user, onClose, onSave }) {
 
     const [loading, setLoading] = useState(false);
     const currentPermissions = formData.permissions.length ? formData.permissions : (DEFAULT_ROLE_PERMISSIONS[formData.role] || []);
-    const canHaveNegotiation = !['owner', 'admin'].includes(formData.role) && (formData.role === ROLES.VENTAS || currentPermissions.includes(PERMISSIONS.STOCK_READ));
+    const canHaveNegotiation = !['owner', 'admin'].includes(formData.role) && (isSalesRole(formData) || currentPermissions.includes(PERMISSIONS.STOCK_READ));
     const negotiationEnabled = canReadStockNegotiation(formData);
 
     useEffect(() => {
@@ -101,17 +102,22 @@ export default function AdminUserModal({ user, onClose, onSave }) {
                             )}
 
                             <div>
-                                <label className="block text-xs font-bold text-crm-fg-muted uppercase mb-1">Rol Base</label>
+                                <label htmlFor="admin-user-role" className="block text-xs font-bold text-crm-fg-muted uppercase mb-1">Rol y accesos</label>
                                 <select
+                                    id="admin-user-role"
                                     value={formData.role}
                                     onChange={(e) => setFormData(prev => ({ ...prev, role: e.target.value, permissions: [] }))}
                                     className="w-full bg-crm-bg border border-crm-border rounded-xl px-4 py-2.5 text-crm-fg focus:outline-none focus:border-crm-red focus:ring-1 focus:ring-crm-red"
                                 >
                                     {Object.values(ROLES).map(r => (
-                                        <option key={r} value={r}>{r.toUpperCase()}</option>
+                                        <option key={r} value={r}>{roleLabel(r)}</option>
                                     ))}
                                 </select>
                             </div>
+                            <RoleAccessDetails user={formData} compact />
+                            {formData.permissions.length > 0 && <button type="button" onClick={() => setFormData(previous => ({ ...previous, permissions: [] }))} className="justify-self-start text-left text-xs font-bold text-crm-red underline underline-offset-4">
+                                Restablecer permisos del rol
+                            </button>}
 
                             {isEditing && (
                                 <div className="flex items-center gap-3 bg-crm-bg p-4 rounded-xl border border-crm-border">
@@ -134,7 +140,7 @@ export default function AdminUserModal({ user, onClose, onSave }) {
                             {canHaveNegotiation && <label className="flex items-start gap-3 rounded-xl border border-crm-border bg-crm-bg p-4 text-sm text-crm-fg">
                                 <input type="checkbox" className="mt-1 h-4 w-4" checked={negotiationEnabled} onChange={event => setFormData(previous => {
                                     const permissions = previous.permissions.length ? previous.permissions : (DEFAULT_ROLE_PERMISSIONS[previous.role] || []);
-                                    const base = previous.role === ROLES.VENTAS ? permissions.filter(permission => permission !== PERMISSIONS.STOCK_READ) : permissions;
+                                    const base = isSalesRole(previous) ? permissions.filter(permission => permission !== PERMISSIONS.STOCK_READ) : permissions;
                                     return { ...previous, permissions: event.target.checked ? [...new Set([...base, PERMISSIONS.STOCK_NEGOTIATION_READ])] : base.filter(permission => permission !== PERMISSIONS.STOCK_NEGOTIATION_READ) };
                                 })}/>
                                 <span><strong className="block">Consultar Negociación en Stock</strong><span className="block text-xs text-crm-fg-muted">Ver precios internos, ganancias proyectadas y probar ofertas. La configuración de mínimos queda a cargo de administración.</span></span>

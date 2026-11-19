@@ -1,6 +1,9 @@
 import { useState, useCallback } from 'react';
+import { useAuth } from '../context/AuthContext';
+import { hasPermission, PERMISSIONS } from '../utils/adminPermissions';
 
 export const useAdminLeads = () => {
+    const { user } = useAuth();
     const [leads, setLeads] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
@@ -24,6 +27,10 @@ export const useAdminLeads = () => {
     };
 
     const fetchLeads = useCallback(async (filters = {}) => {
+        if (!hasPermission(user, PERMISSIONS.LEADS_READ)) {
+            setLeads([]); setTotal(0); setError(null); setLoading(false);
+            return [];
+        }
         setLoading(true);
         setError(null);
         try {
@@ -50,7 +57,7 @@ export const useAdminLeads = () => {
         } finally {
             setLoading(false);
         }
-    }, []);
+    }, [user]);
 
     const linkClientToLead = async (leadId, clientId) => {
         try {

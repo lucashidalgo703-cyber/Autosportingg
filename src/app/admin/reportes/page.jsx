@@ -4,7 +4,7 @@ import { BarChart3, Clock3, Trophy } from 'lucide-react';
 import { useAuth } from '../../../context/AuthContext';
 import { useAdminLeads } from '../../../hooks/useAdminLeads';
 import PermissionGuard from '../../../components/crm/layout/PermissionGuard';
-import { PERMISSIONS } from '../../../utils/adminPermissions';
+import { hasPermission, isSalesRole, PERMISSIONS } from '../../../utils/adminPermissions';
 import LoadingSkeleton from '../../../components/crm/ui/LoadingSkeleton';
 
 const MONTHS = [
@@ -128,6 +128,9 @@ async function fetchCarsPaginated(pageSize = 50) {
 
 function ReportesPageInner() {
     const { user } = useAuth();
+    const canReadStock = hasPermission(user, PERMISSIONS.STOCK_READ);
+    const canReadSales = hasPermission(user, PERMISSIONS.VENTAS_READ);
+    const canReadLeads = hasPermission(user, PERMISSIONS.LEADS_READ);
     const { leads, fetchLeads } = useAdminLeads();
 
     const [loading, setLoading] = useState(true);
@@ -149,22 +152,22 @@ function ReportesPageInner() {
             const headers = token ? { Authorization: `Bearer ${token}` } : {};
 
             const [salesRes, carsArray, leadsData] = await Promise.all([
-                fetch('/api/admin/sales', { headers }),
-                fetchCarsPaginated(50).catch((err) => {
+                canReadSales ? fetch('/api/admin/sales', { headers }) : null,
+                canReadStock ? fetchCarsPaginated(50).catch((err) => {
                     console.error('Error loading cars inventory in reports:', err);
                     setCarsError(true);
                     return [];
-                }),
-                fetchLeads({ limit: 1000 }).catch((err) => {
+                }) : [],
+                canReadLeads ? fetchLeads({ limit: 1000 }).catch((err) => {
                     console.error('Error loading leads:', err);
                     return [];
-                })
+                }) : []
             ]);
 
-            if (!salesRes.ok) {
+            if (salesRes && !salesRes.ok) {
                 throw new Error(`Error al cargar ventas (${salesRes.status})`);
             }
-            const salesData = await salesRes.json();
+            const salesData = salesRes ? await salesRes.json() : [];
 
             const salesArray = Array.isArray(salesData) ? salesData : (salesData?.sales || []);
 
@@ -398,7 +401,7 @@ function ReportesPageInner() {
                     <BarChart3 size={24} />
                     Reportes y Análisis
                 </h1>
-                <p className="m-0 mt-1 text-sm font-medium text-zinc-400">Vista completa — todos los módulos.</p>
+                <p className="m-0 mt-1 text-sm font-medium text-zinc-400">{isSalesRole(user) ? 'Tus operaciones y actividad comercial. Las ventas corresponden únicamente a tu usuario.' : 'Información de los módulos habilitados para tu usuario.'}</p>
             </header>
 
             {error && (
@@ -435,7 +438,7 @@ function ReportesPageInner() {
                             <span className="truncate text-sm font-bold text-amber-300">{userName} (vos)</span>
                         </div>
                         <div className="text-center text-base font-bold sm:text-xl">{report.currentMonthSales}</div>
-                        <div className="text-center">{carsError ? '-' : report.consignments}</div>
+                        <div className="text-center">{!canReadStock || carsError ? '-' : report.consignments}</div>
                         <div className="text-center text-[11px]">
                             <span className="text-indigo-300">5 para USD 300</span>
                         </div>
@@ -538,7 +541,7 @@ function ReportesPageInner() {
             </section>
 
             <section className="mb-6 grid gap-4 md:grid-cols-2">
-                <AnalysisCard title="Stock por Estado">
+                {canReadStock && <AnalysisCard title="Stock por Estado">
                     {carsError ? (
                         <EmptyText>Error al cargar inventario.</EmptyText>
                     ) : report.totalCars === 0 ? (
@@ -556,9 +559,9 @@ function ReportesPageInner() {
                             ))}
                         </div>
                     )}
-                </AnalysisCard>
+                </AnalysisCard>}
 
-                <AnalysisCard title="Stock por Marca">
+                {canReadStock && <AnalysisCard title="Stock por Marca">
                     {carsError ? (
                         <EmptyText>Error al cargar inventario.</EmptyText>
                     ) : report.totalCars === 0 ? (
@@ -566,7 +569,7 @@ function ReportesPageInner() {
                     ) : (
                         <CompactBars rows={report.stockByBrand} />
                     )}
-                </AnalysisCard>
+                </AnalysisCard>}
             </section>
         </div>
     );

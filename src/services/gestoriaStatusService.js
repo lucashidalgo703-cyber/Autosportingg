@@ -53,10 +53,29 @@ async function authorize(user, tramite, permission, session) {
             owned = sale && isMySaleOrReservation(sale, user);
         } else if (tramite.clientId) {
             const client = await Client.findById(tramite.clientId).select('assignedTo createdBy').session(session || null).lean();
-            owned = client && (idOf(client.assignedTo) === idOf(user.id) || [user.name, user.email].filter(Boolean).includes(client.createdBy));
+            owned = client && idOf(client.assignedTo) === idOf(user.id);
+        } else {
+            owned = idOf(tramite.createdBy) === idOf(user.id);
         }
         if (!owned) fail('Trámite no encontrado.', 404);
     }
+}
+export async function gestoriaScope(user) {
+    if (user?.role !== 'ventas') return {};
+    const actor = idOf(user.id || user.userId || user._id);
+    if (!validId(actor)) return { _id: { $in: [] } };
+    const [sales, clients] = await Promise.all([
+        Sale.find({ assignedTo: actor }).distinct('_id'),
+        Client.find({ assignedTo: actor }).distinct('_id')
+    ]);
+    return { $or: [
+        { saleId: { $in: sales } },
+        { saleId: null, clientId: { $in: clients } },
+        { saleId: null, clientId: null, createdBy: actor }
+    ] };
+}
+export async function assertGestoriaAccess(user, tramite, permission = PERMISSIONS.GESTORIA_READ) {
+    return authorize(user, tramite, permission);
 }
 async function recipientBinding(tramite, session) {
     let sale = null;

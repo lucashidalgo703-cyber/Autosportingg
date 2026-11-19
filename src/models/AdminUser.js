@@ -1,4 +1,5 @@
 import mongoose from 'mongoose';
+import { ROLES } from '../utils/adminPermissions.js';
 
 const adminUserSchema = new mongoose.Schema({
     name: {
@@ -19,7 +20,7 @@ const adminUserSchema = new mongoose.Schema({
     },
     role: {
         type: String,
-        enum: ['owner', 'admin', 'ventas', 'administrativo', 'solo_lectura'],
+        enum: Object.values(ROLES),
         default: 'solo_lectura'
     },
     active: {

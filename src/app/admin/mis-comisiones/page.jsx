@@ -3,7 +3,7 @@
 import React, { useEffect, useState, useMemo } from 'react';
 import { AlertTriangle, Wallet, History, Target, TrendingUp, CheckCircle, Clock, Search, Info, Plus, X } from 'lucide-react';
 import PermissionGuard from '../../../components/crm/layout/PermissionGuard';
-import { PERMISSIONS, hasPermission } from '../../../utils/adminPermissions';
+import { PERMISSIONS, hasPermission, isSalesRole } from '../../../utils/adminPermissions';
 import CrmPageHeader from '../../../components/crm/ui/CrmPageHeader';
 import { useAuth } from '../../../context/AuthContext';
 import { useAdminUsers } from '../../../hooks/useAdminUsers';
@@ -38,8 +38,8 @@ export default function MisComisionesPage() {
 
     const [showModal, setShowModal] = useState(false);
 
-    const canReadOthers = hasPermission(user, PERMISSIONS.LIQUIDACIONES_READ);
-    const canWrite = hasPermission(user, PERMISSIONS.LIQUIDACIONES_WRITE);
+    const canReadOthers = !isSalesRole(user) && hasPermission(user, PERMISSIONS.LIQUIDACIONES_READ);
+    const canWrite = !isSalesRole(user) && hasPermission(user, PERMISSIONS.LIQUIDACIONES_WRITE);
 
     useEffect(() => {
         if (canReadOthers) {
@@ -231,6 +231,7 @@ export default function MisComisionesPage() {
                         {error}
                     </div>
                 )}
+                {data.warning && <p role="status" className="mb-5 rounded-xl border border-amber-400/25 bg-amber-500/10 p-4 text-sm text-amber-200">{data.warning}</p>}
 
                 {loading ? (
                     <div className="flex min-h-[360px] items-center justify-center rounded-2xl border border-crm-border bg-crm-surface">

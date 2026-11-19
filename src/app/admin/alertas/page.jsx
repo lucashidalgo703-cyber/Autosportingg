@@ -2,6 +2,8 @@
 import React, { useEffect, useMemo, useState, Suspense } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
+import { useAuth } from '../../../context/AuthContext';
+import { hasPermission, isSalesRole, PERMISSIONS } from '../../../utils/adminPermissions';
 import {
     CalendarDays,
     Check,
@@ -250,6 +252,13 @@ function AlertSection({ group, alerts, isOpen, onToggle, onDismiss }) {
 }
 
 function AdminAlertasInner() {
+    const { user } = useAuth();
+    const canReadStock = hasPermission(user, PERMISSIONS.STOCK_READ);
+    const canReadTasks = hasPermission(user, PERMISSIONS.AGENDA_READ);
+    const canReadLeads = hasPermission(user, PERMISSIONS.LEADS_READ);
+    const canReadSales = hasPermission(user, PERMISSIONS.VENTAS_READ);
+    const canReadReservations = hasPermission(user, PERMISSIONS.RESERVAS_READ);
+    const canReadGestoria = hasPermission(user, PERMISSIONS.GESTORIA_READ);
     const searchParams = useSearchParams();
     const queryFilter = searchParams ? searchParams.get('filtro') : null;
 
@@ -307,12 +316,12 @@ function AdminAlertasInner() {
 
             try {
                 const [tasks, leads, sales, reservations, cars, tramites] = await Promise.all([
-                    safeFetchJson('/api/admin/crm-tasks', ['tasks']),
-                    safeFetchJson('/api/leads', ['leads']),
-                    safeFetchJson('/api/admin/sales', ['sales']),
-                    safeFetchJson('/api/admin/reservations', ['reservations']),
-                    fetchCarsPaginated(50),
-                    safeFetchJson('/api-gestoria')
+                    canReadTasks ? safeFetchJson('/api/admin/crm-tasks', ['tasks']) : [],
+                    canReadLeads ? safeFetchJson('/api/leads', ['leads']) : [],
+                    canReadSales ? safeFetchJson('/api/admin/sales', ['sales']) : [],
+                    canReadReservations ? safeFetchJson('/api/admin/reservations', ['reservations']) : [],
+                    canReadStock ? fetchCarsPaginated(50) : [],
+                    canReadGestoria ? safeFetchJson('/api-gestoria') : []
                 ]);
 
                 if (!mounted) return;
@@ -332,7 +341,7 @@ function AdminAlertasInner() {
         return () => {
             mounted = false;
         };
-    }, []);
+    }, [canReadTasks, canReadLeads, canReadSales, canReadReservations, canReadStock, canReadGestoria]);
 
     const today = useMemo(() => {
         const date = new Date();
@@ -341,7 +350,7 @@ function AdminAlertasInner() {
     }, []);
 
     const alerts = useMemo(() => {
-        const items = [
+        const items = hasPermission(user, PERMISSIONS.SETTINGS_WRITE) ? [
             {
                 id: 'novedad-whatsapp-contacto',
                 category: 'Novedades',
@@ -354,7 +363,7 @@ function AdminAlertasInner() {
                 owner: 'Sistema',
                 date: null
             }
-        ];
+        ] : [];
 
         const pendingTasks = data.tasks.filter((task) => isPending(task.status));
         const activeSales = data.sales.filter((sale) => !['entregada', 'cancelada', 'borrador'].includes(String(sale.status || '').toLowerCase()));
@@ -483,7 +492,7 @@ function AdminAlertasInner() {
                     category: 'Media',
                     title: `📄 Documentación pendiente — ${shortId(sale._id || sale.id)}`,
                     description: 'La operación tiene documentación sin completar.',
-                    href: '/admin/documentacion',
+                    href: canReadGestoria ? `/admin/expedientes/${sale._id || sale.id}` : `/admin/mis-ventas/${sale._id || sale.id}`,
                     action: 'Ver Documentación',
                     badge: sale.documentationStatus || 'Pendiente',
                     icon: FileWarning,
@@ -536,8 +545,8 @@ function AdminAlertasInner() {
                     category: 'Baja',
                     title: `🔎 Reserva activa — ${shortId(reservation._id || reservation.id)}`,
                     description: 'Reserva activa pendiente de seguimiento o conversión.',
-                    href: '/admin/ventas',
-                    action: 'Ver Ventas',
+                    href: isSalesRole(user) ? '/admin/mis-ventas' : '/admin/ventas',
+                    action: isSalesRole(user) ? 'Ver Mis ventas' : 'Ver Ventas',
                     badge: 'Baja',
                     icon: Sparkles,
                     owner: reservation.salesperson || reservation.assignedTo?.name || 'Ventas',
@@ -567,7 +576,7 @@ function AdminAlertasInner() {
         });
 
         return filtered;
-    }, [data, dismissedIds, today, filterType, filterOwner, filterTopic]);
+    }, [data, dismissedIds, today, filterType, filterOwner, filterTopic, user, canReadGestoria]);
 
     const ownersList = useMemo(() => {
         const owners = new Set();

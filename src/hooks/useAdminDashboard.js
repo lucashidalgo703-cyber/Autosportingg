@@ -34,7 +34,7 @@ export const useAdminDashboard = () => {
             });
 
             if (!response.ok) {
-                if (response.status === 401 || response.status === 403) {
+                if (response.status === 401) {
                     localStorage.removeItem('token');
                     logout();
                 }

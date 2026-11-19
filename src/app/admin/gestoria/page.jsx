@@ -125,7 +125,7 @@ export default function GestoriaPage() {
 
     useEffect(() => {
         fetchTramites();
-        fetchSales();
+        fetchSales({ scope: 'gestoria' });
         const token = localStorage.getItem('token');
         if (token) {
             fetch('/api/admin/clients', { headers: { 'Authorization': `Bearer ${token}` } })
@@ -360,7 +360,7 @@ export default function GestoriaPage() {
                                     <div className="col-span-full mt-2 space-y-3 border-t border-crm-border pt-2">
                                         <div className="flex flex-wrap items-center justify-between gap-2">
                                         <span className="text-xs text-crm-fg-muted">Expediente Vinculado:</span>
-                                        <a href={withCrmReturn(`/admin/ventas/${tramite.saleId}`, '/admin/gestoria')} className="inline-flex min-h-11 items-center text-xs font-bold text-crm-red hover:text-red-400 uppercase">
+                                        <a href={withCrmReturn(`/admin/expedientes/${tramite.saleId?._id || tramite.saleId}`, '/admin/gestoria')} className="inline-flex min-h-11 items-center text-xs font-bold text-crm-red hover:text-red-400 uppercase">
                                             Ir al Expediente
                                         </a>
                                         </div>

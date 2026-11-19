@@ -44,6 +44,10 @@ const approvalRequestSchema = new mongoose.Schema({
         type: String, 
         default: '' 
     },
+    // New entities are staged here; an authorization does not create stock,
+    // clients or financial movements until the owner approves it.
+    intakePayload: { type: mongoose.Schema.Types.Mixed },
+    intakeFingerprint: { type: String, select: false },
     status: { 
         type: String, 
         enum: ['pending', 'approved', 'rejected', 'cancelled', 'executed'],

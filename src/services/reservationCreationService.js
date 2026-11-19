@@ -5,6 +5,7 @@ import Sale from '../models/Sale.js';
 import Lead from '../models/Lead.js';
 import { logAudit } from '../utils/auditLogger.js';
 import { sellerScope, assertSellerAssignment } from './sellerAccessService.js';
+import { isSalesRole } from '../utils/adminPermissions.js';
 
 export class ReservationCreationError extends Error {
     constructor(message, status = 400) { super(message); this.status = status; }
@@ -40,8 +41,8 @@ export async function createReservationAtomic({ payload, user }) {
             if (activeReservation) fail('El vehículo ya tiene una reserva activa.', 409);
             const reservation = new Reservation({ vehicleId, clientId: clientId || undefined, leadId: leadId || undefined,
                 agreedPrice, agreedCurrency, depositAmount, depositCurrency, depositMethod, expiresAt,
-                conditions, notes, salesperson: user?.role === 'ventas' ? user.name || user.username || user.email : salesperson, createdBy: actor,
-                ...(user?.role === 'ventas' ? { assignedTo: user.id || user.userId || user._id, assignedAt: new Date() } : {}),
+                conditions, notes, salesperson: isSalesRole(user) ? user.name || user.username || user.email : salesperson, createdBy: actor,
+                ...(isSalesRole(user) ? { assignedTo: user.id || user.userId || user._id, assignedAt: new Date() } : {}),
                 reservationAuditLog: [{ action: 'RESERVA_CREADA', field: 'status', newValue: 'activa',
                     details: `Reserva creada por ${depositCurrency} ${depositAmount}`, user: actor, source: 'CRM_V2' }] });
             await reservation.save({ session });

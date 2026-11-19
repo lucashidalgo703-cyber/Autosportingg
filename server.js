@@ -1,6 +1,7 @@
 import { completeSaleAtomic, getSaleVehicleOptions, changeSaleVehicleAtomic } from './src/services/saleCompletionService.js';
 import { createReservationAtomic, updateReservationAtomic } from './src/services/reservationCreationService.js';
 import { enforceSellerAccess, sellerScope, sellerVehicleDto } from './src/services/sellerAccessService.js';
+import { operationalSales, operationalSale, updateOperationalSale } from './src/services/operationalSalesService.js';
 import { recordCrmCollection, payInstallmentAtomic } from './src/services/collectionRecordingService.js';
 import CollectionRecordingOperation from './src/models/CollectionRecordingOperation.js';
 import BuyerPaymentProof from './src/models/BuyerPaymentProof.js';
@@ -69,6 +70,7 @@ import MessageTemplate from './src/models/MessageTemplate.js';
 import NpsSurvey from './src/models/NpsSurvey.js';
 import NpsResponse from './src/models/NpsResponse.js';
 import ApprovalRequest from './src/models/ApprovalRequest.js';
+import { submitIntake, resolveIntake, isIntakeApproval } from './src/services/intakeApprovalService.js';
 import Suggestion from './src/models/Suggestion.js';
 import TrashRecord from './src/models/TrashRecord.js';
 import Opportunity from './src/models/Opportunity.js';
@@ -82,7 +84,7 @@ import { logAudit, logSystemAudit } from './src/utils/auditLogger.js';
 import { getDolarBlueRate, setManualDolarBlueRate, getDolarBlueHistoricalSeries, resolveHistoricalRate } from './src/services/dolarService.js';
 import * as treasuryStrategicService from './src/services/treasuryStrategicService.js';
 import OfflineSyncOperation from './src/models/OfflineSyncOperation.js';
-import { hasPermission, PERMISSIONS, ROLES } from './src/utils/adminPermissions.js';
+import { hasPermission, isSalesRole, PERMISSIONS, ROLES } from './src/utils/adminPermissions.js';
 import { CloudinaryStorage } from 'multer-storage-cloudinary';
 import jwt from 'jsonwebtoken';
 import speakeasy from 'speakeasy';
@@ -689,6 +691,13 @@ app.post('/api/admin/users', authenticateToken, requirePermission(PERMISSIONS.US
         }
         const { name, email, password, role, permissions } = req.body;
 
+        if (role && !Object.values(ROLES).includes(role)) return res.status(400).json({ message: 'Rol no válido.' });
+        if (permissions && (!Array.isArray(permissions) || permissions.some(permission => !Object.values(PERMISSIONS).includes(permission)))) return res.status(400).json({ message: 'Permisos no válidos.' });
+        if (role === ROLES.OWNER && req.user.role !== ROLES.OWNER) return res.status(403).json({ message: 'Sólo el titular puede asignar el rol Owner.' });
+        if (typeof name !== 'string' || !name.trim() || typeof email !== 'string' || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim()) || typeof password !== 'string' || password.length < 8) {
+            return res.status(400).json({ message: 'Completá nombre, email válido y contraseña de al menos 8 caracteres.' });
+        }
+
         const existing = await AdminUser.findOne({ email: email.toLowerCase() });
         if (existing) return res.status(400).json({ message: 'El email ya est├í en uso' });
 
@@ -729,6 +738,10 @@ app.patch('/api/admin/users/:id', authenticateToken, requirePermission(PERMISSIO
 
         const userToUpdate = await AdminUser.findById(req.params.id);
         if (!userToUpdate) return res.status(404).json({ message: 'Usuario no encontrado' });
+        if (role && !Object.values(ROLES).includes(role)) return res.status(400).json({ message: 'Rol no válido.' });
+        if (permissions && (!Array.isArray(permissions) || permissions.some(permission => !Object.values(PERMISSIONS).includes(permission)))) return res.status(400).json({ message: 'Permisos no válidos.' });
+        if ((userToUpdate.role === ROLES.OWNER || role === ROLES.OWNER) && req.user.role !== ROLES.OWNER) return res.status(403).json({ message: 'Sólo el titular puede modificar una cuenta Owner o asignar ese rol.' });
+        if (email !== undefined && (typeof email !== 'string' || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim()))) return res.status(400).json({ message: 'Email no válido.' });
 
         // Regla: No desactivar ni quitar rol owner al ├║ltimo owner
         if ((active === false || (role && role !== 'owner')) && userToUpdate.role === 'owner') {
@@ -778,6 +791,7 @@ app.patch('/api/admin/users/:id/password', authenticateToken, requirePermission(
 
         const userToUpdate = await AdminUser.findById(req.params.id);
         if (!userToUpdate) return res.status(404).json({ message: 'Usuario no encontrado' });
+        if (userToUpdate.role === ROLES.OWNER && req.user.role !== ROLES.OWNER) return res.status(403).json({ message: 'Sólo el titular puede modificar la contraseña de una cuenta Owner.' });
 
         userToUpdate.passwordHash = hashPassword(password);
         await userToUpdate.save();
@@ -915,6 +929,26 @@ app.get('/api/public/cars/:id', async (req, res) => {
 });
 
 // POST create new car (Protected)
+const pendingIntakeResponse = (res, approval) => res.status(202).json({ pendingApproval: true,
+    message: 'Solicitud recibida · Pendiente de autorización del titular. Podés seguirla desde Autorizaciones.', approval });
+
+app.post('/api/admin/intake/vehicles', authenticateToken, requirePermission(PERMISSIONS.STOCK_SUBMIT), async (req, res, next) => {
+    try {
+        const key = String(req.get('Idempotency-Key') || '');
+        if (!/^[a-zA-Z0-9_-]{16,100}$/.test(key)) return res.status(400).json({ message: 'Volvé a abrir el formulario para identificar el envío.' });
+        next();
+    } catch (error) { res.status(error.status || 500).json({ message: 'No se pudo recuperar el envío. Reintentá.' }); }
+}, upload.array('images', 20), async (req, res) => {
+    try {
+        // Use the same storage and URL validation as stock image uploads.
+        const imageUpdate = resolveCarImageUpdate({ body: { images: [] }, files: req.files, cloudName: process.env.CLOUDINARY_CLOUD_NAME || '' });
+        if (imageUpdate.error) return res.status(400).json({ message: imageUpdate.error });
+        const approval = await submitIntake({ kind: 'vehicle', input: req.body, user: req.user, req,
+            key: req.get('Idempotency-Key'), images: imageUpdate.images || [] });
+        return pendingIntakeResponse(res, approval);
+    } catch (error) { res.status(error.status || 400).json({ message: error.message || 'No se pudo enviar el alta.' }); }
+});
+
 app.post('/api/cars', authenticateToken, requirePermission(PERMISSIONS.STOCK_WRITE), upload.array('images', 20), async (req, res) => {
     try {
         const imageUpdate = resolveCarImageUpdate({
@@ -1232,8 +1266,9 @@ app.post('/api/cars', authenticateToken, requirePermission(PERMISSIONS.STOCK_WRI
 });
 
 // GET resumen liviano de cajas estratégicas y dinero sin asignar (para modales de pagos y compras)
-app.get('/api/admin/treasury/boxes-summary', authenticateToken, async (req, res) => {
+app.get('/api/admin/treasury/boxes-summary', authenticateToken, requirePermission(PERMISSIONS.FINANZAS_READ), async (req, res) => {
     try {
+        if (isSalesRole(req.user)) return res.status(403).json({ message: 'Sin permisos financieros' });
         await connectDB();
         const data = await treasuryStrategicService.getTreasuryDashboardData();
         res.json({
@@ -1261,8 +1296,9 @@ app.get('/api/admin/treasury/boxes-summary', authenticateToken, async (req, res)
 });
 
 // GET diagnóstico integral de movimientos, conciliación y saldos (solo lectura)
-app.get('/api/admin/tesoreria-estrategica/diagnostic-audit', authenticateToken, async (req, res) => {
+app.get('/api/admin/tesoreria-estrategica/diagnostic-audit', authenticateToken, requirePermission(PERMISSIONS.FINANZAS_READ), async (req, res) => {
     try {
+        if (isSalesRole(req.user)) return res.status(403).json({ message: 'Sin permisos financieros' });
         await connectDB();
         const auditResult = await treasuryStrategicService.runTreasuryDiagnosticAudit();
         res.json(auditResult);
@@ -3062,8 +3098,13 @@ app.post('/api/admin/clients/bulk', authenticateToken, requirePermission(PERMISS
 });
 
 // POST new client
-app.post('/api/admin/clients', authenticateToken, requirePermission(PERMISSIONS.CLIENTES_WRITE), async (req, res) => {
+app.post('/api/admin/clients', authenticateToken, requireAnyPermission([PERMISSIONS.CLIENTES_WRITE, PERMISSIONS.CLIENTES_SUBMIT]), async (req, res) => {
     try {
+        if (req.user.role === ROLES.VENTAS || !hasPermission(req.user, PERMISSIONS.CLIENTES_WRITE)) {
+            if (!hasPermission(req.user, PERMISSIONS.CLIENTES_SUBMIT)) return res.status(403).json({ message: 'No tenés permiso para solicitar altas de clientes.' });
+            const approval = await submitIntake({ kind: 'client', input: req.body, user: req.user, req, key: req.get('Idempotency-Key') });
+            return pendingIntakeResponse(res, approval);
+        }
         const payload = req.body;
 
         // Basic Validation
@@ -3116,8 +3157,9 @@ app.post('/api/admin/clients', authenticateToken, requirePermission(PERMISSIONS.
 
         res.status(201).json(savedClient);
     } catch (error) {
-        console.error('Error creating client:', error);
-        res.status(400).json({ message: error.message });
+        const status = error.status || 400;
+        if (status >= 500) console.error('Error creating client:', error);
+        res.status(status).json({ message: error.message });
     }
 });
 
@@ -4495,7 +4537,7 @@ app.get('/api/admin/reservations', authenticateToken, requirePermission(PERMISSI
             })
             .populate({
                 path: 'vehicleId',
-                select: req.user?.role === 'ventas' ? 'brand name year plateOrVin price currency status images' : 'brand name year plateOrVin price currency status purchasePrice purchaseCurrency'
+                select: isSalesRole(req.user) ? 'brand name year plateOrVin price currency status images' : 'brand name year plateOrVin price currency status purchasePrice purchaseCurrency'
             })
             .sort({ createdAt: -1 })
             .select('-reservationAuditLog')
@@ -4742,7 +4784,7 @@ app.delete('/api/admin/mandates/:id', authenticateToken, requireAnyPermission([P
 // --- OPPORTUNITIES ROUTES ---
 
 // GET opportunities
-app.get('/api/admin/opportunities', authenticateToken, requireAnyPermission([PERMISSIONS.STOCK_READ]), async (req, res) => {
+app.get('/api/admin/opportunities', authenticateToken, requireAnyPermission([PERMISSIONS.OPORTUNIDADES_READ, PERMISSIONS.STOCK_READ]), async (req, res) => {
     try {
         await connectDB();
         const opportunities = await Opportunity.find()
@@ -4756,7 +4798,7 @@ app.get('/api/admin/opportunities', authenticateToken, requireAnyPermission([PER
 });
 
 // POST opportunity
-app.post('/api/admin/opportunities', authenticateToken, requireAnyPermission([PERMISSIONS.STOCK_WRITE]), async (req, res) => {
+app.post('/api/admin/opportunities', authenticateToken, requireAnyPermission([PERMISSIONS.OPORTUNIDADES_WRITE, PERMISSIONS.STOCK_WRITE]), async (req, res) => {
     try {
         await connectDB();
         const data = req.body;
@@ -4775,13 +4817,15 @@ app.post('/api/admin/opportunities', authenticateToken, requireAnyPermission([PE
 });
 
 // PATCH opportunity
-app.patch('/api/admin/opportunities/:id', authenticateToken, requireAnyPermission([PERMISSIONS.STOCK_WRITE]), async (req, res) => {
+app.patch('/api/admin/opportunities/:id', authenticateToken, requireAnyPermission([PERMISSIONS.OPORTUNIDADES_WRITE, PERMISSIONS.STOCK_WRITE]), async (req, res) => {
     try {
         await connectDB();
         const opportunity = await Opportunity.findById(req.params.id);
         if (!opportunity) return res.status(404).json({ error: 'Oportunidad no encontrada' });
 
-        Object.assign(opportunity, req.body);
+        if (isSalesRole(req.user) && String(opportunity.createdBy) !== String(req.user.id || req.user.userId)) return res.status(403).json({ error: 'Sólo podés editar las oportunidades que cargaste.' });
+        const { createdBy: ignoredCreator, createdByUsername: ignoredUsername, _id: ignoredId, ...changes } = req.body;
+        Object.assign(opportunity, changes);
         await opportunity.save();
 
         res.json(opportunity);
@@ -4792,12 +4836,13 @@ app.patch('/api/admin/opportunities/:id', authenticateToken, requireAnyPermissio
 });
 
 // DELETE opportunity (Soft delete)
-app.delete('/api/admin/opportunities/:id', authenticateToken, requireAnyPermission([PERMISSIONS.STOCK_WRITE]), async (req, res) => {
+app.delete('/api/admin/opportunities/:id', authenticateToken, requireAnyPermission([PERMISSIONS.OPORTUNIDADES_WRITE, PERMISSIONS.STOCK_WRITE]), async (req, res) => {
     try {
         await connectDB();
         const opportunity = await Opportunity.findById(req.params.id);
         if (!opportunity) return res.status(404).json({ error: 'Oportunidad no encontrada' });
 
+        if (isSalesRole(req.user) && String(opportunity.createdBy) !== String(req.user.id || req.user.userId)) return res.status(403).json({ error: 'Sólo podés eliminar las oportunidades que cargaste.' });
         opportunity.status = 'borrada';
         await opportunity.save();
 
@@ -4808,10 +4853,24 @@ app.delete('/api/admin/opportunities/:id', authenticateToken, requireAnyPermissi
     }
 });
 
+// Documentation-only operation views are separate from commercial sales access.
+app.get('/api/admin/gestoria/sales', authenticateToken, requirePermission(PERMISSIONS.GESTORIA_READ), async (req, res) => {
+    try { res.json(await operationalSales(req.user)); }
+    catch (error) { res.status(error.status || 500).json({ message: error.status ? error.message : 'No se pudieron consultar los expedientes.' }); }
+});
+app.get('/api/admin/gestoria/sales/:id', authenticateToken, requirePermission(PERMISSIONS.GESTORIA_READ), async (req, res) => {
+    try { res.json(await operationalSale(req.user, req.params.id)); }
+    catch (error) { res.status(error.status || 500).json({ message: error.status ? error.message : 'No se pudo consultar el expediente.' }); }
+});
+app.patch('/api/admin/gestoria/sales/:id', authenticateToken, requirePermission(PERMISSIONS.GESTORIA_WRITE), async (req, res) => {
+    try { res.json(await updateOperationalSale(req.user, req.params.id, req.body)); }
+    catch (error) { res.status(error.status || (error.name === 'ValidationError' ? 400 : 500)).json({ message: error.status ? error.message : 'No se pudo actualizar el expediente. Revisá los datos.' }); }
+});
+
 // --- SALES ROUTES ---
 
 const canViewSaleCostAndProfit = (user) => Boolean(
-    user && user.role !== 'ventas' && (['owner', 'admin'].includes(user.role) || hasPermission(user, PERMISSIONS.FINANZAS_READ))
+    user && !isSalesRole(user) && (['owner', 'admin'].includes(user.role) || hasPermission(user, PERMISSIONS.FINANZAS_READ))
 );
 
 const stripVehicleCostFields = (vehicleObj) => {
@@ -4910,7 +4969,7 @@ async function buildPopulatedSaleResponse(saleId, reqUser) {
         });
     } else {
         if (saleObj.vehicleId && typeof saleObj.vehicleId === 'object') {
-            saleObj.vehicleId = reqUser?.role === 'ventas' ? sellerVehicleDto(saleObj.vehicleId) : stripVehicleCostFields(saleObj.vehicleId);
+            saleObj.vehicleId = isSalesRole(reqUser) ? sellerVehicleDto(saleObj.vehicleId) : stripVehicleCostFields(saleObj.vehicleId);
         }
         saleObj.profitability = {
             restricted: true,
@@ -6858,7 +6917,7 @@ async function getOrCreateCrmV2Account(currency) {
 app.get('/api/admin/transactions', authenticateToken, requirePermission(PERMISSIONS.FINANZAS_READ), async (req, res) => {
     try {
         await connectDB();
-        if (req.user && req.user.role === 'ventas') return res.status(403).json({ message: 'Sin permisos financieros' });
+        if (isSalesRole(req.user)) return res.status(403).json({ message: 'Sin permisos financieros' });
         const query = { module: 'crm_v2' };
 
         // Apply filters
@@ -6926,7 +6985,7 @@ app.get('/api/admin/transactions', authenticateToken, requirePermission(PERMISSI
 app.get('/api/admin/finance/deposits', authenticateToken, requirePermission(PERMISSIONS.FINANZAS_READ), async (req, res) => {
     try {
         await connectDB();
-        if (req.user && req.user.role === 'ventas') return res.status(403).json({ message: 'Sin permisos financieros' });
+        if (isSalesRole(req.user)) return res.status(403).json({ message: 'Sin permisos financieros' });
 
         const [reservations, sales, transactions] = await Promise.all([
             Reservation.find({ depositAmount: { $gt: 0 } })
@@ -7258,7 +7317,7 @@ app.delete('/api/admin/transactions/:id', authenticateToken, requirePermission(P
 app.get('/api/admin/transactions/:id', authenticateToken, requirePermission(PERMISSIONS.FINANZAS_READ), async (req, res) => {
     try {
         await connectDB();
-        if (req.user && req.user.role === 'ventas') return res.status(403).json({ message: 'Sin permisos financieros' });
+        if (isSalesRole(req.user)) return res.status(403).json({ message: 'Sin permisos financieros' });
         const transaction = await Transaction.findOne({ _id: req.params.id, module: 'crm_v2' });
         if (!transaction) return res.status(404).json({ message: 'Transaction not found' });
         res.json(transaction);
@@ -7275,7 +7334,7 @@ app.get('/api/admin/transactions/:id', authenticateToken, requirePermission(PERM
 app.post('/api/admin/transactions', authenticateToken, requirePermission(PERMISSIONS.FINANZAS_WRITE), async (req, res) => {
     try {
         await connectDB();
-        if (req.user && req.user.role === 'ventas') return res.status(403).json({ message: 'Sin permisos financieros' });
+        if (isSalesRole(req.user)) return res.status(403).json({ message: 'Sin permisos financieros' });
         const { type, category, concept, amount, currency, paymentMethod, date, notes, status, saleId, reservationId, clientId, vehicleId, installmentId, payeeCompany, payeeVehicle, beneficiary, dueDate, targetUser, accountId: explicitAccountId, treasuryBoxKey, idempotencyKey } = req.body;
 
         // Idempotencia para evitar cobros o movimientos duplicados
@@ -7438,7 +7497,7 @@ app.post('/api/admin/transactions', authenticateToken, requirePermission(PERMISS
 app.patch('/api/admin/transactions/:id', authenticateToken, requirePermission(PERMISSIONS.FINANZAS_WRITE), async (req, res) => {
     try {
         await connectDB();
-        if (req.user && req.user.role === 'ventas') return res.status(403).json({ message: 'Sin permisos financieros' });
+        if (isSalesRole(req.user)) return res.status(403).json({ message: 'Sin permisos financieros' });
         const { category, concept, paymentMethod, date, notes, status, saleId, reservationId, clientId, vehicleId, installmentId, payeeCompany, payeeVehicle, beneficiary, dueDate, targetUser, amount, type, currency } = req.body;
 
         const tx = await Transaction.findOne({ _id: req.params.id, module: 'crm_v2' });
@@ -7676,7 +7735,7 @@ app.get('/api/admin/expenses/:id/quota-assignments', authenticateToken, requireP
 app.post('/api/admin/expenses/:id/quota-assignments', authenticateToken, requirePermission(PERMISSIONS.FINANZAS_WRITE), async (req, res) => {
     try {
         await connectDB();
-        if (req.user && req.user.role === 'ventas') return res.status(403).json({ message: 'Sin permisos financieros' });
+        if (isSalesRole(req.user)) return res.status(403).json({ message: 'Sin permisos financieros' });
         const { installmentId, assignedAmount, notes } = req.body;
         const user = req.user?.username || req.user?.email || 'Admin';
 
@@ -7709,7 +7768,7 @@ app.post('/api/admin/expenses/:id/quota-assignments', authenticateToken, require
 app.patch('/api/admin/quota-assignments/:id', authenticateToken, requirePermission(PERMISSIONS.FINANZAS_WRITE), async (req, res) => {
     try {
         await connectDB();
-        if (req.user && req.user.role === 'ventas') return res.status(403).json({ message: 'Sin permisos financieros' });
+        if (isSalesRole(req.user)) return res.status(403).json({ message: 'Sin permisos financieros' });
         const { status, assignedAmount, releaseReason, notes } = req.body;
         const user = req.user?.username || req.user?.email || 'Admin';
 
@@ -7742,7 +7801,7 @@ app.patch('/api/admin/quota-assignments/:id', authenticateToken, requirePermissi
 app.delete('/api/admin/quota-assignments/:id', authenticateToken, requirePermission(PERMISSIONS.FINANZAS_WRITE), async (req, res) => {
     try {
         await connectDB();
-        if (req.user && req.user.role === 'ventas') return res.status(403).json({ message: 'Sin permisos financieros' });
+        if (isSalesRole(req.user)) return res.status(403).json({ message: 'Sin permisos financieros' });
         const user = req.user?.username || req.user?.email || 'Admin';
         const reason = req.query.reason || 'Asignación eliminada por el usuario';
 
@@ -7786,7 +7845,7 @@ app.get('/api/admin/installments/search-for-expense', authenticateToken, require
 app.post('/api/admin/installments/manual-and-assign', authenticateToken, requirePermission(PERMISSIONS.FINANZAS_WRITE), async (req, res) => {
     try {
         await connectDB();
-        if (req.user && req.user.role === 'ventas') return res.status(403).json({ message: 'Sin permisos financieros' });
+        if (isSalesRole(req.user)) return res.status(403).json({ message: 'Sin permisos financieros' });
         const user = req.user?.username || req.user?.email || 'Admin';
 
         const result = await createManualQuotaAndAssign({
@@ -7838,7 +7897,7 @@ app.get('/api/admin/installments/:id/expense-assignments', authenticateToken, re
 app.get('/api/admin/installments', authenticateToken, requirePermission(PERMISSIONS.FINANZAS_READ), async (req, res) => {
     try {
         await connectDB();
-        if (req.user && req.user.role === 'ventas') return res.status(403).json({ message: 'Sin permisos financieros' });
+        if (isSalesRole(req.user)) return res.status(403).json({ message: 'Sin permisos financieros' });
         const query = {};
         if (req.query.saleId) query.saleId = req.query.saleId;
         if (req.query.clientId) query.clientId = req.query.clientId;
@@ -8119,7 +8178,7 @@ app.get('/api/admin/installments/:id', authenticateToken, requirePermission(PERM
         if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
             return res.status(400).json({ message: 'Installment ID inv├ílido' });
         }
-        if (req.user && req.user.role === 'ventas') return res.status(403).json({ message: 'Sin permisos financieros' });
+        if (isSalesRole(req.user)) return res.status(403).json({ message: 'Sin permisos financieros' });
         const installment = await Installment.findById(req.params.id)
             .populate('clientId', 'firstName lastName fullName phone email')
             .populate('vehicleId', 'brand name year price currency plateOrVin')
@@ -8865,7 +8924,7 @@ app.get('/api/admin/notifications', authenticateToken, async (req, res) => {
         const perms = req.user?.permissions || [];
 
         const isOwnerAdmin = ['owner', 'admin'].includes(userRole);
-        const isVentas = userRole === 'ventas';
+        const isVentas = isSalesRole(req.user);
         const canReadFinance = isOwnerAdmin || perms.includes('finanzas.read');
         const canReadInstallments = isOwnerAdmin || perms.includes('cuotas.read');
         const canReadTasks = isOwnerAdmin || perms.includes('agenda.read') || isVentas;
@@ -11856,7 +11915,7 @@ app.get('/api/admin/tesoreria-estrategica/sales/:saleId/summary', authenticateTo
 // 19d. Resumen de venta para panel de detalle de venta (acceso desde Ventas)
 app.get('/api/admin/sales/:saleId/treasury-summary', authenticateToken, async (req, res) => {
     try {
-        if (req.user?.role === 'ventas' && !hasPermission(req.user, PERMISSIONS.FINANZAS_READ) && !hasPermission(req.user, PERMISSIONS.FINANZAS_WRITE)) {
+        if (isSalesRole(req.user) && !hasPermission(req.user, PERMISSIONS.FINANZAS_READ) && !hasPermission(req.user, PERMISSIONS.FINANZAS_WRITE)) {
             return res.status(403).json({ message: 'No tenés permiso para consultar las finanzas de esta operación.' });
         }
         const summary = await treasuryStrategicService.getSaleTreasurySummary(req.params.saleId);
@@ -14892,14 +14951,23 @@ app.post('/api/admin/settlements/clean-duplicates/confirm', authenticateToken, r
 // My Commissions endpoint (for Ventas)
 app.get('/api/admin/my-commissions', authenticateToken, requirePermission(PERMISSIONS.COMISIONES_READ), async (req, res) => {
     try {
-        const canReadOthers = hasPermission(req.user, PERMISSIONS.LIQUIDACIONES_READ);
+        const canReadOthers = !isSalesRole(req.user) && hasPermission(req.user, PERMISSIONS.LIQUIDACIONES_READ);
         let targetUsername = req.user.username;
 
         if (canReadOthers && req.query.seller) {
             targetUsername = req.query.seller;
         }
 
-        const user = await AdminUser.findOne({ username: targetUsername });
+        const user = await AdminUser.findOne({ name: targetUsername }).select('_id');
+        let ambiguousLegacyBeneficiary = false;
+        if (isSalesRole(req.user)) {
+            const canonical = value => String(value || '').normalize('NFKC').trim().toLocaleLowerCase('es');
+            const names = await AdminUser.find({}).select('name').lean();
+            // Historical settlements store a display name rather than an ID.
+            // Include inactive accounts in ambiguity checks and reveal no
+            // history when a name could identify more than one account.
+            ambiguousLegacyBeneficiary = names.filter(account => canonical(account.name) === canonical(targetUsername)).length !== 1;
+        }
 
         const query = { username: targetUsername };
         if (req.query.period && /^\d{4}-\d{2}$/.test(req.query.period)) {
@@ -14922,13 +14990,15 @@ app.get('/api/admin/my-commissions', authenticateToken, requirePermission(PERMIS
                 .flatMap(s => s.includedSales.map(is => is.saleId.toString()));
 
             pendingSales = await Sale.find({
-                $or: [{ salesperson: targetUsername }, { assignedTo: user?._id }],
+                ...(isSalesRole(req.user) ? sellerScope(req.user) : { $or: [{ salesperson: targetUsername }, { assignedTo: user?._id }] }),
                 status: { $in: ['confirmada', 'entregada'] },
                 _id: { $nin: alreadyIncludedSaleIds }
-            }).populate('vehicleId', 'brand model year price currency').lean();
+            }).select('_id assignedTo vehicleId status salePrice saleCurrency commissionSettings.sellerPct commissionSettings.isManual')
+                .populate('vehicleId', 'brand name model year').lean();
         }
 
-        res.json({ settlements, pendingSales, targetUsername });
+        res.json({ settlements: ambiguousLegacyBeneficiary ? [] : settlements, pendingSales, targetUsername,
+            warning: ambiguousLegacyBeneficiary ? 'Las liquidaciones históricas necesitan revisión de administración para confirmar a qué cuenta corresponden. Tus operaciones propias siguen disponibles.' : null });
     } catch (error) {
         console.error('GET /api/admin/my-commissions error:', error);
         res.status(500).json({ message: error.message });
@@ -15700,6 +15770,10 @@ app.post('/api/admin/approvals', authenticateToken, requirePermission(PERMISSION
     try {
         const { actionType, entityType, entityId, summary, reason } = req.body;
 
+        if (isIntakeApproval({ actionType }) || req.body.intakePayload !== undefined) {
+            return res.status(400).json({ message: 'Solicitá el alta desde Clientes o Negociación para validar sus datos.' });
+        }
+
         if (!actionType || !entityType || !entityId || !reason) {
             return res.status(400).json({ message: 'Faltan campos requeridos' });
         }
@@ -15730,7 +15804,7 @@ app.get('/api/admin/approvals', authenticateToken, requirePermission(PERMISSIONS
         let query = {};
 
         // Ventas solo ve sus propias solicitudes, admin ve todas
-        if (req.user.role === ROLES.VENTAS) {
+        if (!['owner', 'admin'].includes(req.user.role)) {
             query.requester = req.user.userId;
         }
 
@@ -15748,9 +15822,19 @@ app.get('/api/admin/approvals', authenticateToken, requirePermission(PERMISSIONS
     }
 });
 
-app.patch('/api/admin/approvals/:id', authenticateToken, requirePermission(PERMISSIONS.APPROVALS_WRITE), async (req, res) => {
+app.patch('/api/admin/approvals/:id', authenticateToken, requirePermission(PERMISSIONS.APPROVALS_READ), async (req, res) => {
     try {
         const { status, resolutionNotes } = req.body;
+
+        if (!mongoose.isValidObjectId(req.params.id)) return res.status(404).json({ message: 'Solicitud no encontrada.' });
+        const targetRequest = await ApprovalRequest.findById(req.params.id).select('actionType');
+        if (isIntakeApproval(targetRequest)) {
+            const result = await resolveIntake({ id: req.params.id, status, resolutionNotes, user: req.user, req });
+            return res.json(result);
+        }
+        if (!hasPermission(req.user, PERMISSIONS.APPROVALS_WRITE) && !['owner', 'admin'].includes(req.user.role)) {
+            return res.status(403).json({ message: 'No tenés permiso para resolver esta solicitud.' });
+        }
 
         if (!['approved', 'rejected', 'executed', 'cancelled'].includes(status)) {
             return res.status(400).json({ message: 'Estado inválido' });
@@ -15780,7 +15864,7 @@ app.patch('/api/admin/approvals/:id', authenticateToken, requirePermission(PERMI
 
         res.json(request);
     } catch (error) {
-        res.status(500).json({ message: error.message });
+        res.status(error.status || 500).json({ message: error.message });
     }
 });
 

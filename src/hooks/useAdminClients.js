@@ -90,7 +90,7 @@ export function useAdminClients() {
 
             const res = await fetch(`${baseUrl}/api/admin/clients`, {
                 method: 'POST',
-                headers: getAuthHeaders(),
+                headers: { ...getAuthHeaders(), 'Idempotency-Key': clientData.submissionKey || crypto.randomUUID() },
                 body: JSON.stringify(clientData)
             });
 

@@ -22,7 +22,7 @@ export function useAdminUsers() {
         try {
             const res = await fetch('/api/admin/users', { headers: getAuthHeaders() });
             if (!res.ok) {
-                if (res.status === 401 || res.status === 403) logout();
+                if (res.status === 401) logout();
                 throw new Error('Error al obtener usuarios');
             }
             const data = await res.json();

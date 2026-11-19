@@ -1,6 +1,7 @@
 "use client";
 import toast from 'react-hot-toast';
 import React, { useEffect, useMemo, useState } from 'react';
+import Link from 'next/link';
 import { Plus, UserCheck, UserPlus, Users } from 'lucide-react';
 import { useAdminClients } from '../../../hooks/useAdminClients';
 import ClientFilters from '../../../components/crm/clients/ClientFilters';
@@ -15,7 +16,7 @@ import { useAdminLeads } from '../../../hooks/useAdminLeads';
 import ClientPipelineBoard from '../../../components/crm/clients/ClientPipelineBoard';
 import { LayoutList, KanbanSquare, Download, Upload } from 'lucide-react';
 import { useAuth } from '../../../context/AuthContext';
-import { hasPermission, PERMISSIONS } from '../../../utils/adminPermissions';
+import { hasPermission, PERMISSIONS, ROLES } from '../../../utils/adminPermissions';
 import * as XLSX from 'xlsx';
 
 const summaryCards = [
@@ -29,6 +30,9 @@ export default function AdminClientesPage() {
     const { user } = useAuth();
     const canSeeLeads = hasPermission(user, PERMISSIONS.LEADS_READ);
     const canWriteLeads = hasPermission(user, PERMISSIONS.LEADS_WRITE);
+    const requiresClientApproval = user?.role === ROLES.VENTAS;
+    const canCreateClient = hasPermission(user, requiresClientApproval ? PERMISSIONS.CLIENTES_SUBMIT : PERMISSIONS.CLIENTES_WRITE);
+    const [pendingNotice, setPendingNotice] = useState('');
 
     const { clients, loading, error, total, totalPages, fetchClients, createClient, updateClient } = useAdminClients();
 
@@ -50,7 +54,12 @@ export default function AdminClientesPage() {
     };
 
     const handleCreateClient = async (clientData) => {
-        await createClient(clientData);
+        const result = await createClient(clientData);
+        if (result.pendingApproval) {
+            setPendingNotice(result.message);
+            toast.success('Solicitud enviada para autorización');
+            return;
+        }
         fetchClients(filters); // Reload list
     };
 
@@ -128,7 +137,7 @@ export default function AdminClientesPage() {
                                 <span>Exportar XLSX</span>
                             </CrmButton>
                         )}
-                        {hasPermission(user, PERMISSIONS.CLIENTES_WRITE) && (
+                        {!requiresClientApproval && hasPermission(user, PERMISSIONS.CLIENTES_WRITE) && (
                             <CrmButton variant="secondary" size="sm" onClick={() => setIsImportModalOpen(true)} className="gap-2" title="Importar XLSX">
                                 <Upload size={16} />
                                 <span>Importar XLSX</span>
@@ -138,12 +147,14 @@ export default function AdminClientesPage() {
                             <LayoutList size={16} />
                             <span>{isSelectionMode ? 'Cancelar' : 'Seleccionar'}</span>
                         </CrmButton>
-                        <CrmButton variant="primary" size="sm" onClick={() => setIsModalOpen(true)} className="gap-2">
+                        {canCreateClient && <CrmButton variant="primary" size="sm" onClick={() => setIsModalOpen(true)} className="gap-2">
                             <Plus size={16} />
-                            Nuevo Cliente
-                        </CrmButton>
+                            {requiresClientApproval ? 'Solicitar alta de cliente' : 'Nuevo Cliente'}
+                        </CrmButton>}
                     </div>
                 </div>
+
+                {pendingNotice && <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-4 text-sm text-crm-fg" role="status">{pendingNotice} <Link href="/admin/autorizaciones" className="font-bold text-crm-red underline">Ver mis solicitudes</Link></div>}
 
                 <div className="flex gap-6 border-b border-crm-border">
                     <button

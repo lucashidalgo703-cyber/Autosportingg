@@ -41,7 +41,10 @@ export function withAdminAuth(requiredPermission, handler) {
             // A common pattern is to attach it as request.user = authUser;
             request.user = authUser;
 
-            return handler(request, context);
+            const response = await handler(request, context);
+            response.headers.set('Cache-Control', 'private, no-store');
+            response.headers.append('Vary', 'Authorization');
+            return response;
         } catch (error) {
             console.error('Auth Middleware Error:', error);
             return NextResponse.json({ error: 'Internal Server Error during authentication' }, { status: 500 });

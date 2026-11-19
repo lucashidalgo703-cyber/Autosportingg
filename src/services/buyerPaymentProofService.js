@@ -9,7 +9,7 @@ import Installment from '../models/Installment.js';
 import Gestoria from '../models/Gestoria.js';
 import Transaction from '../models/Transaction.js';
 import Account from '../models/Account.js';
-import { hasPermission, PERMISSIONS } from '../utils/adminPermissions.js';
+import { hasPermission, isSalesRole, PERMISSIONS } from '../utils/adminPermissions.js';
 import { isMySaleOrReservation } from '../utils/saleOwnership.js';
 import { roundMoney } from '../utils/saleCommercial.js';
 import { isDepositCollection, isGestoriaCollection, remainingAppliedDeposit } from '../utils/collectionDestination.js';
@@ -30,13 +30,13 @@ export function createBuyerPaymentIndexes() {
         .catch(error => { ready = null; throw error; });
 }
 function financialAccess(user, write = false) {
-    if (user?.role === 'ventas' || !hasPermission(user, write ? PERMISSIONS.FINANZAS_WRITE : PERMISSIONS.FINANZAS_READ)) fail('No tenés permiso para revisar comprobantes de pago.', 403);
+    if (isSalesRole(user) || !hasPermission(user, write ? PERMISSIONS.FINANZAS_WRITE : PERMISSIONS.FINANZAS_READ)) fail('No tenés permiso para revisar comprobantes de pago.', 403);
 }
 async function adminSale(user, saleId, write = false, session) {
     financialAccess(user, write);
     if (!validId(idOf(saleId))) fail('Operación no encontrada.', 404);
     const sale = await Sale.findById(saleId).session(session || null).lean();
-    if (!sale || user.role === 'ventas' && !isMySaleOrReservation(sale, user)) fail('Operación no encontrada.', 404);
+    if (!sale || isSalesRole(user) && !isMySaleOrReservation(sale, user)) fail('Operación no encontrada.', 404);
     return sale;
 }
 function sameBinding(proof, sale) {

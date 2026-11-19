@@ -7,7 +7,7 @@ import Lead from '../models/Lead.js';
 import AdminUser from '../models/AdminUser.js';
 import Installment from '../models/Installment.js';
 import AuditLog from '../models/AuditLog.js';
-import { hasPermission, PERMISSIONS } from '../utils/adminPermissions.js';
+import { hasPermission, isSalesRole, PERMISSIONS } from '../utils/adminPermissions.js';
 import { computeCommissionAmount, validateCommissionPercent, roundMoney } from '../utils/saleCommercial.js';
 import { sellerScope, assertSellerAssignment, sellerVehicleDto } from './sellerAccessService.js';
 import { isMySaleOrReservation } from '../utils/saleOwnership.js';
@@ -60,7 +60,7 @@ export async function getSaleVehicleOptions({ q = '', page = 1, limit = 20 } = {
         if (/^\d{4}$/.test(word)) matches.push({ year: Number(word) });
         return { $or: matches };
     });
-    if (user?.role === 'ventas') {
+    if (isSalesRole(user)) {
         const [operations, activeReservations] = await Promise.all([
             Sale.find({ status: { $ne: 'cancelada' }, vehicleId: { $ne: null } }).select('vehicleId assignedTo').lean(),
             Reservation.find({ status: 'activa' }).select('vehicleId assignedTo').lean()
@@ -81,10 +81,10 @@ export async function getSaleVehicleOptions({ q = '', page = 1, limit = 20 } = {
         Reservation.find({ vehicleId: { $in: ids }, status: 'activa' }).populate('clientId', 'fullName firstName phone email dniCuit').lean()
     ]);
     return { cars: cars.map(car => {
-        const sale = sales.find(s => idOf(s.vehicleId) === idOf(car._id) && (user?.role !== 'ventas' || isMySaleOrReservation(s, user)));
-        const reservation = reservations.find(r => idOf(r.vehicleId) === idOf(car._id) && (user?.role !== 'ventas' || isMySaleOrReservation(r, user)));
+        const sale = sales.find(s => idOf(s.vehicleId) === idOf(car._id) && (!isSalesRole(user) || isMySaleOrReservation(s, user)));
+        const reservation = reservations.find(r => idOf(r.vehicleId) === idOf(car._id) && (!isSalesRole(user) || isMySaleOrReservation(r, user)));
         const { auditLog: _auditLog, notes: _notes, ...publicCar } = car;
-        return { ...(user?.role === 'ventas' ? sellerVehicleDto(publicCar) : publicCar), pauseReason: car.status === 'Pausado' ? vehiclePauseReason(car) : null,
+        return { ...(isSalesRole(user) ? sellerVehicleDto(publicCar) : publicCar), pauseReason: car.status === 'Pausado' ? vehiclePauseReason(car) : null,
             canResolvePause: hasPermission(user, PERMISSIONS.STOCK_WRITE),
             activeSale: sale ? { _id: sale._id, status: sale.status } : null,
             reservation: reservation ? { _id: reservation._id, clientId: reservation.clientId,
@@ -175,7 +175,7 @@ export async function completeSaleAtomic({ payload, user, reservationId = null, 
                 if (!vehicle) fail('No se encontró el vehículo.', 404);
                 const existing = await Sale.findOne({ vehicleId, status: { $ne: 'cancelada' } }).session(session);
                 if (existing) fail('Esta unidad ya tiene una venta activa. Podés abrir la operación existente.', 409,
-                    user?.role === 'ventas' && !isMySaleOrReservation(existing, user) ? {} : { activeSaleId: existing._id });
+                    isSalesRole(user) && !isMySaleOrReservation(existing, user) ? {} : { activeSaleId: existing._id });
                 const activeReservations = await Reservation.find({ vehicleId, status: 'activa' }).session(session);
                 if (reservation && reservation.status !== 'activa') fail('La reserva ya no está activa.', 409);
                 if (activeReservations.length > 1) fail('La unidad tiene varias reservas activas. Resolvé esa inconsistencia antes de vender.', 409);
@@ -201,6 +201,7 @@ export async function completeSaleAtomic({ payload, user, reservationId = null, 
             let clientId = reservation?.clientId || payload.clientId;
             if (clientId && !await Client.exists({ _id: clientId }).session(session)) fail('No se encontró el cliente seleccionado.');
             if (!clientId && String(payload.buyerName || '').trim()) {
+                if (user?.role === 'ventas') fail('Solicitá el alta del cliente desde Clientes y esperá la autorización del titular antes de vincularlo a la venta.', 409);
                 const [client] = await Client.create([{ fullName: String(payload.buyerName).trim(), phone: payload.buyerPhone || '',
                     email: payload.buyerEmail || '', dniCuit: payload.buyerDni || '', type: 'comprador', source: 'local' }], { session });
                 clientId = client._id;
@@ -320,7 +321,7 @@ export async function changeSaleVehicleAtomic({ saleId, payload, user, request =
             if (idOf(sale.vehicleId) === idOf(newCar._id)) fail('El vehículo seleccionado es el mismo que ya está asignado a la venta.');
             const existing = await Sale.findOne({ vehicleId: newCar._id, _id: { $ne: sale._id }, status: { $ne: 'cancelada' } }).session(session);
             if (existing) fail(`El vehículo ${newCar.brand} ${newCar.name} ya está asignado a otra venta activa.`, 409,
-                user?.role === 'ventas' && !isMySaleOrReservation(existing, user) ? {} : { activeSaleId: existing._id });
+                isSalesRole(user) && !isMySaleOrReservation(existing, user) ? {} : { activeSaleId: existing._id });
             if (newCar.status !== 'Disponible') fail(`La unidad está ${newCar.status}. Resolvé su estado antes de cambiarla.`, 409);
             if (await Reservation.exists({ vehicleId: newCar._id, status: 'activa' }).session(session)) fail('La unidad tiene una reserva activa. Resolvela antes de cambiarla.', 409);
             const actor = user.name || user.email || user.username || 'Admin';

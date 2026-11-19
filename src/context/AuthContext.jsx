@@ -59,10 +59,21 @@ export const AuthProvider = ({ children }) => {
                     signal: controller.signal
                 });
                 if (!response.ok) throw new Error('Session rejected');
+                const session = await response.json();
+                const claims = decodeToken(storedToken);
+                const currentUser = session?.user;
+                if (session?.ok !== true || !currentUser || currentUser.id !== claims?.id
+                    || typeof currentUser.role !== 'string' || !Array.isArray(currentUser.permissions)) {
+                    throw new Error('Invalid session response');
+                }
                 if (!cancelled && localStorage.getItem('token') === storedToken && isTokenValid(storedToken)) {
                     setToken(storedToken);
                     setIsAuthenticated(true);
-                    setUser(decodeToken(storedToken));
+                    // The JWT retains its original expiry, but role and access
+                    // may have changed in Configuration during this session.
+                    setUser({ ...claims, id: claims.id, userId: claims.id,
+                        role: currentUser.role, permissions: currentUser.permissions,
+                        username: currentUser.username, email: currentUser.email });
                 }
             } catch {
                 if (!cancelled) clearSession();

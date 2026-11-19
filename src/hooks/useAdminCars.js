@@ -301,7 +301,7 @@ export const useAdminCars = () => {
 
             if (!res.ok) {
                 const errData = await res.json().catch(() => ({}));
-                if (res.status === 401 || res.status === 403) {
+                if (res.status === 401) {
                     toast.error('Sesión expirada');
                     logout();
                     return false;

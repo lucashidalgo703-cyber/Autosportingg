@@ -1,13 +1,15 @@
-import React, { useState } from 'react';
-import { Edit2, Shield, Key, AlertTriangle, ShieldCheck } from 'lucide-react';
+import React from 'react';
+import { Edit2, Key, ShieldCheck } from 'lucide-react';
 import { CrmIconButton } from '../ui/CrmButton';
+import { roleLabel } from '../../../utils/adminPermissions';
+import { RolesCatalog } from './RoleAccessDetails';
 
 export default function AdminUsersTable({ users, onEdit, onChangePassword }) {
     if (!users || users.length === 0) {
         return (
-            <div className="text-center py-10 text-crm-fg-muted bg-crm-bg rounded-2xl border border-crm-border">
+            <div className="space-y-4"><RolesCatalog /><div className="text-center py-10 text-crm-fg-muted bg-crm-bg rounded-2xl border border-crm-border">
                 No hay usuarios configurados.
-            </div>
+            </div></div>
         );
     }
 
@@ -15,14 +17,15 @@ export default function AdminUsersTable({ users, onEdit, onChangePassword }) {
         switch(role) {
             case 'owner': return <span className="bg-crm-red/10 text-crm-red border border-crm-red/20 px-2 py-1 rounded text-[10px] font-bold uppercase">Owner</span>;
             case 'admin': return <span className="bg-purple-500/10 text-purple-500 border border-purple-500/20 px-2 py-1 rounded text-[10px] font-bold uppercase">Admin</span>;
-            case 'ventas': return <span className="bg-green-500/10 text-green-500 border border-green-500/20 px-2 py-1 rounded text-[10px] font-bold uppercase">Ventas</span>;
+            case 'ventas': return <span className="bg-green-500/10 text-green-500 border border-green-500/20 px-2 py-1 rounded text-[10px] font-bold uppercase">{roleLabel(role)}</span>;
+            case 'gestoria_contabilidad': return <span className="bg-cyan-500/10 text-cyan-400 border border-cyan-500/20 px-2 py-1 rounded text-[10px] font-bold uppercase">{roleLabel(role)}</span>;
             case 'administrativo': return <span className="bg-blue-500/10 text-blue-500 border border-blue-500/20 px-2 py-1 rounded text-[10px] font-bold uppercase">Admin.</span>;
             default: return <span className="bg-crm-surface text-crm-fg-muted border border-crm-border px-2 py-1 rounded text-[10px] font-bold uppercase">Lectura</span>;
         }
     };
 
     return (
-        <div className="bg-crm-bg border border-crm-border rounded-2xl overflow-hidden">
+        <div className="space-y-4"><RolesCatalog /><div className="bg-crm-bg border border-crm-border rounded-2xl overflow-hidden">
             <div className="overflow-x-auto">
                 <table className="w-full text-left text-sm">
                     <thead className="bg-crm-surface border-b border-crm-border text-xs uppercase text-crm-fg-muted">
@@ -49,6 +52,7 @@ export default function AdminUsersTable({ users, onEdit, onChangePassword }) {
                                 <td className="px-6 py-4 text-crm-fg-muted">{user.email}</td>
                                 <td className="px-6 py-4">
                                     {getRoleBadge(user.role)}
+                                    {user.permissions?.length > 0 && <div className="mt-1 text-[10px] text-crm-fg-muted">Permisos personalizados</div>}
                                 </td>
                                 <td className="px-6 py-4">
                                     {user.active ? (
@@ -82,6 +86,6 @@ export default function AdminUsersTable({ users, onEdit, onChangePassword }) {
                     </tbody>
                 </table>
             </div>
-        </div>
+        </div></div>
     );
 }

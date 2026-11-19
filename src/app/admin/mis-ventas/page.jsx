@@ -72,6 +72,11 @@ export default function MisVentasPage() {
         ]);
         setAllSales(salesData || []);
         setAllReservations(reservationsData || []);
+        if (!hasPermission(user, PERMISSIONS.METAS_READ)) {
+            setGoalData(null);
+            setGoalLoading(false);
+            return;
+        }
 
         try {
             setGoalLoading(true);
