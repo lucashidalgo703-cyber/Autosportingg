@@ -1,10 +1,11 @@
 "use client";
 import { Fragment, useCallback, useEffect, useRef, useState, useSyncExternalStore } from 'react';
-import { Calculator, RefreshCw, Search, Settings2, ShieldAlert, SlidersHorizontal } from 'lucide-react';
+import { Calculator, PencilLine, RefreshCw, Search, Settings2, ShieldAlert, SlidersHorizontal } from 'lucide-react';
 import { useAuth } from '../../../context/AuthContext';
 import CrmButton from '../ui/CrmButton';
 import CrmPagination from '../ui/CrmPagination';
 import StockNegotiationRuleEditor from './StockNegotiationRuleEditor';
+import { normalizeVehiclePlate } from '../../../utils/vehiclePlate';
 import styles from './StockNegotiationPanel.module.css';
 
 const endpoint = '/api/admin/stock/negotiation';
@@ -47,11 +48,34 @@ function PriceValue({ step, currency, shared, missing = false }) {
 }
 function VehicleInfo({ row }) {
     const issues = issuesOf(row.missingFields);
-    return <><strong className={styles.vehicleTitle}>{titleOf(row)}</strong><p className={styles.vehicleMeta}><span className={styles.plate}>{row.plate || 'Sin dominio'}</span>{row.ownership?.label ? ' · ' + row.ownership.label : ''}</p>
+    return <><strong className={styles.vehicleTitle}>{titleOf(row)}</strong><p className={styles.vehicleMeta}><span className={styles.plate}>Dominio: {row.plate || 'Sin dominio'}</span>{row.ownership?.label ? ' · ' + row.ownership.label : ''}</p>
         {row.status === 'below_floor' && <span className={styles.badge}><ShieldAlert size={14} aria-hidden="true"/>Revisar precio publicado</span>}
         {issues.length > 0 && <PendingFields values={row.missingFields}/>}
         <p className={styles.vehicleMeta}>{row.ruleSource === 'vehicle' ? 'Mínimo particular' : row.ruleSource === 'general' ? 'Mínimo general' : 'Mínimo pendiente'}{row.effectiveRule ? ': ' + ruleLabel(row.effectiveRule) : ''}</p>
     </>;
+}
+function PlateEditor({ row, onSave, onClose }) {
+    const [value, setValue] = useState(''), [error, setError] = useState(''), [busy, setBusy] = useState(false);
+    const busyRef = useRef(false);
+    const submit = async event => {
+        event.preventDefault();
+        if (busyRef.current) return;
+        const plate = normalizeVehiclePlate(value);
+        if (!plate) { setError('Ingresá un dominio completo, por ejemplo ABC123 o AA123BB.'); return; }
+        busyRef.current = true; setBusy(true); setError('');
+        try { await onSave(plate); }
+        catch (cause) { setError(cause.message || 'No se pudo confirmar el dominio. Reintentá el mismo envío.'); }
+        finally { busyRef.current = false; setBusy(false); }
+    };
+    return <section className={styles.offer} aria-label={`Completar dominio de ${titleOf(row)}`} data-negotiation-plate={row.id}>
+        <h3>Completar dominio · {titleOf(row)}</h3>
+        <p className={styles.muted}>Verificá la patente antes de guardar. Las correcciones de un dominio ya cargado se realizan desde Stock.</p>
+        <form className={styles.offerForm} onSubmit={submit}>
+            <label>Dominio<input className={styles.input} name="plateOrVin" autoComplete="off" autoCapitalize="characters" spellCheck={false} maxLength={12} placeholder="ABC123 o AA123BB" value={value} onChange={event => { setValue(event.target.value.toUpperCase()); setError(''); }} disabled={busy} required/></label>
+            <div className={styles.actions}><CrmButton type="submit" disabled={busy}>{busy ? 'Guardando…' : 'Guardar dominio'}</CrmButton><CrmButton type="button" variant="ghost" disabled={busy} onClick={onClose}>Cancelar</CrmButton></div>
+        </form>
+        {error && <p className={styles.error} role="alert">{error}</p>}
+    </section>;
 }
 function OfferSimulator({ row, token, onClose }) {
     const [amount, setAmount] = useState(''), [result, setResult] = useState(null), [error, setError] = useState(''), [busy, setBusy] = useState(false);
@@ -106,6 +130,7 @@ export default function StockNegotiationPanel() {
         return () => { active = false; controller.abort(); };
     }, [token, authLoading, query, page, version, key]);
     const items = data?.items || [], canConfigure = Boolean(data?.canConfigure);
+    const actionsLoading = loading || search.trim() !== query;
     const updateRule = async (row, rule, remove = false) => {
         setRuleNotice('');
         try {
@@ -115,9 +140,22 @@ export default function StockNegotiationPanel() {
         } catch (err) { if (err.status === 409) { setRuleNotice(err.message); refresh(); } throw err; }
     };
     const expand = (row, mode) => setExpanded(previous => previous?.id === row.id && previous.mode === mode ? null : { id: row.id, mode });
-    const rowActions = row => <div className={styles.rowActions}><CrmButton type="button" variant="secondary" onClick={() => expand(row, 'offer')} disabled={loading}><Calculator size={15} aria-hidden="true"/>Probar oferta</CrmButton>{canConfigure && <CrmButton type="button" variant="ghost" onClick={() => expand(row, 'rule')} disabled={loading}><Settings2 size={14} aria-hidden="true"/>Mínimo de la unidad</CrmButton>}</div>;
+    const completePlate = async (row, plate) => {
+        setRuleNotice('');
+        try {
+            const saved = await request(endpoint + '/' + encodeURIComponent(row.id) + '/plate', token, { method: 'PATCH', body: { plateOrVin: plate } });
+            setExpanded(null); setRuleNotice(`Dominio ${saved.plate} guardado.`); refresh();
+            window.dispatchEvent(new CustomEvent('crm:stock-changed', { detail: { vehicleId: row.id } }));
+            try { localStorage.setItem('crm:stock-changed', `${Date.now()}:${row.id}`); } catch {}
+        } catch (cause) {
+            if (cause.status === 409) { setExpanded(null); setRuleNotice(cause.message); refresh(); }
+            throw cause;
+        }
+    };
+    const rowActions = row => <div className={styles.rowActions}><CrmButton type="button" variant="secondary" onClick={() => expand(row, 'offer')} disabled={actionsLoading}><Calculator size={15} aria-hidden="true"/>Probar oferta</CrmButton>{row.canCompletePlate && <CrmButton type="button" variant="secondary" onClick={() => expand(row, 'plate')} disabled={actionsLoading}><PencilLine size={14} aria-hidden="true"/>Completar dominio</CrmButton>}{canConfigure && <CrmButton type="button" variant="ghost" onClick={() => expand(row, 'rule')} disabled={actionsLoading}><Settings2 size={14} aria-hidden="true"/>Mínimo de la unidad</CrmButton>}</div>;
     const rowExpanded = row => {
         if (expanded?.id !== row.id) return null;
+        if (expanded.mode === 'plate') return row.canCompletePlate ? <PlateEditor row={row} onSave={plate => completePlate(row, plate)} onClose={() => setExpanded(null)}/> : null;
         const economicKey = JSON.stringify([row.id, row.ruleRevision, row.globalRuleRevision, row.floor, row.totalCost, row.publishedPrice, row.commission]);
         return expanded.mode === 'offer' ? <OfferSimulator key={economicKey} row={row} token={token} onClose={() => setExpanded(null)}/>
             : canConfigure ? <StockNegotiationRuleEditor key={economicKey} rule={row.overrideRule} inheritedRule={data?.rule} vehicleTitle={titleOf(row)} onSave={rule => updateRule(row, rule)} onRemove={() => updateRule(row, null, true)} onCancel={() => setExpanded(null)}/> : null;

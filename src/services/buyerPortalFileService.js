@@ -35,6 +35,7 @@ async function verifiedStaff(claims) {
     if (!user?.active || session.credentialFingerprint !== credentialFingerprint(user)) fail('La sesión fue revocada.', 401);
     return { ...user, id: String(user._id) };
 }
+export { verifiedStaff as verifyPrivateFileStaff };
 async function verifiedBuyer(claims) {
     if (!validId(claims.portalId) || claims.saleId !== claims.portalId) fail('Archivo no disponible.', 404);
     const portal = await BuyerPortal.findOne({ _id: claims.portalId, enabled: true, generation: claims.generation, expiresAt: { $gt: new Date() } }).lean();

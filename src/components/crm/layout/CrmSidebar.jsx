@@ -46,6 +46,7 @@ const menuGroups = [
         name: 'FINANZAS',
         items: [
             { name: 'Finanzas', path: '/admin/finanzas', icon: '💰', prefetch: false },
+            { name: 'Facturación / ARCA', path: '/admin/facturacion', icon: '🧾', prefetch: false },
             { name: 'Dictar gasto', path: '/admin/gastos/rapido', icon: '🎙️', prefetch: false },
             { name: 'Tesorería', path: '/admin/tesoreria', icon: '🏦', prefetch: false },
             { name: 'Liquidaciones', path: '/admin/liquidaciones', icon: '🧾', prefetch: false },
@@ -126,6 +127,7 @@ export default function CrmSidebar({ isOpen, onClose }) {
         if (itemName === 'Usuarios') return hasPermission(user, PERMISSIONS.USUARIOS_READ);
         if (itemName === 'Configuración') return hasPermission(user, PERMISSIONS.USUARIOS_READ) || hasPermission(user, PERMISSIONS.MESSAGETEMPLATES_READ);
         if (itemName === 'Finanzas') return hasPermission(user, PERMISSIONS.FINANZAS_READ);
+        if (itemName === 'Facturación / ARCA') return hasPermission(user, PERMISSIONS.FACTURACION_READ);
         if (itemName === 'Dictar gasto') return hasPermission(user, PERMISSIONS.FINANZAS_WRITE);
         if (itemName === 'Tesorería') return hasPermission(user, PERMISSIONS.CAJA_READ) || hasPermission(user, PERMISSIONS.FINANZAS_READ);
         if (itemName === 'Tesorería Estratégica') return user?.role === 'owner' || user?.role === 'admin';

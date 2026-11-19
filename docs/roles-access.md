@@ -7,13 +7,17 @@ Los perfiles se asignan en **Configuración → Usuarios → Nuevo usuario / Edi
 | Propietario | CRM completo y configuración | Aprueba o rechaza las altas pendientes de vendedores |
 | Administrador | Administración general; conserva sus permisos anteriores | No resuelve las nuevas altas reservadas al propietario |
 | Vendedor · altas con autorización (`ventas`) | Gestoría, Clientes, Negociación, Mis ventas, Expedientes, Mis comisiones, Oportunidades, Calendario, Alertas, Reportes y Mi espacio; conserva sus otras secciones comerciales | Las altas de vehículos y clientes requieren aprobación del propietario. La edición de clientes existentes conserva sus permisos |
-| Gestoría / Contabilidad (`gestoria_contabilidad`) | Las once secciones anteriores, con gestión de clientes, documentación y trámites | No tiene alta de vehículos ni aprobación de solicitudes. La gestión de clientes usa el circuito existente |
+| Gestoría / Contabilidad (`gestoria_contabilidad`) | Las once secciones anteriores y Facturación / ARCA, con gestión de clientes, documentación y trámites | No tiene alta de vehículos ni aprobación de solicitudes. La gestión de clientes usa el circuito existente |
 | Administrativo · perfil anterior | Conserva el perfil administrativo previo, incluidos Caja, Cuotas y Cobranzas | Perfil distinto de Gestoría / Contabilidad |
 | Solo lectura | Consulta de los módulos previstos por el perfil previo | Sin edición por defecto |
 
 Vendedor y Gestoría / Contabilidad utilizan **Mis ventas** para las operaciones asignadas a su cuenta, y **Mis comisiones** para las propias. Negociación permite consultar y simular ofertas; no configura reglas de ganancia mínima. Sus reportes y alertas respetan los módulos y datos autorizados. No reciben acceso a Dashboard, Ventas generales, fichas completas del inventario, Caja ni Finanzas generales por estos perfiles. Los límites de inventario, asignaciones, Finanzas, Caja, Liquidaciones y configuración de usuarios/sistema se mantienen incluso si una cuenta conserva permisos personalizados amplios de una versión anterior.
 
 El vendedor solicita un vehículo desde **Stock → Solicitar alta de vehículo**. Puede adjuntar hasta 20 fotos JPG, PNG o WebP con el preparador de imágenes existente; el conjunto debe quedar por debajo de 3,8 MB para admitir la carga desde celular. La solicitud y sus datos se revisan en **Autorizaciones**. Antes de confirmar, el propietario ve el vehículo, patente, precio y costo con sus monedas, solicitante y fotografías. La aprobación crea el alta directamente, sin registrar movimientos de caja; la publicación web y el circuito de pagos conservan sus acciones existentes. Los rechazos requieren un motivo y el solicitante puede cancelar su alta mientras esté pendiente.
+
+**Facturación / ARCA** queda reservada al propietario y al perfil Gestoría / Contabilidad. Los permisos `facturacion.read` y `facturacion.write` no abren Caja ni Finanzas generales. Los demás roles no acceden a esta sección, incluso si conservan permisos personalizados amplios.
+
+En **Negociación**, el propietario, el vendedor y Gestoría / Contabilidad pueden **Completar dominio** cuando falta el identificador. El cambio se guarda en la misma unidad y queda auditado. Sólo se habilita en unidades disponibles sin venta o reserva activa. El dominio ya informado y los VIN se conservan; una corrección de esos datos sigue en el circuito de edición de Stock de administración. Los reintentos del mismo dominio conservan una única actualización.
 
 Mi espacio conserva sus pendientes, autos personales y patrimonio separados del Stock. Un rechazo por permisos (403) no debe invalidar la sesión; solamente una autenticación inválida o vencida (401) activa el circuito de reingreso.
 

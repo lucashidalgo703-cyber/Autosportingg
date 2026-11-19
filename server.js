@@ -104,6 +104,7 @@ import { authenticateGpt } from './src/services/gptExpenseOAuthService.js';
 import { createQuickExpenseRouter } from './src/routes/quickExpenseRoutes.js';
 import { createAdminBuyerPortalRouter, createBuyerPortalRouter } from './src/routes/buyerPortalRoutes.js';
 import { createStockNegotiationRouter } from './src/routes/stockNegotiationRoutes.js';
+import { createVehicleInvoiceRouter, createVehicleInvoiceFileRouter } from './src/routes/vehicleInvoiceRoutes.js';
 import { preserveRecordedCarFields } from './src/utils/preserveRecordedCarFields.js';
 import { stockCurrency } from './src/utils/inventoryStock.js';
 import { isManagedLinkedExpense, mutateLinkedExpense, annulLinkedExpenseBatch } from './src/services/linkedExpenseMutationService.js';
@@ -468,6 +469,8 @@ const requireAnyPermission = (permissions, allowedRoles = [ROLES.OWNER, ROLES.AD
 app.use('/api/admin/quick-expenses', createQuickExpenseRouter({ authenticate: authenticateToken }));
 app.use('/api/admin/buyer-portal', createAdminBuyerPortalRouter({ authenticate: authenticateToken }));
 app.use('/api/admin/stock/negotiation', createStockNegotiationRouter({ authenticate: authenticateToken }));
+app.use('/api/admin/vehicle-invoices', createVehicleInvoiceRouter({ authenticate: authenticateToken }));
+app.use('/api/vehicle-invoice-files', createVehicleInvoiceFileRouter());
 app.use('/api/buyer-portal', createBuyerPortalRouter());
 
 // Helper functions for password hashing using native crypto

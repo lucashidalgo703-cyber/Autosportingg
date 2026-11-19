@@ -33,6 +33,8 @@ export const PERMISSIONS = {
     VENTAS_CANCEL: 'ventas.cancel',
     FINANZAS_READ: 'finanzas.read',
     FINANZAS_WRITE: 'finanzas.write',
+    FACTURACION_READ: 'facturacion.read',
+    FACTURACION_WRITE: 'facturacion.write',
     CAJA_READ: 'caja.read',
     CAJA_WRITE: 'caja.write',
     CUOTAS_READ: 'cuotas.read',
@@ -106,7 +108,7 @@ export const PERMISSIONS = {
 // Mapa de permisos por defecto según el rol
 export const DEFAULT_ROLE_PERMISSIONS = {
     [ROLES.OWNER]: Object.values(PERMISSIONS), // Acceso total
-    [ROLES.ADMIN]: Object.values(PERMISSIONS).filter(p => p !== PERMISSIONS.TRASH_DELETE), // Acceso casi total, pero no puede eliminar permanentemente
+    [ROLES.ADMIN]: Object.values(PERMISSIONS).filter(p => ![PERMISSIONS.TRASH_DELETE, PERMISSIONS.FACTURACION_READ, PERMISSIONS.FACTURACION_WRITE].includes(p)),
     [ROLES.VENTAS]: [
         PERMISSIONS.STOCK_NEGOTIATION_READ,
         PERMISSIONS.STOCK_SUBMIT, PERMISSIONS.CLIENTES_SUBMIT,
@@ -140,6 +142,7 @@ export const DEFAULT_ROLE_PERMISSIONS = {
         PERMISSIONS.HELP_READ
     ],
     [ROLES.GESTORIA_CONTABILIDAD]: [
+        PERMISSIONS.FACTURACION_READ, PERMISSIONS.FACTURACION_WRITE,
         PERMISSIONS.STOCK_NEGOTIATION_READ,
         PERMISSIONS.CLIENTES_READ, PERMISSIONS.CLIENTES_WRITE,
         PERMISSIONS.GESTORIA_READ, PERMISSIONS.GESTORIA_WRITE,
@@ -213,6 +216,10 @@ export const hasPermission = (user, permission) => {
     if (!user || !permission) return false;
 
     if (user.role === ROLES.OWNER) return true;
+    // Invoice records are shared only with the owner's accounting profile.
+    // Old broad custom grants cannot disclose them to other staff roles.
+    if ([PERMISSIONS.FACTURACION_READ, PERMISSIONS.FACTURACION_WRITE].includes(permission)
+        && user.role !== ROLES.GESTORIA_CONTABILIDAD) return false;
     // Restricted staff cannot reopen global administration or finance through
     // historical broad custom grants. Personal commissions remain available.
     if (isSalesRole(user) && [PERMISSIONS.STOCK_READ, PERMISSIONS.STOCK_WRITE, PERMISSIONS.ASIGNACIONES_WRITE,
@@ -241,8 +248,9 @@ export const canAccessCrmPath = (user, rawPath) => {
     let path;
     try { path = decodeURIComponent(rawPath.split(/[?#]/)[0]).replace(/\/+$/, '') || '/'; }
     catch { return false; }
-    if (!isSalesRole(user)) return true;
     if (path.split('/').some(segment => segment === '.' || segment === '..') || /[\\\u0000-\u001f]/.test(path)) return false;
+    if (/^\/admin\/facturacion(?:\/|$)/i.test(path)) return canReadVehicleInvoices(user);
+    if (!isSalesRole(user)) return true;
     return !/^\/admin(?:$|\/(?:ventas|legacy|analitica)(?:\/|$)|\/stock\/)/i.test(path);
 };
 
@@ -253,6 +261,9 @@ export const canReadStockNegotiation = user => isSalesRole(user)
     : hasPermission(user, PERMISSIONS.STOCK_READ)
         && (['owner', 'admin'].includes(user?.role) || hasPermission(user, PERMISSIONS.STOCK_NEGOTIATION_READ));
 export const canConfigureStockNegotiation = user => canReadStockNegotiation(user) && ['owner', 'admin'].includes(user?.role);
+export const canCompleteStockPlate = user => canReadStockNegotiation(user) && (user?.role === ROLES.OWNER || isSalesRole(user));
+export const canReadVehicleInvoices = user => hasPermission(user, PERMISSIONS.FACTURACION_READ);
+export const canWriteVehicleInvoices = user => hasPermission(user, PERMISSIONS.FACTURACION_WRITE);
 
 // Labels and descriptions are shared by user assignment and the role catalog.
 // Existing database role values remain valid; no account is changed by selecting
@@ -266,7 +277,7 @@ export const ROLE_DEFINITIONS = {
     [ROLES.ADMIN]: {
         label: 'Administrador',
         description: 'Administración general, gestión de usuarios y operación del CRM.',
-        limits: ['Las nuevas altas enviadas para autorización las resuelve el propietario.', 'No elimina registros de forma permanente ni desactiva al propietario.']
+        limits: ['Las nuevas altas enviadas para autorización las resuelve el propietario.', 'Facturación / ARCA queda reservada al propietario y Gestoría / Contabilidad.', 'No elimina registros de forma permanente ni desactiva al propietario.']
     },
     [ROLES.VENTAS]: {
         label: 'Vendedor · altas con autorización',
@@ -275,7 +286,7 @@ export const ROLE_DEFINITIONS = {
     },
     [ROLES.GESTORIA_CONTABILIDAD]: {
         label: 'Gestoría / Contabilidad',
-        description: 'Gestiona trámites, expedientes y clientes, con consulta comercial de sus operaciones.',
+        description: 'Gestiona trámites, expedientes, clientes y Facturación / ARCA, con consulta comercial de sus operaciones.',
         limits: ['Sin Dashboard, Ventas generales, inventario completo, Caja ni Finanzas generales.', 'No configura precios mínimos, administra usuarios ni aprueba altas del vendedor.']
     },
     [ROLES.ADMINISTRATIVO]: {
@@ -300,9 +311,10 @@ export const roleAccessSummary = user => {
     const writeDetail = p => permission(p) ? 'Consulta y gestión' : 'Solo consulta';
     add(['owner', 'admin'].includes(user.role), 'Dashboard y administración general', 'Según los permisos del perfil');
     add(permission(PERMISSIONS.GESTORIA_READ), 'Gestoría', writeDetail(PERMISSIONS.GESTORIA_WRITE));
+    add(canReadVehicleInvoices(user), 'Facturación / ARCA', canWriteVehicleInvoices(user) ? 'Registro y revisión de facturas de vehículos comprados y vendidos' : 'Consulta de facturas registradas');
     add(permission(PERMISSIONS.CLIENTES_READ), 'Clientes', user.role === ROLES.VENTAS
         ? 'Consulta y edición; altas con autorización del propietario' : writeDetail(PERMISSIONS.CLIENTES_WRITE));
-    add(canReadStockNegotiation(user), 'Negociación', canConfigureStockNegotiation(user) ? 'Consulta, simulación y configuración de mínimos' : 'Consulta y simulación de ofertas');
+    add(canReadStockNegotiation(user), 'Negociación', canConfigureStockNegotiation(user) ? 'Consulta, simulación y configuración de mínimos' : canCompleteStockPlate(user) ? 'Consulta, simulación y carga del dominio cuando falta' : 'Consulta y simulación de ofertas');
     add(permission(PERMISSIONS.STOCK_READ), 'Inventario de Stock', writeDetail(PERMISSIONS.STOCK_WRITE));
     add(permission(PERMISSIONS.STOCK_SUBMIT) && user.role === ROLES.VENTAS, 'Solicitar alta de vehículo', 'No ingresa al Stock hasta la aprobación del propietario');
     add(permission(PERMISSIONS.VENTAS_READ), isSalesRole(user) ? 'Mis ventas' : 'Ventas', isSalesRole(user) ? 'Únicamente operaciones asignadas a su cuenta' : writeDetail(PERMISSIONS.VENTAS_WRITE));

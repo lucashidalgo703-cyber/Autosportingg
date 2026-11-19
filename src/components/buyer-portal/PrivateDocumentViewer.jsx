@@ -4,7 +4,7 @@ import { createPortal } from 'react-dom';
 import { Maximize2, Minus, Plus, RefreshCw, X } from 'lucide-react';
 import styles from './PrivateDocumentViewer.module.css';
 
-export default function PrivateDocumentViewer({ entry, requestAccess, onClose, opener }) {
+export default function PrivateDocumentViewer({ entry, requestAccess, onClose, opener, fileBasePath = '/api/buyer-portal/files/' }) {
     const [access, setAccess] = useState(null);
     const [error, setError] = useState('');
     const [generation, setGeneration] = useState(0);
@@ -22,11 +22,12 @@ export default function PrivateDocumentViewer({ entry, requestAccess, onClose, o
         setAccess(null); setError('');
         requestAccess(entry.id).then(result => {
             const url = new URL(result.url, window.location.origin);
-            if (url.origin !== window.location.origin || url.username || url.password || url.pathname !== '/api/buyer-portal/files/' + entry.id) throw new Error('Archivo no disponible.');
+            if (!['/api/buyer-portal/files/', '/api/vehicle-invoice-files/'].includes(fileBasePath)
+                || url.origin !== window.location.origin || url.username || url.password || url.pathname !== fileBasePath + entry.id) throw new Error('Archivo no disponible.');
             if (active) { lastCheck.current = Date.now(); setAccess({ url: url.href, expiresAt: result.expiresAt }); }
         }).catch(err => { if (active) setError(err.message || 'No se pudo abrir el documento. Reintentá.'); });
         return () => { active = false; };
-    }, [entry.id, requestAccess, generation]);
+    }, [entry.id, requestAccess, generation, fileBasePath]);
     useEffect(() => {
         if (!access) return;
         const expiry = Date.parse(access.expiresAt);

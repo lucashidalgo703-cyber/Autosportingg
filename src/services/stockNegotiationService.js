@@ -4,7 +4,9 @@ import Sale from '../models/Sale.js';
 import Reservation from '../models/Reservation.js';
 import CrmSettings from '../models/CrmSettings.js';
 import StockNegotiationPolicy from '../models/StockNegotiationPolicy.js';
-import { canReadStockNegotiation, canConfigureStockNegotiation } from '../utils/adminPermissions.js';
+import { canReadStockNegotiation, canConfigureStockNegotiation, canCompleteStockPlate } from '../utils/adminPermissions.js';
+import { isMissingVehiclePlate, normalizeVehiclePlate } from '../utils/vehiclePlate.js';
+import { logAudit } from '../utils/auditLogger.js';
 import { isAvailableStock } from '../utils/inventoryStock.js';
 import { calculateStockNegotiation, evaluateNegotiationOffer } from '../utils/stockNegotiation.js';
 
@@ -88,10 +90,12 @@ function pendingResult(result, conflicts, simulation = false) {
             steps: (result.steps || []).filter(step => step.key === 'published').map(step => ({ ...step, profit: null, agencyProfit: null }))
         }) };
 }
-function itemDto(car, related) {
+function itemDto(car, related, user) {
     const context = contextFor(car, related), calculated = calculateStockNegotiation(context.calculation);
     return { id: idOf(car), brand: car.brand || '', model: car.name || car.model || '', year: car.year || null,
-        plate: car.plateOrVin || 'Sin dominio', ...pendingResult(calculated, context.conflicts), ...context.policy };
+        plate: isMissingVehiclePlate(car.plateOrVin) ? '' : String(car.plateOrVin).trim().toUpperCase(),
+        canCompletePlate: canCompleteStockPlate(user) && isMissingVehiclePlate(car.plateOrVin) && !context.conflicts.some(value => value.field === 'availability'),
+        ...pendingResult(calculated, context.conflicts), ...context.policy };
 }
 export async function getStockNegotiation(user, params = {}) {
     readAccess(user); const { page, limit, search } = pagination(params);
@@ -100,7 +104,7 @@ export async function getStockNegotiation(user, params = {}) {
         return search.split(/\s+/).filter(Boolean).every(word => text.includes(word));
     }).sort((a, b) => (Number(a.order) || 0) - (Number(b.order) || 0) || new Date(b.createdAt || 0) - new Date(a.createdAt || 0) || idOf(a).localeCompare(idOf(b)));
     const current = cars.slice((page - 1) * limit, page * limit), related = await relatedData(current), general = related.policyMap.get('global');
-    return { items: current.map(car => itemDto(car, related)), total: cars.length, pages: Math.ceil(cars.length / limit), page, limit,
+    return { items: current.map(car => itemDto(car, related, user)), total: cars.length, pages: Math.ceil(cars.length / limit), page, limit,
         canConfigure: canConfigureStockNegotiation(user), rule: ruleDto(general), ruleRevision: general?.revision || 0,
         exchangeRate: related.exchangeRate, calculatedAt: new Date().toISOString() };
 }
@@ -110,6 +114,45 @@ async function availableCar(id) {
     if (!car) fail('Unidad no encontrada.', 404);
     if (!isAvailableStock(car)) fail('La unidad ya no está disponible. Actualizá Stock antes de cotizar.', 409);
     return car;
+}
+export async function completeStockNegotiationPlate(user, id, input = {}) {
+    if (!canCompleteStockPlate(user) || !actorId(user)) fail('No tenés permiso para completar el dominio desde Negociación.', 403);
+    if (!validId(id)) fail('Unidad no encontrada.', 404);
+    if (!input || typeof input !== 'object' || Array.isArray(input) || Object.keys(input).some(key => key !== 'plateOrVin')) fail('Desde esta pantalla sólo podés completar el dominio.');
+    const plate = normalizeVehiclePlate(input.plateOrVin);
+    if (!plate) fail('Ingresá un dominio completo, por ejemplo ABC123 o AA123BB.');
+    const session = await mongoose.startSession();
+    let result;
+    try {
+        await session.withTransaction(async () => {
+            const car = await Car.findById(id).select(projection).session(session).lean();
+            if (!car) fail('Unidad no encontrada.', 404);
+            if (!isAvailableStock(car)) fail('La unidad ya no está disponible. Actualizá Negociación.', 409);
+            if (!isMissingVehiclePlate(car.plateOrVin)) {
+                if (normalizeVehiclePlate(car.plateOrVin) !== plate) fail('El dominio ya fue completado. Actualizá la lista; las correcciones se realizan desde Stock.', 409);
+                result = { id, plate, canCompletePlate: false }; return;
+            }
+            const committed = await Sale.exists({ vehicleId: car._id, status: { $nin: ['cancelada', 'borrador'] } }).session(session);
+            const reserved = await Reservation.exists({ vehicleId: car._id, status: 'activa', expiresAt: { $gt: new Date() } }).session(session);
+            if (committed || reserved) fail('La unidad tiene una operación o reserva activa. Administración debe revisar su estado.', 409);
+            const actor = String(user.username || user.name || user.email || user.id).replace(/[\r\n]/g, ' ').slice(0, 160);
+            const saved = await Car.findOneAndUpdate({ _id: car._id, plateOrVin: car.plateOrVin ?? null,
+                status: car.status, sold: { $ne: true } }, {
+                $set: { plateOrVin: plate, updatedAt: new Date() },
+                $push: { auditLog: { action: 'DOMINIO_COMPLETADO', field: 'plateOrVin', oldValue: car.plateOrVin || '', newValue: plate,
+                    user: actor, source: 'CRM_V2', date: new Date(), details: 'Dominio completado desde Negociación.' } }
+            }, { session, new: true, runValidators: true }).select('_id plateOrVin').lean();
+            if (!saved) fail('La unidad cambió mientras completabas el dominio. Actualizá y volvé a intentar.', 409);
+            await logAudit({ req: { user }, action: 'DOMINIO_COMPLETADO', module: 'stock', entityType: 'Car', entityId: car._id,
+                entityLabel: [car.brand, car.name, plate].filter(Boolean).join(' '),
+                metadata: { oldPlate: car.plateOrVin || '', plate, source: 'negotiation' }, session, strict: true });
+            result = { id, plate, canCompletePlate: false };
+        }, { readConcern: { level: 'snapshot' }, writeConcern: { w: 'majority' } });
+        return result;
+    } catch (error) {
+        if (error.code === 20 || error.codeName === 'IllegalOperation') fail('No se pudo confirmar el dominio de forma segura. Reintentá desde una base compatible con transacciones.', 503);
+        throw error;
+    } finally { await session.endSession(); }
 }
 export async function simulateStockNegotiation(user, id, input = {}) {
     readAccess(user);

@@ -6,6 +6,7 @@ const CACHE_NAME = 'autosporting-offline-shell-v4';
 
 function isPrivatePortalPath(pathname) {
     return /^\/portal(?:\/|$)/i.test(pathname) || /^\/api\/(?:admin\/)?buyer-portal(?:\/|$)/i.test(pathname)
+        || /^\/api\/vehicle-invoice-files(?:\/|$)/i.test(pathname)
         || /^\/api\/admin(?:\/|$)/i.test(pathname) || /^\/api\/stats\/dashboard(?:\/|$)/i.test(pathname);
 }
 

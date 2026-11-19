@@ -23,7 +23,7 @@ assert.equal(claimed, 1);
 
 for (const route of ['/api/admin/sales', '/api/admin/reservations', '/api/admin/cars?tab=historial',
     '/api/admin/dashboard', '/api/stats/dashboard', '/api/admin/stock/negotiation',
-    '/API/ADMIN/CARS', '/api/admin/auth/me', '/api/buyer-portal/files/example', '/portal/example']) {
+    '/API/ADMIN/CARS', '/api/admin/auth/me', '/api/buyer-portal/files/example', '/api/vehicle-invoice-files/example?access=private-test', '/portal/example']) {
     let intercepted = false;
     handlers.fetch({ request: { method: 'GET', url: 'https://crm.example.test' + route,
         mode: 'cors', headers: { get: () => '' } }, respondWith: () => { intercepted = true; } });

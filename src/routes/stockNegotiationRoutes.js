@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import connectDB from '../config/db.js';
-import { getStockNegotiation, simulateStockNegotiation, setGeneralNegotiationRule, setVehicleNegotiationRule, clearVehicleNegotiationRule } from '../services/stockNegotiationService.js';
+import { getStockNegotiation, simulateStockNegotiation, setGeneralNegotiationRule, setVehicleNegotiationRule, clearVehicleNegotiationRule, completeStockNegotiationPlate } from '../services/stockNegotiationService.js';
 
 const endpoint = callback => async (req, res) => {
     try { await connectDB(); res.json(await callback(req)); }
@@ -17,5 +17,6 @@ export function createStockNegotiationRouter({ authenticate }) {
     router.put('/:id/rule', endpoint(req => setVehicleNegotiationRule(req.user, req.params.id, req.body)));
     router.delete('/:id/rule', endpoint(req => clearVehicleNegotiationRule(req.user, req.params.id, req.body)));
     router.post('/:id/simulate', endpoint(req => simulateStockNegotiation(req.user, req.params.id, req.body)));
+    router.patch('/:id/plate', endpoint(req => completeStockNegotiationPlate(req.user, req.params.id, req.body)));
     return router;
 }
