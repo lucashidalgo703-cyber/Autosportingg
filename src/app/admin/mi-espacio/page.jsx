@@ -32,6 +32,7 @@ import { useAdminTransactions } from '../../../hooks/useAdminTransactions';
 import { useAdminPersonalAssets } from '../../../hooks/useAdminPersonalAssets';
 import LoadingSkeleton from '../../../components/crm/ui/LoadingSkeleton';
 import { isMySaleOrReservation } from '../../../utils/saleOwnership';
+import { hasPermission, PERMISSIONS, isSalesRole } from '../../../utils/adminPermissions';
 
 const TAB_MI_DIA = 'Mi d\u00eda';
 const TODAY = () => new Date().toISOString().split('T')[0];
@@ -844,6 +845,18 @@ function AlertasVendedorPanel({ alerts }) {
 
 export default function MiEspacioPage() {
     const { user } = useAuth();
+    const canReadStock = hasPermission(user, PERMISSIONS.STOCK_READ);
+    const canReadFinance = !isSalesRole(user) && hasPermission(user, PERMISSIONS.FINANZAS_READ);
+    const canWriteFinance = !isSalesRole(user) && hasPermission(user, PERMISSIONS.FINANZAS_WRITE);
+    const canReadSales = hasPermission(user, PERMISSIONS.VENTAS_READ);
+    const canReadTasks = hasPermission(user, PERMISSIONS.AGENDA_READ);
+    const canWriteTasks = hasPermission(user, PERMISSIONS.AGENDA_WRITE);
+    const visibleSubTabs = subTabs.filter(tab => {
+        if (['Pagos realizados', 'Saldo agencia'].includes(tab.label)) return canReadFinance;
+        if (tab.label === 'Mis ventas') return canReadSales;
+        if (['URGENTE', 'Deudas', 'Gastos fijos', 'Cuotas a pagar', 'Cuotas a cobrar', 'Pendientes', 'Calendario', 'Contactos'].includes(tab.label)) return canReadTasks;
+        return true;
+    });
     const { refresh: fetchCars } = useAdminCars();
     const { fetchTasks, createTask } = useAdminCrmTasks();
     const { fetchInstallments } = useAdminInstallments();
@@ -870,16 +883,16 @@ export default function MiEspacioPage() {
 
     const refreshMiSpaceData = async () => {
         const [cars, tasks, installments, sales, transactions, assets] = await Promise.all([
-            withTimeout(fetchCars()),
-            withTimeout(fetchTasks()),
-            withTimeout(fetchInstallments()),
-            withTimeout(fetchSales()),
-            withTimeout(fetchTransactions()),
+            canReadStock ? withTimeout(fetchCars()) : [],
+            canReadTasks ? withTimeout(fetchTasks({ scope: 'my-space' })) : [],
+            canReadFinance ? withTimeout(fetchInstallments()) : [],
+            canReadSales ? withTimeout(fetchSales()) : [],
+            canReadFinance ? withTimeout(fetchTransactions()) : [],
             withTimeout(fetchAssets())
         ]);
 
         setData({
-            cars: safeArray(cars),
+            cars: safeArray(Array.isArray(cars) ? cars : cars?.cars),
             tasks: safeArray(tasks),
             installments: safeArray(installments),
             sales: safeArray(sales),
@@ -989,7 +1002,7 @@ export default function MiEspacioPage() {
             type: 'reservation',
             title: `Reserva pendiente`,
             description: `A la espera de cierre o cancelación`,
-            href: `/admin/ventas?id=${s._id}`
+            href: isSalesRole(user) ? `/admin/mis-ventas/${s._id}` : `/admin/ventas/${s._id}`
         }));
 
         const sellerAlerts = [...overdueTasksAlerts, ...todayTasksAlerts, ...overdueInstallmentAlerts, ...activeReservations];
@@ -1076,17 +1089,19 @@ export default function MiEspacioPage() {
     const taskModalConfig = taskModalKind ? taskModalConfigs[taskModalKind] : null;
 
     const openTaskModal = (kind) => {
+        if (!canWriteTasks) { setActionError('No tenés permiso para crear anotaciones personales.'); return; }
         setActionError('');
         setTaskModalKind(kind);
     };
 
     const openMoneyModal = (mode) => {
+        if (!canWriteFinance) { setActionError('No tenés permiso para registrar movimientos de la agencia.'); return; }
         setActionError('');
         setMoneyModalMode(mode);
     };
 
     const handlePersonalTaskSubmit = async (formData) => {
-        if (!taskModalConfig) return;
+        if (!taskModalConfig || !canWriteTasks) return;
         setSavingAction(true);
         setActionError('');
         try {
@@ -1118,6 +1133,7 @@ export default function MiEspacioPage() {
     };
 
     const handleMoneySubmit = async (formData) => {
+        if (!canWriteFinance) return;
         setSavingAction(true);
         setActionError('');
         try {
@@ -1162,10 +1178,10 @@ export default function MiEspacioPage() {
         <div className="space-y-6">
             <AlertasVendedorPanel alerts={summary.sellerAlerts} />
             <p className="m-0 mb-5 text-sm text-crm-fg-muted">
-                Tu resumen como administrador <span aria-hidden="true">—</span> <strong className="text-crm-fg-muted">{formatMonth(new Date())}</strong>
+                Tu resumen personal <span aria-hidden="true">—</span> <strong className="text-crm-fg-muted">{formatMonth(new Date())}</strong>
             </p>
 
-            <section>
+            {canReadFinance && <section>
                 <SectionTitle>Plata este mes</SectionTitle>
                 <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
                     <StatCard icon={CreditCard} value={money(summary.toPay)} label="A pagar este mes" note="Cuotas + deudas que vencen" tone="red" />
@@ -1173,7 +1189,7 @@ export default function MiEspacioPage() {
                     <StatCard icon={Wallet} value={money(summary.toCollect)} label="A cobrar este mes" note="Cuotas a cobrar que vencen" tone="indigo" />
                     <StatCard icon={Wallet} value={money(summary.collectedThisMonth)} label="Ya cobré este mes" note="Suma de cobros registrados" tone="green" />
                 </div>
-            </section>
+            </section>}
 
             <section>
                 <SectionTitle meta={`${summary.next7.length} eventos`}>Próximos 7 días</SectionTitle>
@@ -1196,12 +1212,12 @@ export default function MiEspacioPage() {
             </section>
 
             <section>
-                <SectionTitle>Tu agencia</SectionTitle>
+                <SectionTitle>{isSalesRole(user) ? 'Mi actividad comercial' : 'Tu agencia'}</SectionTitle>
                 <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
-                    <StatCard icon={Car} value={summary.availableStock.length} label="Stock disponible" tone="green" />
-                    <StatCard icon={Briefcase} value={summary.thisMonthSales.length} label="Ventas del mes" tone="indigo" />
-                    <StatCard icon={Landmark} value={summary.activeFiles.length} label="Expedientes activos" tone="violet" />
-                    <StatCard icon={Wallet} value={money(summary.monthIncomeUsd, 'USD')} label="Ingresos del mes" tone="amber" />
+                    {canReadStock && <StatCard icon={Car} value={summary.availableStock.length} label="Stock disponible" tone="green" />}
+                    <StatCard icon={Briefcase} value={isSalesRole(user) ? summary.myThisMonthSales.length : summary.thisMonthSales.length} label="Ventas del mes" tone="indigo" />
+                    <StatCard icon={Landmark} value={isSalesRole(user) ? summary.myActiveFiles.length : summary.activeFiles.length} label="Expedientes activos" tone="violet" />
+                    <StatCard icon={Wallet} value={money(isSalesRole(user) ? summary.myMonthIncomeUsd : summary.monthIncomeUsd, 'USD')} label="Ventas del mes en USD" tone="amber" />
                 </div>
             </section>
 
@@ -1217,7 +1233,7 @@ export default function MiEspacioPage() {
     );
 
     const renderTabPanel = () => {
-        if (activeTab === TAB_MI_DIA) return renderMiDia();
+        if (activeTab === TAB_MI_DIA || subTabs.some(tab => tab.label === activeTab) && !visibleSubTabs.some(tab => tab.label === activeTab)) return renderMiDia();
 
         if (activeTab === 'Mis ventas') {
             return (
@@ -1608,7 +1624,7 @@ export default function MiEspacioPage() {
 
             <nav className="mt-6 mb-4 flex gap-6 border-b border-crm-border" aria-label="Pestañas Principales">
                 {mainTabs.map((tab) => {
-                    const active = (activeTab === tab.label) || (tab.label === 'Mi resumen' && subTabs.some(t => t.label === activeTab));
+                    const active = (activeTab === tab.label) || (tab.label === 'Mi resumen' && visibleSubTabs.some(t => t.label === activeTab));
                     return (
                         <button
                             key={tab.label}
@@ -1625,10 +1641,10 @@ export default function MiEspacioPage() {
                 })}
             </nav>
 
-            {subTabs.some(t => t.label === activeTab) && (
+            {visibleSubTabs.some(t => t.label === activeTab) && (
                 <nav className="mb-4 overflow-x-auto rounded-xl border border-crm-border bg-crm-surface p-1" aria-label="Pestañas de Mi Espacio">
                     <div className="flex min-w-max gap-1">
-                        {subTabs.map((tab) => {
+                        {visibleSubTabs.map((tab) => {
                             const Icon = tab.icon;
                             const active = activeTab === tab.label;
                             return (
@@ -1656,6 +1672,8 @@ export default function MiEspacioPage() {
             <section className={activeTab === TAB_MI_DIA ? '' : 'space-y-4'}>
                 {renderTabPanel()}
             </section>
+
+            {actionError && !taskModalKind && !moneyModalMode && !assetModalOpen && <p role="alert" className="mt-4 text-sm text-red-300">{actionError}</p>}
 
             <PersonalActionModal
                 config={taskModalConfig}

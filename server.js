@@ -8711,12 +8711,22 @@ app.delete('/api/admin/sales/:id/installments', authenticateToken, requirePermis
 // CRM TASKS ENDPOINTS
 // ====================
 
+const mySpaceTaskMarker = /\[MI_ESPACIO_[A-Z_]+\]/i;
+const isPersonalCrmTask = description => mySpaceTaskMarker.test(String(description || ''));
+const canAdministerPersonalTasks = user => ['owner', 'admin'].includes(user?.role);
+const ownsCrmTask = (task, user) => Boolean(task.assignedTo) && String(task.assignedTo) === String(user.id);
+
 // GET all active tasks
 app.get('/api/admin/crm-tasks', authenticateToken, requirePermission(PERMISSIONS.AGENDA_READ), async (req, res) => {
     try {
         await connectDB();
         res.setHeader('Cache-Control', 'no-store, max-age=0');
-        const tasks = await CrmTask.find()
+        const query = req.query.scope === 'my-space'
+            ? { assignedTo: req.user.id }
+            : canAdministerPersonalTasks(req.user) ? {} : {
+                $or: [{ description: { $not: mySpaceTaskMarker } }, { assignedTo: req.user.id }]
+            };
+        const tasks = await CrmTask.find(query)
             .populate('clientId', 'firstName lastName fullName phone')
             .populate('vehicleId', 'brand name plate')
             .populate('saleId', '_id')
@@ -8747,6 +8757,10 @@ app.post('/api/admin/crm-tasks', authenticateToken, requirePermission(PERMISSION
         if (taskData.saleId) taskData.saleId = cleanObjectId(taskData.saleId);
         if (taskData.installmentId) taskData.installmentId = cleanObjectId(taskData.installmentId);
         if (taskData.leadId) taskData.leadId = cleanObjectId(taskData.leadId);
+        if (isPersonalCrmTask(taskData.description)) {
+            taskData.assignedTo = req.user.id;
+            taskData.assignedAt = new Date();
+        }
 
         const newTask = new CrmTask({
             ...taskData,
@@ -8768,6 +8782,30 @@ app.patch('/api/admin/crm-tasks/:id', authenticateToken, requirePermission(PERMI
         const updateData = { ...req.body };
         const task = await CrmTask.findById(req.params.id);
         if (!task) return res.status(404).json({ message: 'Task not found' });
+
+        const wasPersonal = isPersonalCrmTask(task.description);
+        const becomesPersonal = isPersonalCrmTask(updateData.description === undefined ? task.description : updateData.description);
+        if (!canAdministerPersonalTasks(req.user)) {
+            if ((wasPersonal || becomesPersonal) && !ownsCrmTask(task, req.user)) {
+                return res.status(404).json({ message: 'Tarea no encontrada.' });
+            }
+            if (wasPersonal || becomesPersonal) {
+                const requestedAssignee = updateData.assignedTo?._id || updateData.assignedTo;
+                if (requestedAssignee !== undefined && String(requestedAssignee) !== String(req.user.id)) {
+                    return res.status(403).json({ message: 'No podés reasignar una tarea personal.' });
+                }
+                updateData.assignedTo = req.user.id;
+                // Editing the visible description must not accidentally publish
+                // private notes to the shared calendar by removing their marker.
+                if (wasPersonal && !becomesPersonal) {
+                    updateData.description = task.description.match(mySpaceTaskMarker)[0] + '\n' + String(updateData.description || '');
+                }
+            }
+            // Recheck ownership/privacy at save time if another screen reassigns
+            // or privatizes the task after the initial read.
+            task.$where = { assignedTo: task.assignedTo || null,
+                description: task.description === undefined ? { $exists: false } : task.description };
+        }
 
         let oldAssigned = task.assignedTo ? task.assignedTo.toString() : null;
         let newAssigned = updateData.assignedTo === "" ? null : updateData.assignedTo;
@@ -8810,6 +8848,7 @@ app.patch('/api/admin/crm-tasks/:id', authenticateToken, requirePermission(PERMI
         await task.save();
         res.json(task);
     } catch (error) {
+        if (error.name === 'DocumentNotFoundError') return res.status(409).json({ message: 'La tarea cambió en otra pantalla. Actualizá antes de guardar.' });
         res.status(400).json({ message: error.message });
     }
 });

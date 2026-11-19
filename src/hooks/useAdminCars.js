@@ -77,6 +77,18 @@ export const useAdminCars = () => {
 
     const fetchCars = useCallback(async (incomingFilters) => {
         const requestId = ++activeRequestIdRef.current;
+        if (!hasPermission(user, PERMISSIONS.STOCK_READ)) {
+            setCars([]);
+            setSummary(null);
+            setBrands([]);
+            setTotal(0);
+            setPages(0);
+            setFinancialAccess(false);
+            setFilteredMetrics(null);
+            setLoading(false);
+            setError(null);
+            return { cars: [] };
+        }
 
         // Si se llama sin argumentos (o undefined), reutilizamos los últimos filtros activos
         const effectiveFilters = incomingFilters !== undefined
@@ -122,7 +134,7 @@ export const useAdminCars = () => {
                     const offlineResult = applyOfflineFallback(effectiveFilters);
                     if (offlineResult) return offlineResult;
                 }
-                if (response.status === 401 || response.status === 403) {
+                if (response.status === 401) {
                     localStorage.removeItem('token');
                     logout();
                 }
@@ -202,7 +214,7 @@ export const useAdminCars = () => {
                 setLoading(false);
             }
         }
-    }, [logout, applyOfflineFallback]);
+    }, [logout, applyOfflineFallback, user]);
 
     useEffect(() => {
         const onStockChanged = () => fetchCars();
@@ -233,7 +245,7 @@ export const useAdminCars = () => {
             });
 
             if (!res.ok) {
-                if (res.status === 401 || res.status === 403) {
+                if (res.status === 401) {
                     toast.error('Sesión expirada');
                     logout();
                     return;

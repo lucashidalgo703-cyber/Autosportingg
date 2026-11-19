@@ -116,6 +116,74 @@ try {
         await screenshot(mobile.page, 'vendedor-celular-menu.png');
         await sidebar.getByRole('button', { name: 'Cerrar menu', exact: true }).click();
     });
+    await test('Mi Espacio works for sellers without forbidden Stock requests or an unexpected logout', async () => {
+        for (const [offset, current] of [desktop, mobile].entries()) {
+            const { page } = current;
+            const token = await page.evaluate(() => localStorage.getItem('token'));
+            const before = current.requests.length;
+            const assetsLoaded = page.waitForResponse(response => new URL(response.url()).pathname === '/api/admin/my-space/assets' && response.request().method() === 'GET');
+            await goto(page, '/admin/mi-espacio');
+            assert.equal((await assetsLoaded).status(), 200);
+            await page.getByRole('heading', { name: /^Mi Espacio/ }).waitFor();
+            assert.equal(await page.evaluate(() => localStorage.getItem('token')), token);
+            assert.equal((await page.request.get(base + '/api/admin/auth/me', { headers: { Authorization: 'Bearer ' + token } })).status(), 200);
+            assert.equal(current.requests.slice(before).some(blockedRequest), false);
+            assert.equal(current.requests.slice(before).includes('/api/logout'), false);
+            assert.equal(await page.getByText('Tu agencia', { exact: true }).count(), 0);
+            for (const route of ['/api/admin/installments', '/api/admin/transactions']) assert.equal(current.requests.slice(before).includes(route), false, 'Do not request global financial data for a seller');
+            for (const tab of ['Saldo agencia', 'Pagos realizados']) assert.equal(await page.getByRole('button', { name: tab, exact: true }).count(), 0);
+            await page.evaluate(async () => {
+                window.dispatchEvent(new Event('crm:stock-changed'));
+                window.dispatchEvent(new StorageEvent('storage', { key: 'crm:stock-changed', oldValue: 'qa-old', newValue: 'qa-new' }));
+                await new Promise(resolve => setTimeout(resolve, 150));
+            });
+            assert.equal(current.requests.slice(before).some(blockedRequest), false, 'Stock events cannot trigger an inventory read from Mi Espacio');
+            await page.getByRole('button', { name: 'Mis ventas', exact: true }).click();
+            await page.getByText('Venta ' + String(fixture.sales[offset]._id).slice(-6).toUpperCase(), { exact: true }).waitFor();
+            assert.equal(await page.getByText('Venta ' + String(fixture.sales[1 - offset]._id).slice(-6).toUpperCase(), { exact: true }).count(), 0);
+            await page.getByRole('button', { name: 'Pendientes', exact: true }).click();
+            await page.getByRole('button', { name: 'Nueva tarea', exact: true }).click();
+            const taskForm = page.locator('form').filter({ has: page.getByPlaceholder('Ej: Llamar al contador', { exact: true }) });
+            await taskForm.getByPlaceholder('Ej: Llamar al contador', { exact: true }).fill('Pendiente privado QA ' + offset);
+            const taskSaved = page.waitForResponse(response => new URL(response.url()).pathname === '/api/admin/crm-tasks' && response.request().method() === 'POST');
+            await taskForm.getByRole('button', { name: 'Guardar tarea', exact: true }).click();
+            const taskResponse = await taskSaved; assert.equal(taskResponse.status(), 201);
+            assert.equal(String((await taskResponse.json()).assignedTo), String(fixture.users[offset + 2]._id));
+            await page.getByRole('heading', { name: 'Nueva tarea', exact: true }).waitFor({ state: 'hidden' });
+            await page.getByText('Pendiente privado QA ' + offset, { exact: true }).waitFor();
+            assert.equal(await page.getByText('Pendiente privado QA ' + (1 - offset), { exact: true }).count(), 0);
+            await page.getByRole('button', { name: 'Mis autos', exact: true }).click();
+            await page.getByRole('button', { name: 'Nuevo auto personal', exact: true }).click();
+            const form = page.locator('form').filter({ has: page.getByPlaceholder('Ej: Volkswagen', { exact: true }) });
+            await form.getByPlaceholder('Ej: Volkswagen', { exact: true }).fill('PersonalQA');
+            await form.getByPlaceholder('Ej: Amarok V6', { exact: true }).fill('Mi espacio ' + offset);
+            await form.getByPlaceholder('Ej: 35000', { exact: true }).fill('1000');
+            const saved = page.waitForResponse(response => new URL(response.url()).pathname === '/api/admin/my-space/assets' && response.request().method() === 'POST');
+            await form.getByRole('button', { name: 'Guardar auto', exact: true }).click();
+            assert.equal((await saved).status(), 201);
+            await page.getByRole('heading', { name: 'Nuevo Auto Personal', exact: true }).waitFor({ state: 'hidden' });
+            await page.getByText('PersonalQA Mi espacio ' + offset, { exact: false }).waitFor();
+            assert.equal(await page.getByText('PersonalQA Mi espacio ' + (1 - offset), { exact: false }).count(), 0);
+            assert.equal(await page.evaluate(() => localStorage.getItem('token')), token);
+            await screenshot(page, offset === 0 ? 'vendedor-escritorio-mi-espacio.png' : 'vendedor-celular-mi-espacio.png');
+            await page.reload({ waitUntil: 'domcontentloaded' });
+            await page.getByRole('heading', { name: /^Mi Espacio/ }).waitFor();
+            assert.equal(await page.evaluate(() => localStorage.getItem('token')), token);
+            assert.equal((await page.request.get(base + '/api/admin/auth/me', { headers: { Authorization: 'Bearer ' + token } })).status(), 200);
+            await page.getByRole('button', { name: 'Pendientes', exact: true }).click();
+            await page.getByText('Pendiente privado QA ' + offset, { exact: true }).waitFor();
+            assert.equal(await page.getByText('Pendiente privado QA ' + (1 - offset), { exact: true }).count(), 0);
+            assert.equal(current.requests.slice(before).some(blockedRequest), false);
+            assert.equal(current.requests.slice(before).includes('/api/logout'), false);
+            await goto(page, '/admin/mis-ventas'); await waitForMine(page, offset);
+        }
+        await goto(desktop.page, '/admin/mi-espacio');
+        await desktop.page.getByRole('heading', { name: /^Mi Espacio/ }).waitFor();
+        await desktop.page.getByRole('button', { name: 'Pendientes', exact: true }).click();
+        await desktop.page.getByText('Pendiente privado QA 0', { exact: true }).waitFor();
+        assert.equal(await desktop.page.getByText('Pendiente privado QA 1', { exact: true }).count(), 0);
+        await goto(desktop.page, '/admin/mis-ventas'); await waitForMine(desktop.page, 0);
+    });
     await test('a seller opens their complete file from Mis Ventas and returns there without visiting Stock or global Ventas', async () => {
         for (const [offset, current] of [desktop, mobile].entries()) {
             const { page } = current;
@@ -193,6 +261,23 @@ try {
             await current.page.getByRole('button', { name: 'Negociación', exact: true }).waitFor();
             assert.equal(new URL(current.page.url()).pathname, '/admin/stock');
         }
+    });
+    await test('a denied Stock request keeps a valid session while an invalid session still requires login', async () => {
+        const denied = await surface(0);
+        await denied.page.route('**/api/admin/cars?**', route => route.fulfill({ status: 403, contentType: 'application/json', body: JSON.stringify({ message: 'Acceso de prueba no permitido.' }) }));
+        const response = denied.page.waitForResponse(result => new URL(result.url()).pathname === '/api/admin/cars' && result.status() === 403);
+        await goto(denied.page, '/admin/stock'); await response;
+        await denied.page.getByText('Acceso de prueba no permitido.', { exact: true }).first().waitFor();
+        assert.equal(await denied.page.evaluate(() => localStorage.getItem('token')), fixture.sessions[0].token);
+        assert.equal((await denied.page.request.get(base + '/api/admin/auth/me', { headers: { Authorization: 'Bearer ' + fixture.sessions[0].token } })).status(), 200);
+        assert.equal(denied.requests.includes('/api/logout'), false);
+        await denied.page.close();
+
+        const expired = await surface(0);
+        await expired.page.route('**/api/admin/cars?**', route => route.fulfill({ status: 401, contentType: 'application/json', body: JSON.stringify({ message: 'Sesión de prueba vencida.' }) }));
+        await goto(expired.page, '/admin/stock');
+        await expired.page.waitForURL(base + '/login', { timeout: 60000 });
+        assert.equal(await expired.page.evaluate(() => localStorage.getItem('token')), null);
     });
     assert.deepEqual(errors, [], 'No uncaught browser errors');
     console.log(`PASS: ${passed} isolated seller browser scenarios. Screenshots: ${output}`);

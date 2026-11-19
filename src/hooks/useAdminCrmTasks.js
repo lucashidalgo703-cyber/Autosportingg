@@ -25,9 +25,9 @@ export function useAdminCrmTasks() {
     };
 
     const parseErrorResponse = async (res) => {
-        if (res.status === 401 || res.status === 403) {
+        if (res.status === 401) {
             notifyExpiredSession();
-            return new Error('Tu sesion vencio o no esta autorizada. Volve a iniciar sesion para crear eventos.');
+            return new Error('Tu sesión venció. Volvé a iniciar sesión para crear eventos.');
         }
 
         const contentType = res.headers.get("content-type") || "";
@@ -41,11 +41,12 @@ export function useAdminCrmTasks() {
         return new Error(text || `Error ${res.status}`);
     };
 
-    const fetchTasks = useCallback(async () => {
+    const fetchTasks = useCallback(async ({ scope } = {}) => {
         setLoading(true);
         setError(null);
         try {
-            const response = await fetch('/api/admin/crm-tasks', {
+            const query = scope === 'my-space' ? '?scope=my-space' : '';
+            const response = await fetch('/api/admin/crm-tasks' + query, {
                 headers: getAuthHeaders(),
                 cache: 'no-store'
             });

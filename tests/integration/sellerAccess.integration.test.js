@@ -57,6 +57,52 @@ try {
             check(injection, 200); assert.deepEqual(ids(rows(injection)), [String(records[offset]._id)]);
         }
     });
+    await test('Mi Espacio personal assets and tasks stay assigned to the current account, with valid sessions after permission denials', async () => {
+        const personalAssets = [], personalTasks = [];
+        const dueDate = new Date().toISOString().slice(0, 10);
+        for (const [offset, index] of sellers.entries()) {
+            const foreignSeller = users[index === 2 ? 3 : 2]._id;
+            const asset = await api(index, 'POST', '/api/admin/my-space/assets', {
+                userId: String(foreignSeller), title: 'Auto personal privado QA ' + offset,
+                type: 'auto', brand: 'PersonalQA', model: 'Propio ' + offset, estimatedValue: 1000, currency: 'ARS'
+            });
+            check(asset, 201); assert.equal(String(asset.json.userId), String(users[index]._id)); personalAssets.push(asset.json);
+            const task = await api(index, 'POST', '/api/admin/crm-tasks', {
+                assignedTo: String(foreignSeller), title: 'Pendiente personal privado QA ' + offset,
+                description: '[MI_ESPACIO_PENDIENTE]\nSólo en la cuenta propia', type: 'general', status: 'pendiente', dueDate
+            });
+            check(task, 201); assert.equal(String(task.json.assignedTo), String(users[index]._id)); personalTasks.push(task.json);
+        }
+        const legacy = await env.models.CrmTask.create({ title: 'Privada histórica sin ID QA', description: '[MI_ESPACIO_PENDIENTE]',
+            user: users[2].name, dueDate, type: 'general', status: 'pendiente' });
+        for (const [offset, index] of sellers.entries()) {
+            const foreign = 1 - offset;
+            const assets = await api(index, 'GET', '/api/admin/my-space/assets?userId=' + users[index === 2 ? 3 : 2]._id); check(assets, 200);
+            assert.deepEqual(ids(rows(assets)), [String(personalAssets[offset]._id)]);
+            const tasks = await api(index, 'GET', '/api/admin/crm-tasks?scope=my-space&assignedTo=' + users[index === 2 ? 3 : 2]._id); check(tasks, 200);
+            assert.deepEqual(ids(rows(tasks)), [String(personalTasks[offset]._id)]);
+            assert.ok(!JSON.stringify(tasks.json).includes(String(legacy._id)));
+            const agenda = await api(index, 'GET', '/api/admin/crm-tasks'); check(agenda, 200);
+            assert.ok(!JSON.stringify(agenda.json).includes(String(personalTasks[foreign]._id)));
+            assert.ok(!JSON.stringify(agenda.json).includes(String(legacy._id)));
+            check(await api(index, 'PATCH', '/api/admin/my-space/assets/' + personalAssets[foreign]._id, { title: 'No autorizado' }), 404);
+            check(await api(index, 'DELETE', '/api/admin/my-space/assets/' + personalAssets[foreign]._id), 404);
+            check(await api(index, 'PATCH', '/api/admin/crm-tasks/' + personalTasks[foreign]._id, { title: 'No autorizado' }), 404);
+            check(await api(index, 'DELETE', '/api/admin/crm-tasks/' + personalTasks[foreign]._id), 404);
+            const updatedAsset = await api(index, 'PATCH', '/api/admin/my-space/assets/' + personalAssets[offset]._id, { notes: 'Edición propia QA' }); check(updatedAsset, 200);
+            assert.equal(String(updatedAsset.json.userId), String(users[index]._id));
+            const updatedTask = await api(index, 'PATCH', '/api/admin/crm-tasks/' + personalTasks[offset]._id, { title: 'Edición propia QA ' + offset }); check(updatedTask, 200);
+            assert.equal(String(updatedTask.json.assignedTo), String(users[index]._id));
+            check(await api(index, 'GET', '/api/admin/cars'), 403);
+            check(await api(index, 'GET', '/api/admin/auth/me'), 200);
+        }
+        for (const route of ['/api/admin/transactions', '/api/admin/installments']) check(await api(3, 'GET', route), 403);
+        check(await api(3, 'GET', '/api/admin/auth/me'), 200);
+        check(await env.call('GET', '/api/admin/auth/me', undefined, 'invalid-session-token'), 401);
+        await env.models.AdminUser.updateOne({ _id: users[3]._id }, { $set: { active: false } });
+        try { check(await api(3, 'GET', '/api/admin/auth/me'), 401); }
+        finally { await env.models.AdminUser.updateOne({ _id: users[3]._id }, { $set: { active: true } }); }
+    });
     await test('a seller cannot assign sales or reservations to another account or convert their reservation', async () => {
         const before = { sales: await env.models.Sale.countDocuments(), reservations: await env.models.Reservation.countDocuments() };
         for (const [offset, index] of sellers.entries()) {
