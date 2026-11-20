@@ -397,12 +397,18 @@ function StockInventoryPage() {
         }
     };
 
-    if (loading && cars.length === 0) {
+    if (cars.length === 0 && (loading || error)) {
         return (
-            <div className="flex min-h-[50vh] w-full items-center justify-center p-4 md:p-6">
-                <div className="flex flex-col items-center gap-3">
-                    <div className="h-8 w-8 animate-spin rounded-full border-2 border-crm-border border-b-crm-red" />
-                    <span className="text-sm text-crm-fg-muted">Cargando stock real...</span>
+            <div role={error ? 'alert' : 'status'} aria-live="polite" className="flex min-h-[50vh] w-full items-center justify-center p-4 md:p-6">
+                <div className="flex max-w-lg flex-col items-center gap-3 text-center">
+                    <h1 className="m-0 text-xl font-bold text-crm-fg">Stock</h1>
+                    {loading && !error && <div className="h-8 w-8 animate-spin rounded-full border-2 border-crm-border border-b-crm-red" />}
+                    {error && <p className="m-0 font-bold text-crm-red">No se pudo cargar Stock</p>}
+                    <span className="text-sm text-crm-fg-muted">{error || 'Cargando stock real...'}</span>
+                    <div className="flex flex-wrap justify-center gap-2">
+                        <CrmButton variant="secondary" size="sm" onClick={() => refresh()}>Reintentar</CrmButton>
+                        <CrmButton variant="ghost" size="sm" onClick={() => window.location.reload()}>Recargar Stock</CrmButton>
+                    </div>
                 </div>
             </div>
         );
@@ -469,8 +475,8 @@ function StockInventoryPage() {
                     {stockTab === 'historial' && <p className="mb-3 text-xs text-crm-fg-muted">Consulta de fichas en todos los estados. Los totales de capital de arriba incluyen únicamente unidades disponibles.</p>}
 
                     {stockTab === 'negotiation' && canNegotiate ? <StockNegotiationPanel/> : error ? (
-                        <div className="rounded-xl border border-crm-red/30 bg-crm-red/10 px-6 py-5 text-center mt-4">
-                            <p className="m-0 text-sm font-bold text-crm-red">Error de conexión</p>
+                        <div role="alert" className="rounded-xl border border-crm-red/30 bg-crm-red/10 px-6 py-5 text-center mt-4">
+                            <p className="m-0 text-sm font-bold text-crm-red">No se pudo cargar Stock</p>
                             <p className="m-0 mt-2 text-sm text-crm-fg-muted">{error}</p>
                             <CrmButton 
                                 variant="secondary" 

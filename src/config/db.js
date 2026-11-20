@@ -4,6 +4,10 @@ import dns from 'dns';
 
 dotenv.config();
 
+// Read requests must not enqueue DDL for every imported model on a cold
+// serverless instance. Transactional features prepare new collections explicitly.
+mongoose.set('autoCreate', false);
+
 const mongoCache = globalThis.__autosportingMongoCache || {
     connection: null,
     promise: null,
@@ -49,7 +53,10 @@ export default async function connectDB() {
 
         if (!mongoCache.promise) {
             mongoCache.promise = mongoose.connect(process.env.MONGODB_URI, {
+                autoCreate: false,
                 serverSelectionTimeoutMS: 15000,
+                connectTimeoutMS: 10000,
+                waitQueueTimeoutMS: 10000,
                 socketTimeoutMS: 45000,
                 maxPoolSize: 10,
                 minPoolSize: 1,

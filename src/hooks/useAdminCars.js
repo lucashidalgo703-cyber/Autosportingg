@@ -7,6 +7,9 @@ import toast from 'react-hot-toast';
 import { filterStockVehicles, summarizeStock, isActiveStock, isAvailableStock } from '../utils/inventoryStock';
 import { hasPermission, PERMISSIONS } from '../utils/adminPermissions';
 
+const STOCK_REQUEST_TIMEOUT_MS = 30000;
+const STOCK_REQUEST_TIMEOUT_MESSAGE = 'La consulta de stock demoró demasiado. Reintentá.';
+
 const adminCarsQuery = (filters = {}) => {
     const query = new URLSearchParams({ t: String(Date.now()) });
     for (const key of ['page', 'limit', 'search', 'status', 'brand', 'tab', 'ml', 'catalog', 'ownership']) {
@@ -37,6 +40,7 @@ export const useAdminCars = () => {
     const [financialAccess, setFinancialAccess] = useState(false);
     const { logout, user } = useAuth();
     const activeRequestIdRef = useRef(0);
+    const activeRequestControllerRef = useRef(null);
     const lastFiltersRef = useRef({ page: 1, limit: 20 });
 
     const applyOfflineFallback = useCallback((filters = {}) => {
@@ -77,6 +81,8 @@ export const useAdminCars = () => {
 
     const fetchCars = useCallback(async (incomingFilters) => {
         const requestId = ++activeRequestIdRef.current;
+        activeRequestControllerRef.current?.abort();
+        activeRequestControllerRef.current = null;
         if (!hasPermission(user, PERMISSIONS.STOCK_READ)) {
             setCars([]);
             setSummary(null);
@@ -96,6 +102,23 @@ export const useAdminCars = () => {
             : { ...lastFiltersRef.current };
 
         lastFiltersRef.current = effectiveFilters;
+        const controller = new AbortController();
+        activeRequestControllerRef.current = controller;
+        const deadline = Date.now() + STOCK_REQUEST_TIMEOUT_MS;
+        let timedOut = false;
+        const timer = setTimeout(() => {
+            timedOut = true;
+            controller.abort();
+        }, STOCK_REQUEST_TIMEOUT_MS);
+        // Keep the deadline active until the response body has been read too.
+        // parseResponseSafe tolerates a failed JSON read, so check again after it.
+        const checkDeadline = () => {
+            if (timedOut || Date.now() >= deadline) {
+                timedOut = true;
+                controller.abort();
+                throw new Error(STOCK_REQUEST_TIMEOUT_MESSAGE);
+            }
+        };
 
         try {
             setLoading(true);
@@ -121,8 +144,10 @@ export const useAdminCars = () => {
 
             const response = await fetch(endpoint, {
                 headers,
-                cache: 'no-store'
+                cache: 'no-store',
+                signal: controller.signal
             });
+            checkDeadline();
 
             // Si llegó una petición posterior antes de que esta termine, descartamos esta respuesta
             if (requestId !== activeRequestIdRef.current) {
@@ -160,6 +185,7 @@ export const useAdminCars = () => {
             }
 
             const data = await parseResponseSafe(response);
+            checkDeadline();
 
             // Verificamos nuevamente la vigencia de la respuesta
             if (requestId !== activeRequestIdRef.current) {
@@ -202,6 +228,11 @@ export const useAdminCars = () => {
             }
         } catch (err) {
             if (requestId !== activeRequestIdRef.current) return;
+            if (timedOut) {
+                setError(STOCK_REQUEST_TIMEOUT_MESSAGE);
+                return { cars: [] };
+            }
+            if (controller.signal.aborted) return;
             if (![401, 403].includes(err.status)) {
                 const offlineResult = applyOfflineFallback(effectiveFilters);
                 if (offlineResult) return offlineResult;
@@ -210,11 +241,21 @@ export const useAdminCars = () => {
             setError(err.message);
             return { cars: [] };
         } finally {
+            clearTimeout(timer);
+            if (activeRequestControllerRef.current === controller) {
+                activeRequestControllerRef.current = null;
+            }
             if (requestId === activeRequestIdRef.current) {
                 setLoading(false);
             }
         }
     }, [logout, applyOfflineFallback, user]);
+
+    useEffect(() => () => {
+        ++activeRequestIdRef.current;
+        activeRequestControllerRef.current?.abort();
+        activeRequestControllerRef.current = null;
+    }, []);
 
     useEffect(() => {
         const onStockChanged = () => fetchCars();
