@@ -6,7 +6,7 @@ import http from 'node:http';
 import { bootIsolatedReplica } from '../integration/isolatedReplicaHarness.js';
 
 const host = '127.0.0.1', port = Number(process.env.CAPITAL_HISTORY_QA_PORT || 3204), base = `http://${host}:${port}`;
-const output = path.resolve('../../outputs/capital-mensual'); fs.mkdirSync(output, { recursive: true });
+const output = path.resolve('../../outputs/capital-split'); fs.mkdirSync(output, { recursive: true });
 const { chromium } = await import(process.env.PLAYWRIGHT_MODULE || 'playwright');
 const env = await bootIsolatedReplica({ listen: false }), originalFetch = globalThis.fetch;
 globalThis.fetch = async (input, options) => {
@@ -14,15 +14,18 @@ globalThis.fetch = async (input, options) => {
     return originalFetch(input, options);
 };
 let nextApp, server, browser, failure, passed = 0, group = 0;
-const contexts = [], errors = [], start = Math.max(1, Number(process.env.QA_START_GROUP) || 1);
+const contexts = [], errors = [], executedGroups = [], start = Math.max(1, Number(process.env.QA_START_GROUP) || 1);
 const selected = process.env.QA_GROUPS ? new Set(process.env.QA_GROUPS.split(',').map(Number)) : null;
 const test = async (name, callback) => {
     if (++group < start || selected && !selected.has(group)) { console.log(`skip ${group} - ${name}`); return; }
-    await callback(); console.log(`ok ${++passed} - ${name}`);
+    await callback(); executedGroups.push(group); console.log(`ok ${++passed} - ${name}`);
 };
 try {
     const { seedCapitalHistory, seedCapitalHistoryObservations } = await import('../fixtures/capitalHistoryFixtures.js');
     const f = await seedCapitalHistory(env.models), history = await seedCapitalHistoryObservations(env.models, f);
+    // A real old observation did not retain investor cost or total stock cost.
+    // Exercise that shape instead of reconstructing yesterday from today's cars.
+    await env.models.CapitalObservation.updateOne({ period: history.previous }, { $unset: { stockCapital: '' } });
     const originalPast = await env.models.CapitalObservation.findOne({ period: history.previous }).lean();
     process.env.NODE_ENV = 'development'; process.env.NEXT_PUBLIC_API_URL = base; delete process.env.TURBOPACK;
     const next = (await import('next')).default;
@@ -34,6 +37,8 @@ try {
         void nextHandler(request, response).catch(() => { if (!response.headersSent) response.writeHead(500); response.end('Error en prueba aislada.'); });
     });
     await new Promise(resolve => server.listen(port, host, resolve));
+    const warmed = await fetch(base + '/admin/capital-mensual', { signal: AbortSignal.timeout(180000) });
+    assert.equal(warmed.status, 200);
     browser = await chromium.launch({ headless: true, executablePath: process.env.CHROME_PATH || 'C:/Program Files/Google/Chrome/Application/chrome.exe',
         args: ['--host-resolver-rules=MAP * ~NOTFOUND, EXCLUDE 127.0.0.1'] });
     const goto = async (page, route) => {
@@ -64,35 +69,67 @@ try {
         await page.screenshot({ path: path.join(output, name), fullPage: false });
     };
 
-    await test('owner sees separate currencies, real monthly records and gaps, switches valuation, and captures the current calculated balance on desktop and mobile', async () => {
+    await test('owner sees total stock, own and investor capital separately, preserves genuine legacy gaps and saves the split on desktop and mobile', async () => {
         for (const width of [1440, 390]) {
             const current = await surface(1, width), page = current.page;
             const loaded = page.waitForResponse(capitalResponse, { timeout: 180000 }); await goto(page, '/admin/capital-mensual'); assert.equal((await loaded).status(), 200);
             await page.getByRole('heading', { name: 'Capital mensual', exact: true }).waitFor();
-            const comparison = page.getByRole('region', { name: 'Comparación con Stock', exact: true });
-            await comparison.getByRole('heading', { name: 'Cómo coincide con Stock', exact: true }).waitFor();
-            await comparison.getByText('4 unidades disponibles · Inventario completo, sin filtros · ARS', { exact: true }).waitFor();
-            await comparison.getByText('Mi parte · AutoSporting', { exact: true }).waitFor();
+            const stock = page.getByRole('region', { name: 'Capital en Stock', exact: true });
+            const card = key => stock.locator(`[data-capital-stock-card="${key}"]`);
+            const cardAmount = async (key, amount) => card(key).getByText(amount, { exact: true }).waitFor();
+            await cardAmount('stockTotal', '$ 11.000.000');
+            await cardAmount('stockOwn', '$ 11.000.000');
+            await cardAmount('stockInvestors', '$ 0');
+            await cardAmount('stockUnallocated', '$ 0');
+            assert.equal(await page.getByLabel('Indicador del gráfico', { exact: true }).inputValue(), 'stockTotal');
+            await page.getByRole('region', { name: 'Capital propio neto', exact: true }).getByText('$ 17.000.000', { exact: true }).waitFor();
             await page.locator('[data-capital-history-chart]').waitFor();
             const gap = page.locator(`[data-capital-period="${history.gap}"]`); await gap.getByText('Sin registro', { exact: true }).waitFor();
             assert.equal(await gap.getByText(/\$\s*0(?:\D|$)/).count(), 0, 'Missing capital is not displayed as zero');
-            await page.locator(`[data-capital-period="${history.previous}"]`).getByText('Último registro del mes', { exact: true }).waitFor();
+            const legacy = page.locator(`[data-capital-period="${history.previous}"]`);
+            await legacy.getByText('Último registro del mes', { exact: true }).waitFor();
+            await legacy.getByText(/^Sin desglose guardado/).first().waitFor();
+            const legacyBreakdown = legacy.locator('[data-capital-stock-breakdown]');
+            assert.equal(await legacyBreakdown.locator('[data-capital-stock-value]').count(), 0, 'A legacy row never receives a reconstructed stock split');
+            assert.doesNotMatch(await legacyBreakdown.innerText(), /\$\s*0(?:\D|$)/, 'Missing historical stock split is never zero');
+            assert.equal(await legacy.getByText(/\d[.,]?\d*%/).count(), 0, 'No historical total comparison is invented');
             await page.getByLabel('Moneda del gráfico y del historial', { exact: true }).selectOption('USD');
-            assert.ok(await page.locator('[data-capital-history-chart]').getAttribute('data-capital-history-chart') !== null);
+            await cardAmount('stockTotal', 'USD 22.000');
+            await cardAmount('stockOwn', 'USD 13.200');
+            await cardAmount('stockInvestors', 'USD 8.800');
+            await cardAmount('stockUnallocated', 'USD 0');
+            await stock.scrollIntoViewIfNeeded();
+            await capture(page, width < 768 ? 'capital-desglose-inversionistas-celular.png' : 'capital-desglose-inversionistas-escritorio.png');
+            await page.getByLabel('Indicador del gráfico', { exact: true }).selectOption('stockInvestors');
+            await page.locator('[data-capital-history-chart]').waitFor();
             await page.getByLabel('Criterio de valuación', { exact: true }).selectOption('published');
-            await comparison.getByText('Total de Stock · valor publicado', { exact: true }).waitFor();
-            await comparison.getByText('Parte de terceros incluida', { exact: true }).waitFor();
-            await page.getByRole('heading', { name: /^USD\s+20\.580$/ }).waitFor();
+            await cardAmount('stockTotal', 'USD 930.000');
+            await cardAmount('stockOwn', 'USD 18.000');
+            await cardAmount('stockInvestors', 'USD 12.000');
+            await stock.getByText(/USD\s+900\.000/).waitFor();
+            await page.getByRole('region', { name: 'Capital propio neto', exact: true }).getByText('USD 20.580', { exact: true }).waitFor();
+            await page.getByLabel('Indicador del gráfico', { exact: true }).selectOption('net');
+            await page.locator('[data-capital-history-chart]').waitFor();
             await page.getByLabel('Criterio de valuación', { exact: true }).selectOption('cost');
-            await comparison.getByText('Total de Stock · capital invertido', { exact: true }).waitFor();
             await page.getByLabel('Moneda del gráfico y del historial', { exact: true }).selectOption('ARS');
+            await page.getByLabel('Indicador del gráfico', { exact: true }).selectOption('stockTotal');
+            await stock.scrollIntoViewIfNeeded();
+            await capture(page, width < 768 ? 'capital-desglose-celular.png' : 'capital-desglose-escritorio.png');
             await page.getByRole('button', { name: 'Guardar registro actual', exact: true }).click();
             const dialog = page.getByRole('dialog', { name: 'Guardar capital actual', exact: true }); await dialog.waitFor();
-            assert.ok((await dialog.innerText()).includes('17.000.000')); assert.ok((await dialog.innerText()).includes('15.780'));
+            await dialog.locator('[data-capital-stock-value="stockTotal"]').getByText('$ 11.000.000', { exact: true }).waitFor();
             const saved = page.waitForResponse(response => new URL(response.url()).pathname === '/api/admin/capital-history/capture' && response.request().method() === 'POST');
-            await dialog.getByRole('button', { name: 'Confirmar registro', exact: true }).click(); assert.ok([200, 201].includes((await saved).status()));
+            await dialog.getByRole('button', { name: 'Confirmar registro', exact: true }).click();
+            const savedResponse = await saved; assert.ok([200, 201].includes(savedResponse.status()));
+            const savedPayload = await savedResponse.json();
+            assert.equal(savedPayload.snapshot.stockCapital.byCurrency.ARS.cost.total, 11000000);
+            assert.equal(savedPayload.snapshot.stockCapital.byCurrency.USD.cost.total, 22000);
+            assert.equal(savedPayload.snapshot.stockCapital.byCurrency.USD.cost.own, 13200);
+            assert.equal(savedPayload.snapshot.stockCapital.byCurrency.USD.cost.investors, 8800);
+            assert.equal(savedPayload.snapshot.totalsByCurrency.ARS.capitalPropioCosto, 17000000);
+            assert.equal(savedPayload.snapshot.totalsByCurrency.USD.capitalPropioCosto, 15780);
             await dialog.waitFor({ state: 'hidden' });
-            const stored = page.locator(`[data-capital-period="${history.period}"]`); await stored.getByText(/17\.000\.000/).first().waitFor();
+            const stored = page.locator(`[data-capital-period="${history.period}"]`); await stored.getByText(/11\.000\.000/).first().waitFor();
             await stored.getByRole('button', { name: 'Ver composición', exact: true }).click();
             const detail = page.getByRole('dialog', { name: 'Composición del capital', exact: true });
             await detail.getByText('Stock propio a costo', { exact: false }).first().waitFor();
@@ -100,9 +137,9 @@ try {
             await auth(current); assert.deepEqual(current.responses.filter(response => [401, 403].includes(response.status)), []);
             assert.deepEqual(await env.models.CapitalObservation.findById(originalPast._id).lean(), originalPast);
             await page.locator('[data-capital-history-chart]').scrollIntoViewIfNeeded();
-            await capture(page, width < 768 ? 'capital-mensual-celular.png' : 'capital-mensual-escritorio.png');
-            await comparison.scrollIntoViewIfNeeded();
-            await capture(page, width < 768 ? 'capital-stock-comparacion-celular.png' : 'capital-stock-comparacion-escritorio.png');
+            await capture(page, width < 768 ? 'capital-evolucion-celular.png' : 'capital-evolucion-escritorio.png');
+            await legacy.scrollIntoViewIfNeeded();
+            await capture(page, width < 768 ? 'capital-historico-anterior-celular.png' : 'capital-historico-anterior-escritorio.png');
         }
     });
     await test('admin, seller and Maia cannot read global monthly capital or its form and retain valid sessions', async () => {
@@ -127,6 +164,10 @@ try {
         await page.locator('[data-capital-history-chart]').waitFor(); await auth(current);
     });
     assert.deepEqual(errors, [], 'No uncaught browser errors');
+    fs.writeFileSync(path.join(output, 'resultado.json'), JSON.stringify({ passed: true, groups: passed, executedGroups,
+        checkedAt: new Date().toISOString(), desktopAndMobile: executedGroups.includes(1), fixtureOnly: true,
+        productionWrites: false, employeeAccountsUsed: false, storedSplitVerified: executedGroups.includes(1),
+        sessionKeptOn403: executedGroups.includes(3) ? true : null }, null, 2));
     console.log(`PASS: ${passed} isolated capital-history browser groups; synthetic users, balances and historical observations only.`);
 } catch (error) {
     failure = error;

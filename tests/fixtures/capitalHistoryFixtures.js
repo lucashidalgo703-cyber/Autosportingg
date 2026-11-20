@@ -15,6 +15,17 @@ export const capitalFixtureExpected = Object.freeze({
     paidWithoutAccount: { ARS: 500000, USD: 100 }
 });
 
+export const capitalStockFixtureExpected = Object.freeze({
+    version: 'available-stock-v1', scope: 'available-global', count: 4,
+    byCurrency: {
+        ARS: { cost: { total: 11000000, own: 11000000, investors: 0, unallocated: 0, thirdPartyExcluded: 700000000 },
+            published: { total: 814000000, own: 14000000, investors: 0, unallocated: 0, thirdParty: 800000000 } },
+        USD: { cost: { total: 22000, own: 13200, investors: 8800, unallocated: 0, thirdPartyExcluded: 800000 },
+            published: { total: 930000, own: 18000, investors: 12000, unallocated: 0, thirdParty: 900000 } }
+    },
+    completeness: { cost: true, asking: true, ownership: true }, missingCost: 0, missingPrice: 0, missingOwnership: 0
+});
+
 export async function seedCapitalHistory(models) {
     const { AdminUser, Car, Account, Sale, Installment, Transaction } = models;
     const salt = crypto.randomBytes(16).toString('hex');
@@ -63,7 +74,8 @@ export async function seedCapitalHistory(models) {
         { ...txBase, currency: 'USD', amount: 100, status: 'activo', accountAssignmentStatus: 'pending', accountDebitApplied: false, idempotencyKey: 'crm-expense:capital-usd-qa' },
         { ...txBase, currency: 'ARS', amount: 99999999, status: 'anulado', accountId: accounts[0]._id }
     ]);
-    return { users, sessions, cars, sales, installments, accounts, transactions, expected: capitalFixtureExpected };
+    return { users, sessions, cars, sales, installments, accounts, transactions,
+        expected: capitalFixtureExpected, expectedStockCapital: capitalStockFixtureExpected };
 }
 
 export async function seedCapitalHistoryObservations(models, fixture) {

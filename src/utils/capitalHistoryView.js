@@ -22,11 +22,25 @@ export const capitalMoment = value => {
     const date = value ? new Date(value) : null;
     return date && Number.isFinite(date.getTime()) ? new Intl.DateTimeFormat('es-AR', { timeZone: CAPITAL_TIMEZONE, dateStyle: 'short', timeStyle: 'short', hourCycle: 'h23' }).format(date) : 'Sin fecha registrada';
 };
-export const capitalValue = (row, currency, basis) => {
+export const capitalMetricLabel = metric => ({ stockTotal: 'Capital total en Stock', stockOwn: 'Mi capital · AutoSporting',
+    stockInvestors: 'Capital de inversionistas', stockUnallocated: 'Participación por verificar', net: 'Capital propio neto' })[metric] || 'Capital propio neto';
+const stockMetricPart = { stockTotal: 'total', stockOwn: 'own', stockInvestors: 'investors', stockUnallocated: 'unallocated' };
+export const capitalStockBreakdown = (row, currency, basis = 'cost') => row?.stockCapital?.byCurrency?.[currency]?.[basis === 'published' ? 'published' : 'cost'] || null;
+export const capitalValue = (row, currency, basis, metric = 'net') => {
+    if (metric !== 'net') {
+        const amount = capitalStockBreakdown(row, currency, basis)?.[stockMetricPart[metric]];
+        return isCapitalNumber(amount) ? amount : null;
+    }
     const amount = row?.totalsByCurrency?.[currency]?.[basis === 'published' ? 'capitalPropioPublicado' : 'capitalPropioCosto'];
     return isCapitalNumber(amount) ? amount : null;
 };
-export const capitalQuality = (row, basis = 'cost') => {
+export const capitalQuality = (row, basis = 'cost', metric = 'net') => {
+    if (metric !== 'net') {
+        const stock = row?.stockCapital;
+        if (!stock) return { partial: true, label: 'Sin desglose guardado', message: '', missingBreakdown: true };
+        const partial = stock.completeness?.[basis === 'published' ? 'asking' : 'cost'] !== true || stock.completeness?.ownership !== true;
+        return { partial, label: partial ? 'Datos parciales' : 'Datos completos', message: partial ? `${basis === 'published' ? stock.missingPrice : stock.missingCost} unidades con importe o participación pendiente; ${stock.missingOwnership} con participación por verificar. Se muestran los subtotales conocidos.` : '' };
+    }
     const quality = row?.quality;
     if (!quality) return { partial: true, label: 'Calidad sin verificar', message: '' };
     const status = basis === 'published' ? quality.publishedStatus : quality.costStatus;
@@ -34,12 +48,13 @@ export const capitalQuality = (row, basis = 'cost') => {
     const partial = specific !== undefined ? !specific : quality.complete === false || (quality.status || quality) !== 'complete';
     return { partial, label: partial ? 'Datos parciales' : 'Datos completos', message: quality.message || '' };
 };
-export function capitalChange(row, previous, currency, basis) {
+export function capitalChange(row, previous, currency, basis, metric = 'net') {
     if (!row || !previous || shiftCapitalPeriod(row.period, -1) !== previous.period || row.status === 'missing' || previous.status === 'missing') return { status: 'missing' };
-    const amount = capitalValue(row, currency, basis), before = capitalValue(previous, currency, basis);
+    const amount = capitalValue(row, currency, basis, metric), before = capitalValue(previous, currency, basis, metric);
     if (!isCapitalNumber(amount) || !isCapitalNumber(before)) return { status: 'missing' };
-    if (capitalQuality(row, basis).partial || capitalQuality(previous, basis).partial) return { status: 'partial' };
-    if ((row.formulaVersion || row.calculationVersion || '') !== (previous.formulaVersion || previous.calculationVersion || '')) return { status: 'incompatible' };
+    if (capitalQuality(row, basis, metric).partial || capitalQuality(previous, basis, metric).partial) return { status: 'partial' };
+    const version = entry => metric === 'net' ? entry.formulaVersion || entry.calculationVersion || '' : entry.stockCapital?.version || '';
+    if (version(row) !== version(previous)) return { status: 'incompatible' };
     const difference = Math.round((amount - before) * 100) / 100;
     return { status: 'available', amount: difference, percent: before <= 0 ? null : difference / before * 100 };
 }

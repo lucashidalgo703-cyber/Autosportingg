@@ -7,6 +7,7 @@ const observation = new mongoose.Schema({
     source: { type: String, enum: ['manual', 'cron'], required: true },
     formulaVersion: { type: String, required: true },
     totalsByCurrency: { type: mongoose.Schema.Types.Mixed, required: true },
+    stockCapital: { type: mongoose.Schema.Types.Mixed, default: null },
     components: { type: mongoose.Schema.Types.Mixed, required: true },
     quality: { type: mongoose.Schema.Types.Mixed, required: true },
     createdBy: String,

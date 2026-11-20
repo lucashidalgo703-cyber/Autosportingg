@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { capitalRows, capitalChange, capitalValue, capitalQuality, capitalComponents, capitalStatusLabel, shiftCapitalPeriod, capitalMoney } from '../src/utils/capitalHistoryView.js';
+import { capitalRows, capitalChange, capitalValue, capitalQuality, capitalComponents, capitalMetricLabel, capitalStatusLabel, capitalStockBreakdown, shiftCapitalPeriod, capitalMoney } from '../src/utils/capitalHistoryView.js';
 
 const row = (period, ars, usd, extra = {}) => ({ period, status: 'closed', formulaVersion: 'capital-summary-v1',
     totalsByCurrency: { ARS: { capitalPropioCosto: ars, capitalPropioPublicado: ars + 500 }, USD: { capitalPropioCosto: usd, capitalPropioPublicado: usd + 5 } },
@@ -36,4 +36,36 @@ assert.deepEqual(capitalComponents(composition, 'USD').map(component => componen
 assert.equal(capitalComponents(composition, 'USD').find(component => component.key === 'deudasPropia').sign, '−');
 assert.match(capitalStatusLabel(june), /Último registro del mes/);
 assert.equal(shiftCapitalPeriod('2026-12', 1), '2027-01'); assert.equal(shiftCapitalPeriod('2027-01', -1), '2026-12');
+
+const split = (period, total = 1000) => row(period, 9999, 999, { stockCapital: { version: 'available-stock-v1', scope: 'available-global', count: 3,
+    completeness: { cost: true, asking: true, ownership: true }, missingCost: 0, missingPrice: 0, missingOwnership: 0,
+    byCurrency: { ARS: { cost: { total, own: total * 0.6, investors: total * 0.4, unallocated: 0, thirdPartyExcluded: 5000 },
+        published: { total: total * 2 + 8000, own: total * 1.2, investors: total * 0.8, unallocated: 0, thirdParty: 8000 } },
+    USD: { cost: { total: 100, own: 25, investors: 75, unallocated: 0, thirdPartyExcluded: 200 },
+        published: { total: 500, own: 50, investors: 150, unallocated: 0, thirdParty: 300 } } } } });
+const splitJune = split('2026-06'), splitJuly = split('2026-07', 1100), originalSplit = structuredClone(splitJuly);
+assert.equal(capitalValue(splitJuly, 'ARS', 'cost', 'stockTotal'), 1100);
+assert.equal(capitalValue(splitJuly, 'ARS', 'cost', 'stockOwn'), 660);
+assert.equal(capitalValue(splitJuly, 'ARS', 'cost', 'stockInvestors'), 440);
+assert.equal(capitalValue(splitJuly, 'ARS', 'cost', 'stockUnallocated'), 0, 'A recorded zero allocation is distinct from missing history');
+assert.equal(capitalValue(splitJuly, 'USD', 'cost', 'stockInvestors'), 75);
+assert.equal(capitalValue(splitJuly, 'USD', 'published', 'stockTotal'), 500, 'Published inventory includes its recorded third-party portion');
+assert.equal(capitalStockBreakdown(splitJuly, 'USD', 'cost').thirdPartyExcluded, 200);
+assert.equal(capitalValue(splitJuly, 'ARS', 'cost', 'net'), 9999, 'Own net capital stays separate from all inventory participants');
+assert.deepEqual(capitalChange(splitJuly, splitJune, 'ARS', 'cost', 'stockTotal'), { status: 'available', amount: 100, percent: 10 });
+assert.deepEqual(capitalChange(splitJuly, splitJune, 'USD', 'cost', 'stockInvestors'), { status: 'available', amount: 0, percent: 0 });
+assert.equal(capitalValue(july, 'ARS', 'cost', 'stockTotal'), null, 'A legacy observation has no recorded total/investor cost; never reconstruct it from current data');
+assert.equal(capitalValue(july, 'USD', 'published', 'stockInvestors'), null);
+assert.equal(capitalStockBreakdown(july, 'ARS', 'cost'), null);
+assert.equal(capitalQuality(july, 'cost', 'stockTotal').missingBreakdown, true);
+assert.equal(capitalChange(splitJuly, june, 'ARS', 'cost', 'stockTotal').status, 'missing');
+assert.equal(capitalMetricLabel('stockOwn'), 'Mi capital · AutoSporting');
+const portfolioOnlyPartial = { ...splitJuly, quality: { costStatus: 'partial', message: 'Cartera por verificar' } };
+assert.equal(capitalQuality(portfolioOnlyPartial, 'cost', 'net').partial, true);
+assert.equal(capitalQuality(portfolioOnlyPartial, 'cost', 'stockTotal').partial, false, 'Portfolio warnings do not reclassify complete inventory data');
+const splitPartial = structuredClone(splitJuly); splitPartial.stockCapital.completeness.ownership = false;
+assert.equal(capitalChange(splitPartial, splitJune, 'ARS', 'cost', 'stockTotal').status, 'partial');
+const splitNewVersion = structuredClone(splitJuly); splitNewVersion.stockCapital.version = 'available-stock-v2';
+assert.equal(capitalChange(splitNewVersion, splitJune, 'ARS', 'cost', 'stockTotal').status, 'incompatible');
+assert.deepEqual(splitJuly, originalSplit, 'Changing metrics and rendering values never modifies an observation');
 console.log('PASS: monthly capital currencies, gaps, recorded/live separation, quality and formula comparability, nonpositive bases and composition.');

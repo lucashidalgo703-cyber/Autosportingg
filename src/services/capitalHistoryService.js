@@ -7,6 +7,7 @@ import { logAudit } from '../utils/auditLogger.js';
 
 export const CAPITAL_HISTORY_TIMEZONE = 'America/Argentina/Buenos_Aires';
 export const CAPITAL_HISTORY_FORMULA = 'capital-summary-v1';
+export const CAPITAL_STOCK_VERSION = 'available-stock-v1';
 const fail = (message, status = 400) => { throw Object.assign(new Error(message), { status }); };
 const idOf = value => String(value?.id || value?.userId || value?._id || '');
 const hash = value => crypto.createHash('sha256').update(JSON.stringify(value)).digest('hex');
@@ -33,6 +34,23 @@ const authorize = (user, write = false) => {
     if (!(write ? canWriteCapitalHistory(user) : canReadCapitalHistory(user))) fail('Sólo el propietario puede consultar o guardar el capital mensual.', 403);
 };
 
+// Keep the same inventory valuation and ownership allocation used by Stock.
+// The cost total excludes third parties; the published total includes them.
+// Cash, receivables and obligations belong to the separate net-capital equation.
+export function compactStockCapital(metrics) {
+    return {
+        version: CAPITAL_STOCK_VERSION, scope: 'available-global', count: metrics.count,
+        byCurrency: Object.fromEntries(['ARS', 'USD'].map(currency => [currency, {
+            cost: { total: metrics.cost[currency], own: metrics.ownCost[currency], investors: metrics.investorCost[currency],
+                unallocated: metrics.unallocatedCost[currency], thirdPartyExcluded: metrics.thirdPartyCost[currency] },
+            published: { total: metrics.asking[currency], own: metrics.ownAsking[currency], investors: metrics.investorAsking[currency],
+                unallocated: metrics.unallocatedAsking[currency], thirdParty: metrics.thirdPartyAsking[currency] }
+        }])),
+        completeness: { ...metrics.completeness }, missingCost: metrics.missingCost,
+        missingPrice: metrics.missingPrice, missingOwnership: metrics.missingOwnership
+    };
+}
+
 // Store only the existing aggregate equation. No customer, account, vehicle or
 // installment details are copied into the long-lived monthly observations.
 export function compactCapitalSummary(summary) {
@@ -52,7 +70,8 @@ export function compactCapitalSummary(summary) {
         paymentsUnassigned: summary.componentes.pagosSinCuenta.items.length,
         message: summary.conciliacionMessage + (portfolioUnverified ? ' Hay cuotas cuya operación o participación requiere revisión.' : '')
     };
-    return { formulaVersion: CAPITAL_HISTORY_FORMULA, totalsByCurrency: summary.totalsByCurrency, components, quality };
+    return { formulaVersion: CAPITAL_HISTORY_FORMULA, totalsByCurrency: summary.totalsByCurrency,
+        stockCapital: compactStockCapital(metrics), components, quality };
 }
 // A live comparison of the same unfiltered inventory read, not another
 // valuation or a new historical field. Only aggregate values leave this service.
@@ -66,7 +85,8 @@ function currentStockComparison(metrics) {
 const observationDto = (doc, currentPeriod) => ({ id: String(doc._id), period: doc.period,
     status: doc.period < currentPeriod ? 'closed' : 'recorded', capturedAt: doc.capturedAt, source: doc.source,
     sourceLabel: doc.source === 'cron' ? 'Registro automático' : 'Registro manual del propietario',
-    formulaVersion: doc.formulaVersion, totalsByCurrency: doc.totalsByCurrency, components: doc.components, quality: doc.quality });
+    formulaVersion: doc.formulaVersion, totalsByCurrency: doc.totalsByCurrency, stockCapital: doc.stockCapital ?? null,
+    components: doc.components, quality: doc.quality });
 let prepared;
 async function prepareStorage() {
     return prepared ||= Promise.all([CapitalObservation.createCollection(), CapitalMonth.createCollection()])

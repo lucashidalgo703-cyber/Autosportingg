@@ -12,6 +12,7 @@ try {
     const { seedCapitalHistory } = await import('../fixtures/capitalHistoryFixtures.js');
     const service = await import('../../src/services/capitalHistoryService.js');
     const { getAdminStock } = await import('../../src/services/inventoryStockService.js');
+    const { summarizeStock } = await import('../../src/utils/inventoryStock.js');
     const f = await seedCapitalHistory(env.models), owner = { id: String(f.users[1]._id), username: f.users[1].name, role: 'owner', permissions: [] };
     const api = (index, method, route, body, headers = {}) => env.call(method, route, body, f.sessions[index].token, headers);
     const check = (response, status, context = '') => assert.equal(response.status, status, context + ' ' + JSON.stringify(response.json));
@@ -27,6 +28,7 @@ try {
             assert.equal(capital(row)[currency].capitalPropioPublicado, expected.published[currency], currency + ' published capital');
         }
     };
+    const assertStockCapital = (row, expected = f.expectedStockCapital) => assert.deepEqual(row.stockCapital, expected);
     const businessState = async () => {
         const result = {};
         for (const name of ['Car', 'Account', 'Sale', 'Installment', 'Transaction']) result[name] = await env.models[name].find({}).sort({ _id: 1 }).lean();
@@ -46,7 +48,7 @@ try {
     });
     await test('reading current capital preserves independent ARS/USD equations and leaves unrecorded months empty without creating snapshots', async () => {
         const before = await businessState();
-        const response = await get(); check(response, 200); assertTotals(response.json.current);
+        const response = await get(); check(response, 200); assertTotals(response.json.current); assertStockCapital(response.json.current);
         assert.equal(response.json.current.period, period); assert.equal(response.json.formulaVersion, 'capital-summary-v1');
         assert.equal(response.json.months.length, 4);
         for (const row of response.json.months) { assert.equal(row.status, 'missing'); assert.ok(row.totalsByCurrency == null); }
@@ -63,6 +65,7 @@ try {
         assert.notDeepEqual(filtered.filteredMetrics, unfiltered.summary.availableMetrics);
         const response = await get(); check(response, 200);
         const current = response.json.current, comparison = current.stockComparison, metrics = unfiltered.summary.availableMetrics;
+        assertStockCapital(current);
         assert.equal(comparison.scope, 'available-global'); assert.equal(comparison.count, 4);
         assert.equal(comparison.count, unfiltered.summary.disponibles);
         for (const field of ['cost', 'ownCost', 'investorCost', 'thirdPartyCost', 'unallocatedCost', 'asking', 'ownAsking', 'investorAsking', 'thirdPartyAsking', 'unallocatedAsking', 'completeness']) assert.deepEqual(comparison[field], metrics[field], field);
@@ -83,11 +86,35 @@ try {
         assert.doesNotMatch(JSON.stringify(comparison), /vehicleId|QACAP|ficticio|name|items|breakdown|pending/);
         assert.equal(await businessState(), before);
     });
+    await test('unallocated ownership stays separate from investors and cent allocations retain the Stock totals', async () => {
+        const before = await businessState();
+        const inserted = await env.models.Car.collection.insertOne({ brand: 'CapitalQA', name: 'Participación pendiente ficticia',
+            year: 2024, km: 100, status: 'Disponible', sold: false, purchasePrice: 28000000, purchaseCurrency: 'ARS', price: 42000000,
+            currency: 'ARS', investor: { name: 'Participación por verificar QA', percentage: null } });
+        try {
+            const response = await get(); check(response, 200);
+            const stock = response.json.current.stockCapital;
+            assert.equal(stock.byCurrency.ARS.cost.total, 39000000);
+            assert.equal(stock.byCurrency.ARS.cost.own, 11000000); assert.equal(stock.byCurrency.ARS.cost.investors, 0);
+            assert.equal(stock.byCurrency.ARS.cost.unallocated, 28000000);
+            assert.equal(stock.byCurrency.ARS.published.total, 856000000); assert.equal(stock.byCurrency.ARS.published.unallocated, 42000000);
+            assert.equal(stock.completeness.cost, false); assert.equal(stock.completeness.asking, false); assert.equal(stock.completeness.ownership, false);
+            assert.equal(stock.missingOwnership, 1);
+            assert.doesNotMatch(JSON.stringify(stock), /vehicleId|QACAP|ficticio|name|items|breakdown|pending|verificar QA/);
+        } finally { await env.models.Car.collection.deleteOne({ _id: inserted.insertedId }); }
+        assert.equal(await businessState(), before);
+        const rounded = service.compactStockCapital(summarizeStock([{ _id: 'rounded-fixture', status: 'Disponible', agencyOwned: true,
+            purchasePrice: 100.01, purchaseCurrency: 'ARS', price: 200.01, currency: 'ARS', investor: { percentage: 33.33 },
+            expenses: [{ amount: 0.01, currency: 'ARS', paidBy: 'shared', agencyPercentage: 50 }] }]));
+        assert.deepEqual(rounded.byCurrency.ARS.cost, { total: 100.02, own: 66.69, investors: 33.33, unallocated: 0, thirdPartyExcluded: 0 });
+        assert.equal(Math.round((rounded.byCurrency.ARS.cost.own + rounded.byCurrency.ARS.cost.investors) * 100), Math.round(rounded.byCurrency.ARS.cost.total * 100));
+    });
     await test('concurrent capture retries create one immutable observation and one monthly reference with no business effects', async () => {
         const before = await businessState(); firstHeaders = key();
         const responses = await Promise.all([0, 1].map(() => api(1, 'POST', '/api/admin/capital-history/capture', {}, firstHeaders)));
         for (const response of responses) assert.ok([200, 201].includes(response.status), JSON.stringify(response.json));
-        first = responses[0].json.snapshot; assertTotals(first); assert.equal(first.period, period); assert.ok(idOf(first));
+        first = responses[0].json.snapshot; assertTotals(first); assertStockCapital(first); assert.equal(first.period, period); assert.ok(idOf(first));
+        assert.deepEqual(responses[1].json.snapshot.stockCapital, first.stockCapital);
         assert.equal(first.stockComparison, undefined, 'A current comparison is not backfilled into immutable observations');
         assert.equal(idOf(responses[1].json.snapshot), idOf(first));
         assert.equal(await env.models.CapitalObservation.countDocuments(), 1); assert.equal(await env.models.CapitalMonth.countDocuments(), 1);
@@ -97,6 +124,7 @@ try {
     await test('a live preview never rewrites the monthly record and repeating the original key cannot recompute its old observation', async () => {
         await env.models.Account.updateOne({ _id: f.accounts[0]._id }, { $inc: { balance: 1000000 } });
         const response = await get(); check(response, 200);
+        assertStockCapital(response.json.current);
         assert.equal(capital(response.json.current).ARS.capitalPropioCosto, f.expected.cost.ARS + 1000000);
         const recorded = response.json.months.find(row => row.period === period); assert.equal(capital(recorded).ARS.capitalPropioCosto, f.expected.cost.ARS);
         const old = await env.models.CapitalObservation.findById(idOf(first)).lean(); assert.deepEqual(old, immutableInitial);
@@ -104,6 +132,7 @@ try {
         assert.equal(idOf(replay.json.snapshot), idOf(first)); assertTotals(replay.json.snapshot);
         const fresh = await api(1, 'POST', '/api/admin/capital-history/capture', {}, key()); assert.ok([200, 201].includes(fresh.status));
         assert.equal(capital(fresh.json.snapshot).ARS.capitalPropioCosto, f.expected.cost.ARS + 1000000);
+        assertStockCapital(fresh.json.snapshot);
         assert.equal(await env.models.CapitalObservation.countDocuments(), 2); assert.equal(await env.models.CapitalMonth.countDocuments(), 1);
         assert.deepEqual(await env.models.CapitalObservation.findById(idOf(first)).lean(), immutableInitial);
         await env.models.Account.updateOne({ _id: f.accounts[0]._id }, { $inc: { balance: -1000000 } });
@@ -112,6 +141,7 @@ try {
         const count = await env.models.CapitalObservation.countDocuments();
         check(await api(1, 'POST', '/api/admin/capital-history/capture', { period: previous }, key()), 409);
         check(await api(1, 'POST', '/api/admin/capital-history/capture', { now: '2020-01-01', totalsByCurrency: { ARS: { capitalPropioCosto: 999 } } }, key()), 400);
+        check(await api(1, 'POST', '/api/admin/capital-history/capture', { stockCapital: { byCurrency: { ARS: { cost: { investors: 999 } } } } }, key()), 400);
         check(await api(1, 'POST', '/api/admin/capital-history/capture', {}), 400);
         for (const route of [`?from=2026-13&to=${period}`, `?from=${period}&to=${previous}`, `?from=2000-01&to=${period}`, `?to=${shift(period, 1)}`]) check(await api(1, 'GET', '/api/admin/capital-history' + route), 400, route);
         assert.equal(await env.models.CapitalObservation.countDocuments(), count);
@@ -132,7 +162,7 @@ try {
         };
         try {
             const result = await service.captureCapitalObservation({ user: owner, requestKey: crypto.randomUUID() });
-            assert.equal(injected, true); assertTotals(result.snapshot);
+            assert.equal(injected, true); assertTotals(result.snapshot); assertStockCapital(result.snapshot);
             assert.equal((await env.models.Account.findById(f.accounts[0]._id).lean()).balance, f.expected.cash.ARS + 1000000);
             assert.equal((await env.models.Car.findById(f.cars[0]._id).lean()).purchasePrice, 12000000);
         } finally {
@@ -151,7 +181,7 @@ try {
         const response = await get(); check(response, 200);
         assert.equal(response.json.months.find(row => row.period === gap).status, 'missing');
         for (const month of [oldest, previous]) {
-            const row = response.json.months.find(item => item.period === month); assert.equal(row.status, 'closed'); assertTotals(row);
+            const row = response.json.months.find(item => item.period === month); assert.equal(row.status, 'closed'); assertTotals(row); assertStockCapital(row);
         }
         assert.equal(response.json.firstRecordedPeriod, oldest);
         assert.deepEqual(await env.models.CapitalObservation.findById(idOf(older.snapshot)).lean(), oldObservation);
@@ -164,6 +194,7 @@ try {
         const a = await service.captureScheduledCapitalObservation({ now: new Date('2026-12-31T20:00:00Z') });
         const again = await service.captureScheduledCapitalObservation({ now: new Date('2027-01-01T02:59:59Z') });
         assert.equal(a.snapshot.period, '2026-12'); assert.equal(idOf(a.snapshot), idOf(again.snapshot));
+        assertStockCapital(a.snapshot); assert.deepEqual(again.snapshot.stockCapital, a.snapshot.stockCapital);
         const b = await service.captureScheduledCapitalObservation({ now: new Date('2027-01-01T03:00:00Z') });
         assert.equal(b.snapshot.period, '2027-01'); assert.notEqual(idOf(a.snapshot), idOf(b.snapshot));
         assert.equal(new Date(a.snapshot.capturedAt).toISOString(), '2026-12-31T20:00:00.000Z');
@@ -185,6 +216,7 @@ try {
         const response = await env.call('GET', route, undefined, process.env.CRON_SECRET); check(response, 200);
         const repeated = await env.call('POST', route, { period: previous, totalsByCurrency: { ARS: 1 } }, process.env.CRON_SECRET); check(repeated, 200);
         assert.equal(response.json.snapshot.period, period); assert.equal(idOf(response.json.snapshot), idOf(repeated.json.snapshot));
+        assertStockCapital(response.json.snapshot); assert.deepEqual(repeated.json.snapshot.stockCapital, response.json.snapshot.stockCapital);
         assert.equal(await env.models.CapitalObservation.countDocuments(), count + 1); assert.equal(await businessState(), before);
         const original = process.env.CRON_SECRET; delete process.env.CRON_SECRET;
         try { check(await env.call('GET', route, undefined, original), 503); } finally { process.env.CRON_SECRET = original; }
@@ -207,6 +239,19 @@ try {
         await env.models.CapitalMonth.create({ _id: brokenPeriod, observationId: crypto.randomBytes(32).toString('hex'), revision: 1, firstCapturedAt: new Date(brokenPeriod + '-15T15:00:00Z') });
         const response = await get(brokenPeriod, period); check(response, 200);
         const broken = response.json.months.find(row => row.period === brokenPeriod); assert.equal(broken.status, 'missing'); assert.ok(broken.totalsByCurrency == null);
+    });
+    await test('legacy observations expose no invented investor or total-stock history and keep their original net-capital values', async () => {
+        const legacyPeriod = shift(period, -5), legacyId = crypto.randomBytes(32).toString('hex');
+        const old = { ...immutableInitial, _id: legacyId, period: legacyPeriod,
+            capturedAt: new Date(legacyPeriod + '-20T15:00:00Z') };
+        delete old.stockCapital;
+        await env.models.CapitalObservation.collection.insertOne(old);
+        await env.models.CapitalMonth.create({ _id: legacyPeriod, observationId: legacyId, revision: 1, firstCapturedAt: old.capturedAt });
+        const response = await get(legacyPeriod, period); check(response, 200);
+        const legacy = response.json.months.find(row => row.period === legacyPeriod);
+        assert.equal(legacy.stockCapital, null); assertTotals(legacy);
+        assert.deepEqual(await env.models.CapitalObservation.findById(legacyId).lean(), old);
+        assertStockCapital(response.json.current);
     });
     console.log(`PASS: ${passed} isolated capital-history scenarios; no employees, production, exchange conversion or business-record mutation.`);
 } finally { globalThis.fetch = originalFetch; await env.stop(); }
